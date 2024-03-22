@@ -1,0 +1,19 @@
+[build-system]
+build-backend = 'mesonpy'
+requires = ['meson-python']
+
+[project]
+name = 'DBZeroCE'
+version = '0.0.1'
+description = 'DBZero Community edition'
+readme = 'README.md'
+requires-python = '>=3.8'
+license = {file = 'LICENSE.txt'}
+authors = [
+]
+
+[tool.semantic_release.remote]
+password = { env = "GH_TOKEN" }
+
+[tool.pytest.ini_options]
+testpaths = ["python_tests"]

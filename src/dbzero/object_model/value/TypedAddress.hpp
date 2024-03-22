@@ -1,0 +1,52 @@
+#pragma once
+
+#include <cstdint>
+#include <cassert>
+#include "StorageClass.hpp"
+
+namespace db0::object_model
+
+{
+
+    // A struct that combine StorageClass (8bit) + address (56bits) in a single 64bit value
+    struct [[gnu::packed]] TypedAddress
+    {
+        std::uint64_t m_value;
+
+        TypedAddress() = default;
+
+        inline TypedAddress(std::uint64_t value)
+            : m_value(value)
+        {
+        }
+        
+        inline TypedAddress(StorageClass type, std::uint64_t address)
+            : m_value((static_cast<std::uint64_t>(type) << 56) | address)
+        {
+            assert(address < 0x100000000000000);
+        }
+
+        inline StorageClass getType() const
+        {
+            return static_cast<StorageClass>(m_value >> 56);
+        }
+
+        inline std::uint64_t getAddress() const
+        {
+            return m_value & 0x00FFFFFFFFFFFFFF;
+        }
+
+        // cast operator
+        inline operator std::uint64_t() const
+        {
+            return getAddress();
+        }
+
+        void setAddress(std::uint64_t address);
+        void setType(StorageClass type);
+
+        bool operator==(const TypedAddress &other) const;
+        bool operator<(const TypedAddress &other) const;
+    };
+    
+}

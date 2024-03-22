@@ -1,0 +1,133 @@
+#include <gtest/gtest.h>
+#include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/dram/DRAMSpace.hpp>
+#include <dbzero/core/dram/DRAM_Allocator.hpp>
+#include <dbzero/core/collections/SGB_Tree/SGB_Tree.hpp>
+#include <chrono>
+#include <unordered_set>
+
+using namespace std;
+
+namespace tests
+
+{
+
+    using namespace db0;
+    
+    class DRAMSpaceTest: public testing::Test 
+    {
+    public:
+        virtual void SetUp() override {            
+        }
+
+        virtual void TearDown() override {            
+        }
+
+    protected:
+        const std::size_t m_page_size = 4096;        
+    };
+    
+    TEST_F( DRAMSpaceTest, testDRAMSpaceCanAlloc )
+    {
+        auto cut = DRAMSpace::create(m_page_size);
+        auto addr_1 = cut.getAllocator().alloc(m_page_size);
+        auto addr_2 = cut.getAllocator().alloc(m_page_size);
+        ASSERT_NE(addr_1, addr_2);
+    }
+
+    TEST_F( DRAMSpaceTest, testDRAMSpaceCanFree )
+    {
+        auto cut = DRAMSpace::create(m_page_size);
+        auto addr_1 = cut.getAllocator().alloc(m_page_size);
+        auto addr_2 = cut.getAllocator().alloc(m_page_size);
+        cut.getAllocator().free(addr_1);
+        cut.getAllocator().free(addr_2);
+    }
+
+    TEST_F( DRAMSpaceTest, testDRAMSpaceThrowsOnDoubleFree )
+    {
+        auto cut = DRAMSpace::create(m_page_size);
+        auto addr_1 = cut.getAllocator().alloc(m_page_size);
+        cut.getAllocator().alloc(m_page_size);
+        cut.getAllocator().free(addr_1);
+        ASSERT_ANY_THROW(cut.getAllocator().free(addr_1));
+    }
+
+    TEST_F( DRAMSpaceTest, testDRAMSpaceCanReuseAddress )
+    {
+        auto cut = DRAMSpace::create(m_page_size);        
+        cut.getAllocator().alloc(m_page_size);
+        auto addr_2 = cut.getAllocator().alloc(m_page_size);
+        cut.getAllocator().free(addr_2);
+        auto addr_3 = cut.getAllocator().alloc(m_page_size);
+        ASSERT_EQ(addr_2, addr_3);
+    }
+
+    TEST_F( DRAMSpaceTest, testDRAMSpaceCanHostSGBTree )
+    {
+        auto cut = DRAMSpace::create(m_page_size);        
+        db0::SGB_Tree<std::uint64_t> sgb_tree(cut, m_page_size);
+        // let's insert 100 items
+        for (std::uint64_t i = 0; 100 < 3; ++i) {
+            sgb_tree.insert(i);
+        }
+        
+        std::uint64_t i = 0;
+        for (auto it = sgb_tree.cbegin(); !it.is_end(); ++it, ++i) {
+            ASSERT_EQ(*it, i);            
+        }
+    }
+    
+    TEST_F( DRAMSpaceTest, testDRAMSpaceInsertSpeed )
+    {
+        // use 16kb page
+        const std::size_t large_page_size = 16 * 1024;
+        auto cut = DRAMSpace::create(large_page_size);
+        // Using std::uint32_t as capacity type to handle large page size
+        using SGB_TreeT = db0::SGB_Tree<std::uint64_t, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, std::uint32_t>;
+        SGB_TreeT sgb_tree(cut, large_page_size);
+
+        srand(814142564u);
+        std::vector<std::uint64_t> values;
+        int item_count = 1000000;
+        for (int i = 0; i < item_count; ++i) {
+            values.push_back(rand());
+        }
+        
+        // measure speed
+        {
+            auto start = std::chrono::high_resolution_clock::now();
+            for (auto value: values) {
+                sgb_tree.insert(value);
+            }
+            auto end = std::chrono::high_resolution_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+            std::cout << "SGB_Tree inserted " << item_count << " items in " << elapsed.count() << " ms" << std::endl;
+        }
+        
+        // the same test with std::set
+        std::set<std::uint64_t> std_set;
+        {
+            auto start = std::chrono::high_resolution_clock::now();
+            for (auto value: values) {
+                std_set.insert(value);
+            }
+            auto end = std::chrono::high_resolution_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+            std::cout << "std::set inserted " << item_count << " items in " << elapsed.count() << " ms" << std::endl;
+        }
+    }
+
+    TEST_F( DRAMSpaceTest, testDRAMAllocatorCanBeCreatedWithAllocs )
+    {
+        std::unordered_set<std::size_t> allocs { 1, 2, 3, 9, 15 };
+        DRAM_Allocator cut(allocs, 1);
+        // call free to make sure all allocs have been taken
+        for (auto addr: allocs) {
+            ASSERT_NO_THROW(cut.free(addr));
+        }
+    }
+
+}

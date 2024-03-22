@@ -1,0 +1,276 @@
+#include <gtest/gtest.h>
+#include <utils/utils.hpp>
+#include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/core/storage/BDevStorage.hpp>
+#include <dbzero/core/collections/vector/v_bvector.hpp>
+
+using namespace std;
+using namespace db0;
+using namespace db0::tests;
+    
+namespace tests
+
+{
+    
+    class BaseWorkspaceTest: public testing::Test
+    {
+    public:
+        static constexpr const char *prefix_name = "my-test-prefix_1";
+        static constexpr const char *file_name = "my-test-prefix_1.db0";
+
+        virtual void SetUp() override 
+        {
+            drop(file_name);
+        }
+
+        virtual void TearDown() override 
+        {
+            m_workspace.close();
+            drop(file_name);
+        }
+
+    protected:
+        BaseWorkspace m_workspace;
+    };
+
+    TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanCreateMemspace )
+    {        
+        auto memspace = m_workspace.getMemspace(prefix_name);
+        ASSERT_TRUE(file_exists(file_name));        
+    }
+
+    TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanHostVObjects )
+    {        
+        auto memspace = m_workspace.getMemspace(prefix_name);
+        v_object<o_simple<int>> obj(memspace, 1);
+        ASSERT_TRUE(obj.getAddress() > 0);
+    }
+
+    TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanPersistVObjects )
+    {        
+        std::uint64_t address = 0;
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            v_object<o_simple<int>> obj(memspace, 999);
+            address = obj.getAddress();
+            // data should be persisted here
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+        
+        auto memspace = m_workspace.getMemspace(prefix_name);
+        // access persisted object
+        v_object<o_simple<int>> obj(memspace.myPtr(address));
+        ASSERT_EQ(obj->value(), 999);
+    }
+
+    TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanStoreMultipleTransactions )
+    {        
+        std::set<std::uint64_t> addresses;
+        // perform 2 transactions
+        for (int i = 0; i < 2; ++i)
+        { 
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            v_object<o_simple<int>> obj(memspace, 999);
+            addresses.insert(obj.getAddress());
+            // data should be persisted here
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+        
+        ASSERT_EQ(addresses.size(), 2);
+        auto memspace = m_workspace.getMemspace(prefix_name);
+        // validate persisted objects
+        for (auto address : addresses)
+        {
+            v_object<o_simple<int>> obj(memspace.myPtr(address));
+            ASSERT_EQ(obj->value(), 999);
+        }
+    }
+    
+    TEST_F( BaseWorkspaceTest , testSparseIndexCanReuseExpiredDataBlocks )
+    {
+        std::set<std::uint64_t> addresses;
+        // perform 100 small transactions with disk commit of each        
+        for (int i = 0; i < 100; ++i)
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            v_object<o_simple<int>> obj(memspace, 999);
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+        
+        // open .db0 file directly
+        // need to open as read/write to be able to estimate allocated size
+        auto file_name = m_workspace.getPrefixCatalog().getFileName(prefix_name).string();
+        BDevStorage storage(file_name, AccessType::READ_WRITE);
+        // make sure the DramIO (sparse index storage) stream has allocated total of 3 blocks
+        auto &io = storage.getDramIO();
+        ASSERT_EQ((int)(io.getAllocatedSize() / io.getBlockSize()), 2);
+        storage.close();
+    }
+    
+    TEST_F( BaseWorkspaceTest , testDB0FileCanBeOpenedInReadOnlyMode )
+    {
+        std::set<std::uint64_t> addresses;
+        // perform a few small transactions with disk commit of each
+        for (int i = 0; i < 10; ++i)
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            v_object<o_simple<int>> obj(memspace, 999);
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+        
+        // open .db0 file directly as read-only
+        auto file_name = m_workspace.getPrefixCatalog().getFileName(prefix_name).string();
+        BDevStorage storage(file_name, AccessType::READ_ONLY);
+        // make sure file is not reported as empty
+        ASSERT_FALSE(storage.empty());
+    }
+    
+    TEST_F( BaseWorkspaceTest , testTimeTravelQueries )
+    {
+        std::uint64_t address = 0;
+        // First transaction to create a new object
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            v_object<o_simple<int>> obj(memspace, 999);
+            address = obj.getAddress();            
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+
+        // state_num + expected value
+        std::vector<std::pair<std::uint64_t, int> > state_log;
+        // perform 10 object modifications in 10 transactions
+        for (int i = 0; i < 10; ++i)
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            v_object<o_simple<int>> obj(memspace.myPtr(address));
+            obj.modify() = i + 1;
+            state_log.emplace_back(memspace.getPrefix().getStateNum(), obj->value());
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+
+        // now go back to specific transactions and validate object state
+        for (auto &log: state_log)
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name, AccessType::READ_ONLY, log.first);
+            v_object<o_simple<int>> obj(memspace.myPtr(address));
+            ASSERT_EQ(obj->value(), log.second);
+            m_workspace.close(prefix_name);
+        }
+    }
+
+    struct [[gnu::packed]] o_TT: public o_fixed<o_TT> {
+        int a = 0;
+        int b = 0;
+    };
+    
+    TEST_F( BaseWorkspaceTest , testTimeTravelWithPartialObjectModification )
+    {
+        using PrefixT = BaseWorkspace::PrefixT;        
+        std::uint64_t address = 0;
+        // first transaction to create object
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            v_object<o_TT> obj(memspace);
+            address = obj.getAddress();
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+        
+        // state_num + values
+        std::vector<std::pair<std::uint64_t, std::pair<int, int> > > state_log;
+        // perform 10 object modifications in 10 transactions
+        for (int i = 0; i < 10; ++i)
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            v_object<o_TT> obj(memspace.myPtr(address));
+            // either modify a or b
+            if (i % 2 == 0) {
+                obj.modify().a = i + 1;
+                state_log.emplace_back(memspace.getPrefix().getStateNum(), std::pair<int, int>(i + 1, i));
+            } else {
+                obj.modify().b = i + 1;
+                state_log.emplace_back(memspace.getPrefix().getStateNum(), std::pair<int, int>(i, i + 1));
+            }
+            
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+        
+        // now go back to specific transactions and validate object state
+        // note that read-only mode is used to access transactions
+        for (auto &log: state_log)
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name, AccessType::READ_ONLY, log.first);
+            v_object<o_TT> obj(memspace.myPtr(address));
+            ASSERT_EQ(obj->a, log.second.first);
+            ASSERT_EQ(obj->b, log.second.second);
+            m_workspace.close(prefix_name);
+        }
+    }
+
+    TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanPersistVBVector )
+    {
+        std::uint64_t address = 0;
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            db0::v_bvector<int> data_buf(memspace);
+            const int item_count = 1;
+            for (int index = 0;(index < item_count);++index) {
+                data_buf.emplace_back(index);
+            }
+            
+            address = data_buf.getAddress();
+            // data should be persisted here
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+        
+        auto memspace = m_workspace.getMemspace(prefix_name);
+        // access & append persisted v_bvector instance
+        db0::v_bvector<int> data_buf(memspace.myPtr(address));
+        data_buf.push_back(100);
+        ASSERT_EQ(data_buf.size(), 2);
+        memspace.commit();
+        m_workspace.close(prefix_name);
+    }
+    
+    TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanPersistDeallocation )
+    {
+        std::uint64_t address = 0;
+        std::size_t alloc_size = 0;
+
+        // First transaction to create a new instance
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            v_object<o_TT> obj(memspace);
+            address = obj.getAddress();
+            alloc_size = memspace.getAllocator().getAllocSize(address);
+            
+            // data should be persisted here
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+
+        // Second transaction to destroy the instance
+        {
+            auto memspace = m_workspace.getMemspace(prefix_name);
+            ASSERT_EQ(memspace.getAllocator().getAllocSize(address), alloc_size);
+            v_object<o_TT> obj(memspace.myPtr(address));
+            obj.destroy();
+            memspace.commit();
+            m_workspace.close(prefix_name);
+        }
+        
+        auto memspace = m_workspace.getMemspace(prefix_name);
+        // validate if address has been released
+        ASSERT_ANY_THROW(memspace.getAllocator().getAllocSize(address));
+        m_workspace.close(prefix_name);
+    }
+
+}

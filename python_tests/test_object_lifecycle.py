@@ -1,0 +1,106 @@
+from typing import Any
+import pytest
+import dbzero_ce as db0
+from .conftest import DB0_DIR
+from .memo_test_types import MemoTestClass, MemoTestSingleton, DynamicDataClass
+
+
+def test_unreferenced_object_is_dropped_on_del_from_python(db0_fixture):
+    object_1 = MemoTestClass(123)
+    uuid = db0.uuid(object_1)
+    del object_1
+    # object should be dropped from DBZero
+    with pytest.raises(Exception):
+        db0.fetch(uuid)
+
+
+def test_object_cannot_be_deleted_if_references_to_it_exist(db0_fixture):
+    object_1 = MemoTestClass(123)
+    # object_1 gets referenced from the singleton
+    root = MemoTestSingleton(object_1)
+    # attempt to delete object_1 should raise an exception
+    with pytest.raises(Exception):
+        db0.delete(object_1)
+
+
+def test_unreferenced_object_are_persisted_throughout_series_of_commits(db0_fixture):
+    object_1 = MemoTestClass(123)
+    db0.commit()
+    # object persisted after commit
+    assert object_1.value == 123
+    object_1.value = 567
+    db0.commit()
+    assert object_1.value == 567
+
+
+def test_unreferenced_object_are_dropped_on_close(db0_fixture):
+    prefix_name = db0.get_current_prefix()
+    object_1 = MemoTestClass(123)
+    uuid = db0.uuid(object_1)
+    db0.commit()
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    # open as read-write
+    db0.open(prefix_name)
+    with pytest.raises(Exception):
+        db0.fetch(uuid)
+    
+
+def test_unreferenced_posvt_member_is_dropped_on_parent_destroy(db0_fixture):
+    member = MemoTestClass(123123)
+    uuid = db0.uuid(member)
+    object_1 = MemoTestClass(member)
+    del member
+    del object_1
+    # member object should no longer exist in DBZero
+    with pytest.raises(Exception):
+        db0.fetch(uuid)
+
+
+def test_unreferenced_indexvt_member_is_dropped_on_parent_destroy(db0_fixture):
+    member = MemoTestClass(123123)
+    uuid = db0.uuid(member)
+    object_1 = DynamicDataClass(120)
+    # initialize with index-vt member
+    object_2 = DynamicDataClass([87], values = {87: member})
+    del member
+    del object_1
+    del object_2
+    # member object should no longer exist in DBZero
+    with pytest.raises(Exception):
+        db0.fetch(uuid)
+
+
+def test_unreferenced_kvindex_member_is_dropped_on_parent_destroy(db0_fixture):
+    member = MemoTestClass(123123)
+    uuid = db0.uuid(member)
+    object_1 = MemoTestClass(123)
+    # assign kv-index member
+    object_1.kv_member = member
+    del member
+    del object_1    
+    # member object should no longer exist in DBZero
+    with pytest.raises(Exception):
+        db0.fetch(uuid)
+
+
+def test_object_with_durable_uuid_is_not_dropped(db0_fixture):
+    object_1 = MemoTestClass(123)
+    uuid = db0.durable_uuid(object_1)
+    del object_1    
+    object_2 = db0.fetch(uuid)
+    assert db0.uuid(object_2) == uuid
+
+
+def test_multiple_py_instances_pointing_to_same_unreferenced_object(db0_fixture):
+    object_1 = MemoTestClass(123)
+    uuid = db0.uuid(object_1)
+    object_2 = db0.fetch(uuid)
+    del object_1
+    # object should be still in dbzer0
+    db0.fetch(uuid)
+    del object_2
+    # object should be dropped from DBZero
+    with pytest.raises(Exception):
+        db0.fetch(uuid)

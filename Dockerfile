@@ -1,0 +1,39 @@
+FROM gcc:12-bullseye
+
+RUN apt-get update && apt-get install -y \
+ cmake \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN apt-get update
+RUN apt-get install psmisc
+RUN apt-get install python3.9-dev -y
+RUN apt-get install python3-pip -y
+RUN apt-get install gdb -y
+RUN apt-get install screen -y
+RUN apt-get install rsync -y
+RUN apt-get install meson ninja-build -y
+RUN apt-get install python3-venv -y
+RUN apt-get install gettext-base -y
+RUN apt-get install valgrind -y
+
+# for demo purposes only (bokeh is a charts package)
+RUN pip3 install jupyter
+RUN pip3 install bokeh
+RUN pip3 install psycopg2-binary
+RUN pip3 install sqlalchemy
+
+#
+RUN pip3 install meson-python
+RUN pip3 install build
+ADD requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
+
+COPY . /usr/src/dbzero
+WORKDIR /usr/src/dbzero
+
+RUN python3 scripts/generate_meson.py ./src/dbzero/ core
+RUN python3 scripts/generate_meson_tests.py tests/
+RUN ./build.sh -r
+WORKDIR /usr/src/dbzero/build/release/
+RUN meson install
+WORKDIR /usr/src/dbzero

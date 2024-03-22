@@ -1,0 +1,199 @@
+#include "SlabAllocator.hpp"
+#include "OneShotAllocator.hpp"
+#include <dbzero/core/exception/Exceptions.hpp>
+
+namespace db0
+
+{
+
+    SlabAllocator::SlabAllocator(std::shared_ptr<Prefix> prefix, std::uint64_t begin_addr, std::uint32_t size, std::size_t page_size,
+        std::optional<std::size_t> remaining_capacity)
+        : m_prefix(prefix)
+        , m_begin_addr(begin_addr)
+        , m_page_size(page_size)
+        , m_slab_size(size)
+        , m_internal_memspace(prefix, nullptr)
+        // header starts at the beginning of the slab
+        , m_header(m_internal_memspace.myPtr(headerAddr(begin_addr, size)))
+        // bitspace starts after the header
+        , m_bitspace(prefix, headerAddr(begin_addr, size), page_size, -1)
+        // calculate relative pointers to CRDT Allocator data structures
+        , m_allocs(m_bitspace.myPtr(begin_addr + m_header->m_alloc_set_ptr), page_size)
+        , m_blanks(m_bitspace.myPtr(begin_addr + m_header->m_blank_set_ptr), page_size)
+        , m_stripes(m_bitspace.myPtr(begin_addr + m_header->m_stripe_set_ptr), page_size)
+        , m_allocator(m_allocs, m_blanks, m_stripes, m_header->m_size)
+        , m_initial_remaining_capacity(remaining_capacity)
+        , m_initial_admin_size(getAdminSpaceSize(true))
+    {
+        // apply dynamic bound on the CRDT allocator to not assign addresses overlapping with the admin space
+        // include 3 bitspace allocations to allow margin for the admin space to grow
+        std::uint64_t bounds_base = m_slab_size - (m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + 3 * m_page_size);
+        m_allocator.setDynamicBound([this, bounds_base]() {
+            return bounds_base - m_bitspace.span() * m_page_size;
+        });
+
+        // provide CRDT allocator's dynamic bound to the bitspace (this is for address validation/ collision prevention purposes)
+        m_bitspace.setDynamicBounds([this]() {
+            return m_begin_addr + m_allocator.getMaxAddr();
+        });
+    }
+    
+    SlabAllocator::~SlabAllocator() 
+    {
+        if (m_on_close_handler) {
+            m_on_close_handler(*this);
+        }
+    }
+
+    std::optional<std::uint64_t> SlabAllocator::tryAlloc(std::size_t size)
+    {
+        assert(size > 0);
+        // obtain relative address from the underlying CRDT allocator
+        auto relative = m_allocator.tryAlloc(size);
+        if (relative) {
+            m_alloc_delta += size;
+            return makeAbsolute(*relative);
+        }
+        return std::nullopt;
+    }
+    
+    void SlabAllocator::free(std::uint64_t address)
+    {
+        m_allocator.free(makeRelative(address));
+    }
+    
+    std::size_t SlabAllocator::getAllocSize(std::uint64_t address) const
+    {
+        return m_allocator.getAllocSize(makeRelative(address));
+    }
+
+    std::uint64_t SlabAllocator::headerAddr(std::uint64_t begin_addr, std::uint32_t size) 
+    {
+        return begin_addr + size - o_slab_header::sizeOf();
+    }
+    
+    std::size_t SlabAllocator::formatSlab(std::shared_ptr<Prefix> prefix, std::uint64_t begin_addr, std::uint32_t size, std::size_t page_size)
+    {   
+        auto admin_size = calculateAdminSpaceSize(page_size);
+        if (admin_size + page_size * 3 >= size) {
+            THROWF(db0::InternalException) << "Slab size too small: " << size;
+        }
+
+        if (size % page_size != 0) {
+            THROWF(db0::InternalException) << "Slab size not multiple of page size: " << size << " % " << page_size;
+        }
+
+        // put bitspace right before the header (at the end of the slab )
+        BitSpace<SLAB_BITSPACE_SIZE()>::create(prefix, headerAddr(begin_addr, size), page_size, -1);
+        // open newly created bitspace
+        BitSpace<SLAB_BITSPACE_SIZE()> bitspace(prefix, headerAddr(begin_addr, size), page_size, -1);
+        
+        // create the CRDT allocator data structures on top of the bitspace
+        AllocSetT allocs(bitspace, page_size);
+        BlankSetT blanks(bitspace, page_size);
+        StripeSetT stripes(bitspace, page_size);
+        // calculate size initially available to CRTD allocator
+        auto crdt_size = size - admin_size - 3 * page_size;
+        assert(crdt_size > 0);
+        
+        // register the initial blank - associated with the relative address = 0
+        blanks.insert(CRDT_Allocator::Blank(crdt_size, 0));
+        
+        // create a temporary memspace only to allocate the header under a known address
+        OneShotAllocator osa(headerAddr(begin_addr, size), o_slab_header::sizeOf());
+        Memspace memspace(prefix, osa, Memspace::tag_from_reference()); 
+        // finally create the Slab header
+        v_object<o_slab_header> header(
+            memspace,
+            crdt_size,                 
+            // assign addresses relative to the slab beginning
+            allocs.getAddress() - begin_addr,
+            blanks.getAddress() - begin_addr,
+            stripes.getAddress() - begin_addr
+            );
+        return crdt_size;
+    }
+
+    const std::size_t SlabAllocator::getSlabSize() const 
+    {
+        return m_slab_size;
+    }
+
+    const std::size_t SlabAllocator::getAdminSpaceSize(bool include_margin) const 
+    {
+        // add +3 bitspace allocations to allow growth of the CRDT collections
+        auto result = m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + m_bitspace.span() * m_page_size;
+        if (include_margin)
+            result += 3 * m_page_size;
+        return result;
+    }
+
+    std::size_t SlabAllocator::calculateAdminSpaceSize(std::size_t page_size)
+    {
+        auto result = BitSpace<SLAB_BITSPACE_SIZE()>::sizeOf() + o_slab_header::sizeOf();
+        // round to full page size
+        result = (result + page_size - 1) / page_size * page_size;
+        // add 3 pages for CRDT types
+        result += page_size * 3;
+        return result;
+    }
+
+    std::size_t SlabAllocator::getMaxAllocSize() const 
+    {
+        return m_slab_size - calculateAdminSpaceSize(m_page_size) - 3 * m_page_size;
+    }
+    
+    std::size_t SlabAllocator::getRemainingCapacity() const 
+    {
+        if (!m_initial_remaining_capacity) {
+            THROWF(db0::InternalException) << "SlabAllocator::getRemainingCapacity() called on a slab without initial capacity";
+        } 
+        std::int64_t result = *m_initial_remaining_capacity - m_allocator.getAllocDelta() - (getAdminSpaceSize(true) - m_initial_admin_size);
+        return result > 0 ? result : 0;
+    }
+    
+    const Prefix &SlabAllocator::getPrefix() const 
+    {
+        return *m_prefix;
+    }
+    
+    void SlabAllocator::setOnCloseHandler(std::function<void(const SlabAllocator &)> handler) 
+    {
+        m_on_close_handler = handler;
+    }
+    
+    bool SlabAllocator::empty() const 
+    {
+        return m_allocs.empty();
+    }
+
+    std::uint64_t SlabAllocator::getAddress() const 
+    {
+        return m_begin_addr;
+    }
+
+    std::uint32_t SlabAllocator::size() const 
+    {
+        return m_slab_size;
+    }
+
+    std::uint64_t SlabAllocator::getFirstAddress() 
+    {
+        return CRDT_Allocator::getFirstAddress();
+    }
+
+    std::shared_ptr<Allocator> SlabAllocator::getSnapshot() const
+    {
+        THROWF(db0::InternalException) << "SlabAllocator::getSnapshot() operation not supported" << THROWF_END;
+    }
+    
+    void SlabAllocator::commit()
+    {        
+        m_header.commit();
+        m_allocs.commit();
+        m_blanks.commit();
+        m_stripes.commit();
+        m_allocator.commit();
+    }
+
+}

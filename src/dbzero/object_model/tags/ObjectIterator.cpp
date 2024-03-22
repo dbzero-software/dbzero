@@ -1,0 +1,106 @@
+#include "ObjectIterator.hpp"
+#include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/class/ClassFactory.hpp>
+
+namespace db0::object_model
+
+{
+
+    using SortedIterator = db0::SortedIterator<std::uint64_t>;
+    std::unique_ptr<SortedIterator> validated(std::unique_ptr<SortedIterator> &&sorted_iterator)
+    {
+        if (sorted_iterator && sorted_iterator->keyTypeId() != typeid(std::uint64_t)) {
+            throw std::runtime_error("Invalid sorted iterator");
+        }
+        return std::move(sorted_iterator);
+    }
+
+    using QueryIterator = db0::FT_Iterator<std::uint64_t>;
+    std::unique_ptr<QueryIterator> validated(std::unique_ptr<QueryIterator> &&query_iterator)
+    {
+        if (query_iterator && query_iterator->keyTypeId() != typeid(std::uint64_t)) {
+            throw std::runtime_error("Invalid query iterator");
+        }
+        return std::move(query_iterator);
+    }
+
+    using BaseIterator = db0::FT_IteratorBase;
+    std::unique_ptr<BaseIterator> validated(std::unique_ptr<BaseIterator> &&base_iterator)
+    {
+        if (base_iterator && base_iterator->keyTypeId() != typeid(std::uint64_t)) {
+            throw std::runtime_error("Invalid base/range iterator");
+        }
+        return std::move(base_iterator);
+    }
+
+    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator)
+        : m_fixture(fixture)
+        , m_class_factory(fixture->get<ClassFactory>())
+        , m_query_iterator(validated(std::move(ft_query_iterator)))
+        , m_iterator_ptr(m_query_iterator.get())        
+    {
+    }
+
+    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator)
+        : m_fixture(fixture)
+        , m_class_factory(fixture->get<ClassFactory>())
+        , m_sorted_iterator(validated(std::move(sorted_iterator)))
+        , m_iterator_ptr(m_sorted_iterator.get())        
+    {
+    }
+    
+    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<BaseIterator> &&base_iterator)
+        : m_fixture(fixture)
+        , m_class_factory(fixture->get<ClassFactory>())
+        , m_base_iterator(validated(std::move(base_iterator)))
+        , m_iterator_ptr(m_base_iterator.get())
+    {
+    }
+
+    ObjectIterator *ObjectIterator::makeNew(void *at_ptr, db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&it) {
+        return new (at_ptr) ObjectIterator(fixture, std::move(it));
+    }
+
+    bool ObjectIterator::next(std::uint64_t &addr)
+    {
+        if (!m_iterator_ptr || m_iterator_ptr->isEnd()) {
+            return false;
+        } else {
+            m_iterator_ptr->next(&addr);
+            return true;
+        }
+    }
+    
+    ObjectIterator::ObjectPtr ObjectIterator::unload(std::uint64_t address) const {
+        return LangToolkit::unloadObject(m_fixture, address, m_class_factory);
+    }
+    
+    std::unique_ptr<ObjectIterator::QueryIterator> ObjectIterator::beginFTQuery(int direction) const
+    {
+        if (!m_iterator_ptr) {
+            return nullptr;
+        }
+        if (!m_query_iterator) {
+            THROWF(db0::InputException) << "Invalid typed object iterator" << THROWF_END;
+        }
+        return m_query_iterator->beginTyped(direction);
+    }
+
+    std::unique_ptr<SortedIterator> ObjectIterator::beginSorted() const
+    {
+        if (!m_iterator_ptr) {
+            return nullptr;
+        }
+        if (!m_sorted_iterator) {
+            THROWF(db0::InputException) << "Invalid typed object iterator" << THROWF_END;
+        }
+        return m_sorted_iterator->beginSorted();
+    }
+        
+    bool ObjectIterator::isSorted() const {
+        return m_sorted_iterator != nullptr;
+    }
+
+}

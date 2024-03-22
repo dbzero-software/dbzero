@@ -1,0 +1,28 @@
+#pragma once
+
+#include <cstdint>
+#include <dbzero/core/serialization/Fixed.hpp>
+
+namespace db0
+
+{
+
+    class Fixture;
+    
+    /// Common object header
+    struct [[gnu::packed]] o_object_header: public o_fixed<o_object_header>
+    {
+        std::uint32_t m_ref_count = 0;
+
+        void incRef();
+
+        // return true if object is not referenced by any other object
+        // and can be safely deleted
+        bool decRef();
+
+        inline bool hasRefs() const {
+            return m_ref_count > 0;
+        }
+    };
+        
+}

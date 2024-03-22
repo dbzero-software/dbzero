@@ -1,0 +1,191 @@
+import pytest
+import dbzero_ce as db0
+
+def test_can_create_dict(db0_fixture):
+    dict_1 = db0.dict()
+    assert dict_1 != None
+
+
+def make_python_dict(*args, **kwargs):
+    return dict(*args, **kwargs)
+
+def make_db0_dict(*args, **kwargs):
+    return db0.dict(*args, **kwargs)
+
+dict_test_params = [(make_python_dict), (make_db0_dict)]
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_can_create_dict_from_array(db0_fixture, make_dict):
+    dict_1 = make_dict([("item", 2), ("item_2", 3)])
+    assert dict_1 != None
+    assert dict_1["item"] == 2
+    assert dict_1["item_2"] == 3
+
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_can_create_dict_from_kwargs(db0_fixture, make_dict):
+    dict_1 = make_dict(item=2, item_2=3, item_3=6)
+    assert dict_1 != None
+    assert dict_1["item"] == 2
+    assert dict_1["item_2"] == 3
+    assert dict_1["item_3"] == 6
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_can_dict_assign_item(db0_fixture, make_dict):
+    dict_1 = make_dict()
+    dict_1["item"] = 5
+    assert dict_1["item"] == 5
+    dict_1["item"] = 7
+    assert dict_1["item"] == 7
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_constructors(db0_fixture, make_dict):
+    a = make_dict(one=1, two=2, three=3)
+    b = make_dict({'one': 1, 'three': 3}, two=2)
+    c = make_dict(zip(['one', 'two', 'three'], [1, 2, 3]))
+    d = make_dict([('two', 2), ('one', 1), ('three', 3)])
+    e = make_dict({'three': 3, 'one': 1, 'two': 2})
+    a == b == c == d == e
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_can_check_in_dict(db0_fixture, make_dict):
+    dict_1 = make_dict(item=2, item_2=3)
+    assert dict_1 != None
+    assert "item" in dict_1
+    assert "item5" not in dict_1
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_can_iterate_over_dict(db0_fixture, make_dict):
+    dict_1 = make_dict(item=2, item_2=3, three=3)
+    keys_expected = ["item", "item_2", "three"]
+    keys_expected.sort()
+    keys = []
+    for key in dict_1:
+        keys.append(key)
+    keys.sort()
+    assert keys == keys_expected
+
+    
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_can_create_list_of_keys_from_dict(db0_fixture, make_dict):
+    dict_1 = make_dict(item=2, item_2=3, three=3)
+    keys_expected = ["item", "item_2", "three"]
+    keys_expected.sort()
+    keys = list(dict_1)
+    keys.sort()
+    assert keys == keys_expected
+
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_can_clear_dictionary(db0_fixture, make_dict):
+    dict_1 = make_dict(item=2, item_2=3, three=3)
+    assert len(dict_1) == 3
+    dict_1.clear()
+    assert len(dict_1) == 0
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_can_copy_dictionary(db0_fixture, make_dict):
+    dict_1 = make_dict(item=2, item_2=3, three=3)
+    assert dict_1["item"] == 2
+    dict_2 = dict_1.copy()
+    dict_1["item"] = 6
+    assert dict_1["item"] == 6
+    assert dict_2["item"] == 2
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_dict_from_key(db0_fixture, make_dict):
+    dict_1 = make_dict().fromkeys(["key_1", "key_2", "key_3"], 5)
+    assert len(dict_1) == 3
+    assert dict_1["key_1"] == 5
+    assert dict_1["key_2"] == 5
+    assert dict_1["key_3"] == 5
+
+    dict_1 = make_dict().fromkeys(["key_1", "key_2", "key_3"])
+    assert len(dict_1) == 3
+    assert dict_1["key_1"] == None
+    assert dict_1["key_2"] == None
+    assert dict_1["key_3"] == None
+
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_get_from_dict(db0_fixture, make_dict):
+    dict_1 = make_dict([("item", 2), ("item_2", 3)])
+    assert dict_1.get("item") == 2
+    assert dict_1.get("item_2", "default") == 3
+    assert dict_1.get("item_3", "default") == "default"
+    assert dict_1.get("item_3") == None
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_pop_from_dict(db0_fixture, make_dict):
+    dict_1 = make_dict([("item", 2), ("item_2", 3), ("item_3", 3)])
+    assert dict_1.pop("item") == 2
+    assert "item" not in dict_1
+    with pytest.raises(KeyError):
+        dict_1.pop("item")
+    assert dict_1.pop("item_2", "default") == 3
+    assert "item_2" not in dict_1
+    assert dict_1.pop("item_2", "default") == "default"
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_set_default(db0_fixture, make_dict):
+    dict_1 = make_dict([("item", 2), ("item_2", 3)])
+    assert dict_1.setdefault("item") == 2
+    assert dict_1.setdefault("item_2", "default") == 3
+    assert "item_3" not in dict_1
+    assert dict_1.setdefault("item_3", "default") == "default"
+    assert "item_3" in dict_1
+    assert dict_1.setdefault("item_3") == "default"
+    assert dict_1.setdefault("item_4") == None
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_update_dict(db0_fixture, make_dict):
+    dict_1 = make_dict([("item", 2), ("item_2", 3), ("item_3", 3)])
+    dict_1.update({"item": 7}, item_2=5)
+    assert dict_1["item"] == 7
+    assert dict_1["item_2"] == 5
+    dict_2 = make_dict([("item_3", 9)])
+    dict_1.update(dict_2)
+    assert dict_1["item_3"] == 9
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_items_from_dict(db0_fixture, make_dict):
+    # tests iteration over items from dict
+    dict_1 = make_dict([("item", 2), ("item_2", 3), ("item_3", 3)])
+    items = dict_1.items()
+    assert len(items) == 3
+    for key, value in items:
+        assert dict_1[key] == value
+    dict_1["items_4"] = 18
+    assert len(items) == 4
+
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_keys_from_dict(db0_fixture, make_dict):
+    # tests iteration over keys from dict
+    dict_1 = make_dict([("item", 2), ("item_2", 3), ("item_3", 3)])
+    keys = dict_1.keys()
+    assert len(keys) == 3
+    result = []
+    for key in keys:
+        result.append(key)
+    result.sort()
+    assert result == ["item", "item_2", "item_3"]
+    dict_1["items_4"] = 18
+    assert len(keys) == 4
+    assert "items_4" in keys
+
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_values_from_dict(db0_fixture, make_dict):
+    # tests iteration over values from dict
+    dict_1 = make_dict([("item", 2), ("item_2", 3), ("item_3", 3)])
+    values = dict_1.values()
+    assert len(values) == 3
+    result = []
+    for value in values:
+        result.append(value)
+    result.sort()
+    assert result == [2, 3, 3]
+    dict_1["items_4"] = 18
+    assert len(values) == 4
+    assert 18 in values

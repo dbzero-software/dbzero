@@ -1,0 +1,33 @@
+#pragma once
+
+#include "Allocator.hpp"
+
+namespace db0
+
+{
+
+    /**
+     * The Allocator implementation that can only allocate a one specific address
+    */
+    class OneShotAllocator: public Allocator
+    {
+    public:
+        OneShotAllocator(std::uint64_t addr, std::size_t size);
+        
+        std::optional<std::uint64_t> tryAlloc(std::size_t size) override;
+        
+        void free(std::uint64_t address) override;
+
+        std::size_t getAllocSize(std::uint64_t address) const override;
+
+        std::shared_ptr<Allocator> getSnapshot() const override;
+
+        void commit() override;
+
+    private:
+        const std::uint64_t m_addr;
+        const std::size_t m_size;
+        bool m_allocated = false;
+    };
+
+}

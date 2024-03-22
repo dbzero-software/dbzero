@@ -1,0 +1,31 @@
+#pragma once
+
+#include <vector>
+#include <string>
+#include <dbzero/object_model/config.hpp>
+
+namespace db0::object_model
+
+{
+
+    class TagSet
+    {
+    public:
+        using LangToolkit = Config::LangToolkit;
+        using ObjectPtr = LangToolkit::ObjectPtr;
+
+        TagSet(ObjectPtr const *args, std::size_t nargs, bool is_negated);
+        ~TagSet();
+
+        bool isNegated() const;
+        std::size_t size() const;
+        
+        ObjectPtr const *getArgs() const;
+        
+    private:
+        ObjectPtr const *m_args;
+        const std::size_t m_nargs;
+        const bool m_is_negated;
+    };
+
+}

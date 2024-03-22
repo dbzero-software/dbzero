@@ -1,0 +1,430 @@
+#pragma once
+
+#include "SGB_Tree.hpp"
+#include <dbzero/core/serialization/Ext.hpp>
+#include <dbzero/core/utils/dary_heap.hpp>
+#include <dbzero/core/utils/bisect.hpp>
+#include <dbzero/core/serialization/Ext.hpp>
+#include <dbzero/core/memory/AccessOptions.hpp>
+#include <iostream>
+
+namespace db0
+
+{
+    
+    enum class LookupHeaderFlags : std::uint16_t {
+        sorted = 0x0001,    
+        reversed = 0x0002
+    };
+
+    /**
+     * Stores a per-node header details
+    */
+    template <typename HeaderT> class [[gnu::packed]] o_lookup_header: public o_fixed_ext<o_lookup_header<HeaderT>, HeaderT>
+    {
+    public:
+        // counter of lookups since the last update
+        std::uint16_t m_lookup_count = 0;
+        FlagSet<LookupHeaderFlags> m_flags;
+        
+        // 0, 1 element set can be marked as sorted
+        o_lookup_header()
+            : m_flags { LookupHeaderFlags::sorted }
+        {            
+        }
+
+        inline void reset() {
+            m_lookup_count = 0;
+            m_flags.set(LookupHeaderFlags::sorted, false);
+        }
+    };
+
+    template <
+        typename ItemT, 
+        typename CapacityT, 
+        typename AddressT, 
+        typename ItemCompT,         
+        typename ItemEqualT, 
+        typename HeaderT,
+        int D = 2>
+    class [[gnu::packed]] o_sgb_lookup_tree_node:
+    public o_ext<
+        o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>, 
+        o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>, 0, false>
+    {
+    protected:
+        using ext_t = o_ext<
+            o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>, 
+            o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>, 0, false>;
+        using super_t = o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>;
+
+    public: 
+        using iterator = typename super_t::iterator;
+        using const_iterator = typename super_t::const_iterator;
+        
+        o_sgb_lookup_tree_node(CapacityT capacity)
+            : ext_t(capacity)
+        {            
+        }
+        
+        o_sgb_lookup_tree_node(const ItemT &item, CapacityT capacity)
+            : ext_t(item, capacity)
+        {            
+        }
+
+        const_iterator cbegin() const 
+        {
+            if (!is_reversed()) {
+                return super_t::cbegin();                
+            }
+            // reversed begin
+            return super_t::cbegin() + this->maxItems() - 1;
+        }
+
+        iterator begin() const {
+            return const_cast<ItemT*>(this->cbegin());
+        }
+
+        const_iterator cend() const 
+        {
+            if (!is_reversed()) {
+                return super_t::cend();    
+            }
+            return this->cbegin() - this->m_size;
+        }
+        
+        iterator end() {
+            return const_cast<ItemT*>(this->cend());
+        }
+
+        const_iterator clast() const 
+        {
+            if (!is_reversed()) {
+                return super_t::clast();                
+            }
+            // reversed last
+            return super_t::cbegin() - 1;
+        }
+        
+        iterator last() {
+            return const_cast<ItemT*>(this->clast());
+        }
+
+        const ItemT &keyItem() const {
+            // key item is the first heap item
+            return *this->cbegin();
+        }
+
+        inline bool is_reversed() const {
+            return this->header().m_flags[LookupHeaderFlags::reversed];
+        }
+
+        inline bool is_sorted() const {
+            return this->header().m_flags[LookupHeaderFlags::sorted];
+        }
+
+        template <typename... Args> iterator append(Args&&... args)
+        {
+            assert(!this->isFull());
+            *(this->end()) = ItemT(std::forward<Args>(args)...);
+            ++this->m_size;
+            // heapify (as min heap), return pointer to the position of the item
+            iterator result;
+            if (this->is_reversed()) {
+                result = dheap::rpush<D>(this->begin(), this->end(), super_t::heapComp);
+            } else {
+                result = dheap::push<D>(this->begin(), this->end(), super_t::heapComp);
+            }
+            // reset the lookup counter and sorted flag
+            this->header().reset();
+            return result;
+        }
+
+        /**
+         * Erase item by key if it exists
+         * 
+         * @return true if item was erased
+        */
+        template <typename KeyT> bool erase(const KeyT &key)
+        {            
+            if (this->is_reversed()) {
+                auto item_ptr = dheap::rfind<D>(this->begin(), this->end(), key, super_t::heapComp.itemEqual);
+                if (!item_ptr) {
+                    return false;
+                }
+                dheap::rerase<D>(this->begin(), this->end(), item_ptr, super_t::heapComp);
+            } else {
+                auto item_ptr = dheap::find<D>(this->begin(), this->end(), key, super_t::heapComp.itemEqual);
+                if (!item_ptr) {
+                    return false;
+                }
+                dheap::erase<D>(this->begin(), this->end(), item_ptr, super_t::heapComp);
+            }
+            --this->m_size;
+            // reset the lookup counter and sorted flag
+            this->header().reset();
+            return true;
+        }
+
+        /**
+         * Erase existing item, return true if the node is empty after the operation
+         * 
+         * @return true if node is empty after the operation
+        */
+        bool erase_existing(const_iterator item_ptr)
+        {            
+            if (is_reversed()) {
+                dheap::rerase<D>(this->begin(), this->end(), const_cast<iterator>(item_ptr), super_t::heapComp);
+            } else {
+                dheap::erase<D>(this->begin(), this->end(), const_cast<iterator>(item_ptr), super_t::heapComp);
+            }
+            --this->m_size;
+            this->header().reset();
+            return this->m_size == 0;
+        }
+        
+        inline int step() const {
+            return this->header().m_flags[LookupHeaderFlags::reversed] ? -1 : 1;
+        }
+
+        template <typename KeyT> const_iterator lower_equal_bound(const KeyT &key) const
+        {
+            const_iterator result = nullptr;
+            if (is_sorted()) {
+                // if sorted, use binary search
+                const_iterator it, end_ = this->cend();
+                if (is_reversed()) {
+                    it = bisect::rlower_equal(this->cbegin(), end_, key, super_t::heapComp.itemComp);
+                } else {
+                    it = bisect::lower_equal(this->cbegin(), end_, key, super_t::heapComp.itemComp);
+                }
+                if (it != end_) {
+                    result = it;
+                }
+            } else {
+                // must scan all items otherwise
+                auto step_ = this->step();
+                for (auto it = this->cbegin(); it != this->cend(); it += step_) {
+                    if (!super_t::heapComp(*it, key)) {
+                        if (!result || super_t::heapComp(*it, *result)) {
+                            result = it;
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+        
+        void flipSort() 
+        {
+            if (is_sorted()) {
+                // already sorted
+                return;
+            }
+            if (is_reversed()) {
+                dheap::rsort<D>(this->begin(), this->end(), this->last(), super_t::heapComp);
+            } else {
+                dheap::sort<D>(this->begin(), this->end(), this->last(), super_t::heapComp);
+            }
+            // flip the reversed flag
+            this->header().m_flags.set(LookupHeaderFlags::reversed, !is_reversed());
+            this->header().m_flags.set(LookupHeaderFlags::sorted, true);
+        }
+        
+        void rebalance(o_sgb_lookup_tree_node &other) 
+        {
+            if (this->size() == other.size()) {
+                // already balanced
+                return;
+            }
+            if (other.size() > this->size()) {
+                other.rebalance(*this);
+                return;
+            }
+            
+            if (!is_sorted()) {
+                // sort the heap for better balancing
+                this->flipSort();
+            }
+            // pick the split point assuming that elements are already approximately sorted (heap sorted)
+            int max_repeat = 2;
+            auto step_ = this->step();
+            while (max_repeat-- > 0 && this->size() > other.size()) {
+                auto split_item = *(this->cbegin() + ((this->size() + other.size()) >> 1) * step_);
+                auto it = this->begin(), end_ = this->end();
+                while (it != end_) {
+                    if (super_t::heapComp.itemComp(*it, split_item)) {
+                        it += step_;
+                    } else {
+                        other.append(*it);
+                        this->erase_existing(it);
+                        end_ -= step_;
+                    }
+                }
+                // check if sufficiently balanced
+                if (std::fabs((double)this->size() - (double)other.size()) / ((double)this->size() + (double)other.size()) < 0.25) {
+                    break;
+                }
+            }
+        }
+        
+        const_iterator find_middle()
+        {
+            if (!is_sorted()) {
+                this->flipSort();
+            }
+            return this->begin() + (this->size() >> 1) * this->step();
+        }
+
+        const_iterator find_max() const 
+        {
+            if (is_sorted()) {
+                return this->cend() + this->step();
+            }            
+            return super_t::find_max();
+        }
+    };
+
+    template <
+        typename ItemType, 
+        typename ItemCompType, 
+        typename ItemEqualType,
+        typename CapacityType = std::uint16_t, 
+        typename AddressType = std::uint32_t, 
+        typename HeaderType = db0::o_null,
+        typename TreeHeaderType = db0::o_null>
+    class sgb_lookup_types
+    {
+    public :
+        using ItemT = ItemType;
+        using ItemCompT = ItemCompType;
+        using ItemEqualT = ItemEqualType;
+        using CapacityT = CapacityType;
+        using AddressT = AddressType;
+        using HeaderT = HeaderType;
+        using TreeHeaderT = TreeHeaderType;
+        using o_sgb_node_t = o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT>;
+        using node_traits = sgb_node_traits<o_sgb_node_t, ItemT, ItemCompT>;
+        using ptr_set_t = sgb_tree_ptr_set<AddressT>;
+        using NodeT = SGB_IntrusiveNode<o_sgb_node_t, ItemT, ItemCompT, typename node_traits::comp_t, TreeHeaderT>;
+        using CompT = typename NodeT::comp_t;
+        
+        using SG_TreeT = v_sgtree<NodeT, intrusive::detail::h_alpha_sqrt2_t>;
+    };
+
+    /**
+     * SGB_Tree extension which improves on lookup performance by selectively sorting nodes and using bisect search
+    */
+    template <typename TypesT> class SGB_LookupTreeBase: protected SGB_TreeBase<TypesT>
+    {
+    protected:
+        using super_t = SGB_TreeBase<TypesT>;
+        using base_t = typename super_t::super_t;
+
+    public:
+        using ItemT = typename TypesT::ItemT;
+        using CapacityT = typename TypesT::CapacityT;
+        using AddressT = typename TypesT::AddressT;
+        using sg_tree_const_iterator = typename super_t::sg_tree_const_iterator;
+        using ItemIterator = typename super_t::ItemIterator;
+        using ConstItemIterator = typename super_t::ConstItemIterator;
+
+        SGB_LookupTreeBase(Memspace &memspace, std::size_t node_capacity, AccessType access_type,
+            unsigned int sort_threshold = 3)
+            : super_t(memspace, node_capacity)
+            , m_sort_threshold(sort_threshold)
+            , m_access_type(access_type)
+        {
+        }
+        
+        SGB_LookupTreeBase(mptr ptr, std::size_t node_capacity, AccessType access_type, 
+            unsigned int sort_threshold = 3)
+            : super_t(ptr, node_capacity)
+            , m_sort_threshold(sort_threshold)
+            , m_access_type(access_type)
+        {
+        }
+
+        void insert(const ItemT &item) 
+        {
+            assert(m_access_type == AccessType::READ_WRITE);
+            this->emplace(item);
+        }
+
+        template <typename... Args> ItemIterator emplace(Args&&... args) 
+        {
+            assert(m_access_type == AccessType::READ_WRITE);
+            return super_t::emplace(std::forward<Args>(args)...);
+        }
+        
+        template <typename KeyT> ConstItemIterator lower_equal_bound(const KeyT &key) const 
+        {
+            auto node = base_t::lower_equal_bound(key);
+            if (node == super_t::end()) {
+                return { nullptr, sg_tree_const_iterator() };
+            }
+
+            // node will be sorted if needed (only if in READ/WRITE mode)
+            if (m_access_type == AccessType::READ_WRITE) {
+                this->onNodeLookup(node);
+            }
+            return { node->lower_equal_bound(key), node };
+        }
+
+        AddressT getAddress() const {
+            return base_t::getAddress();
+        }
+
+        sg_tree_const_iterator cbegin_nodes() const {
+            return super_t::cbegin_nodes();
+        }
+        
+        sg_tree_const_iterator cend_nodes() const {
+            return super_t::cend_nodes();
+        }
+
+    protected:
+        const unsigned int m_sort_threshold;
+        const AccessType m_access_type;
+        
+        void onNodeLookup(sg_tree_const_iterator &node) const
+        {
+            assert(m_access_type == AccessType::READ_WRITE);
+            if (node->is_sorted()) {
+                // already sorted
+                return;
+            }
+            if (++node.modify().header().m_lookup_count < m_sort_threshold) {
+                // not enough lookups
+                return;
+            }
+            node.modify().flipSort();
+        }
+    };
+    
+    template <
+        typename ItemT, 
+        typename ItemCompT = std::less<ItemT> ,
+        typename ItemEqualT = std::equal_to<ItemT> ,
+        typename CapacityT = std::uint16_t,
+        typename AddressT = std::uint32_t,
+        typename HeaderT = o_null,
+        typename TreeHeaderT = o_null>
+    class SGB_LookupTree: 
+    public SGB_LookupTreeBase<sgb_lookup_types<ItemT, ItemCompT, ItemEqualT, CapacityT, AddressT, HeaderT, TreeHeaderT> >
+    {   
+    protected:
+        using super_t = SGB_LookupTreeBase<sgb_lookup_types<ItemT, ItemCompT, ItemEqualT, CapacityT, AddressT, HeaderT, TreeHeaderT> >;
+    public:
+        SGB_LookupTree(Memspace &memspace, std::size_t node_capacity, AccessType access_type, unsigned int sort_threshold = 3)
+            : super_t(memspace, node_capacity, access_type, sort_threshold)
+        {
+        }
+        
+        SGB_LookupTree(mptr ptr, std::size_t node_capacity, AccessType access_type, unsigned int sort_threshold = 3)
+            : super_t(ptr, node_capacity, access_type, sort_threshold)
+        {
+        }
+    };
+
+}

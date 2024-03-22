@@ -1,0 +1,437 @@
+#pragma once
+
+#include <functional>
+#include <dbzero/core/serialization/Base.hpp>
+#include <dbzero/core/collections/CompT.hpp>
+#include "sgb_tree_head.hpp"
+#include <dbzero/core/utils/dary_heap.hpp>
+#include <iostream>
+#include <cmath>
+
+namespace db0
+
+{
+    
+    /**
+     * The general SGB_Tree node type
+     * D - is the underlying heap D-arity (2 by default)
+     * D greater than 2 helps reduce the number of full-page writes in transactions
+    */
+    template <
+        typename ItemT, 
+        typename CapacityT, 
+        typename AddressT, 
+        typename ItemCompT,         
+        typename ItemEqualT, 
+        typename HeaderT,
+        int D = 2>
+    class [[gnu::packed]] o_sgb_tree_node: 
+    public o_base<o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 0, false>
+    {
+    protected:
+        using super_t = o_base<o_sgb_tree_node, 0, false>;
+
+        /// inverts items for the min heap
+        struct HeapCompT
+        {
+            ItemCompT itemComp;
+            ItemEqualT itemEqual;
+            template <typename LhsT, typename RhsT> bool operator()(const LhsT &lhs, const RhsT &rhs) const
+            {
+                return itemComp(rhs, lhs);
+            }
+        };
+        
+        static HeapCompT heapComp;
+
+    public:
+        using capacity_t = CapacityT;
+        using address_t = AddressT;
+        using Initializer = ItemT;
+        using iterator = ItemT *;
+        using const_iterator = const ItemT *;
+
+        // tree pointers (possibly relative to slab)
+        sgb_tree_ptr_set<AddressT> ptr_set;
+        // total number of available (allocated) bytes
+        CapacityT m_capacity;
+        // actual number of stored elements
+        CapacityT m_size = 0;
+
+        // Notice: header stored as variable-length to allow 0-bytes type (default)
+        inline HeaderT &header() {
+            return this->getDynFirst(HeaderT::type());
+        }
+
+        inline const HeaderT &header() const {
+            return this->getDynFirst(HeaderT::type());
+        }
+        
+        o_sgb_tree_node(CapacityT capacity)
+            : m_capacity(capacity)
+        {
+            // initialize header with default arguments
+            this->arrangeMembers()
+                (HeaderT::type());
+        }
+        
+        /// Must be initialized with an item
+        o_sgb_tree_node(const ItemT &item, CapacityT capacity)
+            : o_sgb_tree_node(capacity)
+        {
+            this->append(item);
+        }
+
+        static std::size_t measure(CapacityT capacity) {
+            return capacity;
+        }
+
+        static std::size_t measure(const ItemT &, CapacityT capacity) {
+            return capacity;
+        }
+
+        inline ItemT &at(unsigned int index) {
+            // items stored in the dynamic area
+            assert(index < m_size);
+            return begin()[index];            
+        }
+
+        inline const ItemT &at(unsigned int index) const {
+            // items stored in the dynamic area
+            assert(index < m_size);
+            return cbegin()[index];
+        }
+
+        ItemT &operator[](unsigned int index) {
+            return this->at(index);
+        }
+
+        const ItemT &operator[](unsigned int index) const {
+            return this->at(index);
+        }
+        
+        /**
+         * Check if there's not sufficient space to store a new item
+        */
+        bool isFull() const {
+            return (m_capacity - this->usedCapacity()) < sizeof(ItemT);
+        }
+
+        unsigned int maxItems() const {
+            return (m_capacity - sizeof(o_sgb_tree_node) - HeaderT::sizeOf()) / sizeof(ItemT);
+        }
+
+        CapacityT size() const {
+            return m_size;
+        }
+
+        bool empty() const {
+            return m_size == 0;
+        }
+        
+        std::size_t sizeOf() const
+        {
+            // size of the object equals the capacity
+            return m_capacity;
+        }
+
+        template <typename buf_t> static std::size_t safeSizeOf(buf_t at)
+        { 
+            auto buf = at;
+            buf += o_sgb_tree_node::__const_ref(at).m_capacity;
+            return buf - at;
+        }
+
+        template <typename... Args> iterator append(Args&&... args)
+        {
+            assert(!isFull());
+            (*this)[m_size++] = ItemT(std::forward<Args>(args)...);
+            // heapify (as min heap), return pointer to the position of the item
+            return dheap::push<D>(begin(), end(), heapComp);
+        }
+
+        /**
+         * Erase item by key if it exists
+         * 
+         * @return true if item was erased
+        */
+        template <typename KeyT> bool erase(const KeyT &key)
+        {
+            auto item_ptr = dheap::find<D>(begin(), begin() + m_size, key, heapComp.itemEqual);
+            if (!item_ptr) {
+                return false;
+            }
+            dheap::erase<D>(begin(), end(), item_ptr, heapComp);
+            --m_size;
+            return true;
+        }
+
+        /**
+         * Erase existing item, return true if the node is empty after the operation
+         * 
+         * @return true if node is empty after the operation
+        */
+        bool erase_existing(const_iterator item_ptr)
+        {
+
+            assert(item_ptr != nullptr);
+            assert(item_ptr >= cbegin() && item_ptr < cend());
+            dheap::erase<D>(begin(), end(), const_cast<iterator>(item_ptr), heapComp);
+            --m_size;
+            return m_size == 0;
+        }
+        
+        bool erase_existing(unsigned int item_index)
+        {
+            return erase_existing(cbegin() + item_index);
+        }
+
+        inline unsigned int indexOf(const_iterator item_ptr) const
+        {
+            assert(item_ptr != nullptr);
+            assert(item_ptr >= cbegin() && item_ptr < cend());
+            return item_ptr - cbegin();
+        }
+
+        const ItemT &keyItem() const
+        {
+            // key item is the first heap item (max)
+            return (*this)[0];
+        }
+        
+        /**
+         * Compare it this node's key is equal specific value
+        */
+        template <typename KeyT> bool keyEqual(const KeyT &key) const {
+            return !heapComp(key, keyItem()) && !heapComp(keyItem(), key);
+        }
+
+        inline const_iterator cbegin() const
+        {
+            return reinterpret_cast<const ItemT *>(this->beginOfDynamicArea() + HeaderT::sizeOf());
+        }
+
+        iterator begin() const
+        {
+            return const_cast<ItemT*>(cbegin());
+        }
+
+        const_iterator cend() const
+        {
+            return cbegin() + m_size;
+        }
+        
+        iterator end()
+        {
+            return const_cast<ItemT*>(cend());
+        }
+
+        inline const_iterator clast() const
+        {
+            return cbegin() + maxItems();
+        }
+
+        iterator last() const
+        {
+            return const_cast<ItemT*>(clast());
+        }
+
+        /**
+         * const_sorting_iterator uses additional memory to sort items on-the-fly
+        */
+        class const_sorting_iterator
+        {    
+        public:
+            const_sorting_iterator() = default;
+            const_sorting_iterator(const ItemT *ptr, const ItemT *end_ptr)
+                : m_items(ptr, end_ptr)
+                , m_ptr(m_items.data())
+                , m_end_ptr(m_items.data() + m_items.size())
+            {
+            }
+
+            const_sorting_iterator &operator++()
+            {
+                assert(!is_end());
+                dheap::pop<D>(m_ptr, m_end_ptr, o_sgb_tree_node::heapComp);
+                --m_end_ptr;
+                return *this;
+            }
+
+            bool is_end() const {
+                return m_ptr == m_end_ptr;
+            }
+
+            ItemT operator*() const
+            {
+                return *m_ptr;
+            }
+
+            const ItemT *get_ptr() const
+            {
+                return m_ptr;
+            }
+
+            const ItemT *operator->() const
+            {
+                return m_ptr;
+            }
+
+        private:
+            std::vector<ItemT> m_items;
+            ItemT *m_ptr = nullptr, *m_end_ptr = nullptr;
+        };
+
+        const_sorting_iterator cbegin_sorted() const
+        {
+            return const_sorting_iterator(cbegin(), cend());
+        }
+
+        const_iterator find_max() const
+        {
+            // max item because we use the inverted comparator
+            return dheap::find_min<D>(cbegin(), cend(), heapComp);
+        }
+        
+        const_iterator find_min() const
+        {
+            // first item is the min item
+            return cbegin();
+        }
+
+        /**
+         * Remove specific element from this node and replace it with 'item'
+         * 
+         * @param item item to be replaced
+         * @return pair of newly inserted item (first) and removed item (second)
+        */
+        std::pair<iterator, ItemT> replace(iterator item, const ItemT &new_item)
+        {
+            auto result = *item;
+            *item = new_item;
+            return { dheap::push<D>(begin(), item + 1, heapComp), result };
+        }
+
+        template <typename KeyT> const_iterator lower_equal_bound(const KeyT &key) const
+        {
+            const_iterator result = nullptr;
+            // must iterate over all items
+            for (auto it = cbegin(), _end = cend(); it != _end; ++it) {
+                if (!heapComp(*it, key)) {
+                    if (!result || heapComp(*it, *result)) {
+                        result = it;
+                    }
+                }
+            }
+            assert(!result || (result >= cbegin() && result < cend()));
+            return result;
+        }
+
+        template <typename KeyT> const_iterator find_equal(const KeyT &key) const
+        {
+            return dheap::find<D>(cbegin(), cbegin() + m_size, key, heapComp.itemEqual);
+        }
+
+        template <typename KeyT> const_iterator upper_equal_bound(const KeyT &key) const
+        {
+            const_iterator result = nullptr;
+            // must iterate over all items, some minor optimizations possible - e.g. starting from min in ascending order
+            for (auto it = cbegin(), _end = cend(); it != _end; ++it) {
+                if (!heapComp(key, *it)) {
+                    if (!result || heapComp(*result, *it)) {
+                        result = it;
+                    }                    
+                }
+            }
+            assert(!result || (result >= cbegin() && result < cend()));
+            return result;
+        }
+        
+        /**
+         * A helper function to retrieve the mutable iterator from the const one
+        */
+        iterator modifyItem(const_iterator item) const
+        {
+            return const_cast<iterator>(item);
+        }
+
+        /**
+         * Try finding the lower-equal element and the surrounding (prev/next) ones
+        */
+        template <typename KeyT> const_iterator lower_equal_window(const KeyT &key, const_iterator &prev, const_iterator &next) const
+        {
+            const_iterator result = nullptr;
+            prev = next = nullptr;
+            // must iterate over all items
+            for (auto it = cbegin(); it != cend(); ++it) {
+                if (heapComp(*it, key)) {
+                    if (!next || heapComp(*next, *it)) {
+                        next = it;
+                    }
+                } else {
+                    if (!result || heapComp(*it, *result)) {
+                        prev = result;
+                        result = it;
+                    } else if (!prev || heapComp(*it, *prev)) {
+                        prev = it;
+                    }
+                }
+            }
+            return result;
+        }
+
+        /**
+         * Rebalance the 2 nodes so that they hold rogoughly the same number of items
+         * the 'other' node should have less items than 'this' node          
+        */
+        void rebalance(o_sgb_tree_node &other)
+        {
+            if (size() == other.size()) {
+                // already balanced
+                return;
+            }
+            if (other.size() > size()) {
+                other.rebalance(*this);
+                return;
+            }
+            
+            // pick the split point assuming that elements are already approximately sorted (heap sorted)
+            int iter_max = 2;
+            while (iter_max-- > 0 && size() > other.size()) {
+                auto split_item = cbegin()[(size() + other.size()) / 2];
+                auto it = begin(), end_ = end();
+                while (it != end_) {
+                    if (heapComp.itemComp(*it, split_item)) {
+                        ++it;
+                    } else {
+                        other.append(*it);
+                        this->erase_existing(it);
+                        --end_;
+                    }
+                }
+                if (std::fabs((double)size() - (double)other.size()) / ((double)size() + (double)other.size()) < 0.25) {
+                    break;
+                }
+            }
+        }
+
+        /**
+         * Calculate size for the given number of items
+        */
+        static std::size_t measureSizeOf(unsigned int item_count)
+        {
+            return sizeof(o_sgb_tree_node) + HeaderT::sizeOf() + item_count * sizeof(ItemT);
+        }
+
+    private:
+
+        std::size_t usedCapacity() const {
+            return sizeof(o_sgb_tree_node) + HeaderT::sizeOf() + m_size * sizeof(ItemT);
+        }
+    };
+
+    template <typename ItemT, typename CapacityT, typename AddressT, typename ItemCompT, typename ItemEqualT, typename HeaderT, int D>
+    typename o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>::HeapCompT 
+    o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>::heapComp;
+
+}

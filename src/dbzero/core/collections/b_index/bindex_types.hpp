@@ -1,0 +1,122 @@
+#pragma once
+
+#include <cstdlib>
+#include <functional>
+#include <dbzero/core/collections/sgtree/v_sgtree.hpp>
+#include <dbzero/core/collections/sgtree/v_sgtree_node.hpp>
+#include <dbzero/core/collections/sgtree/v_intrusive_node.hpp>
+#include <dbzero/core/collections/vector/v_sorted_vector.hpp>
+#include <dbzero/core/collections/CompT.hpp>
+#include <dbzero/object_model/object_header.hpp>
+#include "type.hpp"
+
+namespace db0 
+
+{
+    
+    /**
+     * This type is used for size profiling
+     */
+    struct BIndexStorageSize
+    {
+        // size of v_bindex type itself
+        std::size_t index_size = 0;
+        // total number of nodes (chunks) in data structure
+        std::size_t node_count = 0;
+        // size occupied by nodes
+        std::size_t node_size = 0;
+        // size occupied by data vectors
+        std::size_t data_size = 0;
+
+        operator std::size_t() const {
+            return index_size + node_size + data_size;
+        }
+    };
+    
+    /**
+     * v_bindex supports following random operations :
+     * find by key, insert, delete
+     * data is organized in sorted blocks, blocks are indexed by SG-Tree
+     * block key is the smallest item contained (lo_bound)
+     * NOTICE : only fixed-size items are supported
+     */
+    template <class item_t, typename AddrT, class item_comp_t = std::less<item_t> >
+        class bindex_types
+    {
+    public :
+        using data_vector = v_sorted_vector<item_t, AddrT, item_comp_t>;
+        using DestroyF = std::function<void(const item_t &)>;
+
+        class [[gnu::packed]] bindex_node : public o_fixed<bindex_node> 
+        {
+            using super_t = o_fixed<bindex_node>;
+        public :
+            using Initializer = item_t;
+
+            bindex_node(const item_t &data)
+                : lo_bound(data)            
+            {
+            }
+
+            void destroy(Memspace &memspace) const {
+                if (ptr_b_data) {
+                    data_vector dv(memspace.myPtr(ptr_b_data));
+                    dv.destroy();
+                }
+            }
+
+        public :
+            item_t lo_bound;
+            // data block (v_sorted_vector)
+            std::uint64_t ptr_b_data = 0;
+
+            struct get_key {
+                const item_t &operator()(const bindex_node &node) const {
+                    return *(const item_t*)(&node.lo_bound);
+                }
+                const item_t &operator()(const item_t &data) const {
+                    return data;
+                }
+            };
+
+            using comp_t = CompT<bindex_node,get_key,item_comp_t>;
+        };
+
+        using bindex_node_traits = v_sgtree_node_traits<bindex_node, typename bindex_node::comp_t>;
+        using bindex_node_t = intrusive_node<
+            v_sgtree_node<bindex_node> ,
+            typename bindex_node_traits::comp_t>;
+
+        using bindex_tree_t = v_sgtree<bindex_node_t, intrusive::detail::h_alpha_sqrt2_t>;
+
+        template <class KeyT, class comp_t = std::less<KeyT> >
+            class cast_then_compare
+        {
+        public :
+            comp_t key_comp;
+
+            bool operator()(const typename bindex_node_traits::node_ptr_t &node, KeyT key) const {
+                return key_comp(static_cast<KeyT>(node->data.lo_bound), key);
+            }
+
+            bool operator()(KeyT key,const typename bindex_node_traits::node_ptr_t &node) const {
+                return key_comp(key, static_cast<KeyT>(node->data.lo_bound));
+            }
+        };
+
+        using node_iterator = typename bindex_tree_t::iterator;
+        using node_stack = typename bindex_tree_t::join_stack;
+
+        class [[gnu::packed]] bindex_container : public o_fixed<bindex_container> 
+        {
+        public :
+            // common DBZero object header
+            db0::o_object_header m_header;
+            // block index
+            std::uint64_t ptr_index = 0;
+            // total number of items contained
+            std::uint64_t size = 0;
+        };
+    };
+    
+} 

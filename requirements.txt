@@ -1,0 +1,6 @@
+numpy==1.24.2
+pytest==7.2.1
+pandas==1.5.3
+build==0.10.0
+meson-python==0.13.2
+patchelf==0.17.2.1

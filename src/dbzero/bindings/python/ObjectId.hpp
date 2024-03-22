@@ -1,0 +1,62 @@
+#pragma once
+
+#include <Python.h>
+#include <cstdint>
+#include <array>
+#include "WhichType.hpp"
+#include "PyWrapper.hpp"
+#include <dbzero/object_model/value/ObjectId.hpp>
+
+namespace db0::object_model
+
+{
+    
+    class Object;
+    class List;
+    class Index;
+    
+}
+
+namespace db0::python
+
+{
+
+    using MemoObject = PyWrapper<db0::object_model::Object>;
+    using ListObject = PyWrapper<db0::object_model::List>;
+    using IndexObject = PyWrapper<db0::object_model::Index>;
+    using ObjectId = db0::object_model::ObjectId;
+    
+    struct PyObjectId
+    {        
+        using StorageClass = db0::object_model::StorageClass;
+        PyObject_HEAD
+        ObjectId m_object_id;
+    };
+    
+    PyObject *ObjectId_repr(PyObject *);
+    
+    extern PyTypeObject ObjectIdType;
+    
+    template <typename T> PyObject *tryGetObjectId(T *self, bool durable);
+    
+    // retrieve ID of a DBZero object
+    PyObject *getObjectId(PyObject *, PyObject *args, bool durable);
+    PyObject *getObjectId(PyObject *, PyObject *args);
+    // get object ID and increment its reference count (i.e. make durable)
+    PyObject *getDurableObjectId(PyObject *, PyObject *args);
+    
+    bool ObjectId_Check(PyObject *obj);
+
+    // Method to pickle the object
+    PyObject *ObjectId_reduce(PyObject *);
+    int ObjectId_init(PyObject* self, PyObject* state);
+    PyObject *ObjectId_richcompare(PyObject *self, PyObject *other, int op);    
+    
+    template <> bool Which_TypeCheck<PyObjectId>(PyObject *py_object);
+
+    // tryGetObjectId specializations
+    extern template PyObject *tryGetObjectId<MemoObject>(MemoObject *, bool);
+    extern template PyObject *tryGetObjectId<ListObject>(ListObject *, bool);
+    extern template PyObject *tryGetObjectId<IndexObject>(IndexObject *, bool);
+
+}

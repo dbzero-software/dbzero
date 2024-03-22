@@ -1,0 +1,255 @@
+#include "DRAM_IOStream.hpp"
+#include "BlockIOStream.hpp"
+#include <dbzero/core/utils/FlagSet.hpp>
+#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>
+#include <dbzero/core/dram/DRAM_Prefix.hpp>
+#include <dbzero/core/dram/DRAM_Allocator.hpp>
+#include "ChangeLogIOStream.hpp"
+
+namespace db0
+
+{
+
+    DRAM_IOStream::DRAM_IOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size, std::function<std::uint64_t()> tail_function,
+        AccessType access_type, std::uint32_t dram_page_size)
+        : BlockIOStream(m_file, begin, block_size, tail_function, access_type, DRAM_IOStream::ENABLE_CHECKSUMS)
+        , m_dram_page_size(dram_page_size)
+        , m_chunk_size(dram_page_size + o_dram_chunk_header::sizeOf())
+        , m_prefix(std::make_shared<DRAM_Prefix>(m_dram_page_size))
+        , m_allocator(std::make_shared<DRAM_Allocator>(m_dram_page_size))
+    {
+        // load only allowed in read/write mode because otherwise the reader might
+        // fetch inconsistent state
+        if (m_access_type == AccessType::READ_WRITE) {
+            load();
+        }
+    }
+    
+    DRAM_IOStream::DRAM_IOStream(DRAM_IOStream &&other)
+        : BlockIOStream(std::move(other))
+        , m_dram_page_size(other.m_dram_page_size)
+        , m_chunk_size(other.m_chunk_size)
+        , m_reusable_chunks(std::move(other.m_reusable_chunks))
+        , m_page_map(std::move(other.m_page_map))
+        , m_prefix(other.m_prefix)
+        , m_allocator(other.m_allocator)
+    {
+    }
+    
+    void DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr,
+        const o_dram_chunk_header &header, void *bytes)
+    {
+        // state map = page_num / state_num
+        auto dram_page = m_page_map.find(header.m_page_num);
+        if (dram_page == m_page_map.end() || dram_page->second.m_state_num < header.m_state_num) {
+            // update DRAM to most recent page version, page not marked as dirty
+            m_prefix->update(header.m_page_num, bytes, false);
+            if (dram_page == m_page_map.end()) {
+                // mark address as taken
+                if (allocs_ptr) {
+                    allocs_ptr->insert(header.m_page_num * m_dram_page_size);
+                }
+            } else {
+                // mark previously occupied block as reusable (read/write mode only)
+                if (m_access_type == AccessType::READ_WRITE) {
+                    m_reusable_chunks.insert(dram_page->second.m_address);
+                }
+            }
+            
+            // update DRAM page info
+            m_page_map[header.m_page_num] = { header.m_state_num, address };
+            // remove address from reusables
+            {
+                auto it = m_reusable_chunks.find(address);
+                if (it != m_reusable_chunks.end()) {
+                    m_reusable_chunks.erase(it);
+                }
+            }
+        } else {
+            // mark block as reusable (read/write mode only)
+            if (m_access_type == AccessType::READ_WRITE) {
+                m_reusable_chunks.insert(address);
+            }
+        }
+    }
+    
+    void DRAM_IOStream::load()
+    {
+        assert(m_access_type == AccessType::READ_WRITE);
+        std::vector<char> buffer(m_chunk_size);
+        const auto &header = o_dram_chunk_header::__ref(buffer.data());
+        auto bytes = buffer.data() + header.sizeOf();
+
+        // maximum known state number by page
+        // this is required to only select the maximum state per page (discard older mutations)        
+        std::unordered_set<std::size_t> allocs;
+        for (;;) {
+            auto block_id = tellBlock();
+            std::uint64_t chunk_addr;
+            if (!readChunk(buffer, m_chunk_size, &chunk_addr)) {
+                // end of stream reached
+                break;
+            }
+
+            // make sure chunks are aligned with blocks (and one chunk per block)
+            if (block_id.second != 0 || (!eos() && block_id.first == tellBlock().first)) {
+                THROWF(db0::IOException) << "DRAM_IOStream::load error: unaligned block";
+            }
+
+            updateDRAMPage(chunk_addr, &allocs, header, bytes);
+        }
+        m_allocator->update(allocs);
+    }
+    
+    void DRAM_IOStream::flushUpdates(std::uint64_t state_num, ChangeLogIOStream &dram_changelog_io)
+    {
+        if (m_access_type == AccessType::READ_ONLY) {
+            THROWF(db0::IOException) << "DRAM_IOStream::flushUpdates error: read-only stream";
+        }
+
+        // prepare block to overwrite reusable addresses
+        std::vector<char> raw_block;
+        auto buffer = prepareChunk(m_chunk_size, raw_block);
+        auto &reusable_header = o_dram_chunk_header::__new(buffer, state_num);
+        buffer += reusable_header.sizeOf();
+        
+        std::unordered_set<std::uint64_t> last_changelog;
+        if (dram_changelog_io.getLastChangeLogChunk()) {
+            for (auto addr: *dram_changelog_io.getLastChangeLogChunk()) {
+                last_changelog.insert(addr);
+            }
+        }
+        
+        // Finds reusable block, note that blocks from the last change log are not reused
+        // otherwise the reader process might not be able to access the last transaction
+        auto find_reusable = [&, this]() -> std::optional<std::uint64_t>
+        {               
+            for (auto it = m_reusable_chunks.begin(); it != m_reusable_chunks.end(); ++it) {
+                if (last_changelog.find(*it) == last_changelog.end()) {
+                    auto result = *it;
+                    m_reusable_chunks.erase(it);
+                    return result;
+                }
+            }            
+            return std::nullopt;
+        };
+
+        auto update_page_location = [&, this](std::uint64_t page_num, std::uint64_t address)
+        {   
+            // remove address from reusable
+            {
+                auto it = m_reusable_chunks.find(address);
+                if (it != m_reusable_chunks.end()) {
+                    m_reusable_chunks.erase(it);
+                }
+            }
+            auto dram_page = m_page_map.find(page_num);
+            if (dram_page != m_page_map.end()) {
+                assert(dram_page->second.m_address != address);
+                // add the old page location to reusable addresses
+                m_reusable_chunks.insert(dram_page->second.m_address);
+            }
+            // update to most recent location
+            m_page_map[page_num] = { state_num, address };
+        };
+        
+        // flush all changes done to DRAM Prerfix (append modified pages only)
+        std::vector<std::uint64_t> dram_changelog;
+        m_prefix->flushDirty([&, this](std::uint64_t page_num, const void *page_buffer) {
+            // the last page must be stored in a new block to mark end of the sequence
+            auto reusable_addr = find_reusable();
+            if (reusable_addr) {
+                reusable_header.m_page_num = page_num;
+                std::memcpy(reusable_header.getData(), page_buffer, m_dram_page_size);
+                // overwrite chunk in the reusable block
+                writeToChunk(*reusable_addr, raw_block.data(), raw_block.size());
+                dram_changelog.push_back(*reusable_addr);
+                // update to the last known page location, collect previous location as reusable
+                update_page_location(page_num, *reusable_addr);
+            } else {
+                // make sure all chunks are block-aligned
+                assert(tellBlock().second == 0);
+                std::uint64_t chunk_addr;
+                // append data into a new chunk / block
+                addChunk(m_chunk_size, &chunk_addr);
+                o_dram_chunk_header header(state_num, page_num);
+                appendToChunk(&header, sizeof(header));
+                appendToChunk(page_buffer, m_dram_page_size);
+                dram_changelog.push_back(chunk_addr);
+                // update to the last known page location, collect previous location as reusable
+                update_page_location(page_num, chunk_addr);
+            }
+        });
+        
+        // flush all DRAM data updates before changelog updates
+        BlockIOStream::flush();
+        // output changelog, no RLE encoding, no duplicates
+        ChangeLogData cl_data(std::move(dram_changelog), false, false, false);
+        dram_changelog_io.appendChangeLog(std::move(cl_data));
+    }
+    
+    DRAM_Pair DRAM_IOStream::getDRAMPair() const
+    {
+        return { m_prefix, m_allocator };
+    }
+    
+    bool DRAM_IOStream::applyChanges(ChangeLogIOStream &changelog_io)
+    {        
+        if (m_access_type == AccessType::READ_WRITE) {
+            THROWF(db0::IOException) << "DRAM_IOStream::applyChanges require read-only stream";
+        }
+        
+        // buffer must include BlockIOStream's chunk header and data
+        std::vector<char> buffer(m_chunk_size + o_block_io_chunk_header::sizeOf());
+        auto &header = o_dram_chunk_header::__ref(buffer.data() + o_block_io_chunk_header::sizeOf());        
+
+        std::unordered_map<std::uint64_t, std::uint64_t> state_map;
+        // Note that all addresses from the change-log must be visited
+        // because the change log and the data chunks may be updated by other process while we read it
+        // the consistent state is only guaranteed after reaching end of the stream        
+        auto change_log_ptr = changelog_io.readChangeLogChunk();
+        bool result = false;
+        while (change_log_ptr) {
+            for (auto address: *change_log_ptr) {                
+                // the address reported in changelog must already be available in the stream
+                // it may come from a more recent update as well (and potentially may only be partially written)
+                // therefore chunk-level checksum validation is necessary
+                BlockIOStream::readFromChunk(address, buffer.data(), buffer.size());
+                // no need to keep track of DRAM allocs in read-only mode
+                updateDRAMPage(address, nullptr, header, header.getData());
+                result = true;
+            }
+            change_log_ptr = changelog_io.readChangeLogChunk();
+        }
+        
+        return result;
+    }
+    
+    void DRAM_IOStream::flush()
+    {
+        THROWF(db0::IOException) << "DRAM_IOStream::flush not allowed";
+    }
+
+    bool DRAM_IOStream::empty() const
+    {
+        return m_prefix->empty();
+    }
+
+    const DRAM_Prefix &DRAM_IOStream::getDRAMPrefix() const
+    {
+        return *m_prefix;
+    }
+
+    std::size_t DRAM_IOStream::getAllocatedSize() const
+    {
+        if (m_access_type == AccessType::READ_ONLY) {
+            THROWF(db0::IOException) << "DRAM_IOStream::getAllocatedSize require read/write stream";
+        }
+        // total allocated size equals pages + reusable chunks
+        std::size_t block_count = m_page_map.size() + m_reusable_chunks.size();
+        return block_count * m_block_size;
+    }
+    
+}

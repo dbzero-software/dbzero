@@ -1,0 +1,132 @@
+#pragma once
+
+#include <Python.h>
+#include <iostream>
+
+namespace db0::python
+
+{
+
+    template <typename T> class shared_py_object
+    {
+    public:
+        inline shared_py_object() = default;
+        inline shared_py_object(T py_object, bool incref = true)
+            : m_py_object(py_object)
+        {
+            if (m_py_object && incref) {
+                Py_INCREF(py_object);                
+            }
+        }
+        
+        shared_py_object(const shared_py_object &other)
+            : m_py_object(other.m_py_object)
+        {
+            if (m_py_object) {
+                Py_INCREF(m_py_object);
+            }
+        }
+        
+        inline ~shared_py_object() {
+            if (m_py_object) {
+                Py_DECREF(m_py_object);
+            }
+        }
+        
+        inline T get() const {
+            return m_py_object;
+        }
+
+        // bool cast
+        inline operator bool() const {
+            return m_py_object != nullptr;
+        }
+        
+        // 'steal' a reference from the shared object
+        inline T steal() 
+        {
+            auto result = m_py_object;
+            m_py_object = nullptr;
+            return result;
+        }
+
+        inline bool operator==(const shared_py_object &other) const {
+            return m_py_object == other.m_py_object;
+        }
+
+        inline bool operator!=(const shared_py_object &other) const {
+            return m_py_object != other.m_py_object;
+        }
+
+        void operator=(const shared_py_object &other)
+        {
+            this->~shared_py_object();
+            m_py_object = other.m_py_object;
+            if (m_py_object) {
+                Py_INCREF(m_py_object);
+            }
+        }
+        
+    private:
+        T m_py_object = nullptr;
+    };
+    
+    // PyTypeObject specialization
+    template <> class shared_py_object<PyTypeObject*>
+    {
+    public:
+        inline shared_py_object() = default;
+        inline shared_py_object(PyTypeObject *py_type)
+            : m_py_type(py_type)
+        {
+            // only heap types need to be incref-ed
+            if (m_py_type && m_py_type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
+                Py_INCREF(py_type);
+            }
+        }
+        
+        shared_py_object(const shared_py_object &other)
+            : m_py_type(other.m_py_type)
+        {
+            if (m_py_type && m_py_type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
+                Py_INCREF(m_py_type);
+            }
+        }
+
+        inline ~shared_py_object()
+        {
+            if (m_py_type && m_py_type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
+                Py_DECREF(m_py_type);
+            }            
+        }
+        
+        inline PyTypeObject *get() const {
+            return m_py_type;
+        }
+
+        // bool cast
+        inline operator bool() const {
+            return m_py_type != nullptr;
+        }
+        
+        inline PyTypeObject* steal() 
+        {
+            auto result = m_py_type;
+            m_py_type = nullptr;
+            return result;
+        }
+
+        void operator=(const shared_py_object &other)
+        {
+            this->~shared_py_object();
+            m_py_type = other.m_py_type;
+            if (m_py_type && m_py_type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
+                Py_INCREF(m_py_type);
+            }
+        }
+
+    private:
+        PyTypeObject *m_py_type = nullptr;
+    };
+    
+}

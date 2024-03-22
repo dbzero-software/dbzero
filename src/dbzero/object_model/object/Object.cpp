@@ -1,0 +1,480 @@
+#include "Object.hpp"
+#include <random>
+#include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/serialization/string.hpp>
+#include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/object_model/class.hpp>
+#include <dbzero/object_model/value.hpp>
+#include <dbzero/object_model/list/List.hpp>
+#include <dbzero/core/utils/uuid.hpp>
+
+namespace db0::object_model
+
+{
+    
+    GC0_Define(Object)
+    thread_local ObjectInitializerManager Object::m_init_manager;
+    
+    std::uint32_t classRef(const Class &db0_class)
+    {        
+        auto address = db0_class.getAddress();
+        if (address > std::numeric_limits<std::uint32_t>::max()) {
+            THROWF(db0::InternalException) << "Class address out of allowed range: " << address << THROWF_END;
+        }
+        return static_cast<std::uint32_t>(address);
+    }
+    
+    std::shared_ptr<Class> unloadClass(std::uint32_t class_ref, const ClassFactory &class_factory)
+    {
+        // unload class object from class factory  
+        auto class_ptr = db0::db0_ptr_reinterpret_cast<Class>()(class_ref);
+        return class_factory.getTypeByPtr(class_ptr);
+    }
+    
+    o_object::o_object(std::uint32_t class_ref, std::uint32_t instance_id, const PosVT::Data &pos_vt_data, 
+        const XValue *index_vt_begin, const XValue *index_vt_end)
+        : m_class_ref(class_ref)
+        , m_instance_id(instance_id)
+    {
+        arrangeMembers()
+            (PosVT::type(), pos_vt_data)
+            (IndexVT::type(), index_vt_begin, index_vt_end);
+    }
+
+    std::size_t o_object::measure(std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
+        const XValue *index_vt_begin, const XValue *index_vt_end)
+    {
+        return super_t::measureMembers()
+            (PosVT::type(), pos_vt_data)
+            (IndexVT::type(), index_vt_begin, index_vt_end);
+    }
+    
+    const PosVT &o_object::pos_vt() const
+    {
+        return getDynFirst(PosVT::type());
+    }
+
+    PosVT &o_object::pos_vt()
+    {
+        return getDynFirst(PosVT::type());
+    }
+
+    const IndexVT &o_object::index_vt() const
+    {
+        return getDynAfter(pos_vt(), IndexVT::type());
+    }
+    
+    IndexVT &o_object::index_vt()
+    {
+        return getDynAfter(pos_vt(), IndexVT::type());
+    }
+    
+    Object::Object(std::shared_ptr<Class> db0_class)
+        // assign temporary instance ID to distinguish from null
+        : m_instance_id(1)
+    {
+        // prepare for initialization
+        m_init_manager.addInitializer(*this, db0_class);
+    }
+    
+    Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, const PosVT::Data &pos_vt_data)
+        : super_t(fixture, classRef(*type), createInstanceId(), pos_vt_data)
+        , m_type(type)
+        , m_instance_id((*this)->m_instance_id)
+    {
+    }
+
+    Object::Object(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+        : super_t(super_t::tag_from_address(), fixture, address)
+        , m_instance_id((*this)->m_instance_id)
+    {
+    }
+    
+    Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
+        : super_t(super_t::tag_from_stem(), fixture, std::move(stem))
+        , m_type(type)
+        , m_instance_id((*this)->m_instance_id)
+    {
+    }
+    
+    Object::~Object()
+    {
+        if (!hasInstance()) {
+            // release initializer if it exists, object not created
+            m_init_manager.tryCloseInitializer(*this);
+        }
+    }
+    
+    Object *Object::makeNew(void *at_ptr, std::shared_ptr<Class> type)
+    {   
+        // placement new
+        return new (at_ptr) Object(type);
+    }
+    
+    Object *Object::makeNull(void *at_ptr)
+    {
+        return new (at_ptr) Object();
+    }
+    
+    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, 
+        std::optional<std::uint32_t> instance_id)
+    {
+        db0::v_object<o_object> stem(fixture->myPtr(address));
+        // validate the instance ID
+        if (instance_id && (*instance_id != stem->m_instance_id)) {
+            THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+        }
+        return stem;
+    }
+
+    Object *Object::unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type)
+    {
+        auto fixture = type->getFixture();
+        Object *object = new (at_ptr) Object(fixture, address);
+        object->setType(type);
+        return object;
+    }
+
+    Object *Object::unload(void *at_ptr, ObjectStem &&stem, std::shared_ptr<Class> type)
+    {        
+        auto fixture = type->getFixture();
+        // placement new
+        return new (at_ptr) Object(fixture, std::move(stem), type);        
+    }
+    
+    void Object::postInit()
+    {
+        if (!hasInstance()) {
+            auto &initializer = m_init_manager.getInitializer(*this);
+            PosVT::Data pos_vt_data;
+            auto index_vt_data = initializer.getData(pos_vt_data);
+
+            // place object in the same fixture as class
+            // construct the DBZero instance & assign to self       
+            m_type = initializer.getClassPtr();
+            assert(m_type);
+            auto fixture = this->getFixture();
+            // assign unique instance ID
+            m_instance_id = createInstanceId();
+            super_t::init(fixture, classRef(*m_type), m_instance_id, pos_vt_data,
+                index_vt_data.first, index_vt_data.second);
+            
+            // bind singleton address (now that instance exists)
+            if (m_type->isSingleton()) {
+                m_type->setSingletonAddress(*this);
+            }
+
+            initializer.close();
+        }
+
+        assert(hasInstance());
+    }
+    
+    void Object::set(const char *field_name, ObjectPtr lang_value)
+    {
+        using TypeId = db0::bindings::TypeId;
+        
+        // recognize type ID from language specific object
+        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
+        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
+
+        auto fixture = getFixture();
+        if (type_id == TypeId::MEMO_OBJECT) {
+            // object reference must be from the same fixture
+            if (fixture->getUUID() != LangToolkit::getTypeManager().extractObject(lang_value).getFixture()->getUUID()) {
+                THROWF(db0::InputException) << "Linking objects from different prefixes is not allowed. Store db0.uuid instead";
+            }
+        }
+
+        auto tryGetClass = [&]() -> std::shared_ptr<Class> {
+            if (type_id == TypeId::MEMO_OBJECT) {
+                return LangToolkit::getTypeManager().extractObject(lang_value).getClassPtr();
+            }
+            return nullptr;
+        };
+        
+        if (hasInstance()) {
+            assert(m_type);
+            fixture->onUpdated();
+            // find already existing field index
+            auto field_id = m_type->findField(field_name);
+            if (field_id == Class::NField) {
+                // try mutating the class first
+                field_id = m_type->addField(field_name, storage_class, tryGetClass());
+            }
+            
+            // FIXME: value should be destroyed on exception
+            auto value = createMember<LangToolkit>(*this, type_id, lang_value, storage_class);
+            if (field_id < (*this)->pos_vt().size()) {
+                // update attribute stored in the positional value-table
+                modify().pos_vt().set(field_id, storage_class, value);
+                return;
+            }
+            
+            // try updating field in the index-vt
+            unsigned int index_vt_pos;
+            if ((*this)->index_vt().find(field_id, index_vt_pos)) {
+                modify().index_vt().set(index_vt_pos, storage_class, value);
+                return;
+            }
+            
+            // add field to the kv_index
+            XValue xvalue(field_id, storage_class, value);
+            auto kv_index_ptr = addKV_First(xvalue);
+            if (kv_index_ptr) {
+                // try updating an existing element first
+                if (kv_index_ptr->updateExisting(xvalue)) {
+                    // in case of the IttyIndex updating an element changes the address
+                    // which needs to be updated in the object
+                    if (kv_index_ptr->getIndexType() == bindex::itty) {
+                        modify().m_kv_address = kv_index_ptr->getAddress();
+                    }
+                } else {
+                    if (kv_index_ptr->insert(xvalue)) {
+                        // type or address of the kv-index has changed which needs to be reflected
+                        modify().m_kv_address = kv_index_ptr->getAddress();
+                        modify().m_kv_type = kv_index_ptr->getIndexType();
+                    }
+                }
+            }
+        } else {
+            auto &initializer = m_init_manager.getInitializer(*this);
+            auto &db0_class = initializer.getClass();
+            // find already existing field index
+            auto at = db0_class.findField(field_name);
+            if (at == Class::NField) {
+                // update class definition
+                at = db0_class.addField(field_name, storage_class, tryGetClass());                
+            }
+            
+            // register a member with the initializer
+            initializer.set(at, storage_class, createMember<LangToolkit>(*this, type_id, lang_value, storage_class));
+        }
+    }
+    
+    Object::ObjectSharedPtr Object::get(const char *field_name) const
+    {
+        /* FIXME:
+        if (strcmp(field_name, "__cache__") == 0) {
+            if (!initialized()) {
+                THROWF(db0::InternalException)
+                    << "__cache__ members not allowed in __init__, please place them in __postinit__";
+            }
+            return bp::object(getMemberCache());
+        }
+        
+        if (strcmp(field_name, "__tags__") == 0) {
+            return bp::object(tags());
+        }
+        */
+        
+        if (isNull()) {
+            THROWF(db0::InputException) << "Object does not exist";
+        }
+        
+        // assure instance ID is valid (will be invalidated on object deletion)
+        if (hasInstance() && (m_instance_id != (*this)->m_instance_id)) {
+            THROWF(db0::InputException) << "Object has been deleted";
+        }
+        
+        auto class_ptr = m_type.get();
+        if (!class_ptr) {
+            // retrieve class from the initializer
+            class_ptr = &m_init_manager.getInitializer(*this).getClass();
+        }
+        
+        assert(class_ptr);
+        auto field_index = class_ptr->findField(field_name);        
+        if (field_index == Class::NField) {
+            /* FIXME
+            // try pulling from cached members if not found
+            return getMemberCacheReference().get(field_name);
+            */
+           THROWF(db0::InputException) << "Unknown attribute name: " << field_name;           
+        }
+        
+        std::pair<StorageClass, Value> member;
+        if (!tryGetMemberAt(field_index, member)) {
+            THROWF(db0::InputException) << "Attribute not found: " << field_name;
+        }
+        
+        return unloadMember<LangToolkit>(*this, member.first, member.second);
+    }
+    
+    bool Object::tryGetMemberAt(unsigned int index, std::pair<StorageClass, Value> &result) const
+    {        
+        if (!hasInstance()) {
+            // try retrieving from initializer
+            return m_init_manager.getInitializer(*this).tryGetAt(index, result);
+        }
+        
+        // retrieve from positionally encoded values
+        if ((*this)->pos_vt().find(index, result)) {
+            return true;
+        }
+
+        if ((*this)->index_vt().find(index, result)) {
+            return true;
+        }
+
+        auto kv_index_ptr = tryGetKV_Index();
+        if (kv_index_ptr) {
+            XValue xvalue(index);
+            if (kv_index_ptr->findOne(xvalue)) {
+                // member fetched from the kv_index
+                result.first = xvalue.m_type;
+                result.second = xvalue.m_value;
+                return true;
+            }
+        }
+
+        return false;
+    }
+    
+    db0::swine_ptr<Fixture> Object::tryGetFixture() const
+    {
+        if (!hasInstance()) {
+            // retrieve from the initializer
+            return m_init_manager.getInitializer(*this).tryGetFixture();
+        }
+        return super_t::tryGetFixture();
+    }
+
+    db0::swine_ptr<Fixture> Object::getFixture() const
+    {
+        auto fixture = this->tryGetFixture();
+        if (!fixture) {
+            THROWF(db0::InternalException) << "Object is no longer accessible";
+        }
+        return fixture;
+    }
+    
+    Memspace &Object::getMemspace() const
+    {
+        return *getFixture();
+    }
+
+    void Object::setType(std::shared_ptr<Class> type)
+    {
+        assert(!m_type);
+        m_type = type;
+    }
+
+    bool Object::isSingleton() const
+    {
+        return getType().isSingleton();
+    }
+    
+    void Object::dropMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value)
+    {
+        if (type == StorageClass::OBJECT_REF) {
+            Object instance(fixture, value.cast<std::uint64_t>());
+            instance.decRef();
+            // member will be deleted by GC0 if its ref-count = 0
+        }
+    }
+    
+    void Object::dropMembers()
+    {
+        if (hasInstance()) {
+            auto fixture = this->getFixture();
+            assert(fixture);
+            // drop pos-vt members first
+            {
+                auto &types = (*this)->pos_vt().types();
+                auto &values = (*this)->pos_vt().values();
+                auto value = values.begin();
+                for (auto type = types.begin(); type != types.end(); ++type, ++value) {
+                    dropMember(fixture, *type, *value);
+                }
+            }
+            // drop index-vt members next
+            {
+                auto &xvalues = (*this)->index_vt().xvalues();
+                for (auto &xvalue: xvalues) {
+                    dropMember(fixture, xvalue.m_type, xvalue.m_value);
+                }
+            }
+            // finally drop kv-index members
+            auto kv_index_ptr = tryGetKV_Index();
+            if (kv_index_ptr) {
+		        auto it = kv_index_ptr->beginJoin(1);
+                for (;!it.is_end(); ++it) {                    
+                    dropMember(fixture, (*it).m_type, (*it).m_value);
+                }
+            }
+        }
+    }
+    
+    void Object::unSingleton()
+    {
+        auto &type = getType();
+        // drop reference from the class
+        if (type.isSingleton()) {
+            // clear singleton address
+            type.unlinkSingleton();
+            modify().m_header.decRef();
+        }
+    }
+
+    void Object::destroy()
+    {
+        dropMembers();
+        super_t::destroy();
+    }
+    
+    FieldLayout Object::getFieldLayout() const
+    {
+        FieldLayout layout;
+        // collect pos-vt information                
+        for (auto type: (*this)->pos_vt().types()) {
+            layout.m_pos_vt_fields.push_back(type);
+        }
+        
+        // collect index-vt information        
+        for (auto &xvalue: (*this)->index_vt().xvalues()) {
+            layout.m_index_vt_fields.emplace_back(xvalue.getIndex(), xvalue.m_type);
+        }
+        return layout;
+    }
+
+    KV_Index *Object::addKV_First(const XValue &value)
+    {
+        if (!m_kv_index) {
+            if ((*this)->m_kv_address) {
+                m_kv_index = std::make_unique<KV_Index>(
+                    std::make_pair(&getMemspace(), (*this)->m_kv_address), (*this)->m_kv_type
+                );
+            } else {
+                // create new kv-index intiialized with the first value
+                m_kv_index = std::make_unique<KV_Index>(getMemspace(), value);
+                modify().m_kv_address = m_kv_index->getAddress();
+                modify().m_kv_type = m_kv_index->getIndexType();
+                // return nullptr to indicate that the value has been inserted
+                return nullptr;
+            }
+        }
+        // return reference without inserting
+        return m_kv_index.get();
+    }
+
+    const KV_Index *Object::tryGetKV_Index() const
+    {
+        // if KV index address has changed, update the cached instance
+        if (!m_kv_index || m_kv_index->getAddress() != (*this)->m_kv_address) {
+            if ((*this)->m_kv_address) {
+                m_kv_index = std::make_unique<KV_Index>(
+                    std::make_pair(&getMemspace(), (*this)->m_kv_address), (*this)->m_kv_type
+                );
+            }
+        }
+    
+        return m_kv_index.get();
+    }
+    
+    Class &Object::getType()
+    {
+        return m_type ? *m_type : m_init_manager.getInitializer(*this).getClass();
+    }
+
+}

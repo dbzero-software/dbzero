@@ -1,0 +1,127 @@
+#pragma once
+
+#include <dbzero/core/vspace/db0_ptr.hpp>
+#include <dbzero/core/collections/b_index/v_bindex.hpp>
+#include <dbzero/core/collections/full_text/FT_IndexIterator.hpp>
+
+
+namespace db0
+
+{
+
+    template <typename KeyT, typename ValueT> struct [[gnu::packed]] BlockItemT
+    {
+        using self_t = BlockItemT<KeyT, ValueT>;
+        KeyT m_key = KeyT();
+        ValueT m_value;
+
+        BlockItemT() = default;
+
+        inline BlockItemT(KeyT key, ValueT value)
+            : m_key(key)
+            , m_value(value)
+        {
+        }
+
+        // construct from value
+        inline BlockItemT(ValueT value)
+            : m_value(value)
+        {
+        }
+
+        // by-value + key comparator
+        inline bool operator<(const BlockItemT& other) const
+        {
+            if (m_value == other.m_value) {
+                return m_key < other.m_key;
+            }
+            return m_value < other.m_value;
+        }
+
+        inline bool operator!=(const BlockItemT& other) const
+        {
+            return (m_key != other.m_key) || (m_value != other.m_value);
+        }
+        
+        // cast to value (required by the FT_Iterator implementations)
+        inline operator ValueT() const
+        {
+            return m_value;
+        }
+
+        self_t &operator=(ValueT value)
+        {
+            m_value = value;
+            return *this;
+        }
+
+        struct CompT
+        {
+            inline bool operator()(const BlockItemT& a, const BlockItemT& b) const
+            {
+                return a < b;
+            }
+
+            inline bool operator()(ValueT a, const BlockItemT& b) const
+            {
+                return a < b.m_value;
+            }
+
+            inline bool operator()(const BlockItemT& a, ValueT b) const
+            {
+                return a.m_value < b;
+            }
+
+            // value-only comparator, required by the FT_Iterator implementations
+            inline bool operator()(ValueT a, ValueT b) const
+            {
+                return a < b;
+            }
+        };
+
+        // comparator for building min-heap
+        struct HeapCompT
+        {
+            bool operator()(const BlockItemT& a, const BlockItemT& b) const
+            {
+                if (a.m_key == b.m_key) {
+                    return b.m_value < a.m_value;
+                }
+                return b.m_key < a.m_key;
+            }
+        };
+    };
+    
+    template <typename KeyT, typename ValueT> class RangeTreeBlock:
+    public v_bindex<BlockItemT<KeyT, ValueT>, std::uint64_t, typename BlockItemT<KeyT, ValueT>::CompT>
+    {
+        using super_t = v_bindex<BlockItemT<KeyT, ValueT>, std::uint64_t, typename BlockItemT<KeyT, ValueT>::CompT>;
+    public:
+        using PtrT = db0_ptr<RangeTreeBlock<KeyT, ValueT>>;
+        using ItemT = BlockItemT<KeyT, ValueT>;
+        using FT_IteratorT = FT_IndexIterator<super_t, ValueT>;
+        
+        RangeTreeBlock() = default;
+        RangeTreeBlock(Memspace &memspace)
+            : super_t(memspace)
+        {
+        }
+
+        RangeTreeBlock(mptr ptr)
+            : super_t(ptr)
+        {
+        }
+
+        ItemT front() const
+        {
+            assert(!this->empty());
+            return *this->begin();
+        }
+        
+        std::unique_ptr<FT_IteratorT> makeIterator() const
+        {            
+            return std::make_unique<FT_IteratorT>(*this, -1);
+        }
+    };
+    
+}
