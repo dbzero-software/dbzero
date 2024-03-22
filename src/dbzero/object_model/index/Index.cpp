@@ -12,11 +12,13 @@ namespace db0::object_model
 
     Index::Index(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, db0::createInstanceId(), IndexType::RangeTree, IndexDataType::Auto)
+        , m_data_type((*this)->m_data_type)
     {
     }
 
     Index::Index(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
         : super_t(super_t::tag_from_address(), fixture, address)
+        , m_data_type((*this)->m_data_type)
     {
     }
 
@@ -38,6 +40,11 @@ namespace db0::object_model
             type_manager.extractObject(it->second.get()).incRef();
         };
         
+        // apply modified data type
+        if ((*this)->m_data_type != m_data_type) {
+            modify().m_data_type = m_data_type;
+        }
+
         if (m_index_builder) {
             switch (m_data_type) {
                 case IndexDataType::Int64: {
@@ -171,6 +178,14 @@ namespace db0::object_model
             return std::nullopt;        
         }
         return LangToolkit::getTypeManager().extractInt64(value);
+    }
+
+    void Index::preCommit() {
+        flush();
+    }
+
+    void Index::preCommitOp(void *ptr) {
+        static_cast<Index*>(ptr)->preCommit();
     }
 
 }

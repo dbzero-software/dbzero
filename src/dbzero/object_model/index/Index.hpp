@@ -69,9 +69,7 @@ namespace db0::object_model
         
         std::size_t size() const;
         void add(ObjectPtr key, ObjectPtr value);
-
-        void detach();
-        
+                
         /**
          * Sort results of a specific object iterator from the same fixture
          * @param iter object iterator
@@ -87,9 +85,18 @@ namespace db0::object_model
          */        
         void range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max) const;
 
+        static PreCommitFunction getPreCommitFunction() {
+            return preCommitOp;
+        }
+
+    protected:
+
+        void preCommit();
+        static void preCommitOp(void *);
+
     private:
         mutable std::shared_ptr<void> m_index_builder;
-        mutable IndexDataType m_data_type = IndexDataType::Auto;
+        mutable IndexDataType m_data_type;
         // actual index instance (must be cast to a specific type)
         mutable std::shared_ptr<void> m_index;
         // A cache of language objects held until flush/close is called

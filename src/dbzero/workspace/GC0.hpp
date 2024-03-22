@@ -29,6 +29,7 @@ namespace db0
     using GetTypedAddress = TypedAddress (*)(const void *);
     using StorageClass = db0::object_model::StorageClass;
     using DropByAddrFunction = void (*)(db0::swine_ptr<Fixture> &, std::uint64_t);
+    using PreCommitFunction = void (*)(void *);
     using LangCache = db0::object_model::LangCache;
     
     struct GC_Ops
@@ -38,6 +39,8 @@ namespace db0
         DetachFunction detach = nullptr;
         GetTypedAddress address = nullptr;
         DropByAddrFunction dropByAddr = nullptr;
+        // null allowed, preCommit handler is called just before fixture.commit
+        PreCommitFunction preCommit = nullptr;
     };
     
     struct GCOps_ID
@@ -81,7 +84,11 @@ namespace db0
             // detach function must always be provided
             assert(m_ops[T::m_gc_ops_id].detach);
             assert(m_ops[T::m_gc_ops_id].address);
-            m_vptr_map[vptr] = T::m_gc_ops_id;
+            m_vptr_map[vptr] = T::m_gc_ops_id;            
+            // if the type implements preCommit then also add it to the preCommit map
+            if (m_ops[T::m_gc_ops_id].preCommit) {
+                m_pre_commit_map[vptr] = T::m_gc_ops_id;
+            }
         }
         
         /**
@@ -128,6 +135,9 @@ namespace db0
         LangCache &m_lang_cache;
         // type / ops_id
         std::unordered_map<void*, unsigned int> m_vptr_map;
+        // the map dedicated to instances which implement preCommit
+        // it's assumed that it's much smaller than m_vptr_map (it duplicates some of its entries)
+        std::unordered_map<void*, unsigned int> m_pre_commit_map;
         
         template <typename T> static void registerSingleType()
         {

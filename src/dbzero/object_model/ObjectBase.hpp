@@ -21,7 +21,7 @@ namespace db0
     template <typename T, typename BaseT, StorageClass _CLS>
     class ObjectBase: public has_fixture<BaseT>
     {
-    public:
+    public:        
         ObjectBase() = default;
         
         // create a new instance
@@ -100,10 +100,16 @@ namespace db0
         
     protected:
         friend class db0::GC0;
+
+        // member should be overridden for derived types which need pre-commit
+        using PreCommitFunction = void (*)(void *);
+        static PreCommitFunction getPreCommitFunction() {
+            return nullptr;
+        }
+
         // called from GC0 to bind GC_Ops for this type
-        static GC_Ops getGC_Ops()
-        {
-            return { hasRefs, dropOp, detachOp, getTypedAddress, dropByAddr };
+        static GC_Ops getGC_Ops() {
+            return { hasRefsOp, dropOp, detachOp, getTypedAddress, dropByAddr, T::getPreCommitFunction() };
         }
 
     private:
@@ -119,23 +125,19 @@ namespace db0
             }
         }
         
-        static bool hasRefs(const void *vptr)
-        {
+        static bool hasRefsOp(const void *vptr) {
             return (*static_cast<const T*>(vptr))->m_header.hasRefs();
         }
 
-        static void detachOp(void *vptr)
-        {
+        static void detachOp(void *vptr) {
             static_cast<T*>(vptr)->detach();
         }        
 
-        static void dropOp(void *vptr)
-        {
+        static void dropOp(void *vptr) {
             static_cast<T*>(vptr)->destroy();
         }
         
-        static TypedAddress getTypedAddress(const void *vptr)
-        {
+        static TypedAddress getTypedAddress(const void *vptr) {
             return { _CLS, static_cast<const T*>(vptr)->getAddress() };
         }
 

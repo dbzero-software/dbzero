@@ -1,3 +1,4 @@
+subdir('types')
 subdir('Pandas')
 
 all_srcs += [
