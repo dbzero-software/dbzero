@@ -145,9 +145,6 @@ def test_push_tasks_into_zorch_model(db0_fixture):
         db0.tags(task).add("ready", "root")
     
     db0.commit()
-    print(f"Index size: {len(zorch.task_queues['etl'].ix_scheduled_at)}")
-    for x in zorch.task_queues["etl"].ix_scheduled_at.range(10, 50):
-        print(x.key)
     end = datetime.now()
     # print duration in milliseconds
     print("Duration: ", (end - start).total_seconds())

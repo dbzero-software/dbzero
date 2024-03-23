@@ -203,6 +203,14 @@ namespace db0
 			return std::make_pair(pos, total_size);
 		}
 
+		const data_t &operator*() {
+			return *m_current;
+		}
+
+		const data_t *operator->() {
+			return m_current;
+		}
+
 		/**
          * @return native iterator
          */

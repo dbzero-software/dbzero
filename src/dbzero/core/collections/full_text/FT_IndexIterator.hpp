@@ -78,7 +78,7 @@ namespace db0
 
 	    std::size_t getDepth() const override;
 
-    private:
+    protected:
         bindex_t m_data;
         const int m_direction;
         // underlying native iterator (joinable_const_iterator)
