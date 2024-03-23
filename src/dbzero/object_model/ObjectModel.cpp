@@ -7,6 +7,9 @@
 #include <dbzero/object_model/pandas/Dataframe.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/index/Index.hpp>
+#include <dbzero/object_model/set/Set.hpp>
+#include <dbzero/object_model/dict/Dict.hpp>
 
 namespace db0::object_model
 
@@ -19,11 +22,14 @@ namespace db0::object_model
         using FT_BaseIndex = db0::FT_BaseIndex;
         using TagIndex = db0::object_model::TagIndex;
         using ClassFactory = db0::object_model::ClassFactory;
+        using Index = db0::object_model::Index;
+        using Set = db0::object_model::Set;
+        using Dict = db0::object_model::Dict;
         
         return [](db0::swine_ptr<Fixture> &fixture, bool is_new)
         {
             // static GC0 bindings initialization
-            GC0::registerTypes<Class, Object, List, Block, DataFrame>();            
+            GC0::registerTypes<Class, Object, List, Block, DataFrame, Index>();
             auto &oc = fixture->getObjectCatalogue();
             if (is_new) {
                 // create GC0 instance first

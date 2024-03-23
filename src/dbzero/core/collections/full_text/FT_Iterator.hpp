@@ -62,7 +62,9 @@ namespace db0
         
         /**
          * @direction should be +1 or -1
-        */
+         * Note that join does not guarantee exact key match which needs to be checked separately
+         * @return false if end of the iterator reached
+         */        
 		virtual bool join(KeyT join_key, int direction = -1) = 0;
 		
 		/**

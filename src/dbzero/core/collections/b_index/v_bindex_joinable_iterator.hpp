@@ -25,7 +25,8 @@ namespace db0
         /**
          * NOTICE : not allowed to modify key part of the item
          */
-        item_t &modifyItem() {
+        item_t &modifyItem()
+        {
             this->m_data_buf.modify();
             return (item_t&)(*this->m_it_data);
         }
@@ -34,7 +35,8 @@ namespace db0
          * Convert to a regular iterator
          * @return as regular iterator
          */
-        iterator getIterator() const {
+        iterator getIterator() const
+        {
             return iterator(this->getMemspace(), this->m_node, this->m_index_ptr->begin(), this->m_index_ptr->end(),
                 this->m_data_buf, this->m_it_data.getIterator());
         }

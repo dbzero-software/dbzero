@@ -15,6 +15,7 @@ namespace db0::object_model {
     class Dict;
     class TagSet;
     class Index;
+    class ObjectIterator;
 
 }
 
@@ -45,6 +46,7 @@ namespace db0::python
         using TagSet = db0::object_model::TagSet;
         using PandasBlock = db0::object_model::pandas::Block;
         using Index = db0::object_model::Index;
+        using ObjectIterator = db0::object_model::ObjectIterator;
         
         PyTypeManager();
         
@@ -67,6 +69,7 @@ namespace db0::python
         Dict &extractDict(ObjectPtr dict_ptr) const;
         TagSet &extractTagSet(ObjectPtr tag_set_ptr) const;
         Index &extractIndex(ObjectPtr index_ptr) const;
+        ObjectIterator &extractObjectIterator(ObjectPtr) const;
         
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
         

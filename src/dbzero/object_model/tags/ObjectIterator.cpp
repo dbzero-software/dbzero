@@ -50,12 +50,11 @@ namespace db0::object_model
         , m_iterator_ptr(m_sorted_iterator.get())        
     {
     }
-    
-    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<BaseIterator> &&base_iterator)
+
+    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<IteratorFactory> &&factory)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
-        , m_base_iterator(validated(std::move(base_iterator)))
-        , m_iterator_ptr(m_base_iterator.get())
+        , m_factory(std::move(factory))        
     {
     }
 
@@ -65,6 +64,7 @@ namespace db0::object_model
 
     bool ObjectIterator::next(std::uint64_t &addr)
     {
+        assureInitialized();
         if (!m_iterator_ptr || m_iterator_ptr->isEnd()) {
             return false;
         } else {
@@ -77,30 +77,56 @@ namespace db0::object_model
         return LangToolkit::unloadObject(m_fixture, address, m_class_factory);
     }
     
+    bool ObjectIterator::isNull() const {
+        return !m_query_iterator && !m_sorted_iterator && !m_factory;
+    }
+
     std::unique_ptr<ObjectIterator::QueryIterator> ObjectIterator::beginFTQuery(int direction) const
-    {
-        if (!m_iterator_ptr) {
+    {   
+        if (isNull()) {
             return nullptr;
         }
+
+        // pull FT iterator from factory if available
+        if (m_factory) {
+            return m_factory->createFTIterator();
+        }
         if (!m_query_iterator) {
-            THROWF(db0::InputException) << "Invalid typed object iterator" << THROWF_END;
+            THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
         }
         return m_query_iterator->beginTyped(direction);
     }
 
     std::unique_ptr<SortedIterator> ObjectIterator::beginSorted() const
     {
-        if (!m_iterator_ptr) {
+        if (isNull()) {
             return nullptr;
         }
         if (!m_sorted_iterator) {
-            THROWF(db0::InputException) << "Invalid typed object iterator" << THROWF_END;
+            THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
         }
         return m_sorted_iterator->beginSorted();
     }
-        
+    
     bool ObjectIterator::isSorted() const {
         return m_sorted_iterator != nullptr;
+    }
+
+    void ObjectIterator::assureInitialized()
+    {
+        if (!m_initialized) {
+            if (m_query_iterator) {
+                m_iterator_ptr = m_query_iterator.get();
+            } else if (m_sorted_iterator) {
+                m_iterator_ptr = m_sorted_iterator.get();
+            } else if (m_factory) {
+                // initialize as base iterator
+                assert(!m_base_iterator);
+                m_base_iterator = m_factory->createBaseIterator();
+                m_iterator_ptr = m_base_iterator.get();
+            }
+            m_initialized = true;
+        }
     }
 
 }

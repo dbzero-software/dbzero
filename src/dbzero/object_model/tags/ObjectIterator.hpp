@@ -4,6 +4,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/core/collections/full_text/SortedIterator.hpp>
+#include <dbzero/core/collections/full_text/IteratorFactory.hpp>
 
 namespace db0::object_model
 
@@ -25,24 +26,21 @@ namespace db0::object_model
         // full-text query iterator (KeyT must be std::uint64_t)
         using QueryIterator = FT_Iterator<std::uint64_t>;
         using SortedIterator = db0::SortedIterator<std::uint64_t>;
+        using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
         // a common base for full-text and sorted iterators
         using BaseIterator = db0::FT_IteratorBase;
 
         // Construct from a full-text query iterator
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&ft_query_iterator);
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&);
 
         // Construct from a sorted iterator
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&sorted_iterator);
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&);
+        
+        // Construct from IteratorFactory (specialized on first use)
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<IteratorFactory> &&);
 
-        // Construct from a base iterator (e.g range iterator)
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<BaseIterator> &&base_iterator);
         virtual ~ObjectIterator() = default;
         
-        /**
-         * Start over iteration, place iterator object in the given memory location
-        */
-        ObjectIterator *iter(void *at_ptr, std::unique_ptr<QueryIterator> &&ft_query_iterator) const;
-
         /**
          * Retrieve next object's address from the iterator
          * @return false if end of iteration reached
@@ -71,14 +69,20 @@ namespace db0::object_model
             return m_fixture;
         }
 
+        bool isNull() const;
+        
     protected:
         mutable db0::swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;
         std::unique_ptr<QueryIterator> m_query_iterator;
         std::unique_ptr<SortedIterator> m_sorted_iterator;
-        std::unique_ptr<BaseIterator> m_base_iterator;
+        std::unique_ptr<IteratorFactory> m_factory;
         // iterator_ptr valid both in case of m_query_iterator and m_sorted_iterator
-        BaseIterator *m_iterator_ptr;
+        std::unique_ptr<BaseIterator> m_base_iterator;
+        BaseIterator *m_iterator_ptr = nullptr;
+        bool m_initialized = false;
+
+        void assureInitialized();
     };
 
 }

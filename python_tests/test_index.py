@@ -17,20 +17,20 @@ def test_can_add_elements_to_index(db0_fixture):
     assert len(index) == 1
     
 
-# def test_index_updates_are_flushed_on_commit(db0_fixture):
-#     index = db0.index()
-#     prefix_name = db0.get_current_prefix()
-#     uuid = db0.uuid(index)
-#     root = MemoTestSingleton(index)
-#     # key, value
-#     index.add(1, MemoTestClass(999))
-#     db0.commit()
-#     db0.close()
+def test_index_updates_are_flushed_on_commit(db0_fixture):
+    index = db0.index()
+    prefix_name = db0.get_current_prefix()
+    uuid = db0.uuid(index)
+    root = MemoTestSingleton(index)
+    # key, value
+    index.add(1, MemoTestClass(999))
+    db0.commit()
+    db0.close()
     
-#     db0.init(DB0_DIR)
-#     db0.open(prefix_name, "r")
-#     index = db0.fetch(uuid)
-#     assert len(index) == 1
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "r")    
+    index = db0.fetch(uuid)
+    assert len(index) == 1
 
 
 def test_range_index_can_sort_results_of_tags_query(db0_fixture):
@@ -117,4 +117,20 @@ def test_range_index_can_evaluate_range_query(db0_fixture):
     # retrieve specific range of keys
     range_query = index_1.range(50, 700)
     values = set([x.value for x in range_query])
-    # assert values == set([0, 2, 4])
+    assert values == set([0, 2, 4])
+
+
+def test_range_and_tag_filters_can_be_combined(db0_fixture):
+    ix_one = db0.index()
+    objects = [MemoTestClass(i) for i in range(5)]
+    priority = [666, 22, 99, 888, 444]
+    for i in range(5):
+        # key, value
+        ix_one.add(priority[i], objects[i])
+        if i % 2 == 0:
+            db0.tags(objects[i]).add(["tag1", "tag2"])
+    
+    # retrieve specific range of keys
+    range_query = ix_one.range(50, 700)
+    values = set([x.value for x in db0.find("tag1", ix_one.range(99, 800))])
+    assert values == set([0, 4])

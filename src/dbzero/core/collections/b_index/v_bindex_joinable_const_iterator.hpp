@@ -321,7 +321,8 @@ namespace db0
         /**
          * Step to next item forwards
          */
-        void operator++() {
+        void operator++() 
+        {
             ++m_it_data;
             if (m_it_data==m_data_buf->end()) {
                 ++m_node;
@@ -345,7 +346,8 @@ namespace db0
         /**
          * Step to next item backwards
          */
-        void operator--() {
+        void operator--() 
+        {
             if (m_it_data==m_data_buf->begin()) {
                 if (m_node==m_index_ptr->begin()) {
                     // invalidate, set end
@@ -429,7 +431,8 @@ namespace db0
         /**
          * Render this instance invalid relase all locked DBZero resources
          */
-        void reset() {
+        void reset()
+        {
             m_stack.clear();
             m_node.detach();
             m_data_buf.detach();

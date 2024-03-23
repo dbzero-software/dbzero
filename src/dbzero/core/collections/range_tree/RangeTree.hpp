@@ -197,6 +197,14 @@ namespace db0
                 // the second condition is to allow multiple range with identical element
                 return (m_is_first || !m_bounds.first || !(item < *m_bounds.first)) && (!m_bounds.second || (item < *m_bounds.second));
             }
+            
+            std::pair<std::optional<KeyT>, std::optional<KeyT> > getKeyRange() const 
+            {
+                return {
+                    m_bounds.first ? std::optional<KeyT>((*m_bounds.first).m_key) : std::nullopt,
+                    m_bounds.second ? std::optional<KeyT>((*m_bounds.second).m_key) : std::nullopt
+                };
+            }
 
             BlockT &operator*()
             {

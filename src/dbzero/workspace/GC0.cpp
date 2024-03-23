@@ -32,6 +32,10 @@ namespace db0
         DropFunction drop_op = nullptr;
         if (it != m_vptr_map.end()) {
             auto ops = m_ops[it->second];
+            // if type implements preCommit then remove it from pre-commit map as well
+            if (ops.preCommit) {
+                m_pre_commit_map.erase(vptr);                
+            }            
             if (ops.hasRefs && ops.drop && !ops.hasRefs(it->first)) {
                 // at this stage just collect the ops and remove the entry
                 drop_op = ops.drop;
@@ -61,9 +65,14 @@ namespace db0
     {
         return m_vptr_map.size();
     }
-    
+     
     void GC0::commit()
     {
+        // call pre-commit where it's provided
+        for (auto &item : m_pre_commit_map) {
+            m_ops[item.second].preCommit(item.first);
+        }
+
         super_t::clear();
         for (auto &vptr_item : m_vptr_map) {
             auto ops = m_ops[vptr_item.second];
