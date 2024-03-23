@@ -19,6 +19,7 @@ namespace db0
         using PtrT = db0_ptr<RangeTreeBlock<KeyT, ValueT>>;
         using ItemT = BlockItemT<KeyT, ValueT>;
         using RangeT = RT_Range<KeyT>;
+        using IndexT = super_t;
         using FT_IteratorT = FT_IndexIterator<super_t, ValueT>;
         
         RangeTreeBlock() = default;

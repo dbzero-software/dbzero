@@ -6,6 +6,7 @@
 #include <dbzero/core/collections/range_tree/RangeTree.hpp>
 #include <dbzero/core/collections/range_tree/RT_SortIterator.hpp>
 #include <dbzero/core/collections/range_tree/RT_RangeIterator.hpp>
+#include <dbzero/core/collections/range_tree/RangeIteratorFactory.hpp>
 #include <dbzero/core/utils/shared_void.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/core/exception/AbstractException.hpp>
@@ -95,6 +96,8 @@ namespace db0::object_model
         static void preCommitOp(void *);
 
     private:
+        using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
+
         mutable std::shared_ptr<void> m_index_builder;
         mutable IndexDataType m_data_type;
         // actual index instance (must be cast to a specific type)
@@ -167,11 +170,11 @@ namespace db0::object_model
             return std::make_unique<RT_SortIterator<T, std::uint64_t>>(getRangeTree<T>(), std::move(sorted_iterator), asc);
         }
         
-        template <typename T> std::unique_ptr<RT_RangeIterator<T, std::uint64_t> >
+        template <typename T> std::unique_ptr<IteratorFactory>
         rangeQuery(ObjectPtr min, ObjectPtr max) const
         {
             // FIXME: make inclusive flags configurable
-            return std::make_unique<RT_RangeIterator<T, std::uint64_t>>(getRangeTree<T>(), extractOptionalValue<T>(min),
+            return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(getRangeTree<T>(), extractOptionalValue<T>(min),
                 false, extractOptionalValue<T>(max), false);
         }
 

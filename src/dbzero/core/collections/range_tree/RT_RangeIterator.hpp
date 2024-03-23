@@ -25,7 +25,7 @@ namespace db0
             : RT_RangeIterator(tree, true, std::move(it), min, min_inclusive, max, max_inclusive)
         {
         }
-
+        
         // Create range-only filter
         RT_RangeIterator(const RT_TreeT &tree, std::optional<KeyT> min = {},
             bool min_inclusive = false, std::optional<KeyT> max = {}, bool max_inclusive = false)

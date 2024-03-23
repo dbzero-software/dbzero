@@ -117,4 +117,20 @@ def test_range_index_can_evaluate_range_query(db0_fixture):
     # retrieve specific range of keys
     range_query = index_1.range(50, 700)
     values = set([x.value for x in range_query])
-    # assert values == set([0, 2, 4])
+    assert values == set([0, 2, 4])
+
+
+def test_range_and_tag_filters_can_be_combined(db0_fixture):
+    ix_one = db0.index()
+    objects = [MemoTestClass(i) for i in range(5)]
+    priority = [666, 22, 99, 888, 444]
+    for i in range(5):
+        # key, value
+        ix_one.add(priority[i], objects[i])
+        if i % 2 == 0:
+            db0.tags(objects[i]).add(["tag1", "tag2"])
+    
+    # retrieve specific range of keys
+    range_query = ix_one.range(50, 700)
+    values = set([x.value for x in db0.find("tag1", ix_one.range(99, 800))])
+    assert values == set([0, 4])

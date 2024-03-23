@@ -5,6 +5,7 @@
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDNOTIterator.hpp>
 #include <dbzero/object_model/tags/TagSet.hpp>
+#include "ObjectIterator.hpp"
 
 namespace db0::object_model
 
@@ -276,7 +277,9 @@ namespace db0::object_model
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
         if (type_id == TypeId::STRING) {
             return m_base_index.addIterator(factory, makeTag(arg));
-        } else if (type_id == TypeId::LIST) {
+        }
+
+        if (type_id == TypeId::LIST) {
             // lists corresponds to OR operator
             db0::FT_ORXIteratorFactory<std::uint64_t> or_factory;
             std::vector<std::unique_ptr<QueryIterator> > inner_neg_iterators;
@@ -295,7 +298,20 @@ namespace db0::object_model
             // add constructed OR-query part
             factory.add(or_factory.release(-1));
             return true;
-        } else if (type_id == TypeId::DB0_TAG_SET) {
+        }
+
+        if (type_id == TypeId::OBJECT_ITERATOR) {
+            auto &obj_iter = LangToolkit::getTypeManager().extractObjectIterator(arg);
+            // try interpreting the iterator as FT-query
+            auto ft_query = obj_iter.beginFTQuery(-1);
+            if (!ft_query || ft_query->isEnd()) {
+                return false;                
+            }
+            factory.add(std::move(ft_query));
+            return true;
+        }
+        
+        if (type_id == TypeId::DB0_TAG_SET) {
             // collect negated iterators to be merged later
             auto &tag_set = LangToolkit::getTypeManager().extractTagSet(arg);
             std::vector<std::unique_ptr<QueryIterator> > inner_neg_iterators;
@@ -315,10 +331,10 @@ namespace db0::object_model
                 THROWF(db0::InputException) << "not implemented" << THROWF_END;
             }
             return true;
-        } else {
-            THROWF(db0::InputException) << "Unable to interpret object of type: " 
-                << LangToolkit::getTypeName(arg) << " as tag" << THROWF_END;
         }
+        
+        THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(arg) 
+            << " as a query" << THROWF_END;
     }
     
     std::uint64_t TagIndex::makeTag(ObjectPtr py_arg) const

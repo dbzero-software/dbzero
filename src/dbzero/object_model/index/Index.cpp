@@ -110,10 +110,10 @@ namespace db0::object_model
     void Index::range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max) const
     {
         const_cast<Index*>(this)->flush();
-        std::unique_ptr<db0::FT_IteratorBase> range_iter;
+        std::unique_ptr<IteratorFactory> iter_factory;
         switch (m_data_type) {
             case IndexDataType::Int64: {
-                range_iter = rangeQuery<std::int64_t>(min, max);
+                iter_factory = rangeQuery<std::int64_t>(min, max);
                 break;
             }
 
@@ -121,7 +121,7 @@ namespace db0::object_model
                 THROWF(db0::InputException) << "Unsupported index data type: " 
                     << static_cast<std::uint16_t>(m_data_type) << THROWF_END;
         }
-        new (at_ptr) ObjectIterator(this->getFixture(), std::move(range_iter));
+        new (at_ptr) ObjectIterator(this->getFixture(), std::move(iter_factory));
     }
 
     void Index::sort(const ObjectIterator &iter, ObjectIterator *at_ptr) const

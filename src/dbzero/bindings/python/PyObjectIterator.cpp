@@ -37,7 +37,7 @@ namespace db0::python
     PyObjectIterator *PyObjectIterator_iter(PyObjectIterator *self)
     {
         Py_INCREF(self);
-        return self;        
+        return self;    
     }
     
     PyObject *PyObjectIterator_iternext(PyObjectIterator *iter_obj)
@@ -72,7 +72,7 @@ namespace db0::python
         .tp_new = (newfunc)PyObjectIterator_new,
         .tp_free = PyObject_Free,
     };
-
+    
     PyTypedObjectIterator *PyTypedObjectIterator_iter(PyTypedObjectIterator *self)
     {
         Py_INCREF(self);

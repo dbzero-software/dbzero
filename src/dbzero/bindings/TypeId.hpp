@@ -24,6 +24,8 @@ namespace db0::bindings
         DATETIME = 7,
         DATE = 8,
         TUPLE = 9,
+        OBJECT_ITERATOR = 10,
+        TYPED_OBJECT_ITERATOR = 11,
         // DBZero wrappers of common language types
         MEMO_OBJECT = 10000,
         DB0_LIST = 10001,
@@ -33,7 +35,7 @@ namespace db0::bindings
         DB0_BLOCK = 10005,
         DB0_PANDAS_DATAFRAME = 10006,
         DB0_TAG_SET = 10007,
-        DB0_INDEX = 10008,
+        DB0_INDEX = 10008,        
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };

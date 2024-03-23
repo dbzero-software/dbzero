@@ -6,6 +6,7 @@
 #include "Dict.hpp"
 #include "Index.hpp"
 #include <Python.h>
+#include "PyObjectIterator.hpp"
 #include <chrono>
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
@@ -42,6 +43,8 @@ namespace db0::python
         addStaticType(&PyDict_Type, TypeId::DICT);
         addStaticType(&TagSetType, TypeId::DB0_TAG_SET);
         addStaticType(&IndexObjectType, TypeId::DB0_INDEX);
+        addStaticType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
+        addStaticType(&PyTypedObjectIteratorType, TypeId::TYPED_OBJECT_ITERATOR);
     }
     
     PyTypeManager::TypeId PyTypeManager::getTypeId(ObjectPtr ptr) const
@@ -195,6 +198,14 @@ namespace db0::python
     {
         assert(PyType_Check(py_type));
         return reinterpret_cast<TypeObjectPtr>(py_type);
+    }
+
+    PyTypeManager::ObjectIterator &PyTypeManager::extractObjectIterator(ObjectPtr obj_ptr) const
+    {
+        if (!ObjectIterator_Check(obj_ptr)) {
+            THROWF(db0::InputException) << "Expected an ObjectIterator object" << THROWF_END;
+        }
+        return reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext();
     }
 
 }
