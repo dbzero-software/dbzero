@@ -149,14 +149,16 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         auto &batch_operation = getBatchOperation(memo_ptr);
         for (std::size_t i = 0; i < nargs; ++i) {
-            if (LangToolkit::isIterable(args[i])) {
+            auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
+            // must check for string since it's is an iterable as well
+            if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
                 batch_operation->addTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     return makeTag(arg.get());
                 }));
                 continue;
             }
 
-            batch_operation->addTag(makeTag(args[i]));
+            batch_operation->addTag(makeTag(type_id, args[i]));
         }
     }
     
@@ -175,14 +177,16 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         auto &batch_operation = getBatchOperation(memo_ptr);
         for (std::size_t i = 0; i < nargs; ++i) {
-            if (LangToolkit::isIterable(args[i])) {
+            auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
+            // must check for string since it's is an iterable as well
+            if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
                 batch_operation->removeTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     return makeTag(arg.get());
                 }));                    
                 continue;
             }
 
-            batch_operation->removeTag(makeTag(args[i]));
+            batch_operation->removeTag(makeTag(type_id, args[i]));
         }
     }
     
