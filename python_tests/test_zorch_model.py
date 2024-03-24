@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from dbzero_ce import memo
+from dbzero_ce import memo, no
 from datetime import datetime
 
 
@@ -19,7 +19,7 @@ class Zorch:
 @memo
 class Task:
     def __init__(self, type, processor_type, data = None, key = None, parent = None,
-                 requirements = None):
+                 requirements = None, scheduled_at = None, deadline = None):
         # optional task key (None is allowed)
         self.key = key
         # task type e.g. 'etl'
@@ -32,9 +32,9 @@ class Task:
         # FIXME: implement
         # self.created_at = datetime.now()
         # optional deadline (affects task priority)
-        self.deadline = None
+        self.deadline = deadline
         # optional task execution scheduled date and time
-        self.scheduled_at = None
+        self.scheduled_at = scheduled_at
         # task status code
         self.status = 0
         # task associated processor type
@@ -120,7 +120,7 @@ def test_create_10k_tasks(db0_fixture):
 def test_push_tasks_into_zorch_model(db0_fixture):
     zorch = Zorch()
     task_count = 100
-    start = datetime.now()
+    start = datetime.now()    
     for i in range(task_count):
         key = f"some task key_{i}"
         # 1. check for dupicates
@@ -150,3 +150,41 @@ def test_push_tasks_into_zorch_model(db0_fixture):
     print("Duration: ", (end - start).total_seconds())
     # push tasks / sec
     print("Push tasks / sec: ", task_count / (end - start).total_seconds())
+
+
+# def test_grab_tasks_query(db0_fixture):
+#     task_count = 100
+#     available_memory = 4096
+#     available_vcpu_milli = 1000
+#     task_queue = TaskQueue()
+#     ix_scheduled_at = task_queue.ix_scheduled_at
+#     ix_deadline = task_queue.ix_deadline
+#     ix_created_at = task_queue.ix_created_at
+#     root = Task("root-etl", "etl", key = "My new ETL root task")
+    
+#     def get_resource_tags(memory=None, vcpu_milli=None):
+#         return (
+#             f"mem-{memory}" if memory is not None else "mem-default",
+#             f"vcpu-{vcpu_milli}" if vcpu_milli is not None else "vcpu-default"
+#         )
+    
+#     for i in range(task_count):
+#         task = Task("etl", "etl", scheduled_at=i)
+        
+#         ix_scheduled_at.add(i, task)
+#         ix_deadline.add(0, task)
+#         ix_created_at.add(i, task)
+        
+#         db0.tags(task).add("ready", root, get_resource_tags())
+#         if i % 3 == 0:
+#             db0.tags(task).add("paused")
+        
+#     tags = ("ready", no("paused"), get_resource_tags(available_memory, available_vcpu_milli))
+#     query = ix_deadline.sort(
+#         ix_created_at.sort(db0.find(
+#             Task, ix_scheduled_at.range(30, 100), tags)
+#         )
+#     )
+
+#     for task in query:
+#         print(f"Task type: {task.type} - scheduled_at: {task.scheduled_at}")

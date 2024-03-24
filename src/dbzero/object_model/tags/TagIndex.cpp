@@ -278,25 +278,40 @@ namespace db0::object_model
         if (type_id == TypeId::STRING) {
             return m_base_index.addIterator(factory, makeTag(arg));
         }
-
-        if (type_id == TypeId::LIST) {
-            // lists corresponds to OR operator
-            db0::FT_ORXIteratorFactory<std::uint64_t> or_factory;
+        
+        // a python iterable
+        if (type_id == TypeId::LIST || type_id == TypeId::TUPLE) {
+            bool is_or_clause = (type_id == TypeId::LIST);
+            // lists corresponds to OR operator, tuple - to AND
+            std::unique_ptr<FT_IteratorFactory<std::uint64_t> > inner_factory;
+            if (is_or_clause) {
+                inner_factory = std::make_unique<db0::FT_ORXIteratorFactory<std::uint64_t> >();
+            } else {
+                inner_factory = std::make_unique<db0::FT_ANDIteratorFactory<std::uint64_t> >();
+            }
             std::vector<std::unique_ptr<QueryIterator> > inner_neg_iterators;
             bool any = false;
+            bool all = true;
             ForwardIterator it(LangToolkit::getIterator(arg));
             for (auto end = ForwardIterator::end(); it != end; ++it) {
-                any |= addIterator((*it).get(), or_factory, inner_neg_iterators);
+                bool result = addIterator((*it).get(), *inner_factory, inner_neg_iterators);
+                any |= result;
+                all &= result;
             }
             if (!inner_neg_iterators.empty()) {
                 // FIXME: not implemented
                 THROWF(db0::InputException) << "not implemented" << THROWF_END;
             }
-            if (!any) {
+            if (is_or_clause && !any) {
                 return false;
             }
-            // add constructed OR-query part
-            factory.add(or_factory.release(-1));
+            // all components must be present with AND-clause
+            if (!is_or_clause && !all) {
+                return false;
+            }
+
+            // add constructed AND/OR query part
+            factory.add(inner_factory->release(-1));
             return true;
         }
 
@@ -333,7 +348,7 @@ namespace db0::object_model
             return true;
         }
         
-        THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(arg) 
+        THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(arg)
             << " as a query" << THROWF_END;
     }
     

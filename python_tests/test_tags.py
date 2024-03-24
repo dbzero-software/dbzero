@@ -123,3 +123,13 @@ def test_tag_queries_can_use_no_operator(db0_fixture):
     
     values = set([x.value for x in db0.find(MemoClassForTags, db0.no("tag1"))])
     assert values == set([2, 6])
+
+
+def test_tuple_can_be_used_for_tag_search(db0_fixture):
+    objects = [MemoClassForTags(i) for i in range(10)]
+    db0.tags(objects[4]).add(["tag1", "tag2"])
+    db0.tags(objects[6]).add(["tag4", "tag3"])
+    db0.tags(objects[2]).add(["tag3", "tag4"])
+        
+    values = set([x.value for x in db0.find(MemoClassForTags, ("tag4", "tag3"))])
+    assert values == set([2, 6])

@@ -41,8 +41,13 @@ namespace db0::python
         addStaticType(&PyList_Type, TypeId::LIST);
         addStaticType(&PySet_Type, TypeId::SET);
         addStaticType(&PyDict_Type, TypeId::DICT);
+        addStaticType(&PyTuple_Type, TypeId::TUPLE);
         addStaticType(&TagSetType, TypeId::DB0_TAG_SET);
         addStaticType(&IndexObjectType, TypeId::DB0_INDEX);
+        addStaticType(&ListObjectType, TypeId::DB0_LIST);
+        addStaticType(&SetObjectType, TypeId::DB0_SET);
+        addStaticType(&DictObjectType, TypeId::DB0_DICT);
+        addStaticType(&TupleObjectType, TypeId::DB0_TUPLE);
         addStaticType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
         addStaticType(&PyTypedObjectIteratorType, TypeId::TYPED_OBJECT_ITERATOR);
     }
@@ -82,14 +87,6 @@ namespace db0::python
             return TypeId::INTEGER;
         } else if (PyFloat_Check(ptr)) {
             return TypeId::FLOAT;
-        } else if (ListObject_Check(ptr)) {
-            return TypeId::DB0_LIST;
-        } else if (SetObject_Check(ptr)) {
-            return TypeId::DB0_SET;
-        } else if (DictObject_Check(ptr)) {
-            return TypeId::DB0_DICT;
-        } else if (TupleObject_Check(ptr)) {
-            return TypeId::DB0_TUPLE;
         }
         
         // Raise exception, type unknown
