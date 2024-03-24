@@ -243,4 +243,8 @@ namespace db0::python
         return PyType_Check(py_object);
     }
 
+    bool PyToolkit::isMemoObject(ObjectPtr py_object) {
+        return PyMemo_Check(py_object);
+    }
+    
 }

@@ -133,3 +133,22 @@ def test_tuple_can_be_used_for_tag_search(db0_fixture):
         
     values = set([x.value for x in db0.find(MemoClassForTags, ("tag4", "tag3"))])
     assert values == set([2, 6])
+
+
+def test_memo_instance_can_be_used_as_tag(db0_fixture):
+    root = MemoTestSingleton(0)
+    objects = [MemoClassForTags(i) for i in range(10)]
+    db0.tags(objects[4]).add(root)
+    assert db0.is_tag(root)
+
+
+def test_find_by_memo_instance_as_tag(db0_fixture):
+    # make 2 instances to be used as tags
+    tags = [MemoClassForTags(i) for i in range(3)]
+    objects = [MemoClassForTags(i) for i in range(10)]
+    db0.tags(objects[4]).add([tags[0], tags[1]])
+    db0.tags(objects[6]).add([tags[1], tags[2]])
+    db0.tags(objects[2]).add([tags[0], tags[2]])
+    
+    values = set([x.value for x in db0.find(MemoClassForTags, tags[0])])
+    assert values == set([2, 4])

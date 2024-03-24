@@ -54,6 +54,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"is_singleton", &py::isSingleton, METH_VARARGS, "Check if a specific instance is a DBZero singleton"},
     {"getrefcount", &py::getRefCount, METH_VARARGS, "Get DBZero ref counts"},
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},
+    {"is_tag", (PyCFunction)&py::MemoObject_IsTag, METH_FASTCALL, "Checks if a specific Memo instance is a tag"},
 #ifndef NDEBUG
     {"write_bytes", &py::writeBytes, METH_VARARGS, "Debugging function"},
 #endif

@@ -141,6 +141,7 @@ namespace db0::object_model
     
     void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
     {
+        using TypeId = db0::bindings::TypeId;
         if (nargs == 0) {
             return;
         }
@@ -148,15 +149,14 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         auto &batch_operation = getBatchOperation(memo_ptr);
         for (std::size_t i = 0; i < nargs; ++i) {
-            if (LangToolkit::isString(args[i])) {
-                batch_operation->addTag(makeTag(args[i]));
-            } else if (LangToolkit::isIterable(args[i])) {
+            if (LangToolkit::isIterable(args[i])) {
                 batch_operation->addTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     return makeTag(arg.get());
                 }));
-            } else {
-                THROWF(db0::InputException) << "Unable to resolve object as tag" << THROWF_END;
+                continue;
             }
+
+            batch_operation->addTag(makeTag(args[i]));
         }
     }
     
@@ -175,15 +175,14 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         auto &batch_operation = getBatchOperation(memo_ptr);
         for (std::size_t i = 0; i < nargs; ++i) {
-            if (LangToolkit::isString(args[i])) {
-                batch_operation->removeTag(makeTag(args[i]));
-            } else if (LangToolkit::isIterable(args[i])) {
+            if (LangToolkit::isIterable(args[i])) {
                 batch_operation->removeTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     return makeTag(arg.get());
-                }));
-            } else {
-                THROWF(db0::InputException) << "Unable to resolve object as tag" << THROWF_END;
+                }));                    
+                continue;
             }
+
+            batch_operation->removeTag(makeTag(args[i]));
         }
     }
     
@@ -275,8 +274,8 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
 
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
-        if (type_id == TypeId::STRING) {
-            return m_base_index.addIterator(factory, makeTag(arg));
+        if (type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT) {
+            return m_base_index.addIterator(factory, makeTag(type_id, arg));
         }
         
         // a python iterable
@@ -354,8 +353,33 @@ namespace db0::object_model
     
     std::uint64_t TagIndex::makeTag(ObjectPtr py_arg) const
     {
+        auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
+        return makeTag(type_id, py_arg);
+    }
+
+    std::uint64_t TagIndex::makeTag(TypeId type_id, ObjectPtr py_arg) const
+    {
+        if (type_id == TypeId::STRING) {
+            return makeTagFromString(py_arg);
+        }
+        if (type_id == TypeId::MEMO_OBJECT) {
+            return makeTagFromMemo(py_arg);
+        }
+        THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
+            << " as a tag" << THROWF_END;
+    }
+
+    std::uint64_t TagIndex::makeTagFromString(ObjectPtr py_arg) const
+    {
         assert(LangToolkit::isString(py_arg));
         return LangToolkit::addTag(py_arg, m_string_pool);
+    }
+    
+    std::uint64_t TagIndex::makeTagFromMemo(ObjectPtr py_arg) const
+    {
+        assert(LangToolkit::isMemoObject(py_arg));
+        // mark the object as tag
+        return LangToolkit::getTypeManager().extractObject(py_arg).asTag();
     }
     
 }

@@ -66,6 +66,7 @@ namespace db0::object_model
 
     private:    
         using BatchOperationBuilder = db0::FT_BaseIndex::BatchOperationBuilder;
+        using TypeId = db0::bindings::TypeId;
 
         const ClassFactory &m_class_factory;
         RC_LimitedStringPool &m_string_pool;
@@ -80,10 +81,13 @@ namespace db0::object_model
         BatchOperationBuilder &getBatchOperation(ObjectPtr);
 
         /**
-         * Make a tag from the provided argument (can be a string or a type)
-        */
+         * Make a tag from the provided argument (can be a string, type or a memo instance)        
+        */        
         std::uint64_t makeTag(ObjectPtr) const;
-
+        std::uint64_t makeTag(TypeId, ObjectPtr) const;
+        std::uint64_t makeTagFromString(ObjectPtr) const;
+        std::uint64_t makeTagFromMemo(ObjectPtr) const;
+        
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators) const;
     };

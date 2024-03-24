@@ -373,4 +373,20 @@ namespace db0::python
         return py_result;
     }
 
+    PyObject *MemoObject_IsTag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
+            return NULL;
+        }
+        
+        if (!PyMemo_Check(args[0])) {
+            PyErr_SetString(PyExc_TypeError, "Invalid object type");
+            return NULL;
+        }
+
+        auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
+        return PyBool_FromLong(memo_obj.ext().isTag());
+    }
+
 }

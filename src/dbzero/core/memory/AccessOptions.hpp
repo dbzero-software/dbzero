@@ -7,7 +7,8 @@ namespace db0
 
 {
 
-    enum class AccessOptions : std::uint16_t {
+    enum class AccessOptions : std::uint16_t 
+    {
         rely        = 0b00000001,
         read        = 0b00000010,
         write       = 0b00000100,
