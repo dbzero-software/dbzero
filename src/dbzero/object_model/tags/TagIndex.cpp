@@ -351,7 +351,7 @@ namespace db0::object_model
             return true;
         }
         
-        THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(arg)
+        THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(arg) 
             << " as a query" << THROWF_END;
     }
     
