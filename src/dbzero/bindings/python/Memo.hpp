@@ -42,5 +42,6 @@ namespace db0::python
     PyObject *MemoObject_GetFieldLayout(MemoObject *);
     
     PyObject *MemoObject_DescribeObject(MemoObject *);
+    PyObject *MemoObject_IsTag(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
 }

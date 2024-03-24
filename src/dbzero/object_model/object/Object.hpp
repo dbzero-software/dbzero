@@ -28,12 +28,20 @@ namespace db0::object_model
     
     std::shared_ptr<Class> unloadClass(std::uint32_t class_ref, const ClassFactory &);
     
+    enum class ObjectOptions: std::uint8_t
+    {
+        // the flag indicating that the instance has been used as a tag
+        IS_TAG = 0x01
+    };
+
+    using ObjectFlags = db0::FlagSet<ObjectOptions>;
+
     class [[gnu::packed]] o_object: public db0::o_base<o_object, 0, false>
     {
     protected: 
         using super_t = db0::o_base<o_object, 0, false>;
 
-    public:      
+    public:
         // common object header
         o_object_header m_header;
         const std::uint32_t m_class_ref;
@@ -42,6 +50,7 @@ namespace db0::object_model
         KV_Address m_kv_address;
         // kv-index type must be stored separately from the address
         bindex::type m_kv_type;
+        ObjectFlags m_flags = {};
         
         PosVT &pos_vt();
 
@@ -66,6 +75,7 @@ namespace db0::object_model
             return buf - start;
         }
         
+
         inline void incRef() {
             ++m_header.m_ref_count;
         }
@@ -178,7 +188,7 @@ namespace db0::object_model
         // @return true if instance already exists (in such case pull existing instance)
         bool hasKey(const char *str_key);
         */
-                
+        
         db0::swine_ptr<Fixture> tryGetFixture() const;
 
         db0::swine_ptr<Fixture> getFixture() const;
@@ -203,6 +213,13 @@ namespace db0::object_model
         void destroy();
                 
         bool isSingleton() const;
+        
+        /**
+         * Mark the object as tag if necessary and return the tag value
+        */
+        std::uint64_t asTag();
+        
+        bool isTag() const;
 
     private:
         // Class will only be assigned after initialization
@@ -247,3 +264,6 @@ namespace db0::object_model
     };
     
 }
+
+DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 1)
+

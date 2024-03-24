@@ -91,18 +91,25 @@ namespace db0::python
         
         // sort results of a full-text iterator
         auto iter = args[0];
-        if (!ObjectIterator_Check(iter)) {
-            PyErr_SetString(PyExc_TypeError, "sort() takes a TypedObjectIterator as argument");
+        if (!ObjectIterator_Check(iter) && !TypedObjectIterator_Check(iter)) {
+            PyErr_SetString(PyExc_TypeError, "sort() takes ObjectIterator or TypedObjectIterator as argument");
             return NULL;
         }
-        
-        auto &index = py_index->ext();
-        auto &obj_iter = reinterpret_cast<PyObjectIterator*>(iter)->ext();
-        
-        // construct sorted result iterator
-        auto iter_obj = PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
-        index.sort(obj_iter, &iter_obj->ext());
-        return iter_obj;
+
+        auto &index = py_index->ext(); 
+        if (TypedObjectIterator_Check(iter)) {
+            auto &typed_iter = reinterpret_cast<PyTypedObjectIterator*>(iter)->ext();
+            auto iter_obj = PyTypedObjectIterator_new(&PyTypedObjectIteratorType, NULL, NULL);
+            index.sort(typed_iter, &iter_obj->ext());
+            return iter_obj;
+        } else {
+            auto &obj_iter = reinterpret_cast<PyObjectIterator*>(iter)->ext();
+            
+            // construct sorted result iterator
+            auto iter_obj = PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
+            index.sort(obj_iter, &iter_obj->ext());
+            return iter_obj;
+        }
     }
 
     PyObject *IndexObject_range(IndexObject *py_index, PyObject *const *args, Py_ssize_t nargs)
@@ -118,7 +125,7 @@ namespace db0::python
         index.range(&iter_obj->ext(), args[0], nargs > 1 ? args[1] : NULL);
         return iter_obj;
     }
-
+    
     bool IndexObject_Check(PyObject *py_object)
     {
         return PyObject_TypeCheck(py_object, &IndexObjectType);

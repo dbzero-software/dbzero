@@ -141,6 +141,7 @@ namespace db0::object_model
     
     void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
     {
+        using TypeId = db0::bindings::TypeId;
         if (nargs == 0) {
             return;
         }
@@ -148,15 +149,16 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         auto &batch_operation = getBatchOperation(memo_ptr);
         for (std::size_t i = 0; i < nargs; ++i) {
-            if (LangToolkit::isString(args[i])) {
-                batch_operation->addTag(makeTag(args[i]));
-            } else if (LangToolkit::isIterable(args[i])) {
+            auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
+            // must check for string since it's is an iterable as well
+            if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
                 batch_operation->addTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     return makeTag(arg.get());
                 }));
-            } else {
-                THROWF(db0::InputException) << "Unable to resolve object as tag" << THROWF_END;
+                continue;
             }
+
+            batch_operation->addTag(makeTag(type_id, args[i]));
         }
     }
     
@@ -175,15 +177,16 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         auto &batch_operation = getBatchOperation(memo_ptr);
         for (std::size_t i = 0; i < nargs; ++i) {
-            if (LangToolkit::isString(args[i])) {
-                batch_operation->removeTag(makeTag(args[i]));
-            } else if (LangToolkit::isIterable(args[i])) {
+            auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
+            // must check for string since it's is an iterable as well
+            if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
                 batch_operation->removeTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     return makeTag(arg.get());
-                }));
-            } else {
-                THROWF(db0::InputException) << "Unable to resolve object as tag" << THROWF_END;
+                }));                    
+                continue;
             }
+
+            batch_operation->removeTag(makeTag(type_id, args[i]));
         }
     }
     
@@ -275,28 +278,43 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
 
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
-        if (type_id == TypeId::STRING) {
-            return m_base_index.addIterator(factory, makeTag(arg));
+        if (type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT) {
+            return m_base_index.addIterator(factory, makeTag(type_id, arg));
         }
-
-        if (type_id == TypeId::LIST) {
-            // lists corresponds to OR operator
-            db0::FT_ORXIteratorFactory<std::uint64_t> or_factory;
+        
+        // a python iterable
+        if (type_id == TypeId::LIST || type_id == TypeId::TUPLE) {
+            bool is_or_clause = (type_id == TypeId::LIST);
+            // lists corresponds to OR operator, tuple - to AND
+            std::unique_ptr<FT_IteratorFactory<std::uint64_t> > inner_factory;
+            if (is_or_clause) {
+                inner_factory = std::make_unique<db0::FT_ORXIteratorFactory<std::uint64_t> >();
+            } else {
+                inner_factory = std::make_unique<db0::FT_ANDIteratorFactory<std::uint64_t> >();
+            }
             std::vector<std::unique_ptr<QueryIterator> > inner_neg_iterators;
             bool any = false;
+            bool all = true;
             ForwardIterator it(LangToolkit::getIterator(arg));
             for (auto end = ForwardIterator::end(); it != end; ++it) {
-                any |= addIterator((*it).get(), or_factory, inner_neg_iterators);
+                bool result = addIterator((*it).get(), *inner_factory, inner_neg_iterators);
+                any |= result;
+                all &= result;
             }
             if (!inner_neg_iterators.empty()) {
                 // FIXME: not implemented
                 THROWF(db0::InputException) << "not implemented" << THROWF_END;
             }
-            if (!any) {
+            if (is_or_clause && !any) {
                 return false;
             }
-            // add constructed OR-query part
-            factory.add(or_factory.release(-1));
+            // all components must be present with AND-clause
+            if (!is_or_clause && !all) {
+                return false;
+            }
+
+            // add constructed AND/OR query part
+            factory.add(inner_factory->release(-1));
             return true;
         }
 
@@ -339,8 +357,33 @@ namespace db0::object_model
     
     std::uint64_t TagIndex::makeTag(ObjectPtr py_arg) const
     {
+        auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
+        return makeTag(type_id, py_arg);
+    }
+
+    std::uint64_t TagIndex::makeTag(TypeId type_id, ObjectPtr py_arg) const
+    {
+        if (type_id == TypeId::STRING) {
+            return makeTagFromString(py_arg);
+        }
+        if (type_id == TypeId::MEMO_OBJECT) {
+            return makeTagFromMemo(py_arg);
+        }
+        THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
+            << " as a tag" << THROWF_END;
+    }
+
+    std::uint64_t TagIndex::makeTagFromString(ObjectPtr py_arg) const
+    {
         assert(LangToolkit::isString(py_arg));
         return LangToolkit::addTag(py_arg, m_string_pool);
+    }
+    
+    std::uint64_t TagIndex::makeTagFromMemo(ObjectPtr py_arg) const
+    {
+        assert(LangToolkit::isMemoObject(py_arg));
+        // mark the object as tag
+        return LangToolkit::getTypeManager().extractObject(py_arg).asTag();
     }
     
 }

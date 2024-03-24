@@ -8,6 +8,8 @@
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/core/utils/uuid.hpp>
 
+DEFINE_ENUM_VALUES(db0::object_model::ObjectOptions, "IS_TAG")
+
 namespace db0::object_model
 
 {
@@ -477,4 +479,17 @@ namespace db0::object_model
         return m_type ? *m_type : m_init_manager.getInitializer(*this).getClass();
     }
 
+    std::uint64_t Object::asTag()
+    {
+        if (!(*this)->m_flags.test(ObjectOptions::IS_TAG)) {
+            // mark object as tag
+            modify().m_flags.set(ObjectOptions::IS_TAG);
+        }
+        return getAddress();
+    }
+
+    bool Object::isTag() const {
+        return (*this)->m_flags.test(ObjectOptions::IS_TAG);
+    }
+    
 }

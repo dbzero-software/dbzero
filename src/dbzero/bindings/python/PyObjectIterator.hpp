@@ -25,5 +25,6 @@ namespace db0::python
     */
     PyObject *find(PyObject *, PyObject* const *args, Py_ssize_t nargs);
     bool ObjectIterator_Check(PyObject *);
+    bool TypedObjectIterator_Check(PyObject *);
     
 }
