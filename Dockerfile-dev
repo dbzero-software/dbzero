@@ -21,6 +21,7 @@ RUN pip3 install jupyter
 RUN pip3 install bokeh
 RUN pip3 install psycopg2-binary
 RUN pip3 install sqlalchemy
+RUN pip3 install fastapi uvicorn
 
 RUN pip3 install build
 ADD requirements.txt requirements.txt
