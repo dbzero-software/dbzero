@@ -37,14 +37,10 @@ namespace db0::python
     
     extern PyTypeObject ObjectIdType;
     
-    template <typename T> PyObject *tryGetObjectId(T *self, bool durable);
+    template <typename T> PyObject *tryGetObjectId(T *self);
     
     // retrieve ID of a DBZero object
-    PyObject *getObjectId(PyObject *, PyObject *args, bool durable);
     PyObject *getObjectId(PyObject *, PyObject *args);
-    // get object ID and increment its reference count (i.e. make durable)
-    PyObject *getDurableObjectId(PyObject *, PyObject *args);
-    
     bool ObjectId_Check(PyObject *obj);
 
     // Method to pickle the object
@@ -55,8 +51,8 @@ namespace db0::python
     template <> bool Which_TypeCheck<PyObjectId>(PyObject *py_object);
 
     // tryGetObjectId specializations
-    extern template PyObject *tryGetObjectId<MemoObject>(MemoObject *, bool);
-    extern template PyObject *tryGetObjectId<ListObject>(ListObject *, bool);
-    extern template PyObject *tryGetObjectId<IndexObject>(IndexObject *, bool);
+    extern template PyObject *tryGetObjectId<MemoObject>(MemoObject *);
+    extern template PyObject *tryGetObjectId<ListObject>(ListObject *);
+    extern template PyObject *tryGetObjectId<IndexObject>(IndexObject *);
 
 }

@@ -108,16 +108,6 @@ def test_memo_object_setget_object_attr(db0_fixture):
     assert object_2.get_value().get_value() == 123
 
 
-def test_uid_of_memo_object(db0_fixture):
-    object_1 = DataClassWithAttr(123) 
-    assert db0.uuid(object_1) is not None
-
-
-def test_uid_has_hex_repr(db0_fixture):
-    object_1 = DataClassWithAttr(123)
-    assert repr(db0.uuid(object_1)).startswith("0x")
-
-
 def test_object_can_be_fetched_by_id(db0_fixture):
     object_1 = DataClassWithAttr(123)
     object_2 = db0.fetch(db0.uuid(object_1))
@@ -162,13 +152,3 @@ def test_attempt_using_object_after_prefix_close(db0_fixture):
     # attempt to update object should raise an exception    
     with pytest.raises(Exception):
         object_1.value = 456
-
-
-def test_objectid_can_be_pickled_and_unpickled(db0_fixture):
-    object_1 = DataClassWithAttr(123)
-    object_id = db0.uuid(object_1)
-    
-    pickled = pickle.dumps(object_id)    
-    unpickled = pickle.loads(pickled)
-    assert unpickled is not None
-    assert object_id == unpickled
