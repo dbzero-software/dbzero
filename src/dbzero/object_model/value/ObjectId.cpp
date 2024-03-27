@@ -5,27 +5,32 @@
 namespace db0::object_model
 
 {
-        
-    static constexpr std::size_t rawBufSize()
-    {
-        // aligned to 64 bits
-        auto len = ObjectId::rawSize();
-        if (len % 8 != 0) {
-            len += 8 - len % 8;
-        }
-        return len;
-    }
-    
-    static constexpr const char *base_32_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-        
+                    
     ObjectId ObjectId::fromBase32(const char *buf)
     {
-        throw std::runtime_error("Not implemented");
-    }
+        if (strlen(buf) != encodedSize()) {
+            THROWF(db0::InputException) << "Invalid UUID";
+        }
 
-    void ObjectId::formatBase32(char *buffer)
+        // allocate +1 byte since decoded content might be up to 1 byte larger
+        std::array<std::uint8_t, rawSize() + 1> bytes;
+        if (db0::base32_decode(buf, bytes.data()) != rawSize()) {
+            THROWF(db0::InputException) << "Invalid UUID";
+        }
+        
+        std::uint8_t *ptr = bytes.data();
+        ObjectId obj;
+        obj.m_fixture_uuid = *reinterpret_cast<std::uint64_t*>(ptr);
+        ptr += sizeof(obj.m_fixture_uuid);
+        obj.m_typed_addr.m_value = *reinterpret_cast<std::uint64_t*>(ptr);
+        ptr += sizeof(obj.m_typed_addr.m_value);
+        obj.m_instance_id = *reinterpret_cast<std::uint32_t*>(ptr);
+        return obj;
+    }
+    
+    void ObjectId::toBase32(char *buffer)
     {        
-        std::array<std::uint8_t, rawBufSize()> bytes;
+        std::array<std::uint8_t, rawSize()> bytes;
         std::memset(bytes.data(), 0, bytes.size());
         std::uint8_t *ptr = bytes.data();
         *reinterpret_cast<std::uint64_t*>(ptr) = m_fixture_uuid;
@@ -33,17 +38,7 @@ namespace db0::object_model
         *reinterpret_cast<std::uint64_t*>(ptr) = m_typed_addr.m_value;
         ptr += sizeof(m_typed_addr.m_value);
         *reinterpret_cast<std::uint32_t*>(ptr) = m_instance_id;
-        
-        // process 5 bytes at a time (8 characters)
-        auto end = buffer + encodedSize();
-        for (unsigned int i = 0; i < sizeof(bytes); i += 5) {
-            auto value = *reinterpret_cast<std::uint64_t*>(bytes.data() + i);
-            for (unsigned int j = 0; j < 8 && buffer < end; ++j, value >>= 6) {
-                *buffer++ = base_32_chars[value & 0x1F];
-            }
-        }
-        // null-terminate
-        *buffer = 0;
+        db0::base32_encode(bytes.data(), bytes.size(), buffer);
     }
     
     bool ObjectId::operator==(const ObjectId &other) const

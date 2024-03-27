@@ -69,8 +69,8 @@ namespace db0
                 }
             }
         }
-
-        return ptr - out;
+        
+        return ptr - out + 1;
     }
 
     std::size_t base32_encode(std::uint8_t *in, std::size_t size, char *out) noexcept

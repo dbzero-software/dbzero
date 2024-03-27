@@ -50,7 +50,7 @@ namespace db0::python
 
         // return as base-32 string
         char buffer[ObjectId::encodedSize() + 1];
-        object_id.formatBase32(buffer);
+        object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
     }
 
@@ -83,7 +83,7 @@ namespace db0::python
         // Format as base-32 string
         char buffer[ObjectId::encodedSize() + 1];
         auto py_object_id = reinterpret_cast<PyObjectId*>(self);
-        py_object_id->m_object_id.formatBase32(buffer);
+        py_object_id->m_object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
     }
     
