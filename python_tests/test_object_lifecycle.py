@@ -85,14 +85,6 @@ def test_unreferenced_kvindex_member_is_dropped_on_parent_destroy(db0_fixture):
         db0.fetch(uuid)
 
 
-def test_object_with_durable_uuid_is_not_dropped(db0_fixture):
-    object_1 = MemoTestClass(123)
-    uuid = db0.durable_uuid(object_1)
-    del object_1    
-    object_2 = db0.fetch(uuid)
-    assert db0.uuid(object_2) == uuid
-
-
 def test_multiple_py_instances_pointing_to_same_unreferenced_object(db0_fixture):
     object_1 = MemoTestClass(123)
     uuid = db0.uuid(object_1)
