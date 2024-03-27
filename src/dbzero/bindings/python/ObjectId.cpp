@@ -15,7 +15,7 @@ namespace db0::python
 {
 
     static PyMethodDef ObjectId_methods[] = {
-        {"__reduce__", (PyCFunction)ObjectId_reduce, METH_VARARGS, ""},
+        {"__reduce__", (PyCFunction)ObjectId_reduce, METH_VARARGS, ""},        
         {NULL}
     };
 
@@ -35,10 +35,8 @@ namespace db0::python
         .tp_new = PyType_GenericNew,
     };
     
-    template <typename T> PyObject *tryGetObjectId(T *self, bool durable)
+    template <typename T> PyObject *tryGetObjectId(T *self)
     {
-        using UUID_Options = db0::object_model::UUID_Options;
-
         auto &instance = self->ext();
         // new PyObjectId instance
         auto py_object_id = PyObject_New(PyObjectId, &ObjectIdType);
@@ -49,15 +47,14 @@ namespace db0::python
         object_id.m_instance_id = instance->m_instance_id;
         object_id.m_typed_addr.setAddress(instance.getAddress());
         object_id.m_typed_addr.setType(getStorageClass<T>());
-        if (durable) {
-            object_id.m_flags = { UUID_Options::durable };
-            self->ext().incRef();
-        }
-        
-        return reinterpret_cast<PyObject*>(py_object_id);
+
+        // return as base-32 string
+        char buffer[ObjectId::encodedSize() + 1];
+        object_id.toBase32(buffer);
+        return PyUnicode_FromString(buffer);
     }
 
-    PyObject *getObjectId(PyObject *self, PyObject *args, bool durable)
+    PyObject *getObjectId(PyObject *self, PyObject *args)
     {
         PyObject* obj_ptr;
         if (!PyArg_ParseTuple(args, "O", &obj_ptr)) {
@@ -66,37 +63,27 @@ namespace db0::python
         }
 
         if (PyMemo_Check(obj_ptr)) {
-            return runSafe(tryGetObjectId<MemoObject>, reinterpret_cast<MemoObject*>(obj_ptr), durable);
+            return runSafe(tryGetObjectId<MemoObject>, reinterpret_cast<MemoObject*>(obj_ptr));
         }
         
         if (ListObject_Check(obj_ptr)) {
-            return runSafe(tryGetObjectId<ListObject>, reinterpret_cast<ListObject*>(obj_ptr), durable);
+            return runSafe(tryGetObjectId<ListObject>, reinterpret_cast<ListObject*>(obj_ptr));
         }
 
         if (IndexObject_Check(obj_ptr)) {
-            return runSafe(tryGetObjectId<IndexObject>, reinterpret_cast<IndexObject*>(obj_ptr), durable);
+            return runSafe(tryGetObjectId<IndexObject>, reinterpret_cast<IndexObject*>(obj_ptr));
         }
 
         PyErr_SetString(PyExc_TypeError, "Argument must be a DBZero object");
         return NULL;
     }
-
-    PyObject *getObjectId(PyObject *self, PyObject *args)
-    {
-        return getObjectId(self, args, false);
-    }
-
-    PyObject *getDurableObjectId(PyObject *self, PyObject *args)
-    {
-        return getObjectId(self, args, true);
-    }
-
+        
     PyObject *ObjectId_repr(PyObject *self)
-    {        
-        // Format as hex string
-        char buffer[46];
+    {
+        // Format as base-32 string
+        char buffer[ObjectId::encodedSize() + 1];
         auto py_object_id = reinterpret_cast<PyObjectId*>(self);
-        py_object_id->m_object_id.formatHex(buffer);
+        py_object_id->m_object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
     }
     
@@ -119,11 +106,10 @@ namespace db0::python
         auto py_object_id = reinterpret_cast<PyObjectId*>(self);
         auto &object_id = py_object_id->m_object_id;
         // Create a tuple containing the arguments needed to reconstruct the object
-        PyObject *args = PyTuple_Pack(4,
+        PyObject *args = PyTuple_Pack(3,
             PyLong_FromUnsignedLongLong(object_id.m_fixture_uuid), 
             PyLong_FromUnsignedLongLong(object_id.m_typed_addr.m_value),
-            PyLong_FromUnsignedLong(object_id.m_instance_id),
-            PyLong_FromUnsignedLong(static_cast<std::uint32_t>(object_id.m_flags.value()))
+            PyLong_FromUnsignedLong(object_id.m_instance_id)            
         );
         
         // Return a tuple with the object's constructor and its arguments
@@ -132,7 +118,6 @@ namespace db0::python
     
     int ObjectId_init(PyObject* self, PyObject* state)
     {
-        using UUID_Options = db0::object_model::UUID_Options;
         if (!PyTuple_Check(state)) {
             PyErr_SetString(PyExc_ValueError, "Invalid state data");
             return -1;
@@ -143,8 +128,7 @@ namespace db0::python
         // Set the object's attributes
         object_id.m_fixture_uuid = PyLong_AsUnsignedLongLong(PyTuple_GetItem(state, 0));
         object_id.m_typed_addr = PyLong_AsUnsignedLongLong(PyTuple_GetItem(state, 1));
-        object_id.m_instance_id = PyLong_AsUnsignedLong(PyTuple_GetItem(state, 2));        
-        object_id.m_flags = db0::FlagSet<UUID_Options>(PyLong_AsUnsignedLong(PyTuple_GetItem(state, 3)));
+        object_id.m_instance_id = PyLong_AsUnsignedLong(PyTuple_GetItem(state, 2));
 
         return 0;
     }
@@ -158,9 +142,9 @@ namespace db0::python
 
         Py_RETURN_RICHCOMPARE(reinterpret_cast<PyObjectId*>(self)->m_object_id, reinterpret_cast<PyObjectId*>(other)->m_object_id, op);
     }
-
-    template PyObject *tryGetObjectId<MemoObject>(MemoObject *, bool);
-    template PyObject *tryGetObjectId<ListObject>(ListObject *, bool);
-    template PyObject *tryGetObjectId<IndexObject>(IndexObject *, bool);
+    
+    template PyObject *tryGetObjectId<MemoObject>(MemoObject *);
+    template PyObject *tryGetObjectId<ListObject>(ListObject *);
+    template PyObject *tryGetObjectId<IndexObject>(IndexObject *);
 
 }

@@ -30,7 +30,6 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"delete", &py::del, METH_VARARGS, "Delete DBZero object and corresponding Python instance"},
     {"wrap_memo_type", (PyCFunction)&py::wrapPyClass, METH_VARARGS | METH_KEYWORDS, "Wraps a memo type for use with DBZero"},
     {"uuid", &py::getObjectId, METH_VARARGS, "Get unique object ID"},
-    {"durable_uuid", &py::getDurableObjectId, METH_VARARGS, "Get durable unique object ID"},
     {"cache_stats", &py::cacheStats, METH_NOARGS, "Retrieve DBZero cache statistics"},
     {"clear_cache", &py::clearCache, METH_NOARGS, "Clear DBZero cache"},
     {"list", (PyCFunction)&py::makeList, METH_FASTCALL, "Create a new DBZero list instance"},

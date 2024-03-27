@@ -72,27 +72,20 @@ namespace db0::python
         }
 
         // detect which argument type was used
-        auto type_id = whichType<PyObjectId, PyTypeObject>(py_object);
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->ext();
-        switch (type_id) {
-            case 0 : {
-                auto py_object_id = reinterpret_cast<PyObjectId*>(py_object);
-                auto fixture = snapshot.getFixture(py_object_id->m_object_id.m_fixture_uuid);
-                return fetchObject(fixture, py_object_id->m_object_id);
-            }
-            break;
-            
-            case 1 : {                
-                return fetchSingletonObject(snapshot, reinterpret_cast<PyTypeObject*>(py_object));
-            }
-            break;
-
-            default: {
-                PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-                return NULL;        
-            }
-            break;
+        // decode ObjectId from string
+        if (PyUnicode_Check(py_object)) {            
+            auto object_id = ObjectId::fromBase32(PyUnicode_AsUTF8(py_object));                
+            auto fixture = snapshot.getFixture(object_id.m_fixture_uuid);
+            return fetchObject(fixture, object_id);
         }
+        
+        if (PyType_Check(py_object)) {
+            return fetchSingletonObject(snapshot, reinterpret_cast<PyTypeObject*>(py_object));
+        }
+
+        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        return NULL;
     }
     
     PyObject *PySnapshot_fetch(PyObject *self, PyObject *args)

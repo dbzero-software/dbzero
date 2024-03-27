@@ -8,21 +8,16 @@ namespace db0::object_model
 
 {
 
-    enum class UUID_Options : std::uint8_t
-    {
-        // durable flag indicates that when creating UUID the ref-count was incremented
-        durable = 0b00000001
-    };
-
     struct ObjectId
-    {                        
+    {    
         std::uint64_t m_fixture_uuid;
         TypedAddress m_typed_addr;
         std::uint32_t m_instance_id;
-        db0::FlagSet<UUID_Options> m_flags;
         
-        // buf must be at least 46 bytes long
-        void formatHex(char *buf);
+        // encodes with base-32 characters (no format prefix / suffix)
+        // the buffer must be at least 'encodedSize' + 1 bytes long
+        void toBase32(char *buf);
+        static ObjectId fromBase32(const char *buf);
         
         bool operator==(const ObjectId &other) const;
 
@@ -35,8 +30,15 @@ namespace db0::object_model
         bool operator>(const ObjectId &other) const;
 
         bool operator>=(const ObjectId &other) const;
+
+        static constexpr std::size_t rawSize() {
+            return sizeof(m_fixture_uuid) + sizeof(m_typed_addr) + sizeof(m_instance_id);
+        }
+
+        static constexpr std::size_t encodedSize() {
+            return (rawSize() * 8 - 1) / 5 + 1;
+        }
     };
 
 }
 
-DECLARE_ENUM_VALUES(db0::object_model::UUID_Options, 1)

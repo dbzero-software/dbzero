@@ -48,25 +48,15 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid open arguments";
         }
 
-        // detect which argument type was used
-        auto type_id = whichType<PyObjectId, PyTypeObject>(py_object);
-        switch (type_id) {
-            case 0 :
-                return fetchObject(reinterpret_cast<PyObjectId*>(py_object)->m_object_id);
-            break;
-            
-            case 1 : {
-                return fetchSingletonObject(reinterpret_cast<PyTypeObject*>(py_object));
-            }
-            break;
-
-            default: {
-                PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-                return NULL;        
-            }
-            break;
-        }
-        return NULL;
+        // decode ObjectId from string
+        if (PyUnicode_Check(py_object)) {
+            auto uuid = PyUnicode_AsUTF8(py_object);
+            return fetchObject(ObjectId::fromBase32(uuid));
+        } else if (PyType_Check(py_object)) {
+            return fetchSingletonObject(reinterpret_cast<PyTypeObject*>(py_object));
+        }        
+        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        return NULL;        
     }
     
     PyObject *fetch(PyObject *self, PyObject *args)

@@ -26,6 +26,7 @@ tests_files = [
 'VBIndexTests.cpp',
 'DRAMSpaceTest.cpp',
 'VObjectTest.cpp',
+'Base32Test.cpp',
 'BitSpaceTests.cpp',
 'VSpaceTests.cpp',
 'DHeapTests.cpp',
