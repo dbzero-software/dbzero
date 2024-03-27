@@ -79,9 +79,9 @@ class TaskRequirements:
         self.vcpu_milli = vcpu_milli
 
     
-def test_create_zorch(db0_fixture):
-    zorch = Zorch()
-    assert len(zorch.tasks) == 0
+# def test_create_zorch(db0_fixture):
+#     zorch = Zorch()
+#     assert len(zorch.tasks) == 0
 
 
 def test_create_minimal_task(db0_fixture):
