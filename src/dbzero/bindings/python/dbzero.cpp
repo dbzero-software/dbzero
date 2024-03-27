@@ -131,5 +131,10 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         return NULL;
     }
 
+     if (!initPyType(mod, "Datetime", py::DateTimeObjectType)) {
+        return NULL;
+    }
+
+
     return mod;
 }

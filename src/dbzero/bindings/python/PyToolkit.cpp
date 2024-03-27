@@ -12,8 +12,10 @@
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Set.hpp>
 #include <dbzero/bindings/python/Dict.hpp>
+#include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
+#include <dbzero/object_model/datetime/DateTime.hpp>
 
 namespace db0::python
 
@@ -195,6 +197,25 @@ namespace db0::python
         // add list object to cache
         lang_cache.add(address, tuple_object, false);
         return tuple_object;
+    } 
+
+
+    PyToolkit::ObjectPtr PyToolkit::unloadDateTime(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
+        std::optional<std::uint32_t> instance_id)
+    {
+        // try pulling from cache first
+        auto &lang_cache = fixture->getLangCache();
+        auto object_ptr = lang_cache.get(address);
+        if (object_ptr) {
+            // return from cache
+            return object_ptr;
+        }
+        auto datetime_object = DateTimeDefaultObject_new();
+        // retrieve actual DBZero instance        
+        db0::object_model::DateTime::unload(&datetime_object->ext(), fixture, address);
+        // add list object to cache
+        lang_cache.add(address, datetime_object, false);
+        return datetime_object;
     }
 
     std::uint64_t PyToolkit::addTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)

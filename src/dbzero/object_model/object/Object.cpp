@@ -248,7 +248,6 @@ namespace db0::object_model
                 // update class definition
                 at = db0_class.addField(field_name, storage_class, tryGetClass());                
             }
-            
             // register a member with the initializer
             initializer.set(at, storage_class, createMember<LangToolkit>(*this, type_id, lang_value, storage_class));
         }

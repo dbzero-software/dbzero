@@ -103,6 +103,9 @@ namespace db0::python
 
         static ObjectPtr unloadTuple(db0::swine_ptr<Fixture> &, std::uint64_t address,
             std::optional<std::uint32_t> instance_id = {});
+        
+        static ObjectPtr unloadDateTime(db0::swine_ptr<Fixture> &, std::uint64_t address,
+            std::optional<std::uint32_t> instance_id = {});
 
         // Unload dbzero block instance
         static ObjectPtr unloadBlock(db0::swine_ptr<Fixture> &fixture, std::uint64_t address);
