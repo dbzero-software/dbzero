@@ -1,5 +1,6 @@
 #include "ObjectId.hpp"
 #include <cstring>
+#include <dbzero/core/utils/base32.hpp>
 
 namespace db0::object_model
 
@@ -7,17 +8,23 @@ namespace db0::object_model
         
     static constexpr std::size_t rawBufSize()
     {
-        // aligned to 5 bytes / 8 characters
+        // aligned to 64 bits
         auto len = ObjectId::rawSize();
-        if (len % 5 != 0) {
-            len += 5 - len % 5;
+        if (len % 8 != 0) {
+            len += 8 - len % 8;
         }
         return len;
     }
     
-    void ObjectId::formatBase32(char *buffer)
+    static constexpr const char *base_32_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+        
+    ObjectId ObjectId::fromBase32(const char *buf)
     {
-        static const char *base_32_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+        throw std::runtime_error("Not implemented");
+    }
+
+    void ObjectId::formatBase32(char *buffer)
+    {        
         std::array<std::uint8_t, rawBufSize()> bytes;
         std::memset(bytes.data(), 0, bytes.size());
         std::uint8_t *ptr = bytes.data();
@@ -27,7 +34,7 @@ namespace db0::object_model
         ptr += sizeof(m_typed_addr.m_value);
         *reinterpret_cast<std::uint32_t*>(ptr) = m_instance_id;
         
-        // process 3 bytes at a time (4 characters)
+        // process 5 bytes at a time (8 characters)
         auto end = buffer + encodedSize();
         for (unsigned int i = 0; i < sizeof(bytes); i += 5) {
             auto value = *reinterpret_cast<std::uint64_t*>(bytes.data() + i);

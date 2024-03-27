@@ -17,7 +17,8 @@ namespace db0::object_model
         // encodes with base-32 characters (no format prefix / suffix)
         // the buffer must be at least 'encodedSize' + 1 bytes long
         void formatBase32(char *buf);
-        
+        static ObjectId fromBase32(const char *buf);
+                
         bool operator==(const ObjectId &other) const;
 
         bool operator!=(const ObjectId &other) const;
