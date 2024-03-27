@@ -12,5 +12,14 @@ namespace db0
      * @return number of bytes written to the output buffer
     */
     std::size_t base32_decode(const char *buf, std::uint8_t *out) noexcept;
-
+    
+    /**
+     * Encode bytes as base-32
+     * @param in input buffer
+     * @param size number of bytes to encode
+     * @param out output buffer of a sufficient size
+     * @return number of characters written to the output buffer
+    */
+    std::size_t base32_encode(std::uint8_t *in, std::size_t size, char *out) noexcept;
+    
 }
