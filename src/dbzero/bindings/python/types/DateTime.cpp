@@ -12,40 +12,57 @@ namespace db0::python
         {NULL}
     };
 
-    static PyObject *DateTimeObject_rq(DateTimeObject *datetime_obj, PyObject *other, int op) {
-        if (DateTimeObject_Check(other)) {
-            DateTimeObject * other_datetime = (DateTimeObject*) other;
-            switch (op)
-            {
-            case Py_EQ:
-                return PyBool_fromBool(datetime_obj->ext() == other_datetime->ext());
-            case Py_NE:
-                return PyBool_fromBool(datetime_obj->ext() != other_datetime->ext());
-            case Py_LT:
-                return PyBool_fromBool(datetime_obj->ext() < other_datetime->ext());
-            case Py_GT:
-                return PyBool_fromBool(datetime_obj->ext() > other_datetime->ext());
-            default:
-                Py_RETURN_NOTIMPLEMENTED;
+    static PyObject *DateTimeObject_rq(PyObject *first, PyObject *other, int op) {
+        PyDateTime_IMPORT;
+        if(first == Py_None || other == Py_None){
+            bool equal = first == other;
+            if(op == Py_EQ){
+                return PyBool_fromBool(equal);
+            } else if (op == Py_NE){
+                return PyBool_fromBool(!equal);
+            } else {
+                PyErr_SetString(PyExc_NotImplementedError, "Not Implemented");
+                return NULL;
             }
-        } else if (DateTimeObject_Check(other)) {
-            std::uint64_t datetime_uint64 = db0::object_model::pyDateTimeToToUint64(other);
-            switch (op)
-            {
-            case Py_EQ:
-                return PyBool_fromBool(datetime_obj->ext().getDatetimeAsUint64() == datetime_uint64);
-            case Py_NE:
-                return PyBool_fromBool(datetime_obj->ext().getDatetimeAsUint64() != datetime_uint64);
-            case Py_LT:
-                return PyBool_fromBool(datetime_obj->ext().getDatetimeAsUint64() < datetime_uint64);
-            case Py_GT:
-                return PyBool_fromBool(datetime_obj->ext().getDatetimeAsUint64() > datetime_uint64);
-            default:
-                Py_RETURN_NOTIMPLEMENTED;
-            }
-        } else {
-            Py_RETURN_NOTIMPLEMENTED;
         }
+        uint64_t lhs_datetime, rhs_datetime;
+        if (DateTimeObject_Check(first)){
+            lhs_datetime = ((DateTimeObject*) first)->ext().getDatetimeAsUint64();
+        } else if (PyDateTime_Check(first)){
+            lhs_datetime = db0::object_model::pyDateTimeToToUint64(first);
+        } else {
+            PyErr_SetString(PyExc_NotImplementedError, "Not Implemented");
+            return NULL;
+        }
+            
+        if (DateTimeObject_Check(other)){
+            rhs_datetime = ((DateTimeObject*) other)->ext().getDatetimeAsUint64();
+        } else if (PyDateTime_Check(other)){
+            rhs_datetime = db0::object_model::pyDateTimeToToUint64(other);
+        } else {
+             PyErr_SetString(PyExc_NotImplementedError, "Not Implemented");
+            return NULL;
+        }
+
+        switch (op)
+        {
+        case Py_EQ:
+            return PyBool_fromBool(lhs_datetime == rhs_datetime);
+        case Py_NE:
+            return PyBool_fromBool(lhs_datetime != rhs_datetime);
+        case Py_LT:
+            return PyBool_fromBool(lhs_datetime < rhs_datetime);
+        case Py_LE:
+            return PyBool_fromBool(lhs_datetime <= rhs_datetime);
+        case Py_GT:
+            return PyBool_fromBool(lhs_datetime > rhs_datetime);
+        case Py_GE:
+            return PyBool_fromBool(lhs_datetime >= rhs_datetime);
+        default:
+            PyErr_SetString(PyExc_NotImplementedError, "Not Implemented");
+            return NULL;
+        }
+
     }
 
     PyObject *date_year(DateTimeObject *datetime_obj, void *)

@@ -204,18 +204,21 @@ namespace db0::python
         std::optional<std::uint32_t> instance_id)
     {
         // try pulling from cache first
-        auto &lang_cache = fixture->getLangCache();
-        auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
-            // return from cache
-            return object_ptr;
-        }
+        PyDateTime_IMPORT;
         auto datetime_object = DateTimeDefaultObject_new();
         // retrieve actual DBZero instance        
         db0::object_model::DateTime::unload(&datetime_object->ext(), fixture, address);
         // add list object to cache
-        lang_cache.add(address, datetime_object, false);
-        return datetime_object;
+        PyObject * py_datetime = PyDateTime_FromDateAndTime(
+            datetime_object->ext().getYear(),
+            datetime_object->ext().getMonth(),
+            datetime_object->ext().getDay(),
+            datetime_object->ext().getHour(),
+            datetime_object->ext().getMinute(),
+            datetime_object->ext().getSecond(),
+            datetime_object->ext().getMillisecond()
+        );
+        return py_datetime; 
     }
 
     std::uint64_t PyToolkit::addTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)
