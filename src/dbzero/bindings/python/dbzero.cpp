@@ -29,7 +29,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"fetch", &py::fetch, METH_VARARGS, "Retrieve DBZero object instance by its UUID or type (in case of a singleton)"},
     {"delete", &py::del, METH_VARARGS, "Delete DBZero object and corresponding Python instance"},
     {"wrap_memo_type", (PyCFunction)&py::wrapPyClass, METH_VARARGS | METH_KEYWORDS, "Wraps a memo type for use with DBZero"},
-    {"uuid", &py::getObjectId, METH_VARARGS, "Get unique object ID"},
+    {"uuid", (PyCFunction)&py::getObjectId, METH_FASTCALL, "Get unique object ID"},
     {"cache_stats", &py::cacheStats, METH_NOARGS, "Retrieve DBZero cache statistics"},
     {"clear_cache", &py::clearCache, METH_NOARGS, "Clear DBZero cache"},
     {"list", (PyCFunction)&py::makeList, METH_FASTCALL, "Create a new DBZero list instance"},
@@ -54,6 +54,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"getrefcount", &py::getRefCount, METH_VARARGS, "Get DBZero ref counts"},
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},
     {"is_tag", (PyCFunction)&py::MemoObject_IsTag, METH_FASTCALL, "Checks if a specific Memo instance is a tag"},
+    {"to_dict", (PyCFunction)&py::toDict, METH_FASTCALL, "Serialize DBZero object as a Python dict"},
 #ifndef NDEBUG
     {"write_bytes", &py::writeBytes, METH_VARARGS, "Debugging function"},
 #endif

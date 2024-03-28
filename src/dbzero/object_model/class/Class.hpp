@@ -165,11 +165,11 @@ namespace db0::object_model
             const char *type_id, ClassFlags);
                 
         void unlinkSingleton();
-
+        
     public:
         static constexpr std::uint32_t NField = std::numeric_limits<std::uint32_t>::max();
                 
-    private:        
+    private:
         // member field definitions
         VFieldVector m_members;
         mutable TypeObjectSharedPtr m_lang_type_ptr = 0;

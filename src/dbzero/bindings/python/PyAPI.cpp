@@ -371,6 +371,27 @@ namespace db0::python
         return NULL;
     }
 
+    PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "toDict requires exactly 1 argument");
+            return NULL;
+        }
+
+        if (!PyMemo_Check(args[0])) {
+            PyErr_SetString(PyExc_TypeError, "Invalid object type");
+            return NULL;
+        }
+        
+        auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
+        PyObject *py_result = PyDict_New();
+        memo_obj.ext().forAll([py_result](const std::string &key, ObjectSharedPtr py_value) {
+            PyDict_SetItemString(py_result, key.c_str(), py_value.steal());
+        });
+        return py_result;
+    }
+    
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>() {
         return db0::object_model::StorageClass::OBJECT_REF;
     }

@@ -40,9 +40,9 @@ namespace db0::python
     template <typename T> PyObject *tryGetObjectId(T *self);
     
     // retrieve ID of a DBZero object
-    PyObject *getObjectId(PyObject *, PyObject *args);
+    PyObject *getObjectId(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     bool ObjectId_Check(PyObject *obj);
-
+    
     // Method to pickle the object
     PyObject *ObjectId_reduce(PyObject *);
     int ObjectId_init(PyObject* self, PyObject* state);

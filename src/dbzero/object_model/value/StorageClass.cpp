@@ -49,6 +49,24 @@ namespace db0::object_model
         m_storage_class_map[int_id] = storage_class;
     }
     
+    bool isReference(StorageClass type)
+    {
+        switch (type) {
+            case StorageClass::OBJECT_REF:
+            case StorageClass::DB0_LIST:
+            case StorageClass::DB0_DICT:
+            case StorageClass::DB0_SET:
+            case StorageClass::DB0_TUPLE:
+            case StorageClass::DB0_BLOCK:
+            case StorageClass::DB0_PANDAS_DATAFRAME:
+            case StorageClass::DB0_CLASS:
+            case StorageClass::DB0_INDEX:
+                return true;
+            default:
+                return false;
+        }
+    }
+
 }
 
 namespace std

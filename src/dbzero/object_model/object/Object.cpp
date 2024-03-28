@@ -492,4 +492,47 @@ namespace db0::object_model
         return (*this)->m_flags.test(ObjectOptions::IS_TAG);
     }
     
+    void Object::forAll(std::function<void(const std::string &, const XValue &)> f) const
+    {
+        // visit pos-vt members first
+        auto &obj_type = this->getType();
+        {
+            auto &types = (*this)->pos_vt().types();
+            auto &values = (*this)->pos_vt().values();
+            auto value = values.begin();
+            unsigned int index = 0;
+            for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
+                f(obj_type.get(index).m_name, { index, *type, *value });
+            }
+        }
+        // visit index-vt members next
+        {
+            auto &xvalues = (*this)->index_vt().xvalues();
+            for (auto &xvalue: xvalues) {
+                f(obj_type.get(xvalue.getIndex()).m_name, xvalue);
+            }
+        }
+        // finally visit kv-index members
+        auto kv_index_ptr = tryGetKV_Index();
+        if (kv_index_ptr) {
+            auto it = kv_index_ptr->beginJoin(1);
+            for (;!it.is_end(); ++it) {
+                f(obj_type.get((*it).getIndex()).m_name, *it);
+            }
+        }       
+    }
+
+    void Object::forAll(std::function<void(const std::string &, ObjectSharedPtr)> f) const
+    {
+        forAll([&](const std::string &name, const XValue &xvalue) {
+            // all references convert to UUID
+            auto py_member = unloadMember<LangToolkit>(*this, xvalue.m_type, xvalue.m_value);
+            if (isReference(xvalue.m_type)) {
+                f(name, LangToolkit::getUUID(py_member.get()));
+            } else {
+                f(name, py_member);
+            }
+        });
+    }
+    
 }

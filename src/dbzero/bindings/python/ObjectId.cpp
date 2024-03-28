@@ -54,14 +54,14 @@ namespace db0::python
         return PyUnicode_FromString(buffer);
     }
 
-    PyObject *getObjectId(PyObject *self, PyObject *args)
+    PyObject *getObjectId(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        PyObject* obj_ptr;
-        if (!PyArg_ParseTuple(args, "O", &obj_ptr)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
             return NULL;
         }
 
+        auto obj_ptr = args[0];
         if (PyMemo_Check(obj_ptr)) {
             return runSafe(tryGetObjectId<MemoObject>, reinterpret_cast<MemoObject*>(obj_ptr));
         }

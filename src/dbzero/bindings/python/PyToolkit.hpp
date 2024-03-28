@@ -107,6 +107,9 @@ namespace db0::python
         // Unload dbzero block instance
         static ObjectPtr unloadBlock(db0::swine_ptr<Fixture> &fixture, std::uint64_t address);
         
+        // generate UUID of a DBZero object
+        static ObjectPtr getUUID(ObjectPtr py_object);
+
         // Try converting specific PyObject instance into a tag, possibly adding a new tag into the pool
         using StringPoolT = db0::pools::RC_LimitedStringPool;
         static std::uint64_t addTag(ObjectPtr py_object, StringPoolT &);
