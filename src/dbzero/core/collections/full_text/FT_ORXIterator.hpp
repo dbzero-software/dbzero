@@ -26,10 +26,7 @@ namespace db0
          */
         FT_JoinORXIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction, bool m_is_orx,
             bool lazy_init = false);
-
-        FT_JoinORXIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction, bool m_is_orx,
-            const db0::QueryHash &, bool lazy_init = false);
-
+		
 		virtual ~FT_JoinORXIterator();
 
 		bool isEnd() const override;

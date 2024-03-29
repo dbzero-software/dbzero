@@ -2,32 +2,6 @@
 #include "FT_ORXIterator.hpp"
 #include <dbzero/core/utils/heap_utils.hpp>
 
-namespace
-
-{
-
-    template <typename key_t> db0::QueryHash
-    getHash(const std::vector<std::unique_ptr<db0::FT_Iterator<key_t>>> &joinables)
-    {
-        db0::QueryHash query_hash { std::hash<std::string>()("NAND"), 0, 1u };
-        // first from joinables is position sensitive
-        if (!joinables.empty()) {
-            auto it = joinables.begin();
-            // combine as position sensitive
-            query_hash.combine((**it).getQueryHash(), 1u);
-            std::vector<db0::QueryHash> not_hash;
-            for (++it;it != joinables.end();++it) {
-                not_hash.emplace_back((**it).getQueryHash());
-            }
-            if (!not_hash.empty()) {
-                query_hash += db0::getQueryHash(not_hash);
-            }
-        }
-        return query_hash;
-    }
-
-}
-
 namespace db0 
 
 {
@@ -123,17 +97,10 @@ namespace db0
         this->next(-1, buf);
     }
     
-    template<typename key_t> FT_ANDNOTIterator<key_t>
-        ::FT_ANDNOTIterator(std::vector<std::unique_ptr<FT_Iterator<key_t>>> &&inner_iterators, int direction, bool lazy_init)
-        : FT_ANDNOTIterator<key_t>(std::move(inner_iterators), direction, ::getHash(inner_iterators), lazy_init)
-    {
-    }
-
     template<typename key_t>
     FT_ANDNOTIterator<key_t>::FT_ANDNOTIterator(std::vector<std::unique_ptr<FT_Iterator<key_t>>> &&inner_iterators,
-        int direction, const db0::QueryHash &query_hash, bool lazy_init)
-        : super_t(query_hash)
-        , m_direction(direction)
+        int direction, bool lazy_init)        
+        : m_direction(direction)
         , m_joinable(std::move(inner_iterators))
     {
         if (m_joinable.empty()) {
@@ -315,7 +282,7 @@ namespace db0
             sub_iterators.emplace_back(sub_it->clone(clone_map_ptr));
         }
         std::unique_ptr<FT_Iterator<key_t>> cloned(
-            std::make_unique<FT_ANDNOTIterator>(std::move(sub_iterators), m_direction, this->m_query_hash)
+            std::make_unique<FT_ANDNOTIterator>(std::move(sub_iterators), m_direction)
         );
 
         cloned->setID(this->getID());
@@ -333,7 +300,7 @@ namespace db0
         for(const auto &sub_it : m_joinable) {
             sub_iterators.emplace_back(sub_it->beginTyped(direction));
         }
-        auto result = std::make_unique<FT_ANDNOTIterator>(std::move(sub_iterators), direction, this->m_query_hash);
+        auto result = std::make_unique<FT_ANDNOTIterator>(std::move(sub_iterators), direction);
         result->setID(this->getID());
         return result;
     }

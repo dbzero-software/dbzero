@@ -4,12 +4,6 @@ namespace db0
 
 {
 
-    template <typename key_t> FT_Iterator<key_t>
-        ::FT_Iterator(const QueryHash &query_hash)        
-        : m_query_hash(query_hash)
-    {
-    }
-    
     template <typename key_t> void FT_Iterator<key_t>::setLabel(const std::string &label) {
         m_label = label;
     }
@@ -29,11 +23,7 @@ namespace db0
     template <typename key_t> std::uint64_t FT_Iterator<key_t>::getIndexKey() const {
         return std::uint64_t();
     }
-
-    template <typename key_t> db0::QueryHash FT_Iterator<key_t>::getQueryHash() const {
-        return this->m_query_hash;
-    }
-    
+        
     template <typename key_t> const std::type_info &FT_Iterator<key_t>::keyTypeId() const {
         return typeid(key_t);
     }

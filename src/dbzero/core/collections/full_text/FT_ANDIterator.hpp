@@ -3,7 +3,6 @@
 #include <list>
 #include <functional>
 #include "FT_Iterator.hpp"
-#include "QueryHash.hpp"
 #include "FT_IteratorBase.hpp"
 #include "FT_IteratorFactory.hpp"
 
@@ -30,9 +29,6 @@ namespace db0
          */
 		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction,
 		    bool lazy_init = false);
-
-        FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction,
-            const db0::QueryHash &, bool lazy_init = false);
 
 		/**
          * join pair of iterators
@@ -121,7 +117,7 @@ namespace db0
          */
 		struct tag_cloned {};
 		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&, int direction, bool is_end,
-		    std::uint64_t e_pos, key_t join_key, const QueryHash &, tag_cloned);
+		    std::uint64_t e_pos, key_t join_key, tag_cloned);
 	};
 
     template <typename key_t = std::uint64_t, bool UniqueKeys = true>

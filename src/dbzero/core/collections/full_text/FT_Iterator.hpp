@@ -6,7 +6,6 @@
 #include "FT_IteratorBase.hpp"
 #include "IteratorVisitor.hpp"
 #include "CloneMap.hpp"
-#include "QueryHash.hpp"
 
 namespace db0
 
@@ -21,9 +20,7 @@ namespace db0
 	public:
 		using super_t = FT_IteratorBase;
 	    using MutateFunction = std::function<std::pair<bool,bool>(FT_Iterator<KeyT> &)>;
-
-		FT_Iterator(const QueryHash &);
-        
+		        
         /**
          * Retrieve currently iterated item's key
          * @return current item's key
@@ -125,9 +122,7 @@ namespace db0
          * @return depth of the query tree spanned by this iterator
          */
         virtual std::size_t getDepth() const = 0;
-
-        QueryHash getQueryHash() const;
-
+        
         /**
          * Stop iteration, from this moment on the iterator will yield isEnd = true
          */
@@ -169,8 +164,7 @@ namespace db0
 	protected:
 		std::string m_label;
 		/// application specific instance ID (serialized and preserved by clone)
-		std::uint64_t m_id = 0;
-		db0::QueryHash m_query_hash;
+		std::uint64_t m_id = 0;		
 	};
             
 	/**

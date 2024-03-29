@@ -1,41 +1,13 @@
 #include "FT_ANDIterator.hpp"
 
-namespace
-
-{
-
-    template <typename key_t>
-    db0::QueryHash getHash(const std::list<std::unique_ptr<db0::FT_Iterator<key_t> > > &joinables)
-    {
-        db0::QueryHash query_hash { std::hash<std::string>()("AND"), 0, 1u };
-        std::vector<db0::QueryHash> all_hash;
-        for (auto &joinable: joinables) {
-            all_hash.emplace_back(joinable->getQueryHash());
-        }
-        query_hash += db0::getQueryHash(all_hash);
-        return query_hash;
-    }
-
-    db0::QueryHash getHash(const db0::QueryHash &first, const db0::QueryHash &second)
-    {
-        db0::QueryHash query_hash { std::hash<std::string>()("AND"), 0, 1u };
-        std::vector<db0::QueryHash> all_hash { first, second };
-        query_hash += db0::getQueryHash(all_hash);
-        return query_hash;
-    }
-
-}
-
 namespace db0
 
 {
 
     template <typename key_t, bool UniqueKeys>
     FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(
-        std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction, const db0::QueryHash &query_hash,
-        bool lazy_init)
-        : super_t(query_hash)
-        , m_direction(direction)
+        std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction, bool lazy_init)        
+        : m_direction(direction)
         , m_end(false)    
     {
         m_joinable.splice(m_joinable.end(), inner_iterators);
@@ -51,19 +23,11 @@ namespace db0
             joinAll();
         }
     }
-
-    template <typename key_t, bool UniqueKeys>
-    FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators,
-        int direction, bool lazy_init)
-        : FT_JoinANDIterator(std::move(inner_iterators), direction, ::getHash(inner_iterators), lazy_init)
-    {
-    }
-
+    
 	template <typename key_t, bool UniqueKeys>
 	FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(std::unique_ptr<FT_Iterator<key_t> > &&it0, 
         std::unique_ptr<FT_Iterator<key_t> > &&it1, int direction, bool lazy_init)
-        : super_t(::getHash(it0->getQueryHash(), it1->getQueryHash()))
-        , m_direction(direction)
+        : m_direction(direction)
         , m_end(false)        
 	{
 		m_joinable.emplace_back(std::move(it0));
@@ -210,7 +174,7 @@ namespace db0
 			}
 		}
 		std::unique_ptr<FT_Iterator<key_t> > result(new FT_JoinANDIterator<key_t, UniqueKeys>(
-			std::move(temp), m_direction, m_end, m_pos, m_join_key, this->m_query_hash, tag_cloned())
+			std::move(temp), m_direction, m_end, m_pos, m_join_key, tag_cloned())
 		);
 		result->setID(this->getID());
 		if (clone_map_ptr) {
@@ -227,7 +191,7 @@ namespace db0
         for (auto it = m_joinable.begin(),itend = m_joinable.end();it!=itend;++it) {
             temp.emplace_back((*it)->beginTyped(direction));
         }
-		auto result = std::make_unique<FT_JoinANDIterator<key_t> >(std::move(temp), direction, this->m_query_hash, false);
+		auto result = std::make_unique<FT_JoinANDIterator<key_t> >(std::move(temp), direction, false);
         result->setID(this->getID());
         return result;
 	}
@@ -444,9 +408,8 @@ namespace db0
 
 	template<typename key_t, bool UniqueKeys>
 	FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction,
-        bool is_end, std::uint64_t e_pos, key_t join_key, const QueryHash &query_hash, tag_cloned)
-        : super_t(query_hash)
-        , m_direction(direction)
+        bool is_end, std::uint64_t e_pos, key_t join_key, tag_cloned)        
+        : m_direction(direction)
         , m_end(is_end)
         , m_join_key(join_key)
         , m_pos(e_pos)

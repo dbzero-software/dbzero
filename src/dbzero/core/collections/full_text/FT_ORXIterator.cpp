@@ -1,38 +1,13 @@
 #include "FT_ORXIterator.hpp"
 
-namespace
-
-{
-
-    template <typename key_t> db0::QueryHash getHash(const std::list<std::unique_ptr<db0::FT_Iterator<key_t> > > &joinables)
-    {
-        db0::QueryHash query_hash { std::hash<std::string>()("ORX"), 0, 1u };
-        std::vector<db0::QueryHash> all_hash;
-        for (auto &joinable: joinables) {
-            all_hash.emplace_back(joinable->getQueryHash());
-        }
-        query_hash += db0::getQueryHash(all_hash);
-        return query_hash;
-    }
-
-}
-
 namespace db0
 
 {
 
-    template <typename key_t>
-    FT_JoinORXIterator<key_t>::FT_JoinORXIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators,
-        int direction, bool is_orx, bool lazy_init)
-        : FT_JoinORXIterator<key_t>(std::move(inner_iterators), direction, is_orx, ::getHash(inner_iterators), lazy_init)
-    {
-    }
-
 	template <typename key_t>
 	FT_JoinORXIterator<key_t>::FT_JoinORXIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators,
-	    int direction, bool is_orx, const db0::QueryHash &query_hash, bool lazy_init)
-		: super_t(query_hash)
-		, m_direction(direction)
+	    int direction, bool is_orx, bool lazy_init)		
+		: m_direction(direction)
 		, m_forward_heap(m_direction > 0?4:0)
 		, m_back_heap(m_direction > 0?0:4)
 		, m_end(false)
@@ -282,7 +257,7 @@ namespace db0
 		}
 		FT_JoinORXIterator<key_t> *orx_result = 0;
 		std::unique_ptr<db0::FT_Iterator<key_t> > result(orx_result = new FT_JoinORXIterator<key_t>(
-		    std::move(temp), m_direction, this->m_is_orx, this->m_query_hash, false)
+		    std::move(temp), m_direction, this->m_is_orx, false)
 		);
 		assert(orx_result);		
 
@@ -301,7 +276,7 @@ namespace db0
 			temp.push_back((*it)->beginTyped(direction));
 		}
 		std::unique_ptr<FT_Iterator<key_t> > result(
-			new FT_JoinORXIterator<key_t>(std::move(temp), direction, m_is_orx, this->m_query_hash, false));
+			new FT_JoinORXIterator<key_t>(std::move(temp), direction, m_is_orx, false));
         result->setID(this->getID());
 		return result;
 	}

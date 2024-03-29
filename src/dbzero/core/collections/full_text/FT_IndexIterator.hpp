@@ -98,17 +98,11 @@ namespace db0
         const iterator &getIterator() const;
 
         void _next(void *buf = nullptr);
-
-        static db0::QueryHash getHash(std::uint64_t index_key) {
-            return { std::hash<std::string>()("INDEX"), index_key, 1u };
-        }    
-
     };
 	
 	template <typename bindex_t, typename key_t>
-	FT_IndexIterator<bindex_t, key_t>::FT_IndexIterator(const bindex_t &data, int direction, std::uint64_t index_key)
-		: super_t(self_t::getHash(index_key))
-        , m_data(data)
+	FT_IndexIterator<bindex_t, key_t>::FT_IndexIterator(const bindex_t &data, int direction, std::uint64_t index_key)		
+        : m_data(data)
         , m_direction(direction)
         , m_iterator(m_data.beginJoin(direction))
         , m_index_key(index_key)		
@@ -117,9 +111,8 @@ namespace db0
 
 	template <typename bindex_t, typename key_t>
 	FT_IndexIterator<bindex_t, key_t>::FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
-	    std::uint64_t index_key)
-		: super_t(self_t::getHash(index_key))
-        , m_data(data)
+	    std::uint64_t index_key)		
+        : m_data(data)
         , m_direction(direction)
         , m_iterator(it)
         , m_index_key(index_key)

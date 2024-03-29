@@ -27,10 +27,7 @@ namespace db0
 
         FT_ANDNOTIterator(std::vector<std::unique_ptr<FT_Iterator<key_t>>> &&inner_iterators, int direction,
             bool lazy_init = false);
-
-        FT_ANDNOTIterator(std::vector<std::unique_ptr<FT_Iterator<key_t>>> &&inner_iterators, int direction,
-            const db0::QueryHash &query_hash, bool lazy_init = false);
-
+        
         std::ostream &dump(std::ostream &os) const override;
 
         bool equal(const FT_IteratorBase &other) const override;
