@@ -2,6 +2,8 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <structmember.h>
+#include <dbzero/bindings/python/Utils.hpp>
+
 // 
 namespace db0::python
 {
@@ -10,75 +12,106 @@ namespace db0::python
         {NULL}
     };
 
-
-    int DateTimeObject_setattro(DateTimeObject *self, PyObject *attr, PyObject *value)
-    {
-        // assign value to a DB0 attribute
-        Py_XINCREF(value);
-        try {
-            if (PyUnicode_CompareWithASCIIString(attr, "year") == 0) {
-                self->ext().setYear(PyLong_AsLong(value));
-            } else if (PyUnicode_CompareWithASCIIString(attr, "month") == 0) {
-                self->ext().setMonth(PyLong_AsLong(value));
-            } else if (PyUnicode_CompareWithASCIIString(attr, "day") == 0) {
-                self->ext().setDay(PyLong_AsLong(value));
-            } else if (PyUnicode_CompareWithASCIIString(attr, "hour") == 0) {
-                self->ext().setHour(PyLong_AsLong(value));
-            } else if (PyUnicode_CompareWithASCIIString(attr, "minute") == 0) {
-                self->ext().setMinute(PyLong_AsLong(value));
-            } else if (PyUnicode_CompareWithASCIIString(attr, "second") == 0) {
-                self->ext().setSecond(PyLong_AsLong(value));
-            } else if (PyUnicode_CompareWithASCIIString(attr, "millisecond") == 0) {
-                self->ext().setMillisecond(PyLong_AsLong(value));
-            } else if (PyUnicode_CompareWithASCIIString(attr, "microsecond") == 0) {
-                self->ext().setMicrosecond(PyLong_AsLong(value));
-            } else if (PyUnicode_CompareWithASCIIString(attr, "nanosecond") == 0) {
-                self->ext().setNanosecond(PyLong_AsLong(value));
-            } else if (PyUnicode_CompareWithASCIIString(attr, "timezone") == 0) {
-                self->ext().setTimezone(PyLong_AsLong(value));
+    static PyObject *DateTimeObject_rq(PyObject *first, PyObject *other, int op) {
+        PyDateTime_IMPORT;
+        if(first == Py_None || other == Py_None){
+            bool equal = first == other;
+            if(op == Py_EQ){
+                return PyBool_fromBool(equal);
+            } else if (op == Py_NE){
+                return PyBool_fromBool(!equal);
             } else {
-                PyErr_SetString(PyExc_AttributeError, "attribute not found");
-                return -1;
+                PyErr_SetString(PyExc_NotImplementedError, "Not Implemented");
+                return NULL;
             }
-        } catch (const std::exception &e) {
-            Py_XDECREF(value);
-            PyErr_SetString(PyExc_AttributeError, e.what());
-            return -1;
         }
-        Py_XDECREF(value);
-        return 0;
+        uint64_t lhs_datetime, rhs_datetime;
+        if (DateTimeObject_Check(first)){
+            lhs_datetime = ((DateTimeObject*) first)->ext().getDatetimeAsUint64();
+        } else if (PyDateTime_Check(first)){
+            lhs_datetime = db0::object_model::pyDateTimeToToUint64(first);
+        } else {
+            PyErr_SetString(PyExc_NotImplementedError, "Not Implemented");
+            return NULL;
+        }
+            
+        if (DateTimeObject_Check(other)){
+            rhs_datetime = ((DateTimeObject*) other)->ext().getDatetimeAsUint64();
+        } else if (PyDateTime_Check(other)){
+            rhs_datetime = db0::object_model::pyDateTimeToToUint64(other);
+        } else {
+             PyErr_SetString(PyExc_NotImplementedError, "Not Implemented");
+            return NULL;
+        }
+
+        switch (op)
+        {
+        case Py_EQ:
+            return PyBool_fromBool(lhs_datetime == rhs_datetime);
+        case Py_NE:
+            return PyBool_fromBool(lhs_datetime != rhs_datetime);
+        case Py_LT:
+            return PyBool_fromBool(lhs_datetime < rhs_datetime);
+        case Py_LE:
+            return PyBool_fromBool(lhs_datetime <= rhs_datetime);
+        case Py_GT:
+            return PyBool_fromBool(lhs_datetime > rhs_datetime);
+        case Py_GE:
+            return PyBool_fromBool(lhs_datetime >= rhs_datetime);
+        default:
+            PyErr_SetString(PyExc_NotImplementedError, "Not Implemented");
+            return NULL;
+        }
+
     }
 
-    PyObject* DateTimeObject_getattro(DateTimeObject *self, PyObject *attr)
+    PyObject *date_year(DateTimeObject *datetime_obj, void *)
     {
-        // get value of a DB0 attribute
-        PyObject* value;
-        if (PyUnicode_CompareWithASCIIString(attr, "year") == 0) {
-            value = PyLong_FromLong(self->ext().getYear());
-        } else if (PyUnicode_CompareWithASCIIString(attr, "month") == 0) {
-            value = PyLong_FromLong(self->ext().getMonth());
-        } else if (PyUnicode_CompareWithASCIIString(attr, "day") == 0) {
-            value = PyLong_FromLong(self->ext().getDay());
-        } else if (PyUnicode_CompareWithASCIIString(attr, "hour") == 0) {
-            value = PyLong_FromLong(self->ext().getHour());
-        } else if (PyUnicode_CompareWithASCIIString(attr, "minute") == 0) {
-            value = PyLong_FromLong(self->ext().getMinute());
-        } else if (PyUnicode_CompareWithASCIIString(attr, "second") == 0) {
-            value = PyLong_FromLong(self->ext().getSecond());
-        } else if (PyUnicode_CompareWithASCIIString(attr, "millisecond") == 0) {
-            value = PyLong_FromLong(self->ext().getMillisecond());
-        } else if (PyUnicode_CompareWithASCIIString(attr, "microsecond") == 0) {
-            value = PyLong_FromLong(self->ext().getMicrosecond());
-        } else if (PyUnicode_CompareWithASCIIString(attr, "nanosecond") == 0) {
-            value = PyLong_FromLong(self->ext().getNanosecond());
-        } else if (PyUnicode_CompareWithASCIIString(attr, "timezone") == 0) {
-            value = PyLong_FromLong(self->ext().getTimezone());
-        } else { 
-            PyErr_SetString(PyExc_AttributeError, "attribute not found");
-            return nullptr;
-        }
-        return value;
+        return PyLong_FromLong(datetime_obj->ext().getYear());
     }
+
+    PyObject *date_month(DateTimeObject *datetime_obj, void *)
+    {
+        return PyLong_FromLong(datetime_obj->ext().getMonth());
+    }
+
+    PyObject *date_day(DateTimeObject *datetime_obj, void *)
+    {
+        return PyLong_FromLong(datetime_obj->ext().getDay());
+    }
+
+    PyObject *time_hour(DateTimeObject *datetime_obj, void *)
+    {
+        return PyLong_FromLong(datetime_obj->ext().getHour());
+    }
+
+    PyObject *time_minute(DateTimeObject *datetime_obj, void *)
+    {
+        return PyLong_FromLong(datetime_obj->ext().getMinute());
+    }
+
+    PyObject *time_second(DateTimeObject *datetime_obj, void *)
+    {
+        return PyLong_FromLong(datetime_obj->ext().getSecond());
+    }
+
+    PyObject *time_millisecond(DateTimeObject *datetime_obj, void *)
+    {
+        return PyLong_FromLong(datetime_obj->ext().getMillisecond());
+    }
+
+
+    static PyGetSetDef datetime_getset[] = {
+        {"year",        (getter)date_year},
+        {"month",       (getter)date_month},
+        {"day",         (getter)date_day},
+        {"hour",        (getter)time_hour},
+        {"minute",      (getter)time_minute},
+        {"second",      (getter)time_second},
+        {"millisecond", (getter)time_millisecond},
+        {NULL}
+    };
+
 
     PyTypeObject DateTimeObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
@@ -86,11 +119,11 @@ namespace db0::python
         .tp_basicsize = DateTimeObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)DateTimeObject_del,
-        .tp_getattro = (getattrofunc)DateTimeObject_getattro,
-        .tp_setattro = (setattrofunc)DateTimeObject_setattro,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
         .tp_doc = "DBZero datetime",
-        .tp_methods = DateTimeObject_methods,       
+        .tp_richcompare = (richcmpfunc)DateTimeObject_rq,
+        .tp_methods = DateTimeObject_methods,
+        .tp_getset = datetime_getset,       
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)DateTimeObject_new,
         .tp_free = PyObject_Free
@@ -115,7 +148,9 @@ namespace db0::python
 
     DateTimeObject *makeDateTime(PyObject *, PyObject* args, PyObject* kwargs)
     {
-        if(PyObject_Length(args)  != 3) {
+        // import date time
+        PyDateTime_IMPORT;
+        if (PyObject_Length(args)  != 3) {
             PyErr_SetString(PyExc_TypeError, "datetime() takes exacly 3 positional argumetns arguments");
             return NULL;
         }
@@ -144,7 +179,28 @@ namespace db0::python
         (*fixture)->getLangCache().add(datetime_object->ext().getAddress(), datetime_object, true);
         return datetime_object;
     }
-    
+
+    DateTimeObject *makeDateTimeFromPython(PyObject* py_datetime){;
+        PyDateTime_IMPORT;
+        if(PyDateTime_Check(py_datetime)){
+            auto datetime_object = DateTimeObject_new(&DateTimeObjectType, NULL, NULL);
+            auto year = PyDateTime_GET_YEAR(py_datetime);
+            auto month = PyDateTime_GET_MONTH(py_datetime);
+            auto day = PyDateTime_GET_DAY(py_datetime);
+            auto hour = PyDateTime_DATE_GET_HOUR(py_datetime);
+            auto minute = PyDateTime_DATE_GET_MINUTE(py_datetime);
+            auto second = PyDateTime_DATE_GET_SECOND(py_datetime);
+            auto millisecond = (PyDateTime_DATE_GET_MICROSECOND(py_datetime) >> 16) & 0x00FF;
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+            db0::object_model::DateTime::makeNew(&datetime_object->ext(), *fixture, year, month, day, hour, minute, second, millisecond);
+            (*fixture)->getLangCache().add(datetime_object->ext().getAddress(), datetime_object, true);
+            return datetime_object;
+        } else {
+            PyErr_SetString(PyExc_TypeError, "Expected datetime object");
+            return NULL;
+        }
+    }
+
     bool DateTimeObject_Check(PyObject *object)
     {
         return Py_TYPE(object) == &DateTimeObjectType;        

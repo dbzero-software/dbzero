@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Python.h>
+#include <datetime.h>
 #include "shared_py_object.hpp"
 
 namespace db0::python 

@@ -10,7 +10,7 @@ namespace db0::object_model
         addMapping(TypeId::NONE, StorageClass::NONE);
         addMapping(TypeId::FLOAT, StorageClass::FP_NUMERIC64);
         addMapping(TypeId::INTEGER, StorageClass::INT64);
-        addMapping(TypeId::DATETIME, StorageClass::PTIME64);
+        addMapping(TypeId::DATETIME, StorageClass::DB0_DATETIME);
         addMapping(TypeId::DATE, StorageClass::DATE);    
         addMapping(TypeId::LIST, StorageClass::DB0_LIST);
         addMapping(TypeId::DICT, StorageClass::DB0_DICT);
@@ -23,6 +23,7 @@ namespace db0::object_model
         addMapping(TypeId::DB0_BLOCK, StorageClass::DB0_BLOCK);
         addMapping(TypeId::DB0_INDEX, StorageClass::DB0_INDEX);
         addMapping(TypeId::DB0_PANDAS_DATAFRAME, StorageClass::DB0_PANDAS_DATAFRAME);
+        addMapping(TypeId::DB0_DATETIME, StorageClass::DB0_DATETIME);
     }
     
     StorageClass StorageClassMapper::getStorageClass(TypeId type_id) const
@@ -90,6 +91,7 @@ namespace std
             case StorageClass::DB0_DICT: return os << "DB0_DICT";
             case StorageClass::DB0_SET: return os << "DB0_SET";
             case StorageClass::DB0_TUPLE: return os << "DB0_TUPLE";
+            case StorageClass::DB0_DATETIME: return os << "DB0_DATETIME";
             case StorageClass::STR64: return os << "STR64";
             case StorageClass::INVALID: return os << "INVALID";
             default: return os << "ERROR!";

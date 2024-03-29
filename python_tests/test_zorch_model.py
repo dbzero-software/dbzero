@@ -29,8 +29,7 @@ class Task:
         # task size in task type specific units - e.g. bytes
         self.task_size = 0
         # task creation date and time
-        # FIXME: implement
-        # self.created_at = datetime.now()
+        self.created_at = datetime.now()
         # optional deadline (affects task priority)
         self.deadline = deadline
         # optional task execution scheduled date and time
@@ -52,10 +51,8 @@ class TaskRunLog:
     def __init__(self, task, processor_id):
         self.task = task
         self.processor_id = processor_id
-        # FIXME: implement
-        # self.started_at = datetime.now()
-        # FIXME: implement
-        # self.last_update = self.started_at
+        self.started_at = datetime.now()
+        self.last_update = self.started_at
         self.progress = 0
         self.error_message = None
         self.result = None

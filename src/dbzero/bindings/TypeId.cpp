@@ -89,6 +89,11 @@ namespace std
             }
             break;
 
+            case TypeId::DB0_DATETIME: {
+                os << "DB0.datetime";
+            }
+            break;
+
             default:
             break;
         }

@@ -35,7 +35,8 @@ namespace db0::bindings
         DB0_BLOCK = 10005,
         DB0_PANDAS_DATAFRAME = 10006,
         DB0_TAG_SET = 10007,
-        DB0_INDEX = 10008,        
+        DB0_INDEX = 10008,     
+        DB0_DATETIME = 10009,        
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };
