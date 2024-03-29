@@ -92,6 +92,9 @@ namespace db0::python
 
     PyObject *getRefCount(PyObject *self, PyObject *args);
     
+    // convert to a Python dict
+    PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+
     template <typename T> db0::object_model::StorageClass getStorageClass();
         
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>();

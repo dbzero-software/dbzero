@@ -35,13 +35,15 @@ namespace db0::object_model
         // string value encoded in 64 bits
         STR64 = 13,
         DB0_BLOCK= 14,
-        DB0_PANDAS_DATAFRAME= 14,
-        DB0_CLASS = 15,
-        DB0_INDEX = 16,
-        DB0_DATETIME = 17,
+        DB0_PANDAS_DATAFRAME= 15,
+        DB0_CLASS = 16,
+        DB0_INDEX = 17,
+        DB0_DATETIME = 18,
         // invalid / reserved value, never used in objects
         INVALID = std::numeric_limits<std::uint8_t>::max()
     };
+    
+    bool isReference(StorageClass);
     
     class StorageClassMapper
     {

@@ -388,5 +388,5 @@ namespace db0::python
         auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
         return PyBool_FromLong(memo_obj.ext().isTag());
     }
-
+    
 }

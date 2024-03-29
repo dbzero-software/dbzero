@@ -16,6 +16,7 @@
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
 #include <dbzero/object_model/datetime/DateTime.hpp>
+#include "ObjectId.hpp"
 
 namespace db0::python
 
@@ -270,5 +271,9 @@ namespace db0::python
     bool PyToolkit::isMemoObject(ObjectPtr py_object) {
         return PyMemo_Check(py_object);
     }
-    
+
+    PyToolkit::ObjectPtr PyToolkit::getUUID(ObjectPtr py_object) {
+        return getObjectId(nullptr, &py_object, 1);
+    }
+
 }

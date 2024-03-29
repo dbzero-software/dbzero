@@ -220,6 +220,10 @@ namespace db0::object_model
         std::uint64_t asTag();
         
         bool isTag() const;
+        
+        // execute the function for all members
+        void forAll(std::function<void(const std::string &, const XValue &)>) const;
+        void forAll(std::function<void(const std::string &, ObjectSharedPtr)>) const;
 
     private:
         // Class will only be assigned after initialization
