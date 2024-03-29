@@ -52,13 +52,12 @@ namespace db0::python
         addStaticType(&PyTypedObjectIteratorType, TypeId::TYPED_OBJECT_ITERATOR);
     }
     
-    PyTypeManager::TypeId PyTypeManager::getTypeId(ObjectPtr ptr) const
+    PyTypeManager::TypeId PyTypeManager::getTypeId(TypeObjectPtr py_type) const
     {
-        if (!ptr) {
+        if (!py_type) {
             return TypeId::UNKNOWN;
         }
 
-        auto py_type = Py_TYPE(ptr);
         // check with static types first
         auto it = m_id_map.find(reinterpret_cast<PyObject*>(py_type));
         if (it != m_id_map.end()) {
@@ -67,30 +66,31 @@ namespace db0::python
         }
         
         // check if memo class
-        if (PyMemo_Check(ptr)) {
+        if (PyMemoType_Check(py_type)) {
             return TypeId::MEMO_OBJECT;
         }
 
-         // check if block class
-        if (PandasBlock_Check(ptr)) {
+        // check if block class
+        if (PandasBlockType_Check(py_type)) {
             return TypeId::DB0_BLOCK;
         }
 
         // check if data frame class
-        if (PandasDataFrame_Check(ptr)) {
+        if (PandasDataFrameType_Check(py_type)) {
             return TypeId::DB0_PANDAS_DATAFRAME;
-        }
-
-        if (PyUnicode_Check(ptr)) {
-            return TypeId::STRING;
-        } else if (PyLong_Check(ptr)) {
-            return TypeId::INTEGER;
-        } else if (PyFloat_Check(ptr)) {
-            return TypeId::FLOAT;
         }
         
         // Raise exception, type unknown
         THROWF(db0::InputException) << "Type unsupported by DBZero: " << py_type->tp_name << THROWF_END;
+    }
+
+    PyTypeManager::TypeId PyTypeManager::getTypeId(ObjectPtr ptr) const
+    {
+        if (!ptr) {
+            return TypeId::UNKNOWN;
+        }
+
+        return getTypeId(Py_TYPE(ptr));
     }
     
     db0::object_model::Object &PyTypeManager::extractObject(ObjectPtr memo_ptr) const

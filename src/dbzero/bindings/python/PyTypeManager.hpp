@@ -57,6 +57,8 @@ namespace db0::python
 
         // Recognize Python type of a specific object instance as TypeId (may return TypeId::UNKNOWN)
         TypeId getTypeId(ObjectPtr object_instance) const;
+
+        TypeId getTypeId(TypeObjectPtr py_type) const;
         
         /**
          * Extracts reference to DB0 object from a memo object

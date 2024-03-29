@@ -1,6 +1,9 @@
 #include "PyInternalAPI.hpp"
+#include "PyToolkit.hpp"
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/value/TypeUtils.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -27,32 +30,58 @@ namespace db0::python
         return *reinterpret_cast<ObjectId*>(py_object_id);
     }
 
-    PyObject *fetchObject(ObjectId object_id)
+    PyObject *fetchObject(ObjectId object_id, PyTypeObject *py_expected_type)
     {
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         auto fixture = workspace.getFixture(object_id.m_fixture_uuid, AccessType::READ_ONLY);
         assert(fixture);
         fixture->refreshIfUpdated();
         // open from specific fixture
-        return fetchObject(fixture, object_id);
+        return fetchObject(fixture, object_id, py_expected_type);
     }
     
-    PyObject *fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id)
-    {
+    PyObject *fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, PyTypeObject *py_expected_type)
+    {   
+        using ClassFactory = db0::object_model::ClassFactory;
+        using Class = db0::object_model::Class;
+
         auto storage_class = object_id.m_typed_addr.getType();
         auto addr = object_id.m_typed_addr;
         auto &lang_cache = fixture->getLangCache();
+
+        // validate storage class first
+        if (py_expected_type) {
+            auto type_id = PyToolkit::getTypeManager().getTypeId(py_expected_type);
+            if (storage_class != db0::object_model::TypeUtils::m_storage_class_mapper.getStorageClass(type_id)) {
+                PyErr_SetString(PyExc_TypeError, "Object ID type mismatch");
+                return NULL;
+            }
+        }
+        
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
+            auto &class_factory = fixture->get<ClassFactory>();
+            std::shared_ptr<Class> type;
+            // find class associated class with the ClassFactory
+            if (py_expected_type) {
+                type = class_factory.getExistingType(py_expected_type);
+            }
             // try pulling from cache first
             auto object_ptr = lang_cache.get(addr);
             if (object_ptr) {
+                // validate type if requested
+                if (type) {
+                    MemoObject *ptr = reinterpret_cast<MemoObject*>(object_ptr);
+                    if (ptr->ext().getType() != *type) {
+                        PyErr_SetString(PyExc_TypeError, "Object ID type mismatch");
+                        return NULL;
+                    }
+                }                
                 Py_INCREF(object_ptr);
                 return object_ptr;
             }
 
-            auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
-            // unload with instance_id validation
-            object_ptr = PyToolkit::unloadObject(fixture, addr, class_factory, object_id.m_instance_id);
+            // unload with instance_id validation & optional type validation
+            object_ptr = PyToolkit::unloadObject(fixture, addr, class_factory, object_id.m_instance_id, type);
             // keep in cache (weak reference only)
             fixture->getLangCache().add(addr, object_ptr, false);
             return object_ptr;
@@ -135,4 +164,10 @@ namespace db0::python
     }
 
 #endif
+
+    bool isBase(PyTypeObject *py_type, PyTypeObject *base_type)
+    {
+        return PyObject_IsSubclass(reinterpret_cast<PyObject*>(py_type), reinterpret_cast<PyObject*>(base_type));
+    }
+    
 }

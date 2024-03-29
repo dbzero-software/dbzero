@@ -303,4 +303,12 @@ namespace db0::object_model
         super_t::commit();
     }
 
+    bool Class::operator!=(const Class &rhs) const
+    {
+        if (*this->getFixture() != *rhs.getFixture()) {
+            return true;
+        }
+        return this->getAddress() != rhs.getAddress();
+    }
+
 }

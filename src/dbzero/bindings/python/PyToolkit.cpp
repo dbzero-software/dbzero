@@ -45,10 +45,14 @@ namespace db0::python
     }
     
     PyToolkit::ObjectPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
-        const ClassFactory &class_factory, std::optional<std::uint32_t> instance_id)
+        const ClassFactory &class_factory, std::optional<std::uint32_t> instance_id, std::shared_ptr<Class> expected_type)
     {
         auto stem = db0::object_model::Object::unloadStem(fixture, address, instance_id);
         auto type = db0::object_model::unloadClass(stem->m_class_ref, class_factory);
+        if (expected_type && type != expected_type) {
+            THROWF(db0::InputException) << "Type mismatch";
+        }
+        
         // construct Python's memo object (placeholder for actual DBZero instance)
         auto memo_object = MemoObjectStub_new(type->getLangClass().steal());
         // unload from stem

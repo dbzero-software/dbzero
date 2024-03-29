@@ -24,9 +24,10 @@ namespace db0::python
     
     /**
      * Open DBZero object by UUID
+     * @param py_expected_type - expected Python type of the object
     */    
-    PyObject *fetchObject(ObjectId object_id);
-
+    PyObject *fetchObject(ObjectId object_id, PyTypeObject *py_expected_type = nullptr);
+    
     /**
      * Open DBZero singleton by its corresponding Python type
     */
@@ -43,8 +44,9 @@ namespace db0::python
     
     /**
      * Open DBZero object from a specific fixture
+     * with optional type validation
     */
-    PyObject *fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id);
+    PyObject *fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, PyTypeObject *py_expected_type = nullptr);
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name);
     
@@ -74,5 +76,7 @@ namespace db0::python
     PyObject *writeBytes(PyObject *self, PyObject *args);
 #endif
     
+    bool isBase(PyTypeObject *py_type, PyTypeObject *base_type);
+
 }
 
