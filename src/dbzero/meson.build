@@ -1,4 +1,4 @@
-subdir('object_model')
 subdir('bindings')
-subdir('core')
 subdir('workspace')
+subdir('object_model')
+subdir('core')

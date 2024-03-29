@@ -7,6 +7,7 @@
 #include <dbzero/bindings/python/Set.hpp>
 #include <dbzero/bindings/python/Dict.hpp>
 #include <dbzero/bindings/python/Tuple.hpp>
+#include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/core/serialization/string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
@@ -15,6 +16,7 @@
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/index/Index.hpp>
+#include <dbzero/object_model/datetime/DateTime.hpp>
 
 namespace db0::object_model
 
@@ -97,6 +99,14 @@ namespace db0::object_model
             }
             break;
 
+            case TypeId::DB0_DATETIME: {
+                // extract address from the Tuple object
+                auto &datetime = LangToolkit::getTypeManager().extractDateTime(lang_value);
+                datetime.incRef();
+                return datetime.getAddress();
+            }
+            break;
+
             // Python types 
 
             case TypeId::LIST: {
@@ -126,8 +136,15 @@ namespace db0::object_model
                 PyObject* args = PyTuple_New(1);
                 PyTuple_SetItem(args, 0, lang_value);
                 auto tuple = db0::python::makeTuple(nullptr, &lang_value, 1);
-                //tuple->ext().incRef();
+                tuple->ext().incRef();
                 return tuple->ext().getAddress();
+            }
+            break;
+
+            case TypeId::DATETIME: {
+                auto datetime = db0::python::makeDateTimeFromPython(lang_value);
+                datetime->ext().incRef();
+                return datetime->ext().getAddress();
             }
             break;
 
@@ -247,6 +264,12 @@ namespace db0::object_model
             case StorageClass::DB0_TUPLE: {
                 auto fixture = object.getFixture();
                 return LangToolkit::unloadTuple(fixture, value.cast<std::uint64_t>());
+            }
+            break;
+
+            case StorageClass::DB0_DATETIME: {
+                auto fixture = object.getFixture();
+                return LangToolkit::unloadDateTime(fixture, value.cast<std::uint64_t>());
             }
             break;
 

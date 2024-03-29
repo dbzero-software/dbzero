@@ -1,3 +1,3 @@
-subdir('full_text')
-subdir('b_index')
 subdir('pools')
+subdir('b_index')
+subdir('full_text')

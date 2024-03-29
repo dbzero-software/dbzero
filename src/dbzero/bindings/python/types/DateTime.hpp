@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Python.h>
+#include <datetime.h>
 #include <dbzero/bindings/python/PyWrapper.hpp>
 #include <dbzero/object_model/datetime/DateTime.hpp>
 
@@ -16,6 +17,7 @@ namespace db0::python
     extern PyTypeObject DateTimeObjectType;
     
     DateTimeObject *makeDateTime(PyObject *, PyObject* args, PyObject* kwargs);
+    DateTimeObject *makeDateTimeFromPython(PyObject* py_datetime);
     bool DateTimeObject_Check(PyObject *);
     
 }

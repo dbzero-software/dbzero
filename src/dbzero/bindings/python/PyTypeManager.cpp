@@ -5,7 +5,9 @@
 #include "Tuple.hpp"
 #include "Dict.hpp"
 #include "Index.hpp"
+#include <dbzero/bindings/python/types/DateTime.hpp>
 #include <Python.h>
+#include <datetime.h>
 #include "PyObjectIterator.hpp"
 #include <chrono>
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
@@ -20,9 +22,12 @@
 #include <dbzero/object_model/pandas/Block.hpp>
 #include <dbzero/object_model/pandas/Dataframe.hpp>
 #include <dbzero/object_model/index/Index.hpp>
-
+#include <dbzero/object_model/datetime/DateTime.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+
+
+
 
 namespace db0::python
 
@@ -42,6 +47,7 @@ namespace db0::python
         addStaticType(&PySet_Type, TypeId::SET);
         addStaticType(&PyDict_Type, TypeId::DICT);
         addStaticType(&PyTuple_Type, TypeId::TUPLE);
+        addStaticType(&DateTimeObjectType, TypeId::DB0_DATETIME);
         addStaticType(&TagSetType, TypeId::DB0_TAG_SET);
         addStaticType(&IndexObjectType, TypeId::DB0_INDEX);
         addStaticType(&ListObjectType, TypeId::DB0_LIST);
@@ -54,18 +60,22 @@ namespace db0::python
     
     PyTypeManager::TypeId PyTypeManager::getTypeId(ObjectPtr ptr) const
     {
+        PyDateTime_IMPORT;
         if (!ptr) {
             return TypeId::UNKNOWN;
         }
-
         auto py_type = Py_TYPE(ptr);
         // check with static types first
         auto it = m_id_map.find(reinterpret_cast<PyObject*>(py_type));
         if (it != m_id_map.end()) {
-            // return a known registered type
+            // return a known registered ty
             return it->second;
         }
-        
+        // check if datetime
+        if(PyDateTime_Check(ptr)){
+            return TypeId::DATETIME;
+        }
+
         // check if memo class
         if (PyMemo_Check(ptr)) {
             return TypeId::MEMO_OBJECT;
@@ -88,7 +98,9 @@ namespace db0::python
         } else if (PyFloat_Check(ptr)) {
             return TypeId::FLOAT;
         }
-        
+        if (DateTimeObject_Check(ptr)) {
+            return TypeId::DB0_DATETIME;
+        }
         // Raise exception, type unknown
         THROWF(db0::InputException) << "Type unsupported by DBZero: " << py_type->tp_name << THROWF_END;
     }
@@ -203,6 +215,14 @@ namespace db0::python
             THROWF(db0::InputException) << "Expected an ObjectIterator object" << THROWF_END;
         }
         return reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext();
+    }
+
+    PyTypeManager::DateTime &PyTypeManager::extractDateTime(ObjectPtr obj_ptr) const
+    {
+        if (!DateTimeObject_Check(obj_ptr)) {
+            THROWF(db0::InputException) << "Expected a DateTime object" << THROWF_END;
+        }
+        return reinterpret_cast<DateTimeObject*>(obj_ptr)->ext();
     }
 
 }
