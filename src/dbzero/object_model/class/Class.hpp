@@ -153,7 +153,9 @@ namespace db0::object_model
          * Class must implement detach since it has v_bvector as a member
         */
         void detach();
-        
+
+        bool operator!=(const Class &rhs) const;
+                
     protected:
         friend class ClassFactory;
         friend ClassPtr;

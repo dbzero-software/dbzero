@@ -20,10 +20,11 @@ namespace db0::python
     */
     PyObject *clearCache(PyObject *, PyObject *);
 
-    /**
+    /**    
      * Fetch DBZero object instance by its ID or type (in case of a singleton)
      */
-    PyObject *fetch(PyObject *, PyObject *);
+
+    PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     /**
      * Initialize DBZero Python bindings

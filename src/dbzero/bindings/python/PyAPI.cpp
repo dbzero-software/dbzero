@@ -41,27 +41,49 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *tryFetch(PyObject *, PyObject *args)
+    PyObject *tryFetch(PyObject *const *args, Py_ssize_t nargs)
     {
-        PyObject *py_object;
-        if (!PyArg_ParseTuple(args, "O", &py_object)) {
-            THROWF(db0::InputException) << "Invalid open arguments";
+        if (nargs < 1 || nargs > 2) {
+            PyErr_SetString(PyExc_TypeError, "fetch requires 1 or 2 arguments");
+            return NULL;
         }
 
+        PyTypeObject *type_arg = nullptr;
+        PyObject *uuid_arg = nullptr;
+        if (nargs == 1) {
+            uuid_arg = args[0];
+        } else {
+            if (!PyType_Check(args[0])) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+                return NULL;
+            }
+            type_arg = reinterpret_cast<PyTypeObject*>(args[0]);
+            uuid_arg = args[1];
+        }
+        
         // decode ObjectId from string
-        if (PyUnicode_Check(py_object)) {
-            auto uuid = PyUnicode_AsUTF8(py_object);
-            return fetchObject(ObjectId::fromBase32(uuid));
-        } else if (PyType_Check(py_object)) {
-            return fetchSingletonObject(reinterpret_cast<PyTypeObject*>(py_object));
-        }        
+        if (PyUnicode_Check(uuid_arg)) {
+            auto uuid = PyUnicode_AsUTF8(uuid_arg);
+            return fetchObject(ObjectId::fromBase32(uuid), type_arg);
+        }
+        
+        if (PyType_Check(uuid_arg)) {
+            auto uuid_type = reinterpret_cast<PyTypeObject*>(uuid_arg);
+            // check if type_arg is exact or a base of uuid_arg
+            if (type_arg && !isBase(uuid_type, reinterpret_cast<PyTypeObject*>(type_arg))) {
+                PyErr_SetString(PyExc_TypeError, "Type mismatch");
+                return NULL;
+            }
+            return fetchSingletonObject(uuid_type);
+        }
+
         PyErr_SetString(PyExc_TypeError, "Invalid argument type");
         return NULL;        
     }
     
-    PyObject *fetch(PyObject *self, PyObject *args)
+    PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        return runSafe(tryFetch, self, args);
+        return runSafe(tryFetch, args, nargs);
     }
 
     PyObject *tryOpen(PyObject *self, PyObject *args)

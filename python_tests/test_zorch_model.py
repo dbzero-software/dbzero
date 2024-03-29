@@ -42,8 +42,7 @@ class Task:
         self.parent = parent
         self.root = parent.root if parent is not None else None
         self.child_tasks = []
-        self.requirements = requirements
-        self.paused = False
+        self.requirements = requirements        
         self.max_retry = None
     
 
@@ -57,8 +56,7 @@ class TaskRunLog:
         self.progress = 0
         self.error_message = None
         self.result = None
-        self.error_code = None
-        self.kill = False
+        self.error_code = None        
     
     
 @memo
@@ -79,9 +77,9 @@ class TaskRequirements:
         self.vcpu_milli = vcpu_milli
 
     
-# def test_create_zorch(db0_fixture):
-#     zorch = Zorch()
-#     assert len(zorch.tasks) == 0
+def test_create_zorch(db0_fixture):
+    zorch = Zorch()
+    assert len(zorch.tasks) == 0
 
 
 def test_create_minimal_task(db0_fixture):

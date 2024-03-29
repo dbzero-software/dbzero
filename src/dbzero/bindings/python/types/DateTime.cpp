@@ -148,7 +148,9 @@ namespace db0::python
 
     DateTimeObject *makeDateTime(PyObject *, PyObject* args, PyObject* kwargs)
     {
-        if(PyObject_Length(args)  != 3) {
+        // import date time
+        PyDateTime_IMPORT;
+        if (PyObject_Length(args)  != 3) {
             PyErr_SetString(PyExc_TypeError, "datetime() takes exacly 3 positional argumetns arguments");
             return NULL;
         }

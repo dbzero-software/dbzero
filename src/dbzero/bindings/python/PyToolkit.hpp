@@ -80,9 +80,9 @@ namespace db0::python
         */
         static std::string getModuleName(TypeObjectPtr py_type);
         
-        // Unload with optional instance_id validation
+        // Unload with optional instance_id & type validation
         static ObjectPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, const ClassFactory &,
-            std::optional<std::uint32_t> instance_id = {});
+            std::optional<std::uint32_t> instance_id = {}, std::shared_ptr<Class> expected_type = nullptr);
 
         // Unload with known type and optional instance_id validation
         static ObjectPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, std::shared_ptr<Class>,

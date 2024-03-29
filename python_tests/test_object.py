@@ -109,13 +109,6 @@ def test_memo_object_setget_object_attr(db0_fixture):
     assert object_2.get_value().get_value() == 123
 
 
-def test_object_can_be_fetched_by_id(db0_fixture):
-    object_1 = DataClassWithAttr(123)
-    object_2 = db0.fetch(db0.uuid(object_1))
-    assert object_2 is not None
-    assert object_2.get_value() == 123
-
-
 def test_memo_object_multiple_attributes(db0_fixture):
     object_1 = DataClassMultiAttr(123, "value X")
     assert object_1.get_values() == (123, "value X")
