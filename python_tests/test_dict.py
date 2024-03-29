@@ -1,5 +1,8 @@
 import pytest
 import dbzero_ce as db0
+from .conftest import DB0_DIR
+from .memo_test_types import MemoTestSingleton, MemoTestClass
+
 
 def test_can_create_dict(db0_fixture):
     dict_1 = db0.dict()
@@ -189,3 +192,24 @@ def test_values_from_dict(db0_fixture, make_dict):
     dict_1["items_4"] = 18
     assert len(values) == 4
     assert 18 in values
+    
+    
+def test_dict_not_persisting_keys_issue(db0_fixture):
+    my_dict = db0.dict()
+    value = my_dict.get("first", None)
+    assert value is None
+    root = MemoTestSingleton(my_dict)
+    prefix_name = db0.get_current_prefix()
+    my_dict["first"] = MemoTestClass("abc")
+    my_dict["second"] = MemoTestClass("222")
+    my_dict["third"] = MemoTestClass("333")
+    db0.commit()
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    # open as read-write
+    db0.open(prefix_name)
+    root = MemoTestSingleton()
+    my_dict = root.value
+    value = my_dict.get("third", None)
+    assert value.value == "333"

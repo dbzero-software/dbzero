@@ -4,6 +4,7 @@
 #include "Set.hpp"
 #include "Tuple.hpp"
 #include "Index.hpp"
+#include "Dict.hpp"
 #include <iostream>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -73,6 +74,12 @@ namespace db0::python
         if (IndexObject_Check(obj_ptr)) {
             return runSafe(tryGetObjectId<IndexObject>, reinterpret_cast<IndexObject*>(obj_ptr));
         }
+
+        /* FIXME: implement
+        if (DictObject_Check(obj_ptr)) {
+            return runSafe(tryGetObjectId<DictObject>, reinterpret_cast<DictObject*>(obj_ptr));
+        }
+        */
 
         PyErr_SetString(PyExc_TypeError, "Argument must be a DBZero object");
         return NULL;
