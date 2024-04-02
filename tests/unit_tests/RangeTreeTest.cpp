@@ -352,7 +352,7 @@ namespace tests
         
         ASSERT_EQ(values, (std::unordered_set<std::uint64_t> { 7, 5, 8, 9, 11, 6 }));
     }
-    
+
     TEST_F( RangeTreeTest , testFTCompliantRangeFilterIteratorCanBeCreated )
     {
         using RangeTreeT = RangeTree<int, std::uint64_t>;
@@ -376,6 +376,46 @@ namespace tests
         }
         
         ASSERT_EQ(values, (std::unordered_set<std::uint64_t> { 7, 5, 8, 9, 11, 6 }));
+    }
+
+    TEST_F( RangeTreeTest , testRangeFilterIssue_1 )
+    {
+        using RangeTreeT = RangeTree<int, std::uint64_t>;
+        using ItemT = typename RangeTreeT::ItemT;
+        
+        auto memspace = getMemspace();        
+        RangeTreeT rt(memspace, 128);
+        std::vector<ItemT> values_1 {
+            {666, 0}, {22, 1}, {99, 2}, {888, 3}, {444, 4}
+        };
+
+        rt.bulkInsert(values_1.begin(), values_1.end());
+        std::unordered_set<std::uint64_t> values;
+        RT_RangeIterator<int, std::uint64_t> cut(rt, 22, true, 444, true);
+        while (!cut.isEnd()) {
+            std::uint64_t value;
+            cut.next(&value);
+            values.insert(value); 
+        }
+        
+        ASSERT_EQ(values, (std::unordered_set<std::uint64_t> { 1, 2, 4 }));
+    }
+
+    TEST_F( RangeTreeTest , testRangeTreeInclusiveLowerBoundIssue_1 )
+    {
+        using RangeTreeT = RangeTree<int, std::uint64_t>;
+        using ItemT = typename RangeTreeT::ItemT;
+            
+        auto memspace = getMemspace();
+        // create with the limit of 4 items per range, make 3 ranges
+        RangeTreeT rt(memspace, 128);
+        std::vector<ItemT> values_1 {
+            {666, 0}, {22, 1}, {99, 2}, {888, 3}, {444, 4}
+        };
+
+        rt.bulkInsert(values_1.begin(), values_1.end());
+        auto it = rt.lowerBound(22, true);
+        ASSERT_FALSE(it.isEnd());
     }
 
 } 

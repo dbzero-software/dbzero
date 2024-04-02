@@ -171,11 +171,11 @@ namespace db0::object_model
         }
         
         template <typename T> std::unique_ptr<IteratorFactory>
-        rangeQuery(ObjectPtr min, ObjectPtr max) const
+        rangeQuery(ObjectPtr min, bool min_inclusive, ObjectPtr max, bool max_inclusive) const
         {
             // FIXME: make inclusive flags configurable
             return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(getRangeTree<T>(), extractOptionalValue<T>(min),
-                false, extractOptionalValue<T>(max), false);
+                min_inclusive, extractOptionalValue<T>(max), max_inclusive);
         }
 
         void flush();

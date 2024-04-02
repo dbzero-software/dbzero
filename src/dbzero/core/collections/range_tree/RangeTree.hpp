@@ -396,6 +396,10 @@ namespace db0
         {
             auto &index = const_cast<RT_Index&>(m_index);
             auto it = index.findLowerEqualBound(RT_Item { ItemT { key, ValueT() } });
+            // less than all other stored keys
+            if (it == index.end()) {
+                it = index.begin();
+            }
             return { this->getMemspace(), it, index.begin(), index.end(), it == index.begin(), true };
         }
 
