@@ -139,6 +139,8 @@ namespace db0
          */
 		std::unique_ptr<FT_Iterator<key_t> > release(int direction, bool lazy_init = false) override;
 
+        void clear() override;
+
 		/**
          * Number of underlying simple joinable iterators
          */

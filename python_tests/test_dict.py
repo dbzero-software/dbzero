@@ -195,10 +195,10 @@ def test_values_from_dict(db0_fixture, make_dict):
     
     
 def test_dict_not_persisting_keys_issue(db0_fixture):
-    my_dict = db0.dict()
+    root = MemoTestSingleton({})
+    my_dict = root.value
     value = my_dict.get("first", None)
-    assert value is None
-    root = MemoTestSingleton(my_dict)
+    assert value is None    
     prefix_name = db0.get_current_prefix()
     my_dict["first"] = MemoTestClass("abc")
     my_dict["second"] = MemoTestClass("222")

@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestSingleton
+from .memo_test_types import MemoTestSingleton, MemoTestClass
 
 
 @db0.memo()
@@ -152,3 +152,24 @@ def test_find_by_memo_instance_as_tag(db0_fixture):
     
     values = set([x.value for x in db0.find(MemoClassForTags, tags[0])])
     assert values == set([2, 4])
+
+
+def test_typed_find_with_string_tags(db0_fixture):
+    objects = [MemoTestClass(i) for i in range(10)]
+    db0.tags(objects[4]).add("one")
+    db0.tags(objects[6]).add("two")
+    db0.tags(objects[2]).add("one")
+    
+    assert len(list(db0.find(MemoClassForTags, "one"))) == 0
+    values = set([x.value for x in db0.find(MemoTestClass, "one")])
+    assert values == set([2, 4])
+
+
+def test_remove_tags_then_find_typed(db0_fixture):
+    objects = [MemoTestClass(i) for i in range(10)]
+    db0.tags(objects[4]).add("one")
+    db0.tags(objects[6]).add("two")
+    db0.tags(objects[2]).add("one")
+    
+    db0.tags(objects[4], objects[2]).remove("one")    
+    assert len(list(db0.find(MemoTestClass, "one"))) == 0

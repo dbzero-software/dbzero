@@ -14,6 +14,9 @@ namespace db0
         virtual void add(std::unique_ptr<FT_Iterator<KeyT> > &&) = 0;
         
         virtual std::unique_ptr<FT_Iterator<KeyT> > release(int direction, bool lazy_init = false) = 0;
-    };
 
+        // Invalidate / render empty
+        virtual void clear() = 0;
+    };
+    
 }

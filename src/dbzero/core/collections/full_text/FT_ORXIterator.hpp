@@ -266,7 +266,7 @@ namespace db0
          */
 		void add(std::unique_ptr<FT_Iterator<key_t> > &&) override;
 
-		void clear();
+		void clear() override;
 
 		bool empty() const;
 

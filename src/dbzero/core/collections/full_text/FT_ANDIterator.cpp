@@ -420,48 +420,6 @@ namespace db0
 	}   
 
 	template<typename key_t, bool UniqueKeys>
-    FT_ANDIteratorFactory<key_t, UniqueKeys>::FT_ANDIteratorFactory() = default;
-
-	template<typename key_t, bool UniqueKeys>
-	FT_ANDIteratorFactory<key_t, UniqueKeys>::~FT_ANDIteratorFactory() = default;
-
-	template<typename key_t, bool UniqueKeys>
-	void FT_ANDIteratorFactory<key_t, UniqueKeys>::add(std::unique_ptr<FT_Iterator<key_t> > &&it_joinable) {
-		if (it_joinable.get()) {
-            m_joinable.push_back(std::move(it_joinable));
-        }
-	}
-
-	template<typename key_t, bool UniqueKeys>
-	std::unique_ptr<FT_Iterator<key_t> > FT_ANDIteratorFactory<key_t, UniqueKeys>::release(int direction, bool lazy_init) 
-    {
-		if (m_joinable.empty()) {
-			// no iterators to join
-			return nullptr;
-		}
-		if (m_joinable.size()==1u) {
-			// single iterator - no use joining
-			return std::move(m_joinable.front());
-		}
-		return std::unique_ptr<FT_Iterator<key_t> >(new FT_JoinANDIterator<key_t, UniqueKeys>(
-			std::move(this->m_joinable), direction, lazy_init)
-		);
-	}
-
-	/**
-     * Number of underlying simple joinable iterators
-     */
-	template<typename key_t, bool UniqueKeys>
-	std::size_t FT_ANDIteratorFactory<key_t, UniqueKeys>::size() const {
-        return m_joinable.size();
-	}
-
-	template<typename key_t, bool UniqueKeys>
-	bool FT_ANDIteratorFactory<key_t, UniqueKeys>::empty() const {
-		return m_joinable.empty();
-	}
-
-	template<typename key_t, bool UniqueKeys>
 	void db0::FT_JoinANDIterator<key_t, UniqueKeys>
         ::scanQueryTree(std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_function,
                 int depth) const
@@ -551,6 +509,53 @@ namespace db0
         return typeid(self_t);
     }
 
+	template<typename key_t, bool UniqueKeys>
+    FT_ANDIteratorFactory<key_t, UniqueKeys>::FT_ANDIteratorFactory() = default;
+
+	template<typename key_t, bool UniqueKeys>
+	FT_ANDIteratorFactory<key_t, UniqueKeys>::~FT_ANDIteratorFactory() = default;
+
+	template<typename key_t, bool UniqueKeys>
+	void FT_ANDIteratorFactory<key_t, UniqueKeys>::add(std::unique_ptr<FT_Iterator<key_t> > &&it_joinable) {
+		if (it_joinable.get()) {
+            m_joinable.push_back(std::move(it_joinable));
+        }
+	}
+
+	template<typename key_t, bool UniqueKeys>
+	std::unique_ptr<FT_Iterator<key_t> > FT_ANDIteratorFactory<key_t, UniqueKeys>::release(int direction, bool lazy_init) 
+    {
+		if (m_joinable.empty()) {
+			// no iterators to join
+			return nullptr;
+		}
+		if (m_joinable.size()==1u) {
+			// single iterator - no use joining
+			return std::move(m_joinable.front());
+		}
+		return std::unique_ptr<FT_Iterator<key_t> >(new FT_JoinANDIterator<key_t, UniqueKeys>(
+			std::move(this->m_joinable), direction, lazy_init)
+		);
+	}
+    
+	/**
+     * Number of underlying simple joinable iterators
+     */
+	template<typename key_t, bool UniqueKeys>
+	std::size_t FT_ANDIteratorFactory<key_t, UniqueKeys>::size() const {
+        return m_joinable.size();
+	}
+
+	template<typename key_t, bool UniqueKeys>
+	bool FT_ANDIteratorFactory<key_t, UniqueKeys>::empty() const {
+		return m_joinable.empty();
+	}
+
+	template<typename key_t, bool UniqueKeys>
+	void FT_ANDIteratorFactory<key_t, UniqueKeys>::clear() {
+		m_joinable.clear();
+	}
+    
     template class FT_JoinANDIterator<std::uint64_t, false>;
     template class FT_JoinANDIterator<std::uint64_t, true>;
     

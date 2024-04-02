@@ -74,24 +74,32 @@ namespace db0::object_model
     {
     }
     
-    std::shared_ptr<Class> ClassFactory::getExistingType(TypeObjectPtr lang_type, const char *type_id) const
+    std::shared_ptr<Class> ClassFactory::tryGetExistingType(TypeObjectPtr lang_type, const char *type_id) const
     {
         auto it_cached = m_type_cache.find(lang_type);
         if (it_cached == m_type_cache.end())
         {
             // find type in the type map, use 4 variants of type identification
-            auto class_ptr = tryFindClassPtr(lang_type, type_id);
-            std::shared_ptr<Class> type;
+            auto class_ptr = tryFindClassPtr(lang_type, type_id);            
             if (!class_ptr) {
-                THROWF(db0::InputException) << "Class not found: " << LangToolkit::getTypeName(lang_type);
+                return nullptr;
             }
             // pull existing DBZero class instance by pointer
-            type = getTypeByPtr(class_ptr);
+            std::shared_ptr<Class> type = getTypeByPtr(class_ptr);
             it_cached = m_type_cache.insert({lang_type, type}).first;
             // persist type objects
             m_types.push_back(lang_type);
         }
         return it_cached->second;
+    }
+
+    std::shared_ptr<Class> ClassFactory::getExistingType(TypeObjectPtr lang_type, const char *type_id) const
+    {
+        auto type = tryGetExistingType(lang_type, type_id);
+        if (!type) {
+            THROWF(db0::InputException) << "Class not found: " << LangToolkit::getTypeName(lang_type);
+        }
+        return type;
     }
     
     std::shared_ptr<Class> ClassFactory::getOrCreateType(TypeObjectPtr lang_type, const char *type_id)

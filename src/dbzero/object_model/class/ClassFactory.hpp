@@ -50,6 +50,12 @@ namespace db0::object_model
         std::shared_ptr<Class> getExistingType(TypeObjectPtr lang_type, const char *type_id = nullptr) const;
         
         /**
+         * A non-throwing version of getExistingType
+         * @return nullptr if the class is not found
+        */
+        std::shared_ptr<Class> tryGetExistingType(TypeObjectPtr lang_type, const char *type_id = nullptr) const;
+        
+        /**
          * Get existing or create a new DBZero class instance
          * @param lang_type the language specific type object (e.g. Python class)
          * @param typeid the user assigned type ID (optional)

@@ -107,6 +107,10 @@ namespace db0::object_model
             THROWF(db0::InternalException) << "Invalid operation" << THROWF_END;
         }
 
+        void clear() override {
+            m_neg_iterators.clear();
+        }
+
     private:
         std::vector<std::unique_ptr<QueryIterator> > &m_neg_iterators;
     };
@@ -232,7 +236,7 @@ namespace db0::object_model
 
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
         std::shared_ptr<Class> &type) const
-    {
+    {        
         db0::FT_ANDIteratorFactory<std::uint64_t> factory;
         // the negated root-level query components
         std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
@@ -245,8 +249,13 @@ namespace db0::object_model
             if (LangToolkit::isType(args[offset])) {
                 auto lang_type = LangToolkit::getTypeManager().getTypeObject(args[offset]);
                 // resolve existing DB0 type from python type and then use type as tag
-                type = m_class_factory.getExistingType(lang_type);
-                result &= m_base_index.addIterator(factory, type->getAddress());
+                type = m_class_factory.tryGetExistingType(lang_type);
+                if (type) {
+                    result &= m_base_index.addIterator(factory, type->getAddress());
+                } else {
+                    // type not found implies no matching results exist
+                    result = false;
+                }
                 ++offset;
             }
             
@@ -254,13 +263,18 @@ namespace db0::object_model
                 result &= addIterator(args[offset], factory, neg_iterators);
                 ++offset;
             }
+
+            if (!result) {
+                // invalidate factory since no matching results exist
+                factory.clear();
+            }
         }
         
         auto query_iterator = factory.release(-1);
         // handle negated query components
         if (neg_iterators.empty()) {
             return query_iterator;
-        } else {            
+        } else {
             if (!query_iterator) {
                 THROWF(db0::InputException) << "Negated query components are not supported without positive components" << THROWF_END;
             }
