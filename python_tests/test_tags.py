@@ -40,6 +40,17 @@ def test_assign_multiple_tags_as_varargs(db0_fixture):
     assert len(list(db0.find("tag2"))) == 1
     assert len(list(db0.find("tag3"))) == 0
 
+def test_assign_tags_as_values_with_operator(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    root = MemoTestSingleton(object_1)
+    # assign multiple tags
+    tags = db0.tags(object_1)
+    tags  += "tag1"
+    tags  += "tag2"
+    assert len(list(db0.find("tag1"))) == 1
+    assert len(list(db0.find("tag2"))) == 1
+    assert len(list(db0.find("tag3"))) == 0
+
 
 def test_assign_multiple_tags_as_list(db0_fixture):
     object_1 = MemoClassForTags(1)
@@ -50,6 +61,15 @@ def test_assign_multiple_tags_as_list(db0_fixture):
     assert len(list(db0.find("tag2"))) == 1
     assert len(list(db0.find("tag3"))) == 0
 
+def test_assign_multiple_tags_as_list_with_operator(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    root = MemoTestSingleton(object_1)
+    # assign multiple tags
+    tags = db0.tags(object_1)
+    tags  += ["tag1", "tag2"]
+    assert len(list(db0.find("tag1"))) == 1
+    assert len(list(db0.find("tag2"))) == 1
+    assert len(list(db0.find("tag3"))) == 0
 
 def test_object_gets_incref_by_tags(db0_fixture):
     object_1 = MemoClassForTags(1)
@@ -69,8 +89,27 @@ def test_assigned_tags_can_be_removed(db0_fixture):
     assert len(list(db0.find("tag2"))) == 1
     db0.tags(object_1).remove("tag2")
     assert len(list(db0.find("tag2"))) == 0
-    
-    
+
+def test_assigned_tags_can_be_removed_with_operators(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    tags = db0.tags(object_1)
+    tags.add(["tag1", "tag2"])
+    tags -= "tag1"
+    assert len(list(db0.find("tag1"))) == 0
+    assert len(list(db0.find("tag2"))) == 1
+    tags -= "tag2"
+    assert len(list(db0.find("tag2"))) == 0
+
+def test_assigned_tags_can_be_removed_as_list_with_operators(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    tags = db0.tags(object_1)
+    tags.add(["tag1", "tag2"])
+    assert len(list(db0.find("tag1"))) == 1
+    assert len(list(db0.find("tag2"))) == 1
+    tags -= ["tag1", "tag2"]
+    assert len(list(db0.find("tag1"))) == 0
+    assert len(list(db0.find("tag2"))) == 0
+
 # def test_object_gets_dropped_if_norefs_after_tags_removed(db0_fixture):
 #     object_1 = MemoClassForTags(1)
 #     uuid = db0.uuid(object_1)

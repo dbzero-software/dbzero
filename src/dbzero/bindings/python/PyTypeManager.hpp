@@ -16,8 +16,6 @@ namespace db0::object_model {
     class TagSet;
     class Index;
     class ObjectIterator;
-    class DateTime;
-
 }
 
 namespace db0::object_model::pandas {
@@ -48,8 +46,7 @@ namespace db0::python
         using PandasBlock = db0::object_model::pandas::Block;
         using Index = db0::object_model::Index;
         using ObjectIterator = db0::object_model::ObjectIterator;
-        using DateTime = db0::object_model::DateTime;
-        
+
         PyTypeManager();
         
         /**
@@ -74,7 +71,6 @@ namespace db0::python
         TagSet &extractTagSet(ObjectPtr tag_set_ptr) const;
         Index &extractIndex(ObjectPtr index_ptr) const;
         ObjectIterator &extractObjectIterator(ObjectPtr) const;
-        DateTime &extractDateTime(ObjectPtr) const;
         
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
         
