@@ -173,3 +173,9 @@ def test_remove_tags_then_find_typed(db0_fixture):
     
     db0.tags(objects[4], objects[2]).remove("one")    
     assert len(list(db0.find(MemoTestClass, "one"))) == 0
+
+
+def test_tags_can_be_assigned_on_empty_list(db0_fixture):
+    objects = [MemoTestClass(i) for i in range(10)]
+    db0.tags(*[]).add("one")
+    assert len(list(db0.find(MemoClassForTags, "one"))) == 0

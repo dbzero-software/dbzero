@@ -22,6 +22,8 @@ namespace db0::object_model
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
 
+        // construct as empty
+        ObjectTagManager();
         ObjectTagManager(ObjectPtr const *memo_ptr, std::size_t nargs);
         ~ObjectTagManager();
         
@@ -52,6 +54,7 @@ namespace db0::object_model
             void remove(ObjectPtr const *args, Py_ssize_t nargs);
         };
 
+        const bool m_empty = false;
         // first object's info
         ObjectInfo m_info;
         // optional additional objects' info

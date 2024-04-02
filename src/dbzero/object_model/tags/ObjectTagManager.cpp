@@ -26,14 +26,25 @@ namespace db0::object_model
         }
     }
 
+    ObjectTagManager::ObjectTagManager()
+        : m_empty(true)
+    {
+    }
+
     ObjectTagManager::~ObjectTagManager()
     {
-        if (m_info_vec_ptr) {
-            delete[] m_info_vec_ptr;
+        if (!m_empty) {
+            if (m_info_vec_ptr) {
+                delete[] m_info_vec_ptr;
+            }
         }
     }
-        
+    
     ObjectTagManager *ObjectTagManager::makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs) {
+        if (nargs == 0) {
+            // construct as empty
+            return new (at_ptr) ObjectTagManager();
+        }
         return new (at_ptr) ObjectTagManager(memo_ptr, nargs);
     }
 
@@ -54,17 +65,21 @@ namespace db0::object_model
 
     void ObjectTagManager::add(ObjectPtr const *args, Py_ssize_t nargs) 
     {
-        m_info.add(args, nargs);
-        for (std::size_t i = 0; i < m_info_vec_size; ++i) {
-            m_info_vec_ptr[i].add(args, nargs);
+        if (!m_empty) {
+            m_info.add(args, nargs);
+            for (std::size_t i = 0; i < m_info_vec_size; ++i) {
+                m_info_vec_ptr[i].add(args, nargs);
+            }
         }
     }
 
     void ObjectTagManager::remove(ObjectPtr const *args, Py_ssize_t nargs)
     {
-        m_info.remove(args, nargs);
-        for (std::size_t i = 0; i < m_info_vec_size; ++i) {
-            m_info_vec_ptr[i].remove(args, nargs);
+        if (!m_empty) {
+            m_info.remove(args, nargs);
+            for (std::size_t i = 0; i < m_info_vec_size; ++i) {
+                m_info_vec_ptr[i].remove(args, nargs);
+            }
         }
     }
     

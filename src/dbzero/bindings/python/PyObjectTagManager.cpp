@@ -52,12 +52,7 @@ namespace db0::python
     };
     
     PyObjectTagManager *makeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {        
-        if (nargs == 0) {
-            PyErr_SetString(PyExc_TypeError, "No arguments provided");
-            return NULL;
-        }
-
+    {
         // all arguments must be Memo objects        
         for (Py_ssize_t i = 0; i < nargs; ++i) {
             if (!PyMemo_Check(args[i])) {
