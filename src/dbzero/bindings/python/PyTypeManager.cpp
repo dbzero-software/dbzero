@@ -24,6 +24,7 @@
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/bindings/python/types/DateTime.hpp>
 
 namespace db0::python
 
@@ -195,6 +196,17 @@ namespace db0::python
             THROWF(db0::InputException) << "Expected an integer object" << THROWF_END;
         }
         return PyLong_AsLongLong(int_ptr);
+    }
+    
+    std::uint64_t PyTypeManager::extractUInt64(TypeId type_id, ObjectPtr obj_ptr) const
+    {
+        switch (type_id) {
+            case TypeId::DATETIME:
+                return pyDateTimeToToUint64(obj_ptr);
+            default:
+                THROWF(db0::InputException) << "Unable to convert object of type " << PyToolkit::getTypeName(obj_ptr) 
+                    << " to UInt64" << THROWF_END;
+        }
     }
 
     PyTypeManager::TypeObjectPtr PyTypeManager::getTypeObject(ObjectPtr py_type) const 

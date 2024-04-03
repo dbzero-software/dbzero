@@ -53,6 +53,12 @@ namespace db0::object_model
                     break;
                 }
 
+                case IndexDataType::UInt64: {
+                    auto &builder = getRangeTreeBuilder<std::uint64_t>();
+                    builder.flush(getRangeTree<std::uint64_t>(), &add_callback);
+                    break;
+                }
+
                 default:
                     THROWF(db0::InputException) << "Unsupported index data type: " << static_cast<std::uint16_t>(m_data_type);
             
@@ -73,6 +79,11 @@ namespace db0::object_model
                 break;
             }
 
+            case IndexDataType::UInt64: {
+                return getRangeTree<std::uint64_t>().size();
+                break;
+            }
+
             default:
                 THROWF(db0::InputException) << "Unsupported index data type: " 
                     << static_cast<std::uint16_t>(m_data_type) << THROWF_END;
@@ -90,7 +101,14 @@ namespace db0::object_model
                 getRangeTreeBuilder<std::int64_t>().add(key_value, object_addr);
                 break;
             }
-            
+
+            case db0::bindings::TypeId::DATETIME: {
+                // use uint64_t representation of datetime
+                auto key_value = type_manager.extractUInt64(key_type_id, key);
+                getRangeTreeBuilder<std::uint64_t>().add(key_value, object_addr);
+                break;
+            }
+
             // special handling of None values
             case db0::bindings::TypeId::NONE: {
                 addNull(object_addr);
@@ -117,6 +135,11 @@ namespace db0::object_model
                 break;
             }
 
+            case IndexDataType::UInt64: {
+                iter_factory = rangeQuery<std::uint64_t>(min, true, max, true);
+                break;
+            }
+
             default:
                 THROWF(db0::InputException) << "Unsupported index data type: " 
                     << static_cast<std::uint16_t>(m_data_type) << THROWF_END;
@@ -136,6 +159,11 @@ namespace db0::object_model
                     break;
                 }
 
+                case IndexDataType::UInt64: {
+                    sort_iter = sortSortedQuery<std::uint64_t>(iter.beginSorted());
+                    break;
+                }
+
                 default:
                     THROWF(db0::InputException) << "Unsupported index data type: " 
                         << static_cast<std::uint16_t>(m_data_type) << THROWF_END;
@@ -145,6 +173,11 @@ namespace db0::object_model
             switch (m_data_type) {
                 case IndexDataType::Int64: {
                     sort_iter = sortQuery<std::int64_t>(iter.beginFTQuery());
+                    break;
+                }
+
+                case IndexDataType::UInt64: {
+                    sort_iter = sortQuery<std::uint64_t>(iter.beginFTQuery());
                     break;
                 }
 
@@ -165,6 +198,11 @@ namespace db0::object_model
                 break;
             }
 
+            case IndexDataType::UInt64: {
+                return getRangeTreeBuilder<std::uint64_t>().addNull(value);
+                break;
+            }
+
             default:
                 THROWF(db0::InputException) << "Unsupported index data type: " 
                     << static_cast<std::uint16_t>(m_data_type) << THROWF_END;
@@ -175,9 +213,18 @@ namespace db0::object_model
     template <> std::optional<std::int64_t> Index::extractOptionalValue<std::int64_t>(ObjectPtr value) const
     {
         if (!value) {
-            return std::nullopt;        
+            return std::nullopt;    
         }
         return LangToolkit::getTypeManager().extractInt64(value);
+    }
+
+    template <> std::optional<std::uint64_t> Index::extractOptionalValue<std::uint64_t>(ObjectPtr value) const
+    {
+        if (!value) {
+            return std::nullopt;    
+        }
+        auto &type_manager = LangToolkit::getTypeManager();
+        return type_manager.extractUInt64(type_manager.getTypeId(value), value);
     }
 
     void Index::preCommit() {

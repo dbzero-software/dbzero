@@ -65,7 +65,8 @@ namespace db0::python
         Object &extractObject(ObjectPtr memo_ptr) const;
         List &extractList(ObjectPtr list_ptr) const;
         Set &extractSet(ObjectPtr set_ptr) const;
-        std::int64_t extractInt64(ObjectPtr int_ptr) const;        
+        std::int64_t extractInt64(ObjectPtr int_ptr) const;
+        std::uint64_t extractUInt64(TypeId, ObjectPtr) const;
         Tuple &extractTuple(ObjectPtr tuple_ptr) const;
         Dict &extractDict(ObjectPtr dict_ptr) const;
         TagSet &extractTagSet(ObjectPtr tag_set_ptr) const;

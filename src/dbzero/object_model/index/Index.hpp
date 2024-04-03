@@ -32,7 +32,8 @@ namespace db0::object_model
         Unknown = 0,
         // type will be auto-assigned on first use
         Auto = 1,
-        Int64 = 2
+        Int64 = 2,
+        UInt64 = 3
     };
 
     struct [[gnu::packed]] o_index: public o_fixed<o_index>
@@ -113,6 +114,8 @@ namespace db0::object_model
         {
             if constexpr (std::is_same_v<T, std::int64_t>) {
                 return IndexDataType::Int64;
+            } else if constexpr (std::is_same_v<T, std::uint64_t>) {
+                return IndexDataType::UInt64;
             } else {
                 return IndexDataType::Unknown;
             }
@@ -122,8 +125,7 @@ namespace db0::object_model
         template <typename T> typename db0::RangeTree<T, std::uint64_t>::Builder &getRangeTreeBuilder()
         {
             using BuilderT = typename db0::RangeTree<T, std::uint64_t>::Builder;
-            if (!m_index_builder)
-            {
+            if (!m_index_builder) {
                 m_index_builder = db0::make_shared_void<BuilderT>();
                 m_data_type = getDataType<T>();
             }
@@ -187,6 +189,7 @@ namespace db0::object_model
     };
 
     // extract optional value specializations
-    template <> std::optional<std::int64_t> Index::extractOptionalValue<std::int64_t>(ObjectPtr value) const;    
+    template <> std::optional<std::int64_t> Index::extractOptionalValue<std::int64_t>(ObjectPtr value) const;
+    template <> std::optional<std::uint64_t> Index::extractOptionalValue<std::uint64_t>(ObjectPtr value) const;
 
 }
