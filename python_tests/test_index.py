@@ -3,6 +3,8 @@ import dbzero_ce as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 from dbzero_ce import find
+import datetime
+from datetime import timedelta
 
 
 def test_index_instance_can_be_created_without_arguments(db0_fixture):
@@ -161,3 +163,19 @@ def test_sorting_empty_tag_filter(db0_fixture):
     
     assert len(list(find("tag1", "tag2"))) == 0
     assert len(list(ix_one.sort(find("tag1", "tag2")))) == 0
+
+
+def test_range_index_can_sort_by_datetime(db0_fixture):
+    index = db0.index()
+    dt_base = datetime.datetime.now()
+    objects = [MemoTestClass(dt_base + timedelta(seconds=i + 1)) for i in range(5)]
+    for i in range(5):
+        db0.tags(objects[i]).add(["tag1", "tag2"])
+        # datetime key, value
+        index.add(objects[i].value, objects[i])
+    
+    result = list(index.sort(db0.find("tag1")))
+    last_value = dt_base
+    for object in result:
+        assert object.value >= last_value
+        last_value = object.value

@@ -9,7 +9,6 @@ subdir('pandas')
 subdir('tuple')
 subdir('list')
 subdir('dict')
-subdir('datetime')
 
 all_srcs += [
 meson.current_source_dir() / 'LangCache.cpp',
