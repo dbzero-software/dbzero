@@ -78,7 +78,7 @@ namespace db0
         // a flag indicating that m_sorted_it was created over the null block
         bool m_sorted_null_block = false;
 
-        // Create joined with FT-iterator
+        // Create AND-joined with FT-iterator
         RT_SortIterator(const RT_TreeT &tree, bool has_query, std::unique_ptr<FT_Iterator<ValueT> > &&it, bool asc,
             std::unique_ptr<SortedIterator<ValueT> > &&inner_it)
             : m_tree(tree)
@@ -88,7 +88,9 @@ namespace db0
             , m_has_query(has_query)
             , m_null_query_it(beginNullBlockQuery())
             , m_inner_it(std::move(inner_it))
-        {            
+            // force end if they underlying query is end / empty
+            , m_force_end(m_has_query && (!m_query_it || m_query_it->isEnd()))
+        {
             if (m_tree_it.isEnd()) {
                 m_null_it = std::move(m_null_query_it);
                 m_null_query_it = nullptr;

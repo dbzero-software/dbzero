@@ -145,3 +145,19 @@ def test_range_index_query_is_inclusive_by_default(db0_fixture):
         
     values = set([x.value for x in index_1.range(22, 444)])
     assert values == set([1, 2, 4])
+
+
+def test_sorting_empty_tag_filter(db0_fixture):
+    ix_one = db0.index()
+    objects = [MemoTestClass(i) for i in range(5)]
+    priority = [666, 22, 99, 888, 444]
+    for i in range(5):
+        # key, value
+        ix_one.add(priority[i], objects[i])
+        if i % 2 == 0:
+            db0.tags(objects[i]).add("tag1")
+        else:
+            db0.tags(objects[i]).add("tag2")
+    
+    assert len(list(find("tag1", "tag2"))) == 0
+    assert len(list(ix_one.sort(find("tag1", "tag2")))) == 0
