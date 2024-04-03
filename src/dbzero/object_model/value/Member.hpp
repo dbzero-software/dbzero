@@ -16,7 +16,6 @@
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/index/Index.hpp>
-#include <dbzero/object_model/datetime/DateTime.hpp>
 
 namespace db0::object_model
 
@@ -98,15 +97,6 @@ namespace db0::object_model
                 return tuple.getAddress();
             }
             break;
-
-            case TypeId::DB0_DATETIME: {
-                // extract address from the Tuple object
-                auto &datetime = LangToolkit::getTypeManager().extractDateTime(lang_value);
-                datetime.incRef();
-                return datetime.getAddress();
-            }
-            break;
-
             // Python types 
 
             case TypeId::LIST: {
@@ -142,9 +132,7 @@ namespace db0::object_model
             break;
 
             case TypeId::DATETIME: {
-                auto datetime = db0::python::makeDateTimeFromPython(lang_value);
-                datetime->ext().incRef();
-                return datetime->ext().getAddress();
+                return db0::python::pyDateTimeToToUint64(lang_value);
             }
             break;
 
@@ -268,8 +256,7 @@ namespace db0::object_model
             break;
 
             case StorageClass::DB0_DATETIME: {
-                auto fixture = object.getFixture();
-                return LangToolkit::unloadDateTime(fixture, value.cast<std::uint64_t>());
+                return db0::python::uint64ToPyDatetime(value.cast<std::uint64_t>());
             }
             break;
 

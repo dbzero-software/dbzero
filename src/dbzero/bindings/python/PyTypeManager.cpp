@@ -22,7 +22,6 @@
 #include <dbzero/object_model/pandas/Block.hpp>
 #include <dbzero/object_model/pandas/Dataframe.hpp>
 #include <dbzero/object_model/index/Index.hpp>
-#include <dbzero/object_model/datetime/DateTime.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 
@@ -47,7 +46,6 @@ namespace db0::python
         addStaticType(&PySet_Type, TypeId::SET);
         addStaticType(&PyDict_Type, TypeId::DICT);
         addStaticType(&PyTuple_Type, TypeId::TUPLE);
-        addStaticType(&DateTimeObjectType, TypeId::DB0_DATETIME);
         addStaticType(&TagSetType, TypeId::DB0_TAG_SET);
         addStaticType(&IndexObjectType, TypeId::DB0_INDEX);
         addStaticType(&ListObjectType, TypeId::DB0_LIST);
@@ -212,13 +210,4 @@ namespace db0::python
         }
         return reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext();
     }
-
-    PyTypeManager::DateTime &PyTypeManager::extractDateTime(ObjectPtr obj_ptr) const
-    {
-        if (!DateTimeObject_Check(obj_ptr)) {
-            THROWF(db0::InputException) << "Expected a DateTime object" << THROWF_END;
-        }
-        return reinterpret_cast<DateTimeObject*>(obj_ptr)->ext();
-    }
-
 }

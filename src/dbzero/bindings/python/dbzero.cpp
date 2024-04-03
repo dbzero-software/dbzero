@@ -15,7 +15,6 @@
 #include "PyTagSet.hpp"
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
-#include <dbzero/bindings/python/types/DateTime.hpp>
 
 namespace py = db0::python;
     
@@ -39,7 +38,6 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"dict", (PyCFunction)&py::makeDict, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero dict instance"},
     {"block", (PyCFunction)&py::makeBlock, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero pandas block instance"},
     {"dataframe", (PyCFunction)&py::makeDataFrame, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero pandas dataframe instance"},
-    {"datetime", (PyCFunction)&py::makeDateTime, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero DateTime instance"},
     {"get_prefix", (PyCFunction)&py::getPrefixName, METH_VARARGS, ""},
     {"get_current_prefix", &py::getCurrentPrefixName, METH_VARARGS, ""},
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
@@ -128,10 +126,6 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
     }
 
     if (!initPyType(mod, "PandasDataFrame", py::PandasDataFrameObjectType)) {
-        return NULL;
-    }
-
-     if (!initPyType(mod, "Datetime", py::DateTimeObjectType)) {
         return NULL;
     }
 
