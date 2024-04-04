@@ -152,7 +152,7 @@ namespace db0::object_model
             }
             
             if (!std::is_same_v<FromType, ToType>) {
-                m_index_builder = db0::make_shared_void<DestBuilderT>(getIndexBuilder<FromType>().releaseNullItems());
+                m_index_builder = db0::make_shared_void<DestBuilderT>(getIndexBuilder<FromType>(true).releaseNullItems());
             }
             // set or update the data type
             m_data_type = getDataType<ToType>();
@@ -201,8 +201,21 @@ namespace db0::object_model
         rangeQuery(ObjectPtr min, bool min_inclusive, ObjectPtr max, bool max_inclusive) const
         {
             // FIXME: make inclusive flags configurable
-            return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(getRangeTree<T>(), extractOptionalValue<T>(min),
-                min_inclusive, extractOptionalValue<T>(max), max_inclusive);
+            // we need to handle all-null case separately because provisional data type and range type may differ
+            auto &range_tree = getRangeTree<T>();
+            if (range_tree.hasAnyNonNull()) {
+                return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, extractOptionalValue<T>(min),
+                    min_inclusive, extractOptionalValue<T>(max), max_inclusive);
+            } else {
+                // FIXME: handle null-first policy
+                if (LangToolkit::getTypeManager().isNull(max)) {
+                    // simply return all elements for unbound range
+                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, extractOptionalValue<T>(min),
+                        min_inclusive, extractOptionalValue<T>(max), max_inclusive);
+                }
+                // no results
+                return nullptr;
+            }
         }
 
         void flush();

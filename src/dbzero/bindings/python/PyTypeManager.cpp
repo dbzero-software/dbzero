@@ -193,7 +193,8 @@ namespace db0::python
     std::int64_t PyTypeManager::extractInt64(ObjectPtr int_ptr) const
     {
         if (!PyLong_Check(int_ptr)) {
-            THROWF(db0::InputException) << "Expected an integer object" << THROWF_END;
+            THROWF(db0::InputException) << "Expected an integer object, got " 
+                << PyToolkit::getTypeName(int_ptr) << THROWF_END;
         }
         return PyLong_AsLongLong(int_ptr);
     }

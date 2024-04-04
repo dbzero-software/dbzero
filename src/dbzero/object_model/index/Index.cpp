@@ -243,18 +243,19 @@ namespace db0::object_model
     // extract optional value
     template <> std::optional<std::int64_t> Index::extractOptionalValue<std::int64_t>(ObjectPtr value) const
     {
-        if (!value) {
+        auto &type_manager = LangToolkit::getTypeManager();
+        if (type_manager.isNull(value)) {
             return std::nullopt;    
         }
-        return LangToolkit::getTypeManager().extractInt64(value);
+        return type_manager.extractInt64(value);
     }
 
     template <> std::optional<std::uint64_t> Index::extractOptionalValue<std::uint64_t>(ObjectPtr value) const
     {
-        if (!value) {
+        auto &type_manager = LangToolkit::getTypeManager();
+        if (type_manager.isNull(value)) {
             return std::nullopt;    
         }
-        auto &type_manager = LangToolkit::getTypeManager();
         return type_manager.extractUInt64(type_manager.getTypeId(value), value);
     }
 
