@@ -9,6 +9,20 @@ namespace db0::object_model
 {
 
     GC0_Define(Index)
+    using TypeId = db0::bindings::TypeId;
+    
+    IndexDataType getIndexDataType(TypeId type_id)
+    {
+        switch (type_id) {
+            case TypeId::INTEGER:
+                return IndexDataType::Int64;
+            case TypeId::DATETIME:
+                return IndexDataType::UInt64;
+            default:
+                THROWF(db0::InputException) << "Unsupported index key type: " 
+                    << static_cast<std::uint16_t>(type_id) << THROWF_END;
+        }
+    }
 
     Index::Index(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, db0::createInstanceId(), IndexType::RangeTree, IndexDataType::Auto)
@@ -48,14 +62,21 @@ namespace db0::object_model
         if (m_index_builder) {
             switch (m_data_type) {
                 case IndexDataType::Int64: {
-                    auto &builder = getRangeTreeBuilder<std::int64_t>();
+                    auto &builder = getIndexBuilder<std::int64_t>();
                     builder.flush(getRangeTree<std::int64_t>(), &add_callback);
                     break;
                 }
 
                 case IndexDataType::UInt64: {
-                    auto &builder = getRangeTreeBuilder<std::uint64_t>();
+                    auto &builder = getIndexBuilder<std::uint64_t>();
                     builder.flush(getRangeTree<std::uint64_t>(), &add_callback);
+                    break;
+                }
+
+                // flush using default / provisional data type
+                case IndexDataType::Auto: {
+                    auto &builder = getIndexBuilder<DefaultT>(true);
+                    builder.flush(getRangeTree<DefaultT>(), &add_callback);
                     break;
                 }
 
@@ -94,31 +115,35 @@ namespace db0::object_model
     {
         auto &type_manager = LangToolkit::getTypeManager();
         auto object_addr = type_manager.extractObject(value).getAddress();
-        auto key_type_id = type_manager.getTypeId(key);
-        switch (key_type_id) {
-            case db0::bindings::TypeId::INTEGER: {
-                auto key_value = type_manager.extractInt64(key);
-                getRangeTreeBuilder<std::int64_t>().add(key_value, object_addr);
+        // special handling of null / None values
+        if (type_manager.isNull(key)) {
+            addNull(object_addr);
+            return;
+        }
+
+        auto data_type = m_data_type;
+        if (data_type == IndexDataType::Auto) {
+            // update to a concrete data type
+            data_type = updateIndexBuilder(type_manager.getTypeId(key));
+        }
+
+        switch (data_type) {
+            case IndexDataType::Int64: {
+                getIndexBuilder<std::int64_t>().add(type_manager.extractInt64(key), object_addr);                
                 break;
             }
 
-            case db0::bindings::TypeId::DATETIME: {
-                // use uint64_t representation of datetime
-                auto key_value = type_manager.extractUInt64(key_type_id, key);
-                getRangeTreeBuilder<std::uint64_t>().add(key_value, object_addr);
-                break;
-            }
-
-            // special handling of None values
-            case db0::bindings::TypeId::NONE: {
-                addNull(object_addr);
+            case IndexDataType::UInt64: {
+                getIndexBuilder<std::uint64_t>().add(type_manager.extractUInt64(key), object_addr);
                 break;
             }
 
             default:
-                THROWF(db0::InputException) << "Unsupported key type: " << key_type_id;
+                THROWF(db0::InputException) << "Index of type " 
+                    << static_cast<std::uint16_t>(m_data_type)
+                    << " does not allow adding key type: " << LangToolkit::getTypeName(key) << THROWF_END;
         }
-
+        
         // cache object locally
         if (m_object_cache.find(object_addr) == m_object_cache.end()) {
             m_object_cache.emplace(object_addr, value);
@@ -193,13 +218,19 @@ namespace db0::object_model
     void Index::addNull(std::uint64_t value)
     {
         switch (m_data_type) {
+            // use provisional data type for Auto
+            case IndexDataType::Auto: {
+                return getIndexBuilder<DefaultT>(true).addNull(value);
+                break;
+            }
+
             case IndexDataType::Int64: {
-                return getRangeTreeBuilder<std::int64_t>().addNull(value);
+                return getIndexBuilder<std::int64_t>().addNull(value);
                 break;
             }
 
             case IndexDataType::UInt64: {
-                return getRangeTreeBuilder<std::uint64_t>().addNull(value);
+                return getIndexBuilder<std::uint64_t>().addNull(value);
                 break;
             }
 
@@ -233,6 +264,41 @@ namespace db0::object_model
 
     void Index::preCommitOp(void *ptr) {
         static_cast<Index*>(ptr)->preCommit();
+    }
+
+    IndexDataType Index::updateIndexBuilder(TypeId type_id)
+    {
+        auto index_data_type = getIndexDataType(type_id);
+        if (!m_index_builder) {
+            return index_data_type;
+        }
+        
+        if (m_data_type == IndexDataType::Auto) {
+            // convert from the provisional to a concrete data type
+            switch (index_data_type) {
+                case IndexDataType::Int64: {
+                    updateIndexBuilder<DefaultT, std::int64_t>();
+                    break;
+                }    
+
+                case IndexDataType::UInt64: {
+                    updateIndexBuilder<DefaultT, std::uint64_t>();
+                    break;
+                }
+
+                default:
+                    THROWF(db0::InputException) << "Unsupported index key type: " << static_cast<std::uint16_t>(type_id) << THROWF_END;
+            }
+            return m_data_type;
+        }
+
+        // validate if concrete type is matching
+        if (m_data_type != index_data_type) {
+            THROWF(db0::InputException) << "Index key type mismatch: " 
+                << static_cast<std::uint16_t>(type_id) << " != " 
+                << static_cast<std::uint16_t>(m_data_type) << THROWF_END;
+        }
+        return index_data_type;
     }
 
 }

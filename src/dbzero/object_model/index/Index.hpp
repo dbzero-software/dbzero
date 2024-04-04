@@ -30,7 +30,7 @@ namespace db0::object_model
     enum class IndexDataType: std::uint16_t
     {
         Unknown = 0,
-        // type will be auto-assigned on first use
+        // type will be auto-assigned on first non-null element added
         Auto = 1,
         Int64 = 2,
         UInt64 = 3
@@ -63,6 +63,7 @@ namespace db0::object_model
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using TypeId = db0::bindings::TypeId;
                 
         Index(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
@@ -98,6 +99,8 @@ namespace db0::object_model
 
     private:
         using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
+        // the default/provisional type
+        using DefaultT = std::int64_t;
 
         mutable std::shared_ptr<void> m_index_builder;
         mutable IndexDataType m_data_type;
@@ -122,22 +125,44 @@ namespace db0::object_model
         }
 
         // get existing or create new range-tree builder
-        template <typename T> typename db0::RangeTree<T, std::uint64_t>::Builder &getRangeTreeBuilder()
+        template <typename T> typename db0::RangeTree<T, std::uint64_t>::Builder &getIndexBuilder(bool as_auto = false)
         {
             using BuilderT = typename db0::RangeTree<T, std::uint64_t>::Builder;
             if (!m_index_builder) {
                 m_index_builder = db0::make_shared_void<BuilderT>();
-                m_data_type = getDataType<T>();
+                if (as_auto) {
+                    m_data_type = IndexDataType::Auto;
+                } else {
+                    m_data_type = getDataType<T>();               
+                }
             }
-            assert(m_data_type == getDataType<T>());
+            assert(m_data_type == getDataType<T>() || (as_auto && m_data_type == IndexDataType::Auto));
             return *static_cast<BuilderT*>(m_index_builder.get());
         }
-
+        
+        // update index builder instance to a concrete type
+        IndexDataType updateIndexBuilder(TypeId);
+        
+        template <typename FromType, typename ToType> void updateIndexBuilder()
+        {
+            using SrcBuilderT = typename db0::RangeTree<FromType, std::uint64_t>::Builder;
+            using DestBuilderT = typename db0::RangeTree<ToType, std::uint64_t>::Builder;
+            if (!m_index_builder) {
+                return;
+            }
+            
+            if (!std::is_same_v<FromType, ToType>) {
+                m_index_builder = db0::make_shared_void<DestBuilderT>(getIndexBuilder<FromType>().releaseNullItems());
+            }
+            // set or update the data type
+            m_data_type = getDataType<ToType>();
+        }
+        
         // get existing or create a new range tree of a specific type
         template <typename T> typename db0::RangeTree<T, std::uint64_t> &getRangeTree()
         {
             using RangeTreeT = db0::RangeTree<T, std::uint64_t>;
-            if (!m_index) {                
+            if (!m_index) {
                 if ((*this)->m_index_addr) {
                     // pull existing range tree
                     m_index = db0::make_shared_void<RangeTreeT>(this->myPtr((*this)->m_index_addr));                    

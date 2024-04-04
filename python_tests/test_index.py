@@ -179,3 +179,22 @@ def test_range_index_can_sort_by_datetime(db0_fixture):
     for object in result:
         assert object.value >= last_value
         last_value = object.value
+
+
+def test_index_can_hold_all_null_elements(db0_fixture):
+    index = db0.index()
+    # key, value
+    for _ in range(5):
+        index.add(None, MemoTestClass(999))
+    assert len(index) == 5
+
+
+def test_index_can_add_non_null_after_adding_nulls_first(db0_fixture):
+    index = db0.index()
+    for _ in range(5):
+        # add null elements only
+        index.add(None, MemoTestClass(999))
+    # extend the index with a non-null element
+    index.add(1, MemoTestClass(999))
+    assert len(index) == 6
+    

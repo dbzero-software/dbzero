@@ -429,6 +429,12 @@ namespace db0
         public:
             Builder() = default;
 
+            // construct with pre-populated null items
+            Builder(std::vector<ValueT> &&null_items)
+                : m_null_items(std::move(null_items))
+            {
+            }
+
             ~Builder() {
                 assert(m_items.empty() && m_null_items.empty() && "RangeTree::Builder::flush() or close() must be called before destruction");
             }
@@ -461,6 +467,12 @@ namespace db0
             {
                 m_items.clear();
                 m_null_items.clear();                
+            }
+            
+            // releaseNullItems is only allowed when no other items are present
+            std::vector<ValueT> &&releaseNullItems() {
+                assert(m_items.empty());
+                return std::move(m_null_items);
             }
 
         private:
