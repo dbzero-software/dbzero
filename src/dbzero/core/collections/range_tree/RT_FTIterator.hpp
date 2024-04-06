@@ -69,8 +69,10 @@ namespace db0
 
         if (nullInclusion()) {
             auto null_block_ptr = tree.getNullBlock();
-            // add null iterator
-            query.push_back(null_block_ptr->makeIterator());
+            if (null_block_ptr) {
+                // add null iterator
+                query.push_back(null_block_ptr->makeIterator());
+            }
         }
 
         return query;
