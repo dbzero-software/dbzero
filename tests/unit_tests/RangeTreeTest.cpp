@@ -369,7 +369,7 @@ namespace tests
 
         rt.bulkInsert(values_1.begin(), values_1.end());
         std::unordered_set<std::uint64_t> values;
-        RT_FTIterator<int, std::uint64_t> cut(rt, 100, true, 199, true);        
+        RT_FTIterator<int, std::uint64_t> cut(rt, 100, true, 199, true, false);
         while (!cut.isEnd()) {
             std::uint64_t value;
             cut.next(&value);

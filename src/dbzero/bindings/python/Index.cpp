@@ -9,7 +9,7 @@ namespace db0::python
     static PyMethodDef IndexObject_methods[] = {
         {"add", (PyCFunction)IndexObject_add, METH_FASTCALL, "Add item to index."},
         {"sort", (PyCFunction)IndexObject_sort, METH_FASTCALL, "Sort results of other iterator."},
-        {"range", (PyCFunction)IndexObject_range, METH_FASTCALL, "Construct a range filter"},
+        {"range", (PyCFunction)IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Extract values from a specific range"},
         {NULL}
     };
 
@@ -112,17 +112,20 @@ namespace db0::python
         }
     }
 
-    PyObject *IndexObject_range(IndexObject *py_index, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *IndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
-        if (nargs < 1 || nargs > 2) {
-            PyErr_SetString(PyExc_TypeError, "range() takes 1 or 2 arguments");
+        // optional low, optional high, optional null_first (boolean)
+        static const char *kwlist[] = {"low", "high", "nulls_first", NULL};
+        PyObject *low = NULL, *high = NULL;
+        int nulls_first = 0;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|Op", const_cast<char**>(kwlist), &low, &high, &nulls_first)) {
             return NULL;
         }
 
         auto &index = py_index->ext();
         // construct range iterator
         auto iter_obj = PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
-        index.range(&iter_obj->ext(), args[0], nargs > 1 ? args[1] : NULL);
+        index.range(&iter_obj->ext(), low, high, nulls_first);
         return iter_obj;
     }
     

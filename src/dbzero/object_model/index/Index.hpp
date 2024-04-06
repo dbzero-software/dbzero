@@ -87,7 +87,7 @@ namespace db0::object_model
          * @param min optional lower bound
          * @param max optional upper bound
          */        
-        void range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max) const;
+        void range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max, bool nulls_first = false) const;
 
         static PreCommitFunction getPreCommitFunction() {
             return preCommitOp;
@@ -192,19 +192,20 @@ namespace db0::object_model
         }
         
         template <typename T> std::unique_ptr<IteratorFactory>
-        rangeQuery(ObjectPtr min, bool min_inclusive, ObjectPtr max, bool max_inclusive) const
+        rangeQuery(ObjectPtr min, bool min_inclusive, ObjectPtr max, bool max_inclusive, bool nulls_first) const
         {
             // FIXME: make inclusive flags configurable
             // we need to handle all-null case separately because provisional data type and range type may differ
             auto &range_tree = getRangeTree<T>();
             if (range_tree.hasAnyNonNull()) {
                 return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, extractOptionalValue<T>(min),
-                    min_inclusive, extractOptionalValue<T>(max), max_inclusive);
+                    min_inclusive, extractOptionalValue<T>(max), max_inclusive, nulls_first);
             } else {
                 // FIXME: handle null-first policy
-                if (LangToolkit::getTypeManager().isNull(max)) {
-                    // simply return all elements for an unbound range
-                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree);
+                auto &type_manager = LangToolkit::getTypeManager();
+                if ((nulls_first && type_manager.isNull(min)) || (!nulls_first && type_manager.isNull(max))) {
+                    // return all null elements
+                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, true);
                 }
                 // no results
                 return nullptr;

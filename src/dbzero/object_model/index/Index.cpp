@@ -132,19 +132,19 @@ namespace db0::object_model
                     << " does not allow adding key type: " << LangToolkit::getTypeName(key) << THROWF_END;
         }            
     }
-
-    void Index::range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max) const
+    
+    void Index::range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max, bool nulls_first) const
     {
         const_cast<Index*>(this)->flush();
         std::unique_ptr<IteratorFactory> iter_factory;
         switch (m_data_type) {
             case IndexDataType::Int64: {
-                iter_factory = rangeQuery<std::int64_t>(min, true, max, true);
+                iter_factory = rangeQuery<std::int64_t>(min, true, max, true, nulls_first);
                 break;
             }
 
             case IndexDataType::UInt64: {
-                iter_factory = rangeQuery<std::uint64_t>(min, true, max, true);
+                iter_factory = rangeQuery<std::uint64_t>(min, true, max, true, nulls_first);
                 break;
             }
 

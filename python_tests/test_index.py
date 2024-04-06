@@ -274,3 +274,15 @@ def test_invalid_addr_case(db0_fixture):
     
     values = set([x.value for x in index.sort(find("tag1"))])
     assert values == set([0, 1, 2])
+
+
+def test_null_first_range_query(db0_fixture):
+    index = db0.index()
+    # combine null + non-null elements
+    index.add(None, MemoTestClass(999))
+    for i in range(3):
+        index.add(i, MemoTestClass(i))
+
+    # null-first query should include null in the high-bound range
+    values = set([x.value for x in index.range(None, 1 , nulls_first=True)])
+    assert values == set([999, 0, 1])

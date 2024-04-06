@@ -16,8 +16,8 @@ namespace db0::python
     // Index operations
     PyObject *IndexObject_add(IndexObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *IndexObject_sort(IndexObject *, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *IndexObject_range(IndexObject *, PyObject *const *args, Py_ssize_t nargs);
-    
+    PyObject *IndexObject_range(IndexObject *, PyObject *args, PyObject *kwargs);
+       
     extern PyTypeObject IndexObjectType;
     
     IndexObject *makeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs);

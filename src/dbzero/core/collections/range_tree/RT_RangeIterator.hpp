@@ -21,15 +21,15 @@ namespace db0
     public:
         // Create to range-filter results of a specific FT-iterator (e.g. tag query)
         RT_RangeIterator(const RT_TreeT &tree, std::unique_ptr<FT_Iterator<ValueT> > &&it, std::optional<KeyT> min,
-            bool min_inclusive, std::optional<KeyT> max, bool max_inclusive)
-            : RT_RangeIterator(tree, true, std::move(it), min, min_inclusive, max, max_inclusive)
+            bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool nulls_first)
+            : RT_RangeIterator(tree, true, std::move(it), min, min_inclusive, max, max_inclusive, nulls_first)
         {
         }
         
         // Create range-only filter
         RT_RangeIterator(const RT_TreeT &tree, std::optional<KeyT> min = {},
-            bool min_inclusive = false, std::optional<KeyT> max = {}, bool max_inclusive = false)
-            : RT_RangeIterator(tree, false, nullptr, min, min_inclusive, max, max_inclusive)
+            bool min_inclusive = false, std::optional<KeyT> max = {}, bool max_inclusive = false, bool nulls_first = false)
+            : RT_RangeIterator(tree, false, nullptr, min, min_inclusive, max, max_inclusive, nulls_first)
         {
         }
 
@@ -62,10 +62,11 @@ namespace db0
         const bool m_min_inclusive;
         std::optional<KeyT> m_max;
         const bool m_max_inclusive;
+        const bool m_nulls_first;
 
         // Create to range-filter results of a specific FT-iterator (e.g. tag query)
         RT_RangeIterator(const RT_TreeT &tree, bool has_query, std::unique_ptr<FT_Iterator<ValueT> > &&it, std::optional<KeyT> min,
-            bool min_inclusive, std::optional<KeyT> max, bool max_inclusive)
+            bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool nulls_first)
             : m_tree(tree)
             , m_tree_it((min ? tree.lowerBound(*min, min_inclusive) : tree.beginRange()))
             , m_has_query(has_query)
@@ -74,30 +75,54 @@ namespace db0
             , m_min_inclusive(min_inclusive)
             , m_max(max)
             , m_max_inclusive(max_inclusive)
+            , m_nulls_first(nulls_first)
         {
             // check if also include nulls in the result
             if (inRange()) {
                 m_null_query_it = beginNullBlockQuery();
             }
-            if (m_tree_it.isEnd()) {
-                m_null_it = std::move(m_null_query_it);
-                m_null_query_it = nullptr;
+            if (nulls_first) {
+                if (!initNullsQuery()) {
+                    initRangeQuery();
+                }
             } else {
-                m_range_it = m_tree_it->makeIterator();
-                m_native_it_ptr = reinterpret_cast<RT_IteratorT *>(m_range_it.get());
-                assert(!m_range_it->isEnd());
+                if (!initRangeQuery()) {
+                    initNullsQuery();
+                }
             }
 
             if (m_range_it || m_null_it) {
                 m_has_lh_item = _next(m_lh_item);
             }
         }
-         
+        
+        bool initNullsQuery()
+        {
+            if (m_null_query_it) {
+                m_null_it = std::move(m_null_query_it);
+                m_null_query_it = nullptr;
+                if (m_null_it && m_null_it->isEnd()) {
+                    m_null_it = nullptr;
+                }
+            }
+            return m_null_it != nullptr;
+        }
+
+        bool initRangeQuery()
+        {
+            if (m_tree_it.isEnd()) {
+                return false;
+            }
+            m_range_it = m_tree_it->makeIterator();
+            m_native_it_ptr = reinterpret_cast<RT_IteratorT *>(m_range_it.get());
+            assert(!m_range_it->isEnd());
+            return true;            
+        }
+
         // check if a null value fits into the requested range
         bool inRange() const
         {
-            // FIXME: handle null-first policy
-            return !m_max;    
+            return (m_nulls_first && !m_min) || (!m_nulls_first && !m_max);
         }
 
         inline bool inRange(const KeyT &key) const
@@ -186,9 +211,8 @@ namespace db0
                     m_range_it = nullptr;
                     m_native_it_ptr = nullptr;
                     // initiate the null-block part if it exists
-                    if (m_null_query_it) {
-                        m_null_it = std::move(m_null_query_it);
-                        m_null_query_it = nullptr;
+                    if (inRange() && !m_nulls_first) {
+                        initNullsQuery();
                     }
                 } else {
                     m_range_it = m_tree_it->makeIterator();
@@ -206,7 +230,10 @@ namespace db0
             assert(!m_null_it->isEnd());
             m_null_it->next(&item.m_value);
             if (m_null_it->isEnd()) {
-                m_null_it = nullptr;                
+                m_null_it = nullptr;
+                if (m_nulls_first) {
+                    initRangeQuery();
+                }                
             }
             return true;
         }
@@ -218,7 +245,7 @@ namespace db0
     std::unique_ptr<FT_IteratorBase> RT_RangeIterator<KeyT, ValueT>::begin() const
     {        
         return std::unique_ptr<FT_IteratorBase>(new self_t(m_tree, m_has_query, (m_query_it ? m_query_it->beginTyped() : nullptr), 
-            m_min, m_min_inclusive, m_max, m_max_inclusive));
+            m_min, m_min_inclusive, m_max, m_max_inclusive, m_nulls_first));
     }
 
     template <typename KeyT, typename ValueT> std::unique_ptr<FT_Iterator<ValueT> >
