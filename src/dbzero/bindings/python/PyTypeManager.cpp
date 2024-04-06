@@ -54,6 +54,7 @@ namespace db0::python
         addStaticType(&TupleObjectType, TypeId::DB0_TUPLE);
         addStaticType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
         addStaticType(&PyTypedObjectIteratorType, TypeId::TYPED_OBJECT_ITERATOR);
+        addStaticType(&PyBytes_Type, TypeId::BYTES);
         // Python datetime type
         addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
     }

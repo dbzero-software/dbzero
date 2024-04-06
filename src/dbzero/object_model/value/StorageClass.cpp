@@ -16,6 +16,7 @@ namespace db0::object_model
         addMapping(TypeId::DICT, StorageClass::DB0_DICT);
         addMapping(TypeId::SET, StorageClass::DB0_SET);
         addMapping(TypeId::TUPLE, StorageClass::DB0_TUPLE);
+        addMapping(TypeId::BYTES, StorageClass::DB0_BYTES);
         addMapping(TypeId::MEMO_OBJECT, StorageClass::OBJECT_REF);
         addMapping(TypeId::DB0_LIST, StorageClass::DB0_LIST);
         addMapping(TypeId::DB0_DICT, StorageClass::DB0_DICT);
