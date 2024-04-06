@@ -264,13 +264,13 @@ def test_null_index_can_run_query_with_incompatible_range_type(db0_fixture):
     assert values == set([0, 1, 2])
 
 
-# def test_invalid_addr_case(db0_fixture):
-#     index = db0.index()
-#     for i in range(5):
-#         # add null elements only
-#         object = MemoTestClass(i)
-#         db0.tags(object).add("tag1")
-#         index.add(None, object)
+def test_invalid_addr_case(db0_fixture):
+    index = db0.index()
+    for i in range(3):
+        # add null elements only
+        object = MemoTestClass(i)
+        db0.tags(object).add("tag1")
+        index.add(None, object)
     
-#     values = set([x.value for x in index.sort(find("tag1"))])
-#     assert values == set([0, 1, 2])
+    values = set([x.value for x in index.sort(find("tag1"))])
+    assert values == set([0, 1, 2])
