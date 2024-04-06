@@ -214,8 +214,7 @@ namespace db0
              * Flush all updates into actual object inverted indexes
              */
             using CallbackT = std::function<void(std::uint64_t)>;
-            FlushStats flush(CallbackT *insert_callback_ptr = nullptr, CallbackT *erase_callback_ptr = nullptr,
-                ProcessTimer *timer = nullptr);
+            FlushStats flush(CallbackT *insert_callback_ptr = nullptr, CallbackT *erase_callback_ptr = nullptr);
 
             /**
              * Cancel all modifications
@@ -261,8 +260,7 @@ namespace db0
              */
             using CallbackT = std::function<void(std::uint64_t)>;
 
-            FlushStats flush(CallbackT *insert_callback_ptr = nullptr, CallbackT *erase_callback_ptr = nullptr,
-                ProcessTimer *timer = nullptr);
+            FlushStats flush(CallbackT *insert_callback_ptr = nullptr, CallbackT *erase_callback_ptr = nullptr);
 
             /**
              * Clear operation builder / render invalid

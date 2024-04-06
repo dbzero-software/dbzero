@@ -24,6 +24,7 @@
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/bindings/python/types/DateTime.hpp>
 
 namespace db0::python
 
@@ -193,9 +194,27 @@ namespace db0::python
     std::int64_t PyTypeManager::extractInt64(ObjectPtr int_ptr) const
     {
         if (!PyLong_Check(int_ptr)) {
-            THROWF(db0::InputException) << "Expected an integer object" << THROWF_END;
+            THROWF(db0::InputException) << "Expected an integer object, got " 
+                << PyToolkit::getTypeName(int_ptr) << THROWF_END;
         }
         return PyLong_AsLongLong(int_ptr);
+    }
+    
+    std::uint64_t PyTypeManager::extractUInt64(ObjectPtr obj_ptr) const {
+        return extractUInt64(getTypeId(obj_ptr), obj_ptr);
+    }
+    
+    std::uint64_t PyTypeManager::extractUInt64(TypeId type_id, ObjectPtr obj_ptr) const
+    {
+        switch (type_id) {
+            case TypeId::DATETIME:
+                return pyDateTimeToToUint64(obj_ptr);
+            case TypeId::INTEGER:
+                return PyLong_AsUnsignedLongLong(obj_ptr);
+            default:
+                THROWF(db0::InputException) << "Unable to convert object of type " << PyToolkit::getTypeName(obj_ptr) 
+                    << " to UInt64" << THROWF_END;
+        }
     }
 
     PyTypeManager::TypeObjectPtr PyTypeManager::getTypeObject(ObjectPtr py_type) const 
@@ -211,4 +230,9 @@ namespace db0::python
         }
         return reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext();
     }
+
+    bool PyTypeManager::isNull(ObjectPtr obj_ptr) const {
+        return !obj_ptr || obj_ptr == Py_None;
+    }
+
 }

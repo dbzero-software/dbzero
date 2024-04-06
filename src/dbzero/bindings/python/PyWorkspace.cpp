@@ -9,13 +9,13 @@ namespace db0::python
 
 {
 
-    void PyWorkspace::open(const std::string &prefix_name, AccessType access_type)
+    void PyWorkspace::open(const std::string &prefix_name, AccessType access_type, bool autocommit)
     {
         if (!m_workspace) {
             // initialize DBZero with current working directory
             initWorkspace("");
         }
-        m_workspace->open(prefix_name, access_type);
+        m_workspace->open(prefix_name, access_type, autocommit);
     }
     
     void PyWorkspace::initWorkspace(const std::string &root_path)

@@ -3,6 +3,7 @@
 #include <dbzero/core/collections/range_tree/RangeTree.hpp>
 #include <dbzero/core/collections/range_tree/RT_SortIterator.hpp>
 #include <dbzero/core/collections/range_tree/RT_RangeIterator.hpp>
+#include <dbzero/core/collections/range_tree/RangeIteratorFactory.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 #include <dbzero/core/collections/range_tree/RT_FTIterator.hpp>
 
@@ -368,7 +369,7 @@ namespace tests
 
         rt.bulkInsert(values_1.begin(), values_1.end());
         std::unordered_set<std::uint64_t> values;
-        RT_FTIterator<int, std::uint64_t> cut(rt, 100, true, 199, true);        
+        RT_FTIterator<int, std::uint64_t> cut(rt, 100, true, 199, true, false);
         while (!cut.isEnd()) {
             std::uint64_t value;
             cut.next(&value);
@@ -416,6 +417,65 @@ namespace tests
         rt.bulkInsert(values_1.begin(), values_1.end());
         auto it = rt.lowerBound(22, true);
         ASSERT_FALSE(it.isEnd());
+    }
+    
+    TEST_F( RangeTreeTest , testRangeTreeBulkInsertNull )
+    {
+        using RangeTreeT = RangeTree<int, std::uint64_t>;
+        using ItemT = typename RangeTreeT::ItemT;
+        
+        auto memspace = getMemspace();
+        // create with the limit of 4 items per range, make 3 ranges
+        RangeTreeT rt(memspace, 128);
+        std::vector<std::uint64_t> values_1 { 0, 1, 2, 3, 4 };        
+        rt.bulkInsertNull(values_1.begin(), values_1.end());
+        ASSERT_EQ(rt.size(), 5u);
+        ASSERT_FALSE(rt.hasAnyNonNull());
+    }
+    
+    TEST_F( RangeTreeTest , testRangeTreeRangeIteratorUnboundQueryOverNullElements )
+    {
+        using RangeTreeT = RangeTree<int, std::uint64_t>;
+        using ItemT = typename RangeTreeT::ItemT;
+        
+        auto memspace = getMemspace();
+        // create with the limit of 4 items per range, make 3 ranges
+        RangeTreeT rt(memspace, 128);
+        std::vector<std::uint64_t> values_1 { 0, 1, 2, 3, 4 };        
+        rt.bulkInsertNull(values_1.begin(), values_1.end());
+
+        RangeIteratorFactory<int, std::uint64_t> factory(rt);
+        std::unordered_set<std::uint64_t> x_values;
+        auto it = factory.createBaseIterator();
+        std::uint64_t next_value;
+        while (!it->isEnd()) {
+            it->next(&next_value);
+            x_values.insert(next_value);        
+        }        
+        ASSERT_EQ(x_values, (std::unordered_set<std::uint64_t> { 0, 1, 2, 3, 4 }));
+    }
+    
+    TEST_F( RangeTreeTest , testFTCompliantRangeFilterOverNullElements )
+    {
+        using RangeTreeT = RangeTree<int, std::uint64_t>;
+        using ItemT = typename RangeTreeT::ItemT;
+        
+        auto memspace = getMemspace();
+        // create with the limit of 4 items per range, make 3 ranges
+        RangeTreeT rt(memspace, 4);
+        std::vector<std::uint64_t> values_1 { 0, 1, 2, 3, 4 };
+        rt.bulkInsertNull(values_1.begin(), values_1.end());
+
+        std::unordered_set<std::uint64_t> values;
+        RangeIteratorFactory<int, std::uint64_t> factory(rt);    
+        auto it = factory.createFTIterator();
+        while (!it->isEnd()) {
+            std::uint64_t value;
+            it->next(&value);
+            values.insert(value); 
+        }
+        
+        ASSERT_EQ(values, (std::unordered_set<std::uint64_t> { 0, 1, 2, 3, 4 }));
     }
 
 } 

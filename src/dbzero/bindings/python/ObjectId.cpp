@@ -84,7 +84,29 @@ namespace db0::python
         PyErr_SetString(PyExc_TypeError, "Argument must be a DBZero object");
         return NULL;
     }
-        
+
+    PyObject *getObjectAddress(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
+            return NULL;
+        }
+
+        auto obj_ptr = args[0];
+        std::uint64_t address = 0;
+        if (PyMemo_Check(obj_ptr)) {
+            address = reinterpret_cast<MemoObject*>(obj_ptr)->ext().getAddress();            
+        } else if (ListObject_Check(obj_ptr)) {
+            address = reinterpret_cast<ListObject*>(obj_ptr)->ext().getAddress();            
+        } else if (IndexObject_Check(obj_ptr)) {
+            address = reinterpret_cast<IndexObject*>(obj_ptr)->ext().getAddress();            
+        } else {
+            PyErr_SetString(PyExc_TypeError, "Argument must be a DBZero object");
+            return NULL;
+        }
+        return PyLong_FromUnsignedLongLong(address);        
+    }
+
     PyObject *ObjectId_repr(PyObject *self)
     {
         // Format as base-32 string

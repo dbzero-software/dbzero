@@ -41,6 +41,7 @@ namespace db0::python
     
     // retrieve ID of a DBZero object
     PyObject *getObjectId(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *getObjectAddress(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     bool ObjectId_Check(PyObject *obj);
     
     // Method to pickle the object

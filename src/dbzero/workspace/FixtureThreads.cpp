@@ -28,7 +28,7 @@ namespace db0
     }
     
     void FixtureThread::run()
-    {
+    {        
         while (true) {
             // std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_ms));
             std::unique_lock<std::mutex> lock(m_mutex);
@@ -45,7 +45,7 @@ namespace db0
                 m_fx_function(*fixture, it->second);
                 ++it;
             }
-        }
+        }        
     }
     
     RefreshThread::RefreshThread()

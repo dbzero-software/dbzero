@@ -218,3 +218,14 @@ def test_tags_can_be_assigned_on_empty_list(db0_fixture):
     objects = [MemoTestClass(i) for i in range(10)]
     db0.tags(*[]).add("one")
     assert len(list(db0.find(MemoClassForTags, "one"))) == 0
+
+
+def test_assign_tags_in_multiple_operations(db0_fixture):
+    for x in range(2):
+        for i in range(3):
+            obj = MemoTestClass(i)            
+            db0.tags(obj).add("tag1")
+                
+        count = len(list(db0.find("tag1")))
+        assert count == 3 * (x + 1)
+        

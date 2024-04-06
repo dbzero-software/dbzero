@@ -112,6 +112,8 @@ namespace db0
     class Workspace: protected BaseWorkspace
     {
     public:
+        static constexpr std::uint32_t DEFAULT_AUTOCOMMIT_INTERVAL_MS = 250;
+
         Workspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
             std::optional<std::size_t> slab_cache_size = {},
             std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});
@@ -134,7 +136,8 @@ namespace db0
          */
         swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE,
             std::optional<std::uint64_t> state_num = {}, std::optional<std::size_t> page_size = {},
-            std::optional<std::size_t> slab_size = {}, std::optional<std::size_t> sparse_index_node_size = {});
+            std::optional<std::size_t> slab_size = {}, std::optional<std::size_t> sparse_index_node_size = {},
+            bool autocommit = true);
         
         /**
          * Get existing fixture by UUID
@@ -164,8 +167,11 @@ namespace db0
 
         /**
          * Open specific prefix and make it the default one
+         * @param prefix_name
+         * @param access_type
+         * @param autocommit flag indicating if the prefix should be auto-committed
         */
-        void open(const std::string &prefix_name, AccessType access_type);
+        void open(const std::string &prefix_name, AccessType access_type, bool autocommit = true);
 
         bool close(const std::string &prefix_name);
         

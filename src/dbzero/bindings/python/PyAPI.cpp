@@ -86,24 +86,27 @@ namespace db0::python
         return runSafe(tryFetch, args, nargs);
     }
 
-    PyObject *tryOpen(PyObject *self, PyObject *args)
+    PyObject *tryOpen(PyObject *self, PyObject *args, PyObject *kwargs)
     {
+        // prefix_name, open_mode, autocommit (bool)
+        static const char *kwlist[] = {"prefix_name", "open_mode", "autocommit", NULL};
         const char *prefix_name = nullptr;
         const char *open_mode = nullptr;
-        // parse 2 string arguments (second optional)
-        if (!PyArg_ParseTuple(args, "s|s", &prefix_name, &open_mode)) {
+        PyObject *py_autocommit = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sO", const_cast<char**>(kwlist), &prefix_name, &open_mode, &py_autocommit)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
         
+        bool autocommit = py_autocommit ? PyObject_IsTrue(py_autocommit) : true;
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
-        PyToolkit::getPyWorkspace().open(prefix_name, access_type);
+        PyToolkit::getPyWorkspace().open(prefix_name, access_type, autocommit);
         Py_RETURN_NONE;
     }
 
-    PyObject *open(PyObject *self, PyObject *args)
+    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs)
     {
-        return runSafe(tryOpen, self, args);
+        return runSafe(tryOpen, self, args, kwargs);
     }
 
     PyObject *tryInit(PyObject *self, PyObject *args)

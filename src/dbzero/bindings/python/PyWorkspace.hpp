@@ -54,7 +54,7 @@ namespace db0::python
          * Opens a specific prefix for read or read/write
          * a newly opened read/write prefix becomes the default one
         */
-        void open(const std::string &prefix_name, AccessType);
+        void open(const std::string &prefix_name, AccessType, bool autocommit);
         
         db0::Workspace &getWorkspace() const;
         

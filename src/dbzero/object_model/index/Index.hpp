@@ -11,6 +11,7 @@
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/core/exception/AbstractException.hpp>
 #include <dbzero/object_model/object_header.hpp>
+#include "IndexBuilder.hpp"
 
 namespace db0::object_model
 
@@ -30,9 +31,10 @@ namespace db0::object_model
     enum class IndexDataType: std::uint16_t
     {
         Unknown = 0,
-        // type will be auto-assigned on first use
+        // type will be auto-assigned on first non-null element added
         Auto = 1,
-        Int64 = 2
+        Int64 = 2,
+        UInt64 = 3
     };
 
     struct [[gnu::packed]] o_index: public o_fixed<o_index>
@@ -62,6 +64,7 @@ namespace db0::object_model
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using TypeId = db0::bindings::TypeId;
                 
         Index(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
@@ -84,7 +87,7 @@ namespace db0::object_model
          * @param min optional lower bound
          * @param max optional upper bound
          */        
-        void range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max) const;
+        void range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max, bool nulls_first = false) const;
 
         static PreCommitFunction getPreCommitFunction() {
             return preCommitOp;
@@ -97,45 +100,63 @@ namespace db0::object_model
 
     private:
         using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
+        // the default/provisional type
+        using DefaultT = std::int64_t;
 
         mutable std::shared_ptr<void> m_index_builder;
         mutable IndexDataType m_data_type;
         // actual index instance (must be cast to a specific type)
         mutable std::shared_ptr<void> m_index;
-        // A cache of language objects held until flush/close is called
-        // it's required to prevent unreferenced objects from being collected by GC
-        // and to handle callbacks from the range-tree index
-        mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
-
+        
         Index(db0::swine_ptr<Fixture> &);
         
         template <typename T> IndexDataType getDataType() const
         {
             if constexpr (std::is_same_v<T, std::int64_t>) {
                 return IndexDataType::Int64;
+            } else if constexpr (std::is_same_v<T, std::uint64_t>) {
+                return IndexDataType::UInt64;
             } else {
                 return IndexDataType::Unknown;
             }
         }
 
         // get existing or create new range-tree builder
-        template <typename T> typename db0::RangeTree<T, std::uint64_t>::Builder &getRangeTreeBuilder()
-        {
-            using BuilderT = typename db0::RangeTree<T, std::uint64_t>::Builder;
-            if (!m_index_builder)
-            {
-                m_index_builder = db0::make_shared_void<BuilderT>();
-                m_data_type = getDataType<T>();
+        template <typename T> IndexBuilder<T> &getIndexBuilder(bool as_auto = false)
+        {        
+            if (!m_index_builder) {
+                m_index_builder = db0::make_shared_void<IndexBuilder<T> >();
+                if (as_auto) {
+                    m_data_type = IndexDataType::Auto;
+                } else {
+                    m_data_type = getDataType<T>();               
+                }
             }
-            assert(m_data_type == getDataType<T>());
-            return *static_cast<BuilderT*>(m_index_builder.get());
+            assert(m_data_type == getDataType<T>() || (as_auto && m_data_type == IndexDataType::Auto));
+            return *static_cast<IndexBuilder<T>*>(m_index_builder.get());
         }
-
+        
+        // update index builder instance to a concrete type
+        IndexDataType updateIndexBuilder(TypeId);
+        
+        template <typename FromType, typename ToType> void updateIndexBuilder()
+        {
+            if (!m_index_builder) {
+                return;
+            }
+            
+            if (!std::is_same_v<FromType, ToType>) {
+                m_index_builder = db0::make_shared_void<IndexBuilder<ToType> >(getIndexBuilder<FromType>(true).releaseNullItems());
+            }
+            // set or update the data type
+            m_data_type = getDataType<ToType>();
+        }
+        
         // get existing or create a new range tree of a specific type
         template <typename T> typename db0::RangeTree<T, std::uint64_t> &getRangeTree()
         {
             using RangeTreeT = db0::RangeTree<T, std::uint64_t>;
-            if (!m_index) {                
+            if (!m_index) {
                 if ((*this)->m_index_addr) {
                     // pull existing range tree
                     m_index = db0::make_shared_void<RangeTreeT>(this->myPtr((*this)->m_index_addr));                    
@@ -171,22 +192,36 @@ namespace db0::object_model
         }
         
         template <typename T> std::unique_ptr<IteratorFactory>
-        rangeQuery(ObjectPtr min, bool min_inclusive, ObjectPtr max, bool max_inclusive) const
+        rangeQuery(ObjectPtr min, bool min_inclusive, ObjectPtr max, bool max_inclusive, bool nulls_first) const
         {
             // FIXME: make inclusive flags configurable
-            return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(getRangeTree<T>(), extractOptionalValue<T>(min),
-                min_inclusive, extractOptionalValue<T>(max), max_inclusive);
+            // we need to handle all-null case separately because provisional data type and range type may differ
+            auto &range_tree = getRangeTree<T>();
+            if (range_tree.hasAnyNonNull()) {
+                return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, extractOptionalValue<T>(min),
+                    min_inclusive, extractOptionalValue<T>(max), max_inclusive, nulls_first);
+            } else {
+                // FIXME: handle null-first policy
+                auto &type_manager = LangToolkit::getTypeManager();
+                if ((nulls_first && type_manager.isNull(min)) || (!nulls_first && type_manager.isNull(max))) {
+                    // return all null elements
+                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, true);
+                }
+                // no results
+                return nullptr;
+            }
         }
 
         void flush();
 
         // adds to with a null key, compatible with all types
-        void addNull(std::uint64_t value);
+        void addNull(ObjectPtr);
 
         template <typename T> std::optional<T> extractOptionalValue(ObjectPtr value) const;
     };
 
     // extract optional value specializations
-    template <> std::optional<std::int64_t> Index::extractOptionalValue<std::int64_t>(ObjectPtr value) const;    
+    template <> std::optional<std::int64_t> Index::extractOptionalValue<std::int64_t>(ObjectPtr value) const;
+    template <> std::optional<std::uint64_t> Index::extractOptionalValue<std::uint64_t>(ObjectPtr value) const;
 
 }
