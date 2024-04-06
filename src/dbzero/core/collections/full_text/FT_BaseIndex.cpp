@@ -104,8 +104,7 @@ namespace db0
     }
 
     FT_BaseIndex::FlushStats FT_BaseIndex::BatchOperation::flush(
-        std::function<void(std::uint64_t)> *insert_callback_ptr, std::function<void(std::uint64_t)> *erase_callback_ptr,
-        ProcessTimer *timer)
+        std::function<void(std::uint64_t)> *insert_callback_ptr, std::function<void(std::uint64_t)> *erase_callback_ptr)
     {
         using TagRangesVector = std::vector<TagValueList::iterator>;
         struct GetIteratorPairFirst {
@@ -123,13 +122,12 @@ namespace db0
         using ValueIterator = db0::ConverterIteratorAdapter<TagValueList::iterator, GetPairSecond>;
 
         auto add =
-        [insert_callback_ptr, timer](std::uint32_t &all_count, std::uint32_t &new_count) {
-            return [insert_callback_ptr, timer, &all_count, &new_count](TagValueList& buf, FT_BaseIndex &index) {
+        [insert_callback_ptr](std::uint32_t &all_count, std::uint32_t &new_count) {
+            return [insert_callback_ptr, &all_count, &new_count](TagValueList& buf, FT_BaseIndex &index) {
                 auto buf_begin = buf.begin(), buf_end = buf.end();
                 if (buf_begin == buf_end) {
                     return;
-                }
-                ProcessTimer add_timer("FT_BaseIndex::flush/add", timer);
+                }                
                 // Sort list and remove duplicate elements
                 std::sort(buf_begin, buf_end);
                 buf_end = std::unique(buf_begin, buf_end);
@@ -146,15 +144,12 @@ namespace db0
                     }
                 }
 
-                // Create inverted lists for tags and get corresponding iterators to them
-                ProcessTimer bulk_get_timer("index.bulkGetInverteList", add_timer);
+                // Create inverted lists for tags and get corresponding iterators to them                
                 std::vector<FT_BaseIndex::iterator> tag_index_its = index.bulkGetInvertedList(
                     TagIterator(tag_ranges.begin()),
-                    TagIterator(tag_ranges.end()), 
-                    &bulk_get_timer
+                    TagIterator(tag_ranges.end())                    
                 );
-                bulk_get_timer.pause();
-                assert(tag_index_its.size() == tag_ranges.size());                
+                assert(tag_index_its.size() == tag_ranges.size());
                 // Add end iterator to avoid special case
                 tag_ranges.emplace_back(buf_end);
 
@@ -190,13 +185,13 @@ namespace db0
         };
 
         auto remove = 
-        [erase_callback_ptr, timer](std::uint32_t& all_count, std::uint32_t& removed_count) {
-            return [erase_callback_ptr, timer, &all_count, &removed_count](TagValueList& buf, FT_BaseIndex &index) {
+        [erase_callback_ptr](std::uint32_t& all_count, std::uint32_t& removed_count) {
+            return [erase_callback_ptr, &all_count, &removed_count](TagValueList& buf, FT_BaseIndex &index) {
                 auto buf_begin = buf.begin(), buf_end = buf.end();
                 if (buf_begin == buf_end) {
                     return;
                 }
-                ProcessTimer remove_timer("FT_BaseIndex::flush/remove", timer);
+                
                 // Sort list and remove duplicate elements
                 std::sort(buf_begin, buf_end);
                 buf_end = std::unique(buf_begin, buf_end);
@@ -267,10 +262,9 @@ namespace db0
 
     FT_BaseIndex::FlushStats FT_BaseIndex::BatchOperationBuilder::flush(
         std::function<void(std::uint64_t)> *insert_callback_ptr, 
-        std::function<void(std::uint64_t)> *erase_callback_ptr,
-        ProcessTimer *timer)
+        std::function<void(std::uint64_t)> *erase_callback_ptr)
     {
-        return m_batch_operation->flush(insert_callback_ptr, erase_callback_ptr, timer);
+        return m_batch_operation->flush(insert_callback_ptr, erase_callback_ptr);
     }
 
     void FT_BaseIndex::BatchOperationBuilder::reset()

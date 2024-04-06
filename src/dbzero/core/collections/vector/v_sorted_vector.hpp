@@ -273,6 +273,10 @@ namespace db0
             if (!s_heap.empty()) {
                 item = const_cast<data_t*>(data_buf.m_end);
                 *item = s_heap.front();
+                ++unique_count;
+                if (callback_ptr) {
+                    (*callback_ptr)(s_heap.front());
+                }
                 s_heap.pop_front();
                 ++(this->m_size);
                 while (!s_heap.empty()) {

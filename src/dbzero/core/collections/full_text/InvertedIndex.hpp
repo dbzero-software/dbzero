@@ -65,9 +65,7 @@ namespace db0
          * NOTICE: result iterator may point at null (not initialized list and must be initialized)
          */
         template<typename InputIterator>
-        std::vector<iterator> bulkGetInvertedList(
-            InputIterator first_key, InputIterator last_key, ProcessTimer *timer = nullptr
-        )
+        std::vector<iterator> bulkGetInvertedList(InputIterator first_key, InputIterator last_key)
         {
             std::vector<iterator> result;
             using InputIteratorCategory = typename std::iterator_traits<InputIterator>::iterator_category;
@@ -75,14 +73,11 @@ namespace db0
                 // We only preallocate vector when number of keys can be computed easly
                 result.reserve(std::distance(first_key, last_key));
             }
-            // First pass will insert non existing items
-            {
-                ProcessTimer t("First pass (insert non-existing keys)", timer);
-                this->bulkInsertUnique(first_key, last_key);
-            }
+            // First pass will insert non existing items                            
+            this->bulkInsertUnique(first_key, last_key);
+            
             // Second pass is to pull results (can run on many threads when this makes sense)
-            {
-                ProcessTimer t("Second pass (pull results)", timer);
+            {                
                 auto it = this->beginJoin(1);
                 std::for_each(first_key, last_key,
                 [&](const KeyT &key) {

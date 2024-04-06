@@ -152,8 +152,9 @@ namespace db0::object_model
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         auto &batch_operation = getBatchOperation(memo_ptr);
+        auto &type_manager = LangToolkit::getTypeManager();
         for (std::size_t i = 0; i < nargs; ++i) {
-            auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
+            auto type_id = type_manager.getTypeId(args[i]);
             // must check for string since it's is an iterable as well
             if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
                 batch_operation->addTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {

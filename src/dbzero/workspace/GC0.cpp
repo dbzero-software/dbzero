@@ -39,7 +39,7 @@ namespace db0
             if (ops.hasRefs && ops.drop && !ops.hasRefs(it->first)) {
                 // at this stage just collect the ops and remove the entry
                 drop_op = ops.drop;
-            }            
+            }
             m_vptr_map.erase(it);
             // notify lang cache on object deleted (to be able to remove weak references)
             m_lang_cache.erase(ops.address(vptr));
