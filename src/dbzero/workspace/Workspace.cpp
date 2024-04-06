@@ -113,7 +113,7 @@ namespace db0
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
         , m_refresh_thread(std::make_unique<RefreshThread>())
-        , m_auto_commit_thread(std::make_unique<AutoCommitThread>())
+        , m_auto_commit_thread(std::make_unique<AutoCommitThread>(DEFAULT_AUTOCOMMIT_INTERVAL_MS))
     {
         // run refresh / autocommit threads
         m_threads.emplace_back([this]() {
@@ -184,7 +184,7 @@ namespace db0
 
     swine_ptr<Fixture> Workspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type,
         std::optional<std::uint64_t> state_num, std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
-        std::optional<std::size_t> sparse_index_node_size)
+        std::optional<std::size_t> sparse_index_node_size, bool autocommit)
     {
         bool file_created = false;
         auto uuid = getUUID(prefix_name);
@@ -210,8 +210,8 @@ namespace db0
                 if (*access_type == AccessType::READ_ONLY) {
                     // add fixture to be monitored by the refresh thread (will be removed automatically when closed)
                     m_refresh_thread->addFixture(fixture);
-                }
-                if (*access_type == AccessType::READ_WRITE) {
+                }                
+                if (*access_type == AccessType::READ_WRITE && autocommit) {
                     // register fixture for auto-commit
                     m_auto_commit_thread->addFixture(fixture);
                 }
@@ -342,9 +342,9 @@ namespace db0
         return m_default_fixture;
     }
     
-    void Workspace::open(const std::string &prefix_name, AccessType access_type)
+    void Workspace::open(const std::string &prefix_name, AccessType access_type, bool autocommit)
     {
-        auto fixture = getFixture(prefix_name, access_type);
+        auto fixture = getFixture(prefix_name, access_type, {}, {}, {}, {}, autocommit);
         // update default fixture
         if (!m_default_fixture || (m_default_fixture->getAccessType() <= access_type)) {
             m_default_fixture = fixture;

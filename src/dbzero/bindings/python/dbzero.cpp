@@ -21,7 +21,7 @@ namespace py = db0::python;
 static PyMethodDef DBZeroCE_Methods[] = 
 {
     {"init", &py::init, METH_VARARGS, "Initialize DBZero CE workspace at a specific root path"},
-    {"open", &py::open, METH_VARARGS, "Open or create a prefix for read or read/write"},
+    {"open", (PyCFunction)&py::open, METH_VARARGS | METH_KEYWORDS, "Open or create a prefix for read or read/write"},
     {"close", &py::close, METH_VARARGS, ""},
     {"drop", &py::drop, METH_VARARGS, "Drop prefix (if exists)"},
     {"commit", &py::commit, METH_VARARGS, ""},

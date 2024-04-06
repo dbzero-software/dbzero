@@ -34,7 +34,7 @@ namespace db0::python
     /**
      * Opens or creates a prefix for read or read/write
     */
-    PyObject *open(PyObject *self, PyObject *args);
+    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs);
     
     PyObject *drop(PyObject *self, PyObject *args);
 
