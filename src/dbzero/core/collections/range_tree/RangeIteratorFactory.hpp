@@ -25,7 +25,7 @@ namespace db0
             , m_range { min, min_inclusive, max, max_inclusive }
         {
         }
-
+        
         std::unique_ptr<FT_IteratorBase> createBaseIterator() override;
 
         std::unique_ptr<FT_Iterator<ValueT> > createFTIterator() override;

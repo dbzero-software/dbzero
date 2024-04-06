@@ -3,8 +3,7 @@ import dbzero_ce as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 from dbzero_ce import find
-import datetime
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 
 def test_index_instance_can_be_created_without_arguments(db0_fixture):
@@ -167,7 +166,7 @@ def test_sorting_empty_tag_filter(db0_fixture):
 
 def test_range_index_can_sort_by_datetime(db0_fixture):
     index = db0.index()
-    dt_base = datetime.datetime.now()
+    dt_base = datetime.now()
     objects = [MemoTestClass(dt_base + timedelta(seconds=i + 1)) for i in range(5)]
     for i in range(5):
         db0.tags(objects[i]).add(["tag1", "tag2"])
@@ -179,3 +178,99 @@ def test_range_index_can_sort_by_datetime(db0_fixture):
     for object in result:
         assert object.value >= last_value
         last_value = object.value
+
+
+def test_index_can_hold_all_null_elements(db0_fixture):
+    index = db0.index()
+    # key, value
+    for _ in range(5):
+        index.add(None, MemoTestClass(999))
+    assert len(index) == 5
+
+
+def test_index_can_add_non_null_after_adding_nulls_first(db0_fixture):
+    index = db0.index()
+    for _ in range(5):
+        # add null elements only
+        index.add(None, MemoTestClass(999))
+    # extend the index with a non-null element
+    index.add(1, MemoTestClass(999))
+    assert len(index) == 6
+
+
+def test_index_can_add_datetime_after_adding_nulls_first(db0_fixture):
+    index = db0.index()
+    for _ in range(5):
+        # add null elements only
+        index.add(None, MemoTestClass(999))
+    # extend the index with a non-null element
+    index.add(datetime.now(), MemoTestClass(999))
+    assert len(index) == 6
+
+
+def test_index_can_sort_all_null_values(db0_fixture):
+    index = db0.index()
+    for i in range(3):
+        # add null elements only
+        object = MemoTestClass(i)
+        db0.tags(object).add("tag1")
+        index.add(None, object)
+    
+    values = set([x.value for x in index.sort(find("tag1"))])
+    assert values == set([0, 1, 2])
+
+
+def test_low_unbounded_range_query(db0_fixture):
+    index = db0.index()
+    for i in range(10):
+        # add null elements only
+        index.add(i, MemoTestClass(i))
+
+    # run range query passing a concrete type
+    values = set([x.value for x in index.range(None, 4)])
+    assert values == set([0, 1, 2, 3, 4])
+
+
+def test_high_unbounded_range_query(db0_fixture):
+    index = db0.index()
+    for i in range(10):
+        # add null elements only
+        index.add(i, MemoTestClass(i))
+
+    # run range query passing a concrete type
+    values = set([x.value for x in index.range(7, None)])
+    assert values == set([7, 8, 9])
+
+
+def test_both_side_unbounded_range_query(db0_fixture):
+    index = db0.index()
+    for i in range(5):
+        # add null elements only
+        index.add(i, MemoTestClass(i))
+
+    # run range query passing a concrete type
+    values = set([x.value for x in index.range(None, None)])
+    assert values == set([0, 1, 2, 3, 4])
+
+
+def test_null_index_can_run_query_with_incompatible_range_type(db0_fixture):
+    index = db0.index()
+    for i in range(3):
+        # add null elements only
+        index.add(None, MemoTestClass(i))
+    
+    # run range query passing a concrete type
+    values = set([x.value for x in index.range(datetime.now(), None)])
+    assert values == set([0, 1, 2])
+
+
+# def test_invalid_addr_case(db0_fixture):
+#     index = db0.index()
+#     for i in range(5):
+#         # add null elements only
+#         object = MemoTestClass(i)
+#         db0.tags(object).add("tag1")
+#         index.add(None, object)
+    
+#     values = set([x.value for x in index.sort(find("tag1"))])
+#     assert values == set([0, 1, 2])

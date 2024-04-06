@@ -50,7 +50,7 @@ namespace db0
     struct [[gnu::packed]] o_range_tree: public o_fixed<o_range_tree>
     {
         std::uint32_t m_max_block_size;
-        // address of the underlygin v_bindex
+        // address of the underlying v_bindex
         std::uint64_t m_rt_index_addr = 0;
         // pointer to a single null-keys block instance
         std::uint64_t m_rt_null_block_addr = 0;
@@ -429,6 +429,12 @@ namespace db0
         public:
             Builder() = default;
 
+            // construct with pre-populated null items
+            Builder(std::vector<ValueT> &&null_items)
+                : m_null_items(std::move(null_items))
+            {
+            }
+
             ~Builder() {
                 assert(m_items.empty() && m_null_items.empty() && "RangeTree::Builder::flush() or close() must be called before destruction");
             }
@@ -462,6 +468,12 @@ namespace db0
                 m_items.clear();
                 m_null_items.clear();                
             }
+            
+            // releaseNullItems is only allowed when no other items are present
+            std::vector<ValueT> &&releaseNullItems() {
+                assert(m_items.empty());
+                return std::move(m_null_items);
+            }
 
         private:
             std::vector<ItemT> m_items;
@@ -486,8 +498,14 @@ namespace db0
             return m_index == other.m_index;
         }
 
+        // check if there're any non-null elements in the tree
+        bool hasAnyNonNull() const
+        {
+            return !m_index.empty();
+        }
+
     private:
-        RT_Index m_index;        
+        RT_Index m_index;
 
         // Find existing or create new range
         RangeIterator getRange(ItemT item)
