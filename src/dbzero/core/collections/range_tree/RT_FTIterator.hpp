@@ -47,6 +47,11 @@ namespace db0
             }
             return true;
         };
+
+        auto nullInclusion = [&]() -> bool {
+            // FIXME: handle null-first policy
+            return !max;
+        };
         
         std::list<std::unique_ptr<FT_Iterator<ValueT> > > query;
         auto it = (min ? tree.lowerBound(*min, min_inclusive) : tree.beginRange());
@@ -61,6 +66,13 @@ namespace db0
             }
             it.next();
         }
+
+        if (nullInclusion()) {
+            auto null_block_ptr = tree.getNullBlock();
+            // add null iterator
+            query.push_back(null_block_ptr->makeIterator());
+        }
+
         return query;
     }
     
