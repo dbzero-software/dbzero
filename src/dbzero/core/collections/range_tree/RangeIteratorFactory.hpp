@@ -25,13 +25,7 @@ namespace db0
             , m_range { min, min_inclusive, max, max_inclusive }
         {
         }
-
-        RangeIteratorFactory(const RT_TreeT &tree)
-            : m_tree(tree)
-            , m_range { {}, true, {}, true }
-        {
-        }
-
+        
         std::unique_ptr<FT_IteratorBase> createBaseIterator() override;
 
         std::unique_ptr<FT_Iterator<ValueT> > createFTIterator() override;

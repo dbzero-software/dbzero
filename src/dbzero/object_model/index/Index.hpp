@@ -11,6 +11,7 @@
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/core/exception/AbstractException.hpp>
 #include <dbzero/object_model/object_header.hpp>
+#include "IndexBuilder.hpp"
 
 namespace db0::object_model
 
@@ -106,11 +107,7 @@ namespace db0::object_model
         mutable IndexDataType m_data_type;
         // actual index instance (must be cast to a specific type)
         mutable std::shared_ptr<void> m_index;
-        // A cache of language objects held until flush/close is called
-        // it's required to prevent unreferenced objects from being collected by GC
-        // and to handle callbacks from the range-tree index
-        mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
-
+        
         Index(db0::swine_ptr<Fixture> &);
         
         template <typename T> IndexDataType getDataType() const
@@ -125,11 +122,10 @@ namespace db0::object_model
         }
 
         // get existing or create new range-tree builder
-        template <typename T> typename db0::RangeTree<T, std::uint64_t>::Builder &getIndexBuilder(bool as_auto = false)
-        {
-            using BuilderT = typename db0::RangeTree<T, std::uint64_t>::Builder;
+        template <typename T> IndexBuilder<T> &getIndexBuilder(bool as_auto = false)
+        {        
             if (!m_index_builder) {
-                m_index_builder = db0::make_shared_void<BuilderT>();
+                m_index_builder = db0::make_shared_void<IndexBuilder<T> >();
                 if (as_auto) {
                     m_data_type = IndexDataType::Auto;
                 } else {
@@ -137,7 +133,7 @@ namespace db0::object_model
                 }
             }
             assert(m_data_type == getDataType<T>() || (as_auto && m_data_type == IndexDataType::Auto));
-            return *static_cast<BuilderT*>(m_index_builder.get());
+            return *static_cast<IndexBuilder<T>*>(m_index_builder.get());
         }
         
         // update index builder instance to a concrete type
@@ -145,14 +141,12 @@ namespace db0::object_model
         
         template <typename FromType, typename ToType> void updateIndexBuilder()
         {
-            using SrcBuilderT = typename db0::RangeTree<FromType, std::uint64_t>::Builder;
-            using DestBuilderT = typename db0::RangeTree<ToType, std::uint64_t>::Builder;
             if (!m_index_builder) {
                 return;
             }
             
             if (!std::is_same_v<FromType, ToType>) {
-                m_index_builder = db0::make_shared_void<DestBuilderT>(getIndexBuilder<FromType>(true).releaseNullItems());
+                m_index_builder = db0::make_shared_void<IndexBuilder<ToType> >(getIndexBuilder<FromType>(true).releaseNullItems());
             }
             // set or update the data type
             m_data_type = getDataType<ToType>();
@@ -209,9 +203,8 @@ namespace db0::object_model
             } else {
                 // FIXME: handle null-first policy
                 if (LangToolkit::getTypeManager().isNull(max)) {
-                    // simply return all elements for unbound range
-                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, extractOptionalValue<T>(min),
-                        min_inclusive, extractOptionalValue<T>(max), max_inclusive);
+                    // simply return all elements for an unbound range
+                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree);
                 }
                 // no results
                 return nullptr;
@@ -221,7 +214,7 @@ namespace db0::object_model
         void flush();
 
         // adds to with a null key, compatible with all types
-        void addNull(std::uint64_t value);
+        void addNull(ObjectPtr);
 
         template <typename T> std::optional<T> extractOptionalValue(ObjectPtr value) const;
     };

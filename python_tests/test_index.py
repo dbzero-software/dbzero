@@ -220,7 +220,40 @@ def test_index_can_sort_all_null_values(db0_fixture):
     assert values == set([0, 1, 2])
 
 
-def test_null_index_can_run_range_query_with_incompatible_type(db0_fixture):
+def test_low_unbounded_range_query(db0_fixture):
+    index = db0.index()
+    for i in range(10):
+        # add null elements only
+        index.add(i, MemoTestClass(i))
+
+    # run range query passing a concrete type
+    values = set([x.value for x in index.range(None, 4)])
+    assert values == set([0, 1, 2, 3, 4])
+
+
+def test_high_unbounded_range_query(db0_fixture):
+    index = db0.index()
+    for i in range(10):
+        # add null elements only
+        index.add(i, MemoTestClass(i))
+
+    # run range query passing a concrete type
+    values = set([x.value for x in index.range(7, None)])
+    assert values == set([7, 8, 9])
+
+
+def test_both_side_unbounded_range_query(db0_fixture):
+    index = db0.index()
+    for i in range(5):
+        # add null elements only
+        index.add(i, MemoTestClass(i))
+
+    # run range query passing a concrete type
+    values = set([x.value for x in index.range(None, None)])
+    assert values == set([0, 1, 2, 3, 4])
+
+
+def test_null_index_can_run_query_with_incompatible_range_type(db0_fixture):
     index = db0.index()
     for i in range(3):
         # add null elements only

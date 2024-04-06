@@ -46,37 +46,26 @@ namespace db0::object_model
 
     void Index::flush()
     {        
-        // the purpose of callback is to incRef to objects when a new tag is assigned
-        auto &type_manager = LangToolkit::getTypeManager();
-        std::function<void(std::uint64_t)> add_callback = [&](std::uint64_t address) {
-            auto it = m_object_cache.find(address);
-            assert(it != m_object_cache.end());
-            type_manager.extractObject(it->second.get()).incRef();
-        };
-        
         // apply modified data type
         if ((*this)->m_data_type != m_data_type) {
             modify().m_data_type = m_data_type;
         }
 
-        if (m_index_builder) {
+        if (m_index_builder) {            
             switch (m_data_type) {
                 case IndexDataType::Int64: {
-                    auto &builder = getIndexBuilder<std::int64_t>();
-                    builder.flush(getRangeTree<std::int64_t>(), &add_callback);
+                    getIndexBuilder<std::int64_t>().flush(getRangeTree<std::int64_t>());                    
                     break;
                 }
 
                 case IndexDataType::UInt64: {
-                    auto &builder = getIndexBuilder<std::uint64_t>();
-                    builder.flush(getRangeTree<std::uint64_t>(), &add_callback);
+                    getIndexBuilder<std::uint64_t>().flush(getRangeTree<std::uint64_t>());
                     break;
                 }
 
                 // flush using default / provisional data type
                 case IndexDataType::Auto: {
-                    auto &builder = getIndexBuilder<DefaultT>(true);
-                    builder.flush(getRangeTree<DefaultT>(), &add_callback);
+                    getIndexBuilder<DefaultT>(true).flush(getRangeTree<DefaultT>());
                     break;
                 }
 
@@ -114,10 +103,9 @@ namespace db0::object_model
     void Index::add(ObjectPtr key, ObjectPtr value)
     {
         auto &type_manager = LangToolkit::getTypeManager();
-        auto object_addr = type_manager.extractObject(value).getAddress();
         // special handling of null / None values
         if (type_manager.isNull(key)) {
-            addNull(object_addr);
+            addNull(value);
             return;
         }
 
@@ -129,12 +117,12 @@ namespace db0::object_model
 
         switch (data_type) {
             case IndexDataType::Int64: {
-                getIndexBuilder<std::int64_t>().add(type_manager.extractInt64(key), object_addr);                
+                getIndexBuilder<std::int64_t>().add(type_manager.extractInt64(key), value); 
                 break;
             }
 
             case IndexDataType::UInt64: {
-                getIndexBuilder<std::uint64_t>().add(type_manager.extractUInt64(key), object_addr);
+                getIndexBuilder<std::uint64_t>().add(type_manager.extractUInt64(key), value);
                 break;
             }
 
@@ -142,12 +130,7 @@ namespace db0::object_model
                 THROWF(db0::InputException) << "Index of type " 
                     << static_cast<std::uint16_t>(m_data_type)
                     << " does not allow adding key type: " << LangToolkit::getTypeName(key) << THROWF_END;
-        }
-        
-        // cache object locally
-        if (m_object_cache.find(object_addr) == m_object_cache.end()) {
-            m_object_cache.emplace(object_addr, value);
-        }
+        }            
     }
 
     void Index::range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max) const
@@ -215,22 +198,22 @@ namespace db0::object_model
         new (at_ptr) ObjectIterator(this->getFixture(), std::move(sort_iter));
     }
     
-    void Index::addNull(std::uint64_t value)
+    void Index::addNull(ObjectPtr obj_ptr)
     {
         switch (m_data_type) {
             // use provisional data type for Auto
             case IndexDataType::Auto: {
-                return getIndexBuilder<DefaultT>(true).addNull(value);
+                return getIndexBuilder<DefaultT>(true).addNull(obj_ptr);
                 break;
             }
 
             case IndexDataType::Int64: {
-                return getIndexBuilder<std::int64_t>().addNull(value);
+                return getIndexBuilder<std::int64_t>().addNull(obj_ptr);
                 break;
             }
 
             case IndexDataType::UInt64: {
-                return getIndexBuilder<std::uint64_t>().addNull(value);
+                return getIndexBuilder<std::uint64_t>().addNull(obj_ptr);
                 break;
             }
 
