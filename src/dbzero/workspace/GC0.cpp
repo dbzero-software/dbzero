@@ -47,6 +47,10 @@ namespace db0
 
         // drop object after erasing from map due to possible recursion
         if (drop_op) {
+            // lock to synchronize with the auto-commit thread
+            auto fixture = this->getFixture();
+            fixture->onUpdated();
+            FixtureLock lock(fixture);
             drop_op(vptr);
             return true;
         }

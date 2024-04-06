@@ -63,8 +63,8 @@ namespace db0::python
     }
     
     void MemoObject_dealloc(MemoObject* memo_obj)
-    {        
-        // destroy associated DB0 Object instance        
+    {
+        // destroy associated DB0 Object instance
         memo_obj->ext().~Object();
         Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
     }
