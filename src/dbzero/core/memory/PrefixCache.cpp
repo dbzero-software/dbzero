@@ -70,6 +70,10 @@ namespace db0
                     access_mode, isCreateNew(access_mode));
                 m_boundary_map.insertPage(state_num, boundary_lock, first_page);
             }
+            // in case of a boundary lock the address must be precisely matched
+            // since boundary lock contains only the single allocation's data
+            // FIXME: unblock assert
+            // assert(boundary_lock->getAddress() == address);
             result = boundary_lock;
         } else {
             result = std::make_shared<ResourceLock>(m_storage_view, first_page << m_shift, (end_page - first_page) << m_shift,
@@ -90,10 +94,11 @@ namespace db0
     {
         auto first_page = address >> m_shift;
         auto end_page = ((address + size - 1) >> m_shift) + 1;
+
         // wide ranges must be page aligned
         // FIXME: unblock below assert when implementation is ready
         // assert(size <= m_page_size / 2 || ((address & m_mask) == 0));
-                
+
         std::shared_ptr<ResourceLock> result;
         if (isBoundaryRange(first_page, end_page)) {
             auto boundary_lock = m_boundary_map.findPage(state_num, first_page, result_state_num);
@@ -116,6 +121,10 @@ namespace db0
                     size - lhs_size, FlagSet<AccessOptions>());
                 m_boundary_map.insertPage(state_num, boundary_lock, first_page);
             }
+            // in case of a boundary lock the address must be precisely matched
+            // since boundary lock contains only the single allocation's data
+            // FIXME: unblock assert
+            // assert(boundary_lock->getAddress() == address);
             result = boundary_lock;
         } else {
             result = m_page_map.findRange(state_num, first_page, end_page, result_state_num);

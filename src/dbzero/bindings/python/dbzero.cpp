@@ -55,7 +55,9 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"is_tag", (PyCFunction)&py::MemoObject_IsTag, METH_FASTCALL, "Checks if a specific Memo instance is a tag"},
     {"to_dict", (PyCFunction)&py::toDict, METH_FASTCALL, "Serialize DBZero object as a Python dict"},
 #ifndef NDEBUG
-    {"write_bytes", &py::writeBytes, METH_VARARGS, "Debugging function"},
+    {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
+    {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
+    {"dbg_read_bytes", &py::readBytes, METH_VARARGS, "Debug function"},
 #endif
     {NULL} // Sentinel
 };

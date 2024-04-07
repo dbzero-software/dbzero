@@ -6,6 +6,7 @@ meson.current_source_dir() / 'PrefixCatalog.cpp',
 meson.current_source_dir() / 'Fixture.cpp',
 meson.current_source_dir() / 'ResourceManager.cpp',
 meson.current_source_dir() / 'FixtureThreads.cpp',
+meson.current_source_dir() / 'Utils.cpp',
 meson.current_source_dir() / 'WorkspaceView.cpp']
 
         

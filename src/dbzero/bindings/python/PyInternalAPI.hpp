@@ -70,10 +70,14 @@ namespace db0::python
     }
 
 #ifndef NDEBUG
+
     /**
      * A test function to make an allocation and write random bytes into the current prefix
     */
-    PyObject *writeBytes(PyObject *self, PyObject *args);
+    PyObject *writeBytes(PyObject *, PyObject *args);
+    PyObject *freeBytes(PyObject *, PyObject *args);
+    PyObject *readBytes(PyObject *, PyObject *args);
+
 #endif
     
     bool isBase(PyTypeObject *py_type, PyTypeObject *base_type);

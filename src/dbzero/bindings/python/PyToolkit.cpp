@@ -62,7 +62,7 @@ namespace db0::python
         return memo_object;
     }
 
-    PyToolkit::ObjectPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, 
+    PyToolkit::ObjectPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,
         std::shared_ptr<Class> type, std::optional<std::uint32_t> instance_id)
     {
         auto memo_object = MemoObjectStub_new(type->getLangClass().steal());        
@@ -176,7 +176,6 @@ namespace db0::python
         // retrieve actual DBZero instance        
         db0::object_model::Dict::unload(&dict_object->ext(), fixture, address);
     
-
         // add list object to cache
         lang_cache.add(address, dict_object, false);
         return dict_object;

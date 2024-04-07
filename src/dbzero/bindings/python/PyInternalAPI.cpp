@@ -10,6 +10,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/WorkspaceView.hpp>
 #include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/workspace/Utils.hpp>
 
 namespace db0::python
 
@@ -138,7 +139,7 @@ namespace db0::python
         assert(to_name);
         using ClassFactory = db0::object_model::ClassFactory;
 
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
         auto &class_factory = fixture->get<ClassFactory>();
         // resolve existing DB0 type from python type
         auto type = class_factory.getExistingType(py_type);
@@ -149,20 +150,46 @@ namespace db0::python
 
     PyObject *writeBytes(PyObject *self, PyObject *args)
     {
-        // parse object size from args
-        int size;
-        if (!PyArg_ParseTuple(args, "i", &size)) {
+        // extract string from args
+        const char *data;
+        if (!PyArg_ParseTuple(args, "s", &data)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        // generate a random vector
-        std::vector<std::byte> data(size);
-        std::generate(data.begin(), data.end(), []() { return (std::byte)(std::rand() % 256); });
-        // write bytes by creating a binary object
-        db0::v_object<db0::o_binary>(*fixture, data);
+
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        auto addr = db0::writeBytes(*fixture, data, strlen(data));
+        return PyLong_FromUnsignedLongLong(addr);        
+    }
+
+    PyObject *freeBytes(PyObject *, PyObject *args)
+    {
+        // extract address from args
+        std::uint64_t address;
+        if (!PyArg_ParseTuple(args, "K", &address)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        db0::freeBytes(*fixture, address);
         Py_RETURN_NONE;
     }
 
+    PyObject *readBytes(PyObject *, PyObject *args)
+    {
+        // extract address from args
+        std::uint64_t address;
+        if (!PyArg_ParseTuple(args, "K", &address)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        std::string str_data = db0::readBytes(*fixture, address);
+        return PyUnicode_FromString(str_data.c_str());
+    }
+    
 #endif
 
     bool isBase(PyTypeObject *py_type, PyTypeObject *base_type)
