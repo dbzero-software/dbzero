@@ -417,6 +417,15 @@ namespace db0::python
         return py_result;
     }
     
+    PyObject *getBuildFlags(PyObject *, PyObject *)
+    {
+        std::stringstream str_flags;
+#ifndef NDEBUG
+        str_flags << "D";
+#endif  
+        return PyUnicode_FromString(str_flags.str().c_str());
+    }
+
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>() {
         return db0::object_model::StorageClass::OBJECT_REF;
     }

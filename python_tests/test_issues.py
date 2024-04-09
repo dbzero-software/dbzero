@@ -18,37 +18,39 @@ class IntMock:
 
 
 def test_write_free_random_bytes(db0_fixture):
-    # FIXME: should be executed in dbg mode only
-    alloc_cnt = 10
-    data = {}
-    addr_list = []
-    for _ in range(5):
-        for _ in range(alloc_cnt):
-            # random size (large enough to cause boundary locks)
-            k = random.randint(1, 3666)
+    # run this test only in debug mode
+    if 'D' in db0.build_flags():        
+        alloc_cnt = 10
+        data = {}
+        addr_list = []
+        for _ in range(5):
+            for _ in range(alloc_cnt):
+                # random size (large enough to cause boundary locks)
+                k = random.randint(1, 3666)
+                str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=k))        
+                addr = db0.dbg_write_bytes(str)
+                data[addr] = str
+                addr_list.append(addr)
+            
+            # free 20% of addresses
+            for _ in range(int(alloc_cnt * 0.33)):
+                n = random.randint(0, len(addr_list) - 1)
+                db0.dbg_free_bytes(addr_list[n])
+                del data[addr_list[n]]
+                del addr_list[n]
+    
+
+def test_write_read_random_bytes(db0_fixture):
+    # run this test only in debug mode
+    if 'D' in db0.build_flags():
+        data = {}
+        addr_list = []
+        for _ in range(2):
+            k = random.randint(3000, 3500)
             str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=k))        
             addr = db0.dbg_write_bytes(str)
             data[addr] = str
             addr_list.append(addr)
-        
-        # free 20% of addresses
-        for _ in range(int(alloc_cnt * 0.33)):
-            n = random.randint(0, len(addr_list) - 1)
-            db0.dbg_free_bytes(addr_list[n])
-            del data[addr_list[n]]
-            del addr_list[n]
-    
-
-def test_write_read_random_bytes(db0_fixture):
-    # FIXME: should be executed in dbg mode only    
-    data = {}
-    addr_list = []
-    for _ in range(2):
-        k = random.randint(3000, 3500)
-        str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=k))        
-        addr = db0.dbg_write_bytes(str)
-        data[addr] = str
-        addr_list.append(addr)
-            
-    for addr, str in data.items():
-        assert db0.dbg_read_bytes(addr) == str
+                
+        for addr, str in data.items():
+            assert db0.dbg_read_bytes(addr) == str
