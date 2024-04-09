@@ -112,6 +112,12 @@ namespace db0
          * Execute specific function for each stored resource lock, boundary locks processed first
         */
         void forEach(std::function<void(ResourceLock &)>) const;
+        
+        /**
+         * Find or create page in a given state number (must be exact match)
+        */
+        std::shared_ptr<ResourceLock> findOrCreatePage(std::uint64_t state_num, std::uint64_t page_num,
+            FlagSet<AccessOptions> access_mode);
     };
-       
+    
 }

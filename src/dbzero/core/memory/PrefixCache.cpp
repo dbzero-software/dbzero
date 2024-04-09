@@ -35,6 +35,7 @@ namespace db0
 
         // boundary range (spanning two pages)
         if (isBoundaryRange(first_page, end_page)) {
+            assert(end_page == first_page + 2);
             // create lhs & rhs parent locks
             auto lhs = createLock(first_page << m_shift, m_page_size, access_mode);
             auto rhs = createLock((first_page + 1) << m_shift, m_page_size, access_mode);
@@ -47,33 +48,46 @@ namespace db0
         }
     }
     
-    std::shared_ptr<ResourceLock> PrefixCache::createRange(std::uint64_t address, std::uint64_t state_num, std::size_t size,
+    std::shared_ptr<ResourceLock> PrefixCache::findOrCreatePage(std::uint64_t state_num, std::uint64_t page_num,
         FlagSet<AccessOptions> access_mode)
     {
+        std::uint64_t existing_state_num;
+        auto page = m_page_map.findPage(state_num, page_num, &existing_state_num);
+        if (!page || existing_state_num != state_num) {
+            page = createRange(page_num << m_shift, state_num, m_page_size, access_mode);
+        }
+        return page;
+    }
+
+    std::shared_ptr<ResourceLock> PrefixCache::createRange(std::uint64_t address, std::uint64_t state_num, std::size_t size,
+        FlagSet<AccessOptions> access_mode)
+    {        
         auto first_page = address >> m_shift;
         auto end_page = ((address + size - 1) >> m_shift) + 1;
-        // wide ranges must be page aligned        
+
+        // wide ranges must be page aligned
         // FIXME: unblock below assert when implementation is ready
         // assert(size <= m_page_size / 2 || ((address & m_mask) == 0));
 
         std::shared_ptr<ResourceLock> result;
         // boundary range (spanning two pages)
         if (isBoundaryRange(first_page, end_page)) {
+            assert(end_page == first_page + 2);
             std::uint64_t result_state_num;
             auto boundary_lock = m_boundary_map.findPage(state_num, first_page, &result_state_num);
             if (!boundary_lock || result_state_num != state_num) {
-                // create lhs & rhs parent ranges
-                auto lhs = createRange(first_page << m_shift, state_num, m_page_size, access_mode);
-                auto rhs = createRange((first_page + 1) << m_shift, state_num, m_page_size, access_mode);
+                // find or create lhs & rhs parent ranges
+                // note that either or both of the ranges might be already present in the cache                
+                auto lhs = findOrCreatePage(state_num, first_page, access_mode);
+                auto rhs = findOrCreatePage(state_num, first_page + 1, access_mode);
                 auto lhs_size = ((first_page + 1) << m_shift) - address;
                 boundary_lock = std::make_shared<BoundaryLock>(m_storage_view, address, lhs, lhs_size, rhs, size - lhs_size, 
                     access_mode, isCreateNew(access_mode));
                 m_boundary_map.insertPage(state_num, boundary_lock, first_page);
             }
             // in case of a boundary lock the address must be precisely matched
-            // since boundary lock contains only the single allocation's data
-            // FIXME: unblock assert
-            // assert(boundary_lock->getAddress() == address);
+            // since boundary lock contains only the single allocation's data            
+            assert(boundary_lock->getAddress() == address);
             result = boundary_lock;
         } else {
             result = std::make_shared<ResourceLock>(m_storage_view, first_page << m_shift, (end_page - first_page) << m_shift,
@@ -101,6 +115,7 @@ namespace db0
 
         std::shared_ptr<ResourceLock> result;
         if (isBoundaryRange(first_page, end_page)) {
+            assert(end_page == first_page + 2);
             auto boundary_lock = m_boundary_map.findPage(state_num, first_page, result_state_num);
             if (!boundary_lock) {
                 // if both lhs & rhs parents are available and from the same state, we may create the boundary lock
@@ -122,9 +137,8 @@ namespace db0
                 m_boundary_map.insertPage(state_num, boundary_lock, first_page);
             }
             // in case of a boundary lock the address must be precisely matched
-            // since boundary lock contains only the single allocation's data
-            // FIXME: unblock assert
-            // assert(boundary_lock->getAddress() == address);
+            // since boundary lock contains only the single allocation's data            
+            assert(boundary_lock->getAddress() == address);
             result = boundary_lock;
         } else {
             result = m_page_map.findRange(state_num, first_page, end_page, result_state_num);
@@ -133,7 +147,7 @@ namespace db0
                 result = nullptr;
             }
         }
-
+        
         // register / update lock with the recycler (mark as accessed for LRU policy evaluation)
         if (result && m_cache_recycler_ptr) {
             m_cache_recycler_ptr->update(result);
@@ -153,11 +167,12 @@ namespace db0
     
     std::shared_ptr<ResourceLock> PrefixCache::insertCopy(std::uint64_t state_num, const ResourceLock &lock,
         std::uint64_t src_state_num, FlagSet<AccessOptions> access_mode)
-    {
+    {        
         auto first_page = lock.getAddress() >> m_shift;
         auto end_page = ((lock.getAddress() + lock.size() - 1) >> m_shift) + 1;
         std::shared_ptr<ResourceLock> result;
         if (isBoundaryRange(first_page, end_page)) {
+            assert(end_page == first_page + 2);
             // either lhs or rhs in a more recent version may already be available in cache
             std::uint64_t lhs_state_num, rhs_state_num;
             auto lhs = m_page_map.findPage(state_num, first_page, &lhs_state_num);
@@ -204,7 +219,7 @@ namespace db0
         m_page_map.forEach(f);
     }
     
-    void PrefixCache::clear() 
+    void PrefixCache::clear()
     {
         // undo write / remove dirty flag from all owned locks
         forEach([&](ResourceLock &lock) {            

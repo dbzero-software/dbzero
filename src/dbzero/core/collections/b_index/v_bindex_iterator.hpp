@@ -247,7 +247,7 @@ namespace db0
 
             bool tryAppendBlock(DataVectorT &&data_block)
             {
-                if ((m_data_buf->m_max_size - m_data_buf->m_size) >= data_block->m_size) {
+                if ((m_data_buf->m_capacity - m_data_buf->m_size) >= data_block->m_size) {
                     m_data_buf.moveSorted(std::move(data_block));
                     return true;
                 }

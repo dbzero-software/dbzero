@@ -50,13 +50,12 @@ namespace db0
         }
 
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) const override;
-
+        
         std::uint64_t size() const override;
 
         std::uint64_t getStateNum() const override;
         
-        std::size_t getPageSize() const override
-        {
+        std::size_t getPageSize() const override {
             return m_page_size;
         }
 

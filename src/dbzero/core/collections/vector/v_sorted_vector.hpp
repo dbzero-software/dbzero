@@ -52,12 +52,12 @@ namespace db0
         using super_t = o_base<o_sv_container<data_t,comp_t>, 0, false>;
         friend super_t;
 
-        o_sv_container(std::uint32_t max_size, sv_state state)
-            : m_max_size(max_size)
+        o_sv_container(std::uint32_t capacity, sv_state state)
+            : m_capacity(capacity)
             , m_size(0)
             , m_state(state)
         {
-            assert(m_max_size > 0);
+            assert(m_capacity > 0);
         }
 
     public :
@@ -72,15 +72,15 @@ namespace db0
         }
 
         template <class buf_t> static std::size_t safeSizeOf(buf_t at) {
-            return sizeof(self) + self::__const_ref(at).m_max_size * sizeof(data_t);
+            return sizeof(self) + self::__const_ref(at).m_capacity * sizeof(data_t);
         }
 
         bool empty() const {
-            return (m_size==0);
+            return (m_size == 0);
         }
 
         bool is_full() const {
-            return (m_size==m_max_size);
+            return (m_size == m_capacity);
         }
 
         /**
@@ -141,7 +141,7 @@ namespace db0
          */
         void move(o_sv_container &src_buf, const_iterator it_begin, const_iterator it_end) 
         {
-            assert (m_size + (it_end - it_begin) <= m_max_size);
+            assert (m_size + (it_end - it_begin) <= m_capacity);
 
 #ifdef  __linux__
 	#pragma GCC diagnostic push
@@ -158,7 +158,7 @@ namespace db0
 
         template <class ItemIterator> void bulkPushBack(ItemIterator it, std::size_t count)
         {
-            assert ((m_size + count) <= m_max_size);
+            assert ((m_size + count) <= m_capacity);
             data_t *it_dest = end();
             this->m_size += count;
             while (count-- > 0) {
@@ -187,7 +187,7 @@ namespace db0
             SortedArray<data_t,comp_t> data_buf(begin(), end());
             data_t *it_src = (data_t*)data_buf.m_end - 1;
             data_t *it_dest = it_src + count;
-            assert (this->m_size + count <= m_max_size);
+            assert(this->m_size + count <= m_capacity);
             this->m_size += count;
             // iterate data backwards
             while (count > 0) {
@@ -211,7 +211,7 @@ namespace db0
          */
         void bulkInsert(const std::vector<data_t> &data) 
         {
-            assert (m_size + (int)data.size() <= m_max_size);
+            assert (m_size + (int)data.size() <= m_capacity);
             // reverse-sort heap
             heap<data_t,inverted_comp_t<data_t,comp_t> > s_heap((int)data.size());
             {
@@ -233,7 +233,7 @@ namespace db0
             CallbackT *callback_ptr = nullptr)
         {
             std::size_t unique_count = 0;
-            assert(m_size + data_size <= m_max_size);
+            assert(m_size + data_size <= m_capacity);
             SortedArray<data_t,comp_t> data_buf(begin(), end());
             // sort heap
             heap<data_t,comp_t> s_heap(data_size);
@@ -659,7 +659,7 @@ namespace db0
 
     public :
         // maximum size (capacity)
-        std::uint32_t m_max_size;
+        std::uint32_t m_capacity;
         // actual size
         std::uint32_t m_size = 0;
         // vector state (0 = growing, 1 = dying)
@@ -708,11 +708,11 @@ namespace db0
         /**
          * V-Space allocating constructor
          */
-        v_sorted_vector(Memspace &memspace, std::uint32_t max_size = 8, sv_state state = sv_state::growing, DestroyF item_destroy_func = {})
-            : super_t(memspace, max_size, state)
+        v_sorted_vector(Memspace &memspace, std::uint32_t capacity = 8, sv_state state = sv_state::growing, DestroyF item_destroy_func = {})
+            : super_t(memspace, capacity, state)
             , m_item_destroy_func(item_destroy_func)
         {
-            assert((*this)->m_max_size > 0);
+            assert((*this)->m_capacity > 0);
         }
         
         /**
@@ -725,7 +725,7 @@ namespace db0
             : super_t(memspace, calculateMaxSize(std::distance(begin, end)), state)
             , m_item_destroy_func(item_destroy_func)
         {
-            assert((*this)->m_max_size > 0);
+            assert((*this)->m_capacity > 0);
             bulkPushBack(begin, end - begin);
         }
 
@@ -736,7 +736,7 @@ namespace db0
             : super_t(ptr)
             , m_item_destroy_func(item_destroy_func)
         {
-            assert((*this)->m_max_size > 0);
+            assert((*this)->m_capacity > 0);
         }
 
         /**
@@ -746,7 +746,7 @@ namespace db0
             : super_t(ptr)
             , m_item_destroy_func(item_destroy_func)
         {
-            assert((*this)->m_max_size > 0);
+            assert((*this)->m_capacity > 0);
         }
         
         v_sorted_vector(std::pair<Memspace*, AddrT> addr)
@@ -855,7 +855,7 @@ namespace db0
          * grow vector if necessary
          * @return inserted item iterator
          */
-        iterator insert(const data_t &data, bool &was_addr_changed) 
+        iterator insert(const data_t &data, bool &was_addr_changed)
         {
             was_addr_changed = growVector((*this)->m_size + 1);
             return this->modify().insert(data);
@@ -935,13 +935,13 @@ namespace db0
          */
         template <typename iterator_t> bool bulkInsertUnique(iterator_t data_begin, iterator_t data_end, 
             std::pair<std::uint32_t, std::uint32_t> *result,
-            CallbackT *callback_ptr = nullptr)
+            CallbackT *callback_ptr = nullptr, std::optional<std::uint32_t> max_size = {})
         {
             std::size_t data_size = std::distance(data_begin, data_end);
             if (result) {
                 result->first = static_cast<std::uint32_t>(data_size);
             }
-            bool addr_change = growVector((*this)->m_size + data_size);
+            bool addr_change = growVector((*this)->m_size + data_size, max_size);
             std::size_t unique_count = this->modify().bulkInsertUnique(data_begin, data_end, data_size, callback_ptr);
             if (result) {
                 result->second = static_cast<std::uint32_t>(unique_count);
@@ -961,9 +961,10 @@ namespace db0
          * count - number of items being inserted (must be REVERSE sorted)
          * @return true if object relocated
          */
-        template <class ItemIterator> bool bulkInsertReverseSorted(ItemIterator it_begin, std::size_t count) 
+        template <class ItemIterator> bool bulkInsertReverseSorted(ItemIterator it_begin, std::size_t count,
+            std::optional<std::uint32_t> max_size = {})
         {
-            bool result = growVector((*this)->m_size + count);
+            bool result = growVector((*this)->m_size + count, max_size);
             this->modify().bulkInsertReverseSorted(it_begin, count);
             return result;
         }
@@ -972,9 +973,10 @@ namespace db0
          * count - number of items being inserted (must be sorted)
          * @return true if object relocated
          */
-        template <class ItemIterator> bool bulkPushBack(ItemIterator it_begin, std::size_t count) 
+        template <class ItemIterator> bool bulkPushBack(ItemIterator it_begin, std::size_t count, 
+            std::optional<std::uint32_t> max_size = {})
         {
-            bool result = growVector((*this)->m_size + count);
+            bool result = growVector((*this)->m_size + count, max_size);
             this->modify().bulkPushBack(it_begin, count);
             return result;
         }
@@ -1026,17 +1028,24 @@ namespace db0
             this->modify().bulkEraseUnique(data, m_item_destroy_func);
         }
 
-        bool growVector(std::size_t new_size)
+        /**
+         * Grows vector x2 to fit new_size and up to the max_size
+        */
+        bool growVector(std::size_t new_size, std::optional<std::uint32_t> max_size = {})
         {
-            assert((*this)->m_max_size > 0);
-            if ((*this)->m_max_size < new_size) {
-                std::uint32_t _size = (*this)->m_max_size;
-                while (_size < new_size) {
-                    _size <<= 1;
+            assert(!max_size || (new_size <= *max_size));
+            assert((*this)->m_capacity > 0);
+            if ((*this)->m_capacity < new_size) {
+                std::uint32_t new_capacity = (*this)->m_capacity;
+                while (new_capacity < new_size) {
+                    new_capacity <<= 1;
                 }
-                v_sorted_vector new_vector(this->getMemspace(), _size, (*this)->m_state);
+                if (max_size) {
+                    new_capacity = std::min(new_capacity, *max_size);
+                }
+                v_sorted_vector new_vector(this->getMemspace(), new_capacity, (*this)->m_state);
                 // copy data / items not destroyed
-                new_vector.modify().move(this->modify(),(*this)->begin(),(*this)->end());
+                new_vector.modify().move(this->modify(), (*this)->begin(), (*this)->end());
                 // delete VSPACE "this"
                 this->destroy();
                 // claim new identity
@@ -1048,20 +1057,21 @@ namespace db0
         }
 
         /**
-         * compact to fit content
+         * Compact to fit content
          * @return true on object relocated
          */
         bool compact()
         {
-            std::uint32_t _size = (*this)->m_size;
-            std::uint32_t new_max_size = (*this)->m_max_size;
-            while ((new_max_size > 4) && (new_max_size >> 1) >= _size) {
-                new_max_size >>= 1;
+            std::uint32_t _size = (*this)->m_size;            
+            // align to pow-2
+            std::uint32_t new_capacity = 1;
+            while (new_capacity < _size) {
+                new_capacity <<= 1;
             }
-            if (new_max_size!=(*this)->m_max_size) {
+            if (new_capacity > 4 && new_capacity < (*this)->m_capacity) {
                 // VSPACE copy resized ( preserve sv_dying state of the new object )
-                v_sorted_vector new_vector(this->getMemspace(), new_max_size, (*this)->m_state);
-                new_vector.modify().move(this->modify(),(*this)->begin(),(*this)->end());
+                v_sorted_vector new_vector(this->getMemspace(), new_capacity, (*this)->m_state);
+                new_vector.modify().move(this->modify(), (*this)->begin(), (*this)->end());
                 // delete VSPACE "this"
                 this->destroy();
                 // claim new identity
@@ -1100,7 +1110,7 @@ namespace db0
         v_sorted_vector split(const_iterator it_split) 
         {
             assert (it_split!=(*this)->end());
-            v_sorted_vector new_vector(this->getMemspace(), (*this)->m_max_size, (*this)->m_state, this->m_item_destroy_func);
+            v_sorted_vector new_vector(this->getMemspace(), (*this)->m_capacity, (*this)->m_state, this->m_item_destroy_func);
             new_vector.modify().move(this->modify(),it_split,(*this)->end());
             return new_vector;
         }
@@ -1111,8 +1121,8 @@ namespace db0
          */
         void moveSorted(v_sorted_vector &&other_vector) 
         {
-            assert ((*this)->m_size + other_vector->m_size <= (*this)->m_max_size);
-            this->modify().move(other_vector.modify(),other_vector->begin(), other_vector->end());
+            assert ((*this)->m_size + other_vector->m_size <= (*this)->m_capacity);
+            this->modify().move(other_vector.modify(), other_vector->begin(), other_vector->end());
         }
 
         const_iterator begin() const {

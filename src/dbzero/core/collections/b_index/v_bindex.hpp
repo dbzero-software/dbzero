@@ -234,7 +234,7 @@ namespace db0
                 // open data bucket
                 data_buf = data_vector(this->myPtr(it_node->data.ptr_b_data), m_item_destroy_func);
             }
-            while (begin_item!=end_item) {
+            while (begin_item != end_item) {
                 std::size_t diff = 0;
                 int push_count = (int)m_max_size - (int)data_buf->m_size;
                 auto _end = begin_item;
@@ -244,7 +244,7 @@ namespace db0
                 }
                 if (diff > 0) {
                     // grow data block
-                    if (data_buf.bulkPushBack(begin_item,diff)) {
+                    if (data_buf.bulkPushBack(begin_item, diff, m_max_size)) {
                         it_node.modify().data.ptr_b_data = data_buf.getAddress();
                     }
                     begin_item = _end;
@@ -460,13 +460,9 @@ namespace db0
         joinable_iterator beginJoin(int direction)
         {
             if (direction > 0) {
-                return joinable_iterator(
-                        m_index, m_max_size, direction
-                );
+                return joinable_iterator(m_index, m_max_size, direction);
             } else {
-                return joinable_iterator(
-                        m_index, m_max_size, direction
-                );
+                return joinable_iterator(m_index, m_max_size, direction);
             }
         }
 
@@ -682,7 +678,7 @@ namespace db0
                     }
                     if (buf_size > 0) {
                         // grow data block
-                        if (m_data_buf.bulkInsertReverseSorted(buf.begin(), buf_size)) {
+                        if (m_data_buf.bulkInsertReverseSorted(buf.begin(), buf_size, m_ref.m_max_size)) {
                             // update address (block size changed)
                             m_it_node.modify().data.ptr_b_data = m_data_buf.getAddress();
                         }
@@ -699,7 +695,7 @@ namespace db0
                                 }
                                 auto it_next = it_split;
                                 ++it_next;
-                                while (it_next!=m_data_buf->end() && !m_ref.m_comp(*it_split,*it_next)) {
+                                while (it_next != m_data_buf->end() && !m_ref.m_comp(*it_split,*it_next)) {
                                     ++it_split;
                                     ++it_next;
                                 }
@@ -789,7 +785,7 @@ namespace db0
             std::size_t bulkErase(heap<KeyT, item_comp_t> &data, CallbackT *callback_ptr = nullptr)
             {
                 std::vector<KeyT> buf;
-                int count = std::min((int)data.size(),(int)m_data_buf->m_size);
+                int count = std::min((int)data.size(), (int)m_data_buf->m_size);
                 while ((count-- > 0) && (!m_has_upper_bound || m_ref.m_comp(data.front(), m_upper_bound))) {
                     buf.push_back(data.front());
                     data.pop_front();
@@ -816,7 +812,7 @@ namespace db0
                     }
                     if (m_has_upper_bound) {
                         data_vector next_buf(m_ref.getMemspace().myPtr(m_it_next->data.ptr_b_data), m_ref.m_item_destroy_func);
-                        if ((m_data_buf->m_max_size - m_data_buf->m_size) >= next_buf->m_size) {
+                        if ((m_data_buf->m_capacity - m_data_buf->m_size) >= next_buf->m_size) {
                             m_data_buf.moveSorted(std::move(next_buf));
                             m_ref.m_index.erase(m_it_next);
                         }
@@ -908,7 +904,7 @@ namespace db0
             for (auto end = m_index.end(); it_next != end;) {
                 data_vector next_buf(this->myPtr(it_next->data.ptr_b_data), m_item_destroy_func);
                 // merge next buf
-                if ((data_buf->m_max_size - data_buf->m_size) >= next_buf->m_size) {
+                if ((data_buf->m_capacity - data_buf->m_size) >= next_buf->m_size) {
                     data_buf.moveSorted(std::move(next_buf));
                     m_index.erase(it_next);
                     it_next = it;

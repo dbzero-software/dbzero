@@ -43,7 +43,7 @@ namespace db0
             db0::RESOURCE_AVAILABLE_FOR_RW,
             db0::RESOURCE_AVAILABLE_FOR_RW,
             db0::RESOURCE_LOCK >;
-                
+
         /**
          * Within-prefix address of this object
         */
@@ -52,7 +52,7 @@ namespace db0
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         // initial access flags (e.g. read / write / create)
         const FlagSet<AccessOptions> m_access_mode;
-
+        
         /**
          * Memory mapped range corresponding to this object
         */

@@ -83,6 +83,7 @@ namespace db0
     
     void *ResourceLock::getBuffer(std::uint64_t address, std::uint64_t state_num) const
     {
+        assert(address >= m_address && address < m_address + m_data.size());
         return static_cast<std::byte*>(getBuffer(state_num)) + address - m_address;
     }
 
