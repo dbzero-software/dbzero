@@ -146,7 +146,7 @@ namespace db0
                     lock = m_cache.insertCopy(state_num, *lock, read_state_num, access_mode);
                 }
             } else {
-                // try finding the last available mutation
+                // try identifying the last available mutation
                 std::uint64_t mutation_id;
                 if (m_storage.tryFindMutation(address, state_num, size, mutation_id)) {
                     if (mutation_id != state_num) {

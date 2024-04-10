@@ -177,23 +177,13 @@ namespace db0
             std::uint64_t lhs_state_num, rhs_state_num;
             auto lhs = m_page_map.findPage(state_num, first_page, &lhs_state_num);
             if (lhs_state_num != state_num) {
-                lhs = std::make_shared<ResourceLock>(lock, src_state_num, access_mode);
-                m_page_map.insertPage(state_num, lhs, first_page);
-
-                // register / update lock with the recycler
-                if (m_cache_recycler_ptr) {
-                    m_cache_recycler_ptr->update(lhs);
-                }
+                lhs = createLock(first_page << m_shift, m_page_size, access_mode);
+                lhs = insertCopy(state_num, *lhs, lhs_state_num, access_mode);
             }
             auto rhs = m_page_map.findPage(state_num, first_page + 1, &rhs_state_num);
             if (rhs_state_num != state_num) {
-                rhs = std::make_shared<ResourceLock>(lock, src_state_num, access_mode);
-                m_page_map.insertPage(state_num, rhs, first_page + 1);
-
-                // register / update lock with the recycler
-                if (m_cache_recycler_ptr) {
-                    m_cache_recycler_ptr->update(rhs);
-                }
+                rhs = createLock((first_page + 1) << m_shift, m_page_size, access_mode);
+                rhs = insertCopy(state_num, *rhs, rhs_state_num, access_mode);
             }
             // make a copy
             auto boundary_lock = std::make_shared<BoundaryLock>(

@@ -29,6 +29,8 @@ namespace db0
         std::pair<std::shared_ptr<ResourceLock>, std::shared_ptr<ResourceLock> > getParentLocks() const;
 
         void release() override;
+
+        std::size_t size() const;
         
     private:
         std::shared_ptr<ResourceLock> m_lhs;

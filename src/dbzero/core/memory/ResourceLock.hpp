@@ -99,6 +99,12 @@ namespace db0
             db0::RESOURCE_DIRTY,
             db0::RESOURCE_LOCK >;
         
+        // Constructors for derived types
+        struct tag_derived {};
+        ResourceLock(tag_derived, StorageView &, std::uint64_t address, std::size_t size,
+            FlagSet<AccessOptions>, bool create_new = false);
+        ResourceLock(tag_derived, const ResourceLock &, std::uint64_t src_state_num, FlagSet<AccessOptions>);
+
         StorageView &m_storage_view;
         const std::uint64_t m_address;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
@@ -113,6 +119,13 @@ namespace db0
         bool isDirty() const {
             return m_resource_flags & db0::RESOURCE_DIRTY;
         }
+
+        // check if the underlying resource has been fetched
+        bool isFetched() const {
+            return m_resource_flags & db0::RESOURCE_FETCHED;
+        }
+
+        bool addrPageAligned() const;
     };
     
 }

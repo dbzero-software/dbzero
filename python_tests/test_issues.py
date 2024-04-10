@@ -32,7 +32,7 @@ def test_write_free_random_bytes(db0_fixture):
                 data[addr] = str
                 addr_list.append(addr)
             
-            # free 20% of addresses
+            # free 1/3 of addresses
             for _ in range(int(alloc_cnt * 0.33)):
                 n = random.randint(0, len(addr_list) - 1)
                 db0.dbg_free_bytes(addr_list[n])
@@ -54,3 +54,54 @@ def test_write_read_random_bytes(db0_fixture):
                 
         for addr, str in data.items():
             assert db0.dbg_read_bytes(addr) == str
+
+
+def test_write_free_read_random_bytes(db0_fixture):
+    # run this test only in debug mode
+    if 'D' in db0.build_flags():
+        alloc_cnt = 100
+        for _ in range(25):
+            data = {}
+            addr_list = []
+            for _ in range(alloc_cnt):
+                k = random.randint(20, 500)
+                str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=k))        
+                addr = db0.dbg_write_bytes(str)
+                data[addr] = str
+                addr_list.append(addr)
+            
+            # free 1/3 of addresses
+            for _ in range(int(alloc_cnt * 0.33)):
+                n = random.randint(0, len(addr_list) - 1)
+                db0.dbg_free_bytes(addr_list[n])
+                del data[addr_list[n]]
+                del addr_list[n]
+            
+            for addr, str in data.items():
+                assert db0.dbg_read_bytes(addr) == str
+
+
+def test_write_free_read_random_bytes_in_multiple_transactions(db0_fixture):
+    # run this test only in debug mode
+    if 'D' in db0.build_flags():
+        alloc_cnt = 25
+        for _ in range(5):
+            data = {}
+            addr_list = []
+            for _ in range(alloc_cnt):
+                k = random.randint(20, 500)
+                str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=k))        
+                addr = db0.dbg_write_bytes(str)
+                data[addr] = str
+                addr_list.append(addr)
+            
+            # free 1/3 of addresses
+            for _ in range(int(alloc_cnt * 0.33)):
+                n = random.randint(0, len(addr_list) - 1)
+                db0.dbg_free_bytes(addr_list[n])
+                del data[addr_list[n]]
+                del addr_list[n]
+            
+            db0.commit()
+            for addr, str in data.items():
+                assert db0.dbg_read_bytes(addr) == str

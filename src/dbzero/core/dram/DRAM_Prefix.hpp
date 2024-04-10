@@ -16,10 +16,7 @@ namespace db0
     */
     class DRAM_Prefix: public Prefix, public std::enable_shared_from_this<Prefix>
     {
-    public:
-        static Storage0 DEV_NULL;
-        static StorageView DEV_NULL_VIEW;
-        
+    public:        
         // A function to consume a single memory page (for serialization)
         // is_last=true is set for the last flushed page
         using SinkFunction = std::function<void(std::uint64_t page_num, const void *)>;
@@ -72,13 +69,15 @@ namespace db0
         
     private:
         const std::size_t m_page_size;        
-        
+        mutable Storage0 m_dev_null;
+        mutable StorageView m_dev_null_view;
+
         struct MemoryPage
         {
             mutable std::shared_ptr<ResourceLock> m_lock;
             void *m_buffer;
             
-            MemoryPage(std::uint64_t address, std::size_t size);
+            MemoryPage(StorageView &, std::uint64_t address, std::size_t size);
             void resetDirtyFlag();
         };
 
