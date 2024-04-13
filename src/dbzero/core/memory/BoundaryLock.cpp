@@ -7,7 +7,7 @@ namespace db0
 
     BoundaryLock::BoundaryLock(StorageView &storage_view, std::uint64_t address, std::shared_ptr<ResourceLock> lhs, std::size_t lhs_size,
         std::shared_ptr<ResourceLock> rhs, std::size_t rhs_size, FlagSet<AccessOptions> access_mode, bool create_new)
-        // important to use no_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)        
+        // important to use no_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
         : ResourceLock(tag_derived(), storage_view, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache, create_new)
         , m_lhs(lhs)
         , m_lhs_size(lhs_size)
@@ -19,8 +19,8 @@ namespace db0
     BoundaryLock::BoundaryLock(const BoundaryLock &lock, std::uint64_t src_state_num,
         std::shared_ptr<ResourceLock> lhs, std::shared_ptr<ResourceLock> rhs,
         FlagSet<AccessOptions> access_mode)
-        // important to use no_cache for BoundaryLock
-        : ResourceLock(tag_derived(), lock.m_storage_view, lock.m_address, lock.size(), access_mode | AccessOptions::no_cache)
+        // important to use no_cache for BoundaryLock        
+        : ResourceLock(tag_derived(), lock.m_storage_view, lock.m_address, lock.size(), access_mode | AccessOptions::no_cache)        
         , m_lhs(lhs)
         , m_lhs_size(lock.m_lhs_size)
         , m_rhs(rhs)

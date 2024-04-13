@@ -197,7 +197,7 @@ namespace db0
             this->m_address = 0;
             this->m_resource_flags = 0;
         }
-
+        
         ContainerT &modify()
         {
             assert(m_memspace_ptr);
@@ -206,6 +206,7 @@ namespace db0
                 ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
                     // lock for +write
+                    // note that lock is getting updated, possibly copy-on-write is being performed
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
                         m_address, this->getSize(), m_access_mode | AccessOptions::write);
                     lock.commit_set();

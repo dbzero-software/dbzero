@@ -71,11 +71,11 @@ namespace db0
 			: m_memspace_ptr(&memspace)
 			, m_sv_limit(suggestMaxSize(SV_SIZE_LIMIT))
 		{
-			if (initial_type==bindex::empty) {
+			if (initial_type == bindex::empty) {
 				createNew<bindex::empty>();
-			} else if (initial_type==bindex::sorted_vector) {
+			} else if (initial_type == bindex::sorted_vector) {
 				createNew<bindex::sorted_vector>();
-			} else if (initial_type==bindex::bindex) {
+			} else if (initial_type == bindex::bindex) {
 				createNew<bindex::bindex>();
 			} else {
 				assert(false);
@@ -150,7 +150,7 @@ namespace db0
 		MorphingBIndex(Memspace &memspace, AddrT addr, bindex::type type, std::uint32_t SV_SIZE_LIMIT = 48)
 			: m_memspace_ptr(&memspace)
 			, m_sv_limit(suggestMaxSize(SV_SIZE_LIMIT))
-		{
+		{			
 			openExisting(addr, type);
 		}
 

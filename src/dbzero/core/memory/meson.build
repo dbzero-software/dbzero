@@ -15,6 +15,7 @@ meson.current_source_dir() / 'AccessOptions.cpp',
 meson.current_source_dir() / 'SlabRecycler.cpp',
 meson.current_source_dir() / 'CacheRecycler.cpp',
 meson.current_source_dir() / 'BoundaryLock.cpp',
+meson.current_source_dir() / 'VObjectCache.cpp',
 meson.current_source_dir() / 'SlabAllocator.cpp']
 
         

@@ -7,13 +7,13 @@ namespace db0
 
 {
     
-    FT_BaseIndex::FT_BaseIndex(Memspace & memspace) 
-        : super_t(memspace)
+    FT_BaseIndex::FT_BaseIndex(Memspace & memspace, VObjectCache &cache)
+        : super_t(memspace, cache)
     {
     }
 
-    FT_BaseIndex::FT_BaseIndex(mptr ptr)
-        : super_t(ptr)
+    FT_BaseIndex::FT_BaseIndex(mptr ptr, VObjectCache &cache)
+        : super_t(ptr, cache)
     {
     }
 
@@ -26,10 +26,10 @@ namespace db0
         return std::unique_ptr<FT_Iterator<std::uint64_t> >(
             new FT_IndexIterator<ListT, std::uint64_t>(*inverted_list_ptr, -1, key));
     }
-
+    
     bool FT_BaseIndex::addIterator(FT_IteratorFactory<std::uint64_t> &factory, std::uint64_t key) const
     {
-        auto *inverted_list_ptr = this->tryGetExistingInvertedList(key);
+        auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
         if (!inverted_list_ptr) {
             return false;
         }
@@ -158,24 +158,25 @@ namespace db0
                     // Either create new or pull existing inverted list
                     FT_BaseIndex::iterator &tag_index_it = tag_index_its[i];
                     assert((*tag_index_it).key == range_first->first);
-                    ListT tag_index = index.getInvertedList(tag_index_it);
-                    auto old_addr = addressOfMBIndex(tag_index);
+                    auto tag_index_ptr = index.getInvertedList(tag_index_it);
+                    auto old_addr = tag_index_ptr->getAddress();
+                    auto old_map_value = addressOfMBIndex(*tag_index_ptr);
                     // NOTICE: only unique items are retained in index
                     // callback notified about unique items (objects)
-                    std::pair<std::uint32_t, std::uint32_t> stats = tag_index.bulkInsertUnique(
+                    std::pair<std::uint32_t, std::uint32_t> stats = tag_index_ptr->bulkInsertUnique(
                         ValueIterator(range_first), 
                         ValueIterator(range_last),
                         insert_callback_ptr
                     );
-                    
+
                     // This check is here  because tag_index's location may have been changed by insert
                     // We need to update pointer to tag_index (either address or type changed)
-                    auto new_addr = addressOfMBIndex(tag_index);
-                    if (old_addr != new_addr) {
+                    auto new_map_value = addressOfMBIndex(*tag_index_ptr);
+                    if (old_map_value != new_map_value) {
                         // update the address
-                        tag_index_it.modifyItem().value = new_addr;
+                        tag_index_it.modifyItem().value = new_map_value;
                         // remove from cache since this instance has been relocated
-                        index.removeFromCache(range_first->first);
+                        index.getVObjectCache().erase(old_addr);
                     }
                     all_count += stats.first;
                     new_count += stats.second;
@@ -203,27 +204,28 @@ namespace db0
                         return first_item.first != item.first;
                     });
                     // instance collection by tag pointer
-                    ListT *tag_index_ptr = index.tryGetExistingInvertedList(first_item.first);
+                    auto tag_index_ptr = index.tryGetExistingInvertedList(first_item.first);
                     if (tag_index_ptr) {
-                        // we need to remember old type and pointer because they may be modified by bulkErase operation
-                        auto old_addr = addressOfMBIndex(*tag_index_ptr);                        
+                        // we need to remember old type nd pointer because they may be modified by bulkErase operation
+                        auto old_addr = tag_index_ptr->getAddress();
+                        auto old_map_value = addressOfMBIndex(*tag_index_ptr);
                         std::size_t erased_count = tag_index_ptr->bulkErase(
                             ValueIterator(buf_begin), 
                             ValueIterator(range_end),
                             erase_callback_ptr
                         );
-                        auto new_addr = addressOfMBIndex(*tag_index_ptr);
-                        if (old_addr != new_addr) {
+                        auto new_map_value = addressOfMBIndex(*tag_index_ptr);
+                        if (old_map_value != new_map_value) {
                             // Update list ptr in index
                             auto it = index.find(first_item.first);
                             if (tag_index_ptr->getIndexType() == db0::bindex::empty) {
                                 // remove empty inverted list completely
                                 index.erase(it);
                             } else {
-                                it.modifyItem().value = new_addr;
+                                it.modifyItem().value = new_map_value;
                             }
                             // remove from cache since this instance has been relocated or removed
-                            index.removeFromCache(first_item.first);
+                            index.getVObjectCache().erase(old_addr);
                         }
                         all_count -= erased_count;
                         removed_count += erased_count;
@@ -246,15 +248,6 @@ namespace db0
 		}
 		return stats;
 	}
-
-    std::uint64_t FT_BaseIndex::BatchOperation::estimateSize() const
-    {
-        std::uint64_t size = 0;
-        constexpr std::size_t elem_size = sizeof(typename TagValueList::value_type);
-        size += m_add_set.size() * elem_size;
-        size += m_remove_set.size() * elem_size;
-        return size;
-    }
 
     void FT_BaseIndex::BatchOperation::setActiveValue(std::uint64_t value) {
         m_active_value = value;

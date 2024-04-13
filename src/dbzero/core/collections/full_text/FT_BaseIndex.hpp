@@ -18,9 +18,9 @@ namespace db0
         using super_t = InvertedIndex<std::uint64_t, std::uint64_t>;
 
         FT_BaseIndex() = default;
-        FT_BaseIndex(Memspace &);
-        FT_BaseIndex(mptr);
-
+        FT_BaseIndex(Memspace &, VObjectCache &);
+        FT_BaseIndex(mptr, VObjectCache &);
+        
         virtual ~FT_BaseIndex() = default;
 
         /**
@@ -220,12 +220,6 @@ namespace db0
              * Cancel all modifications
              */
             void cancel();
-
-            /**
-             * Estimates size of BatchOperation maps, which tends to use a lot of memory
-             * @return estimated size
-             */
-            std::uint64_t estimateSize() const;
 
             /**
              * Check if there're any operations queued for commit

@@ -8,6 +8,7 @@
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/memory/SlabRecycler.hpp>
 #include <dbzero/core/memory/PrefixImpl.hpp>
+#include <dbzero/core/memory/VObjectCache.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include "Fixture.hpp"
@@ -113,10 +114,11 @@ namespace db0
     {
     public:
         static constexpr std::uint32_t DEFAULT_AUTOCOMMIT_INTERVAL_MS = 250;
+        static constexpr std::size_t DEFAULT_VOBJECT_CACHE_SIZE = 16384;
 
         Workspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
-            std::optional<std::size_t> slab_cache_size = {},
-            std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});
+            std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> vobject_cache_size = {},
+            std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});            
         virtual ~Workspace();
         
         /**
@@ -196,6 +198,8 @@ namespace db0
         
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> getFixtureInitializer() const;
 
+        FixedObjectList &getSharedObjectList() const;
+
     private:
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_fixture_initializer;
@@ -206,6 +210,8 @@ namespace db0
         std::unique_ptr<AutoCommitThread> m_auto_commit_thread;
         swine_ptr<db0::Fixture> m_default_fixture;
         std::vector<std::string> m_current_prefix_history;
+        // shared object list is for maintainig v_object cache evition policy at a process level
+        mutable FixedObjectList m_shared_object_list;
 
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
     };

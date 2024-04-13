@@ -24,7 +24,8 @@ namespace db0::python
             THROWF(db0::InternalException) << "DBZero already initialized";
         }
         
-        m_workspace = std::shared_ptr<db0::Workspace>(new Workspace(root_path, {}, {}, db0::object_model::initializer()));
+        m_workspace = std::shared_ptr<db0::Workspace>(
+            new Workspace(root_path, {}, {}, {}, db0::object_model::initializer()));
     }
     
     db0::Workspace &PyWorkspace::getWorkspace() const

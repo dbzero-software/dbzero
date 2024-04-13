@@ -6,12 +6,13 @@
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
 #include <dbzero/core/utils/ProcessTimer.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
+#include <dbzero/core/memory/VObjectCache.hpp>
 
 namespace db0
 
 {
     
-    template <typename KeyT = std::uint64_t, typename ValueT = std::uint64_t> 
+    template <typename KeyT = std::uint64_t, typename ValueT = std::uint64_t>
     ValueT addressOfMBIndex(const db0::MorphingBIndex<KeyT> &mb_index)
     {
         // use high 4-bits for index type
@@ -19,15 +20,17 @@ namespace db0
     }
     
     template <typename KeyT = std::uint64_t, typename ValueT = std::uint64_t>
-    db0::MorphingBIndex<KeyT> indexFromAddress(Memspace &memspace, ValueT address)
+    std::shared_ptr<db0::MorphingBIndex<KeyT> > indexFromAddress(VObjectCache &cache, ValueT address)
     {
-        // use high 4-bits for index type 
+        // use high 4-bits for index type
         auto index_type = static_cast<db0::bindex::type>(address >> 60);
-        return db0::MorphingBIndex<KeyT>(memspace, address & 0x0FFFFFFFFFFFFFFF, index_type);
+        auto mb_addr = address & 0x0FFFFFFFFFFFFFFF;
+        // NOTE: first address is for cache, the latter for MorphingBIndex
+        return cache.findOrCreate<db0::MorphingBIndex<KeyT> >(mb_addr, mb_addr, index_type);
     }
     
     template <typename KeyT = std::uint64_t, typename ValueT = std::uint64_t>
-    class InvertedIndex : public db0::v_bindex<key_value<KeyT, ValueT>, std::uint64_t>
+    class InvertedIndex: public db0::v_bindex<key_value<KeyT, ValueT>, std::uint64_t>
     {
         mutable progressive_mutex m_mutex;
 
@@ -37,8 +40,8 @@ namespace db0
         using super_t = db0::v_bindex<MapItemT, std::uint64_t>;
         // convert inverted list to value
         using ValueFunctionT = std::function<ValueT(const ListT &)>;
-        // construct inverted list from value
-        using ListFunctionT = std::function<ListT(Memspace &, ValueT)>;
+        // extract inverted list address from value, pull through cache
+        using ListFunctionT = std::function<std::shared_ptr<ListT>(VObjectCache &, ValueT)>;
         using iterator = typename super_t::iterator;
 
         /**
@@ -46,10 +49,10 @@ namespace db0
          */
         InvertedIndex() = default;
 
-        InvertedIndex(Memspace &memspace, ValueFunctionT = addressOfMBIndex<KeyT, ValueT>, 
+        InvertedIndex(Memspace &memspace, VObjectCache &, ValueFunctionT = addressOfMBIndex<KeyT, ValueT>, 
             ListFunctionT = indexFromAddress<KeyT, ValueT>);
 
-        InvertedIndex(mptr ptr, ValueFunctionT = addressOfMBIndex<KeyT, ValueT>, 
+        InvertedIndex(mptr ptr, VObjectCache &, ValueFunctionT = addressOfMBIndex<KeyT, ValueT>, 
             ListFunctionT = indexFromAddress<KeyT, ValueT>);
 
         /**
@@ -57,7 +60,7 @@ namespace db0
          * @param key key to retrieve/create the inverted list by
          * @return the inverted list object
          */
-        ListT getInvertedList(KeyT key);
+        std::shared_ptr<ListT> findOrCreateInvertedList(KeyT key);
         
         /**
          * Similar as getObjectIndex but performed in a bulk operation for all provided keys
@@ -93,175 +96,121 @@ namespace db0
         /**
          * Pull list by map item
          */
-        ListT getInvertedList(const MapItemT &item) const;
+        std::shared_ptr<ListT> getInvertedList(const MapItemT &item) const;
 
         /**
          * Pull existing index from under iterator (or create new)
          */
-        ListT getInvertedList(iterator &it);
+        std::shared_ptr<ListT> getInvertedList(iterator &it);
 
-        void setInvertedList(const MapItemT &item);
+        // void setInvertedList(const MapItemT &item);
 
         /**
          * Pull through cache, throw if no such inverted index found
          */
-        const ListT &getExistingInvertedList(KeyT) const;
+        std::shared_ptr<ListT> getExistingInvertedList(KeyT) const;
 
-        const ListT *tryGetExistingInvertedList(KeyT) const;
-
-        /**
-         * Pull existing object index for modifications (through cache)
-         * @param ptr_item
-         * @return nullptr if not found / no such exists
-         */
-        ListT *tryGetExistingInvertedList(KeyT);
-
-        void removeFromCache(KeyT);
-
-        void clear();
+        std::shared_ptr<ListT> tryGetExistingInvertedList(KeyT) const;
+        
+        inline VObjectCache &getVObjectCache() const {
+            return m_cache;
+        }
 
     private:
-        mutable std::unordered_map<KeyT, ListT> m_cache;
+        VObjectCache &m_cache;
         ValueFunctionT m_value_function;
         ListFunctionT m_list_function;
     };
 
     template <typename KeyT, typename ValueT> InvertedIndex<KeyT, ValueT>::InvertedIndex(Memspace &memspace, 
-        ValueFunctionT value_function, ListFunctionT list_function)
+        VObjectCache &cache, ValueFunctionT value_function, ListFunctionT list_function)
         : super_t(memspace)
+        , m_cache(cache)
         , m_value_function(value_function)
         , m_list_function(list_function)
     {        
     }
 
     template <typename KeyT, typename ValueT> InvertedIndex<KeyT, ValueT>::InvertedIndex(mptr ptr,
-        ValueFunctionT value_function, ListFunctionT list_function)    
+        VObjectCache &cache, ValueFunctionT value_function, ListFunctionT list_function)
         : super_t(ptr, ptr.getPageSize())
+        , m_cache(cache)
         , m_value_function(value_function)
         , m_list_function(list_function)
     {
     }
     
     template <typename KeyT, typename ValueT>
-    typename InvertedIndex<KeyT, ValueT>::ListT InvertedIndex<KeyT, ValueT>::getInvertedList(KeyT key)
+    std::shared_ptr<typename InvertedIndex<KeyT, ValueT>::ListT>
+    InvertedIndex<KeyT, ValueT>::findOrCreateInvertedList(KeyT key)
     {
 		MapItemT item(key);
 		auto it = super_t::find(item);
 		if (it == super_t::end()) {
-			// construct as empty
-			ListT result(this->getMemspace());
-			item.value =  m_value_function(result);
+			// construct as empty (pull through cache)
+			auto list_ptr = m_cache.create<ListT>();
+			item.value =  m_value_function(*list_ptr);
 			super_t::insert(item);
-			return result;
+			return list_ptr;
 		} else {
-			// pull DBZero existing
-            auto &memspace = this->getMemspace();
-            return m_list_function(memspace, it->value);			
+			// fetch existing
+            return m_list_function(m_cache, it->value);			
 		}
     }
-
+    
     template <typename KeyT, typename ValueT> 
-    typename InvertedIndex<KeyT, ValueT>::ListT InvertedIndex<KeyT, ValueT>::getInvertedList(const MapItemT &item) const
+    std::shared_ptr<typename InvertedIndex<KeyT, ValueT>::ListT>
+    InvertedIndex<KeyT, ValueT>::getInvertedList(const MapItemT &item) const
     {
         // pull DBZero existing        
-        return m_list_function(this->getMemspace(), item.value);
+        return m_list_function(m_cache, item.value);
     }
 
     template <typename KeyT, typename ValueT> 
-    typename InvertedIndex<KeyT, ValueT>::ListT InvertedIndex<KeyT, ValueT>::getInvertedList(iterator &it)
+    std::shared_ptr<typename InvertedIndex<KeyT, ValueT>::ListT> 
+    InvertedIndex<KeyT, ValueT>::getInvertedList(iterator &it)
     {
 		if ((*it).value == ValueT()) {
-            auto result = ListT(this->getMemspace());
-            it.modifyItem().value = m_value_function(result);
-            return result;
+            auto list_ptr = m_cache.create<ListT>();
+            it.modifyItem().value = m_value_function(*list_ptr);
+            return list_ptr;
 		} else {
-			// pull existing
-            auto &memspace = this->getMemspace();
-            return m_list_function(memspace, (*it).value);
+			// fetch existing (pull through cache)
+            return m_list_function(m_cache, (*it).value);
 		}
     }
-
+    
     template <typename KeyT, typename ValueT>
-    void InvertedIndex<KeyT, ValueT>::setInvertedList(const MapItemT &item)
+    std::shared_ptr<typename InvertedIndex<KeyT, ValueT>::ListT> 
+    InvertedIndex<KeyT, ValueT>::getExistingInvertedList(KeyT key) const
     {
-		auto it = super_t::find(item);
-		if (it == super_t::end()) {
-			super_t::insert(item);
-		} else {
-			it.modifyItem().value = item.value;
-		}
-    }
-
-    template <typename KeyT, typename ValueT>
-    const typename InvertedIndex<KeyT, ValueT>::ListT &InvertedIndex<KeyT, ValueT>::getExistingInvertedList(KeyT key) const
-    {
-		auto result_ptr = tryGetExistingObjectIndex(key);
+		auto result_ptr = tryGetExistingInvertedList(key);
         if (!result_ptr) {
             THROWF(db0::InputException) << "Inverted list not found" << THROWF_END;
         }
 
-		return *result_ptr;
+		return result_ptr;
     }
 
     template <typename KeyT, typename ValueT>
-    const typename InvertedIndex<KeyT, ValueT>::ListT *InvertedIndex<KeyT, ValueT>::tryGetExistingInvertedList(KeyT key) const
+    std::shared_ptr<typename InvertedIndex<KeyT, ValueT>::ListT> 
+    InvertedIndex<KeyT, ValueT>::tryGetExistingInvertedList(KeyT key) const
     {
 		progressive_mutex::scoped_lock lock(m_mutex);
 		for (;;) {
 			lock.lock();
-			auto it = m_cache.find(key);
-			if (it == m_cache.end()) {
-				MapItemT item(key);
-				auto it_list = super_t::find(item);
-				if (it_list!=super_t::end()) {
-					if (!lock.upgradeToUniqueLock()) {
-						continue;
-					}
-					// add to cache					
-					it = m_cache.emplace(
-                        std::piecewise_construct ,
-                        std::forward_as_tuple(key) ,
-                        std::forward_as_tuple(m_list_function(this->getMemspace(), (*it_list).value))).first;
-				}
-                else
-                {
-					return nullptr;
-				}
+			MapItemT item(key);
+			auto it_list = super_t::find(item);
+            if (it_list == super_t::end()) {
+                return nullptr;
+            }
+			
+			if (!lock.upgradeToUniqueLock()) {
+				continue;
 			}
-			return &it->second;
-		}
-    }
-
-    template <typename KeyT, typename ValueT>
-    typename InvertedIndex<KeyT, ValueT>::ListT *InvertedIndex<KeyT, ValueT>::tryGetExistingInvertedList(KeyT key)
-    {
-        return const_cast<ListT*>(
-                const_cast<const InvertedIndex*>(this)->tryGetExistingInvertedList(key)
-        );
-    }
-
-    template <typename KeyT, typename ValueT>
-    void InvertedIndex<KeyT, ValueT>::removeFromCache(KeyT key)
-    {
-		progressive_mutex::scoped_lock lock(m_mutex);
-		for (;;) {
-			lock.lock();
-			auto it = m_cache.find(key);
-			if (it != m_cache.end()) {
-				if (!lock.upgradeToUniqueLock()) {
-					continue;
-				}
-				m_cache.erase(it);
-			}
-			return;
-		}
-    }
-
-    template <typename KeyT, typename ValueT>
-    void InvertedIndex<KeyT, ValueT>::clear()
-    {
-        super_t::clear();
-        m_cache.clear();
+			// pull through cache
+            return m_list_function(m_cache, (*it_list).value);
+        }
     }
     
 }
