@@ -31,10 +31,10 @@ namespace db0::object_model
         m_class = nullptr;        
         m_values.clear();
         m_sorted_size = 0;
+        m_ref_count = 0;
     }
     
-    void ObjectInitializer::set(unsigned int at, StorageClass storage_class, Value value)
-    {
+    void ObjectInitializer::set(unsigned int at, StorageClass storage_class, Value value) {
         m_values.push_back({ at, storage_class, value });
     }
     
@@ -78,13 +78,11 @@ namespace db0::object_model
         return true;
     }
     
-    db0::swine_ptr<Fixture> ObjectInitializer::getFixture() const
-    {
+    db0::swine_ptr<Fixture> ObjectInitializer::getFixture() const {
         return m_class->getFixture();
     }
 
-    db0::swine_ptr<Fixture> ObjectInitializer::tryGetFixture() const
-    {
+    db0::swine_ptr<Fixture> ObjectInitializer::tryGetFixture() const {
         return m_class->tryGetFixture();
     }
     
@@ -200,6 +198,10 @@ namespace db0::object_model
         }
 
         return { &*(m_values.begin() + index), &*(m_values.begin() + count) };
+    }
+
+    void ObjectInitializer::incRef() {
+        ++m_ref_count;
     }
 
 }

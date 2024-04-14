@@ -33,9 +33,10 @@ namespace db0::object_model
         return class_factory.getTypeByPtr(class_ptr);
     }
     
-    o_object::o_object(std::uint32_t class_ref, std::uint32_t instance_id, const PosVT::Data &pos_vt_data, 
+    o_object::o_object(std::uint32_t class_ref, std::uint32_t instance_id, std::uint32_t ref_count, const PosVT::Data &pos_vt_data,
         const XValue *index_vt_begin, const XValue *index_vt_end)
-        : m_class_ref(class_ref)
+        : m_header(ref_count)
+        , m_class_ref(class_ref)
         , m_instance_id(instance_id)
     {
         arrangeMembers()
@@ -43,7 +44,7 @@ namespace db0::object_model
             (IndexVT::type(), index_vt_begin, index_vt_end);
     }
 
-    std::size_t o_object::measure(std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
+    std::size_t o_object::measure(std::uint32_t, std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
         const XValue *index_vt_begin, const XValue *index_vt_end)
     {
         return super_t::measureMembers()
@@ -79,8 +80,8 @@ namespace db0::object_model
         m_init_manager.addInitializer(*this, db0_class);
     }
     
-    Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, const PosVT::Data &pos_vt_data)
-        : super_t(fixture, classRef(*type), createInstanceId(), pos_vt_data)
+    Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
+        : super_t(fixture, classRef(*type), createInstanceId(), ref_count, pos_vt_data)
         , m_type(type)
         , m_instance_id((*this)->m_instance_id)
     {
@@ -113,8 +114,7 @@ namespace db0::object_model
         return new (at_ptr) Object(type);
     }
     
-    Object *Object::makeNull(void *at_ptr)
-    {
+    Object *Object::makeNull(void *at_ptr) {
         return new (at_ptr) Object();
     }
     
@@ -158,7 +158,7 @@ namespace db0::object_model
             auto fixture = this->getFixture();
             // assign unique instance ID
             m_instance_id = createInstanceId();
-            super_t::init(fixture, classRef(*m_type), m_instance_id, pos_vt_data,
+            super_t::init(fixture, classRef(*m_type), m_instance_id, initializer.getRefCount(), pos_vt_data,
                 index_vt_data.first, index_vt_data.second);
             
             // bind singleton address (now that instance exists)
@@ -183,8 +183,13 @@ namespace db0::object_model
         auto fixture = getFixture();
         if (type_id == TypeId::MEMO_OBJECT) {
             // object reference must be from the same fixture
-            if (fixture->getUUID() != LangToolkit::getTypeManager().extractObject(lang_value).getFixture()->getUUID()) {
+            auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
+            if (fixture->getUUID() != obj.getFixture()->getUUID()) {
                 THROWF(db0::InputException) << "Linking objects from different prefixes is not allowed. Store db0.uuid instead";
+            }
+            // change storage class to DB0_SELF if lang_value is "this" instance
+            if (&obj == this) {
+                storage_class = StorageClass::DB0_SELF;
             }
         }
 
@@ -350,8 +355,7 @@ namespace db0::object_model
         return fixture;
     }
     
-    Memspace &Object::getMemspace() const
-    {
+    Memspace &Object::getMemspace() const {
         return *getFixture();
     }
 
@@ -361,8 +365,7 @@ namespace db0::object_model
         m_type = type;
     }
 
-    bool Object::isSingleton() const
-    {
+    bool Object::isSingleton() const {
         return getType().isSingleton();
     }
     
@@ -473,8 +476,7 @@ namespace db0::object_model
         return m_kv_index.get();
     }
     
-    Class &Object::getType()
-    {
+    Class &Object::getType() {
         return m_type ? *m_type : m_init_manager.getInitializer(*this).getClass();
     }
 
@@ -533,5 +535,15 @@ namespace db0::object_model
             }
         });
     }
-    
+
+    void Object::incRef()
+    {
+        if (hasInstance()) {
+            super_t::incRef();            
+        } else {
+            // incRef with the initializer
+            m_init_manager.getInitializer(*this).incRef();
+        }
+    }
+
 }

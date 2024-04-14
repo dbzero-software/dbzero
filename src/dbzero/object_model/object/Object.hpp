@@ -60,10 +60,11 @@ namespace db0::object_model
 
         IndexVT &index_vt();
 
-        o_object(std::uint32_t class_ref, std::uint32_t instance_id, const PosVT::Data &pos_vt_data, 
-            const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
+        // ref_count - the initial reference count inherited from the initializer
+        o_object(std::uint32_t class_ref, std::uint32_t instance_id, std::uint32_t ref_count,
+            const PosVT::Data &pos_vt_data, const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
 
-        static std::size_t measure(std::uint32_t class_ref, std::uint32_t instance_id, const PosVT::Data &pos_vt_data,
+        static std::size_t measure(std::uint32_t, std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
             const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
@@ -225,6 +226,11 @@ namespace db0::object_model
         void forAll(std::function<void(const std::string &, const XValue &)>) const;
         void forAll(std::function<void(const std::string &, ObjectSharedPtr)>) const;
 
+        /**
+         * The overloaded incRef implementation is provided to also handle non-fully initialized objects
+        */
+        void incRef();
+
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
@@ -236,7 +242,7 @@ namespace db0::object_model
 
         Object() = default;
         Object(std::shared_ptr<Class>);
-        Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, const PosVT::Data &);        
+        Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::uint32_t ref_count ,const PosVT::Data &);
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
         
         void setType(std::shared_ptr<Class>);

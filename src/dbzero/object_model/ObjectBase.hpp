@@ -47,8 +47,7 @@ namespace db0
             fixture->getGC0().add<T>(this);
         }
         
-        ~ObjectBase()
-        {
+        ~ObjectBase() {
             unregister();
         }
         

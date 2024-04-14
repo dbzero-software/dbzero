@@ -22,9 +22,14 @@ namespace db0::object_model
 {
     
     template <typename LangToolkit, typename ContainerT> Value createMember(const ContainerT &object,
-        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass)
+        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
         using TypeId = db0::bindings::TypeId;
+        if (storage_class == StorageClass::DB0_SELF) {
+            // address of self-reference is not relevant
+            return 0;
+        }
+
         switch (type_id) {
             case TypeId::INTEGER: {
                 auto int_value = PyLong_AsLong(lang_value);
@@ -45,13 +50,15 @@ namespace db0::object_model
             }
             break;
 
-            case TypeId::MEMO_OBJECT:
-            {
+            case TypeId::MEMO_OBJECT: {
                 // extract address from the Memo object
-                auto &object = LangToolkit::getTypeManager().extractObject(lang_value);
-                object.modify().incRef();
-                return object.getAddress();
+                auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
+                assert(obj.hasInstance());
+                obj.incRef();
+                return obj.getAddress();
             }
+            break;
+
             case TypeId::DB0_BLOCK: {
                 // extract address from the Block object
                 return LangToolkit::getTypeManager().extractBlock(lang_value).getAddress();
@@ -216,6 +223,14 @@ namespace db0::object_model
                 
                 // unload language specific object from DBZero
                 return LangToolkit::unloadObject(fixture, value.cast<std::uint64_t>(), class_factory);
+            }
+            break;
+
+            case StorageClass::DB0_SELF: {
+                auto &obj = reinterpret_cast<const Object&>(object);
+                // unload self-reference from DBZero (address and type known), no instance ID validation
+                auto fixture = object.getFixture();
+                return LangToolkit::unloadObject(fixture, obj.getAddress(), obj.getClassPtr());
             }
             break;
 
