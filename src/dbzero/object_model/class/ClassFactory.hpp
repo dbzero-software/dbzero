@@ -65,12 +65,7 @@ namespace db0::object_model
         
         // reference the DBZero object model's class by its pointer
         std::shared_ptr<Class> getTypeByPtr(ClassPtr) const;
-        
-        /* FIXME*
-        // Find all tagged (by any tag) instances of a given type
-        std::shared_ptr<TypeFactoryIterator> begin() const;
-        */
-                
+                        
         void commit();
         
     private:        

@@ -254,7 +254,7 @@ namespace db0::object_model
     }
     
     Object::ObjectSharedPtr Object::get(const char *field_name) const
-    {
+    {        
         /* FIXME:
         if (strcmp(field_name, "__cache__") == 0) {
             if (!initialized()) {

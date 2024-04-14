@@ -89,8 +89,7 @@ namespace db0::python
     }
     
     PyObject *ListObject_count(ListObject *list_obj, PyObject *const *args, Py_ssize_t nargs)
-    {
-        
+    {       
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "count() takes one argument.");
             return NULL;
@@ -181,7 +180,8 @@ namespace db0::python
         {NULL}
     };
 
-    static PyObject *ListObject_rq(ListObject *list_obj, PyObject *other, int op) {
+    static PyObject *ListObject_rq(ListObject *list_obj, PyObject *other, int op) 
+    {
         if (ListObject_Check(other)) {
             ListObject * other_list = (ListObject*) other;
             switch (op)
@@ -229,13 +229,11 @@ namespace db0::python
         .tp_free = PyObject_Free,        
     };
 
-    ListObject *ListObject_new(PyTypeObject *type, PyObject *, PyObject *)
-    {
+    ListObject *ListObject_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<ListObject*>(type->tp_alloc(type, 0));
     }
 
-    ListObject *ListDefaultObject_new()
-    {   
+    ListObject *ListDefaultObject_new() {   
         return ListObject_new(&ListObjectType, NULL, NULL);
     }
     
@@ -281,8 +279,7 @@ namespace db0::python
         return list_object;
     }
     
-    bool ListObject_Check(PyObject *object)
-    {
+    bool ListObject_Check(PyObject *object) {
         return Py_TYPE(object) == &ListObjectType;        
     }
 

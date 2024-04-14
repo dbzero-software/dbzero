@@ -34,7 +34,8 @@ namespace db0
         
         // read fixture configuration from under the 1st address
         v_fixture fixture(this->myPtr(meta.getFirstAddress()));
-        auto lsp_slab = meta.openSlab(fixture->m_limited_string_pool_address, fixture->m_limited_string_pool_size);
+        // designate one slab for a limited string pool
+        auto lsp_slab = meta.openReservedSlab(fixture->m_limited_string_pool_address, fixture->m_limited_string_pool_size);
         return StringPoolT(Memspace(this->getPrefixPtr(), lsp_slab), memspace.myPtr(fixture->m_string_pool_ptr.getAddress()));
     }
     
