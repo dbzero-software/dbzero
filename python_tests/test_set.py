@@ -1,4 +1,6 @@
 import pytest
+import datetime
+import random
 import dbzero_ce as db0
 
 
@@ -363,3 +365,20 @@ def test_set_simmetric_difference_in_place(db0_fixture, make_set):
     assert set_1 == set([1, 2, 5, 7])
     set_1 ^= set([2, 5, 7, 9])
     assert set_1 == set([1, 9])
+
+def test_set_items_in(db0_fixture):
+    # tests iteration over values from set
+    set_1 = db0.set()
+    # insert 1000 random items
+    for i in range(100):
+        set_1.add(i)
+    assert len(set_1) == 100
+    now = datetime.datetime.now()
+    for i in range(1000000):
+        random_int = random.randint(0, 300)
+        if random_int < 100:
+            assert random_int in set_1
+        else:
+            assert random_int not in set_1
+    end = datetime.datetime.now()
+    print("Elapsed time: ", end - now)
