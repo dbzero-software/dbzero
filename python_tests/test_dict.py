@@ -232,7 +232,7 @@ def test_dict_items_in(db0_fixture):
     assert len(dict_1) == 100
     now = datetime.datetime.now()
     for i in range(1000000):
-        random_int = random.randint(200, 799)
+        random_int = random.randint(0, 300)
         if random_int < 100:
             assert random_int in dict_1
         else:
