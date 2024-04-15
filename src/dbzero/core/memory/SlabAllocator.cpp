@@ -57,18 +57,15 @@ namespace db0
         return std::nullopt;
     }
     
-    void SlabAllocator::free(std::uint64_t address)
-    {
+    void SlabAllocator::free(std::uint64_t address) {
         m_allocator.free(makeRelative(address));
     }
     
-    std::size_t SlabAllocator::getAllocSize(std::uint64_t address) const
-    {
+    std::size_t SlabAllocator::getAllocSize(std::uint64_t address) const {
         return m_allocator.getAllocSize(makeRelative(address));
     }
 
-    std::uint64_t SlabAllocator::headerAddr(std::uint64_t begin_addr, std::uint32_t size) 
-    {
+    std::uint64_t SlabAllocator::headerAddr(std::uint64_t begin_addr, std::uint32_t size) {
         return begin_addr + size - o_slab_header::sizeOf();
     }
     
@@ -114,8 +111,7 @@ namespace db0
         return crdt_size;
     }
 
-    const std::size_t SlabAllocator::getSlabSize() const 
-    {
+    const std::size_t SlabAllocator::getSlabSize() const {
         return m_slab_size;
     }
 
@@ -138,8 +134,7 @@ namespace db0
         return result;
     }
 
-    std::size_t SlabAllocator::getMaxAllocSize() const 
-    {
+    std::size_t SlabAllocator::getMaxAllocSize() const {
         return m_slab_size - calculateAdminSpaceSize(m_page_size) - 3 * m_page_size;
     }
     
@@ -152,43 +147,36 @@ namespace db0
         return result > 0 ? result : 0;
     }
     
-    const Prefix &SlabAllocator::getPrefix() const 
-    {
+    const Prefix &SlabAllocator::getPrefix() const {
         return *m_prefix;
     }
     
-    void SlabAllocator::setOnCloseHandler(std::function<void(const SlabAllocator &)> handler) 
-    {
+    void SlabAllocator::setOnCloseHandler(std::function<void(const SlabAllocator &)> handler) {
         m_on_close_handler = handler;
     }
     
-    bool SlabAllocator::empty() const 
-    {
+    bool SlabAllocator::empty() const {
         return m_allocs.empty();
     }
 
-    std::uint64_t SlabAllocator::getAddress() const 
-    {
+    std::uint64_t SlabAllocator::getAddress() const {
         return m_begin_addr;
     }
 
-    std::uint32_t SlabAllocator::size() const 
-    {
+    std::uint32_t SlabAllocator::size() const {
         return m_slab_size;
     }
 
-    std::uint64_t SlabAllocator::getFirstAddress() 
-    {
+    std::uint64_t SlabAllocator::getFirstAddress() {
         return CRDT_Allocator::getFirstAddress();
     }
 
-    std::shared_ptr<Allocator> SlabAllocator::getSnapshot() const
-    {
+    std::shared_ptr<Allocator> SlabAllocator::getSnapshot() const {
         THROWF(db0::InternalException) << "SlabAllocator::getSnapshot() operation not supported" << THROWF_END;
     }
     
     void SlabAllocator::commit()
-    {        
+    {
         m_header.commit();
         m_allocs.commit();
         m_blanks.commit();

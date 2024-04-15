@@ -133,9 +133,6 @@ namespace db0
     
     void ResourceLock::release()
     {
-        // FIXME: log
-        std::cout << "ResourceLock::release() called" << std::endl;
-
         assert(!isDirty());
         // clear the resource fetched flag
         safeResetFlags(m_resource_flags, RESOURCE_FETCHED);

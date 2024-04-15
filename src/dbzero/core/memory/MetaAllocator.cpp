@@ -269,7 +269,7 @@ namespace db0
                 }
             }
 
-            return openSlab(address);        
+            return openSlab(address);
         }
         
         /**
@@ -299,18 +299,29 @@ namespace db0
          * Open existing slab which has been previously reserved
         */
         std::shared_ptr<SlabAllocator> openReservedSlab(std::uint64_t address)
-        {            
+        {               
             auto slab_id = m_slab_id_func(address);
             if (slab_id >= m_next_slab_id) {
                 THROWF(db0::InputException) << "Slab " << slab_id << " does not exist";
             }            
+
+            // look up with the cache first
+            auto it = m_slabs.find(address);
+            if (it != m_slabs.end()) {
+                auto slab = it->second->m_slab.lock();
+                if (slab) {
+                    return slab;
+                }
+            }
 
             // retrieve slab definition
             auto slab_def_ptr = m_slab_defs.find_equal(slab_id);
             if (!slab_def_ptr.first) {
                 THROWF(db0::InternalException) << "Slab definition not found: " << slab_id;
             }
-            return std::make_shared<SlabAllocator>(m_prefix, address, m_slab_size, m_page_size);
+            
+            // pull through cache
+            return openSlab(*slab_def_ptr.first).m_slab;
         }
 
         std::uint64_t getFirstAddress() const {
@@ -348,6 +359,7 @@ namespace db0
         };
         
         using CacheIterator = std::unordered_map<std::uint64_t, std::shared_ptr<CacheItem> >::iterator;
+        using SlabDef = MetaAllocator::SlabDef;
 
         std::shared_ptr<Prefix> m_prefix;
         MetaAllocator::SlabTreeT &m_slab_defs;
@@ -386,6 +398,28 @@ namespace db0
             return m_slabs.erase(it);
         }
         
+        // open slab by definition and add to cache
+        FindResult openSlab(const SlabDef &def)
+        {
+            auto cap_item = CapacityItem(def.m_remaining_capacity, def.m_slab_id);
+            auto addr = m_slab_address_func(def.m_slab_id);
+            auto slab = std::make_shared<SlabAllocator>(m_prefix, addr, m_slab_size, m_page_size, def.m_remaining_capacity);
+            // add to cache (it's safe to reference item from the unordered_map)
+            auto cache_item = std::make_shared<CacheItem>(slab, cap_item);
+            m_slabs.emplace(addr, cache_item).first->second;
+            // capture remaining capacity before instance is closed
+            slab->setOnCloseHandler([cache_item](const SlabAllocator &alloc) {
+                cache_item->m_final_remaining_capacity = alloc.getRemainingCapacity();
+            });
+            
+            // append with the recycler
+            if (m_recycler_ptr) {
+                m_recycler_ptr->append(slab);
+            }
+
+            return { slab, cap_item };
+        }
+
         FindResult openSlab(std::uint64_t address)
         {
             auto it = m_slabs.find(address);
@@ -404,23 +438,9 @@ namespace db0
             if (!slab_def_ptr.first) {
                 THROWF(db0::InternalException) << "Slab definition not found: " << slab_id;
             }
-            auto cap_item = CapacityItem(slab_def_ptr.first->m_remaining_capacity, slab_id);
-            auto slab = std::make_shared<SlabAllocator>(m_prefix, address, m_slab_size, m_page_size, slab_def_ptr.first->m_remaining_capacity);
-            // add to cache (it's safe to reference item from the unordered_map)
-            auto cache_item = std::make_shared<CacheItem>(slab, cap_item);
-            m_slabs.emplace(address, cache_item).first->second;
-            // capture remaining capacity before instance is closed
-            slab->setOnCloseHandler([cache_item](const SlabAllocator &alloc) {
-                cache_item->m_final_remaining_capacity = alloc.getRemainingCapacity();
-            });
-            
-            // append with the recycler
-            if (m_recycler_ptr) {
-                m_recycler_ptr->append(slab);
-            }
 
             // make the new slab active
-            m_active_slab = { slab, cap_item };
+            m_active_slab = openSlab(*slab_def_ptr.first);
             return m_active_slab;
         }
 
@@ -597,8 +617,7 @@ namespace db0
         return m_slab_manager->find(slab_id).m_slab->getAllocSize(address);        
     }
     
-    std::uint32_t MetaAllocator::getSlabId(std::uint64_t address) const 
-    {
+    std::uint32_t MetaAllocator::getSlabId(std::uint64_t address) const {
         return m_slab_id_function(address);
     }
 
@@ -629,17 +648,14 @@ namespace db0
         return m_slab_manager->getFirstAddress();
     }
 
-    std::shared_ptr<SlabAllocator> MetaAllocator::openSlab(std::uint64_t address, std::size_t size) const
+    std::shared_ptr<SlabAllocator> MetaAllocator::openReservedSlab(std::uint64_t address, std::size_t size) const
     {
         auto result = m_slab_manager->openReservedSlab(address);
-        if (result->size() != size) {
-            THROWF(db0::InternalException) << "Slab size mismatch: " << result->size() << " != " << size;
-        }
+        assert(result->size() == size);
         return result;
     }
 
-    std::shared_ptr<Allocator> MetaAllocator::getSnapshot() const
-    {
+    std::shared_ptr<Allocator> MetaAllocator::getSnapshot() const {
         // simply create a new instance over the prefix's snapshot
         return std::make_shared<MetaAllocator>(m_prefix->getSnapshot(), m_recycler_ptr);
     }

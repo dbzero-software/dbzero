@@ -108,12 +108,13 @@ namespace db0
     }
     
     Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size, 
-        std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
+        std::optional<std::size_t> vobject_cache_size, std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
         : BaseWorkspace(root_path, cache_size, slab_cache_size)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
         , m_refresh_thread(std::make_unique<RefreshThread>())
         , m_auto_commit_thread(std::make_unique<AutoCommitThread>(DEFAULT_AUTOCOMMIT_INTERVAL_MS))
+        , m_shared_object_list(vobject_cache_size ? *vobject_cache_size : DEFAULT_VOBJECT_CACHE_SIZE)
     {
         // run refresh / autocommit threads
         m_threads.emplace_back([this]() {
@@ -200,7 +201,7 @@ namespace db0
                     // initialize new fixture
                     Fixture::formatFixture(Memspace(prefix, allocator), *allocator);
                 }
-                auto fixture = db0::make_swine<Fixture>(prefix, allocator);
+                auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator);
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
                     m_fixture_initializer(fixture, file_created);
@@ -352,4 +353,8 @@ namespace db0
         }
     }
 
+    FixedObjectList &Workspace::getSharedObjectList() const {
+        return m_shared_object_list;
+    }
+    
 }

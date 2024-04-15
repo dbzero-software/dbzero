@@ -62,7 +62,8 @@ namespace db0
         }
     }
     
-    void CacheRecycler::setFlushSize(unsigned int flush_size) {
+    void CacheRecycler::setFlushSize(unsigned int flush_size)
+    {
         std::unique_lock<std::mutex> lock(m_mutex);
         if (flush_size > 0) {
             m_flush_size = flush_size;
@@ -127,7 +128,8 @@ namespace db0
         }
     }
     
-    void CacheRecycler::release(ResourceLock &res, std::unique_lock<std::mutex> &) {
+    void CacheRecycler::release(ResourceLock &res, std::unique_lock<std::mutex> &)
+    {
         if (res.isRecycled()) {
             res.setRecycled(false);
             m_current_size -= res.size();

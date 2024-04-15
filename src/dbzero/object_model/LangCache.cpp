@@ -22,8 +22,7 @@ namespace db0::object_model
         }
     }
     
-    std::size_t LangCache::size() const
-    {
+    std::size_t LangCache::size() const {
         return m_cache.size();
     }
 

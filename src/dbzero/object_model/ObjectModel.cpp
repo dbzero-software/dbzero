@@ -36,7 +36,7 @@ namespace db0::object_model
                 auto &gc0 = fixture->addGC0(fixture);
                 // create ClassFactory and register with the object catalogue
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture);
-                auto &base_index = fixture->addResource<FT_BaseIndex>(*fixture);
+                auto &base_index = fixture->addResource<FT_BaseIndex>(*fixture, fixture->getVObjectCache());
                 auto &tag_index = fixture->addResource<TagIndex>(class_factory, fixture->getLimitedStringPool(), base_index);
 
                 // flush from tag index on fixture commit (or close on close)
@@ -55,7 +55,8 @@ namespace db0::object_model
             } else {                
                 fixture->addGC0(fixture, oc.findUnique<db0::GC0>()->second());
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture, oc.findUnique<ClassFactory>()->second());
-                auto &base_index = fixture->addResource<FT_BaseIndex>(fixture->myPtr(oc.findUnique<FT_BaseIndex>()->second()));
+                auto &base_index = fixture->addResource<FT_BaseIndex>(
+                    fixture->myPtr(oc.findUnique<FT_BaseIndex>()->second()), fixture->getVObjectCache());
                 auto &tag_index = fixture->addResource<TagIndex>(class_factory, fixture->getLimitedStringPool(), base_index);
 
                 // flush from tag index on fixture commit (or close on close)

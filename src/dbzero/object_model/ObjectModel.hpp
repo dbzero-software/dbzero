@@ -6,8 +6,8 @@
 namespace db0 
 
 { 
-    
-    class Fixture; 
+        
+    class Fixture;
     
 }
 

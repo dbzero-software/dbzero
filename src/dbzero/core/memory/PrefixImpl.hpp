@@ -120,7 +120,7 @@ namespace db0
         }
 
         std::uint64_t read_state_num;
-        auto lock = m_cache.findRange(address, state_num, size, &read_state_num);            
+        auto lock = m_cache.findRange(address, state_num, size, &read_state_num);        
         if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read])
         {
             assert(getAccessType() == AccessType::READ_WRITE);

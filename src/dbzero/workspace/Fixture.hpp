@@ -16,13 +16,15 @@
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 #include <dbzero/object_model/ObjectCatalogue.hpp>
+#include <dbzero/core/memory/VObjectCache.hpp>
 
 namespace db0
 
 {
     
     class GC0;
-    class MetaAllocator;    
+    class MetaAllocator;
+    class Workspace;
     using StringPoolT = db0::pools::RC_LimitedStringPool;
     using ObjectCatalogue = db0::object_model::ObjectCatalogue;
 
@@ -56,7 +58,8 @@ namespace db0
     public:
         using LangCache = db0::object_model::LangCache;
         
-        Fixture(std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
+        Fixture(Workspace &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);  
+        Fixture(FixedObjectList &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
         Fixture(Fixture const &) = delete;
 
         /**
@@ -135,6 +138,10 @@ namespace db0
             return m_lang_cache;
         }
         
+        VObjectCache &getVObjectCache() const {
+            return m_v_object_cache;
+        }
+        
         /**
          * Retrieve the most recent updates made to this fixture by other processes
          * member only allowed for read-only fixtures
@@ -163,6 +170,9 @@ namespace db0
         ObjectCatalogue m_object_catalogue;
         // language-specific object cache
         mutable LangCache m_lang_cache;
+        // internal cache for DBZero based collections
+        mutable VObjectCache m_v_object_cache;
+
         // For read/write fixtures:
         // the onUpdate is called whenever the fixture is modified
         // For read-only fixtures:

@@ -17,7 +17,8 @@ namespace db0
         THROWF(db0::InternalException) << "not implemented" << THROWF_END;
     }
 
-    void *MemLock::modify() {
+    void *MemLock::modify()
+    {
         m_lock->setDirty();
         return m_buffer;
     }

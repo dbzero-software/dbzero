@@ -3,6 +3,7 @@
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/utils/uuid.hpp>
 #include "GC0.hpp"
+#include "Workspace.hpp"
 
 namespace db0
 
@@ -13,11 +14,17 @@ namespace db0
     {
     }
     
-    Fixture::Fixture(std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
+    Fixture::Fixture(Workspace &workspace, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
+        : Fixture(workspace.getSharedObjectList(), prefix, meta)
+    {        
+    }
+    
+    Fixture::Fixture(FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
         : Memspace(prefix, meta)
         , m_UUID(getUUID(*meta))
         , m_string_pool(openLimitedStringPool(*this, *meta))
         , m_object_catalogue(openObjectCatalogue(*meta))
+        , m_v_object_cache(*this, shared_object_list)
     {
     }
     
@@ -27,7 +34,8 @@ namespace db0
         
         // read fixture configuration from under the 1st address
         v_fixture fixture(this->myPtr(meta.getFirstAddress()));
-        auto lsp_slab = meta.openSlab(fixture->m_limited_string_pool_address, fixture->m_limited_string_pool_size);
+        // designate one slab for a limited string pool
+        auto lsp_slab = meta.openReservedSlab(fixture->m_limited_string_pool_address, fixture->m_limited_string_pool_size);
         return StringPoolT(Memspace(this->getPrefixPtr(), lsp_slab), memspace.myPtr(fixture->m_string_pool_ptr.getAddress()));
     }
     
@@ -126,7 +134,8 @@ namespace db0
     db0::swine_ptr<Fixture> Fixture::getSnapshot() const
     {
         return db0::make_swine<Fixture>(
-            m_prefix->getSnapshot(), 
+            m_v_object_cache.getSharedObjectList(),
+            m_prefix->getSnapshot(),
             std::dynamic_pointer_cast<MetaAllocator>(m_allocator->getSnapshot())
         );
     }

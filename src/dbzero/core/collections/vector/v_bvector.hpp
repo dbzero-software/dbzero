@@ -560,10 +560,10 @@ namespace db0
         // universal block key (height / index)
         using b_key = std::pair<int, int>;
 
-        struct b_key_hash 
+        struct b_key_hash
         {
             std::size_t operator()(const b_key &x) const {
-                return std::hash<uint64_t>()((uint64_t)x.first * 113u + (uint64_t)x.second);
+                return std::hash<std::uint64_t>()((std::uint64_t)x.first * 113u + (std::uint64_t)x.second);
             }
         };
 

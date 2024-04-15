@@ -39,6 +39,8 @@ namespace db0::object_model
         DB0_CLASS = 16,
         DB0_INDEX = 17,
         DB0_DATETIME = 18,
+        // special storage class for a self-reference
+        DB0_SELF = 19,
         // invalid / reserved value, never used in objects
         INVALID = std::numeric_limits<std::uint8_t>::max()
     };

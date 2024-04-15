@@ -213,3 +213,10 @@ def test_dict_not_persisting_keys_issue(db0_fixture):
     my_dict = root.value
     value = my_dict.get("third", None)
     assert value.value == "333"
+    
+# FIXME: faiing test case to be reviewed by Adrian    
+# def test_dict_with_tuples_as_keys(db0_fixture):
+#     my_dict = db0.dict()
+#     my_dict[("first", 1)] = MemoTestClass("abc")
+#     for key, item in my_dict.items():
+#         assert key[0] == "first"

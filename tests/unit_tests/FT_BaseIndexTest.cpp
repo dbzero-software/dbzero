@@ -10,12 +10,22 @@ namespace tests
 
     class FT_BaseIndexTest: public WorkspaceBaseTest
     {
+    protected:
+        FT_BaseIndexTest()
+            : m_shared_object_list(100)
+            , m_memspace(getMemspace()) 
+            , m_cache(m_memspace, m_shared_object_list)
+        {
+        }
+
+        FixedObjectList m_shared_object_list;
+        Memspace m_memspace;
+        VObjectCache m_cache;
     };
     
 	TEST_F( FT_BaseIndexTest , testFT_BaseIndexCanBePopulatedWithBatchOpertionBuilder )
 	{
-        auto memspace = getMemspace();
-        FT_BaseIndex cut(memspace);
+        FT_BaseIndex cut(m_memspace, m_cache);
         auto batch_data = cut.beginBatchUpdate();
         batch_data->addTags(123, std::vector<std::uint64_t> { 1, 2, 3 });
         batch_data->addTags(99, std::vector<std::uint64_t> { 4, 5 });
@@ -25,9 +35,8 @@ namespace tests
     }
 
 	TEST_F( FT_BaseIndexTest , testFT_BaseIndexCanRemoveTagsWithOpertionBuilder )
-	{
-        auto memspace = getMemspace();
-        FT_BaseIndex cut(memspace);
+	{        
+        FT_BaseIndex cut(m_memspace, m_cache);
         // initalize with some tags
         {
             auto batch_data = cut.beginBatchUpdate();
@@ -47,11 +56,10 @@ namespace tests
     }
 
 	TEST_F( FT_BaseIndexTest , testFT_BaseIndexCanBeOpenedFromMemspace )
-	{
-        auto memspace = getMemspace();
+	{        
         std::uint64_t ft_base_index_addr = 0;
         {
-            FT_BaseIndex cut(memspace);
+            FT_BaseIndex cut(m_memspace, m_cache);
             auto batch_data = cut.beginBatchUpdate();
             batch_data->addTags(123, std::vector<std::uint64_t> { 1, 2, 3 });
             batch_data->addTags(99, std::vector<std::uint64_t> { 4, 5 });
@@ -60,7 +68,7 @@ namespace tests
         }
         
         // Open existing
-        FT_BaseIndex cut(memspace.myPtr(ft_base_index_addr));
+        FT_BaseIndex cut(m_memspace.myPtr(ft_base_index_addr), m_cache);
         ASSERT_EQ(cut.size(), 5u);
     }
 
