@@ -3,11 +3,11 @@ FROM gcc:12-bullseye
 RUN apt-get update && apt-get install -y \
  cmake \
   && rm -rf /var/lib/apt/lists/*
-
 RUN apt-get update
 RUN apt-get install psmisc
 RUN apt-get install python3.9-dev -y
 RUN apt-get install python3-pip -y
+RUN apt-get install python3-dbg -y 
 RUN apt-get install gdb -y
 RUN apt-get install screen -y
 RUN apt-get install rsync -y

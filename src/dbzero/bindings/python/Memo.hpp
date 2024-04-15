@@ -43,5 +43,5 @@ namespace db0::python
     
     PyObject *MemoObject_DescribeObject(MemoObject *);
     PyObject *MemoObject_IsTag(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
-    
+    PyObject *MemoObject_str(MemoObject *);
 }

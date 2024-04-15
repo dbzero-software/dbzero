@@ -10,13 +10,6 @@ class IntMock:
         self.bytes = bytes
 
 
-# def test_sigsegv(db0_fixture):
-#     int_1 = 1
-#     test_int= IntMock(int_1)
-#     # This assert segfaults due to pytest trying to print description of test_int.bytes
-#     assert test_int.bytes == 2
-
-
 def test_write_free_random_bytes(db0_fixture):
     # run this test only in debug mode
     if 'D' in db0.build_flags():        
@@ -105,3 +98,11 @@ def test_write_free_read_random_bytes_in_multiple_transactions(db0_fixture):
             db0.commit()
             for addr, str in data.items():
                 assert db0.dbg_read_bytes(addr) == str
+
+
+def test_print_type(db0_fixture):
+    # this test got sigsev on invalid PyObjectType initialization from PyHeapTypeObject
+    int_1 = db0.list([1,2,3])
+    test_int= IntMock(int_1)
+    print(test_int)
+    print(type(test_int))

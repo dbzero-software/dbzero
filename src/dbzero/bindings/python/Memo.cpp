@@ -1,6 +1,7 @@
 #include "Memo.hpp"
 #include "PyToolkit.hpp"
 #include <iostream>
+#include <object.h>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -263,13 +264,14 @@ namespace db0::python
         // __init__, __getattr__, __setattr__, __delattr__, __getattribute__
         
         // 3.9.x compatible PyTypeObject
-        PyTypeObject *new_type = new PyTypeObject();
-
+        PyHeapTypeObject *ht_new_type = new PyHeapTypeObject();
+        PyHeapTypeObject* et = (PyHeapTypeObject*)py_class;
         // Construct base type as a copy of the original type
         PyTypeObject *base_type = new PyTypeObject(*py_class);
         Py_INCREF(base_type);
 
-        *new_type = *py_class;
+        *ht_new_type = *et;
+        PyTypeObject *new_type = (PyTypeObject*)ht_new_type;
         auto [type_name, full_type_name] = createWrappedTypeName(py_class->tp_name);
         new_type->tp_name = full_type_name;
         
@@ -284,7 +286,6 @@ namespace db0::python
         new_type->tp_init = reinterpret_cast<initproc>(MemoObject_init);
         // make copy of the types dict
         new_type->tp_dict = copyDict(py_class->tp_dict);
-        
         // getattr / setattr are obsolete
         new_type->tp_getattr = 0;
         new_type->tp_setattr = 0;
@@ -301,7 +302,10 @@ namespace db0::python
         if (PyType_Ready(new_type) < 0) {
             throw std::runtime_error("PyType_Ready failed");
         }
-        
+        new_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
+        new_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
+        base_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
+        base_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
         PyToolkit::getTypeManager().addMemoType(new_type, nullptr);
         Py_INCREF(new_type);
         // register new type with the module where the original type was located    
@@ -388,5 +392,11 @@ namespace db0::python
         auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
         return PyBool_FromLong(memo_obj.ext().isTag());
     }
-    
+
+    PyObject *MemoObject_str(MemoObject *pythis)
+    {   
+        std::stringstream str;
+        str << "<" << Py_TYPE(pythis)->tp_name << " object with type id " << PyUnicode_AsUTF8(tryGetObjectId<MemoObject>(pythis)) << ">";
+        return PyUnicode_FromString(str.str().c_str());
+    }
 }
