@@ -304,7 +304,7 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
         
-        return unloadMember<LangToolkit>(*this, member.first, member.second);
+        return unloadMember<LangToolkit>(*this, member.first, member.second, field_name);
     }
     
     bool Object::tryGetMemberAt(unsigned int index, std::pair<StorageClass, Value> &result) const

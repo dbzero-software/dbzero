@@ -189,13 +189,16 @@ namespace db0::object_model
     }
     
     template <typename LangToolkit, typename ContainerT> typename LangToolkit::ObjectSharedPtr unloadMember(
-        const ContainerT &object, o_typed_item typed_item) 
+        const ContainerT &object, o_typed_item typed_item, const char *name = nullptr) 
     {
-        return unloadMember<LangToolkit>(object, typed_item.m_storage_class, typed_item.m_value);
+        return unloadMember<LangToolkit>(object, typed_item.m_storage_class, typed_item.m_value, name);
     }
-
+    
+    /**
+     * @param name optional name (for error reporting only)
+    */
     template <typename LangToolkit, typename ContainerT> typename LangToolkit::ObjectSharedPtr unloadMember(
-        const ContainerT &object, StorageClass storage_class, Value value)
+        const ContainerT &object, StorageClass storage_class, Value value, const char *name = nullptr)
     {
         switch (storage_class)
         {
@@ -315,7 +318,8 @@ namespace db0::object_model
             
             default: {
                 THROWF(db0::InternalException)
-                    << "Invalid storage class in DB0 object (" << (int)storage_class << ")" << THROWF_END;
+                    << "Unable to get member: " << (name ? name : "<name-unknown>") << " as storage class " 
+                    << (int)storage_class << THROWF_END;
             }
             break;
         }
