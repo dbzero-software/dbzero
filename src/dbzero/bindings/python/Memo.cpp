@@ -396,7 +396,8 @@ namespace db0::python
     PyObject *MemoObject_str(MemoObject *pythis)
     {   
         std::stringstream str;
-        str << "<" << Py_TYPE(pythis)->tp_name << " object with type id " << PyUnicode_AsUTF8(tryGetObjectId<MemoObject>(pythis)) << ">";
+        str << "<" << Py_TYPE(pythis)->tp_name << " instance uuid=" << PyUnicode_AsUTF8(tryGetObjectId<MemoObject>(pythis)) << ">";
         return PyUnicode_FromString(str.str().c_str());
     }
+    
 }
