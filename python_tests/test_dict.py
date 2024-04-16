@@ -1,4 +1,6 @@
 import pytest
+import random
+import datetime
 import dbzero_ce as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestSingleton, MemoTestClass
@@ -220,3 +222,20 @@ def test_dict_with_tuples_as_keys(db0_fixture):
     my_dict[("first", 1)] = MemoTestClass("abc")
     for key, item in my_dict.items():
         assert key[0] == "first"
+
+def test_dict_items_in(db0_fixture):
+    # tests iteration over values from dict
+    dict_1 = db0.dict()
+    # insert 1000 random items
+    for i in range(100):
+        dict_1[i] = i
+    assert len(dict_1) == 100
+    now = datetime.datetime.now()
+    for i in range(1000000):
+        random_int = random.randint(0, 300)
+        if random_int < 100:
+            assert random_int in dict_1
+        else:
+            assert random_int not in dict_1
+    end = datetime.datetime.now()
+    print("Elapsed time: ", end - now)
