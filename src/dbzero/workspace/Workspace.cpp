@@ -183,7 +183,7 @@ namespace db0
         return BaseWorkspace::getCacheRecycler();
     }
 
-    swine_ptr<Fixture> Workspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type,
+    swine_ptr<Fixture> Workspace::getFixtureEx(const std::string &prefix_name, std::optional<AccessType> access_type,
         std::optional<std::uint64_t> state_num, std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size, bool autocommit)
     {
@@ -266,7 +266,7 @@ namespace db0
                 THROWF(db0::InputException) << "Fixture with UUID " << uuid << " not found";
             }
             // try opening fixture by name
-            return getFixture(*maybe_prefix_name, *access_type);
+            return getFixtureEx(*maybe_prefix_name, *access_type);
         }
         
         return it->second;
@@ -345,7 +345,7 @@ namespace db0
     
     void Workspace::open(const std::string &prefix_name, AccessType access_type, bool autocommit)
     {
-        auto fixture = getFixture(prefix_name, access_type, {}, {}, {}, {}, autocommit);
+        auto fixture = getFixtureEx(prefix_name, access_type, {}, {}, {}, {}, autocommit);
         // update default fixture
         if (!m_default_fixture || (m_default_fixture->getAccessType() <= access_type)) {
             m_default_fixture = fixture;
@@ -355,6 +355,10 @@ namespace db0
 
     FixedObjectList &Workspace::getSharedObjectList() const {
         return m_shared_object_list;
+    }
+    
+    swine_ptr<Fixture> Workspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type) {
+        return getFixtureEx(prefix_name, access_type);
     }
     
 }

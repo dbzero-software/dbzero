@@ -7,8 +7,11 @@
 #include <dbzero/object_model/value/ObjectId.hpp>
 
 namespace db0
+
 {
-    class WorkspaceView;
+
+    class Snapshot;
+
 }
 
 namespace db0::python
@@ -22,22 +25,6 @@ namespace db0::python
     */
     ObjectId extractObjectId(PyObject *args);
     
-    /**
-     * Open DBZero object by UUID
-     * @param py_expected_type - expected Python type of the object
-    */    
-    PyObject *fetchObject(ObjectId object_id, PyTypeObject *py_expected_type = nullptr);
-    
-    /**
-     * Open DBZero singleton by its corresponding Python type
-    */
-    PyObject *fetchSingletonObject(PyTypeObject *py_type);
-    
-    /**
-     * Open DBZero singleton from a specific snapshot (workspace view)
-    */
-    PyObject *fetchSingletonObject(db0::WorkspaceView &, PyTypeObject *py_type);
-
     PyObject *fetchMemoObject(db0::swine_ptr<Fixture> &, ObjectId);
 
     PyObject *fetchListObject(db0::swine_ptr<Fixture> &, ObjectId);
@@ -68,6 +55,20 @@ namespace db0::python
             return NULL;
         }
     }
+    
+    // Universal implementaton for both Workspace and WorkspaceView (aka Snapshot)
+    PyObject *tryFetchFrom(db0::Snapshot &, PyObject *const *args, Py_ssize_t nargs);
+    
+    /**
+     * Open DBZero object by UUID     
+     * @param py_expected_type - expected Python type of the object
+    */    
+    PyObject *fetchObject(db0::Snapshot &, ObjectId object_id, PyTypeObject *py_expected_type = nullptr);
+
+    /**
+     * Open DBZero singleton by its corresponding Python type
+    */
+    PyObject *fetchSingletonObject(db0::Snapshot &, PyTypeObject *py_type);
 
 #ifndef NDEBUG
 

@@ -15,7 +15,7 @@
 namespace db0::python
 
 {
-
+    
     ObjectId extractObjectId(PyObject *args)
     {
         // extact ObjectId from args
@@ -30,17 +30,47 @@ namespace db0::python
         
         return *reinterpret_cast<ObjectId*>(py_object_id);
     }
-
-    PyObject *fetchObject(ObjectId object_id, PyTypeObject *py_expected_type)
-    {
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        auto fixture = workspace.getFixture(object_id.m_fixture_uuid, AccessType::READ_ONLY);
-        assert(fixture);
-        fixture->refreshIfUpdated();
-        // open from specific fixture
-        return fetchObject(fixture, object_id, py_expected_type);
-    }
     
+    PyObject *tryFetchFrom(db0::Snapshot &snapshot, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs < 1 || nargs > 2) {
+            PyErr_SetString(PyExc_TypeError, "fetch requires 1 or 2 arguments");
+            return NULL;
+        }
+
+        PyTypeObject *type_arg = nullptr;
+        PyObject *uuid_arg = nullptr;
+        if (nargs == 1) {
+            uuid_arg = args[0];
+        } else {
+            if (!PyType_Check(args[0])) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+                return NULL;
+            }
+            type_arg = reinterpret_cast<PyTypeObject*>(args[0]);
+            uuid_arg = args[1];
+        }
+        
+        // decode ObjectId from string
+        if (PyUnicode_Check(uuid_arg)) {
+            auto uuid = PyUnicode_AsUTF8(uuid_arg);
+            return fetchObject(snapshot, ObjectId::fromBase32(uuid), type_arg);
+        }
+        
+        if (PyType_Check(uuid_arg)) {
+            auto uuid_type = reinterpret_cast<PyTypeObject*>(uuid_arg);
+            // check if type_arg is exact or a base of uuid_arg
+            if (type_arg && !isBase(uuid_type, reinterpret_cast<PyTypeObject*>(type_arg))) {
+                PyErr_SetString(PyExc_TypeError, "Type mismatch");
+                return NULL;
+            }
+            return fetchSingletonObject(snapshot, uuid_type);
+        }
+
+        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        return NULL;        
+    }
+
     PyObject *fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, PyTypeObject *py_expected_type)
     {   
         using ClassFactory = db0::object_model::ClassFactory;
@@ -119,17 +149,11 @@ namespace db0::python
         type->unloadSingleton(&memo_obj->ext());
         return memo_obj;
     }
-    
-    PyObject *fetchSingletonObject(PyTypeObject *py_type)
-    {
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return fetchSingletonObject(fixture, py_type);
-    }
-    
-    PyObject *fetchSingletonObject(db0::WorkspaceView &view, PyTypeObject *py_type)
+        
+    PyObject *fetchSingletonObject(db0::Snapshot &snapshot, PyTypeObject *py_type)
     {
         auto uuid = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture()->getUUID();
-        auto fixture = view.getFixture(uuid);
+        auto fixture = snapshot.getFixture(uuid, AccessType::READ_ONLY);
         return fetchSingletonObject(fixture, py_type);
     }
     
@@ -161,7 +185,7 @@ namespace db0::python
         auto addr = db0::writeBytes(*fixture, data, strlen(data));
         return PyLong_FromUnsignedLongLong(addr);        
     }
-
+    
     PyObject *freeBytes(PyObject *, PyObject *args)
     {
         // extract address from args
@@ -196,5 +220,14 @@ namespace db0::python
     {
         return PyObject_IsSubclass(reinterpret_cast<PyObject*>(py_type), reinterpret_cast<PyObject*>(base_type));
     }
-    
+
+    PyObject *fetchObject(db0::Snapshot &snapshot, ObjectId object_id, PyTypeObject *py_expected_type)
+    {        
+        auto fixture = snapshot.getFixture(object_id.m_fixture_uuid, AccessType::READ_ONLY);
+        assert(fixture);
+        fixture->refreshIfUpdated();
+        // open from specific fixture
+        return fetchObject(fixture, object_id, py_expected_type);
+    }
+
 }

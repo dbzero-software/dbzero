@@ -2,6 +2,7 @@
 
 #include "Workspace.hpp"
 #include "Fixture.hpp"
+#include "Snapshot.hpp"
 #include <unordered_map>
 #include <functional>
 #include <dbzero/core/memory/swine_ptr.hpp>
@@ -11,18 +12,18 @@ namespace db0
 {
 
     // A WorkspaceView exposes a limited read-only Workspace interface bound to a specific state number
-    class WorkspaceView
+    class WorkspaceView: public Snapshot
     {
     public:
         WorkspaceView(std::shared_ptr<Workspace>);
         
-        db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name);
+        db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = {}) override;
         
-        db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid);
+        db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
         
-        void close(const std::string &prefix_name);
+        bool close(const std::string &prefix_name) override;
         
-        void close();
+        void close() override;
         
         static WorkspaceView *makeNew(void *at_ptr, std::shared_ptr<Workspace>);
         

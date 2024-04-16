@@ -20,7 +20,7 @@ namespace db0::python
     PySnapshotObject *makeSnapshot(PyObject *, PyObject *args);
     bool PySnapshot_Check(PyObject *);
     
-    PyObject *PySnapshot_fetch(PyObject *, PyObject *);
+    PyObject *PySnapshot_fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PySnapshot_close(PyObject *, PyObject *);
 
     PyObject *PySnapshot_enter(PyObject *, PyObject *);
