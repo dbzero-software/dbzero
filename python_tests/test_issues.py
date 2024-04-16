@@ -106,3 +106,12 @@ def test_print_type(db0_fixture):
     test_int= IntMock(int_1)
     print(test_int)
     print(type(test_int))
+
+@pytest.mark.skip(" what():  PrefixCache::findRange: inconsistent locks exist for the same range")
+def test_dict_items_in(db0_fixture):
+    # tests iteration over values from dict
+    dict_1 = db0.dict()
+    # insert 1000 random items
+    for i in range(1000):
+        dict_1[i] = i
+    assert len(dict_1) == 1000

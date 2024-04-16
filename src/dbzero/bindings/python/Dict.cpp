@@ -35,6 +35,15 @@ namespace db0::python
         return dict_obj->ext().size();
     }
 
+    int DictObject_HasItem(DictObject *dict_obj, PyObject *key)
+    {
+        return dict_obj->ext().has_item(key);
+    }
+
+    static PySequenceMethods DictObject_seq = {
+        .sq_contains = (objobjproc)DictObject_HasItem
+    };
+
     static PyMappingMethods DictObject_mp = {
         .mp_length = (lenfunc)DictObject_len,
         .mp_subscript = (binaryfunc)DictObject_GetItem,
@@ -61,6 +70,7 @@ namespace db0::python
         .tp_basicsize = DictObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)DictObject_del,
+        .tp_as_sequence = &DictObject_seq,
         .tp_as_mapping = &DictObject_mp,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "DBZero dict collection object",

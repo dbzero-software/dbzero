@@ -27,10 +27,16 @@ namespace db0::python
         return 0;
     }
 
+     int SetObject_HasItem(SetObject *set_obj, PyObject *key)
+    {
+        return set_obj->ext().has_item(key);
+    }
+
     static PySequenceMethods SetObject_sq = {
         .sq_length = (lenfunc)SetObject_len,
         .sq_item = (ssizeargfunc)SetObject_GetItem,
-        .sq_ass_item = (ssizeobjargproc)SetObject_SetItem
+        .sq_ass_item = (ssizeobjargproc)SetObject_SetItem,
+        .sq_contains = (objobjproc)SetObject_HasItem
     };
     
     static PyMethodDef SetObject_methods[] = {
