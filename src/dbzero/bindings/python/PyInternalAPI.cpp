@@ -1,5 +1,4 @@
 #include "PyInternalAPI.hpp"
-#include "PyToolkit.hpp"
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -7,10 +6,16 @@
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/WorkspaceView.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/workspace/Utils.hpp>
+#include <dbzero/object_model/tags/ObjectIterator.hpp>
+#include <dbzero/object_model/tags/TypedObjectIterator.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
+#include "PyToolkit.hpp"
+#include "PyObjectIterator.hpp"
 
 namespace db0::python
 
@@ -228,6 +233,29 @@ namespace db0::python
         fixture->refreshIfUpdated();
         // open from specific fixture
         return fetchObject(fixture, object_id, py_expected_type);
+    }
+    
+    PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs)
+    {
+        using ObjectIterator = db0::object_model::ObjectIterator;
+        using TypedObjectIterator = db0::object_model::TypedObjectIterator;
+        using TagIndex = db0::object_model::TagIndex;
+        using Class = db0::object_model::Class;
+
+        std::shared_ptr<Class> type;
+        auto fixture = snapshot.getCurrentFixture();
+        auto &tag_index = fixture->get<TagIndex>();
+        auto query_iterator = tag_index.find(args, nargs, type);
+        if (type) {
+            // construct as typed iterator when a type was specified
+            auto iter_obj = PyTypedObjectIterator_new(&PyTypedObjectIteratorType, NULL, NULL);
+            TypedObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator), type);
+            return iter_obj;
+        } else {
+            auto iter_obj = PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
+            ObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator));
+            return iter_obj;
+        }
     }
 
 }

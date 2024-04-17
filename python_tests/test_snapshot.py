@@ -101,36 +101,36 @@ def test_snapshot_with_nested_objects(db0_fixture):
         assert object_1.value.value == 123
 
 
-# def test_find_in_snapshot(db0_fixture):
-#     for i in range(3):
-#         object_1 = MemoTestClass(i)
-#         db0.tags(object_1).add("some-tag")
-#     snap = db0.snapshot()
-#     db0.commit()
-#     for i in range(3):
-#         object_1 = MemoTestClass(i + 3)
-#         db0.tags(object_1).add("some-tag")
+def test_find_in_snapshot(db0_fixture):
+    for i in range(3):
+        object_1 = MemoTestClass(i)
+        db0.tags(object_1).add("some-tag")
+    snap = db0.snapshot()
+    db0.commit()
+    for i in range(3):
+        object_1 = MemoTestClass(i + 3)
+        db0.tags(object_1).add("some-tag")
 
-#     assert set([x.value for x in snap.find("some-tag")]) == set([0, 1, 2])
+    assert set([x.value for x in snap.find("some-tag")]) == set([0, 1, 2])
 
     
-# def test_tag_query_from_two_snapshots(db0_fixture):
-#     for i in range(3):
-#         object_1 = MemoTestClass(i)
-#         db0.tags(object_1).add("some-tag")
-#     snap1 = db0.snapshot()
-#     db0.commit()    
-#     for i in range(3):
-#         object_1 = MemoTestClass(i + 3)
-#         db0.tags(object_1).add("some-tag")
-#     snap2 = db0.snapshot()
-#     db0.commit()
-#     for i in range(5):
-#         object_1 = MemoTestClass(i + 6)
-#         db0.tags(object_1).add("some-tag")
+def test_tag_query_from_two_snapshots(db0_fixture):
+    for i in range(3):
+        object_1 = MemoTestClass(i)
+        db0.tags(object_1).add("some-tag")
+    snap1 = db0.snapshot()
+    db0.commit()    
+    for i in range(3):
+        object_1 = MemoTestClass(i + 3)
+        db0.tags(object_1).add("some-tag")
+    snap2 = db0.snapshot()
+    db0.commit()
+    for i in range(5):
+        object_1 = MemoTestClass(i + 6)
+        db0.tags(object_1).add("some-tag")
 
-#     # run same queries on different snapshots
-#     result_1 = set([x.value for x in snap1.find("some-tag")])
-#     result_2 = set([x.value for x in snap2.find("some-tag")])
-#     assert result_1 == set([0, 1, 2])
-#     assert result_2 == set([0, 1, 2, 3, 4, 5])
+    # run same queries on different snapshots
+    result_1 = set([x.value for x in snap1.find("some-tag")])
+    result_2 = set([x.value for x in snap2.find("some-tag")])
+    assert result_1 == set([0, 1, 2])
+    assert result_2 == set([0, 1, 2, 3, 4, 5])

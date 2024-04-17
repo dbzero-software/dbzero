@@ -8,6 +8,7 @@ namespace db0::python
     static PyMethodDef PySnapshot_methods[] = 
     {
         {"fetch", (PyCFunction)&PySnapshot_fetch, METH_FASTCALL, "Fetch DBZero object instance by its ID or type (in case of a singleton)"},
+        {"find", (PyCFunction)&PySnapshot_find, METH_FASTCALL, ""},
         {"close", &PySnapshot_close, METH_NOARGS, "Close DBZero snapshot"},
         {"__enter__", &PySnapshot_enter, METH_NOARGS, "Enter DBZero snapshot context"},
         {"__exit__", &PySnapshot_exit, METH_VARARGS, "Exit DBZero snapshot context"},
@@ -67,9 +68,24 @@ namespace db0::python
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->ext();
         return tryFetchFrom(snapshot, args, nargs);
     }
-    
+
+    PyObject *tryPySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (!PySnapshot_Check(self)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->ext();
+        return findIn(snapshot, args, nargs);
+    }
+
     PyObject *PySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         return runSafe(tryPySnapshot_fetch, self, args, nargs);
+    }
+
+    PyObject *PySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
+        return runSafe(tryPySnapshot_find, self, args, nargs);
     }
 
     PyObject *PySnapshot_enter(PyObject *self, PyObject *) {

@@ -70,6 +70,11 @@ namespace db0::python
     */
     PyObject *fetchSingletonObject(db0::Snapshot &, PyTypeObject *py_type);
 
+    /**
+     * Universal find implementation (works on Workspace or WorkspaceView)
+    */
+    PyObject *findIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs);
+    
 #ifndef NDEBUG
 
     /**

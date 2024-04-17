@@ -131,7 +131,7 @@ namespace db0
         /**
          * Get current fixture for read-only access
         */
-        db0::swine_ptr<Fixture> getCurrentFixture() const;
+        db0::swine_ptr<Fixture> getCurrentFixture(std::optional<AccessType> = {}) override;
 
         /**
          * Create new or open/get existing prefix associated fixture
@@ -202,6 +202,9 @@ namespace db0
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> getFixtureInitializer() const;
 
         FixedObjectList &getSharedObjectList() const;
+
+        // Get current fixture UUID
+        std::uint64_t getDefaultUUID() const;
 
     private:
         FixtureCatalog m_fixture_catalog;

@@ -20,6 +20,8 @@ namespace db0
         db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = {}) override;
         
         db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+
+        db0::swine_ptr<Fixture> getCurrentFixture(std::optional<AccessType> = {}) override;
         
         bool close(const std::string &prefix_name) override;
         
@@ -30,6 +32,7 @@ namespace db0
     private:
         bool m_closed = false;
         std::shared_ptr<Workspace> m_workspace;
+        const std::uint64_t m_default_uuid;
         // fixture snapshots by UUID
         std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;
         // name to UUID mapping

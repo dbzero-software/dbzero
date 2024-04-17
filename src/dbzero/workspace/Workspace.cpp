@@ -335,11 +335,14 @@ namespace db0
         return m_default_fixture;
     }
     
-    db0::swine_ptr<Fixture> Workspace::getCurrentFixture() const
+    db0::swine_ptr<Fixture> Workspace::getCurrentFixture(std::optional<AccessType> access_type)
     {
         if (!m_default_fixture) {
             THROWF(db0::InternalException) << "DBZero: no default prefix exists";
         }
+        if (access_type && *access_type != AccessType::READ_ONLY) {
+            THROWF(db0::InputException) << "DBZero: getCurrentFixture allows READ-ONLY access";
+        }   
         return m_default_fixture;
     }
     
@@ -355,6 +358,14 @@ namespace db0
 
     FixedObjectList &Workspace::getSharedObjectList() const {
         return m_shared_object_list;
+    }
+    
+    std::uint64_t Workspace::getDefaultUUID() const
+    {
+        if (!m_default_fixture) {
+            THROWF(db0::InternalException) << "DBZero: no default prefix exists";
+        }
+        return m_default_fixture->getUUID();
     }
     
     swine_ptr<Fixture> Workspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type) {
