@@ -134,3 +134,55 @@ def test_tag_query_from_two_snapshots(db0_fixture):
     result_2 = set([x.value for x in snap2.find("some-tag")])
     assert result_1 == set([0, 1, 2])
     assert result_2 == set([0, 1, 2, 3, 4, 5])
+    
+    
+def test_find_can_join_results_from_two_snapshots(db0_fixture):
+    for i in range(3):
+        object_1 = MemoTestClass(i)
+        db0.tags(object_1).add("some-tag")
+    snap1 = db0.snapshot()
+    db0.commit()    
+    for i in range(3):
+        object_1 = MemoTestClass(i + 3)
+        db0.tags(object_1).add("some-tag")
+    snap2 = db0.snapshot()
+    db0.commit()
+    for i in range(5):
+        object_1 = MemoTestClass(i + 6)
+        db0.tags(object_1).add("some-tag")
+
+    # run same queries on different snapshots
+    query_1 = snap1.find("some-tag")
+    query_2 = snap2.find("some-tag")
+    
+    result = set([x.value for x in db0.find(query_1, query_2)])
+    assert result == set([0, 1, 2])
+    
+    
+def test_snapshot_delta_queries(db0_fixture):
+    objects = []
+    for i in range(3):
+        object_1 = MemoTestClass(i)
+        objects.append(object_1)
+        db0.tags(object_1).add("some-tag")
+    snap1 = db0.snapshot()
+    db0.commit()
+    for i in range(3):
+        object_1 = MemoTestClass(i + 3)
+        db0.tags(object_1).add("some-tag")
+    db0.tags(objects[1]).remove("some-tag")
+    snap2 = db0.snapshot()
+    db0.commit()
+    for i in range(5):
+        object_1 = MemoTestClass(i + 6)
+        db0.tags(object_1).add("some-tag")
+
+    # run same queries on different snapshots
+    query_1 = snap1.find("some-tag")
+    query_2 = snap2.find("some-tag")
+    
+    created = set([x.value for x in snap2.find(query_2, db0.no(query_1))])
+    deleted = set([x.value for x in snap1.find(query_1, db0.no(query_2))])
+    
+    assert created == set([3, 4, 5])
+    assert deleted == set([1])
