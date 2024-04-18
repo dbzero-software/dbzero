@@ -65,8 +65,6 @@ namespace db0
         void free(std::uint64_t address) override;
 
         std::size_t getAllocSize(std::uint64_t address) const override;
-
-        std::shared_ptr<Allocator> getSnapshot() const override;
         
         void commit() override;
         

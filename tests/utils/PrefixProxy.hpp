@@ -1,6 +1,7 @@
 #pragma once
 
 #include <dbzero/core/memory/Prefix.hpp>
+#include <optional>
 
 namespace db0::tests
 
@@ -26,13 +27,11 @@ namespace db0::tests
             return m_prefix->mapRange(address, size, options);
         }
 
-        std::uint64_t size() const override
-        {
+        std::uint64_t size() const override {
             return m_prefix->size();
         }
 
-        std::uint64_t getStateNum() const override
-        {
+        std::uint64_t getStateNum() const override {
             return m_prefix->getStateNum();
         }
 
@@ -61,8 +60,8 @@ namespace db0::tests
             return m_prefix->getAccessType();
         }
 
-        std::shared_ptr<Prefix> getSnapshot() const override {
-            return m_prefix->getSnapshot();
+        std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override {
+            return m_prefix->getSnapshot(state_num);
         }
 
         void setMapRangeCallback(std::function<void(std::uint64_t, std::size_t, FlagSet<AccessOptions>)> callback) {

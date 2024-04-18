@@ -655,11 +655,6 @@ namespace db0
         return result;
     }
 
-    std::shared_ptr<Allocator> MetaAllocator::getSnapshot() const {
-        // simply create a new instance over the prefix's snapshot
-        return std::make_shared<MetaAllocator>(m_prefix->getSnapshot(), m_recycler_ptr);
-    }
-
     void MetaAllocator::commit()
     {
         m_slab_defs.commit();        
@@ -667,6 +662,10 @@ namespace db0
         m_slab_manager->commit();
     }
 
+    SlabRecycler *MetaAllocator::getSlabRecyclerPtr() const {
+        return m_recycler_ptr;
+    }
+    
 }
 
 namespace std 

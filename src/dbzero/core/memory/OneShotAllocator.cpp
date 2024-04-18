@@ -36,14 +36,7 @@ namespace db0
         return m_size;
     }
 
-    std::shared_ptr<Allocator> OneShotAllocator::getSnapshot() const
-    {
-        THROWF(db0::InternalException) 
-            << "OneShotAllocator: getSnapshot operation not supported" << THROWF_END;
-    }
-
-    void OneShotAllocator::commit()
-    {
+    void OneShotAllocator::commit() {
         // nothing to do
     }
     

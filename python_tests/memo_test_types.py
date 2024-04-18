@@ -7,6 +7,13 @@ class MemoTestClass:
         self.value = value        
 
 
+@db0.memo
+class KVTestClass:
+    def __init__(self, key, value = None):
+        self.key = key
+        self.value = value
+
+
 @db0.memo(singleton=True)
 class MemoTestSingleton:
     def __init__(self, value, value_2 = None):

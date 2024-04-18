@@ -157,7 +157,7 @@ namespace db0
         /**
          * Get read-only snapshot of the fixture's current state
         */
-        db0::swine_ptr<Fixture> getSnapshot() const;
+        db0::swine_ptr<Fixture> getSnapshot(std::optional<std::uint64_t> state_num = {}) const;
 
         void onUpdated();
                      

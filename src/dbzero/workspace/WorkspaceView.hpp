@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <functional>
 #include <dbzero/core/memory/swine_ptr.hpp>
+#include <optional>
 
 namespace db0
 
@@ -15,7 +16,7 @@ namespace db0
     class WorkspaceView: public Snapshot
     {
     public:
-        WorkspaceView(std::shared_ptr<Workspace>);
+        WorkspaceView(std::shared_ptr<Workspace>, std::optional<std::uint64_t> state_num = {});
         
         db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = {}) override;
         
@@ -27,11 +28,16 @@ namespace db0
         
         void close() override;
         
-        static WorkspaceView *makeNew(void *at_ptr, std::shared_ptr<Workspace>);
+        /**
+         * @param state_num if not provided then current state is used
+         */        
+        static WorkspaceView *makeNew(void *at_ptr, std::shared_ptr<Workspace>,
+            std::optional<std::uint64_t> state_num = {});
         
     private:
         bool m_closed = false;
         std::shared_ptr<Workspace> m_workspace;
+        const std::optional<std::uint64_t> m_state_num;
         const std::uint64_t m_default_uuid;
         // fixture snapshots by UUID
         std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;

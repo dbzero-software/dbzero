@@ -131,12 +131,14 @@ namespace db0
         }
     }
     
-    db0::swine_ptr<Fixture> Fixture::getSnapshot() const
+    db0::swine_ptr<Fixture> Fixture::getSnapshot(std::optional<std::uint64_t> state_num) const
     {
+        auto prefix_snapshot = m_prefix->getSnapshot(state_num);
+        auto allocator_snapshot = std::make_shared<MetaAllocator>(
+            prefix_snapshot, std::dynamic_pointer_cast<MetaAllocator>(m_allocator)->getSlabRecyclerPtr());
+        
         return db0::make_swine<Fixture>(
-            m_v_object_cache.getSharedObjectList(),
-            m_prefix->getSnapshot(),
-            std::dynamic_pointer_cast<MetaAllocator>(m_allocator->getSnapshot())
+            m_v_object_cache.getSharedObjectList(), prefix_snapshot, allocator_snapshot
         );
     }
     

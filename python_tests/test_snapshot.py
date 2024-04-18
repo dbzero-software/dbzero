@@ -186,3 +186,18 @@ def test_snapshot_delta_queries(db0_fixture):
     
     assert created == set([3, 4, 5])
     assert deleted == set([1])
+    
+
+def test_snapshot_can_be_taken_with_state_num(db0_fixture):
+    for i in range(3):
+        object_1 = MemoTestClass(i)    
+        db0.tags(object_1).add("some-tag")
+    old_state_id = db0.get_state_num()
+    db0.commit()
+    for i in range(3):
+        object_1 = MemoTestClass(i + 3)
+        db0.tags(object_1).add("some-tag")        
+    db0.commit()
+    snap = db0.snapshot(old_state_id)
+    values = [x.value for x in snap.find("some-tag")]
+    assert set(values) == set([0, 1, 2])

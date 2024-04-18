@@ -74,12 +74,11 @@ namespace db0
         
         std::uint64_t refresh() override;
 
-        AccessType getAccessType() const override
-        {
+        AccessType getAccessType() const override {
             return m_storage.getAccessType();
         }
 
-        std::shared_ptr<Prefix> getSnapshot() const override;
+        std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
 
     protected:
         friend class PrefixViewImpl<PrefixImpl<StorageT>>;
@@ -228,12 +227,13 @@ namespace db0
     template <typename T> std::uint64_t PrefixImpl<T>::getLastUpdated() const {
         return m_storage.getLastUpdated();
     }
-    
-    template <typename T> std::shared_ptr<Prefix> PrefixImpl<T>::getSnapshot() const
+
+    template <typename T> std::shared_ptr<Prefix> PrefixImpl<T>::getSnapshot(std::optional<std::uint64_t> state_num_req) const
     {   
+        auto state_num = state_num_req.value_or(m_state_num);
         return std::shared_ptr<Prefix>(
             new PrefixViewImpl<PrefixImpl<T> >(
-                const_cast<PrefixImpl<T> *>(this)->shared_from_this(), m_state_num));        
+                const_cast<PrefixImpl<T> *>(this)->shared_from_this(), state_num));
     }
 
 } 

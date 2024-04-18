@@ -1,9 +1,5 @@
-from typing import Any
 import pytest
 import dbzero_ce as db0
-import pickle
-import io
-import json
 
 
 @db0.memo()

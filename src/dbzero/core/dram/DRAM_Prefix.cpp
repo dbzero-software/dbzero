@@ -21,8 +21,7 @@ namespace db0
     {
     }
     
-    DRAM_Prefix::~DRAM_Prefix()
-    {
+    DRAM_Prefix::~DRAM_Prefix() {
         close();
     }
     
@@ -89,8 +88,7 @@ namespace db0
         m_pages.clear();
     }
     
-    void DRAM_Prefix::MemoryPage::resetDirtyFlag()
-    {
+    void DRAM_Prefix::MemoryPage::resetDirtyFlag() {
         m_lock->resetDirtyFlag();
     }
     
@@ -114,18 +112,15 @@ namespace db0
         }        
     }
     
-    std::uint64_t DRAM_Prefix::refresh()
-    {
+    std::uint64_t DRAM_Prefix::refresh() {
         return 0;
     }
 
-    std::uint64_t DRAM_Prefix::getLastUpdated() const
-    {
+    std::uint64_t DRAM_Prefix::getLastUpdated() const {
         return 0;
     }
     
-    std::shared_ptr<Prefix> DRAM_Prefix::getSnapshot() const
-    {
+    std::shared_ptr<Prefix> DRAM_Prefix::getSnapshot(std::optional<std::uint64_t>) const {
         return const_cast<DRAM_Prefix *>(this)->shared_from_this();
     }
 

@@ -12,8 +12,3 @@ def memo(cls=None, **kwargs):
 
     # We're called as @memo without parens.
     return wrap(cls, **kwargs)
-
-
-@memo
-class MemoDefaultClass:
-    pass

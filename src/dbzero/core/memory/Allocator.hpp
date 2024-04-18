@@ -37,13 +37,7 @@ namespace db0
          * @return the range size in bytes
         */
         virtual std::size_t getAllocSize(std::uint64_t address) const = 0;
-
-        /**
-         * Get read-only snapshot of the allocator's current state
-         * see also: Prefix::getSnapshot
-        */
-        virtual std::shared_ptr<Allocator> getSnapshot() const = 0;
-        
+                
         /**
          * Prepare the allocator for the next transaction
         */

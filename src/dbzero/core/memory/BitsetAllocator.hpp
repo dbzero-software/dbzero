@@ -27,9 +27,7 @@ namespace db0
         
         void free(std::uint64_t address) override;
 
-        std::size_t getAllocSize(std::uint64_t address) const override;
-        
-        std::shared_ptr<Allocator> getSnapshot() const override;
+        std::size_t getAllocSize(std::uint64_t address) const override;    
 
         void commit() override;
         
@@ -162,13 +160,7 @@ namespace db0
     {
         return m_span;
     }
-
-    template <typename BitSetT> std::shared_ptr<Allocator> BitsetAllocator<BitSetT>::getSnapshot() const
-    {
-        THROWF(db0::InternalException) 
-            << "BitsetAllocator::getSnapshot: operation not supported" << THROWF_END;
-    }
-    
+        
     template <typename BitSetT> void BitsetAllocator<BitSetT>::commit()
     {
         // no-op

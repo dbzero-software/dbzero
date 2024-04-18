@@ -46,7 +46,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
     {"get_state_num", &py::getStateNum, METH_VARARGS, ""},
     {"get_metrics", &py::getDBMetrics, METH_VARARGS, ""},
-    {"snapshot", &py::getSnapshot, METH_VARARGS, "Get snapshot of DBZero state"},
+    {"snapshot", (PyCFunction)&py::getSnapshot, METH_FASTCALL, "Get snapshot of DBZero state"},
     {"describe", &py::describeObject, METH_VARARGS, "Get snapshot of DBZero state"},
     {"rename_field", &py::renameField, METH_VARARGS, "Get snapshot of DBZero state"},
     {"is_singleton", &py::isSingleton, METH_VARARGS, "Check if a specific instance is a DBZero singleton"},

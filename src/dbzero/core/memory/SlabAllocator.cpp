@@ -170,11 +170,7 @@ namespace db0
     std::uint64_t SlabAllocator::getFirstAddress() {
         return CRDT_Allocator::getFirstAddress();
     }
-
-    std::shared_ptr<Allocator> SlabAllocator::getSnapshot() const {
-        THROWF(db0::InternalException) << "SlabAllocator::getSnapshot() operation not supported" << THROWF_END;
-    }
-    
+        
     void SlabAllocator::commit()
     {
         m_header.commit();

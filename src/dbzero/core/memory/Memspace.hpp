@@ -36,8 +36,7 @@ namespace db0
 
         void init(std::shared_ptr<Prefix> prefix, std::shared_ptr<Allocator> allocator);
 
-        inline mptr myPtr(std::uint64_t address, FlagSet<AccessOptions> access_mode = {})
-        {
+        inline mptr myPtr(std::uint64_t address, FlagSet<AccessOptions> access_mode = {}) {
             return mptr(*this, address, access_mode);
         }
         
