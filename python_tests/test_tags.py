@@ -228,19 +228,3 @@ def test_assign_tags_in_multiple_operations(db0_fixture):
                 
         count = len(list(db0.find("tag1")))
         assert count == 3 * (x + 1)
-        
-    
-# def test_assign_tags_in_multipe_operations_issue_2(db0_fixture):
-#     """
-#     This is a case identical to test_assign_tags_in_multiple_operations
-#     but was failing due to a specific parameters
-#     """
-#     group_size = 10
-#     for x in range(10):
-#         for i in range(group_size):
-#             obj = MemoTestClass(i)
-#             db0.tags(obj).add("tag1")
-        
-#         count = len(list(db0.find("tag1")))
-#         assert count == group_size * (x + 1)
-    

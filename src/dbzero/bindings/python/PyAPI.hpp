@@ -6,6 +6,14 @@
 #include "Memo.hpp"
 #include <dbzero/bindings/python/collections/List.hpp>
 
+namespace db0
+
+{
+
+    class Snapshot;
+
+}
+
 namespace db0::python
 
 {
@@ -97,9 +105,9 @@ namespace db0::python
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     PyObject *getBuildFlags(PyObject *self, PyObject *args);
-
-    template <typename T> db0::object_model::StorageClass getStorageClass();
         
+    template <typename T> db0::object_model::StorageClass getStorageClass();
+
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>();
     template <> db0::object_model::StorageClass getStorageClass<ListObject>();
 

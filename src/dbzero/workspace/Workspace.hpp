@@ -15,6 +15,7 @@
 #include <thread>
 #include <filesystem>
 #include "PrefixCatalog.hpp"
+#include "Snapshot.hpp"
     
 namespace db0
 
@@ -110,7 +111,7 @@ namespace db0
     /**
      * Workspace extends BaseWorkspace and provides access to Fixtures instead of the raw Memspaces
     */
-    class Workspace: protected BaseWorkspace
+    class Workspace: protected BaseWorkspace, public Snapshot
     {
     public:
         static constexpr std::uint32_t DEFAULT_AUTOCOMMIT_INTERVAL_MS = 250;
@@ -130,13 +131,13 @@ namespace db0
         /**
          * Get current fixture for read-only access
         */
-        db0::swine_ptr<Fixture> getCurrentFixture() const;
+        db0::swine_ptr<Fixture> getCurrentFixture(std::optional<AccessType> = {}) override;
 
         /**
          * Create new or open/get existing prefix associated fixture
          * access type must be provided when the prefix is accessed for the 1st time
          */
-        swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE,
+        swine_ptr<Fixture> getFixtureEx(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE,
             std::optional<std::uint64_t> state_num = {}, std::optional<std::size_t> page_size = {},
             std::optional<std::size_t> slab_size = {}, std::optional<std::size_t> sparse_index_node_size = {},
             bool autocommit = true);
@@ -145,7 +146,9 @@ namespace db0
          * Get existing fixture by UUID
          * if access type is specified then auto-open is also attmpted
         */
-        swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {});
+        swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+        
+        swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) override;
 
         /**
          * Find existing (opened) fixture or return nullptr
@@ -174,15 +177,15 @@ namespace db0
          * @param autocommit flag indicating if the prefix should be auto-committed
         */
         void open(const std::string &prefix_name, AccessType access_type, bool autocommit = true);
-
-        bool close(const std::string &prefix_name);
-        
+                
         bool drop(const std::string &prefix_name, bool if_exists = true);
+
+        bool close(const std::string &prefix_name) override;
 
         /**
          * Close all prefixes, drop all uncommited data
         */
-        void close();
+        void close() override;
         
         CacheRecycler &getCacheRecycler();
 
@@ -199,6 +202,9 @@ namespace db0
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> getFixtureInitializer() const;
 
         FixedObjectList &getSharedObjectList() const;
+
+        // Get current fixture UUID
+        std::uint64_t getDefaultUUID() const;
 
     private:
         FixtureCatalog m_fixture_catalog;
