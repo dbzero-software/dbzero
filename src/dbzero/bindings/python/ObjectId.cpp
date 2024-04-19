@@ -1,10 +1,10 @@
 #include "ObjectId.hpp"
 #include "Memo.hpp"
-#include "List.hpp"
-#include "Set.hpp"
-#include "Tuple.hpp"
+#include <dbzero/bindings/python/collections/List.hpp>
+#include <dbzero/bindings/python/collections/Set.hpp>
+#include <dbzero/bindings/python/collections/Tuple.hpp>
 #include "Index.hpp"
-#include "Dict.hpp"
+#include <dbzero/bindings/python/collections/Dict.hpp>
 #include <iostream>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/workspace/Fixture.hpp>

@@ -9,7 +9,7 @@
 #include "Memo.hpp"
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
-#include "List.hpp"
+#include <dbzero/bindings/python/collections/List.hpp>
 #include "Memo.hpp"
 #include <dbzero/object_model/object/Object.hpp>
 

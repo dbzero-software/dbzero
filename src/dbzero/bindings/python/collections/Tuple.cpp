@@ -1,14 +1,21 @@
 #include "Tuple.hpp"
-#include "TupleIterator.hpp"
+#include "Iterator.hpp"
+#include <dbzero/object_model/tuple/TupleIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 
 namespace db0::python
 {
     
+    using TupleIteratorObject = PyWrapper<db0::object_model::TupleIterator>;
+
+    PyTypeObject TupleIteratorObjectType = GetIteratorType<TupleIteratorObject>("dbzero_ce.TupleIterator",
+                                                                              "DBZero tuple iterator");
+
     TupleIteratorObject *TupleObject_iter(TupleObject *self)
     {
-        return makeIterator(self->ext().getData()->begin(), &self->ext());        
+        return makeIterator<TupleIteratorObject,db0::object_model::TupleIterator>(TupleIteratorObjectType, 
+            self->ext().begin(), &self->ext());        
     }
 
 
