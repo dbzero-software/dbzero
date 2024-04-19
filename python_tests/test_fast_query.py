@@ -12,3 +12,7 @@ from .memo_test_types import KVTestClass
 #     db0.tags(*objects).add("tag1")
 #     groups = db0.group_by(db0.find("tag1"))
 #     print(groups)
+
+
+a = MemoType()
+a.query = db0.find("tag1", "tag2")

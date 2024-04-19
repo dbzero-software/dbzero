@@ -26,10 +26,21 @@ namespace db0
         RT_FTIterator(const RT_TreeT &tree, std::optional<KeyT> min,
             bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool nulls_first)
             : super_t(makeQuery(tree, min, min_inclusive, max, max_inclusive, nulls_first), -1, true)
+            , m_fixture_uuid(tree.getFixture()->getUUID())
+            , m_rt_tree_address(tree.getAddress())
+            , m_range { min, min_inclusive, max, max_inclusive }
         {
         }
 
-    private:        
+        FTIteratorTypeId getSerializationTypeId() const override;
+        
+        void serialize(std::vector<std::byte> &) const override;
+        
+    private:
+        const std::uint64_t m_fixture_uuid = 0;
+        const std::uint64_t m_rt_tree_address = 0;
+        const RT_Range<KeyT> m_range;
+
         std::list<std::unique_ptr<FT_Iterator<ValueT> > > makeQuery(const RT_TreeT &tree, std::optional<KeyT> min,
             bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool nulls_first) const;
     };
@@ -75,6 +86,22 @@ namespace db0
         }
 
         return query;
+    }
+    
+    template <typename KeyT, typename ValueT>
+    FTIteratorTypeId RT_FTIterator<KeyT, ValueT>::getSerializationTypeId() const
+    {
+        return FTIteratorTypeId::RangeTree;
+    }
+
+    template <typename KeyT, typename ValueT>
+    void RT_FTIterator<KeyT, ValueT>::serialize(std::vector<std::byte> &v) const
+    {
+        db0::write(v, db0::typeId<KeyT>());
+        db0::write(v, db0::typeId<ValueT>());
+        db0::write(v, m_fixture_uuid);
+        db0::write(v, m_rt_tree_address);
+        m_range.serialize(v);
     }
     
 }

@@ -6,16 +6,23 @@
 #include "FT_IteratorBase.hpp"
 #include "IteratorVisitor.hpp"
 #include "CloneMap.hpp"
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
 {
     
+    enum class FTIteratorTypeId: std::uint16_t {
+        Invalid = 0,
+        Index = 1,
+        RangeTree
+    };
+    
     /**
      * Abstract DBZero inverted index iterator definition
      * NOTICE: IDs are not assigned automatically, when required need to call db0:assignUniqueIDs method
      */
-	template <typename KeyT = std::uint64_t> class FT_Iterator: public FT_IteratorBase
+	template <typename KeyT = std::uint64_t> class FT_Iterator: public FT_IteratorBase, public Serializable
 	{
 	public:
 		using super_t = FT_IteratorBase;
@@ -159,8 +166,10 @@ namespace db0
          * @param batch_size suggested maximum batch size to use
          */
         virtual void fetchKeys(std::function<void(const KeyT *key_buf, std::size_t key_count)> f,
-                std::size_t batch_size = 16 << 10) const;
+            std::size_t batch_size = 16 << 10) const;
 
+        virtual FTIteratorTypeId getSerializationTypeId() const = 0;
+        
 	protected:
 		std::string m_label;
 		/// application specific instance ID (serialized and preserved by clone)

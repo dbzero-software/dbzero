@@ -2,16 +2,22 @@
 
 #include "FT_IteratorBase.hpp"
 #include "FT_Iterator.hpp"
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
 {
-        
+    
+    enum class IteratorFactoryTypeId: std::uint16_t {
+        Invalid = 0,
+        Range = 1
+    };
+
     /**
      * The ItertorFactory interface combines FT_IteratorBase and FT_Iterator) properties
      * It can be used to construct either of the types depending on the usage context
     */
-    template <typename KeyT> class IteratorFactory
+    template <typename KeyT> class IteratorFactory: public Serializable
     {
     public:
         virtual ~IteratorFactory() = default;
@@ -19,6 +25,8 @@ namespace db0
         virtual std::unique_ptr<FT_IteratorBase> createBaseIterator() = 0;
 
         virtual std::unique_ptr<FT_Iterator<KeyT> > createFTIterator() = 0;
+
+        virtual IteratorFactoryTypeId getSerializationTypeId() const = 0;
     };
     
 }

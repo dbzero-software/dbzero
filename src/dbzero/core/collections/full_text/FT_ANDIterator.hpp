@@ -98,6 +98,9 @@ namespace db0
 
         virtual void detach();
 
+        FTIteratorTypeId getSerializationTypeId() const override;        
+        void serialize(std::vector<std::byte> &) const override;
+        
 	private:
 		int m_direction;
 		mutable std::list<std::unique_ptr<FT_Iterator<key_t> > > m_joinable;

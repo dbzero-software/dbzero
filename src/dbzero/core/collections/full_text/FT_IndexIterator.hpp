@@ -1,10 +1,11 @@
 #pragma once
 
-#include <dbzero/core/collections/b_index/v_bindex.hpp>
-#include <dbzero/core/collections/b_index/mb_index.hpp>
 #include "key_value.hpp"
 #include "FT_Iterator.hpp"
 #include "CloneMap.hpp"
+#include <dbzero/core/collections/b_index/v_bindex.hpp>
+#include <dbzero/core/collections/b_index/mb_index.hpp>
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
@@ -78,6 +79,10 @@ namespace db0
 
 	    std::size_t getDepth() const override;
 
+		FTIteratorTypeId getSerializationTypeId() const override;
+
+        void serialize(std::vector<std::byte> &) const override;
+		
     protected:
         bindex_t m_data;
         const int m_direction;
@@ -87,7 +92,7 @@ namespace db0
         bool m_is_detached = false;
         bool m_has_detach_key = false;
         key_t m_detach_key;
-        std::uint64_t m_index_key;
+        const std::uint64_t m_index_key;
 
         /**
          * Get valid iterator after detach
@@ -299,4 +304,20 @@ namespace db0
 		return typeid(self_t);
 	}
 	
+	template <typename bindex_t, typename key_t>
+	FTIteratorTypeId FT_IndexIterator<bindex_t, key_t>::getSerializationTypeId() const {
+		return FTIteratorTypeId::Index;
+	}
+
+	template <typename bindex_t, typename key_t>
+	void FT_IndexIterator<bindex_t, key_t>::serialize(std::vector<std::byte> &buf) const 
+	{
+		// write underlying type IDs
+		db0::write(buf, db0::typeId<bindex_t>());
+		db0::write(buf, db0::typeId<key_t>());
+		db0::write(buf, m_direction);
+		// index key is sufficient for deserialization
+		db0::write(buf, m_index_key);
+	}
+
 } 

@@ -112,6 +112,10 @@ namespace db0
 
         virtual void detach();
 
+        FTIteratorTypeId getSerializationTypeId() const override;
+        
+        void serialize(std::vector<std::byte> &) const override;        
+		
     private:
 
 		struct heap_item {
