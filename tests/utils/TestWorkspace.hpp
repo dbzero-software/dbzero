@@ -42,7 +42,8 @@ namespace db0
     class TestWorkspace: public TestWorkspaceBase, public db0::Snapshot
     {
     public:
-        TestWorkspace(std::size_t page_size = 4096, std::size_t cache_size = 2u << 30);
+        TestWorkspace(std::size_t page_size = 4096, std::size_t slab_size = 1u << 20,
+            std::size_t cache_size = 2u << 30);
 
         virtual db0::swine_ptr<Fixture> getFixture(
             const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) override;
@@ -55,7 +56,10 @@ namespace db0
         
         void close() override;
 
+        void tearDown();
+        
     private:
+        const std::size_t m_slab_size;
         FixedObjectList m_shared_object_list;
         SlabRecycler m_slab_recycler;
         db0::swine_ptr<Fixture> m_current_fixture;

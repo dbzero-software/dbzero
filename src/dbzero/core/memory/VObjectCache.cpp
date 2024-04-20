@@ -68,6 +68,13 @@ namespace db0
         return m_size;
     }
     
+    void FixedObjectList::clear() 
+    {
+        m_size = 0;
+        std::fill(m_data.begin(), m_data.end(), nullptr);
+        m_insert_iterator = m_data.begin();        
+    }
+
     VObjectCache::VObjectCache(Memspace &memspace, FixedObjectList &shared_object_list)
         : m_memspace(memspace)
         , m_shared_object_list(shared_object_list)

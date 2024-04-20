@@ -31,6 +31,8 @@ namespace db0
         void close(std::function<bool(const SlabAllocator &)> predicate, bool only_first = false);
 
         void closeOne(std::function<bool(const SlabAllocator &)> predicate);
+
+        void clear();
         
     private:
         const unsigned int m_max_size;

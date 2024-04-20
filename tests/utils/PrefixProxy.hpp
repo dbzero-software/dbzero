@@ -35,8 +35,7 @@ namespace db0::tests
             return m_prefix->getStateNum();
         }
 
-        std::size_t getPageSize() const override
-        {
+        std::size_t getPageSize() const override {
             return m_prefix->getPageSize();
         }
                 

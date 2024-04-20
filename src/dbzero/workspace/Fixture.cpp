@@ -20,7 +20,7 @@ namespace db0
     }
     
     Fixture::Fixture(FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
-        : Memspace(prefix, meta, getUUID(*meta))
+        : Memspace(prefix, meta, getUUID(prefix, *meta))
         , m_UUID(*m_derived_UUID)
         , m_string_pool(openLimitedStringPool(*this, *meta))
         , m_object_catalogue(openObjectCatalogue(*meta))

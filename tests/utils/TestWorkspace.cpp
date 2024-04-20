@@ -46,17 +46,35 @@ namespace db0
             m_prefix->setMapRangeCallback(callback);
         }
     }
+    
+    bool TestWorkspace::close(const std::string &name)
+    {
+        auto it_uuid = m_uuids.find(name);
+        if (it_uuid == m_uuids.end()) {
+            return false;            
+        }
 
-    bool TestWorkspace::close(const std::string &) {
+        auto it = m_fixtures.find(it_uuid->second);
+        if (it != m_fixtures.end()) {
+            it->second->close();
+            m_fixtures.erase(it);
+            return true;
+        }
         return false;
     }
-        
-    void TestWorkspace::close() 
+    
+    void TestWorkspace::close()
     {
+        m_current_fixture = nullptr;
+        for (auto &fixture: m_fixtures) {
+            fixture.second->close();
+        }
+        m_fixtures.clear();        
     }
 
-    TestWorkspace::TestWorkspace(std::size_t page_size, std::size_t cache_size)
+    TestWorkspace::TestWorkspace(std::size_t page_size, std::size_t slab_size, std::size_t cache_size)
         : TestWorkspaceBase(page_size, cache_size)
+        , m_slab_size(slab_size)
         , m_shared_object_list(100)
     {
     }
@@ -70,9 +88,14 @@ namespace db0
         using PrefixT = PrefixImpl<db0::Storage0>;
         auto prefix = std::shared_ptr<Prefix>(new PrefixT(prefix_name, m_cache_recycler, {}, m_page_size));
         auto proxy = std::make_shared<db0::tests::PrefixProxy>(prefix);
+        // prepare meta allocator for the 1st use
+        MetaAllocator::formatPrefix(prefix, m_page_size, m_slab_size);
         auto meta = std::make_shared<MetaAllocator>(proxy, &m_slab_recycler);
-        Memspace memspace(proxy, meta);
-        Fixture::formatFixture(memspace, *meta);
+        // prepare fixture to first use
+        {
+            Memspace memspace(proxy, meta);
+            Fixture::formatFixture(memspace, *meta);
+        }
         auto fixture = db0::make_swine<Fixture>(m_shared_object_list, proxy, meta);
         m_fixtures[fixture->getUUID()] = fixture;
         m_uuids[prefix_name] = fixture->getUUID();
@@ -99,4 +122,11 @@ namespace db0
         return m_current_fixture;
     }
 
+    void TestWorkspace::tearDown()
+    {
+        TestWorkspaceBase::tearDown();
+        close();
+        m_shared_object_list.clear();
+        m_slab_recycler.clear();
+    }
 }

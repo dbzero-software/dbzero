@@ -37,6 +37,8 @@ namespace db0
 
         std::uint32_t size() const;
 
+        void clear();
+
     private:
         const std::uint32_t m_capacity;
         std::uint32_t m_size = 0;
