@@ -95,7 +95,7 @@ namespace db0
         {
             return db0::serial::typeId<self_t>(
                 (db0::serial::typeId<item_t>() << 32) | (db0::serial::typeId<AddrT>() << 16) | 
-                static_cast<std::uint16_t>(db0::serial::CollectionTypes::VBIndex)
+                static_cast<std::uint16_t>(db0::serial::CollectionType::VBIndex)
             );
         }
 

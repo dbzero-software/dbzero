@@ -761,7 +761,7 @@ namespace db0
         {
             return db0::serial::typeId<self_t>(
                 (db0::serial::typeId<data_t>() << 32) | (db0::serial::typeId<AddrT>() << 16) |
-                static_cast<std::uint16_t>(db0::serial::CollectionTypes::VSortedVector)
+                static_cast<std::uint16_t>(db0::serial::CollectionType::VSortedVector)
             );
         }
 

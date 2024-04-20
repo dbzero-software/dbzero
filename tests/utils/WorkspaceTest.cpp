@@ -15,5 +15,9 @@ namespace tests
     void WorkspaceTest::TearDown() {
 		m_workspace.tearDown();
 	}
-    
+	
+	db0::swine_ptr<db0::Fixture> WorkspaceTest::getFixture() {
+		return m_workspace.getFixture("test-fixture-1");
+	}
+	
 }

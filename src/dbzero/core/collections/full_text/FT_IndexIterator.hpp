@@ -6,6 +6,7 @@
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
+#include <optional>
 
 namespace db0
 
@@ -22,13 +23,13 @@ namespace db0
 		using super_t = FT_Iterator<key_t>;
 		using iterator = typename bindex_t::joinable_const_iterator;
 
-		FT_IndexIterator(const bindex_t &data, int direction, std::uint64_t index_key = std::uint64_t());
+		FT_IndexIterator(const bindex_t &data, int direction, std::optional<std::uint64_t> index_key = {});
 
 		/**
          * Construct over already initialized simple iterator
          */
 		FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
-			std::uint64_t index_key = std::uint64_t());
+			std::optional<std::uint64_t> index_key = {});
 
         virtual ~FT_IndexIterator() = default;
         
@@ -92,7 +93,7 @@ namespace db0
         bool m_is_detached = false;
         bool m_has_detach_key = false;
         key_t m_detach_key;
-        const std::uint64_t m_index_key;
+        const std::optional<std::uint64_t> m_index_key;
 
         /**
          * Get valid iterator after detach
@@ -106,7 +107,8 @@ namespace db0
     };
 	
 	template <typename bindex_t, typename key_t>
-	FT_IndexIterator<bindex_t, key_t>::FT_IndexIterator(const bindex_t &data, int direction, std::uint64_t index_key)		
+	FT_IndexIterator<bindex_t, key_t>::FT_IndexIterator(const bindex_t &data, int direction, 
+		std::optional<std::uint64_t> index_key)
         : m_data(data)
         , m_direction(direction)
         , m_iterator(m_data.beginJoin(direction))
@@ -116,7 +118,7 @@ namespace db0
 
 	template <typename bindex_t, typename key_t>
 	FT_IndexIterator<bindex_t, key_t>::FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
-	    std::uint64_t index_key)		
+	    std::optional<std::uint64_t> index_key)
         : m_data(data)
         , m_direction(direction)
         , m_iterator(it)
@@ -244,7 +246,7 @@ namespace db0
 
 	template <typename bindex_t, typename key_t>
 	std::uint64_t FT_IndexIterator<bindex_t, key_t>::getIndexKey() const {
-		return m_index_key;
+		return *m_index_key;
 	}
 
 	template <typename bindex_t, typename key_t>
@@ -315,9 +317,13 @@ namespace db0
 		// write underlying type IDs
 		db0::serial::write(v, bindex_t::getSerialTypeId());
 		db0::serial::write(v, db0::serial::typeId<key_t>());
+		db0::serial::write(v, m_data.getMemspace().getUUID());
 		db0::serial::write<int8_t>(v, m_direction);
 		// index key is sufficient for deserialization
-		db0::serial::write(v, m_index_key);
+		db0::serial::write<bool>(v, m_index_key.has_value());
+		if (m_index_key) {
+			db0::serial::write(v, *m_index_key);
+		}
 	}
 
 } 

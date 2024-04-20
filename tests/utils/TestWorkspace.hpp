@@ -3,6 +3,9 @@
 #include <memory>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
+#include <dbzero/core/memory/VObjectCache.hpp>
+#include <dbzero/core/memory/SlabRecycler.hpp>
+#include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include "PrefixProxy.hpp"
 
@@ -32,7 +35,7 @@ namespace db0
     protected:
         static constexpr auto TEST_MEMSPACE_UUID = 0x12345678;
         const std::size_t m_page_size;
-        CacheRecycler m_cache_recycler;        
+        CacheRecycler m_cache_recycler;
         std::shared_ptr<db0::tests::PrefixProxy> m_prefix;
     };
     
@@ -50,7 +53,14 @@ namespace db0
         
         bool close(const std::string &prefix_name) override;
         
-        void close() override;    
+        void close() override;
+
+    private:
+        FixedObjectList m_shared_object_list;
+        SlabRecycler m_slab_recycler;
+        db0::swine_ptr<Fixture> m_current_fixture;
+        std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;
+        std::unordered_map<std::string, std::uint64_t> m_uuids;
     };
 
 }

@@ -8,7 +8,7 @@ namespace db0::serial
 {
 
     // DBZero serializable collection types must register here
-    enum class CollectionTypes: std::uint16_t
+    enum class CollectionType: std::uint16_t
     {
         Invalid = 0,
         MBIndex = 1,

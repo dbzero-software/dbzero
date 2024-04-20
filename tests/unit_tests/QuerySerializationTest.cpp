@@ -2,9 +2,11 @@
 #include <utils/WorkspaceTest.hpp>
 #include <dbzero/core/collections/range_tree/RangeTree.hpp>
 #include <dbzero/core/collections/range_tree/RT_SortIterator.hpp>
+#include <dbzero/core/collections/range_tree/RT_Serialization.hpp>
 #include <dbzero/core/collections/range_tree/RT_RangeIterator.hpp>
 #include <dbzero/core/collections/range_tree/RangeIteratorFactory.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
+#include <dbzero/core/collections/full_text/FT_Serialization.hpp>
 #include <dbzero/core/collections/range_tree/RT_FTIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 
@@ -75,12 +77,12 @@ namespace tests
         runTestCase(test);
         auto iter = buf.cbegin();
         // deserialize-construct
-        auto cut = RT_SortIterator<int, std::uint64_t>::deserialize(m_workspace, iter, buf.cend());
+        auto cut = deserializeRT_SortIterator<int, std::uint64_t>(m_workspace, iter, buf.cend());
         // iterate to confirm it was deserialized correctly
         std::vector<std::uint64_t> values;
-        while (!cut.isEnd()) {
+        while (!cut->isEnd()) {
             std::uint64_t value;
-            cut.next(&value);
+            cut->next(&value);
             values.push_back(value); 
         }
 

@@ -118,7 +118,7 @@ namespace db0
 		{
 			return db0::serial::typeId<self_t>(
 				(db0::serial::typeId<ItemT>() << 32) | (db0::serial::typeId<AddrT>() << 16) | 
-				static_cast<std::uint16_t>(db0::serial::CollectionTypes::MBIndex)
+				static_cast<std::uint16_t>(db0::serial::CollectionType::MBIndex)
 			);
 		}
 
@@ -614,7 +614,13 @@ namespace db0
 			m_interface.destroy(*m_memspace_ptr);
 		}
 
-	private :
+		Memspace &getMemspace() const
+		{
+			assert(m_memspace_ptr);
+			return *m_memspace_ptr;
+		}
+
+	private:
         /**
          * where all index instances are placed
          */

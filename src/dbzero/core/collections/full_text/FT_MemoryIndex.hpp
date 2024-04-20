@@ -45,11 +45,18 @@ namespace db0
         }
         
         // static type ID for serializations
-        static std::uint64_t getSerialTypeId() 
+        static std::uint64_t getSerialTypeId()
         {
 			return db0::serial::typeId<self_t>(
-				(db0::serial::typeId<KeyT>() << 16) | static_cast<std::uint16_t>(db0::serial::CollectionTypes::FT_MemoryIndex)
+				(db0::serial::typeId<KeyT>() << 16) | static_cast<std::uint16_t>(db0::serial::CollectionType::FT_MemoryIndex)
             );
+        }
+
+        // Memspace for compatibility purposes (serialization)
+        Memspace &getMemspace() const
+        {
+            static Memspace null_memspace;
+            return null_memspace;
         }
 
     private:
