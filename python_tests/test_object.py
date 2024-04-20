@@ -42,11 +42,17 @@ class DataClassMultiAttr:
         return self.value_1, self.value_2
 
 
-@db0.memo()
+@db0.memo
 class DataClassAttrMutation:
     def __init__(self, value):
         self.value = 123
         self.value = value
+
+
+@db0.memo
+class MemoWithSelfRef:
+    def __init__(self):
+        self.value = self
 
 
 def test_create_memo_object(db0_fixture):
@@ -161,3 +167,8 @@ def test_to_dict_outputs_references_as_uuid(db0_fixture):
     pd = db0.to_dict(object_2)    
     assert pd["value_1"] == 781
     assert pd["value_2"] == db0.uuid(object_1)
+
+
+def test_memo_object_can_keep_reference_to_self(db0_fixture):
+    object_1 = MemoWithSelfRef()
+    assert db0.uuid(object_1.value) == db0.uuid(object_1)

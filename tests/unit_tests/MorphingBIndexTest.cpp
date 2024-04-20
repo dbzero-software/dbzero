@@ -134,7 +134,7 @@ namespace tests
 		insertUnique(cut, { 1, 2, 3, 4 });
 		ASSERT_EQ(bindex::array_4, cut.getIndexType());
 	}
-
+	
 	TEST_F( MorphingBIndexTest , testStorageSizeGrowsWithNumberOfElements )
 	{
         auto memspace = getMemspace();

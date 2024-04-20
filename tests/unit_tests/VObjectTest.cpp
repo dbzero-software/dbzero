@@ -8,7 +8,7 @@ namespace tests
 {
 
 	using namespace db0;
-
+    
     struct [[gnu::packed]] o_test_data: db0::o_fixed<o_test_data>
     {
         std::uint32_t m_value;

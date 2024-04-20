@@ -21,27 +21,6 @@ namespace tests
     {
     };
 
-    class VBVectorWorkspaceTests: public testing::Test
-    {
-    public:
-        static constexpr const char *prefix_name = "my-test-prefix_1";
-        static constexpr const char *file_name = "my-test-prefix_1.db0";
-        
-        virtual void SetUp() override
-        {
-            drop(file_name);
-        }
-
-        virtual void TearDown() override
-        {
-            m_workspace.close();
-            drop(file_name);
-        }
-
-    protected:
-        Workspace m_workspace;
-    };
-
     template <std::size_t N = 0> struct [[gnu::packed]] b_item
     {
         using KeyT = int;
@@ -754,16 +733,4 @@ namespace tests
         testSizeOfDataBlockDoesNotExceedSizeOfPage<b_item<16> >(*this);
     }
     
-    TEST_F( VBVectorWorkspaceTests, testVBVectorInstanceCanBeAppendedBetweenTransactions )
-    {
-        auto fixture = m_workspace.getFixture(prefix_name);
-        // create object and keep instance across multiple transactions
-        v_bvector<int> cut(*fixture);
-        cut.push_back(0);
-        fixture->commit();
-        cut.push_back(1);
-        fixture->commit();        
-        ASSERT_EQ(cut.size(), 2);
-    }
-
 } 

@@ -65,7 +65,7 @@ namespace db0::object_model
     Dict::ObjectSharedPtr Dict::getItem(std::size_t key) const
     {
         auto iter = find(key);
-        if(iter != end()){
+        if (iter != end()) {
             auto [key, item] = *iter;
             auto [storage_class, value] = item.m_second;
             return unloadMember<LangToolkit>(*this, storage_class, value);

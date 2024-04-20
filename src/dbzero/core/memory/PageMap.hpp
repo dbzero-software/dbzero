@@ -71,7 +71,9 @@ namespace db0
     {
         PageKeyT key { first_page, state_num };
         while (key.first != end_page) {
-            m_cache.insert({key, lock});
+            // this is to overwrite existing keys which may already exist
+            // e.g. due to "missing" range sentinels
+            m_cache[key] = lock;
             ++key.first;
         }
     }

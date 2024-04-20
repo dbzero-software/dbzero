@@ -1,7 +1,7 @@
 #include "PyToolkit.hpp"
 #include "Memo.hpp"
-#include "List.hpp"
-#include "Tuple.hpp"
+#include <dbzero/bindings/python/collections/List.hpp>
+#include <dbzero/bindings/python/collections/Tuple.hpp>
 #include "Index.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/mptr.hpp>
@@ -10,8 +10,8 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/pandas/Block.hpp>
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
-#include <dbzero/bindings/python/Set.hpp>
-#include <dbzero/bindings/python/Dict.hpp>
+#include <dbzero/bindings/python/collections/Set.hpp>
+#include <dbzero/bindings/python/collections/Dict.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
@@ -62,7 +62,7 @@ namespace db0::python
         return memo_object;
     }
 
-    PyToolkit::ObjectPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, 
+    PyToolkit::ObjectPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,
         std::shared_ptr<Class> type, std::optional<std::uint32_t> instance_id)
     {
         auto memo_object = MemoObjectStub_new(type->getLangClass().steal());        
@@ -176,7 +176,6 @@ namespace db0::python
         // retrieve actual DBZero instance        
         db0::object_model::Dict::unload(&dict_object->ext(), fixture, address);
     
-
         // add list object to cache
         lang_cache.add(address, dict_object, false);
         return dict_object;

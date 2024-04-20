@@ -1,6 +1,7 @@
 #include "PyAPI.hpp"
 #include "PyToolkit.hpp"
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include "ObjectId.hpp"
@@ -9,7 +10,7 @@
 #include "Memo.hpp"
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
-#include "List.hpp"
+#include <dbzero/bindings/python/collections/List.hpp>
 #include "Memo.hpp"
 #include <dbzero/object_model/object/Object.hpp>
 
@@ -40,49 +41,12 @@ namespace db0::python
         cache_recycler.clear();
         Py_RETURN_NONE;
     }
-    
-    PyObject *tryFetch(PyObject *const *args, Py_ssize_t nargs)
-    {
-        if (nargs < 1 || nargs > 2) {
-            PyErr_SetString(PyExc_TypeError, "fetch requires 1 or 2 arguments");
-            return NULL;
-        }
-
-        PyTypeObject *type_arg = nullptr;
-        PyObject *uuid_arg = nullptr;
-        if (nargs == 1) {
-            uuid_arg = args[0];
-        } else {
-            if (!PyType_Check(args[0])) {
-                PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-                return NULL;
-            }
-            type_arg = reinterpret_cast<PyTypeObject*>(args[0]);
-            uuid_arg = args[1];
-        }
         
-        // decode ObjectId from string
-        if (PyUnicode_Check(uuid_arg)) {
-            auto uuid = PyUnicode_AsUTF8(uuid_arg);
-            return fetchObject(ObjectId::fromBase32(uuid), type_arg);
-        }
-        
-        if (PyType_Check(uuid_arg)) {
-            auto uuid_type = reinterpret_cast<PyTypeObject*>(uuid_arg);
-            // check if type_arg is exact or a base of uuid_arg
-            if (type_arg && !isBase(uuid_type, reinterpret_cast<PyTypeObject*>(type_arg))) {
-                PyErr_SetString(PyExc_TypeError, "Type mismatch");
-                return NULL;
-            }
-            return fetchSingletonObject(uuid_type);
-        }
-
-        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-        return NULL;        
+    PyObject *tryFetch(PyObject *const *args, Py_ssize_t nargs) {
+        return tryFetchFrom(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }
-    
-    PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
+
+    PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs) {
         return runSafe(tryFetch, args, nargs);
     }
 
@@ -417,6 +381,15 @@ namespace db0::python
         return py_result;
     }
     
+    PyObject *getBuildFlags(PyObject *, PyObject *)
+    {
+        std::stringstream str_flags;
+#ifndef NDEBUG
+        str_flags << "D";
+#endif  
+        return PyUnicode_FromString(str_flags.str().c_str());
+    }
+        
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>() {
         return db0::object_model::StorageClass::OBJECT_REF;
     }

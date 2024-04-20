@@ -14,6 +14,12 @@ namespace db0
     {
         std::uint32_t m_ref_count = 0;
 
+        o_object_header() = default;
+        inline o_object_header(std::uint32_t ref_count)
+            : m_ref_count(ref_count)
+        {
+        }
+
         void incRef();
 
         // return true if object is not referenced by any other object

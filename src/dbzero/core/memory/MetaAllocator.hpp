@@ -184,9 +184,9 @@ namespace db0
         std::shared_ptr<SlabAllocator> reserveNewSlab();
 
         /**
-         * Open existing slab for private use
+         * Open existing slab for private use (reserved slab)
         */
-        std::shared_ptr<SlabAllocator> openSlab(std::uint64_t address, std::size_t size) const;
+        std::shared_ptr<SlabAllocator> openReservedSlab(std::uint64_t address, std::size_t size) const;
 
         /**
          * Close the allocator and flush all modifications with backed

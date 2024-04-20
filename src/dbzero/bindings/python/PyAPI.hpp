@@ -4,7 +4,15 @@
 #include <Python.h>
 #include <string>
 #include "Memo.hpp"
-#include "List.hpp"
+#include <dbzero/bindings/python/collections/List.hpp>
+
+namespace db0
+
+{
+
+    class Snapshot;
+
+}
 
 namespace db0::python
 
@@ -96,8 +104,10 @@ namespace db0::python
     // convert to a Python dict
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
-    template <typename T> db0::object_model::StorageClass getStorageClass();
+    PyObject *getBuildFlags(PyObject *self, PyObject *args);
         
+    template <typename T> db0::object_model::StorageClass getStorageClass();
+
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>();
     template <> db0::object_model::StorageClass getStorageClass<ListObject>();
 

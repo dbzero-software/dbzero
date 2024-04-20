@@ -62,22 +62,27 @@ namespace db0::object_model
         // Try pulling an existing initialization value from under a specific index
         bool tryGetAt(unsigned int index, std::pair<StorageClass, Value> &) const;
 
-        bool operator==(const Object &other)
-        {
+        bool operator==(const Object &other) {
             return m_object_ptr == &other;
         }
         
-        inline Class &getClass()
-        {
+        inline Class &getClass() {
             return *m_class;
         }
 
         std::shared_ptr<Class> getClassPtr() const {
             return m_class;
         }
+
+        inline std::uint32_t getRefCount() const {
+            return m_ref_count;
+        }
         
         db0::swine_ptr<Fixture> getFixture() const;
         db0::swine_ptr<Fixture> tryGetFixture() const;
+
+        // performs a deferred incRef on an actual object instance (the ref-count reflected upon creation)
+        void incRef();
         
     private:
         // maximum size of the position-encoded value-block (pos-VT)
@@ -91,6 +96,7 @@ namespace db0::object_model
         mutable std::size_t m_sorted_size = 0;
         // key to be assigned to instance post-initialization
         std::optional<std::string> m_instance_key;
+        std::uint32_t m_ref_count = 0;
 
         // returns the number of unique elements extracted        
         std::uint32_t finalizeValues();

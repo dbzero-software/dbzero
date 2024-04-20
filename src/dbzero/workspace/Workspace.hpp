@@ -8,12 +8,14 @@
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/memory/SlabRecycler.hpp>
 #include <dbzero/core/memory/PrefixImpl.hpp>
+#include <dbzero/core/memory/VObjectCache.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include "Fixture.hpp"
 #include <thread>
 #include <filesystem>
 #include "PrefixCatalog.hpp"
+#include "Snapshot.hpp"
     
 namespace db0
 
@@ -109,14 +111,15 @@ namespace db0
     /**
      * Workspace extends BaseWorkspace and provides access to Fixtures instead of the raw Memspaces
     */
-    class Workspace: protected BaseWorkspace
+    class Workspace: protected BaseWorkspace, public Snapshot
     {
     public:
         static constexpr std::uint32_t DEFAULT_AUTOCOMMIT_INTERVAL_MS = 250;
+        static constexpr std::size_t DEFAULT_VOBJECT_CACHE_SIZE = 16384;
 
         Workspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
-            std::optional<std::size_t> slab_cache_size = {},
-            std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});
+            std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> vobject_cache_size = {},
+            std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});            
         virtual ~Workspace();
         
         /**
@@ -128,13 +131,13 @@ namespace db0
         /**
          * Get current fixture for read-only access
         */
-        db0::swine_ptr<Fixture> getCurrentFixture() const;
+        db0::swine_ptr<Fixture> getCurrentFixture(std::optional<AccessType> = {}) override;
 
         /**
          * Create new or open/get existing prefix associated fixture
          * access type must be provided when the prefix is accessed for the 1st time
          */
-        swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE,
+        swine_ptr<Fixture> getFixtureEx(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE,
             std::optional<std::uint64_t> state_num = {}, std::optional<std::size_t> page_size = {},
             std::optional<std::size_t> slab_size = {}, std::optional<std::size_t> sparse_index_node_size = {},
             bool autocommit = true);
@@ -143,7 +146,9 @@ namespace db0
          * Get existing fixture by UUID
          * if access type is specified then auto-open is also attmpted
         */
-        swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {});
+        swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+        
+        swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) override;
 
         /**
          * Find existing (opened) fixture or return nullptr
@@ -172,15 +177,15 @@ namespace db0
          * @param autocommit flag indicating if the prefix should be auto-committed
         */
         void open(const std::string &prefix_name, AccessType access_type, bool autocommit = true);
-
-        bool close(const std::string &prefix_name);
-        
+                
         bool drop(const std::string &prefix_name, bool if_exists = true);
+
+        bool close(const std::string &prefix_name) override;
 
         /**
          * Close all prefixes, drop all uncommited data
         */
-        void close();
+        void close() override;
         
         CacheRecycler &getCacheRecycler();
 
@@ -196,6 +201,11 @@ namespace db0
         
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> getFixtureInitializer() const;
 
+        FixedObjectList &getSharedObjectList() const;
+
+        // Get current fixture UUID
+        std::uint64_t getDefaultUUID() const;
+
     private:
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_fixture_initializer;
@@ -206,6 +216,8 @@ namespace db0
         std::unique_ptr<AutoCommitThread> m_auto_commit_thread;
         swine_ptr<db0::Fixture> m_default_fixture;
         std::vector<std::string> m_current_prefix_history;
+        // shared object list is for maintainig v_object cache evition policy at a process level
+        mutable FixedObjectList m_shared_object_list;
 
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
     };

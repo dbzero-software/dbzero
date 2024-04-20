@@ -228,4 +228,3 @@ def test_assign_tags_in_multiple_operations(db0_fixture):
                 
         count = len(list(db0.find("tag1")))
         assert count == 3 * (x + 1)
-        

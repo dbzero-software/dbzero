@@ -8,6 +8,8 @@ namespace db0
 
 {
 
+    class Allocator;
+
     /**
      * The Prefix interface represents a single DB0 Prefix space
      * Prefix can either be mutable or immutable, commit can be performed on a mutable Prefix only
@@ -19,6 +21,12 @@ namespace db0
         Prefix(std::string name);
 
         virtual ~Prefix() = default;
+
+        /**
+         * Allocates a new range with a specific allocator and maps it into memory of the current process
+         * @param addr_ptr optional pointer to store the allocated address
+        */
+        MemLock allocRange(Allocator &, std::size_t size, std::uint64_t *addr_ptr = nullptr) const;
 
         /**
          * Maps a specific address range into memory of the current process

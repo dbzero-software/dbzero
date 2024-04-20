@@ -47,7 +47,7 @@ namespace tests
     
     TEST_F( ValueTableTest , testMicroArrayCanBeCreatedWithValues )
     {
-        Workspace workspace("", {}, {}, db0::object_model::initializer());
+        Workspace workspace("", {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
         std::vector<StorageClass> values = { StorageClass::INT64, StorageClass::POOLED_STRING };
@@ -61,7 +61,7 @@ namespace tests
     
     TEST_F( ValueTableTest , testPosVTCanBeCreatedWithValues )
     {
-        Workspace workspace("", {}, {}, db0::object_model::initializer());
+        Workspace workspace("", {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
         PosVT::Data data;
@@ -78,7 +78,7 @@ namespace tests
 
     TEST_F( ValueTableTest , testPosVTItemsCanBeUpdatesPostCreate )
     {
-        Workspace workspace("", {}, {}, db0::object_model::initializer());
+        Workspace workspace("", {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
         PosVT::Data data;
@@ -97,7 +97,7 @@ namespace tests
 
     TEST_F( ValueTableTest , testPosVTMemberOffsets )
     {
-        Workspace workspace("", {}, {}, db0::object_model::initializer());
+        Workspace workspace("", {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
         PosVT::Data data;

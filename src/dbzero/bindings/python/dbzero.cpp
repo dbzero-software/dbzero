@@ -3,11 +3,11 @@
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
 #include "ObjectId.hpp"
-#include "List.hpp"
+#include <dbzero/bindings/python/collections/List.hpp>
 #include "Index.hpp"
-#include "Set.hpp"
-#include "Tuple.hpp"
-#include "Dict.hpp"
+#include <dbzero/bindings/python/collections/Set.hpp>
+#include <dbzero/bindings/python/collections/Tuple.hpp>
+#include <dbzero/bindings/python/collections/Dict.hpp>
 #include <dbzero/bindings/python/PyWorkspace.hpp>
 #include "PyObjectTagManager.hpp"
 #include "PyObjectIterator.hpp"
@@ -54,8 +54,11 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},
     {"is_tag", (PyCFunction)&py::MemoObject_IsTag, METH_FASTCALL, "Checks if a specific Memo instance is a tag"},
     {"to_dict", (PyCFunction)&py::toDict, METH_FASTCALL, "Serialize DBZero object as a Python dict"},
+    {"build_flags", &py::getBuildFlags, METH_NOARGS, "Retrieve DBZero library build flags"},
 #ifndef NDEBUG
-    {"write_bytes", &py::writeBytes, METH_VARARGS, "Debugging function"},
+    {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
+    {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
+    {"dbg_read_bytes", &py::readBytes, METH_VARARGS, "Debug function"},
 #endif
     {NULL} // Sentinel
 };

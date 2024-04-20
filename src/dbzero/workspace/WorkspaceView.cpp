@@ -17,7 +17,8 @@ namespace db0
     }
 
     WorkspaceView::WorkspaceView(std::shared_ptr<Workspace> workspace)
-        : m_workspace(workspace)        
+        : m_workspace(workspace)
+        , m_default_uuid(workspace->getDefaultUUID())
     {
         // take snapshots of all open fixtures
         m_workspace->forAll([this](const Fixture &fixture)
@@ -26,10 +27,14 @@ namespace db0
         });
     }
     
-    db0::swine_ptr<Fixture> WorkspaceView::getFixture(const std::string &prefix_name)
+    db0::swine_ptr<Fixture> WorkspaceView::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type)
     {
         if (m_closed) {
             THROWF(db0::InternalException) << "WorkspaceView is closed";
+        }
+
+        if (access_type && *access_type != AccessType::READ_ONLY) {
+            THROWF(db0::InternalException) << "WorkspaceView does not support read/write access";
         }
 
         auto it = m_name_uuids.find(prefix_name);
@@ -53,10 +58,14 @@ namespace db0
         return result;
     }
     
-    db0::swine_ptr<Fixture> WorkspaceView::getFixture(std::uint64_t uuid)
+    db0::swine_ptr<Fixture> WorkspaceView::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
     {
         if (m_closed) {
             THROWF(db0::InternalException) << "WorkspaceView is closed";
+        }
+        
+        if (access_type && *access_type != AccessType::READ_ONLY) {
+            THROWF(db0::InternalException) << "WorkspaceView does not support read/write access";
         }
 
         auto it = m_fixtures.find(uuid);
@@ -78,10 +87,10 @@ namespace db0
         return result;
     }
 
-    void WorkspaceView::close(const std::string &prefix_name)
+    bool WorkspaceView::close(const std::string &prefix_name)
     {
         if (m_closed) {
-            return;
+            return false;
         }
         auto it = m_name_uuids.find(prefix_name);
         if (it != m_name_uuids.end()) {
@@ -89,8 +98,11 @@ namespace db0
             if (it_fixture != m_fixtures.end()) {
                 it_fixture->second->close();
                 m_fixtures.erase(it_fixture);
+                return true;
             }
         }
+
+        return false;
     }
     
     void WorkspaceView::close()
@@ -107,8 +119,15 @@ namespace db0
         m_closed = true;
     }
     
-    WorkspaceView *WorkspaceView::makeNew(void *at_ptr, std::shared_ptr<Workspace> workspace)
+    db0::swine_ptr<Fixture> WorkspaceView::getCurrentFixture(std::optional<AccessType> access_type)
     {
+        if (access_type && *access_type != AccessType::READ_ONLY) {
+            THROWF(db0::InternalException) << "WorkspaceView does not support read/write access";
+        }
+        return getFixture(m_default_uuid);
+    }
+
+    WorkspaceView *WorkspaceView::makeNew(void *at_ptr, std::shared_ptr<Workspace> workspace) {
         return new (at_ptr) WorkspaceView(workspace);
     }
     

@@ -3,11 +3,10 @@
 #include <dbzero/bindings/TypeId.hpp>
 #include "Value.hpp"
 #include "StorageClass.hpp"
-#include <dbzero/core/serialization/Types.hpp>
-#include <dbzero/bindings/python/List.hpp>
-#include <dbzero/bindings/python/Set.hpp>
-#include <dbzero/bindings/python/Dict.hpp>
-#include <dbzero/bindings/python/Tuple.hpp>
+#include <dbzero/bindings/python/collections/List.hpp>
+#include <dbzero/bindings/python/collections/Set.hpp>
+#include <dbzero/bindings/python/collections/Dict.hpp>
+#include <dbzero/bindings/python/collections/Tuple.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/core/serialization/string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -23,9 +22,14 @@ namespace db0::object_model
 {
     
     template <typename LangToolkit, typename ContainerT> Value createMember(const ContainerT &object,
-        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass)
+        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
         using TypeId = db0::bindings::TypeId;
+        if (storage_class == StorageClass::DB0_SELF) {
+            // address of self-reference is not relevant
+            return 0;
+        }
+
         switch (type_id) {
             case TypeId::INTEGER: {
                 auto int_value = PyLong_AsLong(lang_value);
@@ -46,13 +50,15 @@ namespace db0::object_model
             }
             break;
 
-            case TypeId::MEMO_OBJECT:
-            {
+            case TypeId::MEMO_OBJECT: {
                 // extract address from the Memo object
-                auto &object = LangToolkit::getTypeManager().extractObject(lang_value);
-                object.modify().incRef();
-                return object.getAddress();
+                auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
+                assert(obj.hasInstance());
+                obj.incRef();
+                return obj.getAddress();
             }
+            break;
+
             case TypeId::DB0_BLOCK: {
                 // extract address from the Block object
                 return LangToolkit::getTypeManager().extractBlock(lang_value).getAddress();
@@ -193,13 +199,16 @@ namespace db0::object_model
     }
     
     template <typename LangToolkit, typename ContainerT> typename LangToolkit::ObjectSharedPtr unloadMember(
-        const ContainerT &object, o_typed_item typed_item) 
+        const ContainerT &object, o_typed_item typed_item, const char *name = nullptr) 
     {
-        return unloadMember<LangToolkit>(object, typed_item.m_storage_class, typed_item.m_value);
+        return unloadMember<LangToolkit>(object, typed_item.m_storage_class, typed_item.m_value, name);
     }
-
+    
+    /**
+     * @param name optional name (for error reporting only)
+    */
     template <typename LangToolkit, typename ContainerT> typename LangToolkit::ObjectSharedPtr unloadMember(
-        const ContainerT &object, StorageClass storage_class, Value value)
+        const ContainerT &object, StorageClass storage_class, Value value, const char *name = nullptr)
     {
         switch (storage_class)
         {
@@ -227,6 +236,14 @@ namespace db0::object_model
                 
                 // unload language specific object from DBZero
                 return LangToolkit::unloadObject(fixture, value.cast<std::uint64_t>(), class_factory);
+            }
+            break;
+
+            case StorageClass::DB0_SELF: {
+                auto &obj = reinterpret_cast<const Object&>(object);
+                // unload self-reference from DBZero (address and type known), no instance ID validation
+                auto fixture = object.getFixture();
+                return LangToolkit::unloadObject(fixture, obj.getAddress(), obj.getClassPtr());
             }
             break;
 
@@ -318,7 +335,8 @@ namespace db0::object_model
             
             default: {
                 THROWF(db0::InternalException)
-                    << "Invalid storage class in DB0 object (" << (int)storage_class << ")" << THROWF_END;
+                    << "Unable to get member: " << (name ? name : "<name-unknown>") << " as storage class " 
+                    << (int)storage_class << THROWF_END;
             }
             break;
         }

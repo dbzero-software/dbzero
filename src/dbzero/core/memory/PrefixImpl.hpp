@@ -50,13 +50,12 @@ namespace db0
         }
 
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) const override;
-
+        
         std::uint64_t size() const override;
 
         std::uint64_t getStateNum() const override;
         
-        std::size_t getPageSize() const override
-        {
+        std::size_t getPageSize() const override {
             return m_page_size;
         }
 
@@ -121,7 +120,7 @@ namespace db0
         }
 
         std::uint64_t read_state_num;
-        auto lock = m_cache.findRange(address, state_num, size, &read_state_num);            
+        auto lock = m_cache.findRange(address, state_num, size, &read_state_num);        
         if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read])
         {
             assert(getAccessType() == AccessType::READ_WRITE);
@@ -147,7 +146,7 @@ namespace db0
                     lock = m_cache.insertCopy(state_num, *lock, read_state_num, access_mode);
                 }
             } else {
-                // try finding the last available mutation
+                // try identifying the last available mutation
                 std::uint64_t mutation_id;
                 if (m_storage.tryFindMutation(address, state_num, size, mutation_id)) {
                     if (mutation_id != state_num) {

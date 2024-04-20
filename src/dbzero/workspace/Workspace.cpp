@@ -108,12 +108,13 @@ namespace db0
     }
     
     Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size, 
-        std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
+        std::optional<std::size_t> vobject_cache_size, std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
         : BaseWorkspace(root_path, cache_size, slab_cache_size)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
         , m_refresh_thread(std::make_unique<RefreshThread>())
         , m_auto_commit_thread(std::make_unique<AutoCommitThread>(DEFAULT_AUTOCOMMIT_INTERVAL_MS))
+        , m_shared_object_list(vobject_cache_size ? *vobject_cache_size : DEFAULT_VOBJECT_CACHE_SIZE)
     {
         // run refresh / autocommit threads
         m_threads.emplace_back([this]() {
@@ -182,7 +183,7 @@ namespace db0
         return BaseWorkspace::getCacheRecycler();
     }
 
-    swine_ptr<Fixture> Workspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type,
+    swine_ptr<Fixture> Workspace::getFixtureEx(const std::string &prefix_name, std::optional<AccessType> access_type,
         std::optional<std::uint64_t> state_num, std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size, bool autocommit)
     {
@@ -200,7 +201,7 @@ namespace db0
                     // initialize new fixture
                     Fixture::formatFixture(Memspace(prefix, allocator), *allocator);
                 }
-                auto fixture = db0::make_swine<Fixture>(prefix, allocator);
+                auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator);
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
                     m_fixture_initializer(fixture, file_created);
@@ -265,7 +266,7 @@ namespace db0
                 THROWF(db0::InputException) << "Fixture with UUID " << uuid << " not found";
             }
             // try opening fixture by name
-            return getFixture(*maybe_prefix_name, *access_type);
+            return getFixtureEx(*maybe_prefix_name, *access_type);
         }
         
         return it->second;
@@ -334,17 +335,20 @@ namespace db0
         return m_default_fixture;
     }
     
-    db0::swine_ptr<Fixture> Workspace::getCurrentFixture() const
+    db0::swine_ptr<Fixture> Workspace::getCurrentFixture(std::optional<AccessType> access_type)
     {
         if (!m_default_fixture) {
             THROWF(db0::InternalException) << "DBZero: no default prefix exists";
         }
+        if (access_type && *access_type != AccessType::READ_ONLY) {
+            THROWF(db0::InputException) << "DBZero: getCurrentFixture allows READ-ONLY access";
+        }   
         return m_default_fixture;
     }
     
     void Workspace::open(const std::string &prefix_name, AccessType access_type, bool autocommit)
     {
-        auto fixture = getFixture(prefix_name, access_type, {}, {}, {}, {}, autocommit);
+        auto fixture = getFixtureEx(prefix_name, access_type, {}, {}, {}, {}, autocommit);
         // update default fixture
         if (!m_default_fixture || (m_default_fixture->getAccessType() <= access_type)) {
             m_default_fixture = fixture;
@@ -352,4 +356,20 @@ namespace db0
         }
     }
 
+    FixedObjectList &Workspace::getSharedObjectList() const {
+        return m_shared_object_list;
+    }
+    
+    std::uint64_t Workspace::getDefaultUUID() const
+    {
+        if (!m_default_fixture) {
+            THROWF(db0::InternalException) << "DBZero: no default prefix exists";
+        }
+        return m_default_fixture->getUUID();
+    }
+    
+    swine_ptr<Fixture> Workspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type) {
+        return getFixtureEx(prefix_name, access_type);
+    }
+    
 }

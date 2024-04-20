@@ -21,6 +21,7 @@ namespace db0::object_model
         addMapping(TypeId::DB0_LIST, StorageClass::DB0_LIST);
         addMapping(TypeId::DB0_DICT, StorageClass::DB0_DICT);
         addMapping(TypeId::DB0_SET, StorageClass::DB0_SET);
+        addMapping(TypeId::DB0_TUPLE, StorageClass::DB0_TUPLE);
         addMapping(TypeId::DB0_BLOCK, StorageClass::DB0_BLOCK);
         addMapping(TypeId::DB0_INDEX, StorageClass::DB0_INDEX);
         addMapping(TypeId::DB0_PANDAS_DATAFRAME, StorageClass::DB0_PANDAS_DATAFRAME);

@@ -7,20 +7,19 @@ namespace db0::python
     
     static PyMethodDef PySnapshot_methods[] = 
     {
-        {"fetch", &PySnapshot_fetch, METH_VARARGS, "Fetch DBZero object instance by its ID or type (in case of a singleton)"},
+        {"fetch", (PyCFunction)&PySnapshot_fetch, METH_FASTCALL, "Fetch DBZero object instance by its ID or type (in case of a singleton)"},
+        {"find", (PyCFunction)&PySnapshot_find, METH_FASTCALL, ""},
         {"close", &PySnapshot_close, METH_NOARGS, "Close DBZero snapshot"},
         {"__enter__", &PySnapshot_enter, METH_NOARGS, "Enter DBZero snapshot context"},
         {"__exit__", &PySnapshot_exit, METH_VARARGS, "Exit DBZero snapshot context"},
         {NULL}
     };
     
-    PySnapshotObject *PySnapshot_new(PyTypeObject *type, PyObject *, PyObject *)
-    {
+    PySnapshotObject *PySnapshot_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PySnapshotObject*>(type->tp_alloc(type, 0));
     }
 
-    PySnapshotObject *PySnapshotDefault_new()
-    {   
+    PySnapshotObject *PySnapshotDefault_new() {   
         return PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
     }
     
@@ -59,47 +58,41 @@ namespace db0::python
         return py_object;
     }
     
-    PyObject *tryPySnapshot_fetch(PyObject *self, PyObject *args)
+    PyObject *tryPySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (!PySnapshot_Check(self)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
 
-        PyObject *py_object;
-        if (!PyArg_ParseTuple(args, "O", &py_object)) {
-            THROWF(db0::InputException) << "Invalid open arguments";
-        }
-
-        // detect which argument type was used
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->ext();
-        // decode ObjectId from string
-        if (PyUnicode_Check(py_object)) {            
-            auto object_id = ObjectId::fromBase32(PyUnicode_AsUTF8(py_object));                
-            auto fixture = snapshot.getFixture(object_id.m_fixture_uuid);
-            return fetchObject(fixture, object_id);
-        }
-        
-        if (PyType_Check(py_object)) {
-            return fetchSingletonObject(snapshot, reinterpret_cast<PyTypeObject*>(py_object));
-        }
-
-        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-        return NULL;
-    }
-    
-    PyObject *PySnapshot_fetch(PyObject *self, PyObject *args)
-    {
-        return runSafe(tryPySnapshot_fetch, self, args);
+        return tryFetchFrom(snapshot, args, nargs);
     }
 
-    PyObject *PySnapshot_enter(PyObject *self, PyObject *)
+    PyObject *tryPySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
+        if (!PySnapshot_Check(self)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->ext();
+        return findIn(snapshot, args, nargs);
+    }
+
+    PyObject *PySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
+        return runSafe(tryPySnapshot_fetch, self, args, nargs);
+    }
+
+    PyObject *PySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
+        return runSafe(tryPySnapshot_find, self, args, nargs);
+    }
+
+    PyObject *PySnapshot_enter(PyObject *self, PyObject *) {
         return self;
     }
 
-    PyObject *PySnapshot_exit(PyObject *self, PyObject *)
-    {
+    PyObject *PySnapshot_exit(PyObject *self, PyObject *) {
         return PySnapshot_close(self, NULL);
     }
 
@@ -126,8 +119,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *PySnapshot_close(PyObject *self, PyObject *args)
-    {
+    PyObject *PySnapshot_close(PyObject *self, PyObject *args) {
         return runSafe(tryPySnapshot_close, self, args);
     }
 

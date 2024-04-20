@@ -155,7 +155,7 @@ namespace db0
 
     void BDevStorage::read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags) const
-    {
+    {        
         assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::read: size must be page-aligned");

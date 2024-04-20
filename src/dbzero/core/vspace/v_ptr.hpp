@@ -43,7 +43,7 @@ namespace db0
             db0::RESOURCE_AVAILABLE_FOR_RW,
             db0::RESOURCE_AVAILABLE_FOR_RW,
             db0::RESOURCE_LOCK >;
-                
+
         /**
          * Within-prefix address of this object
         */
@@ -52,7 +52,7 @@ namespace db0
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         // initial access flags (e.g. read / write / create)
         const FlagSet<AccessOptions> m_access_mode;
-
+        
         /**
          * Memory mapped range corresponding to this object
         */
@@ -197,7 +197,7 @@ namespace db0
             this->m_address = 0;
             this->m_resource_flags = 0;
         }
-
+        
         ContainerT &modify()
         {
             assert(m_memspace_ptr);
@@ -206,6 +206,7 @@ namespace db0
                 ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
                     // lock for +write
+                    // note that lock is getting updated, possibly copy-on-write is being performed
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
                         m_address, this->getSize(), m_access_mode | AccessOptions::write);
                     lock.commit_set();

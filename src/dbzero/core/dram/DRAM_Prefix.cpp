@@ -6,11 +6,8 @@ namespace db0
 
 {
 
-    db0::Storage0 DRAM_Prefix::DEV_NULL;
-    db0::StorageView DRAM_Prefix::DEV_NULL_VIEW(DEV_NULL, Storage0::STATE_NULL);
-
-    DRAM_Prefix::MemoryPage::MemoryPage(std::uint64_t address, std::size_t size)
-        : m_lock(std::make_shared<ResourceLock>(DRAM_Prefix::DEV_NULL_VIEW, address, size, FlagSet<AccessOptions>()))
+    DRAM_Prefix::MemoryPage::MemoryPage(StorageView &storage_view, std::uint64_t address, std::size_t size)
+        : m_lock(std::make_shared<ResourceLock>(storage_view, address, size, FlagSet<AccessOptions>()))
         // pull from Storage0 temp instance
         , m_buffer(m_lock->getBuffer(address, 0))
     {
@@ -19,6 +16,8 @@ namespace db0
     DRAM_Prefix::DRAM_Prefix(std::size_t page_size)
         : Prefix("/sys/DRAM")
         , m_page_size(page_size)
+        , m_dev_null(page_size)
+        , m_dev_null_view(m_dev_null, Storage0::STATE_NULL)
     {
     }
     
@@ -27,7 +26,7 @@ namespace db0
         close();
     }
     
-    MemLock DRAM_Prefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions>) const 
+    MemLock DRAM_Prefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions>) const
     {
         auto page_num = address / m_page_size;
         auto offset = address % m_page_size;
@@ -36,7 +35,7 @@ namespace db0
         }
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
-            it = m_pages.emplace(page_num, MemoryPage(address - offset, m_page_size)).first;
+            it = m_pages.emplace(page_num, MemoryPage(m_dev_null_view, address - offset, m_page_size)).first;
         }
         return { (std::byte*)it->second.m_buffer + offset, it->second.m_lock };
     }
@@ -70,7 +69,7 @@ namespace db0
     {
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
-            it = m_pages.emplace(page_num, MemoryPage(page_num * m_page_size, m_page_size)).first;
+            it = m_pages.emplace(page_num, MemoryPage(m_dev_null_view, page_num * m_page_size, m_page_size)).first;
         }
         std::memcpy(it->second.m_buffer, bytes, m_page_size);
         if (mark_dirty) {
