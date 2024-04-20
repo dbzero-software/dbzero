@@ -1,22 +1,29 @@
 #include "List.hpp"
 #include <dbzero/object_model/list/List.hpp>
+#include <dbzero/object_model/list/ListIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include "ListIterator.hpp"
-#include "Utils.hpp"
+#include "Iterator.hpp"
+#include <dbzero/bindings/python/Utils.hpp>
 
 namespace db0::python
 {
     
+    using ListIteratorObject = PyWrapper<db0::object_model::ListIterator>;
+
+    PyTypeObject ListIteratorObjectType = GetIteratorType<ListIteratorObject>("dbzero_ce.ListIterator",
+                                                                              "DBZero list iterator");
+
+    ListIteratorObject *ListObject_iter(ListObject *self)
+    {
+        return makeIterator<ListIteratorObject,db0::object_model::ListIterator>(ListIteratorObjectType, 
+            self->ext().begin(), &self->ext());        
+    }
+
     PyObject *ListObject_GetItem(ListObject *list_obj, Py_ssize_t i)
     {
         list_obj->ext().getFixture()->refreshIfUpdated();
         return list_obj->ext().getItem(i).steal();
-    }
-    
-    ListIteratorObject *ListObject_iter(ListObject *self)
-    {
-        return makeIterator(self->ext().begin(), &self->ext());        
     }
 
     PyObject *ListObject_multiply(ListObject *list_obj, PyObject *elem)

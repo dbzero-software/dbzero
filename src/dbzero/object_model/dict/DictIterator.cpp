@@ -1,7 +1,6 @@
 #include "DictIterator.hpp"
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/value/Member.hpp>
-#include <dbzero/bindings/python/Tuple.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 
 namespace db0::object_model

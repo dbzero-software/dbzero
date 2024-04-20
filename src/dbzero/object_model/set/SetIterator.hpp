@@ -1,3 +1,4 @@
+#pragma once
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include "Set.hpp"
 #include <dbzero/object_model/iterators/PyObjectIterator.hpp>
