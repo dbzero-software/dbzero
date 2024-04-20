@@ -79,7 +79,7 @@ namespace db0
 
 	    std::size_t getDepth() const override;
 
-		FTIteratorTypeId getSerializationTypeId() const override;
+		FTIteratorType getSerialTypeId() const override;
 
         void serialize(std::vector<std::byte> &) const override;
 		
@@ -305,19 +305,19 @@ namespace db0
 	}
 	
 	template <typename bindex_t, typename key_t>
-	FTIteratorTypeId FT_IndexIterator<bindex_t, key_t>::getSerializationTypeId() const {
-		return FTIteratorTypeId::Index;
+	FTIteratorType FT_IndexIterator<bindex_t, key_t>::getSerialTypeId() const {
+		return FTIteratorType::Index;
 	}
 
 	template <typename bindex_t, typename key_t>
-	void FT_IndexIterator<bindex_t, key_t>::serialize(std::vector<std::byte> &buf) const 
+	void FT_IndexIterator<bindex_t, key_t>::serialize(std::vector<std::byte> &v) const 
 	{
 		// write underlying type IDs
-		db0::write(buf, db0::typeId<bindex_t>());
-		db0::write(buf, db0::typeId<key_t>());
-		db0::write(buf, m_direction);
+		db0::serial::write(v, bindex_t::getSerialTypeId());
+		db0::serial::write(v, db0::serial::typeId<key_t>());
+		db0::serial::write<int8_t>(v, m_direction);
 		// index key is sufficient for deserialization
-		db0::write(buf, m_index_key);
+		db0::serial::write(v, m_index_key);
 	}
 
 } 

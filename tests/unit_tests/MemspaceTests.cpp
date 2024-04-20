@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 

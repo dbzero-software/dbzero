@@ -13,6 +13,7 @@ namespace db0
     template <typename KeyT, typename CompT = std::less<KeyT> > class FT_MemoryIndex
     {
     public:
+        using self_t = FT_MemoryIndex<KeyT, CompT>;
         using joinable_const_iterator = db0::joinable_const_iterator<KeyT, CompT>;
 
         FT_MemoryIndex(const KeyT *begin, const KeyT *end)
@@ -43,6 +44,14 @@ namespace db0
             return bindex::empty;
         }
         
+        // static type ID for serializations
+        static std::uint64_t getSerialTypeId() 
+        {
+			return db0::serial::typeId<self_t>(
+				(db0::serial::typeId<KeyT>() << 16) | static_cast<std::uint16_t>(db0::serial::CollectionTypes::FT_MemoryIndex)
+            );
+        }
+
     private:
         const KeyT *m_begin;
         const KeyT *m_end;

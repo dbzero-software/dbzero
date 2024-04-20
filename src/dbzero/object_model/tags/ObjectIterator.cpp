@@ -132,7 +132,7 @@ namespace db0::object_model
     void ObjectIterator::serialize(std::vector<std::byte> &buf) const
     {        
         // FIXTURE uuid
-        db0::write(buf, m_fixture->getUUID());
+        db0::serial::write(buf, m_fixture->getUUID());
         std::uint16_t inner_count = 0;
         if (m_query_iterator) {
             ++inner_count;
@@ -143,20 +143,20 @@ namespace db0::object_model
         if (m_factory) {
             ++inner_count;
         }
-        db0::write(buf, inner_count);
+        db0::serial::write(buf, inner_count);
         if (m_query_iterator) {
-            db0::write<std::uint8_t>(buf, 1);
-            db0::write(buf, m_query_iterator->getSerializationTypeId());
+            db0::serial::write<std::uint8_t>(buf, 1);
+            db0::serial::write(buf, m_query_iterator->getSerialTypeId());
             m_query_iterator->serialize(buf);
         }
         if (m_sorted_iterator) {
-            db0::write<std::uint8_t>(buf, 2);
-            db0::write(buf, m_sorted_iterator->getSerializationTypeId());
+            db0::serial::write<std::uint8_t>(buf, 2);
+            db0::serial::write(buf, m_sorted_iterator->getSerialTypeId());
             m_sorted_iterator->serialize(buf);
         }
         if (m_factory) {
-            db0::write<std::uint8_t>(buf, 3);
-            db0::write(buf, m_factory->getSerializationTypeId());
+            db0::serial::write<std::uint8_t>(buf, 3);
+            db0::serial::write(buf, m_factory->getSerialTypeId());
             m_factory->serialize(buf);
         }
     }

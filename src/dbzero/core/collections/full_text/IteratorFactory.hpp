@@ -26,7 +26,7 @@ namespace db0
 
         virtual std::unique_ptr<FT_Iterator<KeyT> > createFTIterator() = 0;
 
-        virtual IteratorFactoryTypeId getSerializationTypeId() const = 0;
+        virtual IteratorFactoryTypeId getSerialTypeId() const = 0;
     };
     
 }

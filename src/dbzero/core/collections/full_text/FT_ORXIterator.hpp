@@ -112,13 +112,14 @@ namespace db0
 
         virtual void detach();
 
-        FTIteratorTypeId getSerializationTypeId() const override;
+        FTIteratorType getSerialTypeId() const override;
         
-        void serialize(std::vector<std::byte> &) const override;        
+        void serialize(std::vector<std::byte> &) const override;  
 		
     private:
 
-		struct heap_item {
+		struct heap_item
+		{
 			db0::FT_Iterator<key_t> *it = nullptr;
 			key_t key;
 			bool is_end = false;
@@ -142,12 +143,14 @@ namespace db0
 				}
 			}
 
-			void joinBound(key_t join_key) {
+			void joinBound(key_t join_key) 
+			{
 				it->joinBound(join_key);
 				this->key = it->getKey();
 			}
 
-			void operator++() {
+			void operator++() 
+			{
 				++(*it);
 				if (it->isEnd()) {
 					this->is_end = true;
@@ -157,7 +160,8 @@ namespace db0
 				}
 			}
 
-			void operator--() {
+			void operator--()
+			{
 				--(*it);
 				if (it->isEnd()) {
 					this->is_end = true;

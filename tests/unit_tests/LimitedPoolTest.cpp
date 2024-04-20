@@ -3,7 +3,7 @@
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/Ext.hpp>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 #include <dbzero/core/serialization/string.hpp>
 
 using namespace std;

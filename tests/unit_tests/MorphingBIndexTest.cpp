@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 #include <unordered_set>
 #include <initializer_list>
 #include <set>

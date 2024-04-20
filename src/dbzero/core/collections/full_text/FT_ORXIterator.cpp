@@ -647,9 +647,25 @@ namespace db0
     }
 	
 	template <typename key_t>
-	const std::type_info &db0::FT_JoinORXIterator<key_t>::typeId() const
-	{
+	const std::type_info &db0::FT_JoinORXIterator<key_t>::typeId() const {
 		return typeid(self_t);
+	}
+
+	template <typename key_t> 
+	db0::FTIteratorType db0::FT_JoinORXIterator<key_t>::getSerialTypeId() const {
+		return FTIteratorType::JoinOr;
+	}
+
+	template <typename key_t>
+	void db0::FT_JoinORXIterator<key_t>::serialize(std::vector<std::byte> &v) const 
+	{
+		db0::serial::write(v, db0::serial::typeId<key_t>());
+		db0::serial::write<std::int8_t>(v, m_direction);
+		db0::serial::write(v, m_is_orx);
+		db0::serial::write<std::uint32_t>(v, m_joinable.size());
+		for (const auto &it: m_joinable) {
+			it->serialize(v);
+		}	
 	}
 
     template class FT_JoinORXIterator<std::uint64_t>;

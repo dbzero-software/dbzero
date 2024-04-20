@@ -20,8 +20,8 @@ namespace db0
     }
     
     Fixture::Fixture(FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
-        : Memspace(prefix, meta)
-        , m_UUID(getUUID(*meta))
+        : Memspace(prefix, meta, getUUID(*meta))
+        , m_UUID(*m_derived_UUID)
         , m_string_pool(openLimitedStringPool(*this, *meta))
         , m_object_catalogue(openObjectCatalogue(*meta))
         , m_v_object_cache(*this, shared_object_list)
@@ -61,7 +61,7 @@ namespace db0
     {
         using v_fixture = v_object<o_fixture>;
         
-        Memspace memspace(prefix, meta, Memspace::tag_from_reference{});
+        Memspace memspace(Memspace::tag_from_reference{}, prefix, meta);
         v_fixture fx(memspace.myPtr(meta.getFirstAddress()));
         return fx->m_UUID;
     }

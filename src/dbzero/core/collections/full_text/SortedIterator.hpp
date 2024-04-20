@@ -8,7 +8,8 @@ namespace db0
 
 {
 
-    enum class SortedIteratorTypeId: std::uint16_t
+    // Sorted iterator implementations should register here (for serialization)
+    enum class SortedIteratorType: std::uint16_t
     {
         Invalid = 0,
         RT_Sort = 1
@@ -38,7 +39,7 @@ namespace db0
         */
         virtual std::unique_ptr<SortedIterator<ValueT> > beginSorted(std::unique_ptr<QueryIterator> ft_query = nullptr) const = 0;
 
-        virtual SortedIteratorTypeId getSerializationTypeId() const = 0;
+        virtual SortedIteratorType getSerialTypeId() const = 0;
     };
     
 }

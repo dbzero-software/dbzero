@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/memory/BitSpace.hpp>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 
 using namespace std;
 

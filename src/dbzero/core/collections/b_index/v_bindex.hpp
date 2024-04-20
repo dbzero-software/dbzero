@@ -5,6 +5,7 @@
 #include "v_bindex_const_iterator.hpp"
 #include "v_bindex_joinable_const_iterator.hpp"
 #include "v_bindex_joinable_iterator.hpp"
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
@@ -13,6 +14,7 @@ namespace db0
     template <typename item_t, typename AddrT = std::uint64_t, typename item_comp_t = std::less<item_t> >
     class v_bindex: public v_object<typename bindex_types<item_t, item_comp_t>::bindex_container>
     {
+        using self_t = v_bindex<item_t, AddrT, item_comp_t>;
         using super_t = v_object<typename bindex_types<item_t, item_comp_t>::bindex_container>;
         using types_t = bindex_types<item_t, AddrT, item_comp_t>;
         using node_iterator = typename types_t::node_iterator;
@@ -86,6 +88,15 @@ namespace db0
         v_bindex(const data_vector &in, DestroyF item_destroy_func = {})
             : v_bindex(in.getMemspace(), in.begin(), in.end(), item_destroy_func)
         {
+        }
+
+        // static type ID requied for serialization
+        static auto getSerialTypeId()
+        {
+            return db0::serial::typeId<self_t>(
+                (db0::serial::typeId<item_t>() << 32) | (db0::serial::typeId<AddrT>() << 16) | 
+                static_cast<std::uint16_t>(db0::serial::CollectionTypes::VBIndex)
+            );
         }
 
         bindex::type getIndexType() const {

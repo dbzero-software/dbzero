@@ -6,6 +6,7 @@
 #include "bindex_types.hpp"
 #include "bindex_interface.hpp"
 #include "bindex_iterator.hpp"
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
@@ -24,7 +25,7 @@ namespace db0
 	class MorphingBIndex
     {
 	public :
-        using self_t = MorphingBIndex<ItemT, Compare>;
+        using self_t = MorphingBIndex<ItemT, AddrT, Compare>;
         using definition_t = bindex::MorphingBIndexDefinition<ItemT, AddrT, Compare>;
         using item_t = typename definition_t::item_t;
         using item_comp_t = typename definition_t::item_comp_t;
@@ -70,7 +71,7 @@ namespace db0
 		MorphingBIndex(Memspace &memspace, bindex::type initial_type = bindex::empty, std::uint32_t SV_SIZE_LIMIT = 48)
 			: m_memspace_ptr(&memspace)
 			, m_sv_limit(suggestMaxSize(SV_SIZE_LIMIT))
-		{
+		{			
 			if (initial_type == bindex::empty) {
 				createNew<bindex::empty>();
 			} else if (initial_type == bindex::sorted_vector) {
@@ -111,6 +112,15 @@ namespace db0
             , m_interface(other.m_interface)
         {
         }
+
+		// construct a static typeId (required for serialization)
+		static auto getSerialTypeId()
+		{
+			return db0::serial::typeId<self_t>(
+				(db0::serial::typeId<ItemT>() << 32) | (db0::serial::typeId<AddrT>() << 16) | 
+				static_cast<std::uint16_t>(db0::serial::CollectionTypes::MBIndex)
+			);
+		}
 
         MorphingBIndex &operator=(const MorphingBIndex &other)
 		{

@@ -65,10 +65,10 @@ namespace db0
 	}
 
 	template <typename key_t, bool UniqueKeys>
-	void FT_JoinANDIterator<key_t, UniqueKeys>::operator++() {
+	void FT_JoinANDIterator<key_t, UniqueKeys>::operator++() 
+    {
         assert(m_direction > 0);
-        assert(!isEnd());
-        ++m_pos;
+        assert(!isEnd());        
         if constexpr (UniqueKeys) {
             _nextUnique();
         } else {
@@ -87,9 +87,8 @@ namespace db0
         assert(m_direction < 0);
         assert(!isEnd());
         if (buf) {
-            std::memcpy(buf, &m_join_key, sizeof(m_join_key));
-        }
-        ++m_pos;
+            reinterpret_cast<key_t*>(buf)[0] = m_join_key;            
+        }        
         if constexpr (UniqueKeys) {
             _nextUnique();
         } else {
@@ -116,8 +115,7 @@ namespace db0
 
 	template <typename key_t, bool UniqueKeys>
 	bool FT_JoinANDIterator<key_t, UniqueKeys>::join(key_t join_key, int direction)
-    {
-		++m_pos;
+    {		
 		if ((*m_joinable.front()).join(join_key, direction)) {
 			joinAll();
 			return !isEnd();
@@ -139,11 +137,10 @@ namespace db0
 			if (m_join_key!=key) {
 				break;
 			}
-		}
-		++m_pos;
+		}		
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	std::pair<key_t, bool> FT_JoinANDIterator<key_t, UniqueKeys>::peek(key_t join_key) const 
     {
 		key_t lead_key = join_key;
@@ -163,7 +160,7 @@ namespace db0
 		return std::make_pair(lead_key, true);
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	std::unique_ptr<FT_Iterator<key_t> > FT_JoinANDIterator<key_t, UniqueKeys>::clone(
 		CloneMap<FT_Iterator<key_t> > *clone_map_ptr) const
 	{        
@@ -174,7 +171,7 @@ namespace db0
 			}
 		}
 		std::unique_ptr<FT_Iterator<key_t> > result(new FT_JoinANDIterator<key_t, UniqueKeys>(
-			std::move(temp), m_direction, m_end, m_pos, m_join_key, tag_cloned())
+			std::move(temp), m_direction, m_end, m_join_key, tag_cloned())
 		);
 		result->setID(this->getID());
 		if (clone_map_ptr) {
@@ -196,7 +193,7 @@ namespace db0
         return result;
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	bool FT_JoinANDIterator<key_t, UniqueKeys>::limitBy(key_t key) 
     {
 		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it!=itend; ++it) {
@@ -208,7 +205,7 @@ namespace db0
 		return true;
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	std::ostream &FT_JoinANDIterator<key_t, UniqueKeys>::dump(std::ostream &os) const 
     {
 		os << "AND@" << this << "[";
@@ -223,12 +220,12 @@ namespace db0
 		return os << "]";
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	bool FT_JoinANDIterator<key_t, UniqueKeys>::equal(const FT_IteratorBase &it) const 
     {
 		if (it.typeId() == this->typeId()) {
 			const FT_JoinANDIterator<key_t, UniqueKeys> &and_it = static_cast<const FT_JoinANDIterator<key_t, UniqueKeys>&>(it);
-			if (m_joinable.size()==and_it.m_joinable.size()) {
+			if (m_joinable.size() == and_it.m_joinable.size()) {
 				// compare joinables ( order irrelevant )
 				std::list<const FT_Iterator<key_t>*> refs;
 				for (auto it = and_it.m_joinable.begin(),itend = and_it.m_joinable.end();it!=itend;++it) {
@@ -254,7 +251,7 @@ namespace db0
 		return false;
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	const FT_IteratorBase *FT_JoinANDIterator<key_t, UniqueKeys>::find(const FT_IteratorBase &it) const 
     {
 		// self-check first
@@ -262,7 +259,7 @@ namespace db0
 			return this;
 		}
 		// find in joinables
-		for (auto it_sub = m_joinable.begin(),itend = m_joinable.end();it_sub!=itend;++it_sub) {
+		for (auto it_sub = m_joinable.begin(), itend = m_joinable.end();it_sub!=itend;++it_sub) {
 			const FT_IteratorBase *it_filter = (*it_sub)->find(it);
 			if (it_filter) {
 				return it_filter;
@@ -272,12 +269,12 @@ namespace db0
 		return 0;
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	void FT_JoinANDIterator<key_t, UniqueKeys>::setEnd() {
 		m_end = true;
 	}
 
-    template<typename key_t, bool UniqueKeys> void FT_JoinANDIterator<key_t, UniqueKeys>::_next()
+    template <typename key_t, bool UniqueKeys> void FT_JoinANDIterator<key_t, UniqueKeys>::_next()
     {
         if (m_direction > 0) {
             FT_Iterator<key_t> *lead_it = m_joinable.front().get();
@@ -310,7 +307,7 @@ namespace db0
         }
     }
     
-    template<typename key_t, bool UniqueKeys> void FT_JoinANDIterator<key_t, UniqueKeys>::_nextUnique()
+    template <typename key_t, bool UniqueKeys> void FT_JoinANDIterator<key_t, UniqueKeys>::_nextUnique()
     {
         if (m_direction > 0) {
             FT_Iterator<key_t> &lead_it = *m_joinable.front();
@@ -335,7 +332,7 @@ namespace db0
         }
     }
 
-	template<typename key_t, bool UniqueKeys> void FT_JoinANDIterator<key_t, UniqueKeys>::joinAll() 
+	template <typename key_t, bool UniqueKeys> void FT_JoinANDIterator<key_t, UniqueKeys>::joinAll() 
     {
         if (m_direction > 0) {
             auto it = m_joinable.begin();
@@ -406,20 +403,19 @@ namespace db0
         }
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction,
-        bool is_end, std::uint64_t e_pos, key_t join_key, tag_cloned)        
+        bool is_end, key_t join_key, tag_cloned)        
         : m_direction(direction)
         , m_end(is_end)
-        , m_join_key(join_key)
-        , m_pos(e_pos)
+        , m_join_key(join_key)        
 	{
 		for (auto &s: inner_iterators) {
 			m_joinable.emplace_back(std::move(s));
 		}
 	}   
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	void db0::FT_JoinANDIterator<key_t, UniqueKeys>
         ::scanQueryTree(std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_function,
                 int depth) const
@@ -430,7 +426,7 @@ namespace db0
 		}
 	}
 
-    template<typename key_t, bool UniqueKeys> void db0::FT_JoinANDIterator<key_t, UniqueKeys>
+    template <typename key_t, bool UniqueKeys> void db0::FT_JoinANDIterator<key_t, UniqueKeys>
         ::forAll(std::function<bool(const db0::FT_Iterator<key_t> &)> f) const
     {
         for (const auto &joinable: m_joinable) {
@@ -440,7 +436,7 @@ namespace db0
         }
     }
 
-    template<typename key_t, bool UniqueKeys>
+    template <typename key_t, bool UniqueKeys>
     std::size_t db0::FT_JoinANDIterator<key_t, UniqueKeys>::getDepth() const {
         std::size_t max_inner = 0;
         for (auto &joinable: m_joinable) {
@@ -449,12 +445,12 @@ namespace db0
         return max_inner + 1u;
     }
 
-    template<typename key_t, bool UniqueKeys>
+    template <typename key_t, bool UniqueKeys>
     void db0::FT_JoinANDIterator<key_t, UniqueKeys>::stop() {
         this->setEnd();
     }
 
-    template<typename key_t, bool UniqueKeys>
+    template <typename key_t, bool UniqueKeys>
     bool db0::FT_JoinANDIterator<key_t, UniqueKeys>
         ::findBy(const std::function<bool(const db0::FT_Iterator<key_t> &)> &f) const 
     {
@@ -469,7 +465,7 @@ namespace db0
         return true;
     }
 
-    template<typename key_t, bool UniqueKeys>
+    template <typename key_t, bool UniqueKeys>
     std::pair<bool, bool> db0::FT_JoinANDIterator<key_t, UniqueKeys>::mutateInner(const MutateFunction &f) {
         auto result = db0::FT_Iterator<key_t>::mutateInner(f);
         if (result.first) {
@@ -494,7 +490,7 @@ namespace db0
         return { was_mutated, !was_end };
     }
 
-    template<typename key_t, bool UniqueKeys>
+    template <typename key_t, bool UniqueKeys>
     void db0::FT_JoinANDIterator<key_t, UniqueKeys>::detach() {
         /* FIXME: implement
         for (auto &it: m_joinable) {
@@ -503,10 +499,27 @@ namespace db0
         */
     }
 
-    template<typename key_t, bool UniqueKeys>
+    template <typename key_t, bool UniqueKeys>
     const std::type_info &db0::FT_JoinANDIterator<key_t, UniqueKeys>::typeId() const
     {
         return typeid(self_t);
+    }
+
+    template <typename key_t, bool UniqueKeys>
+    FTIteratorType db0::FT_JoinANDIterator<key_t, UniqueKeys>::getSerialTypeId() const
+    {
+        return FTIteratorType::JoinAnd;
+    }
+    
+    template <typename key_t, bool UniqueKeys>
+    void db0::FT_JoinANDIterator<key_t, UniqueKeys>::serialize(std::vector<std::byte> &v) const
+    {
+        db0::serial::write(v, db0::serial::typeId<key_t>());
+        db0::serial::write<std::int8_t>(v, m_direction);
+        db0::serial::write<std::uint32_t>(v, m_joinable.size());
+        for (const auto &it: m_joinable) {
+            it->serialize(v);
+        }
     }
 
 	template<typename key_t, bool UniqueKeys>

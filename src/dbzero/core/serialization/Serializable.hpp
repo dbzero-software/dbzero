@@ -3,9 +3,19 @@
 #include <vector>
 #include <cstdint>
 
-namespace db0
+namespace db0::serial
 
 {
+
+    // DBZero serializable collection types must register here
+    enum class CollectionTypes: std::uint16_t
+    {
+        Invalid = 0,
+        MBIndex = 1,
+        VBIndex = 2,
+        FT_MemoryIndex = 3,
+        VSortedVector = 4
+    };
 
     class Serializable
     {
@@ -42,6 +52,20 @@ namespace db0
     template <typename T> std::uint64_t typeId(std::uint64_t type_id = 0)
     {
         static std::unordered_map<std::string, std::uint64_t> type_ids;
+        if (!type_id && type_ids.empty()) {
+            // initialize with standard simple types, use type_ids < 100
+            // !!! NOTE: do NOT modify order in this array as this would affect serialized type IDs
+            using TypeList = std::tuple<
+                std::int8_t, std::int16_t, std::int32_t, std::int64_t, 
+                std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t, 
+                float, double, std::string>;
+            // compile error: binary expression in operand of fold-expression
+            std::apply([&](auto... type) {
+                std::size_t n { 0 };
+                ((type_ids[typeid(type).name()] = ++n), ...); }, TypeList()
+            );
+        }
+        
         if (type_id == 0) {
             // find existing type ID
             auto it = type_ids.find(typeid(T).name());

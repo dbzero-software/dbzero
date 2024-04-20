@@ -25,7 +25,7 @@ namespace db0
             std::vector<std::byte>::const_iterator end)
             : m_tree(getRTTree(snapshot, iter, end))
             , m_range(iter, end)
-            , m_nulls_first(db0::read<decltype(m_nulls_first)>(iter, end))
+            , m_nulls_first(db0::serial::read<decltype(m_nulls_first)>(iter, end))
         {
         }
         
@@ -41,7 +41,7 @@ namespace db0
 
         std::unique_ptr<FT_Iterator<ValueT> > createFTIterator() override;
 
-        IteratorFactoryTypeId getSerializationTypeId() const override;
+        IteratorFactoryTypeId getSerialTypeId() const override;
         void serialize(std::vector<std::byte> &) const override;        
         
     private:
@@ -67,7 +67,7 @@ namespace db0
     }
     
     template <typename KeyT, typename ValueT> IteratorFactoryTypeId
-    RangeIteratorFactory<KeyT, ValueT>::getSerializationTypeId() const
+    RangeIteratorFactory<KeyT, ValueT>::getSerialTypeId() const
     {
         return IteratorFactoryTypeId::Range;
     }
@@ -76,11 +76,11 @@ namespace db0
     RangeIteratorFactory<KeyT, ValueT>::serialize(std::vector<std::byte> &v) const
     {
         // store underlying typeId-s
-        db0::write(v, db0::typeId<KeyT>());
-        db0::write(v, db0::typeId<ValueT>());
-        db0::write(v, m_tree.getAddress());
+        db0::serial::write(v, db0::serial::typeId<KeyT>());
+        db0::serial::write(v, db0::serial::typeId<ValueT>());
+        db0::serial::write(v, m_tree.getAddress());
         m_range.serialize(v);
-        db0::write(v, m_nulls_first);
+        db0::serial::write(v, m_nulls_first);
     }
 
 }

@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 
 namespace tests

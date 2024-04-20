@@ -6,6 +6,9 @@
 #include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
 #include <dbzero/core/collections/full_text/SortedIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_MemoryIndex.hpp>
+#include <dbzero/core/collections/full_text/FT_Serialization.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/workspace/Fixture.hpp>
 
 namespace db0
 
@@ -63,10 +66,13 @@ namespace db0
         
         std::unique_ptr<SortedIterator<ValueT> > beginSorted(std::unique_ptr<FT_Iterator<ValueT> > = nullptr) const override;
 
-        SortedIteratorTypeId getSerializationTypeId() const override;
+        SortedIteratorType getSerialTypeId() const override;
 
         void serialize(std::vector<std::byte> &) const override;
         
+        static RT_SortIterator<KeyT, ValueT> deserialize(Snapshot &snapshot, std::vector<std::byte>::const_iterator &iter,
+            std::vector<std::byte>::const_iterator end);
+
     private:
         using BlockItemT = typename RT_TreeT::BlockT::ItemT;
         RT_TreeT m_tree;
@@ -454,22 +460,57 @@ namespace db0
     }
 
     template <typename KeyT, typename ValueT>
-    SortedIteratorTypeId RT_SortIterator<KeyT, ValueT>::getSerializationTypeId() const
+    SortedIteratorType RT_SortIterator<KeyT, ValueT>::getSerialTypeId() const
     {
-        return SortedIteratorTypeId::RT_Sort;
+        return SortedIteratorType::RT_Sort;
     }
     
     template <typename KeyT, typename ValueT>
     void RT_SortIterator<KeyT, ValueT>::serialize(std::vector<std::byte> &v) const
     {
-        db0::write(v, db0::typeId<KeyT>());
-        db0::write(v, db0::typeId<ValueT>());
-        db0::write(v, m_tree.getFixture()->getUUID());
-        db0::write(v, m_tree.getAddress());
-        db0::write<bool>(v, m_asc);
-        db0::write<bool>(v, m_has_query);
-        if (m_has_query) {
-            m_query_it->serialize(v);
+        db0::serial::write(v, db0::serial::typeId<KeyT>());
+        db0::serial::write(v, db0::serial::typeId<ValueT>());
+        db0::serial::write(v, m_tree.getMemspace().getUUID());
+        db0::serial::write(v, m_tree.getAddress());
+        db0::serial::write<bool>(v, m_asc);
+        db0::serial::write<bool>(v, m_inner_it != nullptr);
+        if (m_inner_it) {
+            m_inner_it->serialize(v);
+        } else {
+            db0::serial::write<bool>(v, m_has_query);
+            if (m_has_query) {            
+                m_query_it->serialize(v);
+            }
+        }
+    }
+
+    template <typename KeyT, typename ValueT>
+    RT_SortIterator<KeyT, ValueT> RT_SortIterator<KeyT, ValueT>::deserialize(Snapshot &snapshot, 
+        std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
+    {
+        using TypeOfTypeId = decltype(db0::serial::typeId<KeyT>());
+        if (db0::serial::read<TypeOfTypeId>(iter, end) != db0::serial::typeId<KeyT>()) {
+            THROWF(db0::InputException) << "Deserialize: invalid key type";
+        }
+        if (db0::serial::read<TypeOfTypeId>(iter, end) != db0::serial::typeId<ValueT>()) {
+            THROWF(db0::InputException) << "Deserialize: invalid value type";
+        }
+        
+        auto fixture = snapshot.getFixture(db0::serial::read<std::uint64_t>(iter, end));
+        std::uint64_t addr = db0::serial::read<std::uint64_t>(iter, end);
+        bool asc = db0::serial::read<bool>(iter, end);
+        bool has_inner = db0::serial::read<bool>(iter, end);
+        if (has_inner) {
+            auto inner_it = db0::serial::deserializeSortedIterator<ValueT>(snapshot, iter, end);
+            return { RT_TreeT(fixture->myPtr(addr)), std::move(inner_it), asc };
+        } else {            
+            bool has_query = db0::serial::read<bool>(iter, end);
+            if (has_query) {
+                auto query_it = db0::serial::deserializeFT_Iterator<ValueT>(snapshot, iter, end);
+                return { RT_TreeT(fixture->myPtr(addr)), std::move(query_it), asc };
+            } else {
+                return { RT_TreeT(fixture->myPtr(addr)), asc };
+            }
         }
     }
 

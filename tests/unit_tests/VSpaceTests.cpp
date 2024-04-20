@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/serialization/Types.hpp>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 #include <unordered_map>
 
 using namespace db0;

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <set>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 #include <dbzero/object_model/object/KV_Index.hpp>
 
 namespace tests

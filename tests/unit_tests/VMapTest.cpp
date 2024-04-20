@@ -2,7 +2,7 @@
 #include <dbzero/core/collections/map/v_map.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/string.hpp>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 #include <utils/utils.hpp>
 
 namespace tests

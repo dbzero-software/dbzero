@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/collections/bitset/FixedBitset.hpp>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 
 using namespace std;
 

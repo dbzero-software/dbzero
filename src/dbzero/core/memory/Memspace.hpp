@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <cassert>
+#include <optional>
 #include <dbzero/core/memory/Prefix.hpp>
 #include <dbzero/core/memory/Allocator.hpp>
 #include <dbzero/core/memory/mptr.hpp>
@@ -20,17 +21,21 @@ namespace db0
     public:
         Memspace() = default;
 
-        Memspace(std::shared_ptr<Prefix> prefix, std::shared_ptr<Allocator> allocator)
+        Memspace(std::shared_ptr<Prefix> prefix, std::shared_ptr<Allocator> allocator,
+            std::optional<std::uint64_t> uuid = {})
             : m_prefix(prefix)
             , m_allocator(allocator)
             , m_allocator_ptr(m_allocator.get())
+            , m_derived_UUID(uuid)
         {
         }
         
         struct tag_from_reference {};
-        Memspace(std::shared_ptr<Prefix> prefix, Allocator &allocator, tag_from_reference)
+        Memspace(tag_from_reference, std::shared_ptr<Prefix> prefix, Allocator &allocator,
+            std::optional<std::uint64_t> uuid = {})
             : m_prefix(prefix)
             , m_allocator_ptr(&allocator)
+            , m_derived_UUID(uuid)
         {
         }
 
@@ -88,10 +93,14 @@ namespace db0
 
         std::uint64_t getStateNum() const;
         
+        std::uint64_t getUUID() const;
+        
     protected:
         std::shared_ptr<Prefix> m_prefix;
         std::shared_ptr<Allocator> m_allocator;
         Allocator *m_allocator_ptr = nullptr;
+        // UUID (if passed from a derived class)
+        std::optional<std::uint64_t> m_derived_UUID;
     };
 
 }

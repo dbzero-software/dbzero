@@ -428,6 +428,23 @@ namespace db0
         return typeid(self_t);
     }    
 
-    template class FT_ANDNOTIterator<std::uint64_t>;
+    template <typename key_t>
+    FTIteratorType db0::FT_ANDNOTIterator<key_t>::getSerialTypeId() const
+    {
+        return FTIteratorType::JoinAndNot;
+    }
 
+    template <typename key_t>
+    void db0::FT_ANDNOTIterator<key_t>::serialize(std::vector<std::byte> &v) const
+    {
+        db0::serial::write(v, db0::serial::typeId<key_t>());
+        db0::serial::write<std::int8_t>(v, m_direction);
+        db0::serial::write(v, m_joinable.size());
+        for (const auto &it: m_joinable) {
+            it->serialize(v);
+        }
+    }
+
+    template class FT_ANDNOTIterator<std::uint64_t>;
+    
 }

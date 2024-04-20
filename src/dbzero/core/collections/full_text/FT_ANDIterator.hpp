@@ -98,7 +98,7 @@ namespace db0
 
         virtual void detach();
 
-        FTIteratorTypeId getSerializationTypeId() const override;        
+        FTIteratorType getSerialTypeId() const override;
         void serialize(std::vector<std::byte> &) const override;
         
 	private:
@@ -106,7 +106,6 @@ namespace db0
 		mutable std::list<std::unique_ptr<FT_Iterator<key_t> > > m_joinable;
 		bool m_end;
 		key_t m_join_key;
-		std::uint64_t m_pos = 0;
 
 		void setEnd();
 
@@ -120,7 +119,7 @@ namespace db0
          */
 		struct tag_cloned {};
 		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&, int direction, bool is_end,
-		    std::uint64_t e_pos, key_t join_key, tag_cloned);
+		    key_t join_key, tag_cloned);
 	};
 
     template <typename key_t = std::uint64_t, bool UniqueKeys = true>

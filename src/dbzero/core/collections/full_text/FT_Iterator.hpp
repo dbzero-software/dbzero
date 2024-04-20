@@ -12,12 +12,19 @@ namespace db0
 
 {
     
-    enum class FTIteratorTypeId: std::uint16_t {
+    // FT_Iterator implementations should register here (for serialization)
+    enum class FTIteratorType: std::uint16_t 
+    {
         Invalid = 0,
         Index = 1,
-        RangeTree
+        RangeTree,
+        JoinAnd,
+        JoinOr,
+        JoinAndNot,
     };
     
+    using Serializable = db0::serial::Serializable;
+
     /**
      * Abstract DBZero inverted index iterator definition
      * NOTICE: IDs are not assigned automatically, when required need to call db0:assignUniqueIDs method
@@ -168,8 +175,8 @@ namespace db0
         virtual void fetchKeys(std::function<void(const KeyT *key_buf, std::size_t key_count)> f,
             std::size_t batch_size = 16 << 10) const;
 
-        virtual FTIteratorTypeId getSerializationTypeId() const = 0;
-        
+        virtual FTIteratorType getSerialTypeId() const = 0;
+                
 	protected:
 		std::string m_label;
 		/// application specific instance ID (serialized and preserved by clone)

@@ -2,11 +2,14 @@
 
 #include <string>
 #include <optional>
-#include "Fixture.hpp"
+#include <dbzero/core/memory/swine_ptr.hpp>
+#include <dbzero/core/memory/AccessOptions.hpp>
 
 namespace db0
 
 {
+
+    class Fixture;
 
     /**
      * Snapshot is a common interface for Workspace and WorkspaceView

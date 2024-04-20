@@ -1,4 +1,4 @@
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/vspace/v_object.hpp>

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/collections/b_index/IttyIndex.hpp>
 #include <set>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 
 namespace tests 
 

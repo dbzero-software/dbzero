@@ -60,4 +60,12 @@ namespace db0
         return m_prefix->getStateNum();
     }
 
+    std::uint64_t Memspace::getUUID() const
+    {
+        if (!m_derived_UUID) {
+            THROWF(db0::InternalException) << "Memspace.UUID is not set";
+        }
+        return *m_derived_UUID;        
+    }
+
 }

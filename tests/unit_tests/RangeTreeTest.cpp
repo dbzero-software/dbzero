@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/WorkspaceTest.hpp>
 #include <dbzero/core/collections/range_tree/RangeTree.hpp>
 #include <dbzero/core/collections/range_tree/RT_SortIterator.hpp>
 #include <dbzero/core/collections/range_tree/RT_RangeIterator.hpp>

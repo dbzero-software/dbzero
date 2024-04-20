@@ -98,7 +98,7 @@ namespace db0
         
         // create a temporary memspace only to allocate the header under a known address
         OneShotAllocator osa(headerAddr(begin_addr, size), o_slab_header::sizeOf());
-        Memspace memspace(prefix, osa, Memspace::tag_from_reference()); 
+        Memspace memspace(Memspace::tag_from_reference(), prefix, osa);
         // finally create the Slab header
         v_object<o_slab_header> header(
             memspace,

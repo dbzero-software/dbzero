@@ -32,13 +32,13 @@ namespace db0
     template <typename KeyT>
     RT_Range<KeyT>::RT_Range(std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
     {
-        if (db0::read<bool>(iter, end)) {
-            m_min = db0::read<KeyT>(iter, end);
-            m_min_inclusive = db0::read<bool>(iter, end);
+        if (db0::serial::read<bool>(iter, end)) {
+            m_min = db0::serial::read<KeyT>(iter, end);
+            m_min_inclusive = db0::serial::read<bool>(iter, end);
         }
-        if (db0::read<bool>(iter, end)) {
-            m_max = db0::read<KeyT>(iter, end);
-            m_max_inclusive = db0::read<bool>(iter, end);
+        if (db0::serial::read<bool>(iter, end)) {
+            m_max = db0::serial::read<KeyT>(iter, end);
+            m_max_inclusive = db0::serial::read<bool>(iter, end);
         }
     }
     
@@ -57,15 +57,15 @@ namespace db0
     template <typename KeyT>
     void RT_Range<KeyT>::serialize(std::vector<std::byte> &v) const
     {
-        db0::write<bool>(v, static_cast<bool>(m_min));
+        db0::serial::write<bool>(v, static_cast<bool>(m_min));
         if (m_min) {
-            db0::write(v, *m_min);
-            db0::write(v, m_min_inclusive);
+            db0::serial::write(v, *m_min);
+            db0::serial::write(v, m_min_inclusive);
         }
-        db0::write<bool>(v, static_cast<bool>(m_max));
+        db0::serial::write<bool>(v, static_cast<bool>(m_max));
         if (m_max) {
-            db0::write(v, *m_max);
-            db0::write(v, m_max_inclusive);
+            db0::serial::write(v, *m_max);
+            db0::serial::write(v, m_max_inclusive);
         }
     }
     

@@ -92,7 +92,7 @@ namespace db0
 
         virtual void detach();
 
-        FTIteratorTypeId getSerializationTypeId() const override;
+        FTIteratorType getSerialTypeId() const override;
         
         void serialize(std::vector<std::byte> &) const override;
         
