@@ -26,6 +26,7 @@ namespace db0::bindings
         TUPLE = 9,
         OBJECT_ITERATOR = 10,
         TYPED_OBJECT_ITERATOR = 11,
+        BYTES = 12,
         // DBZero wrappers of common language types
         MEMO_OBJECT = 10000,
         DB0_LIST = 10001,
