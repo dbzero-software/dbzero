@@ -3,10 +3,10 @@
 #include <dbzero/bindings/TypeId.hpp>
 #include "Value.hpp"
 #include "StorageClass.hpp"
-#include <dbzero/bindings/python/List.hpp>
-#include <dbzero/bindings/python/Set.hpp>
-#include <dbzero/bindings/python/Dict.hpp>
-#include <dbzero/bindings/python/Tuple.hpp>
+#include <dbzero/bindings/python/collections/List.hpp>
+#include <dbzero/bindings/python/collections/Set.hpp>
+#include <dbzero/bindings/python/collections/Dict.hpp>
+#include <dbzero/bindings/python/collections/Tuple.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/core/serialization/string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -140,6 +140,16 @@ namespace db0::object_model
 
             case TypeId::DATETIME: {
                 return db0::python::pyDateTimeToToUint64(lang_value);
+            }
+            break;
+
+            case TypeId::BYTES: {
+                // create string-ref member and take its address
+                auto fixture = object.getFixture();
+                auto size = PyBytes_GET_SIZE(lang_value);
+                auto *str = PyBytes_AsString(lang_value);
+                std::byte * bytes = reinterpret_cast<std::byte *>(str);
+                return db0::v_object<db0::o_binary>(*fixture, bytes, size).getAddress();
             }
             break;
 
@@ -277,6 +287,13 @@ namespace db0::object_model
                 return db0::python::uint64ToPyDatetime(value.cast<std::uint64_t>());
             }
             break;
+
+            case StorageClass::DB0_BYTES: {
+                auto fixture = object.getFixture();
+                db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.cast<std::uint64_t>());
+                auto bytes_ptr = bytes->getBuffer();
+                return PyBytes_FromStringAndSize(reinterpret_cast<const char *>(bytes_ptr), bytes->size());
+            }
 
             case StorageClass::NONE: {
                 return Py_None;

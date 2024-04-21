@@ -59,6 +59,11 @@ namespace std
             }
             break;
 
+            case TypeId::BYTES : {
+                os << "bytes";
+            }
+            break;
+
             case TypeId::MEMO_OBJECT : {
                 os << "db0.Object";
             }

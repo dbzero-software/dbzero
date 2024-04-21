@@ -1,3 +1,4 @@
+#pragma once
 #include <dbzero/object_model/dict/DictIterator.hpp>
 
 namespace db0::python 

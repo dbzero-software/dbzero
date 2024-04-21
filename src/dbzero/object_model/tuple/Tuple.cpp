@@ -94,5 +94,14 @@ namespace db0::object_model
     {
         v_object<o_tuple>::destroy();
     }
-    
+
+    const o_typed_item *Tuple::begin()
+    {
+        return this->getData()->begin();
+    }
+
+    const o_typed_item *Tuple::end()
+    {
+        return this->getData()->end();
+    }
 }

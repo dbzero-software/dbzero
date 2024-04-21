@@ -25,6 +25,10 @@ namespace db0::python
         static constexpr std::size_t sizeOf() {
             return sizeof(PyObject) + sizeof(T);
         }
+
+        void destroy(){
+            ext().~T();
+        }
     };
 
 }

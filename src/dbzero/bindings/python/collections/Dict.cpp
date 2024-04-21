@@ -1,7 +1,7 @@
-#include "Dict.hpp"
-#include "DictIterator.hpp"
+#include <dbzero/bindings/python/collections/Dict.hpp>
 #include "DictView.hpp"
-#include "Utils.hpp"
+#include <dbzero/bindings/python/Utils.hpp>
+#include "Iterator.hpp"
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
@@ -11,9 +11,15 @@ namespace db0::python
 
 {
 
+    using DictIteratorObject = PyWrapper<db0::object_model::DictIterator>;
+
+    PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator",
+                                                                              "DBZero dict iterator");
+
     DictIteratorObject *DictObject_iter(DictObject *self)
     {
-        return makeIterator(self->ext().begin(), &self->ext());        
+        return makeIterator<DictIteratorObject,db0::object_model::DictIterator>(DictIteratorObjectType, 
+            self->ext().begin(), &self->ext());        
     }
     
     PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)

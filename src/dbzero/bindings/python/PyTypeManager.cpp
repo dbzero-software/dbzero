@@ -1,9 +1,9 @@
 #include "PyTypeManager.hpp"
 #include "Memo.hpp"
-#include "List.hpp"
-#include "Set.hpp"
-#include "Tuple.hpp"
-#include "Dict.hpp"
+#include <dbzero/bindings/python/collections/List.hpp>
+#include <dbzero/bindings/python/collections/Set.hpp>
+#include <dbzero/bindings/python/collections/Tuple.hpp>
+#include <dbzero/bindings/python/collections/Dict.hpp>
 #include "Index.hpp"
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <Python.h>
@@ -55,6 +55,7 @@ namespace db0::python
         addStaticType(&TupleObjectType, TypeId::DB0_TUPLE);
         addStaticType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
         addStaticType(&PyTypedObjectIteratorType, TypeId::TYPED_OBJECT_ITERATOR);
+        addStaticType(&PyBytes_Type, TypeId::BYTES);
         // Python datetime type
         addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
     }

@@ -1,7 +1,8 @@
 #include "Set.hpp"
-#include "SetIterator.hpp"
-#include "Utils.hpp"
+#include "Iterator.hpp"
+#include <dbzero/bindings/python/Utils.hpp>
 #include <dbzero/object_model/set/Set.hpp>
+#include <dbzero/object_model/set/SetIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 
@@ -10,9 +11,15 @@ namespace db0::python
 
 {
 
+    using SetIteratorObject = PyWrapper<db0::object_model::SetIterator>;
+
+    PyTypeObject SetIteratorObjectType = GetIteratorType<SetIteratorObject>("dbzero_ce.TypedObjectIterator",
+                                                                              "DBZero typed query object iterator");
+
     SetIteratorObject *SetObject_iter(SetObject *self)
     {
-        return makeIterator(self->ext().begin(), &self->ext());        
+        return makeIterator<SetIteratorObject,db0::object_model::SetIterator>(SetIteratorObjectType, 
+            self->ext().begin(), &self->ext());        
     }
     
     PyObject *SetObject_GetItem(SetObject *set_obj, Py_ssize_t i)

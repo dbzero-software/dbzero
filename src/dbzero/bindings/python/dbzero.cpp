@@ -3,11 +3,11 @@
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
 #include "ObjectId.hpp"
-#include "List.hpp"
+#include <dbzero/bindings/python/collections/List.hpp>
 #include "Index.hpp"
-#include "Set.hpp"
-#include "Tuple.hpp"
-#include "Dict.hpp"
+#include <dbzero/bindings/python/collections/Set.hpp>
+#include <dbzero/bindings/python/collections/Tuple.hpp>
+#include <dbzero/bindings/python/collections/Dict.hpp>
 #include <dbzero/bindings/python/PyWorkspace.hpp>
 #include "PyObjectTagManager.hpp"
 #include "PyObjectIterator.hpp"

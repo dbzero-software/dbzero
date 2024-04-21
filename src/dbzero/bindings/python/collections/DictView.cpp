@@ -1,6 +1,7 @@
 #include "DictView.hpp"
-#include "DictIterator.hpp"
-#include "Utils.hpp"
+#include <dbzero/bindings/python/collections/Dict.hpp>
+#include <dbzero/bindings/python/collections/Iterator.hpp>
+#include <dbzero/bindings/python/Utils.hpp>
 #include <dbzero/object_model/dict/DictIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
@@ -10,9 +11,11 @@ namespace db0::python
 
 {
 
+    using DictIteratorObject = PyWrapper<db0::object_model::DictIterator>;
+
     DictIteratorObject *DictViewObject_iter(DictViewObject *self)
     {
-        auto dict_iterator_object = DictIteratorObject_new(&DictIteratorObjectType, NULL, NULL);
+        auto dict_iterator_object = IteratorObject_new<DictIteratorObject>(&DictIteratorObjectType, NULL, NULL);
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
         self->ext().begin(&dict_iterator_object->ext());
         return dict_iterator_object; 

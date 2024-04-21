@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Python.h>
-#include "PyWrapper.hpp"
+#include <dbzero/bindings/python/PyWrapper.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
 
 namespace db0::python 
