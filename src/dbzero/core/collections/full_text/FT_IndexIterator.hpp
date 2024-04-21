@@ -16,7 +16,8 @@ namespace db0
 	 * bindex_t - some bindex derived type with key_t (e.g. std::uint64_t) derived keys (v_bindex)
 	 * implements FT_Iterator interface over b-index data structure
 	 */
-	template <typename bindex_t, typename key_t = std::uint64_t> class FT_IndexIterator: public FT_Iterator<key_t>
+	template <typename bindex_t, typename key_t = std::uint64_t> 
+	class FT_IndexIterator: public FT_Iterator<key_t>
 	{
 	public:
 		using self_t = FT_IndexIterator<bindex_t, key_t>;
@@ -294,20 +295,17 @@ namespace db0
 	void FT_IndexIterator<bindex_t, key_t>::serializeFTIterator(std::vector<std::byte> &v) const
 	{
 		using TypeIdType = decltype(db0::serial::typeId<void>());
-		// FIXME: log
-		std::cout << "bindex type: " << typeid(bindex_t).name() << std::endl;
-		std::cout << "Serial id: " << bindex_t::getSerialTypeId() << std::endl;
+
+		if (!m_index_key) {
+			THROWF(db0::InternalException) << "Index key is required for serialization" << THROWF_END;
+		}
 
 		// write underlying type IDs
 		db0::serial::write<TypeIdType>(v, bindex_t::getSerialTypeId());
-		db0::serial::write(v, db0::serial::typeId<key_t>());
+		db0::serial::write<TypeIdType>(v, db0::serial::typeId<key_t>());
 		db0::serial::write(v, m_data.getMemspace().getUUID());
-		db0::serial::write<std::int8_t>(v, m_direction);
-		// index key is sufficient for deserialization
-		db0::serial::write<bool>(v, m_index_key.has_value());
-		if (m_index_key) {
-			db0::serial::write(v, *m_index_key);
-		}
+		db0::serial::write<std::int8_t>(v, m_direction);			
+		db0::serial::write(v, *m_index_key);
 	}
 
 } 
