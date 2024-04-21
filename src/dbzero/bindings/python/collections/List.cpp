@@ -41,6 +41,8 @@ namespace db0::python
 
     PyObject *ListObject_GetItemSlice(ListObject *list_obj, PyObject *elem)
     {
+        // FIXME: this operation should be immutable
+        auto fixture = list_obj->ext().getMutableFixture();
         // Check if the key is a slice object
         if (PySlice_Check(elem)) {
             Py_ssize_t start, stop, step;
@@ -54,18 +56,16 @@ namespace db0::python
                 }
             };
             for (Py_ssize_t i = start; compare(i, stop); i += step) {
-                list->ext().append(list_obj->ext().getItem(i).steal());
+                list->ext().append(fixture, list_obj->ext().getItem(i).steal());
             }
 
             return list;
         }
-        list_obj->ext().getFixture()->refreshIfUpdated();
         return list_obj->ext().getItem(PyLong_AsLong(elem)).steal();
     }
     
     PyObject *ListObject_pop(ListObject *list_obj, PyObject *const *args, Py_ssize_t nargs)
-    {
-        list_obj->ext().getFixture()->refreshIfUpdated();
+    {        
         std::size_t index;
         if (nargs == 0) {
             index = list_obj->ext().size() -1;
@@ -75,13 +75,14 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "pop() takes zero or one argument.");
             return NULL;
         }
-        return list_obj->ext().pop(index).steal();
+        auto fixture = list_obj->ext().getMutableFixture();
+        return list_obj->ext().pop(fixture, index).steal();
     }
     
     PyObject * ListObject_clear(ListObject *list_obj)
     {
-        list_obj->ext().getFixture()->refreshIfUpdated();
-        list_obj->ext().clear();
+        auto fixture = list_obj->ext().getMutableFixture();
+        list_obj->ext().clear(fixture);
         Py_RETURN_NONE;
     }
 
@@ -110,11 +111,12 @@ namespace db0::python
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "extend() takes one argument.");
             return NULL;
-        }
+        }        
         PyObject *iterator = PyObject_GetIter(args[0]);
         PyObject *item;
+        auto fixture = list_obj->ext().getMutableFixture();
         while ((item = PyIter_Next(iterator))) {
-            list_obj->ext().append(item);
+            list_obj->ext().append(fixture, item);
             Py_DECREF(item);
         }
 
@@ -149,13 +151,15 @@ namespace db0::python
             return NULL;
         }
         auto index = list_obj->ext().index(args[0]);
-        list_obj->ext().swapAndPop({index});
+        auto fixture = list_obj->ext().getMutableFixture();
+        list_obj->ext().swapAndPop(fixture, {index});
         Py_RETURN_NONE;
     }
-
+    
     int ListObject_SetItem(ListObject *list_obj, Py_ssize_t i, PyObject *value)
     {
-        list_obj->ext().setItem(i, value);
+        auto fixture = list_obj->ext().getMutableFixture();
+        list_obj->ext().setItem(fixture, i, value);
         return 0;
     }
 
@@ -264,7 +268,8 @@ namespace db0::python
             return NULL;
         }
         
-        list_obj->ext().append(args[0]);
+        auto fixture = list_obj->ext().getMutableFixture();
+        list_obj->ext().append(fixture, args[0]);
         Py_RETURN_NONE;
     }
     

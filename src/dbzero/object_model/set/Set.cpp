@@ -13,16 +13,16 @@ namespace db0::object_model
 
     GC0_Define(Set)
 
-    template <typename LangToolkit, typename CollectionT> o_typed_item createTypedItem(const CollectionT &collection,
-    db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
-    {
-        return { storage_class, createMember<LangToolkit>(collection, type_id, lang_value, storage_class) };
-    }
-
-    template <typename LangToolkit> set_item createSetItem(const Set &set, std::uint64_t key, 
+    template <typename LangToolkit> o_typed_item createTypedItem(db0::swine_ptr<Fixture> &fixture,
         db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
-        return { key, createTypedItem<LangToolkit>(set, type_id, lang_value, storage_class)};
+        return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value, storage_class) };
+    }
+
+    template <typename LangToolkit> set_item createSetItem(db0::swine_ptr<Fixture> &fixture, std::uint64_t key, 
+        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
+    {
+        return { key, createTypedItem<LangToolkit>(fixture, type_id, lang_value, storage_class) };
     }
     
     Set::Set(db0::swine_ptr<Fixture> &fixture)
@@ -41,26 +41,21 @@ namespace db0::object_model
         bulkInsert(set.begin(), set.end());
     }
     
-    void Set::append(std::size_t key, ObjectPtr lang_value)
+    void Set::append(FixtureLock &fixture, std::size_t key, ObjectPtr lang_value)
     {
         using TypeId = db0::bindings::TypeId;
-        
-        if(v_bindex::find(key) == end()){
-
-             using TypeId = db0::bindings::TypeId;
-        
+        if (v_bindex::find(key) == end()) {
             // recognize type ID from language specific object
             auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
             auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
-            // auto typed_item =  createTypedItem<LangToolkit>(*this, type_id, lang_value, storage_class)
-            v_bindex::insert(createSetItem<LangToolkit>(*this, key, type_id, lang_value, storage_class));
+            v_bindex::insert(createSetItem<LangToolkit>(*fixture, key, type_id, lang_value, storage_class));
         }
-           
     }
     
-    bool Set::remove(std::size_t key){
+    bool Set::remove(FixtureLock &, std::size_t key)
+    {
         auto it = v_bindex::find(key);
-        if(it == end()){
+        if (it == end()) {
             return false;
         }
         v_bindex::erase(it);
@@ -79,21 +74,19 @@ namespace db0::object_model
         return nullptr;
     }
     
-    void Set::setItem(std::size_t key, ObjectPtr lang_value)
+    void Set::setItem(FixtureLock &fixture, std::size_t key, ObjectPtr lang_value)
     {
         // recognize type ID from language specific object
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
-        v_bindex<set_item>::insert(createSetItem<LangToolkit>(*this, key, type_id, lang_value, storage_class));
+        v_bindex<set_item>::insert(createSetItem<LangToolkit>(*fixture, key, type_id, lang_value, storage_class));
     }
     
-    Set *Set::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture)
-    {
+    Set *Set::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
         return new (at_ptr) Set(fixture);
     }
     
-    Set *Set::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-    {
+    Set *Set::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
         return new (at_ptr) Set(fixture, address);
     }
 
@@ -101,12 +94,12 @@ namespace db0::object_model
         return new (at_ptr) Set(fixture, *this);
     }
 
-    void Set::drop()
-    {
+    void Set::drop() {
         v_bindex<set_item>::destroy();
     }
 
-    Set::ObjectSharedPtr Set::pop() {
+    Set::ObjectSharedPtr Set::pop()
+    {
         auto iter = begin();
         if(iter != end()){
             auto [key, item] = *iter;
@@ -119,7 +112,8 @@ namespace db0::object_model
         }
     }
 
-    bool Set::has_item(ObjectPtr obj) {
+    bool Set::has_item(ObjectPtr obj) 
+    {
         auto hash = PyObject_Hash(obj);
         auto iter = find(hash);
         return iter != end();

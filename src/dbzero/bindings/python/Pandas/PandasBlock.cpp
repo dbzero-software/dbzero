@@ -10,24 +10,20 @@ namespace db0::python
 {
     ////////// PANDAS BLOCK ////////////
 
-    PyObject *PandasBlockObject_GetItem(PandasBlockObject *block_obj, Py_ssize_t i)
-    {
+    PyObject *PandasBlockObject_GetItem(PandasBlockObject *block_obj, Py_ssize_t i) {
         return block_obj->ext().getItem(i).steal();
     }
 
     int PandasBlockObject_SetItem(PandasBlockObject *block_obj, Py_ssize_t i, PyObject *value)
     {
-        block_obj->ext().setItem(i, value);
+        auto fixture = block_obj->ext().getMutableFixture();
+        block_obj->ext().setItem(fixture, i, value);
         return 0;
     }
 
-
-
-    Py_ssize_t PandasBlockObject_len(PandasBlockObject *block_obj) 
-    {
+    Py_ssize_t PandasBlockObject_len(PandasBlockObject *block_obj) {
         return block_obj->ext().size();
     }
-
 
     PyObject *PandasBlockObject_append(PandasBlockObject *block_obj, PyObject *const *args, Py_ssize_t nargs)
     {
@@ -36,7 +32,8 @@ namespace db0::python
             return NULL;
         }
         
-        block_obj->ext().append(args[0]);
+        auto fixture = block_obj->ext().getMutableFixture();
+        block_obj->ext().append(fixture, args[0]);
         Py_RETURN_NONE;
     }
 
@@ -67,8 +64,7 @@ namespace db0::python
         .tp_free = PyObject_Free,        
     };
 
-    PandasBlockObject *PandasBlockObject_new(PyTypeObject *type, PyObject *args, PyObject *)
-    {
+    PandasBlockObject *PandasBlockObject_new(PyTypeObject *type, PyObject *args, PyObject *) {
         return reinterpret_cast<PandasBlockObject*>(type->tp_alloc(type, 0));
     }
     
@@ -79,7 +75,6 @@ namespace db0::python
         Py_TYPE(block_obj)->tp_free((PyObject*)block_obj);
     }
 
-    
     PandasBlockObject *makeBlock(PyObject *, PyObject *, PyObject *)
     {        
         // make actual DBZero instance, use default fixture
@@ -89,24 +84,20 @@ namespace db0::python
         return block_object;
     }
 
-    bool PandasBlockType_Check(PyTypeObject *type)
-    {
+    bool PandasBlockType_Check(PyTypeObject *type) {
         return type->tp_new == reinterpret_cast<newfunc>(PandasBlockObject_new);
     }
 
-    bool PandasBlock_Check(PyObject *obj)
-    {   
+    bool PandasBlock_Check(PyObject *obj) {
         return PandasBlockType_Check(Py_TYPE(obj));
     }
 
-
-    PandasBlockObject *BlockDefaultObject_new()
-    {   
+    PandasBlockObject *BlockDefaultObject_new() {
         return PandasBlockObject_new(&PandasBlockObjectType, NULL, NULL);
     }
 
-    PyObject * PandasBlockObject_GetStorageClass(PandasBlockObject *block_obj)
-    {
-        return  block_obj->ext().getStorageClass().steal();
+    PyObject * PandasBlockObject_GetStorageClass(PandasBlockObject *block_obj) {
+        return block_obj->ext().getStorageClass().steal();
     }
+
 }

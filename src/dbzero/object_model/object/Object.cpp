@@ -52,23 +52,19 @@ namespace db0::object_model
             (IndexVT::type(), index_vt_begin, index_vt_end);
     }
     
-    const PosVT &o_object::pos_vt() const
-    {
+    const PosVT &o_object::pos_vt() const {
         return getDynFirst(PosVT::type());
     }
 
-    PosVT &o_object::pos_vt()
-    {
+    PosVT &o_object::pos_vt() {
         return getDynFirst(PosVT::type());
     }
 
-    const IndexVT &o_object::index_vt() const
-    {
+    const IndexVT &o_object::index_vt() const {
         return getDynAfter(pos_vt(), IndexVT::type());
     }
     
-    IndexVT &o_object::index_vt()
-    {
+    IndexVT &o_object::index_vt() {
         return getDynAfter(pos_vt(), IndexVT::type());
     }
     
@@ -108,8 +104,7 @@ namespace db0::object_model
         }
     }
     
-    Object *Object::makeNew(void *at_ptr, std::shared_ptr<Class> type)
-    {   
+    Object *Object::makeNew(void *at_ptr, std::shared_ptr<Class> type) {
         // placement new
         return new (at_ptr) Object(type);
     }
@@ -144,7 +139,7 @@ namespace db0::object_model
         return new (at_ptr) Object(fixture, std::move(stem), type);        
     }
     
-    void Object::postInit()
+    void Object::postInit(FixtureLock &fixture)
     {
         if (!hasInstance()) {
             auto &initializer = m_init_manager.getInitializer(*this);
@@ -154,11 +149,10 @@ namespace db0::object_model
             // place object in the same fixture as class
             // construct the DBZero instance & assign to self       
             m_type = initializer.getClassPtr();
-            assert(m_type);
-            auto fixture = this->getFixture();
+            assert(m_type);            
             // assign unique instance ID
             m_instance_id = createInstanceId();
-            super_t::init(fixture, classRef(*m_type), m_instance_id, initializer.getRefCount(), pos_vt_data,
+            super_t::init(*fixture, classRef(*m_type), m_instance_id, initializer.getRefCount(), pos_vt_data,
                 index_vt_data.first, index_vt_data.second);
             
             // bind singleton address (now that instance exists)
@@ -172,19 +166,14 @@ namespace db0::object_model
         assert(hasInstance());
     }
     
-    void Object::set(const char *field_name, ObjectPtr lang_value)
+    std::pair<db0::bindings::TypeId, StorageClass> Object::recognizeType(Fixture &fixture, ObjectPtr lang_value) const
     {
-        using TypeId = db0::bindings::TypeId;
-        
-        // recognize type ID from language specific object
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
-
-        auto fixture = getFixture();
         if (type_id == TypeId::MEMO_OBJECT) {
             // object reference must be from the same fixture
             auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
-            if (fixture->getUUID() != obj.getFixture()->getUUID()) {
+            if (fixture.getUUID() != obj.getFixture()->getUUID()) {
                 THROWF(db0::InputException) << "Linking objects from different prefixes is not allowed. Store db0.uuid instead";
             }
             // change storage class to DB0_SELF if lang_value is "this" instance
@@ -192,7 +181,17 @@ namespace db0::object_model
                 storage_class = StorageClass::DB0_SELF;
             }
         }
+        return { type_id, storage_class };
+    }
 
+    void Object::setPreInit(const char *field_name, ObjectPtr lang_value)
+    {
+        assert(!hasInstance());
+        auto &initializer = m_init_manager.getInitializer(*this);
+        auto fixture = initializer.getFixture();
+        auto &db0_class = initializer.getClass();
+        auto [type_id, storage_class] = recognizeType(*fixture, lang_value);
+        
         auto tryGetClass = [&]() -> std::shared_ptr<Class> {
             if (type_id == TypeId::MEMO_OBJECT) {
                 return LangToolkit::getTypeManager().extractObject(lang_value).getClassPtr();
@@ -200,61 +199,70 @@ namespace db0::object_model
             return nullptr;
         };
         
-        if (hasInstance()) {
-            assert(m_type);
-            fixture->onUpdated();
-            // find already existing field index
-            auto field_id = m_type->findField(field_name);
-            if (field_id == Class::NField) {
-                // try mutating the class first
-                field_id = m_type->addField(field_name, storage_class, tryGetClass());
+        // find already existing field index
+        auto at = db0_class.findField(field_name);
+        if (at == Class::NField) {
+            // update class definition
+            at = db0_class.addField(field_name, storage_class, tryGetClass());                
+        }
+        // register a member with the initializer        
+        initializer.set(at, storage_class, createMember<LangToolkit>(fixture, type_id, lang_value, storage_class));
+    }
+
+    void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
+    {
+        assert(hasInstance());
+        auto [type_id, storage_class] = recognizeType(**fixture, lang_value);
+        
+        auto tryGetClass = [&]() -> std::shared_ptr<Class> {
+            if (type_id == TypeId::MEMO_OBJECT) {
+                return LangToolkit::getTypeManager().extractObject(lang_value).getClassPtr();
             }
+            return nullptr;
+        };
             
-            // FIXME: value should be destroyed on exception
-            auto value = createMember<LangToolkit>(*this, type_id, lang_value, storage_class);
-            if (field_id < (*this)->pos_vt().size()) {
-                // update attribute stored in the positional value-table
-                modify().pos_vt().set(field_id, storage_class, value);
-                return;
-            }
-            
-            // try updating field in the index-vt
-            unsigned int index_vt_pos;
-            if ((*this)->index_vt().find(field_id, index_vt_pos)) {
-                modify().index_vt().set(index_vt_pos, storage_class, value);
-                return;
-            }
-            
-            // add field to the kv_index
-            XValue xvalue(field_id, storage_class, value);
-            auto kv_index_ptr = addKV_First(xvalue);
-            if (kv_index_ptr) {
-                // try updating an existing element first
-                if (kv_index_ptr->updateExisting(xvalue)) {
-                    // in case of the IttyIndex updating an element changes the address
-                    // which needs to be updated in the object
-                    if (kv_index_ptr->getIndexType() == bindex::itty) {
-                        modify().m_kv_address = kv_index_ptr->getAddress();
-                    }
-                } else {
-                    if (kv_index_ptr->insert(xvalue)) {
-                        // type or address of the kv-index has changed which needs to be reflected
-                        modify().m_kv_address = kv_index_ptr->getAddress();
-                        modify().m_kv_type = kv_index_ptr->getIndexType();
-                    }
+        assert(m_type);
+        fixture->onUpdated();
+        // find already existing field index
+        auto field_id = m_type->findField(field_name);
+        if (field_id == Class::NField) {
+            // try mutating the class first
+            field_id = m_type->addField(field_name, storage_class, tryGetClass());
+        }
+        
+        // FIXME: value should be destroyed on exception
+        auto value = createMember<LangToolkit>(*fixture, type_id, lang_value, storage_class);
+        if (field_id < (*this)->pos_vt().size()) {
+            // update attribute stored in the positional value-table
+            modify().pos_vt().set(field_id, storage_class, value);
+            return;
+        }
+        
+        // try updating field in the index-vt
+        unsigned int index_vt_pos;
+        if ((*this)->index_vt().find(field_id, index_vt_pos)) {
+            modify().index_vt().set(index_vt_pos, storage_class, value);
+            return;
+        }
+        
+        // add field to the kv_index
+        XValue xvalue(field_id, storage_class, value);
+        auto kv_index_ptr = addKV_First(xvalue);
+        if (kv_index_ptr) {
+            // try updating an existing element first
+            if (kv_index_ptr->updateExisting(xvalue)) {
+                // in case of the IttyIndex updating an element changes the address
+                // which needs to be updated in the object
+                if (kv_index_ptr->getIndexType() == bindex::itty) {
+                    modify().m_kv_address = kv_index_ptr->getAddress();
+                }
+            } else {
+                if (kv_index_ptr->insert(xvalue)) {
+                    // type or address of the kv-index has changed which needs to be reflected
+                    modify().m_kv_address = kv_index_ptr->getAddress();
+                    modify().m_kv_type = kv_index_ptr->getIndexType();
                 }
             }
-        } else {
-            auto &initializer = m_init_manager.getInitializer(*this);
-            auto &db0_class = initializer.getClass();
-            // find already existing field index
-            auto at = db0_class.findField(field_name);
-            if (at == Class::NField) {
-                // update class definition
-                at = db0_class.addField(field_name, storage_class, tryGetClass());                
-            }
-            // register a member with the initializer
-            initializer.set(at, storage_class, createMember<LangToolkit>(*this, type_id, lang_value, storage_class));
         }
     }
     

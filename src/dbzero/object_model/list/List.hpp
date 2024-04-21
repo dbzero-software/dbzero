@@ -34,10 +34,10 @@ namespace db0::object_model
         
         List(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
-        void append(ObjectPtr lang_value);
+        void append(FixtureLock &, ObjectPtr lang_value);
         ObjectSharedPtr getItem(std::size_t i) const;
-        ObjectSharedPtr pop(std::size_t index);
-        void setItem(std::size_t i, ObjectPtr lang_value);
+        ObjectSharedPtr pop(FixtureLock &, std::size_t index);
+        void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
         
         static List *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static List *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
@@ -51,6 +51,10 @@ namespace db0::object_model
 
         // drop underlying DBZero representation
         void drop();
+
+        void clear(FixtureLock &);
+
+        void swapAndPop(FixtureLock &, const std::vector<uint64_t> &element_numbers);
         
     private:        
         // new lists can only be created via factory members

@@ -37,7 +37,7 @@ namespace tests
             VObjectCache cache(*fixture, shared_object_list);
 
             // prepare full-text index to join with
-            FT_BaseIndex ft_index(*fixture, cache);
+            auto &ft_index = fixture->addResource<FT_BaseIndex>(*fixture, cache);
             {
                 auto batch_data = ft_index.beginBatchUpdate();
                 batch_data->addTags(4, std::vector<std::uint64_t> { 1, 2, 3 });
@@ -63,8 +63,7 @@ namespace tests
     }
 
     TEST_F( QuerySerializationTest , testRangeTreeFTSortedIteratorCanBeDeserialized )
-    {
-        /* FIXME: WIP
+    {        
         std::vector<std::byte> buf;
         auto test = [&](RangeTreeT &rt, FT_BaseIndex &ft_index) {
             auto ft_query = ft_index.makeIterator(1);
@@ -87,8 +86,7 @@ namespace tests
             values.push_back(value); 
         }
 
-        ASSERT_EQ(values, (std::vector<std::uint64_t> { 4, 3, 8 }));
-        */
+        ASSERT_EQ(values, (std::vector<std::uint64_t> { 4, 3, 8 }));        
     }
 
 }

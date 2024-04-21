@@ -8,10 +8,10 @@ namespace db0::object_model
 
 {
     
-    template <typename LangToolkit> o_typed_item createTupleItem(const Tuple &tuple,
-    db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
+    template <typename LangToolkit> o_typed_item createTupleItem(db0::swine_ptr<Fixture> &fixture,
+        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
-        return { storage_class, createMember<LangToolkit>(tuple, type_id, lang_value, storage_class) };
+        return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value, storage_class) };
     }
 
     GC0_Define(Tuple)
@@ -34,16 +34,18 @@ namespace db0::object_model
         return unloadMember<LangToolkit>(*this, storage_class, value);
     }
     
-    void Tuple::setItem(std::size_t i, ObjectPtr lang_value){
+    void Tuple::setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value)
+    {
+        // FIXME: is this method allowed ? (since tuples are immutable in Python)
         if (i >= getData()->size()) {
             THROWF(db0::InputException) << "Index out of range: " << i;
         }
         // recognize type ID from language specific object
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
-        modify()[i] = createTupleItem<LangToolkit>(*this, type_id, lang_value, storage_class);
+        modify()[i] = createTupleItem<LangToolkit>(*fixture, type_id, lang_value, storage_class);
     }
-
+    
     Tuple *Tuple::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::size_t size)
     {
         return new (at_ptr) Tuple(size, fixture);
@@ -66,7 +68,7 @@ namespace db0::object_model
         return count;
     }
 
-    size_t Tuple::index(ObjectPtr lang_value)
+    std::size_t Tuple::index(ObjectPtr lang_value)
     {
         size_t index = 0;
         for(auto &elem: this->const_ref()){
@@ -80,28 +82,23 @@ namespace db0::object_model
         return -1;
     }
 
-    bool Tuple::operator==(const Tuple &tuple) const
-    {
+    bool Tuple::operator==(const Tuple &tuple) const {
         return false;
     }
 
-    bool Tuple::operator!=(const Tuple &tuple) const
-    {
+    bool Tuple::operator!=(const Tuple &tuple) const {
         return false;
     }
     
-    void Tuple::drop()
-    {
+    void Tuple::drop() {
         v_object<o_tuple>::destroy();
     }
 
-    const o_typed_item *Tuple::begin()
-    {
+    const o_typed_item *Tuple::begin() {
         return this->getData()->begin();
     }
 
-    const o_typed_item *Tuple::end()
-    {
+    const o_typed_item *Tuple::end() {
         return this->getData()->end();
     }
 }

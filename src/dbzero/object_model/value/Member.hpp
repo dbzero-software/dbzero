@@ -21,12 +21,13 @@ namespace db0::object_model
 
 {
     
-    template <typename LangToolkit, typename ContainerT> Value createMember(const ContainerT &object,
-        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
-    {
-        using TypeId = db0::bindings::TypeId;
+    using TypeId = db0::bindings::TypeId;
+
+    template <typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
+        TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
+    {        
         if (storage_class == StorageClass::DB0_SELF) {
-            // address of self-reference is not relevant
+            // address to self has no storage representation
             return 0;
         }
 
@@ -44,8 +45,7 @@ namespace db0::object_model
             break;
             
             case TypeId::STRING: {
-                // create string-ref member and take its address
-                auto fixture = object.getFixture();
+                // create string-ref member and take its address                
                 return db0::v_object<db0::o_string>(*fixture, PyUnicode_AsUTF8(lang_value)).getAddress();
             }
             break;
@@ -104,8 +104,8 @@ namespace db0::object_model
                 return tuple.getAddress();
             }
             break;
-            // Python types 
 
+            // Python types
             case TypeId::LIST: {
                 auto list = db0::python::makeList(nullptr, &lang_value, 1);
                 list->ext().modify().incRef();
@@ -144,8 +144,7 @@ namespace db0::object_model
             break;
 
             case TypeId::BYTES: {
-                // create string-ref member and take its address
-                auto fixture = object.getFixture();
+                // create string-ref member and take its address                
                 auto size = PyBytes_GET_SIZE(lang_value);
                 auto *str = PyBytes_AsString(lang_value);
                 std::byte * bytes = reinterpret_cast<std::byte *>(str);
@@ -157,6 +156,7 @@ namespace db0::object_model
                 return 0;
             }
             break;
+
             /*
             case StorageClass::pooled_string: {
                 return pyzero::toVarChar(PyUnicode_AsUTF8(py_value));
@@ -193,7 +193,7 @@ namespace db0::object_model
             
             default:
                 THROWF(db0::InternalException)
-                    << "Invalid type ID: " << (int)type_id << THROWF_END;
+                    << "Invalid type ID: " << static_cast<int>(type_id) << THROWF_END;
             break;
         }
     }

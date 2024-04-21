@@ -4,6 +4,7 @@
 #include "FT_Iterator.hpp"
 #include "SortedIterator.hpp"
 #include "FT_IndexIterator.hpp"
+#include "FT_BaseIndex.hpp"
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
@@ -18,7 +19,7 @@ namespace db0
         db0::Snapshot &, std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end);
     
-    template <typename bindex_t, typename KeyT> std::unique_ptr<db0::FT_IndexIterator<bindex_t, KeyT> > deserializeFT_IndexIterator(
+    template <typename bindex_t, typename KeyT> std::unique_ptr<db0::FT_Iterator<KeyT> > deserializeFT_IndexIterator(
         db0::Snapshot &, std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end);
     
@@ -29,9 +30,10 @@ namespace db0
         auto type_id = db0::serial::read<FTIteratorType>(iter, end);
         if (type_id == FTIteratorType::Index) {
             // detect underlying index type (complex type)
-            auto index_type_id = db0::serial::read<TypeIdType>(iter, end);
+            auto _iter = iter;
+            auto index_type_id = db0::serial::read<TypeIdType>(_iter, end);
             if (index_type_id == db0::MorphingBIndex<std::uint64_t, std::uint64_t>::getSerialTypeId()) {
-                throw std::runtime_error("Not implemented");
+                return deserializeFT_IndexIterator<db0::MorphingBIndex<std::uint64_t, std::uint64_t>, KeyT>(snapshot, iter, end);
             } else {
                 THROWF(db0::InternalException) << "Unsupported index type ID: " << index_type_id
                     << THROWF_END;
@@ -42,4 +44,28 @@ namespace db0
         }
     }
     
+    template <typename bindex_t, typename KeyT> std::unique_ptr<db0::FT_Iterator<KeyT> > deserializeFT_IndexIterator(
+        db0::Snapshot &snapshot, std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end)
+    {
+        auto index_type_id = db0::serial::read<TypeIdType>(iter, end);
+        if (index_type_id != db0::serial::typeId<bindex_t>()) {
+            THROWF(db0::InternalException) << "Index type mismatch: " << index_type_id << " != " << bindex_t::getSerialTypeId()
+                << THROWF_END;
+        }
+
+        auto key_type_id = db0::serial::read<TypeIdType>(iter, end);
+        if (key_type_id != db0::serial::typeId<KeyT>()) {
+            THROWF(db0::InternalException) << "Key type mismatch: " << key_type_id << " != " << db0::serial::typeId<KeyT>()
+                << THROWF_END;
+        }
+
+        // get fixture by UUID
+        auto fixture = snapshot.getFixture(db0::serial::read<std::uint64_t>(iter, end));        
+        int direction = db0::serial::read<std::int8_t>(iter, end);
+        auto index_key = db0::serial::read<std::uint64_t>(iter, end);        
+        // use FT_Base index as the factory
+        return fixture->get<db0::FT_BaseIndex>().makeIterator(index_key, direction);
+    }
+
 }

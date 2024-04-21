@@ -32,7 +32,7 @@ namespace db0
         /**
          * @param key either tag or class identifier
         */
-        std::unique_ptr<FT_Iterator<std::uint64_t> > makeIterator(std::uint64_t key) const;
+        std::unique_ptr<FT_Iterator<std::uint64_t> > makeIterator(std::uint64_t key, int direction = -1) const;
 
         /**
          * Match all elements from the user provided sequence

@@ -29,7 +29,8 @@ namespace db0::python
         return tuple_obj->ext().getItem(i).steal();
     }
 
-    PyObject *TupleObject_count(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs){
+    PyObject *TupleObject_count(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs)
+    {
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "count() takes one argument.");
             return NULL;
@@ -114,7 +115,7 @@ namespace db0::python
         PyObject *item;
         int index = 0;
         while ((item = PyIter_Next(iterator))) {
-            tuple_object->ext().setItem(index, item);
+            tuple_object->ext().setItem(fixture, index, item);
             Py_DECREF(item);
             ++index;
         }

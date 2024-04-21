@@ -9,10 +9,10 @@ namespace db0::object_model
 {
     GC0_Define(List)
 
-    template <typename LangToolkit> o_typed_item createListItem(const List &list,
-    db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
+    template <typename LangToolkit> o_typed_item createListItem(db0::swine_ptr<Fixture> &fixture,
+        db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
-        return { storage_class, createMember<LangToolkit>(list, type_id, lang_value, storage_class) };
+        return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value, storage_class) };
     }
 
     List::List(db0::swine_ptr<Fixture> &fixture)
@@ -30,7 +30,7 @@ namespace db0::object_model
     {
     }
     
-    void List::append(ObjectPtr lang_value)
+    void List::append(FixtureLock &fixture, ObjectPtr lang_value)
     {
         using TypeId = db0::bindings::TypeId;
         
@@ -38,8 +38,8 @@ namespace db0::object_model
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
         v_bvector::push_back(
-            createListItem<LangToolkit>(*this, type_id, lang_value, storage_class)
-            );
+            createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class)
+        );
     }
     
     List::ObjectSharedPtr List::getItem(std::size_t i) const
@@ -51,7 +51,7 @@ namespace db0::object_model
         return unloadMember<LangToolkit>(*this, storage_class, value);
     }
 
-    List::ObjectSharedPtr List::pop(std::size_t i)
+    List::ObjectSharedPtr List::pop(FixtureLock &fixture, std::size_t i)
     {
         if (size() == 0) {
             THROWF(db0::InputException) << "Cannot pop from empty container ";
@@ -61,11 +61,11 @@ namespace db0::object_model
         }
         auto [storage_class, value] = (*this)[i];
         auto member = unloadMember<LangToolkit>(*this, storage_class, value);
-        this->swapAndPop({i});
+        this->swapAndPop(fixture, {i});
         return member;
     }
 
-    void List::setItem(std::size_t i, ObjectPtr lang_value)
+    void List::setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value)
     {
         if (i >= size()) {
             THROWF(db0::InputException) << "Index out of range: " << i;
@@ -73,8 +73,8 @@ namespace db0::object_model
 
         // recognize type ID from language specific object
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
-        v_bvector::setItem(i, createListItem<LangToolkit>(*this, type_id, lang_value, storage_class));
+        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);        
+        v_bvector::setItem(i, createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class));
     }
     
     List *List::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
@@ -84,7 +84,7 @@ namespace db0::object_model
     List *List::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
         return new (at_ptr) List(fixture, address);
     }
-
+    
     List * List::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
         return new (at_ptr) List(fixture, *this);
     }
@@ -130,9 +130,19 @@ namespace db0::object_model
         }
         return !(*this == list);
     }
-    
+
     void List::drop() {
         v_bvector<o_typed_item>::destroy();
     }
-            
+
+    void List::clear(FixtureLock &) {
+        // FIXME: drop items
+        v_bvector<o_typed_item>::clear();
+    }
+
+    void List::swapAndPop(FixtureLock &, const std::vector<uint64_t> &element_numbers) {
+        // FIXME: drop items
+        v_bvector<o_typed_item>::swapAndPop(element_numbers);
+    }
+
 }

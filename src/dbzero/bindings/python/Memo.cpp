@@ -84,9 +84,11 @@ namespace db0::python
             
             // invoke post-init on associated DBZero object
             auto &object = self->ext();
-            object.postInit();
+            db0::FixtureLock fixture(object.getFixture());
+            fixture->onUpdated();
+            object.postInit(fixture);
             // register weak-ref with the lang cache
-            object.getFixture()->getLangCache().add(object.getAddress(), self, false);
+            fixture->getLangCache().add(object.getAddress(), self, false);
         }
 
         return 0;
@@ -178,7 +180,13 @@ namespace db0::python
         // assign value to a DB0 attribute
         Py_XINCREF(value);
         try {
-            self->ext().set(PyUnicode_AsUTF8(attr), value);
+            auto &memo = self->ext();
+            if (memo.hasInstance()) {
+                auto fixture = self->ext().getMutableFixture();
+                memo.set(fixture, PyUnicode_AsUTF8(attr), value);
+            } else {
+                memo.setPreInit(PyUnicode_AsUTF8(attr), value);
+            }
         } catch (const std::exception &e) {
             Py_XDECREF(value);
             PyErr_SetString(PyExc_AttributeError, e.what());
@@ -392,11 +400,18 @@ namespace db0::python
         auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
         return PyBool_FromLong(memo_obj.ext().isTag());
     }
-
+    
     PyObject *MemoObject_str(MemoObject *pythis)
-    {   
+    {
         std::stringstream str;
-        str << "<" << Py_TYPE(pythis)->tp_name << " instance uuid=" << PyUnicode_AsUTF8(tryGetObjectId<MemoObject>(pythis)) << ">";
+        auto &memo = pythis->ext();
+        str << "<" << Py_TYPE(pythis)->tp_name;
+        if (memo.hasInstance()) {
+            str << " instance uuid=" << PyUnicode_AsUTF8(tryGetObjectId<MemoObject>(pythis));
+        } else {
+            str << " (uninitialized)";
+        }
+        str << ">";
         return PyUnicode_FromString(str.str().c_str());
     }
     

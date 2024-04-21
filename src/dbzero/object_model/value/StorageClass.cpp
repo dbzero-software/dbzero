@@ -26,6 +26,8 @@ namespace db0::object_model
         addMapping(TypeId::DB0_INDEX, StorageClass::DB0_INDEX);
         addMapping(TypeId::DB0_PANDAS_DATAFRAME, StorageClass::DB0_PANDAS_DATAFRAME);
         addMapping(TypeId::DB0_DATETIME, StorageClass::DB0_DATETIME);
+        addMapping(TypeId::OBJECT_ITERATOR, StorageClass::DB0_SERIALIZED);
+        addMapping(TypeId::TYPED_OBJECT_ITERATOR, StorageClass::DB0_SERIALIZED);
     }
     
     StorageClass StorageClassMapper::getStorageClass(TypeId type_id) const
@@ -39,8 +41,8 @@ namespace db0::object_model
         if (int_id < m_storage_class_map.size()) {
             return m_storage_class_map[int_id];
         }
-        THROWF(db0::InputException) 
-            << "Storage class unknown for common language type ID: " << type_id << THROWF_END;
+        THROWF(db0::InputException)
+            << "Storage class unknown for common language type ID: " << static_cast<int>(type_id) << THROWF_END;
     }
 
     void StorageClassMapper::addMapping(TypeId type_id, StorageClass storage_class) 

@@ -117,7 +117,7 @@ namespace db0::object_model
         ~Object();
 
         // post-init invoked by memo type directly after __init__
-        void postInit();
+        void postInit(FixtureLock &);
         
         // Express-init an object from the "kwargs" arguments
         // void expressInit(const bp::dict &kwargs);
@@ -149,7 +149,9 @@ namespace db0::object_model
         void endInit();
         
         // Assign language specific value as a field (to already initialized or uninitialized instance)
-        void set(const char *field_name, ObjectPtr lang_value);
+        void set(FixtureLock &, const char *field_name, ObjectPtr lang_value);
+        // Assign field of an uninitialized instance
+        void setPreInit(const char *field_name, ObjectPtr lang_value);
         
         ObjectSharedPtr get(const char *field_name) const;
         
@@ -271,6 +273,9 @@ namespace db0::object_model
         void dropMembers();
 
         void dropMember(db0::swine_ptr<Fixture> &, StorageClass, Value);
+
+        using TypeId = db0::bindings::TypeId;
+        std::pair<TypeId, StorageClass> recognizeType(Fixture &, ObjectPtr lang_value) const;
     };
     
 }

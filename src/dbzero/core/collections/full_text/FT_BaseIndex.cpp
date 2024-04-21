@@ -17,14 +17,14 @@ namespace db0
     {
     }
 
-    std::unique_ptr<FT_Iterator<std::uint64_t> > FT_BaseIndex::makeIterator(std::uint64_t key) const 
+    std::unique_ptr<FT_Iterator<std::uint64_t> > FT_BaseIndex::makeIterator(std::uint64_t key, int direction) const
     {
         auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
         if (!inverted_list_ptr) {
             return nullptr;
         }
         return std::unique_ptr<FT_Iterator<std::uint64_t> >(
-            new FT_IndexIterator<ListT, std::uint64_t>(*inverted_list_ptr, -1, key));
+            new FT_IndexIterator<ListT, std::uint64_t>(*inverted_list_ptr, direction, key));
     }
     
     bool FT_BaseIndex::addIterator(FT_IteratorFactory<std::uint64_t> &factory, std::uint64_t key) const

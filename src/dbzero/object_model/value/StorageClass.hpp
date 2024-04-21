@@ -42,6 +42,8 @@ namespace db0::object_model
         // special storage class for a self-reference
         DB0_SELF = 19,
         DB0_BYTES = 20,
+        // DBZero object serialized to a byte array
+        DB0_SERIALIZED = 21,
         // invalid / reserved value, never used in objects
         INVALID = std::numeric_limits<std::uint8_t>::max()
     };
