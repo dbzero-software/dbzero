@@ -1,7 +1,7 @@
 #pragma once
 
 #include <unordered_map>
-#include <dbzero/core/exception/AbstractException.hpp>
+#include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
 

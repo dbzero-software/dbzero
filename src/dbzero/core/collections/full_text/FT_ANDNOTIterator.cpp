@@ -1,6 +1,8 @@
 #include "FT_ANDNOTIterator.hpp"
 #include "FT_ORXIterator.hpp"
 #include <dbzero/core/utils/heap_utils.hpp>
+#include <algorithm>
+#include <cstring>
 
 namespace db0 
 
@@ -207,18 +209,7 @@ namespace db0
     bool FT_ANDNOTIterator<key_t>::isEnd() const {
         return getBaseIterator().isEnd();
     }
-
-    template<typename key_t>
-    void FT_ANDNOTIterator<key_t>::visit(IteratorVisitor& visitor) const 
-    {
-        visitor.enterAndNotIterator(this->getID(), m_direction);
-        visitor.setLabel(this->getLabel());
-        for(const std::unique_ptr<FT_Iterator<key_t>> &sub_it : m_joinable) {
-            sub_it->visit(visitor);
-        }
-        visitor.leaveIterator();
-    }
-
+    
     template<typename key_t>
     void FT_ANDNOTIterator<key_t>::operator++() {
         assert(m_direction > 0);
@@ -285,7 +276,6 @@ namespace db0
             std::make_unique<FT_ANDNOTIterator>(std::move(sub_iterators), m_direction)
         );
 
-        cloned->setID(this->getID());
         if (clone_map_ptr) {
             clone_map_ptr->insert(*cloned, *this);
         }
@@ -300,8 +290,7 @@ namespace db0
         for(const auto &sub_it : m_joinable) {
             sub_iterators.emplace_back(sub_it->beginTyped(direction));
         }
-        auto result = std::make_unique<FT_ANDNOTIterator>(std::move(sub_iterators), direction);
-        result->setID(this->getID());
+        auto result = std::make_unique<FT_ANDNOTIterator>(std::move(sub_iterators), direction);        
         return result;
     }
 
@@ -423,19 +412,17 @@ namespace db0
         */
     }
     
-    template <typename key_t> const std::type_info &db0::FT_ANDNOTIterator<key_t>::typeId() const
-    {
+    template <typename key_t> const std::type_info &db0::FT_ANDNOTIterator<key_t>::typeId() const {
         return typeid(self_t);
     }    
 
     template <typename key_t>
-    FTIteratorType db0::FT_ANDNOTIterator<key_t>::getSerialTypeId() const
-    {
+    FTIteratorType db0::FT_ANDNOTIterator<key_t>::getSerialTypeId() const {
         return FTIteratorType::JoinAndNot;
     }
 
     template <typename key_t>
-    void db0::FT_ANDNOTIterator<key_t>::serialize(std::vector<std::byte> &v) const
+    void db0::FT_ANDNOTIterator<key_t>::serializeFTIterator(std::vector<std::byte> &v) const
     {
         db0::serial::write(v, db0::serial::typeId<key_t>());
         db0::serial::write<std::int8_t>(v, m_direction);

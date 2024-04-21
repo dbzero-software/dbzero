@@ -1,9 +1,11 @@
 #pragma once
 
+#include <list>
 #include "FT_Iterator.hpp"
 #include "FT_IteratorFactory.hpp"
 #include <dbzero/core/utils/heap.hpp>
 #include <dbzero/core/utils/unique_set.hpp>
+#include <dbzero/core/utils/BoundCheck.hpp>
 
 namespace db0
 
@@ -40,8 +42,6 @@ namespace db0
 		void operator--() override;
 
 		key_t getKey() const override;
-
-		void visit(IteratorVisitor& visitor) const override;
 
 		bool join(key_t key, int direction) override;
 
@@ -114,7 +114,8 @@ namespace db0
 
         FTIteratorType getSerialTypeId() const override;
         
-        void serialize(std::vector<std::byte> &) const override;  
+	protected:
+        void serializeFTIterator(std::vector<std::byte> &) const override;
 		
     private:
 

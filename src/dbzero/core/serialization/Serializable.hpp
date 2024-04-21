@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0::serial
 

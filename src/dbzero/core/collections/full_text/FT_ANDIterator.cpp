@@ -1,4 +1,5 @@
 #include "FT_ANDIterator.hpp"
+#include <cassert>
 
 namespace db0
 
@@ -53,17 +54,7 @@ namespace db0
 	bool FT_JoinANDIterator<key_t, UniqueKeys>::isEnd() const {
 		return m_end;
 	}
-
-	template <typename key_t, bool UniqueKeys>
-	void FT_JoinANDIterator<key_t, UniqueKeys>::visit(IteratorVisitor &visitor) const {
-		visitor.enterAndIterator(this->getID(), m_direction);
-		visitor.setLabel(this->getLabel());
-		for (const auto& each : m_joinable) {
-			each->visit(visitor);
-		}
-		visitor.leaveIterator();
-	}
-
+    
 	template <typename key_t, bool UniqueKeys>
 	void FT_JoinANDIterator<key_t, UniqueKeys>::operator++() 
     {
@@ -172,8 +163,7 @@ namespace db0
 		}
 		std::unique_ptr<FT_Iterator<key_t> > result(new FT_JoinANDIterator<key_t, UniqueKeys>(
 			std::move(temp), m_direction, m_end, m_join_key, tag_cloned())
-		);
-		result->setID(this->getID());
+		);		
 		if (clone_map_ptr) {
 			clone_map_ptr->insert(*result, *this);
 		}
@@ -188,8 +178,7 @@ namespace db0
         for (auto it = m_joinable.begin(),itend = m_joinable.end();it!=itend;++it) {
             temp.emplace_back((*it)->beginTyped(direction));
         }
-		auto result = std::make_unique<FT_JoinANDIterator<key_t> >(std::move(temp), direction, false);
-        result->setID(this->getID());
+		auto result = std::make_unique<FT_JoinANDIterator<key_t> >(std::move(temp), direction, false);        
         return result;
 	}
 
@@ -512,7 +501,7 @@ namespace db0
     }
     
     template <typename key_t, bool UniqueKeys>
-    void db0::FT_JoinANDIterator<key_t, UniqueKeys>::serialize(std::vector<std::byte> &v) const
+    void db0::FT_JoinANDIterator<key_t, UniqueKeys>::serializeFTIterator(std::vector<std::byte> &v) const
     {
         db0::serial::write(v, db0::serial::typeId<key_t>());
         db0::serial::write<std::int8_t>(v, m_direction);

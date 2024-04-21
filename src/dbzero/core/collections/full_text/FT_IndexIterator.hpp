@@ -58,9 +58,7 @@ namespace db0
 
 		bool limitBy(key_t key) override;
 
-		std::ostream &dump(std::ostream &os) const override;
-
-        void visit(IteratorVisitor& visitor) const override;
+		std::ostream &dump(std::ostream &os) const override;        
 
 		bool equal(const FT_IteratorBase &it) const override;
 
@@ -81,9 +79,7 @@ namespace db0
 	    std::size_t getDepth() const override;
 
 		FTIteratorType getSerialTypeId() const override;
-
-        void serialize(std::vector<std::byte> &) const override;
-		
+        		
     protected:
         bindex_t m_data;
         const int m_direction;
@@ -104,6 +100,8 @@ namespace db0
         const iterator &getIterator() const;
 
         void _next(void *buf = nullptr);
+
+		void serializeFTIterator(std::vector<std::byte> &) const override;
     };
 	
 	template <typename bindex_t, typename key_t>
@@ -187,8 +185,7 @@ namespace db0
 	{
 		// clone preserving state
 		std::unique_ptr<FT_Iterator<key_t> > result(
-            new FT_IndexIterator(m_data, m_direction, getIterator(), getIndexKey()));
-		result->setID(this->getID());
+            new FT_IndexIterator(m_data, m_direction, getIterator(), this->m_index_key));
 		if (clone_map_ptr) {
 			clone_map_ptr->insert(*result.get(), *this);
 		}
@@ -196,37 +193,19 @@ namespace db0
 	}
 
 	template <typename bindex_t, typename key_t >
-	std::unique_ptr<FT_Iterator<key_t> > FT_IndexIterator<bindex_t, key_t>::beginTyped(int direction) const 
-	{
-		std::unique_ptr<FT_Iterator<key_t> > result(new FT_IndexIterator(m_data, direction, getIndexKey()));
-		result->setID(this->getID());
-		return result;
+	std::unique_ptr<FT_Iterator<key_t> > FT_IndexIterator<bindex_t, key_t>::beginTyped(int direction) const {
+		return std::unique_ptr<FT_Iterator<key_t> >(new FT_IndexIterator(m_data, direction, this->m_index_key));
 	}
 
 	template <typename bindex_t, typename key_t >
-	bool FT_IndexIterator<bindex_t, key_t>::limitBy(key_t key) 
-	{
+	bool FT_IndexIterator<bindex_t, key_t>::limitBy(key_t key) {
 		// simply pass through underlying collection iterator
 		return getIterator().limitBy(key);
 	}
 
 	template <typename bindex_t, typename key_t >
-	std::ostream &FT_IndexIterator<bindex_t, key_t>::dump(std::ostream &os) const 
-	{
+	std::ostream &FT_IndexIterator<bindex_t, key_t>::dump(std::ostream &os) const {
 		return os << "FTIndex@" << this;
-	}
-
-	template <typename bindex_t, typename key_t >
-	void FT_IndexIterator<bindex_t, key_t>::visit(IteratorVisitor &visitor) const 
-    {
-		visitor.onIndexIterator(this->getID(),
-								this->m_direction,
-								this->m_data.getAddress(),
-								this->m_data.getIndexType(),
-								this->getKey(),
-								this->getIterator().getLimit(),
-								this->getIndexKey());
-		visitor.setLabel(this->getLabel());
 	}
 
 	template <typename bindex_t, typename key_t>
@@ -312,13 +291,18 @@ namespace db0
 	}
 
 	template <typename bindex_t, typename key_t>
-	void FT_IndexIterator<bindex_t, key_t>::serialize(std::vector<std::byte> &v) const 
+	void FT_IndexIterator<bindex_t, key_t>::serializeFTIterator(std::vector<std::byte> &v) const
 	{
+		using TypeIdType = decltype(db0::serial::typeId<void>());
+		// FIXME: log
+		std::cout << "bindex type: " << typeid(bindex_t).name() << std::endl;
+		std::cout << "Serial id: " << bindex_t::getSerialTypeId() << std::endl;
+
 		// write underlying type IDs
-		db0::serial::write(v, bindex_t::getSerialTypeId());
+		db0::serial::write<TypeIdType>(v, bindex_t::getSerialTypeId());
 		db0::serial::write(v, db0::serial::typeId<key_t>());
 		db0::serial::write(v, m_data.getMemspace().getUUID());
-		db0::serial::write<int8_t>(v, m_direction);
+		db0::serial::write<std::int8_t>(v, m_direction);
 		// index key is sufficient for deserialization
 		db0::serial::write<bool>(v, m_index_key.has_value());
 		if (m_index_key) {

@@ -470,11 +470,11 @@ namespace db0
         db0::serial::write(v, m_tree.getAddress());
         db0::serial::write<bool>(v, m_asc);
         db0::serial::write<bool>(v, m_inner_it != nullptr);
-        if (m_inner_it) {
+        if (m_inner_it) {            
             m_inner_it->serialize(v);
         } else {
             db0::serial::write<bool>(v, m_has_query);
-            if (m_has_query) {            
+            if (m_has_query) {                
                 m_query_it->serialize(v);
             }
         }

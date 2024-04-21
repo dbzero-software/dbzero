@@ -3,27 +3,11 @@
 namespace db0
 
 {
-
-    template <typename key_t> void FT_Iterator<key_t>::setLabel(const std::string &label) {
-        m_label = label;
-    }
-
-    template <typename key_t> const std::string &FT_Iterator<key_t>::getLabel() const {
-        return m_label;
-    }
-
-    template <typename key_t> void FT_Iterator<key_t>::setID(std::uint64_t id) {
-        m_id = id;
-    }
-
-    template <typename key_t> std::uint64_t FT_Iterator<key_t>::getID() const {
-        return m_id;
-    }
-
+    
     template <typename key_t> std::uint64_t FT_Iterator<key_t>::getIndexKey() const {
         return std::uint64_t();
     }
-        
+    
     template <typename key_t> const std::type_info &FT_Iterator<key_t>::keyTypeId() const {
         return typeid(key_t);
     }
@@ -57,4 +41,9 @@ namespace db0
         return beginTyped(-1);
     }    
     
+    template <typename key_t> void FT_Iterator<key_t>::serialize(std::vector<std::byte> &v) const {
+        db0::serial::write<FTIteratorType>(v, this->getSerialTypeId());
+        this->serializeFTIterator(v);
+    }
+
 } // dbz namespace {

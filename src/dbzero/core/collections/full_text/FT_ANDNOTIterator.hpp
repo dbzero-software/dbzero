@@ -42,8 +42,6 @@ namespace db0
         
         void next(void *buf = nullptr) override;
 
-        void visit(IteratorVisitor& visitor) const override;
-
         void operator++() override;
 
         void operator--() override;
@@ -94,7 +92,8 @@ namespace db0
 
         FTIteratorType getSerialTypeId() const override;
         
-        void serialize(std::vector<std::byte> &) const override;
+    protected:
+        void serializeFTIterator(std::vector<std::byte> &) const override;
         
     private:
         int m_direction;
