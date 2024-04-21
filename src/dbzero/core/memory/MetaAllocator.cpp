@@ -531,14 +531,14 @@ namespace db0
         // this is to temporarily initialize for unlimited reading
         auto get_address = getAddressPool(o_meta_header::sizeOf(), m_header.m_page_size, m_header.m_slab_size);
         m_algo_allocator.setMaxAddress(get_address(std::numeric_limits<unsigned int>::max() - 1));
-        return { m_prefix, m_algo_allocator, Memspace::tag_from_reference() };
+        return { Memspace::tag_from_reference(), m_prefix, m_algo_allocator };
     }
     
     void MetaAllocator::formatPrefix(std::shared_ptr<Prefix> prefix, std::size_t page_size, std::size_t slab_size)
     {
         // create the meta-header and the address 0x0
         OneShotAllocator one_shot(0, o_meta_header::sizeOf());
-        Memspace memspace(prefix, one_shot, Memspace::tag_from_reference());
+        Memspace memspace(Memspace::tag_from_reference(), prefix, one_shot);
         v_object<o_meta_header> meta_header(memspace, page_size, slab_size, 0, 0);
         auto offset = o_meta_header::sizeOf();
         // Construct the meta-space for the slab tree
@@ -546,7 +546,7 @@ namespace db0
                 getAddressPool(offset, page_size, slab_size), 
                 getReverseAddressPool(offset, page_size, slab_size), 
                 page_size);
-        Memspace meta_space(prefix, algo_allocator, Memspace::tag_from_reference());
+        Memspace meta_space(Memspace::tag_from_reference(), prefix, algo_allocator);
 
         // Create the empty slab-defs and capacity items trees on the meta-space
         SlabTreeT slab_defs(meta_space, page_size);
@@ -561,7 +561,7 @@ namespace db0
     {
         // meta-header has fixed address 0x00
         OneShotAllocator one_shot(0, o_meta_header::sizeOf());
-        Memspace memspace(prefix, one_shot, Memspace::tag_from_reference());
+        Memspace memspace(Memspace::tag_from_reference(), prefix, one_shot);
         v_object<o_meta_header> meta_header(memspace.myPtr(0));
         return meta_header.const_ref();
     }
@@ -655,11 +655,6 @@ namespace db0
         return result;
     }
 
-    std::shared_ptr<Allocator> MetaAllocator::getSnapshot() const {
-        // simply create a new instance over the prefix's snapshot
-        return std::make_shared<MetaAllocator>(m_prefix->getSnapshot(), m_recycler_ptr);
-    }
-
     void MetaAllocator::commit()
     {
         m_slab_defs.commit();        
@@ -667,6 +662,10 @@ namespace db0
         m_slab_manager->commit();
     }
 
+    SlabRecycler *MetaAllocator::getSlabRecyclerPtr() const {
+        return m_recycler_ptr;
+    }
+    
 }
 
 namespace std 

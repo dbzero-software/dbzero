@@ -7,6 +7,7 @@
 #include <dbzero/core/serialization/Base.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/collections/b_index/type.hpp>
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
@@ -692,7 +693,8 @@ namespace db0
             return result;
         }
 
-    public :
+    public:
+        using self_t = v_sorted_vector<data_t, AddrT, comp_t>;
         using super_t = v_object<o_sv_container<data_t,comp_t> >;
         using addr_t = AddrT;        
         using c_type = o_sv_container<data_t,comp_t>;
@@ -752,6 +754,15 @@ namespace db0
         v_sorted_vector(std::pair<Memspace*, AddrT> addr)
             : v_sorted_vector(addr.first->myPtr(addr.second))
         {
+        }
+
+        // type ID for serialization
+        static std::uint64_t getSerialTypeId()
+        {
+            return db0::serial::typeId<self_t>(
+                (db0::serial::typeId<data_t>() << 32) | (db0::serial::typeId<AddrT>() << 16) |
+                static_cast<std::uint16_t>(db0::serial::CollectionType::VSortedVector)
+            );
         }
 
         const data_t &operator[](size_t index) const {

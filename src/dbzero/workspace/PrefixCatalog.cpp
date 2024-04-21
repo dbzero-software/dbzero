@@ -58,13 +58,11 @@ namespace db0
         return false;
     }
 
-    fs::path PrefixCatalog::getFileName(const std::string &prefix_name) const
-    {
+    fs::path PrefixCatalog::getFileName(const std::string &prefix_name) const {
         return (m_root_path / (preparePrefixName(prefix_name) + ".db0"));
     }
-
-    bool PrefixCatalog::exists(const std::string &prefix_name) const
-    {
+    
+    bool PrefixCatalog::exists(const std::string &prefix_name) const {
         return CFile::exists(getFileName(prefix_name).string());
     }
 

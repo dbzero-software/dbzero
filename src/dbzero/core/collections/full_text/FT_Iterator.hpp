@@ -2,20 +2,34 @@
 
 #include <iosfwd>
 #include <atomic>
+#include <functional>
 
 #include "FT_IteratorBase.hpp"
-#include "IteratorVisitor.hpp"
 #include "CloneMap.hpp"
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
 {
     
+    // FT_Iterator implementations should register here (for serialization)
+    enum class FTIteratorType: std::uint16_t 
+    {
+        Invalid = 0,
+        Index = 1,
+        RangeTree,
+        JoinAnd,
+        JoinOr,
+        JoinAndNot,
+    };
+    
+    using Serializable = db0::serial::Serializable;
+
     /**
      * Abstract DBZero inverted index iterator definition
      * NOTICE: IDs are not assigned automatically, when required need to call db0:assignUniqueIDs method
      */
-	template <typename KeyT = std::uint64_t> class FT_Iterator: public FT_IteratorBase
+	template <typename KeyT = std::uint64_t> class FT_Iterator: public FT_IteratorBase, public Serializable
 	{
 	public:
 		using super_t = FT_IteratorBase;
@@ -27,25 +41,7 @@ namespace db0
          */
 		virtual KeyT getKey() const = 0;
         
-        const std::type_info &keyTypeId() const override;
-
-		virtual void visit(IteratorVisitor &) const = 0;
-
-		void setLabel(const std::string &label);
-
-		const std::string &getLabel() const;
-
-		/**
-		 * Set application specific instance ID, this ID will be preserved by clone
-		 * @param id
-		 */
-		void setID(std::uint64_t id);
-
-		/**
-		 * Get application specific instance ID
-		 * @return 0 if no ID assigned
-		 */
-		std::uint64_t getID() const;
+        const std::type_info &keyTypeId() const override;		
 
 		/**
          * iterate single item forward
@@ -159,30 +155,17 @@ namespace db0
          * @param batch_size suggested maximum batch size to use
          */
         virtual void fetchKeys(std::function<void(const KeyT *key_buf, std::size_t key_count)> f,
-                std::size_t batch_size = 16 << 10) const;
+            std::size_t batch_size = 16 << 10) const;
+
+        virtual void serialize(std::vector<std::byte> &) const override;
+
+        virtual FTIteratorType getSerialTypeId() const = 0;
 
 	protected:
-		std::string m_label;
-		/// application specific instance ID (serialized and preserved by clone)
-		std::uint64_t m_id = 0;		
+        virtual void serializeFTIterator(std::vector<std::byte> &) const = 0;
 	};
-            
-	/**
-	 * Assign unique ID to all query tree nodes (including all sub-nodes)
-	 * @tparam T
-	 * @param query
-	 * @param last_id ID to start from
-	 */
-    template <typename T> void assignUniqueIds(const FT_Iterator<T> &query, std::uint64_t *last_id = nullptr);
-    template <typename T> void assignUniqueIds(const FT_Iterator<T> &query, std::uint64_t &last_id);
     
     extern template class FT_Iterator<std::uint64_t>;
     extern template class FT_Iterator<int>;
     
-    extern template void assignUniqueIds(const FT_Iterator<std::uint64_t> &, std::uint64_t *);    
-    extern template void assignUniqueIds(const FT_Iterator<int> &, std::uint64_t *);
-    
-    extern template void assignUniqueIds(const FT_Iterator<std::uint64_t> &, std::uint64_t &);
-    extern template void assignUniqueIds(const FT_Iterator<int> &, std::uint64_t &);
-
 } // dbz namespace {

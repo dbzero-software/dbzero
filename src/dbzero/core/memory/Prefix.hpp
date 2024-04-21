@@ -2,7 +2,7 @@
 
 #include <dbzero/core/memory/MemLock.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
-
+#include <optional>
 
 namespace db0
 
@@ -75,7 +75,7 @@ namespace db0
         /**
          * Get the read-only snapshot of the prefix (i.e. a view based on current state number)
          */
-        virtual std::shared_ptr<Prefix> getSnapshot() const = 0;
+        virtual std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const = 0;
 
     private:
         const std::string m_name;

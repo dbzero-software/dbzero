@@ -98,7 +98,7 @@ namespace db0
         
         // create a temporary memspace only to allocate the header under a known address
         OneShotAllocator osa(headerAddr(begin_addr, size), o_slab_header::sizeOf());
-        Memspace memspace(prefix, osa, Memspace::tag_from_reference()); 
+        Memspace memspace(Memspace::tag_from_reference(), prefix, osa);
         // finally create the Slab header
         v_object<o_slab_header> header(
             memspace,
@@ -170,11 +170,7 @@ namespace db0
     std::uint64_t SlabAllocator::getFirstAddress() {
         return CRDT_Allocator::getFirstAddress();
     }
-
-    std::shared_ptr<Allocator> SlabAllocator::getSnapshot() const {
-        THROWF(db0::InternalException) << "SlabAllocator::getSnapshot() operation not supported" << THROWF_END;
-    }
-    
+        
     void SlabAllocator::commit()
     {
         m_header.commit();

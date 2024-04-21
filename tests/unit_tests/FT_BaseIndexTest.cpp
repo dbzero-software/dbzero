@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/TestBase.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 
 namespace tests
@@ -8,7 +8,7 @@ namespace tests
 
 	using namespace db0;
 
-    class FT_BaseIndexTest: public WorkspaceBaseTest
+    class FT_BaseIndexTest: public MemspaceTestBase
     {
     protected:
         FT_BaseIndexTest()

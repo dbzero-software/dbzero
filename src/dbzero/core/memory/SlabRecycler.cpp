@@ -42,4 +42,9 @@ namespace db0
     void SlabRecycler::closeOne(std::function<bool(const SlabAllocator &)> predicate) {
         close(predicate, true);
     }
+
+    void SlabRecycler::clear() {
+        m_slabs.clear();
+    }
+    
 }

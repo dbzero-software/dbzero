@@ -3,17 +3,21 @@
 #include <memory>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
+#include <dbzero/core/memory/VObjectCache.hpp>
+#include <dbzero/core/memory/SlabRecycler.hpp>
+#include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
 #include "PrefixProxy.hpp"
 
 namespace db0
 
 {
     
-    class TestWorkspace
+    class TestWorkspaceBase
     {
     public:
-        TestWorkspace(std::size_t page_size = 4096, std::size_t cache_size = 2u << 30);
-        ~TestWorkspace();
+        TestWorkspaceBase(std::size_t page_size = 4096, std::size_t cache_size = 2u << 30);
+        ~TestWorkspaceBase();
         
         /**
          * Opens a prefix associated memspace
@@ -27,11 +31,40 @@ namespace db0
         void setMapRangeCallback(std::function<void(std::uint64_t, std::size_t, FlagSet<AccessOptions>)>);
         
         void tearDown();
-    
-    private:
+        
+    protected:
+        static constexpr auto TEST_MEMSPACE_UUID = 0x12345678;
         const std::size_t m_page_size;
-        CacheRecycler m_cache_recycler;        
+        CacheRecycler m_cache_recycler;
         std::shared_ptr<db0::tests::PrefixProxy> m_prefix;
     };
     
+    class TestWorkspace: public TestWorkspaceBase, public db0::Snapshot
+    {
+    public:
+        TestWorkspace(std::size_t page_size = 4096, std::size_t slab_size = 1u << 20,
+            std::size_t cache_size = 2u << 30);
+
+        virtual db0::swine_ptr<Fixture> getFixture(
+            const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) override;
+        
+        virtual db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+        
+        virtual db0::swine_ptr<Fixture> getCurrentFixture(std::optional<AccessType> = AccessType::READ_ONLY) override;
+        
+        bool close(const std::string &prefix_name) override;
+        
+        void close() override;
+
+        void tearDown();
+        
+    private:
+        const std::size_t m_slab_size;
+        FixedObjectList m_shared_object_list;
+        SlabRecycler m_slab_recycler;
+        db0::swine_ptr<Fixture> m_current_fixture;
+        std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;
+        std::unordered_map<std::string, std::uint64_t> m_uuids;
+    };
+
 }

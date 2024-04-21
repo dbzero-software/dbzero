@@ -27,7 +27,8 @@ namespace db0::python
     PyObject *PySnapshot_enter(PyObject *, PyObject *);
     PyObject *PySnapshot_exit(PyObject *, PyObject *);
     
-    db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject );
+    db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject);
+    PySnapshotObject *tryGetSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     template <> bool Which_TypeCheck<PySnapshotObject>(PyObject *py_object);
     

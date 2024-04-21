@@ -2,15 +2,23 @@
 
 #include "FT_IteratorBase.hpp"
 #include "FT_Iterator.hpp"
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
 {
 
+    // Sorted iterator implementations should register here (for serialization)
+    enum class SortedIteratorType: std::uint16_t
+    {
+        Invalid = 0,
+        RT_Sort = 1
+    };
+
     /**
      * A base for sorted full-text iterators
     */
-    template <typename ValueT> class SortedIterator: public FT_IteratorBase
+    template <typename ValueT> class SortedIterator: public FT_IteratorBase, public Serializable
     {
     public:
         using QueryIterator = FT_Iterator<ValueT>;
@@ -30,6 +38,8 @@ namespace db0
          * or sort a specific inner query (ft_query) if provided       
         */
         virtual std::unique_ptr<SortedIterator<ValueT> > beginSorted(std::unique_ptr<QueryIterator> ft_query = nullptr) const = 0;
+
+        virtual SortedIteratorType getSerialTypeId() const = 0;
     };
     
 }

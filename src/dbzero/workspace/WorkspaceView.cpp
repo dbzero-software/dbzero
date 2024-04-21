@@ -16,8 +16,9 @@ namespace db0
         };
     }
 
-    WorkspaceView::WorkspaceView(std::shared_ptr<Workspace> workspace)
+    WorkspaceView::WorkspaceView(std::shared_ptr<Workspace> workspace, std::optional<std::uint64_t> state_num)
         : m_workspace(workspace)
+        , m_state_num(state_num)
         , m_default_uuid(workspace->getDefaultUUID())
     {
         // take snapshots of all open fixtures
@@ -45,7 +46,7 @@ namespace db0
 
         auto fixture = m_workspace->getFixture(prefix_name);
         // get snapshot of the latest state
-        auto result = fixture->getSnapshot();
+        auto result = fixture->getSnapshot(m_state_num);
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace->getFixtureInitializer();
         if (fx_initializer) {
@@ -75,7 +76,7 @@ namespace db0
         
         auto fixture = m_workspace->getFixture(uuid);
         // get snapshot of the latest state
-        auto result = fixture->getSnapshot();
+        auto result = fixture->getSnapshot(m_state_num);
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace->getFixtureInitializer();
         if (fx_initializer) {
@@ -127,8 +128,10 @@ namespace db0
         return getFixture(m_default_uuid);
     }
 
-    WorkspaceView *WorkspaceView::makeNew(void *at_ptr, std::shared_ptr<Workspace> workspace) {
-        return new (at_ptr) WorkspaceView(workspace);
+    WorkspaceView *WorkspaceView::makeNew(void *at_ptr, std::shared_ptr<Workspace> workspace,
+        std::optional<std::uint64_t> state_num) 
+    {
+        return new (at_ptr) WorkspaceView(workspace, state_num);
     }
     
 }

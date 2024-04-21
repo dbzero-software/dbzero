@@ -29,13 +29,7 @@ namespace db0
         }
         return it->second;
     }
-
-    std::shared_ptr<Allocator> EmbeddedAllocator::getSnapshot() const
-    {
-        THROWF(db0::InternalException) 
-            << "EmbeddedAllocator: getSnapshot operation not supported" << THROWF_END;
-    }
-    
+        
     void EmbeddedAllocator::commit()
     {
         // nothing to do

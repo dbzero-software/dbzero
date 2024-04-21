@@ -95,13 +95,7 @@ namespace db0
     std::uint64_t DRAM_Allocator::firstAlloc() const {
         return FIRST_PAGE_ID * m_page_size;
     }
-
-    std::shared_ptr<Allocator> DRAM_Allocator::getSnapshot() const
-    {
-        THROWF(db0::InternalException) 
-            << "DRAM_Allocator::getSnapshot: operation not supported" << THROWF_END;
-    }
-    
+        
     void DRAM_Allocator::commit()
     {
     }

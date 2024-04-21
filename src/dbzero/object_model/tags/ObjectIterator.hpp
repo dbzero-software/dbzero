@@ -5,6 +5,7 @@
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/core/collections/full_text/SortedIterator.hpp>
 #include <dbzero/core/collections/full_text/IteratorFactory.hpp>
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0::object_model
 
@@ -12,12 +13,13 @@ namespace db0::object_model
     
     class ClassFactory;
     using Object = db0::object_model::Object;
+    using Serializable = db0::Serializable;
 
     /**
      * Full-text query result iterator over unspecified type objects
      * all objects must be from the same prefix
     */
-    class ObjectIterator
+    class ObjectIterator: public Serializable
     {
     public:
         using LangToolkit = Object::LangToolkit;
@@ -71,6 +73,8 @@ namespace db0::object_model
 
         bool isNull() const;
         
+        void serialize(std::vector<std::byte> &) const override;
+
     protected:
         mutable db0::swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;

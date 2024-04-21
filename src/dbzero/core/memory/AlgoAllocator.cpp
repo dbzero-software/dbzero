@@ -49,8 +49,7 @@ namespace db0
         m_next_i = 0;
     }
 
-    std::uint64_t AlgoAllocator::getRootAddress() const 
-    {
+    std::uint64_t AlgoAllocator::getRootAddress() const {
         return m_address_pool_f(0);
     }
     
@@ -59,13 +58,7 @@ namespace db0
         auto offset = max_address % m_alloc_size;
         m_next_i = m_reverse_address_pool_f(max_address - offset) + 1;
     }
-    
-    std::shared_ptr<Allocator> AlgoAllocator::getSnapshot() const
-    {
-        THROWF(db0::InternalException) 
-            << "AlgoAllocator::getSnapshot: operation not supported" << THROWF_END;
-    }
-    
+        
     void AlgoAllocator::commit()
     {
     }

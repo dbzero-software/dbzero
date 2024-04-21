@@ -1,0 +1,75 @@
+#pragma once
+
+#include "RT_SortIterator.hpp"
+#include <dbzero/core/serialization/Serializable.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/core/collections/full_text/FT_Serialization.hpp>
+
+namespace db0
+
+{
+
+    using TypeIdType = decltype(db0::serial::typeId<void>());
+
+    template <typename KeyT> std::unique_ptr<db0::SortedIterator<KeyT> > deserializeSortedIterator(
+        db0::Snapshot &, std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end);
+
+    template <typename KeyT, typename ValueT> std::unique_ptr<RT_SortIterator<KeyT, ValueT> > 
+    deserializeRT_SortIterator(Snapshot &, std::vector<std::byte>::const_iterator &iter, 
+        std::vector<std::byte>::const_iterator end);
+
+    template <typename KeyT, typename ValueT> std::unique_ptr<RT_SortIterator<KeyT, ValueT> >
+    deserializeRT_SortIterator(Snapshot &snapshot, std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end)
+    {
+        using RT_TreeT = RangeTree<KeyT, ValueT>;
+        if (db0::serial::read<TypeIdType>(iter, end) != db0::serial::typeId<KeyT>()) {
+            THROWF(db0::InputException) << "Deserialize: invalid key type";
+        }
+        if (db0::serial::read<TypeIdType>(iter, end) != db0::serial::typeId<ValueT>()) {
+            THROWF(db0::InputException) << "Deserialize: invalid value type";
+        }
+        
+        auto fixture = snapshot.getFixture(db0::serial::read<std::uint64_t>(iter, end));
+        std::uint64_t addr = db0::serial::read<std::uint64_t>(iter, end);
+        bool asc = db0::serial::read<bool>(iter, end);
+        bool has_inner = db0::serial::read<bool>(iter, end);
+        if (has_inner) {
+            auto inner_it = deserializeSortedIterator<ValueT>(snapshot, iter, end);
+            return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), std::move(inner_it), asc);
+        } else {
+            bool has_query = db0::serial::read<bool>(iter, end);
+            if (has_query) {
+                auto query_it = deserializeFT_Iterator<ValueT>(snapshot, iter, end);
+                return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), std::move(query_it), asc);
+            } else {
+                return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), asc);
+            }
+        }
+    }
+
+    template <typename KeyT> std::unique_ptr<db0::SortedIterator<KeyT> > deserializeSortedIterator(
+        db0::Snapshot &snapshot, std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end)
+    {
+        auto type_id = db0::serial::read<SortedIteratorType>(iter, end);
+        if (type_id == SortedIteratorType::RT_Sort) {
+            auto _iter = iter;
+            auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
+            auto value_type_id = db0::serial::read<TypeIdType>(_iter, end);
+            if (key_type_id != db0::serial::typeId<KeyT>()) {
+                THROWF(db0::InternalException) << "Key type mismatch: " << key_type_id << THROWF_END;
+            }
+            if (value_type_id == db0::serial::typeId<std::uint64_t>()) {
+                return deserializeRT_SortIterator<KeyT, std::uint64_t>(snapshot, iter, end);
+            } else {
+                THROWF(db0::InternalException) << "Unsupported value type ID: " << value_type_id << THROWF_END;
+            }
+        } else {
+            THROWF(db0::InternalException) << "Unsupported SortedIterator type: " << static_cast<std::uint16_t>(type_id) 
+                << THROWF_END;
+        }
+    }
+    
+}

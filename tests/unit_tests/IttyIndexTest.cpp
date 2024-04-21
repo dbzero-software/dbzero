@@ -1,13 +1,13 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/collections/b_index/IttyIndex.hpp>
 #include <set>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/TestBase.hpp>
 
 namespace tests 
 
 {
 
-    class IttyIndexTest: public WorkspaceBaseTest
+    class IttyIndexTest: public MemspaceTestBase
     {
     public:
     };

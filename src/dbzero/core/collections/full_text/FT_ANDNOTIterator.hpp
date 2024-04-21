@@ -42,8 +42,6 @@ namespace db0
         
         void next(void *buf = nullptr) override;
 
-        void visit(IteratorVisitor& visitor) const override;
-
         void operator++() override;
 
         void operator--() override;
@@ -92,6 +90,11 @@ namespace db0
 
         virtual void detach();
 
+        FTIteratorType getSerialTypeId() const override;
+        
+    protected:
+        void serializeFTIterator(std::vector<std::byte> &) const override;
+        
     private:
         int m_direction;
         std::vector<std::unique_ptr<FT_Iterator<key_t>>> m_joinable;

@@ -262,19 +262,12 @@ namespace db0::python
         return py_list;
     }
 
-    PyObject *getDBMetrics(PyObject *self, PyObject *args)
-    {
+    PyObject *getDBMetrics(PyObject *self, PyObject *args) {
         return runSafe(tryGetDBMetrics, self, args);
     }
     
-    PyObject *tryGetSnapshot(PyObject *self, PyObject *args)
-    {
-        return makeSnapshot(self, args);
-    }
-
-    PyObject *getSnapshot(PyObject *self, PyObject *args)
-    {
-        return runSafe(tryGetSnapshot, self, args);
+    PyObject *getSnapshot(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
+        return runSafe(tryGetSnapshot, self, args, nargs);
     }
 
     PyObject *tryDescribeObject(PyObject *self, PyObject *args)

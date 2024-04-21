@@ -3,27 +3,11 @@
 namespace db0
 
 {
-
-    template <typename key_t> void FT_Iterator<key_t>::setLabel(const std::string &label) {
-        m_label = label;
-    }
-
-    template <typename key_t> const std::string &FT_Iterator<key_t>::getLabel() const {
-        return m_label;
-    }
-
-    template <typename key_t> void FT_Iterator<key_t>::setID(std::uint64_t id) {
-        m_id = id;
-    }
-
-    template <typename key_t> std::uint64_t FT_Iterator<key_t>::getID() const {
-        return m_id;
-    }
-
+    
     template <typename key_t> std::uint64_t FT_Iterator<key_t>::getIndexKey() const {
         return std::uint64_t();
     }
-        
+    
     template <typename key_t> const std::type_info &FT_Iterator<key_t>::keyTypeId() const {
         return typeid(key_t);
     }
@@ -31,26 +15,6 @@ namespace db0
     template class db0::FT_Iterator<std::uint64_t>;    
     template class db0::FT_Iterator<int>;    
 
-    template <typename T> void assignUniqueIds(const db0::FT_Iterator<T> &query, std::uint64_t *last_id) {
-        std::uint64_t next_id = 0;
-        if (last_id) {
-            next_id = *last_id;
-        }
-        query.findBy([&next_id](const FT_Iterator<T> &const_it) mutable {
-            auto &it = const_cast<FT_Iterator<T>&>(const_it);
-            // avoid 0, assign starting from 1
-            it.setID(++next_id);
-            return true;
-        });
-        if (last_id) {
-            *last_id = next_id;
-        }
-    }
-
-    template <typename T> void assignUniqueIds(const db0::FT_Iterator<T> &query, std::uint64_t &last_id) {
-        assignUniqueIds(query, &last_id);
-    }
-    
     template <typename key_t> void FT_Iterator<key_t>::fetchKeys(std::function<void(const key_t *key_buf, std::size_t key_count)> f,
             std::size_t batch_size) const 
     {
@@ -76,11 +40,10 @@ namespace db0
     FT_Iterator<key_t>::begin() const {
         return beginTyped(-1);
     }    
-
-    template void assignUniqueIds(const FT_Iterator<std::uint64_t> &, std::uint64_t *);    
-    template void assignUniqueIds(const FT_Iterator<int> &, std::uint64_t *);
-
-    template void assignUniqueIds(const FT_Iterator<std::uint64_t> &, std::uint64_t &);
-    template void assignUniqueIds(const FT_Iterator<int> &, std::uint64_t &);
+    
+    template <typename key_t> void FT_Iterator<key_t>::serialize(std::vector<std::byte> &v) const {
+        db0::serial::write<FTIteratorType>(v, this->getSerialTypeId());
+        this->serializeFTIterator(v);
+    }
 
 } // dbz namespace {

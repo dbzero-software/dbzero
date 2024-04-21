@@ -5,6 +5,7 @@
 #include <dbzero/core/memory/Prefix.hpp>
 #include <dbzero/core/memory/ResourceLock.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
+#include <optional>
 
 namespace db0
 
@@ -65,7 +66,7 @@ namespace db0
 
         std::uint64_t getLastUpdated() const override;
 
-        std::shared_ptr<Prefix> getSnapshot() const override;
+        std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
         
     private:
         const std::size_t m_page_size;        

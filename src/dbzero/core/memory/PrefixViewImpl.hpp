@@ -34,7 +34,7 @@ namespace db0
 
         AccessType getAccessType() const override;
 
-        std::shared_ptr<Prefix> getSnapshot() const override;
+        std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
 
     private:
         // state number is immutable
@@ -99,7 +99,7 @@ namespace db0
     }
 
     template <typename PrefixImplT>
-    std::shared_ptr<Prefix> PrefixViewImpl<PrefixImplT>::getSnapshot() const
+    std::shared_ptr<Prefix> PrefixViewImpl<PrefixImplT>::getSnapshot(std::optional<std::uint64_t>) const
     {
         THROWF(db0::InternalException) 
             << "PrefixViewImpl::getSnapshot: cannot create snapshot from snapshot" << THROWF_END;

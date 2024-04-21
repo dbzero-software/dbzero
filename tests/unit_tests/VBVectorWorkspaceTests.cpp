@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
-#include <utils/WorkspaceBaseTest.hpp>
+#include <utils/TestBase.hpp>
 #include <utils/utils.hpp>
 #include <dbzero/workspace/Workspace.hpp>
     

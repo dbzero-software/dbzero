@@ -9,8 +9,7 @@ namespace db0
     {
     }
 
-    const std::string &Prefix::getName() const
-    {
+    const std::string &Prefix::getName() const {
         return m_name;
     }
     

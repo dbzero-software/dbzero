@@ -88,7 +88,7 @@ namespace db0::python
     /**
      * Get DBZero state snapshot
     */
-    PyObject *getSnapshot(PyObject *self, PyObject *args);
+    PyObject *getSnapshot(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
     /**
      * Describe field layout and output other properties of a specific DBZero object instance

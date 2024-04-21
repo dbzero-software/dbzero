@@ -6,6 +6,8 @@
 #include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
 #include <dbzero/core/collections/full_text/SortedIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_MemoryIndex.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/workspace/Fixture.hpp>
 
 namespace db0
 
@@ -62,6 +64,10 @@ namespace db0
         bool hasFTQuery() const override;
         
         std::unique_ptr<SortedIterator<ValueT> > beginSorted(std::unique_ptr<FT_Iterator<ValueT> > = nullptr) const override;
+
+        SortedIteratorType getSerialTypeId() const override;
+
+        void serialize(std::vector<std::byte> &) const override;
         
     private:
         using BlockItemT = typename RT_TreeT::BlockT::ItemT;
@@ -446,6 +452,31 @@ namespace db0
             // create a clone of this iterator
             return std::unique_ptr<self_t>(new self_t(m_tree, m_has_query, (m_query_it ? m_query_it->beginTyped(-1) : nullptr),
                 m_asc, std::move(nested_inner_it)));
+        }
+    }
+
+    template <typename KeyT, typename ValueT>
+    SortedIteratorType RT_SortIterator<KeyT, ValueT>::getSerialTypeId() const
+    {
+        return SortedIteratorType::RT_Sort;
+    }
+    
+    template <typename KeyT, typename ValueT>
+    void RT_SortIterator<KeyT, ValueT>::serialize(std::vector<std::byte> &v) const
+    {
+        db0::serial::write(v, db0::serial::typeId<KeyT>());
+        db0::serial::write(v, db0::serial::typeId<ValueT>());
+        db0::serial::write(v, m_tree.getMemspace().getUUID());
+        db0::serial::write(v, m_tree.getAddress());
+        db0::serial::write<bool>(v, m_asc);
+        db0::serial::write<bool>(v, m_inner_it != nullptr);
+        if (m_inner_it) {            
+            m_inner_it->serialize(v);
+        } else {
+            db0::serial::write<bool>(v, m_has_query);
+            if (m_has_query) {                
+                m_query_it->serialize(v);
+            }
         }
     }
 

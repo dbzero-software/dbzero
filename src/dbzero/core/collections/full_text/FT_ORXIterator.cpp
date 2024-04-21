@@ -1,4 +1,5 @@
 #include "FT_ORXIterator.hpp"
+#include <cstring>
 
 namespace db0
 
@@ -79,14 +80,12 @@ namespace db0
 	}
 
 	template <typename key_t>
-	void FT_JoinORXIterator<key_t>::operator--() 
-    {
+	void FT_JoinORXIterator<key_t>::operator--() {
 		this->_next(nullptr);
 	}
 
 	template <typename key_t>
-	void FT_JoinORXIterator<key_t>::next(void *buf)
-    {
+	void FT_JoinORXIterator<key_t>::next(void *buf) {
 		this->_next(buf);
 	}
 	
@@ -95,29 +94,7 @@ namespace db0
 		assert(!m_end);
 		return m_join_key;
 	}
-
-	template <typename key_t>
-	void FT_JoinORXIterator<key_t>::visit(IteratorVisitor& visitor) const 
-    {
-		auto visitJoinables = [this, &visitor]() {
-			for(auto &it : m_joinable) {
-				it->visit(visitor);
-			}
-		};
-
-		if (isORX()) {
-			visitor.enterOrxIterator(this->getID(), m_direction);
-			visitor.setLabel(this->getLabel());
-			visitJoinables();
-			visitor.leaveIterator();
-		} else {
-			visitor.enterOrIterator(this->getID(), m_direction);
-			visitor.setLabel(this->getLabel());
-			visitJoinables();
-			visitor.leaveIterator();
-		}
-	}
-
+	
 	template <typename key_t>
 	bool FT_JoinORXIterator<key_t>::join(key_t key, int direction) 
     {
@@ -260,8 +237,6 @@ namespace db0
 		    std::move(temp), m_direction, this->m_is_orx, false)
 		);
 		assert(orx_result);		
-
-		result->setID(this->getID());
 		if (clone_map_ptr) {
 			clone_map_ptr->insert(*result, *this);
 		}
@@ -276,8 +251,7 @@ namespace db0
 			temp.push_back((*it)->beginTyped(direction));
 		}
 		std::unique_ptr<FT_Iterator<key_t> > result(
-			new FT_JoinORXIterator<key_t>(std::move(temp), direction, m_is_orx, false));
-        result->setID(this->getID());
+			new FT_JoinORXIterator<key_t>(std::move(temp), direction, m_is_orx, false));    
 		return result;
 	}
 
@@ -647,9 +621,25 @@ namespace db0
     }
 	
 	template <typename key_t>
-	const std::type_info &db0::FT_JoinORXIterator<key_t>::typeId() const
-	{
+	const std::type_info &db0::FT_JoinORXIterator<key_t>::typeId() const {
 		return typeid(self_t);
+	}
+
+	template <typename key_t> 
+	db0::FTIteratorType db0::FT_JoinORXIterator<key_t>::getSerialTypeId() const {
+		return FTIteratorType::JoinOr;
+	}
+
+	template <typename key_t>
+	void db0::FT_JoinORXIterator<key_t>::serializeFTIterator(std::vector<std::byte> &v) const
+	{
+		db0::serial::write(v, db0::serial::typeId<key_t>());
+		db0::serial::write<std::int8_t>(v, m_direction);
+		db0::serial::write(v, m_is_orx);
+		db0::serial::write<std::uint32_t>(v, m_joinable.size());
+		for (const auto &it: m_joinable) {
+			it->serialize(v);
+		}	
 	}
 
     template class FT_JoinORXIterator<std::uint64_t>;
