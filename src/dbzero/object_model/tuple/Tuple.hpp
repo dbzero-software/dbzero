@@ -43,7 +43,7 @@ namespace db0::object_model
         using iterator = const o_typed_item *;
 
         ObjectSharedPtr getItem(std::size_t i) const;
-        void setItem(std::size_t i, ObjectPtr lang_value);
+        void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
         
         static Tuple *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::size_t size);
         static Tuple *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
@@ -59,6 +59,7 @@ namespace db0::object_model
         const o_typed_item * begin();
         
         const o_typed_item * end();
+
     private:
         // new Tuples can only be created via factory members
         Tuple(std::size_t size, db0::swine_ptr<Fixture> &);

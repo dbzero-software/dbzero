@@ -30,7 +30,8 @@ namespace db0::python
     
     int SetObject_SetItem(SetObject *set_obj, Py_ssize_t i, PyObject *value)
     {
-        set_obj->ext().setItem(i, value);
+        auto fixture = set_obj->ext().getMutableFixture();
+        set_obj->ext().setItem(fixture, i, value);
         return 0;
     }
 
@@ -74,10 +75,9 @@ namespace db0::python
         .nb_inplace_or = (binaryfunc)SetObject_update,
     };
 
-    static PyObject *SetObject_rq(SetObject *set_obj, PyObject *other, int op) {
-        
-        PyObject** args = &other;
-        
+    static PyObject *SetObject_rq(SetObject *set_obj, PyObject *other, int op) 
+    {        
+        PyObject** args = &other;    
         switch (op)
         {
         case Py_EQ:
@@ -130,13 +130,11 @@ namespace db0::python
         .tp_free = PyObject_Free,        
     };
 
-    SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *)
-    {
+    SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<SetObject*>(type->tp_alloc(type, 0));
     }
 
-    SetObject *SetDefaultObject_new()
-    {   
+    SetObject *SetDefaultObject_new() {
         return SetObject_new(&SetObjectType, NULL, NULL);
     }
     
@@ -160,7 +158,8 @@ namespace db0::python
             return NULL;
         }
         auto hash = PyObject_Hash(args[0]);
-        set_obj->ext().append(hash, args[0]);
+        auto fixture = set_obj->ext().getMutableFixture();
+        set_obj->ext().append(fixture, hash, args[0]);
         Py_RETURN_NONE;
     }
     
@@ -170,12 +169,12 @@ namespace db0::python
         auto set_object = SetObject_new(&SetObjectType, NULL, NULL);
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
         db0::object_model::Set::makeNew(&set_object->ext(), *fixture);
-        if(nargs == 1) {
+        if (nargs == 1) {
             PyObject *iterator = PyObject_GetIter(args[0]);
             PyObject *item;
             while ((item = PyIter_Next(iterator))) {
                 auto hash = PyObject_Hash(item);
-                set_object->ext().append(hash, item);
+                set_object->ext().append(fixture, hash, item);
                 Py_DECREF(item);
             }
         }
@@ -184,20 +183,18 @@ namespace db0::python
         return set_object;
     }
     
-    bool SetObject_Check(PyObject *object)
-    {
+    bool SetObject_Check(PyObject *object) {
         return Py_TYPE(object) == &SetObjectType;        
     }
 
     PyObject * SetObject_isdisjoint(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "isdisjoint() takes exactly one argument");
             return NULL;
         }
 
-        if(SetObject_Check(args[0])) {
+        if (SetObject_Check(args[0])) {
             SetObject *other = (SetObject*)args[0];
             if(SetObject_len(self) == 0 || SetObject_len(other) == 0) return Py_True;
             auto it1 = self->ext().begin();
@@ -229,14 +226,14 @@ namespace db0::python
         return Py_True;
     }
 
-    PyObject * SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "isdisjoint() takes exactly one argument");
             return NULL;
         }
         
-        if(SetObject_Check(args[0])) {
+        if (SetObject_Check(args[0])) {
             SetObject *other = (SetObject*)args[0];
             if(SetObject_len(self) == 0 || SetObject_len(other) == 0) return Py_True;
 
@@ -312,19 +309,18 @@ namespace db0::python
         return set_object;
     }
 
-    PyObject * SetObject_union_binary(SetObject *self, PyObject * obj) {
-        
+    PyObject * SetObject_union_binary(SetObject *self, PyObject * obj) {        
         return SetObject_union(self, &obj, 1);
     }
 
     PyObject * SetObject_union(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {
-        
+    {        
         if (nargs == 0) {
             PyErr_SetString(PyExc_TypeError, "union() takes more than 0 arguments");
             return NULL;
         }
-        SetObject *copy = (SetObject* ) SetObject_copy(self);
+        auto fixture = self->ext().getMutableFixture();
+        SetObject *copy = (SetObject* )SetObject_copy(self);
         for(Py_ssize_t i =0; i < nargs; ++i) {
             if(SetObject_Check(args[i])){
                 SetObject *other = (SetObject* )args[i];
@@ -334,7 +330,7 @@ namespace db0::python
                 PyObject *iterator = PyObject_GetIter(args[i]);
                 while ((elem = PyIter_Next(iterator))) {
                     auto hash = PyObject_Hash(elem);
-                    copy->ext().append(hash, elem);
+                    copy->ext().append(fixture, hash, elem);
                     Py_DECREF(elem);
                 }
                 Py_DECREF(iterator);
@@ -343,48 +339,50 @@ namespace db0::python
         return copy;
     }
 
-    void SetObject_intersection(SetObject * set_obj, PyObject *it1, PyObject *elem1, PyObject *it2, PyObject *elem2){
-        if(elem1 == nullptr || elem2 == nullptr){
+    void SetObject_intersection(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1, 
+        PyObject *it2, PyObject *elem2)
+    {
+        if (elem1 == nullptr || elem2 == nullptr) {
             return;
         }
-        if(elem1 < elem2){
+        if (elem1 < elem2) {
             Py_DECREF(elem1);
             elem1 = PyIter_Next(it1);
-        } else if (elem1 > elem2){
+        } else if (elem1 > elem2) {
             Py_DECREF(elem2);
             elem2 = PyIter_Next(it2);
-        } else if(elem1 == elem2) {
+        } else if (elem1 == elem2) {
             auto hash = PyObject_Hash(elem1);
-            set_obj->ext().append(hash, elem1);
+            set_obj->ext().append(fixture, hash, elem1);
             Py_DECREF(elem1);
             Py_DECREF(elem2);
             elem1 = PyIter_Next(it1);
             elem2 = PyIter_Next(it2);
         }
-        return SetObject_intersection(set_obj, it1 ,elem1, it2, elem2);
+        return SetObject_intersection(fixture, set_obj, it1 ,elem1, it2, elem2);
+    }
+    
+    PyObject *SetObject_intersection_binary(SetObject *self, PyObject * obj) {        
+        return SetObject_intersection_func(self, &obj, 1);
     }
 
-    PyObject *  SetObject_intersection_binary(SetObject *self, PyObject * obj) {
-        
-        return  SetObject_intersection_func(self, &obj, 1);
-    }
-
-    PyObject * SetObject_intersection_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {
-        
+    PyObject *SetObject_intersection_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {        
         if (nargs == 0) {
             PyErr_SetString(PyExc_TypeError, "intersection() takes more than 0 arguments");
             return NULL;
         }
+        
         SetObject *set_obj = makeSet(nullptr, nullptr, 0);
         PyObject *elem1, *elem2, *it2;
         PyObject *it1 = PyObject_GetIter((PyObject*)self);
-        for(Py_ssize_t i = 0; i < nargs; ++i) {
+        auto fixture = self->ext().getMutableFixture();
+        for (Py_ssize_t i = 0; i < nargs; ++i) {
             it2 = PyObject_GetIter(args[i]);
             elem1 = PyIter_Next(it1);
             elem2 = PyIter_Next(it2);
             set_obj = makeSet(nullptr, nullptr, 0);
-            SetObject_intersection(set_obj, it1, elem1, it2, elem2);
+            SetObject_intersection(fixture, set_obj, it1, elem1, it2, elem2);
             Py_DECREF(it1);
             Py_DECREF(it2);
             it1 = PyObject_GetIter((PyObject*)set_obj);        
@@ -392,15 +390,17 @@ namespace db0::python
         return set_obj;
     }
 
-    void SetObject_difference(SetObject * set_obj, PyObject *it1, PyObject *elem1, PyObject *it2, PyObject *elem2, bool symmetric){
-        if(elem1 == nullptr && elem2 == nullptr){
+    void SetObject_difference(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1,
+        PyObject *it2, PyObject *elem2, bool symmetric)
+    {
+        if (elem1 == nullptr && elem2 == nullptr) {
             return;
         }
-        if(elem1 == nullptr){
+        if (elem1 == nullptr) {
             do {
                 if(symmetric) {
                     auto hash = PyObject_Hash(elem2);
-                    set_obj->ext().append(hash, elem2);
+                    set_obj->ext().append(fixture, hash, elem2);
                 }
                 Py_DECREF(elem2);
             } while((elem2 = PyIter_Next(it2)));
@@ -409,31 +409,30 @@ namespace db0::python
         if(elem2 == nullptr){
             do {
                 auto hash = PyObject_Hash(elem1);
-                set_obj->ext().append(hash, elem1);
+                set_obj->ext().append(fixture, hash, elem1);
                 Py_DECREF(elem1);
             } while((elem1 = PyIter_Next(it1)));
-
             return;
         }
-        if(elem1 < elem2){
+        if (elem1 < elem2) {
             auto hash = PyObject_Hash(elem1);
-            set_obj->ext().append(hash, elem1);
+            set_obj->ext().append(fixture, hash, elem1);
             Py_DECREF(elem1);
             elem1 = PyIter_Next(it1);
-        } else if (elem1 > elem2){
-            if(symmetric){
+        } else if (elem1 > elem2) {
+            if (symmetric) {
                 auto hash = PyObject_Hash(elem2);
-                set_obj->ext().append(hash, elem1);
+                set_obj->ext().append(fixture, hash, elem1);
             }
             Py_DECREF(elem2);
             elem2 = PyIter_Next(it2);
-        } else if(elem1 == elem2) {
+        } else if (elem1 == elem2) {
             Py_DECREF(elem1);
             Py_DECREF(elem2);
             elem1 = PyIter_Next(it1);
             elem2 = PyIter_Next(it2);
         }
-        return SetObject_difference(set_obj, it1 ,elem1, it2, elem2, symmetric);
+        return SetObject_difference(fixture, set_obj, it1 ,elem1, it2, elem2, symmetric);
     }
 
     PyObject * SetObject_difference(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric)
@@ -446,12 +445,13 @@ namespace db0::python
         SetObject *set_obj = makeSet(nullptr, nullptr, 0);
         PyObject *elem1, *elem2, *it2;
         PyObject *it1 = PyObject_GetIter((PyObject*)self);
+        auto fixture = self->ext().getMutableFixture();
         for(Py_ssize_t i = 0; i < nargs; ++i) {
             it2 = PyObject_GetIter(args[i]);
             elem1 = PyIter_Next(it1);
             elem2 = PyIter_Next(it2);
             set_obj = makeSet(nullptr, nullptr, 0);
-            SetObject_difference(set_obj, it1, elem1, it2, elem2, symmetric);
+            SetObject_difference(fixture, set_obj, it1, elem1, it2, elem2, symmetric);
             Py_DECREF(it1);
             Py_DECREF(it2);
             it1 = PyObject_GetIter((PyObject*)set_obj);        
@@ -459,27 +459,24 @@ namespace db0::python
         return set_obj;
     }
 
-    PyObject * SetObject_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs){
+    PyObject *SetObject_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs) {
         return SetObject_difference(self, args, nargs, false);
     }
 
-    PyObject * SetObject_symmetric_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs){
+    PyObject *SetObject_symmetric_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs) {
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "symmetric_difference() takes exacly 1 argument");
             return NULL;
         }
         return SetObject_difference(self, args, nargs, true);
     }
-
-
-    PyObject *  SetObject_difference_binary(SetObject *self, PyObject * obj) {
-        
-        return  SetObject_difference(self, &obj, 1, false);
+    
+    PyObject *SetObject_difference_binary(SetObject *self, PyObject * obj) {        
+        return SetObject_difference(self, &obj, 1, false);
     }
 
-    PyObject *  SetObject_symmetric_difference_binary(SetObject *self, PyObject * obj) {
-        
-        return  SetObject_difference(self, &obj, 1, true);
+    PyObject *SetObject_symmetric_difference_binary(SetObject *self, PyObject * obj) {        
+        return SetObject_difference(self, &obj, 1, true);
     }
 
     PyObject *SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs, bool throw_ex)
@@ -489,20 +486,19 @@ namespace db0::python
             return NULL;
         }
         auto hash = PyObject_Hash(args[0]);
-        if(set_obj->ext().remove(hash) == false && throw_ex){
+        auto fixture = set_obj->ext().getMutableFixture();
+        if (set_obj->ext().remove(fixture, hash) == false && throw_ex) {
             PyErr_SetString(PyExc_KeyError, "Element not found");
             return NULL;
         }
         Py_RETURN_NONE;
     }
 
-    PyObject *SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
-    {
+    PyObject *SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs) {
         return SetObject_remove(set_obj, args, nargs, true);
     }
 
-    PyObject *SetObject_discard(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
-    {
+    PyObject *SetObject_discard(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs) {
         return SetObject_remove(set_obj, args, nargs, false);
     }
 
@@ -526,9 +522,11 @@ namespace db0::python
     {
         PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
+        auto &set_impl = self->ext();
+        auto fixture = set_impl.getMutableFixture();        
         while ((item = PyIter_Next(it))) {
             auto hash = PyObject_Hash(item);
-            self->ext().append(hash, item);
+            set_impl.append(fixture, hash, item);
             Py_DECREF(item);
         }
         Py_DECREF(it);
@@ -548,8 +546,10 @@ namespace db0::python
             }
             Py_DECREF(item);
         }
-        for(auto hash: hashes){
-            self->ext().remove(hash);
+        auto &set_impl = self->ext();
+        auto fixture = set_impl.getMutableFixture();
+        for (auto hash: hashes) {
+            set_impl.remove(fixture, hash);
         }
         Py_DECREF(it);
         Py_INCREF(self);
@@ -561,9 +561,11 @@ namespace db0::python
         PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
         std::list<size_t> hashes;
+        auto &set_impl = self->ext();
+        auto fixture = set_impl.getMutableFixture();
         while ((item = PyIter_Next(it))) {
             auto hash = PyObject_Hash(item);
-            self->ext().remove(hash);
+            set_impl.remove(fixture, hash);
             Py_DECREF(item);
         }
         Py_DECREF(it);
@@ -577,22 +579,22 @@ namespace db0::python
         std::list<PyObject *> items_to_add;
         PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
+        auto &set_impl = self->ext();
+        auto fixture = set_impl.getMutableFixture();
         while ((item = PyIter_Next(it))) {
-
-            if(self->ext().has_item(item)){
+            if (set_impl.has_item(item)) {
                 auto hash = PyObject_Hash(item);
                 hashes_to_remove.push_back(hash);
             } else {
                 items_to_add.push_back(item);
             }
-
         }
-        for(auto hash: hashes_to_remove){
-            self->ext().remove(hash);
+        for (auto hash: hashes_to_remove) {
+            set_impl.remove(fixture, hash);
         }
-        for(auto item: items_to_add){
+        for (auto item: items_to_add) {
             auto hash = PyObject_Hash(item);
-            self->ext().append(hash, item);
+            set_impl.append(fixture, hash, item);
             Py_DECREF(item);
         }
         Py_DECREF(it);

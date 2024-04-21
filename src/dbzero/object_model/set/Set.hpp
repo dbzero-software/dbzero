@@ -31,15 +31,15 @@ namespace db0::object_model
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         
-        void append(std::size_t key, ObjectPtr lang_value);
-        bool remove(std::size_t key);
+        void append(FixtureLock &, std::size_t key, ObjectPtr lang_value);
+        bool remove(FixtureLock &, std::size_t key);
         ObjectSharedPtr getItem(std::size_t i) const;
-        void setItem(std::size_t i, ObjectPtr lang_value);
+        void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
         
         static Set *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Set *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
         
-        Set * copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture);
+        Set *copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture);
 
         // drop underlying DBZero representation
         void drop();

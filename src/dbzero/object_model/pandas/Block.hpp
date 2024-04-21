@@ -32,11 +32,11 @@ namespace db0::object_model::pandas
         Block(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
         ObjectSharedPtr getItem(std::size_t i) const;
-        void setItem(std::size_t i, ObjectPtr lang_value);
+        void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
 
         static Block *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Block *unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address);
-        void append(ObjectPtr lang_value);
+        void append(FixtureLock &, ObjectPtr lang_value);
         ObjectSharedPtr getStorageClass();
 
     private:        

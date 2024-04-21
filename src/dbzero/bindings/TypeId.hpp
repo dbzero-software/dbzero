@@ -41,13 +41,5 @@ namespace db0::bindings
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };
-    
-}
-
-namespace std
-
-{
-    
-    ostream &operator<<(ostream &, db0::bindings::TypeId);
-
+        
 }
