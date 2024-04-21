@@ -8,6 +8,7 @@
 #include <dbzero/bindings/python/collections/Dict.hpp>
 #include <dbzero/bindings/python/collections/Tuple.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
+#include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/serialization/string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
@@ -22,180 +23,33 @@ namespace db0::object_model
 {
     
     using TypeId = db0::bindings::TypeId;
+    using PyToolkit = db0::python::PyToolkit;
+    using PyObjectPtr = PyToolkit::ObjectPtr;
+
+    template <TypeId type_id, typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
+        typename LangToolkit::ObjectPtr lang_value);
+
+    // register TypeId specialized functions
+    template <typename LangToolkit> void registerCreateMemberFunctions(
+        std::vector<Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr)> &functions);
 
     template <typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
         TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
-    {        
+    {   
+        // create member function pointer
+        using CreateMemberFunc = Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr);
+        static std::vector<CreateMemberFunc> create_member_functions;
+        if (create_member_functions.empty()) {
+            registerCreateMemberFunctions<LangToolkit>(create_member_functions);
+        }
+
         if (storage_class == StorageClass::DB0_SELF) {
             // address to self has no storage representation
             return 0;
         }
-
-        switch (type_id) {
-            case TypeId::INTEGER: {
-                auto int_value = PyLong_AsLong(lang_value);
-                return db0::binary_cast<std::uint64_t, std::int64_t>()(int_value);
-            }
-            break;
-            
-            case TypeId::FLOAT: {
-                auto fp_value = PyFloat_AsDouble(lang_value);
-                return db0::binary_cast<std::uint64_t, double>()(fp_value);
-            }
-            break;
-            
-            case TypeId::STRING: {
-                // create string-ref member and take its address                
-                return db0::v_object<db0::o_string>(*fixture, PyUnicode_AsUTF8(lang_value)).getAddress();
-            }
-            break;
-
-            case TypeId::MEMO_OBJECT: {
-                // extract address from the Memo object
-                auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
-                assert(obj.hasInstance());
-                obj.incRef();
-                return obj.getAddress();
-            }
-            break;
-
-            case TypeId::DB0_BLOCK: {
-                // extract address from the Block object
-                return LangToolkit::getTypeManager().extractBlock(lang_value).getAddress();
-            }
-            break;
-
-            case TypeId::DB0_LIST: {
-                // extract address from the List object
-                auto &list = LangToolkit::getTypeManager().extractList(lang_value);
-                list.modify().incRef();
-                return list.getAddress();
-            }
-            break;
-
-            case TypeId::DB0_INDEX: {
-                // extract address from the List object
-                auto &index = LangToolkit::getTypeManager().extractIndex(lang_value);
-                index.incRef();
-                return index.getAddress();
-            }
-            break;
-
-            case TypeId::DB0_SET: {
-                // extract address from the Set object
-                auto &set = LangToolkit::getTypeManager().extractSet(lang_value);
-                set.incRef();
-                return set.getAddress();
-            }
-            break;
-            
-            case TypeId::DB0_DICT: {
-                // extract address from the Dict object
-                auto &dict = LangToolkit::getTypeManager().extractDict(lang_value);
-                dict.incRef();
-                return dict.getAddress();
-            }
-            break;
-            
-            case TypeId::DB0_TUPLE: {
-                // extract address from the Tuple object
-                auto &tuple = LangToolkit::getTypeManager().extractTuple(lang_value);
-                tuple.incRef();
-                return tuple.getAddress();
-            }
-            break;
-
-            // Python types
-            case TypeId::LIST: {
-                auto list = db0::python::makeList(nullptr, &lang_value, 1);
-                list->ext().modify().incRef();
-                return list->ext().getAddress();
-            }
-            break;
-
-            case TypeId::SET: {
-                auto set = db0::python::makeSet(nullptr, &lang_value, 1);
-                set->ext().incRef();                
-                return set->ext().getAddress();
-            }
-            break;
-
-            case TypeId::DICT: {
-                PyObject* args = PyTuple_New(1);
-                PyTuple_SetItem(args, 0, lang_value);
-                auto dict = db0::python::makeDict(nullptr, args, nullptr);
-                dict->ext().incRef();
-                return dict->ext().getAddress();
-            }
-            break;
-
-            case TypeId::TUPLE: {
-                PyObject* args = PyTuple_New(1);
-                PyTuple_SetItem(args, 0, lang_value);
-                auto tuple = db0::python::makeTuple(nullptr, &lang_value, 1);
-                tuple->ext().incRef();
-                return tuple->ext().getAddress();
-            }
-            break;
-
-            case TypeId::DATETIME: {
-                return db0::python::pyDateTimeToToUint64(lang_value);
-            }
-            break;
-
-            case TypeId::BYTES: {
-                // create string-ref member and take its address                
-                auto size = PyBytes_GET_SIZE(lang_value);
-                auto *str = PyBytes_AsString(lang_value);
-                std::byte * bytes = reinterpret_cast<std::byte *>(str);
-                return db0::v_object<db0::o_binary>(*fixture, bytes, size).getAddress();
-            }
-            break;
-
-            case TypeId::NONE: {
-                return 0;
-            }
-            break;
-
-            /*
-            case StorageClass::pooled_string: {
-                return pyzero::toVarChar(PyUnicode_AsUTF8(py_value));
-            }
-            break;
-            
-            case StorageClass::dbz_list: {
-                return makeDBZList(bp::extract<bp::list>(py_value)())->getAddress();
-            }
-            break;
-
-            case StorageClass::dbz_dict: {
-                return makeDBZDict(bp::extract<bp::dict>(py_value)())->getAddress();
-            }
-            break;
-
-            case StorageClass::dbz_set: {
-                return makeDBZSet(bp::extract<bp::object>(py_value)())->getAddress();
-            }
-            break;
-
-            case StorageClass::ptime64: {
-                auto ptime_ = bp::extract<boost::posix_time::ptime>(py_value)();
-                return db0::CopyCast<std::uint64_t, boost::posix_time::ptime>()(ptime_);
-            }
-            break;
-            
-            case StorageClass::date: {
-                auto date_ = bp::extract<db0::daydate>(py_value)();
-                return db0::CopyCast<std::uint64_t, db0::daydate>()(date_);
-            }
-            break;
-            */
-            
-            default:
-                THROWF(db0::InternalException)
-                    << "Invalid type ID: " << static_cast<int>(type_id) << THROWF_END;
-            break;
-        }
+        
+        assert(static_cast<int>(type_id) < create_member_functions.size());
+        return create_member_functions[static_cast<int>(type_id)](fixture, lang_value);
     }
     
     template <typename LangToolkit, typename ContainerT> typename LangToolkit::ObjectSharedPtr unloadMember(
