@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <utils/WorkspaceTest.hpp>
+#include <utils/TestBase.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 
@@ -18,7 +18,7 @@ namespace tests
         }
     };
 
-    class VObjectTest: public WorkspaceBaseTest
+    class VObjectTest: public MemspaceTestBase
     {
     };
 

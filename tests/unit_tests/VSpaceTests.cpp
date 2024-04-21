@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/serialization/Types.hpp>
-#include <utils/WorkspaceTest.hpp>
+#include <utils/TestBase.hpp>
 #include <unordered_map>
 
 using namespace db0;
@@ -11,7 +11,7 @@ namespace tests
 
 {
 
-    class VSpaceTests: public WorkspaceBaseTest
+    class VSpaceTests: public MemspaceTestBase
     {
     };
 

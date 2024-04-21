@@ -7,15 +7,15 @@ namespace tests
 
 {
 
-	class WorkspaceBaseTest: public testing::Test
+	class MemspaceTestBase: public testing::Test
 	{
 	public:
-		WorkspaceBaseTest()
-            : WorkspaceBaseTest(db0::utils::nullStream)
+		MemspaceTestBase()
+            : MemspaceTestBase(db0::utils::nullStream)
 		{
 		}
 
-		WorkspaceBaseTest(std::ostream &log)
+		MemspaceTestBase(std::ostream &log)
 			: log(log)
 		{
 		}
@@ -29,15 +29,15 @@ namespace tests
         db0::TestWorkspaceBase m_workspace;
 	};
 
-	class WorkspaceTest: public testing::Test
+	class FixtureTestBase: public testing::Test
 	{
 	public:
-		WorkspaceTest()
-            : WorkspaceTest(db0::utils::nullStream)
+		FixtureTestBase()
+            : FixtureTestBase(db0::utils::nullStream)
 		{
 		}
 
-		WorkspaceTest(std::ostream &log)
+		FixtureTestBase(std::ostream &log)
 			: log(log)
 		{
 		}

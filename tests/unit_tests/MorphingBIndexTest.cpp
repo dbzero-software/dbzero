@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <utils/WorkspaceTest.hpp>
+#include <utils/TestBase.hpp>
 #include <unordered_set>
 #include <initializer_list>
 #include <set>
@@ -12,7 +12,7 @@ namespace tests
 
 	using namespace db0;
 
-	class MorphingBIndexTest: public WorkspaceBaseTest
+	class MorphingBIndexTest: public MemspaceTestBase
 	{
 	public :
         using index_t = db0::MorphingBIndex<std::uint64_t>;

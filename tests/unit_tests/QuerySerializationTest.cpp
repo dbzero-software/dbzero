@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <utils/WorkspaceTest.hpp>
+#include <utils/TestBase.hpp>
 #include <dbzero/core/collections/range_tree/RangeTree.hpp>
 #include <dbzero/core/collections/range_tree/RT_SortIterator.hpp>
 #include <dbzero/core/collections/range_tree/RT_Serialization.hpp>
@@ -16,7 +16,7 @@ namespace tests
 
     using namespace db0;
     
-    class QuerySerializationTest: public WorkspaceTest
+    class QuerySerializationTest: public FixtureTestBase
     {
     public:
         using RangeTreeT = RangeTree<int, std::uint64_t>;

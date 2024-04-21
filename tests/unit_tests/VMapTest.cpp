@@ -2,7 +2,7 @@
 #include <dbzero/core/collections/map/v_map.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/serialization/string.hpp>
-#include <utils/WorkspaceTest.hpp>
+#include <utils/TestBase.hpp>
 #include <utils/utils.hpp>
 
 namespace tests
@@ -11,7 +11,7 @@ namespace tests
 
 	using namespace db0;
 
-    class VMapTest: public WorkspaceBaseTest
+    class VMapTest: public MemspaceTestBase
     {
     };
 	

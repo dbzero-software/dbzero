@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <utils/WorkspaceTest.hpp>
+#include <utils/TestBase.hpp>
 #include <dbzero/core/collections/vector/v_sorted_vector.hpp>
 #include <dbzero/core/collections/full_text/FT_IndexIterator.hpp>
 
@@ -9,7 +9,7 @@ namespace tests
 
     using namespace db0;
 
-    class VSortedVectorTest: public WorkspaceBaseTest
+    class VSortedVectorTest: public MemspaceTestBase
     {
     public:
     };

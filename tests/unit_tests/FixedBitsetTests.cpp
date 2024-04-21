@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/collections/bitset/FixedBitset.hpp>
-#include <utils/WorkspaceTest.hpp>
+#include <utils/TestBase.hpp>
 
 using namespace std;
 
@@ -8,7 +8,7 @@ namespace tests
 
 {
 
-    class FixedBitsetTests: public WorkspaceBaseTest
+    class FixedBitsetTests: public MemspaceTestBase
     {
     };
     

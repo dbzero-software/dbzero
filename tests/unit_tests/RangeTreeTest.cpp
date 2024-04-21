@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include <utils/WorkspaceTest.hpp>
+#include <utils/TestBase.hpp>
 #include <dbzero/core/collections/range_tree/RangeTree.hpp>
 #include <dbzero/core/collections/range_tree/RT_SortIterator.hpp>
 #include <dbzero/core/collections/range_tree/RT_RangeIterator.hpp>
@@ -13,7 +13,7 @@ namespace tests
 
     using namespace db0;
     
-    class RangeTreeTest: public WorkspaceBaseTest
+    class RangeTreeTest: public MemspaceTestBase
     {
     public:
     };

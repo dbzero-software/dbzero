@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <set>
-#include <utils/WorkspaceTest.hpp>
+#include <utils/TestBase.hpp>
 #include <dbzero/object_model/object/KV_Index.hpp>
 
 namespace tests
@@ -10,7 +10,7 @@ namespace tests
     using namespace db0;
     using namespace db0::object_model;
     
-    class KV_IndexTest: public WorkspaceBaseTest
+    class KV_IndexTest: public MemspaceTestBase
     {
     public:
     };

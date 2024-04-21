@@ -18,13 +18,11 @@ namespace tests
         static constexpr const char *prefix_name = "my-test-prefix_1";
         static constexpr const char *file_name = "my-test-prefix_1.db0";
         
-        virtual void SetUp() override
-        {
+        virtual void SetUp() override {
             drop(file_name);
         }
 
-        virtual void TearDown() override
-        {
+        virtual void TearDown() override {
             m_workspace.close();
             drop(file_name);
         }
@@ -32,7 +30,7 @@ namespace tests
     protected:
         Workspace m_workspace;
     };
-
+    
     TEST_F( WorkspaceTest , testWorkspaceCanCreateNewFixture )
     {
         auto fixture = m_workspace.getFixture(prefix_name);

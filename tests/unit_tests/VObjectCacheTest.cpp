@@ -1,4 +1,4 @@
-#include <utils/WorkspaceTest.hpp>
+#include <utils/TestBase.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
@@ -10,7 +10,7 @@ namespace tests
 
 {
     
-    class VObjectCacheTests: public WorkspaceBaseTest
+    class VObjectCacheTests: public MemspaceTestBase
     {        
     protected:
         static constexpr std::size_t CACHE_SIZE = 16;
