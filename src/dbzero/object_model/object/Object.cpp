@@ -199,8 +199,9 @@ namespace db0::object_model
         auto at = db0_class.findField(field_name);
         if (at == Class::NField) {
             // update class definition
-            at = db0_class.addField(field_name, storage_class, tryGetClass());                
+            at = db0_class.addField(field_name, storage_class, tryGetClass());
         }
+        
         // register a member with the initializer
         initializer.set(at, storage_class, createMember<LangToolkit>(fixture, type_id, lang_value));
     }

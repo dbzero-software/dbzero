@@ -168,6 +168,7 @@ namespace db0::object_model
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr)> &functions)
     {
         functions.resize(static_cast<int>(TypeId::COUNT));
+        std::fill(functions.begin(), functions.end(), nullptr);
         functions[static_cast<int>(TypeId::NONE)] = createMember<TypeId::NONE, PyToolkit>;
         functions[static_cast<int>(TypeId::INTEGER)] = createMember<TypeId::INTEGER, PyToolkit>;
         functions[static_cast<int>(TypeId::FLOAT)] = createMember<TypeId::FLOAT, PyToolkit>;
@@ -184,7 +185,8 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::DICT)] = createMember<TypeId::DICT, PyToolkit>;
         functions[static_cast<int>(TypeId::TUPLE)] = createMember<TypeId::TUPLE, PyToolkit>;
         functions[static_cast<int>(TypeId::DATETIME)] = createMember<TypeId::DATETIME, PyToolkit>;
-        functions[static_cast<int>(TypeId::BYTES)] = createMember<TypeId::BYTES, PyToolkit>;        
+        functions[static_cast<int>(TypeId::BYTES)] = createMember<TypeId::BYTES, PyToolkit>;   
+        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = createMember<TypeId::OBJECT_ITERATOR, PyToolkit>;
     }
 
 }
