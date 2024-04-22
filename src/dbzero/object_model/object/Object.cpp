@@ -176,10 +176,6 @@ namespace db0::object_model
             if (fixture.getUUID() != obj.getFixture()->getUUID()) {
                 THROWF(db0::InputException) << "Linking objects from different prefixes is not allowed. Store db0.uuid instead";
             }
-            // change storage class to DB0_SELF if lang_value is "this" instance
-            if (&obj == this) {
-                storage_class = StorageClass::DB0_SELF;
-            }
         }
         return { type_id, storage_class };
     }
@@ -205,8 +201,8 @@ namespace db0::object_model
             // update class definition
             at = db0_class.addField(field_name, storage_class, tryGetClass());                
         }
-        // register a member with the initializer        
-        initializer.set(at, storage_class, createMember<LangToolkit>(fixture, type_id, lang_value, storage_class));
+        // register a member with the initializer
+        initializer.set(at, storage_class, createMember<LangToolkit>(fixture, type_id, lang_value));
     }
 
     void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
@@ -231,7 +227,7 @@ namespace db0::object_model
         }
         
         // FIXME: value should be destroyed on exception
-        auto value = createMember<LangToolkit>(*fixture, type_id, lang_value, storage_class);
+        auto value = createMember<LangToolkit>(*fixture, type_id, lang_value);
         if (field_id < (*this)->pos_vt().size()) {
             // update attribute stored in the positional value-table
             modify().pos_vt().set(field_id, storage_class, value);

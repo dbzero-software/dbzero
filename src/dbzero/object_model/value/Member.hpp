@@ -34,7 +34,7 @@ namespace db0::object_model
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr)> &functions);
 
     template <typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
-        TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
+        TypeId type_id, typename LangToolkit::ObjectPtr lang_value)
     {   
         // create member function pointer
         using CreateMemberFunc = Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr);
@@ -43,12 +43,11 @@ namespace db0::object_model
             registerCreateMemberFunctions<LangToolkit>(create_member_functions);
         }
 
-        if (storage_class == StorageClass::DB0_SELF) {
-            // address to self has no storage representation
-            return 0;
-        }
-        
         assert(static_cast<int>(type_id) < create_member_functions.size());
+        auto func_ptr = create_member_functions[static_cast<int>(type_id)];
+        if (!func_ptr) {
+            THROWF(db0::InternalException) << "Value of TypeID: " << (int)type_id << " cannot be converted to a member" << THROWF_END;
+        }
         return create_member_functions[static_cast<int>(type_id)](fixture, lang_value);
     }
     
@@ -74,7 +73,7 @@ namespace db0::object_model
             }
             break;
             
-            case StorageClass::INT64: { 
+            case StorageClass::INT64: {
                 return PyLong_FromLong(value.cast<std::int64_t>());
             }
             break;
@@ -86,21 +85,12 @@ namespace db0::object_model
 
             case StorageClass::OBJECT_REF: {
                 auto fixture = object.getFixture();
-                auto &class_factory = fixture->template get<ClassFactory>();
-                
+                auto &class_factory = fixture->template get<ClassFactory>();                
                 // unload language specific object from DBZero
                 return LangToolkit::unloadObject(fixture, value.cast<std::uint64_t>(), class_factory);
             }
             break;
-
-            case StorageClass::DB0_SELF: {
-                auto &obj = reinterpret_cast<const Object&>(object);
-                // unload self-reference from DBZero (address and type known), no instance ID validation
-                auto fixture = object.getFixture();
-                return LangToolkit::unloadObject(fixture, obj.getAddress(), obj.getClassPtr());
-            }
-            break;
-
+            
             case StorageClass::DB0_LIST: {
                 auto fixture = object.getFixture();
                 return LangToolkit::unloadList(fixture, value.cast<std::uint64_t>());
@@ -152,40 +142,6 @@ namespace db0::object_model
             case StorageClass::NONE: {
                 return Py_None;
             }
-
-            /* FIXME:
-            case StorageClass::pooled_string: {
-                return bp::object(pyzero::toString(memberAt(index)));
-            }
-            break;
-
-            case StorageClass::dbz_list: {
-                return bp::object(DBZList::__ref(memberAt(index)));
-            }
-            break;
-
-            case StorageClass::dbz_dict: {
-                return bp::object(DBZDict::__ref(memberAt(index)));
-            }
-            break;
-
-            case StorageClass::dbz_set: {
-                return bp::object(DB0Set::__ref(memberAt(index)));
-            }
-            break;
-
-            case StorageClass::ptime64: {
-                auto ptime_ = db0::CopyCast<std::uint64_t, boost::posix_time::ptime>()(memberAt(index));
-                return bp::object(ptime_);
-            }
-            break;
-
-            case StorageClass::date: {
-                auto date_ = db0::CopyCast<std::uint64_t, db0::daydate>()(memberAt(index));
-                return bp::object(date_);
-            }
-            break;
-            */
             
             default: {
                 THROWF(db0::InternalException)

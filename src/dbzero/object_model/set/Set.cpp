@@ -16,9 +16,9 @@ namespace db0::object_model
     template <typename LangToolkit> o_typed_item createTypedItem(db0::swine_ptr<Fixture> &fixture,
         db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
-        return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value, storage_class) };
+        return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value) };
     }
-
+    
     template <typename LangToolkit> set_item createSetItem(db0::swine_ptr<Fixture> &fixture, std::uint64_t key, 
         db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
