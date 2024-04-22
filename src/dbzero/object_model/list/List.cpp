@@ -48,7 +48,8 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Index out of range: " << i;
         }
         auto [storage_class, value] = (*this)[i];
-        return unloadMember<LangToolkit>(*this, storage_class, value);
+        auto fixture = this->getFixture();
+        return unloadMember<LangToolkit>(fixture, storage_class, value);
     }
 
     List::ObjectSharedPtr List::pop(FixtureLock &fixture, std::size_t i)
@@ -60,7 +61,7 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Index out of range: " << i;
         }
         auto [storage_class, value] = (*this)[i];
-        auto member = unloadMember<LangToolkit>(*this, storage_class, value);
+        auto member = unloadMember<LangToolkit>(*fixture, storage_class, value);
         this->swapAndPop(fixture, {i});
         return member;
     }
@@ -92,9 +93,10 @@ namespace db0::object_model
     std::size_t List::count(ObjectPtr lang_value)
     {
         std::size_t count = 0;
+        auto fixture = this->getFixture();
         for (auto &elem: (*this)) {
             auto [elem_storage_class, elem_value] = elem;
-            if (unloadMember<LangToolkit>(*this, elem_storage_class, elem_value) == lang_value) {
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
                 count += 1;
             }
         }
@@ -104,9 +106,10 @@ namespace db0::object_model
     std::size_t List::index(ObjectPtr lang_value)
     {
         std::size_t index = 0;
+        auto fixture = this->getFixture();
         for (auto &elem: (*this)) {
             auto [elem_storage_class, elem_value] = elem;
-            if (unloadMember<LangToolkit>(*this, elem_storage_class, elem_value) == lang_value) {
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
                 return index;
             }
             ++index;

@@ -188,5 +188,121 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::BYTES)] = createMember<TypeId::BYTES, PyToolkit>;   
         functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = createMember<TypeId::OBJECT_ITERATOR, PyToolkit>;
     }
+    
+    // STRING_REF specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::STRING_REF, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        db0::v_object<db0::o_string> string_ref(fixture->myPtr(value.cast<std::uint64_t>()));
+        auto str_ptr = string_ref->get();
+        return PyUnicode_FromStringAndSize(str_ptr.get_raw(), str_ptr.size());
+    }
 
+    // INT64 specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::INT64, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        return PyLong_FromLong(value.cast<std::int64_t>());
+    }
+
+    // FLOAT specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::FP_NUMERIC64, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        return PyFloat_FromDouble(value.cast<double>());
+    }
+
+    // OBJECT_REF specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_REF, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        auto &class_factory = fixture->template get<ClassFactory>();
+        return PyToolkit::unloadObject(fixture, value.cast<std::uint64_t>(), class_factory);
+    }
+
+    // DB0_LIST specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_LIST, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        return PyToolkit::unloadList(fixture, value.cast<std::uint64_t>());
+    }
+
+    // DB0_BLOCK specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BLOCK, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        return PyToolkit::unloadBlock(fixture, value.cast<std::uint64_t>());
+    }
+
+    // DB0_INDEX specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_INDEX, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        return PyToolkit::unloadIndex(fixture, value.cast<std::uint64_t>());
+    }
+
+    // DB0_SET specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_SET, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        return PyToolkit::unloadSet(fixture, value.cast<std::uint64_t>());
+    }
+
+    // DB0_DICT specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_DICT, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        return PyToolkit::unloadDict(fixture, value.cast<std::uint64_t>());
+    }
+
+    // BYTES specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BYTES, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.cast<std::uint64_t>());
+        auto bytes_ptr = bytes->getBuffer();
+        return PyBytes_FromStringAndSize(reinterpret_cast<const char *>(bytes_ptr), bytes->size());
+    }
+    
+    // DATETIME specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATE, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        return db0::python::uint64ToPyDatetime(value.cast<std::uint64_t>());
+    }
+
+    // NONE specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::NONE, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        Py_RETURN_NONE;
+    }
+
+    // DB0_TUPLE specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_TUPLE, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        return PyToolkit::unloadTuple(fixture, value.cast<std::uint64_t>());
+    }
+    
+    template <> void registerUnloadMemberFunctions<PyToolkit>(
+        std::vector<typename PyToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *)> &functions)
+    {
+        functions.resize(static_cast<int>(StorageClass::COUNT));
+        std::fill(functions.begin(), functions.end(), nullptr);
+        functions[static_cast<int>(StorageClass::NONE)] = unloadMember<StorageClass::NONE, PyToolkit>;
+        functions[static_cast<int>(StorageClass::INT64)] = unloadMember<StorageClass::INT64, PyToolkit>;
+        functions[static_cast<int>(StorageClass::FP_NUMERIC64)] = unloadMember<StorageClass::FP_NUMERIC64, PyToolkit>;
+        functions[static_cast<int>(StorageClass::STRING_REF)] = unloadMember<StorageClass::STRING_REF, PyToolkit>;
+        functions[static_cast<int>(StorageClass::OBJECT_REF)] = unloadMember<StorageClass::OBJECT_REF, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_BLOCK)] = unloadMember<StorageClass::DB0_BLOCK, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_LIST)] = unloadMember<StorageClass::DB0_LIST, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_INDEX)] = unloadMember<StorageClass::DB0_INDEX, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_SET)] = unloadMember<StorageClass::DB0_SET, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_DICT)] = unloadMember<StorageClass::DB0_DICT, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_TUPLE)] = unloadMember<StorageClass::DB0_TUPLE, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_BYTES)] = unloadMember<StorageClass::DB0_BYTES, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DATE)] = unloadMember<StorageClass::DATE, PyToolkit>;
+    }
+    
 }

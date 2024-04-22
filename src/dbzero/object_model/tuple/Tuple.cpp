@@ -31,7 +31,8 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Index out of range: " << i;
         }
         auto [storage_class, value] = (*getData())[i];
-        return unloadMember<LangToolkit>(*this, storage_class, value);
+        auto fixture = this->getFixture();
+        return unloadMember<LangToolkit>(fixture, storage_class, value);
     }
     
     void Tuple::setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value)
@@ -58,10 +59,11 @@ namespace db0::object_model
 
     size_t Tuple::count(ObjectPtr lang_value)
     {
-        size_t count = 0;
-        for(auto &elem: this->const_ref()){
+        std::size_t count = 0;
+        auto fixture = this->getFixture();
+        for (auto &elem: this->const_ref()){
             auto [elem_storage_class, elem_value] = elem;
-            if(unloadMember<LangToolkit>(*this, elem_storage_class, elem_value) == lang_value) {
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
                 count += 1;
             }
         }
@@ -70,10 +72,11 @@ namespace db0::object_model
 
     std::size_t Tuple::index(ObjectPtr lang_value)
     {
-        size_t index = 0;
-        for(auto &elem: this->const_ref()){
+        std::size_t index = 0;
+        auto fixture = this->getFixture();
+        for (auto &elem: this->const_ref()){
             auto [elem_storage_class, elem_value] = elem;
-            if(unloadMember<LangToolkit>(*this, elem_storage_class, elem_value) == lang_value) {
+            if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
                 return index;
             }
             index += 1;

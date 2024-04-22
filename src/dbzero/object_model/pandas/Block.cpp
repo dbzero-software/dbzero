@@ -48,7 +48,8 @@ namespace db0::object_model::pandas
             THROWF(db0::InputException) << "Index out of range: " << i;
         }
         auto  value = (*this)[i];
-        return unloadMember<LangToolkit>(*this, m_storage_class, value);
+        auto fixture = this->getFixture();
+        return unloadMember<LangToolkit>(fixture, m_storage_class, value);
     }
     
     void Block::setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value)

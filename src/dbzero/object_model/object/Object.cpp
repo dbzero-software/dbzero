@@ -309,7 +309,8 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
         
-        return unloadMember<LangToolkit>(*this, member.first, member.second, field_name);
+        auto fixture = this->getFixture();
+        return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
     }
     
     bool Object::tryGetMemberAt(unsigned int index, std::pair<StorageClass, Value> &result) const
@@ -530,9 +531,10 @@ namespace db0::object_model
 
     void Object::forAll(std::function<void(const std::string &, ObjectSharedPtr)> f) const
     {
+        auto fixture = this->getFixture();
         forAll([&](const std::string &name, const XValue &xvalue) {
             // all references convert to UUID
-            auto py_member = unloadMember<LangToolkit>(*this, xvalue.m_type, xvalue.m_value);
+            auto py_member = unloadMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value);
             if (isReference(xvalue.m_type)) {
                 f(name, LangToolkit::getUUID(py_member.get()));
             } else {
