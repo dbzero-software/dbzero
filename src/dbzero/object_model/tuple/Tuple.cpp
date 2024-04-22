@@ -11,9 +11,9 @@ namespace db0::object_model
     template <typename LangToolkit> o_typed_item createTupleItem(db0::swine_ptr<Fixture> &fixture,
         db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
-        return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value, storage_class) };
+        return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value) };
     }
-
+    
     GC0_Define(Tuple)
     Tuple::Tuple(std::size_t size, db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, size)

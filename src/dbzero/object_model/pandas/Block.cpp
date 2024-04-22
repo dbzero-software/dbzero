@@ -35,9 +35,7 @@ namespace db0::object_model::pandas
                 throw std::runtime_error("Storage class shoud be same for all Block elements");
             }
         }        
-        v_bvector::push_back(
-            createMember<LangToolkit>(*fixture, type_id, lang_value, m_storage_class) 
-        );
+        v_bvector::push_back(createMember<LangToolkit>(*fixture, type_id, lang_value));
     }
 
     Block::ObjectSharedPtr Block::getStorageClass() {
@@ -60,9 +58,8 @@ namespace db0::object_model::pandas
         }
 
         // recognize type ID from language specific object
-        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
-        v_bvector::setItem(i, createMember<LangToolkit>(*fixture, type_id, lang_value, storage_class));
+        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);        
+        v_bvector::setItem(i, createMember<LangToolkit>(*fixture, type_id, lang_value));
     }
     
     Block *Block::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
