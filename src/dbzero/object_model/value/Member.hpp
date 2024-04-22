@@ -47,6 +47,7 @@ namespace db0::object_model
         auto func_ptr = create_member_functions[static_cast<int>(type_id)];
         if (!func_ptr) {
             THROWF(db0::InternalException) << "Value of TypeID: " << (int)type_id << " cannot be converted to a member" << THROWF_END;
+
         }
         return create_member_functions[static_cast<int>(type_id)](fixture, lang_value);
     }
