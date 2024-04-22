@@ -15,8 +15,9 @@ namespace db0::object_model
     DictIterator::DictItem DictIterator::nextItem()
     {
         auto [key, item] = *m_iterator;
-        DictItem dict_item(unloadMember<LangToolkit>(*m_collection, item.m_first),
-                           unloadMember<LangToolkit>(*m_collection, item.m_second));
+        auto fixture = m_collection->getFixture();
+        DictItem dict_item(unloadMember<LangToolkit>(fixture, item.m_first),
+                           unloadMember<LangToolkit>(fixture, item.m_second));
         ++m_iterator;
         return dict_item;
     }

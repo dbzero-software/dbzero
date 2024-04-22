@@ -65,10 +65,11 @@ namespace db0::object_model
     Set::ObjectSharedPtr Set::getItem(std::size_t key) const
     {
         auto iter = find(key);
-        if(iter != end()){
+        if (iter != end() ){
             auto [key, item] = *iter;
             auto [storage_class, value] = item;
-            return unloadMember<LangToolkit>(*this, storage_class, value);
+            auto fixture = this->getFixture();
+            return unloadMember<LangToolkit>(fixture, storage_class, value);
         }
         THROWF(db0::InputException) << "Item not found";
         return nullptr;
@@ -101,10 +102,11 @@ namespace db0::object_model
     Set::ObjectSharedPtr Set::pop()
     {
         auto iter = begin();
-        if(iter != end()){
+        if (iter != end()) {
             auto [key, item] = *iter;
             auto [storage_class, value] = item;
-            auto member = unloadMember<LangToolkit>(*this, storage_class, value);
+            auto fixture = this->getFixture();
+            auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
             v_bindex::erase(iter);
             return member;
         } else {

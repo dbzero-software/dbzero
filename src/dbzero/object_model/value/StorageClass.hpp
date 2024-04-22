@@ -37,11 +37,12 @@ namespace db0::object_model
         DB0_BLOCK= 14,
         DB0_PANDAS_DATAFRAME= 15,
         DB0_CLASS = 16,
-        DB0_INDEX = 17,
-        DB0_DATETIME = 18,
-        DB0_BYTES = 19,
+        DB0_INDEX = 17,    
+        DB0_BYTES = 18,
         // DBZero object serialized to a byte array
-        DB0_SERIALIZED = 20,
+        DB0_SERIALIZED = 19,
+        // COUNT used to determine size of the StorageClass associated arrays
+        COUNT = 20,
         // invalid / reserved value, never used in objects
         INVALID = std::numeric_limits<std::uint8_t>::max()
     };

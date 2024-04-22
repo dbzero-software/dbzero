@@ -67,19 +67,17 @@ namespace db0::object_model
         if (iter != end()) {
             auto [key, item] = *iter;
             auto [storage_class, value] = item.m_second;
-            return unloadMember<LangToolkit>(*this, storage_class, value);
+            auto fixture = this->getFixture();
+            return unloadMember<LangToolkit>(fixture, storage_class, value);
         }
-        THROWF(db0::InputException) << "Item not found";
-        return nullptr;
+        THROWF(db0::InputException) << "Item not found" << THROWF_END;        
     }
     
-    Dict *Dict::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture)
-    {
+    Dict *Dict::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
         return new (at_ptr) Dict(fixture);
     }
     
-    Dict *Dict::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-    {
+    Dict *Dict::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
         return new (at_ptr) Dict(fixture, address);
     }
 
@@ -93,13 +91,15 @@ namespace db0::object_model
         return new (at_ptr) Dict(fixture, *this);
     }
 
-    Dict::ObjectSharedPtr Dict::pop(ObjectPtr obj) {
+    Dict::ObjectSharedPtr Dict::pop(ObjectPtr obj) 
+    {
         auto hash = PyObject_Hash(obj);
         auto iter = find(hash);
-        if(iter != end()){
+        if (iter != end()) {
             auto [key, item] = *iter;
             auto [storage_class, value] = item.m_second;
-            auto member = unloadMember<LangToolkit>(*this, storage_class, value);
+            auto fixture = this->getFixture();
+            auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
             v_bindex::erase(iter);
             return member;
         } else {
