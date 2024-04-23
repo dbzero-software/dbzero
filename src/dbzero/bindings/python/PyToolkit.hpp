@@ -106,6 +106,10 @@ namespace db0::python
 
         // Unload dbzero block instance
         static ObjectPtr unloadBlock(db0::swine_ptr<Fixture> &fixture, std::uint64_t address);
+
+        // Unload from serialized bytes
+        static ObjectPtr unloadObjectIterator(db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
+            std::vector<std::byte>::const_iterator end);
         
         // generate UUID of a DBZero object
         static ObjectPtr getUUID(ObjectPtr py_object);

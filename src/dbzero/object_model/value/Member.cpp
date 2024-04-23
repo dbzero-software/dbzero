@@ -1,4 +1,5 @@
 #include "Member.hpp"
+#include <dbzero/core//serialization/Serializable.hpp>
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 
 namespace db0::object_model
@@ -160,6 +161,8 @@ namespace db0::object_model
     {
         auto &obj_iter = PyToolkit::getTypeManager().extractObjectIterator(lang_value);
         std::vector<std::byte> bytes;
+        // put TypeId as a header
+        db0::serial::write(bytes, TypeId::OBJECT_ITERATOR);
         obj_iter.serialize(bytes);
         return createBytesMember(fixture, bytes.data(), bytes.size());
     }
@@ -283,6 +286,24 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
     {
         return PyToolkit::unloadTuple(fixture, value.cast<std::uint64_t>());
+    }
+    
+    // DB0_SERIALIZED specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+    {
+        db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.cast<std::uint64_t>());
+        std::vector<std::byte> buffer;
+        buffer.resize(bytes->size());
+        std::copy(bytes->getBuffer(), bytes->getBuffer() + bytes->size(), buffer.begin());
+        auto iter = buffer.cbegin(), end = buffer.cend();
+        auto type_id = db0::serial::read<TypeId>(iter, end);
+        if (type_id == TypeId::OBJECT_ITERATOR) {
+            return PyToolkit::unloadObjectIterator(fixture, iter, end);            
+        } else {
+            THROWF(db0::InputException) << "Unsupported serialized type id: " 
+                << static_cast<int>(type_id) << THROWF_END;
+        }
     }
     
     template <> void registerUnloadMemberFunctions<PyToolkit>(

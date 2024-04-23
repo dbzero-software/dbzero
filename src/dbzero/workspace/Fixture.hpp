@@ -24,6 +24,7 @@ namespace db0
     
     class GC0;
     class MetaAllocator;
+    class Snapshot;
     class Workspace;
     using StringPoolT = db0::pools::RC_LimitedStringPool;
     using ObjectCatalogue = db0::object_model::ObjectCatalogue;
@@ -58,8 +59,8 @@ namespace db0
     public:
         using LangCache = db0::object_model::LangCache;
         
-        Fixture(Workspace &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);  
-        Fixture(FixedObjectList &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
+        Fixture(Workspace &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
+        Fixture(Snapshot &, FixedObjectList &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
         Fixture(Fixture const &) = delete;
 
         /**
@@ -161,7 +162,8 @@ namespace db0
 
         void onUpdated();
                      
-    private:
+    private:                
+        Snapshot &m_snapshot;
         const std::uint64_t m_UUID;
         // the registry holds active v_ptr instances (important for refresh)
         // and cleanup of the "hanging" references
@@ -204,7 +206,7 @@ namespace db0
         /**
          * Called by the AutoCommitThread
         */
-        void onAutoCommit();
+        void onAutoCommit();        
     };
     
     template <typename T, typename ResultT, typename... Args> ResultT &Fixture::addResourceAs(Args&&... args)

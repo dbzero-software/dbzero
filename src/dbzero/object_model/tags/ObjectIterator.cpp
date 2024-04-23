@@ -3,6 +3,8 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/core/collections/full_text/FT_Serialization.hpp>
+#include <dbzero/core/collections/range_tree/RT_Serialization.hpp>
 
 namespace db0::object_model
 
@@ -133,32 +135,50 @@ namespace db0::object_model
     {        
         // FIXTURE uuid
         db0::serial::write(buf, m_fixture->getUUID());
-        std::uint16_t inner_count = 0;
-        if (m_query_iterator) {
-            ++inner_count;
-        }
-        if (m_sorted_iterator) {
-            ++inner_count;
-        }
-        if (m_factory) {
-            ++inner_count;
-        }
         db0::serial::write(buf, inner_count);
         if (m_query_iterator) {
+            assert(!m_sorted_iterator && !m_factory);
             db0::serial::write<std::uint8_t>(buf, 1);
             db0::serial::write(buf, m_query_iterator->getSerialTypeId());
             m_query_iterator->serialize(buf);
         }
         if (m_sorted_iterator) {
+            assert(!m_query_iterator && !m_factory);
             db0::serial::write<std::uint8_t>(buf, 2);
             db0::serial::write(buf, m_sorted_iterator->getSerialTypeId());
             m_sorted_iterator->serialize(buf);
         }
         if (m_factory) {
+            assert(!m_query_iterator && !m_sorted_iterator);
             db0::serial::write<std::uint8_t>(buf, 3);
             db0::serial::write(buf, m_factory->getSerialTypeId());
             m_factory->serialize(buf);
         }
     }
-
+    
+    void ObjectIterator::deserialize(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end)
+    {
+        std::uint64_t fixture_uuid = db0::serial::read<std::uint64_t>(iter, end);
+        std::swine_ptr<Fixture> fixture_;
+        if (fixture->getUUID() == fixture_uuid) {
+            fixture_ = fixture;        
+        } else {
+            fixture_ = fixture->getWorkspace().getFixture(fixture_uuid);
+        }        
+        auto inner_type = db0::serial::read<std::uint8_t>(iter);
+        if (inner_type == 1) {
+            auto query_iterator = db0::deserializeFT_Iterator(fixture_, iter, end);
+            new (at_ptr) ObjectIterator(fixture_, std::move(query_iterator));
+        } else if (inner_type == 2) {
+            auto sorted_iterator = db0::deserializeSortedIterator(fixture_, iter, end);
+            new (at_ptr) ObjectIterator(fixture_, std::move(sorted_iterator));
+        } else if (inner_type == 3) {
+            auto factory = IteratorFactory::deserialize(fixture_, iter, end);
+            new (at_ptr) ObjectIterator(fixture_, std::move(factory));
+        } else {
+            THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
+        }
+    }
+    
 }

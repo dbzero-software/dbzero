@@ -13,20 +13,21 @@ namespace db0
         : m_UUID(db0::make_UUID())
     {
     }
-    
+        
     Fixture::Fixture(Workspace &workspace, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
-        : Fixture(workspace.getSharedObjectList(), prefix, meta)
+        : Fixture(workspace, workspace.getSharedObjectList(), prefix, meta)
     {        
     }
     
-    Fixture::Fixture(FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
+    Fixture::Fixture(Snapshot &snapshot, FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
         : Memspace(prefix, meta, getUUID(prefix, *meta))
+        , m_snapshot(snapshot)
         , m_UUID(*m_derived_UUID)
         , m_string_pool(openLimitedStringPool(*this, *meta))
         , m_object_catalogue(openObjectCatalogue(*meta))
         , m_v_object_cache(*this, shared_object_list)
     {
-    }
+    }    
     
     StringPoolT Fixture::openLimitedStringPool(Memspace &memspace, MetaAllocator &meta)
     {
@@ -137,8 +138,9 @@ namespace db0
         auto allocator_snapshot = std::make_shared<MetaAllocator>(
             prefix_snapshot, std::dynamic_pointer_cast<MetaAllocator>(m_allocator)->getSlabRecyclerPtr());
         
+        auto &snapshot = const_cast<Snapshot &>(m_snapshot);
         return db0::make_swine<Fixture>(
-            m_v_object_cache.getSharedObjectList(), prefix_snapshot, allocator_snapshot
+            snapshot, m_v_object_cache.getSharedObjectList(), prefix_snapshot, allocator_snapshot
         );
     }
     

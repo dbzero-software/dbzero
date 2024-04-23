@@ -6,6 +6,7 @@
 #include <dbzero/core/collections/full_text/SortedIterator.hpp>
 #include <dbzero/core/collections/full_text/IteratorFactory.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
 
 namespace db0::object_model
 
@@ -75,6 +76,10 @@ namespace db0::object_model
         
         void serialize(std::vector<std::byte> &) const override;
 
+        // placement-new deserialization
+        static void deserialize(void *at_ptr, db0::swine_ptr<Fixture> &, std::vector<std::byte>::const_iterator &, 
+            std::vector<std::byte>::const_iterator);
+        
     protected:
         mutable db0::swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;
@@ -88,5 +93,7 @@ namespace db0::object_model
 
         void assureInitialized();
     };
+    
+    std::unique_ptr<ObjectIterator> deserializeObjectIterator(db0::Snapshot &, const std::vector<std::byte> &);
 
 }

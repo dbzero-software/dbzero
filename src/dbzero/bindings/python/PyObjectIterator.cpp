@@ -11,8 +11,7 @@ namespace db0::python
 
     using ObjectIterator = db0::object_model::ObjectIterator;
 
-    PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *)
-    {
+    PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyObjectIterator*>(type->tp_alloc(type, 0));
     }
     
@@ -23,11 +22,14 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
     
-    PyTypedObjectIterator *PyTypedObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *)
-    {
+    PyTypedObjectIterator *PyTypedObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyTypedObjectIterator*>(type->tp_alloc(type, 0));
     }
 
+    PyObjectIterator *PyObjectIteratorDefault_new() {
+        return PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
+    }
+    
     void PyTypedObjectIterator_del(PyTypedObjectIterator* self)
     {
         // destroy associated DB0 instance
