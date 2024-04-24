@@ -4,6 +4,7 @@
 #include "PyInternalAPI.hpp"
 #include "ObjectId.hpp"
 #include <dbzero/bindings/python/collections/List.hpp>
+#include <dbzero/bindings/python/collections/ByteArray.hpp>
 #include "Index.hpp"
 #include <dbzero/bindings/python/collections/Set.hpp>
 #include <dbzero/bindings/python/collections/Tuple.hpp>
@@ -39,6 +40,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"dict", (PyCFunction)&py::makeDict, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero dict instance"},
     {"block", (PyCFunction)&py::makeBlock, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero pandas block instance"},
     {"dataframe", (PyCFunction)&py::makeDataFrame, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero pandas dataframe instance"},
+    {"bytearray", (PyCFunction)&py::makeByteArray, METH_FASTCALL, "Create a new DBZero bytearray instance"},
     {"get_prefix", (PyCFunction)&py::getPrefixName, METH_VARARGS, ""},
     {"get_current_prefix", &py::getCurrentPrefixName, METH_VARARGS, ""},
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},

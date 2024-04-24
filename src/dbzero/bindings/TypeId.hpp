@@ -27,6 +27,7 @@ namespace db0::bindings
         OBJECT_ITERATOR = 10,
         TYPED_OBJECT_ITERATOR = 11,
         BYTES = 12,
+        BYTES_ARRAY=13,
         // DBZero wrappers of common language types
         MEMO_OBJECT = 100,
         DB0_LIST = 101,
@@ -41,6 +42,7 @@ namespace db0::bindings
         MEMO_SELF = 109,
         // COUNT determines size of the type operator arrays
         COUNT = 110,
+        DB0_BYTES_ARRAY = 111,  
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };
