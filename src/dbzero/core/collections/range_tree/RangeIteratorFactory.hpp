@@ -7,6 +7,7 @@
 #include "RT_RangeIterator.hpp"
 #include "RT_Range.hpp"
 #include "RT_FTIterator.hpp"
+#include <dbzero/workspace/Fixture.hpp>
 
 namespace db0
 

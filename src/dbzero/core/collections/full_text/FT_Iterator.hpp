@@ -17,10 +17,10 @@ namespace db0
     {
         Invalid = 0,
         Index = 1,
-        RangeTree,
-        JoinAnd,
-        JoinOr,
-        JoinAndNot,
+        RangeTree = 2,
+        JoinAnd = 3,
+        JoinOr = 4,
+        JoinAndNot = 5
     };
     
     using Serializable = db0::serial::Serializable;

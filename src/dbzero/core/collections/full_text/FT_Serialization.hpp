@@ -6,6 +6,8 @@
 #include "FT_IndexIterator.hpp"
 #include "FT_BaseIndex.hpp"
 #include "IteratorFactory.hpp"
+#include "FT_ANDIterator.hpp"
+#include "FT_ORXIterator.hpp"
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
@@ -26,7 +28,7 @@ namespace db0
         std::vector<std::byte>::const_iterator end);
     
     template <typename KeyT> std::unique_ptr<db0::FT_Iterator<KeyT> > deserializeFT_Iterator(
-        db0::Snapshot &snapshot, std::vector<std::byte>::const_iterator &iter,
+        db0::Snapshot &workspace, std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end)
     {
         auto type_id = db0::serial::read<FTIteratorType>(iter, end);
@@ -35,9 +37,27 @@ namespace db0
             auto _iter = iter;
             auto index_type_id = db0::serial::read<TypeIdType>(_iter, end);
             if (index_type_id == db0::MorphingBIndex<std::uint64_t, std::uint64_t>::getSerialTypeId()) {
-                return deserializeFT_IndexIterator<db0::MorphingBIndex<std::uint64_t, std::uint64_t>, KeyT>(snapshot, iter, end);
+                return deserializeFT_IndexIterator<db0::MorphingBIndex<std::uint64_t, std::uint64_t>, KeyT>(workspace, iter, end);
             } else {
                 THROWF(db0::InternalException) << "Unsupported index type ID: " << index_type_id
+                    << THROWF_END;
+            }
+        } else if (type_id == FTIteratorType::JoinAnd) {
+            auto _iter = iter;
+            auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
+            if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
+                return db0::FT_JoinANDIterator<std::uint64_t>::deserialize(workspace, iter, end);
+            } else {
+                THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id
+                    << THROWF_END;
+            }
+        } else if (type_id == FTIteratorType::JoinOr) {
+            auto _iter = iter;
+            auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
+            if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
+                return db0::FT_JoinORXIterator<std::uint64_t>::deserialize(workspace, iter, end);
+            } else {
+                THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id
                     << THROWF_END;
             }
         } else {
