@@ -5,9 +5,11 @@
 #include "SortedIterator.hpp"
 #include "FT_IndexIterator.hpp"
 #include "FT_BaseIndex.hpp"
+#include "IteratorFactory.hpp"
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
+#include <dbzero/core/collections/range_tree/RangeIteratorFactory.hpp>
 
 namespace db0
 
@@ -18,7 +20,7 @@ namespace db0
     template <typename KeyT> std::unique_ptr<db0::FT_Iterator<KeyT> > deserializeFT_Iterator(
         db0::Snapshot &, std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end);
-    
+
     template <typename bindex_t, typename KeyT> std::unique_ptr<db0::FT_Iterator<KeyT> > deserializeFT_IndexIterator(
         db0::Snapshot &, std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end);
@@ -66,6 +68,32 @@ namespace db0
         auto index_key = db0::serial::read<std::uint64_t>(iter, end);        
         // use FT_Base index as the factory
         return fixture->get<db0::FT_BaseIndex>().makeIterator(index_key, direction);
+    }
+    
+    template <typename KeyT> std::unique_ptr<db0::IteratorFactory<KeyT> > deserializeIteratorFactory(
+        db0::Snapshot &, std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end);
+    
+    template <typename KeyT> std::unique_ptr<db0::IteratorFactory<KeyT> > deserializeIteratorFactory(
+        db0::Snapshot &workspace, std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end)
+    {
+        auto type_id = db0::serial::read<IteratorFactoryTypeId>(iter, end);
+        if (type_id == IteratorFactoryTypeId::Range) {
+            auto iter_ = iter;
+            auto key_type_id = db0::serial::read<TypeIdType>(iter_, end);
+            db0::serial::read<TypeIdType>(iter_, end); // value type ID
+            if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
+                return deserializeRangeIteratorFactory<std::uint64_t, KeyT>(workspace, iter, end);
+            } else if (key_type_id == db0::serial::typeId<std::int64_t>()) {
+                return deserializeRangeIteratorFactory<std::int64_t, KeyT>(workspace, iter, end);
+            } else {
+                THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id
+                    << THROWF_END;
+            }            
+        }
+        THROWF(db0::InternalException) << "Unsupported IteratorFactory type: " << static_cast<std::uint16_t>(type_id) 
+            << THROWF_END;        
     }
 
 }

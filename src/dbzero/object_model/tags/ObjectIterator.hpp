@@ -94,6 +94,4 @@ namespace db0::object_model
         void assureInitialized();
     };
     
-    std::unique_ptr<ObjectIterator> deserializeObjectIterator(db0::Snapshot &, const std::vector<std::byte> &);
-
 }

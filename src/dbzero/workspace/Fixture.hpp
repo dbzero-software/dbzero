@@ -161,7 +161,14 @@ namespace db0
         db0::swine_ptr<Fixture> getSnapshot(std::optional<std::uint64_t> state_num = {}) const;
 
         void onUpdated();
-                     
+
+        /**
+         * Get the Snapshot interface of the related workspace
+        */
+        const Snapshot &getWorkspace() const;
+
+        Snapshot &getWorkspace();
+
     private:                
         Snapshot &m_snapshot;
         const std::uint64_t m_UUID;

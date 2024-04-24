@@ -201,4 +201,12 @@ namespace db0
         return *m_gc0_ptr;
     }
 
+    const Snapshot &Fixture::getWorkspace() const {
+        return m_snapshot;
+    }
+    
+    Snapshot &Fixture::getWorkspace() {
+        return m_snapshot;
+    }
+    
 }
