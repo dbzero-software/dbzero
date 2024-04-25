@@ -42,3 +42,25 @@ def test_serde_tags_not_query(db0_fixture, memo_tags):
     query_object = MemoTestClass(db0.find("tag1", db0.no("tag2")))
     # run serialized query directly (it will be deserialized on the go)
     assert len(list(query_object.value)) == 5
+
+
+def test_serde_range_query(db0_fixture):
+    index = db0.index()
+    for i in range(10):
+        index.add(i, MemoTestClass(i))
+    # null query since tag_2 is not present
+    query_object = MemoTestClass(index.range(4, 8))
+    # run serialized query directly (it will be deserialized on the go)
+    assert len(list(query_object.value)) == 5
+
+
+def test_serde_sort_query(db0_fixture):
+    index = db0.index()
+    for i in range(10):
+        object = MemoTestClass(i)
+        index.add(i, object)
+        db0.tags(object).add("tag1")        
+    # null query since tag_2 is not present
+    query_object = MemoTestClass(index.sort(db0.find("tag1")))
+    # run serialized query directly (it will be deserialized on the go)
+    assert len(list(query_object.value)) == 10

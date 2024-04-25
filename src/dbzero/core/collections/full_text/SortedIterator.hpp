@@ -40,6 +40,17 @@ namespace db0
         virtual std::unique_ptr<SortedIterator<ValueT> > beginSorted(std::unique_ptr<QueryIterator> ft_query = nullptr) const = 0;
 
         virtual SortedIteratorType getSerialTypeId() const = 0;
+
+        virtual void serialize(std::vector<std::byte> &) const;
+
+    protected:
+        virtual void serializeImpl(std::vector<std::byte> &) const = 0;
     };
+
+    template <typename ValueT> void SortedIterator<ValueT>::serialize(std::vector<std::byte> &v) const
+    {
+        db0::serial::write(v, this->getSerialTypeId());
+        this->serializeImpl(v);
+    }
     
 }
