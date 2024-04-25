@@ -1,5 +1,6 @@
-#include "FT_ANDIterator.hpp"
 #include <cassert>
+#include "FT_ANDIterator.hpp"
+#include "FT_Serialization.hpp"
 
 namespace db0
 
@@ -504,13 +505,40 @@ namespace db0
     void db0::FT_JoinANDIterator<key_t, UniqueKeys>::serializeFTIterator(std::vector<std::byte> &v) const
     {
         db0::serial::write(v, db0::serial::typeId<key_t>());
+        db0::serial::write<bool>(v, UniqueKeys);
         db0::serial::write<std::int8_t>(v, m_direction);
         db0::serial::write<std::uint32_t>(v, m_joinable.size());
         for (const auto &it: m_joinable) {
             it->serialize(v);
         }
     }
+    
+    template <typename key_t, bool UniqueKeys>
+    std::unique_ptr<FT_Iterator<key_t> >db0::FT_JoinANDIterator<key_t, UniqueKeys>::deserialize(Snapshot &workspace,
+        std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
+    {
+        auto key_type_id = db0::serial::read<TypeIdType>(iter, end);
+        if (key_type_id != db0::serial::typeId<key_t>()) {
+            THROWF(db0::InternalException) << "Key type mismatch: " << key_type_id << " != " << db0::serial::typeId<key_t>()
+                << THROWF_END;
+        }
+        bool unique_keys = db0::serial::read<bool>(iter, end);
+        if (unique_keys != UniqueKeys) {
+            THROWF(db0::InternalException) << "Unique keys mismatch: " << unique_keys << " != " << UniqueKeys
+                << THROWF_END;
+        }
+        int direction = db0::serial::read<std::int8_t>(iter, end);
+        std::uint32_t size = db0::serial::read<std::uint32_t>(iter, end);
+        std::list<std::unique_ptr<FT_Iterator<key_t> > > inner_iterators;
+        for (std::uint32_t i = 0; i < size; ++i) {
+            inner_iterators.emplace_back(db0::deserializeFT_Iterator<key_t>(workspace, iter, end));
+        }
 
+        return std::make_unique<FT_JoinANDIterator<key_t, UniqueKeys> >(
+            std::move(inner_iterators), direction
+        );
+    }
+    
 	template<typename key_t, bool UniqueKeys>
     FT_ANDIteratorFactory<key_t, UniqueKeys>::FT_ANDIteratorFactory() = default;
 

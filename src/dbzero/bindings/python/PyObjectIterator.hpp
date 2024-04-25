@@ -11,6 +11,7 @@ namespace db0::python
     using PyTypedObjectIterator = PyWrapper<db0::object_model::TypedObjectIterator>;
     
     PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
+    PyObjectIterator *PyObjectIteratorDefault_new();
     void PyObjectIterator_del(PyObjectIterator* self);
 
     PyTypedObjectIterator *PyTypedObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
