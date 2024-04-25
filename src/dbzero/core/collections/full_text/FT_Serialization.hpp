@@ -8,6 +8,7 @@
 #include "IteratorFactory.hpp"
 #include "FT_ANDIterator.hpp"
 #include "FT_ORXIterator.hpp"
+#include "FT_ANDNOTIterator.hpp"
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
@@ -56,6 +57,15 @@ namespace db0
             auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
             if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
                 return db0::FT_JoinORXIterator<std::uint64_t>::deserialize(workspace, iter, end);
+            } else {
+                THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id
+                    << THROWF_END;
+            }
+        } else if (type_id == FTIteratorType::JoinAndNot) {
+            auto _iter = iter;
+            auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
+            if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
+                return db0::FT_ANDNOTIterator<std::uint64_t>::deserialize(workspace, iter, end);
             } else {
                 THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id
                     << THROWF_END;

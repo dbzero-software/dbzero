@@ -534,9 +534,11 @@ namespace db0
             inner_iterators.emplace_back(db0::deserializeFT_Iterator<key_t>(workspace, iter, end));
         }
 
-        return std::make_unique<FT_JoinANDIterator<key_t, UniqueKeys> >(std::move(inner_iterators), direction);
+        return std::make_unique<FT_JoinANDIterator<key_t, UniqueKeys> >(
+            std::move(inner_iterators), direction
+        );
     }
-
+    
 	template<typename key_t, bool UniqueKeys>
     FT_ANDIteratorFactory<key_t, UniqueKeys>::FT_ANDIteratorFactory() = default;
 

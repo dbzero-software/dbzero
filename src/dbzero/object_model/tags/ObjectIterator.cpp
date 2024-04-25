@@ -134,7 +134,11 @@ namespace db0::object_model
     void ObjectIterator::serialize(std::vector<std::byte> &buf) const
     {        
         // FIXTURE uuid
-        db0::serial::write(buf, m_fixture->getUUID());        
+        db0::serial::write(buf, m_fixture->getUUID());
+        db0::serial::write<bool>(buf, this->isNull());
+        if (this->isNull()) {
+            return;
+        }
         if (m_query_iterator) {
             assert(!m_sorted_iterator && !m_factory);
             db0::serial::write<std::uint8_t>(buf, 1);            
@@ -161,6 +165,12 @@ namespace db0::object_model
             fixture_ = fixture;
         } else {
             fixture_ = fixture->getWorkspace().getFixture(fixture_uuid);
+        }
+        bool is_null = db0::serial::read<bool>(iter, end);
+        if (is_null) {
+            // deserialize as null
+            new (at_ptr) ObjectIterator(fixture_, std::unique_ptr<QueryIterator>());
+            return;
         }
         auto &workspace = fixture_->getWorkspace();
         auto inner_type = db0::serial::read<std::uint8_t>(iter, end);
