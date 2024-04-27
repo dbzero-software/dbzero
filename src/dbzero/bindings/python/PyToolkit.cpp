@@ -16,6 +16,7 @@
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
 #include "ObjectId.hpp"
+#include "PyObjectIterator.hpp"
 
 namespace db0::python
 
@@ -61,7 +62,7 @@ namespace db0::python
 
         return memo_object;
     }
-
+    
     PyToolkit::ObjectPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,
         std::shared_ptr<Class> type, std::optional<std::uint32_t> instance_id)
     {
@@ -180,7 +181,7 @@ namespace db0::python
         lang_cache.add(address, dict_object, false);
         return dict_object;
     }
-
+    
     PyToolkit::ObjectPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
         std::optional<std::uint32_t> instance_id)
     {
@@ -195,12 +196,19 @@ namespace db0::python
         auto tuple_object = TupleDefaultObject_new();
         // retrieve actual DBZero instance        
         db0::object_model::Tuple::unload(&tuple_object->ext(), fixture, address);
-    
 
         // add list object to cache
         lang_cache.add(address, tuple_object, false);
         return tuple_object;
-    } 
+    }
+
+    PyToolkit::ObjectPtr PyToolkit::unloadObjectIterator(db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
+            std::vector<std::byte>::const_iterator end)
+    {
+        auto obj_iter = PyObjectIteratorDefault_new();
+        db0::object_model::ObjectIterator::deserialize(&obj_iter->ext(), fixture, iter, end);
+        return obj_iter;
+    }
 
     std::uint64_t PyToolkit::addTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)
     {

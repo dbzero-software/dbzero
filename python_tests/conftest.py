@@ -4,6 +4,7 @@ import os
 import pytest
 import dbzero_ce as db0
 import shutil
+from .memo_test_types import MemoTestClass, MemoTestSingleton
 
 
 TEST_FILES_DIR_ROOT = os.path.join(os.getcwd(), "python_tests", "files")
@@ -22,4 +23,18 @@ def db0_fixture():
     db0.close()  
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
-    
+
+
+@pytest.fixture()
+def memo_tags():
+    root = MemoTestSingleton([])
+    for i in range(10):
+        object = MemoTestClass(i)
+        root.value.append(object)
+        db0.tags(object).add("tag1")
+        if i % 2 == 0:
+            db0.tags(object).add("tag2")
+        if i % 3 == 0:
+            db0.tags(object).add("tag3")
+        if i % 4 == 0:
+            db0.tags(object).add("tag4")

@@ -1,8 +1,9 @@
-#include "FT_ANDNOTIterator.hpp"
-#include "FT_ORXIterator.hpp"
-#include <dbzero/core/utils/heap_utils.hpp>
 #include <algorithm>
 #include <cstring>
+#include <dbzero/core/utils/heap_utils.hpp>
+#include "FT_ANDNOTIterator.hpp"
+#include "FT_ORXIterator.hpp"
+#include "FT_Serialization.hpp"
 
 namespace db0 
 
@@ -173,7 +174,7 @@ namespace db0
         ++this_joinable_it;
         ++other_joinable_it;
         // compare rest of iterators (order doesn't matter)
-        if(std::is_permutation(this_joinable_it, m_joinable.end(),
+        if (std::is_permutation(this_joinable_it, m_joinable.end(),
                                other_joinable_it, andnot_it.m_joinable.end(),
             [](const std::unique_ptr<FT_Iterator<key_t>> &a, const std::unique_ptr<FT_Iterator<key_t>> &b) {
                 return a->equal(*b);
@@ -227,7 +228,7 @@ namespace db0
     {
         if (m_direction > 0) {
             auto &it = getBaseIterator();
-            if(!it.join(join_key), 1) {
+            if (!it.join(join_key), 1) {
                 return false;
             }
             if(!inResult(it.getKey(), 1) && !next(1)) {
@@ -237,10 +238,10 @@ namespace db0
         } else {
             assert(m_direction < 0);
             auto &it = getBaseIterator();
-            if(!it.join(join_key, -1)) {
+            if (!it.join(join_key, -1)) {
                 return false;
             }
-            if(!inResult(it.getKey(), -1) && !next(-1)) {
+            if (!inResult(it.getKey(), -1) && !next(-1)) {
                 return false;
             }
             return true;
@@ -256,7 +257,7 @@ namespace db0
     std::pair<key_t, bool> FT_ANDNOTIterator<key_t>::peek(key_t join_key) const 
     {
         auto cloned = clone();
-        if(cloned->join(join_key), -1) {
+        if (cloned->join(join_key), -1) {
             return std::make_pair(cloned->getKey(), true); 
         } else {
             return std::make_pair(join_key, false);
@@ -269,7 +270,7 @@ namespace db0
     {
         std::vector<std::unique_ptr<FT_Iterator<key_t>>> sub_iterators;
         sub_iterators.reserve(m_joinable.size());
-        for(const auto &sub_it : m_joinable) {
+        for (const auto &sub_it : m_joinable) {
             sub_iterators.emplace_back(sub_it->clone(clone_map_ptr));
         }
         std::unique_ptr<FT_Iterator<key_t>> cloned(
@@ -287,7 +288,7 @@ namespace db0
     {
         std::vector<std::unique_ptr<FT_Iterator<key_t>>> sub_iterators;
         sub_iterators.reserve(m_joinable.size());
-        for(const auto &sub_it : m_joinable) {
+        for (const auto &sub_it : m_joinable) {
             sub_iterators.emplace_back(sub_it->beginTyped(direction));
         }
         auto result = std::make_unique<FT_ANDNOTIterator>(std::move(sub_iterators), direction);        
@@ -297,7 +298,7 @@ namespace db0
     template<typename key_t> 
     bool FT_ANDNOTIterator<key_t>::limitBy(key_t key)
     {
-        if(!m_joinable.front()->limitBy(key)) {
+        if (!m_joinable.front()->limitBy(key)) {
             return false;
         }
         m_subtrahends_heap.erase(
@@ -308,7 +309,7 @@ namespace db0
             m_subtrahends_heap.end()
         );
         // Rebuild heap
-        for(HeapItem &item : m_subtrahends_heap) {
+        for (HeapItem &item : m_subtrahends_heap) {
             item.key = item.it->getKey();
         }
         updateWithHeap();
@@ -432,6 +433,26 @@ namespace db0
         }
     }
 
+    template <typename key_t>
+    std::unique_ptr<db0::FT_ANDNOTIterator<key_t>> db0::FT_ANDNOTIterator<key_t>::deserialize(Snapshot &workspace,        
+        std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
+    {
+        using TypeIdType = decltype(db0::serial::typeId<void>());
+        auto key_type_id = db0::serial::read<TypeIdType>(iter, end);
+        if (key_type_id != db0::serial::typeId<key_t>()) {
+            THROWF(db0::InternalException) << "Key type mismatch: " << key_type_id << " != " << db0::serial::typeId<key_t>()
+                << THROWF_END;
+        }
+        auto direction = db0::serial::read<std::int8_t>(iter, end);
+        auto joinable_size = db0::serial::read<std::size_t>(iter, end);
+        std::vector<std::unique_ptr<FT_Iterator<key_t>>> joinable;
+        joinable.reserve(joinable_size);
+        for (std::size_t i = 0; i < joinable_size; ++i) {
+            joinable.emplace_back(db0::deserializeFT_Iterator<key_t>(workspace, iter, end));
+        }
+        return std::make_unique<FT_ANDNOTIterator<key_t>>(std::move(joinable), direction);
+    }
+    
     template class FT_ANDNOTIterator<std::uint64_t>;
     
 }

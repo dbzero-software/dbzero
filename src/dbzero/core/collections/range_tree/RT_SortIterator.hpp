@@ -67,7 +67,8 @@ namespace db0
 
         SortedIteratorType getSerialTypeId() const override;
 
-        void serialize(std::vector<std::byte> &) const override;
+    protected:
+        void serializeImpl(std::vector<std::byte> &) const override;
         
     private:
         using BlockItemT = typename RT_TreeT::BlockT::ItemT;
@@ -462,7 +463,7 @@ namespace db0
     }
     
     template <typename KeyT, typename ValueT>
-    void RT_SortIterator<KeyT, ValueT>::serialize(std::vector<std::byte> &v) const
+    void RT_SortIterator<KeyT, ValueT>::serializeImpl(std::vector<std::byte> &v) const
     {
         db0::serial::write(v, db0::serial::typeId<KeyT>());
         db0::serial::write(v, db0::serial::typeId<ValueT>());

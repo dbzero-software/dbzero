@@ -27,6 +27,8 @@ namespace db0
         bool contains(KeyT key) const;
 
         void serialize(std::vector<std::byte> &v) const;
+
+        static RT_Range<KeyT> deserialize(std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
     };
 
     template <typename KeyT>
@@ -67,6 +69,26 @@ namespace db0
             db0::serial::write(v, *m_max);
             db0::serial::write(v, m_max_inclusive);
         }
+    }
+    
+    template <typename KeyT>
+    RT_Range<KeyT> RT_Range<KeyT>::deserialize(std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
+    {
+        bool has_min = db0::serial::read<bool>(iter, end);
+        std::optional<KeyT> min;
+        bool min_inclusive = false;
+        if (has_min) {
+            min = db0::serial::read<KeyT>(iter, end);
+            min_inclusive = db0::serial::read<bool>(iter, end);            
+        }        
+        bool has_max = db0::serial::read<bool>(iter, end);
+        std::optional<KeyT> max;
+        bool max_inclusive = false;
+        if (has_max) {
+            max = db0::serial::read<KeyT>(iter, end);
+            max_inclusive = db0::serial::read<bool>(iter, end);            
+        }
+        return RT_Range<KeyT>(min, min_inclusive, max, max_inclusive);
     }
     
 }

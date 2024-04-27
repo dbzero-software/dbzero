@@ -1,5 +1,6 @@
-#include "FT_ORXIterator.hpp"
 #include <cstring>
+#include "FT_ORXIterator.hpp"
+#include "FT_Serialization.hpp"
 
 namespace db0
 
@@ -640,6 +641,24 @@ namespace db0
 		for (const auto &it: m_joinable) {
 			it->serialize(v);
 		}	
+	}
+
+	template <typename key_t>
+	std::unique_ptr<FT_JoinORXIterator<key_t> > db0::FT_JoinORXIterator<key_t>::deserialize(Snapshot &workspace,
+		std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
+	{
+		auto key_type_id = db0::serial::read<TypeIdType>(iter, end);
+		if (key_type_id != db0::serial::typeId<key_t>()) {
+			THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id << THROWF_END;
+		}
+		int direction = db0::serial::read<std::int8_t>(iter, end);
+		bool is_orx = db0::serial::read<bool>(iter, end);
+		std::uint32_t joinable_size = db0::serial::read<std::uint32_t>(iter, end);
+		std::list<std::unique_ptr<FT_Iterator<key_t> > > joinable;
+		for (std::uint32_t i = 0; i < joinable_size; ++i) {
+			joinable.push_back(db0::deserializeFT_Iterator<key_t>(workspace, iter, end));
+		}
+		return std::make_unique<FT_JoinORXIterator<key_t>>(std::move(joinable), direction, is_orx);
 	}
 
     template class FT_JoinORXIterator<std::uint64_t>;

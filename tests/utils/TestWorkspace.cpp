@@ -96,7 +96,7 @@ namespace db0
             Memspace memspace(proxy, meta);
             Fixture::formatFixture(memspace, *meta);
         }
-        auto fixture = db0::make_swine<Fixture>(m_shared_object_list, proxy, meta);
+        auto fixture = db0::make_swine<Fixture>(*this, m_shared_object_list, proxy, meta);
         m_fixtures[fixture->getUUID()] = fixture;
         m_uuids[prefix_name] = fixture->getUUID();
         if (!m_current_fixture) {

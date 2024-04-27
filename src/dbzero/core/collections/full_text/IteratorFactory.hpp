@@ -8,7 +8,8 @@ namespace db0
 
 {
     
-    enum class IteratorFactoryTypeId: std::uint16_t {
+    enum class IteratorFactoryTypeId: std::uint16_t 
+    {
         Invalid = 0,
         Range = 1
     };
@@ -27,6 +28,17 @@ namespace db0
         virtual std::unique_ptr<FT_Iterator<KeyT> > createFTIterator() = 0;
 
         virtual IteratorFactoryTypeId getSerialTypeId() const = 0;
+
+        virtual void serialize(std::vector<std::byte> &) const override;
+
+    protected:
+        virtual void serializeImpl(std::vector<std::byte> &) const = 0;
     };
+    
+    template <typename KeyT> void IteratorFactory<KeyT>::serialize(std::vector<std::byte> &data) const
+    {
+        db0::serial::write(data, getSerialTypeId());
+        serializeImpl(data);
+    }
     
 }

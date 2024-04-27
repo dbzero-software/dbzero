@@ -58,13 +58,16 @@ namespace db0
             auto _iter = iter;
             auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
             auto value_type_id = db0::serial::read<TypeIdType>(_iter, end);
-            if (key_type_id != db0::serial::typeId<KeyT>()) {
-                THROWF(db0::InternalException) << "Key type mismatch: " << key_type_id << THROWF_END;
+            if (value_type_id != db0::serial::typeId<KeyT>()) {
+                THROWF(db0::InternalException) << "Key type mismatch: " << value_type_id << THROWF_END;
             }
-            if (value_type_id == db0::serial::typeId<std::uint64_t>()) {
-                return deserializeRT_SortIterator<KeyT, std::uint64_t>(snapshot, iter, end);
+            // key of the value sorted by
+            if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
+                return deserializeRT_SortIterator<std::uint64_t, KeyT>(snapshot, iter, end);
+            } else if (key_type_id == db0::serial::typeId<std::int64_t>()) {
+                return deserializeRT_SortIterator<std::int64_t, KeyT>(snapshot, iter, end);
             } else {
-                THROWF(db0::InternalException) << "Unsupported value type ID: " << value_type_id << THROWF_END;
+                THROWF(db0::InternalException) << "RT_SortIterator unsupported key type ID: " << key_type_id << THROWF_END;
             }
         } else {
             THROWF(db0::InternalException) << "Unsupported SortedIterator type: " << static_cast<std::uint16_t>(type_id) 

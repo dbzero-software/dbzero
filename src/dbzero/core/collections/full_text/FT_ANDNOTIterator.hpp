@@ -7,6 +7,8 @@ namespace db0
 
 {
 
+    class Snapshot;
+    
     /**
      * This iterator type performs difference on sets, returning elements which are
      * present in value set of first iterator, but aren't in other iterators.
@@ -91,6 +93,9 @@ namespace db0
         virtual void detach();
 
         FTIteratorType getSerialTypeId() const override;
+        
+        static std::unique_ptr<FT_ANDNOTIterator<key_t>> deserialize(Snapshot &workspace, 
+            std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
         
     protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
