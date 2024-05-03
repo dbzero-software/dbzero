@@ -75,9 +75,11 @@ namespace tests
         };
         // serialize
         runTestCase(test);
-        auto iter = buf.cbegin();
-        // deserialize-construct
-        auto cut = deserializeRT_SortIterator<int, std::uint64_t>(m_workspace, iter, buf.cend());
+        auto iter = buf.cbegin(), end = buf.cend();
+        auto iter_type = db0::serial::read<db0::SortedIteratorType>(iter, end);
+        ASSERT_EQ(iter_type, db0::SortedIteratorType::RT_Sort);
+        // deserialize-construct 
+        auto cut = deserializeRT_SortIterator<int, std::uint64_t>(m_workspace, iter, end);
         // iterate to confirm it was deserialized correctly
         std::vector<std::uint64_t> values;
         while (!cut->isEnd()) {
