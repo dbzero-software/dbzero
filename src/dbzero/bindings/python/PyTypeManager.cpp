@@ -109,6 +109,14 @@ namespace db0::python
         return reinterpret_cast<MemoObject*>(memo_ptr)->ext();
     }
     
+    db0::object_model::Object *PyTypeManager::tryExtractObject(ObjectPtr memo_ptr) const
+    {
+        if (!PyMemo_Check(memo_ptr)) {
+            return nullptr;
+        }
+        return &reinterpret_cast<MemoObject*>(memo_ptr)->ext();
+    }
+
     db0::object_model::List &PyTypeManager::extractList(ObjectPtr list_ptr) const
     {
         if (!ListObject_Check(list_ptr)) {
