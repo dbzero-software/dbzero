@@ -327,4 +327,18 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
     }
     
+    bool isMaterialized(PyObjectPtr lang_value)
+    {
+        auto object_ptr = PyToolkit::getTypeManager().tryExtractObject(lang_value);
+        return !object_ptr || object_ptr->hasInstance();
+    }
+    
+    void materialize(FixtureLock &fixture, PyObjectPtr lang_value)
+    {
+        auto object_ptr = PyToolkit::getTypeManager().tryExtractObject(lang_value);
+        if (object_ptr && !object_ptr->hasInstance()) {
+            object_ptr->postInit(fixture);
+        }
+    }
+
 }

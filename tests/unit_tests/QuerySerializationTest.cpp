@@ -61,7 +61,7 @@ namespace tests
         };
         runTestCase(test);
     }
-
+    
     TEST_F( QuerySerializationTest , testRangeTreeFTSortedIteratorCanBeDeserialized )
     {        
         std::vector<std::byte> buf;

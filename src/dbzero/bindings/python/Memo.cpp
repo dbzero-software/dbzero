@@ -5,6 +5,7 @@
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/value/Member.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -180,6 +181,12 @@ namespace db0::python
         // assign value to a DB0 attribute
         Py_XINCREF(value);
         try {
+            // must materialize the object before setting as an attribute
+            if (!db0::object_model::isMaterialized(value)) {
+                auto fixture = self->ext().getMutableFixture();
+                db0::object_model::materialize(fixture, value);
+            }
+
             auto &memo = self->ext();
             if (memo.hasInstance()) {
                 auto fixture = self->ext().getMutableFixture();

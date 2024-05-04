@@ -83,4 +83,12 @@ namespace db0::object_model
         return unload_member_functions[static_cast<int>(storage_class)](fixture, value, name);
     }
     
+    /**
+     * Invoke materialize before setting lang_value as a member
+     * this is to materialize objects (where hasInstance = false) before using them as members
+    */
+    void materialize(FixtureLock &, PyObjectPtr lang_value);
+
+    bool isMaterialized(PyObjectPtr lang_value);
+
 }

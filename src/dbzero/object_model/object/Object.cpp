@@ -217,9 +217,8 @@ namespace db0::object_model
             }
             return nullptr;
         };
-            
-        assert(m_type);
-        fixture->onUpdated();
+        
+        assert(m_type);        
         // find already existing field index
         auto field_id = m_type->findField(field_name);
         if (field_id == Class::NField) {
@@ -551,6 +550,13 @@ namespace db0::object_model
             // incRef with the initializer
             m_init_manager.getInitializer(*this).incRef();
         }
+    }
+    
+    FixtureLock Object::getMutableFixture() const
+    {
+        auto fixture = this->getFixture();
+        fixture->onUpdated();
+        return fixture;
     }
 
 }
