@@ -64,3 +64,18 @@ def test_serde_sort_query(db0_fixture):
     query_object = MemoTestClass(index.sort(db0.find("tag1")))
     # run serialized query directly (it will be deserialized on the go)
     assert len(list(query_object.value)) == 10
+
+
+def test_serialize_query_to_bytes(db0_fixture):
+    objects = []
+    for i in range(10):
+        objects.append(MemoTestClass(i))
+    db0.tags(*objects).add("tag1")
+    bytes = db0.serialize(db0.find("tag1"))    
+    assert bytes is not None
+
+
+def test_deserialize_query_from_bytes(db0_fixture, memo_tags):
+    bytes = db0.serialize(db0.find("tag1"))
+    query = db0.deserialize(bytes)    
+    assert len(list(query)) == 10

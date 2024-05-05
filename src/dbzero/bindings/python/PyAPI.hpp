@@ -105,7 +105,13 @@ namespace db0::python
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     PyObject *getBuildFlags(PyObject *self, PyObject *args);
-        
+    
+    // convert a db0::serial::Serializable to bytes
+    PyObject *pySerialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    
+    // convert bytes to instance (e.g. ObjectIterator)
+    PyObject *pyDeserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    
     template <typename T> db0::object_model::StorageClass getStorageClass();
 
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>();
