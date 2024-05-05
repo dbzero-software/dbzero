@@ -8,10 +8,9 @@ from typing import Dict
 @db0.memo(singleton=True)
 class FastQueryCache:
     def __init__(self):
-        self.__last_state_num = None
-        self.__last_result = None
-        pass
-
+        # query UUID / state number
+        self.__last_results = {}
+    
     def get_last_result(self, query):
         """
         Retrieves the latest known snapshot storing query result
@@ -41,18 +40,20 @@ def group_by(query) -> Dict:
     """
     Group by the query results by the given key
     """
+    print("Inside group by")
     cache = FastQueryCache()
-    last_result = cache.get_last_result(query)
-    if last_result is not None:
-        # execute as a delta
-        print("Delta query !!!")
-    else:
-        result = {}
-        for row in query:
-            bucket = result.get(row.key, None)
-            if bucket is None:
-                bucket = GroupByBucket()
-                result[row.key] = bucket
+    print("Fast query cache created")
+    # last_result = cache.get_last_result(query)
+    # if last_result is not None:
+    #     # execute as a delta
+    #     print("Delta query !!!")
+    # else:
+    #     result = {}
+    #     for row in query:
+    #         bucket = result.get(row.key, None)
+    #         if bucket is None:
+    #             bucket = GroupByBucket()
+    #             result[row.key] = bucket
     
-    cache.update(query, result)
-    return result
+    # cache.update(query, result)
+    # return result

@@ -386,7 +386,7 @@ namespace db0::python
         auto py_field_layout = MemoObject_GetFieldLayout(self);
         PyObject *py_result = PyDict_New();
         PyDict_SetItemString(py_result, "field_layout", py_field_layout);
-        PyDict_SetItemString(py_result, "uuid", tryGetObjectId<MemoObject>(self));
+        PyDict_SetItemString(py_result, "uuid", tryGetUUID<MemoObject>(self));
         PyDict_SetItemString(py_result, "type", PyUnicode_FromString(self->ext().getType().getName().c_str()));
         PyDict_SetItemString(py_result, "size_of", PyLong_FromLong(self->ext()->sizeOf()));
         return py_result;
@@ -414,7 +414,7 @@ namespace db0::python
         auto &memo = pythis->ext();
         str << "<" << Py_TYPE(pythis)->tp_name;
         if (memo.hasInstance()) {
-            str << " instance uuid=" << PyUnicode_AsUTF8(tryGetObjectId<MemoObject>(pythis));
+            str << " instance uuid=" << PyUnicode_AsUTF8(tryGetUUID<MemoObject>(pythis));
         } else {
             str << " (uninitialized)";
         }

@@ -10,6 +10,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include "PyInternalAPI.hpp"
 #include "PyAPI.hpp"
+#include "PyObjectIterator.hpp"
 
 namespace db0::python
 
@@ -36,12 +37,19 @@ namespace db0::python
         .tp_new = PyType_GenericNew,
     };
     
-    template <typename T> PyObject *tryGetObjectId(T *self)
+    // Serializable's UUID implementation
+    PyObject *tryGetSerializableUUID(db0::serial::Serializable *self)
+    {
+        // return as base-32 string
+        char buffer[db0::serial::Serializable::UUID_SIZE];
+        self->getUUID(buffer);
+        return PyUnicode_FromString(buffer);
+    }
+    
+    template <typename T> PyObject *tryGetUUID(T *self)
     {
         auto &instance = self->ext();
-        // new PyObjectId instance
-        auto py_object_id = PyObject_New(PyObjectId, &ObjectIdType);
-        auto &object_id = py_object_id->m_object_id;
+        db0::object_model::ObjectId object_id;        
         auto fixture = instance.getFixture();
         assert(fixture);
         object_id.m_fixture_uuid = fixture->getUUID();
@@ -55,7 +63,7 @@ namespace db0::python
         return PyUnicode_FromString(buffer);
     }
 
-    PyObject *getObjectId(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *getUUID(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
@@ -64,15 +72,20 @@ namespace db0::python
 
         auto obj_ptr = args[0];
         if (PyMemo_Check(obj_ptr)) {
-            return runSafe(tryGetObjectId<MemoObject>, reinterpret_cast<MemoObject*>(obj_ptr));
+            return runSafe(tryGetUUID<MemoObject>, reinterpret_cast<MemoObject*>(obj_ptr));
         }
         
         if (ListObject_Check(obj_ptr)) {
-            return runSafe(tryGetObjectId<ListObject>, reinterpret_cast<ListObject*>(obj_ptr));
+            return runSafe(tryGetUUID<ListObject>, reinterpret_cast<ListObject*>(obj_ptr));
         }
 
         if (IndexObject_Check(obj_ptr)) {
-            return runSafe(tryGetObjectId<IndexObject>, reinterpret_cast<IndexObject*>(obj_ptr));
+            return runSafe(tryGetUUID<IndexObject>, reinterpret_cast<IndexObject*>(obj_ptr));
+        }
+
+        if (ObjectIterator_Check(obj_ptr)) {
+            // serializable's uuid            
+            return runSafe(tryGetSerializableUUID, &reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext());
         }
 
         /* FIXME: implement
@@ -172,8 +185,8 @@ namespace db0::python
         Py_RETURN_RICHCOMPARE(reinterpret_cast<PyObjectId*>(self)->m_object_id, reinterpret_cast<PyObjectId*>(other)->m_object_id, op);
     }
     
-    template PyObject *tryGetObjectId<MemoObject>(MemoObject *);
-    template PyObject *tryGetObjectId<ListObject>(ListObject *);
-    template PyObject *tryGetObjectId<IndexObject>(IndexObject *);
+    template PyObject *tryGetUUID<MemoObject>(MemoObject *);
+    template PyObject *tryGetUUID<ListObject>(ListObject *);
+    template PyObject *tryGetUUID<IndexObject>(IndexObject *);    
 
 }

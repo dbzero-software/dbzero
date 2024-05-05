@@ -6,6 +6,7 @@
 #include "WhichType.hpp"
 #include "PyWrapper.hpp"
 #include <dbzero/object_model/value/ObjectId.hpp>
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0::object_model
 
@@ -25,6 +26,7 @@ namespace db0::python
     using ListObject = PyWrapper<db0::object_model::List>;
     using IndexObject = PyWrapper<db0::object_model::Index>;
     using ObjectId = db0::object_model::ObjectId;
+    using Serializable = db0::serial::Serializable;
     
     struct PyObjectId
     {        
@@ -37,10 +39,10 @@ namespace db0::python
     
     extern PyTypeObject ObjectIdType;
     
-    template <typename T> PyObject *tryGetObjectId(T *self);
+    template <typename T> PyObject *tryGetUUID(T *self);
     
-    // retrieve ID of a DBZero object
-    PyObject *getObjectId(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    // retrieve UUID of a DBZero object
+    PyObject *getUUID(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *getObjectAddress(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     bool ObjectId_Check(PyObject *obj);
     
@@ -50,10 +52,10 @@ namespace db0::python
     PyObject *ObjectId_richcompare(PyObject *self, PyObject *other, int op);    
     
     template <> bool Which_TypeCheck<PyObjectId>(PyObject *py_object);
-
+    
     // tryGetObjectId specializations
-    extern template PyObject *tryGetObjectId<MemoObject>(MemoObject *);
-    extern template PyObject *tryGetObjectId<ListObject>(ListObject *);
-    extern template PyObject *tryGetObjectId<IndexObject>(IndexObject *);
+    extern template PyObject *tryGetUUID<MemoObject>(MemoObject *);
+    extern template PyObject *tryGetUUID<ListObject>(ListObject *);
+    extern template PyObject *tryGetUUID<IndexObject>(IndexObject *);    
 
 }
