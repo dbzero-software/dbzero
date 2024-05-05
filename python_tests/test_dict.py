@@ -242,3 +242,10 @@ def test_dict_items_in(db0_fixture):
             assert random_int not in dict_1
     end = datetime.datetime.now()
     print("Elapsed time: ", end - now)
+
+
+def test_dict_insert_mixed_types(db0_fixture):
+    my_dict = db0.dict()
+    my_dict["abc"] = (123, { "a": MemoTestClass("abc"), "b": MemoTestClass("def") })
+    my_dict["def"] = (123, { "a": MemoTestClass("abc"), "b": MemoTestClass("def") })
+    assert len(my_dict) == 2

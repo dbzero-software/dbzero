@@ -141,17 +141,17 @@ namespace db0::object_model
         }
         if (m_query_iterator) {
             assert(!m_sorted_iterator && !m_factory);
-            db0::serial::write<std::uint8_t>(buf, 1);            
+            db0::serial::write<std::uint8_t>(buf, 1);
             m_query_iterator->serialize(buf);
         }
         if (m_sorted_iterator) {
             assert(!m_query_iterator && !m_factory);
-            db0::serial::write<std::uint8_t>(buf, 2);            
+            db0::serial::write<std::uint8_t>(buf, 2);
             m_sorted_iterator->serialize(buf);
         }
         if (m_factory) {
             assert(!m_query_iterator && !m_sorted_iterator);
-            db0::serial::write<std::uint8_t>(buf, 3);            
+            db0::serial::write<std::uint8_t>(buf, 3);     
             m_factory->serialize(buf);
         }
     }
