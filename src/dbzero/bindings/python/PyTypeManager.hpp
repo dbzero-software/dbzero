@@ -63,6 +63,7 @@ namespace db0::python
          * Extracts reference to DB0 object from a memo object
         */
         Object &extractObject(ObjectPtr memo_ptr) const;
+        Object *tryExtractObject(ObjectPtr memo_ptr) const;
         List &extractList(ObjectPtr list_ptr) const;
         Set &extractSet(ObjectPtr set_ptr) const;
         std::int64_t extractInt64(ObjectPtr int_ptr) const;

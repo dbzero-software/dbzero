@@ -165,7 +165,6 @@ def test_to_dict_outputs_references_as_uuid(db0_fixture):
     assert pd["value_2"] == db0.uuid(object_1)
 
 
-# FIXME: failing test case blocked
-# def test_memo_object_can_keep_reference_to_self(db0_fixture):
-#     object_1 = MemoWithSelfRef()
-#     assert db0.uuid(object_1.value) == db0.uuid(object_1)
+def test_memo_object_can_keep_reference_to_self(db0_fixture):
+    object_1 = MemoWithSelfRef()
+    assert db0.uuid(object_1.value) == db0.uuid(object_1)

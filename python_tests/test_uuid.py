@@ -27,4 +27,13 @@ def test_uid_can_be_encoded_in_json(db0_fixture):
     # decode from json
     data = json.loads(js_data)
     assert data["uuid"] == uuid
-    
+
+
+def test_uuid_can_be_generated_for_query_object(db0_fixture):
+    objects = []
+    for i in range(10):
+        objects.append(MemoTestClass(i))
+    db0.tags(*objects).add("tag1")
+    query = db0.find("tag1")
+    assert db0.uuid(query) is not None
+    assert len(db0.uuid(query)) > 40

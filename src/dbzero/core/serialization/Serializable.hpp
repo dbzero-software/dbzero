@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <unordered_map>
 #include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0::serial
@@ -21,6 +22,7 @@ namespace db0::serial
     class Serializable
     {
     public:
+        static constexpr std::size_t UUID_SIZE = 54;
         virtual ~Serializable() = default;
         
         /**
@@ -28,8 +30,14 @@ namespace db0::serial
          * NOTE: deserialization is done in the constructor
         */
         virtual void serialize(std::vector<std::byte> &) const = 0;
-    };
 
+        /**
+         * Calculate UUID from a serialization buffer
+         * @param uuid_buf buffer of at least UUID_SIZE bytes
+        */
+        void getUUID(char *uuid_buf) const;
+    };
+    
     template <typename T> void write(std::vector<std::byte> &v, const T &t)
     {
         const std::byte *p = reinterpret_cast<const std::byte *>(&t);
