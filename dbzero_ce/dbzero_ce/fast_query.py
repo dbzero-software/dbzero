@@ -68,11 +68,11 @@ def group_by(key_func, query) -> Dict:
         query_eval.add(query)
     else:
         # evaluate deltas
-        snap_1 = db0.snapshot(last_result[0])
-        query_1 = snap_1.deserialize(last_result[1])
+        snap_1 = db0.snapshot(last_result[0])        
+        query_1 = snap_1.deserialize(db0.serialize(query))        
         # insertions since last result
         query_eval.add(db0.find(query, db0.no(query_1)))
-        # FIXME: handle deletions    
+        # FIXME: handle deletions
 
     result = query_eval.collect()
     cache.update(query, result)
