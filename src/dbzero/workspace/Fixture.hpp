@@ -26,6 +26,7 @@ namespace db0
     class MetaAllocator;
     class Snapshot;
     class Workspace;
+    class WorkspaceView;
     using StringPoolT = db0::pools::RC_LimitedStringPool;
     using ObjectCatalogue = db0::object_model::ObjectCatalogue;
 
@@ -156,9 +157,9 @@ namespace db0
         void refreshIfUpdated();
         
         /**
-         * Get read-only snapshot of the fixture's current state
+         * Get read-only snapshot of the fixture's state within a specific WorkspaceView
         */
-        db0::swine_ptr<Fixture> getSnapshot(std::optional<std::uint64_t> state_num = {}) const;
+        db0::swine_ptr<Fixture> getSnapshot(WorkspaceView &) const;
 
         void onUpdated();
 

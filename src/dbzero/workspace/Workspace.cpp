@@ -360,10 +360,10 @@ namespace db0
         return m_shared_object_list;
     }
     
-    std::uint64_t Workspace::getDefaultUUID() const
+    std::optional<std::uint64_t> Workspace::getDefaultUUID() const
     {
         if (!m_default_fixture) {
-            THROWF(db0::InternalException) << "DBZero: no default prefix exists";
+            return {};
         }
         return m_default_fixture->getUUID();
     }

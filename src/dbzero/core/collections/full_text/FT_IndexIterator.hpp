@@ -111,10 +111,10 @@ namespace db0
         : m_data(data)
         , m_direction(direction)
         , m_iterator(m_data.beginJoin(direction))
-        , m_index_key(index_key)		
+        , m_index_key(index_key)
     {
     }
-
+	
 	template <typename bindex_t, typename key_t>
 	FT_IndexIterator<bindex_t, key_t>::FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
 	    std::optional<std::uint64_t> index_key)

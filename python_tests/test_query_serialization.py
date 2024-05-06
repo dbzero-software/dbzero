@@ -79,3 +79,16 @@ def test_deserialize_query_from_bytes(db0_fixture, memo_tags):
     bytes = db0.serialize(db0.find("tag1"))
     query = db0.deserialize(bytes)    
     assert len(list(query)) == 10
+
+
+def test_deserialize_from_bytes_with_snapshot(db0_fixture, memo_tags):
+    snap = db0.snapshot()
+    db0.commit()
+    for i in range(5):        
+        db0.tags(MemoTestClass(i)).add("tag1")
+    
+    assert len(list(db0.find("tag1"))) == 15
+    bytes = db0.serialize(db0.find("tag1"))
+    # deserialize with snapshot
+    snap_query = snap.deserialize(bytes)
+    assert len(list(snap_query)) == 10

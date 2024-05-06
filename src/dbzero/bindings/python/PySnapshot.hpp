@@ -22,6 +22,7 @@ namespace db0::python
     
     PyObject *PySnapshot_fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PySnapshot_find(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PySnapshot_deserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PySnapshot_close(PyObject *, PyObject *);
     
     PyObject *PySnapshot_enter(PyObject *, PyObject *);
