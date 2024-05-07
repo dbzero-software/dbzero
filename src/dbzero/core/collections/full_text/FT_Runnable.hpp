@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0

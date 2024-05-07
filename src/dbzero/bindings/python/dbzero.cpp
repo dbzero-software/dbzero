@@ -13,6 +13,7 @@
 #include "PyObjectIterator.hpp"
 #include "PySnapshot.hpp"
 #include "PyTagSet.hpp"
+#include "PyRunnable.hpp"
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
 
@@ -135,6 +136,9 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         return NULL;
     }
 
+    if (!initPyType(mod, "PandasDataFrame", py::PyRunnableObjectType)) {
+        return NULL;
+    }
 
     return mod;
 }
