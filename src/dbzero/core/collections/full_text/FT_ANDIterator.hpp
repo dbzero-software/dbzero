@@ -114,7 +114,7 @@ namespace db0
         public:
             FT_ANDIteratorRunnable(int direction, const std::list<std::unique_ptr<FT_Iterator<key_t> > > &joinable)
                 : m_direction(direction)
-            {
+            {                
                 m_joinable_runnables.reserve(joinable.size());
                 for (const auto &it : joinable) {
                     m_joinable_runnables.push_back(it->extractRunnable());
@@ -123,6 +123,21 @@ namespace db0
 
             std::unique_ptr<FT_IteratorBase> run(Snapshot &) const override {
                 throw std::runtime_error("FT_ANDIteratorRunnable::run() not implemented");
+            }
+            
+            FTRunnableType typeId() const override {
+                return FTRunnableType::And;                
+            }
+            
+            void serialize(std::vector<std::byte> &v) const override
+            {
+                db0::serial::write(v, db0::serial::typeId<key_t>());
+                db0::serial::write(v, UniqueKeys);
+                db0::serial::write<std::int8_t>(v, m_direction);
+                for (auto &it : m_joinable_runnables) {
+                    db0::serial::write(v, it->typeId());
+                    it->serialize(v);
+                }
             }
 
         private:

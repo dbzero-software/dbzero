@@ -98,8 +98,9 @@ namespace db0
 		class FT_IndexIteratorRunnable: public FT_Runnable
 		{
 		public:
-			FT_IndexIteratorRunnable(int direction, std::uint64_t index_key)
-				: m_direction(direction)
+			FT_IndexIteratorRunnable(const bindex_t &data, int direction, std::uint64_t index_key)
+				: m_fixture_uuid(data.getMemspace().getUUID())
+				, m_direction(direction)
 				, m_index_key(index_key)
 			{
 			}
@@ -108,7 +109,21 @@ namespace db0
 				throw std::runtime_error("Not implemented");
 			}
 
+			FTRunnableType typeId() const override {
+				return FTRunnableType::Index;
+			}
+
+			void serialize(std::vector<std::byte> &v) const override
+			{
+				db0::serial::write(v, db0::serial::typeId<bindex_t>());
+				db0::serial::write(v, db0::serial::typeId<key_t>());				
+				db0::serial::write(v, m_fixture_uuid);
+				db0::serial::write<std::int8_t>(v, m_direction);
+				db0::serial::write(v, m_index_key);
+			}
+
 		private:
+			const std::uint64_t m_fixture_uuid;
 			const int m_direction;
         	const std::uint64_t m_index_key;
 		};
@@ -335,7 +350,7 @@ namespace db0
 		if (!m_index_key) {
 			THROWF(db0::InternalException) << "Index key is required for runnable extraction" << THROWF_END;
 		}
-		return std::make_unique<FT_IndexIteratorRunnable>(m_direction, *m_index_key);
+		return std::make_unique<FT_IndexIteratorRunnable>(m_data, m_direction, *m_index_key);
 	}
 
 } 

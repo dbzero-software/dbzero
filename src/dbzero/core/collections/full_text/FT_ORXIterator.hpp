@@ -128,8 +128,9 @@ namespace db0
         class FT_ORXIteratorRunnable: public FT_Runnable
         {
         public:
-            FT_ORXIteratorRunnable(int direction, const std::list<std::unique_ptr<FT_Iterator<key_t> > > &joinable)
+            FT_ORXIteratorRunnable(int direction, bool is_orx, const std::list<std::unique_ptr<FT_Iterator<key_t> > > &joinable)
 				: m_direction(direction)			
+				, m_is_orx(is_orx)			
 			{
 				m_joinable_runnables.reserve(joinable.size());
 				for (const auto &it : joinable) {
@@ -141,13 +142,29 @@ namespace db0
                 throw std::runtime_error("FT_ANDIteratorRunnable::run() not implemented");
             }
 
+			FTRunnableType typeId() const override {
+				return FTRunnableType::Or;
+			}
+
+			void serialize(std::vector<std::byte> &v) const override
+			{
+				db0::serial::write(v, db0::serial::typeId<key_t>());
+				db0::serial::write<std::int8_t>(v, m_direction);
+				db0::serial::write(v, m_is_orx);
+				for (auto &it : m_joinable_runnables) {
+					db0::serial::write(v, it->typeId());
+					it->serialize(v);
+				}
+			}
+
         private:
             const int m_direction;
+			const bool m_is_orx;
             std::vector<std::unique_ptr<FT_Runnable> > m_joinable_runnables;
         };
 		
     private:
-
+						
 		struct heap_item
 		{
 			db0::FT_Iterator<key_t> *it = nullptr;

@@ -119,6 +119,20 @@ namespace db0
                 throw std::runtime_error("FT_ANDIteratorRunnable::run() not implemented");
             }
 
+            FTRunnableType typeId() const override {
+                return FTRunnableType::AndNot;
+            }
+
+            void serialize(std::vector<std::byte> &v) const override
+            {
+                db0::serial::write(v, db0::serial::typeId<key_t>());
+                db0::serial::write<std::int8_t>(v, m_direction);
+                for (auto &it : m_joinable_runnables) {
+                    db0::serial::write(v, it->typeId());
+                    it->serialize(v);
+                }
+            }
+
         private:
             const int m_direction;
             std::vector<std::unique_ptr<FT_Runnable> > m_joinable_runnables;

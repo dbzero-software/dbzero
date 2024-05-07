@@ -69,6 +69,25 @@ namespace db0
                 throw std::runtime_error("Not implemented");
             }
 
+            FTRunnableType typeId() const override {
+                return FTRunnableType::Range;
+            }
+
+            void serialize(std::vector<std::byte> &v) const override
+            {
+                db0::serial::write(v, db0::serial::typeId<KeyT>());
+                db0::serial::write(v, db0::serial::typeId<ValueT>());
+                db0::serial::write(v, m_tree.getMemspace().getUUID());
+                db0::serial::write(v, m_tree.getAddress());
+                db0::serial::write(v, m_has_query);
+                db0::serial::write(v, m_nulls_first);
+                db0::serial::write<bool>(v, m_query_it != nullptr);
+                if (m_query_it) {
+                    db0::serial::write(v, m_query_it->typeId());
+                    m_query_it->serialize(v);
+                }                
+            }
+
         private:
             RT_TreeT m_tree;
             const bool m_has_query;

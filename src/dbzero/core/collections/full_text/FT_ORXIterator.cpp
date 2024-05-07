@@ -663,7 +663,7 @@ namespace db0
 
 	template <typename key_t>
 	std::unique_ptr<FT_Runnable> db0::FT_JoinORXIterator<key_t>::extractRunnable() const {
-		return std::make_unique<FT_ORXIteratorRunnable>(m_direction, m_joinable);
+		return std::make_unique<FT_ORXIteratorRunnable>(m_direction, m_is_orx, m_joinable);
 	}
 
     template class FT_JoinORXIterator<std::uint64_t>;
