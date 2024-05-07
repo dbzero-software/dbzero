@@ -10,6 +10,8 @@ namespace db0
 
 {
 
+    class FT_Runnable;
+
     /**
      * Base class for all derived DBZero full-text inverted index iterators
      */
@@ -61,6 +63,12 @@ namespace db0
          * NOTICE: default implementation for simple iterators provided
          */
         virtual const FT_IteratorBase *find(const FT_IteratorBase &it) const;
-    };
 
+        /**
+         * Convert iterator (e.g. the query) into a runnable object (i.e. a parametrizable query without arguments)
+         * FIXME: extract actual arguments as well
+        */
+        virtual std::unique_ptr<FT_Runnable> extractRunnable() const = 0;
+    };
+    
 }

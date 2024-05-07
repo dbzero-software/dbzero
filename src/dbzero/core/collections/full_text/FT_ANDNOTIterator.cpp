@@ -453,6 +453,11 @@ namespace db0
         return std::make_unique<FT_ANDNOTIterator<key_t>>(std::move(joinable), direction);
     }
     
+    template <typename key_t>
+    std::unique_ptr<db0::FT_Runnable> db0::FT_ANDNOTIterator<key_t>::extractRunnable() const {
+        return std::make_unique<FT_ANDNOTIteratorRunnable>(m_direction, m_joinable);
+    }
+    
     template class FT_ANDNOTIterator<std::uint64_t>;
     
 }

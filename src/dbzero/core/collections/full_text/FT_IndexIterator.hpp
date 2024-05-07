@@ -2,6 +2,7 @@
 
 #include "key_value.hpp"
 #include "FT_Iterator.hpp"
+#include "FT_Runnable.hpp"
 #include "CloneMap.hpp"
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
@@ -80,7 +81,9 @@ namespace db0
 	    std::size_t getDepth() const override;
 
 		FTIteratorType getSerialTypeId() const override;
-        		
+
+		std::unique_ptr<FT_Runnable> extractRunnable() const override;
+
     protected:
         bindex_t m_data;
         const int m_direction;
@@ -92,6 +95,24 @@ namespace db0
         key_t m_detach_key;
         const std::optional<std::uint64_t> m_index_key;
 
+		class FT_IndexIteratorRunnable: public FT_Runnable
+		{
+		public:
+			FT_IndexIteratorRunnable(int direction, std::uint64_t index_key)
+				: m_direction(direction)
+				, m_index_key(index_key)
+			{
+			}
+
+			std::unique_ptr<FT_IteratorBase> run(db0::Snapshot &) const override {
+				throw std::runtime_error("Not implemented");
+			}
+
+		private:
+			const int m_direction;
+        	const std::uint64_t m_index_key;
+		};
+		
         /**
          * Get valid iterator after detach
          * @return
@@ -306,6 +327,15 @@ namespace db0
 		db0::serial::write(v, m_data.getMemspace().getUUID());
 		db0::serial::write<std::int8_t>(v, m_direction);			
 		db0::serial::write(v, *m_index_key);
+	}
+
+	template <typename bindex_t, typename key_t>
+	std::unique_ptr<FT_Runnable> FT_IndexIterator<bindex_t, key_t>::extractRunnable() const
+	{
+		if (!m_index_key) {
+			THROWF(db0::InternalException) << "Index key is required for runnable extraction" << THROWF_END;
+		}
+		return std::make_unique<FT_IndexIteratorRunnable>(m_direction, *m_index_key);
 	}
 
 } 

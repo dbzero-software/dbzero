@@ -539,6 +539,11 @@ namespace db0
         );
     }
     
+    template <typename key_t, bool UniqueKeys>
+    std::unique_ptr<FT_Runnable> db0::FT_JoinANDIterator<key_t, UniqueKeys>::extractRunnable() const {
+        return std::make_unique<FT_ANDIteratorRunnable>(m_direction, m_joinable);
+    }
+
 	template<typename key_t, bool UniqueKeys>
     FT_ANDIteratorFactory<key_t, UniqueKeys>::FT_ANDIteratorFactory() = default;
 
@@ -571,21 +576,21 @@ namespace db0
 	/**
      * Number of underlying simple joinable iterators
      */
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	std::size_t FT_ANDIteratorFactory<key_t, UniqueKeys>::size() const {
         return m_joinable.size();
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	bool FT_ANDIteratorFactory<key_t, UniqueKeys>::empty() const {
 		return m_joinable.empty();
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	void FT_ANDIteratorFactory<key_t, UniqueKeys>::clear() {
 		m_joinable.clear();
 	}
-    
+        
     template class FT_JoinANDIterator<std::uint64_t, false>;
     template class FT_JoinANDIterator<std::uint64_t, true>;
     

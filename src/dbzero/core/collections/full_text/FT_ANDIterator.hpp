@@ -5,6 +5,7 @@
 #include "FT_Iterator.hpp"
 #include "FT_IteratorBase.hpp"
 #include "FT_IteratorFactory.hpp"
+#include "FT_Runnable.hpp"
 
 namespace db0
 
@@ -100,11 +101,34 @@ namespace db0
 
         FTIteratorType getSerialTypeId() const override;
 
+        std::unique_ptr<FT_Runnable> extractRunnable() const override;
+
         static std::unique_ptr<FT_Iterator<key_t> > deserialize(Snapshot &workspace,
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
-
+        
     protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
+        
+        class FT_ANDIteratorRunnable: public FT_Runnable
+        {
+        public:
+            FT_ANDIteratorRunnable(int direction, const std::list<std::unique_ptr<FT_Iterator<key_t> > > &joinable)
+                : m_direction(direction)
+            {
+                m_joinable_runnables.reserve(joinable.size());
+                for (const auto &it : joinable) {
+                    m_joinable_runnables.push_back(it->extractRunnable());
+                }
+            }
+
+            std::unique_ptr<FT_IteratorBase> run(Snapshot &) const override {
+                throw std::runtime_error("FT_ANDIteratorRunnable::run() not implemented");
+            }
+
+        private:
+            const int m_direction;
+            std::vector<std::unique_ptr<FT_Runnable> > m_joinable_runnables;
+        };
         
 	private:
 		int m_direction;
@@ -126,7 +150,7 @@ namespace db0
 		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&, int direction, bool is_end,
 		    key_t join_key, tag_cloned);
 	};
-
+    
     template <typename key_t = std::uint64_t, bool UniqueKeys = true>
     class FT_ANDIteratorFactory: public FT_IteratorFactory<key_t>
     {

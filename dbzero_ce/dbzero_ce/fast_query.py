@@ -29,9 +29,12 @@ class GroupByBucket:
     def __init__(self):
         self.__count = 0
     
-    def collect(self, row):
+    def add(self, row):
         self.__count += 1
     
+    def remove(self, row):
+        self.__count -= 1
+        
     def count(self):
         return self.__count
     
@@ -48,12 +51,17 @@ class GroupByEval:
             if bucket is None:
                 bucket = GroupByBucket()
                 self.__data[key] = bucket
-            bucket.collect(row)
-        
+            bucket.add(row)
+    
+    def remove(self, query):
+        for row in query:
+            key = self.__key_func(row)
+            self.__data.get(key).remove(row)
+
     def collect(self):
         result = self.__data
         self.__data = {}
-        return result        
+        return result
     
     
 def group_by(key_func, query) -> Dict:
@@ -72,7 +80,7 @@ def group_by(key_func, query) -> Dict:
         query_1 = snap_1.deserialize(db0.serialize(query))        
         # insertions since last result
         query_eval.add(db0.find(query, db0.no(query_1)))
-        # FIXME: handle deletions
+        query_eval.remove(db0.find(query_1, db0.no(query)))
 
     result = query_eval.collect()
     cache.update(query, result)
