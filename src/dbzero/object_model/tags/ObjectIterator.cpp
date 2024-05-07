@@ -188,4 +188,14 @@ namespace db0::object_model
         }
     }
 
+    void ObjectIterator::asRunnable(FT_Runnable *at_ptr) const
+    {
+        assert(at_ptr);
+        if (m_iterator_ptr) {
+            m_iterator_ptr->extractRunnable(at_ptr);
+        } else {
+            new (at_ptr) FT_NullRunnable();            
+        }         
+    }
+
 }

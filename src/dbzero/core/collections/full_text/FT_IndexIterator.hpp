@@ -82,7 +82,7 @@ namespace db0
 
 		FTIteratorType getSerialTypeId() const override;
 
-		std::unique_ptr<FT_Runnable> extractRunnable() const override;
+		void extractRunnable(FT_Runnable *) const override;
 
     protected:
         bindex_t m_data;
@@ -345,12 +345,13 @@ namespace db0
 	}
 
 	template <typename bindex_t, typename key_t>
-	std::unique_ptr<FT_Runnable> FT_IndexIterator<bindex_t, key_t>::extractRunnable() const
+	void FT_IndexIterator<bindex_t, key_t>::extractRunnable(FT_Runnable *at_ptr) const
 	{
+		assert(at_ptr);
 		if (!m_index_key) {
 			THROWF(db0::InternalException) << "Index key is required for runnable extraction" << THROWF_END;
 		}
-		return std::make_unique<FT_IndexIteratorRunnable>(m_data, m_direction, *m_index_key);
+		new (at_ptr) FT_IndexIteratorRunnable(m_data, m_direction, *m_index_key);		
 	}
 
 } 

@@ -19,7 +19,8 @@ namespace db0
         Or = 3,
         AndNot = 4,
         Sorted = 5,
-        Range = 6
+        Range = 6,
+        Null = 7
     };
     
     /**
@@ -37,4 +38,14 @@ namespace db0
         virtual FTRunnableType typeId() const = 0;
     };
     
+    class FT_NullRunnable: public FT_Runnable
+    {
+    public:
+        std::unique_ptr<FT_IteratorBase> run(db0::Snapshot &) const override;
+
+        FTRunnableType typeId() const override;
+
+        void serialize(std::vector<std::byte> &) const override;
+    };
+
 }

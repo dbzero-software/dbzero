@@ -101,7 +101,7 @@ namespace db0
 
         FTIteratorType getSerialTypeId() const override;
 
-        std::unique_ptr<FT_Runnable> extractRunnable() const override;
+        void extractRunnable(FT_Runnable *at_ptr) const override;
 
         static std::unique_ptr<FT_Iterator<key_t> > deserialize(Snapshot &workspace,
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
@@ -114,7 +114,7 @@ namespace db0
         public:
             FT_ANDIteratorRunnable(int direction, const std::list<std::unique_ptr<FT_Iterator<key_t> > > &joinable)
                 : m_direction(direction)
-            {                
+            {
                 m_joinable_runnables.reserve(joinable.size());
                 for (const auto &it : joinable) {
                     m_joinable_runnables.push_back(it->extractRunnable());

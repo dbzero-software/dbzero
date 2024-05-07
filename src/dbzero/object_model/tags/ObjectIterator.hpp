@@ -80,6 +80,11 @@ namespace db0::object_model
         static void deserialize(void *at_ptr, db0::swine_ptr<Fixture> &, std::vector<std::byte>::const_iterator &, 
             std::vector<std::byte>::const_iterator);
         
+        /**
+         * Construct FT_Runnable instance in-place from the underlying query iterator
+         */
+        void asRunnable(FT_Runnable *at_ptr) const;
+
     protected:
         mutable db0::swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;

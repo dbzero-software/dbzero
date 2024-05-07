@@ -540,10 +540,11 @@ namespace db0
     }
     
     template <typename key_t, bool UniqueKeys>
-    std::unique_ptr<FT_Runnable> db0::FT_JoinANDIterator<key_t, UniqueKeys>::extractRunnable() const {
-        return std::make_unique<FT_ANDIteratorRunnable>(m_direction, m_joinable);
+    void db0::FT_JoinANDIterator<key_t, UniqueKeys>::extractRunnable(FT_Runnable *at_ptr) const {
+        assert(at_ptr);
+        new (at_ptr) FT_ANDIteratorRunnable(m_direction, m_joinable);        
     }
-
+    
 	template<typename key_t, bool UniqueKeys>
     FT_ANDIteratorFactory<key_t, UniqueKeys>::FT_ANDIteratorFactory() = default;
 

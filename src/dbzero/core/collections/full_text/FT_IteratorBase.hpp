@@ -68,7 +68,12 @@ namespace db0
          * Convert iterator (e.g. the query) into a runnable object (i.e. a parametrizable query without arguments)
          * FIXME: extract actual arguments as well
         */
-        virtual std::unique_ptr<FT_Runnable> extractRunnable() const = 0;
+        virtual std::unique_ptr<FT_Runnable> extractRunnable() const;
+        
+        /**
+         * In-place version of extractRunnable()
+        */
+        virtual void extractRunnable(FT_Runnable *at_ptr) const = 0;
     };
     
 }
