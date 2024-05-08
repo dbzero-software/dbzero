@@ -115,8 +115,8 @@ namespace db0
 
 			void serialize(std::vector<std::byte> &v) const override
 			{
-				db0::serial::write(v, db0::serial::typeId<bindex_t>());
-				db0::serial::write(v, db0::serial::typeId<key_t>());				
+				db0::serial::write(v, bindex_t::getSerialTypeId());
+				db0::serial::write(v, db0::serial::typeId<key_t>());
 				db0::serial::write(v, m_fixture_uuid);
 				db0::serial::write<std::int8_t>(v, m_direction);
 				db0::serial::write(v, m_index_key);

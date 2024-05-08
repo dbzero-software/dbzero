@@ -84,7 +84,7 @@ void initPyType(PyObject *mod, PyTypeObject *py_type)
     }
     
     Py_INCREF(py_type);
-    if (PyModule_AddObject(mod, py_type->tp_name, (PyObject *)py_type) < 0) {
+    if (PyModule_AddObject(mod, /*py_type->tp_name*/ "xxx", (PyObject *)py_type) < 0) {
         Py_DECREF(py_type);
         Py_DECREF(mod);    
         throw std::runtime_error(_str.str());    
@@ -105,10 +105,10 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::PyObjectTagManagerType, 
         &py::PySnapshotObjectType, 
         &py::PandasBlockObjectType, 
-        &py::PandasDataFrameObjectType, 
-        &py::PyObjectIteratorType, 
+        &py::PandasDataFrameObjectType,         
+        &py::PyObjectIteratorType,
         &py::PyTypedObjectIteratorType,
-        &py::PyRunnableObjectType
+        &py::PyRunnableObjectType        
     };
     
     // register all types
