@@ -101,7 +101,8 @@ namespace db0::python
         {NULL}
     };
 
-    PyTypeObject PyTypedObjectIteratorType = {
+    PyTypeObject PyTypedObjectIteratorType = 
+    {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.TypedObjectIterator",
         .tp_basicsize = PyTypedObjectIterator::sizeOf(),
@@ -121,13 +122,11 @@ namespace db0::python
         return findIn(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }
     
-    bool ObjectIterator_Check(PyObject *py_object)
-    {
+    bool ObjectIterator_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyObjectIteratorType;
     }
 
-    bool TypedObjectIterator_Check(PyObject *py_object)
-    {
+    bool TypedObjectIterator_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyTypedObjectIteratorType;
     }
     

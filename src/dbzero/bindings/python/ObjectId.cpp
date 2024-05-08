@@ -91,7 +91,9 @@ namespace db0::python
 
         if (PyRunnable_Check(obj_ptr)) {
             // serializable's uuid
-            return runSafe(tryGetSerializableUUID, &reinterpret_cast<PyRunnableObject*>(obj_ptr)->ext());
+            auto &runnable = reinterpret_cast<PyRunnableObject*>(obj_ptr)->ext();
+            // pass FT_Runnable's address
+            return runSafe(tryGetSerializableUUID, &*runnable);
         }
 
         /* FIXME: implement

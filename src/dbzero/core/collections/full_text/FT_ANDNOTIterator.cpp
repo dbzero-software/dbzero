@@ -454,10 +454,8 @@ namespace db0
     }
     
     template <typename key_t>
-    void db0::FT_ANDNOTIterator<key_t>::extractRunnable(FT_Runnable *at_ptr) const 
-    {
-        assert(at_ptr);
-        new (at_ptr) FT_ANDNOTIteratorRunnable(m_direction, m_joinable);        
+    std::unique_ptr<FT_Runnable> db0::FT_ANDNOTIterator<key_t>::extractRunnable() const {
+        return std::make_unique<FT_ANDNOTIteratorRunnable>(m_direction, m_joinable);        
     }
     
     template class FT_ANDNOTIterator<std::uint64_t>;

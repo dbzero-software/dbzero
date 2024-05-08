@@ -24,7 +24,7 @@ namespace db0::python
     bool PyRunnable_Check(PyObject *py_object) {
         return PyObject_TypeCheck(py_object, &PyRunnableObjectType);
     }
-
+    
     PyTypeObject PyRunnableObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.Runnable",

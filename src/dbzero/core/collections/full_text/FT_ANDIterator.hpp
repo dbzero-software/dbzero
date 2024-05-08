@@ -101,7 +101,7 @@ namespace db0
 
         FTIteratorType getSerialTypeId() const override;
 
-        void extractRunnable(FT_Runnable *at_ptr) const override;
+        std::unique_ptr<FT_Runnable> extractRunnable() const override;
 
         static std::unique_ptr<FT_Iterator<key_t> > deserialize(Snapshot &workspace,
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);

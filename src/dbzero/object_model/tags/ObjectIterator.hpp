@@ -7,6 +7,7 @@
 #include <dbzero/core/collections/full_text/IteratorFactory.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
+#include "Runnable.hpp"
 
 namespace db0::object_model
 
@@ -83,7 +84,7 @@ namespace db0::object_model
         /**
          * Construct FT_Runnable instance in-place from the underlying query iterator
          */
-        void asRunnable(FT_Runnable *at_ptr) const;
+        void asRunnable(Runnable *at_ptr) const;
 
     protected:
         mutable db0::swine_ptr<Fixture> m_fixture;

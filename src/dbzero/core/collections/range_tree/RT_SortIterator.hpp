@@ -68,7 +68,7 @@ namespace db0
 
         SortedIteratorType getSerialTypeId() const override;
         
-        void extractRunnable(FT_Runnable *at_ptr) const override;
+        std::unique_ptr<FT_Runnable> extractRunnable() const override;
 
     protected:
         void serializeImpl(std::vector<std::byte> &) const override;
@@ -534,10 +534,8 @@ namespace db0
     }
     
     template <typename KeyT, typename ValueT>
-    void RT_SortIterator<KeyT, ValueT>::extractRunnable(FT_Runnable *at_ptr) const 
-    {
-        assert(at_ptr);
-        new (at_ptr) SortIteratorRunnable(m_tree, m_has_query, m_query_it.get(), m_asc, m_inner_it.get());        
+    std::unique_ptr<FT_Runnable> RT_SortIterator<KeyT, ValueT>::extractRunnable() const {
+        return std::make_unique<SortIteratorRunnable>(m_tree, m_has_query, m_query_it.get(), m_asc, m_inner_it.get());        
     }
 
 }

@@ -187,15 +187,16 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
         }
     }
-
-    void ObjectIterator::asRunnable(FT_Runnable *at_ptr) const
+    
+    void ObjectIterator::asRunnable(Runnable *at_ptr) const
     {
         assert(at_ptr);
         if (m_iterator_ptr) {
-            m_iterator_ptr->extractRunnable(at_ptr);
+            new (at_ptr) Runnable(m_iterator_ptr->extractRunnable());
         } else {
-            new (at_ptr) FT_NullRunnable();            
-        }         
+            auto null_runnable = std::make_unique<FT_NullRunnable>();
+            new (at_ptr) Runnable(std::move(null_runnable));
+        }
     }
 
 }

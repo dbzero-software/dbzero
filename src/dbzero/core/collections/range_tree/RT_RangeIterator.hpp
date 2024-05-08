@@ -50,7 +50,7 @@ namespace db0
         
         const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
 
-        void extractRunnable(FT_Runnable *) const override;
+        std::unique_ptr<FT_Runnable> extractRunnable() const override;
 
     protected:
         
@@ -318,10 +318,8 @@ namespace db0
     }
 
     template <typename KeyT, typename ValueT>
-    void RT_RangeIterator<KeyT, ValueT>::extractRunnable(FT_Runnable *at_ptr) const 
-    {
-        assert(at_ptr);
-        new (at_ptr) RangeIteratorRunnable(m_tree, m_has_query, m_query_it.get(), m_nulls_first);        
+    std::unique_ptr<FT_Runnable> RT_RangeIterator<KeyT, ValueT>::extractRunnable() const {        
+        return std::make_unique<RangeIteratorRunnable>(m_tree, m_has_query, m_query_it.get(), m_nulls_first);        
     }
 
 }

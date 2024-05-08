@@ -2,13 +2,13 @@
 
 #include <Python.h>
 #include "PyWrapper.hpp"
-#include <dbzero/core/collections/full_text/FT_Runnable.hpp>
+#include <dbzero/object_model/tags/Runnable.hpp>
 
 namespace db0::python
 
 {
     
-    using PyRunnableObject = PyWrapper<db0::FT_Runnable>;
+    using PyRunnableObject = PyWrapper<db0::object_model::Runnable>;
     
     PyRunnableObject *PyRunnable_new(PyTypeObject *type, PyObject *, PyObject *);
     PyRunnableObject *PyRunnableDefault_new();

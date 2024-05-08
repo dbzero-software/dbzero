@@ -13,12 +13,5 @@ namespace db0
             return nullptr;
         }
     }
-
-    std::unique_ptr<FT_Runnable> FT_IteratorBase::extractRunnable() const
-    {
-        FT_Runnable *at_ptr = reinterpret_cast<FT_Runnable*>(new char[sizeof(FT_Runnable)]);
-        this->extractRunnable(at_ptr);
-        return std::unique_ptr<FT_Runnable>(at_ptr);
-    }
-
+    
 }
