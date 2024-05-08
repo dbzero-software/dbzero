@@ -30,7 +30,7 @@ def test_delta_group_by_query(db0_fixture):
     # assign tags to 2 more objects
     db0.tags(KVTestClass("one", 11)).add("tag1")
     db0.tags(KVTestClass("three", 12)).add("tag1")
-        
+    
     # run as delta query
     groups = db0.group_by(lambda row: row.key, db0.find("tag1"))
     assert len(groups) == 3
