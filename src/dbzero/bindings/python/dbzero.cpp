@@ -135,6 +135,10 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         return NULL;
     }
 
+     if (!initPyType(mod, "ByteArray", py::ByteArrayObjectType)) {
+        return NULL;
+    }
+
 
     return mod;
 }

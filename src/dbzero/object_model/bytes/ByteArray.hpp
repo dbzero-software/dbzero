@@ -25,6 +25,18 @@ namespace db0::object_model
             : m_byte(byte)
         {
         }
+        
+        //operators 
+        bool operator==(const o_byte &other) const
+        {
+            return m_byte == other.m_byte;
+        }
+
+        bool operator!=(const o_byte &other) const
+        {
+            return m_byte != other.m_byte;
+        }
+
     };
 
     using Fixture = db0::Fixture;
@@ -39,8 +51,17 @@ namespace db0::object_model
             using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
             
             static ByteArray *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
-            std::byte getItem(std::size_t i) const;
+            ObjectSharedPtr getItem(std::size_t i) const;
+            std::byte getByte(std::size_t i) const;
+            void setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value);
+            void append(FixtureLock &, ObjectPtr lang_value);
+            size_t count(std::byte value);
+            size_t count(std::byte *value, std::size_t size);
+            size_t count(ByteArray& value, std::size_t size);
 
+            // operators
+            bool operator==(const ByteArray &) const;
+            bool operator!=(const ByteArray &) const;
 
         private:
             ByteArray(db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
