@@ -69,6 +69,13 @@ namespace db0
          * FIXME: extract actual arguments as well
         */
         virtual std::unique_ptr<FT_Runnable> extractRunnable() const = 0;
+        
+        /**
+         * Returns "false" by default, should be overridden by simple iterator implementations
+         * such as single-tag iterators
+         * @return flag indicating if this is a simple iterator (i.e. the iterator which may represent parameter value)
+        */
+        virtual bool isSimple() const;
     };
     
 }

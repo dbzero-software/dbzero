@@ -110,8 +110,13 @@ namespace db0
                 : m_direction(direction)
             {
                 m_joinable_runnables.reserve(joinable.size());
+                int i = 0;
                 for (auto &it: joinable) {
-                    m_joinable_runnables.push_back(it->extractRunnable());
+                    // include the 1st element and all non-simmple runnables
+                    if (i == 0 || !it->isSimple()) {
+                        m_joinable_runnables.push_back(it->extractRunnable());
+                    }
+                    ++i;
                 }
             }
             

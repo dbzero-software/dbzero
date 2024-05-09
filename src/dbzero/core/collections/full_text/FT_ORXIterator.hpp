@@ -134,7 +134,10 @@ namespace db0
 			{
 				m_joinable_runnables.reserve(joinable.size());
 				for (const auto &it : joinable) {
-					m_joinable_runnables.push_back(it->extractRunnable());
+					// include non-simple runnables only
+					if (!it->isSimple()) {
+						m_joinable_runnables.push_back(it->extractRunnable());
+					}
 				}
 			}
 
