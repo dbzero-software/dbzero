@@ -13,7 +13,6 @@ namespace db0::python
     PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
     PyObjectIterator *PyObjectIteratorDefault_new();
     void PyObjectIterator_del(PyObjectIterator* self);
-    PyObject *PyObjectIterator_AsRunnable(PyObject *self, PyObject *args);
     
     PyTypedObjectIterator *PyTypedObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
     void PyTypedObjectIterator_del(PyTypedObjectIterator *);

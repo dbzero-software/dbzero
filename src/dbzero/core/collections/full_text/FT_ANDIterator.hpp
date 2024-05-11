@@ -5,7 +5,6 @@
 #include "FT_Iterator.hpp"
 #include "FT_IteratorBase.hpp"
 #include "FT_IteratorFactory.hpp"
-#include "FT_Runnable.hpp"
 
 namespace db0
 
@@ -100,54 +99,13 @@ namespace db0
         virtual void detach();
 
         FTIteratorType getSerialTypeId() const override;
-
-        std::unique_ptr<FT_Runnable> extractRunnable() const override;
-
+        
         static std::unique_ptr<FT_Iterator<key_t> > deserialize(Snapshot &workspace,
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
         
     protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
-        
-        class FT_ANDIteratorRunnable: public FT_Runnable
-        {
-        public:
-            FT_ANDIteratorRunnable(int direction, const std::list<std::unique_ptr<FT_Iterator<key_t> > > &joinable)
-                : m_direction(direction)
-            {
-                m_joinable_runnables.reserve(joinable.size());
-                for (const auto &it : joinable) {
-                    // only include non-simple runnables
-                    if (!it->isSimple()) {
-                        m_joinable_runnables.push_back(it->extractRunnable());
-                    }                     
-                }
-            }
-
-            std::unique_ptr<FT_IteratorBase> run(Snapshot &) const override {
-                throw std::runtime_error("FT_ANDIteratorRunnable::run() not implemented");
-            }
-            
-            FTRunnableType typeId() const override {
-                return FTRunnableType::And;                
-            }
-            
-            void serialize(std::vector<std::byte> &v) const override
-            {
-                db0::serial::write(v, db0::serial::typeId<key_t>());
-                db0::serial::write(v, UniqueKeys);
-                db0::serial::write<std::int8_t>(v, m_direction);
-                for (auto &it : m_joinable_runnables) {
-                    db0::serial::write(v, it->typeId());
-                    it->serialize(v);
-                }
-            }
-
-        private:
-            const int m_direction;
-            std::vector<std::unique_ptr<FT_Runnable> > m_joinable_runnables;
-        };
-        
+                
 	private:
 		int m_direction;
 		mutable std::list<std::unique_ptr<FT_Iterator<key_t> > > m_joinable;

@@ -6,7 +6,6 @@
 #include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
 #include <dbzero/core/collections/full_text/SortedIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_MemoryIndex.hpp>
-#include <dbzero/core/collections/full_text/FT_Runnable.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 
@@ -67,61 +66,10 @@ namespace db0
         std::unique_ptr<SortedIterator<ValueT> > beginSorted(std::unique_ptr<FT_Iterator<ValueT> > = nullptr) const override;
 
         SortedIteratorType getSerialTypeId() const override;
-        
-        std::unique_ptr<FT_Runnable> extractRunnable() const override;
 
     protected:
         void serializeImpl(std::vector<std::byte> &) const override;
         
-        class SortIteratorRunnable: public db0::FT_Runnable
-        {
-        public:
-            SortIteratorRunnable(const RT_TreeT &tree, bool has_query, const FT_Iterator<ValueT> *it_ptr, bool asc,
-                const SortedIterator<ValueT> *inner_it_ptr)
-                : m_tree(tree)
-                , m_has_query(has_query)
-                , m_it_runnable(it_ptr ? it_ptr->extractRunnable() : nullptr)
-                , m_asc(asc)
-                , m_inner_it_runnable(inner_it_ptr ? inner_it_ptr->extractRunnable() : nullptr)
-            {                
-            }
-            
-            std::unique_ptr<FT_IteratorBase> run(db0::Snapshot &) const override {
-                throw std::runtime_error("Not implemented");
-            }
-
-            FTRunnableType typeId() const override {
-                return FTRunnableType::Sorted;
-            }
-
-            void serialize(std::vector<std::byte> &v) const override
-            {
-                db0::serial::write(v, db0::serial::typeId<KeyT>());
-                db0::serial::write(v, db0::serial::typeId<ValueT>());
-                db0::serial::write(v, m_tree.getMemspace().getUUID());
-                db0::serial::write(v, m_tree.getAddress());
-                db0::serial::write<bool>(v, m_asc);
-                db0::serial::write<bool>(v, m_has_query);
-                db0::serial::write<bool>(v, m_it_runnable != nullptr);
-                if (m_it_runnable) {
-                    db0::serial::write(v, m_it_runnable->typeId());
-                    m_it_runnable->serialize(v);
-                }
-                db0::serial::write<bool>(v, m_inner_it_runnable != nullptr);
-                if (m_inner_it_runnable) {
-                    db0::serial::write(v, m_inner_it_runnable->typeId());
-                    m_inner_it_runnable->serialize(v);
-                }
-            }
-
-        private:
-            RT_TreeT m_tree;
-            const bool m_has_query;
-            std::unique_ptr<FT_Runnable> m_it_runnable;
-            const bool m_asc;
-            std::unique_ptr<FT_Runnable> m_inner_it_runnable;
-        };
-
     private:
         using BlockItemT = typename RT_TreeT::BlockT::ItemT;
         RT_TreeT m_tree;
@@ -533,9 +481,4 @@ namespace db0
         }
     }
     
-    template <typename KeyT, typename ValueT>
-    std::unique_ptr<FT_Runnable> RT_SortIterator<KeyT, ValueT>::extractRunnable() const {
-        return std::make_unique<SortIteratorRunnable>(m_tree, m_has_query, m_query_it.get(), m_asc, m_inner_it.get());        
-    }
-
 }

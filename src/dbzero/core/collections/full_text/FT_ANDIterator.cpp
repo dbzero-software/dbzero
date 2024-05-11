@@ -530,20 +530,26 @@ namespace db0
         int direction = db0::serial::read<std::int8_t>(iter, end);
         std::uint32_t size = db0::serial::read<std::uint32_t>(iter, end);
         std::list<std::unique_ptr<FT_Iterator<key_t> > > inner_iterators;
+        bool result = true;
         for (std::uint32_t i = 0; i < size; ++i) {
-            inner_iterators.emplace_back(db0::deserializeFT_Iterator<key_t>(workspace, iter, end));
+            auto inner_it = db0::deserializeFT_Iterator<key_t>(workspace, iter, end);
+            if (inner_it) {
+                inner_iterators.emplace_back(std::move(inner_it));
+            } else {
+                // no result if any of the inner iterators does not exist
+                result = false;
+            }            
+        }
+        
+        if (!result) {
+            return nullptr;
         }
 
         return std::make_unique<FT_JoinANDIterator<key_t, UniqueKeys> >(
             std::move(inner_iterators), direction
         );
     }
-    
-    template <typename key_t, bool UniqueKeys>
-    std::unique_ptr<FT_Runnable> db0::FT_JoinANDIterator<key_t, UniqueKeys>::extractRunnable() const {
-        return std::make_unique<FT_ANDIteratorRunnable>(m_direction, m_joinable);        
-    }
-    
+        
 	template<typename key_t, bool UniqueKeys>
     FT_ANDIteratorFactory<key_t, UniqueKeys>::FT_ANDIteratorFactory() = default;
 

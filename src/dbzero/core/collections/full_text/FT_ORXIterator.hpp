@@ -3,7 +3,6 @@
 #include <list>
 #include "FT_Iterator.hpp"
 #include "FT_IteratorFactory.hpp"
-#include "FT_Runnable.hpp"
 #include <dbzero/core/utils/heap.hpp>
 #include <dbzero/core/utils/unique_set.hpp>
 #include <dbzero/core/utils/BoundCheck.hpp>
@@ -115,57 +114,14 @@ namespace db0
 
         virtual void detach();
 
-        FTIteratorType getSerialTypeId() const override;
-
-		std::unique_ptr<FT_Runnable> extractRunnable() const override;
+        FTIteratorType getSerialTypeId() const override;		
 		
 		static std::unique_ptr<FT_JoinORXIterator<key_t> > deserialize(Snapshot &workspace,
 			std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
 			
 	protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
-		
-        class FT_ORXIteratorRunnable: public FT_Runnable
-        {
-        public:
-            FT_ORXIteratorRunnable(int direction, bool is_orx, const std::list<std::unique_ptr<FT_Iterator<key_t> > > &joinable)
-				: m_direction(direction)			
-				, m_is_orx(is_orx)			
-			{
-				m_joinable_runnables.reserve(joinable.size());
-				for (const auto &it : joinable) {
-					// include non-simple runnables only
-					if (!it->isSimple()) {
-						m_joinable_runnables.push_back(it->extractRunnable());
-					}
-				}
-			}
-
-            std::unique_ptr<FT_IteratorBase> run(Snapshot &) const override {
-                throw std::runtime_error("FT_ANDIteratorRunnable::run() not implemented");
-            }
-
-			FTRunnableType typeId() const override {
-				return FTRunnableType::Or;
-			}
-
-			void serialize(std::vector<std::byte> &v) const override
-			{
-				db0::serial::write(v, db0::serial::typeId<key_t>());
-				db0::serial::write<std::int8_t>(v, m_direction);
-				db0::serial::write(v, m_is_orx);
-				for (auto &it : m_joinable_runnables) {
-					db0::serial::write(v, it->typeId());
-					it->serialize(v);
-				}
-			}
-
-        private:
-            const int m_direction;
-			const bool m_is_orx;
-            std::vector<std::unique_ptr<FT_Runnable> > m_joinable_runnables;
-        };
-		
+				
     private:
 						
 		struct heap_item

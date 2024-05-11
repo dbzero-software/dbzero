@@ -445,19 +445,25 @@ namespace db0
         }
         auto direction = db0::serial::read<std::int8_t>(iter, end);
         auto joinable_size = db0::serial::read<std::size_t>(iter, end);
-        std::vector<std::unique_ptr<FT_Iterator<key_t>>> joinable;
-        joinable.reserve(joinable_size);
+        std::vector<std::unique_ptr<FT_Iterator<key_t>>> joinable;        
+        bool result = true;
         for (std::size_t i = 0; i < joinable_size; ++i) {
-            joinable.emplace_back(db0::deserializeFT_Iterator<key_t>(workspace, iter, end));
+            auto inner_it = db0::deserializeFT_Iterator<key_t>(workspace, iter, end);
+            if (inner_it) {
+                joinable.emplace_back(std::move(inner_it));
+            } else {
+                // no result if first iterator (inclusion part) is not deserialized
+                result &= (i != 0);
+            }
         }
+
+        if (!result) {
+            return nullptr;
+        }
+        
         return std::make_unique<FT_ANDNOTIterator<key_t>>(std::move(joinable), direction);
     }
-    
-    template <typename key_t>
-    std::unique_ptr<FT_Runnable> db0::FT_ANDNOTIterator<key_t>::extractRunnable() const {
-        return std::make_unique<FT_ANDNOTIteratorRunnable>(m_direction, m_joinable);        
-    }
-    
+        
     template class FT_ANDNOTIterator<std::uint64_t>;
     
 }

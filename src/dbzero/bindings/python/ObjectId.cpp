@@ -11,7 +11,6 @@
 #include "PyInternalAPI.hpp"
 #include "PyAPI.hpp"
 #include "PyObjectIterator.hpp"
-#include "PyRunnable.hpp"
 
 namespace db0::python
 
@@ -88,14 +87,7 @@ namespace db0::python
             // serializable's uuid            
             return runSafe(tryGetSerializableUUID, &reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext());
         }
-
-        if (PyRunnable_Check(obj_ptr)) {
-            // serializable's uuid
-            auto &runnable = reinterpret_cast<PyRunnableObject*>(obj_ptr)->ext();
-            // pass FT_Runnable's address
-            return runSafe(tryGetSerializableUUID, &*runnable);
-        }
-
+        
         /* FIXME: implement
         if (DictObject_Check(obj_ptr)) {
             return runSafe(tryGetObjectId<DictObject>, reinterpret_cast<DictObject*>(obj_ptr));

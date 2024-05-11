@@ -3,7 +3,6 @@
 #include "RangeTree.hpp"
 #include <dbzero/core/collections/full_text/FT_IteratorBase.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
-#include <dbzero/core/collections/full_text/FT_Runnable.hpp>
 
 namespace db0
 
@@ -49,52 +48,7 @@ namespace db0
         std::unique_ptr<FT_IteratorBase> begin() const override;
         
         const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
-
-        std::unique_ptr<FT_Runnable> extractRunnable() const override;
-
-    protected:
         
-        class RangeIteratorRunnable: public FT_Runnable
-        {
-        public:
-            RangeIteratorRunnable(const RT_TreeT &tree, bool has_query, const FT_Iterator<ValueT> *it_ptr, bool nulls_first)
-                : m_tree(tree)
-                , m_has_query(has_query)
-                , m_query_it(it_ptr ? it_ptr->extractRunnable() : nullptr)
-                , m_nulls_first(nulls_first)
-            {
-            }
-
-            std::unique_ptr<FT_IteratorBase> run(db0::Snapshot &) const override {
-                throw std::runtime_error("Not implemented");
-            }
-
-            FTRunnableType typeId() const override {
-                return FTRunnableType::Range;
-            }
-
-            void serialize(std::vector<std::byte> &v) const override
-            {
-                db0::serial::write(v, db0::serial::typeId<KeyT>());
-                db0::serial::write(v, db0::serial::typeId<ValueT>());
-                db0::serial::write(v, m_tree.getMemspace().getUUID());
-                db0::serial::write(v, m_tree.getAddress());
-                db0::serial::write(v, m_has_query);
-                db0::serial::write(v, m_nulls_first);
-                db0::serial::write<bool>(v, m_query_it != nullptr);
-                if (m_query_it) {
-                    db0::serial::write(v, m_query_it->typeId());
-                    m_query_it->serialize(v);
-                }                
-            }
-
-        private:
-            RT_TreeT m_tree;
-            const bool m_has_query;
-            std::unique_ptr<FT_Runnable> m_query_it;
-            const bool m_nulls_first;
-        };
-
     private:
         using ItemT = typename RT_TreeT::ItemT;
         using RT_IteratorT = typename RT_TreeT::BlockT::FT_IteratorT;
@@ -315,11 +269,6 @@ namespace db0
         }
 
         return nullptr;
-    }
-
-    template <typename KeyT, typename ValueT>
-    std::unique_ptr<FT_Runnable> RT_RangeIterator<KeyT, ValueT>::extractRunnable() const {        
-        return std::make_unique<RangeIteratorRunnable>(m_tree, m_has_query, m_query_it.get(), m_nulls_first);        
     }
 
 }

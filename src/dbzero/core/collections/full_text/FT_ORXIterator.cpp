@@ -656,16 +656,15 @@ namespace db0
 		std::uint32_t joinable_size = db0::serial::read<std::uint32_t>(iter, end);
 		std::list<std::unique_ptr<FT_Iterator<key_t> > > joinable;
 		for (std::uint32_t i = 0; i < joinable_size; ++i) {
-			joinable.push_back(db0::deserializeFT_Iterator<key_t>(workspace, iter, end));
+			// inner iterator may no longer be available for deserialization (e.g. token removed)
+			auto inner_it = db0::deserializeFT_Iterator<key_t>(workspace, iter, end);
+			if (inner_it) {
+				joinable.push_back(std::move(inner_it));
+			}			
 		}
 		return std::make_unique<FT_JoinORXIterator<key_t>>(std::move(joinable), direction, is_orx);
 	}
-
-	template <typename key_t>
-	std::unique_ptr<FT_Runnable> db0::FT_JoinORXIterator<key_t>::extractRunnable() const {
-		return std::make_unique<FT_ORXIteratorRunnable>(m_direction, m_is_orx, m_joinable);
-	}
-
+	
     template class FT_JoinORXIterator<std::uint64_t>;
     template class FT_OR_ORXIteratorFactory<std::uint64_t>;
     template class FT_ORIteratorFactory<std::uint64_t>;    

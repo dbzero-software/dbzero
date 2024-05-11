@@ -188,15 +188,4 @@ namespace db0::object_model
         }
     }
     
-    void ObjectIterator::asRunnable(Runnable *at_ptr) const
-    {
-        assert(at_ptr);
-        if (m_iterator_ptr) {
-            new (at_ptr) Runnable(m_iterator_ptr->extractRunnable());
-        } else {
-            auto null_runnable = std::make_unique<FT_NullRunnable>();
-            new (at_ptr) Runnable(std::move(null_runnable));
-        }
-    }
-
 }

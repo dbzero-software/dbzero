@@ -1,7 +1,6 @@
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
 #include "PyInternalAPI.hpp"
-#include "PyRunnable.hpp"
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
@@ -58,7 +57,6 @@ namespace db0::python
     }
     
     static PyMethodDef PyObjectIterator_methods[] = {
-        {"as_runnable", &PyObjectIterator_AsRunnable, METH_NOARGS, "Extract runnable query"},
         {NULL}
     };
     
@@ -130,17 +128,4 @@ namespace db0::python
         return Py_TYPE(py_object) == &PyTypedObjectIteratorType;
     }
     
-    PyObject *PyObjectIterator_AsRunnable(PyObject *self, PyObject *)
-    {
-        if (!ObjectIterator_Check(self)) {
-            PyErr_SetString(PyExc_TypeError, "ObjectIterator expected");
-            return NULL;
-        }
-        
-        auto &iter = reinterpret_cast<PyObjectIterator*>(self)->ext();
-        auto py_object = PyRunnableDefault_new();
-        iter.asRunnable(&py_object->ext());        
-        return py_object;
-    }
-
 }

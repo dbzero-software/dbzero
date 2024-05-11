@@ -1,5 +1,4 @@
 #include "FT_IteratorBase.hpp"
-#include "FT_Runnable.hpp"
 
 namespace db0
 
@@ -13,7 +12,7 @@ namespace db0
             return nullptr;
         }
     }
-
+    
     bool FT_IteratorBase::isSimple() const {
         return false;
     }

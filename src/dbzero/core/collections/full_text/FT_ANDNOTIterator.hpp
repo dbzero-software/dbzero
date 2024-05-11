@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include "FT_Iterator.hpp"
-#include "FT_Runnable.hpp"
 
 namespace db0
 
@@ -12,7 +11,7 @@ namespace db0
     
     /**
      * This iterator type performs difference on sets, returning elements which are
-     * present in value set of first iterator, but aren't in other iterators.
+     * present in value set of first iterator, but aren't in ANY of the other iterators.
      * Example:
      * 0: 1, 2, 3, 4, 5, 6
      * 1: 2, 7, 8
@@ -93,56 +92,14 @@ namespace db0
 
         virtual void detach();
 
-        FTIteratorType getSerialTypeId() const override;
-        
-        std::unique_ptr<FT_Runnable> extractRunnable() const override;
+        FTIteratorType getSerialTypeId() const override;        
 
         static std::unique_ptr<FT_ANDNOTIterator<key_t>> deserialize(Snapshot &workspace, 
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
         
     protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
-        
-        class FT_ANDNOTIteratorRunnable: public FT_Runnable
-        {
-        public:
-            FT_ANDNOTIteratorRunnable(int direction, const std::vector<std::unique_ptr<FT_Iterator<key_t> > > &joinable)
-                : m_direction(direction)
-            {
-                m_joinable_runnables.reserve(joinable.size());
-                int i = 0;
-                for (auto &it: joinable) {
-                    // include the 1st element and all non-simmple runnables
-                    if (i == 0 || !it->isSimple()) {
-                        m_joinable_runnables.push_back(it->extractRunnable());
-                    }
-                    ++i;
-                }
-            }
-            
-            std::unique_ptr<FT_IteratorBase> run(Snapshot &) const override {
-                throw std::runtime_error("FT_ANDIteratorRunnable::run() not implemented");
-            }
-
-            FTRunnableType typeId() const override {
-                return FTRunnableType::AndNot;
-            }
-
-            void serialize(std::vector<std::byte> &v) const override
-            {
-                db0::serial::write(v, db0::serial::typeId<key_t>());
-                db0::serial::write<std::int8_t>(v, m_direction);
-                for (auto &it : m_joinable_runnables) {
-                    db0::serial::write(v, it->typeId());
-                    it->serialize(v);
-                }
-            }
-
-        private:
-            const int m_direction;
-            std::vector<std::unique_ptr<FT_Runnable> > m_joinable_runnables;
-        };
-        
+                
     private:
         int m_direction;
         std::vector<std::unique_ptr<FT_Iterator<key_t>>> m_joinable;
