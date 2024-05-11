@@ -68,6 +68,8 @@ namespace db0
          * @return flag indicating if this is a simple iterator (i.e. the iterator which may represent parameter value)
         */
         virtual bool isSimple() const;
+        
+        virtual double compareTo(const FT_IteratorBase &it) const = 0;
     };
     
 }

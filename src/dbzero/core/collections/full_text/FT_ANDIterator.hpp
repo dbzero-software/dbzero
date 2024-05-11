@@ -100,6 +100,8 @@ namespace db0
 
         FTIteratorType getSerialTypeId() const override;
         
+        double compareTo(const FT_IteratorBase &it) const override;
+        
         static std::unique_ptr<FT_Iterator<key_t> > deserialize(Snapshot &workspace,
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
         
@@ -125,6 +127,9 @@ namespace db0
 		struct tag_cloned {};
 		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&, int direction, bool is_end,
 		    key_t join_key, tag_cloned);
+        
+        // compare to other AND iterator
+        double compareTo(const FT_JoinANDIterator &it) const;
 	};
     
     template <typename key_t = std::uint64_t, bool UniqueKeys = true>

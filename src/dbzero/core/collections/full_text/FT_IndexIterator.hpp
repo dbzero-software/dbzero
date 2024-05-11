@@ -81,6 +81,8 @@ namespace db0
 
 		FTIteratorType getSerialTypeId() const override;
 
+		double compareTo(const FT_IteratorBase &it) const override;
+	
     protected:
         bindex_t m_data;
         const int m_direction;
@@ -103,6 +105,8 @@ namespace db0
         void _next(void *buf = nullptr);
 
 		void serializeFTIterator(std::vector<std::byte> &) const override;
+
+		double compareTo(const FT_IndexIterator &it) const;
     };
 	
 	template <typename bindex_t, typename key_t>
@@ -306,6 +310,25 @@ namespace db0
 		db0::serial::write(v, m_data.getMemspace().getUUID());
 		db0::serial::write<std::int8_t>(v, m_direction);			
 		db0::serial::write(v, *m_index_key);
+	}
+
+	template <typename bindex_t, typename key_t>
+	double FT_IndexIterator<bindex_t, key_t>::compareTo(const FT_IteratorBase &it) const
+	{
+		if (this->typeId() == it.typeId()) {
+			return compareTo(reinterpret_cast<const self_t &>(it));
+		}
+		return 1.0;
+	}
+
+	template <typename bindex_t, typename key_t>
+	double FT_IndexIterator<bindex_t, key_t>::compareTo(const FT_IndexIterator &other) const
+	{
+		if (m_index_key && other.m_index_key) {
+			return (*m_index_key == *other.m_index_key) ? 0.0 : 1.0;
+		}
+		
+		return (m_data.getAddress() == other.m_data.getAddress()) ? 0.0 : 1.0;
 	}
 
 } 

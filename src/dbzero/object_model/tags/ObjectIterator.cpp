@@ -188,4 +188,16 @@ namespace db0::object_model
         }
     }
     
+    double ObjectIterator::compareTo(const ObjectIterator &other) const 
+    {
+        if (isNull()) {
+            return other.isNull() ? 0.0 : 1.0;
+        }
+        if (other.isNull()) {
+            return 1.0;
+        }
+        assert(m_iterator_ptr);
+        return m_iterator_ptr->compareTo(*other.m_iterator_ptr);
+    }
+
 }

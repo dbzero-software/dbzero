@@ -94,12 +94,16 @@ namespace db0
 
         FTIteratorType getSerialTypeId() const override;        
 
+        double compareTo(const FT_IteratorBase &it) const override;
+
         static std::unique_ptr<FT_ANDNOTIterator<key_t>> deserialize(Snapshot &workspace, 
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
         
     protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
-                
+        
+        double compareTo(const FT_ANDNOTIterator &) const;
+
     private:
         int m_direction;
         std::vector<std::unique_ptr<FT_Iterator<key_t>>> m_joinable;

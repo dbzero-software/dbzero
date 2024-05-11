@@ -80,6 +80,12 @@ namespace db0::object_model
         static void deserialize(void *at_ptr, db0::swine_ptr<Fixture> &, std::vector<std::byte>::const_iterator &, 
             std::vector<std::byte>::const_iterator);
         
+        /**
+         * Measure the similarity between the 2 query iterators
+         * @return value from the range [0 - 1], where 0 = identical and 1 = completely different
+        */
+        double compareTo(const ObjectIterator &other) const;
+
     protected:
         mutable db0::swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;

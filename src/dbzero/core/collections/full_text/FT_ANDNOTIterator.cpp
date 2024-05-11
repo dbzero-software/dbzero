@@ -434,7 +434,7 @@ namespace db0
     }
 
     template <typename key_t>
-    std::unique_ptr<db0::FT_ANDNOTIterator<key_t>> db0::FT_ANDNOTIterator<key_t>::deserialize(Snapshot &workspace,        
+    std::unique_ptr<db0::FT_ANDNOTIterator<key_t>> db0::FT_ANDNOTIterator<key_t>::deserialize(Snapshot &workspace,
         std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
     {
         using TypeIdType = decltype(db0::serial::typeId<void>());
@@ -463,7 +463,43 @@ namespace db0
         
         return std::make_unique<FT_ANDNOTIterator<key_t>>(std::move(joinable), direction);
     }
-        
+
+    template <typename key_t>
+    double db0::FT_ANDNOTIterator<key_t>::compareTo(const FT_IteratorBase &it) const
+    {
+        if (this->typeId() == it.typeId()) {
+            return compareTo(reinterpret_cast<const FT_ANDNOTIterator<key_t> &>(it));
+        }
+        return 1.0;
+    }
+    
+    template <typename key_t>
+    double db0::FT_ANDNOTIterator<key_t>::compareTo(const FT_ANDNOTIterator &other) const
+    {
+        double result = m_joinable.front()->compareTo(*other.m_joinable.front());
+		std::list<FT_Iterator<key_t>*> refs;
+		for (auto it = ++other.m_joinable.begin(),itend = other.m_joinable.end();it!=itend;++it) {
+			refs.push_back((*it).get());
+		}
+
+		double p_diff = 1.0 / (double)(other.m_joinable.size() - 1);
+		double n_result = 0.0;
+		for (auto it = ++m_joinable.begin(),itend = m_joinable.end();it != itend;++it) {
+			double m_diff = std::numeric_limits<double>::max();
+			auto it_min = refs.end();
+			for (auto it2 = refs.begin(),itend = refs.end();it2 != itend;++it2) {
+				double diff = (*it)->compareTo(**it2);
+				if (diff < m_diff) {
+					m_diff = diff;
+					it_min = it2;
+				}
+			}
+			refs.erase(it_min);
+			n_result += m_diff * p_diff;
+		}
+        return 1.0 - (1.0 - n_result) * (1.0 - result);
+    }
+    
     template class FT_ANDNOTIterator<std::uint64_t>;
     
 }

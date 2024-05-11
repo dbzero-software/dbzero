@@ -665,6 +665,54 @@ namespace db0
 		return std::make_unique<FT_JoinORXIterator<key_t>>(std::move(joinable), direction, is_orx);
 	}
 	
+	template <typename key_t>
+	double db0::FT_JoinORXIterator<key_t>::compareTo(const FT_IteratorBase &it) const
+	{
+		assert(m_joinable.size() > 0);
+		if (it.typeId() != this->typeId()) {
+			return compareTo(reinterpret_cast<const FT_JoinORXIterator<key_t>&>(it));
+		}
+		
+		// piecewise comparison
+		double p_diff = 1.0 / (double)m_joinable.size();
+		double m_diff = 1.0;
+		for (auto &it_sub: m_joinable) {
+			m_diff = std::min(m_diff, it_sub->compareTo(it));
+		}
+		return m_diff + p_diff * (m_joinable.size() - 1);
+	}
+	
+	template <typename key_t>
+	double db0::FT_JoinORXIterator<key_t>::compareTo(const FT_JoinORXIterator<key_t> &other) const
+	{
+		if (this->m_joinable.size() > other.m_joinable.size()) {
+			return other.compareTo(*this);
+		}
+		assert(this->m_joinable.size() <= other.m_joinable.size());
+		std::list<FT_Iterator<key_t>*> refs;
+		for (auto it = other.m_joinable.begin(),itend = other.m_joinable.end();it!=itend;++it) {
+			refs.push_back((*it).get());
+		}
+
+		double p_diff = 1.0 / (double)other.m_joinable.size();
+		double result = 0.0;
+		for (auto &it: this->m_joinable) {
+			double m_diff = std::numeric_limits<double>::max();
+			auto it_min = refs.end();
+			for (auto it2 = refs.begin(),itend = refs.end();it2 != itend;++it2) {
+				double diff = it->compareTo(**it2);
+				if (diff < m_diff) {
+					m_diff = diff;
+					it_min = it2;
+				}
+			}
+			refs.erase(it_min);
+			result += m_diff * p_diff;
+		}
+		result += p_diff * refs.size();
+		return result;
+	}
+	
     template class FT_JoinORXIterator<std::uint64_t>;
     template class FT_OR_ORXIteratorFactory<std::uint64_t>;
     template class FT_ORIteratorFactory<std::uint64_t>;    

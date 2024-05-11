@@ -49,10 +49,15 @@ namespace db0
         
         const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
         
+        double compareTo(const FT_IteratorBase &it) const override;
+
+    protected:
+        double compareTo(const RT_RangeIterator &it) const;
+        
     private:
         using ItemT = typename RT_TreeT::ItemT;
         using RT_IteratorT = typename RT_TreeT::BlockT::FT_IteratorT;
-        RT_TreeT m_tree;     
+        RT_TreeT m_tree;
         typename RT_TreeT::RangeIterator m_tree_it;
         const bool m_has_query;
         std::unique_ptr<FT_Iterator<ValueT> > m_query_it;
@@ -270,5 +275,28 @@ namespace db0
 
         return nullptr;
     }
+    
+    template <typename KeyT, typename ValueT>
+    double RT_RangeIterator<KeyT, ValueT>::compareTo(const FT_IteratorBase &it) const
+    {
+        if (it.typeId() == this->typeId()) {
+            return compareTo(reinterpret_cast<const self_t &>(it));
+        }
+        return 1.0;
+    }
 
+    template <typename KeyT, typename ValueT>
+    double RT_RangeIterator<KeyT, ValueT>::compareTo(const RT_RangeIterator &it) const
+    {   
+        double result = 0.0;             
+        if (m_tree.getAddress() != it.m_tree.getAddress()) {
+            return 1.0;
+        } else if (m_has_query != it.m_has_query) {
+            return 1.0;
+        } else if (m_has_query) {
+            result = m_query_it->compareTo(*it.m_query_it);
+        }
+        return result;
+    }
+    
 }

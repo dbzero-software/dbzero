@@ -549,7 +549,51 @@ namespace db0
             std::move(inner_iterators), direction
         );
     }
+    
+    template <typename key_t, bool UniqueKeys>
+    double db0::FT_JoinANDIterator<key_t, UniqueKeys>::compareTo(const FT_IteratorBase &it) const
+    {
+        if (it.typeId() == this->typeId()) {            
+            return this->compareTo(reinterpret_cast<const FT_JoinANDIterator<key_t, UniqueKeys>&>(it));
+        }
         
+        if (m_joinable.size() == 1u) {
+            return m_joinable.front()->compareTo(it);
+        }
+        // different iterators
+        return 1.0;
+    }
+    
+    template <typename key_t, bool UniqueKeys>
+    double db0::FT_JoinANDIterator<key_t, UniqueKeys>::compareTo(const FT_JoinANDIterator<key_t, UniqueKeys> &other) const
+    {
+        if (m_joinable.size() != other.m_joinable.size()) {
+            return 1.0;
+        }
+        std::list<const FT_Iterator<key_t>*> refs;
+        for (auto ref = other.m_joinable.begin(),itend = other.m_joinable.end();ref!=itend;++ref) {
+            refs.push_back((*ref).get());
+        }
+
+        // for each iterator from refs_1 pull the closest matching one from refs_2
+        double result = 1.0;
+        double p_diff = 1.0 / (double)m_joinable.size();
+        for (auto &it: m_joinable) {
+            double m_diff = std::numeric_limits<double>::max();
+            auto it_min = refs.end();
+            for (auto it2 = refs.begin(),itend = refs.end(); it2 != itend; ++it2) {
+                double d = it->compareTo(**it2);
+                if (d < m_diff) {
+                    m_diff = d;
+                    it_min = it2;
+                }
+            }
+            refs.erase(it_min);
+            result *= p_diff - (m_diff * p_diff);
+        }
+        return 1.0 - result;
+    }
+    
 	template<typename key_t, bool UniqueKeys>
     FT_ANDIteratorFactory<key_t, UniqueKeys>::FT_ANDIteratorFactory() = default;
 

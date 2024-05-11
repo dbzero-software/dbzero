@@ -56,7 +56,26 @@ namespace db0::python
         } 
     }
     
-    static PyMethodDef PyObjectIterator_methods[] = {
+    PyObject *PyObjectIterator_compare(PyObject *self, PyObject* const *args, Py_ssize_t nargs) 
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "Expected exactly one argument");
+            return NULL;
+        }
+
+        if (!ObjectIterator_Check(args[0])) {
+            PyErr_SetString(PyExc_TypeError, "Expected an ObjectIterator");
+            return NULL;
+        }
+
+        const auto &iter = reinterpret_cast<PyObjectIterator*>(self)->ext();
+        double diff = iter.compareTo(reinterpret_cast<PyObjectIterator*>(args[0])->ext());
+        return PyFloat_FromDouble(diff);
+    }
+    
+    static PyMethodDef PyObjectIterator_methods[] = 
+    {
+        {"compare", (PyCFunction)PyObjectIterator_compare, METH_FASTCALL, "Compare two iterators"},
         {NULL}
     };
     
@@ -94,7 +113,7 @@ namespace db0::python
             return NULL;
         } 
     }
-
+    
     static PyMethodDef PyTypedObjectIterator_methods[] = {
         {NULL}
     };

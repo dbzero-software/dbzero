@@ -67,9 +67,13 @@ namespace db0
 
         SortedIteratorType getSerialTypeId() const override;
 
+        double compareTo(const FT_IteratorBase &it) const override;
+
     protected:
         void serializeImpl(std::vector<std::byte> &) const override;
         
+        double compareTo(const RT_SortIterator &it) const;
+
     private:
         using BlockItemT = typename RT_TreeT::BlockT::ItemT;
         RT_TreeT m_tree;
@@ -481,4 +485,25 @@ namespace db0
         }
     }
     
+    template <typename KeyT, typename ValueT>
+    double RT_SortIterator<KeyT, ValueT>::compareTo(const FT_IteratorBase &it) const
+    {
+        if (this->typeId() == it.typeId()) {
+            return compareTo(reinterpret_cast<const self_t &>(it));
+        }
+        return 1.0;
+    }
+    
+    template <typename KeyT, typename ValueT>
+    double RT_SortIterator<KeyT, ValueT>::compareTo(const RT_SortIterator &other) const
+    {
+        if (m_has_query) {
+            if (other.m_has_query) {
+                return m_query_it->compareTo(*other.m_query_it);
+            }
+            return 1.0;            
+        }
+        return m_tree.getAddress() == other.m_tree.getAddress() ? 0.0 : 1.0;
+    }
+
 }
