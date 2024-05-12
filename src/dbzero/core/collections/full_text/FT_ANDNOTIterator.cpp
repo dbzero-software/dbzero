@@ -465,7 +465,7 @@ namespace db0
     }
 
     template <typename key_t>
-    double db0::FT_ANDNOTIterator<key_t>::compareTo(const FT_IteratorBase &it) const
+    double db0::FT_ANDNOTIterator<key_t>::compareToImpl(const FT_IteratorBase &it) const
     {
         if (this->typeId() == it.typeId()) {
             return compareTo(reinterpret_cast<const FT_ANDNOTIterator<key_t> &>(it));

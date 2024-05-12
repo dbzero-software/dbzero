@@ -80,9 +80,7 @@ namespace db0
 	    std::size_t getDepth() const override;
 
 		FTIteratorType getSerialTypeId() const override;
-
-		double compareTo(const FT_IteratorBase &it) const override;
-	
+			
     protected:
         bindex_t m_data;
         const int m_direction;
@@ -105,6 +103,8 @@ namespace db0
         void _next(void *buf = nullptr);
 
 		void serializeFTIterator(std::vector<std::byte> &) const override;
+
+		double compareToImpl(const FT_IteratorBase &it) const override;
 
 		double compareTo(const FT_IndexIterator &it) const;
     };
@@ -313,7 +313,7 @@ namespace db0
 	}
 
 	template <typename bindex_t, typename key_t>
-	double FT_IndexIterator<bindex_t, key_t>::compareTo(const FT_IteratorBase &it) const
+	double FT_IndexIterator<bindex_t, key_t>::compareToImpl(const FT_IteratorBase &it) const
 	{
 		if (this->typeId() == it.typeId()) {
 			return compareTo(reinterpret_cast<const self_t &>(it));

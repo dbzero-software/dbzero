@@ -666,10 +666,10 @@ namespace db0
 	}
 	
 	template <typename key_t>
-	double db0::FT_JoinORXIterator<key_t>::compareTo(const FT_IteratorBase &it) const
+	double db0::FT_JoinORXIterator<key_t>::compareToImpl(const FT_IteratorBase &it) const
 	{
 		assert(m_joinable.size() > 0);
-		if (it.typeId() != this->typeId()) {
+		if (it.typeId() == this->typeId()) {
 			return compareTo(reinterpret_cast<const FT_JoinORXIterator<key_t>&>(it));
 		}
 		

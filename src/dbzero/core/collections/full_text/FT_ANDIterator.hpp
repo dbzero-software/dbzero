@@ -100,7 +100,7 @@ namespace db0
 
         FTIteratorType getSerialTypeId() const override;
         
-        double compareTo(const FT_IteratorBase &it) const override;
+        double compareToImpl(const FT_IteratorBase &it) const override;
         
         static std::unique_ptr<FT_Iterator<key_t> > deserialize(Snapshot &workspace,
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);

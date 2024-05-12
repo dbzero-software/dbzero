@@ -17,4 +17,14 @@ namespace db0
         return false;
     }
     
+    double FT_IteratorBase::compareTo(const FT_IteratorBase &it) const
+    {
+        if (this->isSimple() && !it.isSimple()) {
+            // invert the comparison order (call over a non-simple iterator)
+            return it.compareToImpl(*this);
+        } else {
+            return this->compareToImpl(it);
+        }
+    }
+    
 }

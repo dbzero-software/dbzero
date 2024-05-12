@@ -551,9 +551,9 @@ namespace db0
     }
     
     template <typename key_t, bool UniqueKeys>
-    double db0::FT_JoinANDIterator<key_t, UniqueKeys>::compareTo(const FT_IteratorBase &it) const
+    double db0::FT_JoinANDIterator<key_t, UniqueKeys>::compareToImpl(const FT_IteratorBase &it) const
     {
-        if (it.typeId() == this->typeId()) {            
+        if (it.typeId() == this->typeId()) {
             return this->compareTo(reinterpret_cast<const FT_JoinANDIterator<key_t, UniqueKeys>&>(it));
         }
         

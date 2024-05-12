@@ -49,9 +49,9 @@ namespace db0
         
         const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
         
-        double compareTo(const FT_IteratorBase &it) const override;
-
     protected:
+        double compareToImpl(const FT_IteratorBase &it) const override;
+
         double compareTo(const RT_RangeIterator &it) const;
         
     private:
@@ -277,7 +277,7 @@ namespace db0
     }
     
     template <typename KeyT, typename ValueT>
-    double RT_RangeIterator<KeyT, ValueT>::compareTo(const FT_IteratorBase &it) const
+    double RT_RangeIterator<KeyT, ValueT>::compareToImpl(const FT_IteratorBase &it) const
     {
         if (it.typeId() == this->typeId()) {
             return compareTo(reinterpret_cast<const self_t &>(it));

@@ -66,11 +66,11 @@ namespace db0
         std::unique_ptr<SortedIterator<ValueT> > beginSorted(std::unique_ptr<FT_Iterator<ValueT> > = nullptr) const override;
 
         SortedIteratorType getSerialTypeId() const override;
-
-        double compareTo(const FT_IteratorBase &it) const override;
-
+        
     protected:
         void serializeImpl(std::vector<std::byte> &) const override;
+        
+        double compareToImpl(const FT_IteratorBase &it) const override;
         
         double compareTo(const RT_SortIterator &it) const;
 
@@ -486,7 +486,7 @@ namespace db0
     }
     
     template <typename KeyT, typename ValueT>
-    double RT_SortIterator<KeyT, ValueT>::compareTo(const FT_IteratorBase &it) const
+    double RT_SortIterator<KeyT, ValueT>::compareToImpl(const FT_IteratorBase &it) const
     {
         if (this->typeId() == it.typeId()) {
             return compareTo(reinterpret_cast<const self_t &>(it));

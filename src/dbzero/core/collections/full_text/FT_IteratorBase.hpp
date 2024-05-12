@@ -69,7 +69,14 @@ namespace db0
         */
         virtual bool isSimple() const;
         
-        virtual double compareTo(const FT_IteratorBase &it) const = 0;
+        /**
+         * Measure similarity between the 2 query iterators
+         * @retrun 0.0 if the iterators are identical, 1.0 if they are completely different
+        */
+        virtual double compareTo(const FT_IteratorBase &it) const;
+        
+    protected:
+        virtual double compareToImpl(const FT_IteratorBase &it) const = 0;
     };
     
 }
