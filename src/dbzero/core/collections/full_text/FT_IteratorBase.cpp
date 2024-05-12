@@ -1,4 +1,5 @@
 #include "FT_IteratorBase.hpp"
+#include <dbzero/core/utils/blob_sort.hpp>
 
 namespace db0
 
@@ -26,5 +27,13 @@ namespace db0
             return this->compareToImpl(it);
         }
     }
-    
+
+    void sortSignatures(std::vector<std::byte> &bytes) {
+        db0::BlobSequence<FT_IteratorBase::SIGNATURE_SIZE>(bytes).sort();
+    }
+
+    void sortSignatures(std::byte *begin, std::byte *end) {
+        db0::BlobSequence<FT_IteratorBase::SIGNATURE_SIZE>(begin, end).sort();
+    }
+
 }

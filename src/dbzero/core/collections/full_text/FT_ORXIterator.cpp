@@ -713,6 +713,11 @@ namespace db0
 		return result;
 	}
 	
+	template <typename key_t>
+	void db0::FT_JoinORXIterator<key_t>::getSignature(std::vector<std::byte> &v) const {
+		this->getSignature(m_joinable.begin(), m_joinable.end(), v);
+	}
+	
     template class FT_JoinORXIterator<std::uint64_t>;
     template class FT_OR_ORXIteratorFactory<std::uint64_t>;
     template class FT_ORIteratorFactory<std::uint64_t>;    

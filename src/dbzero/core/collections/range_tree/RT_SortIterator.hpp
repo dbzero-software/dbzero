@@ -8,6 +8,7 @@
 #include <dbzero/core/collections/full_text/FT_MemoryIndex.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/core/serialization/hash.hpp>
 
 namespace db0
 
@@ -66,6 +67,8 @@ namespace db0
         std::unique_ptr<SortedIterator<ValueT> > beginSorted(std::unique_ptr<FT_Iterator<ValueT> > = nullptr) const override;
 
         SortedIteratorType getSerialTypeId() const override;
+
+        void getSignature(std::vector<std::byte> &) const override;
         
     protected:
         void serializeImpl(std::vector<std::byte> &) const override;
@@ -506,4 +509,20 @@ namespace db0
         return m_tree.getAddress() == other.m_tree.getAddress() ? 0.0 : 1.0;
     }
 
+    template <typename KeyT, typename ValueT>
+    void RT_SortIterator<KeyT, ValueT>::getSignature(std::vector<std::byte> &v) const
+    {
+        if (m_has_query) {
+            m_query_it->getSignature(v);            
+        } else {
+            std::vector<std::byte> bytes;
+            db0::serial::write(v, db0::serial::typeId<KeyT>());
+            db0::serial::write(v, db0::serial::typeId<ValueT>());
+            db0::serial::write(v, m_tree.getMemspace().getUUID());
+            db0::serial::write(v, m_tree.getAddress());
+            // get signature as a hash from bytes
+            db0::serial::sha256(bytes, v);
+        }
+    }
+    
 }

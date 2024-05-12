@@ -94,6 +94,8 @@ namespace db0
 
         FTIteratorType getSerialTypeId() const override;        
         
+        void getSignature(std::vector<std::byte> &) const override;
+        
         static std::unique_ptr<FT_ANDNOTIterator<key_t>> deserialize(Snapshot &workspace, 
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
         

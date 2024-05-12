@@ -86,6 +86,8 @@ namespace db0::object_model
         */
         double compareTo(const ObjectIterator &other) const;
 
+        std::vector<std::byte> getSignature() const;
+        
     protected:
         mutable db0::swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;

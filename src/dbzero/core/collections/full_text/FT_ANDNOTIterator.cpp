@@ -4,6 +4,7 @@
 #include "FT_ANDNOTIterator.hpp"
 #include "FT_ORXIterator.hpp"
 #include "FT_Serialization.hpp"
+#include "FT_ORXIterator.hpp"
 
 namespace db0 
 
@@ -463,7 +464,7 @@ namespace db0
         
         return std::make_unique<FT_ANDNOTIterator<key_t>>(std::move(joinable), direction);
     }
-
+    
     template <typename key_t>
     double db0::FT_ANDNOTIterator<key_t>::compareToImpl(const FT_IteratorBase &it) const
     {
@@ -500,6 +501,18 @@ namespace db0
         return 1.0 - (1.0 - n_result) * (1.0 - result);
     }
     
+    template <typename key_t>
+    void db0::FT_ANDNOTIterator<key_t>::getSignature(std::vector<std::byte> &v) const
+    {
+        assert(m_joinable.size() > 0);
+        std::vector<std::byte> buf;
+        m_joinable.front()->getSignature(buf);
+        // reuse the ORX-iterator signature
+        db0::FT_JoinORXIterator<key_t>::getSignature(++m_joinable.begin(), m_joinable.end(), buf);
+        // calculate hash from bytes as a signature
+        db0::serial::sha256(buf, v);
+    }
+
     template class FT_ANDNOTIterator<std::uint64_t>;
     
 }

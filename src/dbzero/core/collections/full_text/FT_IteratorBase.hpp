@@ -5,6 +5,8 @@
 #include <typeinfo>
 #include <limits>
 #include <memory>
+#include <vector>
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
@@ -16,6 +18,8 @@ namespace db0
     class FT_IteratorBase
     {
     public:
+        static constexpr std::size_t SIGNATURE_SIZE = db0::serial::Serializable::SIGNATURE_SIZE;
+
         virtual ~FT_IteratorBase() = default;
 
 		/**
@@ -75,8 +79,22 @@ namespace db0
         */
         virtual double compareTo(const FT_IteratorBase &it) const;
         
+        /**
+         * Get (append) query iterator's signature for fast similarity lookup
+         * each signature has a size of SIGNATURE_SIZE
+        */
+        virtual void getSignature(std::vector<std::byte> &) const = 0;
+
+        std::vector<std::byte> getSignature() const;
+
     protected:
         virtual double compareToImpl(const FT_IteratorBase &it) const = 0;
     };
+    
+    /**
+     * Sort signatures stored in a vector
+    */
+    void sortSignatures(std::vector<std::byte> &);
+    void sortSignatures(std::byte *begin, std::byte *end);
     
 }

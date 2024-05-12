@@ -6,6 +6,7 @@
 #include <dbzero/core/utils/heap.hpp>
 #include <dbzero/core/utils/unique_set.hpp>
 #include <dbzero/core/utils/BoundCheck.hpp>
+#include <dbzero/core/serialization/hash.hpp>
 
 namespace db0
 
@@ -115,10 +116,38 @@ namespace db0
         virtual void detach();
 
         FTIteratorType getSerialTypeId() const override;
-				
+		
+		void getSignature(std::vector<std::byte> &) const override;
+		
 		static std::unique_ptr<FT_JoinORXIterator<key_t> > deserialize(Snapshot &workspace,
 			std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
-			
+		
+		// reusable signature algorithm
+		template <typename IteratorT> static void getSignature(IteratorT begin, IteratorT end,
+			std::vector<std::byte> &v)
+		{
+			std::vector<std::byte> buf;
+			// get signature of the 1st simple inner query only
+			for (auto it = begin; it != end; ++it) {
+				if ((*it)->isSimple()) {
+					(*it)->getSignature(buf);
+				}
+			}
+			sortSignatures(buf);
+			// keep the 1st simple signature only
+			buf.resize(std::min(buf.size(), db0::FT_IteratorBase::SIGNATURE_SIZE));
+			// append non-simple signatures next
+			for (auto it = begin; it != end; ++it) {
+				if (!(*it)->isSimple()) {
+					(*it)->getSignature(buf);
+				}
+			}
+			// sort again
+			sortSignatures(buf);
+			// calculate hash as the result signature
+			db0::serial::sha256(buf, v);
+		}
+
 	protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
 		
@@ -223,13 +252,15 @@ namespace db0
 
 		template <typename iterator_t> int getJoinCount(iterator_t begin, iterator_t end) const;
 
-		struct forward_comp_t {
+		struct forward_comp_t 
+		{
 			bool operator()(const heap_item &item0,const heap_item &item1) const {
 				return (item0.key < item1.key);
 			}
 		};
 
-		struct back_comp_t {
+		struct back_comp_t 
+		{
 			bool operator()(const heap_item &item0,const heap_item &item1) const {
 				return (item0.key > item1.key);
 			}

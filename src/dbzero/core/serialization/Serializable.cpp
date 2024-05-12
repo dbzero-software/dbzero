@@ -5,7 +5,7 @@
 namespace db0::serial
 
 {
-
+    
     void Serializable::getUUID(char *uuid_buf) const
     {
         std::vector<std::byte> bytes;
@@ -14,6 +14,14 @@ namespace db0::serial
         sha256(reinterpret_cast<const std::uint8_t *>(bytes.data()), bytes.size(), hash);
         auto size = db0::base32_encode(reinterpret_cast<std::uint8_t *>(hash), sizeof(hash), uuid_buf);
         uuid_buf[size] = 0;
+    }
+    
+    void getSignature(const Serializable &serializable, std::vector<std::byte> &v)
+    {
+        std::vector<std::byte> bytes;
+        serializable.serialize(bytes);
+        // calculate hash from bytes as a signature
+        db0::serial::sha256(bytes, v);
     }
 
 }

@@ -19,7 +19,7 @@ namespace db0::python
 
     extern PyTypeObject PyObjectIteratorType;
     extern PyTypeObject PyTypedObjectIteratorType;
-
+    
     /**
      * db0.find implementation
      * returns either PyObjectIterator or PyTypedObjectIterator

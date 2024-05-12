@@ -142,4 +142,11 @@ namespace db0::serial
         sha256_final(ctx, hash);
     }
 
+    void sha256(const std::vector<std::byte> &message, std::vector<std::byte> &output) 
+    {
+        auto index = output.size();
+        output.resize(index + 32);
+        sha256(reinterpret_cast<const std::uint8_t *>(message.data()), message.size(), output.data() + index);
+    }
+    
 }

@@ -23,6 +23,7 @@ namespace db0::serial
     {
     public:
         static constexpr std::size_t UUID_SIZE = 54;
+        static constexpr std::size_t SIGNATURE_SIZE = 32;
         virtual ~Serializable() = default;
         
         /**
@@ -36,7 +37,15 @@ namespace db0::serial
          * @param uuid_buf buffer of at least UUID_SIZE bytes
         */
         void getUUID(char *uuid_buf) const;
+
+        std::vector<std::byte> getUUID() const;
     };
+    
+    /**
+     * Get (append) the signature of a serializable
+     * this will first serialize the object and then calculate UUID
+    */
+    void getSignature(const Serializable &, std::vector<std::byte> &v);
     
     template <typename T> void write(std::vector<std::byte> &v, const T &t)
     {

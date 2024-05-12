@@ -1,6 +1,7 @@
 #include <cassert>
 #include "FT_ANDIterator.hpp"
 #include "FT_Serialization.hpp"
+#include <dbzero/core/serialization/hash.hpp>
 
 namespace db0
 
@@ -592,6 +593,20 @@ namespace db0
             result *= p_diff - (m_diff * p_diff);
         }
         return 1.0 - result;
+    }
+    
+    template <typename key_t, bool UniqueKeys>
+    void db0::FT_JoinANDIterator<key_t, UniqueKeys>::getSignature(std::vector<std::byte> &v) const 
+    {
+        // combine signatures of all joinable iterators
+        std::vector<std::byte> buf;
+        for (const auto &it: m_joinable) {
+            (*it).getSignature(buf);
+        }        
+        // sort signatures to make the order invariant
+        sortSignatures(buf);
+        // generate signature as a hash of all compound signatures
+        db0::serial::sha256(buf, v);
     }
     
 	template<typename key_t, bool UniqueKeys>

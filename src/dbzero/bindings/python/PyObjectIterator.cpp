@@ -4,6 +4,7 @@
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/core/utils/base32.hpp>
 
 namespace db0::python
 
@@ -73,9 +74,20 @@ namespace db0::python
         return PyFloat_FromDouble(diff);
     }
     
+    PyObject *PyObjectIterator_signature(PyObject *self, PyObject*)
+    {
+        const auto &iter = reinterpret_cast<PyObjectIterator*>(self)->ext();
+        auto signature = iter.getSignature();
+        // encode as base32
+        std::vector<char> result_buf(signature.size() * 2);
+        auto size = db0::base32_encode(reinterpret_cast<std::uint8_t*>(signature.data()), signature.size(), result_buf.data());
+        return PyUnicode_FromStringAndSize(result_buf.data(), size);        
+    }
+    
     static PyMethodDef PyObjectIterator_methods[] = 
     {
         {"compare", (PyCFunction)PyObjectIterator_compare, METH_FASTCALL, "Compare two iterators"},
+        {"signature", (PyCFunction)PyObjectIterator_signature, METH_NOARGS, "Get the signature of the query"},
         {NULL}
     };
     

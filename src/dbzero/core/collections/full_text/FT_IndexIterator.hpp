@@ -80,6 +80,8 @@ namespace db0
 	    std::size_t getDepth() const override;
 
 		FTIteratorType getSerialTypeId() const override;
+
+		void getSignature(std::vector<std::byte> &) const override;
 			
     protected:
         bindex_t m_data;
@@ -329,6 +331,12 @@ namespace db0
 		}
 		
 		return (m_data.getAddress() == other.m_data.getAddress()) ? 0.0 : 1.0;
+	}
+	
+	template <typename bindex_t, typename key_t>
+	void FT_IndexIterator<bindex_t, key_t>::getSignature(std::vector<std::byte> &v) const {
+		// get the serializable's signature
+		db0::serial::getSignature(*this, v);
 	}
 
 } 

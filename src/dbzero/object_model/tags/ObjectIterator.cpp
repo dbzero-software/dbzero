@@ -200,4 +200,14 @@ namespace db0::object_model
         return m_iterator_ptr->compareTo(*other.m_iterator_ptr);
     }
 
+    std::vector<std::byte> ObjectIterator::getSignature() const
+    {
+        if (isNull()) {
+            return {};
+        }
+        std::vector<std::byte> result;
+        m_iterator_ptr->getSignature(result);
+        return result;
+    }
+
 }

@@ -95,16 +95,18 @@ namespace db0
         bool findBy(const std::function<bool(const FT_Iterator<key_t> &)> &f) const override;
 
         std::pair<bool, bool> mutateInner(const MutateFunction &f) override;
-
+        
         virtual void detach();
 
         FTIteratorType getSerialTypeId() const override;
         
         double compareToImpl(const FT_IteratorBase &it) const override;
         
+        void getSignature(std::vector<std::byte> &) const override;
+
         static std::unique_ptr<FT_Iterator<key_t> > deserialize(Snapshot &workspace,
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
-        
+                
     protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
                 
