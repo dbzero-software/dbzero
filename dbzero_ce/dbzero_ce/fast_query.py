@@ -59,22 +59,18 @@ class FastQueryCache:
         
         # if the result with an identical uuid is found, return it
         if query.uuid in results:
-            # FIXME: log
-            print("Found result in cache - same UUID")
-            state_num, _, result = results[query.uuid]
-            # FIXME: log
-            print(f"Found result from state: {state_num}")
-            return (state_num, result)
+            cached_result = results[query.uuid]
+            return (cached_result[0], cached_result[2])
         
         # from the remaining results, pick the closest one
         min_diff = 1.0
         min_result = None
-        for _, item in results.items():
-            state_num, bytes, result = item
-            diff = query.compare(bytes)
+        for cached_result in results.values():            
+            # FIXME: change to tuple unpack when fixed by Adrian
+            diff = query.compare(cached_result[1])
             if diff < min_diff:
                 min_diff = diff
-                min_result = (state_num, result)
+                min_result = (cached_result[0], cached_result[2])
         
         # return result of the closest query on condition it's sufficiently close
         return min_result if min_diff < 0.33 else None
@@ -140,15 +136,11 @@ def group_by(key_func, query) -> Dict:
     cache = FastQueryCache()
     query = FastQuery(query)
     last_result = cache.find_result(query)
-    # FIXME: log
-    print("Last result", last_result)
     query_eval = GroupByEval(key_func, last_result[1] if last_result is not None else None)
     if last_result is None:
         # evaluate full query
         query_eval.add(query.rows)
     else:
-        # FIXME: log
-        print("Before rebase")
         # evaluate deltas
         old_query = query.rebase(db0.snapshot(last_result[0]))
         # insertions since last result

@@ -260,3 +260,24 @@ def test_dict_insert_mixed_types(db0_fixture):
 #         assert key in [1, 2]
 #         assert item[0] in [1, 2]
 #         assert item[1] in ["first", "second"]
+
+
+def test_dict_values(db0_fixture):
+    my_dict = db0.dict()
+    my_dict[1] = (1, "first")
+    my_dict[2] = (2, "second")
+    count = 0
+    for value in my_dict.values():        
+        assert value[0] in [1, 2]
+        assert value[1] in ["first", "second"]
+        count += 1
+    assert count == 2
+
+
+# def test_unpack_tuple_element(db0_fixture):
+#     my_dict = db0.dict()
+#     my_dict[1] = (1, b"bytes", "first")    
+#     a, b, c = my_dict[1]
+#     assert a == 1
+#     assert b == b"bytes"
+#     assert c == "first"
