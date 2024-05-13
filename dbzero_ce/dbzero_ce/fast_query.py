@@ -1,45 +1,93 @@
 # This is an experimental version of a possible Query Engine
 # implementation for DBZero
-
 import dbzero_ce as db0
 from typing import Dict
 
 
 class FastQuery:
-    def __init__(self, query, uuid = None):
+    def __init__(self, query, uuid = None, sig = None, bytes = None):
         self.__query = query
-        self.__uuid = uuid if uuid is not None else db0.uuid(query.as_runnable())
+        self.__uuid= uuid
+        self.__sig = sig        
+        self.__bytes = bytes
     
     # rebase to a different snapshot
     def rebase(self, snapshot):
-        return FastQuery(snapshot.deserialize(db0.serialize(self.__query)), self.__uuid)
+        return FastQuery(snapshot.deserialize(db0.serialize(self.__query)), self.__uuid, self.__sig, self.__bytes)
 
     @property
     def uuid(self):
+        if self.__uuid is None:
+            self.__uuid = db0.uuid(self.__query)
         return self.__uuid
     
     @property
+    def signature(self):
+        if self.__sig is None:
+            self.__sig = self.__query.signature()
+        return self.__sig
+
+    @property
     def rows(self):
         return self.__query
+    
+    def compare(self, bytes):
+        # compare this query to bytes (serialized query)
+        return self.__query.compare(db0.deserialize(bytes))
 
+    @property
+    def bytes(self):
+        if self.__bytes is None:
+            self.__bytes = db0.serialize(self.__query)
+        return self.__bytes
+    
 
 @db0.memo(singleton=True)
 class FastQueryCache:
     def __init__(self):
-        # query UUID / (state number, last result)
-        self.__last_results = {}
+        # queries by signature
+        self.__cache = {}
     
-    def get_last_result(self, query: FastQuery):
+    def find_result(self, query: FastQuery):
         """
         Retrieves the latest known snapshot storing query result
-        """        
-        return self.__last_results.get(query.uuid, None)
-
+        """
+        # identify queries with the same signature first
+        results = self.__cache.get(query.signature, None)
+        if results is None:
+            return None
+        
+        # if the result with an identical uuid is found, return it
+        if query.uuid in results:
+            # FIXME: log
+            print("Found result in cache - same UUID")
+            state_num, _, result = results[query.uuid]
+            # FIXME: log
+            print(f"Found result from state: {state_num}")
+            return (state_num, result)
+        
+        # from the remaining results, pick the closest one
+        min_diff = 1.0
+        min_result = None
+        for _, item in results.items():
+            state_num, bytes, result = item
+            diff = query.compare(bytes)
+            if diff < min_diff:
+                min_diff = diff
+                min_result = (state_num, result)
+        
+        # return result of the closest query on condition it's sufficiently close
+        return min_result if min_diff < 0.33 else None
+    
     def update(self, query: FastQuery, result):
         """
         Updates the cache with the latest query result
         """
-        self.__last_results[query.uuid] = (db0.get_state_num(), result)
+        if query.signature not in self.__cache:
+            self.__cache[query.signature] = {}
+        
+        results = self.__cache[query.signature]
+        results[query.uuid] = (db0.get_state_num(), query.bytes, result)
     
 
 @db0.memo
@@ -52,10 +100,10 @@ class GroupByBucket:
     
     def remove(self, row):
         self.__count -= 1
-        
+      
     def count(self):
         return self.__count
-        
+    
     
 class GroupByEval:
     def __init__(self, key_func, data = None):
@@ -86,22 +134,26 @@ def group_by(key_func, query) -> Dict:
     """
     Group by the query results by the given key
     """
-    def diff(start, end):
+    def delta(start, end):
         return db0.find(end.rows, db0.no(start.rows))
     
     cache = FastQueryCache()
     query = FastQuery(query)
-    last_result = cache.get_last_result(query)
+    last_result = cache.find_result(query)
+    # FIXME: log
+    print("Last result", last_result)
     query_eval = GroupByEval(key_func, last_result[1] if last_result is not None else None)
     if last_result is None:
         # evaluate full query
         query_eval.add(query.rows)
     else:
+        # FIXME: log
+        print("Before rebase")
         # evaluate deltas
         old_query = query.rebase(db0.snapshot(last_result[0]))
         # insertions since last result
-        query_eval.add(diff(old_query, query))
-        query_eval.remove(diff(query, old_query))
+        query_eval.add(delta(old_query, query))
+        query_eval.remove(delta(query, old_query))
 
     result = query_eval.collect()
     cache.update(query, result)

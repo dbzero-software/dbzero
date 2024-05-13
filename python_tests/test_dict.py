@@ -249,3 +249,14 @@ def test_dict_insert_mixed_types(db0_fixture):
     my_dict["abc"] = (123, { "a": MemoTestClass("abc"), "b": MemoTestClass("def") })
     my_dict["def"] = (123, { "a": MemoTestClass("abc"), "b": MemoTestClass("def") })
     assert len(my_dict) == 2
+    
+
+# FIXME: test blocked due to problem in dict.items() implementation
+# def test_dict_with_tuples_as_values(db0_fixture):
+#     my_dict = db0.dict()
+#     my_dict[1] = (1, "first")
+#     my_dict[2] = (2, "second")
+#     for key, item in my_dict.items():
+#         assert key in [1, 2]
+#         assert item[0] in [1, 2]
+#         assert item[1] in ["first", "second"]
