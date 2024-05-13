@@ -65,7 +65,7 @@ class FastQueryCache:
         # from the remaining results, pick the closest one
         min_diff = 1.0
         min_result = None
-        for cached_result in results.values():            
+        for cached_result in results.values():
             # FIXME: change to tuple unpack when fixed by Adrian
             diff = query.compare(cached_result[1])
             if diff < min_diff:
