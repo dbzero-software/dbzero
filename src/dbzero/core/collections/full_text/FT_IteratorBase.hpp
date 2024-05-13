@@ -5,17 +5,21 @@
 #include <typeinfo>
 #include <limits>
 #include <memory>
+#include <vector>
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
 {
-
+    
     /**
      * Base class for all derived DBZero full-text inverted index iterators
      */
     class FT_IteratorBase
     {
     public:
+        static constexpr std::size_t SIGNATURE_SIZE = db0::serial::Serializable::SIGNATURE_SIZE;
+
         virtual ~FT_IteratorBase() = default;
 
 		/**
@@ -61,6 +65,36 @@ namespace db0
          * NOTICE: default implementation for simple iterators provided
          */
         virtual const FT_IteratorBase *find(const FT_IteratorBase &it) const;
-    };
+        
+        /**
+         * Returns "false" by default, should be overridden by simple iterator implementations
+         * such as single-tag iterators
+         * @return flag indicating if this is a simple iterator (i.e. the iterator which may represent parameter value)
+        */
+        virtual bool isSimple() const;
+        
+        /**
+         * Measure similarity between the 2 query iterators
+         * @retrun 0.0 if the iterators are identical, 1.0 if they are completely different
+        */
+        virtual double compareTo(const FT_IteratorBase &it) const;
+        
+        /**
+         * Get (append) query iterator's signature for fast similarity lookup
+         * each signature has a size of SIGNATURE_SIZE
+        */
+        virtual void getSignature(std::vector<std::byte> &) const = 0;
 
+        std::vector<std::byte> getSignature() const;
+
+    protected:
+        virtual double compareToImpl(const FT_IteratorBase &it) const = 0;
+    };
+    
+    /**
+     * Sort signatures stored in a vector
+    */
+    void sortSignatures(std::vector<std::byte> &);
+    void sortSignatures(std::byte *begin, std::byte *end);
+    
 }

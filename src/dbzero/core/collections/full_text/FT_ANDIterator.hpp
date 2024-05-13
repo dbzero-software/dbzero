@@ -95,17 +95,21 @@ namespace db0
         bool findBy(const std::function<bool(const FT_Iterator<key_t> &)> &f) const override;
 
         std::pair<bool, bool> mutateInner(const MutateFunction &f) override;
-
+        
         virtual void detach();
 
         FTIteratorType getSerialTypeId() const override;
+        
+        double compareToImpl(const FT_IteratorBase &it) const override;
+        
+        void getSignature(std::vector<std::byte> &) const override;
 
         static std::unique_ptr<FT_Iterator<key_t> > deserialize(Snapshot &workspace,
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
-
+                
     protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
-        
+                
 	private:
 		int m_direction;
 		mutable std::list<std::unique_ptr<FT_Iterator<key_t> > > m_joinable;
@@ -125,8 +129,11 @@ namespace db0
 		struct tag_cloned {};
 		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&, int direction, bool is_end,
 		    key_t join_key, tag_cloned);
+        
+        // compare to other AND iterator
+        double compareTo(const FT_JoinANDIterator &it) const;
 	};
-
+    
     template <typename key_t = std::uint64_t, bool UniqueKeys = true>
     class FT_ANDIteratorFactory: public FT_IteratorFactory<key_t>
     {

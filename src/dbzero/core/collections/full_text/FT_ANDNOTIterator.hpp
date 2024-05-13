@@ -11,7 +11,7 @@ namespace db0
     
     /**
      * This iterator type performs difference on sets, returning elements which are
-     * present in value set of first iterator, but aren't in other iterators.
+     * present in value set of first iterator, but aren't in ANY of the other iterators.
      * Example:
      * 0: 1, 2, 3, 4, 5, 6
      * 1: 2, 7, 8
@@ -92,7 +92,9 @@ namespace db0
 
         virtual void detach();
 
-        FTIteratorType getSerialTypeId() const override;
+        FTIteratorType getSerialTypeId() const override;        
+        
+        void getSignature(std::vector<std::byte> &) const override;
         
         static std::unique_ptr<FT_ANDNOTIterator<key_t>> deserialize(Snapshot &workspace, 
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
@@ -100,6 +102,10 @@ namespace db0
     protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
         
+        double compareToImpl(const FT_IteratorBase &it) const override;
+        
+        double compareTo(const FT_ANDNOTIterator &) const;
+
     private:
         int m_direction;
         std::vector<std::unique_ptr<FT_Iterator<key_t>>> m_joinable;

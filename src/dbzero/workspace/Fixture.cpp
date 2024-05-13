@@ -4,6 +4,7 @@
 #include <dbzero/core/utils/uuid.hpp>
 #include "GC0.hpp"
 #include "Workspace.hpp"
+#include "WorkspaceView.hpp"
 
 namespace db0
 
@@ -132,17 +133,17 @@ namespace db0
         }
     }
     
-    db0::swine_ptr<Fixture> Fixture::getSnapshot(std::optional<std::uint64_t> state_num) const
+    db0::swine_ptr<Fixture> Fixture::getSnapshot(WorkspaceView &workspace_view) const
     {
+        auto state_num = workspace_view.getStateNum();
         auto prefix_snapshot = m_prefix->getSnapshot(state_num);
         auto allocator_snapshot = std::make_shared<MetaAllocator>(
             prefix_snapshot, std::dynamic_pointer_cast<MetaAllocator>(m_allocator)->getSlabRecyclerPtr());
-        
-        auto &snapshot = const_cast<Snapshot &>(m_snapshot);
+                
         return db0::make_swine<Fixture>(
-            snapshot, m_v_object_cache.getSharedObjectList(), prefix_snapshot, allocator_snapshot
+            workspace_view, m_v_object_cache.getSharedObjectList(), prefix_snapshot, allocator_snapshot
         );
-    }
+    }    
     
     void Fixture::commit()
     {

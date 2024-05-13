@@ -9,6 +9,7 @@ namespace db0::python
     {
         {"fetch", (PyCFunction)&PySnapshot_fetch, METH_FASTCALL, "Fetch DBZero object instance by its ID or type (in case of a singleton)"},
         {"find", (PyCFunction)&PySnapshot_find, METH_FASTCALL, ""},
+        {"deserialize", (PyCFunction)&PySnapshot_deserialize, METH_FASTCALL, "Deserialize from bytes within the snapshot's context"},
         {"close", &PySnapshot_close, METH_NOARGS, "Close DBZero snapshot"},
         {"__enter__", &PySnapshot_enter, METH_NOARGS, "Enter DBZero snapshot context"},
         {"__exit__", &PySnapshot_exit, METH_VARARGS, "Exit DBZero snapshot context"},
@@ -131,7 +132,23 @@ namespace db0::python
         reinterpret_cast<PySnapshotObject*>(self)->ext().close();        
         Py_RETURN_NONE;
     }
+    
+    PyObject *PySnapshot_deserialize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "deserialize requires exactly 1 argument");
+            return NULL;
+        }
 
+        if (!PySnapshot_Check(self)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+        
+        auto &workspace = reinterpret_cast<PySnapshotObject*>(self)->ext();        
+        return runSafe(tryDeserialize, &workspace, args[0]);
+    }
+    
     PyObject *PySnapshot_close(PyObject *self, PyObject *args) {
         return runSafe(tryPySnapshot_close, self, args);
     }

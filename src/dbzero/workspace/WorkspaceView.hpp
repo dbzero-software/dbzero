@@ -17,6 +17,7 @@ namespace db0
     {
     public:
         WorkspaceView(std::shared_ptr<Workspace>, std::optional<std::uint64_t> state_num = {});
+        WorkspaceView(Workspace &, std::optional<std::uint64_t> state_num = {});
         
         db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = {}) override;
         
@@ -28,21 +29,26 @@ namespace db0
         
         void close() override;
         
+        std::optional<std::uint64_t> getStateNum() const;
+        
         /**
          * @param state_num if not provided then current state is used
          */        
         static WorkspaceView *makeNew(void *at_ptr, std::shared_ptr<Workspace>,
             std::optional<std::uint64_t> state_num = {});
         
-    private:
+    private:    
         bool m_closed = false;
         std::shared_ptr<Workspace> m_workspace;
+        Workspace *m_workspace_ptr;
         const std::optional<std::uint64_t> m_state_num;
-        const std::uint64_t m_default_uuid;
+        const std::optional<std::uint64_t> m_default_uuid;
         // fixture snapshots by UUID
         std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;
         // name to UUID mapping
         std::unordered_map<std::string, std::uint64_t> m_name_uuids;
+
+        WorkspaceView(std::shared_ptr<Workspace>, Workspace *workspace_ptr, std::optional<std::uint64_t> state_num = {});
     };
     
 }

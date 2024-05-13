@@ -55,6 +55,8 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"is_tag", (PyCFunction)&py::MemoObject_IsTag, METH_FASTCALL, "Checks if a specific Memo instance is a tag"},
     {"to_dict", (PyCFunction)&py::toDict, METH_FASTCALL, "Serialize DBZero object as a Python dict"},
     {"build_flags", &py::getBuildFlags, METH_NOARGS, "Retrieve DBZero library build flags"},
+    {"serialize", (PyCFunction)&py::pySerialize, METH_FASTCALL, "Serialize DBZero serializable instance"},
+    {"deserialize", (PyCFunction)&py::pyDeserialize, METH_FASTCALL, "Serialize DBZero serializable instance"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
@@ -70,69 +72,53 @@ static struct PyModuleDef dbzero_ce_module = {
     -1,
     DBZeroCE_Methods
 };
-
-template <typename T> bool initPyType(PyObject *mod, const char *type_name, T &PyType)
+    
+void initPyType(PyObject *mod, PyTypeObject *py_type)
 {
-    if (PyType_Ready(&PyType) < 0) {
+    std::stringstream _str;
+    _str << "Initialization of type " << py_type->tp_name << " failed";
+    if (PyType_Ready(py_type) < 0) {
         Py_DECREF(mod);
-        return false;
+        throw std::runtime_error(_str.str());
     }
     
-    Py_INCREF(&PyType);
-    if (PyModule_AddObject(mod, type_name, (PyObject *)&PyType) < 0) {
-        Py_DECREF(&PyType);
-        Py_DECREF(mod);
-        return false;
+    Py_INCREF(py_type);
+    if (PyModule_AddObject(mod, /*py_type->tp_name*/ "xxx", (PyObject *)py_type) < 0) {
+        Py_DECREF(py_type);
+        Py_DECREF(mod);    
+        throw std::runtime_error(_str.str());    
     }
-    
-    return true;
 }
 
 // Module initialization function for Python 3.x
 PyMODINIT_FUNC PyInit_dbzero_ce(void)
 {   
     auto mod = PyModule_Create(&dbzero_ce_module);
+    std::vector<PyTypeObject*> types = {
+        &py::ObjectIdType, 
+        &py::ListObjectType, 
+        &py::IndexObjectType, 
+        &py::SetObjectType, 
+        &py::TupleObjectType, 
+        &py::DictObjectType,
+        &py::PyObjectTagManagerType, 
+        &py::PySnapshotObjectType, 
+        &py::PandasBlockObjectType, 
+        &py::PandasDataFrameObjectType,         
+        &py::PyObjectIteratorType,
+        &py::PyTypedObjectIteratorType        
+    };
     
-    if (!initPyType(mod, "ObjectId", py::ObjectIdType)) {
+    // register all types
+    try {
+        for (auto py_type: types) {
+            initPyType(mod, py_type);
+        }
+    } catch (const std::exception &e) {
+        // set python error
+        PyErr_SetString(PyExc_RuntimeError, e.what());        
         return NULL;
     }
-
-    if (!initPyType(mod, "List", py::ListObjectType)) {
-        return NULL;
-    }
-
-    if (!initPyType(mod, "Index", py::IndexObjectType)) {
-        return NULL;
-    }
-
-    if (!initPyType(mod, "Set", py::SetObjectType)) {
-        return NULL;
-    }
-
-    if (!initPyType(mod, "Tuple", py::TupleObjectType)) {
-        return NULL;
-    }
-
-    if (!initPyType(mod, "Dict", py::DictObjectType)) {
-        return NULL;
-    }
-
-    if (!initPyType(mod, "Tags", py::PyObjectTagManagerType)) {
-        return NULL;
-    }
-
-    if (!initPyType(mod, "Snapshot", py::PySnapshotObjectType)) {
-        return NULL;
-    }
-
-    if (!initPyType(mod, "PandasBlock", py::PandasBlockObjectType)) {
-        return NULL;
-    }
-
-    if (!initPyType(mod, "PandasDataFrame", py::PandasDataFrameObjectType)) {
-        return NULL;
-    }
-
-
+    
     return mod;
 }

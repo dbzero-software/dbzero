@@ -204,7 +204,7 @@ namespace db0
         FixedObjectList &getSharedObjectList() const;
 
         // Get current fixture UUID
-        std::uint64_t getDefaultUUID() const;
+        std::optional<std::uint64_t> getDefaultUUID() const;
 
     private:
         FixtureCatalog m_fixture_catalog;
