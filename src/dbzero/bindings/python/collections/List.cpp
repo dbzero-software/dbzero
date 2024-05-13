@@ -1,4 +1,5 @@
 #include "List.hpp"
+#include "CollectionMethods.hpp"
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/object_model/list/ListIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -33,7 +34,7 @@ namespace db0::python
         PyObject * obj_list = (PyObject *)list_obj;
         PyObject** args = &obj_list;
         for(int i = 1; i< elems; ++i){
-            ListObject_extend(list_obj_copy, args, 1);
+            ObjectT_extend<ListObject>(list_obj_copy, args, 1);
         }
 
         return list_obj_copy;
@@ -64,21 +65,6 @@ namespace db0::python
         return list_obj->ext().getItem(PyLong_AsLong(elem)).steal();
     }
     
-    PyObject *ListObject_pop(ListObject *list_obj, PyObject *const *args, Py_ssize_t nargs)
-    {        
-        std::size_t index;
-        if (nargs == 0) {
-            index = list_obj->ext().size() -1;
-        } else if (nargs == 1) {
-            index = PyLong_AsLong(args[0]);
-        } else {
-            PyErr_SetString(PyExc_TypeError, "pop() takes zero or one argument.");
-            return NULL;
-        }
-        auto fixture = list_obj->ext().getMutableFixture();
-        return list_obj->ext().pop(fixture, index).steal();
-    }
-    
     PyObject * ListObject_clear(ListObject *list_obj)
     {
         auto fixture = list_obj->ext().getMutableFixture();
@@ -106,23 +92,6 @@ namespace db0::python
         return count;
     }
 
-    PyObject *ListObject_extend(ListObject *list_obj, PyObject *const *args, Py_ssize_t nargs)
-    {
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "extend() takes one argument.");
-            return NULL;
-        }        
-        PyObject *iterator = PyObject_GetIter(args[0]);
-        PyObject *item;
-        auto fixture = list_obj->ext().getMutableFixture();
-        while ((item = PyIter_Next(iterator))) {
-            list_obj->ext().append(fixture, item);
-            Py_DECREF(item);
-        }
-
-        Py_DECREF(iterator);
-        Py_RETURN_NONE;
-    }
 
     PyObject *ListObject_add(ListObject *list_obj_lh, ListObject *list_obj_rh)
     {
@@ -130,47 +99,17 @@ namespace db0::python
         PyObject * obj_list = (PyObject *)list_obj_rh;
         PyObject** args = &obj_list;
         ListObject * lh_copy = (ListObject *)ListObject_copy(list_obj_lh);
-        ListObject_extend(lh_copy, args, 1);
+        ObjectT_extend<ListObject>(lh_copy, args, 1);
         return lh_copy;
     }
 
-    PyObject *ListObject_index(ListObject *list_obj, PyObject *const *args, Py_ssize_t nargs)
-    {
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "index() takes one argument.");
-            return NULL;
-        }
-        auto index = PyLong_FromLong(list_obj->ext().index(args[0]));
-        return index;
-    }
 
-    PyObject *ListObject_remove(ListObject *list_obj, PyObject *const *args, Py_ssize_t nargs)
-    {
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "remove() takes one argument.");
-            return NULL;
-        }
-        auto index = list_obj->ext().index(args[0]);
-        auto fixture = list_obj->ext().getMutableFixture();
-        list_obj->ext().swapAndPop(fixture, {index});
-        Py_RETURN_NONE;
-    }
-    
-    int ListObject_SetItem(ListObject *list_obj, Py_ssize_t i, PyObject *value)
-    {
-        auto fixture = list_obj->ext().getMutableFixture();
-        list_obj->ext().setItem(fixture, i, value);
-        return 0;
-    }
 
-    static PySequenceMethods ListObject_sq = {
-        .sq_length = (lenfunc)ListObject_len,
-        .sq_item = (ssizeargfunc)ListObject_GetItem,
-        .sq_ass_item = (ssizeobjargproc)ListObject_SetItem
-    };
+
+    static PySequenceMethods ListObject_sq = getPySequenceMehods<ListObject>();
 
     static PyMappingMethods ListObject_mp = {
-        .mp_length = (lenfunc)ListObject_len,
+        .mp_length = (lenfunc)ObjectT_len<ListObject>,
         .mp_subscript = (binaryfunc)ListObject_GetItemSlice
     };
 
@@ -180,14 +119,14 @@ namespace db0::python
     };
     
     static PyMethodDef ListObject_methods[] = {
-        {"append", (PyCFunction)ListObject_append, METH_FASTCALL, "Append an item to the container."},
-        {"pop", (PyCFunction)ListObject_pop, METH_FASTCALL, "Removes the element at the specified position."},
+        {"append", (PyCFunction)ObjectT_append<ListObject>, METH_FASTCALL, "Append an item to the container."},
+        {"pop", (PyCFunction)ObjectT_pop<ListObject>, METH_FASTCALL, "Removes the element at the specified position."},
         {"clear", (PyCFunction)ListObject_clear, METH_FASTCALL, "Clears all items from the container."},
         {"copy", (PyCFunction)ListObject_copy, METH_FASTCALL, "Returns a copy of the list."},
         {"count", (PyCFunction)ListObject_count, METH_FASTCALL, "Returns the number of elements with the specified value."},
-        {"extend", (PyCFunction)ListObject_extend, METH_FASTCALL, "Add the elements of a list (or any iterable), to the end of the current list."},
-        {"index", (PyCFunction)ListObject_index, METH_FASTCALL, "Returns the index of the first element with the specified value."},
-        {"remove", (PyCFunction)ListObject_remove, METH_FASTCALL, "Removes first element with the specified value."},
+        {"extend", (PyCFunction)ObjectT_extend<ListObject>, METH_FASTCALL, "Add the elements of a list (or any iterable), to the end of the current list."},
+        {"index", (PyCFunction)ObjectT_index<ListObject>, METH_FASTCALL, "Returns the index of the first element with the specified value."},
+        {"remove", (PyCFunction)ObjectT_remove<ListObject>, METH_FASTCALL, "Removes first element with the specified value."},
         {NULL}
     };
 
@@ -254,25 +193,7 @@ namespace db0::python
         list_obj->ext().~List();
         Py_TYPE(list_obj)->tp_free((PyObject*)list_obj);
     }
-    
-    Py_ssize_t ListObject_len(ListObject *list_obj)
-    {
-        list_obj->ext().getFixture()->refreshIfUpdated();
-        return list_obj->ext().size();
-    }
-    
-    PyObject *ListObject_append(ListObject *list_obj, PyObject *const *args, Py_ssize_t nargs)
-    {
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "append() takes exactly one argument");
-            return NULL;
-        }
-        
-        auto fixture = list_obj->ext().getMutableFixture();
-        list_obj->ext().append(fixture, args[0]);
-        Py_RETURN_NONE;
-    }
-    
+
     ListObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if(nargs != 1 && nargs != 0) {
@@ -284,7 +205,7 @@ namespace db0::python
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
         db0::object_model::List::makeNew(&list_object->ext(), *fixture);
         if (nargs == 1) {
-            ListObject_extend(list_object, args, 1);
+            ObjectT_extend<ListObject>(list_object, args, 1);
         }
         // register newly created list with py-object cache
         (*fixture)->getLangCache().add(list_object->ext().getAddress(), list_object, true);
