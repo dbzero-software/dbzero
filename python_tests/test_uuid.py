@@ -37,3 +37,16 @@ def test_uuid_can_be_generated_for_query_object(db0_fixture):
     query = db0.find("tag1")
     assert db0.uuid(query) is not None
     assert len(db0.uuid(query)) > 40
+
+
+def test_query_uuid_is_same_between_transactions(db0_fixture):
+    objects = []
+    for i in range(10):
+        objects.append(MemoTestClass(i))
+    db0.tags(*objects).add("tag1")
+    uuid1 = db0.uuid(db0.find("tag1"))
+    assert uuid1 == db0.uuid(db0.find("tag1"))
+    db0.commit()
+    db0.tags(MemoTestClass(11)).add("tag1")
+    uuid2 = db0.uuid(db0.find("tag1"))
+    assert uuid1 == uuid2

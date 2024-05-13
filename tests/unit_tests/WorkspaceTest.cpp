@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/WorkspaceView.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 
@@ -72,6 +73,7 @@ namespace tests
 
         // perform 10 object modifications in 10 transactions, take snapshot at 7th transaction
         db0::swine_ptr<Fixture> snap;
+        std::unique_ptr<WorkspaceView> workspace_view;
         for (int i = 0; i < 10; ++i)
         {
             auto fixture = m_workspace.getFixture(prefix_name);
@@ -80,10 +82,11 @@ namespace tests
 
             if (i == 6) {
                 // take snapshot
-                snap = fixture->getSnapshot();
+                workspace_view = std::make_unique<WorkspaceView>(m_workspace, fixture->getStateNum());
+                snap = fixture->getSnapshot(*workspace_view);
             }
 
-            fixture->commit();            
+            fixture->commit();
         }
         
         // query the snapshot

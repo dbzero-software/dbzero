@@ -87,7 +87,7 @@ namespace db0::python
             // serializable's uuid            
             return runSafe(tryGetSerializableUUID, &reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext());
         }
-
+        
         /* FIXME: implement
         if (DictObject_Check(obj_ptr)) {
             return runSafe(tryGetObjectId<DictObject>, reinterpret_cast<DictObject*>(obj_ptr));

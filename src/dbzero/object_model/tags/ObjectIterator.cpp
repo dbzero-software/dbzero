@@ -141,17 +141,17 @@ namespace db0::object_model
         }
         if (m_query_iterator) {
             assert(!m_sorted_iterator && !m_factory);
-            db0::serial::write<std::uint8_t>(buf, 1);            
+            db0::serial::write<std::uint8_t>(buf, 1);
             m_query_iterator->serialize(buf);
         }
         if (m_sorted_iterator) {
             assert(!m_query_iterator && !m_factory);
-            db0::serial::write<std::uint8_t>(buf, 2);            
+            db0::serial::write<std::uint8_t>(buf, 2);
             m_sorted_iterator->serialize(buf);
         }
         if (m_factory) {
             assert(!m_query_iterator && !m_sorted_iterator);
-            db0::serial::write<std::uint8_t>(buf, 3);            
+            db0::serial::write<std::uint8_t>(buf, 3);     
             m_factory->serialize(buf);
         }
     }
@@ -186,6 +186,28 @@ namespace db0::object_model
         } else {
             THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
         }
+    }
+    
+    double ObjectIterator::compareTo(const ObjectIterator &other) const 
+    {
+        if (isNull()) {
+            return other.isNull() ? 0.0 : 1.0;
+        }
+        if (other.isNull()) {
+            return 1.0;
+        }
+        assert(m_iterator_ptr);
+        return m_iterator_ptr->compareTo(*other.m_iterator_ptr);
+    }
+
+    std::vector<std::byte> ObjectIterator::getSignature() const
+    {
+        if (isNull()) {
+            return {};
+        }
+        std::vector<std::byte> result;
+        m_iterator_ptr->getSignature(result);
+        return result;
     }
 
 }

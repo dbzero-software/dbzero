@@ -1,6 +1,7 @@
 #include <cassert>
 #include "FT_ANDIterator.hpp"
 #include "FT_Serialization.hpp"
+#include <dbzero/core/serialization/hash.hpp>
 
 namespace db0
 
@@ -530,13 +531,82 @@ namespace db0
         int direction = db0::serial::read<std::int8_t>(iter, end);
         std::uint32_t size = db0::serial::read<std::uint32_t>(iter, end);
         std::list<std::unique_ptr<FT_Iterator<key_t> > > inner_iterators;
+        bool result = true;
         for (std::uint32_t i = 0; i < size; ++i) {
-            inner_iterators.emplace_back(db0::deserializeFT_Iterator<key_t>(workspace, iter, end));
+            auto inner_it = db0::deserializeFT_Iterator<key_t>(workspace, iter, end);
+            if (inner_it) {
+                inner_iterators.emplace_back(std::move(inner_it));
+            } else {
+                // no result if any of the inner iterators does not exist
+                result = false;
+            }            
+        }
+        
+        if (!result) {
+            return nullptr;
         }
 
         return std::make_unique<FT_JoinANDIterator<key_t, UniqueKeys> >(
             std::move(inner_iterators), direction
         );
+    }
+    
+    template <typename key_t, bool UniqueKeys>
+    double db0::FT_JoinANDIterator<key_t, UniqueKeys>::compareToImpl(const FT_IteratorBase &it) const
+    {
+        if (it.typeId() == this->typeId()) {
+            return this->compareTo(reinterpret_cast<const FT_JoinANDIterator<key_t, UniqueKeys>&>(it));
+        }
+        
+        if (m_joinable.size() == 1u) {
+            return m_joinable.front()->compareTo(it);
+        }
+        // different iterators
+        return 1.0;
+    }
+    
+    template <typename key_t, bool UniqueKeys>
+    double db0::FT_JoinANDIterator<key_t, UniqueKeys>::compareTo(const FT_JoinANDIterator<key_t, UniqueKeys> &other) const
+    {
+        if (m_joinable.size() != other.m_joinable.size()) {
+            return 1.0;
+        }
+        std::list<const FT_Iterator<key_t>*> refs;
+        for (auto ref = other.m_joinable.begin(),itend = other.m_joinable.end();ref!=itend;++ref) {
+            refs.push_back((*ref).get());
+        }
+
+        // for each iterator from refs_1 pull the closest matching one from refs_2
+        double result = 1.0;
+        double p_diff = 1.0 / (double)m_joinable.size();
+        for (auto &it: m_joinable) {
+            double m_diff = std::numeric_limits<double>::max();
+            auto it_min = refs.end();
+            for (auto it2 = refs.begin(),itend = refs.end(); it2 != itend; ++it2) {
+                double d = it->compareTo(**it2);
+                if (d < m_diff) {
+                    m_diff = d;
+                    it_min = it2;
+                }
+            }
+            refs.erase(it_min);
+            result *= p_diff - (m_diff * p_diff);
+        }
+        return 1.0 - result;
+    }
+    
+    template <typename key_t, bool UniqueKeys>
+    void db0::FT_JoinANDIterator<key_t, UniqueKeys>::getSignature(std::vector<std::byte> &v) const 
+    {
+        // combine signatures of all joinable iterators
+        std::vector<std::byte> buf;
+        for (const auto &it: m_joinable) {
+            (*it).getSignature(buf);
+        }        
+        // sort signatures to make the order invariant
+        sortSignatures(buf);
+        // generate signature as a hash of all compound signatures
+        db0::serial::sha256(buf, v);
     }
     
 	template<typename key_t, bool UniqueKeys>
@@ -571,21 +641,21 @@ namespace db0
 	/**
      * Number of underlying simple joinable iterators
      */
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	std::size_t FT_ANDIteratorFactory<key_t, UniqueKeys>::size() const {
         return m_joinable.size();
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	bool FT_ANDIteratorFactory<key_t, UniqueKeys>::empty() const {
 		return m_joinable.empty();
 	}
 
-	template<typename key_t, bool UniqueKeys>
+	template <typename key_t, bool UniqueKeys>
 	void FT_ANDIteratorFactory<key_t, UniqueKeys>::clear() {
 		m_joinable.clear();
 	}
-    
+        
     template class FT_JoinANDIterator<std::uint64_t, false>;
     template class FT_JoinANDIterator<std::uint64_t, true>;
     

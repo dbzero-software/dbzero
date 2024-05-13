@@ -45,5 +45,11 @@ namespace db0
         db0::serial::write<FTIteratorType>(v, this->getSerialTypeId());
         this->serializeFTIterator(v);
     }
-
+    
+    template <typename key_t> bool FT_Iterator<key_t>::isSimple() const
+    {
+        auto type_id = this->getSerialTypeId();
+        return type_id == FTIteratorType::Index || type_id == FTIteratorType::RangeTree;        
+    }
+    
 } // dbz namespace {

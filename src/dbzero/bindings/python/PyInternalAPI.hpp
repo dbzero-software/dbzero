@@ -5,6 +5,7 @@
 #include "ObjectId.hpp"
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
+#include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
 
@@ -75,6 +76,12 @@ namespace db0::python
     */
     PyObject *findIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs);
     
+    // Convert a serializable instance to bytes
+    PyObject *trySerialize(PyObject *);
+    
+    // Construct instance from bytes within a specific snapshot's context
+    PyObject *tryDeserialize(db0::Snapshot *, PyObject *py_bytes);
+
 #ifndef NDEBUG
 
     /**

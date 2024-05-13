@@ -161,7 +161,9 @@ namespace db0
 
         virtual FTIteratorType getSerialTypeId() const = 0;
 
-	protected:
+        bool isSimple() const override;
+        
+    protected:
         virtual void serializeFTIterator(std::vector<std::byte> &) const = 0;
 	};
     

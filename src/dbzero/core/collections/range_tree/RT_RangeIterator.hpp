@@ -1,8 +1,11 @@
 #pragma once
 
+#include <optional>
 #include "RangeTree.hpp"
 #include <dbzero/core/collections/full_text/FT_IteratorBase.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
+#include <dbzero/core/serialization/Serializable.hpp>
+#include <dbzero/core/serialization/hash.hpp>
 
 namespace db0
 
@@ -40,7 +43,7 @@ namespace db0
         const std::type_info &keyTypeId() const override;
 
         const std::type_info &typeId() const override;
-
+        
         std::ostream &dump(std::ostream &os) const override;
 
         bool equal(const FT_IteratorBase &it) const override;
@@ -48,11 +51,18 @@ namespace db0
         std::unique_ptr<FT_IteratorBase> begin() const override;
         
         const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
+        
+        void getSignature(std::vector<std::byte> &) const override;
+        
+    protected:
+        double compareToImpl(const FT_IteratorBase &it) const override;
 
+        double compareTo(const RT_RangeIterator &it) const;
+        
     private:
         using ItemT = typename RT_TreeT::ItemT;
         using RT_IteratorT = typename RT_TreeT::BlockT::FT_IteratorT;
-        RT_TreeT m_tree;        
+        RT_TreeT m_tree;
         typename RT_TreeT::RangeIterator m_tree_it;
         const bool m_has_query;
         std::unique_ptr<FT_Iterator<ValueT> > m_query_it;
@@ -270,5 +280,48 @@ namespace db0
 
         return nullptr;
     }
+    
+    template <typename KeyT, typename ValueT>
+    double RT_RangeIterator<KeyT, ValueT>::compareToImpl(const FT_IteratorBase &it) const
+    {
+        if (it.typeId() == this->typeId()) {
+            return compareTo(reinterpret_cast<const self_t &>(it));
+        }
+        return 1.0;
+    }
 
+    template <typename KeyT, typename ValueT>
+    double RT_RangeIterator<KeyT, ValueT>::compareTo(const RT_RangeIterator &it) const
+    {   
+        double result = 0.0;             
+        if (m_tree.getAddress() != it.m_tree.getAddress()) {
+            return 1.0;
+        } else if (m_has_query != it.m_has_query) {
+            return 1.0;
+        } else if (m_has_query) {
+            result = m_query_it->compareTo(*it.m_query_it);
+        }
+        return result;
+    }
+    
+    template <typename KeyT, typename ValueT>
+    void RT_RangeIterator<KeyT, ValueT>::getSignature(std::vector<std::byte> &v) const
+    {
+        using TypeIdType = decltype(db0::serial::typeId<void>());
+
+        // NOTE: acutal range is not affecting the signature
+        std::vector<std::byte> bytes;
+        db0::serial::write<TypeIdType>(bytes, db0::serial::typeId<KeyT>());
+        db0::serial::write<TypeIdType>(bytes, db0::serial::typeId<ValueT>());
+        db0::serial::write<std::uint64_t>(bytes, m_tree.getMemspace().getUUID());
+        db0::serial::write(bytes, m_tree.getAddress());
+        if (m_has_query) {
+            m_query_it->getSignature(bytes);
+        }
+        db0::serial::write<bool>(bytes, m_min_inclusive);
+        db0::serial::write<bool>(bytes, m_max_inclusive);
+        // calculate signature as a hash from bytes
+        db0::serial::sha256(bytes, v);
+    }
+    
 }

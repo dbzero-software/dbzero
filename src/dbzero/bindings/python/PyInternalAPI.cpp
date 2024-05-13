@@ -14,6 +14,7 @@
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/object_model/tags/TypedObjectIterator.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/core/serialization/Serializable.hpp>
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
 
@@ -255,6 +256,50 @@ namespace db0::python
             auto iter_obj = PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
             ObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator));
             return iter_obj;
+        }
+    }
+
+    PyObject *trySerialize(PyObject *py_serializable)
+    {
+        using TypeId = db0::bindings::TypeId;
+        std::vector<std::byte> bytes;
+        auto type_id = PyToolkit::getTypeManager().getTypeId(py_serializable);
+        db0::serial::write(bytes, type_id);
+        
+        if (type_id == TypeId::OBJECT_ITERATOR) {
+            reinterpret_cast<PyObjectIterator*>(py_serializable)->ext().serialize(bytes);
+        } else {
+            THROWF(db0::InputException) << "Unsupported or non-serializable type: " 
+                << static_cast<int>(type_id) << THROWF_END;
+        }
+                
+        return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    }
+    
+    PyObject *tryDeserialize(db0::Snapshot *workspace, PyObject *py_bytes)
+    {
+        using TypeId = db0::bindings::TypeId;
+
+        if (!PyBytes_Check(py_bytes)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type (expected bytes)");
+            return NULL;
+        }
+
+        Py_ssize_t size;
+        char *data = nullptr;
+        PyBytes_AsStringAndSize(py_bytes, &data, &size);
+        // extract bytes
+        std::vector<std::byte> bytes(size);
+        std::copy(data, data + size, reinterpret_cast<char*>(bytes.data()));
+        
+        auto fixture = workspace->getCurrentFixture();
+        auto iter = bytes.cbegin(), end = bytes.cend();
+        auto type_id = db0::serial::read<TypeId>(iter, end);
+        if (type_id == TypeId::OBJECT_ITERATOR) {
+            return PyToolkit::unloadObjectIterator(fixture, iter, end);            
+        } else {
+            THROWF(db0::InputException) << "Unsupported serialized type id: " 
+                << static_cast<int>(type_id) << THROWF_END;
         }
     }
 

@@ -22,7 +22,7 @@ namespace db0
         FT_BaseIndex(mptr, VObjectCache &);
         
         virtual ~FT_BaseIndex() = default;
-
+        
         /**
          * Collect iterator associated with a specific key (e.g. tag/type)
          * @return false if no iterator collected (e.g. no such key)
@@ -30,10 +30,10 @@ namespace db0
         bool addIterator(FT_IteratorFactory<std::uint64_t> &, std::uint64_t key) const;
 
         /**
-         * @param key either tag or class identifier
+         * @param key either tag or class identifier        
         */
         std::unique_ptr<FT_Iterator<std::uint64_t> > makeIterator(std::uint64_t key, int direction = -1) const;
-
+        
         /**
          * Match all elements from the user provided sequence
          * @param key_sequence sequence of keys (e.g. tags/types)

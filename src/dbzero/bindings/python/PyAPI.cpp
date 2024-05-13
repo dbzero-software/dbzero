@@ -10,6 +10,7 @@
 #include "Memo.hpp"
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyObjectIterator.hpp"
 #include <dbzero/bindings/python/collections/List.hpp>
 #include "Memo.hpp"
 #include <dbzero/object_model/object/Object.hpp>
@@ -382,7 +383,26 @@ namespace db0::python
 #endif  
         return PyUnicode_FromString(str_flags.str().c_str());
     }
-        
+
+    PyObject *pySerialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "serialize requires exactly 1 argument");
+            return NULL;
+        }
+        return runSafe(trySerialize, args[0]);
+    }
+    
+    PyObject *pyDeserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "deserialize requires exactly 1 argument");
+            return NULL;
+        }        
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        return runSafe(tryDeserialize, &workspace, args[0]);
+    }
+    
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>() {
         return db0::object_model::StorageClass::OBJECT_REF;
     }
