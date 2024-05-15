@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <cstdint>
+#include <cstring>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>

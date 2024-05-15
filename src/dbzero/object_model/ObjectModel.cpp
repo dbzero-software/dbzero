@@ -10,6 +10,7 @@
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
 #include <dbzero/object_model/dict/Dict.hpp>
+#include <dbzero/object_model/enum/Enum.hpp>
 
 namespace db0::object_model
 
@@ -29,7 +30,7 @@ namespace db0::object_model
         return [](db0::swine_ptr<Fixture> &fixture, bool is_new)
         {
             // static GC0 bindings initialization
-            GC0::registerTypes<Class, Object, List, Block, DataFrame, Index>();
+            GC0::registerTypes<Class, Object, List, Block, DataFrame, Index, Enum>();
             auto &oc = fixture->getObjectCatalogue();
             if (is_new) {
                 // create GC0 instance first
