@@ -33,4 +33,17 @@ namespace db0::object_model
         return new (at_ptr) Enum(fixture, values);
     }
 
+    LP_String Enum::find(const char *value) const
+    {
+        assert(value);        
+        decltype(LP_String::m_value) value_id;
+        if (!m_string_pool.find(value, value_id)) {
+            THROWF(db0::InputException) << "Enum value not found: " << value;
+        }
+        if (m_values.find(value_id) == m_values.end()) {
+            THROWF(db0::InputException) << "Enum value not found: " << value;
+        }
+        return value_id;
+    }
+
 }

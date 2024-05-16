@@ -40,4 +40,29 @@ namespace tests
         workspace.close();
     }
 
+    TEST_F( EnumTest , testEnumCanFindExistingValues )
+    {
+        Workspace workspace("", {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+
+        {
+            Enum cut(fixture, {"red", "green"});
+            ASSERT_NO_THROW(cut.find("red"));
+            ASSERT_NO_THROW(cut.find("green"));            
+        }
+        workspace.close();
+    }
+
+    TEST_F( EnumTest , testEnumThrowsOnAttemptToFindNonExistingValue )
+    {
+        Workspace workspace("", {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+
+        {
+            Enum cut(fixture, {"red", "green"});
+            ASSERT_ANY_THROW(cut.find("blue"));
+        }
+        workspace.close();
+    }
+    
 }
