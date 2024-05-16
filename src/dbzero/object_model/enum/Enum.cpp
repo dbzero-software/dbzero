@@ -29,7 +29,9 @@ namespace db0::object_model
     {
     }
 
-    Enum *Enum::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, const std::vector<std::string> &values) {
+    Enum *Enum::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, const std::string &name,
+        const std::vector<std::string> &values) 
+    {
         return new (at_ptr) Enum(fixture, values);
     }
 

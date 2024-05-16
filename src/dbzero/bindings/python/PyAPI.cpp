@@ -1,5 +1,6 @@
 #include "PyAPI.hpp"
 #include "PyToolkit.hpp"
+#include "PyEnum.hpp"
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
@@ -413,6 +414,33 @@ namespace db0::python
 
     template <> db0::object_model::StorageClass getStorageClass<IndexObject>() {
         return db0::object_model::StorageClass::DB0_INDEX;
+    }
+    
+    PyObject *makeEnum(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 2) {
+            PyErr_SetString(PyExc_TypeError, "makeEnum requires exactly 2 arguments");
+            return NULL;
+        }
+
+        const char *enum_name = PyUnicode_AsUTF8(args[0]);
+        // second argument must be an array
+        if (!PyList_Check(args[1])) {
+            PyErr_SetString(PyExc_TypeError, "Second argument must be a list");
+            return NULL;
+        }
+
+        std::vector<std::string> enum_values;
+        for (Py_ssize_t i = 0; i < PyList_Size(args[1]); ++i) {
+            PyObject *py_item = PyList_GetItem(args[1], i);
+            if (!PyUnicode_Check(py_item)) {
+                PyErr_SetString(PyExc_TypeError, "List must contain only strings");
+                return NULL;
+            }
+            enum_values.push_back(PyUnicode_AsUTF8(py_item));
+        }
+
+        return runSafe(tryMakeEnum, self, enum_name, enum_values);
     }
 
 }

@@ -36,7 +36,8 @@ namespace db0::object_model
         // exception thrown if value not found
         LP_String find(const char *value) const;
 
-        static Enum *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, const std::vector<std::string> &values);
+        static Enum *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, const std::string &name,
+            const std::vector<std::string> &values);
 
     private:         
         RC_LimitedStringPool &m_string_pool;

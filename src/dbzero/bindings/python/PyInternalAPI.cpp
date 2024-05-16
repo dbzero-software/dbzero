@@ -302,5 +302,5 @@ namespace db0::python
                 << static_cast<int>(type_id) << THROWF_END;
         }
     }
-
+    
 }
