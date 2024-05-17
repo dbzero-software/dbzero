@@ -17,6 +17,7 @@
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 #include <dbzero/object_model/ObjectCatalogue.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
+#include <dbzero/core/memory/SlotAllocator.hpp>
 
 namespace db0
 

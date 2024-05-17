@@ -21,7 +21,7 @@ namespace db0
     }
     
     Fixture::Fixture(Snapshot &snapshot, FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
-        : Memspace(prefix, meta, getUUID(prefix, *meta))
+        : Memspace(prefix, std::make_shared<SlotAllocator>(meta), getUUID(prefix, *meta))
         , m_snapshot(snapshot)
         , m_UUID(*m_derived_UUID)
         , m_string_pool(openLimitedStringPool(*this, *meta))
@@ -157,9 +157,10 @@ namespace db0
     {
         auto state_num = workspace_view.getStateNum();
         auto prefix_snapshot = m_prefix->getSnapshot(state_num);
-        auto allocator_snapshot = std::make_shared<MetaAllocator>(
-            prefix_snapshot, std::dynamic_pointer_cast<MetaAllocator>(m_allocator)->getSlabRecyclerPtr());
-                
+        auto meta_allocator = std::dynamic_pointer_cast<MetaAllocator>(std::dynamic_pointer_cast<SlotAllocator>(m_allocator)->getAllocator());
+        // no need to include "slots" in the snapshot as it's read-only
+        auto allocator_snapshot = std::make_shared<MetaAllocator>(prefix_snapshot, meta_allocator->getSlabRecyclerPtr());
+        
         return db0::make_swine<Fixture>(
             workspace_view, m_v_object_cache.getSharedObjectList(), prefix_snapshot, allocator_snapshot
         );
