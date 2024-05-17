@@ -68,13 +68,11 @@ namespace db0::pools
         return T::__const_ref(ptr);
     }
     
-    template <typename T, typename AddressT> void LimitedPool<T, AddressT>::erase(AddressT address)
-    {
+    template <typename T, typename AddressT> void LimitedPool<T, AddressT>::erase(AddressT address) {
         m_memspace.getAllocator().free(address);
     }
     
-    template <typename T, typename AddressT> void LimitedPool<T, AddressT>::close()
-    {
+    template <typename T, typename AddressT> void LimitedPool<T, AddressT>::close() {
         m_memspace = {};
     }
     

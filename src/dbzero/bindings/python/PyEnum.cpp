@@ -9,14 +9,29 @@ namespace db0::python
         return reinterpret_cast<PyEnum*>(type->tp_alloc(type, 0));
     }
 
+    PyEnumValue *PyEnumValue_new(PyTypeObject *type, PyObject *, PyObject *) {
+        return reinterpret_cast<PyEnumValue*>(type->tp_alloc(type, 0));
+    }
+
     PyEnum *PyEnumDefault_new() {
         return PyEnum_new(&PyEnumType, NULL, NULL);
     }
 
-    void PyEnum_del(PyEnum* self) 
+    PyEnumValue *PyEnumValueDefault_new() {
+        return PyEnumValue_new(&PyEnumValueType, NULL, NULL);
+    }
+
+    void PyEnum_del(PyEnum* self)
     {
         // destroy associated DB0 instance
         self->ext().~Enum();
+        Py_TYPE(self)->tp_free((PyObject*)self);
+    }
+    
+    void PyEnumValue_del(PyEnumValue* self)
+    {
+        // destroy associated DB0 instance
+        self->ext().~EnumValue();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
@@ -39,8 +54,31 @@ namespace db0::python
         .tp_free = PyObject_Free,
     };
 
+    static PyMethodDef PyEnumValue_methods[] = 
+    {
+        {NULL}
+    };
+
+    PyTypeObject PyEnumValueType = {
+        PyVarObject_HEAD_INIT(NULL, 0)
+        .tp_name = "dbzero_ce.EnumValue",
+        .tp_basicsize = PyEnumValue::sizeOf(),
+        .tp_itemsize = 0,
+        .tp_dealloc = (destructor)PyEnumValue_del,
+        .tp_flags = Py_TPFLAGS_DEFAULT,
+        .tp_doc = "Enum value object",
+        .tp_methods = PyEnumValue_methods,
+        .tp_alloc = PyType_GenericAlloc,
+        .tp_new = (newfunc)PyEnumValue_new,
+        .tp_free = PyObject_Free,
+    };
+    
     bool PyEnum_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyEnumType;        
+    }
+
+    bool PyEnumValue_Check(PyObject *py_object) {
+        return Py_TYPE(py_object) == &PyEnumValueType;        
     }
 
     PyObject *tryMakeEnum(PyObject *, const std::string &enum_name, const std::vector<std::string> &enum_values)

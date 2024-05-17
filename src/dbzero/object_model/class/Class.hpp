@@ -107,8 +107,7 @@ namespace db0::object_model
         std::uint32_t findField(const char *name) const;
 
         // Get the number of fields declared in this class
-        std::size_t size() const
-        {
+        std::size_t size() const {
             return m_members.size();
         }
         

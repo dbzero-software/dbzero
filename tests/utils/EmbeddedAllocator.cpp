@@ -5,7 +5,7 @@ namespace db0
 
 {
 
-    std::optional<std::uint64_t> EmbeddedAllocator::tryAlloc(std::size_t size)
+    std::optional<std::uint64_t> EmbeddedAllocator::tryAlloc(std::size_t size, std::uint32_t)
     {
         auto new_address = 4096 * ++m_count;
         m_allocations[new_address] = size;

@@ -23,7 +23,7 @@ namespace db0
         */
         BitsetAllocator(BitSetT &&bitset, std::uint64_t base_addr, std::size_t alloc_size, int direction);
 
-        std::optional<std::uint64_t> tryAlloc(std::size_t size) override;
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0) override;
         
         void free(std::uint64_t address) override;
 
@@ -84,8 +84,10 @@ namespace db0
     {
     }
     
-    template <typename BitSetT> std::optional<std::uint64_t> BitsetAllocator<BitSetT>::tryAlloc(std::size_t size)
+    template <typename BitSetT> std::optional<std::uint64_t>
+    BitsetAllocator<BitSetT>::tryAlloc(std::size_t size, std::uint32_t slot_num)
     {
+        assert(slot_num == 0);
         if (size != m_alloc_size) {
             THROWF(db0::InternalException) << "Invalid alloc size requested: " << size;
         }

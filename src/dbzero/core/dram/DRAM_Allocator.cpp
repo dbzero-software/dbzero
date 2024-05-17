@@ -1,5 +1,6 @@
 #include "DRAM_Allocator.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <cassert>
 
 namespace db0
 
@@ -41,9 +42,10 @@ namespace db0
         }
         m_next_page_id = max_page_id;
     }
-
-    std::optional<std::uint64_t> DRAM_Allocator::tryAlloc(std::size_t size)
+    
+    std::optional<std::uint64_t> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num)
     {
+        assert(slot_num == 0);
         if (size != m_page_size) {
             THROWF(db0::InternalException) << "DRAM_Allocator: invalid alloc size requested (" << size << ")" << THROWF_END;
         }

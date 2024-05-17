@@ -5,8 +5,9 @@ namespace db0
 
 {
 
-    std::uint64_t Allocator::alloc(std::size_t size) {
-        auto result = tryAlloc(size);
+    std::uint64_t Allocator::alloc(std::size_t size, std::uint32_t slot_num) 
+    {
+        auto result = tryAlloc(size, slot_num);
         if (!result) {
             THROWF(InternalException) << "Allocator: out of memory" << THROWF_END;
         }

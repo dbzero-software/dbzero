@@ -14,7 +14,7 @@ namespace db0
         : m_UUID(db0::make_UUID())
     {
     }
-        
+    
     Fixture::Fixture(Workspace &workspace, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
         : Fixture(workspace, workspace.getSharedObjectList(), prefix, meta)
     {        
@@ -25,10 +25,11 @@ namespace db0
         , m_snapshot(snapshot)
         , m_UUID(*m_derived_UUID)
         , m_string_pool(openLimitedStringPool(*this, *meta))
+        , m_slot_1(openSlot(*this, *meta, 1))
         , m_object_catalogue(openObjectCatalogue(*meta))
         , m_v_object_cache(*this, shared_object_list)
     {
-    }    
+    }
     
     StringPoolT Fixture::openLimitedStringPool(Memspace &memspace, MetaAllocator &meta)
     {
@@ -36,9 +37,20 @@ namespace db0
         
         // read fixture configuration from under the 1st address
         v_fixture fixture(this->myPtr(meta.getFirstAddress()));
-        // designate one slab for a limited string pool
-        auto lsp_slab = meta.openReservedSlab(fixture->m_limited_string_pool_address, fixture->m_limited_string_pool_size);
-        return StringPoolT(Memspace(this->getPrefixPtr(), lsp_slab), memspace.myPtr(fixture->m_string_pool_ptr.getAddress()));
+        // open slot-0 for the exclusive use of the limited string pool
+        auto lsp_slot = openSlot(meta, fixture, 0);
+        return StringPoolT(Memspace(this->getPrefixPtr(), lsp_slot), memspace.myPtr(fixture->m_string_pool_ptr.getAddress()));
+    }
+
+    std::shared_ptr<SlabAllocator> Fixture::openSlot(Memspace &memspace, MetaAllocator &meta, std::uint32_t slot_id) 
+    {
+        using v_fixture = v_object<o_fixture>;        
+        v_fixture fixture(this->myPtr(meta.getFirstAddress()));
+        return openSlot(meta, fixture, slot_id);
+    }
+
+    std::shared_ptr<SlabAllocator> Fixture::openSlot(MetaAllocator &meta, const v_object<o_fixture> &fixture, std::uint32_t slot_id) {
+        return meta.openReservedSlab(fixture->m_slots[slot_id].m_address, fixture->m_slots[slot_id].m_size);
     }
     
     db0::ObjectCatalogue Fixture::openObjectCatalogue(MetaAllocator &meta)
@@ -80,13 +92,20 @@ namespace db0
             THROWF(db0::InternalException) << "Cannot initialize new fixture because the memspace is not empty";
         }
         
-        // reserve a single slab for the limited string pool
-        auto lsp_slab = meta.reserveNewSlab();
-        fixture.modify().m_limited_string_pool_address = lsp_slab->getAddress();
-        fixture.modify().m_limited_string_pool_size = lsp_slab->getSlabSize();
-        // create the string pool object
-        StringPoolT string_pool(Memspace(memspace.getPrefixPtr(), lsp_slab), memspace);
-        fixture.modify().m_string_pool_ptr = string_pool;
+        // reserve a single slab for the limited string pool (i.e. slot-0)
+        {
+            auto slot_0 = meta.reserveNewSlab();
+            fixture.modify().m_slots[0] = { slot_0->getAddress(), slot_0->getSlabSize() };
+            // create the string pool object
+            StringPoolT string_pool(Memspace(memspace.getPrefixPtr(), slot_0), memspace);
+            fixture.modify().m_string_pool_ptr = string_pool;
+        }
+
+        // create SLOT-1 (with the purpose to store Class and Enum objects)
+        {
+            auto slot_1 = meta.reserveNewSlab();
+            fixture.modify().m_slots[1] = { slot_1->getAddress(), slot_1->getSlabSize() };
+        }
 
         // create the Object Catalogue
         ObjectCatalogue object_catalogue(memspace);
@@ -103,9 +122,10 @@ namespace db0
             f(false);
         }
         m_string_pool.close();
+        m_slot_1 = nullptr;
         Memspace::close();
     }
-
+    
     bool Fixture::refresh()
     {
         assert(getAccessType() == AccessType::READ_ONLY && "Refresh only makes sense for read-only fixtures");
@@ -143,7 +163,7 @@ namespace db0
         return db0::make_swine<Fixture>(
             workspace_view, m_v_object_cache.getSharedObjectList(), prefix_snapshot, allocator_snapshot
         );
-    }    
+    }
     
     void Fixture::commit()
     {

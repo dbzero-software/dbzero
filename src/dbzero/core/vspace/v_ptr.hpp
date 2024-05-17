@@ -15,7 +15,7 @@ namespace db0
     
 {
 
-    template <typename T>
+    template <typename T, std::uint32_t SLOT_NUM = 0>
     class v_object;
 
     struct [[gnu::packed]] vso_null_t
@@ -153,7 +153,7 @@ namespace db0
     /**
      * virtual pointer to object of ContainerT
      */
-    template <typename ContainerT>
+    template <typename ContainerT, std::uint32_t SLOT_NUM = 0>
     class v_ptr : public vtypeless
     {
     public :
@@ -233,7 +233,7 @@ namespace db0
         
         static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode)
         {
-            auto address = memspace.getAllocator().alloc(size);
+            auto address = memspace.getAllocator().alloc(size, SLOT_NUM);
             // lock for create & write
             auto mem_lock = memspace.getPrefix().mapRange(
                 address, size, access_mode | AccessOptions::write | AccessOptions::create);
@@ -282,7 +282,7 @@ namespace db0
                 return ContainerT::measure();
             }
             else if constexpr(metaprog::has_fixed_header<ContainerT>::value) {
-                v_object<typename ContainerT::fixed_header_type> header(mptr{*m_memspace_ptr, m_address, AccessOptions::read});
+                v_object<typename ContainerT::fixed_header_type, SLOT_NUM> header(mptr{*m_memspace_ptr, m_address, AccessOptions::read});
                 return header.getData()->getOBaseSize();
             }
             

@@ -27,8 +27,15 @@ namespace db0
     class Snapshot;
     class Workspace;
     class WorkspaceView;
+    class SlabAllocator;
     using StringPoolT = db0::pools::RC_LimitedStringPool;
     using ObjectCatalogue = db0::object_model::ObjectCatalogue;
+
+    struct [[gnu::packed]] SlotDef
+    {
+        std::uint64_t m_address = 0;
+        std::uint64_t m_size = 0;
+    };
 
     /**
      * Fixture header placed at a fixed well-known address (e.g. 0x0)
@@ -39,9 +46,10 @@ namespace db0
         std::uint64_t m_UUID;
         // address of the Object Catalogue
         std::uint64_t m_object_catalogue_address = 0;
-        // address of the common limited string pool
-        std::uint64_t m_limited_string_pool_address = 0;
-        std::uint32_t m_limited_string_pool_size = 0;
+        // slot-0 = limited string pool
+        // slot-1 = classes and enums
+        // slot-2 ... slot-7 = reserved for future use
+        SlotDef m_slots[8];
         db0::db0_ptr<StringPoolT> m_string_pool_ptr;
 
         o_fixture();
@@ -160,7 +168,7 @@ namespace db0
          * Get read-only snapshot of the fixture's state within a specific WorkspaceView
         */
         db0::swine_ptr<Fixture> getSnapshot(WorkspaceView &) const;
-
+        
         void onUpdated();
 
         /**
@@ -177,6 +185,8 @@ namespace db0
         // and cleanup of the "hanging" references
         db0::GC0 *m_gc0_ptr = nullptr;
         StringPoolT m_string_pool;
+        // SLOT-1 with the purpose of storing Class and Enum objects
+        std::shared_ptr<SlabAllocator> m_slot_1;
         ObjectCatalogue m_object_catalogue;
         // language-specific object cache
         mutable LangCache m_lang_cache;
@@ -193,6 +203,8 @@ namespace db0
         std::atomic<bool> m_pre_commit = false;
         
         StringPoolT openLimitedStringPool(Memspace &, MetaAllocator &);
+        
+        std::shared_ptr<SlabAllocator> openSlot(Memspace &, MetaAllocator &, std::uint32_t slot_id);
 
         db0::ObjectCatalogue openObjectCatalogue(MetaAllocator &);
         
@@ -204,6 +216,8 @@ namespace db0
 
         // try commit if not closed yet
         void tryCommit();
+
+        static std::shared_ptr<SlabAllocator> openSlot(MetaAllocator &, const v_object<o_fixture> &, std::uint32_t slot_id);
 
     protected:
         friend class FixtureThread;

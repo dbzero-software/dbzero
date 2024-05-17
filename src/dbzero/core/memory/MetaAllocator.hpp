@@ -141,7 +141,7 @@ namespace db0
         using CapacityTreeT = SGB_Tree<CapacityItem, CapacityItem::CompT, CapacityItem::EqualT>;
         using SlabTreeT = SGB_Tree<SlabDef, SlabDef::CompT, SlabDef::EqualT>;
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size) override;
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0) override;
         
         void free(std::uint64_t address) override;
 

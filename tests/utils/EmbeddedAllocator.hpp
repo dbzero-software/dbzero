@@ -15,7 +15,7 @@ namespace db0
     public:
         EmbeddedAllocator() = default;
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size) override;
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t) override;
         
         void free(std::uint64_t address) override;
 
