@@ -47,9 +47,7 @@ namespace db0
         std::uint64_t m_UUID;
         // address of the Object Catalogue
         std::uint64_t m_object_catalogue_address = 0;
-        // slot-0 = limited string pool
-        // slot-1 = classes and enums
-        // slot-2 ... slot-7 = reserved for future use
+        // slot definitions
         SlotDef m_slots[8];
         db0::db0_ptr<StringPoolT> m_string_pool_ptr;
 
@@ -68,6 +66,10 @@ namespace db0
     {
     public:
         using LangCache = db0::object_model::LangCache;
+        // Limited String Pool's slot number
+        static constexpr std::uint32_t LSP_SLOT_NUM = 1;
+        // slot number for DB0 types and enums
+        static constexpr std::uint32_t TYPE_SLOT_NUM = 2;
         
         Fixture(Workspace &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
         Fixture(Snapshot &, FixedObjectList &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
@@ -186,8 +188,6 @@ namespace db0
         // and cleanup of the "hanging" references
         db0::GC0 *m_gc0_ptr = nullptr;
         StringPoolT m_string_pool;
-        // SLOT-1 with the purpose of storing Class and Enum objects
-        std::shared_ptr<SlabAllocator> m_slot_1;
         ObjectCatalogue m_object_catalogue;
         // language-specific object cache
         mutable LangCache m_lang_cache;
@@ -251,7 +251,7 @@ namespace db0
     {
         return addResourceAs<T, T>(std::forward<Args>(args)...);
     }
-        
+    
     struct FixtureLock
     {
         inline FixtureLock(const db0::swine_ptr<Fixture> &fixture)

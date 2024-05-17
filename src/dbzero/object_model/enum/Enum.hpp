@@ -5,6 +5,7 @@
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
+#include <dbzero/workspace/Fixture.hpp>
 
 namespace db0::object_model
 
@@ -22,12 +23,15 @@ namespace db0::object_model
         o_enum(Memspace &);
     };
     
-    class Enum: public db0::ObjectBase<Enum, db0::v_object<o_enum>, StorageClass::DB0_ENUM_TYPE_REF>
+    /**
+     * Note that enum types use SLOT_NUM = TYPE_SLOT_NUM
+    */
+    class Enum: public db0::ObjectBase<Enum, db0::v_object<o_enum, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_ENUM_TYPE_REF>
     {
         // GC0 specific declarations
         GC0_Declare
     public:
-        using super_t = db0::ObjectBase<Enum, db0::v_object<o_enum>, StorageClass::DB0_ENUM_TYPE_REF>;
+        using super_t = db0::ObjectBase<Enum, db0::v_object<o_enum, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_ENUM_TYPE_REF>;
         Enum(const Enum &) = delete;
         Enum(Enum &&) = delete;
         Enum(db0::swine_ptr<Fixture> &, std::uint64_t address);

@@ -10,6 +10,10 @@ namespace db0
 
 {
 
+    std::uint32_t slot_index(std::uint32_t slot_num) {
+        return slot_num - 1;
+    }
+
     o_fixture::o_fixture()
         : m_UUID(db0::make_UUID())
     {
@@ -24,33 +28,35 @@ namespace db0
         : Memspace(prefix, std::make_shared<SlotAllocator>(meta), getUUID(prefix, *meta))
         , m_snapshot(snapshot)
         , m_UUID(*m_derived_UUID)
-        , m_string_pool(openLimitedStringPool(*this, *meta))
-        , m_slot_1(openSlot(*this, *meta, 1))
+        , m_string_pool(openLimitedStringPool(*this, *meta))     
         , m_object_catalogue(openObjectCatalogue(*meta))
         , m_v_object_cache(*this, shared_object_list)
     {
+        // set-up slots with the allocator
+        std::dynamic_pointer_cast<SlotAllocator>(m_allocator)->setSlot(TYPE_SLOT_NUM, openSlot(*this, *meta, TYPE_SLOT_NUM));
     }
-    
+
     StringPoolT Fixture::openLimitedStringPool(Memspace &memspace, MetaAllocator &meta)
     {
         using v_fixture = v_object<o_fixture>;
         
         // read fixture configuration from under the 1st address
         v_fixture fixture(this->myPtr(meta.getFirstAddress()));
-        // open slot-0 for the exclusive use of the limited string pool
-        auto lsp_slot = openSlot(meta, fixture, 0);
+        // open the lsp-slot for the exclusive use of the limited string pool
+        auto lsp_slot = openSlot(meta, fixture, LSP_SLOT_NUM);
         return StringPoolT(Memspace(this->getPrefixPtr(), lsp_slot), memspace.myPtr(fixture->m_string_pool_ptr.getAddress()));
     }
-
-    std::shared_ptr<SlabAllocator> Fixture::openSlot(Memspace &memspace, MetaAllocator &meta, std::uint32_t slot_id) 
+    
+    std::shared_ptr<SlabAllocator> Fixture::openSlot(Memspace &memspace, MetaAllocator &meta, std::uint32_t slot_num) 
     {
         using v_fixture = v_object<o_fixture>;        
         v_fixture fixture(this->myPtr(meta.getFirstAddress()));
-        return openSlot(meta, fixture, slot_id);
+        return openSlot(meta, fixture, slot_num);
     }
 
-    std::shared_ptr<SlabAllocator> Fixture::openSlot(MetaAllocator &meta, const v_object<o_fixture> &fixture, std::uint32_t slot_id) {
-        return meta.openReservedSlab(fixture->m_slots[slot_id].m_address, fixture->m_slots[slot_id].m_size);
+    std::shared_ptr<SlabAllocator> Fixture::openSlot(MetaAllocator &meta, const v_object<o_fixture> &fixture, std::uint32_t slot_num) {
+        auto index = slot_index(slot_num);
+        return meta.openReservedSlab(fixture->m_slots[index].m_address, fixture->m_slots[index].m_size);
     }
     
     db0::ObjectCatalogue Fixture::openObjectCatalogue(MetaAllocator &meta)
@@ -94,17 +100,19 @@ namespace db0
         
         // reserve a single slab for the limited string pool (i.e. slot-0)
         {
-            auto slot_0 = meta.reserveNewSlab();
-            fixture.modify().m_slots[0] = { slot_0->getAddress(), slot_0->getSlabSize() };
+            auto lsp_slot = meta.reserveNewSlab();
+            auto index = slot_index(LSP_SLOT_NUM);
+            fixture.modify().m_slots[index] = { lsp_slot->getAddress(), lsp_slot->getSlabSize() };
             // create the string pool object
-            StringPoolT string_pool(Memspace(memspace.getPrefixPtr(), slot_0), memspace);
+            StringPoolT string_pool(Memspace(memspace.getPrefixPtr(), lsp_slot), memspace);
             fixture.modify().m_string_pool_ptr = string_pool;
         }
 
-        // create SLOT-1 (with the purpose to store Class and Enum objects)
+        // create type slot (with the purpose to store Class and Enum objects)
         {
-            auto slot_1 = meta.reserveNewSlab();
-            fixture.modify().m_slots[1] = { slot_1->getAddress(), slot_1->getSlabSize() };
+            auto type_slot = meta.reserveNewSlab();
+            auto index = slot_index(TYPE_SLOT_NUM);
+            fixture.modify().m_slots[index] = { type_slot->getAddress(), type_slot->getSlabSize() };
         }
 
         // create the Object Catalogue
@@ -121,8 +129,7 @@ namespace db0
         for (auto &f: m_close_handlers) {
             f(false);
         }
-        m_string_pool.close();
-        m_slot_1 = nullptr;
+        m_string_pool.close();        
         Memspace::close();
     }
     
