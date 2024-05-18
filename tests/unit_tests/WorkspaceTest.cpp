@@ -137,4 +137,18 @@ namespace tests
         ASSERT_NO_THROW(fixture->getAllocator().free(addresses.back()));
     }
 
+    TEST_F( WorkspaceTest , testAllocFromTypeSlotThenFree )
+    {
+        auto fixture = m_workspace.getFixture(prefix_name);
+        auto addr = fixture->getAllocator().alloc(100, Fixture::TYPE_SLOT_NUM);
+        ASSERT_TRUE(addr);
+        // get alloc size does not require providing slot number
+        ASSERT_EQ(fixture->getAllocator().getAllocSize(addr), 100);
+
+        // free the allocated address (no need to provide slot number here)
+        fixture->getAllocator().free(addr);
+        // make sure the address is no longer valid
+        ASSERT_ANY_THROW(fixture->getAllocator().getAllocSize(addr));
+    }
+    
 }

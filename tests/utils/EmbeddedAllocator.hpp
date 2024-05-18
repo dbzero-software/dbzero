@@ -1,6 +1,8 @@
 #pragma once
 
 #include <unordered_map>
+#include <functional>
+#include <optional>
 #include <dbzero/core/memory/Allocator.hpp>
 
 namespace db0
@@ -23,9 +25,12 @@ namespace db0
 
         void commit() override;
 
+        void setAllocCallback(std::function<void(std::size_t, std::uint32_t, std::optional<std::uint64_t>)> callback);
+
     private:
         unsigned int m_count = 0;
         std::unordered_map<std::uint64_t, std::size_t> m_allocations;
+        std::function<void(std::size_t, std::uint32_t, std::optional<std::uint64_t>)> m_alloc_callback;
     };
-
+    
 }

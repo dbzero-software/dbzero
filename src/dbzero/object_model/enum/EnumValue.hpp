@@ -13,6 +13,8 @@ namespace db0::object_model
     {
         // associated fixture UUID (for context validation purposes)
         std::uint64_t m_fixture_uuid;
+        // the associated enum's UID (i.e. its address from the dedicated address pool)
+        std::uint32_t m_enum_uid;
         LP_String m_value;
         // the string representation
         std::string m_str_repr;
@@ -20,5 +22,5 @@ namespace db0::object_model
         // get unique tag identifier (unique within its prefix)
         std::uint64_t getUID() const;
     };
-
+    
 }

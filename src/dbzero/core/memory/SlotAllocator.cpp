@@ -1,5 +1,6 @@
 #include "SlotAllocator.hpp"
 #include <cassert>
+#include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
 
@@ -13,6 +14,9 @@ namespace db0
 
     void SlotAllocator::setSlot(std::uint32_t slot_num, std::shared_ptr<Allocator> slot_allocator) 
     {
+        if (slot_num == 0) {
+            THROWF(db0::InternalException) << "slot 0 is reserved for the general allocator";
+        }
         if (slot_num >= m_slots.size()) {
             m_slots.resize(slot_num + 1);
         }
