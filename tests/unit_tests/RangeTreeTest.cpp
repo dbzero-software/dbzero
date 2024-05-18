@@ -256,7 +256,7 @@ namespace tests
         VObjectCache cache(memspace, shared_object_list);
 
         // prepare full-text index to join with
-        FT_BaseIndex ft_index(memspace, cache);
+        FT_BaseIndex<std::uint64_t> ft_index(memspace, cache);
         {
             auto batch_data = ft_index.beginBatchUpdate();
             batch_data->addTags(4, std::vector<std::uint64_t> { 1, 2, 3 });

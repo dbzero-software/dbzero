@@ -310,7 +310,7 @@ namespace db0
 		db0::serial::write<TypeIdType>(v, bindex_t::getSerialTypeId());
 		db0::serial::write<TypeIdType>(v, db0::serial::typeId<key_t>());
 		db0::serial::write(v, m_data.getMemspace().getUUID());
-		db0::serial::write<std::int8_t>(v, m_direction);			
+		db0::serial::write<std::int8_t>(v, m_direction);		
 		db0::serial::write(v, *m_index_key);
 	}
 

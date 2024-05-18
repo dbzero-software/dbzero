@@ -116,19 +116,20 @@ namespace db0::object_model
         std::vector<std::unique_ptr<QueryIterator> > &m_neg_iterators;
     };
 
-    TagIndex::TagIndex(const ClassFactory &class_factory, RC_LimitedStringPool &string_pool, db0::FT_BaseIndex &base_index)
+    TagIndex::TagIndex(const ClassFactory &class_factory,
+        RC_LimitedStringPool &string_pool, db0::FT_BaseIndex<ShortTagT> &base_index_short)
         : m_class_factory(class_factory)
         , m_string_pool(string_pool)
-        , m_base_index(base_index)
+        , m_base_index_short(base_index_short)
     {
     }
     
-    TagIndex::~TagIndex()
-    {
-        assert(m_batch_operation.empty() && "TagIndex::flush() or close() must be called before destruction");
+    TagIndex::~TagIndex() {
+        assert(m_batch_operation_short.empty() && "TagIndex::flush() or close() must be called before destruction");
     }
     
-    TagIndex::BatchOperationBuilder &TagIndex::getBatchOperation(ObjectPtr memo_ptr)
+    FT_BaseIndex<TagIndex::ShortTagT>::BatchOperationBuilder &
+    TagIndex::getBatchOperationShort(ObjectPtr memo_ptr)
     {
         auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);
         auto object_addr = memo.getAddress();
@@ -137,11 +138,11 @@ namespace db0::object_model
             m_object_cache.emplace(object_addr, memo_ptr);
         }
 
-        if (!m_batch_operation) {
-            m_batch_operation = m_base_index.beginBatchUpdate();
+        if (!m_batch_operation_short) {
+            m_batch_operation_short = m_base_index_short.beginBatchUpdate();
         }
-        m_batch_operation->setActiveValue(object_addr);
-        return m_batch_operation;
+        m_batch_operation_short->setActiveValue(object_addr);
+        return m_batch_operation_short;
     }
     
     void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
@@ -152,26 +153,26 @@ namespace db0::object_model
         }
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
-        auto &batch_operation = getBatchOperation(memo_ptr);
+        auto &batch_operation = getBatchOperationShort(memo_ptr);
         auto &type_manager = LangToolkit::getTypeManager();
         for (std::size_t i = 0; i < nargs; ++i) {
             auto type_id = type_manager.getTypeId(args[i]);
             // must check for string since it's is an iterable as well
             if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
                 batch_operation->addTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
-                    return makeTag(arg.get());
+                    return makeShortTag(arg.get());
                 }));
                 continue;
             }
 
-            batch_operation->addTag(makeTag(type_id, args[i]));
+            batch_operation->addTag(makeShortTag(type_id, args[i]));
         }
     }
     
-    void TagIndex::addTag(ObjectPtr memo_ptr, std::uint64_t tag_addr)
+    void TagIndex::addTag(ObjectPtr memo_ptr, ShortTagT tag)
     {
-        auto &batch_operation = getBatchOperation(memo_ptr);
-        batch_operation->addTags(TagPtrSequence(&tag_addr, &tag_addr + 1));
+        auto &batch_operation = getBatchOperationShort(memo_ptr);
+        batch_operation->addTags(TagPtrSequence(&tag, &tag + 1));
     }
     
     void TagIndex::removeTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
@@ -181,34 +182,34 @@ namespace db0::object_model
         }
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
-        auto &batch_operation = getBatchOperation(memo_ptr);
+        auto &batch_operation = getBatchOperationShort(memo_ptr);
         for (std::size_t i = 0; i < nargs; ++i) {
             auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
             // must check for string since it's is an iterable as well
             if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
                 batch_operation->removeTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
-                    return makeTag(arg.get());
+                    return makeShortTag(arg.get());
                 }));                    
                 continue;
             }
 
-            batch_operation->removeTag(makeTag(type_id, args[i]));
+            batch_operation->removeTag(makeShortTag(type_id, args[i]));
         }
     }
     
     void TagIndex::clear()
     {
         // Reject any pending updates
-        if (m_batch_operation) {
-            m_batch_operation.reset();
+        if (m_batch_operation_short) {
+            m_batch_operation_short.reset();
         }
-        m_base_index.clear();
+        m_base_index_short.clear();
     }
     
     void TagIndex::close()
     {
-        if (m_batch_operation) {
-            m_batch_operation.reset();
+        if (m_batch_operation_short) {
+            m_batch_operation_short.reset();
         }
         m_object_cache.clear();
     }
@@ -229,8 +230,8 @@ namespace db0::object_model
             type_manager.extractObject(it->second.get()).decRef();
         };
 
-        if (!m_batch_operation.empty()) {
-            m_batch_operation->flush(&add_tag_callback, &remove_tag_callback);
+        if (!m_batch_operation_short.empty()) {
+            m_batch_operation_short->flush(&add_tag_callback, &remove_tag_callback);
         }
 
         m_object_cache.clear();
@@ -253,7 +254,7 @@ namespace db0::object_model
                 // resolve existing DB0 type from python type and then use type as tag
                 type = m_class_factory.tryGetExistingType(lang_type);
                 if (type) {
-                    result &= m_base_index.addIterator(factory, type->getAddress());
+                    result &= m_base_index_short.addIterator(factory, type->getAddress());
                 } else {
                     // type not found implies no matching results exist
                     result = false;
@@ -295,7 +296,7 @@ namespace db0::object_model
 
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
         if (type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE) {
-            return m_base_index.addIterator(factory, makeTag(type_id, arg));
+            return m_base_index_short.addIterator(factory, makeShortTag(type_id, arg));
         }
         
         // a python iterable
@@ -371,39 +372,39 @@ namespace db0::object_model
             << " as a query" << THROWF_END;
     }
     
-    std::uint64_t TagIndex::makeTag(ObjectPtr py_arg) const
+    TagIndex::ShortTagT TagIndex::makeShortTag(ObjectPtr py_arg) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
-        return makeTag(type_id, py_arg);
+        return makeShortTag(type_id, py_arg);
     }
-
-    std::uint64_t TagIndex::makeTag(TypeId type_id, ObjectPtr py_arg) const
+    
+    TagIndex::ShortTagT TagIndex::makeShortTag(TypeId type_id, ObjectPtr py_arg) const
     {
         if (type_id == TypeId::STRING) {
-            return makeTagFromString(py_arg);
+            return makeShortTagFromString(py_arg);
         } else if (type_id == TypeId::MEMO_OBJECT) {
-            return makeTagFromMemo(py_arg);
+            return makeShortTagFromMemo(py_arg);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
-            return makeTagFromEnumValue(py_arg);
+            return makeShortTagFromEnumValue(py_arg);
         }
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
             << " as a tag" << THROWF_END;
     }
 
-    std::uint64_t TagIndex::makeTagFromString(ObjectPtr py_arg) const
+    TagIndex::ShortTagT TagIndex::makeShortTagFromString(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isString(py_arg));
         return LangToolkit::addTag(py_arg, m_string_pool);
     }
     
-    std::uint64_t TagIndex::makeTagFromMemo(ObjectPtr py_arg) const
+    TagIndex::ShortTagT TagIndex::makeShortTagFromMemo(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isMemoObject(py_arg));
         // mark the object as tag
         return LangToolkit::getTypeManager().extractObject(py_arg).asTag();
     }
     
-    std::uint64_t TagIndex::makeTagFromEnumValue(ObjectPtr py_arg) const
+    TagIndex::ShortTagT TagIndex::makeShortTagFromEnumValue(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isEnumValue(py_arg));
         return LangToolkit::getTypeManager().extractEnumValue(py_arg).getUID();

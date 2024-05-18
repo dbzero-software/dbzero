@@ -12,10 +12,11 @@ namespace db0
 {
 
     // FT_BaseIndex provides common API for managing tag/type inverted lists
-    class FT_BaseIndex: public InvertedIndex<std::uint64_t, std::uint64_t>
+    template <typename KeyT>
+    class FT_BaseIndex: public InvertedIndex<KeyT, std::uint64_t>
     {
     public:
-        using super_t = InvertedIndex<std::uint64_t, std::uint64_t>;
+        using super_t = InvertedIndex<KeyT, std::uint64_t>;
 
         FT_BaseIndex() = default;
         FT_BaseIndex(Memspace &, VObjectCache &);
@@ -27,12 +28,12 @@ namespace db0
          * Collect iterator associated with a specific key (e.g. tag/type)
          * @return false if no iterator collected (e.g. no such key)
         */
-        bool addIterator(FT_IteratorFactory<std::uint64_t> &, std::uint64_t key) const;
+        bool addIterator(FT_IteratorFactory<std::uint64_t> &, KeyT key) const;
 
         /**
          * @param key either tag or class identifier        
         */
-        std::unique_ptr<FT_Iterator<std::uint64_t> > makeIterator(std::uint64_t key, int direction = -1) const;
+        std::unique_ptr<FT_Iterator<std::uint64_t> > makeIterator(KeyT key, int direction = -1) const;
         
         /**
          * Match all elements from the user provided sequence
@@ -43,8 +44,9 @@ namespace db0
         template <typename SequenceT>
         bool beginFind(const SequenceT &key_sequence, FT_IteratorFactory<std::uint64_t> &factory, bool all) const
         {
+            using ListT = typename super_t::ListT;
             bool result = false;
-            std::vector<std::pair<std::uint64_t, const ListT*> > inverted_lists;
+            std::vector<std::pair<KeyT, const ListT*> > inverted_lists;
             for (auto key: key_sequence) {
                 auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
                 if (inverted_list_ptr) {
@@ -67,47 +69,6 @@ namespace db0
             return result;
         }
         
-        /**
-         * Match all "tags" and any of the "types" elements
-         * @return false if no matching results found, alternatively one can check !factory.empty()
-        */
-        template <typename SequenceT>
-        bool beginFindAll(const SequenceT &types, const SequenceT &tags, 
-            db0::FT_ANDIteratorFactory<std::uint64_t> &factory, db0::FT_Iterator<std::uint64_t> **type_iterator_result = nullptr) const
-        {
-            // "type" part of the query iterator
-            db0::FT_ORXIteratorFactory<std::uint64_t> type_query;
-            db0::unique_set<std::uint64_t> unique_types;
-            for (auto type: types) {
-                if (unique_types.insertUnique(type)) {
-                    // class inverted index (add class to query)
-                    auto inverted_list_ptr = this->tryGetExistingInvertedList(type);
-                    if (inverted_list_ptr) {
-                        std::unique_ptr<FT_Iterator<std::uint64_t> > it_inner(
-                            new FT_IndexIterator<ListT, std::uint64_t>(*inverted_list_ptr, -1, type));
-                        type_query.add(std::move(it_inner));
-                    }
-                }
-            }
-
-            // type part of the query does not exist
-            if (type_query.empty()) {
-                return false;
-            }
-            
-            if (!beginFindAll(tags, factory)) {
-                return false;
-            }
-
-            // bind type part
-            auto type_iterator = type_query.release(false);
-            if (type_iterator_result) {
-                *type_iterator_result = type_iterator.get();
-            }
-            factory.add(std::move(type_iterator));
-            return true;
-        }
-
         struct TimeStats
         {
             /// total commit time
@@ -125,9 +86,7 @@ namespace db0
             /// new (unique) inverted lists added
             std::uint32_t m_new_inverted_lists = 0;
             std::uint32_t m_removed_inverted_lists = 0;
-            TimeStats m_time_stats;
-            
-            friend std::ostream &operator<<(std::ostream &os, const FlushStats &stats);
+            TimeStats m_time_stats;                        
         };
         
         /**
@@ -137,7 +96,7 @@ namespace db0
         {
         protected :
             friend FT_BaseIndex;
-            using TagValueList = std::vector<std::pair<std::uint64_t, std::uint64_t> >;
+            using TagValueList = std::vector<std::pair<KeyT, std::uint64_t> >;
             
             mutable std::mutex m_mutex;
             FT_BaseIndex *m_base_index_ptr;            
@@ -165,9 +124,9 @@ namespace db0
                     m_add_set.emplace_back(tag_or_type, value);
                 }
             }
-
+            
             // Add a single tag
-            void addTag(std::uint64_t value, std::uint64_t tag)
+            void addTag(std::uint64_t value, KeyT tag)
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
@@ -180,7 +139,7 @@ namespace db0
             }
 
             // Add a single tag using the active value
-            void addTag(std::uint64_t tag) {
+            void addTag(KeyT tag) {
                 addTag(m_active_value, tag);
             }
 
@@ -194,7 +153,7 @@ namespace db0
                 }
             }
 
-            void removeTag(std::uint64_t value, std::uint64_t tag)
+            void removeTag(std::uint64_t value, KeyT tag)
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;                
@@ -206,7 +165,7 @@ namespace db0
                 removeTags(m_active_value, tags_or_types);
             }
 
-            void removeTag(std::uint64_t tag) {
+            void removeTag(KeyT tag) {
                 removeTag(m_active_value, tag);
             }
 
@@ -253,7 +212,6 @@ namespace db0
              * Flush all updates into actual object inverted indexes
              */
             using CallbackT = std::function<void(std::uint64_t)>;
-
             FlushStats flush(CallbackT *insert_callback_ptr = nullptr, CallbackT *erase_callback_ptr = nullptr);
 
             /**
@@ -280,5 +238,7 @@ namespace db0
         // currently pending batch operation (if any)
         std::weak_ptr<BatchOperation> m_batch_operation;        
     };
+
+    extern template class FT_BaseIndex<std::uint64_t>;
 
 } 

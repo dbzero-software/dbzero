@@ -95,9 +95,14 @@ namespace db0
         // get fixture by UUID
         auto fixture = snapshot.getFixture(db0::serial::read<std::uint64_t>(iter, end));        
         int direction = db0::serial::read<std::int8_t>(iter, end);
-        auto index_key = db0::serial::read<std::uint64_t>(iter, end);        
-        // use FT_Base index as the factory
-        return fixture->get<db0::FT_BaseIndex>().makeIterator(index_key, direction);
+        if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
+            auto index_key = db0::serial::read<std::uint64_t>(iter, end);
+            // use FT_Base index as the factory
+            return fixture->get<db0::FT_BaseIndex<std::uint64_t> >().makeIterator(index_key, direction);
+        } else {
+            THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id
+                << THROWF_END;
+        }
     }
     
     template <typename KeyT> std::unique_ptr<db0::IteratorFactory<KeyT> > deserializeIteratorFactory(

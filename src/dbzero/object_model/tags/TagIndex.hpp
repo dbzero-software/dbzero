@@ -27,12 +27,13 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         // full-text query iterator
         using QueryIterator = FT_Iterator<std::uint64_t>;
+        using ShortTagT = std::uint64_t;
 
-        TagIndex(const ClassFactory &, RC_LimitedStringPool &, db0::FT_BaseIndex &);
+        TagIndex(const ClassFactory &, RC_LimitedStringPool &, db0::FT_BaseIndex<ShortTagT> &);
         
         virtual ~TagIndex();
         
-        void addTag(ObjectPtr memo_ptr, std::uint64_t tag_addr);
+        void addTag(ObjectPtr memo_ptr, ShortTagT tag_addr);
 
         void addTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs);
 
@@ -64,31 +65,30 @@ namespace db0::object_model
         // Close tag index without flushing any pending updates
         void close();
 
-    private:    
-        using BatchOperationBuilder = db0::FT_BaseIndex::BatchOperationBuilder;
+    private:
         using TypeId = db0::bindings::TypeId;
 
         const ClassFactory &m_class_factory;
         RC_LimitedStringPool &m_string_pool;
-        db0::FT_BaseIndex &m_base_index;
+        db0::FT_BaseIndex<ShortTagT> &m_base_index_short;
         // Current batch-operation buffer (may not be initialized)
-        mutable BatchOperationBuilder m_batch_operation;
+        mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_operation_short;
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
         mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
-
-        BatchOperationBuilder &getBatchOperation(ObjectPtr);
+        
+        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr);
 
         /**
          * Make a tag from the provided argument (can be a string, type or a memo instance)        
         */        
-        std::uint64_t makeTag(ObjectPtr) const;
-        std::uint64_t makeTag(TypeId, ObjectPtr) const;
-        std::uint64_t makeTagFromString(ObjectPtr) const;
-        std::uint64_t makeTagFromMemo(ObjectPtr) const;
-        std::uint64_t makeTagFromEnumValue(ObjectPtr) const;
-        
+        ShortTagT makeShortTag(ObjectPtr) const;
+        ShortTagT makeShortTag(TypeId, ObjectPtr) const;
+        ShortTagT makeShortTagFromString(ObjectPtr) const;
+        ShortTagT makeShortTagFromMemo(ObjectPtr) const;
+        ShortTagT makeShortTagFromEnumValue(ObjectPtr) const;
+
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators) const;
     };
