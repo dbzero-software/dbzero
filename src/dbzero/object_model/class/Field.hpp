@@ -16,15 +16,12 @@ namespace db0::object_model
     using namespace db0;
     using namespace db0::pools;
     using ClassPtr = db0::db0_ptr<Class>;
-
+    
     struct [[gnu::packed]] o_field: public db0::o_fixed<o_field>
     {
         LP_String m_name;
-        StorageClass m_storage_class;
-        // pointer to Class associated with the StorageClass::OBJECT values
-        ClassPtr m_class_ptr = {};
-        
-        o_field(RC_LimitedStringPool &, const char *name, StorageClass, ClassPtr = {});
+
+        o_field(RC_LimitedStringPool &, const char *name);
     };
     
     using VFieldVector = db0::v_bvector<o_field>;

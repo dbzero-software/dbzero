@@ -77,17 +77,10 @@ namespace db0::object_model
         class Member
         {
         public:
-            std::string m_name;
-            StorageClass m_storage_class;
+            std::string m_name;            
             
-            Member(const char *, StorageClass, std::shared_ptr<Class> type = nullptr);
-            Member(const std::string &, StorageClass, std::shared_ptr<Class> type = nullptr);
-
-            std::shared_ptr<Class> getType(ClassFactory &) const;
-
-        private:
-            // lazy - initialized member
-            mutable std::shared_ptr<Class> m_type;
+            Member(const char *);
+            Member(const std::string &);
         };
         
         // Pull existing type (language class unknown)
@@ -103,7 +96,7 @@ namespace db0::object_model
 
         std::optional<std::string> getTypeId() const;
         
-        std::uint32_t addField(const char *name, StorageClass, std::shared_ptr<Class> type = nullptr);
+        std::uint32_t addField(const char *name);
 
         std::uint32_t findField(const char *name) const;
 

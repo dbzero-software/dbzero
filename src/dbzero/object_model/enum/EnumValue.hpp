@@ -6,7 +6,7 @@
 namespace db0::object_model
 
 {
-
+    
     using LP_String = db0::LP_String;
     
     struct EnumValue

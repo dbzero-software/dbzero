@@ -112,7 +112,8 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::PyObjectIteratorType,
         &py::PyTypedObjectIteratorType,
         &py::ByteArrayObjectType,
-        &py::PyEnumType
+        &py::PyEnumType, 
+        &py::PyEnumValueType
     };
     
     // register all types

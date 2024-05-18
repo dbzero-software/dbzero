@@ -1,4 +1,5 @@
 #include "PyEnum.hpp"
+#include "PyInternalAPI.hpp"
 #include <dbzero/workspace/Workspace.hpp>
 
 namespace db0::python
@@ -28,6 +29,18 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
     
+    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr) 
+    {
+        auto enum_value = self->ext().get(PyUnicode_AsUTF8(attr));
+        PyEnumValue *result = PyEnumValueDefault_new();
+        result->ext() = enum_value;
+        return (PyObject *)result;
+    }
+
+    PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr) {
+        return runSafe(tryPyEnum_getattro, self, attr);
+    }
+    
     void PyEnumValue_del(PyEnumValue* self)
     {
         // destroy associated DB0 instance
@@ -46,11 +59,12 @@ namespace db0::python
         .tp_basicsize = PyEnum::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyEnum_del,
+        .tp_getattro = reinterpret_cast<getattrofunc>(PyEnum_getattro),
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "Enum object",
         .tp_methods = PyEnum_methods,
         .tp_alloc = PyType_GenericAlloc,
-        .tp_new = (newfunc)PyEnum_new,
+        .tp_new = (newfunc)PyEnum_new,        
         .tp_free = PyObject_Free,
     };
 

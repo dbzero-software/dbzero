@@ -37,12 +37,14 @@ namespace db0::bindings
         DB0_BLOCK = 105,
         DB0_PANDAS_DATAFRAME = 106,
         DB0_TAG_SET = 107,
-        DB0_INDEX = 108,        
+        DB0_INDEX = 108,
         // Pointer to self (from a DB0 Memo object or a DB0 collection)
         MEMO_SELF = 109,
+        DB0_BYTES_ARRAY = 111,
+        DB0_ENUM = 112,
+        DB0_ENUM_VALUE = 112,
         // COUNT determines size of the type operator arrays
-        COUNT = 110,
-        DB0_BYTES_ARRAY = 111,  
+        COUNT = 114,
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };

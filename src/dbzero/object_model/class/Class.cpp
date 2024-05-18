@@ -26,17 +26,13 @@ namespace db0::object_model
     {
     }
     
-    Class::Member::Member(const char *name, StorageClass storage_class, std::shared_ptr<Class> type)
+    Class::Member::Member(const char *name)
         : m_name(name)
-        , m_storage_class(storage_class)
-        , m_type(type)
     {
     }
     
-    Class::Member::Member(const std::string &name, StorageClass storage_class, std::shared_ptr<Class> type)
+    Class::Member::Member(const std::string &name)
         : m_name(name)
-        , m_storage_class(storage_class)
-        , m_type(type)
     {
     }
     
@@ -57,8 +53,7 @@ namespace db0::object_model
         refreshMemberCache();
     }
     
-    std::string Class::getName() const
-    {
+    std::string Class::getName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }   
     
@@ -70,14 +65,11 @@ namespace db0::object_model
         return getFixture()->getLimitedStringPool().fetch((*this)->m_type_id);
     }
     
-    std::uint32_t Class::addField(const char *name, StorageClass storage_class, std::shared_ptr<Class> type)
+    std::uint32_t Class::addField(const char *name)
     {
-        if (storage_class == StorageClass::OBJECT_REF && !type) {
-            THROWF(db0::InternalException) << "DBZero object reference missing a type";
-        }
         auto field_id = m_members.size();
-        m_members.emplace_back(getFixture()->getLimitedStringPool(), name, storage_class, (type?ClassPtr(*type):ClassPtr()));
-        m_member_cache.emplace_back(name, storage_class, type);
+        m_members.emplace_back(getFixture()->getLimitedStringPool(), name);
+        m_member_cache.emplace_back(name);
         m_index[name] = field_id;
         return field_id;
     }
@@ -138,13 +130,11 @@ namespace db0::object_model
         return true;
     }
     
-    bool Class::isSingleton() const
-    {
+    bool Class::isSingleton() const {
         return (*this)->m_flags[ClassOptions::SINGLETON];
     }
     
-    bool Class::isExistingSingleton() const
-    {
+    bool Class::isExistingSingleton() const {
         return isSingleton() && (*this)->m_singleton_address;
     }
     
@@ -168,18 +158,16 @@ namespace db0::object_model
         unsigned int index = m_member_cache.size();
         auto &string_pool = getFixture()->getLimitedStringPool();
         for (auto it = m_members.begin(index), end = m_members.end(); it != end; ++it, ++index) {
-            m_member_cache.emplace_back(string_pool.fetch(it->m_name), it->m_storage_class);
+            m_member_cache.emplace_back(string_pool.fetch(it->m_name));
             m_index[m_member_cache.back().m_name] = index;            
         }
     }
         
-    std::string Class::getTypeName() const
-    {
+    std::string Class::getTypeName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }
 
-    std::string Class::getModuleName() const
-    {
+    std::string Class::getModuleName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_module_name);
     }
 

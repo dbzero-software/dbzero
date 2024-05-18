@@ -13,7 +13,8 @@ namespace db0::python
     PyEnum *PyEnum_new(PyTypeObject *type, PyObject *, PyObject *);
     PyEnum *PyEnumDefault_new();
     void PyEnum_del(PyEnum* self);
-
+    PyObject *PyEnum_getattro(PyEnum *, PyObject *attr);
+    
     PyEnumValue *PyEnumValue_new(PyTypeObject *type, PyObject *, PyObject *);
     PyEnumValue *PyEnumValueDefault_new();
     void PyEnumValue_del(PyEnumValue *);

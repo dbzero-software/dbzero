@@ -5,6 +5,7 @@
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDNOTIterator.hpp>
 #include <dbzero/object_model/tags/TagSet.hpp>
+#include <dbzero/object_model/enum/EnumValue.hpp>
 #include "ObjectIterator.hpp"
 
 namespace db0::object_model
@@ -293,7 +294,7 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
 
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
-        if (type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT) {
+        if (type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE) {
             return m_base_index.addIterator(factory, makeTag(type_id, arg));
         }
         
@@ -380,9 +381,10 @@ namespace db0::object_model
     {
         if (type_id == TypeId::STRING) {
             return makeTagFromString(py_arg);
-        }
-        if (type_id == TypeId::MEMO_OBJECT) {
+        } else if (type_id == TypeId::MEMO_OBJECT) {
             return makeTagFromMemo(py_arg);
+        } else if (type_id == TypeId::DB0_ENUM_VALUE) {
+            return makeTagFromEnumValue(py_arg);
         }
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
             << " as a tag" << THROWF_END;
@@ -401,4 +403,10 @@ namespace db0::object_model
         return LangToolkit::getTypeManager().extractObject(py_arg).asTag();
     }
     
+    std::uint64_t TagIndex::makeTagFromEnumValue(ObjectPtr py_arg) const
+    {
+        assert(LangToolkit::isEnumValue(py_arg));
+        return LangToolkit::getTypeManager().extractEnumValue(py_arg).getUID();
+    }
+
 }

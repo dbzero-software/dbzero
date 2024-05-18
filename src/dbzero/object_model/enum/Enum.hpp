@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EnumValue.hpp"
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
@@ -38,7 +39,7 @@ namespace db0::object_model
         Enum(Enum &&) = delete;
         Enum(db0::swine_ptr<Fixture> &, std::uint64_t address);
         Enum(db0::swine_ptr<Fixture> &, const std::vector<std::string> &values);
-
+          
         // exception thrown if value not found
         LP_String find(const char *value) const;
 
@@ -47,11 +48,17 @@ namespace db0::object_model
 
         // Get unique 32-bit identifier
         // it's implemented as a relative address from the underlying SLOT
-        std::uint32_t getUID() const;
+        std::uint32_t getUID() const { return m_uid; }
 
-    private:         
+        EnumValue get(const char *value) const;
+
+    private:
+        const std::uint64_t m_fixture_uuid;
+        const std::uint32_t m_uid;
         RC_LimitedStringPool &m_string_pool;
         db0::v_bindex<LP_String> m_values;
+        
+        std::uint32_t fetchUID() const;
     };
     
 }

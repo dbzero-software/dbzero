@@ -17,6 +17,7 @@
 #include <dbzero/object_model/set/Set.hpp>
 #include "ObjectId.hpp"
 #include "PyObjectIterator.hpp"
+#include "PyEnum.hpp"
 
 namespace db0::python
 
@@ -262,6 +263,10 @@ namespace db0::python
 
     PyToolkit::ObjectPtr PyToolkit::getUUID(ObjectPtr py_object) {
         return db0::python::getUUID(nullptr, &py_object, 1);
+    }
+    
+    bool PyToolkit::isEnumValue(ObjectPtr py_object) {
+        return PyEnumValue_Check(py_object);
     }
 
 }

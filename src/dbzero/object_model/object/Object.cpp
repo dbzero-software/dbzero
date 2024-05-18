@@ -187,19 +187,12 @@ namespace db0::object_model
         auto fixture = initializer.getFixture();
         auto &db0_class = initializer.getClass();
         auto [type_id, storage_class] = recognizeType(*fixture, lang_value);
-        
-        auto tryGetClass = [&]() -> std::shared_ptr<Class> {
-            if (type_id == TypeId::MEMO_OBJECT) {
-                return LangToolkit::getTypeManager().extractObject(lang_value).getClassPtr();
-            }
-            return nullptr;
-        };
-        
+                
         // find already existing field index
         auto at = db0_class.findField(field_name);
         if (at == Class::NField) {
             // update class definition
-            at = db0_class.addField(field_name, storage_class, tryGetClass());
+            at = db0_class.addField(field_name);
         }
         
         // register a member with the initializer
@@ -210,20 +203,13 @@ namespace db0::object_model
     {
         assert(hasInstance());
         auto [type_id, storage_class] = recognizeType(**fixture, lang_value);
-        
-        auto tryGetClass = [&]() -> std::shared_ptr<Class> {
-            if (type_id == TypeId::MEMO_OBJECT) {
-                return LangToolkit::getTypeManager().extractObject(lang_value).getClassPtr();
-            }
-            return nullptr;
-        };
-        
+                
         assert(m_type);        
         // find already existing field index
         auto field_id = m_type->findField(field_name);
         if (field_id == Class::NField) {
             // try mutating the class first
-            field_id = m_type->addField(field_name, storage_class, tryGetClass());
+            field_id = m_type->addField(field_name);
         }
         
         // FIXME: value should be destroyed on exception
