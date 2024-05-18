@@ -21,14 +21,47 @@ namespace db0::object_model
 
     using Fixture = db0::Fixture;
     
-    struct [[gnu::packed]] o_tuple: public o_micro_array<o_typed_item>
+    struct [[gnu::packed]] o_tuple: public o_base<o_tuple, 0, false>
     {
         // common object header
         o_object_header m_header;
 
         o_tuple(std::size_t size)
-            : o_micro_array<o_typed_item>(size)
         {
+            arrangeMembers()
+            (o_micro_array<o_typed_item>::type(), size).ptr();
+        }
+
+        inline o_micro_array<o_typed_item> &items()
+        {
+            return getDynFirst(o_micro_array<o_typed_item>::type());
+        }
+
+        inline const o_micro_array<o_typed_item> &items() const
+        {
+            return getDynFirst(o_micro_array<o_typed_item>::type());
+        }
+
+        std::size_t size() const {
+            return items().size();
+        }
+        
+        std::size_t sizeOf() const{
+            return sizeOfMembers()
+            (o_micro_array<o_typed_item>::type());
+        }
+
+        static std::size_t measure(std::size_t size){
+            return measureMembers()
+            (o_micro_array<o_typed_item>::measure(size));
+        }
+
+        template <typename BufT> static std::size_t safeSizeOf(BufT buf)
+        {
+            auto start = buf;
+            auto size = o_micro_array<o_typed_item>::__const_ref(buf).size();
+            buf += o_micro_array<o_typed_item>::safeSizeOf(buf);
+            return buf - start;
         }
     };
 
@@ -49,7 +82,7 @@ namespace db0::object_model
         static Tuple *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
         size_t count(ObjectPtr lang_value);
         size_t index(ObjectPtr lang_value);
-
+        size_t size() const;
         // operators
         bool operator==(const Tuple &) const;
         bool operator!=(const Tuple &) const;
@@ -59,7 +92,6 @@ namespace db0::object_model
         const o_typed_item * begin();
         
         const o_typed_item * end();
-
     private:
         // new Tuples can only be created via factory members
         Tuple(std::size_t size, db0::swine_ptr<Fixture> &);

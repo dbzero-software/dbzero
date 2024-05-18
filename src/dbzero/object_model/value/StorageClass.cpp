@@ -95,6 +95,7 @@ namespace std
             case StorageClass::DB0_SET: return os << "DB0_SET";
             case StorageClass::DB0_TUPLE: return os << "DB0_TUPLE";
             case StorageClass::STR64: return os << "STR64";
+            case StorageClass::DB0_BYTES: return os << "BYTES";
             case StorageClass::INVALID: return os << "INVALID";
             default: return os << "ERROR!";
         }

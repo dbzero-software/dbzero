@@ -16,7 +16,7 @@ namespace db0::object_model
     }
     
     bool TupleIterator::is_end() {
-        return m_iterator == m_collection->getData()->end();
+        return m_iterator == m_collection->getData()->items().end();
     }
     
 }

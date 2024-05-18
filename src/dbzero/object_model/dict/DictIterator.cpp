@@ -45,17 +45,8 @@ namespace db0::object_model
             }
 
             case ITEMS: {
-                throw std::runtime_error("Not implemented");
+                return PyTuple_Pack(2, item.key.get(), item.value.get());
             }
-                /* FIXME: this code should return Python tuple - no dbzero mutation:
-
-                auto *tuple_object = db0::python::TupleObject_new(&db0::python::TupleObjectType, NULL, NULL);
-                auto fixture = db0::python::PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-                db0::object_model::Tuple::makeNew(&tuple_object->ext(), *fixture, 2);
-                tuple_object->ext().setItem(0, item.key.get());
-                tuple_object->ext().setItem(1, item.value.get());    
-                return tuple_object;
-                */
         }
         return item.key;
     }
