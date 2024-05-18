@@ -639,8 +639,7 @@ namespace db0
         return 0;
     }
     
-    void CRDT_Allocator::commit()
-    {        
+    void CRDT_Allocator::commit() {
         m_cache->clear();
     }
 

@@ -48,5 +48,13 @@ namespace db0
         assert(slot_num < m_slots.size() && m_slots[slot_num]);
         return *m_slots[slot_num];
     }
+    
+    const Allocator &SlotAllocator::getSlot(std::uint32_t slot_num) const 
+    {
+        if (slot_num >= m_slots.size() || !m_slots[slot_num]) {
+            THROWF(db0::InternalException) << "slot " << slot_num << " not found";
+        }
+        return *m_slots[slot_num];
+    }
 
 }

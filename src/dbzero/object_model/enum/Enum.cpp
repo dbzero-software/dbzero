@@ -47,5 +47,10 @@ namespace db0::object_model
         }
         return value_id;
     }
-
+    
+    std::uint32_t Enum::getUID() const {
+        // return UID as relative address from the underlying SLOT
+        return this->getFixture()->makeRelative(this->getAddress(), SLOT_NUM);
+    }
+    
 }

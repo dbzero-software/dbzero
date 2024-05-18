@@ -27,13 +27,15 @@ namespace db0
     Fixture::Fixture(Snapshot &snapshot, FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
         : Memspace(prefix, std::make_shared<SlotAllocator>(meta), getUUID(prefix, *meta))
         , m_snapshot(snapshot)
+        , m_slot_allocator(reinterpret_cast<SlotAllocator&>(*m_allocator))
+        , m_meta_allocator(reinterpret_cast<MetaAllocator&>(*m_slot_allocator.getAllocator()))        
         , m_UUID(*m_derived_UUID)
-        , m_string_pool(openLimitedStringPool(*this, *meta))     
+        , m_string_pool(openLimitedStringPool(*this, *meta))
         , m_object_catalogue(openObjectCatalogue(*meta))
         , m_v_object_cache(*this, shared_object_list)
     {
         // set-up slots with the allocator
-        std::dynamic_pointer_cast<SlotAllocator>(m_allocator)->setSlot(TYPE_SLOT_NUM, openSlot(*this, *meta, TYPE_SLOT_NUM));
+        m_slot_allocator.setSlot(TYPE_SLOT_NUM, openSlot(*this, *meta, TYPE_SLOT_NUM));
     }
 
     StringPoolT Fixture::openLimitedStringPool(Memspace &memspace, MetaAllocator &meta)
@@ -164,10 +166,7 @@ namespace db0
     {
         auto state_num = workspace_view.getStateNum();
         auto prefix_snapshot = m_prefix->getSnapshot(state_num);
-        auto meta_allocator = std::dynamic_pointer_cast<MetaAllocator>(std::dynamic_pointer_cast<SlotAllocator>(m_allocator)->getAllocator());
-        // no need to include "slots" in the snapshot as it's read-only
-        auto allocator_snapshot = std::make_shared<MetaAllocator>(prefix_snapshot, meta_allocator->getSlabRecyclerPtr());
-        
+        auto allocator_snapshot = std::make_shared<MetaAllocator>(prefix_snapshot, m_meta_allocator.getSlabRecyclerPtr());        
         return db0::make_swine<Fixture>(
             workspace_view, m_v_object_cache.getSharedObjectList(), prefix_snapshot, allocator_snapshot
         );
@@ -236,6 +235,12 @@ namespace db0
     
     Snapshot &Fixture::getWorkspace() {
         return m_snapshot;
+    }
+
+    std::uint64_t Fixture::makeRelative(std::uint64_t address, std::uint32_t slot_num) const
+    {
+        auto &slab = reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num));
+        return slab.makeRelative(address);
     }
     
 }

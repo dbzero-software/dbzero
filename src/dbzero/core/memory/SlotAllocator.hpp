@@ -30,6 +30,8 @@ namespace db0
         
         std::shared_ptr<Allocator> getAllocator() const { return m_allocator; }
 
+        const Allocator &getSlot(std::uint32_t slot_num) const;
+
     private:
         std::shared_ptr<Allocator> m_allocator;
         Allocator *m_allocator_ptr;

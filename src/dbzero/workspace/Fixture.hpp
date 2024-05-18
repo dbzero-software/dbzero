@@ -181,8 +181,14 @@ namespace db0
 
         Snapshot &getWorkspace();
 
-    private:                
+        // Converts address from a specific slot to relative one
+        std::uint64_t makeRelative(std::uint64_t address, std::uint32_t slot_num) const;
+
+    private:
         Snapshot &m_snapshot;
+        // Underlying allocator's convenience references
+        SlotAllocator &m_slot_allocator;
+        MetaAllocator &m_meta_allocator;
         const std::uint64_t m_UUID;
         // the registry holds active v_ptr instances (important for refresh)
         // and cleanup of the "hanging" references
