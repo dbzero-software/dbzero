@@ -30,7 +30,7 @@ namespace db0::object_model
         if (i >= getData()->size()) {
             THROWF(db0::InputException) << "Index out of range: " << i;
         }
-        auto [storage_class, value] = (*getData())[i];
+        auto [storage_class, value] = getData()->items()[i];
         auto fixture = this->getFixture();
         return unloadMember<LangToolkit>(fixture, storage_class, value);
     }
@@ -44,7 +44,7 @@ namespace db0::object_model
         // recognize type ID from language specific object
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
-        modify()[i] = createTupleItem<LangToolkit>(*fixture, type_id, lang_value, storage_class);
+        modify().items()[i] = createTupleItem<LangToolkit>(*fixture, type_id, lang_value, storage_class);
     }
     
     Tuple *Tuple::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::size_t size)
@@ -61,7 +61,7 @@ namespace db0::object_model
     {
         std::size_t count = 0;
         auto fixture = this->getFixture();
-        for (auto &elem: this->const_ref()){
+        for (auto &elem: this->const_ref().items()){
             auto [elem_storage_class, elem_value] = elem;
             if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
                 count += 1;
@@ -74,7 +74,7 @@ namespace db0::object_model
     {
         std::size_t index = 0;
         auto fixture = this->getFixture();
-        for (auto &elem: this->const_ref()){
+        for (auto &elem: this->const_ref().items()){
             auto [elem_storage_class, elem_value] = elem;
             if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
                 return index;
@@ -83,6 +83,11 @@ namespace db0::object_model
         }
         THROWF(db0::InputException) << "Item is not in a list ";
         return -1;
+    }
+
+    size_t Tuple::size() const
+    {
+        return getData()->size();
     }
 
     bool Tuple::operator==(const Tuple &tuple) const {
@@ -98,10 +103,10 @@ namespace db0::object_model
     }
 
     const o_typed_item *Tuple::begin() {
-        return this->getData()->begin();
+        return this->getData()->items().begin();
     }
 
     const o_typed_item *Tuple::end() {
-        return this->getData()->end();
+        return this->getData()->items().end();
     }
 }
