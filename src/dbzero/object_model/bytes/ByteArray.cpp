@@ -2,7 +2,10 @@
 #include <dbzero/object_model/value/TypeUtils.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 
-namespace db0::object_model {
+namespace db0::object_model 
+
+{
+
     GC0_Define(ByteArray)
 
     ByteArray *ByteArray::makeNew(void *at_ptr, db0::swine_ptr<Fixture> & fixture, std::byte * bytes, std::size_t size)
@@ -112,7 +115,7 @@ namespace db0::object_model {
         return count(bytes, size);
     }
 
-     bool ByteArray::operator==(const ByteArray &bytearray) const
+    bool ByteArray::operator==(const ByteArray &bytearray) const
     {
         if (size() != bytearray.size()) {
             return false;
@@ -127,4 +130,5 @@ namespace db0::object_model {
         }
         return !(*this == bytearray);
     }
+
 }

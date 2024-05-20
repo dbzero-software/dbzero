@@ -1,12 +1,13 @@
 #pragma once
 
+#include <unordered_map>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
-#include <unordered_map>
+#include <dbzero/core/utils/num_pack.hpp>
 
 namespace db0::object_model
 
@@ -27,9 +28,13 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         // full-text query iterator
         using QueryIterator = FT_Iterator<std::uint64_t>;
+        // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
-
-        TagIndex(const ClassFactory &, RC_LimitedStringPool &, db0::FT_BaseIndex<ShortTagT> &);
+        // field-level tags are represented as long tags
+        using LongTagT = db0::num_pack<std::uint64_t, 2u>;
+        
+        TagIndex(const ClassFactory &, RC_LimitedStringPool &, db0::FT_BaseIndex<ShortTagT> &, 
+            db0::FT_BaseIndex<LongTagT> &);
         
         virtual ~TagIndex();
         
@@ -71,6 +76,7 @@ namespace db0::object_model
         const ClassFactory &m_class_factory;
         RC_LimitedStringPool &m_string_pool;
         db0::FT_BaseIndex<ShortTagT> &m_base_index_short;
+        db0::FT_BaseIndex<LongTagT> &m_base_index_long;
         // Current batch-operation buffer (may not be initialized)
         mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_operation_short;
         // A cache of language objects held until flush/close is called

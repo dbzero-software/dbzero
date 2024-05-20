@@ -7,20 +7,20 @@ namespace db0
 
 {
 
-    template <typename KeyT> 
-    FT_BaseIndex<KeyT>::FT_BaseIndex(Memspace & memspace, VObjectCache &cache)
+    template <typename IndexKeyT> 
+    FT_BaseIndex<IndexKeyT>::FT_BaseIndex(Memspace & memspace, VObjectCache &cache)
         : super_t(memspace, cache)
     {
     }
 
-    template <typename KeyT>
-    FT_BaseIndex<KeyT>::FT_BaseIndex(mptr ptr, VObjectCache &cache)
+    template <typename IndexKeyT>
+    FT_BaseIndex<IndexKeyT>::FT_BaseIndex(mptr ptr, VObjectCache &cache)
         : super_t(ptr, cache)
     {
     }
     
-    template <typename KeyT>
-    std::unique_ptr<FT_Iterator<std::uint64_t> > FT_BaseIndex<KeyT>::makeIterator(KeyT key, int direction) const
+    template <typename IndexKeyT>
+    std::unique_ptr<FT_Iterator<std::uint64_t> > FT_BaseIndex<IndexKeyT>::makeIterator(IndexKeyT key, int direction) const
     {
         using ListT = typename super_t::ListT;
         auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
@@ -28,11 +28,11 @@ namespace db0
             return nullptr;
         }
         return std::unique_ptr<FT_Iterator<std::uint64_t> >(
-            new FT_IndexIterator<ListT, std::uint64_t>(*inverted_list_ptr, direction, key));
+            new FT_IndexIterator<ListT, std::uint64_t, IndexKeyT>(*inverted_list_ptr, direction, key));
     }
     
-    template <typename KeyT>
-    bool FT_BaseIndex<KeyT>::addIterator(FT_IteratorFactory<std::uint64_t> &factory, KeyT key) const
+    template <typename IndexKeyT>
+    bool FT_BaseIndex<IndexKeyT>::addIterator(FT_IteratorFactory<std::uint64_t> &factory, IndexKeyT key) const
     {
         using ListT = typename super_t::ListT;
         auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
@@ -42,13 +42,13 @@ namespace db0
         
         // key inverted index
         factory.add(std::unique_ptr<FT_Iterator<std::uint64_t> >(
-            new FT_IndexIterator<ListT, std::uint64_t>(*inverted_list_ptr, -1, key))
+            new FT_IndexIterator<ListT, std::uint64_t, IndexKeyT>(*inverted_list_ptr, -1, key))
         );
         return true;
     }
 
-    template <typename KeyT>
-	std::shared_ptr<typename FT_BaseIndex<KeyT>::BatchOperation> FT_BaseIndex<KeyT>::getBatchOperation()
+    template <typename IndexKeyT>
+	std::shared_ptr<typename FT_BaseIndex<IndexKeyT>::BatchOperation> FT_BaseIndex<IndexKeyT>::getBatchOperation()
     {
 		// either pull existing or create new BatchOperation instance
 		progressive_mutex::scoped_lock lock(mx);
@@ -73,25 +73,25 @@ namespace db0
 		return result;
 	}
 
-    template <typename KeyT>
-	typename FT_BaseIndex<KeyT>::BatchOperationBuilder FT_BaseIndex<KeyT>::beginBatchUpdate() {
+    template <typename IndexKeyT>
+	typename FT_BaseIndex<IndexKeyT>::BatchOperationBuilder FT_BaseIndex<IndexKeyT>::beginBatchUpdate() {
 		return getBatchOperation();
 	}
 
-    template <typename KeyT>
-    FT_BaseIndex<KeyT>::BatchOperationBuilder::BatchOperationBuilder(std::shared_ptr<BatchOperation> batch_operation)
+    template <typename IndexKeyT>
+    FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::BatchOperationBuilder(std::shared_ptr<BatchOperation> batch_operation)
         : m_batch_operation(batch_operation)
     {
     }
 
-    template <typename KeyT>
-    FT_BaseIndex<KeyT>::BatchOperation::BatchOperation(FT_BaseIndex<KeyT> &base_index)
+    template <typename IndexKeyT>
+    FT_BaseIndex<IndexKeyT>::BatchOperation::BatchOperation(FT_BaseIndex<IndexKeyT> &base_index)
         : m_base_index_ptr(&base_index)        
     {
     }
 
-    template <typename KeyT>
-	FT_BaseIndex<KeyT>::BatchOperation::~BatchOperation() 
+    template <typename IndexKeyT>
+	FT_BaseIndex<IndexKeyT>::BatchOperation::~BatchOperation() 
     {
         if (m_commit_called) {
             return;
@@ -101,28 +101,28 @@ namespace db0
             "Operation not completed properly/commit or rollback should be called");
 	}
 
-    template <typename KeyT>
-	void FT_BaseIndex<KeyT>::BatchOperation::cancel() 
+    template <typename IndexKeyT>
+	void FT_BaseIndex<IndexKeyT>::BatchOperation::cancel()
     {
 		std::unique_lock<std::mutex> lock(m_mutex);
 		m_add_set.clear();
 		m_remove_set.clear();
 	}
     
-    template <typename KeyT>
-    bool FT_BaseIndex<KeyT>::BatchOperation::empty () const
+    template <typename IndexKeyT>
+    bool FT_BaseIndex<IndexKeyT>::BatchOperation::empty () const
     {
         std::unique_lock<std::mutex> lock(m_mutex);
         return m_add_set.empty() && m_remove_set.empty();
     }
 
-    template <typename KeyT>
-    typename FT_BaseIndex<KeyT>::FlushStats FT_BaseIndex<KeyT>::BatchOperation::flush(
+    template <typename IndexKeyT>
+    typename FT_BaseIndex<IndexKeyT>::FlushStats FT_BaseIndex<IndexKeyT>::BatchOperation::flush(
         std::function<void(std::uint64_t)> *insert_callback_ptr, std::function<void(std::uint64_t)> *erase_callback_ptr)
     {
         using TagRangesVector = std::vector<typename TagValueList::iterator>;
         struct GetIteratorPairFirst {
-            std::uint64_t operator()(typename TagValueList::iterator it) const {
+            IndexKeyT operator()(typename TagValueList::iterator it) const {
                 return it->first;
             }
         };
@@ -150,7 +150,7 @@ namespace db0
                 // Find ranges for all tags
                 // This vector will also effectively contain all unique tags
                 tag_ranges.emplace_back(buf_begin);
-                std::uint64_t last_tag = buf_begin->first;
+                auto last_tag = buf_begin->first;
                 for (auto it = buf_begin + 1; it != buf_end; ++it) {
                     if (it->first != last_tag) {
                         tag_ranges.emplace_back(it);
@@ -158,10 +158,10 @@ namespace db0
                     }
                 }
 
-                // Create inverted lists for tags and get corresponding iterators to them                
-                std::vector<typename FT_BaseIndex::iterator> tag_index_its = index.bulkGetInvertedList(
+                // Create inverted lists for tags and get corresponding iterators to them
+                std::vector<typename FT_BaseIndex<IndexKeyT>::iterator> tag_index_its = index.bulkGetInvertedList(
                     TagIterator(tag_ranges.begin()),
-                    TagIterator(tag_ranges.end())                    
+                    TagIterator(tag_ranges.end())
                 );
                 assert(tag_index_its.size() == tag_ranges.size());
                 // Add end iterator to avoid special case
@@ -170,7 +170,7 @@ namespace db0
                 for (std::size_t i = 0, n = tag_ranges.size() - 1; i < n; ++i) {
                     auto range_first = tag_ranges[i], range_last = tag_ranges[i + 1];
                     // Either create new or pull existing inverted list
-                    typename FT_BaseIndex<KeyT>::iterator &tag_index_it = tag_index_its[i];
+                    typename FT_BaseIndex<IndexKeyT>::iterator &tag_index_it = tag_index_its[i];
                     assert((*tag_index_it).key == range_first->first);
                     auto tag_index_ptr = index.getInvertedList(tag_index_it);
                     auto old_addr = tag_index_ptr->getAddress();
@@ -224,7 +224,7 @@ namespace db0
                         auto old_addr = tag_index_ptr->getAddress();
                         auto old_map_value = addressOfMBIndex(*tag_index_ptr);
                         std::size_t erased_count = tag_index_ptr->bulkErase(
-                            ValueIterator(buf_begin), 
+                            ValueIterator(buf_begin),
                             ValueIterator(range_end),
                             erase_callback_ptr
                         );
@@ -263,21 +263,21 @@ namespace db0
 		return stats;
 	}
 
-    template <typename KeyT>
-    void FT_BaseIndex<KeyT>::BatchOperation::setActiveValue(std::uint64_t value) {
+    template <typename IndexKeyT>
+    void FT_BaseIndex<IndexKeyT>::BatchOperation::setActiveValue(std::uint64_t value) {
         m_active_value = value;
     }
 
-    template <typename KeyT>
-    typename FT_BaseIndex<KeyT>::FlushStats FT_BaseIndex<KeyT>::BatchOperationBuilder::flush(
+    template <typename IndexKeyT>
+    typename FT_BaseIndex<IndexKeyT>::FlushStats FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::flush(
         std::function<void(std::uint64_t)> *insert_callback_ptr, 
         std::function<void(std::uint64_t)> *erase_callback_ptr)
     {
         return m_batch_operation->flush(insert_callback_ptr, erase_callback_ptr);
     }
 
-    template <typename KeyT>
-    void FT_BaseIndex<KeyT>::BatchOperationBuilder::reset()
+    template <typename IndexKeyT>
+    void FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::reset()
     {
         if (m_batch_operation) {
             m_batch_operation->cancel();
@@ -285,21 +285,22 @@ namespace db0
         m_batch_operation = nullptr;
     }
 
-    template <typename KeyT>
-	FT_BaseIndex<KeyT>::BatchOperationBuilder::operator bool() const {
+    template <typename IndexKeyT>
+	FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::operator bool() const {
 		return (bool)m_batch_operation;
 	}
 
-    template <typename KeyT>
-	bool FT_BaseIndex<KeyT>::BatchOperationBuilder::operator!() const {
+    template <typename IndexKeyT>
+	bool FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::operator!() const {
 		return !((bool)m_batch_operation);
 	}
 
-    template <typename KeyT>
-    bool FT_BaseIndex<KeyT>::BatchOperationBuilder::empty() const {
+    template <typename IndexKeyT>
+    bool FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::empty() const {
         return !m_batch_operation || m_batch_operation->empty();
     }
     
     template class FT_BaseIndex<std::uint64_t>;
+    template class FT_BaseIndex<db0::num_pack<std::uint64_t, 2u> >;
 
 }

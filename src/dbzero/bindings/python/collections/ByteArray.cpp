@@ -24,7 +24,7 @@ namespace db0::python
     PyObject* asPyObject(ByteArrayObject *bytearray_obj) {
         char * bytes_str = new char[bytearray_obj->ext().size() + 1];
        
-        for(int i = 0; i < bytearray_obj->ext().size(); i++) {
+        for(unsigned int i = 0; i < bytearray_obj->ext().size(); i++) {
             bytes_str[i] = static_cast<char>(bytearray_obj->ext().getByte(i));
         }
         bytes_str[bytearray_obj->ext().size()] = '\0';
@@ -170,16 +170,16 @@ namespace db0::python
                                        If the separator is not found, return a 3-tuple containing the string itself, followed by two empty strings."),
         CREATE_METHOD_DEF(replace, "Return a copy of the string with all occurrences of substring old replaced by new.\
                                     If the optional argument count is given, only the first count occurrences are replaced."),
-        CREATE_METHOD_DEF(rfind, "Return the highest index in the ByteArray where substring sub is found, such that sub is contained within s[start:end].\ 
+        CREATE_METHOD_DEF(rfind, "Return the highest index in the ByteArray where substring sub is found, such that sub is contained within s[start:end].\
                                    Optional arguments start and end are interpreted as in slice notation. Return -1 on failure."),
-        CREATE_METHOD_DEF(rindex, "Return the highest index in the ByteArray where substring sub is found, such that sub is contained within s[start:end].\ 
+        CREATE_METHOD_DEF(rindex, "Return the highest index in the ByteArray where substring sub is found, such that sub is contained within s[start:end].\
                                    Optional arguments start and end are interpreted as in slice notation. Return -1 on failure."),
         CREATE_METHOD_DEF(rpartition, "Return a 3-tuple containing the part before the separator, the separator itself, and the part after it.\
                                        If the separator is not found, return a 3-tuple containing two empty strings followed by the string itself."),
         CREATE_METHOD_DEF(startswith, "Return True if ByteArray starts with str, False otherwise"),
-        CREATE_METHOD_DEF(translate, "Return a copy of the string in which each character has been mapped through the given translation table.\ 
-                                      The table must implement lookup/indexing via __getitem__(), for instance a dictionary or list,\ 
-                                      mapping Unicode ordinals to Unicode ordinals, strings, or None.\ 
+        CREATE_METHOD_DEF(translate, "Return a copy of the string in which each character has been mapped through the given translation table.\
+                                      The table must implement lookup/indexing via __getitem__(), for instance a dictionary or list,\
+                                      mapping Unicode ordinals to Unicode ordinals, strings, or None.\
                                       Unmapped characters are left untouched. Characters mapped to None are deleted."),
         CREATE_METHOD_DEF(center, "Return a centered string of length width. Padding is done using the specified fill character (default is a space)."),
         CREATE_METHOD_DEF(ljust, "Return a left-justified string of length width. Padding is done using the specified fill character (default is a space)."),

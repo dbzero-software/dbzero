@@ -6,17 +6,19 @@
 #include "FT_ANDIterator.hpp"
 #include "FT_ORXIterator.hpp"
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
+#include <dbzero/core/utils/num_pack.hpp>
 
 namespace db0
 
 {
 
     // FT_BaseIndex provides common API for managing tag/type inverted lists
-    template <typename KeyT>
-    class FT_BaseIndex: public InvertedIndex<KeyT, std::uint64_t>
+    // @tparam KeyT the tag / element's key type
+    template <typename IndexKeyT>
+    class FT_BaseIndex: public InvertedIndex<IndexKeyT, std::uint64_t, std::uint64_t>
     {
     public:
-        using super_t = InvertedIndex<KeyT, std::uint64_t>;
+        using super_t = InvertedIndex<IndexKeyT, std::uint64_t, std::uint64_t>;
 
         FT_BaseIndex() = default;
         FT_BaseIndex(Memspace &, VObjectCache &);
@@ -28,12 +30,12 @@ namespace db0
          * Collect iterator associated with a specific key (e.g. tag/type)
          * @return false if no iterator collected (e.g. no such key)
         */
-        bool addIterator(FT_IteratorFactory<std::uint64_t> &, KeyT key) const;
+        bool addIterator(FT_IteratorFactory<std::uint64_t> &, IndexKeyT key) const;
 
         /**
          * @param key either tag or class identifier        
         */
-        std::unique_ptr<FT_Iterator<std::uint64_t> > makeIterator(KeyT key, int direction = -1) const;
+        std::unique_ptr<FT_Iterator<std::uint64_t> > makeIterator(IndexKeyT key, int direction = -1) const;
         
         /**
          * Match all elements from the user provided sequence
@@ -46,7 +48,7 @@ namespace db0
         {
             using ListT = typename super_t::ListT;
             bool result = false;
-            std::vector<std::pair<KeyT, const ListT*> > inverted_lists;
+            std::vector<std::pair<IndexKeyT, const ListT*> > inverted_lists;
             for (auto key: key_sequence) {
                 auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
                 if (inverted_list_ptr) {
@@ -96,7 +98,7 @@ namespace db0
         {
         protected :
             friend FT_BaseIndex;
-            using TagValueList = std::vector<std::pair<KeyT, std::uint64_t> >;
+            using TagValueList = std::vector<std::pair<IndexKeyT, std::uint64_t> >;
             
             mutable std::mutex m_mutex;
             FT_BaseIndex *m_base_index_ptr;            
@@ -126,7 +128,7 @@ namespace db0
             }
             
             // Add a single tag
-            void addTag(std::uint64_t value, KeyT tag)
+            void addTag(std::uint64_t value, IndexKeyT tag)
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
@@ -139,7 +141,7 @@ namespace db0
             }
 
             // Add a single tag using the active value
-            void addTag(KeyT tag) {
+            void addTag(IndexKeyT tag) {
                 addTag(m_active_value, tag);
             }
 
@@ -153,7 +155,7 @@ namespace db0
                 }
             }
 
-            void removeTag(std::uint64_t value, KeyT tag)
+            void removeTag(std::uint64_t value, IndexKeyT tag)
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;                
@@ -165,7 +167,7 @@ namespace db0
                 removeTags(m_active_value, tags_or_types);
             }
 
-            void removeTag(KeyT tag) {
+            void removeTag(IndexKeyT tag) {
                 removeTag(m_active_value, tag);
             }
 
@@ -236,9 +238,10 @@ namespace db0
     protected :
         mutable progressive_mutex mx;
         // currently pending batch operation (if any)
-        std::weak_ptr<BatchOperation> m_batch_operation;        
+        std::weak_ptr<BatchOperation> m_batch_operation;   
     };
 
     extern template class FT_BaseIndex<std::uint64_t>;
+    extern template class FT_BaseIndex<db0::num_pack<std::uint64_t, 2u>>;
 
 } 
