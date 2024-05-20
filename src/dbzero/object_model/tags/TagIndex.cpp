@@ -64,28 +64,28 @@ namespace db0::object_model
         TagMakerFunction m_tag_maker;
     };
     
-    class TagPtrSequence
+    template <typename TagT> class TagPtrSequence
     {
     public:
-        TagPtrSequence(const std::uint64_t *begin, const std::uint64_t *end)
+        TagPtrSequence(const TagT *begin, const TagT *end)
             : m_begin(begin)
             , m_end(end)
         {
         }
 
-        const std::uint64_t *begin() const {
+        const TagT *begin() const {
             return m_begin;
         }
 
-        const std::uint64_t *end() const {
+        const TagT *end() const {
             return m_end;
         }
 
     private:
-        const std::uint64_t *m_begin;
-        const std::uint64_t *m_end;
+        const TagT *m_begin;
+        const TagT *m_end;
     };
-
+    
     class NegFactory: public FT_IteratorFactory<std::uint64_t>
     {
     public:
@@ -125,27 +125,26 @@ namespace db0::object_model
     {
     }
     
-    TagIndex::~TagIndex() {
-        assert(m_batch_operation_short.empty() && "TagIndex::flush() or close() must be called before destruction");
+    TagIndex::~TagIndex()
+    {
+        assert(
+            m_batch_operation_short.empty() && 
+            m_batch_operation_long.empty() && 
+            "TagIndex::flush() or close() must be called before destruction");
     }
     
     FT_BaseIndex<TagIndex::ShortTagT>::BatchOperationBuilder &
     TagIndex::getBatchOperationShort(ObjectPtr memo_ptr)
     {
-        auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);
-        auto object_addr = memo.getAddress();
-        // cache object locally
-        if (m_object_cache.find(object_addr) == m_object_cache.end()) {
-            m_object_cache.emplace(object_addr, memo_ptr);
-        }
-
-        if (!m_batch_operation_short) {
-            m_batch_operation_short = m_base_index_short.beginBatchUpdate();
-        }
-        m_batch_operation_short->setActiveValue(object_addr);
-        return m_batch_operation_short;
+        return getBatchOperation(memo_ptr, m_base_index_short, m_batch_operation_short);
     }
-    
+
+    db0::FT_BaseIndex<TagIndex::LongTagT>::BatchOperationBuilder &
+    TagIndex::getBatchOperationLong(ObjectPtr memo_ptr)
+    {
+        return getBatchOperation(memo_ptr, m_base_index_long, m_batch_operation_long);
+    }
+
     void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
     {
         using TypeId = db0::bindings::TypeId;
@@ -154,19 +153,21 @@ namespace db0::object_model
         }
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
-        auto &batch_operation = getBatchOperationShort(memo_ptr);
+        auto &batch_op_short = getBatchOperationShort(memo_ptr);
+        // since it's less common, defer initialization until first occurence
+        db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder *batch_op_long_ptr = nullptr;
         auto &type_manager = LangToolkit::getTypeManager();
         for (std::size_t i = 0; i < nargs; ++i) {
             auto type_id = type_manager.getTypeId(args[i]);
             // must check for string since it's is an iterable as well
             if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
-                batch_operation->addTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
+                batch_op_short->addTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     return makeShortTag(arg.get());
                 }));
                 continue;
             }
 
-            batch_operation->addTag(makeShortTag(type_id, args[i]));
+            batch_op_short->addTag(makeShortTag(type_id, args[i]));
         }
     }
     
@@ -175,7 +176,13 @@ namespace db0::object_model
         auto &batch_operation = getBatchOperationShort(memo_ptr);
         batch_operation->addTags(TagPtrSequence(&tag, &tag + 1));
     }
-    
+
+    void TagIndex::addTag(ObjectPtr memo_ptr, LongTagT tag)
+    {
+        auto &batch_operation = getBatchOperationLong(memo_ptr);
+        batch_operation->addTags(TagPtrSequence(&tag, &tag + 1));
+    }
+
     void TagIndex::removeTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
     {
         if (nargs == 0) {

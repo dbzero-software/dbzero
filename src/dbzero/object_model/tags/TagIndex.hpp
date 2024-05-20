@@ -40,6 +40,9 @@ namespace db0::object_model
         
         void addTag(ObjectPtr memo_ptr, ShortTagT tag_addr);
 
+        // add a tag using long identifier
+        void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);
+
         void addTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs);
 
         void removeTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs);
@@ -79,12 +82,18 @@ namespace db0::object_model
         db0::FT_BaseIndex<LongTagT> &m_base_index_long;
         // Current batch-operation buffer (may not be initialized)
         mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_operation_short;
+        mutable db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder m_batch_operation_long;
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
         mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
-        
+                
+        template <typename BaseIndexT, typename BatchOperationT> 
+        BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &);
+
         db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr);
+
+        db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr);
 
         /**
          * Make a tag from the provided argument (can be a string, type or a memo instance)        
@@ -98,5 +107,22 @@ namespace db0::object_model
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators) const;
     };
+
+    template <typename BaseIndexT, typename BatchOperationT>
+    BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, BatchOperationT &batch_op)
+    {
+        auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);
+        auto object_addr = memo.getAddress();
+        // cache object locally
+        if (m_object_cache.find(object_addr) == m_object_cache.end()) {
+            m_object_cache.emplace(object_addr, memo_ptr);
+        }
+
+        if (!batch_op) {
+            batch_op = base_index.beginBatchUpdate();
+        }
+        batch_op->setActiveValue(object_addr);
+        return batch_op;
+    }
 
 }
