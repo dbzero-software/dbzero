@@ -25,7 +25,7 @@ namespace db0::python
     void PyEnum_del(PyEnum* self)
     {
         // destroy associated DB0 instance
-        self->ext().~Enum();
+        self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
     

@@ -74,13 +74,13 @@ namespace db0::object_model
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         using TypeObjectSharedPtr = typename LangToolkit::TypeObjectSharedPtr;
         
-        class Member
+        struct Member
         {
-        public:
-            std::string m_name;            
+            std::uint32_t m_field_id;
+            std::string m_name;
             
-            Member(const char *);
-            Member(const std::string &);
+            Member(std::uint32_t, const char *);
+            Member(std::uint32_t, const std::string &);
         };
         
         // Pull existing type (language class unknown)

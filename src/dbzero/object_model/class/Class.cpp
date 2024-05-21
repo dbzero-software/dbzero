@@ -26,13 +26,15 @@ namespace db0::object_model
     {
     }
     
-    Class::Member::Member(const char *name)
-        : m_name(name)
+    Class::Member::Member(std::uint32_t field_id, const char *name)
+        : m_field_id(field_id)
+        , m_name(name)
     {
     }
     
-    Class::Member::Member(const std::string &name)
-        : m_name(name)
+    Class::Member::Member(std::uint32_t field_id, const std::string &name)
+        : m_field_id(field_id)
+        , m_name(name)
     {
     }
     
@@ -69,7 +71,7 @@ namespace db0::object_model
     {
         auto field_id = m_members.size();
         m_members.emplace_back(getFixture()->getLimitedStringPool(), name);
-        m_member_cache.emplace_back(name);
+        m_member_cache.emplace_back(field_id, name);
         m_index[name] = field_id;
         return field_id;
     }
@@ -158,11 +160,11 @@ namespace db0::object_model
         unsigned int index = m_member_cache.size();
         auto &string_pool = getFixture()->getLimitedStringPool();
         for (auto it = m_members.begin(index), end = m_members.end(); it != end; ++it, ++index) {
-            m_member_cache.emplace_back(string_pool.fetch(it->m_name));
-            m_index[m_member_cache.back().m_name] = index;            
+            m_member_cache.emplace_back(index, string_pool.fetch(it->m_name));
+            m_index[m_member_cache.back().m_name] = index;
         }
     }
-        
+            
     std::string Class::getTypeName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }

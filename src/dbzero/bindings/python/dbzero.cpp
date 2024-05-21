@@ -17,6 +17,7 @@
 #include "PyEnum.hpp"
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
+#include "PyClassFields.hpp"
 
 namespace py = db0::python;
     
@@ -113,7 +114,9 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::PyTypedObjectIteratorType,
         &py::ByteArrayObjectType,
         &py::PyEnumType, 
-        &py::PyEnumValueType
+        &py::PyEnumValueType,
+        &py::PyClassFieldsType,
+        &py::PyFieldDefType
     };
     
     // register all types
