@@ -67,6 +67,7 @@ namespace db0::object_model
         GC0_Declare
         using super_t = db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS>;
     public:
+        static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
         // e.g. PyObject*
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
@@ -148,7 +149,9 @@ namespace db0::object_model
         void detach();
 
         bool operator!=(const Class &rhs) const;
-                
+
+        std::uint32_t getUID() const { return m_uid; }
+
     protected:
         friend class ClassFactory;
         friend ClassPtr;
@@ -161,6 +164,9 @@ namespace db0::object_model
                 
         void unlinkSingleton();
         
+        // Get unique class identifier within its fixture
+        std::uint32_t fetchUID() const;
+
     public:
         static constexpr std::uint32_t NField = std::numeric_limits<std::uint32_t>::max();
                 
@@ -171,7 +177,8 @@ namespace db0::object_model
         mutable std::vector<Member> m_member_cache;
         // field by-name index (cache)
         mutable std::unordered_map<std::string, std::uint32_t> m_index;
-        
+        const std::uint32_t m_uid;
+
         /**
          * Load changes to the internal cache
         */

@@ -3,6 +3,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/iterators.hpp>
 #include <dbzero/object_model/class/Class.hpp>
+#include <dbzero/object_model/class/ClassFields.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDNOTIterator.hpp>
 #include <dbzero/object_model/tags/TagSet.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
@@ -161,13 +162,22 @@ namespace db0::object_model
             auto type_id = type_manager.getTypeId(args[i]);
             // must check for string since it's is an iterable as well
             if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
-                batch_op_short->addTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
+                auto tag_sequence = IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     return makeShortTag(arg.get());
-                }));
-                continue;
+                });
+                // sequence (pair) may represent a single long tag
+                if (isLongTag<ForwardIterator>(LangToolkit::getIterator(args[i]), ForwardIterator::end())) {
+                    if (!batch_op_long_ptr) {
+                        batch_op_long_ptr = &getBatchOperationLong(memo_ptr);
+                    }
+                    auto tag = makeLongTag(tag_sequence);
+                    (*batch_op_long_ptr)->addTags(TagPtrSequence(&tag, &tag + 1));
+                } else {
+                    batch_op_short->addTags(tag_sequence);
+                }
+            } else {
+                batch_op_short->addTag(makeShortTag(type_id, args[i]));
             }
-
-            batch_op_short->addTag(makeShortTag(type_id, args[i]));
         }
     }
     
@@ -219,6 +229,9 @@ namespace db0::object_model
         if (m_batch_operation_short) {
             m_batch_operation_short.reset();
         }
+        if (m_batch_operation_long) {
+            m_batch_operation_long.reset();
+        }
         m_object_cache.clear();
     }
     
@@ -238,8 +251,14 @@ namespace db0::object_model
             type_manager.extractObject(it->second.get()).decRef();
         };
 
+        // flush all short tags' updates
         if (!m_batch_operation_short.empty()) {
             m_batch_operation_short->flush(&add_tag_callback, &remove_tag_callback);
+        }
+
+        // flush all long tags' updates
+        if (!m_batch_operation_long.empty()) {
+            m_batch_operation_long->flush(&add_tag_callback, &remove_tag_callback);
         }
 
         m_object_cache.clear();
@@ -394,6 +413,8 @@ namespace db0::object_model
             return makeShortTagFromMemo(py_arg);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return makeShortTagFromEnumValue(py_arg);
+        } else if (type_id == TypeId::DB0_FIELD_DEF) {
+            return makeShortTagFromFieldDef(py_arg);
         }
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
             << " as a tag" << THROWF_END;
@@ -416,6 +437,31 @@ namespace db0::object_model
     {
         assert(LangToolkit::isEnumValue(py_arg));
         return LangToolkit::getTypeManager().extractEnumValue(py_arg).getUID();
+    }
+
+    bool TagIndex::isScopeIdentifier(ObjectPtr ptr) const {
+        return LangToolkit::isFieldDef(ptr);
+    }
+
+    bool TagIndex::isScopeIdentifier(ObjectSharedPtr ptr) const {
+        return isScopeIdentifier(ptr.get());
+    }
+
+    bool TagIndex::isShortTag(ObjectPtr py_arg) const
+    {
+        auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
+        return type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE || type_id == TypeId::DB0_FIELD_DEF;
+    }
+
+    bool TagIndex::isShortTag(ObjectSharedPtr ptr) const {
+        return isShortTag(ptr.get());
+    }
+
+    TagIndex::ShortTagT TagIndex::makeShortTagFromFieldDef(ObjectPtr py_arg) const
+    {
+        auto &field_def = LangToolkit::getTypeManager().extractFieldDef(py_arg);
+        // class UID (32bit) + field ID (32 bit)
+        return (static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.m_field_id;
     }
 
 }

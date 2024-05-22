@@ -43,6 +43,7 @@ namespace db0::object_model
         : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, flags)
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
         , m_lang_type_ptr(lang_type_ptr)
+        , m_uid(this->fetchUID())
     {
     }
     
@@ -50,6 +51,7 @@ namespace db0::object_model
         // class instances are not garbage collected (no drop function provided) since they're managed by the ClassFactory
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))
+        , m_uid(this->fetchUID())
     {
         // fetch all members into cache
         refreshMemberCache();
@@ -164,7 +166,7 @@ namespace db0::object_model
             m_index[m_member_cache.back().m_name] = index;
         }
     }
-            
+    
     std::string Class::getTypeName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }
@@ -299,6 +301,15 @@ namespace db0::object_model
             return true;
         }
         return this->getAddress() != rhs.getAddress();
+    }
+
+    std::uint32_t Class::fetchUID() const
+    {
+        // return UID as relative address from the underlying SLOT
+        auto result = this->getFixture()->makeRelative(this->getAddress(), SLOT_NUM);
+        // relative address must not exceed SLOT size
+        assert(result < std::numeric_limits<std::uint32_t>::max());
+        return result;
     }
 
 }

@@ -18,6 +18,7 @@
 #include "ObjectId.hpp"
 #include "PyObjectIterator.hpp"
 #include "PyEnum.hpp"
+#include "PyClassFields.hpp"
 
 namespace db0::python
 
@@ -269,4 +270,8 @@ namespace db0::python
         return PyEnumValue_Check(py_object);
     }
 
+    bool PyToolkit::isFieldDef(ObjectPtr py_object) {
+        return PyFieldDef_Check(py_object);
+    }
+    
 }

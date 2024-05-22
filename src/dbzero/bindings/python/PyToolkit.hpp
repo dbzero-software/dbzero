@@ -123,9 +123,10 @@ namespace db0::python
         static bool isType(ObjectPtr py_object);
         static bool isMemoObject(ObjectPtr py_object);
         static bool isEnumValue(ObjectPtr py_object);
+        static bool isFieldDef(ObjectPtr py_object);
         static ObjectSharedPtr getIterator(ObjectPtr py_object);
         static ObjectSharedPtr next(ObjectPtr py_object);
-
+        
         static bool isSingleton(TypeObjectPtr py_type);    
 
         inline static void incRef(ObjectPtr py_object) {

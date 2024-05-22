@@ -103,9 +103,22 @@ namespace db0::object_model
         ShortTagT makeShortTagFromString(ObjectPtr) const;
         ShortTagT makeShortTagFromMemo(ObjectPtr) const;
         ShortTagT makeShortTagFromEnumValue(ObjectPtr) const;
+        ShortTagT makeShortTagFromFieldDef(ObjectPtr) const;
 
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators) const;
+        
+        bool isShortTag(ObjectPtr) const;
+        bool isShortTag(ObjectSharedPtr) const;
+
+        // Check if the sequence represents a long tag (i.e. scope + short tag)
+        template <typename IteratorT> bool isLongTag(IteratorT begin, IteratorT end) const;
+
+        template <typename SequenceT> LongTagT makeLongTag(const SequenceT &) const;
+
+        // Check if a specific parameter can be used as the scope identifieg (e.g. FieldDef)
+        bool isScopeIdentifier(ObjectPtr) const;
+        bool isScopeIdentifier(ObjectSharedPtr) const;
     };
 
     template <typename BaseIndexT, typename BatchOperationT>
@@ -123,6 +136,36 @@ namespace db0::object_model
         }
         batch_op->setActiveValue(object_addr);
         return batch_op;
+    }
+    
+    template <typename IteratorT>
+    bool TagIndex::isLongTag(IteratorT begin, IteratorT end) const
+    {
+        unsigned int index = 0;
+        for (; begin != end; ++begin, ++index) {
+            // first item must be the scope identifier
+            if (index == 0 && !isScopeIdentifier(*begin)) {
+                return false;
+            }
+            // second item must be a short tag
+            if (index == 1 && !isShortTag(*begin)) {
+                return false;
+            }
+            if (index > 1) {
+                return false;
+            }
+        }
+        return index == 2;
+    }
+    
+    template <typename SequenceT>
+    TagIndex::LongTagT TagIndex::makeLongTag(const SequenceT &sequence) const
+    {
+        auto it = sequence.begin();
+        auto first = *it;
+        ++it;
+        assert(it != sequence.end());
+        return { first, *it }; 
     }
 
 }

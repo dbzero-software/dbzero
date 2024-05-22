@@ -8,6 +8,12 @@ namespace db0::object_model
 
 {
     
+    struct FieldDef
+    {
+        std::uint32_t m_class_uid;
+        Class::Member m_member;
+    };
+    
     // This is accessor class for class field definitions
     class ClassFields
     {
@@ -24,7 +30,7 @@ namespace db0::object_model
         void init(TypeObjectPtr lang_type);
 
         // Get existing member by name or throw exception
-        Member get(const char *field_name) const;
+        FieldDef get(const char *field_name) const;
         
     private:
         TypeObjectSharedPtr m_lang_type;

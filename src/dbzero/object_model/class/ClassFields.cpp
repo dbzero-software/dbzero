@@ -16,7 +16,7 @@ namespace db0::object_model
         m_lang_type = lang_type;
     }
     
-    ClassFields::Member ClassFields::get(const char *field_name) const
+    FieldDef ClassFields::get(const char *field_name) const
     {
         if (!m_type) {
             auto fixture = LangToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
@@ -24,8 +24,8 @@ namespace db0::object_model
             // find py type associated DBZero class with the ClassFactory
             m_type = class_factory.getOrCreateType(m_lang_type.get(), nullptr);
         }
-
-        return m_type->get(m_type->findField(field_name));
+        
+        return { m_type->getUID(), m_type->get(m_type->findField(field_name)) };
     }
 
 }

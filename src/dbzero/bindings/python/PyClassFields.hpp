@@ -9,12 +9,12 @@ namespace db0::python
 {
 
     using PyClassFields = PyWrapper<db0::object_model::ClassFields>;
-    using PyFieldDef = PyWrapper<db0::object_model::Class::Member>;
+    using PyFieldDef = PyWrapper<db0::object_model::FieldDef>;
     
     PyClassFields *PyClassFields_new(PyTypeObject *type, PyObject *, PyObject *);    
     PyClassFields *PyClassFieldsDefault_new();
     PyClassFields *PyClassFields_create(PyTypeObject *memo_type);
-
+    
     PyFieldDef *PyFieldDef_new(PyTypeObject *type, PyObject *, PyObject *);    
     PyFieldDef *PyFieldDefDefault_new();
 
