@@ -51,6 +51,9 @@ namespace db0::object_model
         std::uint32_t getUID() const { return m_uid; }
 
         EnumValue get(const char *value) const;
+        
+        // Retrieve all enum defined values
+        std::vector<EnumValue> getAllValues() const;
 
     private:
         const std::uint64_t m_fixture_uuid;

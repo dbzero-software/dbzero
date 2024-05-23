@@ -48,7 +48,7 @@ namespace db0::python
     {
         std::uint64_t addr;
         if (iter_obj->ext().next(addr)) {
-            // retrieve DBZero instance
+            // retrieve DBZero instance (use iterator's context)
             return iter_obj->ext().unload(addr);
         } else {
             // raise stop iteration

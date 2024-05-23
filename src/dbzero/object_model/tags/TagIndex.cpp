@@ -2,8 +2,11 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/iterators.hpp>
+#include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/class/ClassFields.hpp>
+#include <dbzero/core/collections/full_text/FT_ORXIterator.hpp>
+#include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDNOTIterator.hpp>
 #include <dbzero/object_model/tags/TagSet.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
@@ -470,6 +473,22 @@ namespace db0::object_model
         auto &field_def = LangToolkit::getTypeManager().extractFieldDef(py_arg);
         // class UID (32bit) + field ID (32 bit)
         return (static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.m_field_id;
+    }
+
+    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::unique_ptr<QueryResultObserver> >
+    TagIndex::splitBy(std::unique_ptr<QueryIterator> &&query, const Enum &enum_def) const
+    {
+        db0::FT_ORXIteratorFactory<std::uint64_t> enum_factory;
+        // include ALL possible enum values first (OR-joined)        
+        for (const auto &enum_value: enum_def.getAllValues()) {
+            m_base_index_short.addIterator(enum_factory, enum_value.getUID());
+        }        
+
+        db0::FT_ANDIteratorFactory<std::uint64_t> factory;
+        factory.add(std::move(query));
+        factory.add(enum_factory.release(-1));
+        // FIXME: attach observer
+        return { factory.release(-1), nullptr };
     }
 
 }

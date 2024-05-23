@@ -8,11 +8,13 @@
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/core/utils/num_pack.hpp>
+#include "QueryResultObserver.hpp"
 
 namespace db0::object_model
 
 {
     
+    class Enum;
     using Object = db0::object_model::Object;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     
@@ -55,17 +57,15 @@ namespace db0::object_model
         std::unique_ptr<QueryIterator> find(ObjectPtr const *args, std::size_t nargs,
             std::shared_ptr<Class> &type) const;
 
+        /**
+         * Split query by all values from a specific Enum
+         * @return updated query iterator + observer to retrieve the active value
+        */
+        std::pair<std::unique_ptr<QueryIterator>, std::unique_ptr<QueryResultObserver> > 
+        splitBy(std::unique_ptr<QueryIterator> &&query, const Enum &) const;
+                
         // Clears the entire contents
         void clear();
-
-        /**
-        std::shared_ptr<DBZQueryIterator> beginFindAll(std::shared_ptr<DBZClass>, 
-            const std::vector<dbz::long_ptr> &tag_ptrs) const;
-        */
-            
-        // Get the underlying ObjectBook instance for querying
-        // commit any pending transaction on tags        
-        // const dbz::TheBook &getTheBook() const;
 
         // Flush any pending updates from the internal buffers
         void flush() const;
