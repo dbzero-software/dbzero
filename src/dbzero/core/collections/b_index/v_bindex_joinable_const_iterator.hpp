@@ -101,7 +101,7 @@ namespace db0
             return true;
         }
 
-        template <class KeyT> bool join(const KeyT &key, int direction) 
+        template <typename KeyT> bool join(const KeyT &key, int direction) 
         {
             if (direction > 0) {
                 // limit key pre-check

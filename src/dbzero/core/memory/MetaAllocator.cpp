@@ -566,8 +566,9 @@ namespace db0
         return meta_header.const_ref();
     }
     
-    std::optional<std::uint64_t> MetaAllocator::tryAlloc(std::size_t size)
+    std::optional<std::uint64_t> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num)
     {
+        assert(slot_num == 0);
         assert(size > 0);
         // try allocating from the active slab first
         auto slab = m_slab_manager->tryGetActiveSlab();

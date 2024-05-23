@@ -12,11 +12,11 @@ namespace db0
      * Base class for vspace-mapped objects
      * @tparam T container object type
      */
-    template <typename T> class v_object
+    template <typename T, std::uint32_t SLOT_NUM> class v_object
     {
-    public:        
+    public:
         using c_type = T;
-        using ptr_t = v_ptr<c_type>;
+        using ptr_t = v_ptr<c_type, SLOT_NUM>;
 
         v_object() = default;
 
@@ -45,7 +45,7 @@ namespace db0
         v_object(Memspace &memspace, Tuple&& t, int_seq<std::size_t, I...>)
             : v_this(ptr_t::makeNew(
                 memspace,
-                c_type::measure(std::get<I>(std::forward<Tuple>(t))...),
+                c_type::measure(std::get<I>(std::forward<Tuple>(t))...),                
                 std::get<N>(std::forward<Tuple>(t)) )
             )
         {

@@ -112,6 +112,8 @@ namespace db0::python
     // convert bytes to instance (e.g. ObjectIterator)
     PyObject *pyDeserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
+    PyObject *makeEnum(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    
     template <typename T> db0::object_model::StorageClass getStorageClass();
 
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>();

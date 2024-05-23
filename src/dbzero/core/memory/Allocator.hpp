@@ -14,16 +14,14 @@ namespace db0
     */
     class Allocator
     {
-    public:
+    public:        
         /**
-         * Allocate a new continuous range of a given size
-         * 
-         * @param size size (in bytes) of the range to be allocated
-         * @return the address of the range
+         * @param the allocation size in bytes
+         * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
+         * Note that slot functionality is implementation specific and may not be supported by all allocators.
+         * We use slots in special cases where objects needs to be allocated from a limited narrow address range
         */
-        std::uint64_t alloc(std::size_t size);
-        
-        virtual std::optional<std::uint64_t> tryAlloc(std::size_t size) = 0;
+        virtual std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0) = 0;
         
         /**
          * Free previously allocated address
@@ -42,6 +40,15 @@ namespace db0
          * Prepare the allocator for the next transaction
         */
         virtual void commit() = 0;
+
+        /**
+         * Allocate a new continuous range of a given size
+         * 
+         * @param size size (in bytes) of the range to be allocated
+         * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
+         * @return the address of the range
+        */
+        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0);
     };
     
 }

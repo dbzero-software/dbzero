@@ -22,7 +22,7 @@ namespace tests
         using RangeTreeT = RangeTree<int, std::uint64_t>;
         using ItemT = typename RangeTreeT::ItemT;
 
-        void runTestCase(std::function<void(RangeTreeT &, FT_BaseIndex &)> test)
+        void runTestCase(std::function<void(RangeTreeT &, FT_BaseIndex<std::uint64_t> &)> test)
         {
             auto fixture = getFixture();
             // create with the limit of 8 items per range
@@ -37,7 +37,7 @@ namespace tests
             VObjectCache cache(*fixture, shared_object_list);
 
             // prepare full-text index to join with
-            auto &ft_index = fixture->addResource<FT_BaseIndex>(*fixture, cache);
+            auto &ft_index = fixture->addResource<FT_BaseIndex<std::uint64_t> >(*fixture, cache);
             {
                 auto batch_data = ft_index.beginBatchUpdate();
                 batch_data->addTags(4, std::vector<std::uint64_t> { 1, 2, 3 });
@@ -51,7 +51,7 @@ namespace tests
     
     TEST_F( QuerySerializationTest , testRangeTreeFTSortedIteratorCanBeSerialized )
     {
-        auto test = [](RangeTreeT &rt, FT_BaseIndex &ft_index) {        
+        auto test = [](RangeTreeT &rt, FT_BaseIndex<std::uint64_t> &ft_index) {
             auto ft_query = ft_index.makeIterator(1);
             std::vector<std::uint64_t> values;
             RT_SortIterator<int, std::uint64_t> cut(rt, std::move(ft_query));
@@ -65,7 +65,7 @@ namespace tests
     TEST_F( QuerySerializationTest , testRangeTreeFTSortedIteratorCanBeDeserialized )
     {        
         std::vector<std::byte> buf;
-        auto test = [&](RangeTreeT &rt, FT_BaseIndex &ft_index) {
+        auto test = [&](RangeTreeT &rt, FT_BaseIndex<std::uint64_t> &ft_index) {
             auto ft_query = ft_index.makeIterator(1);
             std::vector<std::uint64_t> values;
             RT_SortIterator<int, std::uint64_t> cut(rt, std::move(ft_query));

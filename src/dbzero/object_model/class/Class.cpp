@@ -26,17 +26,15 @@ namespace db0::object_model
     {
     }
     
-    Class::Member::Member(const char *name, StorageClass storage_class, std::shared_ptr<Class> type)
-        : m_name(name)
-        , m_storage_class(storage_class)
-        , m_type(type)
+    Class::Member::Member(std::uint32_t field_id, const char *name)
+        : m_field_id(field_id)
+        , m_name(name)
     {
     }
     
-    Class::Member::Member(const std::string &name, StorageClass storage_class, std::shared_ptr<Class> type)
-        : m_name(name)
-        , m_storage_class(storage_class)
-        , m_type(type)
+    Class::Member::Member(std::uint32_t field_id, const std::string &name)
+        : m_field_id(field_id)
+        , m_name(name)
     {
     }
     
@@ -45,6 +43,7 @@ namespace db0::object_model
         : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, flags)
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
         , m_lang_type_ptr(lang_type_ptr)
+        , m_uid(this->fetchUID())
     {
     }
     
@@ -52,13 +51,13 @@ namespace db0::object_model
         // class instances are not garbage collected (no drop function provided) since they're managed by the ClassFactory
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))
+        , m_uid(this->fetchUID())
     {
         // fetch all members into cache
         refreshMemberCache();
     }
     
-    std::string Class::getName() const
-    {
+    std::string Class::getName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }   
     
@@ -70,14 +69,11 @@ namespace db0::object_model
         return getFixture()->getLimitedStringPool().fetch((*this)->m_type_id);
     }
     
-    std::uint32_t Class::addField(const char *name, StorageClass storage_class, std::shared_ptr<Class> type)
+    std::uint32_t Class::addField(const char *name)
     {
-        if (storage_class == StorageClass::OBJECT_REF && !type) {
-            THROWF(db0::InternalException) << "DBZero object reference missing a type";
-        }
         auto field_id = m_members.size();
-        m_members.emplace_back(getFixture()->getLimitedStringPool(), name, storage_class, (type?ClassPtr(*type):ClassPtr()));
-        m_member_cache.emplace_back(name, storage_class, type);
+        m_members.emplace_back(getFixture()->getLimitedStringPool(), name);
+        m_member_cache.emplace_back(field_id, name);
         m_index[name] = field_id;
         return field_id;
     }
@@ -138,13 +134,11 @@ namespace db0::object_model
         return true;
     }
     
-    bool Class::isSingleton() const
-    {
+    bool Class::isSingleton() const {
         return (*this)->m_flags[ClassOptions::SINGLETON];
     }
     
-    bool Class::isExistingSingleton() const
-    {
+    bool Class::isExistingSingleton() const {
         return isSingleton() && (*this)->m_singleton_address;
     }
     
@@ -168,18 +162,16 @@ namespace db0::object_model
         unsigned int index = m_member_cache.size();
         auto &string_pool = getFixture()->getLimitedStringPool();
         for (auto it = m_members.begin(index), end = m_members.end(); it != end; ++it, ++index) {
-            m_member_cache.emplace_back(string_pool.fetch(it->m_name), it->m_storage_class);
-            m_index[m_member_cache.back().m_name] = index;            
+            m_member_cache.emplace_back(index, string_pool.fetch(it->m_name));
+            m_index[m_member_cache.back().m_name] = index;
         }
     }
-        
-    std::string Class::getTypeName() const
-    {
+    
+    std::string Class::getTypeName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }
 
-    std::string Class::getModuleName() const
-    {
+    std::string Class::getModuleName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_module_name);
     }
 
@@ -309,6 +301,15 @@ namespace db0::object_model
             return true;
         }
         return this->getAddress() != rhs.getAddress();
+    }
+
+    std::uint32_t Class::fetchUID() const
+    {
+        // return UID as relative address from the underlying SLOT
+        auto result = this->getFixture()->makeRelative(this->getAddress(), SLOT_NUM);
+        // relative address must not exceed SLOT size
+        assert(result < std::numeric_limits<std::uint32_t>::max());
+        return result;
     }
 
 }

@@ -1,12 +1,13 @@
 #pragma once
 
+#include <unordered_map>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
-#include <unordered_map>
+#include <dbzero/core/utils/num_pack.hpp>
 
 namespace db0::object_model
 
@@ -27,12 +28,20 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         // full-text query iterator
         using QueryIterator = FT_Iterator<std::uint64_t>;
-
-        TagIndex(const ClassFactory &, RC_LimitedStringPool &, db0::FT_BaseIndex &);
+        // string tokens and classes are represented as short tags
+        using ShortTagT = std::uint64_t;
+        // field-level tags are represented as long tags
+        using LongTagT = db0::num_pack<std::uint64_t, 2u>;
+        
+        TagIndex(const ClassFactory &, RC_LimitedStringPool &, db0::FT_BaseIndex<ShortTagT> &, 
+            db0::FT_BaseIndex<LongTagT> &);
         
         virtual ~TagIndex();
         
-        void addTag(ObjectPtr memo_ptr, std::uint64_t tag_addr);
+        void addTag(ObjectPtr memo_ptr, ShortTagT tag_addr);
+
+        // add a tag using long identifier
+        void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);
 
         void addTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs);
 
@@ -64,32 +73,99 @@ namespace db0::object_model
         // Close tag index without flushing any pending updates
         void close();
 
-    private:    
-        using BatchOperationBuilder = db0::FT_BaseIndex::BatchOperationBuilder;
+    private:
         using TypeId = db0::bindings::TypeId;
 
         const ClassFactory &m_class_factory;
         RC_LimitedStringPool &m_string_pool;
-        db0::FT_BaseIndex &m_base_index;
+        db0::FT_BaseIndex<ShortTagT> &m_base_index_short;
+        db0::FT_BaseIndex<LongTagT> &m_base_index_long;
         // Current batch-operation buffer (may not be initialized)
-        mutable BatchOperationBuilder m_batch_operation;
+        mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_operation_short;
+        mutable db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder m_batch_operation_long;
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
         mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
+                
+        template <typename BaseIndexT, typename BatchOperationT> 
+        BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &);
 
-        BatchOperationBuilder &getBatchOperation(ObjectPtr);
+        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr);
+
+        db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr);
 
         /**
          * Make a tag from the provided argument (can be a string, type or a memo instance)        
         */        
-        std::uint64_t makeTag(ObjectPtr) const;
-        std::uint64_t makeTag(TypeId, ObjectPtr) const;
-        std::uint64_t makeTagFromString(ObjectPtr) const;
-        std::uint64_t makeTagFromMemo(ObjectPtr) const;
-        
+        ShortTagT makeShortTag(ObjectPtr) const;
+        ShortTagT makeShortTag(TypeId, ObjectPtr) const;
+        ShortTagT makeShortTagFromString(ObjectPtr) const;
+        ShortTagT makeShortTagFromMemo(ObjectPtr) const;
+        ShortTagT makeShortTagFromEnumValue(ObjectPtr) const;
+        ShortTagT makeShortTagFromFieldDef(ObjectPtr) const;
+
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators) const;
+        
+        bool isShortTag(ObjectPtr) const;
+        bool isShortTag(ObjectSharedPtr) const;
+
+        // Check if the sequence represents a long tag (i.e. scope + short tag)
+        template <typename IteratorT> bool isLongTag(IteratorT begin, IteratorT end) const;
+
+        template <typename SequenceT> LongTagT makeLongTag(const SequenceT &) const;
+
+        // Check if a specific parameter can be used as the scope identifieg (e.g. FieldDef)
+        bool isScopeIdentifier(ObjectPtr) const;
+        bool isScopeIdentifier(ObjectSharedPtr) const;
     };
+
+    template <typename BaseIndexT, typename BatchOperationT>
+    BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, BatchOperationT &batch_op)
+    {
+        auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);
+        auto object_addr = memo.getAddress();
+        // cache object locally
+        if (m_object_cache.find(object_addr) == m_object_cache.end()) {
+            m_object_cache.emplace(object_addr, memo_ptr);
+        }
+
+        if (!batch_op) {
+            batch_op = base_index.beginBatchUpdate();
+        }
+        batch_op->setActiveValue(object_addr);
+        return batch_op;
+    }
+    
+    template <typename IteratorT>
+    bool TagIndex::isLongTag(IteratorT begin, IteratorT end) const
+    {
+        unsigned int index = 0;
+        for (; begin != end; ++begin, ++index) {
+            // first item must be the scope identifier
+            if (index == 0 && !isScopeIdentifier(*begin)) {
+                return false;
+            }
+            // second item must be a short tag
+            if (index == 1 && !isShortTag(*begin)) {
+                return false;
+            }
+            if (index > 1) {
+                return false;
+            }
+        }
+        return index == 2;
+    }
+    
+    template <typename SequenceT>
+    TagIndex::LongTagT TagIndex::makeLongTag(const SequenceT &sequence) const
+    {
+        auto it = sequence.begin();
+        auto first = *it;
+        ++it;
+        assert(it != sequence.end());
+        return { first, *it }; 
+    }
 
 }

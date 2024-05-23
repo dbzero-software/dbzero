@@ -41,9 +41,10 @@ namespace db0::object_model
         DB0_BYTES = 18,
         // DBZero object serialized to a byte array
         DB0_SERIALIZED = 19,
-        // COUNT used to determine size of the StorageClass associated arrays
-        COUNT = 20,
         DB0_BYTES_ARRAY = 21,
+        DB0_ENUM_TYPE_REF = 22,
+        // COUNT used to determine size of the StorageClass associated arrays
+        COUNT = 23,
         // invalid / reserved value, never used in objects
         INVALID = std::numeric_limits<std::uint8_t>::max()
     };

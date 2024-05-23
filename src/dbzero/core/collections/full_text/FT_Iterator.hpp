@@ -34,7 +34,7 @@ namespace db0
 	public:
 		using super_t = FT_IteratorBase;
 	    using MutateFunction = std::function<std::pair<bool,bool>(FT_Iterator<KeyT> &)>;
-		        
+		
         /**
          * Retrieve currently iterated item's key
          * @return current item's key
@@ -105,13 +105,7 @@ namespace db0
          */
         virtual void scanQueryTree(std::function<void(const FT_Iterator<KeyT> *it_ptr, int depth)> scan_function,
             int depth = 0) const = 0;
-
-        /**
-         * Get index key (e.g. tags's pointer) where available (default implementation returns 0)
-         * @return 0 if not available
-         */
-        virtual std::uint64_t getIndexKey() const;
-
+        
         /**
          * Get depth of the query tree
          * depth = 1 means no nested queries, direct iterator

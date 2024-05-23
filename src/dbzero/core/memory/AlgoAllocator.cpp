@@ -1,5 +1,6 @@
 #include "AlgoAllocator.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <cassert>
 
 namespace db0
 
@@ -11,9 +12,10 @@ namespace db0
         , m_alloc_size(alloc_size)        
     {
     }
-
-    std::optional<std::uint64_t> AlgoAllocator::tryAlloc(std::size_t size)
+    
+    std::optional<std::uint64_t> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num)
     {
+        assert(slot_num == 0);
         if (size != m_alloc_size) {
             THROWF(db0::InternalException) << "AlgoAllocator: invalid size " << size << " (expected " << m_alloc_size << ")";
         }

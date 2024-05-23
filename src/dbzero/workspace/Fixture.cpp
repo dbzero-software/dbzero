@@ -10,35 +10,55 @@ namespace db0
 
 {
 
+    std::uint32_t slot_index(std::uint32_t slot_num) {
+        return slot_num - 1;
+    }
+
     o_fixture::o_fixture()
         : m_UUID(db0::make_UUID())
     {
     }
-        
+    
     Fixture::Fixture(Workspace &workspace, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
         : Fixture(workspace, workspace.getSharedObjectList(), prefix, meta)
     {        
     }
     
     Fixture::Fixture(Snapshot &snapshot, FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
-        : Memspace(prefix, meta, getUUID(prefix, *meta))
+        : Memspace(prefix, std::make_shared<SlotAllocator>(meta), getUUID(prefix, *meta))
         , m_snapshot(snapshot)
+        , m_slot_allocator(reinterpret_cast<SlotAllocator&>(*m_allocator))
+        , m_meta_allocator(reinterpret_cast<MetaAllocator&>(*m_slot_allocator.getAllocator()))        
         , m_UUID(*m_derived_UUID)
         , m_string_pool(openLimitedStringPool(*this, *meta))
         , m_object_catalogue(openObjectCatalogue(*meta))
         , m_v_object_cache(*this, shared_object_list)
     {
-    }    
-    
+        // set-up slots with the allocator
+        m_slot_allocator.setSlot(TYPE_SLOT_NUM, openSlot(*this, *meta, TYPE_SLOT_NUM));
+    }
+
     StringPoolT Fixture::openLimitedStringPool(Memspace &memspace, MetaAllocator &meta)
     {
         using v_fixture = v_object<o_fixture>;
         
         // read fixture configuration from under the 1st address
         v_fixture fixture(this->myPtr(meta.getFirstAddress()));
-        // designate one slab for a limited string pool
-        auto lsp_slab = meta.openReservedSlab(fixture->m_limited_string_pool_address, fixture->m_limited_string_pool_size);
-        return StringPoolT(Memspace(this->getPrefixPtr(), lsp_slab), memspace.myPtr(fixture->m_string_pool_ptr.getAddress()));
+        // open the lsp-slot for the exclusive use of the limited string pool
+        auto lsp_slot = openSlot(meta, fixture, LSP_SLOT_NUM);
+        return StringPoolT(Memspace(this->getPrefixPtr(), lsp_slot), memspace.myPtr(fixture->m_string_pool_ptr.getAddress()));
+    }
+    
+    std::shared_ptr<SlabAllocator> Fixture::openSlot(Memspace &memspace, MetaAllocator &meta, std::uint32_t slot_num) 
+    {
+        using v_fixture = v_object<o_fixture>;        
+        v_fixture fixture(this->myPtr(meta.getFirstAddress()));
+        return openSlot(meta, fixture, slot_num);
+    }
+
+    std::shared_ptr<SlabAllocator> Fixture::openSlot(MetaAllocator &meta, const v_object<o_fixture> &fixture, std::uint32_t slot_num) {
+        auto index = slot_index(slot_num);
+        return meta.openReservedSlab(fixture->m_slots[index].m_address, fixture->m_slots[index].m_size);
     }
     
     db0::ObjectCatalogue Fixture::openObjectCatalogue(MetaAllocator &meta)
@@ -80,13 +100,22 @@ namespace db0
             THROWF(db0::InternalException) << "Cannot initialize new fixture because the memspace is not empty";
         }
         
-        // reserve a single slab for the limited string pool
-        auto lsp_slab = meta.reserveNewSlab();
-        fixture.modify().m_limited_string_pool_address = lsp_slab->getAddress();
-        fixture.modify().m_limited_string_pool_size = lsp_slab->getSlabSize();
-        // create the string pool object
-        StringPoolT string_pool(Memspace(memspace.getPrefixPtr(), lsp_slab), memspace);
-        fixture.modify().m_string_pool_ptr = string_pool;
+        // reserve a single slab for the limited string pool (i.e. slot-0)
+        {
+            auto lsp_slot = meta.reserveNewSlab();
+            auto index = slot_index(LSP_SLOT_NUM);
+            fixture.modify().m_slots[index] = { lsp_slot->getAddress(), lsp_slot->getSlabSize() };
+            // create the string pool object
+            StringPoolT string_pool(Memspace(memspace.getPrefixPtr(), lsp_slot), memspace);
+            fixture.modify().m_string_pool_ptr = string_pool;
+        }
+
+        // create type slot (with the purpose to store Class and Enum objects)
+        {
+            auto type_slot = meta.reserveNewSlab();
+            auto index = slot_index(TYPE_SLOT_NUM);
+            fixture.modify().m_slots[index] = { type_slot->getAddress(), type_slot->getSlabSize() };
+        }
 
         // create the Object Catalogue
         ObjectCatalogue object_catalogue(memspace);
@@ -102,10 +131,10 @@ namespace db0
         for (auto &f: m_close_handlers) {
             f(false);
         }
-        m_string_pool.close();
+        m_string_pool.close();        
         Memspace::close();
     }
-
+    
     bool Fixture::refresh()
     {
         assert(getAccessType() == AccessType::READ_ONLY && "Refresh only makes sense for read-only fixtures");
@@ -137,13 +166,11 @@ namespace db0
     {
         auto state_num = workspace_view.getStateNum();
         auto prefix_snapshot = m_prefix->getSnapshot(state_num);
-        auto allocator_snapshot = std::make_shared<MetaAllocator>(
-            prefix_snapshot, std::dynamic_pointer_cast<MetaAllocator>(m_allocator)->getSlabRecyclerPtr());
-                
+        auto allocator_snapshot = std::make_shared<MetaAllocator>(prefix_snapshot, m_meta_allocator.getSlabRecyclerPtr());        
         return db0::make_swine<Fixture>(
             workspace_view, m_v_object_cache.getSharedObjectList(), prefix_snapshot, allocator_snapshot
         );
-    }    
+    }
     
     void Fixture::commit()
     {
@@ -208,6 +235,12 @@ namespace db0
     
     Snapshot &Fixture::getWorkspace() {
         return m_snapshot;
+    }
+
+    std::uint64_t Fixture::makeRelative(std::uint64_t address, std::uint32_t slot_num) const
+    {
+        auto &slab = reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num));
+        return slab.makeRelative(address);
     }
     
 }

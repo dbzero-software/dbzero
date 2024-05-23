@@ -25,7 +25,7 @@ namespace tests
     
 	TEST_F( FT_BaseIndexTest , testFT_BaseIndexCanBePopulatedWithBatchOpertionBuilder )
 	{
-        FT_BaseIndex cut(m_memspace, m_cache);
+        FT_BaseIndex<std::uint64_t> cut(m_memspace, m_cache);
         auto batch_data = cut.beginBatchUpdate();
         batch_data->addTags(123, std::vector<std::uint64_t> { 1, 2, 3 });
         batch_data->addTags(99, std::vector<std::uint64_t> { 4, 5 });
@@ -36,7 +36,7 @@ namespace tests
 
 	TEST_F( FT_BaseIndexTest , testFT_BaseIndexCanRemoveTagsWithOpertionBuilder )
 	{        
-        FT_BaseIndex cut(m_memspace, m_cache);
+        FT_BaseIndex<std::uint64_t> cut(m_memspace, m_cache);
         // initalize with some tags
         {
             auto batch_data = cut.beginBatchUpdate();
@@ -59,7 +59,7 @@ namespace tests
 	{        
         std::uint64_t ft_base_index_addr = 0;
         {
-            FT_BaseIndex cut(m_memspace, m_cache);
+            FT_BaseIndex<std::uint64_t> cut(m_memspace, m_cache);
             auto batch_data = cut.beginBatchUpdate();
             batch_data->addTags(123, std::vector<std::uint64_t> { 1, 2, 3 });
             batch_data->addTags(99, std::vector<std::uint64_t> { 4, 5 });
@@ -68,7 +68,7 @@ namespace tests
         }
         
         // Open existing
-        FT_BaseIndex cut(m_memspace.myPtr(ft_base_index_addr), m_cache);
+        FT_BaseIndex<std::uint64_t> cut(m_memspace.myPtr(ft_base_index_addr), m_cache);
         ASSERT_EQ(cut.size(), 5u);
     }
 

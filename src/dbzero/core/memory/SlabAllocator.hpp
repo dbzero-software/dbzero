@@ -60,7 +60,7 @@ namespace db0
 
         virtual ~SlabAllocator();
 
-        std::optional<std::uint64_t> tryAlloc(std::size_t size) override;
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0) override;
         
         void free(std::uint64_t address) override;
 
@@ -120,6 +120,15 @@ namespace db0
         */
         static std::uint64_t getFirstAddress();
 
+        // SlabAllocator specific address conversions        
+        inline std::uint64_t makeAbsolute(std::uint32_t relative) const {
+            return m_begin_addr + relative;
+        }
+
+        inline std::uint32_t makeRelative(std::uint64_t absolute) const {
+            return absolute - m_begin_addr;
+        }
+        
     private:
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
         using BlankSetT = db0::CRDT_Allocator::BlankSetT;
@@ -140,15 +149,7 @@ namespace db0
         std::size_t m_initial_admin_size;
         std::int64_t m_alloc_delta = 0;
         std::function<void(const SlabAllocator &)> m_on_close_handler;
-        
-        inline std::uint64_t makeAbsolute(std::uint32_t relative) const {
-            return m_begin_addr + relative;
-        }
-
-        inline std::uint32_t makeRelative(std::uint64_t absolute) const {
-            return absolute - m_begin_addr;
-        }
-        
+                
         static std::uint64_t headerAddr(std::uint64_t begin_addr, std::uint32_t size);
     };
     

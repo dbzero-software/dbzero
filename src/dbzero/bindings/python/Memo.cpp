@@ -11,6 +11,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyClassFields.hpp"
 
 namespace db0::python
 
@@ -160,13 +161,13 @@ namespace db0::python
         // 1. User type members (class members such as methods)
         // 2. DB0 object extension methods
         // 3. DB0 object members (attributes)
-        // 4. User instance members (e.g. attributes set during __post_init__)
+        // 4. User instance members (e.g. attributes set during __postinit__)
 
         auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(self), attr);
         if (res) {
             return res;
         }
-    
+
         self->ext().getFixture()->refreshIfUpdated();
         return self->ext().get(PyUnicode_AsUTF8(attr)).steal();
     }
@@ -254,7 +255,7 @@ namespace db0::python
 
         return new_dict;
     }
-
+    
     PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton)
     {        
         Py_INCREF(py_class);
@@ -288,8 +289,7 @@ namespace db0::python
         *ht_new_type = *et;
         PyTypeObject *new_type = (PyTypeObject*)ht_new_type;
         auto [type_name, full_type_name] = createWrappedTypeName(py_class->tp_name);
-        new_type->tp_name = full_type_name;
-        
+        new_type->tp_name = full_type_name;        
         // remove Py_TPFLAGS_READY flag so that the type can be initialized by the PyType_Ready
         new_type->tp_flags = py_class->tp_flags & ~Py_TPFLAGS_READY;
         // extend basic size with pointer to a DBZero object instance
@@ -315,16 +315,27 @@ namespace db0::python
         new_type->tp_bases = 0;
         
         if (PyType_Ready(new_type) < 0) {
-            throw std::runtime_error("PyType_Ready failed");
+            PyErr_SetString(PyExc_RuntimeError, "Failed to initialize new memo type");
+            return NULL;
         }
+
         new_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
         new_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
         base_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
         base_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
         PyToolkit::getTypeManager().addMemoType(new_type, nullptr);
         Py_INCREF(new_type);
-        // register new type with the module where the original type was located    
+        // register new type with the module where the original type was located
         PyModule_AddObject(py_module, type_name, reinterpret_cast<PyObject*>(new_type));
+
+        // add class fields class member to access memo type information
+        PyObject *py_class_fields = PyClassFields_create(new_type);
+        if (PyDict_SetItemString(new_type->tp_dict, "__fields__", py_class_fields) < 0) {
+            Py_DECREF(py_class_fields);
+            PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
+            return NULL;
+        }     
+
         return new_type;
     }
     

@@ -18,18 +18,17 @@ namespace db0::python
         {NULL}
     };
 
-    PyObjectTagManager *PyObjectTagManager_new(PyTypeObject *type, PyObject *, PyObject *)
-    {
+    PyObjectTagManager *PyObjectTagManager_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyObjectTagManager*>(type->tp_alloc(type, 0));
     }
 
     void PyObjectTagManager_del(PyObjectTagManager* tags_obj)
     {
         // destroy associated DB0 instance
-        tags_obj->ext().~ObjectTagManager();
+        tags_obj->destroy();
         Py_TYPE(tags_obj)->tp_free((PyObject*)tags_obj);
     }
-
+    
     PyObject *PyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object)
     {        
         tag_manager->ext().add(&object, 1);

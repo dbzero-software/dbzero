@@ -19,7 +19,7 @@ namespace db0::python
     void PyObjectIterator_del(PyObjectIterator* self)
     {
         // destroy associated DB0 instance
-        self->ext().~ObjectIterator();
+        self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
     
@@ -146,7 +146,7 @@ namespace db0::python
         .tp_new = (newfunc)PyTypedObjectIterator_new,
         .tp_free = PyObject_Free,
     };
-
+    
     PyObject *find(PyObject *, PyObject* const *args, Py_ssize_t nargs) {
         return findIn(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }

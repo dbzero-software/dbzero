@@ -60,12 +60,14 @@ namespace db0::object_model
             const char *type_id, ClassFlags);
     };
     
-    class Class: public db0::ObjectBase<Class, db0::v_object<o_class>, StorageClass::DB0_CLASS>,
+    // Note that Class type uses SLOT_NUM = TYPE_SLOT_NUM
+    class Class: public db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS>,
         public std::enable_shared_from_this<Class>
     {
         GC0_Declare
-        using super_t = db0::ObjectBase<Class, db0::v_object<o_class>, StorageClass::DB0_CLASS>;
+        using super_t = db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS>;
     public:
+        static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
         // e.g. PyObject*
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
@@ -73,20 +75,13 @@ namespace db0::object_model
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         using TypeObjectSharedPtr = typename LangToolkit::TypeObjectSharedPtr;
         
-        class Member
+        struct Member
         {
-        public:
+            std::uint32_t m_field_id;
             std::string m_name;
-            StorageClass m_storage_class;
             
-            Member(const char *, StorageClass, std::shared_ptr<Class> type = nullptr);
-            Member(const std::string &, StorageClass, std::shared_ptr<Class> type = nullptr);
-
-            std::shared_ptr<Class> getType(ClassFactory &) const;
-
-        private:
-            // lazy - initialized member
-            mutable std::shared_ptr<Class> m_type;
+            Member(std::uint32_t, const char *);
+            Member(std::uint32_t, const std::string &);
         };
         
         // Pull existing type (language class unknown)
@@ -102,13 +97,12 @@ namespace db0::object_model
 
         std::optional<std::string> getTypeId() const;
         
-        std::uint32_t addField(const char *name, StorageClass, std::shared_ptr<Class> type = nullptr);
+        std::uint32_t addField(const char *name);
 
         std::uint32_t findField(const char *name) const;
 
         // Get the number of fields declared in this class
-        std::size_t size() const
-        {
+        std::size_t size() const {
             return m_members.size();
         }
         
@@ -155,7 +149,9 @@ namespace db0::object_model
         void detach();
 
         bool operator!=(const Class &rhs) const;
-                
+
+        std::uint32_t getUID() const { return m_uid; }
+
     protected:
         friend class ClassFactory;
         friend ClassPtr;
@@ -168,6 +164,9 @@ namespace db0::object_model
                 
         void unlinkSingleton();
         
+        // Get unique class identifier within its fixture
+        std::uint32_t fetchUID() const;
+
     public:
         static constexpr std::uint32_t NField = std::numeric_limits<std::uint32_t>::max();
                 
@@ -178,7 +177,8 @@ namespace db0::object_model
         mutable std::vector<Member> m_member_cache;
         // field by-name index (cache)
         mutable std::unordered_map<std::string, std::uint32_t> m_index;
-        
+        const std::uint32_t m_uid;
+
         /**
          * Load changes to the internal cache
         */

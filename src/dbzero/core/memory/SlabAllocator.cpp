@@ -45,8 +45,9 @@ namespace db0
         }
     }
 
-    std::optional<std::uint64_t> SlabAllocator::tryAlloc(std::size_t size)
+    std::optional<std::uint64_t> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num)
     {
+        assert(slot_num == 0);
         assert(size > 0);
         // obtain relative address from the underlying CRDT allocator
         auto relative = m_allocator.tryAlloc(size);

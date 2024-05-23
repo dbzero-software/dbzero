@@ -14,8 +14,10 @@
 #include "PyObjectIterator.hpp"
 #include "PySnapshot.hpp"
 #include "PyTagSet.hpp"
+#include "PyEnum.hpp"
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
+#include "PyClassFields.hpp"
 
 namespace py = db0::python;
     
@@ -59,6 +61,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"build_flags", &py::getBuildFlags, METH_NOARGS, "Retrieve DBZero library build flags"},
     {"serialize", (PyCFunction)&py::pySerialize, METH_FASTCALL, "Serialize DBZero serializable instance"},
     {"deserialize", (PyCFunction)&py::pyDeserialize, METH_FASTCALL, "Serialize DBZero serializable instance"},
+    {"enum", (PyCFunction)&py::makeEnum, METH_FASTCALL, "Serialize DBZero serializable instance"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
@@ -109,7 +112,11 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::PandasDataFrameObjectType,         
         &py::PyObjectIteratorType,
         &py::PyTypedObjectIteratorType,
-        &py::ByteArrayObjectType
+        &py::ByteArrayObjectType,
+        &py::PyEnumType, 
+        &py::PyEnumValueType,
+        &py::PyClassFieldsType,
+        &py::PyFieldDefType
     };
     
     // register all types

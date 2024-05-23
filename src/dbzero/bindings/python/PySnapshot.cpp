@@ -27,7 +27,7 @@ namespace db0::python
     void PySnapshot_del(PySnapshotObject* snapshot_obj)
     {
         // destroy associated DB0 instance
-        snapshot_obj->ext().~WorkspaceView();
+        snapshot_obj->destroy();
         Py_TYPE(snapshot_obj)->tp_free((PyObject*)snapshot_obj);
     }
 

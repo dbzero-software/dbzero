@@ -25,6 +25,8 @@
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
+#include "PyEnum.hpp"
+#include "PyClassFields.hpp"
 
 namespace db0::python
 
@@ -56,6 +58,9 @@ namespace db0::python
         addStaticType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
         addStaticType(&PyTypedObjectIteratorType, TypeId::TYPED_OBJECT_ITERATOR);
         addStaticType(&PyBytes_Type, TypeId::BYTES);
+        addStaticType(&PyEnumType, TypeId::DB0_ENUM);
+        addStaticType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
+        addStaticType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
         // Python datetime type
         addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
     }
@@ -241,6 +246,22 @@ namespace db0::python
 
     bool PyTypeManager::isNull(ObjectPtr obj_ptr) const {
         return !obj_ptr || obj_ptr == Py_None;
+    }
+    
+    db0::object_model::EnumValue &PyTypeManager::extractEnumValue(ObjectPtr enum_value_ptr) const
+    {
+        if (!PyEnumValue_Check(enum_value_ptr)) {
+            THROWF(db0::InputException) << "Expected an EnumValue object" << THROWF_END;
+        }
+        return reinterpret_cast<PyEnumValue*>(enum_value_ptr)->ext();
+    }
+
+    db0::object_model::FieldDef &PyTypeManager::extractFieldDef(ObjectPtr py_object) const
+    {
+        if (!PyFieldDef_Check(py_object)) {
+            THROWF(db0::InputException) << "Expected a FieldDef object" << THROWF_END;
+        }
+        return reinterpret_cast<PyFieldDef*>(py_object)->ext();
     }
 
 }

@@ -17,6 +17,7 @@
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 #include <dbzero/object_model/ObjectCatalogue.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
+#include <dbzero/core/memory/SlotAllocator.hpp>
 
 namespace db0
 
@@ -27,8 +28,15 @@ namespace db0
     class Snapshot;
     class Workspace;
     class WorkspaceView;
+    class SlabAllocator;
     using StringPoolT = db0::pools::RC_LimitedStringPool;
     using ObjectCatalogue = db0::object_model::ObjectCatalogue;
+
+    struct [[gnu::packed]] SlotDef
+    {
+        std::uint64_t m_address = 0;
+        std::uint64_t m_size = 0;
+    };
 
     /**
      * Fixture header placed at a fixed well-known address (e.g. 0x0)
@@ -39,9 +47,8 @@ namespace db0
         std::uint64_t m_UUID;
         // address of the Object Catalogue
         std::uint64_t m_object_catalogue_address = 0;
-        // address of the common limited string pool
-        std::uint64_t m_limited_string_pool_address = 0;
-        std::uint32_t m_limited_string_pool_size = 0;
+        // slot definitions
+        SlotDef m_slots[8];
         db0::db0_ptr<StringPoolT> m_string_pool_ptr;
 
         o_fixture();
@@ -59,6 +66,10 @@ namespace db0
     {
     public:
         using LangCache = db0::object_model::LangCache;
+        // Limited String Pool's slot number
+        static constexpr std::uint32_t LSP_SLOT_NUM = 1;
+        // slot number for DB0 types and enums
+        static constexpr std::uint32_t TYPE_SLOT_NUM = 2;
         
         Fixture(Workspace &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
         Fixture(Snapshot &, FixedObjectList &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
@@ -160,7 +171,7 @@ namespace db0
          * Get read-only snapshot of the fixture's state within a specific WorkspaceView
         */
         db0::swine_ptr<Fixture> getSnapshot(WorkspaceView &) const;
-
+        
         void onUpdated();
 
         /**
@@ -170,8 +181,14 @@ namespace db0
 
         Snapshot &getWorkspace();
 
-    private:                
+        // Converts address from a specific slot to relative one
+        std::uint64_t makeRelative(std::uint64_t address, std::uint32_t slot_num) const;
+
+    private:
         Snapshot &m_snapshot;
+        // Underlying allocator's convenience references
+        SlotAllocator &m_slot_allocator;
+        MetaAllocator &m_meta_allocator;
         const std::uint64_t m_UUID;
         // the registry holds active v_ptr instances (important for refresh)
         // and cleanup of the "hanging" references
@@ -193,6 +210,8 @@ namespace db0
         std::atomic<bool> m_pre_commit = false;
         
         StringPoolT openLimitedStringPool(Memspace &, MetaAllocator &);
+        
+        std::shared_ptr<SlabAllocator> openSlot(Memspace &, MetaAllocator &, std::uint32_t slot_id);
 
         db0::ObjectCatalogue openObjectCatalogue(MetaAllocator &);
         
@@ -204,6 +223,8 @@ namespace db0
 
         // try commit if not closed yet
         void tryCommit();
+
+        static std::shared_ptr<SlabAllocator> openSlot(MetaAllocator &, const v_object<o_fixture> &, std::uint32_t slot_id);
 
     protected:
         friend class FixtureThread;
@@ -236,7 +257,7 @@ namespace db0
     {
         return addResourceAs<T, T>(std::forward<Args>(args)...);
     }
-        
+    
     struct FixtureLock
     {
         inline FixtureLock(const db0::swine_ptr<Fixture> &fixture)

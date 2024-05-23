@@ -29,15 +29,15 @@ namespace db0
         return cache.findOrCreate<db0::MorphingBIndex<KeyT> >(mb_addr, mb_addr, index_type);
     }
     
-    template <typename KeyT = std::uint64_t, typename ValueT = std::uint64_t>
-    class InvertedIndex: public db0::v_bindex<key_value<KeyT, ValueT>, std::uint64_t>
+    template <typename IndexKeyT = std::uint64_t, typename KeyT = std::uint64_t, typename ValueT = std::uint64_t>
+    class InvertedIndex: public db0::v_bindex<key_value<IndexKeyT, ValueT>, std::uint64_t>
     {
         mutable progressive_mutex m_mutex;
 
-    public :
+    public:
         using ListT = db0::MorphingBIndex<KeyT>;
-        using MapItemT = key_value<KeyT, ValueT>;
-        using super_t = db0::v_bindex<MapItemT, std::uint64_t>;
+        using MapItemT = key_value<IndexKeyT, ValueT>;
+        using super_t = db0::v_bindex<key_value<IndexKeyT, ValueT>, std::uint64_t>;
         // convert inverted list to value
         using ValueFunctionT = std::function<ValueT(const ListT &)>;
         // extract inverted list address from value, pull through cache
@@ -49,7 +49,7 @@ namespace db0
          */
         InvertedIndex() = default;
 
-        InvertedIndex(Memspace &memspace, VObjectCache &, ValueFunctionT = addressOfMBIndex<KeyT, ValueT>, 
+        InvertedIndex(Memspace &memspace, VObjectCache &, ValueFunctionT = addressOfMBIndex<KeyT, ValueT>,
             ListFunctionT = indexFromAddress<KeyT, ValueT>);
 
         InvertedIndex(mptr ptr, VObjectCache &, ValueFunctionT = addressOfMBIndex<KeyT, ValueT>, 
@@ -60,7 +60,7 @@ namespace db0
          * @param key key to retrieve/create the inverted list by
          * @return the inverted list object
          */
-        std::shared_ptr<ListT> findOrCreateInvertedList(KeyT key);
+        std::shared_ptr<ListT> findOrCreateInvertedList(IndexKeyT key);
         
         /**
          * Similar as getObjectIndex but performed in a bulk operation for all provided keys
@@ -83,10 +83,10 @@ namespace db0
             {                
                 auto it = this->beginJoin(1);
                 std::for_each(first_key, last_key,
-                [&](const KeyT &key) {
-                    [[maybe_unused]] bool join_result = it.join(key, 1);
+                [&](const IndexKeyT &index_key) {
+                    [[maybe_unused]] bool join_result = it.join(index_key, 1);
                     assert(join_result);
-                    assert((*it).key == key);
+                    assert((*it).key == index_key);
                     result.emplace_back(it.getIterator());
                 });
             }
@@ -102,15 +102,13 @@ namespace db0
          * Pull existing index from under iterator (or create new)
          */
         std::shared_ptr<ListT> getInvertedList(iterator &it);
-
-        // void setInvertedList(const MapItemT &item);
-
+        
         /**
          * Pull through cache, throw if no such inverted index found
          */
-        std::shared_ptr<ListT> getExistingInvertedList(KeyT) const;
+        std::shared_ptr<ListT> getExistingInvertedList(IndexKeyT) const;
 
-        std::shared_ptr<ListT> tryGetExistingInvertedList(KeyT) const;
+        std::shared_ptr<ListT> tryGetExistingInvertedList(IndexKeyT) const;
         
         inline VObjectCache &getVObjectCache() const {
             return m_cache;
@@ -122,7 +120,8 @@ namespace db0
         ListFunctionT m_list_function;
     };
 
-    template <typename KeyT, typename ValueT> InvertedIndex<KeyT, ValueT>::InvertedIndex(Memspace &memspace, 
+    template <typename IndexKeyT, typename KeyT, typename ValueT> 
+    InvertedIndex<IndexKeyT, KeyT, ValueT>::InvertedIndex(Memspace &memspace,
         VObjectCache &cache, ValueFunctionT value_function, ListFunctionT list_function)
         : super_t(memspace)
         , m_cache(cache)
@@ -131,7 +130,8 @@ namespace db0
     {        
     }
 
-    template <typename KeyT, typename ValueT> InvertedIndex<KeyT, ValueT>::InvertedIndex(mptr ptr,
+    template <typename IndexKeyT, typename KeyT, typename ValueT>
+    InvertedIndex<IndexKeyT, KeyT, ValueT>::InvertedIndex(mptr ptr,
         VObjectCache &cache, ValueFunctionT value_function, ListFunctionT list_function)
         : super_t(ptr, ptr.getPageSize())
         , m_cache(cache)
@@ -140,9 +140,9 @@ namespace db0
     {
     }
     
-    template <typename KeyT, typename ValueT>
-    std::shared_ptr<typename InvertedIndex<KeyT, ValueT>::ListT>
-    InvertedIndex<KeyT, ValueT>::findOrCreateInvertedList(KeyT key)
+    template <typename IndexKeyT, typename KeyT, typename ValueT>
+    std::shared_ptr<typename InvertedIndex<IndexKeyT, KeyT, ValueT>::ListT>
+    InvertedIndex<IndexKeyT, KeyT, ValueT>::findOrCreateInvertedList(IndexKeyT key)
     {
 		MapItemT item(key);
 		auto it = super_t::find(item);
@@ -158,17 +158,17 @@ namespace db0
 		}
     }
     
-    template <typename KeyT, typename ValueT> 
-    std::shared_ptr<typename InvertedIndex<KeyT, ValueT>::ListT>
-    InvertedIndex<KeyT, ValueT>::getInvertedList(const MapItemT &item) const
+    template <typename IndexKeyT, typename KeyT, typename ValueT> 
+    std::shared_ptr<typename InvertedIndex<IndexKeyT, KeyT, ValueT>::ListT>
+    InvertedIndex<IndexKeyT, KeyT, ValueT>::getInvertedList(const MapItemT &item) const
     {
         // pull DBZero existing        
         return m_list_function(m_cache, item.value);
     }
 
-    template <typename KeyT, typename ValueT> 
-    std::shared_ptr<typename InvertedIndex<KeyT, ValueT>::ListT> 
-    InvertedIndex<KeyT, ValueT>::getInvertedList(iterator &it)
+    template <typename IndexKeyT, typename KeyT, typename ValueT> 
+    std::shared_ptr<typename InvertedIndex<IndexKeyT, KeyT, ValueT>::ListT> 
+    InvertedIndex<IndexKeyT, KeyT, ValueT>::getInvertedList(iterator &it)
     {
 		if ((*it).value == ValueT()) {
             auto list_ptr = m_cache.create<ListT>();
@@ -180,9 +180,9 @@ namespace db0
 		}
     }
     
-    template <typename KeyT, typename ValueT>
-    std::shared_ptr<typename InvertedIndex<KeyT, ValueT>::ListT> 
-    InvertedIndex<KeyT, ValueT>::getExistingInvertedList(KeyT key) const
+    template <typename IndexKeyT, typename KeyT, typename ValueT>
+    std::shared_ptr<typename InvertedIndex<IndexKeyT, KeyT, ValueT>::ListT> 
+    InvertedIndex<IndexKeyT, KeyT, ValueT>::getExistingInvertedList(IndexKeyT key) const
     {
 		auto result_ptr = tryGetExistingInvertedList(key);
         if (!result_ptr) {
@@ -192,9 +192,9 @@ namespace db0
 		return result_ptr;
     }
 
-    template <typename KeyT, typename ValueT>
-    std::shared_ptr<typename InvertedIndex<KeyT, ValueT>::ListT> 
-    InvertedIndex<KeyT, ValueT>::tryGetExistingInvertedList(KeyT key) const
+    template <typename IndexKeyT, typename KeyT, typename ValueT>
+    std::shared_ptr<typename InvertedIndex<IndexKeyT, KeyT, ValueT>::ListT> 
+    InvertedIndex<IndexKeyT, KeyT, ValueT>::tryGetExistingInvertedList(IndexKeyT key) const
     {
 		progressive_mutex::scoped_lock lock(m_mutex);
 		for (;;) {

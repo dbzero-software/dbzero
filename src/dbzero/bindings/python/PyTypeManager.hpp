@@ -16,6 +16,9 @@ namespace db0::object_model {
     class TagSet;
     class Index;
     class ObjectIterator;
+    struct EnumValue;
+    struct FieldDef;
+    
 }
 
 namespace db0::object_model::pandas {
@@ -46,6 +49,8 @@ namespace db0::python
         using PandasBlock = db0::object_model::pandas::Block;
         using Index = db0::object_model::Index;
         using ObjectIterator = db0::object_model::ObjectIterator;
+        using EnumValue = db0::object_model::EnumValue;
+        using FieldDef = db0::object_model::FieldDef;
 
         PyTypeManager();
         
@@ -73,8 +78,9 @@ namespace db0::python
         Dict &extractDict(ObjectPtr dict_ptr) const;
         TagSet &extractTagSet(ObjectPtr tag_set_ptr) const;
         Index &extractIndex(ObjectPtr index_ptr) const;
+        EnumValue &extractEnumValue(ObjectPtr enum_value_ptr) const;
         ObjectIterator &extractObjectIterator(ObjectPtr) const;
-        
+        FieldDef &extractFieldDef(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
         
         /**

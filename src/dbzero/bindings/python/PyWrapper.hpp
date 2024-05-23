@@ -26,7 +26,7 @@ namespace db0::python
             return sizeof(PyObject) + sizeof(T);
         }
 
-        void destroy(){
+        void destroy() {
             ext().~T();
         }
     };

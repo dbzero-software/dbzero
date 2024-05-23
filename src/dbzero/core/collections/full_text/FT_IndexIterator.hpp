@@ -16,21 +16,21 @@ namespace db0
 	 * bindex_t - some bindex derived type with key_t (e.g. std::uint64_t) derived keys (v_bindex)
 	 * implements FT_Iterator interface over b-index data structure
 	 */
-	template <typename bindex_t, typename key_t = std::uint64_t> 
+	template <typename bindex_t, typename key_t = std::uint64_t, typename IndexKeyT = std::uint64_t>
 	class FT_IndexIterator: public FT_Iterator<key_t>
 	{
 	public:
-		using self_t = FT_IndexIterator<bindex_t, key_t>;
+		using self_t = FT_IndexIterator<bindex_t, key_t, IndexKeyT>;
 		using super_t = FT_Iterator<key_t>;
 		using iterator = typename bindex_t::joinable_const_iterator;
 
-		FT_IndexIterator(const bindex_t &data, int direction, std::optional<std::uint64_t> index_key = {});
+		FT_IndexIterator(const bindex_t &data, int direction, std::optional<IndexKeyT> index_key = {});
 
 		/**
          * Construct over already initialized simple iterator
          */
 		FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
-			std::optional<std::uint64_t> index_key = {});
+			std::optional<IndexKeyT> index_key = {});
 
         virtual ~FT_IndexIterator() = default;
         
@@ -71,7 +71,7 @@ namespace db0
          */
         const iterator &asNative() const;
 
-        std::uint64_t getIndexKey() const override;
+        IndexKeyT getIndexKey() const;
 
         void detach();
 
@@ -92,7 +92,7 @@ namespace db0
         bool m_is_detached = false;
         bool m_has_detach_key = false;
         key_t m_detach_key;
-        const std::optional<std::uint64_t> m_index_key;
+        const std::optional<IndexKeyT> m_index_key;
 
         /**
          * Get valid iterator after detach
@@ -111,9 +111,9 @@ namespace db0
 		double compareTo(const FT_IndexIterator &it) const;
     };
 	
-	template <typename bindex_t, typename key_t>
-	FT_IndexIterator<bindex_t, key_t>::FT_IndexIterator(const bindex_t &data, int direction, 
-		std::optional<std::uint64_t> index_key)
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(const bindex_t &data, int direction, 
+		std::optional<IndexKeyT> index_key)
         : m_data(data)
         , m_direction(direction)
         , m_iterator(m_data.beginJoin(direction))
@@ -121,9 +121,9 @@ namespace db0
     {
     }
 	
-	template <typename bindex_t, typename key_t>
-	FT_IndexIterator<bindex_t, key_t>::FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
-	    std::optional<std::uint64_t> index_key)
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(const bindex_t &data, int direction, const iterator &it,
+	    std::optional<IndexKeyT> index_key)
         : m_data(data)
         , m_direction(direction)
         , m_iterator(it)
@@ -131,25 +131,25 @@ namespace db0
     {
     }
 
-	template <typename bindex_t, typename key_t >
-	key_t FT_IndexIterator<bindex_t, key_t>::getKey() const {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	key_t FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getKey() const {
 		// casts underlying item to long_ptr
 		return *getIterator();
 	}
 
-	template <typename bindex_t, typename key_t >
-	bool FT_IndexIterator<bindex_t, key_t>::isEnd() const {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	bool FT_IndexIterator<bindex_t, key_t, IndexKeyT>::isEnd() const {
 		return getIterator().is_end();
 	}
 
-	template <typename bindex_t, typename key_t >
-	void FT_IndexIterator<bindex_t, key_t>::operator++() {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::operator++() {
 		assert(m_direction > 0);
 		++getIterator();
 	}
 
-	template <typename bindex_t, typename key_t >
-	void FT_IndexIterator<bindex_t, key_t>::_next(void *buf) 
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::_next(void *buf) 
 	{
 		assert(m_direction < 0);
 		assert(!this->isEnd());
@@ -161,33 +161,33 @@ namespace db0
 		--getIterator();
 	}
 
-	template <typename bindex_t, typename key_t >
-	void FT_IndexIterator<bindex_t, key_t>::operator--() {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::operator--() {
 		this->_next(nullptr);
 	}
 
-	template <typename bindex_t, typename key_t >
-	void FT_IndexIterator<bindex_t, key_t>::next(void *buf) {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::next(void *buf) {
 		this->_next(buf);
 	}
 
-	template <typename bindex_t, typename key_t >
-	bool FT_IndexIterator<bindex_t, key_t>::join(key_t join_key, int direction) {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	bool FT_IndexIterator<bindex_t, key_t, IndexKeyT>::join(key_t join_key, int direction) {
 		return getIterator().join(join_key, direction);
 	}
 
-	template <typename bindex_t, typename key_t >
-	void FT_IndexIterator<bindex_t, key_t>::joinBound(key_t join_key) {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::joinBound(key_t join_key) {
 		getIterator().joinBound(join_key);
 	}
 
-	template <typename bindex_t, typename key_t >
-	std::pair<key_t, bool> FT_IndexIterator<bindex_t, key_t>::peek(key_t join_key) const {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	std::pair<key_t, bool> FT_IndexIterator<bindex_t, key_t, IndexKeyT>::peek(key_t join_key) const {
 		return getIterator().peek(join_key);
 	}
 
-	template <typename bindex_t, typename key_t >
-	std::unique_ptr<FT_Iterator<key_t> > FT_IndexIterator<bindex_t, key_t>::clone(
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	std::unique_ptr<FT_Iterator<key_t> > FT_IndexIterator<bindex_t, key_t, IndexKeyT>::clone(
 		CloneMap<FT_Iterator<key_t> > *clone_map_ptr) const
 	{
 		// clone preserving state
@@ -199,24 +199,24 @@ namespace db0
 		return result;
 	}
 
-	template <typename bindex_t, typename key_t >
-	std::unique_ptr<FT_Iterator<key_t> > FT_IndexIterator<bindex_t, key_t>::beginTyped(int direction) const {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	std::unique_ptr<FT_Iterator<key_t> > FT_IndexIterator<bindex_t, key_t, IndexKeyT>::beginTyped(int direction) const {
 		return std::unique_ptr<FT_Iterator<key_t> >(new FT_IndexIterator(m_data, direction, this->m_index_key));
 	}
 
-	template <typename bindex_t, typename key_t >
-	bool FT_IndexIterator<bindex_t, key_t>::limitBy(key_t key) {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	bool FT_IndexIterator<bindex_t, key_t, IndexKeyT>::limitBy(key_t key) {
 		// simply pass through underlying collection iterator
 		return getIterator().limitBy(key);
 	}
 
-	template <typename bindex_t, typename key_t >
-	std::ostream &FT_IndexIterator<bindex_t, key_t>::dump(std::ostream &os) const {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	std::ostream &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::dump(std::ostream &os) const {
 		return os << "FTIndex@" << this;
 	}
 
-	template <typename bindex_t, typename key_t>
-	bool FT_IndexIterator<bindex_t, key_t>::equal(const FT_IteratorBase &it) const 
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	bool FT_IndexIterator<bindex_t, key_t, IndexKeyT>::equal(const FT_IteratorBase &it) const
     {
 		if (this->typeId() != it.typeId()) {
 			return false;
@@ -225,31 +225,34 @@ namespace db0
 		return m_data == reinterpret_cast<const decltype(*this)&>(it).m_data;
 	}
 	
-	template <typename bindex_t, typename key_t>
-	const typename FT_IndexIterator<bindex_t, key_t>::iterator &FT_IndexIterator<bindex_t, key_t>::asNative() const {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	const typename FT_IndexIterator<bindex_t, key_t, IndexKeyT>::iterator &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::asNative() const {
 		return getIterator();
 	}
 
-	template <typename bindex_t, typename key_t>
-	std::uint64_t FT_IndexIterator<bindex_t, key_t>::getIndexKey() const {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	IndexKeyT FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getIndexKey() const {
 		return *m_index_key;
 	}
 
-	template <typename bindex_t, typename key_t>
-	void FT_IndexIterator<bindex_t, key_t>::scanQueryTree(
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::scanQueryTree(
 	    std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_function, int depth) const {
 		scan_function(this, depth);
 	}
 
-    template <typename bindex_t, typename key_t> std::size_t FT_IndexIterator<bindex_t, key_t>::getDepth() const {
+    template <typename bindex_t, typename key_t, typename IndexKeyT> 
+	std::size_t FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getDepth() const {
         return 1u;
     }
 
-	template <typename bindex_t, typename key_t> void FT_IndexIterator<bindex_t, key_t>::stop() {
+	template <typename bindex_t, typename key_t, typename IndexKeyT> 
+	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::stop() {
 	    getIterator().stop();
 	}
 
-    template <typename bindex_t, typename key_t> void FT_IndexIterator<bindex_t, key_t>::detach() 
+    template <typename bindex_t, typename key_t, typename IndexKeyT>
+	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::detach()
     {
 		/* FIXME: implement when needed
         if (!this->m_is_detached) {
@@ -266,8 +269,8 @@ namespace db0
 		*/
     }
 	
-    template <typename bindex_t, typename key_t> typename FT_IndexIterator<bindex_t, key_t>::iterator &
-    FT_IndexIterator<bindex_t, key_t>::getIterator() 
+    template <typename bindex_t, typename key_t, typename IndexKeyT> 
+	typename FT_IndexIterator<bindex_t, key_t, IndexKeyT>::iterator &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getIterator()
     {
         if (m_is_detached) {            
 			m_iterator = m_data.beginJoin(m_direction);
@@ -281,24 +284,25 @@ namespace db0
         return m_iterator;
     }
 
-    template <typename bindex_t, typename key_t> const typename FT_IndexIterator<bindex_t, key_t>::iterator &
-    FT_IndexIterator<bindex_t, key_t>::getIterator() const 
+    template <typename bindex_t, typename key_t, typename IndexKeyT> 
+	const typename FT_IndexIterator<bindex_t, key_t, IndexKeyT>::iterator &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getIterator() const
 	{
         // forward to the non-const method
-        return const_cast<FT_IndexIterator<bindex_t, key_t> &>(*this).getIterator();
+        return const_cast<FT_IndexIterator<bindex_t, key_t, IndexKeyT> &>(*this).getIterator();
     }
 
-	template <typename bindex_t, typename key_t> const std::type_info &FT_IndexIterator<bindex_t, key_t>::typeId() const {
+	template <typename bindex_t, typename key_t, typename IndexKeyT> 
+	const std::type_info &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::typeId() const {
 		return typeid(self_t);
 	}
 	
-	template <typename bindex_t, typename key_t>
-	FTIteratorType FT_IndexIterator<bindex_t, key_t>::getSerialTypeId() const {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	FTIteratorType FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getSerialTypeId() const {
 		return FTIteratorType::Index;
 	}
 
-	template <typename bindex_t, typename key_t>
-	void FT_IndexIterator<bindex_t, key_t>::serializeFTIterator(std::vector<std::byte> &v) const
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::serializeFTIterator(std::vector<std::byte> &v) const
 	{
 		using TypeIdType = decltype(db0::serial::typeId<void>());
 
@@ -309,13 +313,14 @@ namespace db0
 		// write underlying type IDs
 		db0::serial::write<TypeIdType>(v, bindex_t::getSerialTypeId());
 		db0::serial::write<TypeIdType>(v, db0::serial::typeId<key_t>());
+		db0::serial::write<TypeIdType>(v, db0::serial::typeId<IndexKeyT>());
 		db0::serial::write(v, m_data.getMemspace().getUUID());
-		db0::serial::write<std::int8_t>(v, m_direction);			
+		db0::serial::write<std::int8_t>(v, m_direction);		
 		db0::serial::write(v, *m_index_key);
 	}
 
-	template <typename bindex_t, typename key_t>
-	double FT_IndexIterator<bindex_t, key_t>::compareToImpl(const FT_IteratorBase &it) const
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	double FT_IndexIterator<bindex_t, key_t, IndexKeyT>::compareToImpl(const FT_IteratorBase &it) const
 	{
 		if (this->typeId() == it.typeId()) {
 			return compareTo(reinterpret_cast<const self_t &>(it));
@@ -323,8 +328,8 @@ namespace db0
 		return 1.0;
 	}
 
-	template <typename bindex_t, typename key_t>
-	double FT_IndexIterator<bindex_t, key_t>::compareTo(const FT_IndexIterator &other) const
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	double FT_IndexIterator<bindex_t, key_t, IndexKeyT>::compareTo(const FT_IndexIterator &other) const
 	{
 		if (m_index_key && other.m_index_key) {
 			return (*m_index_key == *other.m_index_key) ? 0.0 : 1.0;
@@ -333,8 +338,8 @@ namespace db0
 		return (m_data.getAddress() == other.m_data.getAddress()) ? 0.0 : 1.0;
 	}
 	
-	template <typename bindex_t, typename key_t>
-	void FT_IndexIterator<bindex_t, key_t>::getSignature(std::vector<std::byte> &v) const {
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getSignature(std::vector<std::byte> &v) const {
 		// get the serializable's signature
 		db0::serial::getSignature(*this, v);
 	}
