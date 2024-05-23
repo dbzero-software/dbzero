@@ -315,7 +315,7 @@ namespace db0::object_model
         }
     }
 
-    bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<std::uint64_t> &factory, 
+    bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<std::uint64_t> &factory,
         std::vector<std::unique_ptr<QueryIterator> > &neg_iterators) const
     {
         using TypeId = db0::bindings::TypeId;
@@ -328,6 +328,14 @@ namespace db0::object_model
         
         // a python iterable
         if (type_id == TypeId::LIST || type_id == TypeId::TUPLE) {
+            // check if an iterable can be converted into a long tag and attach to query if yes
+            if (isLongTag<ForwardIterator>(LangToolkit::getIterator(arg), ForwardIterator::end())) {
+                IterableSequence sequence(LangToolkit::getIterator(arg), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
+                    return makeShortTag(arg.get());
+                });
+                return m_base_index_long.addIterator(factory, makeLongTag(sequence));
+            }
+
             bool is_or_clause = (type_id == TypeId::LIST);
             // lists corresponds to OR operator, tuple - to AND
             std::unique_ptr<FT_IteratorFactory<std::uint64_t> > inner_factory;
