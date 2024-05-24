@@ -38,3 +38,19 @@ def memo_tags():
             db0.tags(object).add("tag3")
         if i % 4 == 0:
             db0.tags(object).add("tag4")
+
+
+@pytest.fixture()
+def enum_tags():
+    Colors = db0.enum("Colors", ["red", "green", "blue", "black"])
+    root = MemoTestSingleton([])
+    for i in range(10):
+        object = MemoTestClass(i)
+        root.value.append(object)
+        db0.tags(object).add("tag1")
+        if i % 2 == 0:
+            db0.tags(object).add(Colors.red)
+        if i % 3 == 0:
+            db0.tags(object).add(Colors.green)
+        if i % 4 == 0:
+            db0.tags(object).add(Colors.blue)

@@ -13,8 +13,7 @@
 namespace db0::object_model
 
 {
-    
-    class Enum;
+        
     using Object = db0::object_model::Object;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     
@@ -58,11 +57,12 @@ namespace db0::object_model
             std::shared_ptr<Class> &type) const;
 
         /**
-         * Split query by all values from a specific Enum
+         * Split query by all values from a specific tags_list (can be either short or long tag definitions)
+         * @param lang_arg must represent a list of tags as language specific types (e.g. string / enum value etc.)
          * @return updated query iterator + observer to retrieve the active value
         */
         std::pair<std::unique_ptr<QueryIterator>, std::unique_ptr<QueryResultObserver> > 
-        splitBy(std::unique_ptr<QueryIterator> &&query, const Enum &) const;
+        splitBy(ObjectPtr lang_arg, std::unique_ptr<QueryIterator> &&query) const;
                 
         // Clears the entire contents
         void clear();
@@ -99,6 +99,7 @@ namespace db0::object_model
          * Make a tag from the provided argument (can be a string, type or a memo instance)        
         */        
         ShortTagT makeShortTag(ObjectPtr) const;
+        ShortTagT makeShortTag(ObjectSharedPtr) const;
         ShortTagT makeShortTag(TypeId, ObjectPtr) const;
         ShortTagT makeShortTagFromString(ObjectPtr) const;
         ShortTagT makeShortTagFromMemo(ObjectPtr) const;
@@ -111,10 +112,16 @@ namespace db0::object_model
         bool isShortTag(ObjectPtr) const;
         bool isShortTag(ObjectSharedPtr) const;
 
+        bool isLongTag(ObjectPtr) const;
+        bool isLongTag(ObjectSharedPtr) const;
+        
+        LongTagT makeLongTag(ObjectPtr) const;
+        LongTagT makeLongTag(ObjectSharedPtr) const;
+
         // Check if the sequence represents a long tag (i.e. scope + short tag)
         template <typename IteratorT> bool isLongTag(IteratorT begin, IteratorT end) const;
 
-        template <typename SequenceT> LongTagT makeLongTag(const SequenceT &) const;
+        template <typename SequenceT> LongTagT makeLongTagFromSequence(const SequenceT &) const;
 
         // Check if a specific parameter can be used as the scope identifieg (e.g. FieldDef)
         bool isScopeIdentifier(ObjectPtr) const;
@@ -159,7 +166,7 @@ namespace db0::object_model
     }
     
     template <typename SequenceT>
-    TagIndex::LongTagT TagIndex::makeLongTag(const SequenceT &sequence) const
+    TagIndex::LongTagT TagIndex::makeLongTagFromSequence(const SequenceT &sequence) const
     {
         auto it = sequence.begin();
         auto first = *it;

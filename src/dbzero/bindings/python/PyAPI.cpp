@@ -1,4 +1,5 @@
 #include "PyAPI.hpp"
+#include "PyInternalAPI.hpp"
 #include "PyToolkit.hpp"
 #include "PyEnum.hpp"
 #include <dbzero/workspace/Workspace.hpp>
@@ -15,6 +16,8 @@
 #include <dbzero/bindings/python/collections/List.hpp>
 #include "Memo.hpp"
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/tags/QueryResultObserver.hpp>
 
 namespace db0::python
 
@@ -151,8 +154,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *close(PyObject *self, PyObject *args)
-    {
+    PyObject *close(PyObject *self, PyObject *args) {
         return runSafe(tryClose, self, args);
     }
         
@@ -441,6 +443,49 @@ namespace db0::python
         }
 
         return runSafe(tryMakeEnum, self, enum_name, enum_values);
+    }
+    
+    using TagIndex = db0::object_model::TagIndex;
+    using ObjectIterator = db0::object_model::ObjectIterator;
+    using TypedObjectIterator = db0::object_model::TypedObjectIterator;
+    using QueryResultObserver = db0::object_model::QueryResultObserver;
+
+    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::unique_ptr<QueryResultObserver> >
+    splitBy(PyObject *py_tag_list, const ObjectIterator &iterator)
+    {
+        auto query = iterator.beginFTQuery();
+        auto &tag_index = iterator.getFixture()->get<db0::object_model::TagIndex>();
+        return tag_index.splitBy(py_tag_list, std::move(query));
+    }
+
+    PyObject *trySplitBy(PyObject *args, PyObject *kwargs)
+    {
+        // extract 2 object arguments
+        PyObject *py_tag_list;
+        PyObject *py_query;
+        if (!PyArg_ParseTuple(args, "OO", &py_tag_list, &py_query)) {
+            THROWF(db0::InputException) << "Invalid argument type";
+        }
+        
+        if (TypedObjectIterator_Check(py_query)) {
+            auto &iterator = reinterpret_cast<PyTypedObjectIterator*>(py_query)->ext();
+            auto query = splitBy(py_tag_list, iterator).first;
+            PyTypedObjectIterator *py_result = PyTypedObjectIteratorDefault_new();
+            TypedObjectIterator::makeNew(&py_result->ext(), iterator.getFixture(), std::move(query), iterator.getType());
+            return py_result;
+        } if (ObjectIterator_Check(py_query)) {
+            auto &iterator = reinterpret_cast<PyObjectIterator*>(py_query)->ext();
+            auto query = splitBy(py_tag_list, iterator).first;
+            PyObjectIterator *py_result = PyObjectIteratorDefault_new();
+            ObjectIterator::makeNew(&py_result->ext(), iterator.getFixture(), std::move(query));
+            return py_result;            
+        } 
+        
+        THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;        
+    }
+
+    PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) {
+        return runSafe(trySplitBy, args, kwargs);
     }
 
 }

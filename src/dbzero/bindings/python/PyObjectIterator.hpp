@@ -15,6 +15,7 @@ namespace db0::python
     void PyObjectIterator_del(PyObjectIterator* self);
     
     PyTypedObjectIterator *PyTypedObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
+    PyTypedObjectIterator *PyTypedObjectIteratorDefault_new();
     void PyTypedObjectIterator_del(PyTypedObjectIterator *);
 
     extern PyTypeObject PyObjectIteratorType;

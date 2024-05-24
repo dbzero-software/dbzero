@@ -30,7 +30,11 @@ namespace db0::python
     PyObjectIterator *PyObjectIteratorDefault_new() {
         return PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
     }
-    
+
+    PyTypedObjectIterator *PyTypedObjectIteratorDefault_new() {
+        return PyTypedObjectIterator_new(&PyTypedObjectIteratorType, NULL, NULL);
+    }
+
     void PyTypedObjectIterator_del(PyTypedObjectIterator* self)
     {
         // destroy associated DB0 instance

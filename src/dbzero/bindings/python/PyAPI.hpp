@@ -114,6 +114,8 @@ namespace db0::python
     
     PyObject *makeEnum(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
+    PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs);
+    
     template <typename T> db0::object_model::StorageClass getStorageClass();
 
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>();
