@@ -44,7 +44,7 @@ def test_enum_tags_are_distinguished_from_string_values(db0_fixture):
 
 
 def test_enum_type_defines_values_method(db0_fixture):
-    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     assert len(Colors.values()) == 3
     assert Colors.RED in Colors.values()
     assert Colors.GREEN in Colors.values()

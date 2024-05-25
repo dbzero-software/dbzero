@@ -82,7 +82,7 @@ namespace db0::python
     void PyEnumValue_del(PyEnumValue* self)
     {
         // destroy associated DB0 instance
-        self->ext().~EnumValue();
+        self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
@@ -95,6 +95,7 @@ namespace db0::python
         unsigned int index = 0;
         for (auto &value: enum_values) {
             auto py_enum_value = enum_data.m_cache.get(value);
+            Py_INCREF(py_enum_value);
             PyTuple_SET_ITEM(py_tuple, index, py_enum_value);
             ++index;
         }
