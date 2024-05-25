@@ -9,7 +9,6 @@
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
 #include "PyObjectIterator.hpp"
-#include "PyIteratorObserver.hpp"
 #include "Memo.hpp"
 #include <dbzero/bindings/python/collections/List.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -469,29 +468,25 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid argument type";
         }
 
-        PyObject *py_result = nullptr;
-        std::unique_ptr<db0::object_model::QueryObserver> observer;
         if (TypedObjectIterator_Check(py_query)) {
             auto &iterator = reinterpret_cast<PyTypedObjectIterator*>(py_query)->ext();
             // query + observer
             auto split_query = splitBy(py_tag_list, iterator);
             PyTypedObjectIterator *py_iter = PyTypedObjectIteratorDefault_new();
-            TypedObjectIterator::makeNew(&py_iter->ext(), iterator.getFixture(), std::move(split_query.first), iterator.getType());
-            py_result = py_iter;
-            observer = std::move(split_query.second);
+            // create decorated iterator
+            TypedObjectIterator::makeNew(&py_iter->ext(), iterator.getFixture(), std::move(split_query.first), iterator.getType(), 
+                std::move(split_query.second));
+            return py_iter;
         } else if (ObjectIterator_Check(py_query)) {
             auto &iterator = reinterpret_cast<PyObjectIterator*>(py_query)->ext();
             auto split_query = splitBy(py_tag_list, iterator);
             PyObjectIterator *py_iter = PyObjectIteratorDefault_new();
-            ObjectIterator::makeNew(&py_iter->ext(), iterator.getFixture(), std::move(split_query.first));
-            py_result = py_iter;
-            observer = std::move(split_query.second);
+            // create decorated iterator
+            ObjectIterator::makeNew(&py_iter->ext(), iterator.getFixture(), std::move(split_query.first), std::move(split_query.second));
+            return py_iter;
         } else {
             THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
         }
-
-        // return a tuple of query + observer
-        return PyTuple_Pack(2, py_result, makeObserver(std::move(observer)));
     }
 
     PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) {

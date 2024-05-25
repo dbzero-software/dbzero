@@ -36,13 +36,16 @@ namespace db0::object_model
         using BaseIterator = db0::FT_IteratorBase;
 
         // Construct from a full-text query iterator
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&);
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, 
+            std::unique_ptr<QueryObserver> && = nullptr);
 
         // Construct from a sorted iterator
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&);
-        
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&,
+            std::unique_ptr<QueryObserver> && = nullptr);
+
         // Construct from IteratorFactory (specialized on first use)
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<IteratorFactory> &&);
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<IteratorFactory> &&,
+            std::unique_ptr<QueryObserver> && = nullptr);
 
         virtual ~ObjectIterator() = default;
         
@@ -61,7 +64,8 @@ namespace db0::object_model
          * @param at_ptr memory location for object
          * @param query_observer optional observer (to retrieve result decorations)
         */
-        static ObjectIterator *makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&);
+        static ObjectIterator *makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&,
+            std::unique_ptr<QueryObserver> && = nullptr);
         
         // Begin from the underlying full-text iterator (or fail if initialized from a sorted iterator)
         std::unique_ptr<QueryIterator> beginFTQuery(int direction = -1) const;
@@ -93,6 +97,14 @@ namespace db0::object_model
 
         std::vector<std::byte> getSignature() const;
         
+        inline unsigned int numDecorators() const {
+            return m_decoration.size();
+        }
+        
+        const std::vector<ObjectPtr> &getDecorators() const {
+            return m_decoration.m_decorators;
+        }
+
     protected:
         mutable db0::swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;
@@ -103,6 +115,25 @@ namespace db0::object_model
         std::unique_ptr<BaseIterator> m_base_iterator;
         BaseIterator *m_iterator_ptr = nullptr;
         bool m_initialized = false;        
+
+        struct Decoration
+        {
+            std::vector<std::unique_ptr<QueryObserver> > m_query_observers;
+            // decorators collected from observers for the last item
+            std::vector<ObjectPtr> m_decorators;
+
+            Decoration(std::unique_ptr<QueryObserver> &&query_observer);
+
+            inline unsigned int size() const {
+                return m_query_observers.size();
+            }
+
+            bool empty() const {
+                return m_query_observers.empty();
+            }
+        };
+
+        Decoration m_decoration;
 
         void assureInitialized();
     };

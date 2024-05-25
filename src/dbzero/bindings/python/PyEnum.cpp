@@ -5,6 +5,34 @@
 namespace db0::python
 
 {
+    EnumData::EnumData(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+        : m_enum(fixture, address)
+    {
+    }
+
+    EnumData::EnumData(db0::swine_ptr<Fixture> &fixture, const std::vector<std::string> &values)
+        : m_enum(fixture, values)
+    {
+    }
+
+    PyEnumValue *EnumCache::get(const EnumValue &value)
+    {
+        auto py_enum_value = find(value.m_str_repr);
+        if (!py_enum_value) {
+            py_enum_value = makePyEnumValue(value);
+            m_py_enum_values_map[value.m_str_repr] = py_enum_value;
+        }
+        return py_enum_value;
+    }
+
+    PyEnumValue *EnumCache::find(const std::string &name) const
+    {
+        auto it = m_py_enum_values_map.find(name);
+        if (it == m_py_enum_values_map.end()) {
+            return nullptr;
+        }
+        return it->second.get();
+    }
 
     PyEnum *PyEnum_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyEnum*>(type->tp_alloc(type, 0));
@@ -28,16 +56,26 @@ namespace db0::python
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
-    
-    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr) 
-    {
-        auto enum_value = self->ext().get(PyUnicode_AsUTF8(attr));
-        PyEnumValue *result = PyEnumValueDefault_new();
-        result->ext() = enum_value;
-        return (PyObject *)result;
-    }
 
-    PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr) {
+    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr)
+    {
+        auto &enum_data = self->ext();
+        auto py_enum_value = enum_data.m_cache.find(PyUnicode_AsUTF8(attr));
+        if (!py_enum_value) {
+            // get from dbzero (pull through cache)
+            py_enum_value = enum_data.m_cache.get(enum_data.m_enum.get(PyUnicode_AsUTF8(attr)));
+        }
+
+        Py_INCREF(py_enum_value);
+        return py_enum_value;
+    }
+    
+    PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr) 
+    {
+        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(self), attr);
+        if (res) {
+            return res;
+        }
         return runSafe(tryPyEnum_getattro, self, attr);
     }
     
@@ -48,8 +86,24 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
+    PyObject *getEnumValues(PyEnum *self)
+    {
+        auto &enum_data = self->ext();
+        auto enum_values = enum_data.m_enum.getValues();
+        // create tuple
+        auto py_tuple = PyTuple_New(enum_values.size());
+        unsigned int index = 0;
+        for (auto &value: enum_values) {
+            auto py_enum_value = enum_data.m_cache.get(value);
+            PyTuple_SET_ITEM(py_tuple, index, py_enum_value);
+            ++index;
+        }
+        return py_tuple;
+    }
+
     static PyMethodDef PyEnum_methods[] = 
     {
+        {"values", (PyCFunction)getEnumValues, METH_NOARGS, "Get enum values"},
         {NULL}
     };
 
@@ -95,12 +149,25 @@ namespace db0::python
         return Py_TYPE(py_object) == &PyEnumValueType;        
     }
 
-    PyObject *tryMakeEnum(PyObject *, const std::string &enum_name, const std::vector<std::string> &enum_values)
+    PyObject *tryMakeEnum(PyObject *, const std::string &enum_name, const std::vector<std::string> &user_enum_values)
     {
-        auto py_object = PyEnumDefault_new();
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();        
-        db0::object_model::Enum::makeNew(&py_object->ext(), *fixture, enum_name, enum_values);
-        return py_object;
+        auto py_enum = PyEnumDefault_new();
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        new (&py_enum->ext()) EnumData(*fixture, user_enum_values);
+
+        auto &enum_data = py_enum->ext();
+        // pull into cache
+        for (auto &value: enum_data.m_enum.getValues()) {
+            enum_data.m_cache.get(value);
+        }        
+        return py_enum;
+    }
+
+    PyEnumValue *makePyEnumValue(const EnumValue &enum_value)
+    {
+        auto py_enum_value = PyEnumValueDefault_new();
+        py_enum_value->ext() = enum_value;
+        return py_enum_value;
     }
 
 }

@@ -119,42 +119,7 @@ namespace db0::python
         memo_obj->ext().~Object();
         db0::object_model::Object::makeNull(&memo_obj->ext());
     }
-    
-    PyObject *_PyObject_GetDescrOptional(PyObject *obj, PyObject *name)
-    {
-        // This implementation is based on _PyObject_GenericGetAttrWithDict function
-        PyTypeObject *tp = Py_TYPE(obj);
-        PyObject *descr = NULL;
-        PyObject *res = NULL;
-        descrgetfunc f;
-
-        if (!PyUnicode_Check(name)) {
-            PyErr_Format(PyExc_TypeError,
-                        "attribute name must be string, not '%.200s'",
-                        Py_TYPE(name)->tp_name);
-            return NULL;
-        }
-        Py_INCREF(name);
-
-        descr = _PyType_Lookup(tp, name);
-        f = NULL;
-        if (descr != NULL) {
-            Py_INCREF(descr);
-            f = Py_TYPE(descr)->tp_descr_get;
-            if (f != NULL /*&& PyDescr_IsData(descr)*/) {
-                res = f(descr, obj, (PyObject *)Py_TYPE(obj));
-                if (res == NULL && PyErr_ExceptionMatches(PyExc_AttributeError)) {
-                    PyErr_Clear();
-                }
-                goto done;
-            }
-        }
-    done:
-        Py_XDECREF(descr);
-        Py_DECREF(name);
-        return res;
-    }
-    
+        
     PyObject *tryMemoObject_getattro(MemoObject *self, PyObject *attr)
     {
         // The method resolution order for Memo types is following:

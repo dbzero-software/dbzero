@@ -41,6 +41,19 @@ def memo_tags():
 
 
 @pytest.fixture()
+def memo_excl_tags():
+    """
+    Exclusive tags (i.e. tags that are not shared between objects)
+    """
+    root = MemoTestSingleton([])
+    str_tags = ["tag1", "tag2", "tag3", "tag4"]
+    for i in range(10):
+        object = MemoTestClass(i)
+        root.value.append(object)        
+        db0.tags(object).add(str_tags[i % 4])
+
+
+@pytest.fixture()
 def enum_tags():
     Colors = db0.enum("Colors", ["red", "green", "blue", "black"])
     root = MemoTestSingleton([])

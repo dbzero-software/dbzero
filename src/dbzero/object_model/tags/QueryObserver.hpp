@@ -19,12 +19,5 @@ namespace db0::object_model
         // @return value which needs to be cast to a known type (or nullptr)
         virtual ObjectPtr getDecoration() const = 0;
     };
-    
-    // non-abstract wrapper over QueryObserver
-    struct Observer
-    {
-        std::unique_ptr<QueryObserver> m_observer;
-        inline const QueryObserver &operator*() const { return *m_observer; }
-    };
-    
+        
 }   

@@ -82,6 +82,8 @@ namespace db0::python
     // Construct instance from bytes within a specific snapshot's context
     PyObject *tryDeserialize(db0::Snapshot *, PyObject *py_bytes);
     
+    PyObject *_PyObject_GetDescrOptional(PyObject *obj, PyObject *name);
+
 #ifndef NDEBUG
 
     /**

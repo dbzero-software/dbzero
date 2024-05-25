@@ -7,6 +7,7 @@
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/object_model/config.hpp>
 
 namespace db0::object_model
 
@@ -39,7 +40,7 @@ namespace db0::object_model
         Enum(Enum &&) = delete;
         Enum(db0::swine_ptr<Fixture> &, std::uint64_t address);
         Enum(db0::swine_ptr<Fixture> &, const std::vector<std::string> &values);
-          
+        
         // exception thrown if value not found
         LP_String find(const char *value) const;
 
@@ -52,15 +53,15 @@ namespace db0::object_model
 
         EnumValue get(const char *value) const;
         
-        // Retrieve all enum defined values
-        std::vector<EnumValue> getAllValues() const;
-
+        // Retrieve all enum defined values ordered by index
+        std::vector<EnumValue> getValues() const;
+        
     private:
         const std::uint64_t m_fixture_uuid;
         const std::uint32_t m_uid;
         RC_LimitedStringPool &m_string_pool;
         db0::v_bindex<LP_String> m_values;
-        
+
         std::uint32_t fetchUID() const;
     };
     

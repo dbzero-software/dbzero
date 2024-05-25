@@ -18,7 +18,7 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_string_pool(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
-    {        
+    {
         for (auto &value: values) {
             m_values.insert(m_string_pool.add(value));
         }
@@ -66,6 +66,15 @@ namespace db0::object_model
         assert(str_value);
         auto value = find(str_value);
         return { m_fixture_uuid, m_uid, value, std::string(str_value) };
+    }
+    
+    std::vector<EnumValue> Enum::getValues() const
+    {
+        std::vector<EnumValue> values;
+        for (auto value: m_values) {
+            values.push_back({ m_fixture_uuid, m_uid, value, m_string_pool.fetch(value) });
+        }
+        return values;
     }
     
 }

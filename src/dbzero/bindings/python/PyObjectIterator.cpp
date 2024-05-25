@@ -48,17 +48,33 @@ namespace db0::python
         return self;    
     }
     
+    PyObject *decoratedItem(PyObject *item, const std::vector<PyObject*> &decorators) 
+    {
+        // return a tuple consisting of an item + decorators
+        auto tuple = PyTuple_New(decorators.size() + 1);
+        PyTuple_SET_ITEM(tuple, 0, item);
+        for (std::size_t i = 0; i < decorators.size(); ++i) {
+            PyTuple_SET_ITEM(tuple, i + 1, decorators[i]);
+        }
+        return tuple;
+    }
+
     PyObject *PyObjectIterator_iternext(PyObjectIterator *iter_obj)
     {
         std::uint64_t addr;
-        if (iter_obj->ext().next(addr)) {
-            // retrieve DBZero instance (use iterator's context)
-            return iter_obj->ext().unload(addr);
-        } else {
-            // raise stop iteration
-            PyErr_SetNone(PyExc_StopIteration);
-            return NULL;
-        } 
+        auto &iter = iter_obj->ext();
+        if (iter.next(addr)) {
+            auto py_item = iter.unload(addr);
+            if (iter.numDecorators() > 0) {
+                return decoratedItem(py_item, iter.getDecorators());
+            } else {
+                return py_item;
+            }
+        }
+        
+        // raise stop iteration
+        PyErr_SetNone(PyExc_StopIteration);
+        return NULL;        
     }
     
     PyObject *PyObjectIterator_compare(PyObject *self, PyObject* const *args, Py_ssize_t nargs) 
@@ -120,14 +136,20 @@ namespace db0::python
     PyObject *PyTypedObjectIterator_iternext(PyTypedObjectIterator *iter_obj)
     {
         std::uint64_t addr;
-        if (iter_obj->ext().next(addr)) {
+        auto &iter = iter_obj->ext();
+        if (iter.next(addr)) {
             // retrieve DBZero instance
-            return iter_obj->ext().unload(addr);
-        } else {
-            // raise stop iteration
-            PyErr_SetNone(PyExc_StopIteration);
-            return NULL;
-        } 
+            auto py_item = iter.unload(addr);
+            if (iter.numDecorators() > 0) {
+                return decoratedItem(py_item, iter.getDecorators());
+            } else {
+                return py_item;
+            }
+        }
+
+        // raise stop iteration
+        PyErr_SetNone(PyExc_StopIteration);
+        return NULL;        
     }
     
     static PyMethodDef PyTypedObjectIterator_methods[] = {
