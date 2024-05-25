@@ -20,4 +20,11 @@ namespace db0::object_model
         virtual ObjectPtr getDecoration() const = 0;
     };
     
+    // non-abstract wrapper over QueryObserver
+    struct Observer
+    {
+        std::unique_ptr<QueryObserver> m_observer;
+        inline const QueryObserver &operator*() const { return *m_observer; }
+    };
+    
 }   

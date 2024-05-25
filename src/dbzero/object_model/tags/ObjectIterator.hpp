@@ -7,12 +7,14 @@
 #include <dbzero/core/collections/full_text/IteratorFactory.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
+#include "QueryObserver.hpp"
 
 namespace db0::object_model
 
 {
     
     class ClassFactory;
+    class QueryObserver;
     using Object = db0::object_model::Object;
     using Serializable = db0::Serializable;
 
@@ -57,7 +59,7 @@ namespace db0::object_model
         
         /**
          * @param at_ptr memory location for object
-         * @param args the tags, types or collections of tags, all args will be AND-combined
+         * @param query_observer optional observer (to retrieve result decorations)
         */
         static ObjectIterator *makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&);
         
@@ -96,11 +98,11 @@ namespace db0::object_model
         const ClassFactory &m_class_factory;
         std::unique_ptr<QueryIterator> m_query_iterator;
         std::unique_ptr<SortedIterator> m_sorted_iterator;
-        std::unique_ptr<IteratorFactory> m_factory;
+        std::unique_ptr<IteratorFactory> m_factory;        
         // iterator_ptr valid both in case of m_query_iterator and m_sorted_iterator
         std::unique_ptr<BaseIterator> m_base_iterator;
         BaseIterator *m_iterator_ptr = nullptr;
-        bool m_initialized = false;
+        bool m_initialized = false;        
 
         void assureInitialized();
     };

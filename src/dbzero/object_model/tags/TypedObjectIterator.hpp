@@ -28,11 +28,11 @@ namespace db0::object_model
         using BaseIterator = db0::FT_IteratorBase;
 
         // Construct from a full-text query iterator
-        TypedObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&ft_query_iterator,
+        TypedObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&ft_query_iterator, 
             std::shared_ptr<Class> type);
         
         // Construct from a sorted iterator
-        TypedObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&sorted_iterator,
+        TypedObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&sorted_iterator, 
             std::shared_ptr<Class> type);
         
         /**
@@ -44,7 +44,7 @@ namespace db0::object_model
         ObjectPtr unload(std::uint64_t address) const override;
         
         static TypedObjectIterator *makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&,
-            std::shared_ptr<Class> type);            
+            std::shared_ptr<Class> type);
 
         /**
          * Retrieves associated language specific class (raw pointer)

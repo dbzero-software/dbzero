@@ -8,20 +8,20 @@ namespace db0::object_model
 
 {
     
-    TypedObjectIterator::TypedObjectIterator(
-        db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator, std::shared_ptr<Class> type)
+    TypedObjectIterator::TypedObjectIterator(db0::swine_ptr<Fixture> fixture, 
+        std::unique_ptr<QueryIterator> &&ft_query_iterator, std::shared_ptr<Class> type)
         : ObjectIterator(fixture, std::move(ft_query_iterator))
         , m_type(type)
     {
     }
 
-    TypedObjectIterator::TypedObjectIterator(
-        db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator, std::shared_ptr<Class> type)
+    TypedObjectIterator::TypedObjectIterator(db0::swine_ptr<Fixture> fixture, 
+        std::unique_ptr<SortedIterator> &&sorted_iterator, std::shared_ptr<Class> type)
         : ObjectIterator(fixture, std::move(sorted_iterator))
         , m_type(type)
     {
     }
-        
+    
     TypedObjectIterator *TypedObjectIterator::makeNew(void *at_ptr, db0::swine_ptr<Fixture> fixture,
         std::unique_ptr<QueryIterator> &&it, std::shared_ptr<Class> type)
     {

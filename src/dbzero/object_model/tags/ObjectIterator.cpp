@@ -49,17 +49,17 @@ namespace db0::object_model
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
         , m_sorted_iterator(validated(std::move(sorted_iterator)))
-        , m_iterator_ptr(m_sorted_iterator.get())        
+        , m_iterator_ptr(m_sorted_iterator.get())    
     {
     }
 
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<IteratorFactory> &&factory)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
-        , m_factory(std::move(factory))        
+        , m_factory(std::move(factory))    
     {
     }
-
+    
     ObjectIterator *ObjectIterator::makeNew(void *at_ptr, db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&it) {
         return new (at_ptr) ObjectIterator(fixture, std::move(it));
     }
