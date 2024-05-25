@@ -17,7 +17,7 @@
 #include "Memo.hpp"
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
-#include <dbzero/object_model/tags/QueryResultObserver.hpp>
+#include <dbzero/object_model/tags/QueryObserver.hpp>
 
 namespace db0::python
 
@@ -448,12 +448,12 @@ namespace db0::python
     using TagIndex = db0::object_model::TagIndex;
     using ObjectIterator = db0::object_model::ObjectIterator;
     using TypedObjectIterator = db0::object_model::TypedObjectIterator;
-    using QueryResultObserver = db0::object_model::QueryResultObserver;
+    using QueryObserver = db0::object_model::QueryObserver;
 
-    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::unique_ptr<QueryResultObserver> >
-    splitBy(PyObject *py_tag_list, const ObjectIterator &iterator)
+    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::unique_ptr<QueryObserver> >
+    splitBy(PyObject *py_tag_list, ObjectIterator &iterator)
     {
-        auto query = iterator.beginFTQuery();
+        auto query = iterator.releaseQuery();
         auto &tag_index = iterator.getFixture()->get<db0::object_model::TagIndex>();
         return tag_index.splitBy(py_tag_list, std::move(query));
     }

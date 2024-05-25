@@ -98,7 +98,11 @@ namespace db0::object_model
         }
         return m_query_iterator->beginTyped(direction);
     }
-
+    
+    std::unique_ptr<QueryIterator> ObjectIterator::releaseQuery() {
+        return std::move(m_query_iterator);
+    }
+    
     std::unique_ptr<SortedIterator> ObjectIterator::beginSorted() const
     {
         if (isNull()) {

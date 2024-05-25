@@ -8,7 +8,7 @@
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/core/utils/num_pack.hpp>
-#include "QueryResultObserver.hpp"
+#include "QueryObserver.hpp"
 
 namespace db0::object_model
 
@@ -61,7 +61,7 @@ namespace db0::object_model
          * @param lang_arg must represent a list of tags as language specific types (e.g. string / enum value etc.)
          * @return updated query iterator + observer to retrieve the active value
         */
-        std::pair<std::unique_ptr<QueryIterator>, std::unique_ptr<QueryResultObserver> > 
+        std::pair<std::unique_ptr<QueryIterator>, std::unique_ptr<QueryObserver> > 
         splitBy(ObjectPtr lang_arg, std::unique_ptr<QueryIterator> &&query) const;
                 
         // Clears the entire contents

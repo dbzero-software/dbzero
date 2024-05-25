@@ -11,6 +11,7 @@
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
 #include "ObjectIterator.hpp"
+#include "OR_QueryObserver.hpp"
 
 namespace db0::object_model
 
@@ -474,8 +475,8 @@ namespace db0::object_model
         // class UID (32bit) + field ID (32 bit)
         return (static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.m_field_id;
     }
-
-    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::unique_ptr<QueryResultObserver> >
+    
+    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::unique_ptr<QueryObserver> >
     TagIndex::splitBy(ObjectPtr py_arg, std::unique_ptr<QueryIterator> &&query) const
     {
         auto &type_manager = LangToolkit::getTypeManager();
@@ -485,23 +486,25 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Invalid argument (iterable expected)" << THROWF_END;
         }
         
-        db0::FT_ORXIteratorFactory<std::uint64_t> split_factory;
+        OR_QueryObserverBuilder split_factory;        
         // include ALL provided values first (OR-joined)
         for (auto it = ForwardIterator(LangToolkit::getIterator(py_arg)), end = ForwardIterator::end(); it != end; ++it) {
             if (isShortTag(*it)) {
-                m_base_index_short.addIterator(split_factory, makeShortTag(*it));
+                auto tag_iterator = m_base_index_short.makeIterator(makeShortTag(*it));
+                split_factory.add(std::move(tag_iterator), *it);
             } else if (isLongTag(*it)) {
-                m_base_index_long.addIterator(split_factory, makeLongTag(*it));
+                auto tag_iterator = m_base_index_long.makeIterator(makeLongTag(*it));
+                split_factory.add(std::move(tag_iterator), *it);
             } else {
                 THROWF(db0::InputException) << "Unable to convert to tag: " << LangToolkit::getTypeName((*it).get()) << THROWF_END;
             }
         }
 
+        auto split_result = split_factory.release();
         db0::FT_ANDIteratorFactory<std::uint64_t> factory;
+        factory.add(std::move(split_result.first));
         factory.add(std::move(query));
-        factory.add(split_factory.release(-1));
-        // FIXME: attach observer
-        return { factory.release(-1), nullptr };
+        return { factory.release(), std::move(split_result.second) };
     }
     
     TagIndex::ShortTagT TagIndex::makeShortTag(ObjectSharedPtr py_arg) const {
@@ -527,7 +530,7 @@ namespace db0::object_model
         
         return isLongTag<ForwardIterator>(LangToolkit::getIterator(py_arg), ForwardIterator::end());
     }
-
+    
     TagIndex::LongTagT TagIndex::makeLongTag(ObjectPtr py_arg) const
     {
         auto &type_manager = LangToolkit::getTypeManager();

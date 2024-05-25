@@ -512,7 +512,7 @@ namespace db0
 			std::move(this->m_joinable), direction, this->m_orx_join, lazy_init)
 		);
 	}
-	
+		
 	template <typename key_t>
 	std::size_t FT_OR_ORXIteratorFactory<key_t>::size() const {
 		return m_joinable.size();

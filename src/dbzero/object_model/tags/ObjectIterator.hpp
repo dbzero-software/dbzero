@@ -66,6 +66,9 @@ namespace db0::object_model
 
         std::unique_ptr<SortedIterator> beginSorted() const;
         
+        // Release the underlying query iterator, render this instance invalid
+        std::unique_ptr<QueryIterator> releaseQuery();
+        
         bool isSorted() const;
                 
         db0::swine_ptr<Fixture> getFixture() const {

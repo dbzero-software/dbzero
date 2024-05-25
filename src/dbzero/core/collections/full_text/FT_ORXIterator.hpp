@@ -330,7 +330,7 @@ namespace db0
          */
 		std::unique_ptr<FT_Iterator<key_t> > releaseSpecial(int direction, FT_JoinORXIterator<key_t> *&result,
 		    bool lazy_init = false);
-
+		
 		/**
          * Number of underlying simple joinable iterators
          */

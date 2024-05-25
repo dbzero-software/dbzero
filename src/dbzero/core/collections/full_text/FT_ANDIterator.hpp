@@ -151,7 +151,7 @@ namespace db0
          * @param lazy_init if lazy init is requested the iterator is created in the state where only below methods
          * are allowed: beginBack, clone (this is for lazy construction of the query tree)
          */
-		std::unique_ptr<FT_Iterator<key_t> > release(int direction, bool lazy_init = false) override;
+		std::unique_ptr<FT_Iterator<key_t> > release(int direction = -1, bool lazy_init = false) override;
 
         void clear() override;
 
