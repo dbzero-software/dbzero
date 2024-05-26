@@ -451,12 +451,15 @@ namespace db0::python
     using TypedObjectIterator = db0::object_model::TypedObjectIterator;
     using QueryObserver = db0::object_model::QueryObserver;
 
-    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::unique_ptr<QueryObserver> >
+    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
     splitBy(PyObject *py_tag_list, ObjectIterator &iterator)
     {
-        auto query = iterator.releaseQuery();
+        std::vector<std::unique_ptr<QueryObserver> > query_observers;
+        auto query = iterator.releaseQuery(query_observers);
         auto &tag_index = iterator.getFixture()->get<db0::object_model::TagIndex>();
-        return tag_index.splitBy(py_tag_list, std::move(query));
+        auto result = tag_index.splitBy(py_tag_list, std::move(query));
+        query_observers.push_back(std::move(result.second));
+        return { std::move(result.first), std::move(query_observers) };
     }
     
     PyObject *trySplitBy(PyObject *args, PyObject *kwargs)
@@ -467,7 +470,7 @@ namespace db0::python
         if (!PyArg_ParseTuple(args, "OO", &py_tag_list, &py_query)) {
             THROWF(db0::InputException) << "Invalid argument type";
         }
-
+        
         if (TypedObjectIterator_Check(py_query)) {
             auto &iterator = reinterpret_cast<PyTypedObjectIterator*>(py_query)->ext();
             // query + observer

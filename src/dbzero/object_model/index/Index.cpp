@@ -178,14 +178,16 @@ namespace db0::object_model
             }
         } else {
             // sort a full-text query
+            // FIXME: incorporate observers in the sorted iterator
+            std::vector<std::unique_ptr<QueryObserver> > observers;
             switch (m_data_type) {
                 case IndexDataType::Int64: {
-                    sort_iter = sortQuery<std::int64_t>(iter.beginFTQuery());
+                    sort_iter = sortQuery<std::int64_t>(iter.beginFTQuery(observers));
                     break;
                 }
 
                 case IndexDataType::UInt64: {
-                    sort_iter = sortQuery<std::uint64_t>(iter.beginFTQuery());
+                    sort_iter = sortQuery<std::uint64_t>(iter.beginFTQuery(observers));
                     break;
                 }
 

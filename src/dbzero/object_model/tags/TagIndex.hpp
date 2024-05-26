@@ -13,7 +13,7 @@
 namespace db0::object_model
 
 {
-        
+    
     using Object = db0::object_model::Object;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     
@@ -107,7 +107,8 @@ namespace db0::object_model
         ShortTagT makeShortTagFromFieldDef(ObjectPtr) const;
 
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
-            std::vector<std::unique_ptr<QueryIterator> > &neg_iterators) const;
+            std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
+            std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
         
         bool isShortTag(ObjectPtr) const;
         bool isShortTag(ObjectSharedPtr) const;

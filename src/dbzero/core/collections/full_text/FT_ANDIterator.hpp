@@ -65,9 +65,6 @@ namespace db0
 		void joinBound(key_t key) override;
 
 		std::pair<key_t, bool> peek(key_t join_key) const override;
-
-		std::unique_ptr<FT_Iterator<key_t> > clone(
-            CloneMap<FT_Iterator<key_t> > *clone_map_ptr = nullptr) const override;
          
 		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction) const override;
         
@@ -123,12 +120,8 @@ namespace db0
         void _nextUnique();
 		void joinAll();
 
-		/**
-         * Create joined (by clone)
-         */
-		struct tag_cloned {};
-		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&, int direction, bool is_end,
-		    key_t join_key, tag_cloned);
+		FT_JoinANDIterator(std::uint64_t uid, std::list<std::unique_ptr<FT_Iterator<key_t> > > &&, int direction, 
+            bool is_end, key_t join_key);
         
         // compare to other AND iterator
         double compareTo(const FT_JoinANDIterator &it) const;

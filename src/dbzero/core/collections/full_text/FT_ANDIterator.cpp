@@ -152,26 +152,7 @@ namespace db0
 		}
 		return std::make_pair(lead_key, true);
 	}
-
-	template <typename key_t, bool UniqueKeys>
-	std::unique_ptr<FT_Iterator<key_t> > FT_JoinANDIterator<key_t, UniqueKeys>::clone(
-		CloneMap<FT_Iterator<key_t> > *clone_map_ptr) const
-	{        
-		std::list<std::unique_ptr<FT_Iterator<key_t> > > temp;
-		{
-			for (auto it = m_joinable.begin(),itend = m_joinable.end();it!=itend;++it) {
-				temp.emplace_back((*it)->clone(clone_map_ptr));
-			}
-		}
-		std::unique_ptr<FT_Iterator<key_t> > result(new FT_JoinANDIterator<key_t, UniqueKeys>(
-			std::move(temp), m_direction, m_end, m_join_key, tag_cloned())
-		);		
-		if (clone_map_ptr) {
-			clone_map_ptr->insert(*result, *this);
-		}
-		return result;
-	}
-
+    
 	template <typename key_t, bool UniqueKeys>
 	std::unique_ptr<FT_Iterator<key_t> > FT_JoinANDIterator<key_t, UniqueKeys>::beginTyped(int direction) const
     {
@@ -180,10 +161,11 @@ namespace db0
         for (auto it = m_joinable.begin(),itend = m_joinable.end();it!=itend;++it) {
             temp.emplace_back((*it)->beginTyped(direction));
         }
-		auto result = std::make_unique<FT_JoinANDIterator<key_t> >(std::move(temp), direction, false);        
-        return result;
+		return std::unique_ptr<FT_JoinANDIterator<key_t, UniqueKeys> >(
+            new FT_JoinANDIterator<key_t, UniqueKeys>(this->m_uid, std::move(temp), direction, false, m_join_key)
+        );
 	}
-
+    
 	template <typename key_t, bool UniqueKeys>
 	bool FT_JoinANDIterator<key_t, UniqueKeys>::limitBy(key_t key) 
     {
@@ -395,9 +377,10 @@ namespace db0
 	}
 
 	template <typename key_t, bool UniqueKeys>
-	FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction,
-        bool is_end, key_t join_key, tag_cloned)        
-        : m_direction(direction)
+	FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(std::uint64_t uid, std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators,
+        int direction, bool is_end, key_t join_key)
+        : FT_Iterator<key_t>(uid)
+        , m_direction(direction)
         , m_end(is_end)
         , m_join_key(join_key)        
 	{

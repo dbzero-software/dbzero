@@ -53,10 +53,7 @@ namespace db0
         void joinBound(key_t join_key) override;
 
         std::pair<key_t, bool> peek(key_t join_key) const override;
-
-        std::unique_ptr<FT_Iterator<key_t>> clone(
-            CloneMap<FT_Iterator<key_t>> *clone_map_ptr = nullptr) const override;
-        
+                
         std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction) const override;
 
         bool limitBy(key_t key) override;
@@ -100,6 +97,9 @@ namespace db0
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
         
     protected:
+        FT_ANDNOTIterator(std::uint64_t uid, std::vector<std::unique_ptr<FT_Iterator<key_t>>> &&inner_iterators, 
+            int direction, bool lazy_init = false);
+        
         void serializeFTIterator(std::vector<std::byte> &) const override;
         
         double compareToImpl(const FT_IteratorBase &it) const override;

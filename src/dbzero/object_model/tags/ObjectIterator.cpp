@@ -38,46 +38,44 @@ namespace db0::object_model
     }
 
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator,
-        std::unique_ptr<QueryObserver> &&query_observer)
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
         , m_query_iterator(validated(std::move(ft_query_iterator)))
         , m_iterator_ptr(m_query_iterator.get())        
-        , m_decoration(std::move(query_observer))
+        , m_decoration(std::move(query_observers))
     {
     }
 
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator,
-        std::unique_ptr<QueryObserver> &&query_observer)
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
         , m_sorted_iterator(validated(std::move(sorted_iterator)))
         , m_iterator_ptr(m_sorted_iterator.get())
-        , m_decoration(std::move(query_observer))
+        , m_decoration(std::move(query_observers))
     {
     }
 
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<IteratorFactory> &&factory,
-        std::unique_ptr<QueryObserver> &&query_observer)
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
         , m_factory(std::move(factory))        
-        , m_decoration(std::move(query_observer))
+        , m_decoration(std::move(query_observers))
     {
     }
 
-    ObjectIterator::Decoration::Decoration(std::unique_ptr<QueryObserver> &&query_observer)
+    ObjectIterator::Decoration::Decoration(std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
+        : m_query_observers(std::move(query_observers))
+        , m_decorators(m_query_observers.size())
     {
-        if (query_observer) {
-            m_query_observers.push_back(std::move(query_observer));
-            m_decorators.emplace_back();
-        }
     }
 
     ObjectIterator *ObjectIterator::makeNew(void *at_ptr, db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&it,
-        std::unique_ptr<QueryObserver> &&query_observer)
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
     {
-        return new (at_ptr) ObjectIterator(fixture, std::move(it), std::move(query_observer));
+        return new (at_ptr) ObjectIterator(fixture, std::move(it), std::move(query_observers));
     }
     
     bool ObjectIterator::next(std::uint64_t &addr)
@@ -107,23 +105,40 @@ namespace db0::object_model
         return !m_query_iterator && !m_sorted_iterator && !m_factory;
     }
 
-    std::unique_ptr<ObjectIterator::QueryIterator> ObjectIterator::beginFTQuery(int direction) const
-    {   
+    std::unique_ptr<ObjectIterator::QueryIterator> ObjectIterator::beginFTQuery(
+        std::vector<std::unique_ptr<QueryObserver> > &query_observers, int direction) const
+    {
         if (isNull()) {
             return nullptr;
         }
 
         // pull FT iterator from factory if available
+        std::unique_ptr<ObjectIterator::QueryIterator> result;
         if (m_factory) {
-            return m_factory->createFTIterator();
+            result = m_factory->createFTIterator();
+        } else {
+            if (!m_query_iterator) {
+                THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
+            }
+            result = m_query_iterator->beginTyped(direction);
         }
-        if (!m_query_iterator) {
-            THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
+        // rebase/clone observers
+        if (result) {
+            for (auto &observer: m_decoration.m_query_observers) {
+                query_observers.push_back(observer->rebase(*result));
+            }
         }
-        return m_query_iterator->beginTyped(direction);
+        return result;
     }
     
-    std::unique_ptr<QueryIterator> ObjectIterator::releaseQuery() {
+    std::unique_ptr<QueryIterator> ObjectIterator::releaseQuery(std::vector<std::unique_ptr<QueryObserver> > &query_observers)
+    {
+        if (!m_query_iterator && m_factory) {
+            m_query_iterator = m_factory->createFTIterator();
+        }
+        for (auto &observer: m_decoration.m_query_observers) {
+            query_observers.push_back(std::move(observer));
+        }
         return std::move(m_query_iterator);
     }
     
@@ -227,7 +242,7 @@ namespace db0::object_model
         assert(m_iterator_ptr);
         return m_iterator_ptr->compareTo(*other.m_iterator_ptr);
     }
-    
+
     std::vector<std::byte> ObjectIterator::getSignature() const
     {
         if (isNull()) {

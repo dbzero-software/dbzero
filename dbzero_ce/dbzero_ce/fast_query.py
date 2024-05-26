@@ -7,14 +7,16 @@ from typing import Dict
 class FastQuery:
     def __init__(self, query, groups = None, uuid = None, sig = None, bytes = None):        
         self.__query = query if groups is None else db0.split_by(groups, query)
+        self.__groups = groups
         self.__uuid= uuid
         self.__sig = sig        
         self.__bytes = bytes
     
     # rebase to a different snapshot
     def rebase(self, snapshot):
-        return FastQuery(snapshot.deserialize(db0.serialize(self.__query)), self.__uuid, self.__sig, self.__bytes)
-
+        return FastQuery(snapshot.deserialize(db0.serialize(self.__query)), self.__groups, 
+                         self.__uuid, self.__sig, self.__bytes)
+    
     @property
     def uuid(self):
         if self.__uuid is None:
@@ -134,11 +136,8 @@ def group_by(group_defs, query) -> Dict:
         return db0.find(end.rows, db0.no(start.rows))
     
     # extract groups and key function
-    def prepare_group_defs(group_defs):
-        if callable(group_defs):
-            return group_defs, None
-        else:
-            return None, group_defs
+    def prepare_group_defs(group_defs):        
+        return group_defs, None
     
     key_func, groups = prepare_group_defs(group_defs)
     cache = FastQueryCache()

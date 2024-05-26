@@ -29,27 +29,28 @@ namespace db0::object_model
     private:
         db0::FT_OR_ORXIteratorFactory<std::uint64_t> m_factory;
         // the mappings for decorations (must be complete)
-        std::unordered_map<const void *, ObjectSharedPtr> m_decorations;
+        std::unordered_map<std::uint64_t, ObjectSharedPtr> m_decorations;
     };
-
+    
     class OR_QueryObserver: public QueryObserver
     {
     public:        
         using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
 
         ObjectPtr getDecoration() const override;
+        std::unique_ptr<QueryObserver> rebase(const FT_IteratorBase &) const override;
 
     protected:
         friend class OR_QueryObserverBuilder;
 
         OR_QueryObserver(const FT_JoinORXIterator<std::uint64_t> *iterator_ptr,
-            std::unordered_map<const void *, ObjectSharedPtr> &&decorations);
+            std::unordered_map<std::uint64_t, ObjectSharedPtr> &&decorations);
 
     private:
         // the observed iterator
         const FT_JoinORXIterator<std::uint64_t> *m_iterator_ptr;
         // the mappings for decorations (must be complete)
-        std::unordered_map<const void *, ObjectSharedPtr> m_decorations;
+        std::unordered_map<std::uint64_t, ObjectSharedPtr> m_decorations;
     };
     
 }

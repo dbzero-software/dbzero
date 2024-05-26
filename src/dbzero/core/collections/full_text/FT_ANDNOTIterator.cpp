@@ -11,6 +11,44 @@ namespace db0
 {
 
     template<typename key_t>
+    FT_ANDNOTIterator<key_t>::FT_ANDNOTIterator(std::vector<std::unique_ptr<FT_Iterator<key_t>>> &&inner_iterators,
+        int direction, bool lazy_init)
+        : FT_ANDNOTIterator<key_t>(this->nextUID(), std::move(inner_iterators), direction, lazy_init)
+    {
+    }
+
+    template<typename key_t>
+    FT_ANDNOTIterator<key_t>::FT_ANDNOTIterator(std::uint64_t uid, std::vector<std::unique_ptr<FT_Iterator<key_t>>> &&inner_iterators,
+        int direction, bool lazy_init)
+        : FT_Iterator<key_t>(uid)
+        , m_direction(direction)
+        , m_joinable(std::move(inner_iterators))
+    {
+        if (m_joinable.empty()) {
+            THROWF(db0::InputException) << "Needed at least 1 inner-iterator";
+        }
+
+        // defer initialization if lazy init requested
+        if (!lazy_init) {
+            if (getBaseIterator().isEnd()) {
+                // Query is empty. We can stop here.
+                return;
+            }
+
+            m_subtrahends_heap.reserve(m_joinable.size() - 1);
+            for (auto it = std::next(m_joinable.begin()); it != m_joinable.end(); ++it) {
+                auto &joined = **it;
+                if (!joined.isEnd()) {
+                    HeapItem &item = m_subtrahends_heap.emplace_back();
+                    item.it = &joined;
+                    item.key = joined.getKey();
+                }
+            }
+            updateWithHeap();
+        }
+    }
+
+    template<typename key_t>
     void FT_ANDNOTIterator<key_t>::updateWithHeap() 
     {
         if (m_direction > 0) {
@@ -101,36 +139,6 @@ namespace db0
         this->next(-1, buf);
     }
     
-    template<typename key_t>
-    FT_ANDNOTIterator<key_t>::FT_ANDNOTIterator(std::vector<std::unique_ptr<FT_Iterator<key_t>>> &&inner_iterators,
-        int direction, bool lazy_init)        
-        : m_direction(direction)
-        , m_joinable(std::move(inner_iterators))
-    {
-        if (m_joinable.empty()) {
-            THROWF(db0::InputException) << "Needed at least 1 inner-iterator";
-        }
-
-        // defer initialization if lazy init requested
-        if (!lazy_init) {
-            if (getBaseIterator().isEnd()) {
-                // Query is empty. We can stop here.
-                return;
-            }
-
-            m_subtrahends_heap.reserve(m_joinable.size() - 1);
-            for (auto it = std::next(m_joinable.begin()); it != m_joinable.end(); ++it) {
-                auto &joined = **it;
-                if (!joined.isEnd()) {
-                    HeapItem &item = m_subtrahends_heap.emplace_back();
-                    item.it = &joined;
-                    item.key = joined.getKey();
-                }
-            }
-            updateWithHeap();
-        }
-    }
-
     template<typename key_t>
     FT_Iterator<key_t>& FT_ANDNOTIterator<key_t>::getBaseIterator() {
         return *m_joinable.front();
@@ -257,33 +265,9 @@ namespace db0
     template<typename key_t>
     std::pair<key_t, bool> FT_ANDNOTIterator<key_t>::peek(key_t join_key) const 
     {
-        auto cloned = clone();
-        if (cloned->join(join_key), -1) {
-            return std::make_pair(cloned->getKey(), true); 
-        } else {
-            return std::make_pair(join_key, false);
-        }
+        throw std::runtime_error("FT_ANDNOTIterator::peek not implemented");
     }
-
-    template<typename key_t>
-    std::unique_ptr<FT_Iterator<key_t>> FT_ANDNOTIterator<key_t>::clone(
-        CloneMap<FT_Iterator<key_t>> *clone_map_ptr) const
-    {
-        std::vector<std::unique_ptr<FT_Iterator<key_t>>> sub_iterators;
-        sub_iterators.reserve(m_joinable.size());
-        for (const auto &sub_it : m_joinable) {
-            sub_iterators.emplace_back(sub_it->clone(clone_map_ptr));
-        }
-        std::unique_ptr<FT_Iterator<key_t>> cloned(
-            std::make_unique<FT_ANDNOTIterator>(std::move(sub_iterators), m_direction)
-        );
-
-        if (clone_map_ptr) {
-            clone_map_ptr->insert(*cloned, *this);
-        }
-        return cloned;
-    }
-    
+        
     template<typename key_t>
     std::unique_ptr<FT_Iterator<key_t> > FT_ANDNOTIterator<key_t>::beginTyped(int direction) const
     {
@@ -292,8 +276,9 @@ namespace db0
         for (const auto &sub_it : m_joinable) {
             sub_iterators.emplace_back(sub_it->beginTyped(direction));
         }
-        auto result = std::make_unique<FT_ANDNOTIterator>(std::move(sub_iterators), direction);        
-        return result;
+        return std::unique_ptr<FT_ANDNOTIterator>(
+            new FT_ANDNOTIterator(this->m_uid, std::move(sub_iterators), direction)
+        );
     }
 
     template<typename key_t> 

@@ -270,10 +270,11 @@ namespace db0::object_model
 
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
         std::shared_ptr<Class> &type) const
-    {        
+    {
         db0::FT_ANDIteratorFactory<std::uint64_t> factory;
         // the negated root-level query components
         std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
+        std::vector<std::unique_ptr<QueryObserver> > query_observers;
         if (nargs > 0) {
             // flush pending updates before querying
             flush();
@@ -294,7 +295,7 @@ namespace db0::object_model
             }
             
             while (result && (offset < nargs)) {
-                result &= addIterator(args[offset], factory, neg_iterators);
+                result &= addIterator(args[offset], factory, neg_iterators, query_observers);
                 ++offset;
             }
 
@@ -304,7 +305,7 @@ namespace db0::object_model
             }
         }
         
-        auto query_iterator = factory.release(-1);
+        auto query_iterator = factory.release();
         // handle negated query components
         if (neg_iterators.empty()) {
             return query_iterator;
@@ -318,9 +319,9 @@ namespace db0::object_model
             return std::make_unique<FT_ANDNOTIterator<std::uint64_t> >(std::move(neg_iterators), -1);
         }
     }
-
+    
     bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<std::uint64_t> &factory,
-        std::vector<std::unique_ptr<QueryIterator> > &neg_iterators) const
+        std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
     {
         using TypeId = db0::bindings::TypeId;
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
@@ -353,7 +354,7 @@ namespace db0::object_model
             bool all = true;
             ForwardIterator it(LangToolkit::getIterator(arg));
             for (auto end = ForwardIterator::end(); it != end; ++it) {
-                bool result = addIterator((*it).get(), *inner_factory, inner_neg_iterators);
+                bool result = addIterator((*it).get(), *inner_factory, inner_neg_iterators, query_observers);
                 any |= result;
                 all &= result;
             }
@@ -377,9 +378,9 @@ namespace db0::object_model
         if (type_id == TypeId::OBJECT_ITERATOR) {
             auto &obj_iter = LangToolkit::getTypeManager().extractObjectIterator(arg);
             // try interpreting the iterator as FT-query
-            auto ft_query = obj_iter.beginFTQuery();
+            auto ft_query = obj_iter.beginFTQuery(query_observers, -1);
             if (!ft_query || ft_query->isEnd()) {
-                return false;                
+                return false;
             }
             factory.add(std::move(ft_query));
             return true;
@@ -389,15 +390,15 @@ namespace db0::object_model
             // collect negated iterators to be merged later
             auto &tag_set = LangToolkit::getTypeManager().extractTagSet(arg);
             std::vector<std::unique_ptr<QueryIterator> > inner_neg_iterators;
-            if (tag_set.isNegated()) {                
+            if (tag_set.isNegated()) {
                 NegFactory neg_factory(neg_iterators);
                 for (auto it = tag_set.getArgs(), end = it + tag_set.size(); it != end; ++it) {
-                    addIterator(*it, neg_factory, inner_neg_iterators);
+                    addIterator(*it, neg_factory, inner_neg_iterators, query_observers);
                 }
             } else {
                 // just add as regular iterators
                 for (auto it = tag_set.getArgs(), end = it + tag_set.size(); it != end; ++it) {
-                    addIterator(*it, factory, inner_neg_iterators);
+                    addIterator(*it, factory, inner_neg_iterators, query_observers);
                 }
             }
             if (!inner_neg_iterators.empty()) {

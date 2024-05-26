@@ -51,7 +51,7 @@ def test_delta_query_with_removals(db0_fixture):
     db0.commit()
     # remove tags from 2 objects
     db0.tags(objects[1], objects[6]).remove("tag1")
-
+    
     # run as delta query
     groups = db0.group_by(lambda row: row.key, db0.find("tag1"))
     assert len(groups) == 3    

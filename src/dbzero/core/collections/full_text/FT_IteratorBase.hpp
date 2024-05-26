@@ -6,6 +6,7 @@
 #include <limits>
 #include <memory>
 #include <vector>
+#include <atomic>
 #include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
@@ -20,8 +21,9 @@ namespace db0
     public:
         static constexpr std::size_t SIGNATURE_SIZE = db0::serial::Serializable::SIGNATURE_SIZE;
 
+        FT_IteratorBase();        
         virtual ~FT_IteratorBase() = default;
-
+        
 		/**
          * Test for end iterator
          * @return true if end of contents reached
@@ -87,8 +89,21 @@ namespace db0
 
         std::vector<std::byte> getSignature() const;
 
+        inline std::uint64_t getUID() const {
+            return m_uid;
+        }
+
     protected:
+        // auto-generated instace UID (preserved in copies - e.g. created during begin / clone etc.)
+        const std::uint64_t m_uid;
         virtual double compareToImpl(const FT_IteratorBase &it) const = 0;
+
+        FT_IteratorBase(std::uint64_t uid) : m_uid(uid) {};
+        
+        static std::uint64_t nextUID();
+
+    private:
+        static std::atomic<std::uint64_t> s_next_uid;
     };
     
     /**

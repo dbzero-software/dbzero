@@ -5,7 +5,6 @@
 #include <functional>
 
 #include "FT_IteratorBase.hpp"
-#include "CloneMap.hpp"
 #include <dbzero/core/serialization/Serializable.hpp>
 
 namespace db0
@@ -35,6 +34,8 @@ namespace db0
 		using super_t = FT_IteratorBase;
 	    using MutateFunction = std::function<std::pair<bool,bool>(FT_Iterator<KeyT> &)>;
 		
+        FT_Iterator() = default;
+
         /**
          * Retrieve currently iterated item's key
          * @return current item's key
@@ -73,12 +74,6 @@ namespace db0
          * @return key that would have been returned by join(direction=-1) and the result of the operation
         */
 		virtual std::pair<KeyT, bool> peek(KeyT join_key) const = 0;
-
-		/**
-         * Iterator factory method
-         * @param clone_map if not null, will hold all mappings from final (cloned) to original iterator including this one
-         */
-		virtual std::unique_ptr<FT_Iterator<KeyT> > clone(CloneMap<FT_Iterator<KeyT> > *clone_map_ptr = nullptr) const = 0;
 
 		/**
 		 * Begin iteration as a typed FT_Iterator in a given direction,
@@ -159,6 +154,8 @@ namespace db0
         
     protected:
         virtual void serializeFTIterator(std::vector<std::byte> &) const = 0;
+
+        FT_Iterator(std::uint64_t uid);
 	};
     
     extern template class FT_Iterator<std::uint64_t>;

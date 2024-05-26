@@ -5,6 +5,13 @@ namespace db0
 
 {
     
+    std::atomic<std::uint64_t> FT_IteratorBase::s_next_uid = 1;
+
+    FT_IteratorBase::FT_IteratorBase()
+        : m_uid(nextUID())
+    {
+    }
+    
     const FT_IteratorBase *FT_IteratorBase::find(const FT_IteratorBase &it) const
     {
         if (equal(it)) {
@@ -34,6 +41,10 @@ namespace db0
 
     void sortSignatures(std::byte *begin, std::byte *end) {
         db0::BlobSequence<FT_IteratorBase::SIGNATURE_SIZE>(begin, end).sort();
+    }
+    
+    std::uint64_t FT_IteratorBase::nextUID() {
+        return s_next_uid++;
     }
 
 }
