@@ -5,8 +5,8 @@ from typing import Dict
 
 
 class FastQuery:
-    def __init__(self, query, uuid = None, sig = None, bytes = None):
-        self.__query = query
+    def __init__(self, query, groups = None, uuid = None, sig = None, bytes = None):        
+        self.__query = query if groups is None else db0.split_by(groups, query)
         self.__uuid= uuid
         self.__sig = sig        
         self.__bytes = bytes
@@ -126,15 +126,23 @@ class GroupByEval:
         return result
     
     
-def group_by(key_func, query) -> Dict:
+def group_by(group_defs, query) -> Dict:
     """
     Group by the query results by the given key
     """
     def delta(start, end):
         return db0.find(end.rows, db0.no(start.rows))
     
+    # extract groups and key function
+    def prepare_group_defs(group_defs):
+        if callable(group_defs):
+            return group_defs, None
+        else:
+            return None, group_defs
+    
+    key_func, groups = prepare_group_defs(group_defs)
     cache = FastQueryCache()
-    query = FastQuery(query)
+    query = FastQuery(query, groups)
     last_result = cache.find_result(query)
     query_eval = GroupByEval(key_func, last_result[1] if last_result is not None else None)
     if last_result is None:

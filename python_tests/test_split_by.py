@@ -36,3 +36,14 @@ def test_split_by_enum_values(db0_fixture, memo_enum_tags):
     assert counts[Colors.RED] == 4
     assert counts[Colors.GREEN] == 3
     assert counts[Colors.BLUE] == 3
+
+
+# def test_split_query_can_be_further_and_joined(db0_fixture, memo_tags):
+#     split_query = db0.split_by(["tag3", "tag4"], db0.find("tag1"))
+#     # AND-joined query retains all decorators
+#     query = db0.find(split_query, "tag2")
+#     counts = {}    
+#     for _, decor in query:        
+#         counts[decor] = counts.get(decor, 0) + 1
+#     print(counts)
+#     assert counts == {"tag3": 3, "tag4": 2}

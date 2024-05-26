@@ -373,11 +373,11 @@ namespace db0::object_model
             factory.add(inner_factory->release(-1));
             return true;
         }
-
+        
         if (type_id == TypeId::OBJECT_ITERATOR) {
             auto &obj_iter = LangToolkit::getTypeManager().extractObjectIterator(arg);
             // try interpreting the iterator as FT-query
-            auto ft_query = obj_iter.beginFTQuery(-1);
+            auto ft_query = obj_iter.beginFTQuery();
             if (!ft_query || ft_query->isEnd()) {
                 return false;                
             }

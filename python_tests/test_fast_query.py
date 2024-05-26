@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import KVTestClass
+from .memo_test_types import KVTestClass, MemoTestClass
 
 
 def test_simple_group_by_query(db0_fixture):
@@ -82,3 +82,12 @@ def test_delta_of_non_identical_queries(db0_fixture):
     assert groups["one"].count() == 5
     assert groups["two"].count() == 3
     assert groups["three"].count() == 4
+
+
+# def test_group_by_enum_values(db0_fixture, memo_enum_tags):
+#     Colors = memo_enum_tags["Colors"]
+#     groups = db0.group_by(Colors.values(), db0.find(MemoTestClass))
+#     assert len(groups) == 3
+#     assert groups[Colors.RED].count() == 4
+#     assert groups[Colors.GREEN].count() == 3
+#     assert groups[Colors.BLUE].count() == 3
