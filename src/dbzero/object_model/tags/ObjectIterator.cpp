@@ -83,18 +83,19 @@ namespace db0::object_model
     bool ObjectIterator::next(std::uint64_t &addr)
     {
         assureInitialized();
-        if (!m_iterator_ptr || m_iterator_ptr->isEnd()) {
-            return false;
-        } else {
-            // collect decorators if any exist
+        if (m_iterator_ptr && !m_iterator_ptr->isEnd()) {
+            // collect decorators if any exist            
             if (!m_decoration.empty()) {
                 auto it = m_decoration.m_query_observers.begin();
                 for (auto &decor: m_decoration.m_decorators) {
                     decor = (*it)->getDecoration();
+                    ++it;
                 }
-            }
+            }            
             m_iterator_ptr->next(&addr);
             return true;
+        } else {
+            return false;
         }
     }
     
@@ -153,13 +154,6 @@ namespace db0::object_model
                 assert(!m_base_iterator);
                 m_base_iterator = m_factory->createBaseIterator();
                 m_iterator_ptr = m_base_iterator.get();
-            }
-            // retrieve decorations of the 1st item if present
-            if (m_iterator_ptr && !m_iterator_ptr->isEnd() && !m_decoration.empty()) {
-                auto it = m_decoration.m_query_observers.begin();                
-                for (auto &decor: m_decoration.m_decorators) {
-                    decor = (*it)->getDecoration();
-                }
             }
             m_initialized = true;
         }
@@ -233,7 +227,7 @@ namespace db0::object_model
         assert(m_iterator_ptr);
         return m_iterator_ptr->compareTo(*other.m_iterator_ptr);
     }
-
+    
     std::vector<std::byte> ObjectIterator::getSignature() const
     {
         if (isNull()) {

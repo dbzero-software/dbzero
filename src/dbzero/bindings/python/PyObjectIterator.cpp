@@ -48,12 +48,14 @@ namespace db0::python
         return self;    
     }
     
-    PyObject *decoratedItem(PyObject *item, const std::vector<PyObject*> &decorators) 
+    PyObject *decoratedItem(PyObject *py_item, const std::vector<PyObject*> &decorators)
     {
         // return a tuple consisting of an item + decorators
         auto tuple = PyTuple_New(decorators.size() + 1);
-        PyTuple_SET_ITEM(tuple, 0, item);
+        Py_INCREF(py_item);
+        PyTuple_SET_ITEM(tuple, 0, py_item);
         for (std::size_t i = 0; i < decorators.size(); ++i) {
+            Py_INCREF(decorators[i]);
             PyTuple_SET_ITEM(tuple, i + 1, decorators[i]);
         }
         return tuple;

@@ -114,7 +114,7 @@ namespace db0::object_model
         // iterator_ptr valid both in case of m_query_iterator and m_sorted_iterator
         std::unique_ptr<BaseIterator> m_base_iterator;
         BaseIterator *m_iterator_ptr = nullptr;
-        bool m_initialized = false;        
+        bool m_initialized = false;
 
         struct Decoration
         {

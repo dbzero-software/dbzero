@@ -54,16 +54,12 @@ def memo_excl_tags():
 
 
 @pytest.fixture()
-def enum_tags():
-    Colors = db0.enum("Colors", ["red", "green", "blue", "black"])
+def memo_enum_tags():
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     root = MemoTestSingleton([])
+    colors = [Colors.RED, Colors.GREEN, Colors.BLUE]
     for i in range(10):
         object = MemoTestClass(i)
         root.value.append(object)
-        db0.tags(object).add("tag1")
-        if i % 2 == 0:
-            db0.tags(object).add(Colors.red)
-        if i % 3 == 0:
-            db0.tags(object).add(Colors.green)
-        if i % 4 == 0:
-            db0.tags(object).add(Colors.blue)
+        db0.tags(object).add(colors[i % 3])
+    return { "Colors": Colors }
