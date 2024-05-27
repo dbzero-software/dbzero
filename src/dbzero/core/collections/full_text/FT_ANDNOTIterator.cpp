@@ -164,46 +164,14 @@ namespace db0
     }
 
     template<typename key_t>
-    bool FT_ANDNOTIterator<key_t>::equal(const FT_IteratorBase &other) const 
+    const FT_IteratorBase* FT_ANDNOTIterator<key_t>::find(std::uint64_t uid) const 
     {
-        if (this->typeId() != other.typeId()) {
-            return false;
-        }
-        const FT_ANDNOTIterator &andnot_it = static_cast<const FT_ANDNOTIterator&>(other);
-        if (m_joinable.size() != andnot_it.m_joinable.size()) {
-            return false;
-        }
-        
-        auto this_joinable_it = m_joinable.begin();
-        auto other_joinable_it = andnot_it.m_joinable.begin();
-        // first iterators must be the same
-        if (!(*this_joinable_it)->equal(**other_joinable_it)) {
-            return false;
-        }
-        ++this_joinable_it;
-        ++other_joinable_it;
-        // compare rest of iterators (order doesn't matter)
-        if (std::is_permutation(this_joinable_it, m_joinable.end(),
-                               other_joinable_it, andnot_it.m_joinable.end(),
-            [](const std::unique_ptr<FT_Iterator<key_t>> &a, const std::unique_ptr<FT_Iterator<key_t>> &b) {
-                return a->equal(*b);
-            }))
-        {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    template<typename key_t>
-    const FT_IteratorBase* FT_ANDNOTIterator<key_t>::find(const FT_IteratorBase &it) const 
-    {
-        if (this->equal(it)) {
+        if (this->m_uid == uid) {
             return this;
         }
         for (const std::unique_ptr<FT_Iterator<key_t>> &sub_it : m_joinable) {
-            const FT_IteratorBase *found_it = sub_it->find(it);
-            if(found_it) {
+            const FT_IteratorBase *found_it = sub_it->find(uid);
+            if (found_it) {
                 return found_it;
             }
         }

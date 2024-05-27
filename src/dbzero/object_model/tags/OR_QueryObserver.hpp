@@ -45,6 +45,9 @@ namespace db0::object_model
 
         OR_QueryObserver(const FT_JoinORXIterator<std::uint64_t> *iterator_ptr,
             std::unordered_map<std::uint64_t, ObjectSharedPtr> &&decorations);
+        
+        OR_QueryObserver(const FT_JoinORXIterator<std::uint64_t> *iterator_ptr,
+            const std::unordered_map<std::uint64_t, ObjectSharedPtr> &decorations);
 
     private:
         // the observed iterator

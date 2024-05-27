@@ -12,9 +12,9 @@ namespace db0
     {
     }
     
-    const FT_IteratorBase *FT_IteratorBase::find(const FT_IteratorBase &it) const
+    const FT_IteratorBase *FT_IteratorBase::find(std::uint64_t uid) const
     {
-        if (equal(it)) {
+        if (m_uid == uid) {
             return this;
         } else {
             return nullptr;

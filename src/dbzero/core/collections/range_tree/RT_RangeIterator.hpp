@@ -46,11 +46,9 @@ namespace db0
         
         std::ostream &dump(std::ostream &os) const override;
 
-        bool equal(const FT_IteratorBase &it) const override;
-
         std::unique_ptr<FT_IteratorBase> begin() const override;
         
-        const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
+        const FT_IteratorBase *find(std::uint64_t uid) const override;
         
         void getSignature(std::vector<std::byte> &) const override;
         
@@ -178,25 +176,16 @@ namespace db0
         return !m_has_lh_item;
     }
     
-    template <typename KeyT, typename ValueT> bool RT_RangeIterator<KeyT, ValueT>::equal(const FT_IteratorBase &it) const
-    {
-        if (typeid(it) != typeid(self_t)) {
-            return false;
-        }
-        // const auto &other = static_cast<const self_t &>(it);
-        throw std::runtime_error("Not implemented");
-    }
-
     template <typename KeyT, typename ValueT>
-    const FT_IteratorBase *RT_RangeIterator<KeyT, ValueT>::find(const FT_IteratorBase &it) const
+    const FT_IteratorBase *RT_RangeIterator<KeyT, ValueT>::find(std::uint64_t uid) const
     {
-        if (this->equal(it)) {
+        if (this->m_uid == uid) {
             return this;
         }
-        if (!m_query_it) {
-            return nullptr;
+        if (m_query_it) {
+            return m_query_it->find(uid);
         }
-        return m_query_it->find(it);
+        return nullptr;
     }
 
     template <typename KeyT, typename ValueT>

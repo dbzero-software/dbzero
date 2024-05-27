@@ -55,10 +55,8 @@ namespace db0
 
 		bool limitBy(key_t key) override;
 
-		std::ostream &dump(std::ostream &os) const override;        
-
-		bool equal(const FT_IteratorBase &it) const override;
-
+		std::ostream &dump(std::ostream &os) const override;
+		
         void scanQueryTree(std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_func,
             int depth = 0) const override;
         
@@ -211,17 +209,7 @@ namespace db0
 	std::ostream &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::dump(std::ostream &os) const {
 		return os << "FTIndex@" << this;
 	}
-
-	template <typename bindex_t, typename key_t, typename IndexKeyT>
-	bool FT_IndexIterator<bindex_t, key_t, IndexKeyT>::equal(const FT_IteratorBase &it) const
-    {
-		if (this->typeId() != it.typeId()) {
-			return false;
-		}
-		// check if iterating over the same data collection
-		return m_data == reinterpret_cast<const decltype(*this)&>(it).m_data;
-	}
-	
+		
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	const typename FT_IndexIterator<bindex_t, key_t, IndexKeyT>::iterator &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::asNative() const {
 		return getIterator();

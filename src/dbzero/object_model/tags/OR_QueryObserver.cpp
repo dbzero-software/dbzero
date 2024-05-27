@@ -31,6 +31,13 @@ namespace db0::object_model
     {
     }
 
+    OR_QueryObserver::OR_QueryObserver(const FT_JoinORXIterator<std::uint64_t> *iterator_ptr,
+        const std::unordered_map<std::uint64_t, ObjectSharedPtr> &decorations)
+        : m_iterator_ptr(iterator_ptr)
+        , m_decorations(decorations)
+    {
+    }
+
     OR_QueryObserver::ObjectPtr OR_QueryObserver::getDecoration() const
     {
         if (!m_iterator_ptr) {
@@ -41,6 +48,14 @@ namespace db0::object_model
             THROWF(db0::InternalException) << "Split query decoration not found";            
         }
         return it->second.get();
+    }
+    
+    std::unique_ptr<QueryObserver> OR_QueryObserver::rebase(const FT_IteratorBase &new_base) const
+    {
+        return std::unique_ptr<QueryObserver>(new OR_QueryObserver(
+            reinterpret_cast<const FT_JoinORXIterator<std::uint64_t> *>(new_base.find(m_iterator_ptr->getUID())),
+            m_decorations)
+        );
     }
 
 }

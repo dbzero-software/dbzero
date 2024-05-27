@@ -54,10 +54,8 @@ namespace db0
         const std::type_info &typeId() const override;
 
         std::ostream &dump(std::ostream &os) const override;
-
-        bool equal(const FT_IteratorBase &it) const override;
-
-        const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
+        
+        const FT_IteratorBase *find(std::uint64_t uid) const override;
 
         std::unique_ptr<FT_IteratorBase> begin() const override;
 
@@ -355,11 +353,13 @@ namespace db0
             if (m_has_query) {
                 and_factory.add(m_query_it->beginTyped(-1));
             }
-            and_factory.add(m_tree_it->makeIterator());
+            auto rt_tree_it = m_tree_it->makeIterator();            
+            auto rt_tree_it_uid = rt_tree_it->getUID();
+            and_factory.add(std::move(rt_tree_it));
             auto it = and_factory.release(-1);
 
             // find the range-tree iterator in the query tree (always available)
-            auto inner_it = it->find(*m_tree_it->makeIterator());
+            auto inner_it = it->find(rt_tree_it_uid);
             // no results if no inner it
             if (inner_it) {
                 assert(inner_it);
@@ -391,25 +391,16 @@ namespace db0
         return os << "RT_SortIterator";        
     }
 
-    template <typename KeyT, typename ValueT> bool RT_SortIterator<KeyT, ValueT>::equal(const FT_IteratorBase &it) const
-    {
-        if (this->typeId() != it.typeId()) {        
-            return false;
-        }
-        // const auto &other = static_cast<const RT_SortIterator<KeyT, ValueT> &>(it);
-        throw std::runtime_error("Not implemented");        
-    }
-    
     template <typename KeyT, typename ValueT>
-    const FT_IteratorBase *RT_SortIterator<KeyT, ValueT>::find(const FT_IteratorBase &it) const
+    const FT_IteratorBase *RT_SortIterator<KeyT, ValueT>::find(std::uint64_t uid) const
     {
-        if (this->equal(it)) {
+        if (this->m_uid == uid) {
             return this;
         }
-        if (!m_query_it) {
-            return nullptr;
+        if (m_query_it) {
+            return m_query_it->find(uid);
         }
-        return m_query_it->find(it);
+        return nullptr;
     }
     
     template <typename KeyT, typename ValueT> const std::type_info &RT_SortIterator<KeyT, ValueT>::keyTypeId() const

@@ -269,12 +269,11 @@ namespace db0::object_model
     }
 
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
-        std::shared_ptr<Class> &type) const
+        std::shared_ptr<Class> &type, std::vector<std::unique_ptr<QueryObserver> > &observers) const
     {
         db0::FT_ANDIteratorFactory<std::uint64_t> factory;
         // the negated root-level query components
-        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
-        std::vector<std::unique_ptr<QueryObserver> > query_observers;
+        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;        
         if (nargs > 0) {
             // flush pending updates before querying
             flush();
@@ -295,7 +294,7 @@ namespace db0::object_model
             }
             
             while (result && (offset < nargs)) {
-                result &= addIterator(args[offset], factory, neg_iterators, query_observers);
+                result &= addIterator(args[offset], factory, neg_iterators, observers);
                 ++offset;
             }
 

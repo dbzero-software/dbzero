@@ -52,10 +52,11 @@ namespace db0::object_model
          * Construct query result iterator (resolve and execute language specific query)
          * args - will be AND-combined
          * @param type additional return value (if type was matched)
+         * @param observer buffer to receive query observers (possibly inherited from inner queries)
          */
         std::unique_ptr<QueryIterator> find(ObjectPtr const *args, std::size_t nargs,
-            std::shared_ptr<Class> &type) const;
-
+            std::shared_ptr<Class> &type, std::vector<std::unique_ptr<QueryObserver> > &observers) const;
+        
         /**
          * Split query by all values from a specific tags_list (can be either short or long tag definitions)
          * @param lang_arg must represent a list of tags as language specific types (e.g. string / enum value etc.)

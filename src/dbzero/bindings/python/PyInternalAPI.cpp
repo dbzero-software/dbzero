@@ -14,6 +14,7 @@
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/object_model/tags/TypedObjectIterator.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/tags/QueryObserver.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
@@ -246,15 +247,18 @@ namespace db0::python
         std::shared_ptr<Class> type;
         auto fixture = snapshot.getCurrentFixture();
         auto &tag_index = fixture->get<TagIndex>();
-        auto query_iterator = tag_index.find(args, nargs, type);
+        std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
+        auto query_iterator = tag_index.find(args, nargs, type, query_observers);
         if (type) {
             // construct as typed iterator when a type was specified
             auto iter_obj = PyTypedObjectIterator_new(&PyTypedObjectIteratorType, NULL, NULL);
-            TypedObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator), type);
+            TypedObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator), 
+                type, std::move(query_observers));
             return iter_obj;
         } else {
             auto iter_obj = PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
-            ObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator));
+            ObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator), 
+                std::move(query_observers));
             return iter_obj;
         }
     }

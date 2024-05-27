@@ -254,52 +254,19 @@ namespace db0
 	}
 
 	template <typename key_t>
-	bool FT_JoinORXIterator<key_t>::equal(const FT_IteratorBase &it) const
-    {
-		if (it.typeId() != this->typeId()) {
-			return false;
-		}
-
-		const FT_JoinORXIterator<key_t> &orx_it = reinterpret_cast<const FT_JoinORXIterator<key_t>&>(it);
-		if (m_is_orx==orx_it.m_is_orx && m_joinable.size()==orx_it.m_joinable.size()) {
-			// compare joinables ( order irrelevant )
-			std::list<const FT_Iterator<key_t>*> refs;
-			for (auto it = orx_it.m_joinable.begin(),itend = orx_it.m_joinable.end();it!=itend;++it) {
-				refs.push_back((*it).get());
-			}
-			while (!refs.empty()) {
-				const FT_Iterator<key_t> &ref_it = *refs.front();
-				auto it = m_joinable.begin(),itend = m_joinable.end();
-				while (it!=itend) {
-					if ((*it)->equal(ref_it)) {
-						break;
-					}
-					++it;
-				}
-				if (it==itend) {
-					return false;
-				}
-				refs.pop_front();
-			}
-			return true;
-		}		
-		return false;
-	}
-
-	template <typename key_t>
-	const FT_IteratorBase *FT_JoinORXIterator<key_t>::find(const FT_IteratorBase &it) const 
+	const FT_IteratorBase *FT_JoinORXIterator<key_t>::find(std::uint64_t uid) const 
     {
 		// self-check first
-		if (this->equal(it)) {
+		if (this->m_uid == uid) {
 			return this;
 		}
 		for (auto it_sub = m_joinable.begin(),itend = m_joinable.end();it_sub!=itend;++it_sub) {
-			const FT_IteratorBase *it_filter = (*it_sub)->find(it);
+			const FT_IteratorBase *it_filter = (*it_sub)->find(uid);
 			if (it_filter) {
 				return it_filter;
 			}
 		}
-		return 0;
+		return nullptr;
 	}
 
 	template <typename key_t>

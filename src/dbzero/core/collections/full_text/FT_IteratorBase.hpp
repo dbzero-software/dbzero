@@ -50,23 +50,18 @@ namespace db0
          * Dump basic iterator information, debug & evaluation member
          */
         virtual std::ostream &dump(std::ostream &os) const = 0;
-
-        /** 
-         * compare objects of the same type, return false otherwise
-         */
-        virtual bool equal(const FT_IteratorBase &it) const = 0;
-
+        
         /**
          * Start iteration over without any direction specified
         */
         virtual std::unique_ptr<FT_IteratorBase> begin() const = 0;
         
         /**
-         * Find "equal" iterator or sub-iterator
+         * Find by UID an iterator within the tree spanned by this iterator
          * @return native iterator or NULL if not found
          * NOTICE: default implementation for simple iterators provided
          */
-        virtual const FT_IteratorBase *find(const FT_IteratorBase &it) const;
+        virtual const FT_IteratorBase *find(std::uint64_t uid) const;
         
         /**
          * Returns "false" by default, should be overridden by simple iterator implementations

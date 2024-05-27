@@ -38,12 +38,15 @@ def test_split_by_enum_values(db0_fixture, memo_enum_tags):
     assert counts[Colors.BLUE] == 3
 
 
-# def test_split_query_can_be_further_and_joined(db0_fixture, memo_tags):
-#     split_query = db0.split_by(["tag3", "tag4"], db0.find("tag1"))
-#     # AND-joined query retains all decorators
-#     query = db0.find(split_query, "tag2")
-#     counts = {}    
-#     for _, decor in query:        
-#         counts[decor] = counts.get(decor, 0) + 1
-#     print(counts)
-#     assert counts == {"tag3": 3, "tag4": 2}
+def test_split_query_can_be_used_as_subquery(db0_fixture, memo_tags):
+    split_query = db0.split_by(["tag3", "tag4"], db0.find("tag1"))
+    # AND-joined query retains all decorators (from inner split query)
+    query = db0.find(split_query, "tag2")
+    counts = {}
+    values = []
+    for item, decor in query:        
+        counts[decor] = counts.get(decor, 0) + 1
+        values.append(item.value)
+    # since split_by is exclusive #0 may yield non-deterministic result since its tagged with both tag3 and tag4
+    assert counts == {'tag3': 2, 'tag4': 2} or counts == {'tag3': 1, 'tag4': 3}
+    assert set(values) == set([0, 4, 6, 8])

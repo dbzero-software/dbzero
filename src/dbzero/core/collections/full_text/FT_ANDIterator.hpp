@@ -71,10 +71,8 @@ namespace db0
 		bool limitBy(key_t key) override;
 
 		std::ostream &dump(std::ostream &os) const override;
-
-		bool equal(const FT_IteratorBase &it) const override;
-
-		const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
+		
+		const FT_IteratorBase *find(std::uint64_t uid) const override;
 
         void scanQueryTree(std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_function,
             int depth = 0) const override;

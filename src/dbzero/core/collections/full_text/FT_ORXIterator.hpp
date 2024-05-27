@@ -58,9 +58,7 @@ namespace db0
 
 		std::ostream &dump(std::ostream &os) const override;
 
-		bool equal(const FT_IteratorBase &it) const override;
-
-		const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
+		const FT_IteratorBase *find(std::uint64_t uid) const override;
 
 		/**
          * Calculate number of underlying iterators yielding current output (join_key)
