@@ -104,9 +104,13 @@ class GroupByBucket:
     
     
 class GroupByEval:
-    def __init__(self, key_func, data = None):
+    def __init__(self, key_func, groups, data = None):
         self.__data = data if data is not None else {}
-        self.__key_func = key_func
+        if key_func:
+            self.__key_func = key_func
+        else:
+            # extract all decorators as the group identifier
+            self.__key_func = lambda row: row[1:]
     
     def add(self, rows):
         for row in rows:
@@ -122,7 +126,7 @@ class GroupByEval:
             key = self.__key_func(row)
             self.__data.get(key).remove(row)
 
-    def collect(self):
+    def release(self):
         result = self.__data
         self.__data = {}
         return result
@@ -136,14 +140,15 @@ def group_by(group_defs, query) -> Dict:
         return db0.find(end.rows, db0.no(start.rows))
     
     # extract groups and key function
-    def prepare_group_defs(group_defs):        
-        return group_defs, None
-    
+    def prepare_group_defs(group_defs):
+        # if iterable        
+        return (None, group_defs) if hasattr(group_defs, "__iter__") else (group_defs, None)
+
     key_func, groups = prepare_group_defs(group_defs)
     cache = FastQueryCache()
     query = FastQuery(query, groups)
     last_result = cache.find_result(query)
-    query_eval = GroupByEval(key_func, last_result[1] if last_result is not None else None)
+    query_eval = GroupByEval(key_func, groups, last_result[1] if last_result is not None else None)
     if last_result is None:
         # evaluate full query
         query_eval.add(query.rows)
@@ -154,6 +159,6 @@ def group_by(group_defs, query) -> Dict:
         query_eval.add(delta(old_query, query))
         query_eval.remove(delta(query, old_query))
 
-    result = query_eval.collect()
+    result = query_eval.release()
     cache.update(query, result)
     return result

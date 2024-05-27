@@ -8,13 +8,15 @@ namespace db0::object_model
         : m_factory(is_exclusive)
     {
     }
-    
+     
     void OR_QueryObserverBuilder::add(std::unique_ptr<db0::FT_Iterator<std::uint64_t> > &&query, ObjectSharedPtr decoration)
     {
-        m_decorations[query->getUID()] = decoration;    
+        if (query) {
+            m_decorations[query->getUID()] = decoration;
+        }
         m_factory.add(std::move(query));
     }
-
+    
     std::pair<std::unique_ptr<db0::FT_Iterator<std::uint64_t> >, std::unique_ptr<QueryObserver> >
     OR_QueryObserverBuilder::release(int direction, bool lazy_init)
     {        

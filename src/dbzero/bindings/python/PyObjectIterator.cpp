@@ -101,7 +101,7 @@ namespace db0::python
         const auto &iter = reinterpret_cast<PyObjectIterator*>(self)->ext();
         auto signature = iter.getSignature();
         // encode as base32
-        std::vector<char> result_buf(signature.size() * 2);
+        std::vector<char> result_buf(signature.size() * 2 + 1);
         auto size = db0::base32_encode(reinterpret_cast<std::uint8_t*>(signature.data()), signature.size(), result_buf.data());
         return PyUnicode_FromStringAndSize(result_buf.data(), size);        
     }
