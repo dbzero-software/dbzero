@@ -118,8 +118,8 @@ namespace db0
         void _nextUnique();
 		void joinAll();
 
-		FT_JoinANDIterator(std::uint64_t uid, std::list<std::unique_ptr<FT_Iterator<key_t> > > &&, int direction, 
-            bool is_end, key_t join_key);
+		FT_JoinANDIterator(std::uint64_t uid, std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, 
+            int direction, bool lazy_init = false);
         
         // compare to other AND iterator
         double compareTo(const FT_JoinANDIterator &it) const;

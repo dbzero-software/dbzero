@@ -10,21 +10,8 @@ namespace db0
     template <typename key_t, bool UniqueKeys>
     FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(
         std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction, bool lazy_init)        
-        : m_direction(direction)
-        , m_end(false)    
+        : FT_JoinANDIterator(this->nextUID(), std::move(inner_iterators), direction, lazy_init)
     {
-        m_joinable.splice(m_joinable.end(), inner_iterators);
-        // skip initialization if the lazy init was requested
-        if (!lazy_init) {
-            // test end iterator condition
-            for (auto &it : m_joinable) {
-                if ((*it).isEnd()) {
-                    setEnd();
-                    return;
-                }
-            }            
-            joinAll();
-        }
     }
     
 	template <typename key_t, bool UniqueKeys>
@@ -45,6 +32,27 @@ namespace db0
             }
         }
 	}
+
+    template <typename key_t, bool UniqueKeys>
+	FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(std::uint64_t uid, 
+        std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction, bool lazy_init)
+        : super_t(uid)
+        , m_direction(direction)
+        , m_end(false)
+    {
+        m_joinable.splice(m_joinable.end(), inner_iterators);
+        // skip initialization if the lazy init was requested
+        if (!lazy_init) {
+            // test end iterator condition
+            for (auto &it : m_joinable) {
+                if ((*it).isEnd()) {
+                    setEnd();
+                    return;
+                }
+            }            
+            joinAll();
+        }
+    }
 
 	template <typename key_t, bool UniqueKeys>
 	FT_JoinANDIterator<key_t, UniqueKeys>::~FT_JoinANDIterator() = default;
@@ -162,7 +170,7 @@ namespace db0
             temp.emplace_back((*it)->beginTyped(direction));
         }
 		return std::unique_ptr<FT_JoinANDIterator<key_t, UniqueKeys> >(
-            new FT_JoinANDIterator<key_t, UniqueKeys>(this->m_uid, std::move(temp), direction, false, m_join_key)
+            new FT_JoinANDIterator<key_t, UniqueKeys>(this->m_uid, std::move(temp), direction, false)
         );
 	}
     
@@ -344,20 +352,7 @@ namespace db0
             }
         }
 	}
-
-	template <typename key_t, bool UniqueKeys>
-	FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(std::uint64_t uid, std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators,
-        int direction, bool is_end, key_t join_key)
-        : FT_Iterator<key_t>(uid)
-        , m_direction(direction)
-        , m_end(is_end)
-        , m_join_key(join_key)        
-	{
-		for (auto &s: inner_iterators) {
-			m_joinable.emplace_back(std::move(s));
-		}
-	}   
-
+    
 	template <typename key_t, bool UniqueKeys>
 	void db0::FT_JoinANDIterator<key_t, UniqueKeys>
         ::scanQueryTree(std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_function,
