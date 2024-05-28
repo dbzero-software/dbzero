@@ -471,27 +471,26 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid argument type";
         }
         
-        if (TypedObjectIterator_Check(py_query)) {
-            auto &iterator = reinterpret_cast<PyTypedObjectIterator*>(py_query)->ext();
-            // query + observer
-            auto split_query = splitBy(py_tag_list, iterator);
-            PyTypedObjectIterator *py_iter = PyTypedObjectIteratorDefault_new();
-            // create decorated iterator
-            TypedObjectIterator::makeNew(&py_iter->ext(), iterator.getFixture(), std::move(split_query.first), iterator.getType(), 
-                std::move(split_query.second));
-            return py_iter;
-        } else if (ObjectIterator_Check(py_query)) {
-            auto &iterator = reinterpret_cast<PyObjectIterator*>(py_query)->ext();
-            auto split_query = splitBy(py_tag_list, iterator);
+        if (PyObjectIterator_Check(py_query)) {
+            auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->ext();            
+            auto split_query = splitBy(py_tag_list, *iter);
             PyObjectIterator *py_iter = PyObjectIteratorDefault_new();
-            // create decorated iterator
-            ObjectIterator::makeNew(&py_iter->ext(), iterator.getFixture(), std::move(split_query.first), std::move(split_query.second));
+            // create decorated iterator (either plain or typed)
+            if (iter.isTyped()) {
+                auto typed_iter = std::make_unique<TypedObjectIterator>(iter->getFixture(), std::move(split_query.first),
+                    iter.m_typed_iterator_ptr->getType(), std::move(split_query.second));
+                Iterator::makeNew(&py_iter->ext(), std::move(typed_iter));
+            } else {
+                auto _iter = std::make_unique<ObjectIterator>(iter->getFixture(), std::move(split_query.first), 
+                    std::move(split_query.second));
+                Iterator::makeNew(&py_iter->ext(), std::move(_iter));
+            }            
             return py_iter;
         } else {
             THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
         }
     }
-
+    
     PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) {
         return runSafe(trySplitBy, args, kwargs);
     }

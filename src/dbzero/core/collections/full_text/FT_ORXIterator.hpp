@@ -54,7 +54,7 @@ namespace db0
 
 		bool limitBy(key_t key) override;
 		
-		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction) const override;
+		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction = -1) const override;
 
 		std::ostream &dump(std::ostream &os) const override;
 

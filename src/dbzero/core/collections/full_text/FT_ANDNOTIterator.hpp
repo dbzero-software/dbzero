@@ -52,7 +52,7 @@ namespace db0
 
         std::pair<key_t, bool> peek(key_t join_key) const override;
                 
-        std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction) const override;
+        std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction = -1) const override;
 
         bool limitBy(key_t key) override;
 

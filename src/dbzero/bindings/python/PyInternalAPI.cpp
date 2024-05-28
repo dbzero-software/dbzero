@@ -249,18 +249,18 @@ namespace db0::python
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
         auto query_iterator = tag_index.find(args, nargs, type, query_observers);
+        auto iter_obj = PyObjectIteratorDefault_new();
         if (type) {
             // construct as typed iterator when a type was specified
-            auto iter_obj = PyTypedObjectIterator_new(&PyTypedObjectIteratorType, NULL, NULL);
-            TypedObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator), 
+            auto typed_iter = std::make_unique<TypedObjectIterator>(fixture, std::move(query_iterator), 
                 type, std::move(query_observers));
-            return iter_obj;
+            Iterator::makeNew(&iter_obj->ext(), std::move(typed_iter));            
         } else {
-            auto iter_obj = PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
-            ObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator), 
+            auto _iter = std::make_unique<ObjectIterator>(fixture, std::move(query_iterator), 
                 std::move(query_observers));
-            return iter_obj;
+            Iterator::makeNew(&iter_obj->ext(), std::move(_iter));
         }
+        return iter_obj;
     }
 
     PyObject *trySerialize(PyObject *py_serializable)
@@ -271,7 +271,7 @@ namespace db0::python
         db0::serial::write(bytes, type_id);
         
         if (type_id == TypeId::OBJECT_ITERATOR) {
-            reinterpret_cast<PyObjectIterator*>(py_serializable)->ext().serialize(bytes);
+            reinterpret_cast<PyObjectIterator*>(py_serializable)->ext()->serialize(bytes);
         } else {
             THROWF(db0::InputException) << "Unsupported or non-serializable type: " 
                 << static_cast<int>(type_id) << THROWF_END;

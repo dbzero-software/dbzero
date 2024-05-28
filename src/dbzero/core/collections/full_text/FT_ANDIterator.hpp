@@ -29,14 +29,14 @@ namespace db0
          * @param lazy_init if lazy init is requested the iterator is created in the state where only below methods
          * are allowed: beginBack, clone (this is for lazy construction of the query tree)
          */
-		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction,
+		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction = -1,
 		    bool lazy_init = false);
 
 		/**
          * join pair of iterators
          */
 		FT_JoinANDIterator(std::unique_ptr<FT_Iterator<key_t> > &&it0, std::unique_ptr<FT_Iterator<key_t> > &&it1,
-		    int direction, bool lazy_init = false);
+		    int direction = -1, bool lazy_init = false);
 
 		virtual ~FT_JoinANDIterator();
 
@@ -66,7 +66,7 @@ namespace db0
 
 		std::pair<key_t, bool> peek(key_t join_key) const override;
          
-		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction) const override;
+		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction = -1) const override;
         
 		bool limitBy(key_t key) override;
 
@@ -106,7 +106,7 @@ namespace db0
         void serializeFTIterator(std::vector<std::byte> &) const override;
                 
 	private:
-		int m_direction;
+		const int m_direction;
 		mutable std::list<std::unique_ptr<FT_Iterator<key_t> > > m_joinable;
 		bool m_end;
 		key_t m_join_key;

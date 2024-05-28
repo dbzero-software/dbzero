@@ -173,6 +173,10 @@ namespace db0::object_model
             m_initialized = true;
         }
     }
+
+    void ObjectIterator::assureInitialized() const {
+        const_cast<ObjectIterator *>(this)->assureInitialized();
+    }
     
     void ObjectIterator::serialize(std::vector<std::byte> &buf) const
     {        
@@ -239,6 +243,7 @@ namespace db0::object_model
         if (other.isNull()) {
             return 1.0;
         }
+        assureInitialized();
         assert(m_iterator_ptr);
         return m_iterator_ptr->compareTo(*other.m_iterator_ptr);
     }
@@ -248,6 +253,7 @@ namespace db0::object_model
         if (isNull()) {
             return {};
         }
+        assureInitialized();
         std::vector<std::byte> result;
         m_iterator_ptr->getSignature(result);
         return result;

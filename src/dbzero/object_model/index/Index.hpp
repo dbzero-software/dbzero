@@ -73,13 +73,12 @@ namespace db0::object_model
         
         std::size_t size() const;
         void add(ObjectPtr key, ObjectPtr value);
-                
+         
         /**
          * Sort results of a specific object iterator from the same fixture
-         * @param iter object iterator
-         * @param at_ptr memory location for the resulting iterator (must be uninitialized ObjectIterator)
+         * @param iter object iterator        
          */        
-        void sort(const ObjectIterator &iter, ObjectIterator *at_ptr) const;
+        std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort(const ObjectIterator &iter) const;
 
         /**
          * Construct a range filtering query         

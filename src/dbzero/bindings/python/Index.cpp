@@ -90,26 +90,30 @@ namespace db0::python
         }
         
         // sort results of a full-text iterator
-        auto iter = args[0];
-        if (!ObjectIterator_Check(iter) && !TypedObjectIterator_Check(iter)) {
-            PyErr_SetString(PyExc_TypeError, "sort() takes ObjectIterator or TypedObjectIterator as argument");
+        auto py_iter = args[0];
+        if (!PyObjectIterator_Check(py_iter)) {
+            PyErr_SetString(PyExc_TypeError, "sort() takes ObjectIterator as an argument");
             return NULL;
         }
 
-        auto &index = py_index->ext(); 
-        if (TypedObjectIterator_Check(iter)) {
-            auto &typed_iter = reinterpret_cast<PyTypedObjectIterator*>(iter)->ext();
-            auto iter_obj = PyTypedObjectIterator_new(&PyTypedObjectIteratorType, NULL, NULL);
-            index.sort(typed_iter, &iter_obj->ext());
-            return iter_obj;
+        auto &index = py_index->ext();
+        auto &iter = reinterpret_cast<PyObjectIterator*>(py_iter)->ext();
+        auto iter_obj = PyObjectIteratorDefault_new();
+        
+        auto iter_sorted = index.sort(*iter);
+        if (iter.isTyped()) {
+            auto typed_iter = std::make_unique<db0::object_model::TypedObjectIterator>(
+                iter->getFixture(), std::move(iter_sorted), iter.m_typed_iterator_ptr->getType()
+            );
+            Iterator::makeNew(&iter_obj->ext(), std::move(typed_iter));
         } else {
-            auto &obj_iter = reinterpret_cast<PyObjectIterator*>(iter)->ext();
-            
-            // construct sorted result iterator
-            auto iter_obj = PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
-            index.sort(obj_iter, &iter_obj->ext());
-            return iter_obj;
+            auto _iter = std::make_unique<db0::object_model::ObjectIterator>(
+                iter->getFixture(), std::move(iter_sorted)
+            );
+            Iterator::makeNew(&iter_obj->ext(), std::move(_iter));
         }
+
+        return iter_obj;
     }
 
     PyObject *IndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)

@@ -19,7 +19,7 @@ namespace db0
         std::unique_ptr<FT_Iterator<key_t> > &&it1, int direction, bool lazy_init)
         : m_direction(direction)
         , m_end(false)        
-	{
+	{        
 		m_joinable.emplace_back(std::move(it0));
 		m_joinable.emplace_back(std::move(it1));
         // skip initialization if the lazy init was requested
@@ -39,7 +39,7 @@ namespace db0
         : super_t(uid)
         , m_direction(direction)
         , m_end(false)
-    {
+    {        
         m_joinable.splice(m_joinable.end(), inner_iterators);
         // skip initialization if the lazy init was requested
         if (!lazy_init) {
@@ -98,8 +98,7 @@ namespace db0
     }
     
 	template <typename key_t, bool UniqueKeys>
-	void FT_JoinANDIterator<key_t, UniqueKeys>::next(void *buf)
-    {
+	void FT_JoinANDIterator<key_t, UniqueKeys>::next(void *buf) {
         this->_next(buf);
     }
 

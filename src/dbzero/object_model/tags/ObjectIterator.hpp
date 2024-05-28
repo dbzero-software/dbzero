@@ -138,6 +138,7 @@ namespace db0::object_model
         Decoration m_decoration;
 
         void assureInitialized();
+        void assureInitialized() const;
     };
     
 }

@@ -26,7 +26,7 @@ def test_split_by_adds_item_decorators(db0_fixture, memo_excl_tags):
 
 
 def test_split_by_enum_values(db0_fixture, memo_enum_tags):
-    Colors = memo_enum_tags["Colors"]    
+    Colors = memo_enum_tags["Colors"]
     query = db0.split_by(Colors.values(), db0.find(MemoTestClass))    
     counts = {}
     # split query returns an item + decorator tuples

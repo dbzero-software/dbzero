@@ -56,7 +56,6 @@ namespace db0::python
         addStaticType(&DictObjectType, TypeId::DB0_DICT);
         addStaticType(&TupleObjectType, TypeId::DB0_TUPLE);
         addStaticType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
-        addStaticType(&PyTypedObjectIteratorType, TypeId::TYPED_OBJECT_ITERATOR);
         addStaticType(&PyBytes_Type, TypeId::BYTES);
         addStaticType(&PyEnumType, TypeId::DB0_ENUM);
         addStaticType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
@@ -238,10 +237,10 @@ namespace db0::python
 
     PyTypeManager::ObjectIterator &PyTypeManager::extractObjectIterator(ObjectPtr obj_ptr) const
     {
-        if (!ObjectIterator_Check(obj_ptr)) {
+        if (!PyObjectIterator_Check(obj_ptr)) {
             THROWF(db0::InputException) << "Expected an ObjectIterator object" << THROWF_END;
         }
-        return reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext();
+        return *reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext();
     }
 
     bool PyTypeManager::isNull(ObjectPtr obj_ptr) const {

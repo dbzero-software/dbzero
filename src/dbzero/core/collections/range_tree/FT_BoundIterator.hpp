@@ -38,7 +38,7 @@ namespace db0
 
 		std::pair<ValueT, bool> peek(ValueT join_key) const override;		
 		
-        std::unique_ptr<FT_Iterator<ValueT> > beginTyped(int) const override;
+        std::unique_ptr<FT_Iterator<ValueT> > beginTyped(int direction = -1) const override;
         
     private:
         const RangeT m_key_range;
