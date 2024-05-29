@@ -59,7 +59,7 @@ namespace db0::python
         addStaticType(&PyBytes_Type, TypeId::BYTES);
         addStaticType(&PyEnumType, TypeId::DB0_ENUM);
         addStaticType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
-        addStaticType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
+        addStaticType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);        
         // Python datetime type
         addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
     }

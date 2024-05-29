@@ -47,13 +47,11 @@ namespace db0::python
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
         
-        inline static TypeManager &getTypeManager()
-        {
+        inline static TypeManager &getTypeManager() {
             return m_type_manager;    
         }
 
-        inline static PyWorkspace &getPyWorkspace()
-        {
+        inline static PyWorkspace &getPyWorkspace() {
             return m_py_workspace;
         }
         
@@ -110,10 +108,13 @@ namespace db0::python
         // Unload from serialized bytes
         static ObjectPtr unloadObjectIterator(db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
-        
+
+        static ObjectPtr unloadEnumValue(db0::swine_ptr<Fixture> &, std::uint64_t enum_uid);
+
         // generate UUID of a DBZero object
         static ObjectPtr getUUID(ObjectPtr py_object);
 
+            
         // Try converting specific PyObject instance into a tag, possibly adding a new tag into the pool
         using StringPoolT = db0::pools::RC_LimitedStringPool;
         static std::uint64_t addTag(ObjectPtr py_object, StringPoolT &);
