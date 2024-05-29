@@ -242,7 +242,7 @@ namespace db0::python
         }
         return *reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext();
     }
-
+    
     bool PyTypeManager::isNull(ObjectPtr obj_ptr) const {
         return !obj_ptr || obj_ptr == Py_None;
     }

@@ -207,11 +207,12 @@ namespace db0::python
     PyToolkit::ObjectPtr PyToolkit::unloadObjectIterator(db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end)
     {
-        auto obj_iter = PyObjectIteratorDefault_new();
-        db0::object_model::ObjectIterator::deserialize(&obj_iter->ext(), fixture, iter, end);
-        return obj_iter;
+        auto obj_iter = db0::object_model::ObjectIterator::deserialize(fixture, iter, end);
+        auto py_iter = PyObjectIteratorDefault_new();
+        Iterator::makeNew(&py_iter->ext(), std::move(obj_iter));
+        return py_iter;
     }
-
+    
     std::uint64_t PyToolkit::addTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)
     {
         if (PyUnicode_Check(py_object)) {

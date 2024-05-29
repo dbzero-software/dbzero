@@ -13,6 +13,23 @@ namespace db0::python
     using ObjectIterator = db0::object_model::ObjectIterator;
     using TypedObjectIterator = db0::object_model::TypedObjectIterator;
 
+    bool Iterator::isTyped() const {
+        return m_typed_iterator_ptr != nullptr;
+    }
+
+    void Iterator::makeNew(void *at_ptr, std::unique_ptr<db0::object_model::ObjectIterator> &&obj_iter) 
+    {
+        auto &iter = *(new (at_ptr) Iterator());
+        iter.m_iterator = std::move(obj_iter);
+    }
+
+    void Iterator::makeNew(void *at_ptr, std::unique_ptr<db0::object_model::TypedObjectIterator> &&typed_obj_iter)
+    {
+        auto &iter = *(new (at_ptr) Iterator());
+        iter.m_typed_iterator_ptr = typed_obj_iter.get();
+        iter.m_iterator = std::move(typed_obj_iter);       
+    }
+
     PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyObjectIterator*>(type->tp_alloc(type, 0));
     }
@@ -50,7 +67,7 @@ namespace db0::python
     PyObject *PyObjectIterator_iternext(PyObjectIterator *iter_obj)
     {
         std::uint64_t addr;
-        auto &iter = **iter_obj->ext();
+        auto &iter = *iter_obj->ext();
         if (iter.next(addr)) {
             // retrieve DBZero instance
             auto py_item = iter.unload(addr);
@@ -78,14 +95,14 @@ namespace db0::python
             return NULL;
         }
 
-        const auto &iter = reinterpret_cast<PyObjectIterator*>(self)->ext();
-        double diff = iter.compareTo(reinterpret_cast<PyObjectIterator*>(args[0])->ext());
+        const auto &iter = *reinterpret_cast<PyObjectIterator*>(self)->ext();
+        double diff = iter.compareTo(*reinterpret_cast<PyObjectIterator*>(args[0])->ext());
         return PyFloat_FromDouble(diff);
     }
     
     PyObject *PyObjectIterator_signature(PyObject *self, PyObject*)
     {
-        const auto &iter = **reinterpret_cast<PyObjectIterator*>(self)->ext();
+        const auto &iter = *reinterpret_cast<PyObjectIterator*>(self)->ext();
         auto signature = iter.getSignature();
         // encode as base32
         std::vector<char> result_buf(signature.size() * 2 + 1);

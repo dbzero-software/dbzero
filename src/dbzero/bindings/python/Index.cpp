@@ -127,14 +127,15 @@ namespace db0::python
         }
 
         auto &index = py_index->ext();
-        // construct range iterator
-        auto iter_obj = PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
-        index.range(&iter_obj->ext(), low, high, nulls_first);
-        return iter_obj;
+        // construct range iterator        
+        auto iter_factory = index.range(low, high, nulls_first);
+        auto iter = std::make_unique<db0::object_model::ObjectIterator>(index.getFixture(), std::move(iter_factory));
+        auto py_iter_obj = PyObjectIteratorDefault_new();
+        Iterator::makeNew(&py_iter_obj->ext(), std::move(iter));
+        return py_iter_obj;
     }
     
-    bool IndexObject_Check(PyObject *py_object)
-    {
+    bool IndexObject_Check(PyObject *py_object) {
         return PyObject_TypeCheck(py_object, &IndexObjectType);
     }
     

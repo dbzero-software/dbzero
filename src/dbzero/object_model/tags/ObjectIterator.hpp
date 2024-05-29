@@ -86,9 +86,8 @@ namespace db0::object_model
         bool isNull() const;
         
         void serialize(std::vector<std::byte> &) const override;
-
-        // placement-new deserialization
-        static void deserialize(void *at_ptr, db0::swine_ptr<Fixture> &, std::vector<std::byte>::const_iterator &, 
+        
+        static std::unique_ptr<ObjectIterator> deserialize(db0::swine_ptr<Fixture> &, std::vector<std::byte>::const_iterator &,
             std::vector<std::byte>::const_iterator);
         
         /**

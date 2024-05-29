@@ -300,7 +300,7 @@ namespace db0::python
         auto iter = bytes.cbegin(), end = bytes.cend();
         auto type_id = db0::serial::read<TypeId>(iter, end);
         if (type_id == TypeId::OBJECT_ITERATOR) {
-            return PyToolkit::unloadObjectIterator(fixture, iter, end);            
+            return PyToolkit::unloadObjectIterator(fixture, iter, end);
         } else {
             THROWF(db0::InputException) << "Unsupported serialized type id: " 
                 << static_cast<int>(type_id) << THROWF_END;

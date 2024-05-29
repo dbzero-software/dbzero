@@ -203,7 +203,8 @@ namespace db0::object_model
         }
     }
     
-    void ObjectIterator::deserialize(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
+    std::unique_ptr<ObjectIterator> ObjectIterator::deserialize(db0::swine_ptr<Fixture> &fixture, 
+        std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end)
     {
         std::uint64_t fixture_uuid = db0::serial::read<std::uint64_t>(iter, end);
@@ -216,20 +217,19 @@ namespace db0::object_model
         bool is_null = db0::serial::read<bool>(iter, end);
         if (is_null) {
             // deserialize as null
-            new (at_ptr) ObjectIterator(fixture_, std::unique_ptr<QueryIterator>());
-            return;
+            return std::make_unique<ObjectIterator>(fixture_, std::unique_ptr<QueryIterator>());            
         }
         auto &workspace = fixture_->getWorkspace();
         auto inner_type = db0::serial::read<std::uint8_t>(iter, end);
         if (inner_type == 1) {
             auto query_iterator = db0::deserializeFT_Iterator<std::uint64_t>(workspace, iter, end);
-            new (at_ptr) ObjectIterator(fixture_, std::move(query_iterator));
+            return std::make_unique<ObjectIterator>(fixture_, std::move(query_iterator));
         } else if (inner_type == 2) {
             auto sorted_iterator = db0::deserializeSortedIterator<std::uint64_t>(workspace, iter, end);
-            new (at_ptr) ObjectIterator(fixture_, std::move(sorted_iterator));
+            return std::make_unique<ObjectIterator>(fixture_, std::move(sorted_iterator));
         } else if (inner_type == 3) {
             auto factory = db0::deserializeIteratorFactory<std::uint64_t>(workspace, iter, end);
-            new (at_ptr) ObjectIterator(fixture_, std::move(factory));
+            return std::make_unique<ObjectIterator>(fixture_, std::move(factory));
         } else {
             THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
         }
