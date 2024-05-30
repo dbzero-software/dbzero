@@ -1,0 +1,91 @@
+#pragma once
+
+#include <unordered_map>
+#include <dbzero/core/memory/Memspace.hpp>
+#include <dbzero/core/memory/swine_ptr.hpp>
+#include <dbzero/object_model/has_fixture.hpp>
+#include <optional>
+
+namespace db0::object_model
+
+{
+    
+    class Enum;
+    using EnumPtr = db0::db0_ptr<Enum>;
+    using VEnumMap = db0::v_map<db0::o_string, EnumPtr, o_string::comp_t>;
+
+    struct [[gnu::packed]] o_enum_factory: public o_fixed<o_enum_factory>
+    {
+        // 3 variants of enum identification
+        db0::db0_ptr<VEnumMap> m_enum_map_ptrs[4];
+        
+        o_enum_factory(Memspace &memspace);
+    };
+    
+    struct EnumDef
+    {
+        // user assigned enum name
+        const std::string m_name;
+        // a module where the enum is defined
+        const std::string m_module_name;
+        // user assigned enum values
+        const std::vector<std::string> m_values;
+    };
+
+    class EnumFactory: public db0::has_fixture<v_object<o_enum_factory> >
+    {
+    public:
+        using super_t = db0::has_fixture<v_object<o_enum_factory> >;
+        using LangToolkit = db0::python::PyToolkit;
+        using ObjectPtr = typename LangToolkit::ObjectPtr;
+        using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
+        using TypeObjectSharedPtr = typename LangToolkit::TypeObjectSharedPtr;
+
+        EnumFactory(db0::swine_ptr<Fixture> &);
+
+        EnumFactory(db0::swine_ptr<Fixture> &, std::uint64_t address);
+
+        /**
+         * Get existing class (or raise exception if not found)
+         * @param lang_type the language specific type object (e.g. Python class)
+         * @param typeid the user assigned type ID (optional)
+        */
+        std::shared_ptr<Enum> getExistingEnum(const EnumDef &, const char *type_id = nullptr) const;
+        
+        /**
+         * A non-throwing version of getExistingType
+         * @return nullptr if the class is not found
+        */
+        std::shared_ptr<Enum> tryGetExistingEnum(const EnumDef &, const char *type_id = nullptr) const;
+        
+        /**
+         * Get existing or create a new DBZero enum instance
+         * @param enum_def enum definition
+         * @param type_id optional user assigned type ID
+        */
+        std::shared_ptr<Enum> getOrCreateEnum(const EnumDef &, const char *type_id);
+        
+        // reference the DBZero object model's enum by its pointer
+        std::shared_ptr<Enum> getEnumByPtr(EnumPtr) const;
+        
+        // reference the DBZero object model's enum by its 32-but UID
+        std::shared_ptr<Enum> getEnumByUID(std::uint32_t enum_uid) const;
+
+        void commit();
+        
+    private:
+        // Language specific type to DBZero class mapping        
+        mutable std::unordered_map<EnumPtr, std::shared_ptr<Enum> > m_ptr_cache;
+        // enum maps in 4 variants: 0: type ID, 1: name + module, 2: name + values: 3: module + values
+        std::array<VEnumMap, 4> m_enum_maps;
+        
+        // Pull through by-pointer cache
+        std::shared_ptr<Enum> getEnum(EnumPtr, std::shared_ptr<Enum>);
+        
+        // Locate enum by definition
+        EnumPtr tryFindEnumPtr(const EnumDef &, const char *type_id) const;
+    };
+    
+    std::optional<std::string> getEnumKeyVariant(const EnumDef &, const char *type_id, int variant_id);
+
+}

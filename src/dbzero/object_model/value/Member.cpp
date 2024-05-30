@@ -1,7 +1,9 @@
 #include "Member.hpp"
 #include <dbzero/core//serialization/Serializable.hpp>
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
+#include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
+#include <dbzero/object_model/enum/EnumFactory.hpp>
 
 namespace db0::object_model
 
@@ -177,7 +179,7 @@ namespace db0::object_model
         if (enum_value.m_fixture_uuid != fixture->getUUID()) {
             THROWF(db0::InputException) << "Enum value from a different Fixture" << THROWF_END;
         }
-        return enum_value.getUID();
+        return enum_value.getUID().asULong();
     }
 
     template <> void registerCreateMemberFunctions<PyToolkit>(
@@ -324,7 +326,9 @@ namespace db0::object_model
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return PyToolkit::unloadEnumValue(fixture, value.cast<std::uint64_t>());
+        auto &enum_factory = fixture->get<EnumFactory>();
+        auto enum_value_uid = EnumValue_UID(value.cast<std::uint64_t>());
+        return PyToolkit::unloadEnumValue(enum_factory.getEnumByUID(enum_value_uid.m_enum_uid)->get(enum_value_uid));
     }
 
     template <> void registerUnloadMemberFunctions<PyToolkit>(

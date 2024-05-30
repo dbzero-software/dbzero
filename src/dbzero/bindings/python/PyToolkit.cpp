@@ -274,5 +274,9 @@ namespace db0::python
     bool PyToolkit::isFieldDef(ObjectPtr py_object) {
         return PyFieldDef_Check(py_object);
     }
-    
+        
+    PyToolkit::ObjectPtr PyToolkit::unloadEnumValue(const EnumValue &value) {
+        return makePyEnumValue(value);
+    }
+
 }

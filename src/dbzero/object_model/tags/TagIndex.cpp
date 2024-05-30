@@ -448,7 +448,7 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::makeShortTagFromEnumValue(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isEnumValue(py_arg));
-        return LangToolkit::getTypeManager().extractEnumValue(py_arg).getUID();
+        return LangToolkit::getTypeManager().extractEnumValue(py_arg).getUID().asULong();
     }
     
     bool TagIndex::isScopeIdentifier(ObjectPtr ptr) const {

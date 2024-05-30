@@ -5,34 +5,6 @@
 namespace db0::python
 
 {
-    EnumData::EnumData(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-        : m_enum(fixture, address)
-    {
-    }
-
-    EnumData::EnumData(db0::swine_ptr<Fixture> &fixture, const std::vector<std::string> &values)
-        : m_enum(fixture, values)
-    {
-    }
-
-    PyEnumValue *EnumCache::get(const EnumValue &value)
-    {
-        auto py_enum_value = find(value.m_str_repr);
-        if (!py_enum_value) {
-            py_enum_value = makePyEnumValue(value);
-            m_py_enum_values_map[value.m_str_repr] = py_enum_value;
-        }
-        return py_enum_value;
-    }
-
-    PyEnumValue *EnumCache::find(const std::string &name) const
-    {
-        auto it = m_py_enum_values_map.find(name);
-        if (it == m_py_enum_values_map.end()) {
-            return nullptr;
-        }
-        return it->second.get();
-    }
 
     PyEnum *PyEnum_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyEnum*>(type->tp_alloc(type, 0));
@@ -58,14 +30,8 @@ namespace db0::python
     }
 
     PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr)
-    {
-        auto &enum_data = self->ext();
-        auto py_enum_value = enum_data.m_cache.find(PyUnicode_AsUTF8(attr));
-        if (!py_enum_value) {
-            // get from dbzero (pull through cache)
-            py_enum_value = enum_data.m_cache.get(enum_data.m_enum.get(PyUnicode_AsUTF8(attr)));
-        }
-
+    {        
+        auto py_enum_value = self->ext().getLangValue(PyUnicode_AsUTF8(attr));
         Py_INCREF(py_enum_value);
         return py_enum_value;
     }
@@ -88,13 +54,13 @@ namespace db0::python
 
     PyObject *getEnumValues(PyEnum *self)
     {
-        auto &enum_data = self->ext();
-        auto enum_values = enum_data.m_enum.getValues();
+        auto &enum_ = self->ext();
+        auto enum_values = enum_.getValues();
         // create tuple
         auto py_tuple = PyTuple_New(enum_values.size());
         unsigned int index = 0;
         for (auto &value: enum_values) {
-            auto py_enum_value = enum_data.m_cache.get(value);
+            auto py_enum_value = enum_.getLangValue(value);
             Py_INCREF(py_enum_value);
             PyTuple_SET_ITEM(py_tuple, index, py_enum_value);
             ++index;
@@ -154,13 +120,12 @@ namespace db0::python
     {
         auto py_enum = PyEnumDefault_new();
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        new (&py_enum->ext()) EnumData(*fixture, user_enum_values);
-
-        auto &enum_data = py_enum->ext();
-        // pull into cache
-        for (auto &value: enum_data.m_enum.getValues()) {
-            enum_data.m_cache.get(value);
-        }        
+        db0::object_model::Enum::makeNew(&py_enum->ext(), *fixture, enum_name, user_enum_values);
+        
+        // popluate enum cache
+        for (auto &value: py_enum->ext().getValues()) {
+            py_enum->ext().getLangValue(value);
+        }
         return py_enum;
     }
 
