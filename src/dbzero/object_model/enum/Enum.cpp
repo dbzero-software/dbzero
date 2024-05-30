@@ -71,6 +71,15 @@ namespace db0::object_model
         return { m_fixture_uuid, m_uid, value, std::string(str_value) };
     }
     
+    EnumValue Enum::get(EnumValue_UID enum_value_uid) const
+    {
+        if (m_values.find(enum_value_uid.m_value) == m_values.end()) {
+            THROWF(db0::InputException) << "Enum value not found by UID: " << enum_value_uid.asULong();
+        }
+        return { m_fixture_uuid, enum_value_uid.m_enum_uid, enum_value_uid.m_value, 
+            m_string_pool.fetch(enum_value_uid.m_value) };
+    }
+
     std::vector<EnumValue> Enum::getValues() const
     {
         std::vector<EnumValue> values;
@@ -92,6 +101,10 @@ namespace db0::object_model
 
     Enum::ObjectPtr Enum::getLangValue(EnumValue_UID value_uid) const {
         return getLangValue(get(value_uid).m_str_repr.c_str());
+    }
+
+    Enum::ObjectPtr Enum::getLangValue(const EnumValue &enum_value) const {
+        return getLangValue(enum_value.m_str_repr.c_str());
     }
 
     std::optional<std::string> getEnumKeyVariant(std::optional<std::string> type_id, std::optional<std::string> enum_name,

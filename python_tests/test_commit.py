@@ -41,7 +41,10 @@ def test_create_instances_in_multiple_transactions(db0_fixture):
             obj = MemoTestClass(i)
             db0.tags(obj).add("tag1")
         
-        db0.commit()        
+        # FIXME: log
+        print("Before commit")
+        db0.commit()
+        print("Before find")
         assert len(list(db0.find("tag1"))) == group_size * (x + 1)
 
 

@@ -40,6 +40,21 @@ namespace db0
             return false;
         }
         
+        // FIXME: log
+        std::cout << "Inverted list ptr: " << inverted_list_ptr->getAddress() << std::endl;
+        std::cout << "Inverted list size: " << inverted_list_ptr->size() << std::endl;
+        {
+            auto it = inverted_list_ptr->beginJoin(-1);
+            unsigned int index = 0;
+            while (!it.is_end()) {
+                if (index > 50) {
+                    std::cout << index << " :Inverted list item: " << *it << std::endl;
+                }
+                --it;
+                ++index;
+            }
+        }
+
         // key inverted index
         factory.add(std::unique_ptr<FT_Iterator<std::uint64_t> >(
             new FT_IndexIterator<ListT, std::uint64_t, IndexKeyT>(*inverted_list_ptr, -1, key))
@@ -187,6 +202,9 @@ namespace db0
                     // We need to update pointer to tag_index (either address or type changed)
                     auto new_map_value = addressOfMBIndex(*tag_index_ptr);
                     if (old_map_value != new_map_value) {
+                        // FIXME: log
+                        std::cout << "Old addr deprecated: " << old_addr << " -> " << tag_index_ptr->getAddress() << std::endl;
+
                         // update the address
                         tag_index_it.modifyItem().value = new_map_value;
                         // remove from cache since this instance has been relocated

@@ -243,4 +243,10 @@ namespace db0
         return slab.makeRelative(address);
     }
     
+    std::uint64_t Fixture::makeAbsolute(std::uint64_t address, std::uint32_t slot_num) const
+    {
+        auto &slab = reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num));
+        return slab.makeRelative(address);
+    }
+    
 }

@@ -16,7 +16,7 @@ namespace db0::object_model
 
     struct [[gnu::packed]] o_enum_factory: public o_fixed<o_enum_factory>
     {
-        // 3 variants of enum identification
+        // 4 variants of enum identification
         db0::db0_ptr<VEnumMap> m_enum_map_ptrs[4];
         
         o_enum_factory(Memspace &memspace);
@@ -31,7 +31,7 @@ namespace db0::object_model
         // user assigned enum values
         const std::vector<std::string> m_values;
     };
-
+    
     class EnumFactory: public db0::has_fixture<v_object<o_enum_factory> >
     {
     public:
@@ -70,15 +70,13 @@ namespace db0::object_model
         
         // reference the DBZero object model's enum by its 32-but UID
         std::shared_ptr<Enum> getEnumByUID(std::uint32_t enum_uid) const;
-
-        void commit();
         
     private:
-        // Language specific type to DBZero class mapping        
-        mutable std::unordered_map<EnumPtr, std::shared_ptr<Enum> > m_ptr_cache;
         // enum maps in 4 variants: 0: type ID, 1: name + module, 2: name + values: 3: module + values
         std::array<VEnumMap, 4> m_enum_maps;
-        
+        // Language specific type to DBZero class mapping      
+        mutable std::unordered_map<EnumPtr, std::shared_ptr<Enum> > m_ptr_cache;
+
         // Pull through by-pointer cache
         std::shared_ptr<Enum> getEnum(EnumPtr, std::shared_ptr<Enum>);
         

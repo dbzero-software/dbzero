@@ -226,6 +226,11 @@ namespace db0::object_model
             m_batch_operation_short.reset();
         }
         m_base_index_short.clear();
+
+        if (m_batch_operation_long) {
+            m_batch_operation_long.reset();
+        }
+        m_base_index_long.clear();
     }
     
     void TagIndex::close()

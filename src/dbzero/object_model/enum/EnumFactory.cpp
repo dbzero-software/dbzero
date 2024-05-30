@@ -15,7 +15,7 @@ namespace db0::object_model
             enum_map_ptrs[0](memspace), 
             enum_map_ptrs[1](memspace),
             enum_map_ptrs[2](memspace),
-            enum_map_ptrs[3](memspace),
+            enum_map_ptrs[3](memspace)
         };
     }
     
@@ -56,13 +56,13 @@ namespace db0::object_model
         return false;
     }
 
-    o_enum_factory::o_enum_factory(Memspace &memspace)
+    o_enum_factory::o_enum_factory(Memspace &memspace)        
         : m_enum_map_ptrs { VEnumMap(memspace), VEnumMap(memspace), VEnumMap(memspace), VEnumMap(memspace) }
     {
     }
     
     EnumFactory::EnumFactory(db0::swine_ptr<Fixture> &fixture)
-        : super_t(fixture, *fixture)
+        : super_t(fixture, *fixture)        
         , m_enum_maps(openEnumMaps((*this)->m_enum_map_ptrs, getMemspace()))
     {
     }
@@ -143,7 +143,7 @@ namespace db0::object_model
         }
         return getEnumByPtr(ptr);
     }
-
+    
     std::shared_ptr<Enum> EnumFactory::getEnumByPtr(EnumPtr ptr) const
     {
         auto it_cached = m_ptr_cache.find(ptr);
@@ -156,5 +156,12 @@ namespace db0::object_model
         }
         return it_cached->second;
     }
-
+    
+    std::shared_ptr<Enum> EnumFactory::getEnumByUID(std::uint32_t enum_uid) const
+    {
+        // convert enum_uid to EnumPtr
+        auto enum_ptr = db0::db0_ptr_reinterpret_cast<Enum>()(getFixture()->makeAbsolute(enum_uid, Enum::SLOT_NUM));
+        return getEnumByPtr(enum_ptr);
+    }
+    
 }

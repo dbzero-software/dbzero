@@ -183,6 +183,8 @@ namespace db0
 
         // Converts address from a specific slot to relative one
         std::uint64_t makeRelative(std::uint64_t address, std::uint32_t slot_num) const;
+        // Converts a relative address back to absolute one
+        std::uint64_t makeAbsolute(std::uint64_t address, std::uint32_t slot_num) const;
 
     private:
         Snapshot &m_snapshot;

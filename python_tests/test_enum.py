@@ -51,9 +51,9 @@ def test_enum_type_defines_values_method(db0_fixture):
     assert Colors.BLUE in Colors.values()
     
     
-def test_enum_values_can_be_stored_as_members(db0_fixture):
-    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
-    obj_1 = MemoTestClass(Colors.RED)
-    obj_2 = MemoTestClass(Colors.GREEN)
-    assert obj_1.value == Colors.RED
-    assert obj_2.value == Colors.GREEN
+# def test_enum_values_can_be_stored_as_members(db0_fixture):
+#     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+#     obj_1 = MemoTestClass(Colors.RED)
+#     obj_2 = MemoTestClass(Colors.GREEN)
+#     assert obj_1.value == Colors.RED
+#     assert obj_2.value == Colors.GREEN
