@@ -383,9 +383,6 @@ namespace db0
 			bindex::type type_after_insertion = getIndexTypeAfterInsertion(unique_count);
 			/// only morph when upgrade is necessary, do not degrade type when inserting
 			if (type_after_insertion > type) {
-				// FIXME: log
-				std::cout << "MB index addr change !!" << std::endl;
-
 				// just morph to variable length collection
 				if (type_after_insertion == bindex::bindex) {
 					morphTo<bindex::bindex>();

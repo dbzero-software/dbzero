@@ -588,8 +588,7 @@ namespace db0
                         // create initial data block buffer                        
                         m_data_buf = data_vector(ref.getMemspace(), 8, sv_state::growing, ref.m_item_destroy_func);
                         m_it_node.modify().data.ptr_b_data = m_data_buf.getAddress();
-                    }
-                    else {
+                    } else {
                         m_it_node = ref.m_index.begin();
                         m_it_node.modify().data.lo_bound = item;
                     }
@@ -710,7 +709,7 @@ namespace db0
                                     ++it_split;
                                     ++it_next;
                                 }
-                                if (it_next!=m_data_buf->end()) {
+                                if (it_next != m_data_buf->end()) {
                                     data_vector new_buf = m_data_buf.split(it_next);
                                     node_iterator it_new = m_ref.m_index.insert_equal(new_buf->front());
                                     it_new.modify().data.ptr_b_data = new_buf.getAddress();

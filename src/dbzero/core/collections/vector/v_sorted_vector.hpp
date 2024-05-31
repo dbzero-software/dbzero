@@ -36,11 +36,11 @@ namespace db0
      * Sorted vector state types
      * only transition from sv_growing to sv_dying is allowed
      */
-    enum class sv_state: std::uint32_t {
+    enum class sv_state: std::uint32_t {        
         growing = 0x00 ,
         dying = 0x01
     };
-
+    
     /**
      * Sorted vector container type
      * data_t - contained element type (comparable)
@@ -140,21 +140,13 @@ namespace db0
          * move items from other vector, no item destroyed
          * NOTICE : sort order must be preserved
          */
-        void move(o_sv_container &src_buf, const_iterator it_begin, const_iterator it_end) 
+        void move(o_sv_container &src_buf, const_iterator it_begin, const_iterator it_end)
         {
-            assert (m_size + (it_end - it_begin) <= m_capacity);
-
-#ifdef  __linux__
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wclass-memaccess"
-#endif
-            memcpy(end(),it_begin,(it_end - it_begin)*sizeof(data_t));
-#ifdef  __linux__
-	#pragma GCC diagnostic pop
-#endif
-            this->m_size += (it_end - it_begin);
+            assert(this->m_size + std::distance(it_begin, it_end) <= m_capacity);
+            std::memcpy(this->end(), it_begin, std::distance(it_begin, it_end) * sizeof(data_t));
+            this->m_size += std::distance(it_begin, it_end);
             // crop source vector ( no items destroyed )
-            src_buf.m_size -= (it_end - it_begin);
+            src_buf.m_size -= std::distance(it_begin, it_end);
         }
 
         template <class ItemIterator> void bulkPushBack(ItemIterator it, std::size_t count)
@@ -198,8 +190,9 @@ namespace db0
                 while (it_dest != item) {
                     *it_dest = *it_src;
                     --it_src;
-                    --it_dest;
+                    --it_dest;                
                 }
+                assert(it_dest < this->begin() + this->m_capacity);
                 *it_dest = *it_begin;
                 --it_dest;
                 ++it_begin;
@@ -503,7 +496,7 @@ namespace db0
          */
         template <class KeyT> const_iterator find(KeyT key) const
         {
-            SortedArray<data_t,comp_t> data_buf(begin(),end());
+            SortedArray<data_t,comp_t> data_buf(begin(), end());
             const_iterator it = data_buf.join(data_buf.m_begin, key, 1);
             if (it == data_buf.m_end) {
                 return 0;
@@ -655,6 +648,7 @@ namespace db0
          * @return 0 based calculated element index (position within vector)
          */
         inline std::uint64_t getItemIndex(const data_t *item) const {
+            assert(item < end());
             return item - getData();
         }
 
@@ -684,7 +678,7 @@ namespace db0
     {
     private :
 
-        static std::size_t calculateMaxSize(std::size_t data_size) 
+        static std::size_t calculateCapacity(std::size_t data_size) 
         {
             std::size_t result = 1;
             while (result < data_size) {
@@ -722,13 +716,13 @@ namespace db0
          * max_size will be evaluated according to collection size
          * begin / end assumed to be ascending sorted
          */
-        v_sorted_vector(Memspace &memspace, const data_t *begin, const data_t *end, sv_state state = sv_state::growing,
-            DestroyF item_destroy_func = {})
-            : super_t(memspace, calculateMaxSize(std::distance(begin, end)), state)
+        v_sorted_vector(Memspace &memspace, const data_t *begin, const data_t *end, std::optional<std::uint64_t> capacity = {},
+            sv_state state = sv_state::growing, DestroyF item_destroy_func = {})
+            : super_t(memspace, (capacity ? *capacity : calculateCapacity(std::distance(begin, end))), state)
             , m_item_destroy_func(item_destroy_func)
         {
             assert((*this)->m_capacity > 0);
-            bulkPushBack(begin, end - begin);
+            bulkPushBack(begin, std::distance(begin, end));
         }
 
         /**
@@ -1034,8 +1028,7 @@ namespace db0
         /**
          * Erase existing items only, ignore other
          */
-        void bulkEraseUnique (const std::vector<data_t> &data) 
-        {
+        void bulkEraseUnique (const std::vector<data_t> &data) {
             this->modify().bulkEraseUnique(data, m_item_destroy_func);
         }
 
@@ -1054,9 +1047,8 @@ namespace db0
                 if (max_size) {
                     new_capacity = std::min(new_capacity, *max_size);
                 }
-                v_sorted_vector new_vector(this->getMemspace(), new_capacity, (*this)->m_state);
-                // copy data / items not destroyed
-                new_vector.modify().move(this->modify(), (*this)->begin(), (*this)->end());
+                v_sorted_vector new_vector(this->getMemspace(), (*this)->begin(), (*this)->end(), new_capacity,
+                    (*this)->m_state, this->m_item_destroy_func);
                 // delete VSPACE "this"
                 this->destroy();
                 // claim new identity
@@ -1081,8 +1073,8 @@ namespace db0
             }
             if (new_capacity > 4 && new_capacity < (*this)->m_capacity) {
                 // VSPACE copy resized ( preserve sv_dying state of the new object )
-                v_sorted_vector new_vector(this->getMemspace(), new_capacity, (*this)->m_state);
-                new_vector.modify().move(this->modify(), (*this)->begin(), (*this)->end());
+                v_sorted_vector new_vector(this->getMemspace(), (*this)->begin(), (*this)->end(), new_capacity, 
+                    (*this)->m_state, this->m_item_destroy_func);
                 // delete VSPACE "this"
                 this->destroy();
                 // claim new identity
@@ -1109,8 +1101,7 @@ namespace db0
          * Evaluate maximum number of items that can be stored
          * with the specified buffer (size)
          */
-        static std::uint32_t getMaxSize(std::uint32_t buf_size) 
-        {
+        static std::uint32_t getMaxSize(std::uint32_t buf_size) {
             return c_type::getMaxSize(buf_size);
         }
 
@@ -1118,11 +1109,13 @@ namespace db0
          * Split current vector at specified split point
          * NOTICE : this object not relocated
          */
-        v_sorted_vector split(const_iterator it_split) 
+        v_sorted_vector split(const_iterator it_split)
         {
-            assert (it_split!=(*this)->end());
-            v_sorted_vector new_vector(this->getMemspace(), (*this)->m_capacity, (*this)->m_state, this->m_item_destroy_func);
-            new_vector.modify().move(this->modify(),it_split,(*this)->end());
+            assert(it_split!=(*this)->end());
+            auto elem_count = std::distance(it_split, (*this)->end());
+            v_sorted_vector new_vector(this->getMemspace(), it_split, (*this)->end(), (*this)->m_capacity, 
+                (*this)->m_state, this->m_item_destroy_func);
+            this->modify().m_size -= elem_count;
             return new_vector;
         }
 
