@@ -141,7 +141,7 @@ namespace db0
                 auto buf_begin = buf.begin(), buf_end = buf.end();
                 if (buf_begin == buf_end) {
                     return;
-                }                
+                }
                 // Sort list and remove duplicate elements
                 std::sort(buf_begin, buf_end);
                 buf_end = std::unique(buf_begin, buf_end);

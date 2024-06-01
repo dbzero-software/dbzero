@@ -2,7 +2,6 @@
 
 #include "key_value.hpp"
 #include "FT_Iterator.hpp"
-#include "CloneMap.hpp"
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
@@ -52,17 +51,12 @@ namespace db0
 
 		std::pair<key_t, bool> peek(key_t join_key) const override;
 
-		std::unique_ptr<FT_Iterator<key_t> > clone(
-            CloneMap<FT_Iterator<key_t> > *clone_map_ptr = nullptr) const override;
-		
-        std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction) const override;
+        std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction = -1) const override;
 
 		bool limitBy(key_t key) override;
 
-		std::ostream &dump(std::ostream &os) const override;        
-
-		bool equal(const FT_IteratorBase &it) const override;
-
+		std::ostream &dump(std::ostream &os) const override;
+		
         void scanQueryTree(std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_func,
             int depth = 0) const override;
         
@@ -93,6 +87,9 @@ namespace db0
         bool m_has_detach_key = false;
         key_t m_detach_key;
         const std::optional<IndexKeyT> m_index_key;
+
+		FT_IndexIterator(std::uint64_t uid, const bindex_t &data, int direction, 
+			std::optional<IndexKeyT> index_key = {});
 
         /**
          * Get valid iterator after detach
@@ -127,6 +124,17 @@ namespace db0
         : m_data(data)
         , m_direction(direction)
         , m_iterator(it)
+        , m_index_key(index_key)
+    {
+    }
+
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	FT_IndexIterator<bindex_t, key_t, IndexKeyT>::FT_IndexIterator(std::uint64_t uid, const bindex_t &data, int direction, 
+		std::optional<IndexKeyT> index_key)
+		: FT_Iterator<key_t>(uid)
+        , m_data(data)
+        , m_direction(direction)
+        , m_iterator(m_data.beginJoin(direction))
         , m_index_key(index_key)
     {
     }
@@ -185,23 +193,10 @@ namespace db0
 	std::pair<key_t, bool> FT_IndexIterator<bindex_t, key_t, IndexKeyT>::peek(key_t join_key) const {
 		return getIterator().peek(join_key);
 	}
-
-	template <typename bindex_t, typename key_t, typename IndexKeyT>
-	std::unique_ptr<FT_Iterator<key_t> > FT_IndexIterator<bindex_t, key_t, IndexKeyT>::clone(
-		CloneMap<FT_Iterator<key_t> > *clone_map_ptr) const
-	{
-		// clone preserving state
-		std::unique_ptr<FT_Iterator<key_t> > result(
-            new FT_IndexIterator(m_data, m_direction, getIterator(), this->m_index_key));
-		if (clone_map_ptr) {
-			clone_map_ptr->insert(*result.get(), *this);
-		}
-		return result;
-	}
-
+	
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	std::unique_ptr<FT_Iterator<key_t> > FT_IndexIterator<bindex_t, key_t, IndexKeyT>::beginTyped(int direction) const {
-		return std::unique_ptr<FT_Iterator<key_t> >(new FT_IndexIterator(m_data, direction, this->m_index_key));
+		return std::unique_ptr<FT_Iterator<key_t> >(new FT_IndexIterator(this->m_uid, m_data, direction, this->m_index_key));
 	}
 
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
@@ -214,17 +209,7 @@ namespace db0
 	std::ostream &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::dump(std::ostream &os) const {
 		return os << "FTIndex@" << this;
 	}
-
-	template <typename bindex_t, typename key_t, typename IndexKeyT>
-	bool FT_IndexIterator<bindex_t, key_t, IndexKeyT>::equal(const FT_IteratorBase &it) const
-    {
-		if (this->typeId() != it.typeId()) {
-			return false;
-		}
-		// check if iterating over the same data collection
-		return m_data == reinterpret_cast<const decltype(*this)&>(it).m_data;
-	}
-	
+		
 	template <typename bindex_t, typename key_t, typename IndexKeyT>
 	const typename FT_IndexIterator<bindex_t, key_t, IndexKeyT>::iterator &FT_IndexIterator<bindex_t, key_t, IndexKeyT>::asNative() const {
 		return getIterator();

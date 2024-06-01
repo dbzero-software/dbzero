@@ -1,6 +1,7 @@
 #include "PyEnum.hpp"
 #include "PyInternalAPI.hpp"
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/object_model/enum/EnumFactory.hpp>
 
 namespace db0::python
 
@@ -28,28 +29,49 @@ namespace db0::python
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
-    
-    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr) 
-    {
-        auto enum_value = self->ext().get(PyUnicode_AsUTF8(attr));
-        PyEnumValue *result = PyEnumValueDefault_new();
-        result->ext() = enum_value;
-        return (PyObject *)result;
-    }
 
-    PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr) {
+    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr)
+    {        
+        auto py_enum_value = self->ext().getLangValue(PyUnicode_AsUTF8(attr));
+        Py_INCREF(py_enum_value);
+        return py_enum_value;
+    }
+    
+    PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr) 
+    {
+        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(self), attr);
+        if (res) {
+            return res;
+        }
         return runSafe(tryPyEnum_getattro, self, attr);
     }
     
     void PyEnumValue_del(PyEnumValue* self)
     {
         // destroy associated DB0 instance
-        self->ext().~EnumValue();
+        self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
+    }
+
+    PyObject *getEnumValues(PyEnum *self)
+    {
+        auto &enum_ = self->ext();
+        auto enum_values = enum_.getValues();
+        // create tuple
+        auto py_tuple = PyTuple_New(enum_values.size());
+        unsigned int index = 0;
+        for (auto &value: enum_values) {
+            auto py_enum_value = enum_.getLangValue(value);
+            Py_INCREF(py_enum_value);
+            PyTuple_SET_ITEM(py_tuple, index, py_enum_value);
+            ++index;
+        }
+        return py_tuple;
     }
 
     static PyMethodDef PyEnum_methods[] = 
     {
+        {"values", (PyCFunction)getEnumValues, METH_NOARGS, "Get enum values"},
         {NULL}
     };
 
@@ -95,12 +117,39 @@ namespace db0::python
         return Py_TYPE(py_object) == &PyEnumValueType;        
     }
 
-    PyObject *tryMakeEnum(PyObject *, const std::string &enum_name, const std::vector<std::string> &enum_values)
+    PyObject *tryMakeEnum(PyObject *, const std::string &enum_name,
+        const std::vector<std::string> &user_enum_values, const char *type_id)
     {
-        auto py_object = PyEnumDefault_new();
+        using EnumFactory = db0::object_model::EnumFactory;
+        using EnumDef = db0::object_model::EnumDef;
+
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();        
-        db0::object_model::Enum::makeNew(&py_object->ext(), *fixture, enum_name, enum_values);
-        return py_object;
+        auto &enum_factory = fixture->get<EnumFactory>();
+        // use empty module name since it's unknown
+        auto enum_ = enum_factory.getOrCreateEnum(EnumDef {enum_name, "", user_enum_values}, type_id);
+        auto &lang_cache = (*fixture)->getLangCache();
+        // try pulling from cache
+        PyEnum *py_enum = reinterpret_cast<PyEnum*>(lang_cache.get(enum_->getAddress()));
+        if (py_enum) {
+            Py_INCREF(py_enum);
+            return py_enum;
+        }
+        py_enum = PyEnumDefault_new();
+        py_enum->makeNew(enum_);
+        lang_cache.add(enum_->getAddress(), py_enum, true);
+        
+        // popluate enum's value cache
+        for (auto &value: py_enum->ext().getValues()) {
+            py_enum->ext().getLangValue(value);
+        }
+        return py_enum;
+    }
+
+    PyEnumValue *makePyEnumValue(const EnumValue &enum_value)
+    {
+        auto py_enum_value = PyEnumValueDefault_new();
+        py_enum_value->ext() = enum_value;
+        return py_enum_value;
     }
 
 }

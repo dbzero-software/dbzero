@@ -9,8 +9,13 @@ namespace db0
     }
     
     template class db0::FT_Iterator<std::uint64_t>;    
-    template class db0::FT_Iterator<int>;    
+    template class db0::FT_Iterator<int>;
 
+    template <typename key_t> FT_Iterator<key_t>::FT_Iterator(std::uint64_t uid)
+        : FT_IteratorBase(uid) 
+    {
+    }
+    
     template <typename key_t> void FT_Iterator<key_t>::fetchKeys(std::function<void(const key_t *key_buf, std::size_t key_count)> f,
             std::size_t batch_size) const 
     {

@@ -53,17 +53,12 @@ namespace db0
 		std::pair<key_t, bool> peek(key_t key) const override;
 
 		bool limitBy(key_t key) override;
-
-		std::unique_ptr<FT_Iterator<key_t> > clone(
-            CloneMap<FT_Iterator<key_t> > *clone_map_ptr = nullptr) const override;
 		
-		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction) const override;
+		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction = -1) const override;
 
 		std::ostream &dump(std::ostream &os) const override;
 
-		bool equal(const FT_IteratorBase &it) const override;
-
-		const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
+		const FT_IteratorBase *find(std::uint64_t uid) const override;
 
 		/**
          * Calculate number of underlying iterators yielding current output (join_key)
@@ -77,16 +72,10 @@ namespace db0
 		bool hasDuplicateKeys() const;
 
 		/**
-         * Get underlying iterator that yields the current row
+         * Get UID of the underlying iterator that yields the current row
          */
-		const db0::FT_Iterator<key_t> &getSimple() const;
-
-		/**
-		 * Get underlying current iterator as mutable
-		 * @return
-		 */
-        db0::FT_Iterator<key_t> &getSimple();
-
+		std::uint64_t getInnerUID() const;
+		
 		bool isORX() const;
 
         void scanQueryTree(std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_function,
@@ -157,7 +146,10 @@ namespace db0
 		double compareTo(const FT_JoinORXIterator &other) const;
 
     private:
-						
+
+        FT_JoinORXIterator(std::uint64_t uid, std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, 
+			int direction, bool m_is_orx, bool lazy_init = false);
+		
 		struct heap_item
 		{
 			db0::FT_Iterator<key_t> *it = nullptr;
@@ -330,7 +322,7 @@ namespace db0
          */
 		std::unique_ptr<FT_Iterator<key_t> > releaseSpecial(int direction, FT_JoinORXIterator<key_t> *&result,
 		    bool lazy_init = false);
-
+		
 		/**
          * Number of underlying simple joinable iterators
          */

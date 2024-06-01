@@ -65,6 +65,7 @@ namespace db0::object_model
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeId = db0::bindings::TypeId;
+        using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
                 
         Index(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
@@ -73,21 +74,20 @@ namespace db0::object_model
         
         std::size_t size() const;
         void add(ObjectPtr key, ObjectPtr value);
-                
+         
         /**
          * Sort results of a specific object iterator from the same fixture
-         * @param iter object iterator
-         * @param at_ptr memory location for the resulting iterator (must be uninitialized ObjectIterator)
+         * @param iter object iterator        
          */        
-        void sort(const ObjectIterator &iter, ObjectIterator *at_ptr) const;
+        std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort(const ObjectIterator &iter) const;
 
         /**
-         * Construct a range filtering query         
-         * @param at_ptr memory location for the resulting iterator (must be uninitialized ObjectIterator)
+         * Construct a range filtering query        
          * @param min optional lower bound
          * @param max optional upper bound
-         */        
-        void range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max, bool nulls_first = false) const;
+         */
+        std::unique_ptr<IteratorFactory>
+        range(ObjectPtr min, ObjectPtr max, bool nulls_first = false) const;
 
         static PreCommitFunction getPreCommitFunction() {
             return preCommitOp;
@@ -98,8 +98,7 @@ namespace db0::object_model
         void preCommit();
         static void preCommitOp(void *);
 
-    private:
-        using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
+    private:        
         // the default/provisional type
         using DefaultT = std::int64_t;
 

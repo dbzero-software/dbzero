@@ -11,6 +11,7 @@
 #include <dbzero/object_model/set/Set.hpp>
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
+#include <dbzero/object_model/enum/EnumFactory.hpp>
 
 namespace db0::object_model
 
@@ -22,6 +23,7 @@ namespace db0::object_model
         using DataFrame = db0::object_model::pandas::DataFrame;        
         using TagIndex = db0::object_model::TagIndex;
         using ClassFactory = db0::object_model::ClassFactory;
+        using EnumFactory = db0::object_model::EnumFactory;
         using Index = db0::object_model::Index;
         using Set = db0::object_model::Set;
         using Dict = db0::object_model::Dict;
@@ -37,28 +39,33 @@ namespace db0::object_model
                 auto &gc0 = fixture->addGC0(fixture);
                 // create ClassFactory and register with the object catalogue
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture);
+                auto &enum_factory = fixture->addResource<EnumFactory>(fixture);
                 auto &base_index_short = fixture->addResource<FT_BaseIndex<std::uint64_t> >(*fixture, fixture->getVObjectCache());
                 auto &base_index_long = fixture->addResource<FT_BaseIndexLong>(*fixture, fixture->getVObjectCache());
                 auto &tag_index = fixture->addResource<TagIndex>(
                     class_factory, fixture->getLimitedStringPool(), base_index_short, base_index_long);
                 
                 // flush from tag index on fixture commit (or close on close)
-                fixture->addCloseHandler([&tag_index](bool commit) {
+                fixture->addCloseHandler([&](bool commit) {
                     if (commit) {
                         tag_index.flush();
+                        class_factory.commit();
+                        enum_factory.commit();                        
                     } else {
                         tag_index.close();
                     }
                 });
 
                 // register resources with the object catalogue
-                oc.addUnique(class_factory);
+                oc.addUnique(class_factory);        
+                oc.addUnique(enum_factory);
                 oc.addUnique(gc0);
                 oc.addUnique(base_index_short);
                 oc.addUnique(base_index_long);
             } else {
                 fixture->addGC0(fixture, oc.findUnique<db0::GC0>()->second());
-                auto &class_factory = fixture->addResource<ClassFactory>(fixture, oc.findUnique<ClassFactory>()->second());
+                auto &class_factory = fixture->addResource<ClassFactory>(fixture, oc.findUnique<ClassFactory>()->second());                
+                auto &enum_factory = fixture->addResource<EnumFactory>(fixture, oc.findUnique<EnumFactory>()->second());
                 auto &base_index_short = fixture->addResource<FT_BaseIndex<std::uint64_t> >(
                     fixture->myPtr(oc.findUnique<FT_BaseIndex<std::uint64_t> >()->second()), fixture->getVObjectCache());
                 auto &base_index_long = fixture->addResource<FT_BaseIndexLong>(
@@ -67,9 +74,11 @@ namespace db0::object_model
                     class_factory, fixture->getLimitedStringPool(), base_index_short, base_index_long);
 
                 // flush from tag index on fixture commit (or close on close)
-                fixture->addCloseHandler([&tag_index](bool commit) {
+                fixture->addCloseHandler([&](bool commit) {
                     if (commit) {
                         tag_index.flush();
+                        class_factory.commit();
+                        enum_factory.commit();                       
                     } else {
                         tag_index.close();
                     }

@@ -45,12 +45,19 @@ namespace db0
 
     protected:
         virtual void serializeImpl(std::vector<std::byte> &) const = 0;
+
+        SortedIterator(std::uint64_t uid);
     };
 
     template <typename ValueT> void SortedIterator<ValueT>::serialize(std::vector<std::byte> &v) const
     {
         db0::serial::write(v, this->getSerialTypeId());
         this->serializeImpl(v);
+    }
+
+    template <typename ValueT> SortedIterator<ValueT>::SortedIterator(std::uint64_t uid)
+        : FT_IteratorBase(uid)
+    {
     }
     
 }

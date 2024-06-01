@@ -34,7 +34,7 @@ namespace tests
         auto fixture = workspace.getFixture(prefix_name);
 
         {
-            Enum cut(fixture, {"value1", "value2"});
+            Enum cut(fixture, "test_enum", {"value1", "value2"});
             ASSERT_FALSE(cut.isNull());
         }
         workspace.close();
@@ -46,7 +46,7 @@ namespace tests
         auto fixture = workspace.getFixture(prefix_name);
 
         {
-            Enum cut(fixture, {"red", "green"});
+            Enum cut(fixture, "color", {"red", "green"});
             ASSERT_NO_THROW(cut.find("red"));
             ASSERT_NO_THROW(cut.find("green"));            
         }
@@ -59,7 +59,7 @@ namespace tests
         auto fixture = workspace.getFixture(prefix_name);
 
         {
-            Enum cut(fixture, {"red", "green"});
+            Enum cut(fixture, "color", {"red", "green"});
             ASSERT_ANY_THROW(cut.find("blue"));
         }
         workspace.close();

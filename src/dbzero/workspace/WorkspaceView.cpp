@@ -9,8 +9,7 @@ namespace db0
      * Fixture view initializer (currently empty)
     */
     std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> view_initializer()
-    {
-        using ClassFactory = db0::object_model::ClassFactory;
+    {       
         return [](db0::swine_ptr<Fixture> &fixture, bool)
         {
         };

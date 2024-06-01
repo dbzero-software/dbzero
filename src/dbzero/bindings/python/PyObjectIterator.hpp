@@ -1,32 +1,49 @@
 #pragma once
 
 #include "PyWrapper.hpp"
+#include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/object_model/tags/TypedObjectIterator.hpp>
 
 namespace db0::python
 
 {
 
-    using PyObjectIterator = PyWrapper<db0::object_model::ObjectIterator>;
-    using PyTypedObjectIterator = PyWrapper<db0::object_model::TypedObjectIterator>;
+    struct Iterator
+    {
+        // m_iterator always present
+        std::unique_ptr<db0::object_model::ObjectIterator> m_iterator;
+        // typed object iterator only initialized for TypedObjectIterator wrapper
+        db0::object_model::TypedObjectIterator *m_typed_iterator_ptr = nullptr;
+
+        inline db0::object_model::ObjectIterator *operator->() {
+            return m_iterator.get();
+        }
+
+        inline db0::object_model::ObjectIterator &operator*() {
+            return *m_iterator;
+        }
+
+        bool isTyped() const;
+        
+        static void makeNew(void *at_ptr, std::unique_ptr<db0::object_model::ObjectIterator> &&);
+
+        static void makeNew(void *at_ptr, std::unique_ptr<db0::object_model::TypedObjectIterator> &&);
+    };
+    
+    using PyObjectIterator = PyWrapper<Iterator>;    
     
     PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
     PyObjectIterator *PyObjectIteratorDefault_new();
     void PyObjectIterator_del(PyObjectIterator* self);
     
-    PyTypedObjectIterator *PyTypedObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
-    void PyTypedObjectIterator_del(PyTypedObjectIterator *);
-
     extern PyTypeObject PyObjectIteratorType;
-    extern PyTypeObject PyTypedObjectIteratorType;
+        
+    bool PyObjectIterator_Check(PyObject *);
     
     /**
      * db0.find implementation
-     * returns either PyObjectIterator or PyTypedObjectIterator
+     * returns either ObjectIterator or TypedObjectIterator wrapper
     */
     PyObject *find(PyObject *, PyObject* const *args, Py_ssize_t nargs);
-    
-    bool ObjectIterator_Check(PyObject *);
-    bool TypedObjectIterator_Check(PyObject *);
     
 }

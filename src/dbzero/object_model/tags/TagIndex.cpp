@@ -4,10 +4,14 @@
 #include <dbzero/object_model/iterators.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/class/ClassFields.hpp>
+#include <dbzero/core/collections/full_text/FT_ORXIterator.hpp>
+#include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDNOTIterator.hpp>
 #include <dbzero/object_model/tags/TagSet.hpp>
+#include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
 #include "ObjectIterator.hpp"
+#include "OR_QueryObserver.hpp"
 
 namespace db0::object_model
 
@@ -170,7 +174,7 @@ namespace db0::object_model
                     if (!batch_op_long_ptr) {
                         batch_op_long_ptr = &getBatchOperationLong(memo_ptr);
                     }
-                    auto tag = makeLongTag(tag_sequence);
+                    auto tag = makeLongTagFromSequence(tag_sequence);
                     (*batch_op_long_ptr)->addTags(TagPtrSequence(&tag, &tag + 1));
                 } else {
                     batch_op_short->addTags(tag_sequence);
@@ -207,7 +211,7 @@ namespace db0::object_model
             if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
                 batch_operation->removeTags(IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     return makeShortTag(arg.get());
-                }));                    
+                }));
                 continue;
             }
 
@@ -222,6 +226,11 @@ namespace db0::object_model
             m_batch_operation_short.reset();
         }
         m_base_index_short.clear();
+
+        if (m_batch_operation_long) {
+            m_batch_operation_long.reset();
+        }
+        m_base_index_long.clear();
     }
     
     void TagIndex::close()
@@ -265,11 +274,11 @@ namespace db0::object_model
     }
 
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
-        std::shared_ptr<Class> &type) const
-    {        
+        std::shared_ptr<Class> &type, std::vector<std::unique_ptr<QueryObserver> > &observers) const
+    {
         db0::FT_ANDIteratorFactory<std::uint64_t> factory;
         // the negated root-level query components
-        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
+        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;        
         if (nargs > 0) {
             // flush pending updates before querying
             flush();
@@ -290,7 +299,7 @@ namespace db0::object_model
             }
             
             while (result && (offset < nargs)) {
-                result &= addIterator(args[offset], factory, neg_iterators);
+                result &= addIterator(args[offset], factory, neg_iterators, observers);
                 ++offset;
             }
 
@@ -300,7 +309,7 @@ namespace db0::object_model
             }
         }
         
-        auto query_iterator = factory.release(-1);
+        auto query_iterator = factory.release();
         // handle negated query components
         if (neg_iterators.empty()) {
             return query_iterator;
@@ -314,9 +323,9 @@ namespace db0::object_model
             return std::make_unique<FT_ANDNOTIterator<std::uint64_t> >(std::move(neg_iterators), -1);
         }
     }
-
+    
     bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<std::uint64_t> &factory,
-        std::vector<std::unique_ptr<QueryIterator> > &neg_iterators) const
+        std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
     {
         using TypeId = db0::bindings::TypeId;
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
@@ -333,7 +342,7 @@ namespace db0::object_model
                 IterableSequence sequence(LangToolkit::getIterator(arg), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     return makeShortTag(arg.get());
                 });
-                return m_base_index_long.addIterator(factory, makeLongTag(sequence));
+                return m_base_index_long.addIterator(factory, makeLongTagFromSequence(sequence));
             }
 
             bool is_or_clause = (type_id == TypeId::LIST);
@@ -349,7 +358,7 @@ namespace db0::object_model
             bool all = true;
             ForwardIterator it(LangToolkit::getIterator(arg));
             for (auto end = ForwardIterator::end(); it != end; ++it) {
-                bool result = addIterator((*it).get(), *inner_factory, inner_neg_iterators);
+                bool result = addIterator((*it).get(), *inner_factory, inner_neg_iterators, query_observers);
                 any |= result;
                 all &= result;
             }
@@ -369,13 +378,13 @@ namespace db0::object_model
             factory.add(inner_factory->release(-1));
             return true;
         }
-
+        
         if (type_id == TypeId::OBJECT_ITERATOR) {
             auto &obj_iter = LangToolkit::getTypeManager().extractObjectIterator(arg);
             // try interpreting the iterator as FT-query
-            auto ft_query = obj_iter.beginFTQuery(-1);
+            auto ft_query = obj_iter.beginFTQuery(query_observers, -1);
             if (!ft_query || ft_query->isEnd()) {
-                return false;                
+                return false;
             }
             factory.add(std::move(ft_query));
             return true;
@@ -385,15 +394,15 @@ namespace db0::object_model
             // collect negated iterators to be merged later
             auto &tag_set = LangToolkit::getTypeManager().extractTagSet(arg);
             std::vector<std::unique_ptr<QueryIterator> > inner_neg_iterators;
-            if (tag_set.isNegated()) {                
+            if (tag_set.isNegated()) {
                 NegFactory neg_factory(neg_iterators);
                 for (auto it = tag_set.getArgs(), end = it + tag_set.size(); it != end; ++it) {
-                    addIterator(*it, neg_factory, inner_neg_iterators);
+                    addIterator(*it, neg_factory, inner_neg_iterators, query_observers);
                 }
             } else {
                 // just add as regular iterators
                 for (auto it = tag_set.getArgs(), end = it + tag_set.size(); it != end; ++it) {
-                    addIterator(*it, factory, inner_neg_iterators);
+                    addIterator(*it, factory, inner_neg_iterators, query_observers);
                 }
             }
             if (!inner_neg_iterators.empty()) {
@@ -403,7 +412,7 @@ namespace db0::object_model
             return true;
         }
         
-        THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(arg) 
+        THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(arg)
             << " as a query" << THROWF_END;
     }
     
@@ -444,9 +453,9 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::makeShortTagFromEnumValue(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isEnumValue(py_arg));
-        return LangToolkit::getTypeManager().extractEnumValue(py_arg).getUID();
+        return LangToolkit::getTypeManager().extractEnumValue(py_arg).getUID().asULong();
     }
-
+    
     bool TagIndex::isScopeIdentifier(ObjectPtr ptr) const {
         return LangToolkit::isFieldDef(ptr);
     }
@@ -470,6 +479,77 @@ namespace db0::object_model
         auto &field_def = LangToolkit::getTypeManager().extractFieldDef(py_arg);
         // class UID (32bit) + field ID (32 bit)
         return (static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.m_field_id;
+    }
+    
+    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::unique_ptr<QueryObserver> >
+    TagIndex::splitBy(ObjectPtr py_arg, std::unique_ptr<QueryIterator> &&query) const
+    {
+        auto &type_manager = LangToolkit::getTypeManager();
+        auto type_id = type_manager.getTypeId(py_arg);
+        // must check for string since it's is an iterable as well
+        if (type_id == TypeId::STRING || !LangToolkit::isIterable(py_arg)) {
+            THROWF(db0::InputException) << "Invalid argument (iterable expected)" << THROWF_END;
+        }
+        
+        OR_QueryObserverBuilder split_factory;        
+        // include ALL provided values first (OR-joined)
+        for (auto it = ForwardIterator(LangToolkit::getIterator(py_arg)), end = ForwardIterator::end(); it != end; ++it) {
+            if (isShortTag(*it)) {
+                auto tag_iterator = m_base_index_short.makeIterator(makeShortTag(*it));
+                split_factory.add(std::move(tag_iterator), *it);
+            } else if (isLongTag(*it)) {
+                auto tag_iterator = m_base_index_long.makeIterator(makeLongTag(*it));
+                split_factory.add(std::move(tag_iterator), *it);
+            } else {
+                THROWF(db0::InputException) << "Unable to convert to tag: " << LangToolkit::getTypeName((*it).get()) << THROWF_END;
+            }
+        }
+
+        auto split_result = split_factory.release();
+        db0::FT_ANDIteratorFactory<std::uint64_t> factory;
+        factory.add(std::move(split_result.first));
+        factory.add(std::move(query));
+        return { factory.release(), std::move(split_result.second) };
+    }
+    
+    TagIndex::ShortTagT TagIndex::makeShortTag(ObjectSharedPtr py_arg) const {
+        return makeShortTag(py_arg.get());
+    }
+
+    TagIndex::LongTagT TagIndex::makeLongTag(ObjectSharedPtr py_arg) const {
+        return makeLongTag(py_arg.get());
+    }
+
+    bool TagIndex::isLongTag(ObjectSharedPtr py_arg) const {
+        return isLongTag(py_arg.get());
+    }
+
+    bool TagIndex::isLongTag(ObjectPtr py_arg) const
+    {
+        auto &type_manager = LangToolkit::getTypeManager();
+        auto type_id = type_manager.getTypeId(py_arg);
+        // must check for string since it's is an iterable as well
+        if (type_id == TypeId::STRING || !LangToolkit::isIterable(py_arg)) {
+            return false;
+        }
+        
+        return isLongTag<ForwardIterator>(LangToolkit::getIterator(py_arg), ForwardIterator::end());
+    }
+    
+    TagIndex::LongTagT TagIndex::makeLongTag(ObjectPtr py_arg) const
+    {
+        auto &type_manager = LangToolkit::getTypeManager();
+        auto type_id = type_manager.getTypeId(py_arg);
+        // must check for string since it's is an iterable as well
+        if (type_id == TypeId::STRING || !LangToolkit::isIterable(py_arg)) {
+            THROWF(db0::InputException) << "Invalid argument (iterable expected)" << THROWF_END;
+        }
+
+        using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
+        IterableSequence sequence(LangToolkit::getIterator(py_arg), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
+            return makeShortTag(arg.get());
+        });
+        return makeLongTagFromSequence(sequence);
     }
 
 }

@@ -62,6 +62,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"serialize", (PyCFunction)&py::pySerialize, METH_FASTCALL, "Serialize DBZero serializable instance"},
     {"deserialize", (PyCFunction)&py::pyDeserialize, METH_FASTCALL, "Serialize DBZero serializable instance"},
     {"enum", (PyCFunction)&py::makeEnum, METH_FASTCALL, "Serialize DBZero serializable instance"},
+    {"split_by", (PyCFunction)&py::splitBy, METH_VARARGS | METH_KEYWORDS, "Split query iterator by a given criteria"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
@@ -110,13 +111,12 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::PySnapshotObjectType, 
         &py::PandasBlockObjectType, 
         &py::PandasDataFrameObjectType,         
-        &py::PyObjectIteratorType,
-        &py::PyTypedObjectIteratorType,
+        &py::PyObjectIteratorType,        
         &py::ByteArrayObjectType,
         &py::PyEnumType, 
         &py::PyEnumValueType,
         &py::PyClassFieldsType,
-        &py::PyFieldDefType
+        &py::PyFieldDefType        
     };
     
     // register all types

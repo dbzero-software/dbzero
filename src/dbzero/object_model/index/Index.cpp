@@ -133,29 +133,28 @@ namespace db0::object_model
         }            
     }
     
-    void Index::range(ObjectIterator *at_ptr, ObjectPtr min, ObjectPtr max, bool nulls_first) const
+    std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool nulls_first) const
     {
         const_cast<Index*>(this)->flush();
         std::unique_ptr<IteratorFactory> iter_factory;
         switch (m_data_type) {
             case IndexDataType::Int64: {
-                iter_factory = rangeQuery<std::int64_t>(min, true, max, true, nulls_first);
-                break;
+                return rangeQuery<std::int64_t>(min, true, max, true, nulls_first);
             }
+            break;            
 
             case IndexDataType::UInt64: {
-                iter_factory = rangeQuery<std::uint64_t>(min, true, max, true, nulls_first);
-                break;
+                return rangeQuery<std::uint64_t>(min, true, max, true, nulls_first);
             }
+            break;
 
             default:
                 THROWF(db0::InputException) << "Unsupported index data type: " 
                     << static_cast<std::uint16_t>(m_data_type) << THROWF_END;
-        }
-        new (at_ptr) ObjectIterator(this->getFixture(), std::move(iter_factory));
+        }        
     }
-
-    void Index::sort(const ObjectIterator &iter, ObjectIterator *at_ptr) const
+    
+    std::unique_ptr<db0::SortedIterator<std::uint64_t> > Index::sort(const ObjectIterator &iter) const
     {
         const_cast<Index*>(this)->flush();
         std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort_iter;
@@ -163,14 +162,14 @@ namespace db0::object_model
             // sort by additional criteria
             switch (m_data_type) {
                 case IndexDataType::Int64: {
-                    sort_iter = sortSortedQuery<std::int64_t>(iter.beginSorted());
-                    break;
+                    return sortSortedQuery<std::int64_t>(iter.beginSorted());                    
                 }
+                break;
 
                 case IndexDataType::UInt64: {
-                    sort_iter = sortSortedQuery<std::uint64_t>(iter.beginSorted());
-                    break;
+                    return sortSortedQuery<std::uint64_t>(iter.beginSorted());                    
                 }
+                break;
 
                 default:
                     THROWF(db0::InputException) << "Unsupported index data type: " 
@@ -178,24 +177,24 @@ namespace db0::object_model
             }
         } else {
             // sort a full-text query
+            // FIXME: incorporate observers in the sorted iterator
+            std::vector<std::unique_ptr<QueryObserver> > observers;
             switch (m_data_type) {
                 case IndexDataType::Int64: {
-                    sort_iter = sortQuery<std::int64_t>(iter.beginFTQuery());
-                    break;
+                    return sortQuery<std::int64_t>(iter.beginFTQuery(observers));                    
                 }
+                break;
 
                 case IndexDataType::UInt64: {
-                    sort_iter = sortQuery<std::uint64_t>(iter.beginFTQuery());
-                    break;
+                    return sortQuery<std::uint64_t>(iter.beginFTQuery(observers));                    
                 }
+                break;
 
                 default:
                     THROWF(db0::InputException) << "Unsupported index data type: " 
                         << static_cast<std::uint16_t>(m_data_type) << THROWF_END;
             }
         }
-        // placement new
-        new (at_ptr) ObjectIterator(this->getFixture(), std::move(sort_iter));
     }
     
     void Index::addNull(ObjectPtr obj_ptr)

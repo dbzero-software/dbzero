@@ -41,4 +41,26 @@ def test_enum_tags_are_distinguished_from_string_values(db0_fixture):
     db0.tags(MemoTestClass(2)).add("RED")
     assert set([x.value for x in db0.find("RED")]) == set([2])
     assert set([x.value for x in db0.find(Colors.RED)]) == set([1])
-            
+
+
+def test_enum_type_defines_values_method(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    assert len(Colors.values()) == 3
+    assert Colors.RED in Colors.values()
+    assert Colors.GREEN in Colors.values()
+    assert Colors.BLUE in Colors.values()
+    
+    
+def test_enum_values_can_be_stored_as_members(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    obj_1 = MemoTestClass(Colors.RED)
+    obj_2 = MemoTestClass(Colors.GREEN)
+    assert obj_1.value == Colors.RED
+    assert obj_2.value == Colors.GREEN
+    
+    
+def test_enum_values_can_be_stored_as_dict_keys(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    dict = db0.dict({Colors.RED: "red", Colors.GREEN: "green"})
+    assert dict[Colors.RED] == "red"
+    assert dict[Colors.GREEN] == "green"

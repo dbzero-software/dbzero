@@ -37,41 +37,63 @@ namespace db0::object_model
         return std::move(base_iterator);
     }
 
-    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator)
+    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator,
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
         , m_query_iterator(validated(std::move(ft_query_iterator)))
         , m_iterator_ptr(m_query_iterator.get())        
+        , m_decoration(std::move(query_observers))
     {
     }
 
-    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator)
+    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator,
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
         , m_sorted_iterator(validated(std::move(sorted_iterator)))
-        , m_iterator_ptr(m_sorted_iterator.get())        
+        , m_iterator_ptr(m_sorted_iterator.get())
+        , m_decoration(std::move(query_observers))
     {
     }
 
-    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<IteratorFactory> &&factory)
+    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<IteratorFactory> &&factory,
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
         , m_factory(std::move(factory))        
+        , m_decoration(std::move(query_observers))
     {
     }
 
-    ObjectIterator *ObjectIterator::makeNew(void *at_ptr, db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&it) {
-        return new (at_ptr) ObjectIterator(fixture, std::move(it));
+    ObjectIterator::Decoration::Decoration(std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
+        : m_query_observers(std::move(query_observers))
+        , m_decorators(m_query_observers.size())
+    {
     }
 
+    ObjectIterator *ObjectIterator::makeNew(void *at_ptr, db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&it,
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
+    {
+        return new (at_ptr) ObjectIterator(fixture, std::move(it), std::move(query_observers));
+    }
+    
     bool ObjectIterator::next(std::uint64_t &addr)
     {
         assureInitialized();
-        if (!m_iterator_ptr || m_iterator_ptr->isEnd()) {
-            return false;
-        } else {
+        if (m_iterator_ptr && !m_iterator_ptr->isEnd()) {
+            // collect decorators if any exist            
+            if (!m_decoration.empty()) {
+                auto it = m_decoration.m_query_observers.begin();
+                for (auto &decor: m_decoration.m_decorators) {
+                    decor = (*it)->getDecoration();
+                    ++it;
+                }
+            }            
             m_iterator_ptr->next(&addr);
             return true;
+        } else {
+            return false;
         }
     }
     
@@ -83,22 +105,43 @@ namespace db0::object_model
         return !m_query_iterator && !m_sorted_iterator && !m_factory;
     }
 
-    std::unique_ptr<ObjectIterator::QueryIterator> ObjectIterator::beginFTQuery(int direction) const
-    {   
+    std::unique_ptr<ObjectIterator::QueryIterator> ObjectIterator::beginFTQuery(
+        std::vector<std::unique_ptr<QueryObserver> > &query_observers, int direction) const
+    {
         if (isNull()) {
             return nullptr;
         }
 
         // pull FT iterator from factory if available
+        std::unique_ptr<ObjectIterator::QueryIterator> result;
         if (m_factory) {
-            return m_factory->createFTIterator();
+            result = m_factory->createFTIterator();
+        } else {
+            if (!m_query_iterator) {
+                THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
+            }
+            result = m_query_iterator->beginTyped(direction);
         }
-        if (!m_query_iterator) {
-            THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
+        // rebase/clone observers
+        if (result) {
+            for (auto &observer: m_decoration.m_query_observers) {
+                query_observers.push_back(observer->rebase(*result));
+            }
         }
-        return m_query_iterator->beginTyped(direction);
+        return result;
     }
-
+    
+    std::unique_ptr<QueryIterator> ObjectIterator::releaseQuery(std::vector<std::unique_ptr<QueryObserver> > &query_observers)
+    {
+        if (!m_query_iterator && m_factory) {
+            m_query_iterator = m_factory->createFTIterator();
+        }
+        for (auto &observer: m_decoration.m_query_observers) {
+            query_observers.push_back(std::move(observer));
+        }
+        return std::move(m_query_iterator);
+    }
+    
     std::unique_ptr<SortedIterator> ObjectIterator::beginSorted() const
     {
         if (isNull()) {
@@ -130,6 +173,10 @@ namespace db0::object_model
             m_initialized = true;
         }
     }
+
+    void ObjectIterator::assureInitialized() const {
+        const_cast<ObjectIterator *>(this)->assureInitialized();
+    }
     
     void ObjectIterator::serialize(std::vector<std::byte> &buf) const
     {        
@@ -156,7 +203,8 @@ namespace db0::object_model
         }
     }
     
-    void ObjectIterator::deserialize(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
+    std::unique_ptr<ObjectIterator> ObjectIterator::deserialize(db0::swine_ptr<Fixture> &fixture, 
+        std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end)
     {
         std::uint64_t fixture_uuid = db0::serial::read<std::uint64_t>(iter, end);
@@ -169,20 +217,19 @@ namespace db0::object_model
         bool is_null = db0::serial::read<bool>(iter, end);
         if (is_null) {
             // deserialize as null
-            new (at_ptr) ObjectIterator(fixture_, std::unique_ptr<QueryIterator>());
-            return;
+            return std::make_unique<ObjectIterator>(fixture_, std::unique_ptr<QueryIterator>());            
         }
         auto &workspace = fixture_->getWorkspace();
         auto inner_type = db0::serial::read<std::uint8_t>(iter, end);
         if (inner_type == 1) {
             auto query_iterator = db0::deserializeFT_Iterator<std::uint64_t>(workspace, iter, end);
-            new (at_ptr) ObjectIterator(fixture_, std::move(query_iterator));
+            return std::make_unique<ObjectIterator>(fixture_, std::move(query_iterator));
         } else if (inner_type == 2) {
             auto sorted_iterator = db0::deserializeSortedIterator<std::uint64_t>(workspace, iter, end);
-            new (at_ptr) ObjectIterator(fixture_, std::move(sorted_iterator));
+            return std::make_unique<ObjectIterator>(fixture_, std::move(sorted_iterator));
         } else if (inner_type == 3) {
             auto factory = db0::deserializeIteratorFactory<std::uint64_t>(workspace, iter, end);
-            new (at_ptr) ObjectIterator(fixture_, std::move(factory));
+            return std::make_unique<ObjectIterator>(fixture_, std::move(factory));
         } else {
             THROWF(db0::InputException) << "Invalid object iterator" << THROWF_END;
         }
@@ -196,6 +243,7 @@ namespace db0::object_model
         if (other.isNull()) {
             return 1.0;
         }
+        assureInitialized();
         assert(m_iterator_ptr);
         return m_iterator_ptr->compareTo(*other.m_iterator_ptr);
     }
@@ -205,6 +253,7 @@ namespace db0::object_model
         if (isNull()) {
             return {};
         }
+        assureInitialized();
         std::vector<std::byte> result;
         m_iterator_ptr->getSignature(result);
         return result;

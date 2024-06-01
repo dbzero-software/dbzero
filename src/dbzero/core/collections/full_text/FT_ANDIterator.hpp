@@ -29,14 +29,14 @@ namespace db0
          * @param lazy_init if lazy init is requested the iterator is created in the state where only below methods
          * are allowed: beginBack, clone (this is for lazy construction of the query tree)
          */
-		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction,
+		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction = -1,
 		    bool lazy_init = false);
 
 		/**
          * join pair of iterators
          */
 		FT_JoinANDIterator(std::unique_ptr<FT_Iterator<key_t> > &&it0, std::unique_ptr<FT_Iterator<key_t> > &&it1,
-		    int direction, bool lazy_init = false);
+		    int direction = -1, bool lazy_init = false);
 
 		virtual ~FT_JoinANDIterator();
 
@@ -65,19 +65,14 @@ namespace db0
 		void joinBound(key_t key) override;
 
 		std::pair<key_t, bool> peek(key_t join_key) const override;
-
-		std::unique_ptr<FT_Iterator<key_t> > clone(
-            CloneMap<FT_Iterator<key_t> > *clone_map_ptr = nullptr) const override;
          
-		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction) const override;
+		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction = -1) const override;
         
 		bool limitBy(key_t key) override;
 
 		std::ostream &dump(std::ostream &os) const override;
-
-		bool equal(const FT_IteratorBase &it) const override;
-
-		const FT_IteratorBase *find(const FT_IteratorBase &it) const override;
+		
+		const FT_IteratorBase *find(std::uint64_t uid) const override;
 
         void scanQueryTree(std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_function,
             int depth = 0) const override;
@@ -111,7 +106,7 @@ namespace db0
         void serializeFTIterator(std::vector<std::byte> &) const override;
                 
 	private:
-		int m_direction;
+		const int m_direction;
 		mutable std::list<std::unique_ptr<FT_Iterator<key_t> > > m_joinable;
 		bool m_end;
 		key_t m_join_key;
@@ -123,12 +118,8 @@ namespace db0
         void _nextUnique();
 		void joinAll();
 
-		/**
-         * Create joined (by clone)
-         */
-		struct tag_cloned {};
-		FT_JoinANDIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&, int direction, bool is_end,
-		    key_t join_key, tag_cloned);
+		FT_JoinANDIterator(std::uint64_t uid, std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, 
+            int direction, bool lazy_init = false);
         
         // compare to other AND iterator
         double compareTo(const FT_JoinANDIterator &it) const;
@@ -151,7 +142,7 @@ namespace db0
          * @param lazy_init if lazy init is requested the iterator is created in the state where only below methods
          * are allowed: beginBack, clone (this is for lazy construction of the query tree)
          */
-		std::unique_ptr<FT_Iterator<key_t> > release(int direction, bool lazy_init = false) override;
+		std::unique_ptr<FT_Iterator<key_t> > release(int direction = -1, bool lazy_init = false) override;
 
         void clear() override;
 

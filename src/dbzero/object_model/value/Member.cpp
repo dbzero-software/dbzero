@@ -1,6 +1,9 @@
 #include "Member.hpp"
 #include <dbzero/core//serialization/Serializable.hpp>
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
+#include <dbzero/object_model/enum/Enum.hpp>
+#include <dbzero/object_model/enum/EnumValue.hpp>
+#include <dbzero/object_model/enum/EnumFactory.hpp>
 
 namespace db0::object_model
 
@@ -167,6 +170,18 @@ namespace db0::object_model
         return createBytesMember(fixture, bytes.data(), bytes.size());
     }
 
+    // ENUM value specialization (serialized member)
+    template <> Value createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr lang_value)
+    {
+        auto &enum_value = PyToolkit::getTypeManager().extractEnumValue(lang_value);
+        // make sure value from the same Fixture is assigned
+        if (enum_value.m_fixture_uuid != fixture->getUUID()) {
+            THROWF(db0::InputException) << "Enum value from a different Fixture" << THROWF_END;
+        }
+        return enum_value.getUID().asULong();
+    }
+
     template <> void registerCreateMemberFunctions<PyToolkit>(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr)> &functions)
     {
@@ -190,11 +205,12 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::DATETIME)] = createMember<TypeId::DATETIME, PyToolkit>;
         functions[static_cast<int>(TypeId::BYTES)] = createMember<TypeId::BYTES, PyToolkit>;   
         functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = createMember<TypeId::OBJECT_ITERATOR, PyToolkit>;
+        functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
     }
     
     // STRING_REF specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::STRING_REF, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         db0::v_object<db0::o_string> string_ref(fixture->myPtr(value.cast<std::uint64_t>()));
         auto str_ptr = string_ref->get();
@@ -203,21 +219,21 @@ namespace db0::object_model
 
     // INT64 specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::INT64, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyLong_FromLong(value.cast<std::int64_t>());
     }
 
     // FLOAT specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::FP_NUMERIC64, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyFloat_FromDouble(value.cast<double>());
     }
 
     // OBJECT_REF specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_REF, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         auto &class_factory = fixture->template get<ClassFactory>();
         return PyToolkit::unloadObject(fixture, value.cast<std::uint64_t>(), class_factory);
@@ -225,42 +241,42 @@ namespace db0::object_model
 
     // DB0_LIST specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_LIST, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyToolkit::unloadList(fixture, value.cast<std::uint64_t>());
     }
 
     // DB0_BLOCK specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BLOCK, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyToolkit::unloadBlock(fixture, value.cast<std::uint64_t>());
     }
 
     // DB0_INDEX specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_INDEX, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyToolkit::unloadIndex(fixture, value.cast<std::uint64_t>());
     }
 
     // DB0_SET specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_SET, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyToolkit::unloadSet(fixture, value.cast<std::uint64_t>());
     }
 
     // DB0_DICT specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_DICT, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyToolkit::unloadDict(fixture, value.cast<std::uint64_t>());
     }
 
     // BYTES specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BYTES, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.cast<std::uint64_t>());
         auto bytes_ptr = bytes->getBuffer();
@@ -269,28 +285,28 @@ namespace db0::object_model
     
     // DATETIME specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATE, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return db0::python::uint64ToPyDatetime(value.cast<std::uint64_t>());
     }
 
     // NONE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::NONE, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         Py_RETURN_NONE;
     }
 
     // DB0_TUPLE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_TUPLE, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyToolkit::unloadTuple(fixture, value.cast<std::uint64_t>());
     }
     
     // DB0_SERIALIZED specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value, const char *name)
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.cast<std::uint64_t>());
         std::vector<std::byte> buffer;
@@ -306,6 +322,19 @@ namespace db0::object_model
         }
     }
     
+    // ENUM value specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        auto &enum_factory = fixture->get<EnumFactory>();
+        auto enum_value_uid = EnumValue_UID(value.cast<std::uint64_t>());
+        auto py_result = enum_factory.getEnumByUID(enum_value_uid.m_enum_uid)->getLangValue(enum_value_uid);
+        if (py_result) {
+            Py_INCREF(py_result);
+        }
+        return py_result;
+    }
+
     template <> void registerUnloadMemberFunctions<PyToolkit>(
         std::vector<typename PyToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *)> &functions)
     {
@@ -325,6 +354,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_BYTES)] = unloadMember<StorageClass::DB0_BYTES, PyToolkit>;
         functions[static_cast<int>(StorageClass::DATE)] = unloadMember<StorageClass::DATE, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
     }
     
     bool isMaterialized(PyObjectPtr lang_value)

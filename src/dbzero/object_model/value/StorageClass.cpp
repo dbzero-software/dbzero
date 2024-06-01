@@ -26,7 +26,7 @@ namespace db0::object_model
         addMapping(TypeId::DB0_INDEX, StorageClass::DB0_INDEX);
         addMapping(TypeId::DB0_PANDAS_DATAFRAME, StorageClass::DB0_PANDAS_DATAFRAME);
         addMapping(TypeId::OBJECT_ITERATOR, StorageClass::DB0_SERIALIZED);
-        addMapping(TypeId::TYPED_OBJECT_ITERATOR, StorageClass::DB0_SERIALIZED);
+        addMapping(TypeId::DB0_ENUM_VALUE, StorageClass::DB0_ENUM_VALUE);
     }
     
     StorageClass StorageClassMapper::getStorageClass(TypeId type_id) const

@@ -14,6 +14,7 @@
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/object_model/tags/TypedObjectIterator.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/tags/QueryObserver.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
@@ -246,17 +247,20 @@ namespace db0::python
         std::shared_ptr<Class> type;
         auto fixture = snapshot.getCurrentFixture();
         auto &tag_index = fixture->get<TagIndex>();
-        auto query_iterator = tag_index.find(args, nargs, type);
+        std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
+        auto query_iterator = tag_index.find(args, nargs, type, query_observers);
+        auto iter_obj = PyObjectIteratorDefault_new();
         if (type) {
             // construct as typed iterator when a type was specified
-            auto iter_obj = PyTypedObjectIterator_new(&PyTypedObjectIteratorType, NULL, NULL);
-            TypedObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator), type);
-            return iter_obj;
+            auto typed_iter = std::make_unique<TypedObjectIterator>(fixture, std::move(query_iterator), 
+                type, std::move(query_observers));
+            Iterator::makeNew(&iter_obj->ext(), std::move(typed_iter));            
         } else {
-            auto iter_obj = PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
-            ObjectIterator::makeNew(&iter_obj->ext(), fixture, std::move(query_iterator));
-            return iter_obj;
+            auto _iter = std::make_unique<ObjectIterator>(fixture, std::move(query_iterator), 
+                std::move(query_observers));
+            Iterator::makeNew(&iter_obj->ext(), std::move(_iter));
         }
+        return iter_obj;
     }
 
     PyObject *trySerialize(PyObject *py_serializable)
@@ -267,7 +271,7 @@ namespace db0::python
         db0::serial::write(bytes, type_id);
         
         if (type_id == TypeId::OBJECT_ITERATOR) {
-            reinterpret_cast<PyObjectIterator*>(py_serializable)->ext().serialize(bytes);
+            reinterpret_cast<PyObjectIterator*>(py_serializable)->ext()->serialize(bytes);
         } else {
             THROWF(db0::InputException) << "Unsupported or non-serializable type: " 
                 << static_cast<int>(type_id) << THROWF_END;
@@ -296,11 +300,46 @@ namespace db0::python
         auto iter = bytes.cbegin(), end = bytes.cend();
         auto type_id = db0::serial::read<TypeId>(iter, end);
         if (type_id == TypeId::OBJECT_ITERATOR) {
-            return PyToolkit::unloadObjectIterator(fixture, iter, end);            
+            return PyToolkit::unloadObjectIterator(fixture, iter, end);
         } else {
             THROWF(db0::InputException) << "Unsupported serialized type id: " 
                 << static_cast<int>(type_id) << THROWF_END;
         }
+    }
+
+    PyObject *_PyObject_GetDescrOptional(PyObject *obj, PyObject *name)
+    {
+        // This implementation is based on _PyObject_GenericGetAttrWithDict function
+        PyTypeObject *tp = Py_TYPE(obj);
+        PyObject *descr = NULL;
+        PyObject *res = NULL;
+        descrgetfunc f;
+
+        if (!PyUnicode_Check(name)) {
+            PyErr_Format(PyExc_TypeError,
+                        "attribute name must be string, not '%.200s'",
+                        Py_TYPE(name)->tp_name);
+            return NULL;
+        }
+        Py_INCREF(name);
+
+        descr = _PyType_Lookup(tp, name);
+        f = NULL;
+        if (descr != NULL) {
+            Py_INCREF(descr);
+            f = Py_TYPE(descr)->tp_descr_get;
+            if (f != NULL /*&& PyDescr_IsData(descr)*/) {
+                res = f(descr, obj, (PyObject *)Py_TYPE(obj));
+                if (res == NULL && PyErr_ExceptionMatches(PyExc_AttributeError)) {
+                    PyErr_Clear();
+                }
+                goto done;
+            }
+        }
+    done:
+        Py_XDECREF(descr);
+        Py_DECREF(name);
+        return res;
     }
     
 }

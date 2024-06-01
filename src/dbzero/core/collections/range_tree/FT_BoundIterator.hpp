@@ -36,11 +36,9 @@ namespace db0
 
 		void joinBound(ValueT join_key) override;
 
-		std::pair<ValueT, bool> peek(ValueT join_key) const override;
-
-		std::unique_ptr<FT_Iterator<ValueT> > clone(CloneMap<FT_Iterator<ValueT> > *clone_map = nullptr) const override;
+		std::pair<ValueT, bool> peek(ValueT join_key) const override;		
 		
-        std::unique_ptr<FT_Iterator<ValueT> > beginTyped(int) const override;
+        std::unique_ptr<FT_Iterator<ValueT> > beginTyped(int direction = -1) const override;
         
     private:
         const RangeT m_key_range;
@@ -120,13 +118,7 @@ namespace db0
     {
         throw std::runtime_error("Not implemented");
     }
-
-    template <typename KeyT, typename ValueT, typename IndexT>
-    std::unique_ptr<FT_Iterator<ValueT> > FT_BoundIterator<KeyT, ValueT, IndexT>::clone(CloneMap<FT_Iterator<ValueT> > *clone_map) const
-    {
-        throw std::runtime_error("Not implemented");
-    }
-
+    
     template <typename KeyT, typename ValueT, typename IndexT>
     std::unique_ptr<FT_Iterator<ValueT> > FT_BoundIterator<KeyT, ValueT, IndexT>::beginTyped(int direction) const
     {

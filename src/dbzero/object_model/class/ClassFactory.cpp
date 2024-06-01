@@ -183,7 +183,7 @@ namespace db0::object_model
         }
         return it_cached->second;
     }
-        
+       
     void ClassFactory::commit()
     {
         for (auto &[type, class_ptr]: m_type_cache) {

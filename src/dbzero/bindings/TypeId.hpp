@@ -25,9 +25,8 @@ namespace db0::bindings
         DATE = 8,
         TUPLE = 9,
         OBJECT_ITERATOR = 10,
-        TYPED_OBJECT_ITERATOR = 11,
-        BYTES = 12,
-        BYTES_ARRAY=13,
+        BYTES = 11,
+        BYTES_ARRAY = 12,
         // DBZero wrappers of common language types
         MEMO_OBJECT = 100,
         DB0_LIST = 101,
@@ -42,8 +41,8 @@ namespace db0::bindings
         MEMO_SELF = 109,
         DB0_BYTES_ARRAY = 111,
         DB0_ENUM = 112,
-        DB0_ENUM_VALUE = 112,
-        DB0_FIELD_DEF = 113,
+        DB0_ENUM_VALUE = 113,
+        DB0_FIELD_DEF = 114,
         // COUNT determines size of the type operator arrays
         COUNT = 115,
         // unrecognized type

@@ -8,8 +8,16 @@ namespace db0
 
 	template <typename key_t>
 	FT_JoinORXIterator<key_t>::FT_JoinORXIterator(std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators,
-	    int direction, bool is_orx, bool lazy_init)		
-		: m_direction(direction)
+	    int direction, bool is_orx, bool lazy_init)
+		: FT_JoinORXIterator<key_t>(this->nextUID(), std::move(inner_iterators), direction, is_orx, lazy_init)
+	{
+	}
+
+	template <typename key_t>
+    FT_JoinORXIterator<key_t>::FT_JoinORXIterator(std::uint64_t uid, std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators,
+		int direction, bool is_orx, bool lazy_init)
+		: super_t(uid)
+		, m_direction(direction)
 		, m_forward_heap(m_direction > 0?4:0)
 		, m_back_heap(m_direction > 0?0:4)
 		, m_end(false)
@@ -224,26 +232,7 @@ namespace db0
 		m_back_heap.clear();
 		return initHeap(m_direction);
 	}
-
-	template <typename key_t>
-	std::unique_ptr<FT_Iterator<key_t> > FT_JoinORXIterator<key_t>::clone(
-		CloneMap<FT_Iterator<key_t> > *clone_map_ptr) const
-	{
-		std::list<std::unique_ptr<FT_Iterator<key_t> > > temp;
-		for (auto it = m_joinable.begin(), itend = m_joinable.end(); it != itend; ++it) {
-			temp.push_back((*it)->clone(clone_map_ptr));
-		}
-		FT_JoinORXIterator<key_t> *orx_result = 0;
-		std::unique_ptr<db0::FT_Iterator<key_t> > result(orx_result = new FT_JoinORXIterator<key_t>(
-		    std::move(temp), m_direction, this->m_is_orx, false)
-		);
-		assert(orx_result);		
-		if (clone_map_ptr) {
-			clone_map_ptr->insert(*result, *this);
-		}
-		return result;
-	}
-
+	
 	template <typename key_t>
 	std::unique_ptr<FT_Iterator<key_t> > FT_JoinORXIterator<key_t>::beginTyped(int direction) const
     {
@@ -251,11 +240,11 @@ namespace db0
 		for (auto it = m_joinable.begin(), itend = m_joinable.end(); it != itend; ++it) {
 			temp.push_back((*it)->beginTyped(direction));
 		}
-		std::unique_ptr<FT_Iterator<key_t> > result(
-			new FT_JoinORXIterator<key_t>(std::move(temp), direction, m_is_orx, false));    
-		return result;
+		return std::unique_ptr<FT_Iterator<key_t> >(
+			new FT_JoinORXIterator<key_t>(this->m_uid, std::move(temp), direction, m_is_orx, false)
+		);    		
 	}
-
+	
 	template <typename key_t>
 	std::ostream &FT_JoinORXIterator<key_t>::dump(std::ostream &os) const 
 	{
@@ -265,52 +254,19 @@ namespace db0
 	}
 
 	template <typename key_t>
-	bool FT_JoinORXIterator<key_t>::equal(const FT_IteratorBase &it) const
-    {
-		if (it.typeId() != this->typeId()) {
-			return false;
-		}
-
-		const FT_JoinORXIterator<key_t> &orx_it = reinterpret_cast<const FT_JoinORXIterator<key_t>&>(it);
-		if (m_is_orx==orx_it.m_is_orx && m_joinable.size()==orx_it.m_joinable.size()) {
-			// compare joinables ( order irrelevant )
-			std::list<const FT_Iterator<key_t>*> refs;
-			for (auto it = orx_it.m_joinable.begin(),itend = orx_it.m_joinable.end();it!=itend;++it) {
-				refs.push_back((*it).get());
-			}
-			while (!refs.empty()) {
-				const FT_Iterator<key_t> &ref_it = *refs.front();
-				auto it = m_joinable.begin(),itend = m_joinable.end();
-				while (it!=itend) {
-					if ((*it)->equal(ref_it)) {
-						break;
-					}
-					++it;
-				}
-				if (it==itend) {
-					return false;
-				}
-				refs.pop_front();
-			}
-			return true;
-		}		
-		return false;
-	}
-
-	template <typename key_t>
-	const FT_IteratorBase *FT_JoinORXIterator<key_t>::find(const FT_IteratorBase &it) const 
+	const FT_IteratorBase *FT_JoinORXIterator<key_t>::find(std::uint64_t uid) const 
     {
 		// self-check first
-		if (this->equal(it)) {
+		if (this->m_uid == uid) {
 			return this;
 		}
 		for (auto it_sub = m_joinable.begin(),itend = m_joinable.end();it_sub!=itend;++it_sub) {
-			const FT_IteratorBase *it_filter = (*it_sub)->find(it);
+			const FT_IteratorBase *it_filter = (*it_sub)->find(uid);
 			if (it_filter) {
 				return it_filter;
 			}
 		}
-		return 0;
+		return nullptr;
 	}
 
 	template <typename key_t>
@@ -332,24 +288,20 @@ namespace db0
 			return m_forward_heap.hasDuplicatesForTopElement();
 		}
 	}
-
+	
 	template <typename key_t>
-	const FT_Iterator<key_t> &FT_JoinORXIterator<key_t>::getSimple() const {
-	    return const_cast<FT_JoinORXIterator<key_t>&>(*this).getSimple();
-	}
-
-	template <typename key_t> FT_Iterator<key_t> &FT_JoinORXIterator<key_t>::getSimple()
-    {
+	std::uint64_t FT_JoinORXIterator<key_t>::getInnerUID() const
+	{
 		assert(!isEnd());
 		if (!m_forward_heap.empty()) {
-			return *m_forward_heap.front();
+			return m_forward_heap.front()->getUID();
 		}
 		else {
 			assert(!m_back_heap.empty());
-			return *m_back_heap.front();
+			return m_back_heap.front()->getUID();
 		}
 	}
-    
+	
 	template <typename key_t>
 	bool FT_JoinORXIterator<key_t>::isORX() const {
 		return m_is_orx;
@@ -512,7 +464,7 @@ namespace db0
 			std::move(this->m_joinable), direction, this->m_orx_join, lazy_init)
 		);
 	}
-	
+		
 	template <typename key_t>
 	std::size_t FT_OR_ORXIteratorFactory<key_t>::size() const {
 		return m_joinable.size();

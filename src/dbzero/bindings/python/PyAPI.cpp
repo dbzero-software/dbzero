@@ -1,10 +1,7 @@
 #include "PyAPI.hpp"
+#include "PyInternalAPI.hpp"
 #include "PyToolkit.hpp"
 #include "PyEnum.hpp"
-#include <dbzero/workspace/Workspace.hpp>
-#include <dbzero/workspace/Snapshot.hpp>
-#include <dbzero/core/memory/CacheRecycler.hpp>
-#include <dbzero/core/memory/AccessOptions.hpp>
 #include "ObjectId.hpp"
 #include "PyTypeManager.hpp"
 #include "PyWorkspace.hpp"
@@ -12,9 +9,16 @@
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
 #include "PyObjectIterator.hpp"
-#include <dbzero/bindings/python/collections/List.hpp>
 #include "Memo.hpp"
+#include <dbzero/bindings/python/collections/List.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/tags/QueryObserver.hpp>
+#include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/core/memory/CacheRecycler.hpp>
+#include <dbzero/core/memory/AccessOptions.hpp>
+
 
 namespace db0::python
 
@@ -151,8 +155,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *close(PyObject *self, PyObject *args)
-    {
+    PyObject *close(PyObject *self, PyObject *args) {
         return runSafe(tryClose, self, args);
     }
         
@@ -440,7 +443,56 @@ namespace db0::python
             enum_values.push_back(PyUnicode_AsUTF8(py_item));
         }
 
-        return runSafe(tryMakeEnum, self, enum_name, enum_values);
+        return runSafe(tryMakeEnum, self, enum_name, enum_values, nullptr);
+    }
+    
+    using TagIndex = db0::object_model::TagIndex;
+    using ObjectIterator = db0::object_model::ObjectIterator;
+    using TypedObjectIterator = db0::object_model::TypedObjectIterator;
+    using QueryObserver = db0::object_model::QueryObserver;
+
+    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
+    splitBy(PyObject *py_tag_list, ObjectIterator &iterator)
+    {
+        std::vector<std::unique_ptr<QueryObserver> > query_observers;
+        auto query = iterator.releaseQuery(query_observers);
+        auto &tag_index = iterator.getFixture()->get<db0::object_model::TagIndex>();
+        auto result = tag_index.splitBy(py_tag_list, std::move(query));
+        query_observers.push_back(std::move(result.second));
+        return { std::move(result.first), std::move(query_observers) };
+    }
+    
+    PyObject *trySplitBy(PyObject *args, PyObject *kwargs)
+    {
+        // extract 2 object arguments
+        PyObject *py_tag_list;
+        PyObject *py_query;
+        if (!PyArg_ParseTuple(args, "OO", &py_tag_list, &py_query)) {
+            THROWF(db0::InputException) << "Invalid argument type";
+        }
+        
+        if (PyObjectIterator_Check(py_query)) {
+            auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->ext();            
+            auto split_query = splitBy(py_tag_list, *iter);
+            PyObjectIterator *py_iter = PyObjectIteratorDefault_new();
+            // create decorated iterator (either plain or typed)
+            if (iter.isTyped()) {
+                auto typed_iter = std::make_unique<TypedObjectIterator>(iter->getFixture(), std::move(split_query.first),
+                    iter.m_typed_iterator_ptr->getType(), std::move(split_query.second));
+                Iterator::makeNew(&py_iter->ext(), std::move(typed_iter));
+            } else {
+                auto _iter = std::make_unique<ObjectIterator>(iter->getFixture(), std::move(split_query.first), 
+                    std::move(split_query.second));
+                Iterator::makeNew(&py_iter->ext(), std::move(_iter));
+            }            
+            return py_iter;
+        } else {
+            THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
+        }
+    }
+    
+    PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) {
+        return runSafe(trySplitBy, args, kwargs);
     }
 
 }
