@@ -443,7 +443,7 @@ namespace db0::python
             enum_values.push_back(PyUnicode_AsUTF8(py_item));
         }
 
-        return runSafe(tryMakeEnum, self, enum_name, enum_values);
+        return runSafe(tryMakeEnum, self, enum_name, enum_values, nullptr);
     }
     
     using TagIndex = db0::object_model::TagIndex;

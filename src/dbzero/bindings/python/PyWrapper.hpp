@@ -2,6 +2,7 @@
 
 #include <Python.h>
 #include <cstdint>
+#include <memory>
 
 namespace db0::python 
 
@@ -31,4 +32,50 @@ namespace db0::python
         }
     };
 
+    template <typename T> struct Shared
+    {
+        std::shared_ptr<T> m_ptr;
+        Shared(std::shared_ptr<T> ptr): m_ptr(ptr) {}
+
+        T *operator->() {
+            return m_ptr.get();
+        }
+
+        const T *operator->() const {
+            return m_ptr.get();
+        }
+
+        T &operator*() {
+            return *m_ptr;
+        }
+
+        const T &operator*() const {
+            return *m_ptr;
+        }
+
+        static void makeNew(void *at_ptr, std::shared_ptr<T> ptr) {
+            new (at_ptr) Shared(ptr);
+        }
+    };
+
+    template <typename T> struct PySharedWrapper: public PyWrapper<Shared<T> >
+    {
+        using super_t = PyWrapper<Shared<T> >;
+        inline T &ext() {
+            return *super_t::ext();
+        }
+
+        const T &ext() const {
+            return *super_t::ext();
+        }
+
+        template <typename... Args> void makeNew(Args &&...args) {
+            Shared<T>::makeNew(&super_t::ext(), std::make_shared<T>(std::forward<Args>(args)...));
+        }
+        
+        void makeNew(std::shared_ptr<T> ptr) {
+            Shared<T>::makeNew(&super_t::ext(), ptr);
+        }
+    };
+    
 }

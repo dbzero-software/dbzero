@@ -27,13 +27,11 @@ namespace db0::python
     PyToolkit::TypeManager PyToolkit::m_type_manager;
     PyToolkit::PyWorkspace PyToolkit::m_py_workspace;
     
-    std::string PyToolkit::getTypeName(ObjectPtr py_object)
-    {
+    std::string PyToolkit::getTypeName(ObjectPtr py_object) {
         return getTypeName(Py_TYPE(py_object));
     }
-
-    std::string PyToolkit::getTypeName(TypeObjectPtr py_type)
-    {
+    
+    std::string PyToolkit::getTypeName(TypeObjectPtr py_type) {
         return std::string(py_type->tp_name);
     }
 
