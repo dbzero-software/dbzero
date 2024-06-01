@@ -98,19 +98,19 @@ class GroupByBucket:
     
     def remove(self, row):
         self.__count -= 1
-      
+    
     def count(self):
         return self.__count
     
     
 class GroupByEval:
-    def __init__(self, key_func, groups, data = None):
+    def __init__(self, key_func, data = None):
         self.__data = data if data is not None else {}
         if key_func:
             self.__key_func = key_func
         else:
-            # extract all decorators as the group identifier
-            self.__key_func = lambda row: row[1:]
+            # extract decorators as the group identifier (may be one or more)
+            self.__key_func = lambda row: row[1:][0]
     
     def add(self, rows):
         for row in rows:
@@ -134,7 +134,7 @@ class GroupByEval:
     
 def group_by(group_defs, query) -> Dict:
     """
-    Group by the query results by the given key
+    Group query results by the given key
     """
     def delta(start, end):
         return db0.find(end.rows, db0.no(start.rows))
@@ -148,7 +148,7 @@ def group_by(group_defs, query) -> Dict:
     cache = FastQueryCache()
     query = FastQuery(query, groups)
     last_result = cache.find_result(query)
-    query_eval = GroupByEval(key_func, groups, last_result[1] if last_result is not None else None)
+    query_eval = GroupByEval(key_func, last_result[1] if last_result is not None else None)
     if last_result is None:
         # evaluate full query
         query_eval.add(query.rows)

@@ -86,7 +86,7 @@ def test_delta_of_non_identical_queries(db0_fixture):
 
 def test_group_by_enum_values(db0_fixture, memo_enum_tags):
     Colors = memo_enum_tags["Colors"]
-    groups = db0.group_by(Colors.values(), db0.find(MemoTestClass))    
+    groups = db0.group_by(Colors.values(), db0.find(MemoTestClass))
     assert len(groups) == 3
     assert groups[Colors.RED].count() == 4
     assert groups[Colors.GREEN].count() == 3

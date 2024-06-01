@@ -120,16 +120,25 @@ namespace db0::python
     PyObject *tryMakeEnum(PyObject *, const std::string &enum_name,
         const std::vector<std::string> &user_enum_values, const char *type_id)
     {
-        using EnumFactory = db0::object_model::EnumFactory;        
+        using EnumFactory = db0::object_model::EnumFactory;
         using EnumDef = db0::object_model::EnumDef;
 
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();        
         auto &enum_factory = fixture->get<EnumFactory>();
-        auto py_enum = PyEnumDefault_new();
         // use empty module name since it's unknown
-        py_enum->makeNew(enum_factory.getOrCreateEnum( EnumDef {enum_name, "", user_enum_values}, type_id));
+        auto enum_ = enum_factory.getOrCreateEnum(EnumDef {enum_name, "", user_enum_values}, type_id);
+        auto &lang_cache = (*fixture)->getLangCache();
+        // try pulling from cache
+        PyEnum *py_enum = reinterpret_cast<PyEnum*>(lang_cache.get(enum_->getAddress()));
+        if (py_enum) {
+            Py_INCREF(py_enum);
+            return py_enum;
+        }
+        py_enum = PyEnumDefault_new();
+        py_enum->makeNew(enum_);
+        lang_cache.add(enum_->getAddress(), py_enum, true);
         
-        // popluate enum's cache
+        // popluate enum's value cache
         for (auto &value: py_enum->ext().getValues()) {
             py_enum->ext().getLangValue(value);
         }

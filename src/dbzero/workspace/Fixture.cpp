@@ -237,16 +237,12 @@ namespace db0
         return m_snapshot;
     }
 
-    std::uint64_t Fixture::makeRelative(std::uint64_t address, std::uint32_t slot_num) const
-    {
-        auto &slab = reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num));
-        return slab.makeRelative(address);
+    std::uint64_t Fixture::makeRelative(std::uint64_t address, std::uint32_t slot_num) const {
+        return reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num)).makeRelative(address);
     }
     
-    std::uint64_t Fixture::makeAbsolute(std::uint64_t address, std::uint32_t slot_num) const
-    {
-        auto &slab = reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num));
-        return slab.makeRelative(address);
+    std::uint64_t Fixture::makeAbsolute(std::uint64_t address, std::uint32_t slot_num) const {
+        return reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num)).makeAbsolute(address);
     }
     
 }

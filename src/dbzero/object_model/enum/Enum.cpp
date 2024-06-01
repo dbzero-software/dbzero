@@ -55,7 +55,7 @@ namespace db0::object_model
         return value_id;
     }
     
-    std::uint32_t Enum::fetchUID() const 
+    std::uint32_t Enum::fetchUID() const
     {
         // return UID as relative address from the underlying SLOT
         auto result = this->getFixture()->makeRelative(this->getAddress(), SLOT_NUM);
@@ -63,7 +63,7 @@ namespace db0::object_model
         assert(result < std::numeric_limits<std::uint32_t>::max());
         return result;
     }
-
+    
     EnumValue Enum::get(const char *str_value) const
     {
         assert(str_value);

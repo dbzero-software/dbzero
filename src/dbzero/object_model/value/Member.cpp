@@ -328,7 +328,11 @@ namespace db0::object_model
     {
         auto &enum_factory = fixture->get<EnumFactory>();
         auto enum_value_uid = EnumValue_UID(value.cast<std::uint64_t>());
-        return PyToolkit::unloadEnumValue(enum_factory.getEnumByUID(enum_value_uid.m_enum_uid)->get(enum_value_uid));
+        auto py_result = enum_factory.getEnumByUID(enum_value_uid.m_enum_uid)->getLangValue(enum_value_uid);
+        if (py_result) {
+            Py_INCREF(py_result);
+        }
+        return py_result;
     }
 
     template <> void registerUnloadMemberFunctions<PyToolkit>(

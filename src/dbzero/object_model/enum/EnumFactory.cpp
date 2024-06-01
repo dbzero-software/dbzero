@@ -145,10 +145,9 @@ namespace db0::object_model
     }
     
     std::shared_ptr<Enum> EnumFactory::getEnumByPtr(EnumPtr ptr) const
-    {
+    {        
         auto it_cached = m_ptr_cache.find(ptr);
-        if (it_cached == m_ptr_cache.end())
-        {
+        if (it_cached == m_ptr_cache.end()) {
             auto fixture = getFixture();
             // pull existing DBZero Enum instance by pointer
             auto enum_ = std::shared_ptr<Enum>(new Enum(fixture, ptr.getAddress()));
