@@ -1,20 +1,24 @@
 # This is an experimental version of a possible Query Engine
 # implementation for DBZero
 import dbzero_ce as db0
-from typing import Dict
+from typing import Any, Dict
 
 
 class FastQuery:
-    def __init__(self, query, groups = None, uuid = None, sig = None, bytes = None):        
-        self.__query = query if groups is None else db0.split_by(groups, query)
-        self.__groups = groups
+    def __init__(self, query, group_defs = None, uuid = None, sig = None, bytes = None):        
+        self.__query = query
+        # split query by all available group definitions
+        for group_def in group_defs:
+            if group_def.groups is not None:
+                self.__query = db0.split_by(group_def.groups, self.__query)
+        self.__group_defs = group_defs
         self.__uuid= uuid
         self.__sig = sig        
         self.__bytes = bytes
     
     # rebase to a different snapshot
     def rebase(self, snapshot):
-        return FastQuery(snapshot.deserialize(db0.serialize(self.__query)), self.__groups, 
+        return FastQuery(snapshot.deserialize(db0.serialize(self.__query)), self.__group_defs,
                          self.__uuid, self.__sig, self.__bytes)
     
     @property
@@ -42,8 +46,24 @@ class FastQuery:
         if self.__bytes is None:
             self.__bytes = db0.serialize(self.__query)
         return self.__bytes
-    
 
+
+class GroupDef:
+    def __init__(self, key_func = None, groups = None):
+        self.__key_func = key_func
+        # extract decorators as the group identifier (may be one or more)
+        self.key_func = key_func if key_func else lambda row: row[1:][0]
+        self.groups = groups
+    
+    def split(self):
+        # prepare key func to work with split rows
+        if self.__key_func is not None:
+            self.key_func = lambda row: self.__key_func(row[0])            
+    
+    def __call__(self, row) -> Any:
+        return self.key_func(row)
+    
+    
 @db0.memo(singleton=True)
 class FastQueryCache:
     def __init__(self):
@@ -106,21 +126,21 @@ class GroupByBucket:
     
     
 class GroupByEval:
-    def __init__(self, key_func, data = None):
+    def __init__(self, group_defs, data = None):
         self.__data = data if data is not None else {}
-        if key_func:
-            self.__key_func = key_func
+        if len(group_defs) == 1:
+            group_def = group_defs[0]
+            self.__group_builder = lambda row: group_def(row)
         else:
-            # extract decorators as the group identifier (may be one or more)
-            self.__key_func = lambda row: row[1:][0]
-    
+            self.__group_builder = lambda row: tuple(group_def(row) for group_def in group_defs)
+
     def add(self, rows, max_scan = None):
         for row in rows:
             if max_scan is not None:
                 if max_scan == 0:
                     raise MaxScanExceeded()
                 max_scan -= 1
-            key = self.__key_func(row)
+            key = self.__group_builder(row)
             bucket = self.__data.get(key, None)
             if bucket is None:
                 bucket = GroupByBucket()
@@ -133,8 +153,8 @@ class GroupByEval:
             if max_scan is not None:
                 if max_scan == 0:
                     raise MaxScanExceeded()
-                max_scan -= 1            
-            key = self.__key_func(row)
+                max_scan -= 1         
+            key = self.__group_builder(row)
             self.__data.get(key).remove(row)
         return max_scan
 
@@ -155,15 +175,33 @@ def group_by(group_defs, query, max_scan = 1000) -> Dict:
     def delta(start, end):
         return db0.find(end.rows, db0.no(start.rows))
     
-    # extract groups and key function
-    def prepare_group_defs(group_defs):
-        # if iterable        
-        return (None, group_defs) if hasattr(group_defs, "__iter__") else (group_defs, None)
+    # a simple group definition is either: a string, a lambda or iterable of strings/enum values
+    def is_simple_group_def(group_defs):
+        if isinstance(group_defs, str) or callable(group_defs):
+            return True
+        if hasattr(group_defs, "__iter__"):
+            return all(isinstance(item, str) or db0.is_enum_value(item) for item in group_defs)
+        return False
+
+    # extract groups and key function from a simple group definition
+    def prepare_group_defs(group_defs, inner_def = False):
+        if is_simple_group_def(group_defs):
+            if hasattr(group_defs, "__iter__"):
+                yield GroupDef(groups = group_defs)
+            else:
+                yield GroupDef(key_func = group_defs)
+        else:
+            if inner_def:
+                raise ValueError("Invalid group definition")
+            yield from (next(prepare_group_defs(item, True)) for item in group_defs)
     
-    key_func, groups = prepare_group_defs(group_defs)
-    cache = FastQueryCache()
+    group_defs = tuple(prepare_group_defs(group_defs))
+    if any(group_def.groups is not None for group_def in group_defs):
+        for grop_def in group_defs:
+            grop_def.split()
+    
     def try_query_eval(fast_query, last_result, max_scan):
-        query_eval = GroupByEval(key_func, last_result[2] if last_result is not None else None)
+        query_eval = GroupByEval(group_defs, last_result[2] if last_result is not None else None)
         if last_result is None:
             # no cached result, evaluate full query
             query_eval.add(fast_query.rows, max_scan)
@@ -175,8 +213,9 @@ def group_by(group_defs, query, max_scan = 1000) -> Dict:
             query_eval.remove(delta(fast_query, old_query), limit)
         return query_eval.release()
     
+    cache = FastQueryCache()
     last_result = cache.find_result(query)
-    fast_query = FastQuery(query, groups)
+    fast_query = FastQuery(query, group_defs)
     # do not limit max_scan when on a first transaction
     max_scan = max_scan if db0.get_state_num() > 1 else None
     while True:
