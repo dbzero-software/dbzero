@@ -50,9 +50,15 @@ class FastQuery:
 
 class GroupDef:
     def __init__(self, key_func = None, groups = None):
+        self.__key_func = key_func
         # extract decorators as the group identifier (may be one or more)
         self.key_func = key_func if key_func else lambda row: row[1:][0]
         self.groups = groups
+    
+    def split(self):
+        # prepare key func to work with split rows
+        if self.__key_func is not None:
+            self.key_func = lambda row: self.__key_func(row[0])            
     
     def __call__(self, row) -> Any:
         return self.key_func(row)
@@ -123,9 +129,10 @@ class GroupByEval:
     def __init__(self, group_defs, data = None):
         self.__data = data if data is not None else {}
         if len(group_defs) == 1:
-            self.__group_builder = lambda row: group_defs[0](row)
+            group_def = group_defs[0]
+            self.__group_builder = lambda row: group_def(row)
         else:
-            raise ValueError("not implemented")
+            self.__group_builder = lambda row: tuple(group_def(row) for group_def in group_defs)
 
     def add(self, rows, max_scan = None):
         for row in rows:
@@ -180,16 +187,19 @@ def group_by(group_defs, query, max_scan = 1000) -> Dict:
     def prepare_group_defs(group_defs, inner_def = False):
         if is_simple_group_def(group_defs):
             if hasattr(group_defs, "__iter__"):
-                return (GroupDef(groups = group_defs),)
+                yield GroupDef(groups = group_defs)
             else:
-                return (GroupDef(key_func = group_defs),)
+                yield GroupDef(key_func = group_defs)
         else:
             if inner_def:
                 raise ValueError("Invalid group definition")
-            return (prepare_group_defs(item, True) for item in group_defs)
+            yield from (next(prepare_group_defs(item, True)) for item in group_defs)
     
-    group_defs = prepare_group_defs(group_defs)
-    cache = FastQueryCache()
+    group_defs = tuple(prepare_group_defs(group_defs))
+    if any(group_def.groups is not None for group_def in group_defs):
+        for grop_def in group_defs:
+            grop_def.split()
+    
     def try_query_eval(fast_query, last_result, max_scan):
         query_eval = GroupByEval(group_defs, last_result[2] if last_result is not None else None)
         if last_result is None:
@@ -203,6 +213,7 @@ def group_by(group_defs, query, max_scan = 1000) -> Dict:
             query_eval.remove(delta(fast_query, old_query), limit)
         return query_eval.release()
     
+    cache = FastQueryCache()
     last_result = cache.find_result(query)
     fast_query = FastQuery(query, group_defs)
     # do not limit max_scan when on a first transaction
