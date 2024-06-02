@@ -113,3 +113,13 @@ def test_group_by_enum_values_with_tag_removals(db0_fixture, memo_enum_tags):
         result = db0.group_by(Colors.values(), db0.find(MemoTestClass), max_scan = 1).get(Colors.RED, None)        
         count = result.count() if result else 0
         assert count == 4 - i
+    
+    
+# def test_group_by_multiple_criteria(db0_fixture, memo_enum_tags):
+#     Colors = memo_enum_tags["Colors"]
+#     # group by all colors and then by even/odd values
+#     groups = db0.group_by((Colors.values(), lambda x: x.value % 2), db0.find(MemoTestClass))
+#     assert len(groups) == 6
+#     assert groups[(Colors.RED, 0)].count() == 2
+#     assert groups[(Colors.RED, 1)].count() == 2
+    

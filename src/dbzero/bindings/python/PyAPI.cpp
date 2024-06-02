@@ -494,5 +494,15 @@ namespace db0::python
     PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) {
         return runSafe(trySplitBy, args, kwargs);
     }
+    
+    PyObject *isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "isEnumValue requires exactly 1 argument");
+            return NULL;
+        }
+
+        return PyEnumValue_Check(args[0]) ? Py_True : Py_False;
+    }
 
 }
