@@ -1,8 +1,9 @@
 #include <gtest/gtest.h>
 #include <cstdlib>
+#include <utils/TestBase.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/memory/BitSpace.hpp>
-#include <utils/TestBase.hpp>
+#include <dbzero/core/collections/full_text/key_value.hpp>
 
 using namespace std;
 
@@ -70,6 +71,37 @@ namespace tests
             }
         }
         ASSERT_EQ(rvalues, (std::vector<std::uint64_t> { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }));
+    }
+    
+    TEST_F( VBIndexTests , testVBIndexBulkInsertUpdate )
+    {
+        using ItemT = db0::key_value<std::uint32_t, std::uint32_t>;
+        auto memspace = getMemspace();
+        std::vector<ItemT> values = { { 1, 0} , { 2, 0 }, { 3, 0 }, { 4, 0 }, { 5, 0 } };
+        db0::v_bindex<ItemT> cut(memspace, memspace.getPageSize());
+        for (auto value: values) {
+            cut.insert(value);
+        }
+
+        std::vector<ItemT> values_2 = { { 1, 1} , { 2, 2 }, { 3, 1 }, { 6, 0 } };
+        cut.bulkUpdate(values_2.begin(), values_2.end());
+
+        auto it = cut.end();
+        if (it != cut.begin()) {
+            --it;
+        }
+
+        std::vector<ItemT> rvalues;
+        while (it != cut.end()) {
+            rvalues.push_back(*it);
+            if (it == cut.begin()) {
+                it = cut.end();
+            } else {
+                --it;        
+            }
+        }
+        
+        ASSERT_EQ(rvalues, (std::vector<ItemT> {{ 6, 0 }, { 5, 0 }, { 4, 0 }, { 3, 1 }, { 2, 2 }, { 1, 1 }}));
     }
 
 }

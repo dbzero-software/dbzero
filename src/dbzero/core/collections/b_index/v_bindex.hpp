@@ -179,29 +179,29 @@ namespace db0
             bulkInsertUnique(iterator_t begin_item, iterator_t end_item, 
             CallbackT *callback_ptr = nullptr)
         {
-            return bulkInsert(begin_item, end_item, true, nullptr, callback_ptr);
+            return bulkInsert(begin_item, end_item, true, false, callback_ptr);
         }
 
         /**
          * Either inserts new items or updates existing with specific "update" lambda function
          */
         template <typename iterator_t> std::pair<std::uint32_t, std::uint32_t> bulkUpdate(
-            iterator_t begin_item, iterator_t end_item,
-            std::function<void(item_t &item, const item_t &new_item)> update_func)
+            iterator_t begin_item, iterator_t end_item)            
         {
-            return bulkInsert(begin_item, end_item, true, &update_func);
+            return bulkInsert(begin_item, end_item, true, true);
         }
 
         /**
          * insert items (only unique if requested with flag)
          * @param callback - the function to receive new item notifications
+         * @param update - if true then existing items will be updated (if not identical), may only be true when unique_only is true
          * @return items requested / items actually inserted
          */
         template <typename iterator_t> std::pair<std::uint32_t, std::uint32_t> bulkInsert(iterator_t begin_item,
-            iterator_t end_item, bool unique_only = false, 
-            std::function<void(item_t &item, const item_t &new_item)> *update_func = nullptr, 
+            iterator_t end_item, bool unique_only = false, bool update = false,            
             CallbackT *callback_ptr = nullptr)
         {
+            assert(!update || unique_only);
             std::pair<std::uint32_t, std::uint32_t> result(0, 0);
             std::uint32_t size_diff = 0;
             heap<item_t,item_comp_t> data_heap(16);
@@ -212,7 +212,7 @@ namespace db0
             }
             while (!data_heap.empty()) {
                 insert_iterator insert_it(*this, data_heap.front());
-                size_diff += insert_it.bulkInsert(data_heap, unique_only, update_func, callback_ptr);
+                size_diff += insert_it.bulkInsert(data_heap, unique_only, update, callback_ptr);
             }
             if (size_diff != 0) {
                 this->modify().size += size_diff;
@@ -614,14 +614,14 @@ namespace db0
             /**
              * bulk insert into or update current bucket (data vector)
              * unique_only - if true, then only non duplicated items will be inserted
-             * update - if not null then unique existing items will be updated with update lambda
+             * update - if true then existing items will be updated (if not identical), may only be true when unique_only is true
              * callback - the function to receive new item notifications
              * @return number of items inserted
              */
             std::uint32_t bulkInsert(heap<item_t, item_comp_t> &data, bool unique_only = false,
-                std::function<void(item_t &item, const item_t &new_item)> *update_func = nullptr,
-                CallbackT *callback_ptr = nullptr)
+                bool update = false, CallbackT *callback_ptr = nullptr)
             {
+                assert(!update || unique_only);
                 std::uint32_t result = 0;
                 bool force_insert = false;
                 while (!data.empty()) {
@@ -649,11 +649,9 @@ namespace db0
                             ++result;
                             force_insert = false;
                         } else {
-                            // update existing item
-                            if (item && update_func) {
-                                item_t &item_to_modify = m_data_buf.modify().modifyItem(item);
-                                // very full debug perform checks - test whether key has been modified or not
-                                (*update_func)(item_to_modify, data.front());
+                            // update existing item if not identical as existing one
+                            if (item && update && std::memcmp(item, &data.front(), sizeof(item_t)) != 0) {                               
+                                m_data_buf.modify().modifyItem(item) = data.front();
                             }
                             // duplicate item, remove all from insert heap
                             data.pop_front_all();
@@ -677,10 +675,8 @@ namespace db0
                             ++result;
                         } else {
                             // update existing item
-                            if (item && update_func) {
-                                item_t &item_to_modify = m_data_buf.modify().modifyItem(item);
-                                // very full debug perform checks - test whether key has been modified or not
-                                (*update_func)(item_to_modify, data.front());
+                            if (item && update && std::memcmp(item, &data.front(), sizeof(item_t)) != 0) {
+                                m_data_buf.modify().modifyItem(item) = data.front();
                             }
                             // duplicate item, remove from insert heap
                             data.pop_front_all();
