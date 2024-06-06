@@ -74,7 +74,8 @@ namespace db0::object_model
         
         std::size_t size() const;
         void add(ObjectPtr key, ObjectPtr value);
-         
+        void remove(ObjectPtr key, ObjectPtr value);
+        
         /**
          * Sort results of a specific object iterator from the same fixture
          * @param iter object iterator        
@@ -145,7 +146,10 @@ namespace db0::object_model
             }
             
             if (!std::is_same_v<FromType, ToType>) {
-                m_index_builder = db0::make_shared_void<IndexBuilder<ToType> >(getIndexBuilder<FromType>(true).releaseNullItems());
+                m_index_builder = db0::make_shared_void<IndexBuilder<ToType> >(
+                    getIndexBuilder<FromType>(true).releaseRemoveNullItems(),
+                    getIndexBuilder<FromType>(true).releaseAddNullItems()                 
+                );
             }
             // set or update the data type
             m_data_type = getDataType<ToType>();
@@ -215,6 +219,7 @@ namespace db0::object_model
 
         // adds to with a null key, compatible with all types
         void addNull(ObjectPtr);
+        void removeNull(ObjectPtr);
 
         template <typename T> std::optional<T> extractOptionalValue(ObjectPtr value) const;
     };

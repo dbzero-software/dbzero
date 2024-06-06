@@ -133,6 +133,39 @@ namespace db0::object_model
         }            
     }
     
+    void Index::remove(ObjectPtr key, ObjectPtr value)
+    {
+        auto &type_manager = LangToolkit::getTypeManager();
+        // special handling of null / None values
+        if (type_manager.isNull(key)) {
+            removeNull(value);
+            return;
+        }
+
+        auto data_type = m_data_type;
+        if (data_type == IndexDataType::Auto) {
+            // update to a concrete data type
+            data_type = updateIndexBuilder(type_manager.getTypeId(key));
+        }
+
+        switch (data_type) {
+            case IndexDataType::Int64: {
+                getIndexBuilder<std::int64_t>().remove(type_manager.extractInt64(key), value); 
+                break;
+            }
+
+            case IndexDataType::UInt64: {
+                getIndexBuilder<std::uint64_t>().remove(type_manager.extractUInt64(key), value);
+                break;
+            }
+
+            default:
+                THROWF(db0::InputException) << "Index of type " 
+                    << static_cast<std::uint16_t>(m_data_type)
+                    << " does not allow keys of type: " << LangToolkit::getTypeName(key) << THROWF_END;
+        }            
+    }
+
     std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool nulls_first) const
     {
         const_cast<Index*>(this)->flush();
@@ -284,4 +317,8 @@ namespace db0::object_model
         return index_data_type;
     }
 
+    void Index::removeNull(ObjectPtr) {
+        throw std::runtime_error("Index::removeNull not implemented");
+    }
+    
 }

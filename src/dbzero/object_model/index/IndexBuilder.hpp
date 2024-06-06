@@ -20,11 +20,14 @@ namespace db0::object_model
         using super_t = typename RangeTree<KeyT, std::uint64_t>::Builder;        
 
         IndexBuilder();
-        IndexBuilder(std::vector<std::uint64_t> &&null_values);
+        IndexBuilder(std::unordered_set<std::uint64_t> &&remove_null_values,
+            std::unordered_set<std::uint64_t> &&add_null_values);
         
         void add(KeyT key, ObjectPtr obj_ptr);
+        void remove(KeyT key, ObjectPtr obj_ptr);
 
         void addNull(ObjectPtr obj_ptr);
+        void removeNull(ObjectPtr obj_ptr);
 
         // Flush and incRef to unique added objects
         void flush(RangeTreeT &index);
@@ -44,8 +47,9 @@ namespace db0::object_model
     {
     }
     
-    template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder(std::vector<std::uint64_t> &&null_values)
-        : super_t(std::move(null_values))
+    template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder(
+        std::unordered_set<std::uint64_t> &&remove_null_values, std::unordered_set<std::uint64_t> &&add_null_values)
+        : super_t(std::move(remove_null_values), std::move(add_null_values))
         , m_type_manager(LangToolkit::getTypeManager())
     {
     }
@@ -59,7 +63,11 @@ namespace db0::object_model
             m_object_cache.emplace(obj_addr, obj_ptr);
         }
     }
-    
+
+    template <typename KeyT> void IndexBuilder<KeyT>::remove(KeyT key, ObjectPtr obj_ptr) {
+        super_t::remove(key, m_type_manager.extractObject(obj_ptr).getAddress());
+    }
+
     template <typename KeyT> void IndexBuilder<KeyT>::addNull(ObjectPtr obj_ptr)
     {
         auto obj_addr = m_type_manager.extractObject(obj_ptr).getAddress();
@@ -68,6 +76,10 @@ namespace db0::object_model
         if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
             m_object_cache.emplace(obj_addr, obj_ptr);
         }
+    }
+
+    template <typename KeyT> void IndexBuilder<KeyT>::removeNull(ObjectPtr obj_ptr) {
+        super_t::removeNull(m_type_manager.extractObject(obj_ptr).getAddress());
     }
 
     template <typename KeyT> void IndexBuilder<KeyT>::flush(RangeTreeT &index)

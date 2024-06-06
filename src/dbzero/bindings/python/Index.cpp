@@ -8,6 +8,7 @@ namespace db0::python
 
     static PyMethodDef IndexObject_methods[] = {
         {"add", (PyCFunction)IndexObject_add, METH_FASTCALL, "Add item to index."},
+        {"remove", (PyCFunction)IndexObject_remove, METH_FASTCALL, "Remove item from index if it exists."},
         {"sort", (PyCFunction)IndexObject_sort, METH_FASTCALL, "Sort results of other iterator."},
         {"range", (PyCFunction)IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Extract values from a specific range"},
         {NULL}
@@ -32,13 +33,11 @@ namespace db0::python
         .tp_free = PyObject_Free,   
     };
     
-    IndexObject *IndexObject_new(PyTypeObject *type, PyObject *, PyObject *)
-    {
+    IndexObject *IndexObject_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<IndexObject*>(type->tp_alloc(type, 0));
     }
 
-    IndexObject *IndexDefaultObject_new()
-    {
+    IndexObject *IndexDefaultObject_new() {
         return IndexObject_new(&IndexObjectType, NULL, NULL);
     }
 
@@ -79,6 +78,17 @@ namespace db0::python
         }
 
         index_obj->ext().add(args[0], args[1]);
+        Py_RETURN_NONE;
+    }
+
+    PyObject *IndexObject_remove(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 2) {
+            PyErr_SetString(PyExc_TypeError, "remove() takes exactly two arguments");
+            return NULL;
+        }
+
+        index_obj->ext().remove(args[0], args[1]);
         Py_RETURN_NONE;
     }
 

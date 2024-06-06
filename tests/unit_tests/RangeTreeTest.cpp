@@ -421,7 +421,7 @@ namespace tests
         auto it = rt.lowerBound(22, true);
         ASSERT_FALSE(it.isEnd());
     }
-    
+
     TEST_F( RangeTreeTest , testRangeTreeBulkInsertNull )
     {
         using RangeTreeT = RangeTree<int, std::uint64_t>;
@@ -479,6 +479,35 @@ namespace tests
         }
         
         ASSERT_EQ(values, (std::unordered_set<std::uint64_t> { 0, 1, 2, 3, 4 }));
+    }
+
+    TEST_F( RangeTreeTest , testRangeTreeBulkEraseExistingNonNull )
+    {
+        using RangeTreeT = RangeTree<int, std::uint64_t>;
+        using ItemT = typename RangeTreeT::ItemT;
+        
+        auto memspace = getMemspace();        
+        RangeTreeT rt(memspace, 4);
+        std::vector<ItemT> values_1 {
+            { 0, 0 }, { 27, 4 }, { 42134, 44 }, { 99, 3 }, { 152, 8}, { 123, 9 }, { 152, 12 }, 
+            { 3312, 19, }, { 921, 444 }, { 1923, 94}
+        };
+        rt.bulkInsert(values_1.begin(), values_1.end());
+        
+        std::vector<ItemT> erase_values {
+            { 27, 4 }, { 42134, 44 }, { 99, 3 }, { 123, 9 }, { 152, 12 }, { 3312, 19, }
+        };
+        rt.bulkErase(erase_values.begin(), erase_values.end());
+
+        std::vector<std::uint64_t> values;
+        RT_SortIterator<int, std::uint64_t> cut(rt);
+        while (!cut.isEnd()) {
+            std::uint64_t value;
+            cut.next(&value);
+            values.push_back(value); 
+        }
+
+        ASSERT_EQ(values, (std::vector<std::uint64_t> { 0, 8, 444, 94 }));
     }
 
 } 

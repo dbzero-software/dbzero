@@ -28,7 +28,7 @@ namespace db0
         {
         }
 
-        // by-value + key comparator
+        // by-value + key comparator (for b-index side operations where there's by-value arrangement)
         inline bool operator<(const BlockItemT& other) const
         {
             if (m_value == other.m_value) {
@@ -37,14 +37,21 @@ namespace db0
             return m_value < other.m_value;
         }
 
-        inline bool operator!=(const BlockItemT& other) const
+        // by-key + value comparison
+        inline bool ltByKey(const BlockItemT& other) const
         {
+            if (m_key == other.m_key) {
+                return m_value < other.m_value;
+            }
+            return m_key < other.m_key;
+        }
+
+        inline bool operator!=(const BlockItemT& other) const {
             return (m_key != other.m_key) || (m_value != other.m_value);
         }
         
         // cast to value (required by the FT_Iterator implementations)
-        inline operator ValueT() const
-        {
+        inline operator ValueT() const {
             return m_value;
         }
 
@@ -89,6 +96,14 @@ namespace db0
                 return b.m_key < a.m_key;
             }
         };
+
+        struct Hash
+        {
+            inline std::size_t operator()(const BlockItemT& item) const {
+                return std::hash<KeyT>()(item.m_key) ^ std::hash<ValueT>()(item.m_value);
+            }
+        };
+
     };
     
 }

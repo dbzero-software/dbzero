@@ -286,3 +286,15 @@ def test_null_first_range_query(db0_fixture):
     # null-first query should include null in the high-bound range
     values = set([x.value for x in index.range(None, 1 , nulls_first=True)])
     assert values == set([999, 0, 1])
+
+
+# def test_can_remove_elements_from_index(db0_fixture):
+#     index = db0.index()
+#     # key, value
+#     obj_1 = MemoTestClass(999)
+#     index.add(1, obj_1)
+#     assert len(index) == 1
+#     db0.commit()
+#     # then remove (must pass an existing key and value)
+#     index.remove(1, obj_1)
+#     assert len(index) == 0
