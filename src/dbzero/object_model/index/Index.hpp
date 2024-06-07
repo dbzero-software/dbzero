@@ -148,7 +148,8 @@ namespace db0::object_model
             if (!std::is_same_v<FromType, ToType>) {
                 m_index_builder = db0::make_shared_void<IndexBuilder<ToType> >(
                     getIndexBuilder<FromType>(true).releaseRemoveNullItems(),
-                    getIndexBuilder<FromType>(true).releaseAddNullItems()                 
+                    getIndexBuilder<FromType>(true).releaseAddNullItems(),
+                    getIndexBuilder<FromType>(true).releaseObjectCache()
                 );
             }
             // set or update the data type

@@ -317,8 +317,29 @@ namespace db0::object_model
         return index_data_type;
     }
 
-    void Index::removeNull(ObjectPtr) {
-        throw std::runtime_error("Index::removeNull not implemented");
+    void Index::removeNull(ObjectPtr obj_ptr)
+    {
+        switch (m_data_type) {
+            // use provisional data type for Auto
+            case IndexDataType::Auto: {
+                return getIndexBuilder<DefaultT>(true).removeNull(obj_ptr);
+                break;
+            }
+
+            case IndexDataType::Int64: {
+                return getIndexBuilder<std::int64_t>().removeNull(obj_ptr);
+                break;
+            }
+
+            case IndexDataType::UInt64: {
+                return getIndexBuilder<std::uint64_t>().removeNull(obj_ptr);
+                break;
+            }
+
+            default:
+                THROWF(db0::InputException) << "Unsupported index data type: " 
+                    << static_cast<std::uint16_t>(m_data_type) << THROWF_END;
+        }
     }
     
 }

@@ -288,13 +288,44 @@ def test_null_first_range_query(db0_fixture):
     assert values == set([999, 0, 1])
 
 
-# def test_can_remove_elements_from_index(db0_fixture):
-#     index = db0.index()
-#     # key, value
-#     obj_1 = MemoTestClass(999)
-#     index.add(1, obj_1)
-#     assert len(index) == 1
-#     db0.commit()
-#     # then remove (must pass an existing key and value)
-#     index.remove(1, obj_1)
-#     assert len(index) == 0
+def test_can_remove_elements_from_index(db0_fixture):
+    index = db0.index()    
+    obj_1 = MemoTestClass(999)
+    # key, value
+    index.add(1, obj_1)
+    assert len(index) == 1
+    db0.commit()
+    # then remove (must pass an existing key and value)
+    index.remove(1, obj_1)
+    assert len(index) == 0
+
+
+def test_adding_and_removing_index_elements_in_same_transaction(db0_fixture):
+    index = db0.index()    
+    obj_1, obj_2 = MemoTestClass(999), MemoTestClass(888)    
+    index.add(1, obj_1)
+    index.add(2, obj_2)
+    index.remove(1, obj_1)
+    db0.commit()
+    assert len(index) == 1
+
+
+def test_remove_then_add_element_to_index(db0_fixture):
+    index = db0.index()
+    obj_1 = MemoTestClass(999)
+    index.remove(1, obj_1)
+    index.add(1, obj_1)    
+    assert len(index) == 1
+
+
+def test_removing_null_keys_from_index(db0_fixture):
+    index = db0.index()
+    obj_1, obj_2, obj_3 = MemoTestClass(999), MemoTestClass(888), MemoTestClass(777)
+    index.add(None, obj_1)
+    index.add(None, obj_2)
+    index.add(None, obj_3)
+    assert len(index) == 3
+    db0.commit()
+    index.remove(None, obj_1)
+    index.remove(None, obj_3)
+    assert len(index) == 1

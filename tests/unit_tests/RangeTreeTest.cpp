@@ -538,7 +538,7 @@ namespace tests
 
         ASSERT_EQ(values, (std::vector<std::uint64_t> { 0, 4, 8, 444, 94, 19 }));
     }
-
+    
     TEST_F( RangeTreeTest , testRangeTreeBulkEraseNull )
     {
         using RangeTreeT = RangeTree<int, std::uint64_t>;

@@ -198,8 +198,9 @@ namespace db0
 
             auto null_block_ptr = getNullBlock();
             assert(null_block_ptr);
+
             // insert values into the null block directly
-            auto diff = null_block_ptr->bulkInsert(begin, end, add_callback_ptr).first;
+            auto diff = null_block_ptr->bulkInsertUnique(begin, end, add_callback_ptr).first;
             if (diff > 0) {
                 this->modify().m_size += diff;
             }
@@ -542,23 +543,47 @@ namespace db0
                 m_add_items.insert(ItemT {key, value});
             }
 
-            void remove(KeyT key, ValueT value) {
-                throw std::runtime_error("RangeTree::Builder::remove() is not implemented");
+            void remove(KeyT key, ValueT value)
+            {
+                // if element is in "to add" list then simply remove it from there
+                if (m_add_items.erase(ItemT {key, value})) {
+                    return;
+                }
+                m_remove_items.insert(ItemT {key, value});
             }
 
             void addNull(ValueT value) {
                 m_add_null_items.insert(value);
             }
 
-            void removeNull(ValueT value) {
-                throw std::runtime_error("RangeTree::Builder::removeNull() is not implemented");
+            void removeNull(ValueT value)
+            {
+                // if element is in "to add" list then simply remove it from there
+                if (m_add_null_items.erase(value)) {
+                    return;
+                }
+                m_remove_null_items.insert(value);
             }
 
             /**
              * @param add_callback_ptr optional callback to be called for each new added element
+             * @param erase_callback_ptr optional callback to be called for each erased element
             */
-            void flush(RangeTree &range_tree, CallbackT *add_callback_ptr = nullptr)
+            void flush(RangeTree &range_tree, CallbackT *add_callback_ptr = nullptr,
+                CallbackT *erase_callback_ptr = nullptr)
             {
+                // erase items first
+                if (!m_remove_items.empty()) {
+                    std::vector<ItemT> items;
+                    std::copy(m_remove_items.begin(), m_remove_items.end(), std::back_inserter(items));
+                    range_tree.bulkErase(items.begin(), items.end(), erase_callback_ptr);
+                    m_remove_items.clear();
+                }
+                // ... and null items
+                if (!m_remove_null_items.empty()) {
+                    range_tree.bulkEraseNull(m_remove_null_items.begin(), m_remove_null_items.end(), erase_callback_ptr);
+                    m_remove_null_items.clear();
+                }
                 if (!m_add_items.empty()) {
                     std::vector<ItemT> items;
                     std::copy(m_add_items.begin(), m_add_items.end(), std::back_inserter(items));

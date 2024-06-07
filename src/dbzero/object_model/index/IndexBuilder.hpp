@@ -21,7 +21,8 @@ namespace db0::object_model
 
         IndexBuilder();
         IndexBuilder(std::unordered_set<std::uint64_t> &&remove_null_values,
-            std::unordered_set<std::uint64_t> &&add_null_values);
+            std::unordered_set<std::uint64_t> &&add_null_values, 
+            std::unordered_map<std::uint64_t, ObjectSharedPtr> &&object_cache);
         
         void add(KeyT key, ObjectPtr obj_ptr);
         void remove(KeyT key, ObjectPtr obj_ptr);
@@ -31,6 +32,10 @@ namespace db0::object_model
 
         // Flush and incRef to unique added objects
         void flush(RangeTreeT &index);
+
+        std::unordered_map<std::uint64_t, ObjectSharedPtr> &&releaseObjectCache() {
+            return std::move(m_object_cache);
+        }
 
     private:
         typename LangToolkit::TypeManager &m_type_manager;
@@ -48,9 +53,11 @@ namespace db0::object_model
     }
     
     template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder(
-        std::unordered_set<std::uint64_t> &&remove_null_values, std::unordered_set<std::uint64_t> &&add_null_values)
-        : super_t(std::move(remove_null_values), std::move(add_null_values))
+        std::unordered_set<std::uint64_t> &&remove_null_values, std::unordered_set<std::uint64_t> &&add_null_values, 
+        std::unordered_map<std::uint64_t, ObjectSharedPtr> &&object_cache)
+        : super_t(std::move(remove_null_values), std::move(add_null_values))        
         , m_type_manager(LangToolkit::getTypeManager())
+        , m_object_cache(std::move(object_cache))
     {
     }
 
@@ -90,7 +97,13 @@ namespace db0::object_model
             m_type_manager.extractObject(it->second.get()).incRef();
         };
 
-        super_t::flush(index, &add_callback);
+        std::function<void(std::uint64_t)> erase_callback = [&](std::uint64_t address) {
+            auto it = m_object_cache.find(address);
+            assert(it != m_object_cache.end());
+            m_type_manager.extractObject(it->second.get()).decRef();
+        };
+
+        super_t::flush(index, &add_callback, &erase_callback);
     }
 
 }
