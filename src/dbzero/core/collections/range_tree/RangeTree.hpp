@@ -205,6 +205,24 @@ namespace db0
             }
         }
 
+        template <typename IteratorT> void bulkEraseNull(IteratorT begin, IteratorT end,
+            CallbackT *erase_callback_ptr = nullptr)
+        {
+            // exist if null block doesn't exist
+            if (!(*this)->m_rt_null_block_addr) {
+                return;
+            }
+
+            auto null_block_ptr = getNullBlock();
+            assert(null_block_ptr);
+
+            // erase values from the null block directly
+            auto diff = null_block_ptr->bulkErase(begin, end, static_cast<const ValueT*>(nullptr),  erase_callback_ptr);
+            if (diff > 0) {
+                this->modify().m_size -= diff;
+            }
+        }
+
         class RangeIterator
         {
         public:
