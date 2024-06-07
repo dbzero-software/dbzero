@@ -141,6 +141,49 @@ namespace db0
         }
         
         /**
+         * Erase 1 or more elements in a single bulk operation
+         * @tparam IteratorT random access iterator to items
+         * @param erase_callback_ptr optional callback to be called for each erased element
+        */
+        template <typename IteratorT> void bulkErase(IteratorT begin, IteratorT end,
+            CallbackT *erase_callback_ptr = nullptr)
+        {
+            using CompT = typename ItemT::HeapCompT;
+            if (m_index.empty()) {
+                // nothing to erase
+                return;
+            }
+
+            // heapify the elements (min heap by key)
+            std::make_heap(begin, end, CompT());
+            while (begin != end) {
+                auto range = getExistingRange(*begin);
+                auto _end = end;
+                while (begin != end && range.inUpperBound(*begin)) {
+                    std::pop_heap(begin, end, CompT());
+                    --end;
+                    if (!range.inLowerBound(*begin)) {
+                        // ignore the element out of bounds
+                        *(end + 1) = *_end;
+                        --_end;
+                    }
+                }
+                
+                // erase from current range and continue with the next one
+                if (end != _end) {
+                    auto diff = range.bulkErase(end, _end, erase_callback_ptr);
+                    if (diff > 0) {
+                        this->modify().m_size -= diff;
+                    }
+                    if (range.empty()) {
+                        // remove the empty range
+                        range.erase();
+                    }
+                }
+            }
+        }
+
+        /**
          * Insert 1 or more null elements (null key)
          * @param add_callback_ptr optional callback to be called for each new added element
         */
@@ -155,25 +198,44 @@ namespace db0
 
             auto null_block_ptr = getNullBlock();
             assert(null_block_ptr);
+
             // insert values into the null block directly
-            auto diff = null_block_ptr->bulkInsert(begin, end, add_callback_ptr).first;
+            auto diff = null_block_ptr->bulkInsertUnique(begin, end, add_callback_ptr).first;
             if (diff > 0) {
                 this->modify().m_size += diff;
+            }
+        }
+
+        template <typename IteratorT> void bulkEraseNull(IteratorT begin, IteratorT end,
+            CallbackT *erase_callback_ptr = nullptr)
+        {
+            // exist if null block doesn't exist
+            if (!(*this)->m_rt_null_block_addr) {
+                return;
+            }
+
+            auto null_block_ptr = getNullBlock();
+            assert(null_block_ptr);
+
+            // erase values from the null block directly
+            auto diff = null_block_ptr->bulkErase(begin, end, static_cast<const ValueT*>(nullptr),  erase_callback_ptr);
+            if (diff > 0) {
+                this->modify().m_size -= diff;
             }
         }
 
         class RangeIterator
         {
         public:
-            RangeIterator(Memspace &memspace, const iterator &it, const iterator &begin, 
+            RangeIterator(RT_Index &index, const iterator &it, const iterator &begin,
                 const iterator &end, bool is_first, bool asc)
-                : m_memspace(memspace)
+                : m_index(index)                
                 , m_it(it)
                 , m_next_it(it)
                 , m_begin(begin)
                 , m_end(end)
                 , m_is_first(is_first)
-                , m_asc(asc)                
+                , m_asc(asc)
             {
                 next(m_next_it);
                 if (m_it != m_end) {
@@ -184,11 +246,21 @@ namespace db0
                 }
             }
 
-            bool inBounds(ItemT item) const
+            inline bool inLowerBound(ItemT item) const
             {
                 assert(m_asc);
-                // the second condition is to allow multiple range with identical element
-                return (!m_bounds.first || !(item < *m_bounds.first)) && (!m_bounds.second || (item < *m_bounds.second));
+                return !m_bounds.first || !item.ltByKey(*m_bounds.first);
+            }
+
+            inline bool inUpperBound(ItemT item) const
+            {
+                assert(m_asc);
+                return !m_bounds.second || (item.ltByKey(*m_bounds.second));
+            }
+
+            bool inBounds(ItemT item) const {
+                // the second condition is to allow multiple range with identical elements
+                return inLowerBound(item) && inUpperBound(item);
             }
 
             bool canInsert(ItemT item) const
@@ -209,13 +281,12 @@ namespace db0
             BlockT &operator*()
             {
                 if (!m_block) {
-                    m_block = std::make_unique<BlockT>((*m_it).m_block_ptr(m_memspace));
+                    m_block = std::make_unique<BlockT>((*m_it).m_block_ptr(m_index.getMemspace()));
                 }
                 return *m_block;
             }
 
-            BlockT *operator->()
-            {
+            BlockT *operator->() {
                 return &**this;
             }
             
@@ -227,7 +298,7 @@ namespace db0
             
             void operator=(RangeIterator &&other)
             {                
-                assert(&m_memspace == &other.m_memspace);
+                assert(&m_index == &other.m_index);
                 assert(m_begin == other.m_begin);
                 assert(m_end == other.m_end);
                 assert(m_asc == other.m_asc);
@@ -257,8 +328,7 @@ namespace db0
                 m_block.reset();
             }
 
-            bool isEnd() const
-            {
+            bool isEnd() const {
                 return m_it == m_end;
             }
 
@@ -300,7 +370,7 @@ namespace db0
                 }
 
                 // create new block & populate with remaining items
-                BlockT new_block(m_memspace);
+                BlockT new_block(m_index.getMemspace());
                 new_block.bulkInsert(items.begin(), end);
                 return new_block;
             }
@@ -309,11 +379,11 @@ namespace db0
              * @return number of elements added
              * @param add_callback_ptr optional callback to be called for each added element
             */
-            template <typename iterator_t> std::size_t bulkInsert(iterator_t begin_item, iterator_t end_item, 
+            template <typename iterator_t> std::size_t bulkInsert(iterator_t begin_item, iterator_t end_item,
                 CallbackT *add_callback_ptr = nullptr)
             {
                 if (m_is_first) {
-                    // check if the first item needs to be updated
+                    // check if the first item needs to be updated (which is needed only for the 1st range)
                     typename RT_Item::CompT comp;
                     auto first_item = (*m_it).m_first_item;
                     for (auto it = begin_item, end = end_item; it != end; ++it) {
@@ -337,15 +407,46 @@ namespace db0
                 std::function<void(ItemT)> *add_item_callback_ptr = (add_callback_ptr ? &add_item_callback : nullptr);
                 return (*this)->bulkInsertUnique(begin_item, end_item, add_item_callback_ptr).second;
             }
-                    
+
+            /**
+             * Erase existing elements, ignore non-existing ones
+             * @return number of erased elements
+            */
+            template <typename iterator_t> std::size_t bulkErase(iterator_t begin_item, iterator_t end_item,
+                CallbackT *erase_callback_ptr = nullptr)
+            {
+                // Forwards a value to the erase item callback
+                std::function<void(ItemT)> erase_item_callback = [&](ItemT item) {
+                    (*erase_callback_ptr)(item.m_value);
+                };
+                
+                std::function<void(ItemT)> *erase_item_callback_ptr = (erase_callback_ptr ? &erase_item_callback : nullptr);
+                return (*this)->bulkErase(begin_item, end_item, static_cast<const ItemT*>(nullptr),
+                    erase_item_callback_ptr);
+            }
+
+            // Erase the empty range, iterator gets invalidated
+            void erase()
+            {
+                // destroy the range associated block
+                m_block->destroy();
+                m_block = nullptr;
+                m_index.erase(m_it);                
+            }
+
+            bool empty() const {
+                return !m_block || m_block->empty();
+            }
+
         private:
-            Memspace &m_memspace;
+            RT_Index &m_index;            
             iterator m_it;
             iterator m_next_it;
             const iterator m_begin;
             const iterator m_end;
-            std::unique_ptr<BlockT> m_block;            
+            std::unique_ptr<BlockT> m_block;   
             std::pair<std::optional<ItemT>, std::optional<ItemT>> m_bounds;
+            // flag indicating if we're at the first range
             bool m_is_first;
             const bool m_asc;            
 
@@ -372,20 +473,15 @@ namespace db0
         */
         RangeIterator beginRange(bool asc = true) const
         {
+            auto &index = const_cast<RT_Index&>(m_index);
             if (asc) {
-                return { this->getMemspace(), 
-                    const_cast<RT_Index&>(m_index).begin(),
-                    const_cast<RT_Index&>(m_index).begin(), 
-                    const_cast<RT_Index&>(m_index).end(), true, asc };
+                return { index, index.begin(), index.begin(), index.end(), true, asc };
             } else {
-                auto last = const_cast<RT_Index&>(m_index).end();
-                if (last != const_cast<RT_Index&>(m_index).begin()) {
+                auto last = index.end();
+                if (last != index.begin()) {
                     --last;
                 }
-                return { this->getMemspace(),
-                    last,
-                    const_cast<RT_Index&>(m_index).begin(),
-                    const_cast<RT_Index&>(m_index).end(), true, asc };
+                return { index, last, index.begin(), index.end(), true, asc };
             }
         }
 
@@ -400,7 +496,7 @@ namespace db0
             if (it == index.end()) {
                 it = index.begin();
             }
-            return { this->getMemspace(), it, index.begin(), index.end(), it == index.begin(), true };
+            return { const_cast<RT_Index&>(m_index), it, index.begin(), index.end(), it == index.begin(), true };
         }
 
         /**
@@ -430,59 +526,111 @@ namespace db0
             Builder() = default;
 
             // construct with pre-populated null items
-            Builder(std::vector<ValueT> &&null_items)
-                : m_null_items(std::move(null_items))
+            Builder(std::unordered_set<ValueT> &&remove_null_items, std::unordered_set<ValueT> &&add_null_items)
+                : m_remove_null_items(std::move(remove_null_items))
+                , m_add_null_items(std::move(add_null_items))                
             {
             }
 
-            ~Builder() {
-                assert(m_items.empty() && m_null_items.empty() && "RangeTree::Builder::flush() or close() must be called before destruction");
+            ~Builder()
+            {
+                assert(m_add_items.empty() && m_add_null_items.empty() 
+                    && m_remove_items.empty() && m_remove_null_items.empty()
+                    && "RangeTree::Builder::flush() or close() must be called before destruction");
             }
 
             void add(KeyT key, ValueT value) {
-                m_items.push_back({key, value});
+                m_add_items.insert(ItemT {key, value});
+            }
+
+            void remove(KeyT key, ValueT value)
+            {
+                // if element is in "to add" list then simply remove it from there
+                if (m_add_items.erase(ItemT {key, value})) {
+                    return;
+                }
+                m_remove_items.insert(ItemT {key, value});
             }
 
             void addNull(ValueT value) {
-                m_null_items.push_back(value);
+                m_add_null_items.insert(value);
+            }
+
+            void removeNull(ValueT value)
+            {
+                // if element is in "to add" list then simply remove it from there
+                if (m_add_null_items.erase(value)) {
+                    return;
+                }
+                m_remove_null_items.insert(value);
             }
 
             /**
              * @param add_callback_ptr optional callback to be called for each new added element
+             * @param erase_callback_ptr optional callback to be called for each erased element
             */
-            void flush(RangeTree &range_tree, CallbackT *add_callback_ptr = nullptr)
-            {                
-                if (!m_items.empty()) {
-                    range_tree.bulkInsert(m_items.begin(), m_items.end(), add_callback_ptr);
-                    m_items.clear();
+            void flush(RangeTree &range_tree, CallbackT *add_callback_ptr = nullptr,
+                CallbackT *erase_callback_ptr = nullptr)
+            {
+                // erase items first
+                if (!m_remove_items.empty()) {
+                    std::vector<ItemT> items;
+                    std::copy(m_remove_items.begin(), m_remove_items.end(), std::back_inserter(items));
+                    range_tree.bulkErase(items.begin(), items.end(), erase_callback_ptr);
+                    m_remove_items.clear();
                 }
-                if (!m_null_items.empty()) {
-                    range_tree.bulkInsertNull(m_null_items.begin(), m_null_items.end(), add_callback_ptr);
-                    m_null_items.clear();
-                }                
+                // ... and null items
+                if (!m_remove_null_items.empty()) {
+                    range_tree.bulkEraseNull(m_remove_null_items.begin(), m_remove_null_items.end(), erase_callback_ptr);
+                    m_remove_null_items.clear();
+                }
+                if (!m_add_items.empty()) {
+                    std::vector<ItemT> items;
+                    std::copy(m_add_items.begin(), m_add_items.end(), std::back_inserter(items));
+                    range_tree.bulkInsert(items.begin(), items.end(), add_callback_ptr);
+                    m_add_items.clear();
+                }
+                if (!m_add_null_items.empty()) {
+                    range_tree.bulkInsertNull(m_add_null_items.begin(), m_add_null_items.end(), add_callback_ptr);
+                    m_add_null_items.clear();
+                }
             }
 
             // undo all operations without flushing
             void close() 
             {
-                m_items.clear();
-                m_null_items.clear();                
+                m_add_items.clear();
+                m_remove_items.clear();
+                m_add_null_items.clear();                
+                m_remove_null_items.clear();
             }
             
             // releaseNullItems is only allowed when no other items are present
-            std::vector<ValueT> &&releaseNullItems() {
-                assert(m_items.empty());
-                return std::move(m_null_items);
+            std::unordered_set<ValueT> &&releaseAddNullItems() {
+                assert(m_add_items.empty());
+                assert(m_remove_items.empty());
+
+                return std::move(m_add_null_items);
+            }
+
+            std::unordered_set<ValueT> &&releaseRemoveNullItems() {
+                assert(m_add_items.empty());
+                assert(m_remove_items.empty());
+
+                return std::move(m_remove_null_items);
             }
 
         private:
-            std::vector<ItemT> m_items;
-            // special buffer for items with null keys
-            std::vector<ValueT> m_null_items;
+            // buffer with items to be removed
+            std::unordered_set<ItemT, typename ItemT::Hash> m_remove_items;
+            // buffer with items to be added
+            std::unordered_set<ItemT, typename ItemT::Hash> m_add_items;
+            // special buffer for items with null keys to be removed/added
+            std::unordered_set<ValueT> m_remove_null_items;
+            std::unordered_set<ValueT> m_add_null_items;            
         };
         
-        std::unique_ptr<Builder> makeBuilder() const
-        {
+        std::unique_ptr<Builder> makeBuilder() const {
             return std::make_unique<Builder>();
         }
         
@@ -499,8 +647,7 @@ namespace db0
         }
 
         // check if there're any non-null elements in the tree
-        bool hasAnyNonNull() const
-        {
+        bool hasAnyNonNull() const {
             return !m_index.empty();
         }
 
@@ -520,7 +667,19 @@ namespace db0
             }
 
             // retrieve existing range
-            return { this->getMemspace(), it, m_index.begin(), m_index.end(), it == m_index.begin(), true };
+            return { m_index, it, m_index.begin(), m_index.end(), it == m_index.begin(), true };
+        }
+
+        RangeIterator getExistingRange(ItemT item)
+        {
+            assert(!m_index.empty());
+            auto it = m_index.findLowerEqualBound(RT_Item { item });
+            if (it == m_index.end()) {
+                it = --m_index.end();
+            }
+
+            // retrieve existing range
+            return { m_index, it, m_index.begin(), m_index.end(), it == m_index.begin(), true };
         }
 
         RangeIterator insertRange(ItemT item)
@@ -528,7 +687,7 @@ namespace db0
             BlockT new_block(this->getMemspace());
             m_index.insert({ item, new_block });
             auto it = m_index.find(RT_Item { item });
-            return { this->getMemspace(), it, m_index.begin(), m_index.end(), it == m_index.begin(), true };
+            return { m_index, it, m_index.begin(), m_index.end(), it == m_index.begin(), true };
         }
 
         RangeIterator splitRange(RangeIterator &&range)
@@ -536,7 +695,7 @@ namespace db0
             auto new_block = range.split();
             m_index.insert({ new_block.front(), new_block });
             auto it = m_index.find(RT_Item { *range.getBounds().first });
-            return { this->getMemspace(), it, m_index.begin(), m_index.end(), it == m_index.begin(), true };
+            return { m_index, it, m_index.begin(), m_index.end(), it == m_index.begin(), true };
         }
     };
     

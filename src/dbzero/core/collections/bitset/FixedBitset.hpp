@@ -14,8 +14,7 @@ namespace db0
     public:
         static constexpr unsigned int npos = BitN;
 
-        o_fixed_bitset()
-        {
+        o_fixed_bitset() {
             std::memset(&m_data, 0, sizeof(m_data));
         }
 

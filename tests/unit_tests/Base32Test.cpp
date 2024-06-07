@@ -5,7 +5,7 @@
 namespace tests
 
 {
-
+    
     TEST( Base32Test, testBase32Encode )
     {
         char buf[1024];
