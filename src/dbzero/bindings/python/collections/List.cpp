@@ -62,7 +62,11 @@ namespace db0::python
 
             return list;
         }
-        return list_obj->ext().getItem(PyLong_AsLong(elem)).steal();
+        auto index = PyLong_AsLong(elem);
+        if( index < 0){
+            index += list_obj->ext().size();
+        }
+        return list_obj->ext().getItem(index).steal();
     }
     
     PyObject * ListObject_clear(ListObject *list_obj)
