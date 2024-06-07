@@ -53,6 +53,9 @@ def test_list_items_access_by_index(db0_fixture, make_list):
     assert list_1[0] == 1
     assert list_1[1] == "hello"
     assert list_1[2] == 3.14
+    assert list_1[-1] == 3.14
+    assert list_1[-2] == "hello"
+    assert list_1[-3] == 1
 
 
 @pytest.mark.parametrize("make_list", list_test_params)
