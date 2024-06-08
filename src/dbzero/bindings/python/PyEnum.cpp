@@ -96,6 +96,8 @@ namespace db0::python
         .tp_basicsize = PyEnumValue::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyEnumValue_del,
+        .tp_repr = reinterpret_cast<reprfunc>(PyEnumValue_repr),
+        .tp_str = reinterpret_cast<reprfunc>(PyEnumValue_str),        
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "Enum value object",
         .tp_methods = PyEnumValue_methods,
@@ -144,6 +146,18 @@ namespace db0::python
         auto py_enum_value = PyEnumValueDefault_new();
         py_enum_value->ext() = enum_value;
         return py_enum_value;
+    }
+
+    PyObject *PyEnumValue_str(PyEnumValue *self) {
+        return PyUnicode_FromString(self->ext().m_str_repr.c_str());
+    }
+
+    PyObject *PyEnumValue_repr(PyEnumValue *self)
+    {
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(self->ext().m_fixture_uuid);
+        auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
+        auto enum_ = enum_factory.getEnumByUID(self->ext().m_enum_uid);
+        return PyUnicode_FromFormat("<EnumValue %s.%s>", enum_->getName().c_str(), self->ext().m_str_repr.c_str());
     }
 
 }

@@ -85,3 +85,13 @@ def test_existing_enum_definition_is_retrieved(db0_fixture):
     db0.commit()
     Colors2 = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     assert id(Colors1) == id(Colors2)
+
+
+def test_enum_value_str_conversion(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    assert str(Colors.RED) == "RED"
+
+
+def test_enum_value_repr(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    assert repr(Colors.RED) == "<EnumValue Colors.RED>"

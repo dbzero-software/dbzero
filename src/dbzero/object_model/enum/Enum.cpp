@@ -153,4 +153,8 @@ namespace db0::object_model
         return std::nullopt;
     }
 
+    std::string Enum::getName() const {
+        return m_string_pool.fetch((*this)->m_name);
+    }
+    
 }
