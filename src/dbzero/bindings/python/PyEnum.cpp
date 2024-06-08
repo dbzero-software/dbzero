@@ -6,38 +6,7 @@
 namespace db0::python
 
 {
-
-    PyEnumData::PyEnumData(const EnumDef &enum_def, const char *type_id)
-        : m_enum_def(enum_def)
-        , m_type_id(type_id ? std::optional<std::string>(type_id) : std::nullopt)
-    {
-    }
-
-    Enum &PyEnumData::operator*()
-    {
-        using EnumFactory = db0::object_model::EnumFactory;
-        if (!m_enum_ptr) {
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();        
-            auto &enum_factory = fixture->get<EnumFactory>();
-            // use empty module name since it's unknown
-            m_enum_ptr = enum_factory.getOrCreateEnum(m_enum_def, m_type_id ? m_type_id->c_str() : nullptr);
-            // popluate enum's value cache
-            for (auto &value: m_enum_ptr->getValues()) {
-                m_enum_ptr->getLangValue(value);
-            }            
-        }
-        assert(m_enum_ptr);
-        return *m_enum_ptr;
-    }
     
-    Enum *PyEnumData::operator->() {
-        return &**this;
-    }
-
-    void PyEnumData::makeNew(void *at_ptr, const EnumDef &enum_def, const char *type_id) {
-        new(at_ptr) PyEnumData(enum_def, type_id);
-    }
-
     PyEnum *PyEnum_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyEnum*>(type->tp_alloc(type, 0));
     }
@@ -144,18 +113,18 @@ namespace db0::python
     bool PyEnumValue_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyEnumValueType;        
     }
-
+    
     PyObject *tryMakeEnum(PyObject *, const std::string &enum_name,
         const std::vector<std::string> &user_enum_values, const char *type_id)
     {
         auto py_enum = PyEnumDefault_new();
         // use empty module name since it's unknown
         PyEnumData::makeNew(&py_enum->ext(), EnumDef {enum_name, "", user_enum_values}, type_id);
+        PyToolkit::getTypeManager().addEnum(py_enum);
         return py_enum;
     }
 
-    PyObject *tryMakeEnumFromType(PyObject *self, PyTypeObject *py_type, const std::vector<std::string> &enum_values, const char *type_id)
-    {
+    PyObject *tryMakeEnumFromType(PyObject *self, PyTypeObject *py_type, const std::vector<std::string> &enum_values, const char *type_id) {
         return tryMakeEnum(self, py_type->tp_name, enum_values, type_id);
     }
 
