@@ -115,14 +115,14 @@ namespace db0
         , m_refresh_thread(std::make_unique<RefreshThread>())
         , m_auto_commit_thread(std::make_unique<AutoCommitThread>(DEFAULT_AUTOCOMMIT_INTERVAL_MS))
         , m_shared_object_list(vobject_cache_size ? *vobject_cache_size : DEFAULT_VOBJECT_CACHE_SIZE)
-    {
-        // run refresh / autocommit threads
+    {        
+        // run refresh / autocommit threads     
         m_threads.emplace_back([this]() {
             m_refresh_thread->run();
         });
         m_threads.emplace_back([this]() {
             m_auto_commit_thread->run();
-        });
+        });        
     }
     
     Workspace::~Workspace()

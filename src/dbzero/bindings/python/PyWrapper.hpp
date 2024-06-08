@@ -23,7 +23,7 @@ namespace db0::python
             return *reinterpret_cast<const T*>((char*)this + Py_TYPE(this)->tp_basicsize - sizeof(T));
         }
 
-        static constexpr std::size_t sizeOf() {
+        static constexpr std::size_t sizeOf() {            
             return sizeof(PyObject) + sizeof(T);
         }
 

@@ -65,10 +65,10 @@ namespace db0::python
         return PyType_GenericAlloc(self, nitems);
     }
     
-    void MemoObject_dealloc(MemoObject* memo_obj)
+    void MemoObject_del(MemoObject* memo_obj)
     {
-        // destroy associated DB0 Object instance
-        memo_obj->ext().~Object();
+        // destroy associated DB0 Object instance        
+        memo_obj->destroy();
         Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
     }
     
@@ -137,8 +137,7 @@ namespace db0::python
         return self->ext().get(PyUnicode_AsUTF8(attr)).steal();
     }
     
-    PyObject *MemoObject_getattro(MemoObject *self, PyObject *attr)
-    {
+    PyObject *MemoObject_getattro(MemoObject *self, PyObject *attr) {
         return runSafe(tryMemoObject_getattro, self, attr);
     }
     
@@ -246,22 +245,21 @@ namespace db0::python
         
         // 3.9.x compatible PyTypeObject
         PyHeapTypeObject *ht_new_type = new PyHeapTypeObject();
-        PyHeapTypeObject* et = (PyHeapTypeObject*)py_class;
         // Construct base type as a copy of the original type
         PyTypeObject *base_type = new PyTypeObject(*py_class);
         Py_INCREF(base_type);
 
-        *ht_new_type = *et;
+        *ht_new_type = *reinterpret_cast<PyHeapTypeObject*>(py_class);
         PyTypeObject *new_type = (PyTypeObject*)ht_new_type;
         auto [type_name, full_type_name] = createWrappedTypeName(py_class->tp_name);
-        new_type->tp_name = full_type_name;        
+        new_type->tp_name = full_type_name;
         // remove Py_TPFLAGS_READY flag so that the type can be initialized by the PyType_Ready
         new_type->tp_flags = py_class->tp_flags & ~Py_TPFLAGS_READY;
-        // extend basic size with pointer to a DBZero object instance
+        // extend basic size with pointer to a DBZero object instance        
         new_type->tp_basicsize = py_class->tp_basicsize + sizeof(db0::object_model::Object);
         // distinguish between singleton and non-singleton types
         new_type->tp_new = is_singleton ? reinterpret_cast<newfunc>(MemoObject_new_singleton) : reinterpret_cast<newfunc>(MemoObject_new);
-        new_type->tp_dealloc = reinterpret_cast<destructor>(MemoObject_dealloc);
+        new_type->tp_dealloc = reinterpret_cast<destructor>(MemoObject_del);
         // override the init function
         new_type->tp_init = reinterpret_cast<initproc>(MemoObject_init);
         // make copy of the types dict

@@ -75,7 +75,7 @@ namespace db0::python
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
-        auto object_ptr = lang_cache.get(address);
+        auto object_ptr = lang_cache.get(address).steal();
         if (object_ptr) {
             // return from cache
             return object_ptr;
@@ -84,7 +84,7 @@ namespace db0::python
         auto block_object = BlockDefaultObject_new();
         // retrieve actual DBZero instance        
         db0::object_model::pandas::Block::unload(&block_object->ext(), fixture, address);
-        // add blockobject to cache
+        // add blockobject to cache (weak ref)
         lang_cache.add(address, block_object, false);
         return block_object;
     }
@@ -94,7 +94,7 @@ namespace db0::python
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
-        auto object_ptr = lang_cache.get(address);
+        auto object_ptr = lang_cache.get(address).steal();
         if (object_ptr) {
             // return from cache
             return object_ptr;
@@ -120,7 +120,7 @@ namespace db0::python
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
-        auto object_ptr = lang_cache.get(address);
+        auto object_ptr = lang_cache.get(address).steal();
         if (object_ptr) {
             // return from cache
             return object_ptr;
@@ -146,7 +146,7 @@ namespace db0::python
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
-        auto object_ptr = lang_cache.get(address);
+        auto object_ptr = lang_cache.get(address).steal();
         if (object_ptr) {
             // return from cache
             return object_ptr;
@@ -167,7 +167,7 @@ namespace db0::python
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
-        auto object_ptr = lang_cache.get(address);
+        auto object_ptr = lang_cache.get(address).steal();
         if (object_ptr) {
             // return from cache
             return object_ptr;
@@ -187,7 +187,7 @@ namespace db0::python
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
-        auto object_ptr = lang_cache.get(address);
+        auto object_ptr = lang_cache.get(address).steal();
         if (object_ptr) {
             // return from cache
             return object_ptr;

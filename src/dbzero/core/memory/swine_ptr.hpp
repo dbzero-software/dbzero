@@ -33,8 +33,7 @@ namespace db0
         swine_ptr(SwineCountT *count_ptr)
             : m_count_ptr(count_ptr)
         {
-            if (m_count_ptr != nullptr)
-            {
+            if (m_count_ptr != nullptr) {
                 ++(m_count_ptr->m_ref_count);
             }            
         }
@@ -42,21 +41,18 @@ namespace db0
         swine_ptr(const swine_ptr<T, RefCountT> &other)
             : m_count_ptr(other.m_count_ptr)
         {
-            if (m_count_ptr != nullptr)
-            {
+            if (m_count_ptr != nullptr) {
                 ++(m_count_ptr->m_ref_count);
             }            
         }
 
         ~swine_ptr()
         {
-            if (m_count_ptr == nullptr)
-            {
+            if (m_count_ptr == nullptr) {
                 return;
             }
             assert(m_count_ptr->m_ref_count > 0);
-            if (--(m_count_ptr->m_ref_count) == 0)
-            {
+            if (--(m_count_ptr->m_ref_count) == 0) {
                 // increment weak ref because T may hold dependent weak references
                 ++(m_count_ptr->m_weak_count);
                 T *ptr = reinterpret_cast<T*>(m_count_ptr + 1);
@@ -64,8 +60,7 @@ namespace db0
                 // to still keep T* pointer (but not access it)
                 ptr->~T();
                 // release weak ref
-                if (--(m_count_ptr->m_weak_count) == 0)
-                {
+                if (--(m_count_ptr->m_weak_count) == 0) {
                     // release allocated memory if there're no weak_ptr owners
                     delete[] reinterpret_cast<std::byte*>(m_count_ptr);
                 }
@@ -74,12 +69,10 @@ namespace db0
         
         inline T *get() const
         {
-            if (m_count_ptr == nullptr)
-            {
+            if (m_count_ptr == nullptr) {
                 return nullptr;
             }
-            if (m_count_ptr->m_ref_count == 0)
-            {
+            if (m_count_ptr->m_ref_count == 0) {
                 return nullptr;
             }
             assert(m_count_ptr->m_ref_count > 0);
@@ -98,8 +91,7 @@ namespace db0
         {
             this->~swine_ptr();
             m_count_ptr = other.m_count_ptr;
-            if (m_count_ptr != nullptr)
-            {
+            if (m_count_ptr != nullptr) {
                 ++(m_count_ptr->m_ref_count);
             }
         }
@@ -125,8 +117,7 @@ namespace db0
         */
         void take_weak()
         {
-            if (m_count_ptr == nullptr)
-            {
+            if (m_count_ptr == nullptr) {
                 return;
             }
             ++(m_count_ptr->m_weak_count);
@@ -141,10 +132,8 @@ namespace db0
         static void release_weak(T *ptr)
         {
             SwineCountT *count_ptr = reinterpret_cast<SwineCountT*>(ptr) - 1;
-            if (--(count_ptr->m_weak_count) == 0)
-            {
-                if (count_ptr->m_ref_count == 0)
-                {
+            if (--(count_ptr->m_weak_count) == 0) {
+                if (count_ptr->m_ref_count == 0) {
                     // release allocated memory
                     delete[] reinterpret_cast<std::byte*>(count_ptr);
                 }
@@ -157,8 +146,7 @@ namespace db0
         static swine_ptr<T, RefCountT> lock_weak(T *ptr)
         {
             SwineCountT *count_ptr = reinterpret_cast<SwineCountT*>(ptr) - 1;
-            if (count_ptr->m_ref_count == 0)
-            {
+            if (count_ptr->m_ref_count == 0) {
                 return {};
             }
             return swine_ptr<T, RefCountT>(count_ptr);
@@ -166,8 +154,7 @@ namespace db0
 
         RefCountT use_count() const
         {
-            if (m_count_ptr == nullptr)
-            {
+            if (m_count_ptr == nullptr) {
                 return 0;
             }
             return m_count_ptr->m_ref_count;
@@ -190,22 +177,19 @@ namespace db0
         weak_swine_ptr(const weak_swine_ptr<T, RefCountT> &other)
             : m_ptr(other.m_ptr)
         {
-            if (m_ptr != nullptr)
-            {
+            if (m_ptr != nullptr) {
                 swine_ptr<T, RefCountT>::take_weak(m_ptr);
             }
         }
 
         ~weak_swine_ptr()
         {
-            if (m_ptr != nullptr)
-            {
+            if (m_ptr != nullptr) {
                 swine_ptr<T, RefCountT>::release_weak(m_ptr);
             }
         }
         
-        swine_ptr<T, RefCountT> lock()
-        {
+        swine_ptr<T, RefCountT> lock() {
             return swine_ptr<T, RefCountT>::lock_weak(m_ptr);
         }
         
@@ -213,8 +197,7 @@ namespace db0
         {
             this->~weak_swine_ptr();
             m_ptr = other.m_ptr;
-            if (m_ptr != nullptr)
-            {
+            if (m_ptr != nullptr) {
                 swine_ptr<T, RefCountT>::take_weak(m_ptr);
             }
         }

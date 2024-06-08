@@ -74,6 +74,8 @@ namespace db0
         Fixture(Workspace &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
         Fixture(Snapshot &, FixedObjectList &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
         Fixture(Fixture const &) = delete;
+        
+        virtual ~Fixture();
 
         /**
          * Initialize a new fixture over existing memspace

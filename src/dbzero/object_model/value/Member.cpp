@@ -114,12 +114,13 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         PyObject* args = PyTuple_New(1);
+        Py_INCREF(lang_value);
         PyTuple_SetItem(args, 0, lang_value);
         auto dict = db0::python::makeDict(nullptr, args, nullptr);
         dict->ext().incRef();
         return dict->ext().getAddress();
     }
-
+    
     // TUPLE specialization
     template <> Value createMember<TypeId::TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr lang_value)
@@ -328,11 +329,7 @@ namespace db0::object_model
     {
         auto &enum_factory = fixture->get<EnumFactory>();
         auto enum_value_uid = EnumValue_UID(value.cast<std::uint64_t>());
-        auto py_result = enum_factory.getEnumByUID(enum_value_uid.m_enum_uid)->getLangValue(enum_value_uid);
-        if (py_result) {
-            Py_INCREF(py_result);
-        }
-        return py_result;
+        return enum_factory.getEnumByUID(enum_value_uid.m_enum_uid)->getLangValue(enum_value_uid).steal();
     }
 
     template <> void registerUnloadMemberFunctions<PyToolkit>(
