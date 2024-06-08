@@ -47,6 +47,8 @@ namespace db0::object_model
         Enum(db0::swine_ptr<Fixture> &, const std::string &name, const std::vector<std::string> &values,
             const char *type_id = nullptr);
         
+        std::string getName() const;
+        
         // exception thrown if value not found
         LP_String find(const char *value) const;
 
@@ -66,7 +68,7 @@ namespace db0::object_model
         ObjectSharedPtr getLangValue(const EnumValue &) const;
         
         // Retrieve all enum defined values ordered by index
-        std::vector<EnumValue> getValues() const;
+        std::vector<EnumValue> getValues() const;        
         
     private:
         const std::uint64_t m_fixture_uuid;

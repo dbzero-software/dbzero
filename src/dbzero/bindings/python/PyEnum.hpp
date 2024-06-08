@@ -20,6 +20,8 @@ namespace db0::python
     PyEnumValue *PyEnumValue_new(PyTypeObject *type, PyObject *, PyObject *);
     PyEnumValue *PyEnumValueDefault_new();
     void PyEnumValue_del(PyEnumValue *);
+    PyObject *PyEnumValue_str(PyEnumValue *self);
+    PyObject *PyEnumValue_repr(PyEnumValue *self);
     
     extern PyTypeObject PyEnumType;
     extern PyTypeObject PyEnumValueType;
