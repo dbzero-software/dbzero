@@ -104,17 +104,17 @@ namespace db0::python
                 type = class_factory.getExistingType(py_expected_type);
             }
             // try pulling from cache first
-            auto object_ptr = lang_cache.get(addr);
+            auto object_ptr = lang_cache.get(addr).steal();
             if (object_ptr) {
                 // validate type if requested
                 if (type) {
                     MemoObject *ptr = reinterpret_cast<MemoObject*>(object_ptr);
                     if (ptr->ext().getType() != *type) {
+                        Py_DECREF(object_ptr);
                         PyErr_SetString(PyExc_TypeError, "Object ID type mismatch");
                         return NULL;
                     }
-                }                
-                Py_INCREF(object_ptr);
+                }
                 return object_ptr;
             }
 

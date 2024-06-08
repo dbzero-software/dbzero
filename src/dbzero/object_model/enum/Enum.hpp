@@ -61,9 +61,9 @@ namespace db0::object_model
         EnumValue get(EnumValue_UID) const;
         
         // Get enum value as a language-specific type
-        ObjectPtr getLangValue(const char *value) const;
-        ObjectPtr getLangValue(EnumValue_UID) const;
-        ObjectPtr getLangValue(const EnumValue &) const;
+        ObjectSharedPtr getLangValue(const char *value) const;
+        ObjectSharedPtr getLangValue(EnumValue_UID) const;
+        ObjectSharedPtr getLangValue(const EnumValue &) const;
         
         // Retrieve all enum defined values ordered by index
         std::vector<EnumValue> getValues() const;

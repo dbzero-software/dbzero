@@ -20,7 +20,7 @@ namespace db0
 		std::shared_ptr<ResourceLock> m_lock;
         
         MemLock() = default;
-        MemLock(void *buffer, std::shared_ptr<ResourceLock> lock);        
+        MemLock(void *buffer, std::shared_ptr<ResourceLock> lock);
 
         /**
          * Mark a specific part of the buffer as modified

@@ -37,7 +37,7 @@ namespace db0
             // take weak ref of the Fixture
             fixture.take_weak();
         }
-                
+        
         // move existing instance / stem
         struct tag_from_stem {};
         has_fixture(tag_from_stem, db0::swine_ptr<Fixture> &fixture, BaseT &&stem)
@@ -51,8 +51,7 @@ namespace db0
         {
             // must release existing weak ref
             Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
-            if (raw_ptr)
-            {
+            if (raw_ptr) {
                 // release weak ref of the Fixture
                 db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
             }
@@ -64,11 +63,10 @@ namespace db0
         ~has_fixture()
         {
             Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
-            if (raw_ptr)
-            {
+            if (raw_ptr) {
                 // release weak ref of the Fixture
                 db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
-            }         
+            }
         }
         
         db0::swine_ptr<Fixture> tryGetFixture() const
@@ -103,8 +101,7 @@ namespace db0
         {
             // must release existing weak ref and take from the copied object
             Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
-            if (raw_ptr)
-            {
+            if (raw_ptr) {
                 // release weak ref of the Fixture
                 db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
             }

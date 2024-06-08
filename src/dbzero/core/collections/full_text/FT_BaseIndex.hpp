@@ -136,12 +136,16 @@ namespace db0
             }
 
             // Add tags using the active value
-            template <typename SequenceT> void addTags(const SequenceT &tags_or_types) {
+            template <typename SequenceT> void addTags(const SequenceT &tags_or_types) 
+            {
+                assert(m_active_value);
                 addTags(m_active_value, tags_or_types);
             }
 
             // Add a single tag using the active value
-            void addTag(IndexKeyT tag) {
+            void addTag(IndexKeyT tag) 
+            {
+                assert(m_active_value);
                 addTag(m_active_value, tag);
             }
 
@@ -163,11 +167,15 @@ namespace db0
             }
 
             // Remove tags using the active value
-            template <typename SequenceT> void removeTags(const SequenceT &tags_or_types) {
+            template <typename SequenceT> void removeTags(const SequenceT &tags_or_types) 
+            {
+                assert(m_active_value);
                 removeTags(m_active_value, tags_or_types);
             }
 
-            void removeTag(IndexKeyT tag) {
+            void removeTag(IndexKeyT tag) 
+            {
+                assert(m_active_value);
                 removeTag(m_active_value, tag);
             }
 

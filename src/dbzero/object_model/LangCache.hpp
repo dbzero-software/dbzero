@@ -17,12 +17,13 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
 
         LangCache() = default;
+        virtual ~LangCache();
         
         /**
          * Try retrieving existing object from cache
          * @return nullptr if not found
         */
-        ObjectPtr get(std::uint64_t address) const;
+        ObjectSharedPtr get(std::uint64_t address) const;
         
         /**
          * Add object to cache (weak reference)
@@ -33,6 +34,8 @@ namespace db0::object_model
         void erase(std::uint64_t address);
         
         std::size_t size() const;
+
+        void clear();
 
     private:
 

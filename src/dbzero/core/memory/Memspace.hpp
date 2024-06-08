@@ -30,6 +30,8 @@ namespace db0
         {
         }
         
+        virtual ~Memspace() = default;
+        
         struct tag_from_reference {};
         Memspace(tag_from_reference, std::shared_ptr<Prefix> prefix, Allocator &allocator,
             std::optional<std::uint64_t> uuid = {})

@@ -89,7 +89,7 @@ namespace db0::object_model
         return values;
     }
     
-    Enum::ObjectPtr Enum::getLangValue(const char *value) const
+    Enum::ObjectSharedPtr Enum::getLangValue(const char *value) const
     {
         auto it_cache = m_cache.find(value);
         if (it_cache == m_cache.end()) {
@@ -99,11 +99,11 @@ namespace db0::object_model
         return it_cache->second.get();
     }
 
-    Enum::ObjectPtr Enum::getLangValue(EnumValue_UID value_uid) const {
+    Enum::ObjectSharedPtr Enum::getLangValue(EnumValue_UID value_uid) const {
         return getLangValue(get(value_uid).m_str_repr.c_str());
     }
 
-    Enum::ObjectPtr Enum::getLangValue(const EnumValue &enum_value) const {
+    Enum::ObjectSharedPtr Enum::getLangValue(const EnumValue &enum_value) const {
         return getLangValue(enum_value.m_str_repr.c_str());
     }
 

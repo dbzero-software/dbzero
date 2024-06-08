@@ -457,24 +457,13 @@ namespace db0
 
         joinable_const_iterator beginJoin(int direction) const
         {
-            if (direction > 0) {
-                return joinable_const_iterator(
-                    (bindex_tree_t&)m_index, m_max_size, direction
-                );
-            } else {
-                return joinable_const_iterator(
-                    const_cast<bindex_tree_t&>(m_index), m_max_size, direction
-                );
-            }
+            return joinable_const_iterator(
+                const_cast<bindex_tree_t&>(m_index), m_max_size, direction
+            );            
         }
 
-        joinable_iterator beginJoin(int direction)
-        {
-            if (direction > 0) {
-                return joinable_iterator(m_index, m_max_size, direction);
-            } else {
-                return joinable_iterator(m_index, m_max_size, direction);
-            }
+        joinable_iterator beginJoin(int direction) {
+            return joinable_iterator(m_index, m_max_size, direction);
         }
 
         /**

@@ -38,6 +38,12 @@ namespace db0
         m_slot_allocator.setSlot(TYPE_SLOT_NUM, openSlot(*this, *meta, TYPE_SLOT_NUM));
     }
 
+    Fixture::~Fixture()
+    {
+        // clear cache before destroying the fixture to destroy object instances supported by the cache
+        m_lang_cache.clear();        
+    }
+
     StringPoolT Fixture::openLimitedStringPool(Memspace &memspace, MetaAllocator &meta)
     {
         using v_fixture = v_object<o_fixture>;
@@ -55,7 +61,7 @@ namespace db0
         v_fixture fixture(this->myPtr(meta.getFirstAddress()));
         return openSlot(meta, fixture, slot_num);
     }
-
+    
     std::shared_ptr<SlabAllocator> Fixture::openSlot(MetaAllocator &meta, const v_object<o_fixture> &fixture, std::uint32_t slot_num) {
         auto index = slot_index(slot_num);
         return meta.openReservedSlab(fixture->m_slots[index].m_address, fixture->m_slots[index].m_size);

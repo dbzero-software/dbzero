@@ -26,7 +26,7 @@ namespace db0::python
     MemoObject *MemoObjectStub_new(PyTypeObject *type);
     PyObject *MemoObject_alloc(PyTypeObject *type, Py_ssize_t nitems);
     
-    void MemoObject_dealloc(MemoObject* self);
+    void MemoObject_del(MemoObject* self);
     void MemoObject_drop(MemoObject* self);
     int MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds);
     PyObject *MemoObject_getattro(MemoObject *self, PyObject *attr);

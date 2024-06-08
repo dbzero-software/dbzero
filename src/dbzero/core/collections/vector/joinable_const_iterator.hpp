@@ -21,7 +21,7 @@ namespace db0
          * Construct as invalid
          */
 		joinable_const_iterator()
-			: super_t(static_cast<const data_t*>(nullptr),static_cast<const data_t*>(nullptr))			
+			: super_t(static_cast<const data_t*>(nullptr), static_cast<const data_t*>(nullptr))			
 			, m_bound_check(false)
 		{
 		}
@@ -117,11 +117,13 @@ namespace db0
 		}
 
 		const data_t &operator*() const {
+			assert(m_current && m_current != this->m_end);
 			return *m_current;
 		}
 
-		void operator++() 
+		void operator++()
 		{
+			assert(m_current && m_current != this->m_end);
 			++m_current;
 			if (m_current!=this->m_end && !m_bound_check(*m_current)) {
 				// render iterator as end
@@ -129,7 +131,7 @@ namespace db0
 			}
 		}
 
-		void operator--() 
+		void operator--()
 		{
 			if (m_current==this->m_begin) {
 				// switch to end position
@@ -168,7 +170,7 @@ namespace db0
 		}
 
 		bool isValid() const {
-			return (m_current!=0);
+			return (m_current!=0 && m_current!=this->m_end);
 		}
 
 		/**
@@ -203,25 +205,33 @@ namespace db0
 			return std::make_pair(pos, total_size);
 		}
 
-		const data_t &operator*() {
+		const data_t &operator*()
+		{
+			assert(m_current && m_current != this->m_end);
 			return *m_current;
 		}
 
-		const data_t *operator->() {
+		const data_t *operator->() 
+		{
+			assert(m_current && m_current != this->m_end);
 			return m_current;
 		}
 
 		/**
          * @return native iterator
          */
-		iterator getIterator() const {
+		iterator getIterator() const 
+		{
+			assert(m_current && m_current != this->m_end);
 			return const_cast<iterator>(m_current);
 		}
 
 		/**
          * @return native const iterator
          */
-		const_iterator getConstIterator() const {
+		const_iterator getConstIterator() const 
+		{
+			assert(m_current && m_current != this->m_end);
 			return m_current;
 		}
 
@@ -232,7 +242,7 @@ namespace db0
 			m_current = this->m_end;
 		}
 
-		template <typename T> bool limitBy(const T &key) 
+		template <typename T> bool limitBy(const T &key)
 		{
 			m_bound_check.limitBy(key);
 			if (isValid() && !is_end() && !m_bound_check(key)) {

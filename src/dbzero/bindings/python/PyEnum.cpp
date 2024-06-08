@@ -30,11 +30,8 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
-    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr)
-    {        
-        auto py_enum_value = self->ext().getLangValue(PyUnicode_AsUTF8(attr));
-        Py_INCREF(py_enum_value);
-        return py_enum_value;
+    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr) {
+        return self->ext().getLangValue(PyUnicode_AsUTF8(attr)).steal();
     }
     
     PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr) 
@@ -61,9 +58,7 @@ namespace db0::python
         auto py_tuple = PyTuple_New(enum_values.size());
         unsigned int index = 0;
         for (auto &value: enum_values) {
-            auto py_enum_value = enum_.getLangValue(value);
-            Py_INCREF(py_enum_value);
-            PyTuple_SET_ITEM(py_tuple, index, py_enum_value);
+            PyTuple_SET_ITEM(py_tuple, index, enum_.getLangValue(value).steal());
             ++index;
         }
         return py_tuple;
@@ -129,9 +124,8 @@ namespace db0::python
         auto enum_ = enum_factory.getOrCreateEnum(EnumDef {enum_name, "", user_enum_values}, type_id);
         auto &lang_cache = (*fixture)->getLangCache();
         // try pulling from cache
-        PyEnum *py_enum = reinterpret_cast<PyEnum*>(lang_cache.get(enum_->getAddress()));
+        PyEnum *py_enum = reinterpret_cast<PyEnum*>(lang_cache.get(enum_->getAddress()).steal());
         if (py_enum) {
-            Py_INCREF(py_enum);
             return py_enum;
         }
         py_enum = PyEnumDefault_new();

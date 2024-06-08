@@ -8,7 +8,7 @@ namespace db0
     {
 	public :
 		key_type key;
-		value_type value;
+		value_type value = value_type();
 
 		key_value() = default;
 
@@ -16,13 +16,15 @@ namespace db0
 		 * Initialize key, default value
 		 */
 		key_value(const key_type &key)
-		    : key(key)
-		{}
+		    : key(key)			
+		{		
+		}
 
 		key_value(const key_type &key, const value_type &value)
             : key(key)
             , value(value)
-		{}
+		{		
+		}
 
 		/**
 		 * Key cast operator
