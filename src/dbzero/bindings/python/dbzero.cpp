@@ -61,7 +61,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"build_flags", &py::getBuildFlags, METH_NOARGS, "Retrieve DBZero library build flags"},
     {"serialize", (PyCFunction)&py::pySerialize, METH_FASTCALL, "Serialize DBZero serializable instance"},
     {"deserialize", (PyCFunction)&py::pyDeserialize, METH_FASTCALL, "Serialize DBZero serializable instance"},
-    {"enum", (PyCFunction)&py::makeEnum, METH_FASTCALL, "Serialize DBZero serializable instance"},
+    {"make_enum", (PyCFunction)&py::makeEnum, METH_VARARGS | METH_KEYWORDS, "Define new or retrieve existing Enum type"},
     {"is_enum_value", (PyCFunction)&py::isEnumValue, METH_FASTCALL, "Check if parameter represents a DBZero enum value"},
     {"split_by", (PyCFunction)&py::splitBy, METH_VARARGS | METH_KEYWORDS, "Split query iterator by a given criteria"},
 #ifndef NDEBUG
