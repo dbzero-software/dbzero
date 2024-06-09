@@ -16,8 +16,7 @@ namespace db0::object_model
     class TypedObjectIterator: public ObjectIterator
     {
     public:
-        using LangToolkit = Object::LangToolkit;
-        using ObjectPtr = LangToolkit::ObjectPtr;
+        using LangToolkit = Object::LangToolkit;        
         using TypeObjectPtr = LangToolkit::TypeObjectPtr;
         using TypeObjectSharedPtr = LangToolkit::TypeObjectSharedPtr;
         
@@ -29,29 +28,31 @@ namespace db0::object_model
 
         // Construct from a full-text query iterator
         TypedObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&ft_query_iterator, 
-            std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > && = {});
+            std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > && = {},
+            const std::vector<FilterFunc> &filters = {});
         
         // Construct from a sorted iterator
         TypedObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&sorted_iterator, 
-            std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > && = {});
+            std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
+            const std::vector<FilterFunc> &filters = {});
         
-        /**
-         * Start over iteration, place iterator object in the given memory location
-        */
-        TypedObjectIterator *iter(void *at_ptr, std::unique_ptr<QueryIterator> &&ft_query_iterator,
-            std::shared_ptr<Class> type) const;
-        
-        ObjectPtr unload(std::uint64_t address) const override;
-        
-        static TypedObjectIterator *makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&,
-            std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > && = {});
-        
+        std::unique_ptr<TypedObjectIterator> iterTyped(const std::vector<FilterFunc> & = {}) const;
+        std::unique_ptr<ObjectIterator> iter(const std::vector<FilterFunc> & = {}) const override;
+                
         /**
          * Retrieves associated language specific class (raw pointer)
         */
         TypeObjectSharedPtr getLangClass() const;
                 
         std::shared_ptr<Class> getType() const;
+
+    protected:
+        // iter constructor
+        TypedObjectIterator(db0::swine_ptr<Fixture>, const ClassFactory &, std::shared_ptr<Class>, 
+            std::unique_ptr<QueryIterator> &&, std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>,
+            std::vector<std::unique_ptr<QueryObserver> > &&, std::vector<FilterFunc> &&filters);
+
+        ObjectSharedPtr unload(std::uint64_t address) const override;
 
     private:
         std::shared_ptr<Class> m_type;

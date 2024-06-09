@@ -139,6 +139,8 @@ namespace db0::python
             Py_DECREF(py_object);
         }
         
+        static std::string getLastError();
+        
     private:
         static TypeManager m_type_manager;
         static PyWorkspace m_py_workspace;

@@ -64,6 +64,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"make_enum", (PyCFunction)&py::makeEnum, METH_VARARGS | METH_KEYWORDS, "Define new or retrieve existing Enum type"},
     {"is_enum_value", (PyCFunction)&py::isEnumValue, METH_FASTCALL, "Check if parameter represents a DBZero enum value"},
     {"split_by", (PyCFunction)&py::splitBy, METH_VARARGS | METH_KEYWORDS, "Split query iterator by a given criteria"},
+    {"filter", (PyCFunction)&py::filter, METH_VARARGS | METH_KEYWORDS, "Filter with a Python callable"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

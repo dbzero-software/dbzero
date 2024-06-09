@@ -492,32 +492,32 @@ namespace db0::python
     PyObject *trySplitBy(PyObject *args, PyObject *kwargs)
     {
         // extract 2 object arguments
-        PyObject *py_tag_list;
-        PyObject *py_query;
+        PyObject *py_tag_list = nullptr;
+        PyObject *py_query = nullptr;
         if (!PyArg_ParseTuple(args, "OO", &py_tag_list, &py_query)) {
             THROWF(db0::InputException) << "Invalid argument type";
         }
         
-        if (PyObjectIterator_Check(py_query)) {
-            auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->ext();            
-            auto split_query = splitBy(py_tag_list, *iter);
-            PyObjectIterator *py_iter = PyObjectIteratorDefault_new();
-            // create decorated iterator (either plain or typed)
-            if (iter.isTyped()) {
-                auto typed_iter = std::make_unique<TypedObjectIterator>(iter->getFixture(), std::move(split_query.first),
-                    iter.m_typed_iterator_ptr->getType(), std::move(split_query.second));
-                Iterator::makeNew(&py_iter->ext(), std::move(typed_iter));
-            } else {
-                auto _iter = std::make_unique<ObjectIterator>(iter->getFixture(), std::move(split_query.first), 
-                    std::move(split_query.second));
-                Iterator::makeNew(&py_iter->ext(), std::move(_iter));
-            }            
-            return py_iter;
-        } else {
-            THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
+        if (!PyObjectIterator_Check(py_query)) {
+            THROWF(db0::InputException) << "Invalid argument type";
         }
+        
+        auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->ext();
+        auto split_query = splitBy(py_tag_list, *iter);
+        PyObjectIterator *py_iter = PyObjectIteratorDefault_new();
+        // create decorated iterator (either plain or typed)
+        if (iter.isTyped()) {
+            auto typed_iter = std::make_unique<TypedObjectIterator>(iter->getFixture(), std::move(split_query.first),
+                iter.m_typed_iterator_ptr->getType(), std::move(split_query.second), iter->getFilters());
+            Iterator::makeNew(&py_iter->ext(), std::move(typed_iter));
+        } else {
+            auto _iter = std::make_unique<ObjectIterator>(iter->getFixture(), std::move(split_query.first), 
+                std::move(split_query.second), iter->getFilters());
+            Iterator::makeNew(&py_iter->ext(), std::move(_iter));
+        }
+        return py_iter;
     }
-    
+
     PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) {
         return runSafe(trySplitBy, args, kwargs);
     }
@@ -531,5 +531,53 @@ namespace db0::python
 
         return PyEnumValue_Check(args[0]) ? Py_True : Py_False;
     }
+
+    PyObject *tryFilterBy(PyObject *args, PyObject *kwargs)
+    {
+        using ObjectIterator = db0::object_model::ObjectIterator;
+        using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+
+        // extract filter callable and query objects
+        PyObject *py_filter = nullptr;
+        PyObject *py_query = nullptr;
+        if (!PyArg_ParseTuple(args, "OO", &py_filter, &py_query)) {
+            THROWF(db0::InputException) << "Invalid argument type";
+        }
+
+        // py_filter must be a python callable
+        if (!PyCallable_Check(py_filter)) {
+            THROWF(db0::InputException) << "Invalid filter object";
+        }
+        
+        if (!PyObjectIterator_Check(py_query)) {
+            THROWF(db0::InputException) << "Invalid query object";
+        }
+
+        std::vector<ObjectIterator::FilterFunc> filters;
+        ObjectSharedPtr py_filter_ptr = ObjectSharedPtr(py_filter);
+        filters.push_back([py_filter_ptr](PyObject *py_item) {
+            PyObject *py_result = PyObject_CallFunctionObjArgs(py_filter_ptr.get(), py_item, NULL);                    
+            if (!py_result) {
+                THROWF(db0::InputException) << PyToolkit::getLastError();
+            }
+            return PyObject_IsTrue(py_result);
+        });
+
+        auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->ext();
+        PyObjectIterator *py_iter = PyObjectIteratorDefault_new();
+        // create decorated iterator (either plain or typed)
+        if (iter.isTyped()) {
+            auto typed_iter = iter.m_typed_iterator_ptr->iterTyped(filters);
+            Iterator::makeNew(&py_iter->ext(), std::move(typed_iter));
+        } else {
+            auto _iter = iter->iter(filters);
+            Iterator::makeNew(&py_iter->ext(), std::move(_iter));
+        }
+        return py_iter;                
+    }
+    
+    PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs) {
+        return runSafe(tryFilterBy, args, kwargs);
+    }    
 
 }
