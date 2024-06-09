@@ -12,6 +12,7 @@
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
 #include "PyClassFields.hpp"
+#include "Utils.hpp"
 
 namespace db0::python
 
@@ -168,6 +169,28 @@ namespace db0::python
         return 0;
     }
     
+    bool isEqual(MemoObject *lhs, MemoObject *rhs) {
+        return lhs->ext() == rhs->ext();
+    }
+    
+    PyObject *MemoObject_rq(MemoObject *memo_obj, PyObject *other, int op)
+    {
+        bool eq_result = false;
+        if (PyMemo_Check(other)) {
+            eq_result = isEqual(memo_obj, reinterpret_cast<MemoObject*>(other));
+        }
+
+        switch (op)
+        {
+            case Py_EQ:
+                return PyBool_fromBool(eq_result);
+            case Py_NE:
+                return PyBool_fromBool(!eq_result);
+            default:
+                return Py_NotImplemented;
+        }
+    }
+
     PyTypeObject *castToType(PyObject *obj)
     {
         if (!PyType_Check(obj)) {
@@ -272,6 +295,7 @@ namespace db0::python
         new_type->tp_setattro = reinterpret_cast<setattrofunc>(MemoObject_setattro);
         // set original class (copy) as a base class
         new_type->tp_base = base_type;
+        new_type->tp_richcompare = (richcmpfunc)MemoObject_rq;
         
         // method resolution order, tp_mro and tp_bases are filled in by PyType_Ready
         new_type->tp_mro = 0;
