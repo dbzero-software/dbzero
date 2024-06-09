@@ -112,7 +112,7 @@ namespace db0::python
     // convert bytes to instance (e.g. ObjectIterator)
     PyObject *pyDeserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
-    PyObject *makeEnum(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *makeEnum(PyObject *, PyObject *args, PyObject *kwargs);
     
     PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs);
     

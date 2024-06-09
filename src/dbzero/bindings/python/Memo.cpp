@@ -297,7 +297,7 @@ namespace db0::python
             Py_DECREF(py_class_fields);
             PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
             return NULL;
-        }     
+        }
 
         return new_type;
     }
@@ -306,7 +306,7 @@ namespace db0::python
     {        
         PyObject* class_obj;
         PyObject *singleton = Py_False;
-        static const char *kwlist[] = { "inpout", "singleton", NULL };
+        static const char *kwlist[] = { "input", "singleton", NULL };
         if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|O", const_cast<char**>(kwlist), &class_obj, &singleton)) {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;

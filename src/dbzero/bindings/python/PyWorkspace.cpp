@@ -50,15 +50,14 @@ namespace db0::python
             getWorkspace().close();
             m_workspace = nullptr;
         }
+        PyToolkit::getTypeManager().close();
     }
     
-    bool PyWorkspace::hasWorkspace() const
-    {
+    bool PyWorkspace::hasWorkspace() const {
         return m_workspace != nullptr;
     }
         
-    bool PyWorkspace::refresh()
-    {
+    bool PyWorkspace::refresh() {
         return getWorkspace().refresh();
     }
 

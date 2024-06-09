@@ -5,6 +5,7 @@
 #include <vector>
 #include <dbzero/bindings/TypeId.hpp>
 #include "PyTypes.hpp"
+#include "PyEnumType.hpp"
 
 namespace db0::object_model {
 
@@ -93,12 +94,17 @@ namespace db0::python
         */
         void addMemoType(TypeObjectPtr, const char *type_id);
 
+        // Called to register each newly created db0.enum type
+        void addEnum(PyEnum *);
+
         /**
          * Try finding Python type by a given name variant
         */
         TypeObjectPtr findType(const std::string &variant_name) const;
 
         bool isNull(ObjectPtr) const;
+
+        void close();
         
     private:
         std::vector<std::string> m_string_pool;
@@ -106,6 +112,7 @@ namespace db0::python
         std::unordered_map<ObjectPtr, TypeId> m_id_map;        
         // lang types by name variant
         std::unordered_map<std::string, TypeObjectSharedPtr> m_type_cache;
+        std::vector<ObjectSharedPtr> m_enum_cache;
         
         // Register a mapping from static type
         template <typename T> void addStaticType(T py_type, TypeId py_type_id);

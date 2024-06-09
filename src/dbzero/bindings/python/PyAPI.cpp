@@ -419,33 +419,60 @@ namespace db0::python
         return db0::object_model::StorageClass::DB0_INDEX;
     }
     
-    PyObject *makeEnum(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *makeEnum(PyObject *self, PyObject *args, PyObject *kwargs)
     {
-        if (nargs != 2) {
-            PyErr_SetString(PyExc_TypeError, "makeEnum requires exactly 2 arguments");
+        // extract string and list
+        PyObject* py_first_arg = nullptr;
+        PyObject *py_enum_values = nullptr;
+        if (!PyArg_ParseTuple(args, "O|O", &py_first_arg, &py_enum_values)) {
+            PyErr_SetString(PyExc_TypeError, "Bad arguments");
             return NULL;
         }
 
-        const char *enum_name = PyUnicode_AsUTF8(args[0]);
-        // second argument must be an array
-        if (!PyList_Check(args[1])) {
-            PyErr_SetString(PyExc_TypeError, "Second argument must be a list");
+        // try extrating values from kwargs
+        if (!py_enum_values && kwargs) {
+            py_enum_values = PyDict_GetItemString(kwargs, "values");
+        }
+
+        if (!py_enum_values || !PyList_Check(py_enum_values)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid enum values");
+            return NULL;
+        }
+        
+        // if first argument is a string - use it as enum name
+        const char *enum_name = nullptr;
+        PyTypeObject *py_type = nullptr;
+        if (PyUnicode_Check(py_first_arg)) {
+            enum_name = PyUnicode_AsUTF8(py_first_arg);
+            if (!enum_name) {
+                PyErr_SetString(PyExc_TypeError, "Unable to extract enum name");
+                return NULL;
+            }
+        } else if (PyType_Check(py_first_arg)) {
+            // or extract a python type
+            py_type = reinterpret_cast<PyTypeObject*>(py_first_arg);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "Invalid first argument type");
             return NULL;
         }
 
         std::vector<std::string> enum_values;
-        for (Py_ssize_t i = 0; i < PyList_Size(args[1]); ++i) {
-            PyObject *py_item = PyList_GetItem(args[1], i);
+        for (Py_ssize_t i = 0; i < PyList_Size(py_enum_values); ++i) {
+            PyObject *py_item = PyList_GetItem(py_enum_values, i);
             if (!PyUnicode_Check(py_item)) {
-                PyErr_SetString(PyExc_TypeError, "List must contain only strings");
+                PyErr_SetString(PyExc_TypeError, "Only string type is allowed for enum values");
                 return NULL;
             }
             enum_values.push_back(PyUnicode_AsUTF8(py_item));
         }
 
-        return runSafe(tryMakeEnum, self, enum_name, enum_values, nullptr);
+        if (enum_name) {
+            return runSafe(tryMakeEnum, self, enum_name, enum_values, nullptr);
+        } else {
+            return runSafe(tryMakeEnumFromType, self, py_type, enum_values, nullptr);
+        }
     }
-    
+
     using TagIndex = db0::object_model::TagIndex;
     using ObjectIterator = db0::object_model::ObjectIterator;
     using TypedObjectIterator = db0::object_model::TypedObjectIterator;

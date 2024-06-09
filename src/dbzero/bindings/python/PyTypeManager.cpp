@@ -25,8 +25,8 @@
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
-#include "PyEnum.hpp"
 #include "PyClassFields.hpp"
+#include "PyEnum.hpp"
 
 namespace db0::python
 
@@ -261,6 +261,20 @@ namespace db0::python
             THROWF(db0::InputException) << "Expected a FieldDef object" << THROWF_END;
         }
         return reinterpret_cast<PyFieldDef*>(py_object)->ext();
+    }
+
+    void PyTypeManager::addEnum(PyEnum *py_enum) {
+        m_enum_cache.push_back(reinterpret_cast<PyObject*>(py_enum));
+    }
+    
+    void PyTypeManager::close()
+    {
+        // close Enum's but don't remove from cache
+        // this is to allow future creation / retrieval of DBZero enums while keeping python objects alive
+        for (auto &obj : m_enum_cache) {
+            PyEnum *py_enum = reinterpret_cast<PyEnum*>(obj.get());
+            py_enum->ext().close();
+        }
     }
 
 }

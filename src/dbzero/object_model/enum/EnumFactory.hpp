@@ -5,6 +5,7 @@
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/object_model/has_fixture.hpp>
 #include <optional>
+#include "EnumDef.hpp"
 
 namespace db0::object_model
 
@@ -21,17 +22,7 @@ namespace db0::object_model
         
         o_enum_factory(Memspace &memspace);
     };
-    
-    struct EnumDef
-    {
-        // user assigned enum name
-        const std::string m_name;
-        // a module where the enum is defined
-        const std::string m_module_name;
-        // user assigned enum values
-        const std::vector<std::string> m_values;
-    };
-    
+        
     class EnumFactory: public db0::has_fixture<v_object<o_enum_factory> >
     {
     public:
