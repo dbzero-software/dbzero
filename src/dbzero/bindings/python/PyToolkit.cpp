@@ -277,4 +277,18 @@ namespace db0::python
         return makePyEnumValue(value);
     }
 
+    std::string PyToolkit::getLastError() 
+    {
+        PyObject *ptype, *pvalue, *ptraceback;
+        PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+        PyErr_NormalizeException(&ptype, &pvalue, &ptraceback);
+        PyObject *pstr = PyObject_Str(pvalue);
+        std::string result = PyUnicode_AsUTF8(pstr);
+        Py_DECREF(pstr);
+        Py_XDECREF(ptype);
+        Py_XDECREF(pvalue);
+        Py_XDECREF(ptraceback);
+        return result;
+    }
+    
 }

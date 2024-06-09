@@ -28,77 +28,95 @@ namespace db0::object_model
         return std::move(query_iterator);
     }
 
-    using BaseIterator = db0::FT_IteratorBase;
-    std::unique_ptr<BaseIterator> validated(std::unique_ptr<BaseIterator> &&base_iterator)
-    {
-        if (base_iterator && base_iterator->keyTypeId() != typeid(std::uint64_t)) {
-            throw std::runtime_error("Invalid base/range iterator");
-        }
-        return std::move(base_iterator);
-    }
-
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator,
-        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers, 
+        const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
         , m_query_iterator(validated(std::move(ft_query_iterator)))
         , m_iterator_ptr(m_query_iterator.get())        
         , m_decoration(std::move(query_observers))
+        , m_filters(filters)
     {
     }
 
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator,
-        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers, 
+        const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
         , m_sorted_iterator(validated(std::move(sorted_iterator)))
         , m_iterator_ptr(m_sorted_iterator.get())
         , m_decoration(std::move(query_observers))
+        , m_filters(filters)
     {
     }
 
-    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<IteratorFactory> &&factory,
-        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
+    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::shared_ptr<IteratorFactory> factory,
+        std::vector<std::unique_ptr<QueryObserver> > &&query_observers, 
+        const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
-        , m_factory(std::move(factory))        
+        , m_factory(factory)
         , m_decoration(std::move(query_observers))
+        , m_filters(filters)
     {
     }
 
+    ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, const ClassFactory &class_factory,
+        std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator, 
+        std::shared_ptr<IteratorFactory> factory, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
+        std::vector<FilterFunc> &&filters)
+        : m_fixture(fixture)
+        , m_class_factory(class_factory)
+        , m_query_iterator(std::move(ft_query_iterator))
+        , m_sorted_iterator(std::move(sorted_iterator))
+        , m_factory(factory)
+        , m_decoration(std::move(query_observers))
+        , m_filters(std::move(filters))
+    {
+    }
+    
     ObjectIterator::Decoration::Decoration(std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
         : m_query_observers(std::move(query_observers))
         , m_decorators(m_query_observers.size())
     {
     }
-
-    ObjectIterator *ObjectIterator::makeNew(void *at_ptr, db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&it,
-        std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
-    {
-        return new (at_ptr) ObjectIterator(fixture, std::move(it), std::move(query_observers));
-    }
     
-    bool ObjectIterator::next(std::uint64_t &addr)
+    ObjectIterator::ObjectSharedPtr ObjectIterator::next()
     {
         assureInitialized();
-        if (m_iterator_ptr && !m_iterator_ptr->isEnd()) {
-            // collect decorators if any exist            
-            if (!m_decoration.empty()) {
-                auto it = m_decoration.m_query_observers.begin();
-                for (auto &decor: m_decoration.m_decorators) {
-                    decor = (*it)->getDecoration();
-                    ++it;
+        for (;;) {
+            if (m_iterator_ptr && !m_iterator_ptr->isEnd()) {
+                // collect decorators if any exist            
+                if (!m_decoration.empty()) {
+                    auto it = m_decoration.m_query_observers.begin();
+                    for (auto &decor: m_decoration.m_decorators) {
+                        decor = (*it)->getDecoration();
+                        ++it;
+                    }
                 }
-            }            
-            m_iterator_ptr->next(&addr);
-            return true;
-        } else {
-            return false;
+                std::uint64_t addr;
+                m_iterator_ptr->next(&addr);
+                auto obj_ptr = unload(addr);
+                // check filters if any
+                for (auto &filter: m_filters) {
+                    if (!filter(obj_ptr.get())) {
+                        obj_ptr = nullptr;
+                        break;
+                    }
+                }
+                if (obj_ptr) {
+                    return obj_ptr;
+                }
+            } else {
+                return nullptr;
+            }
         }
     }
     
-    ObjectIterator::ObjectPtr ObjectIterator::unload(std::uint64_t address) const {
-        return LangToolkit::unloadObject(m_fixture, address, m_class_factory);
+    ObjectIterator::ObjectSharedPtr ObjectIterator::unload(std::uint64_t address) const {
+        return { LangToolkit::unloadObject(m_fixture, address, m_class_factory), false };
     }
     
     bool ObjectIterator::isNull() const {
@@ -257,6 +275,18 @@ namespace db0::object_model
         std::vector<std::byte> result;
         m_iterator_ptr->getSignature(result);
         return result;
+    }
+    
+    std::unique_ptr<ObjectIterator> ObjectIterator::iter(const std::vector<FilterFunc> &filters) const
+    {
+        std::vector<FilterFunc> new_filters(this->m_filters);
+        new_filters.insert(new_filters.end(), filters.begin(), filters.end());
+
+        std::unique_ptr<QueryIterator> query_iterator = m_query_iterator ? 
+            std::unique_ptr<QueryIterator>(static_cast<QueryIterator*>(m_query_iterator->begin().release())) : nullptr;
+        std::unique_ptr<SortedIterator> sorted_iterator = m_sorted_iterator ? m_sorted_iterator->beginSorted() : nullptr;
+        return std::unique_ptr<ObjectIterator>(new ObjectIterator(m_fixture, m_class_factory, std::move(query_iterator), 
+            std::move(sorted_iterator), m_factory, {}, std::move(new_filters)));
     }
 
 }

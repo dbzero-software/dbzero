@@ -27,6 +27,7 @@ namespace db0::object_model
     public:
         using LangToolkit = Object::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
+        using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
 
         // full-text query iterator (KeyT must be std::uint64_t)
         using QueryIterator = FT_Iterator<std::uint64_t>;
@@ -34,39 +35,33 @@ namespace db0::object_model
         using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
         // a common base for full-text and sorted iterators
         using BaseIterator = db0::FT_IteratorBase;
+        using FilterFunc = std::function<bool(ObjectPtr)>;
 
         // Construct from a full-text query iterator
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, 
-            std::vector<std::unique_ptr<QueryObserver> > && = {});
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&,
+            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});
 
         // Construct from a sorted iterator
         ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&,
-            std::vector<std::unique_ptr<QueryObserver> > && = {});
+            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});
 
         // Construct from IteratorFactory (specialized on first use)
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<IteratorFactory> &&,
-            std::vector<std::unique_ptr<QueryObserver> > && = {});
+        ObjectIterator(db0::swine_ptr<Fixture>, std::shared_ptr<IteratorFactory> factory,
+            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});
 
         virtual ~ObjectIterator() = default;
-        
+
         /**
-         * Retrieve next object's address from the iterator
-         * @return false if end of iteration reached
-        */
-        bool next(std::uint64_t &addr);
-        
+         * Start the iteration over, possibly with additional application of provided filters
+         */
+        virtual std::unique_ptr<ObjectIterator> iter(const std::vector<FilterFunc> & = {}) const;
+
         /**
-         * Unload object by address (must be from this iterator)
+         * Retrieve next object from the iterator         
+         * @return nullptr if end of iteration reached
         */
-        virtual ObjectPtr unload(std::uint64_t address) const;
-        
-        /**
-         * @param at_ptr memory location for object
-         * @param query_observer optional observer (to retrieve result decorations)
-        */
-        static ObjectIterator *makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&,
-            std::vector<std::unique_ptr<QueryObserver> > && = {});
-        
+        ObjectSharedPtr next();
+                
         // Begin from the underlying full-text iterator (or fail if initialized from a sorted iterator)
         // collect query observers (make copy)
         std::unique_ptr<QueryIterator> beginFTQuery(std::vector<std::unique_ptr<QueryObserver> > &,
@@ -106,12 +101,16 @@ namespace db0::object_model
             return m_decoration.m_decorators;
         }
 
+        const std::vector<FilterFunc> &getFilters() const {
+            return m_filters;
+        }
+        
     protected:
         mutable db0::swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;
         std::unique_ptr<QueryIterator> m_query_iterator;
         std::unique_ptr<SortedIterator> m_sorted_iterator;
-        std::unique_ptr<IteratorFactory> m_factory;
+        std::shared_ptr<IteratorFactory> m_factory;
         std::unique_ptr<BaseIterator> m_base_iterator;
         // iterator_ptr valid both in case of m_query_iterator and m_sorted_iterator
         BaseIterator *m_iterator_ptr = nullptr;
@@ -135,9 +134,20 @@ namespace db0::object_model
         };
 
         Decoration m_decoration;
+        const std::vector<FilterFunc> m_filters;
+
+        // iter constructor
+        ObjectIterator(db0::swine_ptr<Fixture>, const ClassFactory &, std::unique_ptr<QueryIterator> &&,
+            std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>, std::vector<std::unique_ptr<QueryObserver> > &&,
+            std::vector<FilterFunc> &&filters);
 
         void assureInitialized();
         void assureInitialized() const;
+
+        /**
+         * Unload object by address (must be from this iterator)
+        */
+        virtual ObjectSharedPtr unload(std::uint64_t address) const;
     };
     
 }

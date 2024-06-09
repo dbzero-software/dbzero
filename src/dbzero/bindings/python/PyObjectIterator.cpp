@@ -65,16 +65,14 @@ namespace db0::python
     }
 
     PyObject *PyObjectIterator_iternext(PyObjectIterator *iter_obj)
-    {
-        std::uint64_t addr;
+    {        
         auto &iter = *iter_obj->ext();
-        if (iter.next(addr)) {
-            // retrieve DBZero instance
-            auto py_item = iter.unload(addr);
+        auto py_item = iter.next();
+        if (py_item) {
             if (iter.numDecorators() > 0) {
-                return decoratedItem(py_item, iter.getDecorators());
+                return decoratedItem(py_item.steal(), iter.getDecorators());
             } else {
-                return py_item;
+                return py_item.steal();
             }
         }
         
