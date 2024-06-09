@@ -544,5 +544,17 @@ namespace db0::object_model
         fixture->onUpdated();
         return fixture;
     }
+    
+    bool Object::operator==(const Object &other) const
+    {
+        if (!hasInstance() || !other.hasInstance()) {
+            // compare objects without DB0 instance
+            return this == &other;
+        }
+        if (this->getFixture()->getUUID() != other.getFixture()->getUUID()) {
+            return false;
+        }
+        return this->getAddress() == other.getAddress();
+    }
 
 }

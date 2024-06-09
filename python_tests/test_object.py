@@ -168,3 +168,13 @@ def test_to_dict_outputs_references_as_uuid(db0_fixture):
 def test_memo_object_can_keep_reference_to_self(db0_fixture):
     object_1 = MemoWithSelfRef()
     assert db0.uuid(object_1.value) == db0.uuid(object_1)
+
+
+def test_memo_object_equality(db0_fixture):
+    object_1 = DataClassMultiAttr(123, "value X")
+    object_2 = DataClassMultiAttr(781, object_1)
+    db0.commit()
+    object3 =  db0.fetch(db0.uuid(object_1))
+    assert object_1 == object3
+    assert object_2.value_2 == object_1
+    assert object_1 != object_2

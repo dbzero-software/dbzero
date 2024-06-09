@@ -3,7 +3,9 @@
 #include <iostream>
 
 namespace db0::python
+
 {
+    
     template<typename PyCollection>
     bool has_all_elements_same(PyCollection *collection, PyObject *iterator){
         PyObject *lh, *rh;
@@ -41,4 +43,5 @@ namespace db0::python
     }
 
     PyObject * PyBool_fromBool(bool value);
+
 }

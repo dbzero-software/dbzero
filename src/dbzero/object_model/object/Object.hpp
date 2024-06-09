@@ -235,6 +235,8 @@ namespace db0::object_model
         */
         void incRef();
 
+        bool operator==(const Object &other) const;
+
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
