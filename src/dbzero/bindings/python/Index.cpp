@@ -94,6 +94,9 @@ namespace db0::python
 
     PyObject *IndexObject_sort(IndexObject *py_index, PyObject *const *args, Py_ssize_t nargs)
     {
+        using ObjectIterator = db0::object_model::ObjectIterator;
+        using TypedObjectIterator = db0::object_model::TypedObjectIterator;
+
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "sort() takes exactly one argument");
             return NULL;
@@ -110,15 +113,15 @@ namespace db0::python
         auto &iter = reinterpret_cast<PyObjectIterator*>(py_iter)->ext();
         auto iter_obj = PyObjectIteratorDefault_new();
         
-        auto iter_sorted = index.sort(*iter);
+        auto iter_sorted = index.sort(*iter);        
         if (iter.isTyped()) {
-            auto typed_iter = std::make_unique<db0::object_model::TypedObjectIterator>(
-                iter->getFixture(), std::move(iter_sorted), iter.m_typed_iterator_ptr->getType()
+            auto typed_iter = std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(
+                iter->getFixture(), std::move(iter_sorted), iter.m_typed_iterator_ptr->getType(), {}, iter->getFilters())
             );
             Iterator::makeNew(&iter_obj->ext(), std::move(typed_iter));
         } else {
-            auto _iter = std::make_unique<db0::object_model::ObjectIterator>(
-                iter->getFixture(), std::move(iter_sorted)
+            auto _iter = std::unique_ptr<ObjectIterator>(new ObjectIterator(
+                iter->getFixture(), std::move(iter_sorted), {}, iter->getFilters())
             );
             Iterator::makeNew(&iter_obj->ext(), std::move(_iter));
         }
