@@ -354,6 +354,31 @@ namespace db0::python
         return NULL;
     }
     
+    PyObject *getTypeInfo(PyObject *self, PyObject *args)
+    {
+        PyObject *py_object;
+        if (!PyArg_ParseTuple(args, "O", &py_object)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        if (!PyType_Check(py_object)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
+        PyObject *py_dict = PyDict_New();
+        if (PyMemoType_Check(py_type)) {
+            MemoType_get_info(py_type, py_dict);
+            return py_dict;
+        }
+
+        Py_DECREF(py_dict);
+        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        return NULL;
+    }
+
     PyObject *negTags(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         return NULL;
     }

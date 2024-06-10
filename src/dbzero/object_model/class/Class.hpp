@@ -49,6 +49,8 @@ namespace db0::object_model
         LP_String m_name;
         LP_String m_module_name;
         LP_String m_type_id;
+        // optional scoped-class prefix
+        LP_String m_prefix_name;
         db0_ptr<VFieldVector> m_members_ptr;
         ClassFlags m_flags;
         // language specific class type
@@ -57,7 +59,7 @@ namespace db0::object_model
         std::array<std::uint64_t, 4> m_reserved;
         
         o_class(RC_LimitedStringPool &, const std::string &name, const std::string &module_name, const VFieldVector &,
-            const char *type_id, ClassFlags);
+            const char *type_id, const char *prefix_name, ClassFlags);
     };
     
     // Note that Class type uses SLOT_NUM = TYPE_SLOT_NUM
@@ -160,8 +162,8 @@ namespace db0::object_model
         // DBZero class instances should only be created by the ClassFactory
         // construct a new DBZero class
         Class(db0::swine_ptr<Fixture> &, const std::string &name, const std::string &module_name, TypeObjectPtr lang_type_ptr, 
-            const char *type_id, ClassFlags);
-                
+            const char *type_id, const char *prefix_name, ClassFlags);
+        
         void unlinkSingleton();
         
         // Get unique class identifier within its fixture

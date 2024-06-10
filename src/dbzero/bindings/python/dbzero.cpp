@@ -31,6 +31,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"fetch", (PyCFunction)&py::fetch, METH_FASTCALL, "Retrieve DBZero object instance by its UUID or type (in case of a singleton)"},
     {"delete", &py::del, METH_VARARGS, "Delete DBZero object and corresponding Python instance"},
     {"wrap_memo_type", (PyCFunction)&py::wrapPyClass, METH_VARARGS | METH_KEYWORDS, "Wraps a memo type for use with DBZero"},
+    {"get_type_info", &py::getTypeInfo, METH_VARARGS, "Get DBZero type information"},
     {"uuid", (PyCFunction)&py::getUUID, METH_FASTCALL, "Get unique object ID"},
     {"get_address", (PyCFunction)&py::getObjectAddress, METH_FASTCALL, "Get object's address"},
     {"cache_stats", &py::cacheStats, METH_NOARGS, "Retrieve DBZero cache statistics"},

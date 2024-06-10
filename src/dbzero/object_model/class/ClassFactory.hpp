@@ -58,14 +58,15 @@ namespace db0::object_model
         /**
          * Get existing or create a new DBZero class instance
          * @param lang_type the language specific type object (e.g. Python class)
-         * @param typeid the user assigned type ID (optional)
-         * @param is_singleton whether the class is a singleton
+         * @param type_id the user assigned type ID (optional)
+         * @param prefix_name name of the associated prefix, for scoped classes        
         */
-        std::shared_ptr<Class> getOrCreateType(TypeObjectPtr lang_type, const char *type_id);
+        std::shared_ptr<Class> getOrCreateType(TypeObjectPtr lang_type, const char *type_id, 
+            const char *prefix_name = nullptr);
         
         // reference the DBZero object model's class by its pointer
         std::shared_ptr<Class> getTypeByPtr(ClassPtr) const;
-                        
+        
         void commit();
         
     private:        

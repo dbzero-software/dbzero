@@ -58,8 +58,9 @@ namespace db0::python
         /**
          * Add string to pool and return a managed pointer
         */
-        const char *getPooledString(const std::string &);
-
+        const char *getPooledString(std::string);
+        const char *getPooledString(const char *);
+        
         // Recognize Python type of a specific object instance as TypeId (may return TypeId::UNKNOWN)
         TypeId getTypeId(ObjectPtr object_instance) const;
 

@@ -18,7 +18,7 @@ namespace db0::python
     
     using MemoObject = PyWrapper<db0::object_model::Object>;
     
-    PyTypeObject *wrapPyType(PyTypeObject *, bool is_singleton);
+    PyTypeObject *wrapPyType(PyTypeObject *, bool is_singleton, const char *prefix_name);
     PyObject *wrapPyClass(PyObject *self, PyObject *, PyObject *kwargs);
     
     MemoObject *MemoObject_new(PyTypeObject *type, PyObject * = nullptr, PyObject * = nullptr);
@@ -46,4 +46,7 @@ namespace db0::python
     PyObject *MemoObject_DescribeObject(MemoObject *);
     PyObject *MemoObject_IsTag(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     PyObject *MemoObject_str(MemoObject *);
+    
+    void MemoType_get_info(PyTypeObject *type, PyObject *dict);
+
 }

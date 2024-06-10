@@ -18,6 +18,18 @@ namespace db0::python
 
 {
     
+    struct MemoTypeDecoration
+    {
+        const char *m_prefix_name_ptr = 0;
+        // resolved prefix UUID (initialized by the process)
+        std::uint64_t m_prefix_uuid = 0;
+
+        MemoTypeDecoration(const char *prefix_name)
+            : m_prefix_name_ptr(prefix_name)
+        {
+        }
+    };
+
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
@@ -30,8 +42,7 @@ namespace db0::python
         return memo_obj;
     }
     
-    MemoObject *MemoObject_new(PyTypeObject *py_type, PyObject *args, PyObject *kwargs)
-    {
+    MemoObject *MemoObject_new(PyTypeObject *py_type, PyObject *args, PyObject *kwargs) {
         return reinterpret_cast<MemoObject*>(runSafe(tryMemoObject_new, py_type, args, kwargs));
     }
     
@@ -51,18 +62,15 @@ namespace db0::python
         return memo_obj;
     }
     
-    PyObject *MemoObject_new_singleton(PyTypeObject *py_type, PyObject *args, PyObject *kwargs)
-    {
+    PyObject *MemoObject_new_singleton(PyTypeObject *py_type, PyObject *args, PyObject *kwargs) {
         return runSafe(tryMemoObject_new_singleton, py_type, args, kwargs);
     }
     
-    MemoObject *MemoObjectStub_new(PyTypeObject *py_type)
-    {
+    MemoObject *MemoObjectStub_new(PyTypeObject *py_type) {
         return reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
     }
 
-    PyObject *MemoObject_alloc(PyTypeObject *self, Py_ssize_t nitems)
-    {
+    PyObject *MemoObject_alloc(PyTypeObject *self, Py_ssize_t nitems) {
         return PyType_GenericAlloc(self, nitems);
     }
     
@@ -120,7 +128,7 @@ namespace db0::python
         memo_obj->ext().~Object();
         db0::object_model::Object::makeNull(&memo_obj->ext());
     }
-        
+    
     PyObject *tryMemoObject_getattro(MemoObject *self, PyObject *attr)
     {
         // The method resolution order for Memo types is following:
@@ -211,7 +219,7 @@ namespace db0::python
 
         {
             std::stringstream str;
-            str << "dbzero_ce." << type_name;            
+            str << "dbzero_ce." << type_name;
             full_type_name = PyToolkit::getTypeManager().getPooledString(str.str());
         }
 
@@ -243,7 +251,7 @@ namespace db0::python
         return new_dict;
     }
     
-    PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton)
+    PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name)
     {        
         Py_INCREF(py_class);
         PyObject *py_module = findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__"));
@@ -267,7 +275,9 @@ namespace db0::python
         // __init__, __getattr__, __setattr__, __delattr__, __getattribute__
         
         // 3.9.x compatible PyTypeObject
-        PyHeapTypeObject *ht_new_type = new PyHeapTypeObject();
+        char *data = new char[sizeof(PyHeapTypeObject) + sizeof(MemoTypeDecoration)];
+        PyHeapTypeObject *ht_new_type = new (data) PyHeapTypeObject();
+        new (data + sizeof(PyHeapTypeObject)) MemoTypeDecoration(PyToolkit::getTypeManager().getPooledString(prefix_name));
         // Construct base type as a copy of the original type
         PyTypeObject *base_type = new PyTypeObject(*py_class);
         Py_INCREF(base_type);
@@ -330,28 +340,27 @@ namespace db0::python
     {        
         PyObject* class_obj;
         PyObject *singleton = Py_False;
-        static const char *kwlist[] = { "input", "singleton", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|O", const_cast<char**>(kwlist), &class_obj, &singleton)) {
+        PyObject *py_prefix_name = nullptr;
+        static const char *kwlist[] = { "input", "singleton", "prefix", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OO", const_cast<char**>(kwlist), &class_obj, &singleton, &py_prefix_name)) {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
         }
 
         bool is_singleton = PyObject_IsTrue(singleton);
-        return reinterpret_cast<PyObject*>(wrapPyType(castToType(class_obj), is_singleton));
+        const char *prefix_name = py_prefix_name ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
+        return reinterpret_cast<PyObject*>(wrapPyType(castToType(class_obj), is_singleton, prefix_name));
     }
 
-    bool PyMemoType_Check(PyTypeObject *type)
-    {
+    bool PyMemoType_Check(PyTypeObject *type) {
         return type->tp_init == reinterpret_cast<initproc>(MemoObject_init);
     }
     
-    bool PyMemo_Check(PyObject *obj)
-    {
+    bool PyMemo_Check(PyObject *obj) {
         return PyMemoType_Check(Py_TYPE(obj));
     }
 
-    bool PyMemoType_IsSingleton(PyTypeObject *type)
-    {
+    bool PyMemoType_IsSingleton(PyTypeObject *type) {
         return type->tp_new == reinterpret_cast<newfunc>(MemoObject_new_singleton);
     }
     
@@ -418,6 +427,13 @@ namespace db0::python
         }
         str << ">";
         return PyUnicode_FromString(str.str().c_str());
+    }
+    
+    void MemoType_get_info(PyTypeObject *type, PyObject *dict)
+    {                
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
+        PyDict_SetItemString(dict, "singleton", PyBool_FromLong(PyMemoType_IsSingleton(type)));
+        PyDict_SetItemString(dict, "prefix", PyUnicode_FromString(decor.m_prefix_name_ptr));
     }
     
 }

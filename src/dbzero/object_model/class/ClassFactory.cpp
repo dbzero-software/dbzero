@@ -102,7 +102,8 @@ namespace db0::object_model
         return type;
     }
     
-    std::shared_ptr<Class> ClassFactory::getOrCreateType(TypeObjectPtr lang_type, const char *type_id)
+    std::shared_ptr<Class> ClassFactory::getOrCreateType(TypeObjectPtr lang_type, const char *type_id,
+        const char *prefix_name)
     {
         auto it_cached = m_type_cache.find(lang_type);
         if (it_cached == m_type_cache.end())
@@ -119,7 +120,7 @@ namespace db0::object_model
                 auto fixture = getFixture();
                 ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
                 type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type), 
-                    LangToolkit::getModuleName(lang_type), lang_type, type_id, flags));
+                    LangToolkit::getModuleName(lang_type), lang_type, type_id, prefix_name, flags));
                 class_ptr = ClassPtr(*type);
                 // inc-ref to persist the class
                 type->incRef();
