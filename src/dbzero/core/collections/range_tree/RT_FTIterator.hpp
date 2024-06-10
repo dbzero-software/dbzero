@@ -24,8 +24,8 @@ namespace db0
     public:
         // Create to range-filter results of a specific FT-iterator (e.g. tag query)
         RT_FTIterator(const RT_TreeT &tree, std::optional<KeyT> min,
-            bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool nulls_first)
-            : super_t(makeQuery(tree, min, min_inclusive, max, max_inclusive, nulls_first), -1, true)
+            bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool null_first)
+            : super_t(makeQuery(tree, min, min_inclusive, max, max_inclusive, null_first), -1, true)
             , m_fixture_uuid(tree.getMemspace().getUUID())
             , m_rt_tree_address(tree.getAddress())
             , m_range { min, min_inclusive, max, max_inclusive }
@@ -42,12 +42,12 @@ namespace db0
         const RT_Range<KeyT> m_range;
 
         std::list<std::unique_ptr<FT_Iterator<ValueT> > > makeQuery(const RT_TreeT &tree, std::optional<KeyT> min,
-            bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool nulls_first) const;
+            bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool null_first) const;
     };
 
     template <typename KeyT, typename ValueT>
     std::list<std::unique_ptr<FT_Iterator<ValueT> > > RT_FTIterator<KeyT, ValueT>::makeQuery(const RT_TreeT &tree,
-        std::optional<KeyT> min, bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool nulls_first) const
+        std::optional<KeyT> min, bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool null_first) const
     {
         auto fullInclusion = [&](KeyT r_min, KeyT r_max) -> bool {
             if (min && (r_min < *min)) {
@@ -60,7 +60,7 @@ namespace db0
         };
 
         auto nullInclusion = [&]() -> bool {            
-            return (nulls_first && !min) || (!nulls_first && !max);
+            return (null_first && !min) || (!null_first && !max);
         };
         
         std::list<std::unique_ptr<FT_Iterator<ValueT> > > query;

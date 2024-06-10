@@ -34,17 +34,20 @@ namespace db0
         auto fixture = snapshot.getFixture(db0::serial::read<std::uint64_t>(iter, end));
         std::uint64_t addr = db0::serial::read<std::uint64_t>(iter, end);
         bool asc = db0::serial::read<bool>(iter, end);
+        bool null_first = db0::serial::read<bool>(iter, end);
         bool has_inner = db0::serial::read<bool>(iter, end);
         if (has_inner) {
             auto inner_it = deserializeSortedIterator<ValueT>(snapshot, iter, end);
-            return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), std::move(inner_it), asc);
+            return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), 
+                std::move(inner_it), asc, null_first);
         } else {
             bool has_query = db0::serial::read<bool>(iter, end);
             if (has_query) {
                 auto query_it = deserializeFT_Iterator<ValueT>(snapshot, iter, end);
-                return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), std::move(query_it), asc);
+                return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), 
+                    std::move(query_it), asc, null_first);
             } else {
-                return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), asc);
+                return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), asc, null_first);
             }
         }
     }

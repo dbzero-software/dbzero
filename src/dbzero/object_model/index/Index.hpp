@@ -80,15 +80,16 @@ namespace db0::object_model
          * Sort results of a specific object iterator from the same fixture
          * @param iter object iterator        
          */        
-        std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort(const ObjectIterator &iter) const;
-
+        std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort(const ObjectIterator &iter,
+            bool asc, bool null_first) const;
+        
         /**
          * Construct a range filtering query        
          * @param min optional lower bound
          * @param max optional upper bound
          */
         std::unique_ptr<IteratorFactory>
-        range(ObjectPtr min, ObjectPtr max, bool nulls_first = false) const;
+        range(ObjectPtr min, ObjectPtr max, bool null_first = false) const;
 
         static PreCommitFunction getPreCommitFunction() {
             return preCommitOp;
@@ -175,8 +176,7 @@ namespace db0::object_model
             return *static_cast<RangeTreeT*>(m_index.get());
         }
 
-        template <typename T> const typename db0::RangeTree<T, std::uint64_t> &getRangeTree() const
-        {
+        template <typename T> const typename db0::RangeTree<T, std::uint64_t> &getRangeTree() const {
             return const_cast<Index*>(this)->getRangeTree<T>();
         }
 
@@ -184,30 +184,28 @@ namespace db0::object_model
          * Construct sorted query iterator from an unsorted full-text query iterator
         */
         template <typename T> std::unique_ptr<RT_SortIterator<T, std::uint64_t> >
-        sortQuery(std::unique_ptr<db0::FT_Iterator<std::uint64_t> > &&query_iterator, bool asc = true) const
-        {
-            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(getRangeTree<T>(), std::move(query_iterator), asc);
+        sortQuery(std::unique_ptr<db0::FT_Iterator<std::uint64_t> > &&query_iterator, bool asc, bool null_first) const {
+            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(getRangeTree<T>(), std::move(query_iterator), asc, null_first);
         }
 
         template <typename T> std::unique_ptr<RT_SortIterator<T, std::uint64_t> >
-        sortSortedQuery(std::unique_ptr<db0::SortedIterator<std::uint64_t> > &&sorted_iterator, bool asc = true) const
-        {
-            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(getRangeTree<T>(), std::move(sorted_iterator), asc);
+        sortSortedQuery(std::unique_ptr<db0::SortedIterator<std::uint64_t> > &&sorted_iterator, bool asc, bool null_first) const {
+            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(getRangeTree<T>(), std::move(sorted_iterator), asc, null_first);
         }
         
         template <typename T> std::unique_ptr<IteratorFactory>
-        rangeQuery(ObjectPtr min, bool min_inclusive, ObjectPtr max, bool max_inclusive, bool nulls_first) const
+        rangeQuery(ObjectPtr min, bool min_inclusive, ObjectPtr max, bool max_inclusive, bool null_first) const
         {
             // FIXME: make inclusive flags configurable
             // we need to handle all-null case separately because provisional data type and range type may differ
             auto &range_tree = getRangeTree<T>();
             if (range_tree.hasAnyNonNull()) {
                 return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, extractOptionalValue<T>(min),
-                    min_inclusive, extractOptionalValue<T>(max), max_inclusive, nulls_first);
+                    min_inclusive, extractOptionalValue<T>(max), max_inclusive, null_first);
             } else {
                 // FIXME: handle null-first policy
                 auto &type_manager = LangToolkit::getTypeManager();
-                if ((nulls_first && type_manager.isNull(min)) || (!nulls_first && type_manager.isNull(max))) {
+                if ((null_first && type_manager.isNull(min)) || (!null_first && type_manager.isNull(max))) {
                     // return all null elements
                     return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, true);
                 }

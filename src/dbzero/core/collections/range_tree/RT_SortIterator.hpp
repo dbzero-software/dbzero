@@ -28,20 +28,21 @@ namespace db0
         using super_t = SortedIterator<ValueT>;
     public:
         // Create joined with FT-iterator
-        RT_SortIterator(const RT_TreeT &tree, std::unique_ptr<FT_Iterator<ValueT> > &&it, bool asc = true)
-            : RT_SortIterator(this->nextUID(), tree, true, std::move(it), asc, nullptr)
+        RT_SortIterator(const RT_TreeT &tree, std::unique_ptr<FT_Iterator<ValueT> > &&it, bool asc = true, bool null_first = false)
+            : RT_SortIterator(this->nextUID(), tree, true, std::move(it), asc, null_first, nullptr)
         {
         }
         
         // Create for sorting by additional criteria
-        RT_SortIterator(const RT_TreeT &tree, std::unique_ptr<SortedIterator<ValueT> > &&inner_it, bool asc = true)
-            : RT_SortIterator(this->nextUID(), tree, inner_it->hasFTQuery(), inner_it->beginFTQuery(), asc, std::move(inner_it))
+        RT_SortIterator(const RT_TreeT &tree, std::unique_ptr<SortedIterator<ValueT> > &&inner_it, bool asc = true, bool null_first = false)
+            : RT_SortIterator(this->nextUID(), tree, inner_it->hasFTQuery(), inner_it->beginFTQuery(), 
+                asc, null_first, std::move(inner_it))
         {
         }
         
         // Create for sorting the entire range tree
-        RT_SortIterator(const RT_TreeT &tree, bool asc = true)
-            : RT_SortIterator(this->nextUID(), tree, false, nullptr, asc, nullptr)
+        RT_SortIterator(const RT_TreeT &tree, bool asc = true, bool null_first = false)
+            : RT_SortIterator(this->nextUID(), tree, false, nullptr, asc, null_first, nullptr)
         {
         }
 
@@ -82,6 +83,7 @@ namespace db0
         typename RT_TreeT::RangeIterator m_tree_it;
         std::unique_ptr<FT_Iterator<ValueT> > m_query_it;
         const bool m_asc;
+        const bool m_null_first = false;
         const bool m_has_query;
         // the iterator over null keys only
         std::unique_ptr<FT_Iterator<ValueT> > m_null_query_it;
@@ -93,12 +95,13 @@ namespace db0
 
         // Create AND-joined with FT-iterator
         RT_SortIterator(std::uint64_t uid, const RT_TreeT &tree, bool has_query, std::unique_ptr<FT_Iterator<ValueT> > &&it, bool asc,
-            std::unique_ptr<SortedIterator<ValueT> > &&inner_it)
+            bool null_first, std::unique_ptr<SortedIterator<ValueT> > &&inner_it)
             : super_t(uid)
             , m_tree(tree)
             , m_tree_it(m_tree.beginRange(asc))
             , m_query_it(std::move(it))
             , m_asc(asc)
+            , m_null_first(null_first)
             , m_has_query(has_query)
             , m_null_query_it(beginNullBlockQuery())
             , m_inner_it(std::move(inner_it))
@@ -191,8 +194,7 @@ namespace db0
         }
     };
     
-    template <typename KeyT, typename ValueT> bool RT_SortIterator<KeyT, ValueT>::isEnd() const
-    {
+    template <typename KeyT, typename ValueT> bool RT_SortIterator<KeyT, ValueT>::isEnd() const {
         return this->_isEnd();
     }
     
@@ -320,6 +322,11 @@ namespace db0
     {
         assert(!isEnd());
         using RT_IteratorT = typename RT_TreeT::BlockT::FT_IteratorT;
+        // pull null values first (if asc and nulls first policy has been set)
+        if (m_null_query_it && m_null_first == m_asc) {
+            m_null_it = std::move(m_null_query_it);
+            m_null_query_it = nullptr;
+        }
         for (;;) {
             // pull from heap if anything available there
             if (!m_items.empty()) {
@@ -378,16 +385,15 @@ namespace db0
             }
             
             m_tree_it.next();
-            // initialize the null-key block query as the last step
-            if (m_tree_it.isEnd()) {
+            // initialize the null-key block query as the last step (depending on null first policy)
+            if (m_tree_it.isEnd() && m_null_first != m_asc) {
                 m_null_it = std::move(m_null_query_it);
                 m_null_query_it = nullptr;
             }
         }
     }
     
-    template <typename KeyT, typename ValueT> std::ostream &RT_SortIterator<KeyT, ValueT>::dump(std::ostream &os) const
-    {
+    template <typename KeyT, typename ValueT> std::ostream &RT_SortIterator<KeyT, ValueT>::dump(std::ostream &os) const {
         return os << "RT_SortIterator";        
     }
 
@@ -403,13 +409,11 @@ namespace db0
         return nullptr;
     }
     
-    template <typename KeyT, typename ValueT> const std::type_info &RT_SortIterator<KeyT, ValueT>::keyTypeId() const
-    {
+    template <typename KeyT, typename ValueT> const std::type_info &RT_SortIterator<KeyT, ValueT>::keyTypeId() const {
         return typeid(ValueT);
     }
 
-    template <typename KeyT, typename ValueT> const std::type_info &RT_SortIterator<KeyT, ValueT>::typeId() const
-    {
+    template <typename KeyT, typename ValueT> const std::type_info &RT_SortIterator<KeyT, ValueT>::typeId() const {
         return typeid(self_t);
     }
 
@@ -417,9 +421,9 @@ namespace db0
     std::unique_ptr<FT_IteratorBase> RT_SortIterator<KeyT, ValueT>::begin() const
     {
         if (m_has_query) {
-            return std::make_unique<self_t>(m_tree, (m_query_it ? m_query_it->beginTyped() : nullptr), m_asc);
+            return std::make_unique<self_t>(m_tree, (m_query_it ? m_query_it->beginTyped() : nullptr), m_asc, m_null_first);
         } else {
-            return std::make_unique<self_t>(m_tree, m_asc);
+            return std::make_unique<self_t>(m_tree, m_asc, m_null_first);
         }
     }
 
@@ -448,17 +452,16 @@ namespace db0
         if (ft_query) {
             // sort specific inner query
             return std::unique_ptr<self_t>(new self_t(this->m_uid, m_tree, true, ft_query->beginTyped(-1),
-                m_asc, std::move(nested_inner_it)));
+                m_asc, m_null_first, std::move(nested_inner_it)));
         } else {
             // create a clone of this iterator
             return std::unique_ptr<self_t>(new self_t(this->m_uid, m_tree, m_has_query, (m_query_it ? m_query_it->beginTyped(-1) : nullptr),
-                m_asc, std::move(nested_inner_it)));
+                m_asc, m_null_first, std::move(nested_inner_it)));
         }
     }
 
     template <typename KeyT, typename ValueT>
-    SortedIteratorType RT_SortIterator<KeyT, ValueT>::getSerialTypeId() const
-    {
+    SortedIteratorType RT_SortIterator<KeyT, ValueT>::getSerialTypeId() const {
         return SortedIteratorType::RT_Sort;
     }
     
@@ -470,6 +473,7 @@ namespace db0
         db0::serial::write(v, m_tree.getMemspace().getUUID());
         db0::serial::write(v, m_tree.getAddress());
         db0::serial::write<bool>(v, m_asc);
+        db0::serial::write<bool>(v, m_null_first);
         db0::serial::write<bool>(v, m_inner_it != nullptr);
         if (m_inner_it) {            
             m_inner_it->serialize(v);
