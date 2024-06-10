@@ -188,7 +188,7 @@ def test_index_can_hold_all_null_elements(db0_fixture):
     assert len(index) == 5
 
 
-def test_index_can_add_non_null_after_adding_nulls_first(db0_fixture):
+def test_index_can_add_non_null_after_adding_null_first(db0_fixture):
     index = db0.index()
     for _ in range(5):
         # add null elements only
@@ -198,7 +198,7 @@ def test_index_can_add_non_null_after_adding_nulls_first(db0_fixture):
     assert len(index) == 6
 
 
-def test_index_can_add_datetime_after_adding_nulls_first(db0_fixture):
+def test_index_can_add_datetime_after_adding_null_first(db0_fixture):
     index = db0.index()
     for _ in range(5):
         # add null elements only
@@ -284,7 +284,7 @@ def test_null_first_range_query(db0_fixture):
         index.add(i, MemoTestClass(i))
 
     # null-first query should include null in the high-bound range
-    values = set([x.value for x in index.range(None, 1 , nulls_first=True)])
+    values = set([x.value for x in index.range(None, 1 , null_first=True)])
     assert values == set([999, 0, 1])
 
 
@@ -329,3 +329,33 @@ def test_removing_null_keys_from_index(db0_fixture):
     index.remove(None, obj_1)
     index.remove(None, obj_3)
     assert len(index) == 1
+
+
+def test_index_sort_descending(db0_fixture):
+    index = db0.index()
+    priority = [666, None, 555, 888, None]
+    objects = [MemoTestClass(i) for i in priority]
+    for i in range(5):
+        db0.tags(objects[i]).add(["tag1", "tag2"])
+        # key, value
+        index.add(priority[i], objects[i])
+        
+    # retrieve sorted elements using index
+    sorted = index.sort(find("tag1"), desc=True)
+    values = [x.value for x in sorted]
+    assert values == [None, None, 888, 666, 555]
+
+
+def test_index_sort_asc_desc_with_null_first_policy(db0_fixture):
+    index = db0.index()
+    priority = [666, None, 555, 888, None]
+    objects = [MemoTestClass(i) for i in priority]
+    for i in range(5):
+        db0.tags(objects[i]).add(["tag1", "tag2"])
+        # key, value
+        index.add(priority[i], objects[i])
+    
+    assert [x.value for x in index.sort(find("tag1"), null_first=False)] == [555, 666, 888, None, None]
+    assert [x.value for x in index.sort(find("tag1"), desc=True, null_first=False)] == [None, None, 888, 666, 555]
+    assert [x.value for x in index.sort(find("tag1"), desc=True)] == [None, None, 888, 666, 555]
+    assert [x.value for x in index.sort(find("tag1"), null_first=True)] == [None, None, 555, 666, 888]

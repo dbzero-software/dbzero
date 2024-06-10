@@ -166,18 +166,18 @@ namespace db0::object_model
         }            
     }
 
-    std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool nulls_first) const
+    std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool null_first) const
     {
         const_cast<Index*>(this)->flush();
         std::unique_ptr<IteratorFactory> iter_factory;
         switch (m_data_type) {
             case IndexDataType::Int64: {
-                return rangeQuery<std::int64_t>(min, true, max, true, nulls_first);
+                return rangeQuery<std::int64_t>(min, true, max, true, null_first);
             }
             break;            
 
             case IndexDataType::UInt64: {
-                return rangeQuery<std::uint64_t>(min, true, max, true, nulls_first);
+                return rangeQuery<std::uint64_t>(min, true, max, true, null_first);
             }
             break;
 
@@ -187,7 +187,8 @@ namespace db0::object_model
         }        
     }
     
-    std::unique_ptr<db0::SortedIterator<std::uint64_t> > Index::sort(const ObjectIterator &iter) const
+    std::unique_ptr<db0::SortedIterator<std::uint64_t> > 
+    Index::sort(const ObjectIterator &iter, bool asc, bool null_first) const
     {
         const_cast<Index*>(this)->flush();
         std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort_iter;
@@ -195,12 +196,12 @@ namespace db0::object_model
             // sort by additional criteria
             switch (m_data_type) {
                 case IndexDataType::Int64: {
-                    return sortSortedQuery<std::int64_t>(iter.beginSorted());                    
+                    return sortSortedQuery<std::int64_t>(iter.beginSorted(), asc, null_first);
                 }
                 break;
 
                 case IndexDataType::UInt64: {
-                    return sortSortedQuery<std::uint64_t>(iter.beginSorted());                    
+                    return sortSortedQuery<std::uint64_t>(iter.beginSorted(), asc, null_first);
                 }
                 break;
 
@@ -214,12 +215,12 @@ namespace db0::object_model
             std::vector<std::unique_ptr<QueryObserver> > observers;
             switch (m_data_type) {
                 case IndexDataType::Int64: {
-                    return sortQuery<std::int64_t>(iter.beginFTQuery(observers));                    
+                    return sortQuery<std::int64_t>(iter.beginFTQuery(observers), asc, null_first);
                 }
                 break;
 
                 case IndexDataType::UInt64: {
-                    return sortQuery<std::uint64_t>(iter.beginFTQuery(observers));                    
+                    return sortQuery<std::uint64_t>(iter.beginFTQuery(observers), asc, null_first);
                 }
                 break;
 

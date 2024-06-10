@@ -9,7 +9,7 @@ namespace db0::python
     static PyMethodDef IndexObject_methods[] = {
         {"add", (PyCFunction)IndexObject_add, METH_FASTCALL, "Add item to index."},
         {"remove", (PyCFunction)IndexObject_remove, METH_FASTCALL, "Remove item from index if it exists."},
-        {"sort", (PyCFunction)IndexObject_sort, METH_FASTCALL, "Sort results of other iterator."},
+        {"sort", (PyCFunction)IndexObject_sort, METH_VARARGS | METH_KEYWORDS, "Sort results of other iterator."},
         {"range", (PyCFunction)IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Extract values from a specific range"},
         {NULL}
     };
@@ -92,18 +92,29 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *IndexObject_sort(IndexObject *py_index, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *IndexObject_sort(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
         using ObjectIterator = db0::object_model::ObjectIterator;
         using TypedObjectIterator = db0::object_model::TypedObjectIterator;
 
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "sort() takes exactly one argument");
+        // extract 1 positional argument
+        if (PyTuple_Size(args) != 1) {
+            PyErr_SetString(PyExc_TypeError, "sort() takes exactly one positional argument");
             return NULL;
         }
+
+        PyObject *py_desc = nullptr;
+        PyObject *py_null_first = nullptr;
+        // extract optional keyword arugment "desc" (default sort is ascending)
+        if (kwargs != NULL) {
+            py_desc = PyDict_GetItemString(kwargs, "desc");
+            py_null_first = PyDict_GetItemString(kwargs, "null_first");
+        }
         
-        // sort results of a full-text iterator
-        auto py_iter = args[0];
+        bool asc = py_desc ? !PyObject_IsTrue(py_desc) : true;
+        bool null_first = py_null_first ? PyObject_IsTrue(py_null_first) : false;
+        PyObject *py_iter = PyTuple_GetItem(args, 0);
+        // sort results of a full-text iterator        
         if (!PyObjectIterator_Check(py_iter)) {
             PyErr_SetString(PyExc_TypeError, "sort() takes ObjectIterator as an argument");
             return NULL;
@@ -113,7 +124,7 @@ namespace db0::python
         auto &iter = reinterpret_cast<PyObjectIterator*>(py_iter)->ext();
         auto iter_obj = PyObjectIteratorDefault_new();
         
-        auto iter_sorted = index.sort(*iter);        
+        auto iter_sorted = index.sort(*iter, asc, null_first);
         if (iter.isTyped()) {
             auto typed_iter = std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(
                 iter->getFixture(), std::move(iter_sorted), iter.m_typed_iterator_ptr->getType(), {}, iter->getFilters())
@@ -132,16 +143,16 @@ namespace db0::python
     PyObject *IndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
         // optional low, optional high, optional null_first (boolean)
-        static const char *kwlist[] = {"low", "high", "nulls_first", NULL};
+        static const char *kwlist[] = {"low", "high", "null_first", NULL};
         PyObject *low = NULL, *high = NULL;
-        int nulls_first = 0;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|Op", const_cast<char**>(kwlist), &low, &high, &nulls_first)) {
+        int null_first = 0;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|Op", const_cast<char**>(kwlist), &low, &high, &null_first)) {
             return NULL;
         }
 
         auto &index = py_index->ext();
         // construct range iterator        
-        auto iter_factory = index.range(low, high, nulls_first);
+        auto iter_factory = index.range(low, high, null_first);
         auto iter = std::make_unique<db0::object_model::ObjectIterator>(index.getFixture(), std::move(iter_factory));
         auto py_iter_obj = PyObjectIteratorDefault_new();
         Iterator::makeNew(&py_iter_obj->ext(), std::move(iter));
