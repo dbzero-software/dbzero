@@ -34,7 +34,7 @@ namespace db0::python
         return self->ext()->getLangValue(PyUnicode_AsUTF8(attr)).steal();
     }
     
-    PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr) 
+    PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr)
     {
         auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(self), attr);
         if (res) {

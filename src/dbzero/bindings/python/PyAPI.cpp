@@ -494,6 +494,7 @@ namespace db0::python
 
         const char *type_id = py_enum_type_id ? PyUnicode_AsUTF8(py_enum_type_id) : nullptr;
         const char *prefix_name = py_prefix_name ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
+        
         if (enum_name) {
             return runSafe(tryMakeEnum, self, enum_name, enum_values, type_id, prefix_name);
         } else {
