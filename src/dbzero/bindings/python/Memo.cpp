@@ -34,6 +34,10 @@ namespace db0::python
         return m_fixture_uuid;
     }
 
+    void MemoTypeDecoration::close() {
+        m_fixture_uuid = 0;
+    }
+    
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
@@ -439,11 +443,17 @@ namespace db0::python
         return PyUnicode_FromString(str.str().c_str());
     }
     
-    void MemoType_get_info(PyTypeObject *type, PyObject *dict)
+    void PyMemoType_get_info(PyTypeObject *type, PyObject *dict)
     {                
         auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
         PyDict_SetItemString(dict, "singleton", PyBool_FromLong(PyMemoType_IsSingleton(type)));
         PyDict_SetItemString(dict, "prefix", PyUnicode_FromString(decor.m_prefix_name_ptr));
+    }
+
+    void PyMemoType_close(PyTypeObject *type)
+    {
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
+        decor.close();
     }
     
 }

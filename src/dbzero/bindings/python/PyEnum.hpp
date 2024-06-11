@@ -34,9 +34,9 @@ namespace db0::python
     
     // Find existing or create a new enum object (in DB0 it's not a type)
     PyObject *tryMakeEnum(PyObject *, const std::string &enum_name, const std::vector<std::string> &enum_values, 
-        const char *type_id = nullptr);
+        const char *type_id, const char *prefix_name);
     PyObject *tryMakeEnumFromType(PyObject *, PyTypeObject *, const std::vector<std::string> &enum_values,
-        const char *type_id = nullptr);
+        const char *type_id, const char *prefix_name);
     
     PyEnumValue *makePyEnumValue(const EnumValue &);
     

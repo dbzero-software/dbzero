@@ -26,6 +26,7 @@ namespace db0::python
         
         MemoTypeDecoration(const char *prefix_name, const char *type_id);
         std::uint64_t getFixtureUUID();
+        void close();
     };
 
     using MemoObject = PyWrapper<db0::object_model::Object>;
@@ -59,6 +60,7 @@ namespace db0::python
     PyObject *MemoObject_IsTag(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     PyObject *MemoObject_str(MemoObject *);
     
-    void MemoType_get_info(PyTypeObject *type, PyObject *dict);
+    void PyMemoType_get_info(PyTypeObject *type, PyObject *dict);
+    void PyMemoType_close(PyTypeObject *type);
 
 }

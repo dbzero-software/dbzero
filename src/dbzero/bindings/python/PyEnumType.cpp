@@ -7,9 +7,10 @@ namespace db0::python
 
 {
 
-    PyEnumData::PyEnumData(const EnumDef &enum_def, const char *type_id)
+    PyEnumData::PyEnumData(const EnumDef &enum_def, const char *type_id, const char *prefix_name)
         : m_enum_def(enum_def)
         , m_type_id(type_id ? std::optional<std::string>(type_id) : std::nullopt)
+        , m_prefix_name(prefix_name ? std::optional<std::string>(prefix_name) : std::nullopt)
     {
     }
 
@@ -17,14 +18,19 @@ namespace db0::python
     {
         using EnumFactory = db0::object_model::EnumFactory;
         if (!m_enum_ptr) {
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();        
+            std::uint64_t fixture_uuid = 0;
+            if (m_prefix_name) {
+                auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture((*m_prefix_name).c_str());
+                fixture_uuid = fixture->getUUID();
+            }
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture(fixture_uuid);
             auto &enum_factory = fixture->get<EnumFactory>();
             // use empty module name since it's unknown
             m_enum_ptr = enum_factory.getOrCreateEnum(m_enum_def, m_type_id ? m_type_id->c_str() : nullptr);
             // popluate enum's value cache
             for (auto &value: m_enum_ptr->getValues()) {
                 m_enum_ptr->getLangValue(value);
-            }            
+            }
         }
         assert(m_enum_ptr);
         return *m_enum_ptr;
@@ -38,8 +44,8 @@ namespace db0::python
         m_enum_ptr = nullptr;
     }
 
-    void PyEnumData::makeNew(void *at_ptr, const EnumDef &enum_def, const char *type_id) {
-        new(at_ptr) PyEnumData(enum_def, type_id);
+    void PyEnumData::makeNew(void *at_ptr, const EnumDef &enum_def, const char *type_id, const char *prefix_name) {
+        new(at_ptr) PyEnumData(enum_def, type_id, prefix_name);
     }
     
 }

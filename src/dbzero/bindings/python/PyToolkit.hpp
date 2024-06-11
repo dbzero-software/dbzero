@@ -129,8 +129,10 @@ namespace db0::python
         static bool isFieldDef(ObjectPtr py_object);
         static ObjectSharedPtr getIterator(ObjectPtr py_object);
         static ObjectSharedPtr next(ObjectPtr py_object);
+        // Get value associated fixture UUID (e.g. enum value)
+        static std::uint64_t getFixtureUUID(ObjectPtr py_object);
         // Get scoped type's associated fixture UUID (or 0x0)
-        static std::uint64_t getFixtureUUID(TypeObjectPtr memo_type);
+        static std::uint64_t getFixtureUUID(TypeObjectPtr py_type);
         // Get scoped type's associated prefix name (or nullptr if not defined)
         static const char *getPrefixName(TypeObjectPtr memo_type);
         // Get memo type associated type_id or nullptr if not defined

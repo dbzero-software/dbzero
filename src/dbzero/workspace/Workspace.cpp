@@ -183,7 +183,7 @@ namespace db0
         return BaseWorkspace::getCacheRecycler();
     }
 
-    swine_ptr<Fixture> Workspace::getFixtureEx(const std::string &prefix_name, std::optional<AccessType> access_type,
+    db0::swine_ptr<Fixture> Workspace::getFixtureEx(const std::string &prefix_name, std::optional<AccessType> access_type,
         std::optional<std::uint64_t> state_num, std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size, bool autocommit)
     {
@@ -234,7 +234,7 @@ namespace db0
         return it->second;
     }
     
-    swine_ptr<Fixture> Workspace::tryFindFixture(const std::string &prefix_name) const
+    db0::swine_ptr<Fixture> Workspace::tryFindFixture(const std::string &prefix_name) const
     {
         auto uuid = getUUID(prefix_name);
         auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();        
@@ -244,7 +244,7 @@ namespace db0
         return it->second;
     }
     
-    swine_ptr<Fixture> Workspace::findFixture(const std::string &prefix_name) const
+    db0::swine_ptr<Fixture> Workspace::findFixture(const std::string &prefix_name) const
     {
         auto result = tryFindFixture(prefix_name);
         if (!result) {
@@ -253,8 +253,11 @@ namespace db0
         return result;
     }
     
-    swine_ptr<Fixture> Workspace::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
+    db0::swine_ptr<Fixture> Workspace::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
     {
+        if (!uuid) {
+            return getCurrentFixture(access_type);
+        }
         auto it = m_fixtures.find(uuid);
         if (it == m_fixtures.end()) {
             if (!access_type) {

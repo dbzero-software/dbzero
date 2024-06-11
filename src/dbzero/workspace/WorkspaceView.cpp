@@ -78,6 +78,13 @@ namespace db0
             THROWF(db0::InternalException) << "WorkspaceView does not support read/write access";
         }
 
+        if (!uuid) {
+            if (!m_default_uuid) {
+                THROWF(db0::InternalException) << "No default fixture";
+            }
+            uuid = *m_default_uuid;
+        }
+
         auto it = m_fixtures.find(uuid);
         if (it != m_fixtures.end()) {
             return it->second;
@@ -132,12 +139,9 @@ namespace db0
     std::optional<std::uint64_t> WorkspaceView::getStateNum() const {
         return m_state_num;
     }
-
+    
     db0::swine_ptr<Fixture> WorkspaceView::getCurrentFixture(std::optional<AccessType> access_type)
     {
-        if (access_type && *access_type != AccessType::READ_ONLY) {
-            THROWF(db0::InternalException) << "WorkspaceView does not support read/write access";
-        }
         if (!m_default_uuid) {
             THROWF(db0::InternalException) << "No default fixture";
         }

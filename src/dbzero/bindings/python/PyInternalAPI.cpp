@@ -243,9 +243,9 @@ namespace db0::python
         using TypedObjectIterator = db0::object_model::TypedObjectIterator;
         using TagIndex = db0::object_model::TagIndex;
         using Class = db0::object_model::Class;
-
-        std::shared_ptr<Class> type;
-        auto fixture = snapshot.getCurrentFixture();
+        
+        std::shared_ptr<Class> type;        
+        auto fixture = snapshot.getFixture(db0::object_model::getFindFixtureUUID(args, nargs));
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
         auto query_iterator = tag_index.find(args, nargs, type, query_observers);

@@ -177,4 +177,13 @@ namespace db0::object_model
         return { first, *it }; 
     }
 
+    /**
+     * Get fixture UUID (or 0 if not specified) related with "find" arguments
+     * @param args arguments passed to the find method
+     * @param nargs number of arguments
+     */
+    std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr const *args, std::size_t nargs);
+    // Get type / enum / iterable associated fixture UUID (or 0 if not prefix bound)
+    std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr);
+
 }

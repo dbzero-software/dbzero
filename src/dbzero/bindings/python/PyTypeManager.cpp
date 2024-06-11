@@ -27,6 +27,7 @@
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include "PyClassFields.hpp"
 #include "PyEnum.hpp"
+#include "Memo.hpp"
 
 namespace db0::python
 
@@ -282,6 +283,9 @@ namespace db0::python
         for (auto &obj : m_enum_cache) {
             PyEnum *py_enum = reinterpret_cast<PyEnum*>(obj.get());
             py_enum->ext().close();
+        }
+        for (auto &memo_type: m_type_cache) {
+            PyMemoType_close(memo_type.second.get());
         }
     }
 
