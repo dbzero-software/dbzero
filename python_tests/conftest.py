@@ -17,10 +17,10 @@ def db0_fixture():
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR)    
+    db0.init(DB0_DIR)
     db0.open("my-test-prefix")
     yield db0
-    db0.close()  
+    db0.close()
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
 

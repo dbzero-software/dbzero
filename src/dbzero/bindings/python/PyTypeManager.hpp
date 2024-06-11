@@ -58,8 +58,9 @@ namespace db0::python
         /**
          * Add string to pool and return a managed pointer
         */
-        const char *getPooledString(const std::string &);
-
+        const char *getPooledString(std::string);
+        const char *getPooledString(const char *);
+        
         // Recognize Python type of a specific object instance as TypeId (may return TypeId::UNKNOWN)
         TypeId getTypeId(ObjectPtr object_instance) const;
 
@@ -109,7 +110,7 @@ namespace db0::python
     private:
         std::vector<std::string> m_string_pool;
         std::unordered_map<TypeId, ObjectPtr> m_py_type_map;
-        std::unordered_map<ObjectPtr, TypeId> m_id_map;        
+        std::unordered_map<ObjectPtr, TypeId> m_id_map;
         // lang types by name variant
         std::unordered_map<std::string, TypeObjectSharedPtr> m_type_cache;
         std::vector<ObjectSharedPtr> m_enum_cache;

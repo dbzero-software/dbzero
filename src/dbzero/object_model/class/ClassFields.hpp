@@ -24,6 +24,10 @@ namespace db0::object_model
         using TypeObjectSharedPtr = LangToolkit::TypeObjectSharedPtr;
 
         ClassFields() = default;
+        
+        /**
+         * @param lang_type must be a Memo type object
+         */
         ClassFields(TypeObjectPtr lang_type);
         
         // deferred initialization

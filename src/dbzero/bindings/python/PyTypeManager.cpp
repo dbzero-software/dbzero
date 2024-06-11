@@ -27,6 +27,7 @@
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include "PyClassFields.hpp"
 #include "PyEnum.hpp"
+#include "Memo.hpp"
 
 namespace db0::python
 
@@ -177,12 +178,20 @@ namespace db0::python
         return reinterpret_cast<db0::python::IndexObject*>(index_ptr)->ext();
     }
 
-    const char *PyTypeManager::getPooledString(const std::string &str)
+    const char *PyTypeManager::getPooledString(std::string str)
     {
         m_string_pool.push_back(str);
         return m_string_pool.back().c_str();
     }
     
+    const char *PyTypeManager::getPooledString(const char *str)
+    {
+        if (!str) {
+            return nullptr;
+        }
+        return getPooledString(std::string(str));
+    }
+
     void PyTypeManager::addMemoType(TypeObjectPtr type, const char *type_id)
     {        
         // register type with up to 4 key variants
@@ -274,6 +283,9 @@ namespace db0::python
         for (auto &obj : m_enum_cache) {
             PyEnum *py_enum = reinterpret_cast<PyEnum*>(obj.get());
             py_enum->ext().close();
+        }
+        for (auto &memo_type: m_type_cache) {
+            PyMemoType_close(memo_type.second.get());
         }
     }
 

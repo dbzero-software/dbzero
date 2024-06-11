@@ -121,15 +121,24 @@ namespace db0::python
         static std::uint64_t addTag(ObjectPtr py_object, StringPoolT &);
         
         static bool isString(ObjectPtr py_object);
-        static bool isIterable(ObjectPtr py_object);
+        static bool isIterable(ObjectPtr py_object);        
         static bool isType(ObjectPtr py_object);
+        static bool isMemoType(TypeObjectPtr py_type);
         static bool isMemoObject(ObjectPtr py_object);
         static bool isEnumValue(ObjectPtr py_object);
         static bool isFieldDef(ObjectPtr py_object);
         static ObjectSharedPtr getIterator(ObjectPtr py_object);
         static ObjectSharedPtr next(ObjectPtr py_object);
-        
-        static bool isSingleton(TypeObjectPtr py_type);    
+        // Get value associated fixture UUID (e.g. enum value)
+        static std::uint64_t getFixtureUUID(ObjectPtr py_object);
+        // Get scoped type's associated fixture UUID (or 0x0)
+        static std::uint64_t getFixtureUUID(TypeObjectPtr py_type);
+        // Get scoped type's associated prefix name (or nullptr if not defined)
+        static const char *getPrefixName(TypeObjectPtr memo_type);
+        // Get memo type associated type_id or nullptr if not defined
+        static const char *getMemoTypeID(TypeObjectPtr memo_type);
+
+        static bool isSingleton(TypeObjectPtr py_type);
 
         inline static void incRef(ObjectPtr py_object) {
             Py_INCREF(py_object);                

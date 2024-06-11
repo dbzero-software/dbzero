@@ -74,13 +74,13 @@ namespace db0::object_model
     {
     }
     
-    std::shared_ptr<Class> ClassFactory::tryGetExistingType(TypeObjectPtr lang_type, const char *type_id) const
+    std::shared_ptr<Class> ClassFactory::tryGetExistingType(TypeObjectPtr lang_type) const
     {
         auto it_cached = m_type_cache.find(lang_type);
         if (it_cached == m_type_cache.end())
         {
             // find type in the type map, use 4 variants of type identification
-            auto class_ptr = tryFindClassPtr(lang_type, type_id);            
+            auto class_ptr = tryFindClassPtr(lang_type, LangToolkit::getMemoTypeID(lang_type));
             if (!class_ptr) {
                 return nullptr;
             }
@@ -93,20 +93,22 @@ namespace db0::object_model
         return it_cached->second;
     }
 
-    std::shared_ptr<Class> ClassFactory::getExistingType(TypeObjectPtr lang_type, const char *type_id) const
+    std::shared_ptr<Class> ClassFactory::getExistingType(TypeObjectPtr lang_type) const
     {
-        auto type = tryGetExistingType(lang_type, type_id);
+        auto type = tryGetExistingType(lang_type);
         if (!type) {
             THROWF(db0::InputException) << "Class not found: " << LangToolkit::getTypeName(lang_type);
         }
         return type;
     }
     
-    std::shared_ptr<Class> ClassFactory::getOrCreateType(TypeObjectPtr lang_type, const char *type_id)
+    std::shared_ptr<Class> ClassFactory::getOrCreateType(TypeObjectPtr lang_type)
     {
         auto it_cached = m_type_cache.find(lang_type);
         if (it_cached == m_type_cache.end())
         {
+            const char *type_id = LangToolkit::getMemoTypeID(lang_type);
+            const char *prefix_name = LangToolkit::getPrefixName(lang_type);
             // find type in the type map, use 4 key variants of type identification
             auto class_ptr = tryFindClassPtr(lang_type, type_id);
             std::shared_ptr<Class> type;
@@ -119,7 +121,7 @@ namespace db0::object_model
                 auto fixture = getFixture();
                 ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
                 type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type), 
-                    LangToolkit::getModuleName(lang_type), lang_type, type_id, flags));
+                    LangToolkit::getModuleName(lang_type), lang_type, type_id, prefix_name, flags));
                 class_ptr = ClassPtr(*type);
                 // inc-ref to persist the class
                 type->incRef();
@@ -151,7 +153,7 @@ namespace db0::object_model
         }
         return it_cached->second;
     }
-
+    
     ClassPtr ClassFactory::tryFindClassPtr(TypeObjectPtr lang_type, const char *type_id) const
     {
         ClassPtr result;

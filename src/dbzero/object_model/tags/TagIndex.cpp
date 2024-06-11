@@ -287,15 +287,17 @@ namespace db0::object_model
             bool result = true;
             if (LangToolkit::isType(args[offset])) {
                 auto lang_type = LangToolkit::getTypeManager().getTypeObject(args[offset]);
-                // resolve existing DB0 type from python type and then use type as tag
-                type = m_class_factory.tryGetExistingType(lang_type);
-                if (type) {
-                    result &= m_base_index_short.addIterator(factory, type->getAddress());
-                } else {
-                    // type not found implies no matching results exist
-                    result = false;
+                if (LangToolkit::isMemoType(lang_type)) {                
+                    // resolve existing DB0 type from python type and then use type as tag
+                    type = m_class_factory.tryGetExistingType(lang_type);
+                    if (type) {
+                        result &= m_base_index_short.addIterator(factory, type->getAddress());
+                    } else {
+                        // type not found implies no matching results exist
+                        result = false;
+                    }
+                    ++offset;
                 }
-                ++offset;
             }
             
             while (result && (offset < nargs)) {
@@ -551,5 +553,47 @@ namespace db0::object_model
         });
         return makeLongTagFromSequence(sequence);
     }
+    
+    std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr obj_ptr)
+    {
+        using LangToolkit = TagIndex::LangToolkit;
+        using TypeId = db0::bindings::TypeId;
 
+        if (!obj_ptr) {
+            return 0;
+        }
+        
+        auto fixture_uuid = LangToolkit::getFixtureUUID(obj_ptr);
+        if (!fixture_uuid && !LangToolkit::isType(obj_ptr)) {
+            auto type_id = LangToolkit::getTypeManager().getTypeId(obj_ptr);
+            if (type_id != TypeId::STRING && LangToolkit::isIterable(obj_ptr)) {
+                for (auto it = ForwardIterator(LangToolkit::getIterator(obj_ptr)), end = ForwardIterator::end(); it != end; ++it) {
+                    auto uuid = getFindFixtureUUID((*it).get());
+                    if (fixture_uuid && uuid && uuid != fixture_uuid) {
+                        THROWF(db0::InputException) << "Inconsistent prefixes in find query";
+                    }
+                    if (uuid) {
+                        fixture_uuid = uuid;
+                    }
+                }
+            }
+        }   
+        return fixture_uuid;     
+    }
+
+    std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr const *args, std::size_t nargs)
+    {
+        std::uint64_t fixture_uuid = 0;
+        for (std::size_t i = 0; i < nargs; ++i) {
+            auto uuid = getFindFixtureUUID(args[i]);
+            if (fixture_uuid && uuid && uuid != fixture_uuid) {
+                THROWF(db0::InputException) << "Inconsistent prefixes in find query";
+            }
+            if (uuid) {
+                fixture_uuid = uuid;
+            }
+        }
+        return fixture_uuid;
+    }
+    
 }

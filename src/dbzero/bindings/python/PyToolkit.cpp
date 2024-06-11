@@ -291,4 +291,45 @@ namespace db0::python
         return result;
     }
     
+    std::uint64_t PyToolkit::getFixtureUUID(ObjectPtr py_object)
+    {
+        if (PyType_Check(py_object)) {
+            return getFixtureUUID(reinterpret_cast<TypeObjectPtr>(py_object));
+        } else if (PyEnumValue_Check(py_object)) {
+            return reinterpret_cast<PyEnumValue*>(py_object)->ext().m_fixture_uuid;
+        } else if (PyMemo_Check(py_object)) {
+            return reinterpret_cast<MemoObject*>(py_object)->ext().getFixture()->getUUID();
+        } else {
+            return 0;
+        }
+    }
+    
+    std::uint64_t PyToolkit::getFixtureUUID(TypeObjectPtr py_type)
+    {
+        if (isMemoType(py_type)) {
+            auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+            return decor.getFixtureUUID();
+        } else {
+            return 0;
+        }
+    }
+
+    const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
+    {
+        assert(isMemoType(memo_type));
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
+        return decor.m_prefix_name_ptr;
+    }
+    
+    const char *PyToolkit::getMemoTypeID(TypeObjectPtr memo_type)
+    {
+        assert(isMemoType(memo_type));
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
+        return decor.m_type_id;
+    }
+
+    bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
+        return PyMemoType_Check(py_type);
+    }
+
 }

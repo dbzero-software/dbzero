@@ -354,6 +354,31 @@ namespace db0::python
         return NULL;
     }
     
+    PyObject *getTypeInfo(PyObject *self, PyObject *args)
+    {
+        PyObject *py_object;
+        if (!PyArg_ParseTuple(args, "O", &py_object)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        if (!PyType_Check(py_object)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
+        PyObject *py_dict = PyDict_New();
+        if (PyMemoType_Check(py_type)) {
+            PyMemoType_get_info(py_type, py_dict);
+            return py_dict;
+        }
+
+        Py_DECREF(py_dict);
+        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        return NULL;
+    }
+
     PyObject *negTags(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         return NULL;
     }
@@ -414,7 +439,7 @@ namespace db0::python
     template <> db0::object_model::StorageClass getStorageClass<ListObject>() {
         return db0::object_model::StorageClass::DB0_LIST;
     }
-
+    
     template <> db0::object_model::StorageClass getStorageClass<IndexObject>() {
         return db0::object_model::StorageClass::DB0_INDEX;
     }
@@ -424,14 +449,15 @@ namespace db0::python
         // extract string and list
         PyObject* py_first_arg = nullptr;
         PyObject *py_enum_values = nullptr;
-        if (!PyArg_ParseTuple(args, "O|O", &py_first_arg, &py_enum_values)) {
-            PyErr_SetString(PyExc_TypeError, "Bad arguments");
+        PyObject *py_enum_type_id = nullptr;
+        PyObject *py_prefix_name = nullptr;
+        // pull values / type_id / prefix_name from kwargs
+        static const char *kwlist[] = {"input", "values", "type_id", "prefix", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOO", const_cast<char**>(kwlist), &py_first_arg,
+            &py_enum_values, &py_enum_type_id, &py_prefix_name))
+        {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
-        }
-
-        // try extrating values from kwargs
-        if (!py_enum_values && kwargs) {
-            py_enum_values = PyDict_GetItemString(kwargs, "values");
         }
 
         if (!py_enum_values || !PyList_Check(py_enum_values)) {
@@ -466,10 +492,12 @@ namespace db0::python
             enum_values.push_back(PyUnicode_AsUTF8(py_item));
         }
 
+        const char *type_id = py_enum_type_id ? PyUnicode_AsUTF8(py_enum_type_id) : nullptr;
+        const char *prefix_name = py_prefix_name ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         if (enum_name) {
-            return runSafe(tryMakeEnum, self, enum_name, enum_values, nullptr);
+            return runSafe(tryMakeEnum, self, enum_name, enum_values, type_id, prefix_name);
         } else {
-            return runSafe(tryMakeEnumFromType, self, py_type, enum_values, nullptr);
+            return runSafe(tryMakeEnumFromType, self, py_type, enum_values, type_id, prefix_name);
         }
     }
 

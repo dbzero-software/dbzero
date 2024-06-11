@@ -115,17 +115,19 @@ namespace db0::python
     }
     
     PyObject *tryMakeEnum(PyObject *, const std::string &enum_name,
-        const std::vector<std::string> &user_enum_values, const char *type_id)
+        const std::vector<std::string> &user_enum_values, const char *type_id, const char *prefix_name)
     {
         auto py_enum = PyEnumDefault_new();
         // use empty module name since it's unknown
-        PyEnumData::makeNew(&py_enum->ext(), EnumDef {enum_name, "", user_enum_values}, type_id);
+        PyEnumData::makeNew(&py_enum->ext(), EnumDef {enum_name, "", user_enum_values}, type_id, prefix_name);
         PyToolkit::getTypeManager().addEnum(py_enum);
         return py_enum;
     }
 
-    PyObject *tryMakeEnumFromType(PyObject *self, PyTypeObject *py_type, const std::vector<std::string> &enum_values, const char *type_id) {
-        return tryMakeEnum(self, py_type->tp_name, enum_values, type_id);
+    PyObject *tryMakeEnumFromType(PyObject *self, PyTypeObject *py_type, const std::vector<std::string> &enum_values,
+        const char *type_id, const char *prefix_name)
+    {
+        return tryMakeEnum(self, py_type->tp_name, enum_values, type_id, prefix_name);
     }
 
     PyEnumValue *makePyEnumValue(const EnumValue &enum_value)
@@ -138,7 +140,7 @@ namespace db0::python
     PyObject *PyEnumValue_str(PyEnumValue *self) {
         return PyUnicode_FromString(self->ext().m_str_repr.c_str());
     }
-
+    
     PyObject *PyEnumValue_repr(PyEnumValue *self)
     {
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(self->ext().m_fixture_uuid);
