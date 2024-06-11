@@ -326,13 +326,14 @@ namespace db0
         fixture->commit();
     }
 
-    FixtureLock Workspace::getMutableFixture() const
+    FixtureLock Workspace::getMutableFixture(std::uint64_t fixture_uuid)
     {
-        if (!m_default_fixture) {
+        db0::swine_ptr<Fixture> fixture = fixture_uuid ? getFixture(fixture_uuid) : m_default_fixture;
+        if (!fixture) {
             THROWF(db0::InternalException) << "DBZero: no default prefix exists";
         }
-        m_default_fixture->onUpdated();
-        return m_default_fixture;
+        fixture->onUpdated();
+        return fixture;        
     }
     
     db0::swine_ptr<Fixture> Workspace::getCurrentFixture(std::optional<AccessType> access_type)

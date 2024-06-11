@@ -123,10 +123,11 @@ namespace db0
         virtual ~Workspace();
         
         /**
-         * Get default mutable fixture for update
+         * Get a mutable fixture for update
          * multiple writers are allowed but only 1 commit thread
-        */
-        FixtureLock getMutableFixture() const;
+         * @param fixture_uuid either a valid fixture UUID or 0x0 for the default fixture
+        */        
+        FixtureLock getMutableFixture(std::uint64_t fixture_uuid = 0);
         
         /**
          * Get current fixture for read-only access
@@ -149,7 +150,7 @@ namespace db0
         swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
         
         swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) override;
-
+        
         /**
          * Find existing (opened) fixture or return nullptr
         */
@@ -177,7 +178,7 @@ namespace db0
          * @param autocommit flag indicating if the prefix should be auto-committed
         */
         void open(const std::string &prefix_name, AccessType access_type, bool autocommit = true);
-                
+        
         bool drop(const std::string &prefix_name, bool if_exists = true);
 
         bool close(const std::string &prefix_name) override;

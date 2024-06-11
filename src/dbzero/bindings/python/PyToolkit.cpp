@@ -291,4 +291,29 @@ namespace db0::python
         return result;
     }
     
+    std::uint64_t PyToolkit::getFixtureUUID(TypeObjectPtr memo_type)
+    {
+        assert(isMemoType(memo_type));
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
+        return decor.getFixtureUUID();
+    }
+
+    const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
+    {
+        assert(isMemoType(memo_type));
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
+        return decor.m_prefix_name_ptr;
+    }
+    
+    const char *PyToolkit::getMemoTypeID(TypeObjectPtr memo_type)
+    {
+        assert(isMemoType(memo_type));
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
+        return decor.m_type_id;
+    }
+
+    bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
+        return PyMemoType_Check(py_type);
+    }
+
 }

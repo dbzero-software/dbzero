@@ -18,24 +18,29 @@ namespace db0::python
 
 {
     
-    struct MemoTypeDecoration
+    MemoTypeDecoration::MemoTypeDecoration(const char *prefix_name, const char *type_id)
+        : m_prefix_name_ptr(prefix_name)
+        , m_type_id(type_id)
     {
-        const char *m_prefix_name_ptr = 0;
-        // resolved prefix UUID (initialized by the process)
-        std::uint64_t m_prefix_uuid = 0;
+    }
 
-        MemoTypeDecoration(const char *prefix_name)
-            : m_prefix_name_ptr(prefix_name)
-        {
+    std::uint64_t MemoTypeDecoration::getFixtureUUID()
+    {
+        if (m_prefix_name_ptr && !m_fixture_uuid) {
+            // initialize fixture by prefix name and keep UUID for future use
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(m_prefix_name_ptr);
+            m_fixture_uuid = fixture->getUUID();
         }
-    };
+        return m_fixture_uuid;
+    }
 
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
     {
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture(decor.getFixtureUUID());
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated DBZero class with the ClassFactory
-        auto type = class_factory.getOrCreateType(py_type, nullptr);
+        auto type = class_factory.getOrCreateType(py_type);
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
         // prepare a new DB0 instance of a known DB0 class
         db0::object_model::Object::makeNew(&memo_obj->ext(), type);
@@ -48,10 +53,11 @@ namespace db0::python
     
     PyObject *tryMemoObject_new_singleton(PyTypeObject *py_type, PyObject *, PyObject *)
     {
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture(decor.getFixtureUUID());
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated DBZero class with the ClassFactory
-        auto type = class_factory.getOrCreateType(py_type, nullptr);
+        auto type = class_factory.getOrCreateType(py_type);
         
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
         // try unloading associated singleton if such exists
@@ -251,7 +257,7 @@ namespace db0::python
         return new_dict;
     }
     
-    PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name)
+    PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name, const char *type_id)
     {        
         Py_INCREF(py_class);
         PyObject *py_module = findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__"));
@@ -275,9 +281,11 @@ namespace db0::python
         // __init__, __getattr__, __setattr__, __delattr__, __getattribute__
         
         // 3.9.x compatible PyTypeObject
+        auto &type_manager = PyToolkit::getTypeManager();
         char *data = new char[sizeof(PyHeapTypeObject) + sizeof(MemoTypeDecoration)];
         PyHeapTypeObject *ht_new_type = new (data) PyHeapTypeObject();
-        new (data + sizeof(PyHeapTypeObject)) MemoTypeDecoration(PyToolkit::getTypeManager().getPooledString(prefix_name));
+        new (data + sizeof(PyHeapTypeObject)) 
+        MemoTypeDecoration(type_manager.getPooledString(prefix_name), type_manager.getPooledString(type_id));
         // Construct base type as a copy of the original type
         PyTypeObject *base_type = new PyTypeObject(*py_class);
         Py_INCREF(base_type);
@@ -341,17 +349,19 @@ namespace db0::python
         PyObject* class_obj;
         PyObject *singleton = Py_False;
         PyObject *py_prefix_name = nullptr;
-        static const char *kwlist[] = { "input", "singleton", "prefix", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OO", const_cast<char**>(kwlist), &class_obj, &singleton, &py_prefix_name)) {
+        PyObject *py_type_id = nullptr;
+        static const char *kwlist[] = { "input", "singleton", "prefix", "id", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOO", const_cast<char**>(kwlist), &class_obj, &singleton, &py_prefix_name, &py_type_id)) {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
         }
 
         bool is_singleton = PyObject_IsTrue(singleton);
         const char *prefix_name = py_prefix_name ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
-        return reinterpret_cast<PyObject*>(wrapPyType(castToType(class_obj), is_singleton, prefix_name));
+        const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;
+        return reinterpret_cast<PyObject*>(wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id));
     }
-
+    
     bool PyMemoType_Check(PyTypeObject *type) {
         return type->tp_init == reinterpret_cast<initproc>(MemoObject_init);
     }

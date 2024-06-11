@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <Python.h>
 #include "PyWrapper.hpp"
+#include <atomic>
 
 namespace db0::object_model
 
@@ -16,9 +17,20 @@ namespace db0::python
 
 {
     
+    struct MemoTypeDecoration
+    {
+        const char *m_prefix_name_ptr = 0;
+        const char *m_type_id = 0;
+        // resolved fixture UUID (initialized by the process)
+        std::atomic<std::uint64_t> m_fixture_uuid = 0;    
+        
+        MemoTypeDecoration(const char *prefix_name, const char *type_id);
+        std::uint64_t getFixtureUUID();
+    };
+
     using MemoObject = PyWrapper<db0::object_model::Object>;
     
-    PyTypeObject *wrapPyType(PyTypeObject *, bool is_singleton, const char *prefix_name);
+    PyTypeObject *wrapPyType(PyTypeObject *, bool is_singleton, const char *prefix_name, const char *type_id);
     PyObject *wrapPyClass(PyObject *self, PyObject *, PyObject *kwargs);
     
     MemoObject *MemoObject_new(PyTypeObject *type, PyObject * = nullptr, PyObject * = nullptr);

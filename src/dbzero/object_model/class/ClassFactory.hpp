@@ -47,22 +47,21 @@ namespace db0::object_model
          * @param lang_type the language specific type object (e.g. Python class)
          * @param typeid the user assigned type ID (optional)
         */
-        std::shared_ptr<Class> getExistingType(TypeObjectPtr lang_type, const char *type_id = nullptr) const;
+        std::shared_ptr<Class> getExistingType(TypeObjectPtr lang_type) const;
         
         /**
          * A non-throwing version of getExistingType
          * @return nullptr if the class is not found
         */
-        std::shared_ptr<Class> tryGetExistingType(TypeObjectPtr lang_type, const char *type_id = nullptr) const;
+        std::shared_ptr<Class> tryGetExistingType(TypeObjectPtr lang_type) const;
         
         /**
          * Get existing or create a new DBZero class instance
-         * @param lang_type the language specific type object (e.g. Python class)
+         * @param lang_type the language specific memo type object (e.g. Python class)
          * @param type_id the user assigned type ID (optional)
          * @param prefix_name name of the associated prefix, for scoped classes        
         */
-        std::shared_ptr<Class> getOrCreateType(TypeObjectPtr lang_type, const char *type_id, 
-            const char *prefix_name = nullptr);
+        std::shared_ptr<Class> getOrCreateType(TypeObjectPtr lang_type);
         
         // reference the DBZero object model's class by its pointer
         std::shared_ptr<Class> getTypeByPtr(ClassPtr) const;
