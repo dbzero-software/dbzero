@@ -22,8 +22,14 @@ namespace db0::object_model
         bool operator==(const o_typed_item & other) const{
             return m_storage_class == other.m_storage_class && m_value == other.m_value;
         }
+
+        bool operator!=(const o_typed_item & other) const{
+            return !(*this == other);
+        }
+
+        bool operator<(const o_typed_item & other) const{
+            return m_value.m_store < other.m_value.m_store;
+        }
     };
-
     
-
 }

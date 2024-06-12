@@ -14,21 +14,36 @@ namespace db0::object_model
         std::uint64_t m_addr;
     };
 
+
+
     // Union of XValue & KV_Ptr
-    union [[gnu::packed]] KV_Address
+    template <typename ValueT>
+    union [[gnu::packed]] UnionAddress
     {
         KV_Ptr as_ptr;
-        XValue as_value;
+        ValueT as_value;
         
-        KV_Address();
-        KV_Address(std::uint64_t);
+        UnionAddress<ValueT>(){
+            as_ptr.m_addr = 0;
+        }
+        UnionAddress<ValueT>(std::uint64_t addr){
+            as_ptr.m_addr = addr;
+        }
 
-        operator std::uint64_t() const;
-        operator bool () const;
+        operator std::uint64_t() const{
+            return as_ptr.m_addr;
+        }
+        operator bool () const{
+            return as_ptr.m_addr != 0;
+        }
         
         // binary compare
-        bool operator!=(const KV_Address &) const;
+        bool operator!=(const UnionAddress<ValueT> &other) const{
+            return memcmp(this, &other, sizeof(UnionAddress<ValueT>)) != 0;
+        }
     };
+
+    using KV_Address = UnionAddress<XValue>;
     
     // Key-Value index for field storage
     // the implementation is based on morphing-b-index

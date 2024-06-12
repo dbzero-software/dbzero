@@ -22,12 +22,6 @@ namespace db0::python
             self->ext().begin(), &self->ext());        
     }
     
-    PyObject *SetObject_GetItem(SetObject *set_obj, Py_ssize_t i)
-    {
-        set_obj->ext().getFixture()->refreshIfUpdated();
-        return set_obj->ext().getItem(i).steal();
-    }
-    
     int SetObject_SetItem(SetObject *set_obj, Py_ssize_t i, PyObject *value)
     {
         auto fixture = set_obj->ext().getMutableFixture();
@@ -42,7 +36,6 @@ namespace db0::python
 
     static PySequenceMethods SetObject_sq = {
         .sq_length = (lenfunc)SetObject_len,
-        .sq_item = (ssizeargfunc)SetObject_GetItem,
         .sq_ass_item = (ssizeobjargproc)SetObject_SetItem,
         .sq_contains = (objobjproc)SetObject_HasItem
     };
@@ -174,7 +167,12 @@ namespace db0::python
             PyObject *item;
             while ((item = PyIter_Next(iterator))) {
                 auto hash = PyObject_Hash(item);
+<<<<<<< Updated upstream
                 set_object->ext().append(lock, hash, item);
+=======
+                std::cerr << "ADD HASH " << hash << std::endl;
+                set_object->ext().append(fixture, hash, item);
+>>>>>>> Stashed changes
                 Py_DECREF(item);
             }
         }
@@ -201,6 +199,7 @@ namespace db0::python
         }
 
         if (SetObject_Check(args[0])) {
+            std::cerr << "COMPARE 1" << std::endl;
             SetObject *other = (SetObject*)args[0];
             if(SetObject_len(self) == 0 || SetObject_len(other) == 0) return Py_True;
             auto it1 = self->ext().begin();
@@ -215,6 +214,7 @@ namespace db0::python
                 else { ++it2; }
             }
         } else {
+            std::cerr << "COMPARE 2" << std::endl;
             PyObject *other = args[0];
             if(SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
             PyObject *iterator = PyObject_GetIter(other);
@@ -330,7 +330,7 @@ namespace db0::python
         for(Py_ssize_t i =0; i < nargs; ++i) {
             if(SetObject_Check(args[i])){
                 SetObject *other = (SetObject* )args[i];
-                copy->ext().bulkInsertUnique(other->ext().begin(), other->ext().end());
+                copy->ext().insert(other->ext());
             } else {
                 PyObject * elem;
                 PyObject *iterator = PyObject_GetIter(args[i]);
