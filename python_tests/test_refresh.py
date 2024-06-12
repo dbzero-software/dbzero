@@ -25,7 +25,7 @@ def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
     object_1 = RefreshTestClass(0, "text")
     id_1 = db0.uuid(object_1)
     object_2 = RefreshTestClass(0, "text")
-    id_2 = db0.uuid(object_2)    
+    id_2 = db0.uuid(object_2)
     root = MemoTestSingleton(object_1, object_2)
     prefix_name = db0.get_prefix(object_1)
     db0.commit()

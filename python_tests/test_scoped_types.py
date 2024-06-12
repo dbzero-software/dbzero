@@ -39,6 +39,7 @@ def test_class_with_null_prefix_is_no_scoped(db0_fixture):
     obj = DataClass(42)
     assert db0.get_prefix(obj) == db0.get_current_prefix()
     
+    
 # This code fails only when prefix=None due to some pytest operations on types
 # @db0.enum(values=["RED", "GREEN", "BLACK"], prefix=None)
 # class XColor:
@@ -48,4 +49,22 @@ def test_class_with_null_prefix_is_no_scoped(db0_fixture):
 #     obj = DataClass(42)
 #     db0.tags(obj).add(XColor.RED)
 #     assert len(list(db0.find(DataClass, XColor.RED))) == 1
+
+
+def test_scoped_type_members_use_same_prefix(db0_fixture):
+    # 1. list type
+    obj = ScopedDataClass([])
+    assert db0.get_prefix(obj.value) == db0.get_prefix(obj)
+    # 2. dict type
+    obj = ScopedDataClass({})
+    assert db0.get_prefix(obj.value) == db0.get_prefix(obj)
+    # 3. set type
+    obj = ScopedDataClass(set())
+    assert db0.get_prefix(obj.value) == db0.get_prefix(obj)
+    # 4. tuple type
+    obj = ScopedDataClass((1,2,3))
+    assert db0.get_prefix(obj.value) == db0.get_prefix(obj)    
+    # 5. db0.index type
+    obj = ScopedDataClass(db0.index())
+    assert db0.get_prefix(obj.value) == db0.get_prefix(obj)
     

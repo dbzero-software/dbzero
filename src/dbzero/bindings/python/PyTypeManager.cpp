@@ -4,7 +4,7 @@
 #include <dbzero/bindings/python/collections/Set.hpp>
 #include <dbzero/bindings/python/collections/Tuple.hpp>
 #include <dbzero/bindings/python/collections/Dict.hpp>
-#include "Index.hpp"
+#include <dbzero/bindings/python/collections/Index.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <Python.h>
 #include <datetime.h>

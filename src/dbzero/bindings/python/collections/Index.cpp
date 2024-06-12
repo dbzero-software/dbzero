@@ -1,5 +1,5 @@
 #include "Index.hpp"
-#include "PyObjectIterator.hpp"
+#include <dbzero/bindings/python/PyObjectIterator.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 
 namespace db0::python

@@ -18,7 +18,7 @@
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
-
+#include "Types.hpp"
 
 namespace db0::python
 
@@ -158,7 +158,7 @@ namespace db0::python
     PyObject *close(PyObject *self, PyObject *args) {
         return runSafe(tryClose, self, args);
     }
-        
+    
     PyObject *getPrefixName(PyObject *self, PyObject *args)
     {
         PyObject *py_object;
@@ -167,16 +167,22 @@ namespace db0::python
             return NULL;
         }
         
-        db0::swine_ptr<Fixture> fixture;
-        if (PyMemo_Check(py_object)) {
-            fixture = reinterpret_cast<MemoObject*>(py_object)->ext().getFixture();            
-        } else if (ListObject_Check(py_object)) {
-            fixture = reinterpret_cast<ListObject*>(py_object)->ext().getFixture();            
-        } else {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
+        if (PyType_Check(py_object)) {
+            if (PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
+                PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
+                auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+                if (decor.m_prefix_name_ptr) {
+                    return PyUnicode_FromString(decor.m_prefix_name_ptr);
+                }
+            }
+            return Py_None;            
         }
 
+        db0::swine_ptr<Fixture> fixture = getFixtureOf(py_object);
+        if (!fixture) {
+            return Py_None;
+        }
+        
         return PyUnicode_FromString(fixture->getPrefix().getName().c_str());
     }
     

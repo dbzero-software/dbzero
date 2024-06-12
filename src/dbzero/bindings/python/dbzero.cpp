@@ -5,7 +5,7 @@
 #include "ObjectId.hpp"
 #include <dbzero/bindings/python/collections/List.hpp>
 #include <dbzero/bindings/python/collections/ByteArray.hpp>
-#include "Index.hpp"
+#include <dbzero/bindings/python/collections/Index.hpp>
 #include <dbzero/bindings/python/collections/Set.hpp>
 #include <dbzero/bindings/python/collections/Tuple.hpp>
 #include <dbzero/bindings/python/collections/Dict.hpp>
@@ -33,7 +33,6 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"wrap_memo_type", (PyCFunction)&py::wrapPyClass, METH_VARARGS | METH_KEYWORDS, "Wraps a memo type for use with DBZero"},
     {"get_type_info", &py::getTypeInfo, METH_VARARGS, "Get DBZero type information"},
     {"uuid", (PyCFunction)&py::getUUID, METH_FASTCALL, "Get unique object ID"},
-    {"get_address", (PyCFunction)&py::getObjectAddress, METH_FASTCALL, "Get object's address"},
     {"cache_stats", &py::cacheStats, METH_NOARGS, "Retrieve DBZero cache statistics"},
     {"clear_cache", &py::clearCache, METH_NOARGS, "Clear DBZero cache"},
     {"list", (PyCFunction)&py::makeList, METH_FASTCALL, "Create a new DBZero list instance"},

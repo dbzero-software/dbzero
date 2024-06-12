@@ -2,7 +2,7 @@
 #include "Memo.hpp"
 #include <dbzero/bindings/python/collections/List.hpp>
 #include <dbzero/bindings/python/collections/Tuple.hpp>
-#include "Index.hpp"
+#include <dbzero/bindings/python/collections/Index.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/object_model/class.hpp>

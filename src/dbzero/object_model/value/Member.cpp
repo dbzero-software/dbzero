@@ -331,7 +331,7 @@ namespace db0::object_model
         auto enum_value_uid = EnumValue_UID(value.cast<std::uint64_t>());
         return enum_factory.getEnumByUID(enum_value_uid.m_enum_uid)->getLangValue(enum_value_uid).steal();
     }
-
+    
     template <> void registerUnloadMemberFunctions<PyToolkit>(
         std::vector<typename PyToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *)> &functions)
     {
