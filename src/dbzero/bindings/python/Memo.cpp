@@ -107,7 +107,6 @@ namespace db0::python
             // invoke post-init on associated DBZero object
             auto &object = self->ext();
             db0::FixtureLock fixture(object.getFixture());
-            fixture->onUpdated();
             object.postInit(fixture);
             // register weak-ref with the lang cache
             fixture->getLangCache().add(object.getAddress(), self, false);

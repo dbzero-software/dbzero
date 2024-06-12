@@ -25,7 +25,10 @@ namespace db0::python
 
     extern PyTypeObject ListObjectType;
     
+    // construct from a Python list (or empty)
+    ListObject *makeDB0List(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
     ListObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    
     bool ListObject_Check(PyObject *);
     
 }

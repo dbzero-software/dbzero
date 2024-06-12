@@ -198,22 +198,28 @@ namespace db0::python
         Py_TYPE(list_obj)->tp_free((PyObject*)list_obj);
     }
 
+    ListObject *makeDB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    {
+        auto list_object = ListObject_new(&ListObjectType, NULL, NULL);
+        db0::FixtureLock lock(fixture);
+        db0::object_model::List::makeNew(&list_object->ext(), *lock);
+        if (nargs == 1) {
+            ObjectT_extend<ListObject>(list_object, args, nargs);
+        }
+        // register newly created list with py-object cache
+        fixture->getLangCache().add(list_object->ext().getAddress(), list_object, true);
+        return list_object;
+    }
+    
     ListObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        if(nargs != 1 && nargs != 0) {
+        if (nargs != 1 && nargs != 0) {
             PyErr_SetString(PyExc_TypeError, "list() takes exactly one or zero argument");
             return NULL;
         }
-        // make actual DBZero instance, use default fixture
-        auto list_object = ListObject_new(&ListObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        db0::object_model::List::makeNew(&list_object->ext(), *fixture);
-        if (nargs == 1) {
-            ObjectT_extend<ListObject>(list_object, args, 1);
-        }
-        // register newly created list with py-object cache
-        (*fixture)->getLangCache().add(list_object->ext().getAddress(), list_object, true);
-        return list_object;
+
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+        return makeDB0List(fixture, args, nargs);
     }
     
     bool ListObject_Check(PyObject *object) {

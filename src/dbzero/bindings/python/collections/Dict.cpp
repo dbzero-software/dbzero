@@ -143,21 +143,27 @@ namespace db0::python
         }
         Py_RETURN_NONE;
     }
-
-    DictObject *makeDict(PyObject *, PyObject* args, PyObject* kwargs)
+    
+    DictObject *makeDB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args, PyObject *kwargs)
     {
-        // make actual DBZero instance, use default fixture
         auto dict_object = DictObject_new(&DictObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        db0::object_model::Dict::makeNew(&dict_object->ext(), *fixture);
+        db0::FixtureLock lock(fixture);
+        db0::object_model::Dict::makeNew(&dict_object->ext(), *lock);
         // if args
         DictObject_update(dict_object, args, kwargs);
         // register newly created dict with py-object cache
-        (*fixture)->getLangCache().add(dict_object->ext().getAddress(), dict_object, true);
+        fixture->getLangCache().add(dict_object->ext().getAddress(), dict_object, true);
         return dict_object;
     }
 
-    PyObject *DictObject_clear(DictObject *dict_obj){
+    DictObject *makeDict(PyObject *, PyObject* args, PyObject* kwargs)
+    {
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+        return makeDB0Dict(fixture, args, kwargs);
+    }
+    
+    PyObject *DictObject_clear(DictObject *dict_obj)
+    {
         dict_obj->ext().clear();
         Py_RETURN_NONE;
     }

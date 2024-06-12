@@ -275,15 +275,17 @@ namespace db0
         }
         
         inline db0::swine_ptr<Fixture> &operator*() {
+            m_fixture->onUpdated();
             return m_fixture;
         }
         
         inline Fixture *operator->() const {
+            m_fixture->onUpdated();
             return m_fixture.get();
         }
 
         db0::swine_ptr<Fixture> m_fixture;
         std::shared_lock<std::shared_mutex> m_lock;
     };
-
+    
 }

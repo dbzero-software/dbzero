@@ -24,9 +24,10 @@ namespace db0::python
     PyObject *DictObject_items(DictObject *dict_obj);
     extern PyTypeObject DictObjectType;
     
+    DictObject *makeDB0Dict(db0::swine_ptr<Fixture> &, PyObject *args, PyObject *kwargs);
     DictObject *makeDict(PyObject *, PyObject*, PyObject*);
     bool DictObject_Check(PyObject *);
-
+    
     void DictObject_del(DictObject* dict_obj);
     extern PyTypeObject DictIteratorObjectType;
 }

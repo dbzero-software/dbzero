@@ -9,6 +9,13 @@ namespace db0::object_model
 
 {
 
+    template <typename T> void assureSameFixture(const db0::Fixture &fixture, T &object)
+    {
+        if (fixture != *object.getFixture()) {
+            THROWF(db0::InputException) << "Creating strong reference failed: object from a different prefix" << THROWF_END;
+        }
+    }
+
     // INTEGER specialization
     template <> Value createMember<TypeId::INTEGER, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr lang_value)
     {
@@ -35,6 +42,7 @@ namespace db0::object_model
     {
         auto &obj = PyToolkit::getTypeManager().extractObject(lang_value);
         assert(obj.hasInstance());
+        assureSameFixture(*fixture, obj);
         obj.incRef();
         return obj.getAddress();
     }
@@ -43,7 +51,10 @@ namespace db0::object_model
     template <> Value createMember<TypeId::DB0_BLOCK, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr lang_value)
     {
-        return PyToolkit::getTypeManager().extractBlock(lang_value).getAddress();
+        auto &block = PyToolkit::getTypeManager().extractBlock(lang_value);
+        assureSameFixture(*fixture, block);
+        block.modify().incRef();
+        return block.getAddress();
     }
 
     // LIST specialization
@@ -51,6 +62,7 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto &list = PyToolkit::getTypeManager().extractList(lang_value);
+        assureSameFixture(*fixture, list);
         list.modify().incRef();
         return list.getAddress();
     }
@@ -60,6 +72,7 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto &index = PyToolkit::getTypeManager().extractIndex(lang_value);
+        assureSameFixture(*fixture, index);
         index.incRef();
         return index.getAddress();
     }
@@ -69,15 +82,17 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto &set = PyToolkit::getTypeManager().extractSet(lang_value);
+        assureSameFixture(*fixture, set);
         set.incRef();
         return set.getAddress();
     }
 
-    // DICT specialization
+    // DB0 DICT specialization
     template <> Value createMember<TypeId::DB0_DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr lang_value)
     {
         auto &dict = PyToolkit::getTypeManager().extractDict(lang_value);
+        assureSameFixture(*fixture, dict);
         dict.incRef();
         return dict.getAddress();
     }
@@ -87,6 +102,7 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto &tuple = PyToolkit::getTypeManager().extractTuple(lang_value);
+        assureSameFixture(*fixture, tuple);
         tuple.incRef();
         return tuple.getAddress();
     }
@@ -95,17 +111,17 @@ namespace db0::object_model
     template <> Value createMember<TypeId::LIST, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr lang_value)
     {
-        auto list = db0::python::makeList(nullptr, &lang_value, 1);
+        auto list = db0::python::makeDB0List(fixture, &lang_value, 1);
         list->ext().modify().incRef();
         return list->ext().getAddress();
     }
-
+    
     // SET specialization
     template <> Value createMember<TypeId::SET, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr lang_value)
     {
-        auto set = db0::python::makeSet(nullptr, &lang_value, 1);
-        set->ext().incRef();                
+        auto set = db0::python::makeDB0Set(fixture, &lang_value, 1);
+        set->ext().incRef();          
         return set->ext().getAddress();
     }
 
@@ -116,7 +132,7 @@ namespace db0::object_model
         PyObject* args = PyTuple_New(1);
         Py_INCREF(lang_value);
         PyTuple_SetItem(args, 0, lang_value);
-        auto dict = db0::python::makeDict(nullptr, args, nullptr);
+        auto dict = db0::python::makeDB0Dict(fixture, args, nullptr);
         dict->ext().incRef();
         return dict->ext().getAddress();
     }

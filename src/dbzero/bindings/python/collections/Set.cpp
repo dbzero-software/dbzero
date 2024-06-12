@@ -163,24 +163,30 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    SetObject *makeSet(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    SetObject *makeDB0Set(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
     {
         // make actual DBZero instance, use default fixture
         auto set_object = SetObject_new(&SetObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        db0::object_model::Set::makeNew(&set_object->ext(), *fixture);
+        db0::FixtureLock lock(fixture);
+        db0::object_model::Set::makeNew(&set_object->ext(), *lock);
         if (nargs == 1) {
             PyObject *iterator = PyObject_GetIter(args[0]);
             PyObject *item;
             while ((item = PyIter_Next(iterator))) {
                 auto hash = PyObject_Hash(item);
-                set_object->ext().append(fixture, hash, item);
+                set_object->ext().append(lock, hash, item);
                 Py_DECREF(item);
             }
         }
         // register newly created set with py-object cache
-        (*fixture)->getLangCache().add(set_object->ext().getAddress(), set_object, true);
+        fixture->getLangCache().add(set_object->ext().getAddress(), set_object, true);
         return set_object;
+    }
+
+    SetObject *makeSet(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+        return makeDB0Set(fixture, args, nargs);
     }
     
     bool SetObject_Check(PyObject *object) {

@@ -538,11 +538,8 @@ namespace db0::object_model
         }
     }
     
-    FixtureLock Object::getMutableFixture() const
-    {
-        auto fixture = this->getFixture();
-        fixture->onUpdated();
-        return fixture;
+    FixtureLock Object::getMutableFixture() const {
+        return this->getFixture();
     }
     
     bool Object::operator==(const Object &other) const

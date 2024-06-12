@@ -90,11 +90,8 @@ namespace db0
             return fixture;
         }
         
-        FixtureLock getMutableFixture() const
-        {
-            auto fixture = this->getFixture();
-            fixture->onUpdated();
-            return fixture;
+        FixtureLock getMutableFixture() const {
+            return this->getFixture();
         }
 
         void operator=(const has_fixture &other)

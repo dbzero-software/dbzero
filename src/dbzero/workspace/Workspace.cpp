@@ -335,7 +335,6 @@ namespace db0
         if (!fixture) {
             THROWF(db0::InternalException) << "DBZero: no default prefix exists";
         }
-        fixture->onUpdated();
         return fixture;        
     }
     
