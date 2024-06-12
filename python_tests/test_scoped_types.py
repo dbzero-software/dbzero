@@ -39,13 +39,13 @@ def test_class_with_null_prefix_is_no_scoped(db0_fixture):
     obj = DataClass(42)
     assert db0.get_prefix(obj) == db0.get_current_prefix()
     
-# This code fails only when prefix=None due to some pytest operations on types
-# @db0.enum(values=["RED", "GREEN", "BLACK"], prefix=None)
-# class XColor:
-#     pass
+#This code fails only when prefix=None due to some pytest operations on types
+@db0.enum(values=["RED", "GREEN", "BLACK"], prefix=None)
+class XColor:
+    pass
     
-# def test_enum_with_null_prefix_is_no_scoped(db0_fixture):
-#     obj = DataClass(42)
-#     db0.tags(obj).add(XColor.RED)
-#     assert len(list(db0.find(DataClass, XColor.RED))) == 1
+def test_enum_with_null_prefix_is_no_scoped(db0_fixture):
+    obj = DataClass(42)
+    db0.tags(obj).add(XColor.RED)
+    assert len(list(db0.find(DataClass, XColor.RED))) == 1
     
