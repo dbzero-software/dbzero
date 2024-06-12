@@ -167,12 +167,7 @@ namespace db0::python
             PyObject *item;
             while ((item = PyIter_Next(iterator))) {
                 auto hash = PyObject_Hash(item);
-<<<<<<< Updated upstream
                 set_object->ext().append(lock, hash, item);
-=======
-                std::cerr << "ADD HASH " << hash << std::endl;
-                set_object->ext().append(fixture, hash, item);
->>>>>>> Stashed changes
                 Py_DECREF(item);
             }
         }
