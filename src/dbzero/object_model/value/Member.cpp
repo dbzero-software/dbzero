@@ -4,6 +4,7 @@
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
+#include <dbzero/bindings/python/collections/Tuple.hpp>
 
 namespace db0::object_model
 
@@ -121,7 +122,7 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto set = db0::python::makeDB0Set(fixture, &lang_value, 1);
-        set->ext().incRef();          
+        set->ext().incRef();
         return set->ext().getAddress();
     }
 
@@ -141,7 +142,7 @@ namespace db0::object_model
     template <> Value createMember<TypeId::TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr lang_value)
     {
-        auto tuple = db0::python::makeTuple(nullptr, &lang_value, 1);
+        auto tuple = reinterpret_cast<db0::python::TupleObject*>(db0::python::makeDB0Tuple(fixture, &lang_value, 1));
         tuple->ext().incRef();
         return tuple->ext().getAddress();
     }

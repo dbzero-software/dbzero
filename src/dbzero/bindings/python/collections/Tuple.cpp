@@ -3,8 +3,10 @@
 #include <dbzero/object_model/tuple/TupleIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
+
 {
     
     using TupleIteratorObject = PyWrapper<db0::object_model::TupleIterator>;
@@ -17,7 +19,6 @@ namespace db0::python
         return makeIterator<TupleIteratorObject,db0::object_model::TupleIterator>(TupleIteratorObjectType, 
             self->ext().begin(), &self->ext());        
     }
-
 
     PyObject *TupleObject_GetItem(TupleObject *tuple_obj, Py_ssize_t i)
     {
@@ -100,30 +101,35 @@ namespace db0::python
         return tuple_obj->ext().getData()->size();
     }
     
-    TupleObject *makeTuple(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {
-        if(nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "make_tuple() takes exacly 1 arguments");
-            return NULL;
+    PyObject *makeDB0Tuple(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    {        
+        if (nargs != 1) {
+            THROWF(db0::InputException) << "make_tuple() takes exacly 1 arguments";
         }
         // make actual DBZero instance, use default fixture
         auto tuple_object = TupleObject_new(&TupleObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        db0::object_model::Tuple::makeNew(&tuple_object->ext(), *fixture, PyObject_Length(args[0]));
+        db0::FixtureLock lock(fixture);
+        db0::object_model::Tuple::makeNew(&tuple_object->ext(), *lock, PyObject_Length(args[0]));
 
         PyObject *iterator = PyObject_GetIter(args[0]);
         PyObject *item;
         int index = 0;
         while ((item = PyIter_Next(iterator))) {
-            tuple_object->ext().setItem(fixture, index, item);
+            tuple_object->ext().setItem(lock, index, item);
             Py_DECREF(item);
             ++index;
         }
 
         Py_DECREF(iterator);
         // register newly created tuple with py-object cache
-        (*fixture)->getLangCache().add(tuple_object->ext().getAddress(), tuple_object, true);
+        fixture->getLangCache().add(tuple_object->ext().getAddress(), tuple_object, true);
         return tuple_object;
+    }
+
+    PyObject *makeTuple(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+        return runSafe(makeDB0Tuple, fixture, args, nargs);
     }
     
     bool TupleObject_Check(PyObject *object)

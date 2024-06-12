@@ -77,6 +77,12 @@ def test_set_as_a_scoped_type_member(db0_fixture):
     obj = ScopedDataClass(set([1,2,3]))
     assert set(obj.value) == set([1,2,3])
 
+
+def test_tuple_as_a_scoped_type_member(db0_fixture):
+    obj = ScopedDataClass((1,2,3))
+    assert tuple(obj.value) == (1,2,3)
+
+
 # def test_scoped_type_members_use_same_prefix(db0_fixture):
 #     # 1. list type
 #     obj = ScopedDataClass([])
