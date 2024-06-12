@@ -44,7 +44,11 @@ namespace db0::python
     template <typename... Args, typename T> PyObject *runSafe(T func, Args... args)
     {
         try {
-            return func(args...);
+            PyObject * result = func(args...);
+            if(PyErr_Occurred()) {
+                return NULL;
+            }
+            return result;
         } catch (const db0::AbstractException &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
