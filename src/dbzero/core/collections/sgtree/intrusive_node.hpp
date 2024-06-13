@@ -13,7 +13,7 @@ namespace db0
      * c_type - node container type
      * comp_t - node pointer comparer type
      */
-    template <typename T,class comp_t_,class ptr_set_t = tree_ptr_set<std::uint64_t> > class intrusive_node
+    template <typename T, class comp_t_, class ptr_set_t = tree_ptr_set<std::uint64_t> > class intrusive_node
         : public v_object<T>
     {
     public :
@@ -29,6 +29,13 @@ namespace db0
             : super(memspace, std::forward<Args>(args)...)
         {
         }
+        
+        // Copy constructor
+        struct tag_copy {};
+        intrusive_node(tag_copy, Memspace &memspace, Memspace &other_memspace, const ptr_t &other)
+            : super(memspace, memspace, other_memspace, *other.get())
+        {
+        }
 
         intrusive_node(const ptr_t &ptr)
             : super(ptr)
@@ -38,16 +45,14 @@ namespace db0
         /**
          * Cast to pointer
          */
-        inline operator ptr_t&()
-        {
+        inline operator ptr_t&() {
             return this->v_this;
         }
         
         /**
          * Cast to const-pointer
          */
-        inline operator const ptr_t&() const
-        {
+        inline operator const ptr_t&() const {
             return this->v_this;
         }
     };

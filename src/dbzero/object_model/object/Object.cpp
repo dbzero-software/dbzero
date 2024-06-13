@@ -553,5 +553,9 @@ namespace db0::object_model
         }
         return this->getAddress() == other.getAddress();
     }
+    
+    void Object::moveTo(db0::swine_ptr<Fixture> &) {
+        throw std::runtime_error("Not implemented");
+    }
 
 }

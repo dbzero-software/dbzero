@@ -107,6 +107,20 @@ namespace db0
             // take weak ref of the Fixture
             other_fixture.take_weak();
         }
+        
+        void operator=(has_fixture &&other) 
+        {
+            // must release existing weak ref and take from the copied object
+            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
+            if (raw_ptr) {
+                // release weak ref of the Fixture
+                db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
+            }
+            auto other_fixture = other.getFixture();
+            BaseT::operator=(std::move(other));
+            // take weak ref of the Fixture
+            other_fixture.take_weak();
+        }
 
     };
     

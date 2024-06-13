@@ -53,6 +53,8 @@ namespace db0
         using super_t = o_base<o_sv_container<data_t,comp_t>, 0, false>;
         friend super_t;
 
+        o_sv_container(const o_sv_container &other);
+
         o_sv_container(std::uint32_t capacity, sv_state state)
             : m_capacity(capacity)
             , m_size(0)
@@ -68,6 +70,10 @@ namespace db0
         using DestroyF = std::function<void(const data_t&)>;
         using CallbackT = std::function<void(data_t)>;
 
+        static std::size_t measure(const o_sv_container &other) {
+            return other.sizeOf();
+        }
+        
         static std::size_t measure(std::uint32_t max_size, sv_state) {
             return sizeof(self) + (max_size * sizeof(data_t));
         }
@@ -340,7 +346,7 @@ namespace db0
          */
         iterator insert(const data_t &data)
         {
-            assert (!is_full());
+            assert(!is_full());
             SortedArray<data_t,comp_t> data_buf(begin(), end());
             iterator item = const_cast<data_t*>(data_buf.join(data_buf.m_begin, data, 1));
             if (item!=data_buf.m_end) {
@@ -673,12 +679,13 @@ namespace db0
      * NOTICE : destroy does not call any overlaid item destructors
      * in order to destroy items, call erase / clear first
      */
-    template <class data_t, typename AddrT = std::uint64_t, class comp_t = std::less<data_t> > class v_sorted_vector:
+    template <typename data_t, typename AddrT = std::uint64_t, typename comp_t = std::less<data_t> > 
+    class v_sorted_vector:
         public v_object<o_sv_container<data_t,comp_t> >
     {
     private :
 
-        static std::size_t calculateCapacity(std::size_t data_size) 
+        static std::size_t calculateCapacity(std::size_t data_size)
         {
             std::size_t result = 1;
             while (result < data_size) {
@@ -711,6 +718,12 @@ namespace db0
             assert((*this)->m_capacity > 0);
         }
         
+        v_sorted_vector(Memspace &memspace, const v_sorted_vector &other)
+            : super_t(memspace, *other.getData())
+            , m_item_destroy_func(other.m_item_destroy_func)
+        {
+        }
+
         /**
          * Construct and populate with items in collection specified by range begin / end \
          * max_size will be evaluated according to collection size

@@ -24,6 +24,11 @@ namespace db0
             : super_t(ptr)
         {
         }
+        
+        RT_NullBlock(Memspace &memspace, const RT_NullBlock<ValueT> &other)
+            : super_t(memspace, other)
+        {
+        }
 
         std::unique_ptr<FT_IteratorT> makeIterator() const {
             return std::make_unique<FT_IteratorT>(*this, -1);

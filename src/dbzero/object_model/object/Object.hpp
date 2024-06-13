@@ -236,6 +236,12 @@ namespace db0::object_model
         void incRef();
 
         bool operator==(const Object &other) const;
+        
+        /**
+         * Move unreferenced object to a different prefix without changing the instance
+         * this operations is required for auto-hardening
+         */
+        void moveTo(db0::swine_ptr<Fixture> &);
 
     private:
         // Class will only be assigned after initialization

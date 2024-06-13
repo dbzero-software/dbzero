@@ -21,7 +21,7 @@ namespace db0::object_model
 
     using Fixture = db0::Fixture;
     using set_item = db0::key_value<std::uint64_t, o_typed_item>;
-
+    
     class Set: public db0::ObjectBase<Set, v_bindex<set_item>, StorageClass::DB0_SET>
     {
         GC0_Declare
@@ -45,6 +45,8 @@ namespace db0::object_model
         void drop();
         Set::ObjectSharedPtr pop();
         bool has_item(PyObject * obj);
+
+        void moveTo(db0::swine_ptr<Fixture> &);
 
     private:
         // new sets can only be created via factory members

@@ -148,4 +148,8 @@ namespace db0::object_model
         v_bvector<o_typed_item>::swapAndPop(element_numbers);
     }
 
+    void List::moveTo(db0::swine_ptr<Fixture> &) {
+        throw std::runtime_error("Not implemented");
+    }
+
 }

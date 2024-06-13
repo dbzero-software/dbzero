@@ -71,4 +71,8 @@ namespace db0::object_model::pandas
         return new (at_ptr) Block(fixture, address);
     }
 
+    void Block::moveTo(db0::swine_ptr<Fixture> &) {
+        throw std::runtime_error("Not implemented");
+    }
+    
 }
