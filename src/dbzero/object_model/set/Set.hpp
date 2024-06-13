@@ -66,9 +66,8 @@ namespace db0::object_model
         }
         
         SetIndex(Memspace& memspace, std::uint64_t addr, bindex::type type)
-            : MorphingBIndex<o_typed_item, TypedItem_Address>(memspace, addr, type)
+            : MorphingBIndex<o_typed_item, TypedItem_Address>(memspace, TypedItem_Address(addr), type)
         {
-
         }
     };
 
