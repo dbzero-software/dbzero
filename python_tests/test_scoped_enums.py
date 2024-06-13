@@ -1,5 +1,6 @@
 import pytest
 import dbzero_ce as db0
+from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass
 
 
@@ -11,7 +12,7 @@ class ScopedDataClass:
     
 @db0.enum(values=["RED", "GREEN", "BLACK"], prefix="scoped-class-prefix")
 class ScopedColor:
-    pass    
+    pass
 
 
 @db0.enum(values=["RED", "GREEN", "BLACK"], prefix=None)
@@ -29,3 +30,17 @@ def test_scoped_class_can_be_tagged_with_scoped_enum(db0_fixture):
     obj = ScopedDataClass(42)
     db0.tags(obj).add(ScopedColor.RED)
     assert len(list(db0.find(ScopedDataClass, ScopedColor.RED))) == 1
+
+
+def test_scoped_enum_after_close(db0_fixture):
+    obj = ScopedDataClass(42)
+    db0.tags(obj).add(ScopedColor.RED)
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    assert len(list(db0.find(ScopedDataClass, ScopedColor.RED))) == 1
+
+
+def test_scoped_enum_values(db0_fixture):
+    assert db0.get_prefix(ScopedColor.RED) is not None
+    assert db0.get_prefix(ScopedColor.RED) != db0.get_current_prefix()
