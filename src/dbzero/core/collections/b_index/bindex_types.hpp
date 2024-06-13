@@ -3,8 +3,8 @@
 #include <cstdlib>
 #include <functional>
 #include <dbzero/core/collections/sgtree/v_sgtree.hpp>
-#include <dbzero/core/collections/sgtree/v_sgtree_node.hpp>
-#include <dbzero/core/collections/sgtree/v_intrusive_node.hpp>
+#include <dbzero/core/collections/sgtree/sgtree_node.hpp>
+#include <dbzero/core/collections/sgtree/intrusive_node.hpp>
 #include <dbzero/core/collections/vector/v_sorted_vector.hpp>
 #include <dbzero/core/collections/CompT.hpp>
 #include <dbzero/object_model/object_header.hpp>
@@ -58,7 +58,19 @@ namespace db0
             {
             }
 
-            void destroy(Memspace &memspace) const {
+            // Copy constructor (possibly to a different memspace)
+            bindex_node(Memspace &memspace, Memspace &other_memspace, const bindex_node &other)
+                : lo_bound(other.lo_bound)
+            {
+                if (other.ptr_b_data) {
+                    data_vector dv(other_memspace.myPtr(other.ptr_b_data));
+                    data_vector new_dv(memspace, dv);
+                    ptr_b_data = new_dv.getAddress();
+                }
+            }
+
+            void destroy(Memspace &memspace) const 
+            {
                 if (ptr_b_data) {
                     data_vector dv(memspace.myPtr(ptr_b_data));
                     dv.destroy();
@@ -70,10 +82,12 @@ namespace db0
             // data block (v_sorted_vector)
             std::uint64_t ptr_b_data = 0;
 
-            struct get_key {
+            struct get_key 
+            {
                 const item_t &operator()(const bindex_node &node) const {
                     return *(const item_t*)(&node.lo_bound);
                 }
+                
                 const item_t &operator()(const item_t &data) const {
                     return data;
                 }
@@ -82,11 +96,11 @@ namespace db0
             using comp_t = CompT<bindex_node,get_key,item_comp_t>;
         };
 
-        using bindex_node_traits = v_sgtree_node_traits<bindex_node, typename bindex_node::comp_t>;
+        using bindex_node_traits = o_sgtree_node_traits<bindex_node, typename bindex_node::comp_t>;
         using bindex_node_t = intrusive_node<
-            v_sgtree_node<bindex_node> ,
+            o_sgtree_node<bindex_node> ,
             typename bindex_node_traits::comp_t>;
-
+        
         using bindex_tree_t = v_sgtree<bindex_node_t, intrusive::detail::h_alpha_sqrt2_t>;
 
         template <class KeyT, class comp_t = std::less<KeyT> >

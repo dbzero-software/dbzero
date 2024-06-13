@@ -46,6 +46,8 @@ namespace db0::object_model
 
         ObjectSharedPtr pop(ObjectPtr obj);
 
+        void moveTo(db0::swine_ptr<Fixture> &);
+
     private:
         // new dicts can only be created via factory members
         Dict(db0::swine_ptr<Fixture> &);

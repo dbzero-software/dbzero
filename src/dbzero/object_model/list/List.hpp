@@ -55,6 +55,8 @@ namespace db0::object_model
         void clear(FixtureLock &);
 
         void swapAndPop(FixtureLock &, const std::vector<uint64_t> &element_numbers);
+
+        void moveTo(db0::swine_ptr<Fixture> &);
         
     private:        
         // new lists can only be created via factory members

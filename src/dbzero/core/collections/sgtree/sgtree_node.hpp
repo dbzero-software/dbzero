@@ -8,35 +8,57 @@ namespace db0
 
 {
 	
-    template <class data_t,class ptr_set_t = tree_ptr_set<std::uint64_t> > class [[gnu::packed]] v_sgtree_node
-        : public o_ext<v_sgtree_node<data_t, ptr_set_t>, sg_node_base<ptr_set_t>, 0, false >
+    template <class data_t, class ptr_set_t = tree_ptr_set<std::uint64_t> >
+    class [[gnu::packed]] o_sgtree_node
+        : public o_ext<o_sgtree_node<data_t, ptr_set_t>, sg_node_base<ptr_set_t>, 0, false >
     {
-    public :
+    public:
         typedef typename data_t::Initializer Initializer;
         using has_constant_size = typename data_t::has_constant_size;
         
+        o_sgtree_node(Memspace &memspace, Memspace &other_memspace, const o_sgtree_node &other)
+            : data(memspace, other_memspace, other.data)
+        {
+            this->getSuper() = other.getSuper();
+        }
+
+        static o_sgtree_node &__new(std::byte *buf, Memspace &memspace, Memspace &other_memspace,
+            const o_sgtree_node &other)
+        {
+            new (buf) o_sgtree_node(memspace, other_memspace, other);
+            return *(o_sgtree_node*)buf;
+        }
+
         // overlaid constructor by initializer
-        static v_sgtree_node &__new(std::byte *buf, const Initializer &data) {
+        static o_sgtree_node &__new(std::byte *buf, const Initializer &data)
+        {
             std::byte *_buf = buf;
             buf += sg_node_base<ptr_set_t>::__new(_buf).sizeOf();
             data_t::__new(buf,data);
-            return (v_sgtree_node<data_t,ptr_set_t>&)(*_buf);
+            return (o_sgtree_node<data_t,ptr_set_t>&)(*_buf);
         }
         
-        static std::size_t measure(const Initializer &data) {
+        static std::size_t measure(Memspace &, Memspace &, const o_sgtree_node &other) {
+            return other.sizeOf();
+        }
+
+        static std::size_t measure(const Initializer &data)
+        {
             std::size_t size = sg_node_base<ptr_set_t>::sizeOf();
             size += data_t::measure(data);
             return size;
         }
 
         template <typename = typename std::enable_if<has_constant_size::value>::type>
-        static std::size_t measure () {
+        static std::size_t measure () 
+        {
             std::size_t size = sg_node_base<ptr_set_t>::sizeOf();
             size += data_t::measure();
             return size;
         }
         
-        template <class buf_t> static size_t safeSizeOf(buf_t buf) {
+        template <class buf_t> static size_t safeSizeOf(buf_t buf)
+        {
             std::size_t size = sg_node_base<ptr_set_t>::sizeOf();
             size += data_t::safeSizeOf(&buf[size]);
             return size;
@@ -53,11 +75,12 @@ namespace db0
     public :
         data_t data;
     };
-        
-    template <class data_t,class data_comp_t> class v_sgtree_node_traits {
+    
+    template <class data_t,class data_comp_t> class o_sgtree_node_traits
+    {
     public :
         typedef typename data_t::Initializer Initializer;
-        typedef typename v_object<v_sgtree_node<data_t> >::ptr_t node_ptr_t;
+        typedef typename v_object<o_sgtree_node<data_t> >::ptr_t node_ptr_t;
         
         struct comp_t
         {

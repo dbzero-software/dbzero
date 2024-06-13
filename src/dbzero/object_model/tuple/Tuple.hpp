@@ -89,9 +89,11 @@ namespace db0::object_model
         // drop underlying DBZero representation
         void drop();
 
-        const o_typed_item * begin();
-        
+        const o_typed_item * begin();        
         const o_typed_item * end();
+
+        void moveTo(db0::swine_ptr<Fixture> &);
+
     private:
         // new Tuples can only be created via factory members
         Tuple(std::size_t size, db0::swine_ptr<Fixture> &);

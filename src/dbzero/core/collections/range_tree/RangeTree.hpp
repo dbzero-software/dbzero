@@ -61,6 +61,12 @@ namespace db0
             : m_max_block_size(max_block_size)
         {
         }
+
+        o_range_tree(const o_range_tree &other)
+            : m_max_block_size(other.m_max_block_size)
+            , m_size(other.m_size)
+        {
+        }
     };
     
     /**
@@ -84,7 +90,7 @@ namespace db0
             : super_t(memspace, max_block_size)
             , m_index(memspace)            
         {
-            modify().m_rt_index_addr = m_index.getAddress();            
+            modify().m_rt_index_addr = m_index.getAddress();
         }
 
         RangeTree(mptr ptr)
@@ -92,7 +98,19 @@ namespace db0
             , m_index(this->myPtr((*this)->m_rt_index_addr))            
         {
         }
-
+        
+        RangeTree(Memspace &memspace, const RangeTree &other)
+            : super_t(memspace, *other.getData())
+            , m_index(memspace, other.m_index)
+        {
+            modify().m_rt_index_addr = m_index.getAddress();
+            if (other->m_rt_null_block_addr != 0) {
+                NullBlockT null_block(other.myPtr(other->m_rt_null_block_addr));
+                NullBlockT new_null_block(memspace, null_block);
+                this->modify().m_rt_null_block_addr = new_null_block.getAddress();
+            }
+        }
+        
         /**
          * Insert 1 or more elements in a single bulk operation
          * @tparam IteratorT random access iterator to items

@@ -89,6 +89,15 @@ namespace db0
             : v_bindex(in.getMemspace(), in.begin(), in.end(), item_destroy_func)
         {
         }
+        
+        v_bindex(Memspace &memspace, const v_bindex &other)
+            : super_t(memspace)
+            , m_index(memspace, other.m_index)
+            , m_max_size(other.m_max_size)
+            , m_item_destroy_func(other.m_item_destroy_func)
+        {
+            this->modify().ptr_index = m_index.getAddress();
+        }
 
         // static type ID requied for serialization
         static auto getSerialTypeId()

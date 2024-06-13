@@ -9,11 +9,16 @@
 namespace db0::object_model
 
 {
-
-    template <typename T> void assureSameFixture(const db0::Fixture &fixture, T &object)
+    
+    template <typename T> void assureSameFixture(db0::swine_ptr<Fixture> &fixture, T &object,
+        bool auto_harden = true)
     {
-        if (fixture != *object.getFixture()) {
-            THROWF(db0::InputException) << "Creating strong reference failed: object from a different prefix" << THROWF_END;
+        if (*fixture != *object.getFixture()) {
+            if (object.getRefCount() > 0 || !auto_harden) {
+                THROWF(db0::InputException) << "Creating strong reference failed: object from a different prefix" << THROWF_END;
+            }
+            // auto-harden instead of taking a weak reference
+            object.moveTo(fixture);
         }
     }
 
@@ -43,7 +48,7 @@ namespace db0::object_model
     {
         auto &obj = PyToolkit::getTypeManager().extractObject(lang_value);
         assert(obj.hasInstance());
-        assureSameFixture(*fixture, obj);
+        assureSameFixture(fixture, obj);
         obj.incRef();
         return obj.getAddress();
     }
@@ -53,7 +58,7 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto &block = PyToolkit::getTypeManager().extractBlock(lang_value);
-        assureSameFixture(*fixture, block);
+        assureSameFixture(fixture, block);
         block.modify().incRef();
         return block.getAddress();
     }
@@ -63,7 +68,7 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto &list = PyToolkit::getTypeManager().extractList(lang_value);
-        assureSameFixture(*fixture, list);
+        assureSameFixture(fixture, list);
         list.modify().incRef();
         return list.getAddress();
     }
@@ -73,7 +78,7 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto &index = PyToolkit::getTypeManager().extractIndex(lang_value);
-        assureSameFixture(*fixture, index);
+        assureSameFixture(fixture, index);
         index.incRef();
         return index.getAddress();
     }
@@ -83,7 +88,7 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto &set = PyToolkit::getTypeManager().extractSet(lang_value);
-        assureSameFixture(*fixture, set);
+        assureSameFixture(fixture, set);
         set.incRef();
         return set.getAddress();
     }
@@ -93,7 +98,7 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto &dict = PyToolkit::getTypeManager().extractDict(lang_value);
-        assureSameFixture(*fixture, dict);
+        assureSameFixture(fixture, dict);
         dict.incRef();
         return dict.getAddress();
     }
@@ -103,7 +108,7 @@ namespace db0::object_model
         PyObjectPtr lang_value)
     {
         auto &tuple = PyToolkit::getTypeManager().extractTuple(lang_value);
-        assureSameFixture(*fixture, tuple);
+        assureSameFixture(fixture, tuple);
         tuple.incRef();
         return tuple.getAddress();
     }
@@ -270,7 +275,7 @@ namespace db0::object_model
     {
         return PyToolkit::unloadBlock(fixture, value.cast<std::uint64_t>());
     }
-
+    
     // DB0_INDEX specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_INDEX, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)

@@ -107,4 +107,8 @@ namespace db0::object_model
         }
     }
 
+    void Dict::moveTo(db0::swine_ptr<Fixture> &) {
+        throw std::runtime_error("Not implemented");
+    }
+
 }
