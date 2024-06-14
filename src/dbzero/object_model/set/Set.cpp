@@ -27,9 +27,6 @@ namespace db0::object_model
         SetIndex bindex(memspace, item);
         auto address = bindex.getAddress();
         auto typed_index = TypedIndex(address, bindex::itty);
-        auto it = bindex.beginJoin(1);
-        auto [sc, value] = *it;
-        std::cerr << "ITEM CREATE " << sc << " " << value.m_store << " ADDRESS " << address.as_value.m_value.m_store << " " << address.as_ptr.m_add << std::endl;
         return { key, typed_index };
     }
 
@@ -61,7 +58,6 @@ namespace db0::object_model
     Set::Set(db0::swine_ptr<Fixture> &fixture, Set& set)
         : super_t(fixture)
     {
-        m_size = set.size();
         insert(set);
     }
     
@@ -70,11 +66,11 @@ namespace db0::object_model
         using TypeId = db0::bindings::TypeId;
         auto iter = v_bindex::find(key);
                     // recognize type ID from language specific object
+        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
+        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
         if (iter == end()) {
             m_size++;
-            // recognize type ID from language specific object
-            auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-            auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
+
             auto set_it= createSetItem<LangToolkit>(this->getMemspace(),*fixture, key, type_id, lang_value, storage_class);
             v_bindex<set_item>::insert(set_it);
 
@@ -82,7 +78,17 @@ namespace db0::object_model
             auto item = getItem(key, lang_value);
             if(item == nullptr) {
                 m_size++;
-                
+                auto [key, address] = *iter;
+                auto memspace = this->getMemspace();
+                auto bindex = address.getIndex(memspace);
+                auto item = createTypedItem<LangToolkit>(*fixture, type_id, lang_value, storage_class);
+                bindex.insert(item);
+                auto new_address = bindex.getAddress();
+                if(new_address != address.m_index_address){
+                    auto new_typed_index = TypedIndex(new_address, bindex.getIndexType());
+                    v_bindex::erase(iter);
+                    v_bindex::insert({key, new_typed_index});
+                }
             }
         }
     }
@@ -108,12 +114,8 @@ namespace db0::object_model
             auto it = bindex.beginJoin(1);
             auto fixture = this->getFixture(); 
             auto type_id = LangToolkit::getTypeManager().getTypeId(key_value);
-            auto key_member = createMember<LangToolkit>(fixture, type_id, key_value);
-            std::cerr << "KEY " << key << " ADDRESS STORE " << address.m_index_addres.as_value.m_value.m_store << std::endl;
             while(!it.is_end()){
-                std::cerr << "ITEM 1" << " " << (*it).m_value.m_store<< std::endl;
                 auto [storage_class, value] = *it;
-                std::cerr << "ITEM " << storage_class << " " << value.m_store << std::endl;
                 auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
                 if (LangToolkit::compare(key_value, member.get())) {
                     return member;
@@ -152,14 +154,20 @@ namespace db0::object_model
     {
         auto iter = begin();
         if (iter != end()) {
-            // auto [key, address] = *iter;
-            // auto [storage_class, value] = item;
-            // auto fixture = this->getFixture();
-            // auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
-            // v_bindex::erase(iter);
-            // m_size -= 1;
-            // return member;
-            return nullptr;
+            auto [key, address] = *iter;
+            auto bindex = address.getIndex(this->getMemspace());
+            auto it = bindex.beginJoin(1);
+            auto [storage_class, value] = *it;
+            auto fixture = this->getFixture();
+            auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+            if(bindex.size() == 1) {
+                v_bindex::erase(iter);
+                bindex.destroy();
+            } else {
+                bindex.erase(*it);
+            }
+            m_size -= 1;
+            return member;
         } else {
             return nullptr;
         }

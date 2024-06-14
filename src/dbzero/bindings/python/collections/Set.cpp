@@ -75,6 +75,7 @@ namespace db0::python
         {
         case Py_EQ:
             if(SetObject_len(set_obj) != PyObject_Length(other)) {
+                std::cerr << "COMPARE 1 FALSE " << SetObject_len(set_obj)  << " " << PyObject_Length(other) <<  std::endl;
                 return Py_False;
             }
             return PyBool_fromBool(has_all_elements_in_collection(set_obj, other));

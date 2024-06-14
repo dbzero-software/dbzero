@@ -13,6 +13,9 @@ namespace db0::object_model
     */
     class SetIterator : public PyObjectIterator<SetIterator, Set>
     {
+            SetIndex::joinable_const_iterator m_join_iterator;
+            SetIndex m_index;
+            void getJoinIterator();
         public:
             ObjectSharedPtr next() override;
             SetIterator(Set::iterator iterator, Set * ptr);

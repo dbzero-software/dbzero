@@ -403,9 +403,11 @@ class CollisionClass:
         self.value = int(value)
 
     def __eq__(self, other):
+        print("Comparing ", self.value, " with ", other.value)
         return self.value == other.value
 
     def __hash__(self):
+        print("Hashing ", self.value)
         return self.value % 10
     
 
@@ -420,3 +422,11 @@ def test_set_items_collisions(db0_fixture, make_set):
     set_1.add(CollisionClass(22))
     set_1.add(CollisionClass(33))
     assert(len(set_1) == 6)
+    assert CollisionClass(1) in set_1
+    assert CollisionClass(2) in set_1
+    assert CollisionClass(3) in set_1
+    assert CollisionClass(14) in set_1
+    assert CollisionClass(22) in set_1
+    assert CollisionClass(33) in set_1
+    assert CollisionClass(4) not in set_1
+    

@@ -44,7 +44,9 @@ namespace db0::object_model
         }
         
         // binary compare
-        bool operator!=(const TypedItem_Address &) const;
+        bool operator!=(const TypedItem_Address &other) const{
+            return memcmp(this, &other, sizeof(TypedItem_Address)) != 0;
+        }
     };
 
     using Fixture = db0::Fixture;
@@ -54,6 +56,9 @@ namespace db0::object_model
     class SetIndex : public MorphingBIndex<o_typed_item, TypedItem_Address>{
         using super_t = MorphingBIndex<o_typed_item, TypedItem_Address>;
     public:
+
+        SetIndex() = default;
+
         SetIndex(Memspace &memspace)
             : MorphingBIndex<o_typed_item, TypedItem_Address>(memspace)
         {
@@ -65,29 +70,29 @@ namespace db0::object_model
             std::cerr << "TYPED ITEM " << value.m_storage_class << " " << value.m_value.m_store << std::endl;
         }
         
-        SetIndex(Memspace& memspace, std::uint64_t addr, bindex::type type)
-            : MorphingBIndex<o_typed_item, TypedItem_Address>(memspace, TypedItem_Address(addr), type)
+        SetIndex(Memspace& memspace, TypedItem_Address addr, bindex::type type)
+            : MorphingBIndex<o_typed_item, TypedItem_Address>(memspace, addr, type)
         {
         }
     };
 
     struct [[gnu::packed]] TypedIndex
     {
-        TypedItem_Address m_index_addres;
+        TypedItem_Address m_index_address;
         bindex::type m_type;
         TypedIndex()
-            : m_index_addres(0), m_type(bindex::empty)
+            : m_index_address(0), m_type(bindex::empty)
         {
         }
 
 
         TypedIndex(TypedItem_Address index_addres, bindex::type type)
-            : m_index_addres(index_addres), m_type(type)
+            : m_index_address(index_addres), m_type(type)
         {
         }
 
         SetIndex getIndex(Memspace & memspace){
-            return SetIndex(memspace, m_index_addres, m_type);
+            return SetIndex(memspace, m_index_address, m_type);
         }
         
     };
