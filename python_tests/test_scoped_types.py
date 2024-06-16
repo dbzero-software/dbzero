@@ -1,5 +1,6 @@
 import pytest
 import dbzero_ce as db0
+from .conftest import DB0_DIR
 
 
 @db0.memo(prefix="scoped-class-prefix")
@@ -72,7 +73,7 @@ def test_tuple_as_a_scoped_type_member(db0_fixture):
     assert tuple(obj.value) == (1,2,3)
 
 
-def test_auto_hardening_of_weak_references(db0_fixture):
+def test_auto_hardening_of_weak_index_references(db0_fixture):
     ix = db0.index()
     assert db0.get_prefix(ix) == db0.get_current_prefix()
     obj = ScopedDataClass(ix)
@@ -97,23 +98,10 @@ def test_scoped_singleton(db0_fixture):
     assert db0.get_prefix(object) == db0.get_prefix(singleton)
     
 
-# def test_scoped_type_members_use_same_prefix(db0_fixture):
-#     # 1. list type
-#     obj = ScopedDataClass([])
-#     assert db0.get_prefix(obj.value) == db0.get_prefix(obj)
-#     # 2. dict type
-#     obj = ScopedDataClass({})
-#     assert db0.get_prefix(obj.value) == db0.get_prefix(obj)
-#     # 3. set type
-#     obj = ScopedDataClass(set())
-#     assert db0.get_prefix(obj.value) == db0.get_prefix(obj)
-#     # 4. tuple type
-#     obj = ScopedDataClass((1,2,3))
-#     assert db0.get_prefix(obj.value) == db0.get_prefix(obj)    
-#     # 5. db0.index type
-#     x = db0.index()
-#     obj = ScopedDataClass(x)
-#     print(db0.get_prefix(x))
-#     print(db0.get_prefix(obj.value))
-#     assert db0.get_prefix(obj.value) == db0.get_prefix(obj)
+def test_using_index_after_hardening(db0_fixture):
+    obj = ScopedDataClass(db0.index())
+    for i in range(10):
+        obj.value.add(i, obj)    
+    db0.commit()
+    assert len(list(obj.value.range(0, 10))) == 10
     

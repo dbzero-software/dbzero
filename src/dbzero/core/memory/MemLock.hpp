@@ -21,6 +21,7 @@ namespace db0
         
         MemLock() = default;
         MemLock(void *buffer, std::shared_ptr<ResourceLock> lock);
+        MemLock(const MemLock &other) = default;
 
         /**
          * Mark a specific part of the buffer as modified
@@ -47,9 +48,11 @@ namespace db0
 
         MemLock getSubrange(std::size_t offset) const;
 
+        MemLock &operator=(const MemLock &other) = default;
         bool operator==(const MemLock &other) const;
         bool operator!=(const MemLock &other) const;
-
+        void operator=(MemLock &&other);
+        
         /**
          * Get use count of the underlying lock
         */

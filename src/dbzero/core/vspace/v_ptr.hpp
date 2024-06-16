@@ -51,7 +51,7 @@ namespace db0
         mutable Memspace *m_memspace_ptr = nullptr;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         // initial access flags (e.g. read / write / create)
-        const FlagSet<AccessOptions> m_access_mode;
+        FlagSet<AccessOptions> m_access_mode;
         
         /**
          * Memory mapped range corresponding to this object
@@ -81,24 +81,22 @@ namespace db0
         }
                 
         FlagSet<AccessOptions> getAccessMode() const;
-
+        
         vtypeless &operator=(const vtypeless &other);
+        void operator=(vtypeless &&);
         
         /**
          * Instance compare
          */
-        inline bool operator==(const vtypeless &ptr) const
-        {
+        inline bool operator==(const vtypeless &ptr) const {
             return (m_memspace_ptr == ptr.m_memspace_ptr && m_address == ptr.m_address);
         }
 
-        inline bool operator!=(const vtypeless &ptr) const
-        {
+        inline bool operator!=(const vtypeless &ptr) const {
             return (m_memspace_ptr != ptr.m_memspace_ptr || m_address != ptr.m_address);
         }
 
-        inline bool isNull() const
-        {
+        inline bool isNull() const {
             return (m_address == 0);
         }
 
@@ -144,8 +142,7 @@ namespace db0
          * Cast to a specific concrete type
          * @return pointer which may be null if the underlying lock does not exist
         */
-        template <typename T> const T *castTo() const
-        {
+        template <typename T> const T *castTo() const {
             return reinterpret_cast<const T*>(m_mem_lock.m_buffer);
         }
     };
@@ -226,8 +223,7 @@ namespace db0
             return reinterpret_cast<const ContainerT*>(m_mem_lock.m_buffer);
         }
 
-        inline const ContainerT *operator->() const
-        {
+        inline const ContainerT *operator->() const {
             return get();
         }
         

@@ -51,7 +51,7 @@ namespace db0::object_model
     }
 
     Index::Index(db0::swine_ptr<Fixture> &fixture, const Index &other)
-        : super_t(fixture, *other.getData())
+        : super_t(tag_as_temp(), fixture, *other.getData())
         , m_data_type(other.m_data_type)
     {
         switch (m_data_type) {
@@ -85,7 +85,11 @@ namespace db0::object_model
     }
     
     void Index::flush()
-    {        
+    {
+        // no instance due to move
+        if (!hasInstance()) {
+            return;
+        }
         // apply modified data type
         if ((*this)->m_data_type != m_data_type) {
             modify().m_data_type = m_data_type;
@@ -142,6 +146,7 @@ namespace db0::object_model
     
     void Index::add(ObjectPtr key, ObjectPtr value)
     {
+        assert(hasInstance());
         auto &type_manager = LangToolkit::getTypeManager();
         // special handling of null / None values
         if (type_manager.isNull(key)) {
@@ -175,6 +180,7 @@ namespace db0::object_model
     
     void Index::remove(ObjectPtr key, ObjectPtr value)
     {
+        assert(hasInstance());
         auto &type_manager = LangToolkit::getTypeManager();
         // special handling of null / None values
         if (type_manager.isNull(key)) {
@@ -208,6 +214,7 @@ namespace db0::object_model
 
     std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool null_first) const
     {
+        assert(hasInstance());
         const_cast<Index*>(this)->flush();
         std::unique_ptr<IteratorFactory> iter_factory;
         switch (m_data_type) {
@@ -227,9 +234,10 @@ namespace db0::object_model
         }        
     }
     
-    std::unique_ptr<db0::SortedIterator<std::uint64_t> > 
+    std::unique_ptr<db0::SortedIterator<std::uint64_t> >
     Index::sort(const ObjectIterator &iter, bool asc, bool null_first) const
     {
+        assert(hasInstance());
         const_cast<Index*>(this)->flush();
         std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort_iter;
         if (iter.isSorted()) {
@@ -273,6 +281,7 @@ namespace db0::object_model
     
     void Index::addNull(ObjectPtr obj_ptr)
     {
+        assert(hasInstance());
         switch (m_data_type) {
             // use provisional data type for Auto
             case IndexDataType::Auto: {
@@ -385,7 +394,8 @@ namespace db0::object_model
 
     void Index::moveTo(db0::swine_ptr<Fixture> &fixture)
     {
-        flush();
+        assert(hasInstance());
+        this->flush();
         Index new_index(fixture, *this);
         // remove instance from lang cache
         auto &lang_cache = this->getFixture()->getLangCache();
@@ -396,11 +406,13 @@ namespace db0::object_model
     
     void Index::operator=(Index &&other)
     {
-        other.flush();        
+        other.flush();
         super_t::operator=(std::move(other));
         m_data_type = other.m_data_type;
         m_index = other.m_index;
-        
+        other.m_index_builder = nullptr;
+        other.m_index = nullptr;
+        assert(!other.hasInstance());
     }
 
 }
