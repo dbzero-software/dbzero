@@ -112,8 +112,7 @@ namespace db0
          * @tparam T
          * @return instance of T
          */
-        template <typename T> T &get() const
-        {
+        template <typename T> T &get() const {
             return m_resource_manager.select<T>();
         }
 
@@ -188,7 +187,12 @@ namespace db0
         // Converts a relative address back to absolute one
         std::uint64_t makeAbsolute(std::uint64_t address, std::uint32_t slot_num) const;
 
+        AccessType getAccessType() const {
+            return m_access_type;
+        }
+
     private:
+        const AccessType m_access_type;
         Snapshot &m_snapshot;
         // Underlying allocator's convenience references
         SlotAllocator &m_slot_allocator;
@@ -268,6 +272,9 @@ namespace db0
             : m_fixture(fixture)
             , m_lock(fixture->m_shared_mutex)
         {
+            if (fixture->getAccessType() != AccessType::READ_WRITE) {
+                THROWF(db0::InputException) << "Cannot modify read-only prefix: " << fixture->getPrefix().getName();
+            }
         }
 
         ~FixtureLock()

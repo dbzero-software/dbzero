@@ -35,8 +35,7 @@ namespace db0
         assert(m_mem_lock.m_buffer);
     }
 
-    FlagSet<AccessOptions> vtypeless::getAccessMode() const
-    {
+    FlagSet<AccessOptions> vtypeless::getAccessMode() const {
         return m_access_mode;
     }
 
@@ -48,14 +47,21 @@ namespace db0
         m_mem_lock = other.m_mem_lock;
         return *this;
     }
-
-    unsigned int vtypeless::use_count() const
+    
+    void vtypeless::operator=(vtypeless &&other)
     {
+        m_address = other.m_address;
+        m_memspace_ptr = other.m_memspace_ptr;
+        m_resource_flags = other.m_resource_flags.load();
+        m_access_mode = other.m_access_mode;
+        m_mem_lock = std::move(other.m_mem_lock);
+    }
+    
+    unsigned int vtypeless::use_count() const {
         return m_mem_lock.use_count();
     }
 
-    bool vtypeless::isAttached() const
-    {
+    bool vtypeless::isAttached() const {
         return m_mem_lock.m_buffer != nullptr;
     }
     

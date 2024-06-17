@@ -66,8 +66,7 @@ namespace db0::python
         .tp_free = PyObject_Free,        
     };
 
-    PandasDataFrameObject *PandasDataFrameObject_new(PyTypeObject *type, PyObject *args, PyObject *)
-    {
+    PandasDataFrameObject *PandasDataFrameObject_new(PyTypeObject *type, PyObject *args, PyObject *) {
         return reinterpret_cast<PandasDataFrameObject*>(type->tp_alloc(type, 0));
     }
     
@@ -79,22 +78,21 @@ namespace db0::python
     }
 
     PandasDataFrameObject *makeDataFrame(PyObject *, PyObject *, PyObject *)
-    {        
+    {
         // make actual DBZero instance, use default fixture
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+        db0::FixtureLock lock(fixture);
         auto dataframe_obj = PandasDataFrameObject_new(&PandasDataFrameObjectType, NULL, NULL);
-        db0::object_model::pandas::DataFrame::makeNew(&dataframe_obj->ext(), *fixture);
-        (*fixture)->getLangCache().add(dataframe_obj->ext().getAddress(), dataframe_obj, true);
+        db0::object_model::pandas::DataFrame::makeNew(&dataframe_obj->ext(), *lock);
+        lock->getLangCache().add(dataframe_obj->ext().getAddress(), dataframe_obj, true);
         return dataframe_obj;
     }
 
-    bool PandasDataFrameType_Check(PyTypeObject *type)
-    {
+    bool PandasDataFrameType_Check(PyTypeObject *type) {
         return type->tp_new == reinterpret_cast<newfunc>(PandasDataFrameObject_new);
     }
 
-    bool PandasDataFrame_Check(PyObject *obj)
-    {  
+    bool PandasDataFrame_Check(PyObject *obj) {
         return PandasDataFrameType_Check(Py_TYPE(obj));
     }
 

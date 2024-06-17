@@ -121,19 +121,12 @@ namespace db0
             std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> vobject_cache_size = {},
             std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});            
         virtual ~Workspace();
-        
-        /**
-         * Get a mutable fixture for update
-         * multiple writers are allowed but only 1 commit thread
-         * @param fixture_uuid either a valid fixture UUID or 0x0 for the default fixture
-        */        
-        FixtureLock getMutableFixture(std::uint64_t fixture_uuid = 0);
-        
-        /**
-         * Get current fixture for read-only access
-        */
-        db0::swine_ptr<Fixture> getCurrentFixture(std::optional<AccessType> = {}) override;
 
+        /**
+         * Get current fixture for either read-only or read-write access
+        */
+        db0::swine_ptr<Fixture> getCurrentFixture() override;
+        
         /**
          * Create new or open/get existing prefix associated fixture
          * access type must be provided when the prefix is accessed for the 1st time
@@ -211,7 +204,7 @@ namespace db0
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_fixture_initializer;
         // fixture by UUID
-        std::unordered_map<std::uint64_t, swine_ptr<Fixture> > m_fixtures;
+        std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;
         std::vector<std::thread> m_threads;
         std::unique_ptr<RefreshThread> m_refresh_thread;
         std::unique_ptr<AutoCommitThread> m_auto_commit_thread;

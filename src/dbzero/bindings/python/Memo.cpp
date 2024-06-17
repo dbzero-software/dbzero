@@ -42,8 +42,8 @@ namespace db0::python
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture(decor.getFixtureUUID());
-        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_WRITE));
+        auto &class_factory = lock->get<db0::object_model::ClassFactory>();
         // find py type associated DBZero class with the ClassFactory
         auto type = class_factory.getOrCreateType(py_type);
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
@@ -56,20 +56,42 @@ namespace db0::python
         return reinterpret_cast<MemoObject*>(runSafe(tryMemoObject_new, py_type, args, kwargs));
     }
     
-    PyObject *tryMemoObject_new_singleton(PyTypeObject *py_type, PyObject *, PyObject *)
+    PyObject *tryMemoObject_open_singleton(PyTypeObject *py_type)
     {
         MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture(decor.getFixtureUUID());
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated DBZero class with the ClassFactory
-        auto type = class_factory.getOrCreateType(py_type);
+        auto type = class_factory.tryGetExistingType(py_type);
+
+        if (!type) {
+            return nullptr;
+        }
         
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
         // try unloading associated singleton if such exists
         if (!type->unloadSingleton(&memo_obj->ext())) {
-            // create singleton instance
-            db0::object_model::Object::makeNew(&memo_obj->ext(), type);
+            py_type->tp_dealloc(memo_obj);
+            return nullptr;
         }
+        return memo_obj;
+    }
+    
+    PyObject *tryMemoObject_new_singleton(PyTypeObject *py_type, PyObject *, PyObject *)
+    {
+        auto result = tryMemoObject_open_singleton(py_type);
+        if (result) {
+            return result;
+        }
+
+        MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_WRITE));
+        auto &class_factory = lock->get<db0::object_model::ClassFactory>();
+        // find py type associated DBZero class with the ClassFactory
+        auto type = class_factory.getOrCreateType(py_type);
+        
+        MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
+        db0::object_model::Object::makeNew(&memo_obj->ext(), type);        
         return memo_obj;
     }
     
@@ -167,14 +189,14 @@ namespace db0::python
         try {
             // must materialize the object before setting as an attribute
             if (!db0::object_model::isMaterialized(value)) {
-                auto fixture = self->ext().getMutableFixture();
-                db0::object_model::materialize(fixture, value);
+                db0::FixtureLock lock(self->ext().getFixture());
+                db0::object_model::materialize(lock, value);
             }
 
             auto &memo = self->ext();
             if (memo.hasInstance()) {
-                auto fixture = self->ext().getMutableFixture();
-                memo.set(fixture, PyUnicode_AsUTF8(attr), value);
+                db0::FixtureLock lock(self->ext().getFixture());
+                memo.set(lock, PyUnicode_AsUTF8(attr), value);
             } else {
                 memo.setPreInit(PyUnicode_AsUTF8(attr), value);
             }

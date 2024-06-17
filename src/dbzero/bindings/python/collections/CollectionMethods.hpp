@@ -2,8 +2,10 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 
-namespace db0::python 
+namespace db0::python
+
 {
+
     template<typename ObjectT>
     PyObject *ObjectT_append(ObjectT *object_inst, PyObject *const *args, Py_ssize_t nargs)
     {
@@ -12,8 +14,8 @@ namespace db0::python
             return NULL;
         }
         
-        auto fixture = object_inst->ext().getMutableFixture();
-        object_inst->ext().append(fixture, args[0]);
+        db0::FixtureLock lock(object_inst->ext().getFixture());
+        object_inst->ext().append(lock, args[0]);
         Py_RETURN_NONE;
     }
 
@@ -26,9 +28,9 @@ namespace db0::python
         }
         PyObject *iterator = PyObject_GetIter(args[0]);
         PyObject *item;
-        auto fixture = object_inst->ext().getMutableFixture();
+        db0::FixtureLock lock(object_inst->ext().getFixture());
         while ((item = PyIter_Next(iterator))) {
-            object_inst->ext().append(fixture, item);
+            object_inst->ext().append(lock, item);
             Py_DECREF(item);
         }
 
@@ -36,18 +38,17 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    template<typename ObjectT>
+    template <typename ObjectT>
     int ObjectT_SetItem(ObjectT *object_inst, Py_ssize_t i, PyObject *value)
     {
-        auto fixture = object_inst->ext().getMutableFixture();
-        object_inst->ext().setItem(fixture, i, value);
+        db0::FixtureLock lock(object_inst->ext().getFixture());
+        object_inst->ext().setItem(lock, i, value);
         return 0;
     }
 
-    template<typename ObjectT>
+    template <typename ObjectT>
     PyObject* ObjectT_Insert(ObjectT *object_inst, PyObject *const *args, Py_ssize_t nargs)
-    {
-        
+    {        
         if (nargs != 2) {
             PyErr_SetString(PyExc_TypeError, "insert() takes exactly two argument");
             return NULL;
@@ -56,12 +57,12 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "insert() takes an integer as first argument");
             return NULL;
         }
-        auto fixture = object_inst->ext().getMutableFixture();
-        object_inst->ext().setItem(fixture, PyLong_AsLong(args[0]), args[1]);
+        db0::FixtureLock lock(object_inst->ext().getFixture());
+        object_inst->ext().setItem(lock, PyLong_AsLong(args[0]), args[1]);
         Py_RETURN_NONE;
     }
 
-    template<typename ObjectT>
+    template <typename ObjectT>
     PyObject *ObjectT_GetItem(ObjectT *object_inst, Py_ssize_t i)
     {
         object_inst->ext().getFixture()->refreshIfUpdated();
@@ -96,11 +97,11 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "pop() takes zero or one argument.");
             return NULL;
         }
-        auto fixture = object_inst->ext().getMutableFixture();
-        return object_inst->ext().pop(fixture, index).steal();
+        db0::FixtureLock lock(object_inst->ext().getFixture());
+        return object_inst->ext().pop(lock, index).steal();
     }
 
-    template<typename ObjectT>
+    template <typename ObjectT>
     PyObject *ObjectT_remove(ObjectT *object_inst, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {
@@ -108,12 +109,12 @@ namespace db0::python
             return NULL;
         }
         auto index = object_inst->ext().index(args[0]);
-        auto fixture = object_inst->ext().getMutableFixture();
-        object_inst->ext().swapAndPop(fixture, {index});
+        db0::FixtureLock lock(object_inst->ext().getFixture());
+        object_inst->ext().swapAndPop(lock, {index});
         Py_RETURN_NONE;
     }
-
-    template<typename ObjectT>
+    
+    template <typename ObjectT>
     PyObject *ObjectT_index(ObjectT *object_inst, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {

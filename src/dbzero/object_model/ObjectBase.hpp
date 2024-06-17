@@ -46,7 +46,15 @@ namespace db0
         {            
             fixture->getGC0().add<T>(this);
         }
-        
+
+        // for creating temporary objects to later be moved to other instance
+        // no GC0 registration is done
+        struct tag_as_temp {};
+        template <typename... Args> ObjectBase(tag_as_temp, db0::swine_ptr<Fixture> &fixture, Args &&... args)
+            : has_fixture<BaseT>(fixture, std::forward<Args>(args)...)            
+        {
+        }
+
         ~ObjectBase() {
             unregister();
         }

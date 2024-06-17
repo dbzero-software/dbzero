@@ -9,8 +9,10 @@
 #include <dbzero/bindings/python/collections/Index.hpp>
 #include <dbzero/bindings/python/PyObjectIterator.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/workspace/Workspace.hpp>
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyEnum.hpp"
 
 namespace db0::python
 
@@ -50,6 +52,13 @@ namespace db0::python
         return reinterpret_cast<IndexObject*>(py_value)->ext().getFixture();
     }
 
+    // ENUM value specialization
+    template <> db0::swine_ptr<Fixture> getFixtureOf<TypeId::DB0_ENUM_VALUE>(PyObject *py_value) 
+    {
+        auto fixture_uuid = reinterpret_cast<PyEnumValue*>(py_value)->ext().m_fixture_uuid;
+        return PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid);
+    }
+
     void registerGetFixtureOfFunctions(std::vector<db0::swine_ptr<Fixture> (*)(PyObject*)> &functions)
     {
         functions.resize(static_cast<int>(TypeId::COUNT));
@@ -60,10 +69,11 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_SET)] = getFixtureOf<TypeId::DB0_SET>;
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = getFixtureOf<TypeId::DB0_TUPLE>;
         functions[static_cast<int>(TypeId::DB0_INDEX)] = getFixtureOf<TypeId::DB0_INDEX>;
+        functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = getFixtureOf<TypeId::DB0_ENUM_VALUE>;
         /**
         functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;                                        
         functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = createMember<TypeId::OBJECT_ITERATOR, PyToolkit>;
-        functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
+        
         */
     }
 
@@ -139,7 +149,7 @@ namespace db0::python
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = tryGetUUID<TypeId::MEMO_OBJECT>;
         functions[static_cast<int>(TypeId::DB0_LIST)] = tryGetUUID<TypeId::DB0_LIST>;        
         functions[static_cast<int>(TypeId::DB0_INDEX)] = tryGetUUID<TypeId::DB0_INDEX>;        
-        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = tryGetUUID<TypeId::OBJECT_ITERATOR>;
+        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = tryGetUUID<TypeId::OBJECT_ITERATOR>;        
         /**
         functions[static_cast<int>(TypeId::DB0_DICT)] = tryGetUUID<TypeId::DB0_DICT>;
         functions[static_cast<int>(TypeId::DB0_SET)] = tryGetUUID<TypeId::DB0_SET>;        

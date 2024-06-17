@@ -63,32 +63,35 @@ namespace tests
     }
     
     TEST_F( QuerySerializationTest , testRangeTreeFTSortedIteratorCanBeDeserialized )
-    {        
-        std::vector<std::byte> buf;
+    {                
         auto test = [&](RangeTreeT &rt, FT_BaseIndex<std::uint64_t> &ft_index) {
+            std::vector<std::byte> buf;
             auto ft_query = ft_index.makeIterator(1);
             std::vector<std::uint64_t> values;
             RT_SortIterator<int, std::uint64_t> cut(rt, std::move(ft_query));
             
             cut.serialize(buf);
             ASSERT_TRUE(buf.size() > 0);
-        };
-        // serialize
-        runTestCase(test);
-        auto iter = buf.cbegin(), end = buf.cend();
-        auto iter_type = db0::serial::read<db0::SortedIteratorType>(iter, end);
-        ASSERT_EQ(iter_type, db0::SortedIteratorType::RT_Sort);
-        // deserialize-construct 
-        auto cut = deserializeRT_SortIterator<int, std::uint64_t>(m_workspace, iter, end);
-        // iterate to confirm it was deserialized correctly
-        std::vector<std::uint64_t> values;
-        while (!cut->isEnd()) {
-            std::uint64_t value;
-            cut->next(&value);
-            values.push_back(value); 
-        }
 
-        ASSERT_EQ(values, (std::vector<std::uint64_t> { 4, 3, 8 }));        
+            // deserialization part
+            {
+                auto iter = buf.cbegin(), end = buf.cend();
+                auto iter_type = db0::serial::read<db0::SortedIteratorType>(iter, end);
+                ASSERT_EQ(iter_type, db0::SortedIteratorType::RT_Sort);
+                // deserialize-construct 
+                auto cut = deserializeRT_SortIterator<int, std::uint64_t>(m_workspace, iter, end);
+                // iterate to confirm it was deserialized correctly
+                std::vector<std::uint64_t> values;
+                while (!cut->isEnd()) {
+                    std::uint64_t value;
+                    cut->next(&value);
+                    values.push_back(value); 
+                }
+
+                ASSERT_EQ(values, (std::vector<std::uint64_t> { 4, 3, 8 }));
+            }
+        };    
+        runTestCase(test);
     }
 
 }
