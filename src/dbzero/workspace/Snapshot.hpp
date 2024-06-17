@@ -24,7 +24,7 @@ namespace db0
         
         virtual db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) = 0;
         
-        virtual db0::swine_ptr<Fixture> getCurrentFixture(std::optional<AccessType> = AccessType::READ_ONLY) = 0;
+        virtual db0::swine_ptr<Fixture> getCurrentFixture() = 0;
         
         virtual bool close(const std::string &prefix_name) = 0;
         

@@ -16,8 +16,8 @@ namespace db0::python
 
     int PandasBlockObject_SetItem(PandasBlockObject *block_obj, Py_ssize_t i, PyObject *value)
     {
-        auto fixture = block_obj->ext().getMutableFixture();
-        block_obj->ext().setItem(fixture, i, value);
+        db0::FixtureLock lock(block_obj->ext().getFixture());
+        block_obj->ext().setItem(lock, i, value);
         return 0;
     }
 
@@ -32,8 +32,8 @@ namespace db0::python
             return NULL;
         }
         
-        auto fixture = block_obj->ext().getMutableFixture();
-        block_obj->ext().append(fixture, args[0]);
+        db0::FixtureLock lock(block_obj->ext().getFixture());
+        block_obj->ext().append(lock, args[0]);
         Py_RETURN_NONE;
     }
 
@@ -78,9 +78,9 @@ namespace db0::python
     PandasBlockObject *makeBlock(PyObject *, PyObject *, PyObject *)
     {        
         // make actual DBZero instance, use default fixture
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         auto block_object = PandasBlockObject_new(&PandasBlockObjectType, NULL, NULL);
-        db0::object_model::pandas::Block::makeNew(&block_object->ext(), *fixture);     
+        db0::object_model::pandas::Block::makeNew(&block_object->ext(), *lock);
         return block_object;
     }
 

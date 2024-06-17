@@ -196,8 +196,6 @@ namespace db0::object_model
 
         db0::swine_ptr<Fixture> getFixture() const;
 
-        FixtureLock getMutableFixture() const;
-
         Memspace &getMemspace() const;
         
         /**

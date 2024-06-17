@@ -23,7 +23,7 @@ namespace db0::python
                 auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture((*m_prefix_name).c_str());
                 fixture_uuid = fixture->getUUID();
             }
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture(fixture_uuid);
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
             auto &enum_factory = fixture->get<EnumFactory>();
             // use empty module name since it's unknown
             m_enum_ptr = enum_factory.getOrCreateEnum(m_enum_def, m_type_id ? m_type_id->c_str() : nullptr);

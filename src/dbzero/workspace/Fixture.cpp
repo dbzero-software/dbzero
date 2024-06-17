@@ -26,6 +26,7 @@ namespace db0
     
     Fixture::Fixture(Snapshot &snapshot, FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
         : Memspace(prefix, std::make_shared<SlotAllocator>(meta), getUUID(prefix, *meta))
+        , m_access_type(prefix->getAccessType())
         , m_snapshot(snapshot)
         , m_slot_allocator(reinterpret_cast<SlotAllocator&>(*m_allocator))
         , m_meta_allocator(reinterpret_cast<MetaAllocator&>(*m_slot_allocator.getAllocator()))        
@@ -37,7 +38,7 @@ namespace db0
         // set-up slots with the allocator
         m_slot_allocator.setSlot(TYPE_SLOT_NUM, openSlot(*this, *meta, TYPE_SLOT_NUM));
     }
-
+    
     Fixture::~Fixture()
     {
         // clear cache before destroying the fixture to destroy object instances supported by the cache

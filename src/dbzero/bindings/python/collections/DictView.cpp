@@ -15,15 +15,12 @@ namespace db0::python
 
     DictIteratorObject *DictViewObject_iter(DictViewObject *self)
     {
-        auto dict_iterator_object = IteratorObject_new<DictIteratorObject>(&DictIteratorObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        auto dict_iterator_object = IteratorObject_new<DictIteratorObject>(&DictIteratorObjectType, NULL, NULL);        
         self->ext().begin(&dict_iterator_object->ext());
-        return dict_iterator_object; 
+        return dict_iterator_object;
     }
     
-
-    Py_ssize_t DictViewObject_len(DictViewObject *dict_obj)
-    {
+    Py_ssize_t DictViewObject_len(DictViewObject *dict_obj) {
         return dict_obj->ext().size();
     }
 
@@ -76,8 +73,7 @@ namespace db0::python
     DictViewObject *makeDictView(db0::object_model::Dict * ptr, db0::object_model::IteratorType iterator_type)
     {
         // make actual DBZero instance, use default fixture
-        auto dict_view_object = DictViewObject_new(&DictViewObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
+        auto dict_view_object = DictViewObject_new(&DictViewObjectType, NULL, NULL);        
         db0::object_model::DictView::makeNew(&dict_view_object->ext(), ptr, iterator_type);
         return dict_view_object;
     }

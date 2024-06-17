@@ -43,7 +43,7 @@ namespace db0::python
     PyObject *ListObject_GetItemSlice(ListObject *list_obj, PyObject *elem)
     {
         // FIXME: this operation should be immutable
-        auto fixture = list_obj->ext().getMutableFixture();
+        db0::FixtureLock lock(list_obj->ext().getFixture());
         // Check if the key is a slice object
         if (PySlice_Check(elem)) {
             Py_ssize_t start, stop, step;
@@ -57,13 +57,13 @@ namespace db0::python
                 }
             };
             for (Py_ssize_t i = start; compare(i, stop); i += step) {
-                list->ext().append(fixture, list_obj->ext().getItem(i).steal());
+                list->ext().append(lock, list_obj->ext().getItem(i).steal());
             }
 
             return list;
         }
         auto index = PyLong_AsLong(elem);
-        if( index < 0){
+        if (index < 0) {
             index += list_obj->ext().size();
         }
         return list_obj->ext().getItem(index).steal();
@@ -71,8 +71,8 @@ namespace db0::python
     
     PyObject * ListObject_clear(ListObject *list_obj)
     {
-        auto fixture = list_obj->ext().getMutableFixture();
-        list_obj->ext().clear(fixture);
+        db0::FixtureLock lock(list_obj->ext().getFixture());
+        list_obj->ext().clear(lock);
         Py_RETURN_NONE;
     }
 
@@ -80,9 +80,9 @@ namespace db0::python
     {
         // make actual DBZero instance, use default fixture
         auto list_object = ListObject_new(&ListObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        list_obj->ext().copy(&list_object->ext(), *fixture);
-        (*fixture)->getLangCache().add(list_object->ext().getAddress(), list_object, true);
+        db0::FixtureLock lock(list_obj->ext().getFixture());
+        list_obj->ext().copy(&list_object->ext(), *lock);
+        lock->getLangCache().add(list_object->ext().getAddress(), list_object, true);
         return list_object;
     }
     
@@ -106,10 +106,7 @@ namespace db0::python
         ObjectT_extend<ListObject>(lh_copy, args, 1);
         return lh_copy;
     }
-
-
-
-
+    
     static PySequenceMethods ListObject_sq = getPySequenceMehods<ListObject>();
 
     static PyMappingMethods ListObject_mp = {

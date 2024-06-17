@@ -140,7 +140,7 @@ namespace db0
         return m_state_num;
     }
     
-    db0::swine_ptr<Fixture> WorkspaceView::getCurrentFixture(std::optional<AccessType> access_type)
+    db0::swine_ptr<Fixture> WorkspaceView::getCurrentFixture()
     {
         if (!m_default_uuid) {
             THROWF(db0::InternalException) << "No default fixture";

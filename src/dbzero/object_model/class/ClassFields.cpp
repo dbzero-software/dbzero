@@ -26,8 +26,8 @@ namespace db0::object_model
     FieldDef ClassFields::get(const char *field_name) const
     {
         if (!m_type) {
-            auto fixture = LangToolkit::getPyWorkspace().getWorkspace().getMutableFixture(
-                LangToolkit::getFixtureUUID(m_lang_type.get())
+            auto fixture = LangToolkit::getPyWorkspace().getWorkspace().getFixture(
+                LangToolkit::getFixtureUUID(m_lang_type.get()), AccessType::READ_ONLY
             );
             auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
             // find py type associated DBZero class with the ClassFactory
