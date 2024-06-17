@@ -47,15 +47,16 @@ namespace db0::object_model
         using TypeId = db0::bindings::TypeId;
         auto type_id = LangToolkit::getTypeManager().getTypeId(value);
         auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
-        auto fixture = this->getMutableFixture();
-        auto value_item = createTypedItem<LangToolkit>(*fixture, type_id, value, storage_class);
+        auto fixture = this->getFixture();
+        db0::FixtureLock lock(fixture);
+        auto value_item = createTypedItem<LangToolkit>(*lock, type_id, value, storage_class);
         auto it = v_bindex::find(hash);
         if (it == end()) {
             // recognize type ID from language specific object
             auto type_id = LangToolkit::getTypeManager().getTypeId(key);
             auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
-            auto key_item = createTypedItem<LangToolkit>(*fixture, type_id, key, storage_class);
-            v_bindex::insert(createDictItem<LangToolkit>(*fixture, hash, key_item, value_item));
+            auto key_item = createTypedItem<LangToolkit>(*lock, type_id, key, storage_class);
+            v_bindex::insert(createDictItem<LangToolkit>(*lock, hash, key_item, value_item));
         } else {
             it.modifyItem().value.m_second = value_item;
         }           
@@ -87,19 +88,20 @@ namespace db0::object_model
         return iter != end();
     }
 
-    Dict * Dict::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
+    Dict *Dict::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
         return new (at_ptr) Dict(fixture, *this);
     }
 
-    Dict::ObjectSharedPtr Dict::pop(ObjectPtr obj) 
+    Dict::ObjectSharedPtr Dict::pop(ObjectPtr obj)
     {
         auto hash = PyObject_Hash(obj);
         auto iter = find(hash);
         if (iter != end()) {
             auto [key, item] = *iter;
             auto [storage_class, value] = item.m_second;
-            auto fixture = this->getMutableFixture();
-            auto member = unloadMember<LangToolkit>(*fixture, storage_class, value);
+            auto fixture = this->getFixture();
+            db0::FixtureLock lock(fixture);
+            auto member = unloadMember<LangToolkit>(*lock, storage_class, value);
             v_bindex::erase(iter);
             return member;
         } else {

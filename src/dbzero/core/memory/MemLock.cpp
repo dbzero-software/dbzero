@@ -45,9 +45,15 @@ namespace db0
         return m_buffer != other.m_buffer || m_lock != other.m_lock;
     }
 
-    unsigned int MemLock::use_count() const
-    {
+    unsigned int MemLock::use_count() const {
         return m_lock.use_count();
+    }
+    
+    void MemLock::operator=(MemLock &&other)
+    {
+        m_buffer = other.m_buffer;
+        m_lock = std::move(other.m_lock);        
+        other.m_buffer = nullptr;
     }
 
 }

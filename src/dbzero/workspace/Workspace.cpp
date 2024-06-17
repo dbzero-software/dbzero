@@ -6,6 +6,13 @@ namespace db0
 
 {
 
+    void validateAccessType(AccessType requested, AccessType actual)
+    {
+        if (requested == AccessType::READ_WRITE && actual != AccessType::READ_WRITE) {
+            THROWF(db0::InputException) << "Unable to update the read-only prefix";
+        }
+    }
+    
     BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size)
         : m_prefix_catalog(root_path)
         , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE)
@@ -255,28 +262,33 @@ namespace db0
     
     db0::swine_ptr<Fixture> Workspace::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
     {
-        if (!uuid) {
-            return getCurrentFixture(access_type);
-        }
-        auto it = m_fixtures.find(uuid);
-        if (it == m_fixtures.end()) {
-            if (!access_type) {
-                THROWF(db0::InputException) << "Fixture with UUID " << uuid << " not found";
+        db0::swine_ptr<Fixture> result;
+        if (uuid) {
+            auto it = m_fixtures.find(uuid);
+            if (it == m_fixtures.end()) {
+                if (!access_type) {
+                    THROWF(db0::InputException) << "Fixture with UUID " << uuid << " not found";
+                }
+                m_fixture_catalog.refresh();
+                auto maybe_prefix_name = m_fixture_catalog.getPrefixName(uuid);
+                if (!maybe_prefix_name) {
+                    THROWF(db0::InputException) << "Fixture with UUID " << uuid << " not found";
+                }
+                // try opening fixture by name
+                return getFixtureEx(*maybe_prefix_name, *access_type);
             }
-            m_fixture_catalog.refresh();
-            auto maybe_prefix_name = m_fixture_catalog.getPrefixName(uuid);
-            if (!maybe_prefix_name) {
-                THROWF(db0::InputException) << "Fixture with UUID " << uuid << " not found";
-            }
-            // try opening fixture by name
-            return getFixtureEx(*maybe_prefix_name, *access_type);
+            result = it->second;
+        } else {
+            result = getCurrentFixture();
         }
         
-        return it->second;
+        if (access_type) {
+            validateAccessType(*access_type, result->getAccessType());
+        }
+        return result;
     }
     
-    std::optional<std::uint64_t> Workspace::getUUID(const std::string &prefix_name) const
-    {
+    std::optional<std::uint64_t> Workspace::getUUID(const std::string &prefix_name) const {
         return m_fixture_catalog.getFixtureUUID(prefix_name);
     }
     
@@ -307,13 +319,11 @@ namespace db0
         }
     }
 
-    std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> Workspace::getFixtureInitializer() const
-    {
+    std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> Workspace::getFixtureInitializer() const {
         return m_fixture_initializer;
     }
 
-    bool Workspace::drop(const std::string &prefix_name, bool if_exists)
-    {
+    bool Workspace::drop(const std::string &prefix_name, bool if_exists) {
         return BaseWorkspace::drop(prefix_name, if_exists);
     }
     
@@ -329,23 +339,11 @@ namespace db0
         fixture->commit();
     }
 
-    FixtureLock Workspace::getMutableFixture(std::uint64_t fixture_uuid)
-    {
-        db0::swine_ptr<Fixture> fixture = fixture_uuid ? getFixture(fixture_uuid) : m_default_fixture;
-        if (!fixture) {
-            THROWF(db0::InternalException) << "DBZero: no default prefix exists";
-        }
-        return fixture;        
-    }
-    
-    db0::swine_ptr<Fixture> Workspace::getCurrentFixture(std::optional<AccessType> access_type)
+    db0::swine_ptr<Fixture> Workspace::getCurrentFixture()
     {
         if (!m_default_fixture) {
             THROWF(db0::InternalException) << "DBZero: no default prefix exists";
         }
-        if (access_type && *access_type != AccessType::READ_ONLY) {
-            THROWF(db0::InputException) << "DBZero: getCurrentFixture allows READ-ONLY access";
-        }   
         return m_default_fixture;
     }
     

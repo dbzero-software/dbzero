@@ -172,14 +172,14 @@ namespace db0::python
     {
         // make actual DBZero instance, use default fixture
         auto dict_object = DictObject_new(&DictObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        dict_obj->ext().copy(&dict_object->ext(), *fixture);
-        (*fixture)->getLangCache().add(dict_object->ext().getAddress(), dict_object, true);
+        auto lock = db0::FixtureLock(dict_obj->ext().getFixture());
+        dict_obj->ext().copy(&dict_object->ext(), *lock);
+        lock->getLangCache().add(dict_object->ext().getAddress(), dict_object, true);
         return dict_object;
     }
-
-    PyObject *DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs){
-        if(nargs < 1 ){
+    
+    PyObject *DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs) {
+        if (nargs < 1) {
             PyErr_SetString(PyExc_TypeError, " fromkeys expected at least 1 argument");
             return NULL;
             
@@ -190,14 +190,14 @@ namespace db0::python
             
         }
         // make actual DBZero instance, use default fixture
-        auto dict_object = DictObject_new(&DictObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        db0::object_model::Dict::makeNew(&dict_object->ext(), *fixture);
-        (*fixture)->getLangCache().add(dict_object->ext().getAddress(), dict_object, true);
+        auto dict_object = DictObject_new(&DictObjectType, NULL, NULL);        
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
+        db0::object_model::Dict::makeNew(&dict_object->ext(), *lock);
+        lock->getLangCache().add(dict_object->ext().getAddress(), dict_object, true);
         PyObject *iterator = PyObject_GetIter(args[0]);
         PyObject *elem;
         PyObject *value = Py_None;
-        if(nargs == 2){
+        if (nargs == 2) {
             value = args[1];
         }
         while ((elem = PyIter_Next(iterator))) {
@@ -208,12 +208,12 @@ namespace db0::python
     }
 
     PyObject *DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs){
-        if(nargs < 1 ){
+        if (nargs < 1) {
             PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
             return NULL;
             
         }
-        if(nargs > 2){
+        if (nargs > 2) {
             PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
             return NULL;
             
@@ -223,7 +223,7 @@ namespace db0::python
         if(nargs == 2){
             value = args[1];
         }
-        if(dict_object->ext().has_item(elem)) {
+        if (dict_object->ext().has_item(elem)) {
             return DictObject_GetItem(dict_object, elem);
         }
         return value;

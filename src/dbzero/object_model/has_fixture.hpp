@@ -90,10 +90,6 @@ namespace db0
             return fixture;
         }
         
-        FixtureLock getMutableFixture() const {
-            return this->getFixture();
-        }
-
         void operator=(const has_fixture &other)
         {
             // must release existing weak ref and take from the copied object

@@ -122,8 +122,7 @@ namespace db0
             return new_object.getAddress();
         }
         
-        void operator=(const v_object<T> &other)
-        {
+        void operator=(const v_object<T> &other) {
             v_this = other.v_this;
         }        
 
@@ -136,54 +135,45 @@ namespace db0
         /**
          * Readonly data access operator
          */
-        inline const c_type *operator->() const
-        {
+        inline const c_type *operator->() const {
             return v_this.get();
         }
 
-        inline const c_type *getData() const
-        {
+        inline const c_type *getData() const {
             return v_this.get();
         }
 
         /**
          * Reference data container for read
          */
-        inline const c_type &const_ref() const
-        {
+        inline const c_type &const_ref() const {
             return *(v_this.get());
         }
 
-        const c_type& safeRef() const
-        {
+        const c_type& safeRef() const {
             return v_this.safeRef();
         }
 
-        const c_type& safeRef(std::uint32_t access_mode) const
-        {
+        const c_type& safeRef(std::uint32_t access_mode) const {
             return v_this.safeRef(access_mode);
         }
 
         /**
          * Reference data container for update
          */
-        inline c_type &modify()
-        {
+        inline c_type &modify() {
             return v_this.modify();
         }
 
-        inline std::uint64_t getAddress() const
-        {
+        inline std::uint64_t getAddress() const {
             return v_this.getAddress();
         }
 
-        inline const ptr_t &get_v_ptr() const
-        {
+        inline const ptr_t &get_v_ptr() const {
             return this->v_this;
         }
 
-        inline ptr_t &get_v_ptr()
-        {
+        inline ptr_t &get_v_ptr() {
             return this->v_this;
         }
         
@@ -195,54 +185,45 @@ namespace db0
             }
         }
         
-        Memspace &getMemspace() const
-        {
+        Memspace &getMemspace() const {
             return v_this.getMemspace();
         }
-                
-        inline bool isNull() const
-        {
+        
+        inline bool isNull() const {
             return v_this.isNull();
         }
 
         /**
          * instance compare
          */
-        bool operator==(const v_object<c_type> &other) const
-        {
+        bool operator==(const v_object<c_type> &other) const {
             return (v_this==other.v_this);
         }
 
-        explicit operator bool() const
-        {
+        explicit operator bool() const {
             return !v_this.isNull();
         }
 
-        bool operator!() const
-        {
+        bool operator!() const {
             return v_this.isNull();
         }
                 
-        mptr myPtr(std::uint64_t address, FlagSet<AccessOptions> access_mode = {}) const
-        {
+        mptr myPtr(std::uint64_t address, FlagSet<AccessOptions> access_mode = {}) const {
             return v_this.getMemspace().myPtr(address, access_mode);
         }
 
         /**
          * Get use count of the underlying lock
         */
-        unsigned int use_count() const
-        {
+        unsigned int use_count() const {
             return v_this.use_count();
         }
         
-        void detach()
-        {
+        void detach() {
             v_this.detach();
         }
         
-        void commit()
-        {
+        void commit() {
             v_this.commit();
         }
 

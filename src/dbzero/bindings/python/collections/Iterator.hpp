@@ -6,13 +6,13 @@ namespace db0::python
 
 {
     
-    template <typename IteratorObjectT>    
-    IteratorObjectT *IteratorObject_new(PyTypeObject *type, PyObject *, PyObject *)    {
+    template <typename IteratorObjectT>
+    IteratorObjectT *IteratorObject_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<IteratorObjectT*>(type->tp_alloc(type, 0));
     }
 
     template <typename IteratorObjectT> 
-    void IteratorObject_del(IteratorObjectT* self){
+    void IteratorObject_del(IteratorObjectT* self) {
         // destroy associated DB0 instance
         // calls destructor of ext object
         self->destroy();
@@ -20,15 +20,13 @@ namespace db0::python
     }   
 
     template <typename IteratorObjectT, typename IteratorModelT, typename IteratorT, typename ObjectT>
-    IteratorObjectT *makeIterator(PyTypeObject& typeObject, IteratorT iterator, ObjectT * ptr){
-        // make actual DBZero instance, use default fixture
+    IteratorObjectT *makeIterator(PyTypeObject& typeObject, IteratorT iterator, ObjectT * ptr) 
+    {        
         auto iterator_object = IteratorObject_new<IteratorObjectT>(&typeObject, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        IteratorModelT::makeNew(&iterator_object->ext(), iterator, ptr);
+        IteratorModelT::makeNew(&iterator_object->ext(), iterator, ptr);        
         return iterator_object;
     }
-
-
+    
     template <typename IteratorObjectT> 
     IteratorObjectT *IteratorObject_iter(IteratorObjectT *self)
     {
@@ -53,7 +51,7 @@ namespace db0::python
     };
 
     template <typename IteratorObjectT>
-    PyTypeObject GetIteratorType(const char *name, const char *doc){
+    PyTypeObject GetIteratorType(const char *name, const char *doc) {
         PyTypeObject object =  {
             PyVarObject_HEAD_INIT(NULL, 0)
             .tp_name = name,

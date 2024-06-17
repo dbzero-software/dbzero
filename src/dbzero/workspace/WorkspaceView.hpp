@@ -23,7 +23,7 @@ namespace db0
         
         db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
 
-        db0::swine_ptr<Fixture> getCurrentFixture(std::optional<AccessType> = {}) override;
+        db0::swine_ptr<Fixture> getCurrentFixture() override;
         
         bool close(const std::string &prefix_name) override;
         

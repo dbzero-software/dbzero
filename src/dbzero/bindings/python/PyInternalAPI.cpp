@@ -18,6 +18,7 @@
 #include <dbzero/core/serialization/Serializable.hpp>
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
+#include "Memo.hpp"
 
 namespace db0::python
 
@@ -156,7 +157,7 @@ namespace db0::python
         type->unloadSingleton(&memo_obj->ext());
         return memo_obj;
     }
-        
+    
     PyObject *fetchSingletonObject(db0::Snapshot &snapshot, PyTypeObject *py_type)
     {
         auto uuid = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture()->getUUID();
@@ -166,12 +167,15 @@ namespace db0::python
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name)
     {
+        using ClassFactory = db0::object_model::ClassFactory;
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));        
+
+        assert(PyMemoType_Check(py_type));        
         assert(from_name);
         assert(to_name);
-        using ClassFactory = db0::object_model::ClassFactory;
-
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        auto &class_factory = fixture->get<ClassFactory>();
+        
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.m_fixture_uuid, AccessType::READ_WRITE));
+        auto &class_factory = lock->get<ClassFactory>();
         // resolve existing DB0 type from python type
         auto type = class_factory.getExistingType(py_type);
         type->renameField(from_name, to_name);
@@ -188,9 +192,9 @@ namespace db0::python
             return NULL;
         }
 
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        auto addr = db0::writeBytes(*fixture, data, strlen(data));
-        return PyLong_FromUnsignedLongLong(addr);        
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
+        auto addr = db0::writeBytes(*lock, data, strlen(data));
+        return PyLong_FromUnsignedLongLong(addr);
     }
     
     PyObject *freeBytes(PyObject *, PyObject *args)
@@ -202,8 +206,8 @@ namespace db0::python
             return NULL;
         }
 
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        db0::freeBytes(*fixture, address);
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
+        db0::freeBytes(*lock, address);
         Py_RETURN_NONE;
     }
 
@@ -216,15 +220,14 @@ namespace db0::python
             return NULL;
         }
 
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        std::string str_data = db0::readBytes(*fixture, address);
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
+        std::string str_data = db0::readBytes(*lock, address);
         return PyUnicode_FromString(str_data.c_str());
     }
     
 #endif
 
-    bool isBase(PyTypeObject *py_type, PyTypeObject *base_type)
-    {
+    bool isBase(PyTypeObject *py_type, PyTypeObject *base_type) {
         return PyObject_IsSubclass(reinterpret_cast<PyObject*>(py_type), reinterpret_cast<PyObject*>(base_type));
     }
 

@@ -12,13 +12,14 @@ namespace db0::python
 
     static PySequenceMethods ByteArrayObject_sq = getPySequenceMehods<ByteArrayObject>();
 
-    ByteArrayObject *makeByteArrayFromPyBytes(ByteArrayObject * bytearray_object, PyObject *py_bytes){
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-            auto size = PyBytes_GET_SIZE(py_bytes);
-            auto *str = PyBytes_AsString(py_bytes);
-            std::byte * bytes = reinterpret_cast<std::byte *>(str);
-            db0::object_model::ByteArray::makeNew(&bytearray_object->ext(), *fixture, bytes, size);
-            return bytearray_object;
+    ByteArrayObject *makeByteArrayFromPyBytes(db0::swine_ptr<Fixture> &fixture, ByteArrayObject * bytearray_object,
+        PyObject *py_bytes)
+    {
+        auto size = PyBytes_GET_SIZE(py_bytes);
+        auto *str = PyBytes_AsString(py_bytes);
+        std::byte * bytes = reinterpret_cast<std::byte *>(str);
+        db0::object_model::ByteArray::makeNew(&bytearray_object->ext(), fixture, bytes, size);
+        return bytearray_object;
     }
 
     PyObject* asPyObject(ByteArrayObject *bytearray_obj) {
@@ -44,12 +45,11 @@ namespace db0::python
     {
         auto py_obj = callMethod(name, object_inst, args, kwargs);
         auto bytearray_object = ByteArrayObject_new(&ByteArrayObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        makeByteArrayFromPyBytes(bytearray_object, py_obj);
-        (*fixture)->getLangCache().add(bytearray_object->ext().getAddress(), bytearray_object, true);
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
+        makeByteArrayFromPyBytes(*lock, bytearray_object, py_obj);
+        lock->getLangCache().add(bytearray_object->ext().getAddress(), bytearray_object, true);
         return bytearray_object;
     }
-
 
     static std::unordered_map<std::string, PyCFunction> methods;
 
@@ -105,8 +105,7 @@ namespace db0::python
     ADD_BYTEARRAY_CALL_METHOD(title)
     ADD_BYTEARRAY_CALL_METHOD(upper)
     ADD_BYTEARRAY_CALL_METHOD(zfill)
-
-
+    
     PyObject *ByteArray_Count(ByteArrayObject *object_inst, PyObject *const *args, Py_ssize_t nargs) {
         if(nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "count() takes exactly one argument");
@@ -207,7 +206,6 @@ namespace db0::python
         {NULL}
     };
 
-
     static PyObject *ByteArrayObject_rq(ByteArrayObject *list_obj, PyObject *other, int op) 
     {
         if (ByteArrayObject_Check(other)) {
@@ -226,8 +224,6 @@ namespace db0::python
         }
     }
 
-
-
     PyTypeObject ByteArrayObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.ByteArray",
@@ -244,13 +240,11 @@ namespace db0::python
         .tp_free = PyObject_Free,        
     };
 
-    ByteArrayObject *ByteArrayObject_new(PyTypeObject *type, PyObject *, PyObject *)
-    {
+    ByteArrayObject *ByteArrayObject_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<ByteArrayObject*>(type->tp_alloc(type, 0));
     }
 
-    ByteArrayObject *ByteArrayDefaultObject_new()
-    {   
+    ByteArrayObject *ByteArrayDefaultObject_new() {
         return ByteArrayObject_new(&ByteArrayObjectType, NULL, NULL);
     }
     
@@ -260,8 +254,7 @@ namespace db0::python
         bytearray_obj->ext().~ByteArray();
         Py_TYPE(bytearray_obj)->tp_free((PyObject*)bytearray_obj);
     }
-    
-    
+        
     ByteArrayObject *makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if(nargs != 1) {
@@ -270,21 +263,19 @@ namespace db0::python
         }
         // make actual DBZero instance, use default fixture
         auto bytearray_object = ByteArrayObject_new(&ByteArrayObjectType, NULL, NULL);
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getMutableFixture();
-        
-        if(PyBytes_Check(args[0])) {
-            makeByteArrayFromPyBytes(bytearray_object, args[0]);
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
+        if (PyBytes_Check(args[0])) {
+            makeByteArrayFromPyBytes(*lock, bytearray_object, args[0]);
         } else {
             PyErr_SetString(PyExc_TypeError, "bytearray() targument needs to be bytearray");
             return NULL;
         }
         // register newly created bytearray with py-object cache
-        (*fixture)->getLangCache().add(bytearray_object->ext().getAddress(), bytearray_object, true);
+        lock->getLangCache().add(bytearray_object->ext().getAddress(), bytearray_object, true);
         return bytearray_object;
     }
     
-    bool ByteArrayObject_Check(PyObject *object)
-    {
+    bool ByteArrayObject_Check(PyObject *object) {
         return Py_TYPE(object) == &ByteArrayObjectType;        
     }
 

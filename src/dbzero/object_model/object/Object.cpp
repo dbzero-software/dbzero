@@ -537,11 +537,7 @@ namespace db0::object_model
             m_init_manager.getInitializer(*this).incRef();
         }
     }
-    
-    FixtureLock Object::getMutableFixture() const {
-        return this->getFixture();
-    }
-    
+            
     bool Object::operator==(const Object &other) const
     {
         if (!hasInstance() || !other.hasInstance()) {

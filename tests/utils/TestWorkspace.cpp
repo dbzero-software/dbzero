@@ -114,7 +114,7 @@ namespace db0
         return it->second;
     }
 
-    db0::swine_ptr<Fixture> TestWorkspace::getCurrentFixture(std::optional<AccessType>)
+    db0::swine_ptr<Fixture> TestWorkspace::getCurrentFixture()
     {
         if (!m_current_fixture) {
             THROWF(db0::InputException) << "No current fixture";
