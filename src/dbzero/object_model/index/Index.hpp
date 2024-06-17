@@ -48,14 +48,11 @@ namespace db0::object_model
         std::uint64_t m_index_addr = 0;
         std::array<std::uint64_t, 2> m_reserved;
         
-        o_index(std::uint32_t instance_id, IndexType type, IndexDataType data_type)
-            : m_instance_id(instance_id)
-            , m_type(type)
-            , m_data_type(data_type)
-        {
-        }
+        o_index(std::uint32_t instance_id, IndexType, IndexDataType);
+        // header not copied
+        o_index(const o_index &other);
     };
-    
+
     class Index: public db0::ObjectBase<Index, db0::v_object<o_index>, StorageClass::DB0_INDEX>
     {
         GC0_Declare
@@ -94,12 +91,13 @@ namespace db0::object_model
         static PreCommitFunction getPreCommitFunction() {
             return preCommitOp;
         }
+        
+        void moveTo(db0::swine_ptr<Fixture> &);
 
     protected:
-
         void preCommit();
         static void preCommitOp(void *);
-
+        
     private:        
         // the default/provisional type
         using DefaultT = std::int64_t;
@@ -110,7 +108,10 @@ namespace db0::object_model
         mutable std::shared_ptr<void> m_index;
         
         Index(db0::swine_ptr<Fixture> &);
+        Index(db0::swine_ptr<Fixture> &, const Index &);
         
+        void operator=(Index &&);
+
         template <typename T> IndexDataType getDataType() const
         {
             if constexpr (std::is_same_v<T, std::int64_t>) {
@@ -174,6 +175,19 @@ namespace db0::object_model
             }
             assert(m_data_type == getDataType<T>());
             return *static_cast<RangeTreeT*>(m_index.get());
+        }
+        
+        // Construct range tree as a copy of an other one
+        template <typename T> void makeRangeTree(const typename  db0::RangeTree<T, std::uint64_t> &other)
+        {
+            using RangeTreeT = db0::RangeTree<T, std::uint64_t>;
+            assert(!m_index);
+            assert(!(*this)->m_index_addr);
+            if (m_index || (*this)->m_index_addr) {
+                return;
+            }
+            RangeTreeT new_range_tree(this->getMemspace(), other);
+            this->modify().m_index_addr = new_range_tree.getAddress();
         }
 
         template <typename T> const typename db0::RangeTree<T, std::uint64_t> &getRangeTree() const {

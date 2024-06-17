@@ -180,4 +180,8 @@ namespace db0::object_model
         return iter != end();
     }
 
+    void Set::moveTo(db0::swine_ptr<Fixture> &) {
+        throw std::runtime_error("Not implemented");
+    }
+    
 }

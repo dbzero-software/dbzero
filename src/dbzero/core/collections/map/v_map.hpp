@@ -2,7 +2,7 @@
 
 #include <dbzero/core/serialization/Ext.hpp>
 #include <dbzero/core/collections/sgtree/v_sgtree.hpp>
-#include <dbzero/core/collections/sgtree/v_intrusive_node.hpp>
+#include <dbzero/core/collections/sgtree/intrusive_node.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 
 namespace db0

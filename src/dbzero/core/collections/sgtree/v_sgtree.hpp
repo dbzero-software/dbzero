@@ -51,6 +51,11 @@ namespace db0
         typedef o_fixed<sg_node_base<ptr_set_t> > super_t;        
         ptr_set_t ptr_set;
 
+        sg_node_base(const sg_node_base &other)
+            : ptr_set(other.ptr_set)
+        {
+        }
+
         sg_node_base() = default;
 
         const ptr_set_t &getPointers() const;
@@ -109,10 +114,10 @@ namespace db0
      * traits_t - intrusive NodeTraits compatible type
      * comp_t - node ptr comparer
      */
-    template <class node_t,class alpha_t = intrusive::detail::h_alpha_sqrt2_t> class v_sgtree
+    template <class node_t, class alpha_t = intrusive::detail::h_alpha_sqrt2_t> class v_sgtree
         : public node_t::tree_base_t
     {
-    public :
+    public:
         using super = typename node_t::tree_base_t;
         using c_type = typename super::c_type;
         using comp_t = typename node_t::comp_t;
@@ -143,6 +148,18 @@ namespace db0
         {
         }
 
+        v_sgtree(db0::Memspace &memspace, const v_sgtree &other)
+            : super(memspace)
+        {
+            for (auto it = other.begin(); it != other.end(); ++it) {
+                node_t new_node(typename node_t::tag_copy(), memspace, other.getMemspace(), it);
+                SG_Tree::insert_equal_upper_bound(
+                    this->head(), new_node, this->_comp, this->modify().size++, _alpha,
+                    *((std::uint32_t*)&this->modify().max_tree_size)
+                );
+            }
+        }
+        
         /**
          * Create new, empty V-Space instance of the SG-Tree, no comparator required
          * @return address of the created instance
@@ -258,12 +275,12 @@ namespace db0
             std::size_t depth;
             link_data ld;
             SG_Tree::link_equal_upper_bound(
-                    this->head(), key, this->_comp, ld, depth
+                this->head(), key, this->_comp, ld, depth
             );
             node_t new_node(this->getMemspace(), key, std::forward<Args>(args)...);
             SG_Tree::link(this->head(), new_node, ld);
             SG_Tree::rebalance_after_insertion(
-                    new_node, depth, ++(this->modify().size), _alpha, *((std::uint32_t*)&this->modify().max_tree_size)
+                new_node, depth, ++(this->modify().size), _alpha, *((std::uint32_t*)&this->modify().max_tree_size)
             );
             return new_node.get_v_ptr();
         }
@@ -272,7 +289,7 @@ namespace db0
          * hint - hint node to speedup insert
          */
         template <class KeyInitializer, typename... Args> iterator insert_equal(
-                iterator hint, const KeyInitializer &key, Args&&... args)
+            iterator hint, const KeyInitializer &key, Args&&... args)
         {
             std::size_t depth;
             link_data ld;
@@ -294,8 +311,8 @@ namespace db0
         void insert_equal(iterator &new_node)
         {
             SG_Tree::insert_equal_upper_bound (
-                    this->head(), new_node, this->_comp, this->modify().size++, _alpha,
-                    *((std::uint32_t*)&this->modify().max_tree_size)
+                this->head(), new_node, this->_comp, this->modify().size++, _alpha,
+                *((std::uint32_t*)&this->modify().max_tree_size)
             );
         }
 
@@ -303,22 +320,22 @@ namespace db0
          * data - used as the checked insertion key
          */
         template <class KeyInitializer, typename... Args> std::pair<iterator, bool> insert_unique (
-                const KeyInitializer &key, Args&&... args)
+            const KeyInitializer &key, Args&&... args)
         {
             typename SG_Tree::insert_commit_data commit_data;
             std::pair<iterator, bool> result = SG_Tree::insert_unique_check(
-                    this->head(), key, _comp, commit_data
+                this->head(), key, _comp, commit_data
             );
-            if(!result.second)
+            if (!result.second)
             {
                 // node already exists
                 return result;
             }
             // allocate / initialize new SG-Tree node
             node_t new_node(this->getMemspace(), key, std::forward<Args>(args)...);
-            SG_Tree::insert_unique_commit (
-                    this->head(), new_node, commit_data, this->modify().size++, _alpha,
-                    *((std::uint32_t*)&this->modify().max_tree_size)
+            SG_Tree::insert_unique_commit(
+                this->head(), new_node, commit_data, this->modify().size++, _alpha,
+                *((std::uint32_t*)&this->modify().max_tree_size)
             );
             return std::make_pair(new_node.get_v_ptr(), true);
         }

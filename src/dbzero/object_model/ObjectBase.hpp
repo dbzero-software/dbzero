@@ -64,8 +64,7 @@ namespace db0
         inline bool hasInstance() const {
             return !has_fixture<BaseT>::isNull();
         }
-                        
-        void operator=(ObjectBase &&other) = delete;
+
         void operator=(const ObjectBase &other) = delete;
 
         // GC0 associated members
@@ -109,6 +108,19 @@ namespace db0
         // called from GC0 to bind GC_Ops for this type
         static GC_Ops getGC_Ops() {
             return { hasRefsOp, dropOp, detachOp, getTypedAddress, dropByAddr, T::getPreCommitFunction() };
+        }
+        
+        void operator=(ObjectBase &&other)
+        {
+            unregister();
+            has_fixture<BaseT>::operator=(std::move(other));
+            assert(!other.hasInstance());
+            if (hasInstance()) {
+                auto fixture = this->tryGetFixture();
+                if (fixture) {
+                    fixture->getGC0().template add<T>(this);
+                }
+            }            
         }
 
     private:

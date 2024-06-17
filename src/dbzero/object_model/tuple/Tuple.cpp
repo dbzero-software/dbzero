@@ -109,4 +109,9 @@ namespace db0::object_model
     const o_typed_item *Tuple::end() {
         return this->getData()->items().end();
     }
+
+    void Tuple::moveTo(db0::swine_ptr<Fixture> &) {
+        throw std::runtime_error("Not implemented");
+    }
+    
 }

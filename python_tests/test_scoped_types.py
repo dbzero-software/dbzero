@@ -83,6 +83,21 @@ def test_tuple_as_a_scoped_type_member(db0_fixture):
     assert tuple(obj.value) == (1,2,3)
 
 
+def test_tuple_as_a_scoped_type_member(db0_fixture):
+    obj = ScopedDataClass((1,2,3))
+    assert tuple(obj.value) == (1,2,3)
+
+
+def test_auto_hardening_of_weak_references(db0_fixture):
+    ix = db0.index()
+    assert db0.get_prefix(ix) == db0.get_current_prefix()
+    obj = ScopedDataClass(ix)
+    obj.value.add(0, obj)
+    # make sure object was moved to proper scope and the reference was hardened
+    assert db0.get_prefix(obj.value) == db0.get_prefix(obj)
+    
+    
+    
 # def test_scoped_type_members_use_same_prefix(db0_fixture):
 #     # 1. list type
 #     obj = ScopedDataClass([])

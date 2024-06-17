@@ -39,6 +39,8 @@ namespace db0::object_model::pandas
         void append(FixtureLock &, ObjectPtr lang_value);
         ObjectSharedPtr getStorageClass();
 
+        void moveTo(db0::swine_ptr<Fixture> &);
+
     private:        
         db0::object_model::StorageClass m_storage_class;
     };

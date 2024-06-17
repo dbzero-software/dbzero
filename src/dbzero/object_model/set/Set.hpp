@@ -51,8 +51,6 @@ namespace db0::object_model
 
     using Fixture = db0::Fixture;
 
-
-
     class SetIndex : public MorphingBIndex<o_typed_item, TypedItem_Address>{
         using super_t = MorphingBIndex<o_typed_item, TypedItem_Address>;
     public:
@@ -126,6 +124,8 @@ namespace db0::object_model
         std::size_t size() const { return m_size; }
         void clear() { v_bindex::clear(); m_size = 0; }
         void insert(const Set &set);
+        void moveTo(db0::swine_ptr<Fixture> &);
+
     private:
         // new sets can only be created via factory members
         Set(db0::swine_ptr<Fixture> &);

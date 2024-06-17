@@ -117,7 +117,7 @@ namespace db0::python
     
     PyToolkit::ObjectPtr PyToolkit::unloadIndex(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
         std::optional<std::uint32_t> instance_id)
-    {
+    {        
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address).steal();

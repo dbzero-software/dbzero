@@ -10,6 +10,20 @@ namespace db0::object_model
 
     GC0_Define(Index)
     using TypeId = db0::bindings::TypeId;
+
+    o_index::o_index(std::uint32_t instance_id, IndexType type, IndexDataType data_type)
+        : m_instance_id(instance_id)
+        , m_type(type)
+        , m_data_type(data_type)
+    {
+    }
+    
+    o_index::o_index(const o_index &other)
+        : m_instance_id(other.m_instance_id)
+        , m_type(other.m_type)
+        , m_data_type(other.m_data_type)        
+    {
+    }
     
     IndexDataType getIndexDataType(TypeId type_id)
     {
@@ -36,6 +50,32 @@ namespace db0::object_model
     {
     }
 
+    Index::Index(db0::swine_ptr<Fixture> &fixture, const Index &other)
+        : super_t(fixture, *other.getData())
+        , m_data_type(other.m_data_type)
+    {
+        switch (m_data_type) {
+            case IndexDataType::Int64: {
+                makeRangeTree(other.getRangeTree<std::int64_t>());
+                break;
+            }
+
+            case IndexDataType::UInt64: {
+                makeRangeTree(other.getRangeTree<std::uint64_t>());
+                break;
+            }
+
+            // flush using default / provisional data type
+            case IndexDataType::Auto: {
+                makeRangeTree(other.getRangeTree<DefaultT>());
+                break;
+            }
+
+            default:
+                THROWF(db0::InputException) << "Unsupported index data type: " << static_cast<std::uint16_t>(m_data_type);        
+        }
+    }
+
     Index *Index::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
         return new (at_ptr) Index(fixture);
     }
@@ -43,7 +83,7 @@ namespace db0::object_model
     Index *Index::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
         return new (at_ptr) Index(fixture, address);
     }
-
+    
     void Index::flush()
     {        
         // apply modified data type
@@ -51,7 +91,7 @@ namespace db0::object_model
             modify().m_data_type = m_data_type;
         }
 
-        if (m_index_builder) {            
+        if (m_index_builder) {
             switch (m_data_type) {
                 case IndexDataType::Int64: {
                     getIndexBuilder<std::int64_t>().flush(getRangeTree<std::int64_t>());                    
@@ -342,5 +382,25 @@ namespace db0::object_model
                     << static_cast<std::uint16_t>(m_data_type) << THROWF_END;
         }
     }
+
+    void Index::moveTo(db0::swine_ptr<Fixture> &fixture)
+    {
+        flush();
+        Index new_index(fixture, *this);
+        // remove instance from lang cache
+        auto &lang_cache = this->getFixture()->getLangCache();
+        lang_cache.erase(getAddress());
+        this->destroy();
+        *this = std::move(new_index);
+    }
     
+    void Index::operator=(Index &&other)
+    {
+        other.flush();        
+        super_t::operator=(std::move(other));
+        m_data_type = other.m_data_type;
+        m_index = other.m_index;
+        
+    }
+
 }

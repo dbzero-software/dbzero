@@ -72,7 +72,7 @@ namespace tests
         }
         ASSERT_EQ(rvalues, (std::vector<std::uint64_t> { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 }));
     }
-    
+
     TEST_F( VBIndexTests , testVBIndexBulkInsertUpdate )
     {
         using ItemT = db0::key_value<std::uint32_t, std::uint32_t>;
@@ -103,5 +103,26 @@ namespace tests
         
         ASSERT_EQ(rvalues, (std::vector<ItemT> {{ 6, 0 }, { 5, 0 }, { 4, 0 }, { 3, 1 }, { 2, 2 }, { 1, 1 }}));
     }
+    
+    TEST_F( VBIndexTests , testVBIndexCopyConstructor )
+    {
+        auto memspace = getMemspace();
+        std::vector<std::uint64_t> values = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+        db0::v_bindex<std::uint64_t> cut(memspace, memspace.getPageSize());
+        for (auto value: values) {
+            cut.insert(value);
+        }
+
+        db0::v_bindex<std::uint64_t> copy(memspace, cut);
+        auto it1 = cut.begin(), end1 = cut.end();
+        auto it2 = copy.begin(), end2 = copy.end();
+        while (it1 != end1) {
+            ASSERT_TRUE(it2 != end2);
+            ASSERT_EQ(*it1, *it2);
+            ++it1;
+            ++it2;
+        }
+    }
 
 }
+
