@@ -105,3 +105,38 @@ def test_using_index_after_hardening(db0_fixture):
     db0.commit()
     assert len(list(obj.value.range(0, 10))) == 10
     
+
+@db0.memo(prefix="scoped-class-prefix")
+class TestScopedContainer:
+    def __init__(self):
+        self.ix_test = db0.index()
+
+
+@db0.memo(prefix="scoped-class-prefix")
+class TestScopedData:
+    def __init__(self, value):
+        self.value = value
+
+
+@db0.memo(prefix="scoped-class-prefix", singleton=True)
+class TestScopedSingleton:
+    def __init__(self):
+        self.container = TestScopedContainer()
+
+    
+def test_zorch_scoped_types_issue(db0_fixture):
+    """
+    This test reproduces a problem first observed in Zorch
+    """
+    singleton = TestScopedSingleton()
+    ix_test = singleton.container.ix_test
+    for i in range(10):
+        data = TestScopedData(i)
+        ix_test.add(None, data)
+    
+    del singleton
+    del ix_test
+    
+    ix_test = TestScopedSingleton().container.ix_test
+    query = ix_test.range(None, 100, null_first=True)
+    assert len(list(query)) == 10
