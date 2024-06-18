@@ -63,13 +63,13 @@ namespace db0
                 : lo_bound(other.lo_bound)
             {
                 if (other.ptr_b_data) {
-                    data_vector dv(other_memspace.myPtr(other.ptr_b_data));
-                    data_vector new_dv(memspace, dv);
+                    data_vector other_dv(other_memspace.myPtr(other.ptr_b_data));
+                    data_vector new_dv(memspace, other_dv);
                     ptr_b_data = new_dv.getAddress();
                 }
             }
 
-            void destroy(Memspace &memspace) const 
+            void destroy(Memspace &memspace) const
             {
                 if (ptr_b_data) {
                     data_vector dv(memspace.myPtr(ptr_b_data));
@@ -124,12 +124,19 @@ namespace db0
         class [[gnu::packed]] bindex_container : public o_fixed<bindex_container> 
         {
         public :
-            // common DBZero object header
+            // common DBZero object header (not copied)
             db0::o_object_header m_header;
             // block index
             std::uint64_t ptr_index = 0;
             // total number of items contained
             std::uint64_t size = 0;
+
+            bindex_container() = default;
+
+            bindex_container(const bindex_container &other)
+                : size(other.size)
+            {
+            }
         };
     };
     

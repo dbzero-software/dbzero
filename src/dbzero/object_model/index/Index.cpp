@@ -215,8 +215,7 @@ namespace db0::object_model
     std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool null_first) const
     {
         assert(hasInstance());
-        const_cast<Index*>(this)->flush();
-        std::unique_ptr<IteratorFactory> iter_factory;
+        const_cast<Index*>(this)->flush();        
         switch (m_data_type) {
             case IndexDataType::Int64: {
                 return rangeQuery<std::int64_t>(min, true, max, true, null_first);
