@@ -147,11 +147,11 @@ namespace db0
             , _comp(cmp)
         {
         }
-
+        
         v_sgtree(db0::Memspace &memspace, const v_sgtree &other)
-            : super(memspace)
+            : v_sgtree(memspace)
         {
-            for (auto it = other.begin(); it != other.end(); ++it) {
+            for (auto it = other.begin(), end = other.end();it != end; ++it) {
                 node_t new_node(typename node_t::tag_copy(), memspace, other.getMemspace(), it);
                 SG_Tree::insert_equal_upper_bound(
                     this->head(), new_node, this->_comp, this->modify().size++, _alpha,

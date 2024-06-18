@@ -221,7 +221,7 @@ namespace db0::object_model
                 auto &type_manager = LangToolkit::getTypeManager();
                 if ((null_first && type_manager.isNull(min)) || (!null_first && type_manager.isNull(max))) {
                     // return all null elements
-                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, true);
+                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, RT_Range<T> {}, true);
                 }
                 // no results
                 return nullptr;

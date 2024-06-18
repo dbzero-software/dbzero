@@ -22,15 +22,6 @@ namespace db0
     public:
         using RT_TreeT = RangeTree<KeyT, ValueT>;
 
-        // deserialization constructor
-        RangeIteratorFactory(Snapshot &snapshot, std::vector<std::byte>::const_iterator &iter, 
-            std::vector<std::byte>::const_iterator end)
-            : m_tree(getRTTree(snapshot, iter, end))
-            , m_range(iter, end)
-            , m_null_first(db0::serial::read<decltype(m_null_first)>(iter, end))
-        {
-        }
-        
         RangeIteratorFactory(const RT_TreeT &tree, std::optional<KeyT> min = {},
             bool min_inclusive = false, std::optional<KeyT> max = {}, bool max_inclusive = false, bool null_first = false)
             : m_tree(tree)
@@ -59,8 +50,6 @@ namespace db0
         RT_TreeT m_tree;
         const RT_Range<KeyT> m_range;
         const bool m_null_first;
-
-        static RT_TreeT getRTTree(Snapshot &, std::vector<std::byte>::const_iterator &, std::vector<std::byte>::const_iterator end);
     };
 
     template <typename KeyT, typename ValueT> std::unique_ptr<FT_IteratorBase>

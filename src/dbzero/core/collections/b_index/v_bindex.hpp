@@ -91,7 +91,7 @@ namespace db0
         }
         
         v_bindex(Memspace &memspace, const v_bindex &other)
-            : super_t(memspace)
+            : super_t(memspace, *other.getData())
             , m_index(memspace, other.m_index)
             , m_max_size(other.m_max_size)
             , m_item_destroy_func(other.m_item_destroy_func)
@@ -578,9 +578,9 @@ namespace db0
             {
                 // find bucket to place item
                 m_it_node = ref.m_index.lower_equal_bound(item);
-                if (m_it_node==ref.m_index.end()) {
+                if (m_it_node == ref.m_index.end()) {
                     // insert first data bucket
-                    if (ref.m_index->size==0) {
+                    if (ref.m_index->size == 0) {
                         // create bucket
                         m_it_node = ref.m_index.insert_equal(item);
                         // create initial data block buffer                        
