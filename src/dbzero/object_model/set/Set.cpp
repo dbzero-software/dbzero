@@ -5,7 +5,7 @@
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/value/Member.hpp>
-
+#include <object.h>
 
 namespace db0::object_model
 
@@ -176,8 +176,8 @@ namespace db0::object_model
     bool Set::has_item(ObjectPtr obj) 
     {
         auto hash = PyObject_Hash(obj);
-        auto iter = find(hash);
-        return iter != end();
+        auto item = getItem(hash, obj);
+        return item != nullptr;
     }
 
     void Set::moveTo(db0::swine_ptr<Fixture> &) {

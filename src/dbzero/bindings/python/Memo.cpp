@@ -210,6 +210,16 @@ namespace db0::python
     }
     
     bool isEqual(MemoObject *lhs, MemoObject *rhs) {
+        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(lhs), PyUnicode_FromString("__eq__"));
+        if(res){
+            auto result = PyObject_CallFunctionObjArgs(res, reinterpret_cast<PyObject*>(rhs), NULL);
+            Py_DECREF(res);
+            if (result == NULL) {
+                PyErr_Clear();
+                return false;
+            }
+            return PyObject_IsTrue(result);
+        }
         return lhs->ext() == rhs->ext();
     }
     
@@ -219,7 +229,7 @@ namespace db0::python
         if (PyMemo_Check(other)) {
             eq_result = isEqual(memo_obj, reinterpret_cast<MemoObject*>(other));
         }
-
+        std::cerr << "EQ: " << eq_result << std::endl;
         switch (op)
         {
             case Py_EQ:

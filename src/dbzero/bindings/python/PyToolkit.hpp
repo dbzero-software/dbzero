@@ -149,6 +149,9 @@ namespace db0::python
         }
 
         inline static bool compare(ObjectPtr py_object1, ObjectPtr py_object2){
+
+            std::cerr << "COMPARE !@#" << std::endl;
+
             return PyObject_RichCompareBool(py_object1, py_object2, Py_EQ);
         }
         
