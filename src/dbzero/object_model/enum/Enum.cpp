@@ -12,8 +12,8 @@ namespace db0::object_model
     {
     }
 
-    Enum::Enum(db0::swine_ptr<Fixture> &fixture, const std::string &name, const std::vector<std::string> &values,
-        const char *type_id)
+    Enum::Enum(db0::swine_ptr<Fixture> &fixture, const std::string &name, const std::string &module_name, 
+        const std::vector<std::string> &values, const char *type_id)
         : super_t(fixture, *fixture)
         , m_fixture_uuid(fixture->getUUID())
         , m_uid(this->fetchUID())
@@ -24,6 +24,10 @@ namespace db0::object_model
             m_values.insert(m_string_pool.add(value));
         }
         modify().m_name = m_string_pool.add(name);
+        modify().m_module_name = m_string_pool.add(module_name);
+        if (type_id) {
+            modify().m_type_id = m_string_pool.add(type_id);
+        }
         modify().m_values = m_values;
     }
     
@@ -36,10 +40,10 @@ namespace db0::object_model
     {
     }
 
-    Enum *Enum::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, const std::string &name,
+    Enum *Enum::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, const std::string &name, const std::string &module_name,
         const std::vector<std::string> &values, const char *type_id)
     {
-        return new (at_ptr) Enum(fixture, name, values, type_id);
+        return new (at_ptr) Enum(fixture, name, module_name, values, type_id);
     }
 
     LP_String Enum::find(const char *value) const
@@ -156,5 +160,26 @@ namespace db0::object_model
     std::string Enum::getName() const {
         return m_string_pool.fetch((*this)->m_name);
     }
-    
+
+    std::string Enum::getModuleName() const {
+        return m_string_pool.fetch((*this)->m_module_name);
+    }
+
+    std::optional<std::string> Enum::getTypeID() const 
+    {
+        if ((*this)->m_type_id) {
+            return m_string_pool.fetch((*this)->m_type_id);
+        }
+        return std::nullopt;
+    }
+
+    EnumDef Enum::getEnumDef() const
+    {
+        std::vector<std::string> values;
+        for (auto value: m_values) {
+            values.push_back(m_string_pool.fetch(value));
+        }
+        return { getName(), getModuleName(), values };
+    }
+
 }

@@ -80,7 +80,7 @@ namespace db0::python
         Dict &extractDict(ObjectPtr dict_ptr) const;
         TagSet &extractTagSet(ObjectPtr tag_set_ptr) const;
         Index &extractIndex(ObjectPtr index_ptr) const;
-        EnumValue &extractEnumValue(ObjectPtr enum_value_ptr) const;
+        EnumValue extractEnumValue(ObjectPtr enum_value_ptr) const;
         ObjectIterator &extractObjectIterator(ObjectPtr) const;
         FieldDef &extractFieldDef(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;

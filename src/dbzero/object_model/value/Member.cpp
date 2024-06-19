@@ -197,14 +197,15 @@ namespace db0::object_model
     template <> Value createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr lang_value)
     {
-        auto &enum_value = PyToolkit::getTypeManager().extractEnumValue(lang_value);
+        auto enum_value = PyToolkit::getTypeManager().extractEnumValue(lang_value);
         // make sure value from the same Fixture is assigned
         if (enum_value.m_fixture_uuid != fixture->getUUID()) {
-            THROWF(db0::InputException) << "Enum value from a different Fixture" << THROWF_END;
+            // migrate enum value to the destination fixture
+            enum_value = fixture->get<EnumFactory>().translateEnumValue(enum_value);
         }
         return enum_value.getUID().asULong();
     }
-
+    
     template <> void registerCreateMemberFunctions<PyToolkit>(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr)> &functions)
     {

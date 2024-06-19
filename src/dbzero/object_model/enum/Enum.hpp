@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EnumValue.hpp"
+#include "EnumDef.hpp"
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
@@ -21,9 +22,11 @@ namespace db0::object_model
         db0::o_object_header m_header;
         // enum type name
         LP_String m_name;
+        LP_String m_module_name;
+        LP_String m_type_id;
         // enum values
         db0::db0_ptr<db0::v_bindex<LP_String> > m_values;
-
+        
         o_enum(Memspace &);
     };
     
@@ -44,15 +47,16 @@ namespace db0::object_model
         Enum(const Enum &) = delete;
         Enum(Enum &&) = delete;
         Enum(db0::swine_ptr<Fixture> &, std::uint64_t address);
-        Enum(db0::swine_ptr<Fixture> &, const std::string &name, const std::vector<std::string> &values,
-            const char *type_id = nullptr);
+        Enum(db0::swine_ptr<Fixture> &, const std::string &name, const std::string &module_name, 
+            const std::vector<std::string> &values, const char *type_id = nullptr);
         
         std::string getName() const;
+        std::string getModuleName() const;
         
         // exception thrown if value not found
         LP_String find(const char *value) const;
 
-        static Enum *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, const std::string &name,
+        static Enum *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, const std::string &name, const std::string &module_name,
             const std::vector<std::string> &values, const char *type_id = nullptr);
 
         // Get unique 32-bit identifier
@@ -68,7 +72,10 @@ namespace db0::object_model
         ObjectSharedPtr getLangValue(const EnumValue &) const;
         
         // Retrieve all enum defined values ordered by index
-        std::vector<EnumValue> getValues() const;        
+        std::vector<EnumValue> getValues() const;
+
+        EnumDef getEnumDef() const;
+        std::optional<std::string> getTypeID() const;
         
     private:
         const std::uint64_t m_fixture_uuid;
