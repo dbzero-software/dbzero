@@ -256,7 +256,7 @@ namespace db0::python
         return !obj_ptr || obj_ptr == Py_None;
     }
     
-    db0::object_model::EnumValue &PyTypeManager::extractEnumValue(ObjectPtr enum_value_ptr) const
+    db0::object_model::EnumValue PyTypeManager::extractEnumValue(ObjectPtr enum_value_ptr) const
     {
         if (!PyEnumValue_Check(enum_value_ptr)) {
             THROWF(db0::InputException) << "Expected an EnumValue object" << THROWF_END;

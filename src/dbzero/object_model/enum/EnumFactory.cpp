@@ -2,6 +2,7 @@
 #include "Enum.hpp"
 #include "EnumValue.hpp"
 #include <dbzero/core/utils/conversions.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
 
 namespace db0::object_model
 
@@ -110,7 +111,8 @@ namespace db0::object_model
         
         // create new Enum instance
         auto fixture = getFixture();
-        auto enum_ = std::shared_ptr<Enum>(new Enum(fixture, enum_def.m_name, enum_def.m_values, type_id));
+        auto enum_ = std::shared_ptr<Enum>(
+            new Enum(fixture, enum_def.m_name, enum_def.m_module_name, enum_def.m_values, type_id));
         auto enum_ptr = EnumPtr(*enum_);
         // inc-ref to persist the Enum
         enum_->incRef();
@@ -163,4 +165,21 @@ namespace db0::object_model
         return getEnumByPtr(enum_ptr);
     }
     
+    EnumValue EnumFactory::translateEnumValue(const EnumValue &other)
+    {
+        if (other.m_fixture_uuid == getFixture()->getUUID()) {
+            // no translation needed
+            return other;
+        }
+        auto &other_factory = this->getFixture()->getWorkspace().
+            getFixture(other.m_fixture_uuid, AccessType::READ_ONLY)->get<EnumFactory>();
+        auto other_enum = other_factory.getEnumByUID(other.m_enum_uid);
+        auto type_id = other_enum->getTypeID();
+        // FIXME: opt
+        // getEnumDef can be avoided if definition already exists in the destination fixture
+        auto enum_ = this->getOrCreateEnum(other_enum->getEnumDef(), type_id ? type_id->c_str() : nullptr);
+        // resolve by text representation (since UIDs are not compatible across fixtures)
+        return enum_->get(other.m_str_repr.c_str());
+    }
+
 }

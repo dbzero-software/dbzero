@@ -44,3 +44,9 @@ def test_scoped_enum_after_close(db0_fixture):
 def test_scoped_enum_values(db0_fixture):
     assert db0.get_prefix(ScopedColor.RED) is not None
     assert db0.get_prefix(ScopedColor.RED) != db0.get_current_prefix()
+    
+    
+def test_scoped_enum_values_are_translated_across_prefixes(db0_fixture):
+    obj = MemoTestClass(ScopedColor.RED)
+    assert db0.get_prefix(ScopedColor.RED) != db0.get_prefix(obj)
+    assert db0.get_prefix(obj.value) == db0.get_prefix(obj)

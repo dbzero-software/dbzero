@@ -6,6 +6,7 @@
 #include <dbzero/object_model/has_fixture.hpp>
 #include <optional>
 #include "EnumDef.hpp"
+#include "EnumValue.hpp"
 
 namespace db0::object_model
 
@@ -22,7 +23,7 @@ namespace db0::object_model
         
         o_enum_factory(Memspace &memspace);
     };
-        
+    
     class EnumFactory: public db0::has_fixture<v_object<o_enum_factory> >
     {
     public:
@@ -61,6 +62,12 @@ namespace db0::object_model
         
         // reference the DBZero object model's enum by its 32-but UID
         std::shared_ptr<Enum> getEnumByUID(std::uint32_t enum_uid) const;
+        
+        /**
+         * Translates enum value to the one managed by this fixture/factory
+         * @param other enum value from a different fixture
+         */
+        EnumValue translateEnumValue(const EnumValue &other);
         
     private:
         // enum maps in 4 variants: 0: type ID, 1: name + module, 2: name + values: 3: module + values
