@@ -16,7 +16,7 @@ namespace db0::object_model
     
     GC0_Define(Object)
     thread_local ObjectInitializerManager Object::m_init_manager;
-    
+
     std::uint32_t classRef(const Class &db0_class)
     {        
         auto address = db0_class.getAddress();
@@ -553,5 +553,30 @@ namespace db0::object_model
     void Object::moveTo(db0::swine_ptr<Fixture> &) {
         throw std::runtime_error("Not implemented");
     }
-
+    
+    void Object::setFixture(db0::swine_ptr<Fixture> &fixture)
+    {        
+        if (*getFixture() == *fixture) {
+            // already in the same fixture
+            return;
+        }
+        if (hasInstance()) {
+            THROWF(db0::InputException) << "set_prefix failed: object already initialized";
+        }
+        if (!m_init_manager.getInitializer(*this).empty()) {
+            THROWF(db0::InputException) << "set_prefix failed: object must not define any members";
+        }
+        
+        auto &class_factory = fixture->get<ClassFactory>();
+        auto new_type = class_factory.getOrCreateType(this->getType().getLangClass().get());
+        if (new_type->isExistingSingleton()) {
+            // cannot initialize existing singleton, signal problem with PyErr_BadPrefix
+            LangToolkit::setError(LangToolkit::getTypeManager().getBadPrefixError(), fixture->getUUID());
+            return;
+        }
+        
+        // switch to a type located on a different fixture (translated)
+        m_init_manager.getInitializer(*this).setClass(new_type);        
+    }
+    
 }

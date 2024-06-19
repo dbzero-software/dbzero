@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 
 class FastQuery:
-    def __init__(self, query, group_defs = None, uuid = None, sig = None, bytes = None):        
+    def __init__(self, query, group_defs=None, uuid=None, sig=None, bytes=None):
         self.__query = query
         # split query by all available group definitions
         for group_def in group_defs:
@@ -49,7 +49,7 @@ class FastQuery:
 
 
 class GroupDef:
-    def __init__(self, key_func = None, groups = None):
+    def __init__(self, key_func=None, groups=None):
         self.__key_func = key_func
         # extract decorators as the group identifier (may be one or more)
         self.key_func = key_func if key_func else lambda row: row[1:][0]
@@ -66,7 +66,8 @@ class GroupDef:
     
 @db0.memo(singleton=True)
 class FastQueryCache:
-    def __init__(self):
+    def __init__(self, prefix=None):
+        db0.set_prefix(self, prefix)
         # queries by signature
         self.__cache = {}
     
@@ -126,7 +127,7 @@ class GroupByBucket:
     
     
 class GroupByEval:
-    def __init__(self, group_defs, data = None):
+    def __init__(self, group_defs, data=None):
         self.__data = data if data is not None else {}
         if len(group_defs) == 1:
             group_def = group_defs[0]
@@ -134,7 +135,7 @@ class GroupByEval:
         else:
             self.__group_builder = lambda row: tuple(group_def(row) for group_def in group_defs)
 
-    def add(self, rows, max_scan = None):
+    def add(self, rows, max_scan=None):
         for row in rows:
             if max_scan is not None:
                 if max_scan == 0:
@@ -148,7 +149,7 @@ class GroupByEval:
             bucket.add(row)
         return max_scan
     
-    def remove(self, rows, max_scan = None):
+    def remove(self, rows, max_scan=None):
         for row in rows:
             if max_scan is not None:
                 if max_scan == 0:
@@ -168,7 +169,7 @@ class MaxScanExceeded(Exception):
     pass
     
     
-def group_by(group_defs, query, max_scan = 1000) -> Dict:
+def group_by(group_defs, query, max_scan=1000) -> Dict:
     """
     Group query results by the given key
     """

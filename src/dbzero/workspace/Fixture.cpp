@@ -9,7 +9,7 @@
 namespace db0
 
 {
-
+        
     std::uint32_t slot_index(std::uint32_t slot_num) {
         return slot_num - 1;
     }
@@ -252,4 +252,8 @@ namespace db0
         return reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num)).makeAbsolute(address);
     }
     
+    bool Fixture::operator==(const Fixture &other) const {
+        return m_UUID == other.m_UUID;
+    }
+
 }

@@ -121,7 +121,9 @@ namespace db0::object_model
          * Try unloading the associated singleton instance, possibly from a specific workspace view
         */
         bool unloadSingleton(void *at) const;
-
+        // Try unloading singleton located on a specific fixture (identified by UUID)
+        bool unloadSingleton(void *at, std::uint64_t fixture_uuid) const;
+        
         /**
          * Check if this is a singleton class
         */
@@ -131,6 +133,9 @@ namespace db0::object_model
          * Check if this class has an associated singleton instance
         */
         bool isExistingSingleton() const;
+
+        // Check if singleton exists on a specific fixture (identified by UUID)
+        bool isExistingSingleton(std::uint64_t fixure_uuid) const;
 
         void setSingletonAddress(Object &);
 

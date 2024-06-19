@@ -77,7 +77,7 @@ namespace db0::object_model
         result.second = it->m_value;        
         return true;
     }
-    
+     
     db0::swine_ptr<Fixture> ObjectInitializer::getFixture() const {
         return m_class->getFixture();
     }
@@ -188,7 +188,7 @@ namespace db0::object_model
         if (index > 0) {
             // copy pos-vt elements if such exist
             auto &types = data.m_types;
-            auto &values = data.m_values;        
+            auto &values = data.m_values;
             types.reserve(index);
             values.reserve(index);
             for (auto it = m_values.begin(), end = m_values.begin() + index; it != end; ++it) {
@@ -204,4 +204,14 @@ namespace db0::object_model
         ++m_ref_count;
     }
 
+    bool ObjectInitializer::empty() const {
+        return m_values.empty();
+    }
+
+    void ObjectInitializer::setClass(std::shared_ptr<Class> new_class)
+    {
+        assert(empty());
+        m_class = new_class;
+    }
+    
 }

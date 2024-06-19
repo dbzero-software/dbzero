@@ -3,6 +3,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include "ClassFactory.hpp"
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
 
 DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON")
 
@@ -311,6 +312,28 @@ namespace db0::object_model
         // relative address must not exceed SLOT size
         assert(result < std::numeric_limits<std::uint32_t>::max());
         return result;
+    }
+
+    bool Class::isExistingSingleton(std::uint64_t fixture_uuid) const
+    {
+        if (!isSingleton()) {
+            return false;
+        }
+        auto other_fixture = getFixture()->getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
+        auto &class_factory = other_fixture->get<ClassFactory>();
+        auto other_type = class_factory.tryGetExistingType(getLangClass().get());
+        return other_type && other_type->isExistingSingleton();
+    }
+    
+    bool Class::unloadSingleton(void *at, std::uint64_t fixture_uuid) const
+    {
+        auto other_fixture = getFixture()->getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
+        auto &class_factory = other_fixture->get<ClassFactory>();
+        auto other_type = class_factory.tryGetExistingType(getLangClass().get());
+        if (!other_type) {
+            return false;
+        }
+        return other_type->unloadSingleton(at);
     }
 
 }

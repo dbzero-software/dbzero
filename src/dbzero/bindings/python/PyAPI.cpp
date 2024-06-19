@@ -613,6 +613,24 @@ namespace db0::python
     
     PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs) {
         return runSafe(tryFilterBy, args, kwargs);
-    }    
+    }
+    
+    PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
+        // extract object / prefix name (can be None)
+        PyObject *py_object = nullptr;
+        const char *prefix_name = nullptr;
+        static const char *kwlist[] = {"object", "prefix", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|z", const_cast<char**>(kwlist), &py_object, &prefix_name)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        if (!PyMemo_Check(py_object)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid object type");
+            return NULL;
+        }
+        return runSafe(PyMemo_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);        
+    }
 
 }

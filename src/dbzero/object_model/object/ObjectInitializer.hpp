@@ -84,6 +84,11 @@ namespace db0::object_model
         // performs a deferred incRef on an actual object instance (the ref-count reflected upon creation)
         void incRef();
         
+        bool empty() const;
+        
+        // Can only be executed on an empty initializer
+        void setClass(std::shared_ptr<Class>);
+        
     private:
         // maximum size of the position-encoded value-block (pos-VT)
         static constexpr std::size_t POSVT_MAX_SIZE = 128;

@@ -122,6 +122,8 @@ namespace db0::python
     PyObject *isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
     PyObject *getTypeInfo(PyObject *self, PyObject *args);
+    
+    PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs);
 
     template <typename T> db0::object_model::StorageClass getStorageClass();
 
