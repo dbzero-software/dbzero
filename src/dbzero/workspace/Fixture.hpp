@@ -37,7 +37,7 @@ namespace db0
         std::uint64_t m_address = 0;
         std::uint64_t m_size = 0;
     };
-
+    
     /**
      * Fixture header placed at a fixed well-known address (e.g. 0x0)
     */
@@ -187,10 +187,12 @@ namespace db0
         // Converts a relative address back to absolute one
         std::uint64_t makeAbsolute(std::uint64_t address, std::uint32_t slot_num) const;
 
-        AccessType getAccessType() const {
+        inline AccessType getAccessType() const {
             return m_access_type;
         }
 
+        bool operator==(const Fixture &other) const;
+        
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;

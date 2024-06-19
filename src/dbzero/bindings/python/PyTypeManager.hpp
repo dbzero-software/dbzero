@@ -85,6 +85,8 @@ namespace db0::python
         FieldDef &extractFieldDef(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
         
+        ObjectPtr getBadPrefixError() const;
+
         /**
          * Extracts reference to DB0 Block
         */
@@ -114,6 +116,7 @@ namespace db0::python
         // lang types by name variant
         std::unordered_map<std::string, TypeObjectSharedPtr> m_type_cache;
         std::vector<ObjectSharedPtr> m_enum_cache;
+        mutable ObjectSharedPtr m_py_bad_prefix_error;
         
         // Register a mapping from static type
         template <typename T> void addStaticType(T py_type, TypeId py_type_id);

@@ -33,7 +33,7 @@ namespace db0::object_model
         // the flag indicating that the instance has been used as a tag
         IS_TAG = 0x01
     };
-
+    
     using ObjectFlags = db0::FlagSet<ObjectOptions>;
 
     class [[gnu::packed]] o_object: public db0::o_base<o_object, 0, false>
@@ -76,7 +76,6 @@ namespace db0::object_model
             return buf - start;
         }
         
-
         inline void incRef() {
             ++m_header.m_ref_count;
         }
@@ -240,7 +239,13 @@ namespace db0::object_model
          * this operations is required for auto-hardening
          */
         void moveTo(db0::swine_ptr<Fixture> &);
-
+        
+        /**
+         * Change fixture of the uninitialized object
+         * Object must not have any members yet either
+         */
+        void setFixture(db0::swine_ptr<Fixture> &);
+        
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;

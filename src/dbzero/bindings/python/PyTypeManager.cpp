@@ -63,6 +63,7 @@ namespace db0::python
         addStaticType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);        
         // Python datetime type
         addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
+        m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
     }
     
     PyTypeManager::TypeId PyTypeManager::getTypeId(TypeObjectPtr py_type) const
@@ -287,6 +288,10 @@ namespace db0::python
         for (auto &memo_type: m_type_cache) {
             PyMemoType_close(memo_type.second.get());
         }
+    }
+    
+    PyTypeManager::ObjectPtr PyTypeManager::getBadPrefixError() const {
+        return m_py_bad_prefix_error.get();
     }
 
 }

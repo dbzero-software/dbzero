@@ -120,12 +120,32 @@ namespace db0::python
         if (!self->ext().hasInstance()) {
             auto py_type = Py_TYPE(self);
             auto base_type = py_type->tp_base;
-
+            
             // invoke tp_init from base type (wrapped pyhon class)
             if (base_type->tp_init((PyObject*)self, args, kwds) < 0) {
+                PyObject *ptype, *pvalue, *ptraceback;
+                PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+                if (ptype == PyToolkit::getTypeManager().getBadPrefixError()) {
+                    // from pvalue
+                    std::uint64_t fixture_uuid = PyLong_AsUnsignedLong(pvalue);
+                    auto type = self->ext().getClassPtr();
+                    if (type->isExistingSingleton(fixture_uuid)) {
+                        // drop existing instance
+                        self->ext().destroy();
+                        // unload singleton from a different fixture
+                        if (!type->unloadSingleton(&self->ext(), fixture_uuid)) {
+                            PyErr_SetString(PyExc_RuntimeError, "Unloading singleton failed");
+                            return -1;
+                        }
+                        return 0;
+                    }
+                }
+
+                // Unrecognized error
+                PyErr_Restore(ptype, pvalue, ptraceback);
                 return -1;
             }
-            
+
             // invoke post-init on associated DBZero object
             auto &object = self->ext();
             db0::FixtureLock fixture(object.getFixture());
@@ -478,4 +498,15 @@ namespace db0::python
         decor.close();
     }
     
+    PyObject *PyMemo_set_prefix(MemoObject *py_obj, const char *prefix_name)
+    {
+        if (prefix_name) {
+            auto &obj = py_obj->ext();
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix_name, AccessType::READ_WRITE);
+            db0::FixtureLock lock(fixture);
+            obj.setFixture(*lock);
+        }
+        return Py_None;
+    }
+
 }

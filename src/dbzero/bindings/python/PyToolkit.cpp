@@ -332,4 +332,8 @@ namespace db0::python
         return PyMemoType_Check(py_type);
     }
 
+    void PyToolkit::setError(ObjectPtr err_obj, std::uint64_t err_value) {
+        PyErr_SetObject(err_obj, PyLong_FromUnsignedLongLong(err_value));
+    }
+
 }
