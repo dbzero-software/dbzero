@@ -17,7 +17,7 @@ namespace db0::python
     
     extern PyTypeObject PySnapshotObjectType;
     
-    PySnapshotObject *makeSnapshot(PyObject *, PyObject *args);
+    PySnapshotObject *tryGetSnapshot(std::uint64_t state_num = 0, const char *prefix_name = nullptr);
     bool PySnapshot_Check(PyObject *);
     
     PyObject *PySnapshot_fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
@@ -28,8 +28,7 @@ namespace db0::python
     PyObject *PySnapshot_enter(PyObject *, PyObject *);
     PyObject *PySnapshot_exit(PyObject *, PyObject *);
     
-    db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject);
-    PySnapshotObject *tryGetSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject);    
 
     template <> bool Which_TypeCheck<PySnapshotObject>(PyObject *py_object);
     

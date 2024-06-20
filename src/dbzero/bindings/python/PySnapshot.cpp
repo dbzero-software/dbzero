@@ -49,29 +49,19 @@ namespace db0::python
         return Py_TYPE(object) == &PySnapshotObjectType;
     }
 
-    PySnapshotObject *makeSnapshot(std::optional<std::uint64_t> state_num)
+    PySnapshotObject *tryGetSnapshot(std::uint64_t state_num, const char *prefix_name)
     {    
         auto py_object = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
         auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
         // make a workspace view
-        db0::WorkspaceView::makeNew(&py_object->ext(), workspace_ptr, state_num);
+        if (state_num > 0) {
+            db0::WorkspaceView::makeNew(&py_object->ext(), workspace_ptr, state_num);            
+        } else {
+            db0::WorkspaceView::makeNew(&py_object->ext(), workspace_ptr);            
+        }
         return py_object;
     }
 
-    PySnapshotObject *tryGetSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        if (nargs > 1) {
-            THROWF(db0::InputException) << "Too many arguments";
-        }
-
-        std::optional<std::uint64_t> state_num;
-        if (nargs == 1) {
-            state_num = PyToolkit::getTypeManager().extractUInt64(args[0]);
-        }
-
-        return makeSnapshot(state_num);
-    }
-    
     PyObject *tryPySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (!PySnapshot_Check(self)) {

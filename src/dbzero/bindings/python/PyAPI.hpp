@@ -78,7 +78,7 @@ namespace db0::python
     /**
      * Get currently active state number associated with a specific prefix/file
     */
-    PyObject *getStateNum(PyObject *self, PyObject *args);
+    PyObject *getStateNum(PyObject *self, PyObject *args, PyObject *kwargs);
     
     /**
      * Retrieve the active DBZero fixture metrics
@@ -88,7 +88,7 @@ namespace db0::python
     /**
      * Get DBZero state snapshot
     */
-    PyObject *getSnapshot(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *getSnapshot(PyObject *self, PyObject *args, PyObject *kwargs);
     
     /**
      * Describe field layout and output other properties of a specific DBZero object instance

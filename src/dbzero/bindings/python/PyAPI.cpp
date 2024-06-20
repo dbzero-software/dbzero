@@ -176,8 +176,11 @@ namespace db0::python
                 }
             }
             return Py_None;            
+        } else if (PyObjectIterator_Check(py_object)) {
+            auto &iter = reinterpret_cast<PyObjectIterator*>(py_object)->ext();
+            return PyUnicode_FromString(iter->getFixture()->getPrefix().getName().c_str());
         }
-
+        
         db0::swine_ptr<Fixture> fixture = getFixtureOf(py_object);
         if (!fixture) {
             return Py_None;
@@ -225,15 +228,16 @@ namespace db0::python
         return runSafe(tryRefresh, self, args);
     }
 
-    PyObject *getStateNum(PyObject *self, PyObject *args)
+    PyObject *getStateNum(PyObject *self, PyObject *args, PyObject *kwargs)
     { 
         const char *prefix_name = nullptr;
-        // parse default prefix name
-        if (!PyArg_ParseTuple(args, "|s", &prefix_name)) {
+        // optional prefix parameter
+        static const char *kwlist[] = {"prefix", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|s", const_cast<char**>(kwlist), &prefix_name)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
+        
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         db0::swine_ptr<Fixture> fixture;
         if (prefix_name) {
@@ -277,8 +281,23 @@ namespace db0::python
         return runSafe(tryGetDBMetrics, self, args);
     }
     
-    PyObject *getSnapshot(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
-        return runSafe(tryGetSnapshot, self, args, nargs);
+    PyObject *getSnapshot(PyObject *, PyObject *args, PyObject *kwargs) 
+    {
+        // optional state_num (long) and prefix (string) parameters
+        static const char *kwlist[] = {"state_num", "prefix", NULL};
+        PyObject *py_state_num = nullptr;
+        const char *prefix_name = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|Os", const_cast<char**>(kwlist), &py_state_num, &prefix_name)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+        
+        std::uint64_t state_num = 0;
+        if (py_state_num) {
+            state_num = PyLong_AsUnsignedLong(py_state_num);
+        }
+
+        return runSafe(tryGetSnapshot, state_num, prefix_name);
     }
 
     PyObject *tryDescribeObject(PyObject *self, PyObject *args)
