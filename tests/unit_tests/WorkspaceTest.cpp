@@ -83,7 +83,7 @@ namespace tests
             if (i == 6) {
                 // take snapshot
                 workspace_view = std::make_unique<WorkspaceView>(m_workspace, fixture->getStateNum());
-                snap = fixture->getSnapshot(*workspace_view);
+                snap = fixture->getSnapshot(*workspace_view, {});
             }
 
             fixture->commit();

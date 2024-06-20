@@ -171,7 +171,7 @@ namespace db0
         /**
          * Get read-only snapshot of the fixture's state within a specific WorkspaceView
         */
-        db0::swine_ptr<Fixture> getSnapshot(WorkspaceView &) const;
+        db0::swine_ptr<Fixture> getSnapshot(Snapshot &, std::optional<std::uint64_t> state_num) const;
         
         void onUpdated();
 

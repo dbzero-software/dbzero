@@ -55,7 +55,7 @@ namespace db0
 
         auto fixture = m_workspace_ptr->getFixture(prefix_name);
         // get snapshot of the latest state
-        auto result = fixture->getSnapshot(*this);
+        auto result = fixture->getSnapshot(*this, m_state_num);
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
         if (fx_initializer) {
@@ -91,8 +91,7 @@ namespace db0
         }
         
         auto fixture = m_workspace_ptr->getFixture(uuid);
-        // get snapshot of the latest state
-        auto result = fixture->getSnapshot(*this);
+        auto result = fixture->getSnapshot(*this, m_state_num);
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
         if (fx_initializer) {
