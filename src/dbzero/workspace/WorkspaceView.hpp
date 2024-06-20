@@ -37,8 +37,8 @@ namespace db0
         /**
          * @param state_num if not provided then current state is used
          */        
-        static WorkspaceView *makeNew(void *at_ptr, std::shared_ptr<Workspace>,
-            std::optional<std::uint64_t> state_num = {});
+        static WorkspaceView *makeNew(void *at_ptr, std::shared_ptr<Workspace>, std::optional<std::uint64_t> state_num, 
+            const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums);
         
     private:
         bool m_closed = false;

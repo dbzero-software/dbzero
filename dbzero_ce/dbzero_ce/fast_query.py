@@ -218,7 +218,7 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
             query_eval.add(fast_query.rows, max_scan)
         else:
             # evaluate from deltas
-            old_query = fast_query.rebase(db0.snapshot(last_result[0], prefix=px_data))
+            old_query = fast_query.rebase(db0.snapshot({px_data: last_result[0]}))
             # insertions since last result
             limit = query_eval.add(delta(old_query, fast_query), max_scan)
             query_eval.remove(delta(fast_query, old_query), limit)
@@ -236,7 +236,7 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
         except MaxScanExceeded:
             max_scan = None
             # go back to the last finalized transaction and compute the result (possibly using deltas)
-            # FIXME: change to db0.get_state_num(finalized = True) when feature available            
-            result = try_query_eval(fast_query.rebase(db0.snapshot(state_num - 1, prefix=px_data)), last_result, max_scan)
+            # FIXME: change to db0.get_state_num(finalized = True) when feature available
+            result = try_query_eval(fast_query.rebase(db0.snapshot({px_data: state_num - 1})), last_result, max_scan)
             # update the cache with the result
             last_result = cache.update(state_num - 1, fast_query, result)

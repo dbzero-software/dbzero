@@ -48,19 +48,15 @@ namespace db0::python
     bool PySnapshot_Check(PyObject *object) {
         return Py_TYPE(object) == &PySnapshotObjectType;
     }
-
-    PySnapshotObject *tryGetSnapshot(std::uint64_t state_num, const char *prefix_name)
+    
+    PySnapshotObject *tryGetSnapshot(std::optional<std::uint64_t> state_num,
+        const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums)
     {    
         auto py_object = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
         auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
-        // make a workspace view
-        if (state_num > 0) {
-            db0::WorkspaceView::makeNew(&py_object->ext(), workspace_ptr, state_num);            
-        } else {
-            db0::WorkspaceView::makeNew(&py_object->ext(), workspace_ptr);            
-        }
+        db0::WorkspaceView::makeNew(&py_object->ext(), workspace_ptr, state_num, prefix_state_nums);            
         return py_object;
-    }
+    }   
 
     PyObject *tryPySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {

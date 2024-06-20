@@ -280,24 +280,46 @@ namespace db0::python
     PyObject *getDBMetrics(PyObject *self, PyObject *args) {
         return runSafe(tryGetDBMetrics, self, args);
     }
-    
-    PyObject *getSnapshot(PyObject *, PyObject *args, PyObject *kwargs) 
+
+    PyObject *getSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        // optional state_num (long) and prefix (string) parameters
-        static const char *kwlist[] = {"state_num", "prefix", NULL};
-        PyObject *py_state_num = nullptr;
-        const char *prefix_name = nullptr;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|Os", const_cast<char**>(kwlist), &py_state_num, &prefix_name)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
+        // requested state number of the default fixture
+        std::optional<std::uint64_t> state_num;
+        // state numbers by prefix name
+        std::unordered_map<std::string, std::uint64_t> prefix_state_nums;
+        for (unsigned int i = 0; i < nargs; ++i) {
+            // can be either a number of a dict
+            if (PyLong_Check(args[i])) {
+                if (state_num) {
+                    PyErr_SetString(PyExc_TypeError, "Duplicate state_num argument");
+                    return NULL;
+                }
+                state_num = PyLong_AsUnsignedLong(args[i]);                
+            } else if (PyDict_Check(args[i])) {
+                PyObject *py_dict = args[i];
+                PyObject *py_key, *py_value;
+                Py_ssize_t pos = 0;
+                while (PyDict_Next(py_dict, &pos, &py_key, &py_value)) {
+                    if (!PyUnicode_Check(py_key) || !PyLong_Check(py_value)) {
+                        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+                        return NULL;
+                    }
+                    const char *prefix_name = PyUnicode_AsUTF8(py_key);
+                    std::uint64_t state_num = PyLong_AsUnsignedLong(py_value);
+                    // validate conflicting state numbers
+                    auto it = prefix_state_nums.find(prefix_name);
+                    if (it != prefix_state_nums.end() && it->second != state_num) {
+                        std::stringstream _str;
+                        _str << "Conflicting state numbers requested for the same prefix: " << prefix_name;
+                        PyErr_SetString(PyExc_TypeError, _str.str().c_str());
+                        return NULL;
+                    }
+                    prefix_state_nums[prefix_name] = state_num;
+                }
+            }
         }
         
-        std::uint64_t state_num = 0;
-        if (py_state_num) {
-            state_num = PyLong_AsUnsignedLong(py_state_num);
-        }
-
-        return runSafe(tryGetSnapshot, state_num, prefix_name);
+        return runSafe(tryGetSnapshot, state_num, prefix_state_nums);
     }
 
     PyObject *tryDescribeObject(PyObject *self, PyObject *args)

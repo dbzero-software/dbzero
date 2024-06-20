@@ -177,9 +177,9 @@ namespace db0
     }
 
     WorkspaceView *WorkspaceView::makeNew(void *at_ptr, std::shared_ptr<Workspace> workspace,
-        std::optional<std::uint64_t> state_num) 
+        std::optional<std::uint64_t> state_num, const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums) 
     {
-        return new (at_ptr) WorkspaceView(workspace, state_num);
+        return new (at_ptr) WorkspaceView(workspace, state_num, prefix_state_nums);
     }
     
     std::optional<std::uint64_t> WorkspaceView::getSnapshotStateNum(const Fixture &fixture) const

@@ -17,7 +17,8 @@ namespace db0::python
     
     extern PyTypeObject PySnapshotObjectType;
     
-    PySnapshotObject *tryGetSnapshot(std::uint64_t state_num = 0, const char *prefix_name = nullptr);
+    PySnapshotObject *tryGetSnapshot(std::optional<std::uint64_t> state_num,
+        const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums);
     bool PySnapshot_Check(PyObject *);
     
     PyObject *PySnapshot_fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
