@@ -17,7 +17,7 @@ namespace db0::python
     int PandasBlockObject_SetItem(PandasBlockObject *block_obj, Py_ssize_t i, PyObject *value)
     {
         db0::FixtureLock lock(block_obj->ext().getFixture());
-        block_obj->ext().setItem(lock, i, value);
+        block_obj->modifyExt().setItem(lock, i, value);
         return 0;
     }
 
@@ -33,7 +33,7 @@ namespace db0::python
         }
         
         db0::FixtureLock lock(block_obj->ext().getFixture());
-        block_obj->ext().append(lock, args[0]);
+        block_obj->modifyExt().append(lock, args[0]);
         Py_RETURN_NONE;
     }
 
@@ -71,19 +71,19 @@ namespace db0::python
     void PandasBlockObject_del(PandasBlockObject* block_obj)
     {
         // destroy associated DB0 Block instance
-        block_obj->ext().~Block();
+        block_obj->destroy();
         Py_TYPE(block_obj)->tp_free((PyObject*)block_obj);
     }
-
+    
     PandasBlockObject *makeBlock(PyObject *, PyObject *, PyObject *)
     {        
         // make actual DBZero instance, use default fixture
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         auto block_object = PandasBlockObject_new(&PandasBlockObjectType, NULL, NULL);
-        db0::object_model::pandas::Block::makeNew(&block_object->ext(), *lock);
+        db0::object_model::pandas::Block::makeNew(&block_object->modifyExt(), *lock);
         return block_object;
     }
-
+    
     bool PandasBlockType_Check(PyTypeObject *type) {
         return type->tp_new == reinterpret_cast<newfunc>(PandasBlockObject_new);
     }

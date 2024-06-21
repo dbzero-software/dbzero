@@ -6,7 +6,7 @@
 namespace db0::object_model
 
 {
-    DictIterator::DictIterator(Dict::iterator iterator, Dict * ptr, IteratorType type) 
+    DictIterator::DictIterator(Dict::const_iterator iterator, const Dict *ptr, IteratorType type)
         : PyObjectIterator<DictIterator, Dict>(iterator, ptr)
         , m_type(type) 
     {
@@ -49,6 +49,24 @@ namespace db0::object_model
             }
         }
         return item.key;
+    }
+    
+    DictView::DictView(const Dict *dict, IteratorType type)
+        : m_collection(dict) 
+        , m_type(type)
+    {
+    }
+    
+    DictIterator *DictView::begin(void *at_ptr) const {
+        return new (at_ptr) DictIterator(m_collection->begin(), m_collection, m_type);
+    }
+
+    std::size_t DictView::size() const {
+        return m_collection->size();
+    }
+    
+    DictView *DictView::makeNew(void *at_ptr, const Dict *dict_ptr, IteratorType type) {
+        return new (at_ptr) DictView(dict_ptr, type);
     }
 
 }

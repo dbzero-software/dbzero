@@ -19,7 +19,15 @@ namespace db0::python
             return m_iterator.get();
         }
 
+        inline const db0::object_model::ObjectIterator *operator->() const {
+            return m_iterator.get();
+        }
+
         inline db0::object_model::ObjectIterator &operator*() {
+            return *m_iterator;
+        }
+
+        inline const db0::object_model::ObjectIterator &operator*() const {
             return *m_iterator;
         }
 
@@ -30,7 +38,7 @@ namespace db0::python
         static void makeNew(void *at_ptr, std::unique_ptr<db0::object_model::TypedObjectIterator> &&);
     };
     
-    using PyObjectIterator = PyWrapper<Iterator>;    
+    using PyObjectIterator = PyWrapper<Iterator, false>;
     
     PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
     PyObjectIterator *PyObjectIteratorDefault_new();

@@ -16,7 +16,7 @@ namespace db0::python
     PyClassFields *PyClassFields_create(PyTypeObject *memo_type)
     {
         auto py_class_fields = PyClassFieldsDefault_new();
-        py_class_fields->ext().init(memo_type);
+        py_class_fields->modifyExt().init(memo_type);
         return py_class_fields;
     }
 
@@ -46,7 +46,7 @@ namespace db0::python
     {
         auto field_def = self->ext().get(PyUnicode_AsUTF8(field_name));
         PyFieldDef *py_field_def = PyFieldDefDefault_new();
-        py_field_def->ext() = field_def;
+        py_field_def->modifyExt() = field_def;
         return (PyObject *)py_field_def;
     }
 

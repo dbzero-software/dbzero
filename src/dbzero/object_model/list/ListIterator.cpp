@@ -4,7 +4,7 @@ namespace db0::object_model
 
 {
 
-    ListIterator::ListIterator(List::iterator iterator, List * ptr)
+    ListIterator::ListIterator(List::const_iterator iterator, const List *ptr)
         : PyObjectIterator<ListIterator, List>(iterator, ptr) 
     {
     }
@@ -15,10 +15,6 @@ namespace db0::object_model
         ++m_iterator;
         auto fixture = m_collection->getFixture();
         return unloadMember<LangToolkit>(fixture, storage_class, value);
-    }
-
-    bool ListIterator::is_end() {
-        return m_iterator.is_end();
     }
 
 }

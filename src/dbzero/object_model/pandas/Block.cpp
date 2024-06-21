@@ -38,7 +38,7 @@ namespace db0::object_model::pandas
         v_bvector::push_back(createMember<LangToolkit>(*fixture, type_id, lang_value));
     }
 
-    Block::ObjectSharedPtr Block::getStorageClass() {
+    Block::ObjectSharedPtr Block::getStorageClass() const {
         return PyLong_FromUnsignedLong((std::uint8_t )m_storage_class);
     }
 

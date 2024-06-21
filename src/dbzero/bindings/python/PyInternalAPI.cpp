@@ -154,7 +154,7 @@ namespace db0::python
         }
 
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-        type->unloadSingleton(&memo_obj->ext());
+        type->unloadSingleton(&memo_obj->modifyExt());
         return memo_obj;
     }
     
@@ -247,7 +247,7 @@ namespace db0::python
         using TagIndex = db0::object_model::TagIndex;
         using Class = db0::object_model::Class;
         
-        std::shared_ptr<Class> type;        
+        std::shared_ptr<Class> type;
         auto fixture = snapshot.getFixture(db0::object_model::getFindFixtureUUID(args, nargs));
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
@@ -257,11 +257,11 @@ namespace db0::python
             // construct as typed iterator when a type was specified
             auto typed_iter = std::make_unique<TypedObjectIterator>(fixture, std::move(query_iterator), 
                 type, std::move(query_observers));
-            Iterator::makeNew(&iter_obj->ext(), std::move(typed_iter));            
+            Iterator::makeNew(&iter_obj->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::make_unique<ObjectIterator>(fixture, std::move(query_iterator), 
                 std::move(query_observers));
-            Iterator::makeNew(&iter_obj->ext(), std::move(_iter));
+            Iterator::makeNew(&iter_obj->modifyExt(), std::move(_iter));
         }
         return iter_obj;
     }

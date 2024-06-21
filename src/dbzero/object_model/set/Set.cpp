@@ -35,7 +35,7 @@ namespace db0::object_model
     {
     }
     
-    Set::Set(db0::swine_ptr<Fixture> &fixture, Set& set)
+    Set::Set(db0::swine_ptr<Fixture> &fixture, const Set &set)
         : super_t(fixture)
     {
         bulkInsert(set.begin(), set.end());
@@ -91,7 +91,7 @@ namespace db0::object_model
         return new (at_ptr) Set(fixture, address);
     }
 
-    Set * Set::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
+    Set * Set::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const {
         return new (at_ptr) Set(fixture, *this);
     }
 
@@ -114,7 +114,7 @@ namespace db0::object_model
         }
     }
 
-    bool Set::has_item(ObjectPtr obj) 
+    bool Set::has_item(ObjectPtr obj) const
     {
         auto hash = PyObject_Hash(obj);
         auto iter = find(hash);

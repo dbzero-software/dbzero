@@ -18,8 +18,8 @@ namespace db0::python
     }
 
     int PandasDataFrameObject_SetItem(PandasDataFrameObject *dataframe_obj, Py_ssize_t i, PyObject *value)
-    {   
-        dataframe_obj->ext().setBlock(i, value);
+    {
+        dataframe_obj->modifyExt().setBlock(i, value);
         return 0;
     }
 
@@ -30,7 +30,7 @@ namespace db0::python
             return NULL;
         }
         
-        dataframe_obj->ext().appendBlock(args[0]);
+        dataframe_obj->modifyExt().appendBlock(args[0]);
         Py_RETURN_NONE;
     }
 
@@ -41,7 +41,7 @@ namespace db0::python
             return NULL;
         }
         
-        dataframe_obj->ext().appendIndex(args[0]);
+        dataframe_obj->modifyExt().appendIndex(args[0]);
         Py_RETURN_NONE;
     }
 
@@ -83,7 +83,7 @@ namespace db0::python
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
         db0::FixtureLock lock(fixture);
         auto dataframe_obj = PandasDataFrameObject_new(&PandasDataFrameObjectType, NULL, NULL);
-        db0::object_model::pandas::DataFrame::makeNew(&dataframe_obj->ext(), *lock);
+        db0::object_model::pandas::DataFrame::makeNew(&dataframe_obj->modifyExt(), *lock);
         lock->getLangCache().add(dataframe_obj->ext().getAddress(), dataframe_obj, true);
         return dataframe_obj;
     }

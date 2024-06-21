@@ -11,12 +11,12 @@ namespace db0::python
 
 {
 
-    using DictIteratorObject = PyWrapper<db0::object_model::DictIterator>;
+    using DictIteratorObject = PyWrapper<db0::object_model::DictIterator, false>;
 
     DictIteratorObject *DictViewObject_iter(DictViewObject *self)
     {
         auto dict_iterator_object = IteratorObject_new<DictIteratorObject>(&DictIteratorObjectType, NULL, NULL);        
-        self->ext().begin(&dict_iterator_object->ext());
+        self->ext().begin(&dict_iterator_object->modifyExt());
         return dict_iterator_object;
     }
     
@@ -70,11 +70,11 @@ namespace db0::python
         return Py_TYPE(object) == &DictViewObjectType;        
     }
 
-    DictViewObject *makeDictView(db0::object_model::Dict * ptr, db0::object_model::IteratorType iterator_type)
+    DictViewObject *makeDictView(const db0::object_model::Dict *ptr, db0::object_model::IteratorType iterator_type)
     {
         // make actual DBZero instance, use default fixture
-        auto dict_view_object = DictViewObject_new(&DictViewObjectType, NULL, NULL);        
-        db0::object_model::DictView::makeNew(&dict_view_object->ext(), ptr, iterator_type);
+        auto dict_view_object = DictViewObject_new(&DictViewObjectType, NULL, NULL);
+        db0::object_model::DictView::makeNew(&dict_view_object->modifyExt(), ptr, iterator_type);
         return dict_view_object;
     }
 }

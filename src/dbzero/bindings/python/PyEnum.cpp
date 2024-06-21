@@ -30,8 +30,15 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
-    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr) {
-        return self->ext()->getLangValue(PyUnicode_AsUTF8(attr)).steal();
+    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr) 
+    {
+        auto &enum_ = self->ext();
+        if (enum_.exists()) {
+            return enum_.get().getLangValue(PyUnicode_AsUTF8(attr)).steal();
+        } else {
+            // note that enum is created on demand
+            return self->modifyExt().create().getLangValue(PyUnicode_AsUTF8(attr)).steal();
+        }
     }
     
     PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr)
@@ -49,16 +56,23 @@ namespace db0::python
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
-
+    
     PyObject *getEnumValues(PyEnum *self)
-    {
-        auto &enum_ = *self->ext();
-        auto enum_values = enum_.getValues();
-        // create tuple
+    {        
+        const Enum *enum_ = nullptr;        
+        if (self->ext().exists()) {
+            enum_ = &self->ext().get();
+        } else {
+            enum_ = &self->modifyExt().create();
+            // note that enum is created on demand
+            
+        }
+        
+        auto enum_values = enum_->getValues();
         auto py_tuple = PyTuple_New(enum_values.size());
         unsigned int index = 0;
         for (auto &value: enum_values) {
-            PyTuple_SET_ITEM(py_tuple, index, enum_.getLangValue(value).steal());
+            PyTuple_SET_ITEM(py_tuple, index, enum_->getLangValue(value).steal());
             ++index;
         }
         return py_tuple;
@@ -119,7 +133,7 @@ namespace db0::python
     {
         auto py_enum = PyEnumDefault_new();
         // use empty module name since it's unknown
-        PyEnumData::makeNew(&py_enum->ext(), EnumDef {enum_name, "", user_enum_values}, type_id, prefix_name);
+        PyEnumData::makeNew(&py_enum->modifyExt(), EnumDef {enum_name, "", user_enum_values}, type_id, prefix_name);
         PyToolkit::getTypeManager().addEnum(py_enum);
         return py_enum;
     }
@@ -133,7 +147,7 @@ namespace db0::python
     PyEnumValue *makePyEnumValue(const EnumValue &enum_value)
     {
         auto py_enum_value = PyEnumValueDefault_new();
-        py_enum_value->ext() = enum_value;
+        py_enum_value->modifyExt() = enum_value;
         return py_enum_value;
     }
     

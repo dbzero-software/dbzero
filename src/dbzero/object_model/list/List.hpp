@@ -41,9 +41,9 @@ namespace db0::object_model
         
         static List *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static List *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
-        List * copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture);
-        size_t count(ObjectPtr lang_value);
-        size_t index(ObjectPtr lang_value);
+        List * copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const;
+        size_t count(ObjectPtr lang_value) const;
+        size_t index(ObjectPtr lang_value) const;
 
         // operators
         bool operator==(const List &) const;
@@ -60,8 +60,8 @@ namespace db0::object_model
         
     private:        
         // new lists can only be created via factory members
-        List(db0::swine_ptr<Fixture> &);        
-        List(db0::swine_ptr<Fixture> &, List& list);        
+        List(db0::swine_ptr<Fixture> &);
+        List(db0::swine_ptr<Fixture> &, const List &);
     };
     
 }

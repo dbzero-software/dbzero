@@ -39,12 +39,12 @@ namespace db0::object_model
         static Set *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Set *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
         
-        Set *copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture);
+        Set *copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const;
 
         // drop underlying DBZero representation
         void drop();
         Set::ObjectSharedPtr pop();
-        bool has_item(PyObject * obj);
+        bool has_item(PyObject * obj) const;
 
         void moveTo(db0::swine_ptr<Fixture> &);
 
@@ -52,7 +52,7 @@ namespace db0::object_model
         // new sets can only be created via factory members
         Set(db0::swine_ptr<Fixture> &);
         Set(db0::swine_ptr<Fixture> &, std::uint64_t address);
-        Set(db0::swine_ptr<Fixture> &fixture, Set& set);
+        Set(db0::swine_ptr<Fixture> &fixture, const Set &);
     };
     
 }

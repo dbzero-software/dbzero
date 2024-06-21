@@ -12,11 +12,9 @@ namespace db0::object_model
     */
     class ListIterator : public PyObjectIterator<ListIterator, List>
     {
-        public:
-            ObjectSharedPtr next() override;
-            ListIterator(List::iterator iterator, List * ptr);
-
-            bool is_end();
+    public:
+        ObjectSharedPtr next() override;
+        ListIterator(List::const_iterator iterator, const List *ptr);
     };
 
 }

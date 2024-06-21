@@ -5,7 +5,7 @@ namespace db0::python
 {
     
 
-    using DictViewObject = PyWrapper<db0::object_model::DictView>;
+    using DictViewObject = PyWrapper<db0::object_model::DictView, false>;
     
     DictViewObject *DictViewObject_new(PyTypeObject *type, PyObject *, PyObject *);
     DictViewObject *DictViewDefaultObject_new();
@@ -17,6 +17,6 @@ namespace db0::python
 
     void DictViewObject_del(DictViewObject* dict_obj);
     
-    DictViewObject *makeDictView(db0::object_model::Dict * ptr, db0::object_model::IteratorType iterator_type);
+    DictViewObject *makeDictView(const db0::object_model::Dict *, db0::object_model::IteratorType iterator_type);
 
 }

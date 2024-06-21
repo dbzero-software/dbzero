@@ -12,24 +12,32 @@ namespace db0::python
      * Adds a mixed-in (but dynamically initialized)
      * member of type T into the PyObject struct.
      **/
-    template <typename T> struct PyWrapper: public PyObject
+    template <typename T, bool is_object_base=true> struct PyWrapper: public PyObject
     {
-        inline T &ext() {
-            // calculate instance offset
-            return *reinterpret_cast<T*>((char*)this + Py_TYPE(this)->tp_basicsize - sizeof(T));
-        }
-
-        const T &ext() const {
+        inline const T &ext() const {
             return *reinterpret_cast<const T*>((char*)this + Py_TYPE(this)->tp_basicsize - sizeof(T));
         }
+        
+        inline T &modifyExt()
+        {
+            // calculate instance offset
+            auto &result = *reinterpret_cast<T*>((char*)this + Py_TYPE(this)->tp_basicsize - sizeof(T));
+            // only for ObjectBase derived classes
+            if constexpr (is_object_base) {
+                // the implementation registers the underlying object for detach (on rollback)
+                // but only if atomic operation is in progress
+                result.beginModify(this);
+            }
+            return result;
+        }
 
-        static constexpr std::size_t sizeOf() {            
+        static constexpr std::size_t sizeOf() {
             return sizeof(PyObject) + sizeof(T);
         }
 
         void destroy() {
             ext().~T();
-        }
+        }        
     };
 
     template <typename T> struct Shared
@@ -58,9 +66,10 @@ namespace db0::python
         }
     };
 
-    template <typename T> struct PySharedWrapper: public PyWrapper<Shared<T> >
+    template <typename T, bool is_object_base=true>
+    struct PySharedWrapper: public PyWrapper<Shared<T>, is_object_base>
     {
-        using super_t = PyWrapper<Shared<T> >;
+        using super_t = PyWrapper<Shared<T>, is_object_base>;
         inline T &ext() {
             return *super_t::ext();
         }
@@ -77,5 +86,5 @@ namespace db0::python
             Shared<T>::makeNew(&super_t::ext(), ptr);
         }
     };
-    
+        
 }

@@ -70,7 +70,8 @@ namespace db0
         });
     }
     
-    db0::swine_ptr<Fixture> WorkspaceView::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type)
+    db0::swine_ptr<Fixture> WorkspaceView::getFixture(
+        const std::string &prefix_name, std::optional<AccessType> access_type)
     {
         if (m_closed) {
             THROWF(db0::InternalException) << "WorkspaceView is closed";

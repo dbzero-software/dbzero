@@ -30,21 +30,21 @@ namespace db0::python
     }
     
     PyObject *PyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object)
-    {        
-        tag_manager->ext().add(&object, 1);
+    {
+        tag_manager->modifyExt().add(&object, 1);
         Py_INCREF(tag_manager);
         return tag_manager;
     }
 
     PyObject *PyObjectTagManager_add(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs)
     {        
-        tag_manager->ext().add(args, nargs);
+        tag_manager->modifyExt().add(args, nargs);
         Py_RETURN_NONE;
     }
     
     PyObject *PyObjectTagManager_remove_binary(PyObjectTagManager *tag_manager, PyObject *object)
     {        
-        tag_manager->ext().remove(&object, 1);
+        tag_manager->modifyExt().remove(&object, 1);
         Py_INCREF(tag_manager);
         return tag_manager;
     }
@@ -52,7 +52,7 @@ namespace db0::python
 
     PyObject *PyObjectTagManager_remove(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs)
     {
-        tag_manager->ext().remove(args, nargs);
+        tag_manager->modifyExt().remove(args, nargs);
         Py_RETURN_NONE;
     }
 
@@ -82,7 +82,7 @@ namespace db0::python
         }
         
         auto tags_obj = PyObjectTagManager_new(&PyObjectTagManagerType, NULL, NULL);
-        ObjectTagManager::makeNew(&tags_obj->ext(), args, nargs);
+        ObjectTagManager::makeNew(&tags_obj->modifyExt(), args, nargs);
         return tags_obj;
     }
 

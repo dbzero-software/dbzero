@@ -69,28 +69,37 @@ namespace db0::python
         /**
          * Extracts reference to DB0 object from a memo object
         */
-        Object &extractObject(ObjectPtr memo_ptr) const;
-        Object *tryExtractObject(ObjectPtr memo_ptr) const;
-        List &extractList(ObjectPtr list_ptr) const;
-        Set &extractSet(ObjectPtr set_ptr) const;
+        const Object &extractObject(ObjectPtr memo_ptr) const;
+        Object &extractMutableObject(ObjectPtr memo_ptr) const;
+        const Object *tryExtractObject(ObjectPtr memo_ptr) const;
+        Object *tryExtractMutableObject(ObjectPtr memo_ptr) const;
+        const List &extractList(ObjectPtr list_ptr) const;
+        List &extractMutableList(ObjectPtr list_ptr) const;
+        const Set &extractSet(ObjectPtr set_ptr) const;
+        Set &extractMutableSet(ObjectPtr set_ptr) const;
         std::int64_t extractInt64(ObjectPtr int_ptr) const;
         std::uint64_t extractUInt64(ObjectPtr) const;
         std::uint64_t extractUInt64(TypeId, ObjectPtr) const;
-        Tuple &extractTuple(ObjectPtr tuple_ptr) const;
-        Dict &extractDict(ObjectPtr dict_ptr) const;
+        const Tuple &extractTuple(ObjectPtr tuple_ptr) const;
+        // e.g. for incRef
+        Tuple &extractMutableTuple(ObjectPtr tuple_ptr) const;
+        const Dict &extractDict(ObjectPtr dict_ptr) const;
+        Dict &extractMutableDict(ObjectPtr dict_ptr) const;
         TagSet &extractTagSet(ObjectPtr tag_set_ptr) const;
-        Index &extractIndex(ObjectPtr index_ptr) const;
+        const Index &extractIndex(ObjectPtr index_ptr) const;
+        Index &extractMutableIndex(ObjectPtr index_ptr) const;
         EnumValue extractEnumValue(ObjectPtr enum_value_ptr) const;
         ObjectIterator &extractObjectIterator(ObjectPtr) const;
         FieldDef &extractFieldDef(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
         
         ObjectPtr getBadPrefixError() const;
-
+        
         /**
          * Extracts reference to DB0 Block
         */
-        PandasBlock &extractBlock(ObjectPtr memo_ptr) const;
+        const PandasBlock &extractBlock(ObjectPtr memo_ptr) const;
+        PandasBlock &extractMutableBlock(ObjectPtr memo_ptr) const;
 
         /**
          * Called with each new memo type
