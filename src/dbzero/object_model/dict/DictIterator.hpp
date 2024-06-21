@@ -19,7 +19,10 @@ namespace db0::object_model
     */
     class DictIterator : public PyObjectIterator<DictIterator, Dict>
     {
+        DictIndex::joinable_const_iterator m_join_iterator;
         IteratorType m_type;
+        DictIndex m_index;
+        void getJoinIterator();
         public:
 
             struct DictItem {

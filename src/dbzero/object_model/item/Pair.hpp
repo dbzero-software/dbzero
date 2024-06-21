@@ -20,6 +20,14 @@ namespace db0::object_model
         bool operator==(const o_pair_item & other) const{
             return m_first == other.m_first && m_second == other.m_second;
         }
+
+        bool operator!=(const o_pair_item & other) const{
+            return !(*this == other);
+        }
+
+        bool operator<(const o_pair_item & other) const{
+            return m_first < other.m_first;
+        }
     };
 
 

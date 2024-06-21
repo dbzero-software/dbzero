@@ -25,7 +25,7 @@ namespace db0::python
     PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)
     {   
         auto hash = PyObject_Hash(key);
-        return dict_obj->ext().getItem(hash).steal();
+        return dict_obj->ext().getItem(hash, key).steal();
     }
     
     int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)

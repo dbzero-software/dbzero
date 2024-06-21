@@ -35,22 +35,19 @@ namespace tests
     TEST_F( SetIndexTest , testMorphing_example )
     {
         auto memspace = getMemspace();
-
-        auto fixture = m_workspace.getMutableFixture();
         o_typed_item item(StorageClass::INT64, Value(1));
         SetIndex bindex(memspace,item);
 
         auto it = bindex.beginJoin(1);
         ASSERT_TRUE((*it).m_value == 1);
 
-        auto typed_index = TypedIndex(bindex.getAddress(), bindex.getIndexType());
+        auto typed_index = TypedIndex<TypedItem_Address, SetIndex>(bindex.getAddress(), bindex.getIndexType());
 
         auto index2 = typed_index.getIndex(memspace);
         auto it2 = index2.beginJoin(1);
         std::cerr << "IT 2 value " << (*it2).m_value.m_store << std::endl;
         ASSERT_TRUE((*it2).m_value == 1);
 
-        
     }
 
 } 

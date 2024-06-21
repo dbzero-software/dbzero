@@ -75,7 +75,6 @@ namespace db0::python
         {
         case Py_EQ:
             if(SetObject_len(set_obj) != PyObject_Length(other)) {
-                std::cerr << "COMPARE 1 FALSE " << SetObject_len(set_obj)  << " " << PyObject_Length(other) <<  std::endl;
                 return Py_False;
             }
             return PyBool_fromBool(has_all_elements_in_collection(set_obj, other));
@@ -195,7 +194,6 @@ namespace db0::python
         }
 
         if (SetObject_Check(args[0])) {
-            std::cerr << "COMPARE 1" << std::endl;
             SetObject *other = (SetObject*)args[0];
             if(SetObject_len(self) == 0 || SetObject_len(other) == 0) return Py_True;
             auto it1 = self->ext().begin();
@@ -210,7 +208,6 @@ namespace db0::python
                 else { ++it2; }
             }
         } else {
-            std::cerr << "COMPARE 2" << std::endl;
             PyObject *other = args[0];
             if(SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
             PyObject *iterator = PyObject_GetIter(other);
@@ -489,7 +486,7 @@ namespace db0::python
         }
         auto hash = PyObject_Hash(args[0]);
         db0::FixtureLock lock(set_obj->ext().getFixture());
-        if (set_obj->ext().remove(lock, hash) == false && throw_ex) {
+        if (set_obj->ext().remove(lock, hash, args[0]) == false && throw_ex) {
             PyErr_SetString(PyExc_KeyError, "Element not found");
             return NULL;
         }
@@ -540,18 +537,18 @@ namespace db0::python
     {
         PyObject* it = PyObject_GetIter(self);
         PyObject* item;
-        std::list<size_t> hashes;
+        std::list<std::pair<size_t, PyObject*>> hashes_and_items;
         while ((item = PyIter_Next(it))) {
             if(!PySequence_Contains(ob, item)){
                 auto hash = PyObject_Hash(item);
-                hashes.push_back(hash);
+                hashes_and_items.push_back({hash,item});
             }
             Py_DECREF(item);
         }
         auto &set_impl = self->ext();
         db0::FixtureLock lock(set_impl.getFixture());
-        for (auto hash: hashes) {
-            set_impl.remove(lock, hash);
+        for (auto hash_and_item: hashes_and_items) {
+            set_impl.remove(lock, hash_and_item.first, hash_and_item.second);
         }
         Py_DECREF(it);
         Py_INCREF(self);
@@ -567,7 +564,7 @@ namespace db0::python
         db0::FixtureLock lock(set_impl.getFixture());
         while ((item = PyIter_Next(it))) {
             auto hash = PyObject_Hash(item);
-            set_impl.remove(lock, hash);
+            set_impl.remove(lock, hash, item);
             Py_DECREF(item);
         }
         Py_DECREF(it);
@@ -577,7 +574,7 @@ namespace db0::python
 
     PyObject *SetObject_symmetric_difference_in_place(SetObject *self, PyObject * ob)
     {
-        std::list<size_t> hashes_to_remove;
+        std::list<std::pair<size_t, PyObject*>> hashes_and_items_to_remove;
         std::list<PyObject *> items_to_add;
         PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
@@ -586,13 +583,13 @@ namespace db0::python
         while ((item = PyIter_Next(it))) {
             if (set_impl.has_item(item)) {
                 auto hash = PyObject_Hash(item);
-                hashes_to_remove.push_back(hash);
+                hashes_and_items_to_remove.push_back({hash, item});
             } else {
                 items_to_add.push_back(item);
             }
         }
-        for (auto hash: hashes_to_remove) {
-            set_impl.remove(lock, hash);
+        for (auto hash_and_item: hashes_and_items_to_remove) {
+            set_impl.remove(lock, hash_and_item.first, hash_and_item.second);
         }
         for (auto item: items_to_add) {
             auto hash = PyObject_Hash(item);

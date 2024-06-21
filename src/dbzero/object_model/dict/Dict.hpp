@@ -20,7 +20,10 @@ namespace db0::object_model
 {
 
     using Fixture = db0::Fixture;
-    using dict_item = db0::key_value<std::uint64_t, o_pair_item>;
+    // using dict_item = db0::key_value<std::uint64_t, o_pair_item>;
+    using PairItem_Address = ValueT_Address<o_pair_item>;
+    using DictIndex = CollectionIndex<o_pair_item, PairItem_Address>;
+    using dict_item = db0::key_value<std::uint64_t, TypedIndex<PairItem_Address, DictIndex>>;
 
     class Dict: public db0::ObjectBase<Dict, v_bindex<dict_item>, StorageClass::DB0_DICT>
     {
@@ -32,7 +35,7 @@ namespace db0::object_model
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         
-        ObjectSharedPtr getItem(std::size_t hash) const;
+        ObjectSharedPtr getItem(std::size_t hash, ObjectPtr key_value) const;
         void setItem(std::size_t hash, ObjectPtr key, ObjectPtr value);
         
 
@@ -48,11 +51,16 @@ namespace db0::object_model
 
         void moveTo(db0::swine_ptr<Fixture> &);
 
+        std::size_t size() const { return m_size; }
+
+        void clear();
+
     private:
         // new dicts can only be created via factory members
         Dict(db0::swine_ptr<Fixture> &);
         Dict(db0::swine_ptr<Fixture> &, std::uint64_t address);
         Dict(db0::swine_ptr<Fixture> &fixture, Dict& dict);
+        std::size_t m_size = 0;
     };
     
 }

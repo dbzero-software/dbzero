@@ -26,20 +26,21 @@ namespace db0::object_model
         auto item = createTypedItem<LangToolkit>(fixture, type_id, lang_value, storage_class);
         SetIndex bindex(memspace, item);
         auto address = bindex.getAddress();
-        auto typed_index = TypedIndex(address, bindex::itty);
+        auto typed_index = TypedIndex<TypedItem_Address, SetIndex>(address, bindex::itty);
         return { key, typed_index };
     }
 
     void Set::insert(const Set &set){
         for (auto [key, address] : set) {
-            auto fixture = this->getMutableFixture();
+            auto fixture = this->getFixture();
             auto memspace = this->getMemspace();
             auto bindex = address.getIndex(memspace);
             auto it = bindex.beginJoin(1);
+            db0::FixtureLock lock(fixture);
             while(!it.is_end()) {
                 auto [storage_class, value] = (*it);
-                auto member = unloadMember<LangToolkit>(*fixture, storage_class, value);
-                append(fixture, key, member.get());
+                auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+                append(lock, key, member.get());
                 ++it;
             }
         }
@@ -85,7 +86,7 @@ namespace db0::object_model
                 bindex.insert(item);
                 auto new_address = bindex.getAddress();
                 if(new_address != address.m_index_address){
-                    auto new_typed_index = TypedIndex(new_address, bindex.getIndexType());
+                    auto new_typed_index = TypedIndex<TypedItem_Address, SetIndex>(new_address, bindex.getIndexType());
                     v_bindex::erase(iter);
                     v_bindex::insert({key, new_typed_index});
                 }
@@ -93,15 +94,33 @@ namespace db0::object_model
         }
     }
     
-    bool Set::remove(FixtureLock &, std::size_t key)
+    bool Set::remove(FixtureLock &, std::size_t key, ObjectPtr key_value)
     {
-        auto it = v_bindex::find(key);
-        if (it == end()) {
+        auto iter = v_bindex::find(key);
+        if (iter == end()) {
             return false;
         }
-        v_bindex::erase(it);
-        m_size -= 1;
-        return true;
+        auto [it_key, address] = *iter;
+        auto bindex = address.getIndex(this->getMemspace());
+
+        auto it = bindex.beginJoin(1);
+        auto fixture = this->getFixture(); 
+        while(!it.is_end()){
+            auto [storage_class, value] = *it;
+            auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+            if (LangToolkit::compare(key_value, member.get())) {
+                if(bindex.size() == 1) {
+                    v_bindex::erase(iter);
+                    bindex.destroy();
+                } else {
+                    bindex.erase(*it);
+                }
+                m_size -= 1;
+                return true;
+            }
+            ++it;
+        }
+        return false;
     }
 
     Set::ObjectSharedPtr Set::getItem(std::size_t key, ObjectPtr key_value) const
@@ -113,7 +132,6 @@ namespace db0::object_model
             auto bindex = address.getIndex(memspace);
             auto it = bindex.beginJoin(1);
             auto fixture = this->getFixture(); 
-            auto type_id = LangToolkit::getTypeManager().getTypeId(key_value);
             while(!it.is_end()){
                 auto [storage_class, value] = *it;
                 auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
