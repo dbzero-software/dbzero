@@ -82,7 +82,7 @@ namespace db0::python
     {
         // make actual DBZero instance, use default fixture
         auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
-        db0::FixtureLock lock(py_list->ext().getFixture());
+        db0::FixtureLock lock(py_src_list->ext().getFixture());
         py_src_list->ext().copy(&py_list->modifyExt(), *lock);
         lock->getLangCache().add(py_list->ext().getAddress(), py_list, true);
         return py_list;

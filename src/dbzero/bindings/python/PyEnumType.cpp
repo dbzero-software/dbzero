@@ -14,7 +14,24 @@ namespace db0::python
     {
     }
 
-    const Enum &PyEnumData::operator*() const
+    bool PyEnumData::exists() const
+    {
+        using EnumFactory = db0::object_model::EnumFactory;
+        if (m_enum_ptr) {
+            return true;
+        }
+
+        std::uint64_t fixture_uuid = 0;
+        if (m_prefix_name) {
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture((*m_prefix_name).c_str(), AccessType::READ_ONLY);
+            fixture_uuid = fixture->getUUID();
+        }
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
+        const auto &enum_factory = fixture->get<EnumFactory>();
+        return enum_factory.tryGetExistingEnum(m_enum_def, m_type_id ? m_type_id->c_str() : nullptr) != nullptr;
+    }
+
+    const Enum &PyEnumData::get() const
     {
         using EnumFactory = db0::object_model::EnumFactory;
         if (!m_enum_ptr) {
@@ -35,8 +52,8 @@ namespace db0::python
         assert(m_enum_ptr);
         return *m_enum_ptr;
     }
-
-    Enum &PyEnumData::operator*()
+    
+    Enum &PyEnumData::create()
     {
         using EnumFactory = db0::object_model::EnumFactory;
         if (!m_enum_ptr) {
@@ -56,16 +73,8 @@ namespace db0::python
         }
         assert(m_enum_ptr);
         return *m_enum_ptr;
-    }
-
-    Enum *PyEnumData::operator->() {
-        return &**this;
-    }
-
-    const Enum *PyEnumData::operator->() const {
-        return &**this;
-    }
-
+    }    
+    
     void PyEnumData::close() {
         m_enum_ptr = nullptr;
     }

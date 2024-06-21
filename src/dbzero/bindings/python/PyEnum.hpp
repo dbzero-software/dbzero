@@ -14,7 +14,7 @@ namespace db0::python
     using EnumDef = db0::object_model::EnumDef;
     using Enum = db0::object_model::Enum;
     using PyEnumValue = PyWrapper<EnumValue, false>;
-        
+    
     PyEnum *PyEnum_new(PyTypeObject *type, PyObject *, PyObject *);
     PyEnum *PyEnumDefault_new();
     void PyEnum_del(PyEnum* self);

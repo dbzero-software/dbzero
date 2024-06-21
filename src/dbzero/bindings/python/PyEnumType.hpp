@@ -26,12 +26,14 @@ namespace db0::python
         PyEnumData(const EnumDef &enum_def, const char *type_id, const char *prefix_name);
 
         // when first accessed, tries pulling existing or creating a new enum in the current fixture
-        Enum &operator*();        
-        const Enum &operator*() const;
-        Enum *operator->();
-        const Enum *operator->() const;
+        Enum &create();
+        // get existing enum
+        const Enum &get() const;        
 
         void close();
+
+        // check if the underlying enum instance exists
+        bool exists() const;
         
         static void makeNew(void *at_ptr, const EnumDef &enum_def, const char *type_id, 
             const char *prefix_name);

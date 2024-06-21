@@ -235,7 +235,8 @@ namespace db0
         // Validate access type
         if (access_type && *access_type == AccessType::READ_WRITE && it->second->getAccessType() != AccessType::READ_WRITE) {
             // try upgrading access to read/write or fail
-            throw std::runtime_error("Upgrade to read/write access is not implemented");
+            // FIXME: implement
+            // throw std::runtime_error("Upgrade to read/write access is not implemented");
         }
 
         return it->second;
