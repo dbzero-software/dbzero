@@ -15,17 +15,19 @@ namespace db0::object_model
         using ThisType = PyObjectIterator<ClassT, CollectionT>;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
-        using IteratorT = typename CollectionT::iterator;
+        using IteratorT = typename CollectionT::const_iterator;
         virtual ObjectSharedPtr next() = 0;
-        static PyObjectIterator *makeNew(void *at_ptr, IteratorT iterator, CollectionT * ptr){
+        
+        static PyObjectIterator *makeNew(void *at_ptr, IteratorT iterator, const CollectionT *ptr) {
             return new (at_ptr) ClassT(iterator, ptr);
         }
 
-        PyObjectIterator(IteratorT iterator, CollectionT * ptr) 
-            : m_iterator(iterator), m_collection(ptr) {
-            }
+        PyObjectIterator(IteratorT iterator, const CollectionT *ptr)
+            : m_iterator(iterator)
+            , m_collection(ptr) 
+        {
+        }
         
-
         inline bool operator==(const ThisType &other) const {
             return m_iterator == other.m_iterator;
         }
@@ -34,13 +36,13 @@ namespace db0::object_model
             return !(m_iterator == other.m_iterator);
         }
 
-        ClassT end() {
+        ClassT end() const {
             return ClassT(m_collection->end(), m_collection);
         }
 
     protected:
         IteratorT m_iterator;
-        CollectionT *m_collection;
+        const CollectionT *m_collection;
     };
 
 }

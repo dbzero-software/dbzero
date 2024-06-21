@@ -30,7 +30,7 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
-    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr) {
+    PyObject *tryPyEnum_getattro(const PyEnum *self, PyObject *attr) {
         return self->ext()->getLangValue(PyUnicode_AsUTF8(attr)).steal();
     }
     
@@ -119,7 +119,7 @@ namespace db0::python
     {
         auto py_enum = PyEnumDefault_new();
         // use empty module name since it's unknown
-        PyEnumData::makeNew(&py_enum->ext(), EnumDef {enum_name, "", user_enum_values}, type_id, prefix_name);
+        PyEnumData::makeNew(&py_enum->modifyExt(), EnumDef {enum_name, "", user_enum_values}, type_id, prefix_name);
         PyToolkit::getTypeManager().addEnum(py_enum);
         return py_enum;
     }
@@ -133,7 +133,7 @@ namespace db0::python
     PyEnumValue *makePyEnumValue(const EnumValue &enum_value)
     {
         auto py_enum_value = PyEnumValueDefault_new();
-        py_enum_value->ext() = enum_value;
+        py_enum_value->modifyExt() = enum_value;
         return py_enum_value;
     }
     

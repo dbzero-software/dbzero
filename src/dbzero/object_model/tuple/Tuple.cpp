@@ -57,11 +57,11 @@ namespace db0::object_model
         return new (at_ptr) Tuple(fixture, address);
     }
 
-    size_t Tuple::count(ObjectPtr lang_value)
+    std::size_t Tuple::count(ObjectPtr lang_value) const
     {
         std::size_t count = 0;
         auto fixture = this->getFixture();
-        for (auto &elem: this->const_ref().items()){
+        for (auto &elem: this->const_ref().items()) {
             auto [elem_storage_class, elem_value] = elem;
             if (unloadMember<LangToolkit>(fixture, elem_storage_class, elem_value) == lang_value) {
                 count += 1;
@@ -70,7 +70,7 @@ namespace db0::object_model
         return count;
     }
 
-    std::size_t Tuple::index(ObjectPtr lang_value)
+    std::size_t Tuple::index(ObjectPtr lang_value) const
     {
         std::size_t index = 0;
         auto fixture = this->getFixture();
@@ -85,7 +85,7 @@ namespace db0::object_model
         return -1;
     }
 
-    size_t Tuple::size() const
+    std::size_t Tuple::size() const
     {
         return getData()->size();
     }
@@ -102,11 +102,11 @@ namespace db0::object_model
         v_object<o_tuple>::destroy();
     }
 
-    const o_typed_item *Tuple::begin() {
+    const o_typed_item *Tuple::begin() const {
         return this->getData()->items().begin();
     }
 
-    const o_typed_item *Tuple::end() {
+    const o_typed_item *Tuple::end() const {
         return this->getData()->items().end();
     }
 

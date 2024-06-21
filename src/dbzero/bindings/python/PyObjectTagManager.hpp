@@ -9,7 +9,7 @@ namespace db0::python
 {
 
     using ObjectTagManager = db0::object_model::ObjectTagManager;
-    using PyObjectTagManager = PyWrapper<ObjectTagManager>;
+    using PyObjectTagManager = PyWrapper<ObjectTagManager, false>;
 
     PyObjectTagManager *PyObjectTagManager_new(PyTypeObject *type, PyObject *, PyObject *);
     void PyObjectTagManager_del(PyObjectTagManager* self);

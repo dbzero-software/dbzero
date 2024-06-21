@@ -4,6 +4,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
+#include <dbzero/object_model/config.hpp>
 
 namespace db0
 
@@ -21,7 +22,10 @@ namespace db0
     template <typename T, typename BaseT, StorageClass _CLS>
     class ObjectBase: public has_fixture<BaseT>
     {
-    public:        
+    public:
+        using LangToolkit = db0::object_model::Config::LangToolkit;
+        using ObjectPtr = LangToolkit::ObjectPtr;
+
         ObjectBase() = default;
         
         // create a new instance
@@ -92,7 +96,7 @@ namespace db0
             this->modify().m_header.decRef();
         }
         
-        auto getRefCount()
+        auto getRefCount() const
         {
             assert(hasInstance());
             return (*this)->m_header.m_ref_count;
@@ -104,6 +108,10 @@ namespace db0
             return (*this)->m_header.hasRefs();
         }
         
+        // The implementation registers the underlying language specific instance
+        // for detach (on rollback) but only if atomic operation is in progress
+        void beginModify(ObjectPtr);
+
     protected:
         friend class db0::GC0;
 
@@ -167,5 +175,11 @@ namespace db0
             T instance(fixture, addr);
         }
     };
+
+    template <typename T, typename BaseT, StorageClass _CLS>
+    void ObjectBase<T, BaseT, _CLS>::beginModify(ObjectPtr ptr)
+    {
+        // FIXME: implement
+    }
 
 }

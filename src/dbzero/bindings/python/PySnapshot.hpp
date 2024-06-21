@@ -9,7 +9,7 @@ namespace db0::python
 
 {
     
-    using PySnapshotObject = PyWrapper<db0::WorkspaceView>;
+    using PySnapshotObject = PyWrapper<db0::WorkspaceView, false>;
     
     PySnapshotObject *PySnapshot_new(PyTypeObject *type, PyObject *, PyObject *);
     PySnapshotObject *PySnapshotDefault_new();

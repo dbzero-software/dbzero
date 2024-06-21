@@ -578,18 +578,18 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid argument type";
         }
         
-        auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->ext();
+        auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->modifyExt();
         auto split_query = splitBy(py_tag_list, *iter);
         PyObjectIterator *py_iter = PyObjectIteratorDefault_new();
         // create decorated iterator (either plain or typed)
         if (iter.isTyped()) {
             auto typed_iter = std::make_unique<TypedObjectIterator>(iter->getFixture(), std::move(split_query.first),
                 iter.m_typed_iterator_ptr->getType(), std::move(split_query.second), iter->getFilters());
-            Iterator::makeNew(&py_iter->ext(), std::move(typed_iter));
+            Iterator::makeNew(&py_iter->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::make_unique<ObjectIterator>(iter->getFixture(), std::move(split_query.first), 
                 std::move(split_query.second), iter->getFilters());
-            Iterator::makeNew(&py_iter->ext(), std::move(_iter));
+            Iterator::makeNew(&py_iter->modifyExt(), std::move(_iter));
         }
         return py_iter;
     }
@@ -644,10 +644,10 @@ namespace db0::python
         // create decorated iterator (either plain or typed)
         if (iter.isTyped()) {
             auto typed_iter = iter.m_typed_iterator_ptr->iterTyped(filters);
-            Iterator::makeNew(&py_iter->ext(), std::move(typed_iter));
+            Iterator::makeNew(&py_iter->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = iter->iter(filters);
-            Iterator::makeNew(&py_iter->ext(), std::move(_iter));
+            Iterator::makeNew(&py_iter->modifyExt(), std::move(_iter));
         }
         return py_iter;                
     }

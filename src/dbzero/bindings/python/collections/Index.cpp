@@ -64,7 +64,7 @@ namespace db0::python
         // make actual DBZero instance, use default fixture
         auto index_object = IndexObject_new(&IndexObjectType, NULL, NULL);
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
-        db0::object_model::Index::makeNew(&index_object->ext(), *lock);
+        db0::object_model::Index::makeNew(&index_object->modifyExt(), *lock);
         // register newly created index with py-object cache
         lock->getLangCache().add(index_object->ext().getAddress(), index_object, true);
         return index_object;
@@ -77,7 +77,7 @@ namespace db0::python
             return NULL;
         }
 
-        index_obj->ext().add(args[0], args[1]);
+        index_obj->modifyExt().add(args[0], args[1]);
         Py_RETURN_NONE;
     }
 
@@ -88,7 +88,7 @@ namespace db0::python
             return NULL;
         }
 
-        index_obj->ext().remove(args[0], args[1]);
+        index_obj->modifyExt().remove(args[0], args[1]);
         Py_RETURN_NONE;
     }
 
@@ -129,12 +129,12 @@ namespace db0::python
             auto typed_iter = std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(
                 iter->getFixture(), std::move(iter_sorted), iter.m_typed_iterator_ptr->getType(), {}, iter->getFilters())
             );
-            Iterator::makeNew(&iter_obj->ext(), std::move(typed_iter));
+            Iterator::makeNew(&iter_obj->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::unique_ptr<ObjectIterator>(new ObjectIterator(
                 iter->getFixture(), std::move(iter_sorted), {}, iter->getFilters())
             );
-            Iterator::makeNew(&iter_obj->ext(), std::move(_iter));
+            Iterator::makeNew(&iter_obj->modifyExt(), std::move(_iter));
         }
 
         return iter_obj;
@@ -155,7 +155,7 @@ namespace db0::python
         auto iter_factory = index.range(low, high, null_first);
         auto iter = std::make_unique<db0::object_model::ObjectIterator>(index.getFixture(), std::move(iter_factory));
         auto py_iter_obj = PyObjectIteratorDefault_new();
-        Iterator::makeNew(&py_iter_obj->ext(), std::move(iter));
+        Iterator::makeNew(&py_iter_obj->modifyExt(), std::move(iter));
         return py_iter_obj;
     }
     

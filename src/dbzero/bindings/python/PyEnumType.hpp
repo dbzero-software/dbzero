@@ -21,13 +21,15 @@ namespace db0::python
         EnumDef m_enum_def;
         std::optional<std::string> m_type_id;
         std::optional<std::string> m_prefix_name;
-        std::shared_ptr<Enum> m_enum_ptr;
+        mutable std::shared_ptr<Enum> m_enum_ptr;
 
         PyEnumData(const EnumDef &enum_def, const char *type_id, const char *prefix_name);
 
         // when first accessed, tries pulling existing or creating a new enum in the current fixture
-        Enum &operator*();
+        Enum &operator*();        
+        const Enum &operator*() const;
         Enum *operator->();
+        const Enum *operator->() const;
 
         void close();
         
@@ -35,6 +37,6 @@ namespace db0::python
             const char *prefix_name);
     };
     
-    using PyEnum = PyWrapper<PyEnumData>;
+    using PyEnum = PyWrapper<PyEnumData, false>;
 
 }

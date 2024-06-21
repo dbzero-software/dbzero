@@ -13,9 +13,9 @@ namespace db0::object_model
     */
     class SetIterator : public PyObjectIterator<SetIterator, Set>
     {
-        public:
-            ObjectSharedPtr next() override;
-            SetIterator(Set::iterator iterator, Set * ptr);
+    public:
+        ObjectSharedPtr next() override;
+        SetIterator(Set::const_iterator iterator, const Set *ptr);
     };
 
 }

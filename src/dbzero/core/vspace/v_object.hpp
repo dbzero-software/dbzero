@@ -177,7 +177,7 @@ namespace db0
             return this->v_this;
         }
         
-        void destroy()
+        void destroy() const
         {
             if (v_this) {
                 v_this.destroy();
@@ -229,7 +229,7 @@ namespace db0
 
     protected :
         // container reference
-        ptr_t v_this;
+        mutable ptr_t v_this;
     };
 
 }

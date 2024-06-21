@@ -251,13 +251,13 @@ namespace db0::object_model
         std::function<void(std::uint64_t)> add_tag_callback = [&](std::uint64_t address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
-            type_manager.extractObject(it->second.get()).incRef();
+            type_manager.extractMutableObject(it->second.get()).incRef();
         };
 
         std::function<void(std::uint64_t)> remove_tag_callback = [&](std::uint64_t address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
-            type_manager.extractObject(it->second.get()).decRef();
+            type_manager.extractMutableObject(it->second.get()).decRef();
         };
 
         // flush all short tags' updates
@@ -449,7 +449,11 @@ namespace db0::object_model
     {
         assert(LangToolkit::isMemoObject(py_arg));
         // mark the object as tag
-        return LangToolkit::getTypeManager().extractObject(py_arg).asTag();
+        auto &object = LangToolkit::getTypeManager().extractObject(py_arg);
+        if (!object.isTag()) {
+            LangToolkit::getTypeManager().extractMutableObject(py_arg).markAsTag();
+        }
+        return object.getAddress();
     }
     
     TagIndex::ShortTagT TagIndex::makeShortTagFromEnumValue(ObjectPtr py_arg) const

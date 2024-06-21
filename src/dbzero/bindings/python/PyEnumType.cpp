@@ -14,6 +14,28 @@ namespace db0::python
     {
     }
 
+    const Enum &PyEnumData::operator*() const
+    {
+        using EnumFactory = db0::object_model::EnumFactory;
+        if (!m_enum_ptr) {
+            std::uint64_t fixture_uuid = 0;
+            if (m_prefix_name) {
+                auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture((*m_prefix_name).c_str(), AccessType::READ_ONLY);
+                fixture_uuid = fixture->getUUID();
+            }
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
+            const auto &enum_factory = fixture->get<EnumFactory>();
+            // use empty module name since it's unknown
+            m_enum_ptr = enum_factory.getExistingEnum(m_enum_def, m_type_id ? m_type_id->c_str() : nullptr);
+            // popluate enum's value cache
+            for (auto &value: m_enum_ptr->getValues()) {
+                m_enum_ptr->getLangValue(value);
+            }
+        }
+        assert(m_enum_ptr);
+        return *m_enum_ptr;
+    }
+
     Enum &PyEnumData::operator*()
     {
         using EnumFactory = db0::object_model::EnumFactory;
@@ -35,8 +57,12 @@ namespace db0::python
         assert(m_enum_ptr);
         return *m_enum_ptr;
     }
-    
+
     Enum *PyEnumData::operator->() {
+        return &**this;
+    }
+
+    const Enum *PyEnumData::operator->() const {
         return &**this;
     }
 

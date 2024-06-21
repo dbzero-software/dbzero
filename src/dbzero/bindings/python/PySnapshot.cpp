@@ -54,10 +54,10 @@ namespace db0::python
     {    
         auto py_object = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
         auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
-        db0::WorkspaceView::makeNew(&py_object->ext(), workspace_ptr, state_num, prefix_state_nums);            
+        db0::WorkspaceView::makeNew(&py_object->modifyExt(), workspace_ptr, state_num, prefix_state_nums);
         return py_object;
-    }   
-
+    }
+    
     PyObject *tryPySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (!PySnapshot_Check(self)) {
@@ -65,7 +65,7 @@ namespace db0::python
             return NULL;
         }
 
-        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->ext();
+        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         return tryFetchFrom(snapshot, args, nargs);
     }
 
@@ -76,7 +76,7 @@ namespace db0::python
             return NULL;
         }
 
-        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->ext();
+        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         return findIn(snapshot, args, nargs);
     }
 
@@ -101,7 +101,7 @@ namespace db0::python
         if (snapshot == nullptr) {
             return nullptr;
         }
-        return &snapshot->ext();
+        return &snapshot->modifyExt();
     }
     
     template <> bool Which_TypeCheck<PySnapshotObject>(PyObject *py_object) {
@@ -115,7 +115,7 @@ namespace db0::python
             return NULL;
         }
         
-        reinterpret_cast<PySnapshotObject*>(self)->ext().close();        
+        reinterpret_cast<PySnapshotObject*>(self)->modifyExt().close();
         Py_RETURN_NONE;
     }
     
@@ -131,7 +131,7 @@ namespace db0::python
             return NULL;
         }
         
-        auto &workspace = reinterpret_cast<PySnapshotObject*>(self)->ext();        
+        auto &workspace = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         return runSafe(tryDeserialize, &workspace, args[0]);
     }
     

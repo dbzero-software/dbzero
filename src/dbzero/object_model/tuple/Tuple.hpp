@@ -73,15 +73,15 @@ namespace db0::object_model
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
-        using iterator = const o_typed_item *;
+        using const_iterator = const o_typed_item *;
 
         ObjectSharedPtr getItem(std::size_t i) const;
         void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
         
         static Tuple *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::size_t size);
         static Tuple *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
-        size_t count(ObjectPtr lang_value);
-        size_t index(ObjectPtr lang_value);
+        std::size_t count(ObjectPtr lang_value) const;
+        std::size_t index(ObjectPtr lang_value) const;
         size_t size() const;
         // operators
         bool operator==(const Tuple &) const;
@@ -89,8 +89,8 @@ namespace db0::object_model
         // drop underlying DBZero representation
         void drop();
 
-        const o_typed_item * begin();        
-        const o_typed_item * end();
+        const o_typed_item * begin() const;
+        const o_typed_item * end() const;
 
         void moveTo(db0::swine_ptr<Fixture> &);
 

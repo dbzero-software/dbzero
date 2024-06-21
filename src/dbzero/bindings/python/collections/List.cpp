@@ -10,7 +10,7 @@
 namespace db0::python
 {
     
-    using ListIteratorObject = PyWrapper<db0::object_model::ListIterator>;
+    using ListIteratorObject = PyWrapper<db0::object_model::ListIterator, false>;
 
     PyTypeObject ListIteratorObjectType = GetIteratorType<ListIteratorObject>("dbzero_ce.ListIterator",
                                                                               "DBZero list iterator");
@@ -40,15 +40,15 @@ namespace db0::python
         return list_obj_copy;
     }
 
-    PyObject *ListObject_GetItemSlice(ListObject *list_obj, PyObject *elem)
+    PyObject *ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
     {
         // FIXME: this operation should be immutable
-        db0::FixtureLock lock(list_obj->ext().getFixture());
+        db0::FixtureLock lock(py_src_list->ext().getFixture());
         // Check if the key is a slice object
         if (PySlice_Check(elem)) {
             Py_ssize_t start, stop, step;
-            PySlice_GetIndices(elem, list_obj->ext().size(), &start, &stop, &step);
-            ListObject *list = makeList(nullptr,nullptr, 0);
+            PySlice_GetIndices(elem, py_src_list->ext().size(), &start, &stop, &step);
+            ListObject *py_list = makeList(nullptr,nullptr, 0);
             auto compare = [step](Py_ssize_t i, Py_ssize_t stop) {
                 if(step > 0){
                     return i < stop; 
@@ -56,47 +56,47 @@ namespace db0::python
                     return i > stop;
                 }
             };
+
+            auto &list = py_list->modifyExt();
             for (Py_ssize_t i = start; compare(i, stop); i += step) {
-                list->ext().append(lock, list_obj->ext().getItem(i).steal());
+                list.append(lock, py_src_list->ext().getItem(i).steal());
             }
 
-            return list;
+            return py_list;
         }
         auto index = PyLong_AsLong(elem);
         if (index < 0) {
-            index += list_obj->ext().size();
+            index += py_src_list->ext().size();
         }
-        return list_obj->ext().getItem(index).steal();
+        return py_src_list->ext().getItem(index).steal();
     }
     
-    PyObject * ListObject_clear(ListObject *list_obj)
+    PyObject * ListObject_clear(ListObject *py_list)
     {
-        db0::FixtureLock lock(list_obj->ext().getFixture());
-        list_obj->ext().clear(lock);
+        db0::FixtureLock lock(py_list->ext().getFixture());
+        py_list->modifyExt().clear(lock);
         Py_RETURN_NONE;
     }
 
-    PyObject *ListObject_copy(ListObject *list_obj)
+    PyObject *ListObject_copy(ListObject *py_src_list)
     {
         // make actual DBZero instance, use default fixture
-        auto list_object = ListObject_new(&ListObjectType, NULL, NULL);
-        db0::FixtureLock lock(list_obj->ext().getFixture());
-        list_obj->ext().copy(&list_object->ext(), *lock);
-        lock->getLangCache().add(list_object->ext().getAddress(), list_object, true);
-        return list_object;
+        auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
+        db0::FixtureLock lock(py_list->ext().getFixture());
+        py_src_list->ext().copy(&py_list->modifyExt(), *lock);
+        lock->getLangCache().add(py_list->ext().getAddress(), py_list, true);
+        return py_list;
     }
     
-    PyObject *ListObject_count(ListObject *list_obj, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *ListObject_count(ListObject *py_list, PyObject *const *args, Py_ssize_t nargs)
     {       
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "count() takes one argument.");
             return NULL;
         }
-        auto count = PyLong_FromLong(list_obj->ext().count(args[0]));
-        return count;
+        return PyLong_FromLong(py_list->ext().count(args[0]));        
     }
-
-
+    
     PyObject *ListObject_add(ListObject *list_obj_lh, ListObject *list_obj_rh)
     {
         //make copy of first list
@@ -197,15 +197,16 @@ namespace db0::python
 
     ListObject *makeDB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
     {
-        auto list_object = ListObject_new(&ListObjectType, NULL, NULL);
+        auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
         db0::FixtureLock lock(fixture);
-        db0::object_model::List::makeNew(&list_object->ext(), *lock);
+        auto &list = py_list->modifyExt();
+        db0::object_model::List::makeNew(&list, *lock);
         if (nargs == 1) {
-            ObjectT_extend<ListObject>(list_object, args, nargs);
+            ObjectT_extend<ListObject>(py_list, args, nargs);
         }
         // register newly created list with py-object cache
-        fixture->getLangCache().add(list_object->ext().getAddress(), list_object, true);
-        return list_object;
+        fixture->getLangCache().add(list.getAddress(), py_list, true);
+        return py_list;
     }
     
     ListObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)

@@ -114,7 +114,7 @@ namespace db0::python
     }
 
     // Serializable's UUID implementation
-    PyObject *tryGetSerializableUUID(db0::serial::Serializable *self)
+    PyObject *tryGetSerializableUUID(const db0::serial::Serializable *self)
     {
         // return as base-32 string
         char buffer[db0::serial::Serializable::UUID_SIZE];

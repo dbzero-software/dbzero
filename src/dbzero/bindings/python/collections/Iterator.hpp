@@ -12,7 +12,8 @@ namespace db0::python
     }
 
     template <typename IteratorObjectT> 
-    void IteratorObject_del(IteratorObjectT* self) {
+    void IteratorObject_del(IteratorObjectT* self)
+    {
         // destroy associated DB0 instance
         // calls destructor of ext object
         self->destroy();
@@ -20,10 +21,10 @@ namespace db0::python
     }   
 
     template <typename IteratorObjectT, typename IteratorModelT, typename IteratorT, typename ObjectT>
-    IteratorObjectT *makeIterator(PyTypeObject& typeObject, IteratorT iterator, ObjectT * ptr) 
+    IteratorObjectT *makeIterator(PyTypeObject& typeObject, IteratorT iterator, const ObjectT * ptr)
     {        
         auto iterator_object = IteratorObject_new<IteratorObjectT>(&typeObject, NULL, NULL);
-        IteratorModelT::makeNew(&iterator_object->ext(), iterator, ptr);        
+        IteratorModelT::makeNew(&iterator_object->modifyExt(), iterator, ptr);
         return iterator_object;
     }
     
@@ -38,7 +39,7 @@ namespace db0::python
     PyObject *IteratorObject_iternext(IteratorObjectT *iter_obj)
     {
         if (iter_obj->ext() != iter_obj->ext().end()) {
-            return iter_obj->ext().next().steal();
+            return iter_obj->modifyExt().next().steal();
         } else {
             // raise stop iteration
             PyErr_SetNone(PyExc_StopIteration);

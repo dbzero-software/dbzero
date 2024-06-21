@@ -3,8 +3,8 @@
 namespace db0::object_model
 
 {
-    SetIterator::SetIterator(Set::iterator iterator, Set * ptr) 
-        : PyObjectIterator<SetIterator, Set>(iterator, ptr) 
+    SetIterator::SetIterator(Set::const_iterator iterator, const Set *ptr)
+        : PyObjectIterator<SetIterator, Set>(iterator, ptr)
     {
     }
 

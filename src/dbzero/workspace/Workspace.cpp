@@ -338,7 +338,7 @@ namespace db0
         }         
         fixture->commit();
     }
-
+    
     db0::swine_ptr<Fixture> Workspace::getCurrentFixture()
     {
         if (!m_default_fixture) {

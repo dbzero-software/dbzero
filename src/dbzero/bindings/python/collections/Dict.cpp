@@ -11,7 +11,7 @@ namespace db0::python
 
 {
 
-    using DictIteratorObject = PyWrapper<db0::object_model::DictIterator>;
+    using DictIteratorObject = PyWrapper<db0::object_model::DictIterator, false>;
 
     PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator",
                                                                               "DBZero dict iterator");
@@ -19,7 +19,7 @@ namespace db0::python
     DictIteratorObject *DictObject_iter(DictObject *self)
     {
         return makeIterator<DictIteratorObject,db0::object_model::DictIterator>(DictIteratorObjectType, 
-            self->ext().begin(), &self->ext());        
+            self->ext().begin(), &self->ext());
     }
     
     PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)
@@ -31,7 +31,7 @@ namespace db0::python
     int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
         auto hash = PyObject_Hash(key);
-        dict_obj->ext().setItem(hash, key, value);
+        dict_obj->modifyExt().setItem(hash, key, value);
         return 0;
     }
 
@@ -40,7 +40,7 @@ namespace db0::python
         dict_obj->ext().getFixture()->refreshIfUpdated();
         return dict_obj->ext().size();
     }
-
+    
     int DictObject_HasItem(DictObject *dict_obj, PyObject *key)
     {
         return dict_obj->ext().has_item(key);
@@ -146,14 +146,15 @@ namespace db0::python
     
     DictObject *makeDB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args, PyObject *kwargs)
     {
-        auto dict_object = DictObject_new(&DictObjectType, NULL, NULL);
+        auto py_dict = DictObject_new(&DictObjectType, NULL, NULL);
         db0::FixtureLock lock(fixture);
-        db0::object_model::Dict::makeNew(&dict_object->ext(), *lock);
+        auto &dict = py_dict->modifyExt();
+        db0::object_model::Dict::makeNew(&dict, *lock);
         // if args
-        DictObject_update(dict_object, args, kwargs);
+        DictObject_update(py_dict, args, kwargs);
         // register newly created dict with py-object cache
-        fixture->getLangCache().add(dict_object->ext().getAddress(), dict_object, true);
-        return dict_object;
+        fixture->getLangCache().add(dict.getAddress(), py_dict, true);
+        return py_dict;
     }
 
     DictObject *makeDict(PyObject *, PyObject* args, PyObject* kwargs)
@@ -164,21 +165,22 @@ namespace db0::python
     
     PyObject *DictObject_clear(DictObject *dict_obj)
     {
-        dict_obj->ext().clear();
+        dict_obj->modifyExt().clear();
         Py_RETURN_NONE;
     }
 
-    PyObject *DictObject_copy(DictObject *dict_obj)
+    PyObject *DictObject_copy(DictObject *py_src_dict)
     {
         // make actual DBZero instance, use default fixture
-        auto dict_object = DictObject_new(&DictObjectType, NULL, NULL);
-        auto lock = db0::FixtureLock(dict_obj->ext().getFixture());
-        dict_obj->ext().copy(&dict_object->ext(), *lock);
-        lock->getLangCache().add(dict_object->ext().getAddress(), dict_object, true);
-        return dict_object;
+        auto py_dict = DictObject_new(&DictObjectType, NULL, NULL);
+        auto lock = db0::FixtureLock(py_src_dict->ext().getFixture());
+        py_src_dict->ext().copy(&py_dict->modifyExt(), *lock);
+        lock->getLangCache().add(py_dict->ext().getAddress(), py_dict, true);
+        return py_dict;
     }
     
-    PyObject *DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs) {
+    PyObject *DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
         if (nargs < 1) {
             PyErr_SetString(PyExc_TypeError, " fromkeys expected at least 1 argument");
             return NULL;
@@ -190,10 +192,9 @@ namespace db0::python
             
         }
         // make actual DBZero instance, use default fixture
-        auto dict_object = DictObject_new(&DictObjectType, NULL, NULL);        
+        auto py_dict = DictObject_new(&DictObjectType, NULL, NULL);
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
-        db0::object_model::Dict::makeNew(&dict_object->ext(), *lock);
-        lock->getLangCache().add(dict_object->ext().getAddress(), dict_object, true);
+        db0::object_model::Dict::makeNew(&py_dict->modifyExt(), *lock);        
         PyObject *iterator = PyObject_GetIter(args[0]);
         PyObject *elem;
         PyObject *value = Py_None;
@@ -201,13 +202,15 @@ namespace db0::python
             value = args[1];
         }
         while ((elem = PyIter_Next(iterator))) {
-            DictObject_SetItem(dict_object, elem, value);
+            DictObject_SetItem(py_dict, elem, value);
         }
 
-        return dict_object;
+        lock->getLangCache().add(py_dict->ext().getAddress(), py_dict, true);
+        return py_dict;
     }
 
-    PyObject *DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs){
+    PyObject *DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
+    {
         if (nargs < 1) {
             PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
             return NULL;
@@ -229,7 +232,8 @@ namespace db0::python
         return value;
     }
 
-    PyObject *DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) {
+    PyObject *DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
+    {
         if(nargs < 1 ){
             PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
             return NULL;
@@ -246,7 +250,7 @@ namespace db0::python
             value = args[1];
         }
         if(dict_object->ext().has_item(elem)) {
-            auto obj = dict_object->ext().pop(elem);
+            auto obj = dict_object->modifyExt().pop(elem);
             return obj.steal();
         }
         if(value == nullptr){
@@ -257,7 +261,8 @@ namespace db0::python
         return value;
     }
 
-    PyObject *DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) {
+    PyObject *DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
+    {
         if(nargs < 1 ){
             PyErr_SetString(PyExc_TypeError, "setdefault expected at least 1 argument");
             return NULL;
@@ -304,5 +309,5 @@ namespace db0::python
     {   
         return Py_TYPE(object) == &DictObjectType;        
     }
-
+    
 }

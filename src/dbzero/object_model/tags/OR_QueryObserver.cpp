@@ -1,4 +1,5 @@
 #include "OR_QueryObserver.hpp"
+#include <dbzero/object_model/ObjectBase.hpp>
 
 namespace db0::object_model
 

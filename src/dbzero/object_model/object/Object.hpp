@@ -149,8 +149,8 @@ namespace db0::object_model
         
         // Assign language specific value as a field (to already initialized or uninitialized instance)
         void set(FixtureLock &, const char *field_name, ObjectPtr lang_value);
-        // Assign field of an uninitialized instance
-        void setPreInit(const char *field_name, ObjectPtr lang_value);
+        // Assign field of an uninitialized instance (assumed as a non-mutating operation)
+        void setPreInit(const char *field_name, ObjectPtr lang_value) const;
         
         ObjectSharedPtr get(const char *field_name) const;
         
@@ -212,17 +212,17 @@ namespace db0::object_model
         // Convert singleton into a regular instance
         void unSingleton();
 
-        void destroy();
+        void destroy() const;
                 
         bool isSingleton() const;
         
-        /**
-         * Mark the object as tag if necessary and return the tag value
-        */
-        std::uint64_t asTag();
-        
         bool isTag() const;
-        
+
+        /**
+         * Mark the object as tag if not already marked
+        */
+        void markAsTag();
+                
         // execute the function for all members
         void forAll(std::function<void(const std::string &, const XValue &)>) const;
         void forAll(std::function<void(const std::string &, ObjectSharedPtr)>) const;
@@ -283,9 +283,9 @@ namespace db0::object_model
 
         const KV_Index *tryGetKV_Index() const;   
 
-        void dropMembers();
+        void dropMembers() const;
 
-        void dropMember(db0::swine_ptr<Fixture> &, StorageClass, Value);
+        void dropMember(db0::swine_ptr<Fixture> &, StorageClass, Value) const;
 
         using TypeId = db0::bindings::TypeId;
         std::pair<TypeId, StorageClass> recognizeType(Fixture &, ObjectPtr lang_value) const;
