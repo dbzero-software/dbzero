@@ -57,6 +57,8 @@ namespace db0
             std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {},
             std::optional<std::size_t> sparse_index_node_size = {});
         
+        bool hasMemspace(const std::string &prefix_name) const;
+        
         /**
          * Commit all underlying read/write prefixes
         */
@@ -122,6 +124,8 @@ namespace db0
             std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});            
         virtual ~Workspace();
 
+        bool hasFixture(const std::string &prefix_name) const override;
+
         /**
          * Get current fixture for either read-only or read-write access
         */
@@ -140,20 +144,20 @@ namespace db0
          * Get existing fixture by UUID
          * if access type is specified then auto-open is also attmpted
         */
-        swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+        db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
         
-        swine_ptr<Fixture> getFixture(const std::string &prefix_name, 
+        db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, 
             std::optional<AccessType> = AccessType::READ_WRITE) override;
-        
+    
         /**
          * Find existing (opened) fixture or return nullptr
         */
-        swine_ptr<Fixture> tryFindFixture(const std::string &prefix_name) const;
+        db0::swine_ptr<Fixture> tryFindFixture(const std::string &prefix_name) const;
         
         /**
          * Find existing (opened) fixture or throw
         */
-        swine_ptr<Fixture> findFixture(const std::string &prefix_name) const;
+        db0::swine_ptr<Fixture> findFixture(const std::string &prefix_name) const;
 
         /**
          * Commit all underlying read/write prefixes

@@ -58,6 +58,10 @@ namespace db0
         return { prefix, allocator };
     }
     
+    bool BaseWorkspace::hasMemspace(const std::string &prefix_name) const {
+        return m_prefix_catalog.exists(m_prefix_catalog.getFileName(prefix_name).string());
+    }
+
     Memspace &BaseWorkspace::getMemspace(const std::string &prefix_name, AccessType access_type, std::optional<std::uint64_t> state_num,
         std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size)
@@ -242,6 +246,18 @@ namespace db0
         return it->second;
     }
     
+    bool Workspace::hasFixture(const std::string &prefix_name) const 
+    {
+        bool file_created = false;
+        auto uuid = getUUID(prefix_name);
+        auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();
+        if (it != m_fixtures.end()) {
+            return true;
+        }
+
+        return hasMemspace(prefix_name);
+    }
+
     db0::swine_ptr<Fixture> Workspace::tryFindFixture(const std::string &prefix_name) const
     {
         auto uuid = getUUID(prefix_name);
