@@ -6,6 +6,7 @@
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/pandas/Block.hpp>
 #include <dbzero/object_model/pandas/Dataframe.hpp>
+#include <dbzero/object_model/ObjectBase.hpp>
 
 namespace db0::object_model::pandas
 

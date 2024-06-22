@@ -63,7 +63,7 @@ namespace db0::object_model
         }
     };
     
-       template <typename AddressT, typename IndexT>
+    template <typename AddressT, typename IndexT>
     struct [[gnu::packed]] TypedIndex
     {
         AddressT m_index_address;
@@ -79,7 +79,7 @@ namespace db0::object_model
         {
         }
 
-        IndexT getIndex(Memspace & memspace){
+        IndexT getIndex(Memspace & memspace) const {
             return IndexT(memspace, m_index_address, m_type);
         }
         

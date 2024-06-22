@@ -63,6 +63,7 @@ namespace db0::python
         addStaticType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);        
         // Python datetime type
         addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
+        m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
     }
     
     PyTypeManager::TypeId PyTypeManager::getTypeId(TypeObjectPtr py_type) const
@@ -106,60 +107,116 @@ namespace db0::python
         return getTypeId(Py_TYPE(ptr));
     }
     
-    db0::object_model::Object &PyTypeManager::extractObject(ObjectPtr memo_ptr) const
+    const db0::object_model::Object &PyTypeManager::extractObject(ObjectPtr memo_ptr) const
     {
         if (!PyMemo_Check(memo_ptr)) {
             THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
         }
-        return reinterpret_cast<MemoObject*>(memo_ptr)->ext();
+        return reinterpret_cast<const MemoObject*>(memo_ptr)->ext();
     }
-    
-    db0::object_model::Object *PyTypeManager::tryExtractObject(ObjectPtr memo_ptr) const
+
+    db0::object_model::Object &PyTypeManager::extractMutableObject(ObjectPtr memo_ptr) const
+    {
+        if (!PyMemo_Check(memo_ptr)) {
+            THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
+        }
+        return reinterpret_cast<MemoObject*>(memo_ptr)->modifyExt();
+    }
+
+    const db0::object_model::Object *PyTypeManager::tryExtractObject(ObjectPtr memo_ptr) const
     {
         if (!PyMemo_Check(memo_ptr)) {
             return nullptr;
         }
-        return &reinterpret_cast<MemoObject*>(memo_ptr)->ext();
+        return &reinterpret_cast<const MemoObject*>(memo_ptr)->ext();
     }
 
-    db0::object_model::List &PyTypeManager::extractList(ObjectPtr list_ptr) const
+    db0::object_model::Object *PyTypeManager::tryExtractMutableObject(ObjectPtr memo_ptr) const
+    {
+        if (!PyMemo_Check(memo_ptr)) {
+            return nullptr;
+        }
+        return &reinterpret_cast<MemoObject*>(memo_ptr)->modifyExt();
+    }
+
+    const db0::object_model::List &PyTypeManager::extractList(ObjectPtr list_ptr) const
     {
         if (!ListObject_Check(list_ptr)) {
             THROWF(db0::InputException) << "Expected a list object" << THROWF_END;
         }
-        return reinterpret_cast<ListObject*>(list_ptr)->ext();
+        return reinterpret_cast<const ListObject*>(list_ptr)->ext();
     }
-    
-    db0::object_model::Set &PyTypeManager::extractSet(ObjectPtr set_ptr) const
+
+    db0::object_model::List &PyTypeManager::extractMutableList(ObjectPtr list_ptr) const
+    {
+        if (!ListObject_Check(list_ptr)) {
+            THROWF(db0::InputException) << "Expected a list object" << THROWF_END;
+        }
+        return reinterpret_cast<ListObject*>(list_ptr)->modifyExt();
+    }
+
+    const db0::object_model::Set &PyTypeManager::extractSet(ObjectPtr set_ptr) const
     {
         if (!SetObject_Check(set_ptr)) {
             THROWF(db0::InputException) << "Expected a set object" << THROWF_END;
         }
-        return reinterpret_cast<SetObject*>(set_ptr)->ext();
+        return reinterpret_cast<const SetObject*>(set_ptr)->ext();
     }
 
-    db0::object_model::pandas::Block &PyTypeManager::extractBlock(ObjectPtr memo_ptr) const
+    db0::object_model::Set &PyTypeManager::extractMutableSet(ObjectPtr set_ptr) const
+    {
+        if (!SetObject_Check(set_ptr)) {
+            THROWF(db0::InputException) << "Expected a set object" << THROWF_END;
+        }
+        return reinterpret_cast<SetObject*>(set_ptr)->modifyExt();
+    }
+
+    const db0::object_model::pandas::Block &PyTypeManager::extractBlock(ObjectPtr memo_ptr) const
     {
         if (!PandasBlock_Check(memo_ptr)) {
             THROWF(db0::InputException) << "Expected a Block object" << THROWF_END;
         }
-        return reinterpret_cast<db0::python::PandasBlockObject*>(memo_ptr)->ext();
+        return reinterpret_cast<const db0::python::PandasBlockObject*>(memo_ptr)->ext();
     }
 
-    db0::object_model::Tuple &PyTypeManager::extractTuple(ObjectPtr memo_ptr) const
+    db0::object_model::pandas::Block &PyTypeManager::extractMutableBlock(ObjectPtr memo_ptr) const
+    {
+        if (!PandasBlock_Check(memo_ptr)) {
+            THROWF(db0::InputException) << "Expected a Block object" << THROWF_END;
+        }
+        return reinterpret_cast<db0::python::PandasBlockObject*>(memo_ptr)->modifyExt();
+    }
+
+    const db0::object_model::Tuple &PyTypeManager::extractTuple(ObjectPtr memo_ptr) const
     {
         if (!TupleObject_Check(memo_ptr)) {
             THROWF(db0::InputException) << "Expected a Tuple object" << THROWF_END;
         }
-        return reinterpret_cast<db0::python::TupleObject*>(memo_ptr)->ext();
+        return reinterpret_cast<const db0::python::TupleObject*>(memo_ptr)->ext();
     }
 
-    db0::object_model::Dict &PyTypeManager::extractDict(ObjectPtr memo_ptr) const
+    db0::object_model::Tuple &PyTypeManager::extractMutableTuple(ObjectPtr memo_ptr) const
+    {
+        if (!TupleObject_Check(memo_ptr)) {
+            THROWF(db0::InputException) << "Expected a Tuple object" << THROWF_END;
+        }
+        return reinterpret_cast<db0::python::TupleObject*>(memo_ptr)->modifyExt();
+    }
+
+    const db0::object_model::Dict &PyTypeManager::extractDict(ObjectPtr memo_ptr) const
     {
         if (!DictObject_Check(memo_ptr)) {
             THROWF(db0::InputException) << "Expected a Dict object" << THROWF_END;
         }
-        return reinterpret_cast<db0::python::DictObject*>(memo_ptr)->ext();
+        return reinterpret_cast<const db0::python::DictObject*>(memo_ptr)->ext();
+    }
+
+    db0::object_model::Dict &PyTypeManager::extractMutableDict(ObjectPtr memo_ptr) const
+    {
+        if (!DictObject_Check(memo_ptr)) {
+            THROWF(db0::InputException) << "Expected a Dict object" << THROWF_END;
+        }
+        return reinterpret_cast<db0::python::DictObject*>(memo_ptr)->modifyExt();
     }
 
     db0::object_model::TagSet &PyTypeManager::extractTagSet(ObjectPtr tag_set_ptr) const
@@ -170,12 +227,20 @@ namespace db0::python
         return reinterpret_cast<db0::python::PyTagSet*>(tag_set_ptr)->m_tag_set;
     }
     
-    db0::object_model::Index &PyTypeManager::extractIndex(ObjectPtr index_ptr) const 
+    const db0::object_model::Index &PyTypeManager::extractIndex(ObjectPtr index_ptr) const 
     {
         if (!IndexObject_Check(index_ptr)) {
             THROWF(db0::InputException) << "Expected an Index object" << THROWF_END;
         }
         return reinterpret_cast<db0::python::IndexObject*>(index_ptr)->ext();
+    }
+
+    db0::object_model::Index &PyTypeManager::extractMutableIndex(ObjectPtr index_ptr) const
+    {
+        if (!IndexObject_Check(index_ptr)) {
+            THROWF(db0::InputException) << "Expected an Index object" << THROWF_END;
+        }
+        return reinterpret_cast<db0::python::IndexObject*>(index_ptr)->modifyExt();
     }
 
     const char *PyTypeManager::getPooledString(std::string str)
@@ -249,7 +314,7 @@ namespace db0::python
         if (!PyObjectIterator_Check(obj_ptr)) {
             THROWF(db0::InputException) << "Expected an ObjectIterator object" << THROWF_END;
         }
-        return *reinterpret_cast<PyObjectIterator*>(obj_ptr)->ext();
+        return *reinterpret_cast<PyObjectIterator*>(obj_ptr)->modifyExt();
     }
     
     bool PyTypeManager::isNull(ObjectPtr obj_ptr) const {
@@ -269,7 +334,7 @@ namespace db0::python
         if (!PyFieldDef_Check(py_object)) {
             THROWF(db0::InputException) << "Expected a FieldDef object" << THROWF_END;
         }
-        return reinterpret_cast<PyFieldDef*>(py_object)->ext();
+        return reinterpret_cast<PyFieldDef*>(py_object)->modifyExt();
     }
 
     void PyTypeManager::addEnum(PyEnum *py_enum) {
@@ -282,11 +347,15 @@ namespace db0::python
         // this is to allow future creation / retrieval of DBZero enums while keeping python objects alive
         for (auto &obj : m_enum_cache) {
             PyEnum *py_enum = reinterpret_cast<PyEnum*>(obj.get());
-            py_enum->ext().close();
+            py_enum->modifyExt().close();
         }
         for (auto &memo_type: m_type_cache) {
             PyMemoType_close(memo_type.second.get());
         }
+    }
+    
+    PyTypeManager::ObjectPtr PyTypeManager::getBadPrefixError() const {
+        return m_py_bad_prefix_error.get();
     }
 
 }

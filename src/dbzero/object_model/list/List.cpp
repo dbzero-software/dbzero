@@ -25,7 +25,7 @@ namespace db0::object_model
     {
     }
 
-    List::List(db0::swine_ptr<Fixture> &fixture, List& list)
+    List::List(db0::swine_ptr<Fixture> &fixture, const List &list)
         : super_t(fixture, list)
     {
     }
@@ -86,11 +86,11 @@ namespace db0::object_model
         return new (at_ptr) List(fixture, address);
     }
     
-    List * List::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
+    List * List::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const {
         return new (at_ptr) List(fixture, *this);
     }
     
-    std::size_t List::count(ObjectPtr lang_value)
+    std::size_t List::count(ObjectPtr lang_value) const
     {
         std::size_t count = 0;
         auto fixture = this->getFixture();
@@ -103,7 +103,7 @@ namespace db0::object_model
         return count;
     }
 
-    std::size_t List::index(ObjectPtr lang_value)
+    std::size_t List::index(ObjectPtr lang_value) const
     {
         std::size_t index = 0;
         auto fixture = this->getFixture();

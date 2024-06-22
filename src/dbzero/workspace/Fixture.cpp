@@ -9,7 +9,7 @@
 namespace db0
 
 {
-
+        
     std::uint32_t slot_index(std::uint32_t slot_num) {
         return slot_num - 1;
     }
@@ -169,13 +169,12 @@ namespace db0
         }
     }
     
-    db0::swine_ptr<Fixture> Fixture::getSnapshot(WorkspaceView &workspace_view) const
-    {
-        auto state_num = workspace_view.getStateNum();
-        auto prefix_snapshot = m_prefix->getSnapshot(state_num);
-        auto allocator_snapshot = std::make_shared<MetaAllocator>(prefix_snapshot, m_meta_allocator.getSlabRecyclerPtr());        
+    db0::swine_ptr<Fixture> Fixture::getSnapshot(Snapshot &workspace_view, std::optional<std::uint64_t> state_num) const
+    {        
+        auto px_snapshot = m_prefix->getSnapshot(state_num);
+        auto allocator_snapshot = std::make_shared<MetaAllocator>(px_snapshot, m_meta_allocator.getSlabRecyclerPtr());
         return db0::make_swine<Fixture>(
-            workspace_view, m_v_object_cache.getSharedObjectList(), prefix_snapshot, allocator_snapshot
+            workspace_view, m_v_object_cache.getSharedObjectList(), px_snapshot, allocator_snapshot
         );
     }
     
@@ -252,4 +251,8 @@ namespace db0
         return reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num)).makeAbsolute(address);
     }
     
+    bool Fixture::operator==(const Fixture &other) const {
+        return m_UUID == other.m_UUID;
+    }
+
 }

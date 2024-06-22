@@ -38,14 +38,12 @@ namespace db0::object_model
         ObjectSharedPtr getItem(std::size_t hash, ObjectPtr key_value) const;
         void setItem(std::size_t hash, ObjectPtr key, ObjectPtr value);
         
-
-
         static Dict *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Dict *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
         
-        bool has_item(PyObject * obj);
+        bool has_item(PyObject * obj) const;
 
-        Dict * copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture);
+        Dict *copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const;
 
         ObjectSharedPtr pop(ObjectPtr obj);
 
@@ -59,7 +57,7 @@ namespace db0::object_model
         // new dicts can only be created via factory members
         Dict(db0::swine_ptr<Fixture> &);
         Dict(db0::swine_ptr<Fixture> &, std::uint64_t address);
-        Dict(db0::swine_ptr<Fixture> &fixture, Dict& dict);
+        Dict(db0::swine_ptr<Fixture> &fixture, const Dict& dict);
         std::size_t m_size = 0;
     };
     

@@ -176,8 +176,11 @@ namespace db0::python
                 }
             }
             return Py_None;            
+        } else if (PyObjectIterator_Check(py_object)) {
+            auto &iter = reinterpret_cast<PyObjectIterator*>(py_object)->ext();
+            return PyUnicode_FromString(iter->getFixture()->getPrefix().getName().c_str());
         }
-
+        
         db0::swine_ptr<Fixture> fixture = getFixtureOf(py_object);
         if (!fixture) {
             return Py_None;
@@ -225,15 +228,16 @@ namespace db0::python
         return runSafe(tryRefresh, self, args);
     }
 
-    PyObject *getStateNum(PyObject *self, PyObject *args)
+    PyObject *getStateNum(PyObject *self, PyObject *args, PyObject *kwargs)
     { 
         const char *prefix_name = nullptr;
-        // parse default prefix name
-        if (!PyArg_ParseTuple(args, "|s", &prefix_name)) {
+        // optional prefix parameter
+        static const char *kwlist[] = {"prefix", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|s", const_cast<char**>(kwlist), &prefix_name)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
+        
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         db0::swine_ptr<Fixture> fixture;
         if (prefix_name) {
@@ -276,9 +280,46 @@ namespace db0::python
     PyObject *getDBMetrics(PyObject *self, PyObject *args) {
         return runSafe(tryGetDBMetrics, self, args);
     }
-    
-    PyObject *getSnapshot(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
-        return runSafe(tryGetSnapshot, self, args, nargs);
+
+    PyObject *getSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        // requested state number of the default fixture
+        std::optional<std::uint64_t> state_num;
+        // state numbers by prefix name
+        std::unordered_map<std::string, std::uint64_t> prefix_state_nums;
+        for (unsigned int i = 0; i < nargs; ++i) {
+            // can be either a number of a dict
+            if (PyLong_Check(args[i])) {
+                if (state_num) {
+                    PyErr_SetString(PyExc_TypeError, "Duplicate state_num argument");
+                    return NULL;
+                }
+                state_num = PyLong_AsUnsignedLong(args[i]);                
+            } else if (PyDict_Check(args[i])) {
+                PyObject *py_dict = args[i];
+                PyObject *py_key, *py_value;
+                Py_ssize_t pos = 0;
+                while (PyDict_Next(py_dict, &pos, &py_key, &py_value)) {
+                    if (!PyUnicode_Check(py_key) || !PyLong_Check(py_value)) {
+                        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+                        return NULL;
+                    }
+                    const char *prefix_name = PyUnicode_AsUTF8(py_key);
+                    std::uint64_t state_num = PyLong_AsUnsignedLong(py_value);
+                    // validate conflicting state numbers
+                    auto it = prefix_state_nums.find(prefix_name);
+                    if (it != prefix_state_nums.end() && it->second != state_num) {
+                        std::stringstream _str;
+                        _str << "Conflicting state numbers requested for the same prefix: " << prefix_name;
+                        PyErr_SetString(PyExc_TypeError, _str.str().c_str());
+                        return NULL;
+                    }
+                    prefix_state_nums[prefix_name] = state_num;
+                }
+            }
+        }
+        
+        return runSafe(tryGetSnapshot, state_num, prefix_state_nums);
     }
 
     PyObject *tryDescribeObject(PyObject *self, PyObject *args)
@@ -537,18 +578,18 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid argument type";
         }
         
-        auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->ext();
+        auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->modifyExt();
         auto split_query = splitBy(py_tag_list, *iter);
         PyObjectIterator *py_iter = PyObjectIteratorDefault_new();
         // create decorated iterator (either plain or typed)
         if (iter.isTyped()) {
             auto typed_iter = std::make_unique<TypedObjectIterator>(iter->getFixture(), std::move(split_query.first),
                 iter.m_typed_iterator_ptr->getType(), std::move(split_query.second), iter->getFilters());
-            Iterator::makeNew(&py_iter->ext(), std::move(typed_iter));
+            Iterator::makeNew(&py_iter->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::make_unique<ObjectIterator>(iter->getFixture(), std::move(split_query.first), 
                 std::move(split_query.second), iter->getFilters());
-            Iterator::makeNew(&py_iter->ext(), std::move(_iter));
+            Iterator::makeNew(&py_iter->modifyExt(), std::move(_iter));
         }
         return py_iter;
     }
@@ -603,16 +644,34 @@ namespace db0::python
         // create decorated iterator (either plain or typed)
         if (iter.isTyped()) {
             auto typed_iter = iter.m_typed_iterator_ptr->iterTyped(filters);
-            Iterator::makeNew(&py_iter->ext(), std::move(typed_iter));
+            Iterator::makeNew(&py_iter->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = iter->iter(filters);
-            Iterator::makeNew(&py_iter->ext(), std::move(_iter));
+            Iterator::makeNew(&py_iter->modifyExt(), std::move(_iter));
         }
         return py_iter;                
     }
     
     PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs) {
         return runSafe(tryFilterBy, args, kwargs);
-    }    
+    }
+    
+    PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
+        // extract object / prefix name (can be None)
+        PyObject *py_object = nullptr;
+        const char *prefix_name = nullptr;
+        static const char *kwlist[] = {"object", "prefix", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|z", const_cast<char**>(kwlist), &py_object, &prefix_name)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        if (!PyMemo_Check(py_object)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid object type");
+            return NULL;
+        }
+        return runSafe(PyMemo_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);        
+    }
 
 }

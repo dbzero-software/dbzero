@@ -48,7 +48,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
     {"find", (PyCFunction)&py::find, METH_FASTCALL, ""},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
-    {"get_state_num", &py::getStateNum, METH_VARARGS, ""},
+    {"get_state_num", (PyCFunction)&py::getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
     {"get_metrics", &py::getDBMetrics, METH_VARARGS, ""},
     {"snapshot", (PyCFunction)&py::getSnapshot, METH_FASTCALL, "Get snapshot of DBZero state"},
     {"describe", &py::describeObject, METH_VARARGS, "Get snapshot of DBZero state"},
@@ -65,6 +65,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"is_enum_value", (PyCFunction)&py::isEnumValue, METH_FASTCALL, "Check if parameter represents a DBZero enum value"},
     {"split_by", (PyCFunction)&py::splitBy, METH_VARARGS | METH_KEYWORDS, "Split query iterator by a given criteria"},
     {"filter", (PyCFunction)&py::filter, METH_VARARGS | METH_KEYWORDS, "Filter with a Python callable"},
+    {"set_prefix", (PyCFunction)&py::setPrefix, METH_VARARGS | METH_KEYWORDS, "Allows dynamically specifying object's prefix during initialization"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

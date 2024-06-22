@@ -4,8 +4,15 @@ import dbzero_ce as db0
 from typing import Any, Dict
 
 
+__px_fast_query = None
+
+def init_fast_query(prefix):
+    global __px_fast_query
+    __px_fast_query = prefix
+    
+
 class FastQuery:
-    def __init__(self, query, group_defs = None, uuid = None, sig = None, bytes = None):        
+    def __init__(self, query, group_defs=None, uuid=None, sig=None, bytes=None):
         self.__query = query
         # split query by all available group definitions
         for group_def in group_defs:
@@ -49,7 +56,7 @@ class FastQuery:
 
 
 class GroupDef:
-    def __init__(self, key_func = None, groups = None):
+    def __init__(self, key_func=None, groups=None):
         self.__key_func = key_func
         # extract decorators as the group identifier (may be one or more)
         self.key_func = key_func if key_func else lambda row: row[1:][0]
@@ -66,7 +73,8 @@ class GroupDef:
     
 @db0.memo(singleton=True)
 class FastQueryCache:
-    def __init__(self):
+    def __init__(self, prefix=None):
+        db0.set_prefix(self, prefix)
         # queries by signature
         self.__cache = {}
     
@@ -81,13 +89,12 @@ class FastQueryCache:
         
         # if the result with an identical uuid is found, return it
         if query.uuid in results:
-            return results[query.uuid]            
+            return results[query.uuid]
         
         # from the remaining results, pick the closest one
         min_diff = 1.0
         min_result = None
         for cached_result in results.values():
-            # FIXME: change to tuple unpack when fixed by Adrian
             diff = query.compare(cached_result[1])
             if diff < min_diff:
                 min_diff = diff
@@ -112,7 +119,8 @@ class FastQueryCache:
 
 @db0.memo
 class GroupByBucket:
-    def __init__(self):
+    def __init__(self, prefix=None):
+        db0.set_prefix(self, prefix)
         self.__count = 0
     
     def add(self, row):
@@ -126,15 +134,16 @@ class GroupByBucket:
     
     
 class GroupByEval:
-    def __init__(self, group_defs, data = None):
+    def __init__(self, group_defs, data=None, prefix=None):
         self.__data = data if data is not None else {}
+        self.__prefix = prefix
         if len(group_defs) == 1:
             group_def = group_defs[0]
             self.__group_builder = lambda row: group_def(row)
         else:
             self.__group_builder = lambda row: tuple(group_def(row) for group_def in group_defs)
 
-    def add(self, rows, max_scan = None):
+    def add(self, rows, max_scan=None):
         for row in rows:
             if max_scan is not None:
                 if max_scan == 0:
@@ -143,12 +152,12 @@ class GroupByEval:
             key = self.__group_builder(row)
             bucket = self.__data.get(key, None)
             if bucket is None:
-                bucket = GroupByBucket()
+                bucket = GroupByBucket(prefix=self.__prefix)
                 self.__data[key] = bucket
             bucket.add(row)
         return max_scan
     
-    def remove(self, rows, max_scan = None):
+    def remove(self, rows, max_scan=None):
         for row in rows:
             if max_scan is not None:
                 if max_scan == 0:
@@ -168,7 +177,9 @@ class MaxScanExceeded(Exception):
     pass
     
     
-def group_by(group_defs, query, max_scan = 1000) -> Dict:
+def group_by(group_defs, query, max_scan=1000) -> Dict:
+    global px_fast_query
+    px_data = db0.get_prefix(query)
     """
     Group query results by the given key
     """
@@ -201,23 +212,24 @@ def group_by(group_defs, query, max_scan = 1000) -> Dict:
             grop_def.split()
     
     def try_query_eval(fast_query, last_result, max_scan):
-        query_eval = GroupByEval(group_defs, last_result[2] if last_result is not None else None)
+        query_eval = GroupByEval(group_defs, last_result[2] if last_result is not None else None, prefix=__px_fast_query)
         if last_result is None:
             # no cached result, evaluate full query
             query_eval.add(fast_query.rows, max_scan)
         else:
             # evaluate from deltas
-            old_query = fast_query.rebase(db0.snapshot(last_result[0]))
+            old_query = fast_query.rebase(db0.snapshot({px_data: last_result[0]}))
             # insertions since last result
             limit = query_eval.add(delta(old_query, fast_query), max_scan)
             query_eval.remove(delta(fast_query, old_query), limit)
         return query_eval.release()
     
-    cache = FastQueryCache()
+    cache = FastQueryCache(prefix=__px_fast_query)
     last_result = cache.find_result(query)
     fast_query = FastQuery(query, group_defs)
     # do not limit max_scan when on a first transaction
-    max_scan = max_scan if db0.get_state_num() > 1 else None
+    state_num = db0.get_state_num(prefix=px_data)
+    max_scan = max_scan if state_num > 1 else None
     while True:
         try:
             return try_query_eval(fast_query, last_result, max_scan)
@@ -225,7 +237,6 @@ def group_by(group_defs, query, max_scan = 1000) -> Dict:
             max_scan = None
             # go back to the last finalized transaction and compute the result (possibly using deltas)
             # FIXME: change to db0.get_state_num(finalized = True) when feature available
-            state_num = db0.get_state_num() - 1
-            result = try_query_eval(fast_query.rebase(db0.snapshot(state_num)), last_result, max_scan)
+            result = try_query_eval(fast_query.rebase(db0.snapshot({px_data: state_num - 1})), last_result, max_scan)
             # update the cache with the result
-            last_result = cache.update(state_num, fast_query, result)
+            last_result = cache.update(state_num - 1, fast_query, result)

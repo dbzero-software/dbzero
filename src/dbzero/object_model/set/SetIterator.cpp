@@ -3,13 +3,13 @@
 namespace db0::object_model
 
 {
-    SetIterator::SetIterator(Set::iterator iterator, Set * ptr) 
-        : PyObjectIterator<SetIterator, Set>(iterator, ptr) 
+    SetIterator::SetIterator(Set::const_iterator iterator, const Set *ptr)
+        : PyObjectIterator<SetIterator, Set>(iterator, ptr)
     {
-        getJoinIterator();
+        setJoinIterator();
     }
 
-    void SetIterator::getJoinIterator()
+    void SetIterator::setJoinIterator()
     {
         if (m_iterator != m_collection->end())
         {
@@ -31,7 +31,7 @@ namespace db0::object_model
         if (m_join_iterator.is_end())
         {
             ++m_iterator;
-            getJoinIterator();
+            setJoinIterator();
         }
         return member;
     }

@@ -7,22 +7,23 @@ namespace db0::object_model
 
 {
 
-    void DictIterator::getJoinIterator()
+    void DictIterator::setJoinIterator()
     {
         if (m_iterator != m_collection->end())
         {
             auto [key, address] = *m_iterator;
             auto fixture = m_collection->getFixture();
-            m_index = address.getIndex(m_collection->getMemspace());
+            auto index = address.getIndex(m_collection->getMemspace());
+            m_index = index;
             m_join_iterator = m_index.beginJoin(1);
         }
     }
 
-    DictIterator::DictIterator(Dict::iterator iterator, Dict * ptr, IteratorType type) 
+    DictIterator::DictIterator(Dict::const_iterator iterator, const Dict * ptr, IteratorType type) 
         : PyObjectIterator<DictIterator, Dict>(iterator, ptr)
         , m_type(type) 
     {
-        getJoinIterator();
+        setJoinIterator();
     }
 
     DictIterator::DictItem DictIterator::nextItem()
@@ -37,7 +38,7 @@ namespace db0::object_model
         if (m_join_iterator.is_end())
         {
             ++m_iterator;
-            getJoinIterator();
+            setJoinIterator();
         }
         return dict_item;
     }
@@ -69,6 +70,24 @@ namespace db0::object_model
             }
         }
         return item.key;
+    }
+    
+    DictView::DictView(const Dict *dict, IteratorType type)
+        : m_collection(dict) 
+        , m_type(type)
+    {
+    }
+    
+    DictIterator *DictView::begin(void *at_ptr) const {
+        return new (at_ptr) DictIterator(m_collection->begin(), m_collection, m_type);
+    }
+
+    std::size_t DictView::size() const {
+        return m_collection->size();
+    }
+    
+    DictView *DictView::makeNew(void *at_ptr, const Dict *dict_ptr, IteratorType type) {
+        return new (at_ptr) DictView(dict_ptr, type);
     }
 
 }

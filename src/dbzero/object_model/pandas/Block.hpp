@@ -37,7 +37,8 @@ namespace db0::object_model::pandas
         static Block *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Block *unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address);
         void append(FixtureLock &, ObjectPtr lang_value);
-        ObjectSharedPtr getStorageClass();
+        
+        ObjectSharedPtr getStorageClass() const;
 
         void moveTo(db0::swine_ptr<Fixture> &);
 

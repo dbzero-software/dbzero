@@ -2,6 +2,7 @@
 #include "ClassFactory.hpp"
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/object_model/ObjectBase.hpp>
 
 namespace db0::object_model
 

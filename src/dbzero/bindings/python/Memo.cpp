@@ -48,7 +48,7 @@ namespace db0::python
         auto type = class_factory.getOrCreateType(py_type);
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
         // prepare a new DB0 instance of a known DB0 class
-        db0::object_model::Object::makeNew(&memo_obj->ext(), type);
+        db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type);
         return memo_obj;
     }
     
@@ -70,7 +70,7 @@ namespace db0::python
         
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
         // try unloading associated singleton if such exists
-        if (!type->unloadSingleton(&memo_obj->ext())) {
+        if (!type->unloadSingleton(&memo_obj->modifyExt())) {
             py_type->tp_dealloc(memo_obj);
             return nullptr;
         }
@@ -91,7 +91,7 @@ namespace db0::python
         auto type = class_factory.getOrCreateType(py_type);
         
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-        db0::object_model::Object::makeNew(&memo_obj->ext(), type);        
+        db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type);
         return memo_obj;
     }
     
@@ -120,14 +120,34 @@ namespace db0::python
         if (!self->ext().hasInstance()) {
             auto py_type = Py_TYPE(self);
             auto base_type = py_type->tp_base;
-
+            
             // invoke tp_init from base type (wrapped pyhon class)
             if (base_type->tp_init((PyObject*)self, args, kwds) < 0) {
+                PyObject *ptype, *pvalue, *ptraceback;
+                PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+                if (ptype == PyToolkit::getTypeManager().getBadPrefixError()) {
+                    // from pvalue
+                    std::uint64_t fixture_uuid = PyLong_AsUnsignedLong(pvalue);
+                    auto type = self->ext().getClassPtr();
+                    if (type->isExistingSingleton(fixture_uuid)) {
+                        // drop existing instance
+                        self->ext().destroy();
+                        // unload singleton from a different fixture
+                        if (!type->unloadSingleton(&self->modifyExt(), fixture_uuid)) {
+                            PyErr_SetString(PyExc_RuntimeError, "Unloading singleton failed");
+                            return -1;
+                        }
+                        return 0;
+                    }
+                }
+
+                // Unrecognized error
+                PyErr_Restore(ptype, pvalue, ptraceback);
                 return -1;
             }
-            
+
             // invoke post-init on associated DBZero object
-            auto &object = self->ext();
+            auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());
             object.postInit(fixture);
             // register weak-ref with the lang cache
@@ -143,7 +163,7 @@ namespace db0::python
         // singletons as unreferenced
         if (memo_obj->ext().isSingleton()) {
             // the acutal destroy will be performed by the GC0
-            memo_obj->ext().unSingleton();
+            memo_obj->modifyExt().unSingleton();
             return;
         }
 
@@ -158,7 +178,7 @@ namespace db0::python
         
         // create a null placeholder in place of the original instance to mark as deleted
         memo_obj->ext().~Object();
-        db0::object_model::Object::makeNull(&memo_obj->ext());
+        db0::object_model::Object::makeNull((void*)(&memo_obj->ext()));
     }
     
     PyObject *tryMemoObject_getattro(MemoObject *self, PyObject *attr)
@@ -192,13 +212,13 @@ namespace db0::python
                 db0::FixtureLock lock(self->ext().getFixture());
                 db0::object_model::materialize(lock, value);
             }
-
-            auto &memo = self->ext();
-            if (memo.hasInstance()) {
+            
+            if (self->ext().hasInstance()) {
                 db0::FixtureLock lock(self->ext().getFixture());
-                memo.set(lock, PyUnicode_AsUTF8(attr), value);
+                self->modifyExt().set(lock, PyUnicode_AsUTF8(attr), value);
             } else {
-                memo.setPreInit(PyUnicode_AsUTF8(attr), value);
+                // considered as a non-mutating operation
+                self->ext().setPreInit(PyUnicode_AsUTF8(attr), value);
             }
         } catch (const std::exception &e) {
             Py_XDECREF(value);
@@ -321,7 +341,7 @@ namespace db0::python
         new_type->tp_name = full_type_name;
         // remove Py_TPFLAGS_READY flag so that the type can be initialized by the PyType_Ready
         new_type->tp_flags = py_class->tp_flags & ~Py_TPFLAGS_READY;
-        // extend basic size with pointer to a DBZero object instance        
+        // extend basic size with pointer to a DBZero object instance
         new_type->tp_basicsize = py_class->tp_basicsize + sizeof(db0::object_model::Object);
         // distinguish between singleton and non-singleton types
         new_type->tp_new = is_singleton ? reinterpret_cast<newfunc>(MemoObject_new_singleton) : reinterpret_cast<newfunc>(MemoObject_new);
@@ -477,4 +497,15 @@ namespace db0::python
         decor.close();
     }
     
+    PyObject *PyMemo_set_prefix(MemoObject *py_obj, const char *prefix_name)
+    {
+        if (prefix_name) {
+            auto &obj = py_obj->modifyExt();
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix_name, AccessType::READ_WRITE);
+            db0::FixtureLock lock(fixture);
+            obj.setFixture(*lock);
+        }
+        return Py_None;
+    }
+
 }

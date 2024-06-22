@@ -40,8 +40,8 @@ namespace db0::object_model
     {
     }
 
-    Dict::Dict(db0::swine_ptr<Fixture> &fixture, Dict& dict)
-    : super_t(fixture)
+    Dict::Dict(db0::swine_ptr<Fixture> &fixture, const Dict& dict)
+        : super_t(fixture)
     {
         bulkInsert(dict.begin(), dict.end());
         m_size = dict.size();
@@ -126,13 +126,14 @@ namespace db0::object_model
         return new (at_ptr) Dict(fixture, address);
     }
 
-    bool Dict::has_item(ObjectPtr obj) {
+    bool Dict::has_item(ObjectPtr obj) const 
+    {
         auto hash = PyObject_Hash(obj);
         auto iter = find(hash);
         return iter != end();
     }
 
-    Dict *Dict::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
+    Dict *Dict::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const {
         return new (at_ptr) Dict(fixture, *this);
     }
 

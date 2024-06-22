@@ -153,7 +153,9 @@ namespace db0::python
         }
         
         static std::string getLastError();
-        
+        // indicate failed operation with a specific value/code
+        static void setError(ObjectPtr err_obj, std::uint64_t err_value);
+
     private:
         static TypeManager m_type_manager;
         static PyWorkspace m_py_workspace;

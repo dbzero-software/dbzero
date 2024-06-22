@@ -142,7 +142,8 @@ namespace db0
         */
         swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
         
-        swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) override;
+        swine_ptr<Fixture> getFixture(const std::string &prefix_name, 
+            std::optional<AccessType> = AccessType::READ_WRITE) override;
         
         /**
          * Find existing (opened) fixture or return nullptr

@@ -94,13 +94,13 @@ namespace db0::object_model
         std::function<void(std::uint64_t)> add_callback = [&](std::uint64_t address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
-            m_type_manager.extractObject(it->second.get()).incRef();
+            m_type_manager.extractMutableObject(it->second.get()).incRef();
         };
 
         std::function<void(std::uint64_t)> erase_callback = [&](std::uint64_t address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
-            m_type_manager.extractObject(it->second.get()).decRef();
+            m_type_manager.extractMutableObject(it->second.get()).decRef();
         };
 
         super_t::flush(index, &add_callback, &erase_callback);

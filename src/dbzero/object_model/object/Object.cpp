@@ -16,7 +16,7 @@ namespace db0::object_model
     
     GC0_Define(Object)
     thread_local ObjectInitializerManager Object::m_init_manager;
-    
+
     std::uint32_t classRef(const Class &db0_class)
     {        
         auto address = db0_class.getAddress();
@@ -180,7 +180,7 @@ namespace db0::object_model
         return { type_id, storage_class };
     }
 
-    void Object::setPreInit(const char *field_name, ObjectPtr lang_value)
+    void Object::setPreInit(const char *field_name, ObjectPtr lang_value) const
     {
         assert(!hasInstance());
         auto &initializer = m_init_manager.getInitializer(*this);
@@ -360,7 +360,7 @@ namespace db0::object_model
         return getType().isSingleton();
     }
     
-    void Object::dropMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value)
+    void Object::dropMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value) const
     {
         if (type == StorageClass::OBJECT_REF) {
             Object instance(fixture, value.cast<std::uint64_t>());
@@ -369,7 +369,7 @@ namespace db0::object_model
         }
     }
     
-    void Object::dropMembers()
+    void Object::dropMembers() const
     {
         if (hasInstance()) {
             auto fixture = this->getFixture();
@@ -412,7 +412,7 @@ namespace db0::object_model
         }
     }
 
-    void Object::destroy()
+    void Object::destroy() const
     {
         dropMembers();
         super_t::destroy();
@@ -470,14 +470,13 @@ namespace db0::object_model
     Class &Object::getType() {
         return m_type ? *m_type : m_init_manager.getInitializer(*this).getClass();
     }
-
-    std::uint64_t Object::asTag()
+    
+    void Object::markAsTag()
     {
         if (!(*this)->m_flags.test(ObjectOptions::IS_TAG)) {
             // mark object as tag
             modify().m_flags.set(ObjectOptions::IS_TAG);
-        }
-        return getAddress();
+        }        
     }
 
     bool Object::isTag() const {
@@ -553,5 +552,30 @@ namespace db0::object_model
     void Object::moveTo(db0::swine_ptr<Fixture> &) {
         throw std::runtime_error("Not implemented");
     }
-
+    
+    void Object::setFixture(db0::swine_ptr<Fixture> &fixture)
+    {        
+        if (*getFixture() == *fixture) {
+            // already in the same fixture
+            return;
+        }
+        if (hasInstance()) {
+            THROWF(db0::InputException) << "set_prefix failed: object already initialized";
+        }
+        if (!m_init_manager.getInitializer(*this).empty()) {
+            THROWF(db0::InputException) << "set_prefix failed: object must not define any members";
+        }
+        
+        auto &class_factory = fixture->get<ClassFactory>();
+        auto new_type = class_factory.getOrCreateType(this->getType().getLangClass().get());
+        if (new_type->isExistingSingleton()) {
+            // cannot initialize existing singleton, signal problem with PyErr_BadPrefix
+            LangToolkit::setError(LangToolkit::getTypeManager().getBadPrefixError(), fixture->getUUID());
+            return;
+        }
+        
+        // switch to a type located on a different fixture (translated)
+        m_init_manager.getInitializer(*this).setClass(new_type);        
+    }
+    
 }

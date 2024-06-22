@@ -58,8 +58,7 @@ namespace db0::python
         // construct Python's memo object (placeholder for actual DBZero instance)
         auto memo_object = MemoObjectStub_new(type->getLangClass().steal());
         // unload from stem
-        db0::object_model::Object::unload(&memo_object->ext(), std::move(stem), type);
-
+        db0::object_model::Object::unload(&memo_object->modifyExt(), std::move(stem), type);
         return memo_object;
     }
     
@@ -67,7 +66,7 @@ namespace db0::python
         std::shared_ptr<Class> type, std::optional<std::uint32_t> instance_id)
     {
         auto memo_object = MemoObjectStub_new(type->getLangClass().steal());        
-        db0::object_model::Object::unload(&memo_object->ext(), address, type);
+        db0::object_model::Object::unload(&memo_object->modifyExt(), address, type);
         return memo_object;
     }
     
@@ -83,7 +82,7 @@ namespace db0::python
 
         auto block_object = BlockDefaultObject_new();
         // retrieve actual DBZero instance        
-        db0::object_model::pandas::Block::unload(&block_object->ext(), fixture, address);
+        db0::object_model::pandas::Block::unload(&block_object->modifyExt(), fixture, address);
         // add blockobject to cache (weak ref)
         lang_cache.add(address, block_object, false);
         return block_object;
@@ -102,7 +101,7 @@ namespace db0::python
         
         auto list_object = ListDefaultObject_new();
         // retrieve actual DBZero instance        
-        db0::object_model::List::unload(&list_object->ext(), fixture, address);
+        db0::object_model::List::unload(&list_object->modifyExt(), fixture, address);
         
         // validate instance_id
         if (instance_id && *instance_id != list_object->ext()->m_instance_id) {
@@ -128,7 +127,7 @@ namespace db0::python
         
         auto index_object = IndexDefaultObject_new();
         // retrieve actual DBZero instance        
-        db0::object_model::Index::unload(&index_object->ext(), fixture, address);
+        db0::object_model::Index::unload(&index_object->modifyExt(), fixture, address);
         
         // validate instance_id
         if (instance_id && *instance_id != index_object->ext()->m_instance_id) {
@@ -154,7 +153,7 @@ namespace db0::python
         
         auto set_object = SetDefaultObject_new();
         // retrieve actual DBZero instance        
-        db0::object_model::Set::unload(&set_object->ext(), fixture, address);
+        db0::object_model::Set::unload(&set_object->modifyExt(), fixture, address);
     
 
         // add list object to cache
@@ -175,7 +174,7 @@ namespace db0::python
         
         auto dict_object = DictDefaultObject_new();
         // retrieve actual DBZero instance        
-        db0::object_model::Dict::unload(&dict_object->ext(), fixture, address);
+        db0::object_model::Dict::unload(&dict_object->modifyExt(), fixture, address);
     
         // add list object to cache
         lang_cache.add(address, dict_object, false);
@@ -195,7 +194,7 @@ namespace db0::python
         
         auto tuple_object = TupleDefaultObject_new();
         // retrieve actual DBZero instance        
-        db0::object_model::Tuple::unload(&tuple_object->ext(), fixture, address);
+        db0::object_model::Tuple::unload(&tuple_object->modifyExt(), fixture, address);
 
         // add list object to cache
         lang_cache.add(address, tuple_object, false);
@@ -207,7 +206,7 @@ namespace db0::python
     {
         auto obj_iter = db0::object_model::ObjectIterator::deserialize(fixture, iter, end);
         auto py_iter = PyObjectIteratorDefault_new();
-        Iterator::makeNew(&py_iter->ext(), std::move(obj_iter));
+        Iterator::makeNew(&py_iter->modifyExt(), std::move(obj_iter));
         return py_iter;
     }
     
@@ -330,6 +329,10 @@ namespace db0::python
 
     bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
         return PyMemoType_Check(py_type);
+    }
+
+    void PyToolkit::setError(ObjectPtr err_obj, std::uint64_t err_value) {
+        PyErr_SetObject(err_obj, PyLong_FromUnsignedLongLong(err_value));
     }
 
 }

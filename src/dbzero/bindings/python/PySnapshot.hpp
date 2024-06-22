@@ -9,7 +9,7 @@ namespace db0::python
 
 {
     
-    using PySnapshotObject = PyWrapper<db0::WorkspaceView>;
+    using PySnapshotObject = PyWrapper<db0::WorkspaceView, false>;
     
     PySnapshotObject *PySnapshot_new(PyTypeObject *type, PyObject *, PyObject *);
     PySnapshotObject *PySnapshotDefault_new();
@@ -17,7 +17,8 @@ namespace db0::python
     
     extern PyTypeObject PySnapshotObjectType;
     
-    PySnapshotObject *makeSnapshot(PyObject *, PyObject *args);
+    PySnapshotObject *tryGetSnapshot(std::optional<std::uint64_t> state_num,
+        const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums);
     bool PySnapshot_Check(PyObject *);
     
     PyObject *PySnapshot_fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
@@ -28,8 +29,7 @@ namespace db0::python
     PyObject *PySnapshot_enter(PyObject *, PyObject *);
     PyObject *PySnapshot_exit(PyObject *, PyObject *);
     
-    db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject);
-    PySnapshotObject *tryGetSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject);    
 
     template <> bool Which_TypeCheck<PySnapshotObject>(PyObject *py_object);
     

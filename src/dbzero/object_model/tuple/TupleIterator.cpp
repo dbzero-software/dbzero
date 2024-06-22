@@ -3,7 +3,8 @@
 namespace db0::object_model
 
 {
-    TupleIterator::TupleIterator(Tuple::iterator iterator, Tuple * ptr) 
+
+    TupleIterator::TupleIterator(Tuple::const_iterator iterator, const Tuple *ptr)
         : PyObjectIterator<TupleIterator, Tuple>(iterator, ptr) 
     {
     }
@@ -15,7 +16,7 @@ namespace db0::object_model
         return unloadMember<LangToolkit>(fixture, storage_class, value);
     }
     
-    bool TupleIterator::is_end() {
+    bool TupleIterator::is_end() const {
         return m_iterator == m_collection->getData()->items().end();
     }
     

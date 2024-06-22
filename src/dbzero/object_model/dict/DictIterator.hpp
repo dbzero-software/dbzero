@@ -22,51 +22,39 @@ namespace db0::object_model
         DictIndex::joinable_const_iterator m_join_iterator;
         IteratorType m_type;
         DictIndex m_index;
-        void getJoinIterator();
+        void setJoinIterator();
         public:
 
-            struct DictItem {
+        struct DictItem {
 
-                DictItem(ObjectSharedPtr p_key, ObjectSharedPtr p_value) : key(p_key), value(p_value) {
-                }
+            DictItem(ObjectSharedPtr p_key, ObjectSharedPtr p_value) : key(p_key), value(p_value) {
+            }
 
-                ObjectSharedPtr key;
-                ObjectSharedPtr value;
-            };
+            ObjectSharedPtr key;
+            ObjectSharedPtr value;
+        };
 
-            DictItem nextItem();
-            ObjectSharedPtr nextValue();
-            ObjectSharedPtr nextKey();
-            ObjectSharedPtr next() override;
+        DictItem nextItem();
+        ObjectSharedPtr nextValue();
+        ObjectSharedPtr nextKey();
+        ObjectSharedPtr next() override;
 
-            DictIterator(Dict::iterator iterator, Dict * ptr, IteratorType type = IteratorType::KEYS);
-
-            bool is_end();
+        DictIterator(Dict::const_iterator iterator, const Dict *, IteratorType type = IteratorType::KEYS);
     };
 
-    class DictView {
+    class DictView 
+    {
+    public:
+        DictView(const Dict *dict, IteratorType type);
 
-        public:
+        DictIterator *begin(void *at_ptr) const;
+        std::size_t size() const;
 
-            DictView(Dict * dict, IteratorType type) : m_collection(dict) , m_type(type){
-            }
-
-            DictIterator *begin(void *at_ptr) {
-                return new (at_ptr) DictIterator(m_collection->begin(), m_collection, m_type);
-            }
-
-            Py_ssize_t size() {
-                return m_collection->size();
-            }
-
-            static DictView *makeNew(void *at_ptr, Dict * dict , IteratorType type)
-            {
-                return new (at_ptr) DictView(dict, type);
-            }
-
-        private:
-            Dict * m_collection;
-            IteratorType m_type;
+        static DictView *makeNew(void *at_ptr, const Dict *, IteratorType type);
+    
+    private:
+        const Dict *m_collection;
+        IteratorType m_type;
     };
 
 }

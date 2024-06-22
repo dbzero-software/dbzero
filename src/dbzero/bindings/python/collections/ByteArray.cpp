@@ -8,6 +8,7 @@
 #include <dbzero/bindings/python/Utils.hpp>
 
 namespace db0::python
+
 {
 
     static PySequenceMethods ByteArrayObject_sq = getPySequenceMehods<ByteArrayObject>();
@@ -18,7 +19,7 @@ namespace db0::python
         auto size = PyBytes_GET_SIZE(py_bytes);
         auto *str = PyBytes_AsString(py_bytes);
         std::byte * bytes = reinterpret_cast<std::byte *>(str);
-        db0::object_model::ByteArray::makeNew(&bytearray_object->ext(), fixture, bytes, size);
+        db0::object_model::ByteArray::makeNew(&bytearray_object->modifyExt(), fixture, bytes, size);
         return bytearray_object;
     }
 
@@ -125,8 +126,8 @@ namespace db0::python
             auto *str = PyBytes_AsString(arg);
             return PyLong_FromLong(object_inst->ext().count(reinterpret_cast<std::byte *>(str), size));
         } else if (ByteArrayObject_Check(arg)) {
-            auto arg_array = reinterpret_cast<ByteArrayObject *>(arg);
-            return PyLong_FromLong(object_inst->ext().count(arg_array->ext(), arg_array->ext().size()));
+            auto py_array = reinterpret_cast<ByteArrayObject *>(arg);
+            return PyLong_FromLong(object_inst->ext().count(py_array->ext(), py_array->ext().size()));
         } else {
             PyErr_SetString(PyExc_TypeError, "count() takes an integer, bytearray or bytes as argument");
             return NULL;

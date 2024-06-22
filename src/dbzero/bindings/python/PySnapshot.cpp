@@ -48,28 +48,14 @@ namespace db0::python
     bool PySnapshot_Check(PyObject *object) {
         return Py_TYPE(object) == &PySnapshotObjectType;
     }
-
-    PySnapshotObject *makeSnapshot(std::optional<std::uint64_t> state_num)
+    
+    PySnapshotObject *tryGetSnapshot(std::optional<std::uint64_t> state_num,
+        const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums)
     {    
         auto py_object = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
         auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
-        // make a workspace view
-        db0::WorkspaceView::makeNew(&py_object->ext(), workspace_ptr, state_num);
+        db0::WorkspaceView::makeNew(&py_object->modifyExt(), workspace_ptr, state_num, prefix_state_nums);
         return py_object;
-    }
-
-    PySnapshotObject *tryGetSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        if (nargs > 1) {
-            THROWF(db0::InputException) << "Too many arguments";
-        }
-
-        std::optional<std::uint64_t> state_num;
-        if (nargs == 1) {
-            state_num = PyToolkit::getTypeManager().extractUInt64(args[0]);
-        }
-
-        return makeSnapshot(state_num);
     }
     
     PyObject *tryPySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -79,7 +65,7 @@ namespace db0::python
             return NULL;
         }
 
-        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->ext();
+        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         return tryFetchFrom(snapshot, args, nargs);
     }
 
@@ -90,7 +76,7 @@ namespace db0::python
             return NULL;
         }
 
-        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->ext();
+        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         return findIn(snapshot, args, nargs);
     }
 
@@ -115,7 +101,7 @@ namespace db0::python
         if (snapshot == nullptr) {
             return nullptr;
         }
-        return &snapshot->ext();
+        return &snapshot->modifyExt();
     }
     
     template <> bool Which_TypeCheck<PySnapshotObject>(PyObject *py_object) {
@@ -129,7 +115,7 @@ namespace db0::python
             return NULL;
         }
         
-        reinterpret_cast<PySnapshotObject*>(self)->ext().close();        
+        reinterpret_cast<PySnapshotObject*>(self)->modifyExt().close();
         Py_RETURN_NONE;
     }
     
@@ -145,7 +131,7 @@ namespace db0::python
             return NULL;
         }
         
-        auto &workspace = reinterpret_cast<PySnapshotObject*>(self)->ext();        
+        auto &workspace = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         return runSafe(tryDeserialize, &workspace, args[0]);
     }
     

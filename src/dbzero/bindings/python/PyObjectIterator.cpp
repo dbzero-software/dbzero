@@ -63,10 +63,10 @@ namespace db0::python
         }
         return tuple;
     }
-
+    
     PyObject *PyObjectIterator_iternext(PyObjectIterator *iter_obj)
-    {        
-        auto &iter = *iter_obj->ext();
+    {
+        auto &iter = *iter_obj->modifyExt();
         auto py_item = iter.next();
         if (py_item) {
             if (iter.numDecorators() > 0) {
@@ -93,14 +93,14 @@ namespace db0::python
             return NULL;
         }
 
-        const auto &iter = *reinterpret_cast<PyObjectIterator*>(self)->ext();
-        double diff = iter.compareTo(*reinterpret_cast<PyObjectIterator*>(args[0])->ext());
+        const auto &iter = *reinterpret_cast<const PyObjectIterator*>(self)->ext();
+        double diff = iter.compareTo(*reinterpret_cast<const PyObjectIterator*>(args[0])->ext());
         return PyFloat_FromDouble(diff);
     }
     
     PyObject *PyObjectIterator_signature(PyObject *self, PyObject*)
     {
-        const auto &iter = *reinterpret_cast<PyObjectIterator*>(self)->ext();
+        const auto &iter = *reinterpret_cast<const PyObjectIterator*>(self)->ext();
         auto signature = iter.getSignature();
         // encode as base32
         std::vector<char> result_buf(signature.size() * 2 + 1);

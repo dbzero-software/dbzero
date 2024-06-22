@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .memo_test_types import MemoTestClass, MemoTestPxClass, MemoTestSingleton
 
 
 def test_memo_objects_can_be_created_on_different_prefixes(db0_fixture):
@@ -53,3 +53,17 @@ def test_can_commit_specific_prefix(db0_fixture):
     db0.open(other_prefix_name)
     object_1 = MemoTestClass(123)    
     db0.commit(other_prefix_name)
+
+
+def test_get_prefix_of_query(db0_fixture, memo_tags):
+    query = db0.find(MemoTestClass, "tag1")
+    assert db0.get_prefix(query) == db0.get_current_prefix()
+
+
+def test_get_state_num_of_specific_prefix(db0_fixture, memo_tags):
+    px_name = "some-other-prefix"
+    object_1 = MemoTestPxClass(123, prefix=px_name)
+    db0.commit(px_name)
+    assert db0.get_current_prefix() != px_name
+    assert db0.get_state_num(px_name) != db0.get_state_num()
+    assert db0.get_state_num(prefix=px_name) != db0.get_state_num()

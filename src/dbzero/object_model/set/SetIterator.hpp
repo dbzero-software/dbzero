@@ -15,10 +15,10 @@ namespace db0::object_model
     {
             SetIndex::joinable_const_iterator m_join_iterator;
             SetIndex m_index;
-            void getJoinIterator();
+            void setJoinIterator();
         public:
             ObjectSharedPtr next() override;
-            SetIterator(Set::iterator iterator, Set * ptr);
+            SetIterator(Set::const_iterator iterator, const Set * ptr);
     };
 
 }
