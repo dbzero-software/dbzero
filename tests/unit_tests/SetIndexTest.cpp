@@ -45,7 +45,6 @@ namespace tests
 
         auto index2 = typed_index.getIndex(memspace);
         auto it2 = index2.beginJoin(1);
-        std::cerr << "IT 2 value " << (*it2).m_value.m_store << std::endl;
         ASSERT_TRUE((*it2).m_value == 1);
 
     }

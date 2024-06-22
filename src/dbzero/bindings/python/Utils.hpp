@@ -32,13 +32,10 @@ namespace db0::python
     bool has_all_elements_in_collection(PyCollection *collection, PyObject *object){
         PyObject* elem;
         PyObject* iterator = PyObject_GetIter(object);
-        int index = 0;
         while ((elem = PyIter_Next(iterator))) {
             if(!collection->ext().has_item(elem)){
-                std::cerr << "COMPARE 2 FALSE " << index << std::endl;
                 return false;
             }
-            ++index;
             Py_DECREF(elem);
         }
         Py_DECREF(iterator);
