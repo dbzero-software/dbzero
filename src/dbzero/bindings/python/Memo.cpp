@@ -239,7 +239,6 @@ namespace db0::python
         if (PyMemo_Check(other)) {
             eq_result = isEqual(memo_obj, reinterpret_cast<MemoObject*>(other));
         }
-
         switch (op)
         {
             case Py_EQ:

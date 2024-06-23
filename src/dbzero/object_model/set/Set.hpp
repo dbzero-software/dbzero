@@ -20,8 +20,10 @@ namespace db0::object_model
 {
 
     using Fixture = db0::Fixture;
-    using set_item = db0::key_value<std::uint64_t, o_typed_item>;
-    
+    using TypedItem_Address = ValueT_Address<o_typed_item>;
+    using SetIndex = CollectionIndex<o_typed_item, TypedItem_Address>;
+    using set_item = db0::key_value<std::uint64_t, TypedIndex<TypedItem_Address, SetIndex>>;
+
     class Set: public db0::ObjectBase<Set, v_bindex<set_item>, StorageClass::DB0_SET>
     {
         GC0_Declare
@@ -32,8 +34,8 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         
         void append(FixtureLock &, std::size_t key, ObjectPtr lang_value);
-        bool remove(FixtureLock &, std::size_t key);
-        ObjectSharedPtr getItem(std::size_t i) const;
+        bool remove(FixtureLock &, std::size_t key, ObjectPtr key_value);
+        ObjectSharedPtr getItem(std::size_t i, ObjectPtr key_value) const;
         void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
         
         static Set *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
@@ -46,13 +48,16 @@ namespace db0::object_model
         Set::ObjectSharedPtr pop();
         bool has_item(PyObject * obj) const;
 
+        std::size_t size() const { return m_size; }
+        void clear() { v_bindex::clear(); m_size = 0; }
+        void insert(const Set &set);
         void moveTo(db0::swine_ptr<Fixture> &);
-
     private:
         // new sets can only be created via factory members
         Set(db0::swine_ptr<Fixture> &);
         Set(db0::swine_ptr<Fixture> &, std::uint64_t address);
-        Set(db0::swine_ptr<Fixture> &fixture, const Set &);
+        Set(db0::swine_ptr<Fixture> &fixture, const Set& set);
+        std::size_t m_size = 0;
     };
     
 }

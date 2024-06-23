@@ -6,19 +6,40 @@
 namespace db0::object_model
 
 {
-    DictIterator::DictIterator(Dict::const_iterator iterator, const Dict *ptr, IteratorType type)
+
+    void DictIterator::setJoinIterator()
+    {
+        if (m_iterator != m_collection->end())
+        {
+            auto [key, address] = *m_iterator;
+            auto fixture = m_collection->getFixture();
+            auto index = address.getIndex(m_collection->getMemspace());
+            m_index = index;
+            m_join_iterator = m_index.beginJoin(1);
+        }
+    }
+
+    DictIterator::DictIterator(Dict::const_iterator iterator, const Dict * ptr, IteratorType type) 
         : PyObjectIterator<DictIterator, Dict>(iterator, ptr)
         , m_type(type) 
     {
+        setJoinIterator();
     }
 
     DictIterator::DictItem DictIterator::nextItem()
     {
-        auto [key, item] = *m_iterator;
+
         auto fixture = m_collection->getFixture();
-        DictItem dict_item(unloadMember<LangToolkit>(fixture, item.m_first),
-                           unloadMember<LangToolkit>(fixture, item.m_second));
-        ++m_iterator;
+        auto [key, value] = *m_join_iterator;
+
+        DictItem dict_item(unloadMember<LangToolkit>(fixture, key),
+                           unloadMember<LangToolkit>(fixture, value));
+        ++m_join_iterator;
+        if (m_join_iterator.is_end())
+        {
+            ++m_iterator;
+            setJoinIterator();
+        }
         return dict_item;
     }
 

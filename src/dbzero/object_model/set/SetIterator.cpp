@@ -6,15 +6,34 @@ namespace db0::object_model
     SetIterator::SetIterator(Set::const_iterator iterator, const Set *ptr)
         : PyObjectIterator<SetIterator, Set>(iterator, ptr)
     {
+        setJoinIterator();
     }
 
-    SetIterator::ObjectSharedPtr SetIterator::next() 
+    void SetIterator::setJoinIterator()
     {
-        auto [key, item] = *m_iterator;
-        auto [storage_class, value] = item;
-        ++m_iterator;
+        if (m_iterator != m_collection->end())
+        {
+            auto [key, address] = *m_iterator;
+            auto fixture = m_collection->getFixture();
+            m_index = address.getIndex(m_collection->getMemspace());
+            m_join_iterator = m_index.beginJoin(1);
+        }
+    }
+
+    SetIterator::ObjectSharedPtr SetIterator::next()
+    {
         auto fixture = m_collection->getFixture();
-        return unloadMember<LangToolkit>(fixture, storage_class, value);
+        auto item = *m_join_iterator;
+        auto [storage_class, value] = item;
+
+        auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+        ++m_join_iterator;
+        if (m_join_iterator.is_end())
+        {
+            ++m_iterator;
+            setJoinIterator();
+        }
+        return member;
     }
 
 }

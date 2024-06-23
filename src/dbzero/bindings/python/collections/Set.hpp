@@ -12,7 +12,6 @@ namespace db0::python
     PyObject *SetObject_add(SetObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs);
     PyObject *SetObject_discard(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *SetObject_GetItem(SetObject *set_obj, Py_ssize_t i);
     PyObject *SetObject_isdisjoint(SetObject *self, PyObject *const *args, Py_ssize_t nargs);
     PyObject *SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs);
     PyObject *SetObject_issuperset(SetObject *self, PyObject *const *args, Py_ssize_t nargs);
