@@ -30,7 +30,9 @@ namespace db0
         std::size_t getAllocSize(std::uint64_t address) const override;    
 
         void commit() override;
-        
+
+        void detach() override;
+                
         /// Get the total number of allocations
         std::size_t getAllocCount() const;
 
@@ -167,5 +169,10 @@ namespace db0
     {
         // no-op
     }
-    
+
+    template <typename BitSetT> void BitsetAllocator<BitSetT>::detach()
+    {
+        // no-op
+    }
+
 }

@@ -180,5 +180,14 @@ namespace db0
         m_stripes.commit();
         m_allocator.commit();
     }
+    
+    void SlabAllocator::detach()
+    {
+        m_header.detach();
+        m_allocs.detach();
+        m_blanks.detach();
+        m_stripes.detach();
+        m_allocator.detach();
+    }
 
 }

@@ -50,6 +50,10 @@ namespace db0
         void erasePage(std::uint64_t state_num, std::uint64_t page_num);
         void eraseRange(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page);
 
+        void replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num);
+        void replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t first_page,
+            std::uint64_t end_page);
+
         void clear();
 
         bool empty() const;
@@ -233,4 +237,19 @@ namespace db0
         }
     }
     
+    template <typename ResourceLockT>
+    void PageMap<ResourceLockT>::replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num) 
+    {
+        erasePage(state_num, page_num);
+        insertPage(state_num, lock, page_num);
+    }
+    
+    template <typename ResourceLockT>
+    void PageMap<ResourceLockT>::replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t first_page,
+        std::uint64_t end_page)
+    {
+        eraseRange(state_num, first_page, end_page);
+        insertRange(state_num, lock, first_page, end_page);
+    }
+
 }

@@ -407,6 +407,18 @@ namespace db0
         m_atomic_context_ptr = context;
     }
 
+    void Workspace::endAtomic() 
+    {
+        assert(m_atomic_context_ptr);
+        // end atomic with all open fixtures
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                fixture->endAtomic();
+            }
+        }
+        m_atomic_context_ptr = nullptr;
+    }
+    
     void Workspace::cancelAtomic()
     {
         assert(m_atomic_context_ptr);

@@ -72,16 +72,31 @@ namespace db0
 
     void AtomicContext::cancel()
     {
+        if (!m_active) {
+            THROWF(db0::InternalException) << "atomic 'cancel' failed: operation already completed" << THROWF_END;
+        }
+
         // all objects from context need to be detached
         auto &type_manager = LangToolkit::getTypeManager();
         for (auto &object : m_objects) {
             detachObject<PyToolkit>(type_manager.getTypeId(object.get()), object.get());
         }
         m_workspace->cancelAtomic();
+        m_active = false;
     }
+    
+    void AtomicContext::exit()
+    {
+        if (!m_active) {
+            return;
+        }
 
-    void AtomicContext::commit()
-    {        
+        // all objects from context need to be detached
+        auto &type_manager = LangToolkit::getTypeManager();
+        for (auto &object : m_objects) {
+            detachObject<PyToolkit>(type_manager.getTypeId(object.get()), object.get());
+        }
+        m_workspace->endAtomic();
     }
 
     void AtomicContext::add(ObjectPtr lang_object) {

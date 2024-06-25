@@ -27,6 +27,8 @@ namespace db0
         std::size_t getAllocSize(std::uint64_t address) const override;
                 
         void commit() override;
+
+        void detach() override;
         
         std::shared_ptr<Allocator> getAllocator() const { return m_allocator; }
 

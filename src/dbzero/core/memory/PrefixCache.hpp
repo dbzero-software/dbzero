@@ -96,6 +96,11 @@ namespace db0
 
         // Remove (discard) all volatile locks
         void rollback(std::uint64_t state_num);
+
+        // Merge atomic operation's data (volatile locks) into an active transaction
+        // @param from_state_num must be the atomic operation's assigned (temporary) state number
+        // @param to_state_num the actual transaction number
+        void merge(std::uint64_t from_state_num, std::uint64_t to_state_num);
         
     private:
         StorageView &m_storage_view;
@@ -125,6 +130,9 @@ namespace db0
             FlagSet<AccessOptions> access_mode);
 
         void eraseRange(std::uint64_t address, std::size_t size, std::uint64_t state_num);
+        // insert new or replace existing range
+        void replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+            std::shared_ptr<ResourceLock> new_lock);
     };
     
 }

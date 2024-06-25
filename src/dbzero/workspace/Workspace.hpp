@@ -207,7 +207,8 @@ namespace db0
         std::optional<std::uint64_t> getDefaultUUID() const;
         
         void beginAtomic(AtomicContext *context);
-
+        void endAtomic();
+        
         void cancelAtomic();
 
     private:

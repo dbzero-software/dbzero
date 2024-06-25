@@ -1,5 +1,6 @@
 #include "PyAtomic.hpp"
 #include "PyToolkit.hpp"
+#include "PyInternalAPI.hpp"
 
 namespace db0::python
 
@@ -61,19 +62,26 @@ namespace db0::python
         return self;
     }
     
-    PyObject *PyAtomic_exit(PyObject *self, PyObject *) {
+    PyObject *PyAtomic_exit(PyObject *self, PyObject *)
+    {
+        reinterpret_cast<PyAtomic*>(self)->modifyExt().exit();
         Py_RETURN_NONE;
     }
 
-    PyObject *PyAtomic_cancel(PyObject *self, PyObject *) {
+    PyObject *tryPyAtomic_cancel(PyObject *self) 
+    {
+        reinterpret_cast<PyAtomic*>(self)->modifyExt().cancel();
+        return Py_None;        
+    }
+
+    PyObject *PyAtomic_cancel(PyObject *self, PyObject *) 
+    {
         if (!PyAtomic_Check(self)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
 
-        auto &atomic = reinterpret_cast<PyAtomic*>(self)->modifyExt();
-        atomic.cancel();
-        Py_RETURN_NONE;        
+        return runSafe(tryPyAtomic_cancel, self);
     }
     
     PyObject *PyAtomic_commit(PyObject *, PyObject *) {

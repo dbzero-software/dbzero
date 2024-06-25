@@ -40,6 +40,10 @@ namespace db0
         m_allocator_ptr->commit();
     }
 
+    void SlotAllocator::detach() {
+        m_allocator_ptr->detach();
+    }
+    
     Allocator &SlotAllocator::select(std::uint32_t slot_num)
     {
         if (slot_num == 0) {

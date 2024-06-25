@@ -294,4 +294,29 @@ namespace db0
         m_page_map.eraseRange(state_num, first_page, end_page);        
     }
 
+    void PrefixCache::replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+        std::shared_ptr<ResourceLock> new_lock)
+    {
+        auto first_page = address >> m_shift;
+        auto end_page = ((address + size - 1) >> m_shift) + 1;
+        // likely boundary range
+        if (isBoundaryRange(first_page, end_page)) {
+            assert(end_page == first_page + 2);
+            m_boundary_map.replacePage(state_num, std::dynamic_pointer_cast<BoundaryLock>(new_lock),
+                first_page);            
+        } else {
+            m_page_map.replaceRange(state_num, new_lock, first_page, end_page);
+        }
+    }
+    
+    void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num)
+    {
+        for (auto &lock: m_volatile_locks) {
+            // erase volatile range
+            eraseRange(lock->getAddress(), lock->size(), from_state_num);            
+            replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);
+        }
+        m_volatile_locks.clear();
+    }
+
 }

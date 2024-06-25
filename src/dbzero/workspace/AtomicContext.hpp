@@ -51,13 +51,14 @@ namespace db0
         void add(ObjectPtr);
 
         void cancel();
-        void commit();
+        void exit();
         
         static void makeNew(void *, std::shared_ptr<Workspace> &);
 
     private:
         std::shared_ptr<Workspace> m_workspace;
         std::unordered_set<ObjectSharedPtr> m_objects;
+        bool m_active = true;
     };
 
 }

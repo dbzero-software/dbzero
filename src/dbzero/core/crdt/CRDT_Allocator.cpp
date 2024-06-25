@@ -643,6 +643,10 @@ namespace db0
         m_cache->clear();
     }
 
+    void CRDT_Allocator::detach() {
+        m_cache->clear();
+    }
+
 }
 
 namespace std

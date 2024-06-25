@@ -22,6 +22,8 @@ namespace db0
         
         void commit() override;
 
+        void detach() override;
+
     private:
         const std::uint64_t m_addr;
         const std::size_t m_size;

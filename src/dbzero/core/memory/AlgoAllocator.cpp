@@ -65,4 +65,8 @@ namespace db0
     {
     }
     
+    void AlgoAllocator::detach()
+    {
+    }
+
 }

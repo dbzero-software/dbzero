@@ -261,14 +261,27 @@ namespace db0
         m_atomic_context_ptr = context;
         // detach all active v_object instances so that the underlying locks can be re-created (CoW)
         getGC0().detachAll();
-        m_prefix->beginAtomic();
+        m_string_pool.commit();
+        m_object_catalogue.commit();
+        Memspace::beginAtomic();
+    }
+    
+    void Fixture::endAtomic()
+    {
+        assert(m_atomic_context_ptr);
+        m_atomic_context_ptr = nullptr;
+        // detach all active v_object instances so that the underlying locks can be re-created (CoW)
+        getGC0().detachAll();
+        m_string_pool.detach();
+        m_object_catalogue.detach();        
+        Memspace::endAtomic();
     }
 
     void Fixture::cancelAtomic() 
     {
         assert(m_atomic_context_ptr);
         m_atomic_context_ptr = nullptr;
-        m_prefix->cancelAtomic();
+        Memspace::cancelAtomic();
     }
 
     AtomicContext *Fixture::tryGetAtomicContext() const {

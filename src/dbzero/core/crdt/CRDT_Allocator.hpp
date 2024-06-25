@@ -346,6 +346,8 @@ namespace db0
 
         void commit();
 
+        void detach();
+
     private:
         AllocSetT &m_allocs;
         BlankSetT &m_blanks;

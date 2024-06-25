@@ -148,6 +148,8 @@ namespace db0
         std::size_t getAllocSize(std::uint64_t address) const override;
             
         void commit() override;
+
+        void detach() override;
         
         /**
          * Calculate the number of slabs which can be annotated by a single page pair
