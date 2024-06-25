@@ -128,5 +128,19 @@ namespace db0::python
     private:
         PyTypeObject *m_py_type = nullptr;
     };
+
+}
+
+namespace std
+
+{
+
+    // Hash of the shared_py_object
+    template <typename T> struct hash<db0::python::shared_py_object<T>>
+    {
+        std::size_t operator()(const db0::python::shared_py_object<T> &obj) const {
+            return std::hash<T>()(obj.get());
+        }
+    };
     
 }

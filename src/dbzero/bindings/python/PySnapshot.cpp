@@ -88,7 +88,9 @@ namespace db0::python
         return runSafe(tryPySnapshot_find, self, args, nargs);
     }
 
-    PyObject *PySnapshot_enter(PyObject *self, PyObject *) {
+    PyObject *PySnapshot_enter(PyObject *self, PyObject *) 
+    {
+        Py_IncRef(self);
         return self;
     }
 

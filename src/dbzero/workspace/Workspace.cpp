@@ -217,6 +217,12 @@ namespace db0
                     // initialize fixture with a model-specific initializer
                     m_fixture_initializer(fixture, file_created);
                 }
+
+                if (m_atomic_context_ptr && *access_type == AccessType::READ_WRITE) {
+                    // begin atomic with the new read/write fixture
+                    fixture->beginAtomic(m_atomic_context_ptr);
+                }
+
                 it = m_fixtures.emplace(fixture->getUUID(), fixture).first;
                 m_fixture_catalog.add(prefix_name, *fixture);
                 if (*access_type == AccessType::READ_ONLY) {
@@ -246,9 +252,8 @@ namespace db0
         return it->second;
     }
     
-    bool Workspace::hasFixture(const std::string &prefix_name) const 
-    {
-        bool file_created = false;
+    bool Workspace::hasFixture(const std::string &prefix_name) const
+    {        
         auto uuid = getUUID(prefix_name);
         auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();
         if (it != m_fixtures.end()) {
@@ -386,8 +391,30 @@ namespace db0
         return m_default_fixture->getUUID();
     }
     
-    swine_ptr<Fixture> Workspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type) {
+    db0::swine_ptr<Fixture> Workspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type) {
         return getFixtureEx(prefix_name, access_type);
     }
-    
+
+    void Workspace::beginAtomic(AtomicContext *context)
+    {
+        assert(!m_atomic_context_ptr);
+        // begin atomic with all open read/write fixtures
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                fixture->beginAtomic(context);
+            }
+        }
+        m_atomic_context_ptr = context;
+    }
+
+    void Workspace::cancelAtomic()
+    {
+        assert(m_atomic_context_ptr);
+        // end atomic with all open fixtures
+        for (auto &[uuid, fixture] : m_fixtures) {
+            fixture->cancelAtomic();
+        }
+        m_atomic_context_ptr = nullptr;
+    }
+
 }

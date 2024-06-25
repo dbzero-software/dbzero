@@ -462,7 +462,7 @@ namespace db0
         /**
          * Detach this instance from backend
          */
-        void detach()
+        void detach() const
         {
             progressive_mutex::scoped_unique_lock rw_lock(this->m_mutex);
             m_pb_cache.clear();

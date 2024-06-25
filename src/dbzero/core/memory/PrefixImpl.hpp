@@ -80,6 +80,12 @@ namespace db0
 
         std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
 
+        void beginAtomic() override;
+
+        void endAtomic() override;
+
+        void cancelAtomic() override;
+
     protected:
         friend class PrefixViewImpl<PrefixImpl<StorageT>>;
         
@@ -88,7 +94,9 @@ namespace db0
         const std::uint32_t m_shift;
         std::uint64_t m_state_num;
         StorageView m_storage_view;
-        mutable PrefixCache m_cache;            
+        mutable PrefixCache m_cache;
+        // flag indicating atomic operation in progress
+        bool m_atomic = false;
 
         std::uint64_t getStateNum(std::uint64_t storage_max_state_num, std::optional<std::uint64_t> user_state_num) const;
 
@@ -116,6 +124,11 @@ namespace db0
         // otherwise data outside of the range but within the page may not be retrieved
         if (access_mode[AccessOptions::create] && (!isPageAligned(address) || !isPageAligned(size))) {
             access_mode.set(AccessOptions::create, false);            
+        }
+
+        // for atomic operations use no_flush flag to allow reverting changes
+        if (m_atomic) {
+            access_mode.set(AccessOptions::no_flush, true);
         }
 
         std::uint64_t read_state_num;
@@ -234,6 +247,28 @@ namespace db0
         return std::shared_ptr<Prefix>(
             new PrefixViewImpl<PrefixImpl<T> >(
                 const_cast<PrefixImpl<T> *>(this)->shared_from_this(), state_num));
+    }
+
+    template <typename T> void PrefixImpl<T>::beginAtomic()
+    {
+        assert(!m_atomic);
+        // increment state number to allow isolation
+        ++m_state_num;
+        m_atomic = true;
+    }
+    
+    template <typename T> void PrefixImpl<T>::endAtomic()
+    {
+        assert(m_atomic);
+        m_atomic = false;
+    }
+    
+    template <typename T> void PrefixImpl<T>::cancelAtomic()
+    {
+        assert(m_atomic);
+        m_cache.rollback(m_state_num);
+        --m_state_num;
+        m_atomic = false;        
     }
 
 } 

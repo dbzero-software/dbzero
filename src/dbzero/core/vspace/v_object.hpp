@@ -219,7 +219,7 @@ namespace db0
             return v_this.use_count();
         }
         
-        void detach() {
+        void detach() const {
             v_this.detach();
         }
         

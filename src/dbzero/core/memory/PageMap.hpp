@@ -47,6 +47,9 @@ namespace db0
 
         void forEach(std::function<void(ResourceLockT &)>);
 
+        void erasePage(std::uint64_t state_num, std::uint64_t page_num);
+        void eraseRange(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page);
+
         void clear();
 
         bool empty() const;
@@ -214,6 +217,20 @@ namespace db0
     template <typename ResourceLockT>
     bool PageMap<ResourceLockT>::empty() const {
         return m_cache.empty();
+    }
+    
+    template <typename ResourceLockT>
+    void PageMap<ResourceLockT>::erasePage(std::uint64_t state_num, std::uint64_t page_num)
+    {
+        m_cache.erase({page_num, state_num});
+    }
+
+    template <typename ResourceLockT>
+    void PageMap<ResourceLockT>::eraseRange(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page)
+    {
+        for (; first_page != end_page; ++first_page) {
+            m_cache.erase({first_page, state_num});
+        }
     }
     
 }

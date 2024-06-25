@@ -42,11 +42,11 @@ namespace db0
     std::uint64_t DRAM_Prefix::getStateNum() const {
         return 0;
     }
-       
+    
     std::uint64_t DRAM_Prefix::commit() {
         return getStateNum();
     }
-    
+
     std::uint64_t DRAM_Prefix::size() const {
         return m_pages.size() * m_page_size;
     }
@@ -123,5 +123,5 @@ namespace db0
     std::shared_ptr<Prefix> DRAM_Prefix::getSnapshot(std::optional<std::uint64_t>) const {
         return const_cast<DRAM_Prefix *>(this)->shared_from_this();
     }
-
+    
 }

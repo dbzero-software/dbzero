@@ -255,4 +255,24 @@ namespace db0
         return m_UUID == other.m_UUID;
     }
 
+    void Fixture::beginAtomic(AtomicContext *context)
+    {
+        assert(!m_atomic_context_ptr);
+        m_atomic_context_ptr = context;
+        // detach all active v_object instances so that the underlying locks can be re-created (CoW)
+        getGC0().detachAll();
+        m_prefix->beginAtomic();
+    }
+
+    void Fixture::cancelAtomic() 
+    {
+        assert(m_atomic_context_ptr);
+        m_atomic_context_ptr = nullptr;
+        m_prefix->cancelAtomic();
+    }
+
+    AtomicContext *Fixture::tryGetAtomicContext() const {
+        return m_atomic_context_ptr;
+    }
+    
 }

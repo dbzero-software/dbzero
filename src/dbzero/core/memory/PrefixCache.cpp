@@ -100,6 +100,10 @@ namespace db0
             m_cache_recycler_ptr->update(result);
         }
 
+        // register with the persistent locks
+        if (access_mode[AccessOptions::no_flush]) {
+            m_volatile_locks.push_back(result);
+        }
         return result;
     }
     
@@ -200,6 +204,11 @@ namespace db0
             m_cache_recycler_ptr->update(result);
         }
         
+        // register with the persistent locks
+        if (access_mode[AccessOptions::no_flush]) {
+            m_volatile_locks.push_back(result);
+        }
+
         return result;
     }
     
@@ -211,6 +220,7 @@ namespace db0
     
     void PrefixCache::clear()
     {
+        m_volatile_locks.clear();
         // undo write / remove dirty flag from all owned locks
         forEach([&](ResourceLock &lock) {            
             lock.resetDirtyFlag();            
@@ -261,5 +271,27 @@ namespace db0
             m_page_map.insertRange(state_num, m_missing_lock_ptr, page, end_page);            
         }
     }
+
+    void PrefixCache::rollback(std::uint64_t state_num)
+    {
+        // remove all volatile locks
+        for (auto &lock: m_volatile_locks) {
+            // erase range
+            eraseRange(lock->getAddress(), lock->size(), state_num);
+        }
+        m_volatile_locks.clear();
+    }
     
+    void PrefixCache::eraseRange(std::uint64_t address, std::size_t size, std::uint64_t state_num)
+    {
+        auto first_page = address >> m_shift;
+        auto end_page = ((address + size - 1) >> m_shift) + 1;
+        // likely boundary range
+        if (isBoundaryRange(first_page, end_page)) {
+            assert(end_page == first_page + 2);
+            m_boundary_map.erasePage(state_num, first_page);
+        }
+        m_page_map.eraseRange(state_num, first_page, end_page);        
+    }
+
 }

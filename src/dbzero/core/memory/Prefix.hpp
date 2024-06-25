@@ -77,6 +77,15 @@ namespace db0
          */
         virtual std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const = 0;
 
+        // Begin atomic operation with this prefix
+        virtual void beginAtomic();
+
+        // End atomic operation with this prefix
+        virtual void endAtomic();
+
+        // Cancel/revert atomic operation with this prefix
+        virtual void cancelAtomic();
+
     private:
         const std::string m_name;
     };

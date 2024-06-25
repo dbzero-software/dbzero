@@ -29,6 +29,7 @@ namespace db0
     class Workspace;
     class WorkspaceView;
     class SlabAllocator;
+    class AtomicContext;
     using StringPoolT = db0::pools::RC_LimitedStringPool;
     using ObjectCatalogue = db0::object_model::ObjectCatalogue;
 
@@ -193,6 +194,12 @@ namespace db0
 
         bool operator==(const Fixture &other) const;
         
+        void beginAtomic(AtomicContext *context);
+
+        void cancelAtomic();
+
+        AtomicContext *tryGetAtomicContext() const;
+        
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;
@@ -209,6 +216,7 @@ namespace db0
         mutable LangCache m_lang_cache;
         // internal cache for DBZero based collections
         mutable VObjectCache m_v_object_cache;
+        AtomicContext *m_atomic_context_ptr = nullptr;
 
         // For read/write fixtures:
         // the onUpdate is called whenever the fixture is modified
@@ -235,7 +243,7 @@ namespace db0
         void tryCommit();
 
         static std::shared_ptr<SlabAllocator> openSlot(MetaAllocator &, const v_object<o_fixture> &, std::uint32_t slot_id);
-
+        
     protected:
         friend class FixtureThread;
         friend class FixtureLock;

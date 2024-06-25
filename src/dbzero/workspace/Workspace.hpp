@@ -23,6 +23,7 @@ namespace db0
 
     class RefreshThread;
     class AutoCommitThread;
+    class AtomicContext;
 
     class BaseWorkspace
     {
@@ -204,6 +205,10 @@ namespace db0
 
         // Get current fixture UUID
         std::optional<std::uint64_t> getDefaultUUID() const;
+        
+        void beginAtomic(AtomicContext *context);
+
+        void cancelAtomic();
 
     private:
         FixtureCatalog m_fixture_catalog;
@@ -217,6 +222,8 @@ namespace db0
         std::vector<std::string> m_current_prefix_history;
         // shared object list is for maintainig v_object cache evition policy at a process level
         mutable FixedObjectList m_shared_object_list;
+        // flag indicating atomic operation in progress
+        AtomicContext *m_atomic_context_ptr = nullptr;
 
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
     };

@@ -5,6 +5,7 @@
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include <dbzero/object_model/config.hpp>
+#include <dbzero/workspace/AtomicContext.hpp>
 
 namespace db0
 
@@ -179,7 +180,15 @@ namespace db0
     template <typename T, typename BaseT, StorageClass _CLS>
     void ObjectBase<T, BaseT, _CLS>::beginModify(ObjectPtr ptr)
     {
-        // FIXME: implement
+        if (hasInstance()) {
+            auto fixture = this->tryGetFixture();
+            if (fixture) {
+                auto atomic_context_ptr = fixture->tryGetAtomicContext();
+                if (atomic_context_ptr) {
+                    atomic_context_ptr->add(ptr);
+                }
+            }
+        }
     }
 
 }
