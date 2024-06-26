@@ -190,7 +190,7 @@ namespace db0
     }
     
     template <typename T> std::uint64_t PrefixImpl<T>::commit()
-    {     
+    {
         m_cache.flush();
         if (m_storage.flush()) {
             // increment state number only if there were any changes

@@ -89,6 +89,7 @@ namespace db0
     {
         assert(m_atomic);
         m_atomic = false;
+        getAllocator().detach();
         m_prefix->cancelAtomic();
     }
 

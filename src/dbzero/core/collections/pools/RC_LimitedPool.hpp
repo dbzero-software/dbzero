@@ -41,6 +41,8 @@ namespace db0::pools
         */
         template <typename KeyT> bool find(const KeyT &, AddressT &) const;
 
+        void detach() const;
+
     private:
         // address + ref count
         struct [[gnu::packed]] MapItemT: public o_fixed<MapItemT>
@@ -113,4 +115,11 @@ namespace db0::pools
         return new_address;
     }
     
+    template <typename T, typename CompT, typename AddressT>
+    void RC_LimitedPool<T, CompT, AddressT>::detach() const
+    {
+        m_pool_map.detach();
+        db0::v_object<o_rc_limited_pool>::detach();
+    }
+
 }

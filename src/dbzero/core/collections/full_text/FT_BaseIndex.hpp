@@ -23,6 +23,7 @@ namespace db0
         FT_BaseIndex() = default;
         FT_BaseIndex(Memspace &, VObjectCache &);
         FT_BaseIndex(mptr, VObjectCache &);
+        FT_BaseIndex(FT_BaseIndex &&);
         
         virtual ~FT_BaseIndex() = default;
         
@@ -243,10 +244,10 @@ namespace db0
         */
         BatchOperationBuilder beginBatchUpdate();
         
-    protected :
+    protected:
         mutable progressive_mutex mx;
         // currently pending batch operation (if any)
-        std::weak_ptr<BatchOperation> m_batch_operation;   
+        std::weak_ptr<BatchOperation> m_batch_operation;
     };
 
     extern template class FT_BaseIndex<std::uint64_t>;

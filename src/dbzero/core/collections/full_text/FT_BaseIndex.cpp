@@ -7,7 +7,7 @@ namespace db0
 
 {
 
-    template <typename IndexKeyT> 
+    template <typename IndexKeyT>
     FT_BaseIndex<IndexKeyT>::FT_BaseIndex(Memspace & memspace, VObjectCache &cache)
         : super_t(memspace, cache)
     {
@@ -19,6 +19,13 @@ namespace db0
     {
     }
     
+    template <typename IndexKeyT>
+    FT_BaseIndex<IndexKeyT>::FT_BaseIndex(FT_BaseIndex &&other)
+        : super_t(std::move(other))        
+    {
+        assert(!other.m_batch_operation.lock());
+    }
+
     template <typename IndexKeyT>
     std::unique_ptr<FT_Iterator<std::uint64_t> > FT_BaseIndex<IndexKeyT>::makeIterator(IndexKeyT key, int direction) const
     {

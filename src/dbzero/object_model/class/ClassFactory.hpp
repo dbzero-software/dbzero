@@ -68,7 +68,9 @@ namespace db0::object_model
         
         void commit();
         
-    private:        
+        void detach() const;
+        
+    private:
         mutable std::vector<TypeObjectSharedPtr> m_types;
         
         // Language specific type to DBZero class mapping

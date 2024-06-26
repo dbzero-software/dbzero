@@ -21,6 +21,11 @@ namespace db0::python
             return true;
         }
         
+        if (!PyToolkit::getPyWorkspace().hasWorkspace()) {
+            // unable to check without a workspace
+            return false;
+        }
+
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         std::uint64_t fixture_uuid = 0;
         if (m_prefix_name) {

@@ -121,15 +121,26 @@ namespace db0::object_model
         std::vector<std::unique_ptr<QueryIterator> > &m_neg_iterators;
     };
 
-    TagIndex::TagIndex(const ClassFactory &class_factory, RC_LimitedStringPool &string_pool,
-        db0::FT_BaseIndex<ShortTagT> &base_index_short, db0::FT_BaseIndex<LongTagT> &base_index_long)
-        : m_class_factory(class_factory)
+    TagIndex::TagIndex(Memspace &memspace, const ClassFactory &class_factory, RC_LimitedStringPool &string_pool, VObjectCache &cache)
+        : db0::v_object<o_tag_index>(memspace)
+        , m_class_factory(class_factory)
         , m_string_pool(string_pool)
-        , m_base_index_short(base_index_short)
-        , m_base_index_long(base_index_long)
+        , m_base_index_short(memspace, cache)
+        , m_base_index_long(memspace, cache)
     {
+        modify().m_base_index_short_ptr = m_base_index_short.getAddress();
+        modify().m_base_index_long_ptr = m_base_index_long.getAddress();
     }
     
+    TagIndex::TagIndex(mptr ptr, const ClassFactory &class_factory, RC_LimitedStringPool &string_pool, VObjectCache &cache)
+        : db0::v_object<o_tag_index>(ptr)
+        , m_class_factory(class_factory)
+        , m_string_pool(string_pool)
+        , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
+        , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)
+    {
+    }
+
     TagIndex::~TagIndex()
     {
         assert(
@@ -558,6 +569,21 @@ namespace db0::object_model
         return makeLongTagFromSequence(sequence);
     }
     
+    void TagIndex::detach() const
+    {
+        m_base_index_short.detach();
+        m_base_index_long.detach();
+        db0::v_object<o_tag_index>::detach();
+    }
+
+    const db0::FT_BaseIndex<TagIndex::ShortTagT> &TagIndex::getBaseIndexShort() const {
+        return m_base_index_short;
+    }
+
+    const db0::FT_BaseIndex<TagIndex::LongTagT> &TagIndex::getBaseIndexLong() const {
+        return m_base_index_long;
+    }
+
     std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr obj_ptr)
     {
         using LangToolkit = TagIndex::LangToolkit;
@@ -599,5 +625,5 @@ namespace db0::object_model
         }
         return fixture_uuid;
     }
-    
+
 }

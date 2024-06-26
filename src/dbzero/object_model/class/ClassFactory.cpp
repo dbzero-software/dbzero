@@ -193,5 +193,15 @@ namespace db0::object_model
         }
         super_t::commit();
     }
-    
+
+    void ClassFactory::detach() const
+    {
+        m_type_cache.clear();
+        m_ptr_cache.clear();
+        for (auto &class_map: m_class_maps) {
+            class_map.detach();
+        }
+        super_t::detach();
+    }
+
 }

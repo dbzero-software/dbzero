@@ -30,12 +30,16 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
-    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr) 
+    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr)
     {
         auto &enum_ = self->ext();
         if (enum_.exists()) {
             return enum_.get().getLangValue(PyUnicode_AsUTF8(attr)).steal();
         } else {
+            if (!PyToolkit::getPyWorkspace().hasWorkspace()) {
+                PyErr_SetString(PyExc_RuntimeError, "Unable to get enum value without a workspace");
+                return NULL;
+            }
             // note that enum is created on demand
             return self->modifyExt().create().getLangValue(PyUnicode_AsUTF8(attr)).steal();
         }

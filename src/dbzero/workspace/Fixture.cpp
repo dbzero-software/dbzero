@@ -133,12 +133,16 @@ namespace db0
         m_close_handlers.push_back(f);
     }
     
+    void Fixture::addDetachHandler(std::function<void()> f) {
+        m_detach_handlers.push_back(f);
+    }
+
     void Fixture::close()
     {
-        for (auto &f: m_close_handlers) {
-            f(false);
+        for (auto &close: m_close_handlers) {
+            close(false);
         }
-        m_string_pool.close();        
+        m_string_pool.close();
         Memspace::close();
     }
     
@@ -192,8 +196,8 @@ namespace db0
             return;
         }
         
-        for (auto &f: m_close_handlers) {
-            f(true);
+        for (auto &commit: m_close_handlers) {
+            commit(true);
         }
 
         // commit garbage collector's state
@@ -261,6 +265,11 @@ namespace db0
         m_atomic_context_ptr = context;
         // detach all active v_object instances so that the underlying locks can be re-created (CoW)
         getGC0().detachAll();
+
+        for (auto &commit: m_close_handlers) {
+            commit(true);
+        }
+
         m_string_pool.commit();
         m_object_catalogue.commit();
         Memspace::beginAtomic();
@@ -272,15 +281,27 @@ namespace db0
         m_atomic_context_ptr = nullptr;
         // detach all active v_object instances so that the underlying locks can be re-created (CoW)
         getGC0().detachAll();
+
+        for (auto &detach: m_detach_handlers) {
+            detach();
+        }
+
         m_string_pool.detach();
         m_object_catalogue.detach();        
         Memspace::endAtomic();
     }
 
-    void Fixture::cancelAtomic() 
+    void Fixture::cancelAtomic()
     {
         assert(m_atomic_context_ptr);
         m_atomic_context_ptr = nullptr;
+        // detach owned resources
+        for (auto &detach: m_detach_handlers) {
+            detach();
+        }
+
+        m_string_pool.detach();
+        m_object_catalogue.detach();
         Memspace::cancelAtomic();
     }
 

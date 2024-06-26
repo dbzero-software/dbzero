@@ -40,10 +40,8 @@ namespace db0::object_model
                 // create ClassFactory and register with the object catalogue
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture);
                 auto &enum_factory = fixture->addResource<EnumFactory>(fixture);
-                auto &base_index_short = fixture->addResource<FT_BaseIndex<std::uint64_t> >(*fixture, fixture->getVObjectCache());
-                auto &base_index_long = fixture->addResource<FT_BaseIndexLong>(*fixture, fixture->getVObjectCache());
                 auto &tag_index = fixture->addResource<TagIndex>(
-                    class_factory, fixture->getLimitedStringPool(), base_index_short, base_index_long);
+                    *fixture, class_factory, fixture->getLimitedStringPool(), fixture->getVObjectCache());
                 
                 // flush from tag index on fixture commit (or close on close)
                 fixture->addCloseHandler([&](bool commit) {
@@ -56,22 +54,27 @@ namespace db0::object_model
                     }
                 });
 
+                fixture->addDetachHandler([&]() {
+                    tag_index.detach();
+                    class_factory.detach();
+                    enum_factory.detach();
+                });
+
                 // register resources with the object catalogue
-                oc.addUnique(class_factory);        
+                oc.addUnique(tag_index);
+                oc.addUnique(class_factory);
                 oc.addUnique(enum_factory);
                 oc.addUnique(gc0);
-                oc.addUnique(base_index_short);
-                oc.addUnique(base_index_long);
             } else {
                 fixture->addGC0(fixture, oc.findUnique<db0::GC0>()->second());
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture, oc.findUnique<ClassFactory>()->second());                
                 auto &enum_factory = fixture->addResource<EnumFactory>(fixture, oc.findUnique<EnumFactory>()->second());
-                auto &base_index_short = fixture->addResource<FT_BaseIndex<std::uint64_t> >(
-                    fixture->myPtr(oc.findUnique<FT_BaseIndex<std::uint64_t> >()->second()), fixture->getVObjectCache());
-                auto &base_index_long = fixture->addResource<FT_BaseIndexLong>(
-                    fixture->myPtr(oc.findUnique<FT_BaseIndexLong>()->second()), fixture->getVObjectCache());
                 auto &tag_index = fixture->addResource<TagIndex>(
-                    class_factory, fixture->getLimitedStringPool(), base_index_short, base_index_long);
+                    fixture->myPtr(oc.findUnique<TagIndex>()->second()), 
+                    class_factory,
+                    fixture->getLimitedStringPool(), 
+                    fixture->getVObjectCache()
+                );
 
                 // flush from tag index on fixture commit (or close on close)
                 fixture->addCloseHandler([&](bool commit) {
@@ -84,6 +87,12 @@ namespace db0::object_model
                     }
                 });
 
+                fixture->addDetachHandler([&]() {
+                    tag_index.detach();
+                    class_factory.detach();
+                    enum_factory.detach();
+                });
+                
                 if (fixture->getAccessType() == db0::AccessType::READ_WRITE) {
                     // execute GC0::collect when opening an existing fixture as read-write
                     fixture->getGC0().collect();

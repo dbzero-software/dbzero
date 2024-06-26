@@ -93,7 +93,7 @@ namespace db0
 			}
 		};
 
-	protected :
+	protected:
 		friend struct scoped_lock;
 		std::atomic<std::uint32_t> m_num_readers = 0;
 		// locked when the unique lock acquired

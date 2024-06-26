@@ -13,6 +13,7 @@
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/collections/b_index/mb_index.hpp>
 #include <dbzero/core/collections/range_tree/RangeIteratorFactory.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
 
 namespace db0
 
@@ -116,7 +117,8 @@ namespace db0
         if (index_key_type_id == db0::serial::typeId<std::uint64_t>()) {
             auto index_key = db0::serial::read<std::uint64_t>(iter, end);
             // use FT_Base index as the factory
-            return fixture->get<db0::FT_BaseIndex<std::uint64_t> >().makeIterator(index_key, direction);
+            auto &tag_index = fixture->get<db0::object_model::TagIndex>();
+            return tag_index.getBaseIndexShort().makeIterator(index_key, direction);
         } else {
             THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id
                 << THROWF_END;
