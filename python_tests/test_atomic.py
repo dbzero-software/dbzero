@@ -77,7 +77,6 @@ def test_atomic_list_update(db0_fixture):
         object_1.value.append(1)
         object_1.value.append(2)
         object_1.value.append(3)
-
     assert object_1.value == [0, 1, 2, 3]
     
     
@@ -87,7 +86,42 @@ def test_atomic_revert_list_update(db0_fixture):
         object_1.value.append(3)
         object_1.value.append(4)
         object_1.value.append(5)
-        atomic.cancel()
-    
+        atomic.cancel()    
     assert object_1.value == [1, 2]
+    
+    
+def test_atomic_set_update(db0_fixture):
+    object_1 = MemoTestClass(set([0]))
+    with db0.atomic() as atomic:
+        object_1.value.add(1)        
+        object_1.value.add(3)
+    assert object_1.value == set([0, 1, 3])
+    
+    
+def test_atomic_revert_set_update(db0_fixture):
+    object_1 = MemoTestClass(set([0, 1, 5]))
+    with db0.atomic() as atomic:
+        object_1.value.add(1)        
+        object_1.value.add(3)
+        atomic.cancel()
+    assert object_1.value == set([0, 1, 5])
+    
+    
+# def test_atomic_dict_update(db0_fixture):
+#     object_1 = MemoTestClass({0:"a", 1:"b"})
+#     with db0.atomic() as atomic:
+#         object_1.value[2] = "c"
+#         object_1.value[9] = "d"
+    
+#     assert dict(object_1.value) == {0:"a", 1:"b", 2:"c", 9:"d"}
+    
+    
+# def test_atomic_revert_dict_update(db0_fixture):
+#     object_1 = MemoTestClass({0:"a", 1:"b"})
+#     with db0.atomic() as atomic:
+#         object_1.value[2] = "c"
+#         object_1.value[9] = "d"
+#         atomic.cancel()
+    
+#     assert dict(object_1.value) == {0:"a", 1:"b"}
     
