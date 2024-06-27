@@ -67,7 +67,7 @@ namespace db0
         }
         return *m_derived_UUID;        
     }
-
+    
     void Memspace::beginAtomic()
     {
         assert(!m_atomic);
@@ -80,8 +80,7 @@ namespace db0
     void Memspace::endAtomic()
     {
         assert(m_atomic);
-        m_atomic = false;
-        getAllocator().detach();
+        m_atomic = false;        
         m_prefix->endAtomic();
     }
     

@@ -12,7 +12,7 @@ def test_new_object_inside_atomic_operation(db0_fixture):
         atomic.cancel()
     
 
-def test_new_type_inside_atomic_operation(db0_fixture):
+def test_new_type_reverted_from_atomic_operation(db0_fixture):
     with db0.atomic() as atomic:
         # since MemoTestClass is used for the 1st time its type will be created
         object_1 = MemoTestClass(951)        
@@ -52,4 +52,21 @@ def test_reading_after_atomic_cancel(db0_fixture):
         object_1.value = 951
         atomic.cancel()
     assert object_1.value == 123
+    
+    
+def test_assign_tags_inside_atomic_operation(db0_fixture):
+    object_1 = MemoTestClass(123)
+    with db0.atomic() as atomic:
+        db0.tags(object_1).add("tag1")
+        assert len(list(db0.find("tag1"))) == 1        
+    assert len(list(db0.find("tag1"))) == 1    
+    
+    
+def test_assign_and_revert_tags_inside_atomic_operation(db0_fixture):
+    object_1 = MemoTestClass(123)
+    with db0.atomic() as atomic:
+        db0.tags(object_1).add("tag1")
+        assert len(list(db0.find("tag1"))) == 1        
+        atomic.cancel()
+    assert len(list(db0.find("tag1"))) == 0
     

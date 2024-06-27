@@ -116,7 +116,7 @@ namespace db0
         // wide ranges must be page aligned
         // FIXME: unblock below assert when implementation is ready
         // assert(size <= m_page_size / 2 || ((address & m_mask) == 0));
-
+        
         std::shared_ptr<ResourceLock> result;
         if (isBoundaryRange(first_page, end_page)) {
             assert(end_page == first_page + 2);

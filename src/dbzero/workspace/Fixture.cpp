@@ -207,6 +207,7 @@ namespace db0
         }
         m_string_pool.commit();
         m_object_catalogue.commit();
+        m_v_object_cache.commit();
         Memspace::commit();
     }
     
@@ -264,14 +265,16 @@ namespace db0
         assert(!m_atomic_context_ptr);
         m_atomic_context_ptr = context;
         // detach all active v_object instances so that the underlying locks can be re-created (CoW)
+        // FIXME: should change to "commit"
         getGC0().detachAll();
 
         for (auto &commit: m_close_handlers) {
             commit(true);
         }
-
+        
         m_string_pool.commit();
         m_object_catalogue.commit();
+        m_v_object_cache.beginAtomic();
         Memspace::beginAtomic();
     }
     
@@ -279,15 +282,7 @@ namespace db0
     {
         assert(m_atomic_context_ptr);
         m_atomic_context_ptr = nullptr;
-        // detach all active v_object instances so that the underlying locks can be re-created (CoW)
-        getGC0().detachAll();
-
-        for (auto &detach: m_detach_handlers) {
-            detach();
-        }
-
-        m_string_pool.detach();
-        m_object_catalogue.detach();        
+        m_v_object_cache.endAtomic();
         Memspace::endAtomic();
     }
 
@@ -302,9 +297,10 @@ namespace db0
 
         m_string_pool.detach();
         m_object_catalogue.detach();
+        m_v_object_cache.cancelAtomic();
         Memspace::cancelAtomic();
     }
-
+    
     AtomicContext *Fixture::tryGetAtomicContext() const {
         return m_atomic_context_ptr;
     }

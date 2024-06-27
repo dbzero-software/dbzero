@@ -81,6 +81,8 @@ namespace db0::object_model
         // Close tag index without flushing any pending updates
         void close();
 
+        void commit() const;
+        
         void detach() const;
 
         db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort();

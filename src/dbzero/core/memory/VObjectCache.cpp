@@ -89,9 +89,47 @@ namespace db0
     {
         auto it = m_cache.find(address);
         if (it != m_cache.end()) {
-            m_shared_object_list.eraseAt(it->second.second);
+            if (!std::get<0>(it->second).expired()) {
+                m_shared_object_list.eraseAt(std::get<1>(it->second));
+            } 
             m_cache.erase(it);
-        }        
+        }
     }
     
+    void VObjectCache::commit()
+    {
+        // commit all cached instances
+        for (auto &item : m_cache) {
+            if (!std::get<0>(item.second).expired()) {
+                // commit
+                std::get<2>(item.second)();
+            }
+        }
+    }
+    
+    void VObjectCache::beginAtomic()
+    {
+        assert(!m_atomic);
+        commit();
+        m_atomic = true;
+    }
+
+    void VObjectCache::endAtomic()
+    {
+        assert(m_atomic);
+        m_atomic = false;
+        m_volatile.clear();
+    }
+
+    void VObjectCache::cancelAtomic()
+    {
+        assert(m_atomic);
+        m_atomic = false;
+        // remove volatile instances from cache
+        for (auto address : m_volatile) {
+            erase(address);
+        }
+        m_volatile.clear();
+    }
+
 }

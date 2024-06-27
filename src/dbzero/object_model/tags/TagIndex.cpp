@@ -569,6 +569,14 @@ namespace db0::object_model
         return makeLongTagFromSequence(sequence);
     }
     
+    void TagIndex::commit() const
+    {
+        flush();
+        m_base_index_short.commit();
+        m_base_index_long.commit();
+        db0::v_object<o_tag_index>::commit();
+    }
+    
     void TagIndex::detach() const
     {
         m_base_index_short.detach();
@@ -579,7 +587,7 @@ namespace db0::object_model
     db0::FT_BaseIndex<TagIndex::ShortTagT> &TagIndex::getBaseIndexShort() {
         return m_base_index_short;
     }
-    
+
     const db0::FT_BaseIndex<TagIndex::ShortTagT> &TagIndex::getBaseIndexShort() const {
         return m_base_index_short;
     }

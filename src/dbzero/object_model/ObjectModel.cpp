@@ -46,7 +46,7 @@ namespace db0::object_model
                 // flush from tag index on fixture commit (or close on close)
                 fixture->addCloseHandler([&](bool commit) {
                     if (commit) {
-                        tag_index.flush();
+                        tag_index.commit();
                         class_factory.commit();
                         enum_factory.commit();                        
                     } else {
@@ -75,11 +75,11 @@ namespace db0::object_model
                     fixture->getLimitedStringPool(), 
                     fixture->getVObjectCache()
                 );
-
+                
                 // flush from tag index on fixture commit (or close on close)
                 fixture->addCloseHandler([&](bool commit) {
                     if (commit) {
-                        tag_index.flush();
+                        tag_index.commit();
                         class_factory.commit();
                         enum_factory.commit();                       
                     } else {

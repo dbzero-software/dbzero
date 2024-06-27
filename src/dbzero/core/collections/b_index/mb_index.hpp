@@ -224,8 +224,7 @@ namespace db0
 		 * this operation does not affect the collection type
 		 * @return false if item does not exist / not updated
 		*/
-		bool updateExisting(const item_t &new_item)
-		{
+		bool updateExisting(const item_t &new_item) {
             return m_interface.updateExisting(new_item);
 		}
 
@@ -263,8 +262,7 @@ namespace db0
 		/**
 		 * Check if item exists in collection
 		*/
-		bool contains(const item_t &item) const
-		{
+		bool contains(const item_t &item) const {
 			return m_interface.findExisting(item);
 		}
 
@@ -272,8 +270,7 @@ namespace db0
 		 * Find item by it's key part and update with full value if found
 		 * @return true if item was found and retrieved
 		 */		
-		bool findOne(item_t &item) const
-		{
+		bool findOne(item_t &item) const {
 			return m_interface.findOne(item);
 		}
 		
@@ -618,6 +615,14 @@ namespace db0
 		{
 			assert(m_memspace_ptr);
 			return *m_memspace_ptr;
+		}
+		
+		void detach() const {
+			m_interface.detach();
+		}
+
+		void commit() const {
+			m_interface.detach();
 		}
 
 	private:

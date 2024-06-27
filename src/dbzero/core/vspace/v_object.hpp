@@ -223,7 +223,7 @@ namespace db0
             v_this.detach();
         }
         
-        void commit() {
+        void commit() const {
             v_this.commit();
         }
 
