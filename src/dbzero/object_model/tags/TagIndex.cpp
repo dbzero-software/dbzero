@@ -576,6 +576,10 @@ namespace db0::object_model
         db0::v_object<o_tag_index>::detach();
     }
 
+    db0::FT_BaseIndex<TagIndex::ShortTagT> &TagIndex::getBaseIndexShort() {
+        return m_base_index_short;
+    }
+    
     const db0::FT_BaseIndex<TagIndex::ShortTagT> &TagIndex::getBaseIndexShort() const {
         return m_base_index_short;
     }

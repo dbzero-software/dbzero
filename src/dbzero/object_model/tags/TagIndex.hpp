@@ -83,6 +83,7 @@ namespace db0::object_model
 
         void detach() const;
 
+        db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort();
         const db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort() const;
         const db0::FT_BaseIndex<LongTagT> &getBaseIndexLong() const;
         

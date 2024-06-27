@@ -9,6 +9,7 @@
 #include <dbzero/core/collections/full_text/FT_Serialization.hpp>
 #include <dbzero/core/collections/range_tree/RT_FTIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
 
 namespace tests
 
@@ -34,10 +35,14 @@ namespace tests
             rt.bulkInsert(values_1.begin(), values_1.end());
             
             FixedObjectList shared_object_list(100);
+            db0::object_model::ClassFactory class_factory(fixture);
             VObjectCache cache(*fixture, shared_object_list);
 
             // prepare full-text index to join with
-            auto &ft_index = fixture->addResource<FT_BaseIndex<std::uint64_t> >(*fixture, cache);
+            using TagIndex = db0::object_model::TagIndex;
+            auto &tag_index = fixture->addResource<TagIndex>(
+                *fixture, class_factory, fixture->getLimitedStringPool(), cache);                            
+            auto &ft_index = tag_index.getBaseIndexShort();
             {
                 auto batch_data = ft_index.beginBatchUpdate();
                 batch_data->addTags(4, std::vector<std::uint64_t> { 1, 2, 3 });
