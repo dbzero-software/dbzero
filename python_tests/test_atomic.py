@@ -70,3 +70,24 @@ def test_assign_and_revert_tags_inside_atomic_operation(db0_fixture):
         atomic.cancel()
     assert len(list(db0.find("tag1"))) == 0
     
+    
+def test_atomic_list_update(db0_fixture):
+    object_1 = MemoTestClass([0])
+    with db0.atomic() as atomic:
+        object_1.value.append(1)
+        object_1.value.append(2)
+        object_1.value.append(3)
+
+    assert object_1.value == [0, 1, 2, 3]
+    
+    
+def test_atomic_revert_list_update(db0_fixture):
+    object_1 = MemoTestClass([1,2])
+    with db0.atomic() as atomic:
+        object_1.value.append(3)
+        object_1.value.append(4)
+        object_1.value.append(5)
+        atomic.cancel()
+    
+    assert object_1.value == [1, 2]
+    
