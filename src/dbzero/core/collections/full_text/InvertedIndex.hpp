@@ -55,6 +55,8 @@ namespace db0
         InvertedIndex(mptr ptr, VObjectCache &, ValueFunctionT = addressOfMBIndex<KeyT, ValueT>, 
             ListFunctionT = indexFromAddress<KeyT, ValueT>);
 
+        InvertedIndex(InvertedIndex &&);
+
         /**
          * Pull existing or create new key inverted list
          * @param key key to retrieve/create the inverted list by
@@ -137,6 +139,15 @@ namespace db0
         , m_cache(cache)
         , m_value_function(value_function)
         , m_list_function(list_function)
+    {
+    }
+
+    template <typename IndexKeyT, typename KeyT, typename ValueT>
+    InvertedIndex<IndexKeyT, KeyT, ValueT>::InvertedIndex(InvertedIndex &&other)
+        : super_t(std::move(other))
+        , m_cache(other.m_cache)
+        , m_value_function(other.m_value_function)
+        , m_list_function(other.m_list_function)
     {
     }
     

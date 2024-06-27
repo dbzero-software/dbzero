@@ -20,11 +20,19 @@ namespace db0::python
         if (m_enum_ptr) {
             return true;
         }
+        
+        if (!PyToolkit::getPyWorkspace().hasWorkspace()) {
+            // unable to check without a workspace
+            return false;
+        }
 
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         std::uint64_t fixture_uuid = 0;
         if (m_prefix_name) {
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture((*m_prefix_name).c_str(), AccessType::READ_ONLY);
-            fixture_uuid = fixture->getUUID();
+            if (!workspace.hasFixture(*m_prefix_name)) {
+                return false;
+            }    
+            fixture_uuid = workspace.getFixture((*m_prefix_name).c_str(), AccessType::READ_ONLY)->getUUID();            
         }
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
         const auto &enum_factory = fixture->get<EnumFactory>();

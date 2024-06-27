@@ -335,6 +335,13 @@ namespace db0
             }
         }
 
+        void detach()
+        {
+            for (auto &it : m_slabs) {
+                it.second->detach();
+            }
+        }
+
     private:
 
         struct CacheItem 
@@ -354,6 +361,13 @@ namespace db0
             {
                 if (auto slab = m_slab.lock()) {
                     slab->commit();
+                }
+            }
+
+            void detach()
+            {
+                if (auto slab = m_slab.lock()) {
+                    slab->detach();
                 }
             }
         };
@@ -661,6 +675,13 @@ namespace db0
         m_slab_defs.commit();        
         m_capacity_items.commit();
         m_slab_manager->commit();
+    }
+
+    void MetaAllocator::detach()
+    {
+        m_slab_defs.detach();        
+        m_capacity_items.detach();
+        m_slab_manager->detach();
     }
 
     SlabRecycler *MetaAllocator::getSlabRecyclerPtr() const {

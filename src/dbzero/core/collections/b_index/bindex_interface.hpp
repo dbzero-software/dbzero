@@ -92,6 +92,8 @@ namespace db0::bindex::interface
 
     template <typename item_t> using detachPtr = void (*)(void *this_ptr);
 
+    template <typename item_t> using commitPtr = void (*)(void *this_ptr);
+
     template <typename DefinitionT, typename T> struct BulkInsertUniqueFunctor {};
 
     template <typename item_t, typename T> struct InsertFunctor {};
@@ -125,6 +127,8 @@ namespace db0::bindex::interface
     template <typename item_t, typename T> struct GetAddrFunctor {};
 
     template <typename item_t, typename T> struct DetachFunctor {};
+
+    template <typename item_t, typename T> struct CommitFunctor {};
 
     template<typename DefinitionT, typename ContainerT>
     std::pair<std::uint32_t, std::uint32_t>
@@ -308,14 +312,22 @@ namespace db0::bindex::interface
         }
     };
 
-    template <typename item_t, typename... T> struct DetachFunctor<item_t, db0::v_bindex<T...> > {
+    template <typename item_t, typename... T> struct DetachFunctor<item_t, db0::v_bindex<T...> > 
+    {
         static void execute(void *this_ptr) {
-            // db0::v_bindex<T...> &index = *reinterpret_cast<db0::v_bindex<T...>*>(this_ptr);
-            // FIXME: implement detach            
-            // index.detach();
+            db0::v_bindex<T...> &index = *reinterpret_cast<db0::v_bindex<T...>*>(this_ptr);            
+            index.detach();
         }
     };
-    
+
+    template <typename item_t, typename... T> struct CommitFunctor<item_t, db0::v_bindex<T...> > 
+    {
+        static void execute(void *this_ptr) {
+            db0::v_bindex<T...> &index = *reinterpret_cast<db0::v_bindex<T...>*>(this_ptr);            
+            index.commit();
+        }
+    };
+
     /**
      * v_sorted_sequence specializations
      */
@@ -467,12 +479,21 @@ namespace db0::bindex::interface
         }
     };
 
-    template <typename item_t, int N, typename... T> struct DetachFunctor<item_t, db0::v_sorted_sequence<item_t, N, T...> > {
+    template <typename item_t, int N, typename... T> struct DetachFunctor<item_t, db0::v_sorted_sequence<item_t, N, T...> > 
+    {
         static void execute(void *this_ptr) {            
-            // db0::v_sorted_sequence<item_t, N, T...> &index =
-            //         *reinterpret_cast<db0::v_sorted_sequence<item_t, N, T...>*>(this_ptr);
-            // FIXME: implement detach
-            // index.detach();
+            db0::v_sorted_sequence<item_t, N, T...> &index =
+                *reinterpret_cast<db0::v_sorted_sequence<item_t, N, T...>*>(this_ptr);            
+            index.detach();
+        }
+    };
+
+    template <typename item_t, int N, typename... T> struct CommitFunctor<item_t, db0::v_sorted_sequence<item_t, N, T...> > 
+    {
+        static void execute(void *this_ptr) {            
+            db0::v_sorted_sequence<item_t, N, T...> &index =
+                *reinterpret_cast<db0::v_sorted_sequence<item_t, N, T...>*>(this_ptr);            
+            index.commit();
         }
     };
 
@@ -627,14 +648,22 @@ namespace db0::bindex::interface
         }
     };
 
-    template <typename item_t, typename... T> struct DetachFunctor<item_t, db0::v_sorted_vector<item_t, T...> > {
+    template <typename item_t, typename... T> struct DetachFunctor<item_t, db0::v_sorted_vector<item_t, T...> > 
+    {
         static void execute(void *this_ptr) {
-            // db0::v_sorted_vector<item_t, T...> &index = *reinterpret_cast<db0::v_sorted_vector<item_t, T...>*>(this_ptr);
-            // FIXME: implement detach
-            // index.detach();
+            db0::v_sorted_vector<item_t, T...> &index = *reinterpret_cast<db0::v_sorted_vector<item_t, T...>*>(this_ptr);            
+            index.detach();
         }
     };
-    
+
+    template <typename item_t, typename... T> struct CommitFunctor<item_t, db0::v_sorted_vector<item_t, T...> > 
+    {
+        static void execute(void *this_ptr) {
+            db0::v_sorted_vector<item_t, T...> &index = *reinterpret_cast<db0::v_sorted_vector<item_t, T...>*>(this_ptr);            
+            index.commit();
+        }
+    };
+
     /**
      * itty_index specialization
      */
@@ -783,6 +812,12 @@ namespace db0::bindex::interface
         }
     };
 
+    template <typename item_t, typename... T> struct CommitFunctor<item_t, db0::IttyIndex<item_t, T...> > 
+    {
+        static void execute(void *) {
+        }
+    };
+
     /**
      * empty_index specializations
      */
@@ -906,7 +941,12 @@ namespace db0::bindex::interface
         static void execute(void *) {
         }
     };
-    
+
+    template <typename item_t, typename... T> struct CommitFunctor<item_t, db0::empty_index<T...> > {
+        static void execute(void *) {
+        }
+    };
+
     /**
      * Implementation of common v_bindex interface
      */
@@ -941,6 +981,7 @@ namespace db0::bindex::interface
             , m_begin_ptr(BeginFunctor<item_t, T>::execute)            
             , m_erase_ptr(EraseFunctor<item_t, T>::execute)
             , m_detach_ptr(DetachFunctor<item_t, T>::execute)
+            , m_commit_ptr(CommitFunctor<item_t, T>::execute)
         {}
         
         /**
@@ -1056,8 +1097,12 @@ namespace db0::bindex::interface
             return m_get_addr_ptr(m_ptr);
         }
 
-        void detach() {
+        void detach() const {
             m_detach_ptr(m_ptr);
+        }
+
+        void commit() const {
+            m_commit_ptr(m_ptr);
         }
 
     private:
@@ -1081,6 +1126,7 @@ namespace db0::bindex::interface
         beginPtr<item_t> m_begin_ptr = nullptr;        
         erasePtr<item_t> m_erase_ptr = nullptr;
         detachPtr<item_t> m_detach_ptr = nullptr;
+        commitPtr<item_t> m_commit_ptr = nullptr;
     };
 
 } 

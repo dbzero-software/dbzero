@@ -42,7 +42,7 @@ def test_autocommit_can_be_disabled_for_prefix(db0_fixture):
     prefix_name = db0.get_current_prefix()
     db0.commit()
     db0.close(prefix_name)
-    db0.open(prefix_name, autocommit = False)
+    db0.open(prefix_name, autocommit=False)
     state_1 = db0.get_state_num()
     object_1 = MemoTestClass(951)
     time.sleep(0.3)

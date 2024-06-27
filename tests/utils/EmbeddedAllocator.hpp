@@ -25,6 +25,8 @@ namespace db0
 
         void commit() override;
 
+        void detach() override;
+
         void setAllocCallback(std::function<void(std::size_t, std::uint32_t, std::optional<std::uint64_t>)> callback);
 
     private:

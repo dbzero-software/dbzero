@@ -24,6 +24,8 @@ namespace db0
         WorkspaceView(Workspace &, std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
         
+        bool hasFixture(const std::string &prefix_name) const override;
+
         db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = {}) override;
         
         db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;

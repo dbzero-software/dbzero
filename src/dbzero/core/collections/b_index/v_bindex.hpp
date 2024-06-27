@@ -549,6 +549,18 @@ namespace db0
             item = *it;
             return true;
         }
+        
+        void commit() const 
+        {
+            m_index.commit();
+            super_t::commit();
+        }
+        
+        void detach() const
+        {
+            m_index.detach();
+            super_t::detach();
+        }
 
     protected :
         bindex_tree_t m_index;

@@ -35,11 +35,27 @@ namespace db0
     std::size_t SlotAllocator::getAllocSize(std::uint64_t address) const {
         return m_allocator_ptr->getAllocSize(address);
     }
-
-    void SlotAllocator::commit() {
+    
+    void SlotAllocator::commit()
+    {
         m_allocator_ptr->commit();
+        for (auto &slot: m_slots) {
+            if (slot) {
+                slot->commit();
+            }
+        }
     }
-
+    
+    void SlotAllocator::detach()
+    {
+        m_allocator_ptr->detach();
+        for (auto &slot: m_slots) {
+            if (slot) {
+                slot->detach();
+            }
+        }
+    }
+    
     Allocator &SlotAllocator::select(std::uint32_t slot_num)
     {
         if (slot_num == 0) {

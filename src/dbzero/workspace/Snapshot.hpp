@@ -19,6 +19,9 @@ namespace db0
     public:
         virtual ~Snapshot()= default;
         
+        // Check if a prefix with the given name exists
+        virtual bool hasFixture(const std::string &prefix_name) const = 0;
+
         virtual db0::swine_ptr<Fixture> getFixture(
             const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) = 0;
         

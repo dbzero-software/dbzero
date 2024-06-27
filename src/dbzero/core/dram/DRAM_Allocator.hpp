@@ -32,6 +32,8 @@ namespace db0
         std::size_t getAllocSize(std::uint64_t address) const override;
         
         void commit() override;
+
+        void detach() override;
         
         /**
          * Get address of the 1st allocation

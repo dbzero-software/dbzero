@@ -23,6 +23,7 @@ namespace db0
 
     class RefreshThread;
     class AutoCommitThread;
+    class AtomicContext;
 
     class BaseWorkspace
     {
@@ -56,6 +57,8 @@ namespace db0
         Memspace &getMemspace(const std::string &prefix_name, AccessType = AccessType::READ_WRITE, std::optional<std::uint64_t> state_num = {},
             std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {},
             std::optional<std::size_t> sparse_index_node_size = {});
+        
+        bool hasMemspace(const std::string &prefix_name) const;
         
         /**
          * Commit all underlying read/write prefixes
@@ -122,6 +125,8 @@ namespace db0
             std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});            
         virtual ~Workspace();
 
+        bool hasFixture(const std::string &prefix_name) const override;
+
         /**
          * Get current fixture for either read-only or read-write access
         */
@@ -140,20 +145,20 @@ namespace db0
          * Get existing fixture by UUID
          * if access type is specified then auto-open is also attmpted
         */
-        swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+        db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
         
-        swine_ptr<Fixture> getFixture(const std::string &prefix_name, 
+        db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, 
             std::optional<AccessType> = AccessType::READ_WRITE) override;
-        
+    
         /**
          * Find existing (opened) fixture or return nullptr
         */
-        swine_ptr<Fixture> tryFindFixture(const std::string &prefix_name) const;
+        db0::swine_ptr<Fixture> tryFindFixture(const std::string &prefix_name) const;
         
         /**
          * Find existing (opened) fixture or throw
         */
-        swine_ptr<Fixture> findFixture(const std::string &prefix_name) const;
+        db0::swine_ptr<Fixture> findFixture(const std::string &prefix_name) const;
 
         /**
          * Commit all underlying read/write prefixes
@@ -200,6 +205,11 @@ namespace db0
 
         // Get current fixture UUID
         std::optional<std::uint64_t> getDefaultUUID() const;
+        
+        void beginAtomic(AtomicContext *context);
+        void endAtomic();
+        
+        void cancelAtomic();
 
     private:
         FixtureCatalog m_fixture_catalog;
@@ -213,6 +223,8 @@ namespace db0
         std::vector<std::string> m_current_prefix_history;
         // shared object list is for maintainig v_object cache evition policy at a process level
         mutable FixedObjectList m_shared_object_list;
+        // flag indicating atomic operation in progress
+        AtomicContext *m_atomic_context_ptr = nullptr;
 
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
     };

@@ -102,6 +102,10 @@ namespace db0
         return result;
     }
     
+    bool WorkspaceView::hasFixture(const std::string &prefix_name) const {
+        return m_workspace->hasFixture(prefix_name);
+    }
+    
     db0::swine_ptr<Fixture> WorkspaceView::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
     {
         if (m_closed) {

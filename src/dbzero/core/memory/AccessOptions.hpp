@@ -7,13 +7,14 @@ namespace db0
 
 {
 
-    enum class AccessOptions : std::uint16_t 
-    {
-        rely        = 0b00000001,
-        read        = 0b00000010,
-        write       = 0b00000100,
-        create      = 0b00001000,
-        no_cache    = 0b00010000
+    enum class AccessOptions : std::uint16_t
+    {        
+        read        = 0x0001,
+        write       = 0x0002,
+        create      = 0x0004,
+        no_cache    = 0x0010,
+        // resource which should be kept in-memory
+        no_flush    = 0x0020
     };
     
     /**
@@ -30,7 +31,8 @@ namespace db0
     // Flag indicating if the lock has been registered with cache recycler
     static constexpr std::uint16_t RESOURCE_RECYCLED            = 0x0200;
     
-    enum class AccessType: unsigned int {
+    enum class AccessType: unsigned int
+    {
         READ_ONLY = 1,
         READ_WRITE = 2    
     };

@@ -41,5 +41,9 @@ namespace db0
     void OneShotAllocator::commit() {
         // nothing to do
     }
-    
+
+    void OneShotAllocator::detach() {
+        // nothing to do
+    }
+
 }

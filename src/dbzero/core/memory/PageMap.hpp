@@ -47,6 +47,13 @@ namespace db0
 
         void forEach(std::function<void(ResourceLockT &)>);
 
+        void erasePage(std::uint64_t state_num, std::uint64_t page_num);
+        void eraseRange(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page);
+
+        void replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num);
+        void replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t first_page,
+            std::uint64_t end_page);
+
         void clear();
 
         bool empty() const;
@@ -216,4 +223,33 @@ namespace db0
         return m_cache.empty();
     }
     
+    template <typename ResourceLockT>
+    void PageMap<ResourceLockT>::erasePage(std::uint64_t state_num, std::uint64_t page_num)
+    {
+        m_cache.erase({page_num, state_num});
+    }
+
+    template <typename ResourceLockT>
+    void PageMap<ResourceLockT>::eraseRange(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page)
+    {
+        for (; first_page != end_page; ++first_page) {
+            m_cache.erase({first_page, state_num});
+        }
+    }
+    
+    template <typename ResourceLockT>
+    void PageMap<ResourceLockT>::replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num) 
+    {
+        erasePage(state_num, page_num);
+        insertPage(state_num, lock, page_num);
+    }
+    
+    template <typename ResourceLockT>
+    void PageMap<ResourceLockT>::replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t first_page,
+        std::uint64_t end_page)
+    {
+        eraseRange(state_num, first_page, end_page);
+        insertRange(state_num, lock, first_page, end_page);
+    }
+
 }

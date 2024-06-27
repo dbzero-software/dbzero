@@ -19,6 +19,7 @@
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include "Types.hpp"
+#include "PyAtomic.hpp"
 
 namespace db0::python
 
@@ -276,9 +277,19 @@ namespace db0::python
         
         return py_list;
     }
-
+    
     PyObject *getDBMetrics(PyObject *self, PyObject *args) {
         return runSafe(tryGetDBMetrics, self, args);
+    }
+
+    PyObject *beginAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs)
+    {
+        if (nargs != 0) {
+            PyErr_SetString(PyExc_TypeError, "beginAtomic requires no arguments");
+            return NULL;
+        }
+
+        return runSafe(tryBeginAtomic, self);
     }
 
     PyObject *getSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)

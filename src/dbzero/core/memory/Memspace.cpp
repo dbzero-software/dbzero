@@ -67,5 +67,29 @@ namespace db0
         }
         return *m_derived_UUID;        
     }
+    
+    void Memspace::beginAtomic()
+    {
+        assert(!m_atomic);
+        m_atomic = true;
+        getAllocator().commit();
+        // note that we don't flush from prefix on begin atomic
+        m_prefix->beginAtomic();
+    }
+
+    void Memspace::endAtomic()
+    {
+        assert(m_atomic);
+        m_atomic = false;        
+        m_prefix->endAtomic();
+    }
+    
+    void Memspace::cancelAtomic()
+    {
+        assert(m_atomic);
+        m_atomic = false;
+        getAllocator().detach();
+        m_prefix->cancelAtomic();
+    }
 
 }

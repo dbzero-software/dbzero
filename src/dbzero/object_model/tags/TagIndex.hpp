@@ -17,11 +17,18 @@ namespace db0::object_model
     using Object = db0::object_model::Object;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     
+    struct [[gnu::packed]] o_tag_index: public o_fixed<o_tag_index>
+    {
+        std::uint64_t m_base_index_short_ptr = 0;
+        std::uint64_t m_base_index_long_ptr = 0;
+        std::uint64_t m_reserved[4] = { 0, 0, 0, 0 };
+    };
+
     /**
      * A class to represent a full-text (tag) index and the corresponding batch-update buffer
      * typically the TagIndex instance is associated with the Class object
     */
-    class TagIndex
+    class TagIndex: public db0::v_object<o_tag_index>
     {
     public:
         using LangToolkit = typename Object::LangToolkit;
@@ -34,8 +41,8 @@ namespace db0::object_model
         // field-level tags are represented as long tags
         using LongTagT = db0::num_pack<std::uint64_t, 2u>;
         
-        TagIndex(const ClassFactory &, RC_LimitedStringPool &, db0::FT_BaseIndex<ShortTagT> &, 
-            db0::FT_BaseIndex<LongTagT> &);
+        TagIndex(Memspace &memspace, const ClassFactory &, RC_LimitedStringPool &, VObjectCache &);
+        TagIndex(mptr, const ClassFactory &, RC_LimitedStringPool &, VObjectCache &);
         
         virtual ~TagIndex();
         
@@ -74,13 +81,21 @@ namespace db0::object_model
         // Close tag index without flushing any pending updates
         void close();
 
+        void commit() const;
+        
+        void detach() const;
+
+        db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort();
+        const db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort() const;
+        const db0::FT_BaseIndex<LongTagT> &getBaseIndexLong() const;
+        
     private:
         using TypeId = db0::bindings::TypeId;
 
         const ClassFactory &m_class_factory;
         RC_LimitedStringPool &m_string_pool;
-        db0::FT_BaseIndex<ShortTagT> &m_base_index_short;
-        db0::FT_BaseIndex<LongTagT> &m_base_index_long;
+        db0::FT_BaseIndex<ShortTagT> m_base_index_short;
+        db0::FT_BaseIndex<LongTagT> m_base_index_long;
         // Current batch-operation buffer (may not be initialized)
         mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_operation_short;
         mutable db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder m_batch_operation_long;
@@ -88,8 +103,8 @@ namespace db0::object_model
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
         mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
-                
-        template <typename BaseIndexT, typename BatchOperationT> 
+        
+        template <typename BaseIndexT, typename BatchOperationT>
         BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &);
 
         db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr);

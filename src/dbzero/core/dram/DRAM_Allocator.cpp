@@ -98,8 +98,12 @@ namespace db0
         return FIRST_PAGE_ID * m_page_size;
     }
         
-    void DRAM_Allocator::commit()
+    void DRAM_Allocator::commit() 
     {
     }
-    
+
+    void DRAM_Allocator::detach() 
+    {
+    }
+
 }

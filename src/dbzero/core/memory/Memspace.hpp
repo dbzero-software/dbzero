@@ -97,12 +97,18 @@ namespace db0
         
         std::uint64_t getUUID() const;
         
+        void beginAtomic();
+        void endAtomic();
+        void cancelAtomic();
+
     protected:
         std::shared_ptr<Prefix> m_prefix;
         std::shared_ptr<Allocator> m_allocator;
         Allocator *m_allocator_ptr = nullptr;
         // UUID (if passed from a derived class)
         std::optional<std::uint64_t> m_derived_UUID;
+        // flag indicating if the atomic operation is in progress
+        bool m_atomic = false;
     };
 
 }

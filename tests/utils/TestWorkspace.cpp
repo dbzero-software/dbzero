@@ -129,4 +129,14 @@ namespace db0
         m_shared_object_list.clear();
         m_slab_recycler.clear();
     }
+
+    bool TestWorkspace::hasFixture(const std::string &prefix_name) const
+    {
+        auto it = m_uuids.find(prefix_name);
+        if (it == m_uuids.end()) {
+            return false;
+        }
+        return m_fixtures.find(it->second) != m_fixtures.end();
+    }
+
 }

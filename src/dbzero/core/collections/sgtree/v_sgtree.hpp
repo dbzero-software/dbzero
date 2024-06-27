@@ -343,35 +343,30 @@ namespace db0
         /**
          * Find by node initializer / key
          */
-        template <class KeyInitializer> iterator find(const KeyInitializer &key) const
-        {
+        template <class KeyInitializer> iterator find(const KeyInitializer &key) const {
             return SG_Tree::find(this->head(), key, _comp);
         }
 
         /**
          * Find low-bound node by initializer / key
          */
-        template <class KeyT> iterator lower_bound(const KeyT &key) const
-        {
-            return SG_Tree::lower_bound(this->head(),key,_comp);
+        template <class KeyT> iterator lower_bound(const KeyT &key) const {
+            return SG_Tree::lower_bound(this->head(), key, _comp);
         }
 
-        template <class KeyT> iterator lower_equal_bound(const KeyT &key) const
-        {
-            return SG_Tree::lower_equal_bound(this->head(),key,_comp);
+        template <class KeyT> iterator lower_equal_bound(const KeyT &key) const {
+            return SG_Tree::lower_equal_bound(this->head(), key, _comp);
         }
 
         /**
          * Find upper-bound node by initializer / key
          */
-        template <class KeyInitializer> iterator upper_bound(const KeyInitializer &key) const
-        {
-            return SG_Tree::upper_bound(this->head(),key,_comp);
+        template <class KeyInitializer> iterator upper_bound(const KeyInitializer &key) const {
+            return SG_Tree::upper_bound(this->head(), key, _comp);
         }
 
-        template <class KeyInitializer> iterator upper_equal_bound(const KeyInitializer &key) const
-        {
-            return SG_Tree::upper_equal_bound(this->head(),key,_comp);
+        template <class KeyInitializer> iterator upper_equal_bound(const KeyInitializer &key) const {
+            return SG_Tree::upper_equal_bound(this->head(), key, _comp);
         }
 
         /**
@@ -453,8 +448,7 @@ namespace db0
          * Measure tree height
          * @return tree height (maximum distance from leaf to root)
          */
-        std::uint64_t height() const
-        {
+        std::uint64_t height() const {
             return SG_Tree::get_height(this->head());
         }
 

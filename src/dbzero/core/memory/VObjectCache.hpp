@@ -2,6 +2,8 @@
 
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
+#include <functional>
 #include <dbzero/core/utils/shared_void.hpp>
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
@@ -44,7 +46,7 @@ namespace db0
         std::uint32_t m_size = 0;
         std::vector<std::shared_ptr<void> > m_data;
         // round-robin iterator
-        std::vector<std::shared_ptr<void> >::iterator m_insert_iterator;
+        std::vector<std::shared_ptr<void> >::iterator m_insert_iterator;        
     };
     
     class VObjectCache
@@ -78,13 +80,22 @@ namespace db0
         */
         void erase(std::uint64_t address);
 
+        void commit();
+        
         FixedObjectList &getSharedObjectList() const;
+
+        void beginAtomic();
+        void endAtomic();
+        void cancelAtomic();
         
     private:
         Memspace &m_memspace;
         FixedObjectList &m_shared_object_list;
-        // store pairs: address -> (weak_ptr, likely index)
-        mutable std::unordered_map<std::uint64_t, std::pair<std::weak_ptr<void>, std::uint32_t> > m_cache;
+        // store pairs: address -> (weak_ptr, likely index, detach function)
+        mutable std::unordered_map<std::uint64_t, std::tuple<std::weak_ptr<void>, std::uint32_t, std::function<void()>> > m_cache;
+        bool m_atomic = false;
+        // volatile instances - i.e. ones created during atomic operation
+        mutable std::unordered_set<std::uint64_t> m_volatile;
     };
     
     template <typename T, typename... Args>
@@ -99,7 +110,13 @@ namespace db0
         // note that the index may be at any moment released and reused by other item
         auto index = m_shared_object_list.append(ptr);
         auto result_ptr = std::static_pointer_cast<T>(ptr);
-        m_cache[result_ptr->getAddress()] = { ptr, index };        
+        auto commit_func = [result_ptr]() {
+            result_ptr->commit();
+        };
+        m_cache[result_ptr->getAddress()] = { ptr, index, commit_func };
+        if (m_atomic) {
+            m_volatile.insert(result_ptr->getAddress());
+        }
         return result_ptr;
     }
     
@@ -108,9 +125,16 @@ namespace db0
     {
         auto it = m_cache.find(address);
         if (it != m_cache.end()) {
-            auto lock = it->second.first.lock();
+            auto lock = std::get<0>(it->second).lock();
             if (lock) {
+                // for atomic operations register the address as volatile
+                if (m_atomic) {
+                    m_volatile.insert(address);
+                }
                 return std::static_pointer_cast<T>(lock);
+            } else {
+                // erase expired lock
+                m_cache.erase(it);            
             }
         }
         return create<T>(std::forward<Args>(args)...);
@@ -120,15 +144,17 @@ namespace db0
     std::shared_ptr<T> VObjectCache::tryFind(std::uint64_t address) const
     {
         auto it = m_cache.find(address);
-        if (it == m_cache.end())
-        {
+        if (it == m_cache.end()) {
             return nullptr;
         }
-        auto lock = it->second.first.lock();
-        if (!lock)
-        {
+        auto lock = std::get<0>(it->second).lock();
+        if (!lock) {
+            // erase expired lock
             m_cache.erase(it);
             return nullptr;
+        }
+        if (m_atomic) {
+            m_volatile.insert(address);
         }
         return std::static_pointer_cast<T>(lock);
     }

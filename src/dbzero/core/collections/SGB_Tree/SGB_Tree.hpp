@@ -101,13 +101,11 @@ namespace db0
         /**
          * Get address of this object
         */
-        std::uint64_t getAddress() const 
-        {
+        std::uint64_t getAddress() const {
             return super_t::getAddress();
         }
         
-        void insert(const ItemT &item)
-        {
+        void insert(const ItemT &item) {
             emplace(item);
         }
 
@@ -211,13 +209,11 @@ namespace db0
                 return *this;
             }
 
-            ItemT operator*() const
-            {
+            ItemT operator*() const {
                 return *m_node_it;
             }
 
-            const ItemT *operator->() const
-            {
+            const ItemT *operator->() const {
                 return m_node_it.get_ptr();
             }
 
@@ -230,8 +226,7 @@ namespace db0
             sgb_node_const_sorting_iterator m_node_it;
         };
 
-        const_iterator cbegin() const
-        {
+        const_iterator cbegin() const {
             return const_iterator(super_t::begin(), super_t::end());
         }
 
@@ -286,13 +281,11 @@ namespace db0
                 return *this;
             }
 
-            ItemT operator*() const
-            {
+            ItemT operator*() const {
                 return *m_item_it.first;
             }
 
-            const ItemT *operator->() const
-            {
+            const ItemT *operator->() const {
                 return m_item_it.first.get_ptr();
             }
             
@@ -300,8 +293,7 @@ namespace db0
                 return m_is_end;
             }
             
-            inline const ConstItemIterator &get() const
-            {
+            inline const ConstItemIterator &get() const {
                 return m_item_it;
             }
 
@@ -309,8 +301,7 @@ namespace db0
              * Retrieve the underlying item iterator for modification
              * any external modification invalidates 'this' instance
             */
-            ConstItemIterator &getMutable()
-            {
+            ConstItemIterator &getMutable() {
                 return m_item_it;
             }
 
@@ -528,6 +519,10 @@ namespace db0
             super_t::commit();
         }
         
+        void detach() {
+            super_t::detach();
+        }
+
     protected:
         const std::size_t m_node_capacity;
 

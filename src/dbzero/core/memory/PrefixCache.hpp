@@ -79,9 +79,7 @@ namespace db0
          * @return total size in bytes
         */
         std::size_t getSizeOfResources() const;
-
-        void clear();
-
+        
         bool empty() const;
         
         /**
@@ -94,6 +92,16 @@ namespace db0
         */
         void flush();
 
+        void clear();
+
+        // Remove (discard) all volatile locks
+        void rollback(std::uint64_t state_num);
+
+        // Merge atomic operation's data (volatile locks) into an active transaction
+        // @param from_state_num must be the atomic operation's assigned (temporary) state number
+        // @param to_state_num the actual transaction number
+        void merge(std::uint64_t from_state_num, std::uint64_t to_state_num);
+        
     private:
         StorageView &m_storage_view;
         const std::size_t m_page_size;
@@ -107,6 +115,8 @@ namespace db0
         mutable CacheRecycler *m_cache_recycler_ptr = nullptr;
         // marker lock (to mark missing ranges)
         const std::shared_ptr<ResourceLock> m_missing_lock_ptr;
+        // locks with no_flush flag (e.g. from an atomic update)
+        mutable std::vector<std::shared_ptr<ResourceLock> > m_volatile_locks;
         
         /**
          * Execute specific function for each stored resource lock, boundary locks processed first
@@ -118,6 +128,11 @@ namespace db0
         */
         std::shared_ptr<ResourceLock> findOrCreatePage(std::uint64_t state_num, std::uint64_t page_num,
             FlagSet<AccessOptions> access_mode);
+
+        void eraseRange(std::uint64_t address, std::size_t size, std::uint64_t state_num);
+        // insert new or replace existing range
+        void replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+            std::shared_ptr<ResourceLock> new_lock);
     };
     
 }

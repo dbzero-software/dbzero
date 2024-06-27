@@ -29,6 +29,7 @@ namespace db0
     class Workspace;
     class WorkspaceView;
     class SlabAllocator;
+    class AtomicContext;
     using StringPoolT = db0::pools::RC_LimitedStringPool;
     using ObjectCatalogue = db0::object_model::ObjectCatalogue;
 
@@ -133,6 +134,7 @@ namespace db0
         
         // add commit or close handler (the actual operation identified by the boolean flag)
         void addCloseHandler(std::function<void(bool commit)>);
+        void addDetachHandler(std::function<void()>);
 
         void commit();
         
@@ -193,6 +195,13 @@ namespace db0
 
         bool operator==(const Fixture &other) const;
         
+        void beginAtomic(AtomicContext *context);
+        void endAtomic();
+        
+        void cancelAtomic();
+
+        AtomicContext *tryGetAtomicContext() const;
+        
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;
@@ -209,6 +218,7 @@ namespace db0
         mutable LangCache m_lang_cache;
         // internal cache for DBZero based collections
         mutable VObjectCache m_v_object_cache;
+        AtomicContext *m_atomic_context_ptr = nullptr;
 
         // For read/write fixtures:
         // the onUpdate is called whenever the fixture is modified
@@ -228,6 +238,7 @@ namespace db0
         mutable ResourceManager m_resource_manager;
         std::deque<std::shared_ptr<db0::DependencyHolder> > m_dependencies;
         std::vector<std::function<void(bool)> > m_close_handlers;
+        std::vector<std::function<void()> > m_detach_handlers;
         
         std::uint64_t getUUID(MetaAllocator &);
 
@@ -235,7 +246,7 @@ namespace db0
         void tryCommit();
 
         static std::shared_ptr<SlabAllocator> openSlot(MetaAllocator &, const v_object<o_fixture> &, std::uint32_t slot_id);
-
+        
     protected:
         friend class FixtureThread;
         friend class FixtureLock;

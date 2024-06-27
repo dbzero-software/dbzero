@@ -45,12 +45,14 @@ namespace db0
         TestWorkspace(std::size_t page_size = 4096, std::size_t slab_size = 1u << 20,
             std::size_t cache_size = 2u << 30);
 
-        virtual db0::swine_ptr<Fixture> getFixture(
-            const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) override;
+        bool hasFixture(const std::string &prefix_name) const override;
         
-        virtual db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+        db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, 
+            std::optional<AccessType> = AccessType::READ_WRITE) override;
         
-        virtual db0::swine_ptr<Fixture> getCurrentFixture() override;
+        db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+        
+        db0::swine_ptr<Fixture> getCurrentFixture() override;
         
         bool close(const std::string &prefix_name) override;
         

@@ -41,6 +41,8 @@ namespace db0
         */
         virtual void commit() = 0;
 
+        virtual void detach() = 0;
+
         /**
          * Allocate a new continuous range of a given size
          * 
