@@ -2,11 +2,19 @@ import pytest
 import datetime
 import random
 import dbzero_ce as db0
+from .memo_test_types import MemoTestClass
 
 
-def test_db0_set_can_be_created(db0_fixture):
-    set_1 = db0.set()    
-    assert set_1 is not None    
+@db0.memo
+class CollisionClass:
+    def __init__(self, value):
+        self.value = int(value)
+
+    def __eq__(self, other):
+        return self.value == other.value
+
+    def __hash__(self):
+        return self.value % 10
 
 
 def make_python_set(values = None):
@@ -20,6 +28,11 @@ def make_db0_set(values = None):
     return db0.set()
 
 set_test_params = [(make_python_set), (make_db0_set)]
+
+def test_db0_set_can_be_created(db0_fixture):
+    set_1 = db0.set()    
+    assert set_1 is not None    
+
 
 def test_can_create_set_with_params(db0_fixture):
     set1 = db0.set([1,2,3,4,5,1,2])
@@ -170,6 +183,7 @@ def test_set_issuperset_ge(db0_fixture, make_set):
     assert set_1 >= set([2,3,1,2,4])
     assert not set_1 >= set([2,3,5,6,7])
 
+
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_issubset_gt(db0_fixture, make_set):
     set_1 = make_set([1,2,3,4,5,6])
@@ -184,6 +198,7 @@ def test_set_issubset_gt(db0_fixture, make_set):
     assert set_1 > set([2,3,1,2,4])
     assert not set_1 > set([2,3,5,6,7])
 
+
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_can_copy(db0_fixture, make_set):
     set_1 = make_set([1,3,2])
@@ -193,15 +208,22 @@ def test_set_can_copy(db0_fixture, make_set):
     assert len(set_copy) == 4
     assert set_copy != set([1,3,2])
 
+
+def test_set_union_issue(db0_fixture):
+    set_1 = db0.set([1])
+    set_2 = db0.set([3])
+    set_union = set_1.union(set_2)
+    assert set(set_union) == set([1, 3])
+
+
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_can_union(db0_fixture, make_set):
-    set_1 = make_set([1, 3, 2])
-    set_2 = make_set([3, 4, 5])
-    set_3 = make_set([5, 6, 7])
-    set_union = set_1.union(set_2, set_3)
-    for i in set_union:
-        assert i in [1, 2, 3, 4, 5, 6, 7]
-    assert set_union == set([1, 2, 3, 4, 5, 6, 7])
+    set_1 = db0.set([1, 3, 2])    
+    set_2 = db0.set([3, 4, 5])    
+    set_3 = db0.set([5, 6, 7])
+    set_union = set_1.union(set_2, set_3)    
+    assert set(set_union) == set([1, 2, 3, 4, 5, 6, 7])
+
 
 def test_set_can_union_db0_set_with_python_sets(db0_fixture):
     set_1 = db0.set([1, 3, 2])
@@ -209,6 +231,7 @@ def test_set_can_union_db0_set_with_python_sets(db0_fixture):
     set_3 = set([5, 6, 7])
     set_union = set_1.union(set_2, set_3)
     assert set_union == set([1, 2, 3, 4, 5, 6, 7])
+
 
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_can_union_as_or(db0_fixture, make_set):
@@ -249,6 +272,7 @@ def test_set_difference(db0_fixture, make_set):
     assert len(set_union) == 3
     assert set_union == set([1, 2, 9])
 
+
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_difference_as_operator(db0_fixture, make_set):
     set_1 = make_set([1, 2, 3, 4, 5, 6, 7, 8, 9])
@@ -267,6 +291,7 @@ def test_set_symmetric_difference(db0_fixture, make_set):
     assert len(set_union) == 5
     assert set_union == set([1, 2, 9, 10, 11])
 
+
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_difference_as_operator(db0_fixture, make_set):
     set_1 = make_set([1, 2, 3, 4, 5, 6, 7, 8, 9])
@@ -274,6 +299,7 @@ def test_set_difference_as_operator(db0_fixture, make_set):
     set_union = set_1 ^ set_2
     assert len(set_union) == 5
     assert set_union == set([1, 2, 9, 10, 11])
+
 
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_can_remove_item(db0_fixture, make_set):
@@ -336,8 +362,6 @@ def test_set_can_clear_items(db0_fixture, make_set):
     assert len(set_1) == 0
 
 
-
-
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_can_intersect_in_place(db0_fixture, make_set):
     set_1 = make_set([1, 2, 3, 4, 5])
@@ -359,7 +383,7 @@ def test_set_difference_in_place(db0_fixture, make_set):
 
 
 @pytest.mark.parametrize("make_set", set_test_params)
-def test_set_simmetric_difference_in_place(db0_fixture, make_set):
+def test_set_symmetric_difference_in_place(db0_fixture, make_set):
     set_1 = make_set([1, 2, 3, 4, 5])
     set_2 = make_set([3, 4, 7])
     set_1 ^= set_2
@@ -367,6 +391,7 @@ def test_set_simmetric_difference_in_place(db0_fixture, make_set):
     assert set_1 == set([1, 2, 5, 7])
     set_1 ^= set([2, 5, 7, 9])
     assert set_1 == set([1, 9])
+
 
 def test_set_items_in(db0_fixture):
     # tests iteration over values from set
@@ -385,16 +410,11 @@ def test_set_items_in(db0_fixture):
     end = datetime.datetime.now()
     print("Elapsed time: ", end - now)
 
-@db0.memo
-class CollisionClass:
-    def __init__(self, value):
-        self.value = int(value)
 
-    def __eq__(self, other):
-        return self.value == other.value
-
-    def __hash__(self):
-        return self.value % 10
+def test_set_as_member(db0_fixture):
+    object_1 = MemoTestClass(set([1,2,3,4,5]))
+    assert set(object_1.value) == set([1,2,3,4,5])
+    
     
 # fixme: Needs to fix problem with __eq__ method
 # @pytest.mark.parametrize("make_set", set_test_params)

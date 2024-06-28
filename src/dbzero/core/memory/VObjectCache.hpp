@@ -103,15 +103,16 @@ namespace db0
     {
         if (m_shared_object_list.full()) {
             // remove 1/4 of cached objects once the max_size is reached
-            m_shared_object_list.eraseItems(m_shared_object_list.size() >> 2);            
+            m_shared_object_list.eraseItems((m_shared_object_list.size() >> 2) + 1);
         }
         
         auto ptr = make_shared_void<T>(m_memspace, std::forward<Args>(args)...);
         // note that the index may be at any moment released and reused by other item
         auto index = m_shared_object_list.append(ptr);
         auto result_ptr = std::static_pointer_cast<T>(ptr);
-        auto commit_func = [result_ptr]() {
-            result_ptr->commit();
+        auto raw_ptr = result_ptr.get();
+        auto commit_func = [raw_ptr]() {
+            raw_ptr->commit();
         };
         m_cache[result_ptr->getAddress()] = { ptr, index, commit_func };
         if (m_atomic) {

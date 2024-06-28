@@ -3,6 +3,9 @@
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/list/List.hpp>
+#include <dbzero/object_model/set/Set.hpp>
+#include <dbzero/object_model/dict/Dict.hpp>
+#include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/pandas/Block.hpp>
 #include <dbzero/object_model/pandas/Dataframe.hpp>
 #include <dbzero/object_model/class/Class.hpp>
@@ -32,7 +35,7 @@ namespace db0::object_model
         return [](db0::swine_ptr<Fixture> &fixture, bool is_new)
         {
             // static GC0 bindings initialization
-            GC0::registerTypes<Class, Object, List, Block, DataFrame, Index, Enum>();
+            GC0::registerTypes<Class, Object, List, Set, Dict, Tuple, Block, DataFrame, Index, Enum>();
             auto &oc = fixture->getObjectCatalogue();
             if (is_new) {
                 // create GC0 instance first

@@ -35,6 +35,8 @@ namespace db0::object_model
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         
+        Dict(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        
         ObjectSharedPtr getItem(std::size_t hash, ObjectPtr key_value) const;
         void setItem(std::size_t hash, ObjectPtr key, ObjectPtr value);
         
@@ -56,7 +58,6 @@ namespace db0::object_model
     private:
         // new dicts can only be created via factory members
         Dict(db0::swine_ptr<Fixture> &);
-        Dict(db0::swine_ptr<Fixture> &, std::uint64_t address);
         Dict(db0::swine_ptr<Fixture> &fixture, const Dict& dict);
         std::size_t m_size = 0;
     };

@@ -20,23 +20,23 @@ namespace db0
     void FixedObjectList::eraseItems(std::uint32_t count)
     {
         assert(count <= m_capacity);
-        for (;count != 0; --count) {
+        while (count > 0) {
             if (*m_insert_iterator != nullptr) {
                 --m_size;
+                --count;
                 *m_insert_iterator = nullptr;
             }
             ++m_insert_iterator;
             if (m_insert_iterator == m_data.end()) {
                 m_insert_iterator = m_data.begin();
             }
-            // skip every other item
             ++m_insert_iterator;
             if (m_insert_iterator == m_data.end()) {
                 m_insert_iterator = m_data.begin();
             }
         }
     }
-
+    
     void FixedObjectList::eraseAt(std::uint32_t index)
     {
         if (m_data[index] != nullptr) {

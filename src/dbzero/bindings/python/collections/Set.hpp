@@ -1,6 +1,7 @@
 #include <dbzero/object_model/set/Set.hpp>
 
-namespace db0::python 
+namespace db0::python
+
 {
     
     using SetObject = PyWrapper<db0::object_model::Set>;

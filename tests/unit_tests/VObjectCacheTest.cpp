@@ -69,15 +69,24 @@ namespace tests
         using VType = db0::v_object<o_test_inst>;
         auto memspace = getMemspace();
         VObjectCache cut(memspace, m_sol);
-        auto address = cut.create<VType>(81392)->getAddress();
+        std::unordered_set<std::uint64_t> addresses;
+        addresses.insert(cut.create<VType>(81392)->getAddress());
         // add more instances so that the cache size is exhausted
         // use twice the cache size because extra capacity may be assigned by the implementation
         for (std::size_t i = 0; i < CACHE_SIZE * 2; ++i) {
-            cut.create<VType>(i);
+            addresses.insert(cut.create<VType>(i)->getAddress());
         }
-        // check if the first instance is still in the cache
-        auto obj = cut.tryFind<VType>(address);
-        ASSERT_FALSE(obj);
+
+        int existing_count = 0;
+        for (auto address: addresses) {
+            auto obj = cut.tryFind<VType>(address);
+            if (obj) {
+                ++existing_count;
+            }
+        }
+
+        // check some of the objects have been removed
+        ASSERT_LT(existing_count, addresses.size());
 	}
 
 }

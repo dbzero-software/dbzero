@@ -29,7 +29,7 @@ namespace db0::python
         return 0;
     }
 
-     int SetObject_HasItem(SetObject *set_obj, PyObject *key)
+    int SetObject_HasItem(SetObject *set_obj, PyObject *key)
     {
         return set_obj->ext().has_item(key);
     }
@@ -172,6 +172,7 @@ namespace db0::python
                 Py_DECREF(item);
             }
         }
+
         // register newly created set with py-object cache
         fixture->getLangCache().add(set.getAddress(), py_set, true);
         return py_set;
@@ -304,11 +305,12 @@ namespace db0::python
         db0::FixtureLock lock(py_src_set->ext().getFixture());
         // make actual DBZero instance, use default fixture
         auto py_set = SetObject_new(&SetObjectType, NULL, NULL);
-        py_src_set->ext().copy(&py_set->modifyExt(), *lock);
+        db0::object_model::Set::makeNew(&py_set->modifyExt(), *lock);
+        py_set->modifyExt().insert(py_src_set->ext());
         lock->getLangCache().add(py_set->ext().getAddress(), py_set, true);
         return py_set;
     }
-
+    
     PyObject * SetObject_union_binary(SetObject *self, PyObject * obj) {
         return SetObject_union(self, &obj, 1);
     }
