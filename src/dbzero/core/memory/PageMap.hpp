@@ -57,6 +57,8 @@ namespace db0
         void clear();
 
         bool empty() const;
+
+        std::size_t size() const;
         
     private:
         struct CompT {
@@ -250,6 +252,11 @@ namespace db0
     {
         eraseRange(state_num, first_page, end_page);
         insertRange(state_num, lock, first_page, end_page);
+    }
+
+    template <typename ResourceLockT>
+    std::size_t PageMap<ResourceLockT>::size() const {
+        return m_cache.size();
     }
 
 }

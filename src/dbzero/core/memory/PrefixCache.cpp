@@ -61,7 +61,7 @@ namespace db0
 
     std::shared_ptr<ResourceLock> PrefixCache::createRange(std::uint64_t address, std::uint64_t state_num, std::size_t size,
         FlagSet<AccessOptions> access_mode)
-    {        
+    {
         auto first_page = address >> m_shift;
         auto end_page = ((address + size - 1) >> m_shift) + 1;
 
@@ -104,6 +104,7 @@ namespace db0
         if (access_mode[AccessOptions::no_flush]) {
             m_volatile_locks.push_back(result);
         }
+
         return result;
     }
     
@@ -128,12 +129,15 @@ namespace db0
                 if (!lhs) {
                     return nullptr;
                 }
-                auto rhs = m_page_map.findPage(state_num, first_page + 1, &rhs_state_num);
-                if (!rhs || lhs_state_num != rhs_state_num) {
+
+                auto rhs = m_page_map.findPage(state_num, first_page + 1, &rhs_state_num);                
+                // FIXME: log
+                if (!rhs /*|| lhs_state_num != rhs_state_num*/) {
                     return nullptr;
                 }
                 if (result_state_num) {
-                    *result_state_num = lhs_state_num;
+                    // FIXME: log (allow different state numbers)
+                    *result_state_num = std::max(lhs_state_num, rhs_state_num);
                 }
                 auto lhs_size = ((first_page + 1) << m_shift) - address;
                 boundary_lock = std::make_shared<BoundaryLock>(m_storage_view, address, lhs, lhs_size, rhs, 
@@ -142,7 +146,7 @@ namespace db0
             }
             // in case of a boundary lock the address must be precisely matched
             // since boundary lock contains only the single allocation's data            
-            assert(boundary_lock->getAddress() == address);
+            assert(boundary_lock->getAddress() == address);            
             result = boundary_lock;
         } else {
             result = m_page_map.findRange(state_num, first_page, end_page, result_state_num);

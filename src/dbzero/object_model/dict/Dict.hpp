@@ -23,7 +23,7 @@ namespace db0::object_model
     // using dict_item = db0::key_value<std::uint64_t, o_pair_item>;
     using PairItem_Address = ValueT_Address<o_pair_item>;
     using DictIndex = CollectionIndex<o_pair_item, PairItem_Address>;
-    using dict_item = db0::key_value<std::uint64_t, TypedIndex<PairItem_Address, DictIndex>>;
+    using dict_item = db0::key_value<std::uint64_t, TypedIndexAddr<PairItem_Address, DictIndex>>;
 
     class Dict: public db0::ObjectBase<Dict, v_bindex<dict_item>, StorageClass::DB0_DICT>
     {

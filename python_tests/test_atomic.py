@@ -89,13 +89,20 @@ def test_atomic_revert_list_update(db0_fixture):
         atomic.cancel()    
     assert object_1.value == [1, 2]
     
+
+def test_atomic_set_update_issue(db0_fixture):
+    object_1 = MemoTestClass(set())
+    object_1.value.add(0)
+    with db0.atomic() as atomic:
+        object_1.value.add(1)
+
     
 # def test_atomic_set_update(db0_fixture):
 #     object_1 = MemoTestClass(set([0]))
 #     with db0.atomic() as atomic:
-#         object_1.value.add(1)        
+#         object_1.value.add(1)
 #         object_1.value.add(3)
-#     assert object_1.value == set([0, 1, 3])
+#     assert set(object_1.value) == set([0, 1, 3])
     
     
 # def test_atomic_revert_set_update(db0_fixture):

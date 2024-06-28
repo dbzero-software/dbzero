@@ -119,7 +119,7 @@ namespace db0
     template <typename T>
     MemLock PrefixImpl<T>::mapRange(std::uint64_t address, std::size_t size, std::uint64_t state_num, 
         FlagSet<AccessOptions> access_mode) const
-    {        
+    {
         // use create logic only in case of page-aligned address ranges (address & size)
         // otherwise data outside of the range but within the page may not be retrieved
         if (access_mode[AccessOptions::create] && (!isPageAligned(address) || !isPageAligned(size))) {

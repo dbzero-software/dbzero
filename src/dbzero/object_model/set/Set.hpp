@@ -22,7 +22,7 @@ namespace db0::object_model
     using Fixture = db0::Fixture;
     using TypedItem_Address = ValueT_Address<o_typed_item>;
     using SetIndex = CollectionIndex<o_typed_item, TypedItem_Address>;
-    using set_item = db0::key_value<std::uint64_t, TypedIndex<TypedItem_Address, SetIndex>>;
+    using set_item = db0::key_value<std::uint64_t, TypedIndexAddr<TypedItem_Address, SetIndex>>;
     
     struct [[gnu::packed]] o_set: public db0::o_fixed<o_set>
     {
@@ -54,7 +54,7 @@ namespace db0::object_model
         static Set *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
         
         // drop underlying DBZero representation
-        void drop();
+        void destroy();
         Set::ObjectSharedPtr pop();
         bool has_item(PyObject * obj) const;
         
@@ -72,10 +72,12 @@ namespace db0::object_model
         const_iterator end() const;
         
     private:
+        db0::v_bindex<set_item> m_index;
+
         // new sets can only be created via factory members
         Set(db0::swine_ptr<Fixture> &);        
-
-        db0::v_bindex<set_item> m_index;
+        
+        void append(db0::swine_ptr<Fixture> &, std::size_t key, ObjectPtr lang_value);
     };
     
 }

@@ -32,29 +32,28 @@ namespace db0::object_model
         }
     };
 
-     struct [[gnu::packed]] TypedItem_Ptr
-    {
-        std::uint64_t m_add;
-    };
-
     template <typename ValueT>
     union [[gnu::packed]] ValueT_Address
     {
-        TypedItem_Ptr as_ptr;
+        std::uint64_t as_ptr;
         ValueT as_value;
         
-        ValueT_Address(){
-            as_ptr.m_add = 0;
-        };
-        ValueT_Address(std::uint64_t addrs){
-            as_ptr.m_add = addrs;
+        ValueT_Address() 
+            : as_ptr(0)
+        {            
         }
 
-        operator std::uint64_t() const{
-            return as_ptr.m_add;
+        ValueT_Address(std::uint64_t addr) 
+            : as_ptr(addr)
+        {
         }
+
+        operator std::uint64_t() const {
+            return as_ptr;
+        }
+
         operator bool () const{
-            return as_ptr.m_add != 0;
+            return as_ptr != 0;
         }
         
         // binary compare
@@ -64,49 +63,52 @@ namespace db0::object_model
     };
     
     template <typename AddressT, typename IndexT>
-    struct [[gnu::packed]] TypedIndex
+    struct [[gnu::packed]] TypedIndexAddr
     {
-        AddressT m_index_address;
-        bindex::type m_type;
-        TypedIndex()
-            : m_index_address(0), m_type(bindex::empty)
+        AddressT m_index_address = 0;
+        bindex::type m_type = bindex::empty;
+
+        TypedIndexAddr() = default;
+
+        TypedIndexAddr(const IndexT &index)
+            : m_index_address(index.getAddress())
+            , m_type(index.getIndexType())
         {
         }
 
-
-        TypedIndex(AddressT index_addres, bindex::type type)
-            : m_index_address(index_addres), m_type(type)
+        TypedIndexAddr(AddressT index_addres, bindex::type type)
+            : m_index_address(index_addres)
+            , m_type(type)
         {
         }
 
-        IndexT getIndex(Memspace & memspace) const {
-            return IndexT(memspace, m_index_address, m_type);
-        }
-        
+        IndexT getIndex(Memspace &memspace) const {
+            return { memspace, m_index_address, m_type };
+        }        
     };
-
-     template<typename ItemT, typename AddressT>
-    class CollectionIndex : public MorphingBIndex<ItemT, AddressT> {
+    
+    template<typename ItemT, typename AddressT>
+    class CollectionIndex : public MorphingBIndex<ItemT, AddressT> 
+    {
         using super_t = MorphingBIndex<ItemT, AddressT>;
     public:
 
         CollectionIndex() = default;
 
         CollectionIndex(Memspace &memspace)
-            : MorphingBIndex<ItemT, AddressT>(memspace)
+            : super_t(memspace)
         {
         }
         
         CollectionIndex(Memspace &memspace, const ItemT & value)
-            : MorphingBIndex<ItemT, AddressT>(memspace, value)
+            : super_t(memspace, value)
         {
         }
         
         CollectionIndex(Memspace& memspace, AddressT addr, bindex::type type)
-            : MorphingBIndex<ItemT, AddressT>(memspace, addr, type)
+            : super_t(memspace, addr, type)
         {
         }
     };
     
-
 }

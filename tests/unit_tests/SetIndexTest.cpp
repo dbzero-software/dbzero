@@ -41,12 +41,11 @@ namespace tests
         auto it = bindex.beginJoin(1);
         ASSERT_TRUE((*it).m_value == 1);
 
-        auto typed_index = TypedIndex<TypedItem_Address, SetIndex>(bindex.getAddress(), bindex.getIndexType());
+        auto typed_index_addr = TypedIndexAddr<TypedItem_Address, SetIndex>(bindex.getAddress(), bindex.getIndexType());
 
-        auto index2 = typed_index.getIndex(memspace);
+        auto index2 = typed_index_addr.getIndex(memspace);
         auto it2 = index2.beginJoin(1);
         ASSERT_TRUE((*it2).m_value == 1);
-
     }
 
 } 

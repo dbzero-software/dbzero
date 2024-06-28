@@ -24,10 +24,7 @@ namespace db0::object_model
         o_typed_item key, o_typed_item value)
     {
         DictIndex bindex(memspace, o_pair_item(key, value) );
-        auto address = bindex.getAddress();
-        auto typed_index = TypedIndex<PairItem_Address, DictIndex>(address, bindex::itty);
-
-        return { hash, typed_index};
+        return { hash, bindex };
     }
     
     Dict::Dict(db0::swine_ptr<Fixture> &fixture)

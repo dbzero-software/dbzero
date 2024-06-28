@@ -154,7 +154,6 @@ namespace db0::python
         auto set_object = SetDefaultObject_new();
         // retrieve actual DBZero instance        
         db0::object_model::Set::unload(&set_object->modifyExt(), fixture, address);
-    
 
         // add list object to cache
         lang_cache.add(address, set_object, false);

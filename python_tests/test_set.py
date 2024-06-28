@@ -2,7 +2,8 @@ import pytest
 import datetime
 import random
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass
+from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .conftest import DB0_DIR
 
 
 @db0.memo
@@ -415,6 +416,21 @@ def test_set_as_member(db0_fixture):
     object_1 = MemoTestClass(set([1,2,3,4,5]))
     assert set(object_1.value) == set([1,2,3,4,5])
     
+
+def test_set_update_after_commit(db0_fixture):
+    prefix_name = db0.get_current_prefix()
+    object_1 = MemoTestClass(set([1,2,3,4,5]))
+    root = MemoTestSingleton(object_1)
+    uuid = db0.uuid(object_1)
+    del object_1
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(prefix_name)
+    object_2 = db0.fetch(uuid)
+    object_2.value.add(6)
+    assert set(object_2.value) == set([1,2,3,4,5,6])
+
     
 # fixme: Needs to fix problem with __eq__ method
 # @pytest.mark.parametrize("make_set", set_test_params)
