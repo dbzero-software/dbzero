@@ -24,17 +24,28 @@ namespace db0::object_model
     using PairItem_Address = ValueT_Address<o_pair_item>;
     using DictIndex = CollectionIndex<o_pair_item, PairItem_Address>;
     using dict_item = db0::key_value<std::uint64_t, TypedIndexAddr<PairItem_Address, DictIndex>>;
+    
+    struct [[gnu::packed]] o_dict: public db0::o_fixed<o_dict>
+    {
+        // common object header
+        o_object_header m_header;
+        std::uint64_t m_index_ptr = 0;
+        std::uint64_t m_size = 0;
+        std::uint64_t m_reserved[2] = {0, 0};
+    };
 
-    class Dict: public db0::ObjectBase<Dict, v_bindex<dict_item>, StorageClass::DB0_DICT>
+    class Dict: public db0::ObjectBase<Dict, db0::v_object<o_dict>, StorageClass::DB0_DICT>
     {
         GC0_Declare
 
     public:
-        using super_t = db0::ObjectBase<Dict, v_bindex<dict_item>, StorageClass::DB0_DICT>;
+        using super_t = db0::ObjectBase<Dict, db0::v_object<o_dict>, StorageClass::DB0_DICT>;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
-        
+        using const_iterator = typename db0::v_bindex<dict_item>::const_iterator;
+
+
         Dict(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
         ObjectSharedPtr getItem(std::size_t hash, ObjectPtr key_value) const;
@@ -51,15 +62,23 @@ namespace db0::object_model
 
         void moveTo(db0::swine_ptr<Fixture> &);
 
-        std::size_t size() const { return m_size; }
+        std::size_t size() const;
 
         void clear();
 
+        void commit() const;
+
+        void detach() const;
+
+        const_iterator begin() const;
+        const_iterator end() const;
+        
+
     private:
+        db0::v_bindex<dict_item> m_index;
         // new dicts can only be created via factory members
         Dict(db0::swine_ptr<Fixture> &);
         Dict(db0::swine_ptr<Fixture> &fixture, const Dict& dict);
-        std::size_t m_size = 0;
     };
     
 }
