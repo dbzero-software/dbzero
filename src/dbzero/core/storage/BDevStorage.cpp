@@ -115,44 +115,33 @@ namespace db0
         CFile::create(file_name, buffer);
     }
     
-    bool BDevStorage::tryFindMutation(std::uint64_t address, std::uint64_t state_num, std::size_t size,
+    bool BDevStorage::tryFindMutation(std::uint64_t page_num, std::uint64_t state_num,
         std::uint64_t &mutation_id) const
     {
-        return tryFindMutationImpl(address, state_num, size, mutation_id);
+        return tryFindMutationImpl(page_num, state_num, mutation_id);
     }
     
-    bool BDevStorage::tryFindMutationImpl(std::uint64_t address, std::uint64_t state_num, std::size_t size,
+    bool BDevStorage::tryFindMutationImpl(std::uint64_t page_num, std::uint64_t state_num,
         std::uint64_t &mutation_id) const
     {
-        mutation_id = 0;
-        auto begin_page = address / m_config.m_page_size;
-        auto end_page = begin_page + (size + m_config.m_page_size - 1) / m_config.m_page_size;
-        assert(begin_page != end_page);
-        // lookup sparse index to find mutation state numbers
-        for (auto page_num = begin_page; page_num != end_page; ++page_num) {
-            auto item  = m_sparse_index.lookup(page_num, state_num);
-            if (!item) {
-                return false;
-            }
-
-            // take max from all matching items
-            if (item.m_state_num > mutation_id) {
-                mutation_id = item.m_state_num;
-            }
+        auto item  = m_sparse_index.lookup(page_num, state_num);
+        if (!item) {
+            return false;
         }
+        mutation_id = item.m_state_num;
         return true;
     }
 
-    std::uint64_t BDevStorage::findMutation(std::uint64_t address, std::uint64_t state_num, std::size_t size) const
+    std::uint64_t BDevStorage::findMutation(std::uint64_t page_num, std::uint64_t state_num) const
     {
         std::uint64_t result;
-        if (!tryFindMutationImpl(address, state_num, size, result)) {
+        if (!tryFindMutationImpl(page_num, state_num, result)) {
             THROWF(db0::IOException) 
-                << "BDevStorage::findMutation: address of size " << size << " not found: " << address << ", state: " << state_num;
+                << "BDevStorage::findMutation: page_num " << page_num << " not found, state: " << state_num;
         }
         return result;
     }
-
+    
     void BDevStorage::read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags) const
     {        
@@ -166,10 +155,10 @@ namespace db0
 
         auto begin_page = address / m_config.m_page_size;
         auto end_page = begin_page + size / m_config.m_page_size;
+
         std::byte *read_buf = reinterpret_cast<std::byte *>(buffer);
         // lookup sparse index and read physical pages
-        for (auto page_num = begin_page; page_num != end_page; ++page_num, read_buf += m_config.m_page_size)
-        {
+        for (auto page_num = begin_page; page_num != end_page; ++page_num, read_buf += m_config.m_page_size) {
             auto item  = m_sparse_index.lookup(page_num, state_num);
             if (item) {
                 m_page_io.read(item.m_storage_page_num, read_buf);
@@ -191,6 +180,7 @@ namespace db0
         
         auto begin_page = address / m_config.m_page_size;
         auto end_page = begin_page + size / m_config.m_page_size;
+        
         std::byte *write_buf = reinterpret_cast<std::byte *>(buffer);
         // write as physical pages and register with the sparse index
         for (auto page_num = begin_page; page_num != end_page; ++page_num, write_buf += m_config.m_page_size) {

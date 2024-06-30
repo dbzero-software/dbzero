@@ -160,7 +160,7 @@ namespace db0
         void forAll(std::function<void(const Item &)> callback) const {
             m_index.forAll(callback);
         }
-                
+                        
         std::size_t getChangeLogSize() const;
 
     private:

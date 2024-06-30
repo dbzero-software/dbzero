@@ -21,11 +21,11 @@ namespace db0
     void Storage0::write(std::uint64_t, std::uint64_t, std::size_t, void *) {
     }
     
-    std::uint64_t Storage0::findMutation(std::uint64_t, std::uint64_t state_num, std::size_t) const {
+    std::uint64_t Storage0::findMutation(std::uint64_t, std::uint64_t state_num) const {
         return state_num;
     }
     
-    bool Storage0::tryFindMutation(std::uint64_t address, std::uint64_t state_num, std::size_t size, std::uint64_t &mutation_id) const
+    bool Storage0::tryFindMutation(std::uint64_t address, std::uint64_t state_num, std::uint64_t &mutation_id) const
     {
         mutation_id = state_num;
         return true;

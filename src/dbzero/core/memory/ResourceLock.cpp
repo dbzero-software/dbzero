@@ -52,8 +52,7 @@ namespace db0
         assert(!isDirty());
     }
     
-    bool ResourceLock::addrPageAligned() const
-    {
+    bool ResourceLock::addrPageAligned() const {
         return m_address % m_storage_view.get().first.get().getPageSize() == 0;
     }
 

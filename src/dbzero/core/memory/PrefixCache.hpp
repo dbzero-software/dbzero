@@ -17,6 +17,10 @@ namespace db0
     
     class CacheRecycler;
     
+    inline bool isBoundaryRange(std::uint64_t first_page, std::uint64_t end_page) {
+        return end_page == first_page + 2;
+    }
+
     /**
      * Prefix deficated cache
     */
@@ -35,11 +39,18 @@ namespace db0
          * @param address startig address of the range
          * @param size the range size
          * @param result_state_num if not null, will be set to the closest matching state existing in cache
+         * @param inconsistent_locks flag set to true when a boundary lock has inconsistent compound locks
          * @return the resource lock or nullptr if not found
         */
-        std::shared_ptr<ResourceLock> findRange(std::uint64_t address, std::uint64_t state_num, std::size_t size,
+        std::shared_ptr<ResourceLock> findRange(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num,
             std::uint64_t *result_state_num = nullptr) const;
 
+        std::shared_ptr<ResourceLock> findPage(std::uint64_t page_num, std::uint64_t state_num,
+            std::uint64_t *result_state_num = nullptr) const;
+
+        std::shared_ptr<ResourceLock> findBoundaryRange(std::uint64_t first_page_num, std::uint64_t address, std::size_t size,
+            std::uint64_t state_num, std::uint64_t *result_state_num = nullptr) const;
+        
         /**
          * Retrieve existing or create a new range associated resource lock
          * this method should be used for write-only access (data creation)
@@ -49,18 +60,25 @@ namespace db0
          * @param size the range size
          * @return the resource lock (either existing or newly created)
         */
-        std::shared_ptr<ResourceLock> createRange(std::uint64_t address, std::uint64_t state_num, std::size_t size,
+        std::shared_ptr<ResourceLock> createRange(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num,
+            FlagSet<AccessOptions> access_mode);
+
+        std::shared_ptr<ResourceLock> createBoundaryRange(std::uint64_t first_page_num, std::uint64_t address, std::size_t size,
+            std::uint64_t state_num, FlagSet<AccessOptions> access_mode);
+
+        std::shared_ptr<ResourceLock> createPage(std::uint64_t page_num, std::uint64_t state_num,
             FlagSet<AccessOptions> access_mode);
 
         /**
          * Create lock object without adding it to cache
         */
-        std::shared_ptr<ResourceLock> createLock(std::uint64_t address, std::size_t size,
+        std::shared_ptr<ResourceLock> createLock(std::uint64_t page_num, FlagSet<AccessOptions> access_mode) const;
+        std::shared_ptr<ResourceLock> createWideLock(std::uint64_t first_page, std::uint64_t end_page,
             FlagSet<AccessOptions> access_mode) const;
         
         /**
-         * Insert a copy of a specifc lock
-        */
+         * Insert copy of a single or wide page lock (not BoundaryLock)
+         */
         std::shared_ptr<ResourceLock> insertCopy(std::uint64_t state_num, const ResourceLock &, std::uint64_t src_state_num,
             FlagSet<AccessOptions> access_mode);
 
@@ -71,7 +89,7 @@ namespace db0
          * @param size the range size
          * @param state_num the state number
         */
-        void markRangeAsMissing(std::uint64_t address, std::uint64_t state_num, std::size_t size);
+        void markRangeAsMissing(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num);
 
         /**
          * Get total size of the managed resources (in bytes)
@@ -123,16 +141,13 @@ namespace db0
         */
         void forEach(std::function<void(ResourceLock &)>) const;
         
-        /**
-         * Find or create page in a given state number (must be exact match)
-        */
-        std::shared_ptr<ResourceLock> findOrCreatePage(std::uint64_t state_num, std::uint64_t page_num,
-            FlagSet<AccessOptions> access_mode);
-
         void eraseRange(std::uint64_t address, std::size_t size, std::uint64_t state_num);
         // insert new or replace existing range
         void replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
             std::shared_ptr<ResourceLock> new_lock);
+
+        std::shared_ptr<ResourceLock> findOrCreatePage(std::uint64_t state_num, std::uint64_t page_num,
+            FlagSet<AccessOptions> access_mode);
     };
-    
+
 }

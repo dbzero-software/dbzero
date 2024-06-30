@@ -172,4 +172,32 @@ namespace tests
         ASSERT_EQ(str_value, "12345678");
     }
 
+    TEST_F( PrefixImplTest , testBoundaryReadIssue1 )
+    {
+        BDevStorage::create(file_name);
+        // initialize without cache
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, {}, file_name);
+        auto page_size = cut.getPageSize();
+        ASSERT_EQ(cut.getStateNum(), 1);
+        
+        {
+            // write lhs range 1
+            auto w1 = cut.mapRange(page_size * 0 + 16, 8, { AccessOptions::create, AccessOptions::write });
+            memcpy(w1.modify(), "12345678", 8);
+
+            // write boundary range (without write to rhs)
+            auto b1 = cut.mapRange(page_size * 1 - 16, 32, { AccessOptions::create, AccessOptions::write });
+            memcpy(b1.modify(), "12345678ABCDABCD", 16);
+        }
+        
+        // modify boundary range in a new state (+1) due to atomic
+        cut.beginAtomic();
+        auto b2 = cut.mapRange(page_size * 1 - 16, 32, { AccessOptions::read, AccessOptions::write });
+        memcpy(b2.modify(), "XYZC", 4);
+        auto str_value = std::string((char *)b2.m_buffer, 16);
+        ASSERT_EQ(str_value, "XYZC5678ABCDABCD");
+        b2.release();
+        cut.close();        
+    }
+
 }

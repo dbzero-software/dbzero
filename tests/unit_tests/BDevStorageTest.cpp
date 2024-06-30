@@ -161,13 +161,12 @@ namespace tests
             // write page under state "i * 5", address = page num * page_size
             cut.write(i * page_size, state_num, page_size, pages.back().data());
         }
-        ASSERT_EQ(cut.findMutation(0, 1 + 3, page_size), 1);
+        ASSERT_EQ(cut.findMutation(0, 1 + 3), 1);
         // unable to read page #1 (not yet available in state = 1)
-        ASSERT_ANY_THROW(cut.findMutation(0, 1, 2 * page_size));
-        ASSERT_EQ(cut.findMutation(2 * page_size, 1 + 50, page_size * 3), 1 + 20);
+        ASSERT_ANY_THROW(cut.findMutation(1, 1));        
         cut.close();
     }
-
+    
     TEST_F( BDevStorageTest , testSparseIndexIsProperlySerializedAfterUpdates )
     {
         srand(9142424u);

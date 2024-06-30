@@ -47,41 +47,39 @@ namespace tests
     {        
         db0::Storage0 dev_null;
         db0::StorageView dev_null_view(dev_null, db0::Storage0::STATE_NULL);
-        PrefixCache cut(dev_null_view, nullptr);
-        auto page_size = dev_null.getPageSize();
+        PrefixCache cut(dev_null_view, nullptr);        
 
         // state = 1, pages = 0 ... 9
-        auto lock_1 = cut.createRange(0 * page_size, 1, 10 * page_size, { AccessOptions::write });
+        auto lock_1 = cut.createRange(0, 10, 1, { AccessOptions::write });
         // same range, different state (11)
-        auto lock_2 = cut.createRange(0 * page_size, 11, 10 * page_size, { AccessOptions::write });
+        auto lock_2 = cut.createRange(0, 10, 11, { AccessOptions::write });
         
-        ASSERT_EQ(cut.findRange(0 * page_size, 1, 3 * page_size), lock_1);
-        ASSERT_EQ(cut.findRange(0 * page_size, 1, 10 * page_size), lock_1);
+        ASSERT_EQ(cut.findRange(0, 3, 1), lock_1);
+        ASSERT_EQ(cut.findRange(0, 10, 1), lock_1);
         // state 14 is reported as existing
-        ASSERT_NE(cut.findRange(4 * page_size, 14, 3 * page_size), std::shared_ptr<ResourceLock> {});
+        ASSERT_NE(cut.findRange(4, 7, 14), std::shared_ptr<ResourceLock> {});
         
         // add range as negated in state 12
-        cut.markRangeAsMissing(4 * page_size, 12, 3 * page_size);
+        cut.markRangeAsMissing(4, 7, 12);
         // state not existing in cache
-        ASSERT_EQ(cut.findRange(14 * page_size, 14, 3 * page_size), std::shared_ptr<ResourceLock> {});
+        ASSERT_EQ(cut.findRange(14, 17, 14), std::shared_ptr<ResourceLock> {});
     }
     
     TEST_F( PrefixCacheTest , testPrefixCacheNegationsClearedByCreateRange )
     {        
         db0::Storage0 dev_null;
         db0::StorageView dev_null_view(dev_null, db0::Storage0::STATE_NULL);
-        PrefixCache cut(dev_null_view, nullptr);
-        auto page_size = dev_null.getPageSize();
+        PrefixCache cut(dev_null_view, nullptr);        
 
         // address, state_num, size
-        cut.createRange(0, 1, page_size, { AccessOptions::write });
-        cut.createRange(0, 11, page_size, { AccessOptions::write });
+        cut.createRange(0, 1, 1, { AccessOptions::write });
+        cut.createRange(0, 1, 11, { AccessOptions::write });
         // this simulates transaction 12 executed by an external process
-        cut.markRangeAsMissing(0, 12, page_size);
+        cut.markRangeAsMissing(0, 1, 12);
         // this simulates retrieval of data from state_num = 12
-        auto lock_3 = cut.createRange(0, 12, page_size, { AccessOptions::write });
+        auto lock_3 = cut.createRange(0, 1, 12, { AccessOptions::write });
         
-        ASSERT_EQ(cut.findRange(0, 14, page_size), lock_3);
+        ASSERT_EQ(cut.findRange(0, 1, 14), lock_3);
     }
 
 }

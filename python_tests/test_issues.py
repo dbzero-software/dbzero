@@ -77,12 +77,28 @@ def test_write_free_read_random_bytes(db0_fixture):
 def test_write_free_read_random_bytes_in_multiple_transactions(db0_fixture):
     # run this test only in debug mode
     if 'D' in db0.build_flags():
+        num_transactions = 5
         alloc_cnt = 25
-        for _ in range(5):
+        # ks = [random.randint(20, 500) for _ in range(alloc_cnt * num_transactions)]
+        # ns = []
+        # for _ in range(num_transactions):
+        #     ns.extend([random.randint(0, alloc_cnt - 1 - i) for i in range(int(alloc_cnt * 0.33))])
+        
+        ks = [325, 316, 105, 432, 211, 346, 41, 441, 154, 254, 431, 498, 263, 70, 428, 151, 48, 44, 121, 207, 487, 331, 110, 296, 456, 500, 450, 251, 
+              453, 380, 423, 374, 385, 162, 369, 442, 263, 353, 498, 69, 109, 298, 30, 244, 450, 64, 489, 105, 336, 275, 178, 23, 218, 462, 70, 144, 
+              100, 308, 239, 494, 406, 60, 396, 257, 207, 223, 35, 244, 254, 377, 419, 151, 201, 281, 187, 189, 121, 305, 245, 287, 20, 490, 312, 461, 
+              306, 301, 290, 473, 104, 218, 380, 30, 349, 159, 477, 452, 440, 345, 429, 336, 84, 318, 191, 58, 42, 239, 385, 23, 119, 59, 105, 383, 
+              120, 393, 339, 115, 174, 380, 500, 323, 102, 487, 300, 474, 332]
+        
+        ns = [0, 13, 11, 11, 18, 12, 0, 2, 6, 3, 16, 8, 17, 4, 13, 2, 5, 14, 16, 17, 1, 6, 17, 0, 2, 4, 7, 13, 6, 9, 12, 0, 8, 4, 12, 5, 3, 6, 17, 14]
+        
+        k_values = iter(ks)
+        n_values = iter(ns)
+        for _ in range(num_transactions):
             data = {}
             addr_list = []
             for _ in range(alloc_cnt):
-                k = random.randint(20, 500)
+                k = next(k_values)
                 str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=k))        
                 addr = db0.dbg_write_bytes(str)
                 data[addr] = str
@@ -90,13 +106,13 @@ def test_write_free_read_random_bytes_in_multiple_transactions(db0_fixture):
             
             # free 1/3 of addresses
             for _ in range(int(alloc_cnt * 0.33)):
-                n = random.randint(0, len(addr_list) - 1)
+                n = next(n_values)                
                 db0.dbg_free_bytes(addr_list[n])
                 del data[addr_list[n]]
                 del addr_list[n]
             
-            db0.commit()
-            for addr, str in data.items():
+            db0.commit()            
+            for addr, str in data.items():                
                 assert db0.dbg_read_bytes(addr) == str
 
 
@@ -106,6 +122,7 @@ def test_print_type(db0_fixture):
     test_int= IntMock(int_1)
     print(test_int)
     print(type(test_int))
+
 
 @pytest.mark.skip(" what():  PrefixCache::findRange: inconsistent locks exist for the same range")
 def test_dict_items_in(db0_fixture):

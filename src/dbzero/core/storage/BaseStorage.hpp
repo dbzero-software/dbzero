@@ -43,13 +43,13 @@ namespace db0
          * 
          * Exception will be raised if read access requested and some of the pages in the range does not exist
         */
-        virtual std::uint64_t findMutation(std::uint64_t address, std::uint64_t state_num, std::size_t size) const = 0;
+        virtual std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const = 0;
 
         /**
          * Try finding mutation
          * @return true if found and mutation_id was set
         */
-        virtual bool tryFindMutation(std::uint64_t address, std::uint64_t state_num, std::size_t size, 
+        virtual bool tryFindMutation(std::uint64_t page_num, std::uint64_t state_num, 
             std::uint64_t &mutation_id) const = 0;
         
         virtual std::size_t getPageSize() const = 0;

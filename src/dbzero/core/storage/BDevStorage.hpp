@@ -63,10 +63,9 @@ namespace db0
         
         void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) override;
         
-        std::uint64_t findMutation(std::uint64_t address, std::uint64_t state_num, std::size_t size) const override;
+        std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const override;
         
-        bool tryFindMutation(std::uint64_t address, std::uint64_t state_num, std::size_t size,
-            std::uint64_t &mutation_id) const override;
+        bool tryFindMutation(std::uint64_t page_num, std::uint64_t state_num, std::uint64_t &mutation_id) const override;
 
         /**
          * Allowed in read-only mode only
@@ -149,7 +148,7 @@ namespace db0
         std::function<std::uint64_t()> getBlockIOTailFunction() const;
         
         // non-virtual version of tryFindMutation
-        bool tryFindMutationImpl(std::uint64_t address, std::uint64_t state_num, std::size_t size,
+        bool tryFindMutationImpl(std::uint64_t page_num, std::uint64_t state_num,
             std::uint64_t &mutation_id) const;
     };
     
