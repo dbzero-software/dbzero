@@ -104,6 +104,11 @@ namespace db0::object_model
             : super_t(memspace, value)
         {
         }
+
+        CollectionIndex(const CollectionIndex & index)
+            : super_t(index)
+        {
+        }
         
         CollectionIndex(Memspace& memspace, AddressT addr, bindex::type type)
             : super_t(memspace, addr, type)
