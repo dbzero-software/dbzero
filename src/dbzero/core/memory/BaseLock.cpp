@@ -1,0 +1,74 @@
+#include "BaseLock.hpp"
+#include <iostream>
+#include <cstring>
+#include <cassert>
+#include <dbzero/core/storage/BaseStorage.hpp>
+
+namespace db0
+
+{   
+
+    BaseLock::BaseLock(BaseStorage &storage, std::uint64_t address, std::size_t size,
+        FlagSet<AccessOptions> access_mode, bool create_new)
+        : m_storage(storage)
+        , m_address(address)
+        , m_resource_flags(
+            (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) | 
+            (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
+        , m_data(size)
+    {
+        if (create_new) {
+            std::memset(m_data.data(), 0, m_data.size());
+        }
+    }
+    
+    BaseLock::BaseLock(const BaseLock &lock, FlagSet<AccessOptions> access_mode)
+        : m_storage(lock.m_storage)
+        , m_address(lock.m_address)
+        // copy-on-write, assume dirty, the recycled flag must be erased
+        , m_resource_flags(
+            ((lock.m_resource_flags | db0::RESOURCE_DIRTY) & ~db0::RESOURCE_RECYCLED) |
+            (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
+        , m_data(lock.m_data)
+    {
+    }
+    
+    BaseLock::~BaseLock()
+    {
+        // make sure the dirty flag is not set
+        assert(!isDirty());
+    }
+    
+    bool BaseLock::addrPageAligned(BaseStorage &storage) const {
+        return m_address % storage.getPageSize() == 0;
+    }
+    
+    void BaseLock::setRecycled(bool is_recycled)
+    {
+        if (is_recycled) {
+            safeSetFlags(m_resource_flags, RESOURCE_RECYCLED);
+        } else {
+            safeResetFlags(m_resource_flags, RESOURCE_RECYCLED);
+        }
+    }
+    
+    bool BaseLock::isCached() const {
+        return !(m_resource_flags & db0::RESOURCE_NO_CACHE);
+    }
+    
+    bool BaseLock::resetDirtyFlag()
+    {
+        using MutexT = ResourceDirtyMutexT;
+        while (MutexT::__ref(m_resource_flags).get()) {
+            MutexT::WriteOnlyLock lock(m_resource_flags);
+            if (lock.isLocked()) {
+                lock.commit_reset();
+                // dirty flag successfully reset by this thread
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+}

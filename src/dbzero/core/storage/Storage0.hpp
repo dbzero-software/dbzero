@@ -11,7 +11,7 @@
 namespace db0
 
 {
-        
+    
     /**
      * The dev0 storage implementation
     */

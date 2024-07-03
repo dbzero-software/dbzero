@@ -415,25 +415,6 @@ namespace db0
         }
 
         /**
-         * Erase specified item
-         */
-        void eraseItem(const_iterator it_item, DestroyF item_destroy_func = {})
-        {
-            assert (it_item >= begin() && it_item < end());
-            // pack vector
-            data_t *dest = const_cast<data_t*>(it_item);
-            data_t *src = dest + 1;
-            data_t *data_end = &getData()[m_size];
-            if (item_destroy_func) item_destroy_func(*dest);
-            while (src < data_end) {
-                *dest = *src;
-                ++dest;
-                ++src;
-            }
-            --(this->m_size);
-        }
-
-        /**
          * Erase multiple elements in a single call
          * InputIterator - points to "const iterator" of this vector, must contain ascending sorted iterators
          */
@@ -653,7 +634,8 @@ namespace db0
          * @param item must be item from this collection
          * @return 0 based calculated element index (position within vector)
          */
-        inline std::uint64_t getItemIndex(const data_t *item) const {
+        inline std::uint64_t getItemIndex(const data_t *item) const 
+        {
             assert(item < end());
             return item - getData();
         }
@@ -775,7 +757,7 @@ namespace db0
         const data_t &operator[](size_t index) const {
             return (*this)->getData()[index];
         }
-
+        
         /**
          * Erase element at specified position
          */
@@ -791,9 +773,12 @@ namespace db0
          * Erase item without changing address of this instance
          * @param it_item
          */
-        void eraseItem(const_iterator it_item) {
+        void eraseItem(const_iterator it_item)
+        {
             // erase element
-            this->modify().eraseItem(it_item, m_item_destroy_func);
+            // NOTE: need to use index because modify() may invalidate iterator
+            auto index = (*this)->getItemIndex(it_item);
+            this->modify().eraseAt(index, m_item_destroy_func);
         }
 
         /**
@@ -911,6 +896,7 @@ namespace db0
                 return false;
             }
 
+            // NOTE: need to use index because modify() may invalidate iterator
             auto index = (*this)->getItemIndex(it);
             this->modify().modifyItem(index) = data;
             return true;

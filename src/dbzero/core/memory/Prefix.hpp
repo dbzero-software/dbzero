@@ -9,7 +9,8 @@ namespace db0
 {
 
     class Allocator;
-
+    class BaseStorage;
+    
     /**
      * The Prefix interface represents a single DB0 Prefix space
      * Prefix can either be mutable or immutable, commit can be performed on a mutable Prefix only
@@ -70,8 +71,10 @@ namespace db0
 
         virtual AccessType getAccessType() const = 0;
 
+        virtual BaseStorage &getStorage() const = 0;
+
         const std::string &getName() const;
-        
+
         /**
          * Get the read-only snapshot of the prefix (i.e. a view based on current state number)
          */

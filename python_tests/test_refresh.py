@@ -48,7 +48,7 @@ def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
 
         
 def test_refresh_can_fetch_object_changes_done_by_other_process(db0_fixture):
-    # create singleton
+    # create a singleton
     object_1 = MemoClassX(0, "text")
     prefix_name = db0.get_prefix(object_1)
     max_value = 25
@@ -62,7 +62,7 @@ def test_refresh_can_fetch_object_changes_done_by_other_process(db0_fixture):
             object_x.value1 = i
             time.sleep(0.05)
             db0.commit()
-        del object_x            
+        del object_x
         db0.close()
     
     # close db0 and open as read-only

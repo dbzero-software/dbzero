@@ -51,7 +51,7 @@ namespace tests
         ASSERT_NE(r0.m_lock, r2.m_lock);
         cut.close();
     }
-
+    
     TEST_F( PrefixImplTest , testPrefixImplCanHandleCrossBoundaryLock )
     {
         BDevStorage::create(file_name);
@@ -171,7 +171,7 @@ namespace tests
         cut.close();
         ASSERT_EQ(str_value, "12345678");
     }
-
+    
     TEST_F( PrefixImplTest , testBoundaryReadIssue1 )
     {
         BDevStorage::create(file_name);
@@ -194,10 +194,113 @@ namespace tests
         cut.beginAtomic();
         auto b2 = cut.mapRange(page_size * 1 - 16, 32, { AccessOptions::read, AccessOptions::write });
         memcpy(b2.modify(), "XYZC", 4);
-        auto str_value = std::string((char *)b2.m_buffer, 16);
-        ASSERT_EQ(str_value, "XYZC5678ABCDABCD");
+        auto str_value = std::string((char *)b2.m_buffer, 16);        
         b2.release();
-        cut.close();        
+        cut.close();
+        ASSERT_EQ(str_value, "XYZC5678ABCDABCD");
+    }
+
+    TEST_F( PrefixImplTest , testBoundaryUpdateAfterRead )
+    {
+        BDevStorage::create(file_name);
+        // initialize without cache
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, {}, file_name);
+        auto page_size = cut.getPageSize();
+        ASSERT_EQ(cut.getStateNum(), 1);
+        
+        // write boundary range in state = 1
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        memcpy(w1.modify(), "12345678", 8);
+        w1.release();
+        
+        // read boundary range in state = 2 (after beginAtomic)
+        cut.beginAtomic();
+        auto r1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read });
+        
+        // note that cache will keep the boundary lock (since we don't release it)
+        // write boundary range in state = 2 
+        auto w2 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });
+        memcpy(w2.modify(), "ABCDEFGH", 8);
+        w2.release();
+        r1.release();
+
+        // validate contents from both states
+        {
+            auto lock = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read });
+            auto str_value = std::string((char *)lock.m_buffer, 8);
+            ASSERT_EQ(str_value, "ABCDEFGH");            
+        }
+
+        cut.cancelAtomic();
+        {
+            auto lock = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read });
+            auto str_value = std::string((char *)lock.m_buffer, 8);
+            ASSERT_EQ(str_value, "12345678");
+        }
+        
+        cut.close();
+    }
+    
+    TEST_F( PrefixImplTest , testRandomReadWritesInTransactions )
+    {
+        srand(time(nullptr));
+        BDevStorage::create(file_name);
+        // initialize without cache
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, {}, file_name);
+        auto page_size = cut.getPageSize();
+        // number of pages to write to
+        auto range = 5;
+        auto transaction_count = 10;
+        auto op_count = 10000;
+
+        std::vector<char> data(page_size * range);
+        std::memset(data.data(), 0, data.size());
+
+        auto rand_vec = [](int size) {
+            std::vector<char> vec(size);
+            for (int i = 0; i < size; i++) {
+                vec[i] = rand() % 256;
+            }
+            return vec;
+        };
+
+        for (int i = 0; i < range; ++i) {
+            cut.mapRange(page_size * i, page_size, { AccessOptions::create, AccessOptions::write });
+        }
+        // op_codes: 0 = read, 1 = write, 2 = create
+        for (int i = 0; i < transaction_count; i++) {
+            for (int j = 0; j < op_count; j++) {
+                auto op_code = rand() % 3;
+                auto addr = rand() % (page_size * range - 128);
+                auto size = rand() % 128 + 1;
+                switch (op_code) {
+                    case 0: {
+                        auto lock = cut.mapRange(addr, size, { AccessOptions::read });                        
+                        // validate data read
+                        auto str_value = std::string((char *)lock.m_buffer, size);
+                        assert(str_value == std::string(data.data() + addr, size));
+                        ASSERT_EQ(str_value, std::string(data.data() + addr, size));
+                        break;
+                    }
+                    case 1: {
+                        auto lock = cut.mapRange(addr, size, { AccessOptions::write });
+                        auto rand_data = rand_vec(size);
+                        std::memcpy(lock.modify(), rand_data.data(), size);
+                        std::memcpy(data.data() + addr, rand_data.data(), size);
+                        break;
+                    }
+                    case 2: {
+                        auto lock = cut.mapRange(addr, size, { AccessOptions::create, AccessOptions::write });
+                        std::memset(lock.modify(), 0, size);
+                        std::memset(data.data() + addr, 0, size);
+                        break;
+                    }
+                }
+            }
+            cut.commit();
+        }
+
+        cut.close();
     }
 
 }

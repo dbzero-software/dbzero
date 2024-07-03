@@ -196,6 +196,11 @@ namespace db0
             return;
         }
         
+        // FIXME: this should be changed to commit-op
+        if (m_gc0_ptr) {
+            getGC0().detachAll();
+        }
+        
         for (auto &commit: m_close_handlers) {
             commit(true);
         }

@@ -140,38 +140,31 @@ namespace db0
         return m_alloc_size - offset;
     }
     
-    template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::getAllocCount() const
-    {
+    template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::getAllocCount() const {
         return m_bitset->count(true);
     }
 
-    template <typename BitSetT> void BitsetAllocator<BitSetT>::clear()
-    {
+    template <typename BitSetT> void BitsetAllocator<BitSetT>::clear() {
         m_bitset.modify().reset();
     }
 
-    template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::calculateSpan() const
-    {
+    template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::calculateSpan() const {
         return m_bitset->lastIndexOf(true) + 1;
     }
 
-    template <typename BitSetT> void BitsetAllocator<BitSetT>::setDynamicBounds(std::function<std::uint64_t()> bounds_fn)
-    {   
+    template <typename BitSetT> void BitsetAllocator<BitSetT>::setDynamicBounds(std::function<std::uint64_t()> bounds_fn) {   
         m_bounds_fn = bounds_fn;
     }
 
-    template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::span() const
-    {
+    template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::span() const {
         return m_span;
     }
         
-    template <typename BitSetT> void BitsetAllocator<BitSetT>::commit()
-    {
+    template <typename BitSetT> void BitsetAllocator<BitSetT>::commit() {
         // no-op
     }
 
-    template <typename BitSetT> void BitsetAllocator<BitSetT>::detach()
-    {
+    template <typename BitSetT> void BitsetAllocator<BitSetT>::detach() {
         // no-op
     }
 

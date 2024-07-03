@@ -11,6 +11,8 @@ namespace db0
 
 {
 
+    class BaseStorage;
+    
     /**
      * The in-memory only prefix implementation
      * access is limited to page or sub-page ranges
@@ -68,17 +70,18 @@ namespace db0
 
         std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
         
+        BaseStorage &getStorage() const override;
+        
     private:
         const std::size_t m_page_size;        
         mutable Storage0 m_dev_null;
-        mutable StorageView m_dev_null_view;
 
         struct MemoryPage
         {
             mutable std::shared_ptr<ResourceLock> m_lock;
             void *m_buffer;
             
-            MemoryPage(StorageView &, std::uint64_t address, std::size_t size);
+            MemoryPage(BaseStorage &, std::uint64_t address, std::size_t size);
             void resetDirtyFlag();
         };
 

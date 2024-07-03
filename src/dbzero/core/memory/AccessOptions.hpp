@@ -8,13 +8,13 @@ namespace db0
 {
 
     enum class AccessOptions : std::uint16_t
-    {        
+    {
         read        = 0x0001,
         write       = 0x0002,
         create      = 0x0004,
-        no_cache    = 0x0010,
+        no_cache    = 0x0008,
         // resource which should be kept in-memory
-        no_flush    = 0x0020
+        no_flush    = 0x0010
     };
     
     /**
@@ -23,13 +23,13 @@ namespace db0
     static constexpr std::uint16_t RESOURCE_AVAILABLE_FOR_READ  = 0x0001;
     static constexpr std::uint16_t RESOURCE_AVAILABLE_FOR_WRITE = 0x0002;
     static constexpr std::uint16_t RESOURCE_AVAILABLE_FOR_RW    = RESOURCE_AVAILABLE_FOR_READ | RESOURCE_AVAILABLE_FOR_WRITE;
-    // the resource fetched flag should not be mixed with the read / write flags
-    static constexpr std::uint16_t RESOURCE_FETCHED             = 0x0010;
-    static constexpr std::uint16_t RESOURCE_LOCK                = 0x0020;
+    static constexpr std::uint16_t RESOURCE_LOCK                = 0x0010;
     // DIRTY / RECYCLED flags are used by the ResourceLock
     static constexpr std::uint16_t RESOURCE_DIRTY               = 0x0100;
     // Flag indicating if the lock has been registered with cache recycler
     static constexpr std::uint16_t RESOURCE_RECYCLED            = 0x0200;
+    // a flag indicating that the resource should not be cached
+    static constexpr std::uint16_t RESOURCE_NO_CACHE            = 0x0400;
     
     enum class AccessType: unsigned int
     {

@@ -51,7 +51,7 @@ namespace db0
         mutable Memspace *m_memspace_ptr = nullptr;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         // initial access flags (e.g. read / write / create)
-        FlagSet<AccessOptions> m_access_mode;
+        mutable FlagSet<AccessOptions> m_access_mode;
         
         /**
          * Memory mapped range corresponding to this object
@@ -76,7 +76,7 @@ namespace db0
         inline vtypeless(mptr ptr, FlagSet<AccessOptions> access_mode = {})
             : m_address(ptr.m_address)
             , m_memspace_ptr(&ptr.m_memspace.get())
-            , m_access_mode(ptr.m_access_mode | access_mode)
+            , m_access_mode(ptr.m_access_mode | access_mode | AccessOptions::read)
         {
         }
                 
@@ -205,7 +205,7 @@ namespace db0
                     // lock for +write
                     // note that lock is getting updated, possibly copy-on-write is being performed
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        m_address, this->getSize(), m_access_mode | AccessOptions::write);
+                        m_address, this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
                     lock.commit_set();
                 }
             }
@@ -213,12 +213,14 @@ namespace db0
             return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());            
         }
 
-        const ContainerT& safeRef() const {
+        const ContainerT& safeRef() const 
+        {
             assureInitialized();
             return ContainerT::__safe_ref(vs_buf_t(m_mem_lock.m_buffer, m_mem_lock.m_buffer + this->getSize()));
         }
 
-        const ContainerT *get() const {
+        const ContainerT *get() const 
+        {
             assureInitialized();
             return reinterpret_cast<const ContainerT*>(m_mem_lock.m_buffer);
         }
@@ -232,14 +234,15 @@ namespace db0
             auto address = memspace.getAllocator().alloc(size, SLOT_NUM);
             // lock for create & write
             auto mem_lock = memspace.getPrefix().mapRange(
-                address, size, access_mode | AccessOptions::write | AccessOptions::create);
+                address, size, access_mode | AccessOptions::write | AccessOptions::create
+            );
             // mark as available for both write & read
             return v_ptr<ContainerT>(
-                memspace, address, std::move(mem_lock), access_mode | AccessOptions::read | AccessOptions::write);
+                memspace, address, std::move(mem_lock), access_mode | AccessOptions::read | AccessOptions::write
+            );
         }
         
-        static v_ptr<ContainerT> makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode)
-        {
+        static v_ptr<ContainerT> makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode) {
             return v_ptr<ContainerT>(memspace, mapped_addr.m_address, std::move(mapped_addr.m_mem_lock), access_mode);
         }
 
@@ -261,7 +264,7 @@ namespace db0
             while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {
                 ResourceReadMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
-                    m_mem_lock = m_memspace_ptr->getPrefix().mapRange(m_address, this->getSize(), m_access_mode);
+                    m_mem_lock = m_memspace_ptr->getPrefix().mapRange(m_address, this->getSize(), m_access_mode | AccessOptions::read);
                     lock.commit_set();
                 }
             }

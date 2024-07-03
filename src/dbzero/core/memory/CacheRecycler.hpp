@@ -5,7 +5,7 @@
 #include <mutex>
 #include <deque>
 #include <functional>
-#include <dbzero/core/memory/ResourceLock.hpp>
+#include <dbzero/core/memory/BaseLock.hpp>
 #include <dbzero/core/utils/FixedList.hpp>
 
 namespace db0
@@ -24,12 +24,12 @@ namespace db0
 		 */
 		CacheRecycler(std::size_t size, unsigned int flush_size = 0);
 
-		void update(std::shared_ptr<ResourceLock> res_lock);
+		void update(std::shared_ptr<BaseLock> res_lock);
         
 		/**
 		 * Release specified resource from cache
 		 */
-        void release(ResourceLock &, std::unique_lock<std::mutex> &);
+        void release(BaseLock &, std::unique_lock<std::mutex> &);
 
 		/**
 		 * Release all managed resources
@@ -62,10 +62,10 @@ namespace db0
 		/**
 		 * Execute f over each stored resource lock
 		*/
-		void forEach(std::function<void(std::shared_ptr<ResourceLock>)>) const;
+		void forEach(std::function<void(std::shared_ptr<BaseLock>)>) const;
 		
 	private :
-        using list_t = db0::FixedList<std::shared_ptr<ResourceLock> >;
+        using list_t = db0::FixedList<std::shared_ptr<BaseLock> >;
         using iterator = list_t::iterator;
 
 		list_t m_res_buf;
@@ -81,9 +81,9 @@ namespace db0
          * @param released_locks locks to be released
 		 * @param release_size total number of bytes to be released
          */
-        void adjustSize(std::unique_lock<std::mutex> &, std::vector<std::shared_ptr<ResourceLock> > &released_locks, 
+        void adjustSize(std::unique_lock<std::mutex> &, std::vector<std::shared_ptr<BaseLock> > &released_locks, 
 			std::size_t release_size);
-
+		
 		void updateSize(std::unique_lock<std::mutex> &, std::size_t expected_size);
 	};
 

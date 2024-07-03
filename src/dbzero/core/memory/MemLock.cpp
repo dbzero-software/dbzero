@@ -6,7 +6,7 @@ namespace db0
 
 {
 
-    MemLock::MemLock(void *buffer, std::shared_ptr<ResourceLock> lock)
+    MemLock::MemLock(void *buffer, std::shared_ptr<BaseLock> lock)
         : m_buffer(buffer)
         , m_lock(lock)
     {
@@ -22,18 +22,17 @@ namespace db0
         m_lock->setDirty();
         return m_buffer;
     }
-
-    void MemLock::release() 
+        
+    void MemLock::release()
     {
         if (m_lock) {
             m_lock->flush();
         }
         m_lock = nullptr;
         m_buffer = nullptr;
-    }
-    
-    MemLock MemLock::getSubrange(std::size_t offset) const
-    {
+    }    
+
+    MemLock MemLock::getSubrange(std::size_t offset) const {
         return { const_cast<std::byte*>(static_cast<const std::byte*>(m_buffer)) + offset, m_lock };
     }
     

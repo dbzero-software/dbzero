@@ -36,6 +36,8 @@ namespace db0
 
         std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
 
+        BaseStorage &getStorage() const override;
+
     private:
         // state number is immutable
         const std::uint64_t m_state_num;
@@ -103,6 +105,11 @@ namespace db0
     {
         THROWF(db0::InternalException) 
             << "PrefixViewImpl::getSnapshot: cannot create snapshot from snapshot" << THROWF_END;
+    }
+    
+    template <typename PrefixImplT>
+    BaseStorage &PrefixViewImpl<PrefixImplT>::getStorage() const {
+        return m_prefix->getStorage();
     }
     
 }

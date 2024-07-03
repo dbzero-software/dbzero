@@ -71,7 +71,11 @@ namespace db0::tests
             m_map_range_callback = nullptr;
         }
 
-    private:
+        BaseStorage &getStorage() const override {
+            return m_prefix->getStorage();
+        }
+        
+    private:        
         std::shared_ptr<Prefix> m_prefix;
         std::function<void(std::uint64_t, std::size_t, FlagSet<AccessOptions>)> m_map_range_callback;
     };

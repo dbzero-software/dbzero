@@ -5,19 +5,19 @@
 namespace db0
 
 {
-
-    DRAM_Prefix::MemoryPage::MemoryPage(StorageView &storage_view, std::uint64_t address, std::size_t size)
-        : m_lock(std::make_shared<ResourceLock>(storage_view, address, size, FlagSet<AccessOptions>()))
+    
+    DRAM_Prefix::MemoryPage::MemoryPage(BaseStorage &storage, std::uint64_t address, std::size_t size)
+        : m_lock(std::make_shared<ResourceLock>(storage, address, size,
+            FlagSet<AccessOptions> { AccessOptions::write, AccessOptions::create }, 0, 0, true))
         // pull from Storage0 temp instance
-        , m_buffer(m_lock->getBuffer(address, 0))
+        , m_buffer(m_lock->getBuffer(address))
     {
     }
     
     DRAM_Prefix::DRAM_Prefix(std::size_t page_size)
         : Prefix("/sys/DRAM")
         , m_page_size(page_size)
-        , m_dev_null(page_size)
-        , m_dev_null_view(m_dev_null, Storage0::STATE_NULL)
+        , m_dev_null(page_size)        
     {
     }
     
@@ -34,7 +34,7 @@ namespace db0
         }
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
-            it = m_pages.emplace(page_num, MemoryPage(m_dev_null_view, address - offset, m_page_size)).first;
+            it = m_pages.emplace(page_num, MemoryPage(m_dev_null, address - offset, m_page_size)).first;
         }
         return { (std::byte*)it->second.m_buffer + offset, it->second.m_lock };
     }
@@ -68,14 +68,14 @@ namespace db0
     {
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
-            it = m_pages.emplace(page_num, MemoryPage(m_dev_null_view, page_num * m_page_size, m_page_size)).first;
+            it = m_pages.emplace(page_num, MemoryPage(m_dev_null, page_num * m_page_size, m_page_size)).first;
         }
         std::memcpy(it->second.m_buffer, bytes, m_page_size);
         if (mark_dirty) {
             it->second.m_lock->setDirty();
         }
     }
-
+    
     bool DRAM_Prefix::empty() const {
         return m_pages.empty();
     }
@@ -122,6 +122,10 @@ namespace db0
     
     std::shared_ptr<Prefix> DRAM_Prefix::getSnapshot(std::optional<std::uint64_t>) const {
         return const_cast<DRAM_Prefix *>(this)->shared_from_this();
+    }
+    
+    BaseStorage &DRAM_Prefix::getStorage() const {
+        return m_dev_null;
     }
     
 }

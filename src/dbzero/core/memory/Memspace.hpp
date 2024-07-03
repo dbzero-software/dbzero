@@ -24,6 +24,7 @@ namespace db0
         Memspace(std::shared_ptr<Prefix> prefix, std::shared_ptr<Allocator> allocator,
             std::optional<std::uint64_t> uuid = {})
             : m_prefix(prefix)
+            , m_storage_ptr(&prefix->getStorage())
             , m_allocator(allocator)
             , m_allocator_ptr(m_allocator.get())
             , m_derived_UUID(uuid)
@@ -36,6 +37,7 @@ namespace db0
         Memspace(tag_from_reference, std::shared_ptr<Prefix> prefix, Allocator &allocator,
             std::optional<std::uint64_t> uuid = {})
             : m_prefix(prefix)
+            , m_storage_ptr(&prefix->getStorage())
             , m_allocator_ptr(&allocator)
             , m_derived_UUID(uuid)
         {
@@ -101,8 +103,13 @@ namespace db0
         void endAtomic();
         void cancelAtomic();
 
+        inline BaseStorage &getStorage() {
+            return *m_storage_ptr;
+        }
+        
     protected:
         std::shared_ptr<Prefix> m_prefix;
+        BaseStorage *m_storage_ptr = nullptr;
         std::shared_ptr<Allocator> m_allocator;
         Allocator *m_allocator_ptr = nullptr;
         // UUID (if passed from a derived class)

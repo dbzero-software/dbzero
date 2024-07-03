@@ -60,12 +60,15 @@ namespace db0
 
         static void create(Memspace &memspace, std::uint64_t address)
         {
-            // create at a specific address (placement new)
-            auto at = MappedAddress { address, memspace.getPrefix().mapRange(address, sizeOf(), { AccessOptions::write }) };
+            // create at a specific v-space address
+            auto at = MappedAddress {
+                address, memspace.getPrefix().mapRange(address, sizeOf(), { AccessOptions::create, AccessOptions::write }) 
+            };            
             db0::v_object<o_fixed_bitset<BitN> > new_instance(memspace, at);
+            new_instance.modify().reset();
         }
     };
-
+    
     template <unsigned int BitN> void o_fixed_bitset<BitN>::set(unsigned int at, bool value)
     {
         assert(at < BitN);
@@ -118,8 +121,7 @@ namespace db0
         return result;
     }
 
-    template <unsigned int BitN> void o_fixed_bitset<BitN>::reset()
-    {
+    template <unsigned int BitN> void o_fixed_bitset<BitN>::reset() {
         memset(&m_data, 0, sizeof(m_data));
     }
     

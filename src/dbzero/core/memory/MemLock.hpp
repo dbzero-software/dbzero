@@ -17,10 +17,10 @@ namespace db0
         /**
          * Underlying locked resource
         */
-		std::shared_ptr<ResourceLock> m_lock;
+		std::shared_ptr<BaseLock> m_lock;
         
         MemLock() = default;
-        MemLock(void *buffer, std::shared_ptr<ResourceLock> lock);
+        MemLock(void *buffer, std::shared_ptr<BaseLock> lock);
         MemLock(const MemLock &other) = default;
 
         /**
@@ -40,7 +40,7 @@ namespace db0
         inline operator void *() const {
             return m_buffer;
         }
-
+        
         /**
          * Release the lock, flush modifications if needed
         */

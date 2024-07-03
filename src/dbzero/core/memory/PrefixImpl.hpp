@@ -16,7 +16,7 @@ namespace db0
 {
     
     class CacheRecycler;
-
+    
     /**
      * The default implementation of the Prefix interface
     */
@@ -33,9 +33,8 @@ namespace db0
             , m_storage(std::forward<StorageArgs>(storage_args)...)
             , m_page_size(m_storage.getPageSize())
             , m_shift(getPageShift(m_page_size))
-            , m_state_num(getStateNum(m_storage.getMaxStateNum(), state_num))
-            , m_storage_view(m_storage, m_state_num)
-            , m_cache(m_storage_view, cache_recycler_ptr)
+            , m_state_num(getStateNum(m_storage.getMaxStateNum(), state_num))            
+            , m_cache(m_storage, cache_recycler_ptr)
         {
             if (m_storage.getAccessType() == AccessType::READ_WRITE) {
                 // increment state number for read-write storage (i.e. new data transaction)
@@ -48,7 +47,7 @@ namespace db0
             : PrefixImpl(name, &cache_recycler, state_num, std::forward<StorageArgs>(storage_args)...)
         {
         }
-
+        
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) const override;
         
         std::uint64_t size() const override;
@@ -62,6 +61,8 @@ namespace db0
         std::uint64_t commit() override;
 
         std::uint64_t getLastUpdated() const override;
+
+        BaseStorage &getStorage() const override;
 
         const PrefixCache &getCache() const;
 
@@ -85,15 +86,14 @@ namespace db0
         void endAtomic() override;
 
         void cancelAtomic() override;
-
+        
     protected:
         friend class PrefixViewImpl<PrefixImpl<StorageT>>;
         
-        StorageT m_storage;
+        mutable StorageT m_storage;
         const std::size_t m_page_size;
         const std::uint32_t m_shift;
-        std::uint64_t m_state_num;
-        StorageView m_storage_view;
+        std::uint64_t m_state_num;        
         mutable PrefixCache m_cache;
         // flag indicating atomic operation in progress
         bool m_atomic = false;
@@ -102,7 +102,7 @@ namespace db0
             FlagSet<AccessOptions> = {}) const;
 
         std::shared_ptr<ResourceLock> mapPage(std::uint64_t page_num, std::uint64_t state_num, FlagSet<AccessOptions>) const;
-        std::shared_ptr<ResourceLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address,
+        std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address,
             std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>) const;
         std::shared_ptr<ResourceLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page,
             std::uint64_t state_num, FlagSet<AccessOptions>) const;
@@ -113,28 +113,41 @@ namespace db0
             return (addr_or_size & (m_page_size - 1)) == 0;
         }
 
-        std::uint64_t findMutation(std::uint64_t first_page, std::uint64_t end_page,
-            std::uint64_t state_num) const;
-        bool tryFindMutation(std::uint64_t first_page, std::uint64_t end_page,
+        std::uint64_t findUniqueMutation(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num) const;
+        bool tryFindUniqueMutation(std::uint64_t first_page, std::uint64_t end_page,
             std::uint64_t state_num, std::uint64_t &mutation_id) const;
+
+        void adjustAccessMode(FlagSet<AccessOptions> &access_mode, std::uint64_t address, std::size_t size) const;
     };
 
     template <typename T>
-    MemLock PrefixImpl<T>::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode) const
-    {
+    MemLock PrefixImpl<T>::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode) const {
         return mapRange(address, size, m_state_num, access_mode);
+    }
+    
+    template <typename T>
+    void PrefixImpl<T>::adjustAccessMode(FlagSet<AccessOptions> &access_mode, std::uint64_t address, std::size_t size) const
+    {
+        if (!isPageAligned(address) || !isPageAligned(size)) {
+            // use create logic only in case of page-aligned address ranges (address & size)
+            // otherwise data outside of the range but within the page may not be retrieved
+            if (access_mode[AccessOptions::create]) {
+                access_mode.set(AccessOptions::create, false);
+            }
+            // apply read flag to fetch contents from outside of the range
+            if (!access_mode[AccessOptions::read]) {
+                access_mode.set(AccessOptions::read, true);
+            }
+        }        
     }
     
     template <typename T>
     MemLock PrefixImpl<T>::mapRange(std::uint64_t address, std::size_t size, std::uint64_t state_num, 
         FlagSet<AccessOptions> access_mode) const
     {
-        // use create logic only in case of page-aligned address ranges (address & size)
-        // otherwise data outside of the range but within the page may not be retrieved
-        if (access_mode[AccessOptions::create] && (!isPageAligned(address) || !isPageAligned(size))) {
-            access_mode.set(AccessOptions::create, false);
-        }
-
+        assert(state_num > 0);
+        // create flag must be accompanied by write flag
+        assert(!access_mode[AccessOptions::create] || access_mode[AccessOptions::write]);
         // for atomic operations use no_flush flag to allow reverting changes
         if (m_atomic) {
             access_mode.set(AccessOptions::no_flush, true);
@@ -143,71 +156,82 @@ namespace db0
         auto first_page = address >> m_shift;
         auto end_page = ((address + size - 1) >> m_shift) + 1;
         
-        std::shared_ptr<ResourceLock> lock;
+        std::shared_ptr<BaseLock> lock;
         if (end_page == first_page + 1) {
+            // adjust access mode sice the requested range may not be well aligned
+            adjustAccessMode(access_mode, address, size);
             lock = mapPage(first_page, state_num, access_mode);
-        } else if (end_page == first_page + 2) {
-            assert(isBoundaryRange(first_page, end_page));
-            lock = mapBoundaryRange(first_page, address, size, state_num, access_mode);
         } else {
-            lock = mapWideRange(first_page, end_page, state_num, access_mode);
+            auto addr_offset = address & (m_page_size - 1);
+            // boundary ranges are NOT page aligned
+            if ((end_page == first_page + 2) && addr_offset) {                
+                // create mode not allowed for boundary range
+                access_mode.set(AccessOptions::create, false);
+                lock = mapBoundaryRange(first_page, address, size, state_num, access_mode);
+            } else {
+                // wide ranges must be page aligned / no need to adjust access mode
+                assert(!addr_offset && "Wide range must be page aligned");                
+                lock = mapWideRange(first_page, end_page, state_num, access_mode);
+            }
         }
 
         assert(lock);
         // fetch data from storage if not initialized
-        return { lock->getBuffer(address, state_num), lock };
+        return { lock->getBuffer(address), lock };
     }
     
     template <typename T>
-    std::shared_ptr<ResourceLock> PrefixImpl<T>::mapBoundaryRange(std::uint64_t first_page_num, std::uint64_t address, std::size_t size, 
+    std::shared_ptr<BoundaryLock> PrefixImpl<T>::mapBoundaryRange(std::uint64_t first_page_num, std::uint64_t address, std::size_t size,
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode) const
     {
         std::uint64_t read_state_num;
-        std::shared_ptr<ResourceLock> lock;
+        std::shared_ptr<BoundaryLock> lock;
         std::shared_ptr<ResourceLock> lhs, rhs;
         while (!lock) {
-            lock = m_cache.findBoundaryRange(first_page_num, address, size, state_num, &read_state_num);
+            lock = m_cache.findBoundaryRange(first_page_num, address, size, state_num, access_mode, read_state_num);
             if (!lock) {
                 // fetch lhs & rhs so that findBoundaryRange works for the next iteration
-                lhs = mapPage(first_page_num, state_num, access_mode);
-                rhs = mapPage(first_page_num + 1, state_num, access_mode);
+                lhs = mapPage(first_page_num, state_num, access_mode | AccessOptions::read);
+                rhs = mapPage(first_page_num + 1, state_num, access_mode | AccessOptions::read);
             }
         }
-        
-        assert(lock);
-        if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read]) {
+
+        assert(read_state_num > 0);
+        assert(!access_mode[AccessOptions::create] && "Unable to create boundary range");
+        if (access_mode[AccessOptions::write]) {
             assert(getAccessType() == AccessType::READ_WRITE);
-            // create/write-only access
+            // read / write access
             if (read_state_num != state_num) {
-                lock = m_cache.createBoundaryRange(first_page_num, address, size, state_num, access_mode);
-            }
-        } else if (access_mode[AccessOptions::write]) {
-            assert(getAccessType() == AccessType::READ_WRITE);
-            // read/write access
-            if (read_state_num != state_num) {
-                // release previous lock
-                lock = nullptr;
-                lhs = mapPage(first_page_num, state_num, access_mode);
-                rhs = mapPage(first_page_num + 1, state_num, access_mode);
-                lock = m_cache.findBoundaryRange(first_page_num, address, size, state_num, &read_state_num);
-                assert(read_state_num == state_num);
+                // possibly create CowS of lhs / rhs
+                if (!lhs) {
+                    lhs = mapPage(first_page_num, state_num, access_mode | AccessOptions::read);
+                }
+                if (!rhs) {
+                    rhs = mapPage(first_page_num + 1, state_num, access_mode | AccessOptions::read);
+                }
+                // ... and finally the BoundaryLock on top of existing lhs / rhs locks
+                lock = m_cache.insertCopy(address, size, lhs, rhs, state_num, access_mode);
             }
         }
 
         return lock;
     }
-
+    
     template <typename T>
     std::shared_ptr<ResourceLock> PrefixImpl<T>::mapPage(std::uint64_t page_num, std::uint64_t state_num,
         FlagSet<AccessOptions> access_mode) const
     {
         std::uint64_t read_state_num;
-        auto lock = m_cache.findPage(page_num, state_num, &read_state_num);
+        auto lock = m_cache.findRange(page_num, page_num + 1, state_num, access_mode, read_state_num);
+        assert(!lock || read_state_num > 0);
         if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read]) {
             assert(getAccessType() == AccessType::READ_WRITE);
             // create/write-only access
             if (!lock || read_state_num != state_num) {
-                lock = m_cache.createPage(page_num, state_num, access_mode);
+                // we don't need reading thus passing read_state_num = 0
+                // create / write page
+                assert(access_mode[AccessOptions::create]);
+                lock = m_cache.createRange(page_num, page_num + 1, 0, state_num, access_mode);
             }
             assert(lock);
         } else if (!access_mode[AccessOptions::write]) {
@@ -216,31 +240,29 @@ namespace db0
                 // find the relevant mutation ID (aka state number) if this is read-only access
                 auto mutation_id = m_storage.findMutation(page_num, state_num);
                 // create range under the mutation ID
-                lock = m_cache.createPage(page_num, mutation_id, access_mode);
+                // since access is read-only we pass write_state_num = 0
+                lock = m_cache.createRange(page_num, page_num + 1, mutation_id, 0, access_mode);
             }
         } else {
             assert(getAccessType() == AccessType::READ_WRITE);
-            // read/write access
+            // read / write access
             if (lock) {
                 if (read_state_num != state_num) {
                     // create a new lock as a copy of existing read_lock (CoW)
-                    lock = m_cache.insertCopy(state_num, *lock, read_state_num, access_mode);
+                    lock = m_cache.insertCopy(*lock, state_num, access_mode);
                 }
             } else {
-                // try identifying the last available mutation
-                std::uint64_t mutation_id;
-                if (m_storage.tryFindMutation(page_num, state_num, mutation_id)) {
-                    if (mutation_id != state_num) {
-                        lock = m_cache.createLock(page_num, access_mode);
-                        // create a new lock as a copy of existing read_lock (CoW)
-                        lock = m_cache.insertCopy(state_num, *lock, mutation_id, access_mode);
-                    }
-                }
-                
-                // create a new range (may be already existing in storage)
-                if (!lock) {
-                    // read / write access
-                    lock = m_cache.createPage(page_num, state_num, access_mode);
+                // try identifying the last available mutation (may not exist yet)
+                std::uint64_t mutation_id = 0;
+                m_storage.tryFindMutation(page_num, state_num, mutation_id);
+                // unable to read if mutation does not exist
+                if (mutation_id) {
+                    // read / write page
+                    lock = m_cache.createRange(page_num, page_num + 1, mutation_id, state_num, access_mode);
+                } else {
+                    // create / write page
+                    access_mode.set(AccessOptions::read, false);
+                    lock = m_cache.createRange(page_num, page_num + 1, 0, state_num, access_mode | AccessOptions::create);
                 }
             }
         }
@@ -248,58 +270,51 @@ namespace db0
         assert(lock);
         return lock;
     }
-
+    
     template <typename T>
     std::shared_ptr<ResourceLock> PrefixImpl<T>::mapWideRange(std::uint64_t first_page, std::uint64_t end_page, 
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode) const
     {
         std::uint64_t read_state_num;
-        auto lock = m_cache.findRange(first_page, end_page, state_num, &read_state_num);
+        auto lock = m_cache.findRange(first_page, end_page, state_num, access_mode, read_state_num);
+        assert(!lock || read_state_num > 0);
         if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read]) {
             assert(getAccessType() == AccessType::READ_WRITE);
             // create/write-only access
             if (!lock || read_state_num != state_num) {
-                lock = m_cache.createRange(first_page, end_page, state_num, access_mode);
+                lock = m_cache.createRange(first_page, end_page, 0, state_num, access_mode);
             }
             assert(lock);
         } else if (!access_mode[AccessOptions::write]) {
             // read-only access
             if (!lock) {
-                // find the relevant mutation ID (aka state number) if this is read-only access
-                auto mutation_id = this->findMutation(first_page, end_page, state_num);
-                // create range under the mutation ID
-                lock = m_cache.createRange(first_page, end_page, mutation_id, access_mode);
+                // a consistent mutation must exist for a wide-lock
+                // since wide locks can be occupied by a single object only (page aligned)
+                auto mutation_id = findUniqueMutation(first_page, end_page, state_num);
+                lock = m_cache.createRange(first_page, end_page, mutation_id, 0, access_mode);
             }
         } else {
             assert(getAccessType() == AccessType::READ_WRITE);
             // read/write access
             if (lock) {
                 if (read_state_num != state_num) {
-                    // create a new lock as a copy of existing read_lock (CoW)
-                    lock = m_cache.insertCopy(state_num, *lock, read_state_num, access_mode);
+                    // create a new lock as a copy of existing read_lock (CoW)                    
+                    lock = m_cache.insertCopy(*lock, state_num, access_mode);
                 }
             } else {
-                // try identifying the last available mutation
-                std::uint64_t mutation_id;
-                if (this->tryFindMutation(first_page, end_page, state_num, mutation_id)) {
-                    if (mutation_id != state_num) {
-                        lock = m_cache.createWideLock(first_page, end_page, access_mode);
-                        // create a new lock as a copy of existing read_lock (CoW)
-                        lock = m_cache.insertCopy(state_num, *lock, mutation_id, access_mode);
-                    }
-                }
-                
-                // create a new range (may be already existing in storage)
-                if (!lock) {
-                    // read / write access
-                    lock = m_cache.createRange(first_page, end_page, state_num, access_mode);
-                }
+                // identify the last available mutation (must exist for reading)
+                std::uint64_t mutation_id = 0;
+                tryFindUniqueMutation(first_page, end_page, state_num, mutation_id);
+                // unable to read if mutation does not exist
+                assert(mutation_id > 0 || !access_mode[AccessOptions::read]);                
+                // we pass both read & write state numbers here
+                lock = m_cache.createRange(first_page, end_page, mutation_id, state_num, access_mode);
             }
         }
 
         assert(lock);
         return lock;
-    }
+    }    
 
     template <typename T> std::uint64_t PrefixImpl<T>::size() const {
         THROWF(db0::InternalException) << "not implemented" << THROWF_END;
@@ -391,28 +406,41 @@ namespace db0
         m_atomic = false;        
     }
     
-    template <typename T> std::uint64_t PrefixImpl<T>::findMutation(std::uint64_t first_page,
+    template <typename T> std::uint64_t PrefixImpl<T>::findUniqueMutation(std::uint64_t first_page,
         std::uint64_t end_page, std::uint64_t state_num) const
     {
+        assert(end_page > first_page);
         std::uint64_t result = 0;
         for (; first_page < end_page; ++first_page) {
-            result = std::max(result, m_storage.findMutation(first_page, state_num));
+            auto mutation_id = m_storage.findMutation(first_page, state_num);
+            if (result == 0) {
+                result = mutation_id;
+            } else if (result != mutation_id) {
+                THROWF(db0::InternalException) << "Inconsistent mutations found in a wide range" << THROWF_END;
+            }
         }
         return result;
     }
 
-    template <typename T> bool PrefixImpl<T>::tryFindMutation(std::uint64_t first_page, std::uint64_t end_page,
+    template <typename T> bool PrefixImpl<T>::tryFindUniqueMutation(std::uint64_t first_page, std::uint64_t end_page,
         std::uint64_t state_num, std::uint64_t &mutation_id) const
     {
         std::uint64_t result = 0;
         bool has_mutation = false;
         for (;first_page < end_page; ++first_page) {
             if (m_storage.tryFindMutation(first_page, state_num, result)) {
-                mutation_id = std::max(mutation_id, result);
+                if (has_mutation && result != mutation_id) {
+                    THROWF(db0::InternalException) << "Inconsistent mutations found in a wide range" << THROWF_END;
+                }
+                mutation_id = result;
                 has_mutation = true;
             }
         }
         return has_mutation;
+    }
+
+    template <typename T> BaseStorage &PrefixImpl<T>::getStorage() const {
+        return m_storage;
     }
 
 } 

@@ -524,11 +524,14 @@ namespace tests
             }
         }
     }
-
+    
     TEST_F( SGB_TreeTests , testSGBTreeWorksWithNonStandardPageSize )
-    {
+    {        
         auto large_page_size = 64 * 1024;
-        db0::BitSpace<0x8000> bitspace(m_memspace.getPrefixPtr(), 0, large_page_size);
+        db0::TestWorkspace workspace(large_page_size);
+        auto memspace = workspace.getMemspace("my-test-prefix_2");
+
+        db0::BitSpace<0x8000> bitspace(memspace.getPrefixPtr(), 0, large_page_size);
         // Note: CapacityT need to be upgraded to 32 bits to support large page sizes
         db0::SGB_Tree<std::uint64_t, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, std::uint32_t> cut(bitspace, large_page_size);
         // let's insert 10 items
@@ -538,7 +541,8 @@ namespace tests
         ASSERT_EQ(cut.size(), 10);
     }
 
-    struct [[gnu::packed]] o_test_header: public o_fixed<o_test_header> {
+    struct [[gnu::packed]] o_test_header: public o_fixed<o_test_header> 
+    {
         std::uint32_t first;
         std::uint64_t second;    
     };
