@@ -115,10 +115,10 @@ namespace db0::python
 
         // generate UUID of a DBZero object
         static ObjectPtr getUUID(ObjectPtr py_object);
-                
-        // Try converting specific PyObject instance into a tag, possibly adding a new tag into the pool
+        
+        // Try converting specific PyObject instance into a tag, possibly adding a new tag into the pool        
         using StringPoolT = db0::pools::RC_LimitedStringPool;
-        static std::uint64_t addTag(ObjectPtr py_object, StringPoolT &);
+        static std::uint64_t getTag(ObjectPtr py_object, StringPoolT &, bool create);
         
         static bool isString(ObjectPtr py_object);
         static bool isIterable(ObjectPtr py_object);        

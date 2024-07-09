@@ -10,6 +10,7 @@
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include "utils.hpp"
 #include "PrefixViewImpl.hpp"
+#include "PrefixCache.hpp"
     
 namespace db0
 
@@ -24,34 +25,36 @@ namespace db0
         public Prefix, public std::enable_shared_from_this<PrefixImpl<StorageT>>
     {
     public:
+        using SelfT = PrefixImpl<StorageT>;
+
         /**
          * Opens an existing prefix from a specific storage
         */
-        template <typename... StorageArgs> PrefixImpl(std::string name, CacheRecycler *cache_recycler_ptr,  
-            std::optional<std::uint64_t> state_num, StorageArgs&&... storage_args)
+        template <typename... StorageArgs> 
+        PrefixImpl(std::string name, CacheRecycler *cache_recycler_ptr, StorageArgs&&... storage_args)
             : Prefix(name)
-            , m_storage(std::forward<StorageArgs>(storage_args)...)
-            , m_page_size(m_storage.getPageSize())
+            , m_storage(std::make_shared<StorageT>(std::forward<StorageArgs>(storage_args)...))
+            , m_storage_ptr(m_storage.get())
+            , m_page_size(m_storage_ptr->getPageSize())
             , m_shift(getPageShift(m_page_size))
-            , m_state_num(getStateNum(m_storage.getMaxStateNum(), state_num))            
-            , m_cache(m_storage, cache_recycler_ptr)
+            , m_head_state_num(m_storage_ptr->getMaxStateNum())           
+            , m_cache(*m_storage_ptr, cache_recycler_ptr)
         {
-            if (m_storage.getAccessType() == AccessType::READ_WRITE) {
+            assert(m_storage_ptr);
+            if (m_storage_ptr->getAccessType() == AccessType::READ_WRITE) {
                 // increment state number for read-write storage (i.e. new data transaction)
-                ++m_state_num;
+                ++m_head_state_num;
             }
         }
         
-        template <typename... StorageArgs> PrefixImpl(std::string name, CacheRecycler &cache_recycler,
-            std::optional<std::uint64_t> state_num, StorageArgs&&... storage_args)
-            : PrefixImpl(name, &cache_recycler, state_num, std::forward<StorageArgs>(storage_args)...)
+        template <typename... StorageArgs>
+        PrefixImpl(std::string name, CacheRecycler &cache_recycler, StorageArgs&&... storage_args)
+            : PrefixImpl(name, &cache_recycler, std::forward<StorageArgs>(storage_args)...)
         {
         }
         
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) const override;
         
-        std::uint64_t size() const override;
-
         std::uint64_t getStateNum() const override;
         
         std::size_t getPageSize() const override {
@@ -64,7 +67,7 @@ namespace db0
 
         BaseStorage &getStorage() const override;
 
-        const PrefixCache &getCache() const;
+        PrefixCache &getCache() const;
 
         /**
          * Release all owned locks from the cache recycler and clear the cache
@@ -76,7 +79,7 @@ namespace db0
         std::uint64_t refresh() override;
 
         AccessType getAccessType() const override {
-            return m_storage.getAccessType();
+            return m_storage_ptr->getAccessType();
         }
 
         std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
@@ -87,46 +90,42 @@ namespace db0
 
         void cancelAtomic() override;
         
+        MemLock mapRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+            FlagSet<AccessOptions>) const;
+
     protected:
-        friend class PrefixViewImpl<PrefixImpl<StorageT>>;
-        
-        mutable StorageT m_storage;
+        template <typename T> friend class PrefixImpl;
+
+        std::shared_ptr<StorageT> m_storage;
+        mutable StorageT *m_storage_ptr;
         const std::size_t m_page_size;
         const std::uint32_t m_shift;
-        std::uint64_t m_state_num;        
+        std::uint64_t m_head_state_num;
         mutable PrefixCache m_cache;
         // flag indicating atomic operation in progress
         bool m_atomic = false;
-
-        MemLock mapRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
-            FlagSet<AccessOptions> = {}) const;
 
         std::shared_ptr<ResourceLock> mapPage(std::uint64_t page_num, std::uint64_t state_num, FlagSet<AccessOptions>) const;
         std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address,
             std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>) const;
         std::shared_ptr<ResourceLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page,
             std::uint64_t state_num, FlagSet<AccessOptions>) const;
-
-        std::uint64_t getStateNum(std::uint64_t storage_max_state_num, std::optional<std::uint64_t> user_state_num) const;
-
+        
         inline bool isPageAligned(std::uint64_t addr_or_size) const {
             return (addr_or_size & (m_page_size - 1)) == 0;
         }
 
-        std::uint64_t findUniqueMutation(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num) const;
-        bool tryFindUniqueMutation(std::uint64_t first_page, std::uint64_t end_page,
-            std::uint64_t state_num, std::uint64_t &mutation_id) const;
-
         void adjustAccessMode(FlagSet<AccessOptions> &access_mode, std::uint64_t address, std::size_t size) const;
     };
 
-    template <typename T>
-    MemLock PrefixImpl<T>::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode) const {
-        return mapRange(address, size, m_state_num, access_mode);
+    template <typename StorageT> MemLock PrefixImpl<StorageT>::mapRange(std::uint64_t address,
+        std::size_t size, FlagSet<AccessOptions> access_mode) const
+    {
+        return mapRange(address, size, m_head_state_num, access_mode);
     }
     
-    template <typename T>
-    void PrefixImpl<T>::adjustAccessMode(FlagSet<AccessOptions> &access_mode, std::uint64_t address, std::size_t size) const
+    template <typename StorageT> void PrefixImpl<StorageT>::adjustAccessMode(FlagSet<AccessOptions> &access_mode,
+        std::uint64_t address, std::size_t size) const
     {
         if (!isPageAligned(address) || !isPageAligned(size)) {
             // use create logic only in case of page-aligned address ranges (address & size)
@@ -141,9 +140,8 @@ namespace db0
         }        
     }
     
-    template <typename T>
-    MemLock PrefixImpl<T>::mapRange(std::uint64_t address, std::size_t size, std::uint64_t state_num, 
-        FlagSet<AccessOptions> access_mode) const
+    template <typename StorageT> MemLock PrefixImpl<StorageT>::mapRange(std::uint64_t address, std::size_t size, 
+        std::uint64_t state_num, FlagSet<AccessOptions> access_mode) const
     {
         assert(state_num > 0);
         // create flag must be accompanied by write flag
@@ -180,9 +178,9 @@ namespace db0
         return { lock->getBuffer(address), lock };
     }
     
-    template <typename T>
-    std::shared_ptr<BoundaryLock> PrefixImpl<T>::mapBoundaryRange(std::uint64_t first_page_num, std::uint64_t address, std::size_t size,
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode) const
+    template <typename StorageT> std::shared_ptr<BoundaryLock> PrefixImpl<StorageT>::mapBoundaryRange(
+        std::uint64_t first_page_num, std::uint64_t address, std::size_t size, std::uint64_t state_num, 
+        FlagSet<AccessOptions> access_mode) const
     {
         std::uint64_t read_state_num;
         std::shared_ptr<BoundaryLock> lock;
@@ -217,8 +215,8 @@ namespace db0
         return lock;
     }
     
-    template <typename T>
-    std::shared_ptr<ResourceLock> PrefixImpl<T>::mapPage(std::uint64_t page_num, std::uint64_t state_num,
+    template <typename StorageT>
+    std::shared_ptr<ResourceLock> PrefixImpl<StorageT>::mapPage(std::uint64_t page_num, std::uint64_t state_num,
         FlagSet<AccessOptions> access_mode) const
     {
         std::uint64_t read_state_num;
@@ -238,7 +236,7 @@ namespace db0
             // read-only access
             if (!lock) {
                 // find the relevant mutation ID (aka state number) if this is read-only access
-                auto mutation_id = m_storage.findMutation(page_num, state_num);
+                auto mutation_id = m_storage_ptr->findMutation(page_num, state_num);
                 // create range under the mutation ID
                 // since access is read-only we pass write_state_num = 0
                 lock = m_cache.createRange(page_num, page_num + 1, mutation_id, 0, access_mode);
@@ -254,7 +252,7 @@ namespace db0
             } else {
                 // try identifying the last available mutation (may not exist yet)
                 std::uint64_t mutation_id = 0;
-                m_storage.tryFindMutation(page_num, state_num, mutation_id);
+                m_storage_ptr->tryFindMutation(page_num, state_num, mutation_id);
                 // unable to read if mutation does not exist
                 if (mutation_id) {
                     // read / write page
@@ -271,9 +269,9 @@ namespace db0
         return lock;
     }
     
-    template <typename T>
-    std::shared_ptr<ResourceLock> PrefixImpl<T>::mapWideRange(std::uint64_t first_page, std::uint64_t end_page, 
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode) const
+    template <typename StorageT> std::shared_ptr<ResourceLock> PrefixImpl<StorageT>::mapWideRange(
+        std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num, 
+        FlagSet<AccessOptions> access_mode) const
     {
         std::uint64_t read_state_num;
         auto lock = m_cache.findRange(first_page, end_page, state_num, access_mode, read_state_num);
@@ -290,7 +288,7 @@ namespace db0
             if (!lock) {
                 // a consistent mutation must exist for a wide-lock
                 // since wide locks can be occupied by a single object only (page aligned)
-                auto mutation_id = findUniqueMutation(first_page, end_page, state_num);
+                auto mutation_id = db0::findUniqueMutation(*m_storage_ptr, first_page, end_page, state_num);
                 lock = m_cache.createRange(first_page, end_page, mutation_id, 0, access_mode);
             }
         } else {
@@ -304,7 +302,7 @@ namespace db0
             } else {
                 // identify the last available mutation (must exist for reading)
                 std::uint64_t mutation_id = 0;
-                tryFindUniqueMutation(first_page, end_page, state_num, mutation_id);
+                db0::tryFindUniqueMutation(*m_storage_ptr, first_page, end_page, state_num, mutation_id);
                 // unable to read if mutation does not exist
                 assert(mutation_id > 0 || !access_mode[AccessOptions::read]);                
                 // we pass both read & write state numbers here
@@ -315,132 +313,82 @@ namespace db0
         assert(lock);
         return lock;
     }    
-
-    template <typename T> std::uint64_t PrefixImpl<T>::size() const {
-        THROWF(db0::InternalException) << "not implemented" << THROWF_END;
-    }
-
-    template <typename T> std::uint64_t PrefixImpl<T>::getStateNum() const {
-        return m_state_num;
+    
+    template <typename StorageT> std::uint64_t PrefixImpl<StorageT>::getStateNum() const {
+        return m_head_state_num;
     }
     
-    template <typename T> std::uint64_t PrefixImpl<T>::commit()
+    template <typename StorageT> std::uint64_t PrefixImpl<StorageT>::commit()
     {
         m_cache.flush();
-        if (m_storage.flush()) {
+        if (m_storage_ptr->flush()) {
             // increment state number only if there were any changes
-            ++m_state_num;
+            ++m_head_state_num;
         }
-        return m_state_num;
+        return m_head_state_num;
     }
     
-    template <typename T> void PrefixImpl<T>::close()
+    template <typename StorageT> void PrefixImpl<StorageT>::close()
     {
-        m_cache.clear();
-        m_storage.close();
+        m_cache.release();
+        m_storage_ptr->close();
     }
 
-    template <typename T> std::uint64_t PrefixImpl<T>::getStateNum(
-        std::uint64_t storage_max_state_num, std::optional<std::uint64_t> user_state_num) const
-    {
-        if (user_state_num) {
-            if (*user_state_num > storage_max_state_num) {
-                THROWF(db0::InputException) << "Invalid state number: " << *user_state_num << THROWF_END;
-            }
-            return *user_state_num;
-        }
-        return storage_max_state_num;
-    }
-
-    template <typename T> const PrefixCache &PrefixImpl<T>::getCache() const {
+    template <typename StorageT> PrefixCache &PrefixImpl<StorageT>::getCache() const {
         return m_cache;
     }
     
-    template <typename T> std::uint64_t PrefixImpl<T>::refresh()
+    template <typename StorageT> std::uint64_t PrefixImpl<StorageT>::refresh()
     {
         // remove updated pages from the cache
         // so that the new version can be fetched when needed
-        auto result = m_storage.refresh([this](std::uint64_t updated_page_num, std::uint64_t state_num) {
+        auto result = m_storage_ptr->refresh([this](std::uint64_t updated_page_num, std::uint64_t state_num) {
             // mark page-wide range as missing
             m_cache.markRangeAsMissing(updated_page_num, updated_page_num + 1, state_num);
         });
 
         if (result) {
             // retrieve the refreshed state number
-            m_state_num = m_storage.getMaxStateNum();
+            m_head_state_num = m_storage_ptr->getMaxStateNum();
         }
         return result;
     }
     
-    template <typename T> std::uint64_t PrefixImpl<T>::getLastUpdated() const {
-        return m_storage.getLastUpdated();
+    template <typename StorageT> std::uint64_t PrefixImpl<StorageT>::getLastUpdated() const {
+        return m_storage_ptr->getLastUpdated();
     }
 
-    template <typename T> std::shared_ptr<Prefix> PrefixImpl<T>::getSnapshot(std::optional<std::uint64_t> state_num_req) const
-    {   
-        auto state_num = state_num_req.value_or(m_state_num);
-        return std::shared_ptr<Prefix>(
-            new PrefixViewImpl<PrefixImpl<T> >(
-                const_cast<PrefixImpl<T> *>(this)->shared_from_this(), state_num));
+    template <typename StorageT>
+    std::shared_ptr<Prefix> PrefixImpl<StorageT>::getSnapshot(std::optional<std::uint64_t> state_num_req) const
+    {
+        auto snapshot_state_num = state_num_req.value_or(m_head_state_num);
+        return std::shared_ptr<Prefix>(new PrefixViewImpl<StorageT>(this->getName(), m_storage, m_cache, snapshot_state_num));
     }
-
-    template <typename T> void PrefixImpl<T>::beginAtomic()
+    
+    template <typename StorageT> void PrefixImpl<StorageT>::beginAtomic()
     {
         assert(!m_atomic);
         // increment state number to allow isolation
-        ++m_state_num;
+        ++m_head_state_num;
         m_atomic = true;
     }
     
-    template <typename T> void PrefixImpl<T>::endAtomic()
+    template <typename StorageT> void PrefixImpl<StorageT>::endAtomic()
     {
         assert(m_atomic);
         m_atomic = false;
     }
     
-    template <typename T> void PrefixImpl<T>::cancelAtomic()
+    template <typename StorageT> void PrefixImpl<StorageT>::cancelAtomic()
     {
         assert(m_atomic);
-        m_cache.rollback(m_state_num);
-        --m_state_num;
+        m_cache.rollback(m_head_state_num);
+        --m_head_state_num;
         m_atomic = false;        
     }
     
-    template <typename T> std::uint64_t PrefixImpl<T>::findUniqueMutation(std::uint64_t first_page,
-        std::uint64_t end_page, std::uint64_t state_num) const
-    {
-        assert(end_page > first_page);
-        std::uint64_t result = 0;
-        for (; first_page < end_page; ++first_page) {
-            auto mutation_id = m_storage.findMutation(first_page, state_num);
-            if (result == 0) {
-                result = mutation_id;
-            } else if (result != mutation_id) {
-                THROWF(db0::InternalException) << "Inconsistent mutations found in a wide range" << THROWF_END;
-            }
-        }
-        return result;
-    }
-
-    template <typename T> bool PrefixImpl<T>::tryFindUniqueMutation(std::uint64_t first_page, std::uint64_t end_page,
-        std::uint64_t state_num, std::uint64_t &mutation_id) const
-    {
-        std::uint64_t result = 0;
-        bool has_mutation = false;
-        for (;first_page < end_page; ++first_page) {
-            if (m_storage.tryFindMutation(first_page, state_num, result)) {
-                if (has_mutation && result != mutation_id) {
-                    THROWF(db0::InternalException) << "Inconsistent mutations found in a wide range" << THROWF_END;
-                }
-                mutation_id = result;
-                has_mutation = true;
-            }
-        }
-        return has_mutation;
-    }
-
-    template <typename T> BaseStorage &PrefixImpl<T>::getStorage() const {
-        return m_storage;
+    template <typename StorageT> BaseStorage &PrefixImpl<StorageT>::getStorage() const {
+        return *m_storage_ptr;
     }
 
 } 

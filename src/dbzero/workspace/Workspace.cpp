@@ -21,8 +21,8 @@ namespace db0
     }
     
     std::pair<std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator> > BaseWorkspace::openMemspace(const std::string &prefix_name,
-        bool &new_file_created, AccessType access_type, std::optional<std::uint64_t> state_num, std::optional<std::size_t> page_size,
-        std::optional<std::size_t> slab_size, std::optional<std::size_t> sparse_index_node_size)
+        bool &new_file_created, AccessType access_type, std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
+        std::optional<std::size_t> sparse_index_node_size)
     {
         if (!page_size) {
             page_size = DEFAULT_PAGE_SIZE;
@@ -33,10 +33,7 @@ namespace db0
         if (!sparse_index_node_size) {
             sparse_index_node_size = DEFAULT_SPARSE_INDEX_NODE_SIZE;
         }
-        if (state_num && access_type != AccessType::READ_ONLY) {
-            throw std::runtime_error("For historical states (time-travel) only the READ-ONLY access is allowed");
-        }
-
+        
         new_file_created = false;
         auto file_name = m_prefix_catalog.getFileName(prefix_name).string();
         if (!m_prefix_catalog.exists(prefix_name)) {
@@ -48,8 +45,7 @@ namespace db0
             StorageT::create(file_name, *page_size, *sparse_index_node_size);
             new_file_created = true;
         }
-        auto prefix = std::make_shared<PrefixImpl<StorageT> >(prefix_name, m_cache_recycler, state_num,
-            file_name, access_type);
+        auto prefix = std::make_shared<PrefixImpl<StorageT> >(prefix_name, m_cache_recycler, file_name, access_type);
         if (new_file_created) {
             // prepare meta allocator for the 1st use
             MetaAllocator::formatPrefix(prefix, *page_size, *slab_size);
@@ -62,7 +58,7 @@ namespace db0
         return m_prefix_catalog.exists(m_prefix_catalog.getFileName(prefix_name).string());
     }
 
-    Memspace &BaseWorkspace::getMemspace(const std::string &prefix_name, AccessType access_type, std::optional<std::uint64_t> state_num,
+    Memspace &BaseWorkspace::getMemspace(const std::string &prefix_name, AccessType access_type, 
         std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size)
     {
@@ -70,8 +66,9 @@ namespace db0
         auto it = m_memspaces.find(prefix_name);
         try {
             if (it == m_memspaces.end()) {
-                auto [prefix, allocator] = openMemspace(prefix_name, file_created, access_type, state_num, 
-                    page_size, slab_size, sparse_index_node_size);
+                auto [prefix, allocator] = openMemspace(
+                    prefix_name, file_created, access_type, page_size, slab_size, sparse_index_node_size
+                );
                 it = m_memspaces.emplace(prefix_name, Memspace(prefix, allocator)).first;
             }
         } catch (...) {
@@ -195,7 +192,7 @@ namespace db0
     }
 
     db0::swine_ptr<Fixture> Workspace::getFixtureEx(const std::string &prefix_name, std::optional<AccessType> access_type,
-        std::optional<std::uint64_t> state_num, std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
+        std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size, bool autocommit)
     {
         bool file_created = false;
@@ -206,8 +203,9 @@ namespace db0
                 if (!access_type) {
                     THROWF(db0::InputException) << "Fixture with name " << prefix_name << " not found";
                 }
-                auto [prefix, allocator] = openMemspace(prefix_name, file_created, *access_type, state_num,
-                    page_size, slab_size, sparse_index_node_size);
+                auto [prefix, allocator] = openMemspace(
+                    prefix_name, file_created, *access_type, page_size, slab_size, sparse_index_node_size
+                );
                 if (file_created) {
                     // initialize new fixture
                     Fixture::formatFixture(Memspace(prefix, allocator), *allocator);
@@ -371,7 +369,7 @@ namespace db0
     
     void Workspace::open(const std::string &prefix_name, AccessType access_type, bool autocommit)
     {
-        auto fixture = getFixtureEx(prefix_name, access_type, {}, {}, {}, {}, autocommit);
+        auto fixture = getFixtureEx(prefix_name, access_type, {}, {}, {}, autocommit);
         // update default fixture
         if (!m_default_fixture || (m_default_fixture->getAccessType() <= access_type)) {
             m_default_fixture = fixture;

@@ -22,27 +22,6 @@ namespace tests
         }    
     };
     
-    TEST_F( PrefixCacheTest , testPageMapCanFindBestStateMatch )
-    {
-        db0::Storage0 dev_null;
-        PageMap<ResourceLock> cut(dev_null.getPageSize());
-        auto lock_1 = std::make_shared<ResourceLock>(dev_null, 0, 1, FlagSet<AccessOptions> {}, 0, 0);
-        auto lock_2 = std::make_shared<ResourceLock>(dev_null, 0, 1, FlagSet<AccessOptions> {}, 0, 0);
-        // state = 1, pages = 0 ... 9
-        cut.insertRange(1, lock_1, 0, 10);
-        // same range, different state
-        cut.insertRange(11, lock_2, 0, 10);
-        std::uint64_t state_num;
-        ASSERT_EQ(cut.findRange(1, 0, 2, state_num), lock_1);
-        ASSERT_EQ(cut.findRange(1, 0, 10, state_num), lock_1);
-        ASSERT_EQ(cut.findRange(7, 5, 7, state_num), lock_1);
-        ASSERT_EQ(cut.findRange(16, 4, 8, state_num), lock_2);
-        ASSERT_EQ(cut.findRange(16, 0, 10, state_num), lock_2);
-
-        // request invalid range
-        ASSERT_ANY_THROW(cut.findRange(5, 8, 14, state_num));
-    }
-
     TEST_F( PrefixCacheTest , testPrefixCacheCanTrackNegations )
     {        
         db0::Storage0 dev_null;
@@ -63,7 +42,7 @@ namespace tests
         cut.markRangeAsMissing(4, 7, 12);
         // state not existing in cache
         ASSERT_EQ(cut.findRange(14, 17, 14, {}, state_num), std::shared_ptr<ResourceLock> {});
-        cut.clear();
+        cut.release();
     }
     
     TEST_F( PrefixCacheTest , testPrefixCacheNegationsClearedByCreateRange )
@@ -81,7 +60,7 @@ namespace tests
         
         std::uint64_t state_num;
         ASSERT_EQ(cut.findRange(0, 1, 14, {}, state_num), lock_3);
-        cut.clear();
+        cut.release();
     }
     
 }

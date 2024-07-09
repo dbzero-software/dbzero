@@ -169,6 +169,12 @@ namespace db0
     }
     
     void PrefixCache::clear()
+    {        
+        m_boundary_map.clear();
+        m_page_map.clear();    
+    }
+    
+    void PrefixCache::release()
     {
         m_volatile_locks.clear();
         // undo write / remove dirty flag from all owned locks
@@ -193,9 +199,7 @@ namespace db0
                 m_cache_recycler_ptr->release(*lock, mx);
             }
         }
-        
-        m_boundary_map.clear();
-        m_page_map.clear();
+        clear();
     }
     
     bool PrefixCache::empty() const {
@@ -264,4 +268,12 @@ namespace db0
         m_volatile_locks.clear();
     }
 
+    std::size_t PrefixCache::getPageSize() const {
+        return m_page_size;
+    }
+    
+    CacheRecycler *PrefixCache::getCacheRecycler() const {
+        return m_cache_recycler_ptr;
+    }
+    
 }

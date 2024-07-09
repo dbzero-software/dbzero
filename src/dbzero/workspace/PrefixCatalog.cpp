@@ -141,10 +141,10 @@ namespace db0
         }
 
         try {
-            // try opening as fixture file
-            std::optional<std::uint64_t> no_state_num;
+            // try opening as fixture file            
             auto prefix = std::make_shared<PrefixImpl<BDevStorage> >(
-                maybe_prefix_name, nullptr, no_state_num, file_name, AccessType::READ_ONLY);
+                maybe_prefix_name, nullptr, file_name, AccessType::READ_ONLY
+            );
             auto allocator = std::make_shared<MetaAllocator>(prefix);
             auto uuid = Fixture::getUUID(prefix, *allocator);
             m_name_uuids[maybe_prefix_name] = uuid;

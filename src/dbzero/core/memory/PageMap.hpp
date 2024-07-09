@@ -93,7 +93,7 @@ namespace db0
     template <typename ResourceLockT> 
     void PageMap<ResourceLockT>::insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
         std::uint64_t first_page, std::uint64_t end_page)
-    {        
+    {
         PageKeyT key { first_page, state_num };
         while (key.first != end_page) {
             // this is to overwrite existing keys which may already exist

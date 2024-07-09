@@ -47,10 +47,9 @@ namespace db0
         
         std::shared_ptr<BoundaryLock> findBoundaryRange(std::uint64_t first_page_num, std::uint64_t address, std::size_t size,
             std::uint64_t state_num, FlagSet<AccessOptions>, std::uint64_t &read_state_num) const;
-
+        
         /**
-         * Retrieve existing or create a new range associated resource lock
-         * this method should be used for write-only access (data creation)
+         * Retrieve existing or create a new range associated resource lock         
          *     
          * @param address startig address of the range
          * @param state_num the state number
@@ -88,19 +87,21 @@ namespace db0
         */
         std::size_t getSizeOfResources() const;
         
+        // Remove cached locks
+        void clear();
+        
         bool empty() const;
         
-        /**
-         * Release existing resource lock
-        */
-        void release(std::uint64_t page_num);
-
         /**
          * Flush all managed locks
         */
         void flush();
 
-        void clear();
+        /**
+         * Relase / rollback all locks stored by the cache
+         * this is required for a proper winding down in unit tests
+         */
+        void release();
 
         // Remove (discard) all volatile locks
         void rollback(std::uint64_t state_num);
@@ -109,8 +110,12 @@ namespace db0
         // @param from_state_num must be the atomic operation's assigned (temporary) state number
         // @param to_state_num the actual transaction number
         void merge(std::uint64_t from_state_num, std::uint64_t to_state_num);
+
+        std::size_t getPageSize() const;
         
-    private:
+        CacheRecycler *getCacheRecycler() const;
+
+    protected:
         BaseStorage &m_storage;
         const std::size_t m_page_size;
         const unsigned int m_shift;

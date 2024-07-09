@@ -26,7 +26,7 @@ namespace tests
         virtual void SetUp() override 
         {
             using PrefixT = PrefixImpl<db0::Storage0>;
-            m_prefix = std::shared_ptr<PrefixT>(new PrefixT("", m_recycler, {}, PAGE_SIZE));
+            m_prefix = std::shared_ptr<PrefixT>(new PrefixT("", m_recycler, PAGE_SIZE));
         }
         
         virtual void TearDown() override 

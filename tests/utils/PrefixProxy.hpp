@@ -27,10 +27,6 @@ namespace db0::tests
             return m_prefix->mapRange(address, size, options);
         }
 
-        std::uint64_t size() const override {
-            return m_prefix->size();
-        }
-
         std::uint64_t getStateNum() const override {
             return m_prefix->getStateNum();
         }
