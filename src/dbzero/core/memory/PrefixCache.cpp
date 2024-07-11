@@ -61,7 +61,7 @@ namespace db0
             return nullptr;
         }
         
-        // Try uprading the unused lock to the write state
+        // Try upgrading the unused lock to the write state
         // this is to avoid CoW in a writer process
         if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::create] && read_state_num != state_num) {
             // unused lock condition (i.e. might only be used by the CacheRecycler)

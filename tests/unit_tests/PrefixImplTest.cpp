@@ -336,5 +336,70 @@ namespace tests
         
         prefix->close();
     }
-    
+
+    TEST_F( PrefixImplTest , testRevertAtomicBoundaryUpdate )
+    {
+        BDevStorage::create(file_name);        
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, file_name);
+        auto page_size = cut.getPageSize();
+        ASSERT_EQ(cut.getStateNum(), 1);
+        
+        // write boundary range in state = 1
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        memcpy(w1.modify(), "12345678", 8);
+        w1.release();
+
+        // update boundary lock
+        cut.beginAtomic();
+        auto w2 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read, AccessOptions::write });
+        memcpy((char*)w2.modify() + 2, "ABCD", 4);
+        w2.release();
+
+        cut.cancelAtomic();
+        {
+            auto lock = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read });
+            auto str_value = std::string((char *)lock.m_buffer, 8);
+            ASSERT_EQ(str_value, "12345678");
+        
+            // also read page-wise        
+            auto p1 = cut.mapRange(page_size * 1 - 4, 4, { AccessOptions::read });
+            str_value = std::string((char *)p1.m_buffer, 4);
+            ASSERT_EQ(str_value, "1234");
+
+            auto p2 = cut.mapRange(page_size * 1, 4, { AccessOptions::read });
+            str_value = std::string((char *)p2.m_buffer, 4);
+            ASSERT_EQ(str_value, "5678");
+        }
+
+        cut.close();
+    }
+
+    TEST_F( PrefixImplTest , testCommitAtomicBoundaryUpdate )
+    {
+        BDevStorage::create(file_name);        
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, file_name);
+        auto page_size = cut.getPageSize();
+        ASSERT_EQ(cut.getStateNum(), 1);
+        
+        // write boundary range in state = 1
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        memcpy(w1.modify(), "12345678", 8);
+        w1.release();
+
+        // update boundary lock
+        cut.beginAtomic();
+        auto w2 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read, AccessOptions::write });
+        memcpy((char*)w2.modify() + 2, "ABCD", 4);
+        w2.release();
+
+        cut.endAtomic();
+        {
+            auto lock = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read });
+            auto str_value = std::string((char *)lock.m_buffer, 8);
+            ASSERT_EQ(str_value, "12ABCD78");
+        }
+        
+        cut.close();
+    }
+
 }
