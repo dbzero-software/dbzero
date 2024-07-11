@@ -80,6 +80,9 @@ namespace db0
         */
         void erase(std::uint64_t address);
 
+        // Detach all managed instances
+        void detach();
+
         void commit();
         
         FixedObjectList &getSharedObjectList() const;
@@ -91,8 +94,9 @@ namespace db0
     private:
         Memspace &m_memspace;
         FixedObjectList &m_shared_object_list;
-        // store pairs: address -> (weak_ptr, likely index, detach function)
-        mutable std::unordered_map<std::uint64_t, std::tuple<std::weak_ptr<void>, std::uint32_t, std::function<void()>> > m_cache;
+        // store pairs: address -> (weak_ptr, likely index, commit function, detach function)
+        mutable std::unordered_map<std::uint64_t, std::tuple<std::weak_ptr<void>, std::uint32_t,
+            std::function<void()>, std::function<void()> > > m_cache;
         bool m_atomic = false;
         // volatile instances - i.e. ones created during atomic operation
         mutable std::unordered_set<std::uint64_t> m_volatile;
@@ -114,7 +118,10 @@ namespace db0
         auto commit_func = [raw_ptr]() {
             raw_ptr->commit();
         };
-        m_cache[result_ptr->getAddress()] = { ptr, index, commit_func };
+        auto detach_func = [raw_ptr]() {
+            raw_ptr->detach();
+        };
+        m_cache[result_ptr->getAddress()] = { ptr, index, commit_func, detach_func };
         if (m_atomic) {
             m_volatile.insert(result_ptr->getAddress());
         }

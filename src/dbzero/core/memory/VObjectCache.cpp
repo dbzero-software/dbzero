@@ -107,6 +107,17 @@ namespace db0
         }
     }
     
+    void VObjectCache::detach()
+    {
+        // detach all cached instances
+        for (auto &item : m_cache) {
+            if (!std::get<0>(item.second).expired()) {
+                // detach
+                std::get<3>(item.second)();
+            }
+        }
+    }
+    
     void VObjectCache::beginAtomic()
     {
         assert(!m_atomic);

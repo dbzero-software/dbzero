@@ -56,10 +56,11 @@ def test_reading_after_atomic_cancel(db0_fixture):
     
 def test_assign_tags_inside_atomic_operation(db0_fixture):
     object_1 = MemoTestClass(123)
-    with db0.atomic() as atomic:
+    with db0.atomic():
         db0.tags(object_1).add("tag1")
-        assert len(list(db0.find("tag1"))) == 1        
-    assert len(list(db0.find("tag1"))) == 1    
+        assert len(list(db0.find("tag1"))) == 1
+    
+    assert len(list(db0.find("tag1"))) == 1
     
     
 def test_assign_and_revert_tags_inside_atomic_operation(db0_fixture):
@@ -68,15 +69,17 @@ def test_assign_and_revert_tags_inside_atomic_operation(db0_fixture):
         db0.tags(object_1).add("tag1")
         assert len(list(db0.find("tag1"))) == 1        
         atomic.cancel()
+        
     assert len(list(db0.find("tag1"))) == 0
     
     
 def test_atomic_list_update(db0_fixture):
     object_1 = MemoTestClass([0])
-    with db0.atomic() as atomic:
+    with db0.atomic():
         object_1.value.append(1)
         object_1.value.append(2)
         object_1.value.append(3)
+    
     assert object_1.value == [0, 1, 2, 3]
     
     
@@ -86,26 +89,27 @@ def test_atomic_revert_list_update(db0_fixture):
         object_1.value.append(3)
         object_1.value.append(4)
         object_1.value.append(5)
-        atomic.cancel()    
+        atomic.cancel()
+    
     assert object_1.value == [1, 2]
     
 
 def test_atomic_set_update_issue(db0_fixture):
     object_1 = MemoTestClass(set())
     object_1.value.add(0)
-    with db0.atomic() as atomic:
+    with db0.atomic():
         object_1.value.add(1)
 
 
 def test_atomic_set_update_issue_2(db0_fixture):
     object_1 = MemoTestClass(set([0]))
-    with db0.atomic() as atomic:
+    with db0.atomic():
         object_1.value.add(1)
 
     
 def test_atomic_set_update(db0_fixture):
     object_1 = MemoTestClass(set([0]))
-    with db0.atomic() as atomic:
+    with db0.atomic():
         object_1.value.add(1)
         object_1.value.add(3)
     assert set(object_1.value) == set([0, 1, 3])
@@ -122,7 +126,7 @@ def test_atomic_revert_set_update(db0_fixture):
     
 def test_atomic_dict_update(db0_fixture):
     object_1 = MemoTestClass({0:"a", 1:"b"})
-    with db0.atomic() as atomic:
+    with db0.atomic():
         object_1.value[2] = "c"
         object_1.value[9] = "d"
     
@@ -136,4 +140,25 @@ def test_atomic_revert_dict_update(db0_fixture):
         object_1.value[9] = "d"
         atomic.cancel()    
     assert dict(object_1.value) == {0:"a", 1:"b"}
+
+
+def test_atomic_tags_assign(db0_fixture, memo_tags):
+    l1 = len(list(db0.find("tag1")))
+    with db0.atomic():
+        for _ in range(5):
+            object = MemoTestClass(999)
+            db0.tags(object).add("tag1")
+    
+    assert len(list(db0.find("tag1"))) == l1 + 5
+    
+    
+def test_atomic_tags_revert_assign(db0_fixture, memo_tags):
+    l1 = len(list(db0.find("tag1")))
+    with db0.atomic() as atomic:
+        for _ in range(5):
+            object = MemoTestClass(999)
+            db0.tags(object).add("tag1")
+        atomic.cancel()
+
+    assert len(list(db0.find("tag1"))) == l1
     

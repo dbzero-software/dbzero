@@ -71,9 +71,9 @@ namespace db0::object_model
         */
         std::pair<std::unique_ptr<QueryIterator>, std::unique_ptr<QueryObserver> > 
         splitBy(ObjectPtr lang_arg, std::unique_ptr<QueryIterator> &&query) const;
-                
-        // Clears the entire contents
-        void clear();
+
+        // Clears the uncommited contents (rollback)
+        void rollback();
 
         // Flush any pending updates from the internal buffers
         void flush() const;
@@ -88,6 +88,8 @@ namespace db0::object_model
         db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort();
         const db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort() const;
         const db0::FT_BaseIndex<LongTagT> &getBaseIndexLong() const;
+
+        void clear();
         
     private:
         using TypeId = db0::bindings::TypeId;
