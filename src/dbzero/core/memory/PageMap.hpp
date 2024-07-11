@@ -233,7 +233,7 @@ namespace db0
     void PageMap<ResourceLockT>::erase(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock)
     {
         auto first_page = lock->getAddress() >> m_shift;
-        auto end_page = (lock->getAddress() + lock->size() - 1) >> m_shift;
+        auto end_page = ((lock->getAddress() + lock->size() - 1) >> m_shift) + 1;
         for (;first_page != end_page; ++first_page) {
             auto it = find(first_page, state_num);
             assert(it != m_cache.end());

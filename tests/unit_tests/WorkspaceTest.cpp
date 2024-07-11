@@ -79,14 +79,13 @@ namespace tests
             auto fixture = m_workspace.getFixture(prefix_name);
             v_object<o_TT> obj(fixture->myPtr(address));
             obj.modify().a = i + 1;
+            fixture->commit();
 
             if (i == 6) {
                 // take snapshot
                 workspace_view = std::make_unique<WorkspaceView>(m_workspace, fixture->getStateNum());
                 snap = fixture->getSnapshot(*workspace_view, {});
             }
-
-            fixture->commit();
         }
         
         // query the snapshot

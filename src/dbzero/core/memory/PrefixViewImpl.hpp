@@ -131,7 +131,7 @@ namespace db0
         // refresh does nothing
         return 0;
     }
-
+    
     template <typename StorageT>
     std::shared_ptr<Prefix> PrefixViewImpl<StorageT>::getSnapshot(std::optional<std::uint64_t>) const
     {
@@ -151,10 +151,14 @@ namespace db0
         std::uint64_t read_state_num;
         auto lock = m_cache.findRange(page_num, page_num + 1, m_state_num, { AccessOptions::read }, read_state_num);
         if (!lock) {
-            auto mutation_id = m_storage_ptr->findMutation(page_num, m_state_num);
+            std::uint64_t mutation_id;
+            // page may not be available in storage yet, in such case we pick from the head cache using state_num
+            if (!m_storage_ptr->tryFindMutation(page_num, m_state_num, mutation_id)) {
+                mutation_id = m_state_num;
+            }
             // try looking up the head transaction's cache next (using the actual mutation ID)
             lock = m_head_cache.findRange(page_num, page_num + 1, mutation_id, { AccessOptions::read }, read_state_num);
-            if (lock) {
+            if (lock && read_state_num == mutation_id) {
                 // add head transaction's range to the local cache under actual mutation ID
                 m_cache.insertRange(lock, mutation_id);
             } else {
@@ -175,10 +179,13 @@ namespace db0
         if (!lock) {
             // a consistent mutation must exist for a wide-lock
             // since wide locks can be occupied by a single object only (page aligned)
-            auto mutation_id = findUniqueMutation(*m_storage_ptr, first_page, end_page, m_state_num);
+            std::uint64_t mutation_id;
+            if (!tryFindUniqueMutation(*m_storage_ptr, first_page, end_page, m_state_num, mutation_id)) {
+                mutation_id = m_state_num;
+            }
             // try looking up the head transaction's cache next (using the actual mutation ID)
             lock = m_head_cache.findRange(first_page, end_page, mutation_id, { AccessOptions::read }, read_state_num);
-            if (lock) {
+            if (lock && read_state_num == mutation_id) {
                 m_cache.insertRange(lock, mutation_id);
             } else {
                 lock = m_cache.createRange(first_page, end_page, mutation_id, 0, { AccessOptions::read });

@@ -28,7 +28,7 @@ namespace db0::pools
         if (super_t::find(str_value, value)) {
             return value;
         }
-
+        
         // not found
         return {};
     }

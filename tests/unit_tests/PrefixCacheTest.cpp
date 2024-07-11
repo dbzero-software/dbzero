@@ -3,6 +3,7 @@
 #include <dbzero/core/memory/PrefixCache.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/memory/ResourceLock.hpp>
+#include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
 
 using namespace std;
@@ -62,5 +63,60 @@ namespace tests
         ASSERT_EQ(cut.findRange(0, 1, 14, {}, state_num), lock_3);
         cut.release();
     }
-    
+
+    /* FIXME: why not caching 2 pages ?
+    TEST_F( PrefixCacheTest , testPrefixCacheUpdateStateNumToAvoidCoW )
+    {
+        db0::Storage0 dev_null;
+        db0::CacheRecycler cache_recycler(1 << 20u);
+        PrefixCache cut(dev_null, &cache_recycler);
+
+        // first page, end page, read state num, state num
+        // create page in state #1
+        cut.createRange(0, 1, 0, 1, { AccessOptions::write });
+        // request state #2 for read-write (note that lock has been released)
+        std::uint64_t read_state_num;
+        auto lock = cut.findRange(0, 1, 2, { AccessOptions::read, AccessOptions::write }, read_state_num);
+        ASSERT_TRUE(lock);
+
+        // make sure only 1 lock is cached (no CoW)
+        ASSERT_EQ(cache_recycler.size(), lock->size());
+
+        // now, try reading the state #1 version of the page
+        auto lock_1 = cut.findRange(0, 1, 1, { AccessOptions::read }, read_state_num);
+        // lock should be no longer present in cache
+        ASSERT_FALSE(lock_1);
+
+        cut.release();
+    }
+    */
+
+    TEST_F( PrefixCacheTest , testPrefixCacheUpdateStateNumToAvoidCoW )
+    {
+        db0::Storage0 dev_null;
+        db0::CacheRecycler cache_recycler(1 << 20u);
+        PrefixCache cut(dev_null, &cache_recycler);
+
+        // first page, end page, read state num, state num
+        // create page in state #1
+        {
+            auto lock = cut.createRange(0, 1, 0, 1, { AccessOptions::write });
+            lock->flush();
+        }    
+        // request state #2 for read-write (note that lock has been released)
+        std::uint64_t read_state_num;
+        auto lock = cut.findRange(0, 1, 2, { AccessOptions::read, AccessOptions::write }, read_state_num);
+        ASSERT_TRUE(lock);
+
+        // make sure only 1 lock is cached (no CoW), since upgrade took place
+        ASSERT_EQ(cache_recycler.size(), lock->size());
+        
+        // now, try reading the state #1 version of the page
+        auto lock_1 = cut.findRange(0, 1, 1, { AccessOptions::read }, read_state_num);
+        // lock of this version should be no longer present in cache
+        ASSERT_FALSE(lock_1);
+
+        cut.release();
+    }
+
 }

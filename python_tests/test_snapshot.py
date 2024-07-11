@@ -202,3 +202,13 @@ def test_snapshot_can_be_taken_with_state_num(db0_fixture):
     snap = db0.snapshot(old_state_id)
     values = [x.value for x in snap.find("some-tag")]
     assert set(values) == set([0, 1, 2])
+
+
+def test_tag_query_over_snapshot(db0_fixture, memo_tags):
+    snap = db0.snapshot()
+    db0.commit()
+    # add more tags in a new transaction
+    db0.tags(MemoTestClass(10)).add("tag1")
+    
+    assert len(list(db0.find("tag1"))) == 11
+    assert len(list(snap.find("tag1"))) == 10
