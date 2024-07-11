@@ -63,6 +63,10 @@ namespace db0::object_model
                     enum_factory.detach();
                 });
 
+                fixture->addRollbackHandler([&]() {
+                    tag_index.rollback();                    
+                });
+
                 // register resources with the object catalogue
                 oc.addUnique(tag_index);
                 oc.addUnique(class_factory);
@@ -94,6 +98,10 @@ namespace db0::object_model
                     tag_index.detach();
                     class_factory.detach();
                     enum_factory.detach();
+                });
+                
+                fixture->addRollbackHandler([&]() {
+                    tag_index.rollback();                    
                 });
                 
                 if (fixture->getAccessType() == db0::AccessType::READ_WRITE) {

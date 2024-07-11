@@ -135,6 +135,10 @@ namespace db0
         // add commit or close handler (the actual operation identified by the boolean flag)
         void addCloseHandler(std::function<void(bool commit)>);
         void addDetachHandler(std::function<void()>);
+        void addRollbackHandler(std::function<void()>);
+
+        // Rollback uncommited contents from internal buffers
+        void rollback();
 
         void commit();
         
@@ -239,6 +243,7 @@ namespace db0
         std::deque<std::shared_ptr<db0::DependencyHolder> > m_dependencies;
         std::vector<std::function<void(bool)> > m_close_handlers;
         std::vector<std::function<void()> > m_detach_handlers;
+        std::vector<std::function<void()> > m_rollback_handlers;
         
         std::uint64_t getUUID(MetaAllocator &);
 
