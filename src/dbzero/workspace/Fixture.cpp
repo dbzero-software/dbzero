@@ -137,6 +137,17 @@ namespace db0
         m_detach_handlers.push_back(f);
     }
 
+    void Fixture::addRollbackHandler(std::function<void()> f) {
+        m_rollback_handlers.push_back(f);
+    }
+
+    void Fixture::rollback()
+    {
+        for (auto &rollback: m_rollback_handlers) {
+            rollback();
+        }
+    }
+
     void Fixture::close()
     {
         for (auto &close: m_close_handlers) {
@@ -272,6 +283,7 @@ namespace db0
         // detach all active v_object instances so that the underlying locks can be re-created (CoW)
         // FIXME: should change to "commit"
         getGC0().detachAll();
+        getGC0().beginAtomic();
 
         for (auto &commit: m_close_handlers) {
             commit(true);
@@ -289,21 +301,26 @@ namespace db0
         m_atomic_context_ptr = nullptr;
         m_v_object_cache.endAtomic();
         Memspace::endAtomic();
+        getGC0().endAtomic();
     }
-
+    
     void Fixture::cancelAtomic()
     {
         assert(m_atomic_context_ptr);
         m_atomic_context_ptr = nullptr;
+        getGC0().cancelAtomic();
+        // rollback any uncommited changes
+        rollback();
         // detach owned resources
         for (auto &detach: m_detach_handlers) {
             detach();
         }
 
+        m_v_object_cache.detach();
         m_string_pool.detach();
         m_object_catalogue.detach();
         m_v_object_cache.cancelAtomic();
-        Memspace::cancelAtomic();
+        Memspace::cancelAtomic();        
     }
     
     AtomicContext *Fixture::tryGetAtomicContext() const {

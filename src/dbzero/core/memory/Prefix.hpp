@@ -37,14 +37,7 @@ namespace db0
          * @return the memory lock object or exception thrown on invalid address / out of available range
         */
         virtual MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) const = 0;
-        
-        /**
-         * Get size of the storage used
-         * 
-         * @return size in bytes
-        */
-        virtual std::uint64_t size() const = 0;
-        
+                
         virtual std::size_t getPageSize() const = 0;
         
         virtual std::uint64_t getStateNum() const = 0;

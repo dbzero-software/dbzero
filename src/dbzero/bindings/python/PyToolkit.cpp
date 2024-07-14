@@ -209,10 +209,10 @@ namespace db0::python
         return py_iter;
     }
     
-    std::uint64_t PyToolkit::addTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)
+    std::uint64_t PyToolkit::getTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool, bool create)
     {
         if (PyUnicode_Check(py_object)) {
-            return string_pool.toAddress(string_pool.add(PyUnicode_AsUTF8(py_object)));
+            return string_pool.toAddress(string_pool.get(PyUnicode_AsUTF8(py_object), create));
         }
 
         // unable to resolve as tag

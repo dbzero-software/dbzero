@@ -46,11 +46,7 @@ namespace db0
     std::uint64_t DRAM_Prefix::commit() {
         return getStateNum();
     }
-
-    std::uint64_t DRAM_Prefix::size() const {
-        return m_pages.size() * m_page_size;
-    }
-    
+        
     std::size_t DRAM_Prefix::getPageSize() const {
         return m_page_size;
     }

@@ -21,11 +21,13 @@ namespace db0::pools
     /**
      * Limited pool with in-memory lookup index and ref-counting
     */
-    template <typename T, typename CompT, typename AddressT = std::uint32_t> class RC_LimitedPool
-        : public LimitedPool<T, AddressT>
+    template <typename T, typename CompT, typename AddrT = std::uint32_t> class RC_LimitedPool
+        : public LimitedPool<T, AddrT>
         , public db0::v_object<o_rc_limited_pool>
     {
     public:
+        using AddressT = AddrT;
+
         RC_LimitedPool(const Memspace &pool_memspace, Memspace &);
         RC_LimitedPool(const Memspace &pool_memspace, mptr);
         RC_LimitedPool(RC_LimitedPool const &);

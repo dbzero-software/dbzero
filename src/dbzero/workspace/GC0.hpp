@@ -89,12 +89,15 @@ namespace db0
             if (m_ops[T::m_gc_ops_id].preCommit) {
                 m_pre_commit_map[vptr] = T::m_gc_ops_id;
             }
+            if (m_atomic) {
+                m_volatile.push_back(vptr);
+            }
         }
         
         /**
          * Unregister instance (i.e. when reference from Python was removed)
          * @return true if object was also dropped
-         */        
+         */
         bool remove(void *vptr);
         
         /**
@@ -126,6 +129,10 @@ namespace db0
         */
         void collect();
 
+        void beginAtomic();
+        void endAtomic();
+        void cancelAtomic();
+
     private:
         static std::vector<GC_Ops> m_ops;
         // GC-ops by storage class
@@ -138,6 +145,10 @@ namespace db0
         // the map dedicated to instances which implement preCommit
         // it's assumed that it's much smaller than m_vptr_map (it duplicates some of its entries)
         std::unordered_map<void*, unsigned int> m_pre_commit_map;
+        // flag indicating atomic operation in progress
+        bool m_atomic = false;
+        // the list of volatile instances - i.e. created during atomic operation
+        std::vector<void*> m_volatile;
         
         template <typename T> static void registerSingleType()
         {
@@ -147,6 +158,8 @@ namespace db0
             m_ops_map[T::storageClass()] = T::m_gc_ops_id;
         }
         
+        // unregister volatile instance from GC0 (e.g. on rollback)
+        void unregister(void *vptr);
     };
     
 }

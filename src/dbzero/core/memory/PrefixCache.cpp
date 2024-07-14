@@ -61,7 +61,7 @@ namespace db0
             return nullptr;
         }
         
-        // Try uprading the unused lock to the write state
+        // Try upgrading the unused lock to the write state
         // this is to avoid CoW in a writer process
         if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::create] && read_state_num != state_num) {
             // unused lock condition (i.e. might only be used by the CacheRecycler)
@@ -169,6 +169,12 @@ namespace db0
     }
     
     void PrefixCache::clear()
+    {        
+        m_boundary_map.clear();
+        m_page_map.clear();    
+    }
+    
+    void PrefixCache::release()
     {
         m_volatile_locks.clear();
         // undo write / remove dirty flag from all owned locks
@@ -193,9 +199,7 @@ namespace db0
                 m_cache_recycler_ptr->release(*lock, mx);
             }
         }
-        
-        m_boundary_map.clear();
-        m_page_map.clear();
+        clear();
     }
     
     bool PrefixCache::empty() const {
@@ -264,4 +268,12 @@ namespace db0
         m_volatile_locks.clear();
     }
 
+    std::size_t PrefixCache::getPageSize() const {
+        return m_page_size;
+    }
+    
+    CacheRecycler *PrefixCache::getCacheRecycler() const {
+        return m_cache_recycler_ptr;
+    }
+    
 }

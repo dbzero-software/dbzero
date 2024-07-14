@@ -54,9 +54,8 @@ namespace db0
          * if state number if specified, the memspace will be opened in read-only mode to access a specific historical state (time-travel)
          * @param page_size required only when creating a new prefix
         */
-        Memspace &getMemspace(const std::string &prefix_name, AccessType = AccessType::READ_WRITE, std::optional<std::uint64_t> state_num = {},
-            std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {},
-            std::optional<std::size_t> sparse_index_node_size = {});
+        Memspace &getMemspace(const std::string &prefix_name, AccessType = AccessType::READ_WRITE, std::optional<std::size_t> page_size = {}, 
+            std::optional<std::size_t> slab_size = {}, std::optional<std::size_t> sparse_index_node_size = {});
         
         bool hasMemspace(const std::string &prefix_name) const;
         
@@ -100,8 +99,8 @@ namespace db0
          * Open existing or create new memspace
         */
         std::pair<std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator> > openMemspace(const std::string &prefix_name, 
-            bool &new_file_created, AccessType = AccessType::READ_WRITE, std::optional<std::uint64_t> state_num = {},
-            std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {},
+            bool &new_file_created, AccessType = AccessType::READ_WRITE, std::optional<std::size_t> page_size = {}, 
+            std::optional<std::size_t> slab_size = {},
             std::optional<std::size_t> sparse_index_node_size = {});
         
     private:        
@@ -137,8 +136,8 @@ namespace db0
          * access type must be provided when the prefix is accessed for the 1st time
          */
         swine_ptr<Fixture> getFixtureEx(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE,
-            std::optional<std::uint64_t> state_num = {}, std::optional<std::size_t> page_size = {},
-            std::optional<std::size_t> slab_size = {}, std::optional<std::size_t> sparse_index_node_size = {},
+            std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {}, 
+            std::optional<std::size_t> sparse_index_node_size = {},
             bool autocommit = true);
         
         /**

@@ -3,6 +3,7 @@
 #include <dbzero/core/memory/PrefixCache.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/memory/ResourceLock.hpp>
+#include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
 
 using namespace std;
@@ -22,27 +23,6 @@ namespace tests
         }    
     };
     
-    TEST_F( PrefixCacheTest , testPageMapCanFindBestStateMatch )
-    {
-        db0::Storage0 dev_null;
-        PageMap<ResourceLock> cut(dev_null.getPageSize());
-        auto lock_1 = std::make_shared<ResourceLock>(dev_null, 0, 1, FlagSet<AccessOptions> {}, 0, 0);
-        auto lock_2 = std::make_shared<ResourceLock>(dev_null, 0, 1, FlagSet<AccessOptions> {}, 0, 0);
-        // state = 1, pages = 0 ... 9
-        cut.insertRange(1, lock_1, 0, 10);
-        // same range, different state
-        cut.insertRange(11, lock_2, 0, 10);
-        std::uint64_t state_num;
-        ASSERT_EQ(cut.findRange(1, 0, 2, state_num), lock_1);
-        ASSERT_EQ(cut.findRange(1, 0, 10, state_num), lock_1);
-        ASSERT_EQ(cut.findRange(7, 5, 7, state_num), lock_1);
-        ASSERT_EQ(cut.findRange(16, 4, 8, state_num), lock_2);
-        ASSERT_EQ(cut.findRange(16, 0, 10, state_num), lock_2);
-
-        // request invalid range
-        ASSERT_ANY_THROW(cut.findRange(5, 8, 14, state_num));
-    }
-
     TEST_F( PrefixCacheTest , testPrefixCacheCanTrackNegations )
     {        
         db0::Storage0 dev_null;
@@ -63,7 +43,7 @@ namespace tests
         cut.markRangeAsMissing(4, 7, 12);
         // state not existing in cache
         ASSERT_EQ(cut.findRange(14, 17, 14, {}, state_num), std::shared_ptr<ResourceLock> {});
-        cut.clear();
+        cut.release();
     }
     
     TEST_F( PrefixCacheTest , testPrefixCacheNegationsClearedByCreateRange )
@@ -81,7 +61,35 @@ namespace tests
         
         std::uint64_t state_num;
         ASSERT_EQ(cut.findRange(0, 1, 14, {}, state_num), lock_3);
-        cut.clear();
+        cut.release();
+    }
+
+    TEST_F( PrefixCacheTest , testPrefixCacheUpdateStateNumToAvoidCoW )
+    {
+        db0::Storage0 dev_null;
+        db0::CacheRecycler cache_recycler(1 << 20u);
+        PrefixCache cut(dev_null, &cache_recycler);
+
+        // first page, end page, read state num, state num
+        // create page in state #1
+        {
+            auto lock = cut.createRange(0, 1, 0, 1, { AccessOptions::write });
+            lock->flush();
+        }    
+        // request state #2 for read-write (note that lock has been released)
+        std::uint64_t read_state_num;
+        auto lock = cut.findRange(0, 1, 2, { AccessOptions::read, AccessOptions::write }, read_state_num);
+        ASSERT_TRUE(lock);
+
+        // make sure only 1 lock is cached (no CoW), since upgrade took place
+        ASSERT_EQ(cache_recycler.size(), lock->size());
+        
+        // now, try reading the state #1 version of the page
+        auto lock_1 = cut.findRange(0, 1, 1, { AccessOptions::read }, read_state_num);
+        // lock of this version should be no longer present in cache
+        ASSERT_FALSE(lock_1);
+
+        cut.release();
     }
     
 }

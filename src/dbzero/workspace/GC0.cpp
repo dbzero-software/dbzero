@@ -58,6 +58,17 @@ namespace db0
         return false;
     }
     
+    void GC0::unregister(void *vptr)
+    {
+        auto it = m_vptr_map.find(vptr);
+        if (it != m_vptr_map.end()) {
+            auto ops = m_ops[it->second];
+            m_vptr_map.erase(it);
+            // notify lang cache on object deleted (to be able to remove weak references)
+            m_lang_cache.erase(ops.address(vptr));
+        }
+    }
+
     void GC0::detachAll()
     {
         for (auto &vptr_item : m_vptr_map) {
@@ -103,6 +114,29 @@ namespace db0
             m_ops[ops_id].dropByAddr(fixture, addr.getAddress());
         }
         super_t::clear();
+    }
+
+    void GC0::beginAtomic()
+    {
+        assert(!m_atomic);
+        m_atomic = true;
+    }
+
+    void GC0::endAtomic()
+    {
+        assert(m_atomic);
+        m_volatile.clear();
+        m_atomic = false;
+    }
+
+    void GC0::cancelAtomic()
+    {
+        assert(m_atomic);
+        for (auto vptr : m_volatile) {
+            remove(vptr);
+        }
+        m_volatile.clear();
+        m_atomic = false;
     }
 
 }

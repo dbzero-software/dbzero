@@ -71,9 +71,9 @@ namespace db0::object_model
         */
         std::pair<std::unique_ptr<QueryIterator>, std::unique_ptr<QueryObserver> > 
         splitBy(ObjectPtr lang_arg, std::unique_ptr<QueryIterator> &&query) const;
-                
-        // Clears the entire contents
-        void clear();
+
+        // Clears the uncommited contents (rollback)
+        void rollback();
 
         // Flush any pending updates from the internal buffers
         void flush() const;
@@ -88,6 +88,8 @@ namespace db0::object_model
         db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort();
         const db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort() const;
         const db0::FT_BaseIndex<LongTagT> &getBaseIndexLong() const;
+
+        void clear();
         
     private:
         using TypeId = db0::bindings::TypeId;
@@ -114,13 +116,13 @@ namespace db0::object_model
         /**
          * Make a tag from the provided argument (can be a string, type or a memo instance)        
         */        
-        ShortTagT makeShortTag(ObjectPtr) const;
-        ShortTagT makeShortTag(ObjectSharedPtr) const;
-        ShortTagT makeShortTag(TypeId, ObjectPtr) const;
-        ShortTagT makeShortTagFromString(ObjectPtr) const;
-        ShortTagT makeShortTagFromMemo(ObjectPtr) const;
-        ShortTagT makeShortTagFromEnumValue(ObjectPtr) const;
-        ShortTagT makeShortTagFromFieldDef(ObjectPtr) const;
+        ShortTagT makeShortTag(ObjectPtr, bool create) const;
+        ShortTagT makeShortTag(ObjectSharedPtr, bool create) const;
+        ShortTagT makeShortTag(TypeId, ObjectPtr, bool create) const;
+        ShortTagT makeShortTagFromString(ObjectPtr, bool create) const;
+        ShortTagT makeShortTagFromMemo(ObjectPtr, bool create) const;
+        ShortTagT makeShortTagFromEnumValue(ObjectPtr, bool create) const;
+        ShortTagT makeShortTagFromFieldDef(ObjectPtr, bool create) const;
 
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
@@ -132,8 +134,8 @@ namespace db0::object_model
         bool isLongTag(ObjectPtr) const;
         bool isLongTag(ObjectSharedPtr) const;
         
-        LongTagT makeLongTag(ObjectPtr) const;
-        LongTagT makeLongTag(ObjectSharedPtr) const;
+        LongTagT makeLongTag(ObjectPtr, bool create) const;
+        LongTagT makeLongTag(ObjectSharedPtr, bool create) const;
 
         // Check if the sequence represents a long tag (i.e. scope + short tag)
         template <typename IteratorT> bool isLongTag(IteratorT begin, IteratorT end) const;

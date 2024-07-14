@@ -242,6 +242,13 @@ def test_dict_with_tuples_as_keys(db0_fixture):
 #     end = datetime.datetime.now()
 #     print("Elapsed time: ", end - now)
 
+# FIXME: test crashing with segmentation fault
+# def test_dict_items_not_in(db0_fixture):
+#     # tests iteration over values from dict
+#     dict_1 = db0.dict()
+#     # insert 1000 random items
+#     for i in range(1000000):
+#         assert 5 not in dict_1
 
 def test_dict_insert_mixed_types(db0_fixture):
     my_dict = db0.dict()
