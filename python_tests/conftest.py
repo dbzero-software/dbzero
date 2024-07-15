@@ -41,6 +41,23 @@ def db0_autocommit_fixture():
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
 
+
+@pytest.fixture()
+def db0_no_autocommit():
+    """
+    DB0 scope with a very short autocommit interval
+    """
+    if os.path.exists(DB0_DIR):
+        shutil.rmtree(DB0_DIR)
+    # create empty directory
+    os.mkdir(DB0_DIR)
+    db0.init(DB0_DIR)
+    db0.open("my-test-prefix", autocommit=False)
+    yield db0
+    db0.close()
+    if os.path.exists(DB0_DIR):
+        shutil.rmtree(DB0_DIR)
+
     
 @pytest.fixture()
 def memo_tags():

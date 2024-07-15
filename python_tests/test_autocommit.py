@@ -55,3 +55,17 @@ def test_dict_items_not_in_while_autocommit(db0_autocommit_fixture):
     dict_1 = db0.dict()
     for _ in range(100000):
         assert 5 not in dict_1
+        
+
+def test_autocommit_disabled_by_fixture(db0_no_autocommit):
+    prefix_name = db0.get_current_prefix()
+    db0.commit()
+    db0.close(prefix_name)
+    db0.open(prefix_name, autocommit=False)
+    state_1 = db0.get_state_num()
+    object_1 = MemoTestClass(951)
+    time.sleep(0.3)
+    state_2 = db0.get_state_num()
+    # no autocommit, state not changed
+    assert state_1 == state_2
+    
