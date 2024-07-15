@@ -1,10 +1,12 @@
 #pragma once
+
 #include <dbzero/object_model/dict/Dict.hpp>
+
 namespace db0::python 
+
 {
     
     using DictObject = PyWrapper<db0::object_model::Dict>;
-
 
     DictObject *DictObject_new(PyTypeObject *type, PyObject *, PyObject *);
     DictObject *DictDefaultObject_new();
@@ -30,4 +32,5 @@ namespace db0::python
     
     void DictObject_del(DictObject* dict_obj);
     extern PyTypeObject DictIteratorObjectType;
+    
 }

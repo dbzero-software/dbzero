@@ -18,12 +18,14 @@ namespace db0::python
 
     DictIteratorObject *DictObject_iter(DictObject *self)
     {
+        self->ext().getFixture()->refreshIfUpdated();
         return makeIterator<DictIteratorObject,db0::object_model::DictIterator>(DictIteratorObjectType, 
             self->ext().begin(), &self->ext());
     }
     
     PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)
-    {   
+    {
+        dict_obj->ext().getFixture()->refreshIfUpdated();
         auto hash = PyObject_Hash(key);
         return dict_obj->ext().getItem(hash, key).steal();
     }
@@ -43,6 +45,7 @@ namespace db0::python
     
     int DictObject_HasItem(DictObject *dict_obj, PyObject *key)
     {
+        dict_obj->ext().getFixture()->refreshIfUpdated();
         return dict_obj->ext().has_item(key);
     }
 
@@ -72,7 +75,7 @@ namespace db0::python
 
     PyTypeObject DictObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.Dict",
+        .tp_name = "dbzero_ce.Dict",        
         .tp_basicsize = DictObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)DictObject_del,
@@ -84,16 +87,14 @@ namespace db0::python
         .tp_methods = DictObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)DictObject_new,
-        .tp_free = PyObject_Free,        
+        .tp_free = PyObject_Free,
     };
 
-    DictObject *DictObject_new(PyTypeObject *type, PyObject *, PyObject *)
-    {
-        return reinterpret_cast<DictObject*>(type->tp_alloc(type, 0));
+    DictObject *DictObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+        return reinterpret_cast<DictObject*>(type->tp_alloc(type, 0));        
     }
-
-    DictObject *DictDefaultObject_new()
-    {   
+    
+    DictObject *DictDefaultObject_new() {   
         return DictObject_new(&DictObjectType, NULL, NULL);
     }
     
@@ -104,7 +105,8 @@ namespace db0::python
         Py_TYPE(dict_obj)->tp_free((PyObject*)dict_obj);
     }
     
-    PyObject *DictObject_update(DictObject *dict_object, PyObject* args, PyObject* kwargs) {
+    PyObject *DictObject_update(DictObject *dict_object, PyObject* args, PyObject* kwargs) 
+    {
         auto arg_len = PyObject_Length(args);
         if(arg_len > 1){
             PyErr_SetString(PyExc_TypeError, "dict expected at most 1 argument");
@@ -150,9 +152,10 @@ namespace db0::python
         db0::FixtureLock lock(fixture);
         auto &dict = py_dict->modifyExt();
         db0::object_model::Dict::makeNew(&dict, *lock);
+        
         // if args
         DictObject_update(py_dict, args, kwargs);
-        // register newly created dict with py-object cache
+        // register newly created dict with py-object cache        
         fixture->getLangCache().add(dict.getAddress(), py_dict, true);
         return py_dict;
     }

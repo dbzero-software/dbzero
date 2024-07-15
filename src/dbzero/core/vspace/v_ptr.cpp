@@ -15,12 +15,13 @@ namespace db0
         , m_memspace_ptr(&memspace)
         , m_access_mode(access_mode)
     {
+        assert(!(m_resource_flags.load() & RESOURCE_LOCK));
     }
-
+    
     vtypeless::vtypeless(const vtypeless &other)
         : m_memspace_ptr(other.m_memspace_ptr)
     {
-        *this = other;
+        *this = other;        
     }
 
     vtypeless::vtypeless(Memspace &memspace, std::uint64_t address, MemLock &&mem_lock, FlagSet<AccessOptions> access_mode)
@@ -43,8 +44,21 @@ namespace db0
     {
         m_address = other.m_address;
         m_memspace_ptr = other.m_memspace_ptr;
-        m_resource_flags = other.m_resource_flags.load();
-        m_mem_lock = other.m_mem_lock;
+        m_access_mode = other.m_access_mode;
+
+        // lock for copy
+        for (;;) {
+            ResourceDetachMutexT::WriteOnlyLock lock(other.m_resource_flags);
+            if (!lock.isLocked()) {
+                continue;
+            }
+            // clear the lock flag when copying
+            m_resource_flags = (other.m_resource_flags.load() & ~RESOURCE_LOCK);
+            m_mem_lock = other.m_mem_lock;
+            assert(!(m_resource_flags.load() & db0::RESOURCE_AVAILABLE_FOR_READ) || m_mem_lock.m_buffer);
+            break;
+        }        
+
         return *this;
     }
     
@@ -52,9 +66,20 @@ namespace db0
     {
         m_address = other.m_address;
         m_memspace_ptr = other.m_memspace_ptr;
-        m_resource_flags = other.m_resource_flags.load();
         m_access_mode = other.m_access_mode;
-        m_mem_lock = std::move(other.m_mem_lock);
+
+        // lock for copy
+        for (;;) {
+            ResourceDetachMutexT::WriteOnlyLock lock(other.m_resource_flags);
+            if (!lock.isLocked()) {
+                continue;
+            }
+            // clear the lock flag when copying
+            m_resource_flags = (other.m_resource_flags.load() & ~RESOURCE_LOCK);
+            m_mem_lock = std::move(other.m_mem_lock);
+            assert(!(m_resource_flags.load() & db0::RESOURCE_AVAILABLE_FOR_READ) || m_mem_lock.m_buffer);
+            break;
+        }
     }
     
     unsigned int vtypeless::use_count() const {
@@ -76,6 +101,7 @@ namespace db0
                 lock.commit_reset();
             }
         }
+        assert(!(m_resource_flags.load() & RESOURCE_LOCK));
     }
     
     void vtypeless::commit()

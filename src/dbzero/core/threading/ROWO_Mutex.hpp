@@ -36,8 +36,7 @@ namespace db0
 		static void __new(std::atomic<ValueT> &store)
 		{
 			// clear resource / lock flags
-			if (store.load() & (FLAG_AVAILABLE | FLAG_SET | FLAG_LOCK))
-			{
+			if (store.load() & (FLAG_AVAILABLE | FLAG_SET | FLAG_LOCK)) {
 				store = store.load() & ~(FLAG_AVAILABLE | FLAG_SET | FLAG_LOCK);
 			}
 		}
@@ -60,7 +59,7 @@ namespace db0
 					if (old_val & FLAG_LOCK) {
 						m_locked = false;
 						break;
-					}
+					}					
 					if (rowo_mutex.compare_exchange_weak(old_val, (old_val | FLAG_LOCK))) {
 						// lock bit set / resource access granted
 						m_locked = true;
@@ -68,7 +67,7 @@ namespace db0
 					}
 				}
 			}
-
+			
 			WriteOnlyLock(std::atomic<ValueT> &store)
 				: WriteOnlyLock(ROWO_Mutex::__ref(store))
 			{
@@ -76,8 +75,7 @@ namespace db0
 
 			~WriteOnlyLock()
 			{
-			    if (m_locked)
-				{
+			    if (m_locked) {
 					safeResetFlags(m_rowo_mutex, FLAG_LOCK);
 			    }
 			}
@@ -87,11 +85,9 @@ namespace db0
 			 */
 			void commit_set()
 			{
-				if (m_locked)
-				{
+				if (m_locked) {
 					// content written, set flag (with CAS) and release lock
-					for (;;)
-					{
+					for (;;) {
 						auto old_val = m_rowo_mutex.load();
 						if (m_rowo_mutex.compare_exchange_weak(old_val, ((old_val | FLAG_SET) & ~FLAG_LOCK))) {
 							break;
@@ -106,11 +102,9 @@ namespace db0
 			 */
 			void commit_reset()
 			{
-				if (m_locked)
-				{
+				if (m_locked) {
 					// content written, set flag (with CAS) and release lock
-					for (;;)
-					{
+					for (;;) {
 						auto old_val = m_rowo_mutex.load();
 						if (m_rowo_mutex.compare_exchange_weak(old_val, old_val & ~(FLAG_SET | FLAG_LOCK))) {
 							break;
@@ -121,7 +115,7 @@ namespace db0
 			}
 			
 			// test for write-only access granted
-			bool isLocked() const {
+			inline bool isLocked() const {
 				return m_locked;
 			}
 		};
@@ -130,9 +124,10 @@ namespace db0
 		/// @return true if read-only access granted (resource set)
 		bool get() const
 		{
-			return (this->load() & FLAG_AVAILABLE);
+			auto value = this->load();
+			return !(value & FLAG_LOCK) && (value & FLAG_AVAILABLE);
 		}
-
+		
         /// Clear all resource flags
         void reset()
 		{

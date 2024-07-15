@@ -48,7 +48,7 @@ namespace db0::python
          * Initialize Python workspace
          * @param root_path use "" for current directory
         */
-        void initWorkspace(const std::string &root_path);
+        void initWorkspace(const std::string &root_path, std::optional<long> autocommit_interval_ms = {});
         
         /**
          * Opens a specific prefix for read or read/write

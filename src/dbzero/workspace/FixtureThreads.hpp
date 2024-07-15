@@ -32,9 +32,11 @@ namespace db0
         
         void join();
         
+        void setInterval(std::uint64_t interval_ms);
+
     protected:
         std::function<void(Fixture &, std::uint64_t &)> m_fx_function;
-        const std::uint64_t m_interval_ms;
+        std::atomic<std::uint64_t> m_interval_ms;
         std::condition_variable m_cv;
         std::mutex m_mutex;
         bool m_stopped = false;

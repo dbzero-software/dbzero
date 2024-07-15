@@ -18,6 +18,10 @@ namespace db0
         m_fixtures.push_back({fixture, fixture->getPrefix().getLastUpdated()});
     }
 
+    void FixtureThread::setInterval(std::uint64_t interval_ms) {
+        m_interval_ms = interval_ms;
+    }
+
     void FixtureThread::stop()
     {
         {

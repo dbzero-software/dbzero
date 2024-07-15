@@ -4,6 +4,7 @@
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
 #include <dbzero/core/memory/BitSpace.hpp>
 #include <dbzero/core/collections/full_text/key_value.hpp>
+#include <dbzero/object_model/dict/Dict.hpp>
 
 using namespace std;
 
@@ -123,6 +124,6 @@ namespace tests
             ++it2;
         }
     }
-
+    
 }
 

@@ -69,35 +69,45 @@ namespace db0::python
             return NULL;
         }
         
-        bool autocommit = py_autocommit ? PyObject_IsTrue(py_autocommit) : true;
+        int autocommit_interval = 0;
+        if (py_autocommit && PyLong_Check(py_autocommit)) {
+            autocommit_interval = PyLong_AsLong(py_autocommit);
+        }
+
+        bool autocommit = (py_autocommit ? PyObject_IsTrue(py_autocommit) : true) || autocommit_interval > 0;
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
         PyToolkit::getPyWorkspace().open(prefix_name, access_type, autocommit);
         Py_RETURN_NONE;
     }
 
-    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs)
-    {
+    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs) {
         return runSafe(tryOpen, self, args, kwargs);
     }
 
-    PyObject *tryInit(PyObject *self, PyObject *args)
-    {
-        // extract optional "path" string argument
+    PyObject *tryInit(PyObject *self, PyObject *args, PyObject *kwargs)
+    {        
         const char *path = "";
-        if (!PyArg_ParseTuple(args, "|s", &path)) {
+        std::optional<long> autocommit_interval;
+        PyObject *py_autocommit_interval = nullptr;
+        // extract optional "path" string argument and "autcommit_interval" keyword argument
+        static const char *kwlist[] = {"path", "autocommit_interval", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sO", const_cast<char**>(kwlist), &path, &py_autocommit_interval)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
         
-        PyToolkit::getPyWorkspace().initWorkspace(path);
+        if (py_autocommit_interval && PyLong_Check(py_autocommit_interval)) {
+            autocommit_interval = PyLong_AsLong(py_autocommit_interval);
+        }
+        
+        PyToolkit::getPyWorkspace().initWorkspace(path, autocommit_interval);
         Py_RETURN_NONE;
     }
     
-    PyObject *init(PyObject *self, PyObject *args)
-    {
-        return runSafe(tryInit, self, args);
+    PyObject *init(PyObject *self, PyObject *args, PyObject *kwargs) {
+        return runSafe(tryInit, self, args, kwargs);
     }
-
+    
     PyObject *tryDrop(PyObject *self, PyObject *args)
     {
         // extract prefix_name & optional if_exists
@@ -112,8 +122,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *drop(PyObject *self, PyObject *args)
-    {
+    PyObject *drop(PyObject *self, PyObject *args) {
         return runSafe(tryDrop, self, args);
     }
     
@@ -134,8 +143,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *commit(PyObject *self, PyObject *args)
-    {
+    PyObject *commit(PyObject *self, PyObject *args) {
         return runSafe(tryCommit, self, args);
     }
 
@@ -213,8 +221,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *del(PyObject *self, PyObject *args)
-    {
+    PyObject *del(PyObject *self, PyObject *args) {
         return runSafe(tryDel, self, args);
     }
     
@@ -224,8 +231,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *refresh(PyObject *self, PyObject *args)
-    {
+    PyObject *refresh(PyObject *self, PyObject *args) {
         return runSafe(tryRefresh, self, args);
     }
 
@@ -349,8 +355,7 @@ namespace db0::python
         return MemoObject_DescribeObject(reinterpret_cast<MemoObject*>(py_object));
     }
     
-    PyObject *describeObject(PyObject *self, PyObject *args)
-    {
+    PyObject *describeObject(PyObject *self, PyObject *args) {
         return runSafe(tryDescribeObject, self, args);
     }
     
@@ -375,11 +380,10 @@ namespace db0::python
         Py_RETURN_NONE;       
     }
     
-    PyObject *renameField(PyObject *, PyObject *args)
-    {
+    PyObject *renameField(PyObject *, PyObject *args) {
         return runSafe(tryRenameField, args);
     }
-
+    
     PyObject *isSingleton(PyObject *, PyObject *args)
     {
         PyObject *py_object;

@@ -104,7 +104,7 @@ namespace db0::object_model
     Dict::ObjectSharedPtr Dict::getItem(std::size_t key, ObjectPtr key_value) const
     {
         auto iter = m_index.find(key);
-        if (iter != m_index.end() ){
+        if (iter != m_index.end()) {
             auto [key, address] = *iter;
             auto memspace = this->getMemspace();
             auto bindex = address.getIndex(memspace);
@@ -122,7 +122,7 @@ namespace db0::object_model
                 ++it;
             }
         }
-        return nullptr;  
+        return {};
     }
     
     Dict *Dict::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
@@ -132,9 +132,9 @@ namespace db0::object_model
     Dict *Dict::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
         return new (at_ptr) Dict(fixture, address);
     }
-
-    bool Dict::has_item(ObjectPtr obj) const 
-    {
+    
+    bool Dict::has_item(ObjectPtr obj) const
+    {   
         auto item = getItem(PyObject_Hash(obj), obj);
         return item != nullptr;
     }
@@ -182,23 +182,22 @@ namespace db0::object_model
 
     void Dict::commit() const
     {
-        m_index.commit();
         super_t::commit();
+        m_index.commit();        
     }
 
     void Dict::detach() const
     {
-        m_index.detach();
         super_t::detach();
+        m_index.detach();        
     }
-
-    Dict::const_iterator Dict::begin() const
-    {
+    
+    Dict::const_iterator Dict::begin() const {
         return m_index.begin();
     }
 
-    Dict::const_iterator Dict::end() const
-    {
+    Dict::const_iterator Dict::end() const {
         return m_index.end();
     }
+
 }

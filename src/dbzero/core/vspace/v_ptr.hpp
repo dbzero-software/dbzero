@@ -209,7 +209,7 @@ namespace db0
                     lock.commit_set();
                 }
             }
-            
+            assert(!(m_resource_flags.load() & RESOURCE_LOCK));
             return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());            
         }
 
@@ -219,9 +219,10 @@ namespace db0
             return ContainerT::__safe_ref(vs_buf_t(m_mem_lock.m_buffer, m_mem_lock.m_buffer + this->getSize()));
         }
 
-        const ContainerT *get() const 
+        inline const ContainerT *get() const
         {
             assureInitialized();
+            assert(m_mem_lock.m_buffer);
             return reinterpret_cast<const ContainerT*>(m_mem_lock.m_buffer);
         }
 
@@ -259,6 +260,7 @@ namespace db0
 
         void assureInitialized() const
         {
+            assert(!(m_resource_flags.load() & RESOURCE_LOCK));
             assert(m_memspace_ptr);
             // access the resource for read (or check if the read or read/write access has already been gained)
             while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {

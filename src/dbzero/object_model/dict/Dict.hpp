@@ -44,8 +44,7 @@ namespace db0::object_model
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = typename db0::v_bindex<dict_item>::const_iterator;
-
-
+        
         Dict(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
         ObjectSharedPtr getItem(std::size_t hash, ObjectPtr key_value) const;
@@ -72,8 +71,7 @@ namespace db0::object_model
 
         const_iterator begin() const;
         const_iterator end() const;
-        
-
+                
     private:
         db0::v_bindex<dict_item> m_index;
         // new dicts can only be created via factory members

@@ -123,6 +123,9 @@ namespace db0
             std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> vobject_cache_size = {},
             std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});            
         virtual ~Workspace();
+        
+        // Set or change the autocommit interval in milliseconds
+        void setAutocommitInterval(std::uint64_t interval_ms);
 
         bool hasFixture(const std::string &prefix_name) const override;
 

@@ -50,3 +50,8 @@ def test_autocommit_can_be_disabled_for_prefix(db0_fixture):
     # no autocommit, state not changed
     assert state_1 == state_2
     
+    
+def test_dict_items_not_in_while_autocommit(db0_autocommit_fixture):
+    dict_1 = db0.dict()
+    for _ in range(100000):
+        assert 5 not in dict_1

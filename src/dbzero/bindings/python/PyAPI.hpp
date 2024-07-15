@@ -37,7 +37,7 @@ namespace db0::python
     /**
      * Initialize DBZero Python bindings
     */    
-    PyObject *init(PyObject *self, PyObject *args);
+    PyObject *init(PyObject *self, PyObject *args, PyObject *kwargs);
     
     /**
      * Opens or creates a prefix for read or read/write

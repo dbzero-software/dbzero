@@ -427,4 +427,8 @@ namespace db0
         m_atomic_context_ptr = nullptr;
     }
 
+    void Workspace::setAutocommitInterval(std::uint64_t interval_ms) {
+        m_auto_commit_thread->setInterval(interval_ms);
+    }
+
 }
