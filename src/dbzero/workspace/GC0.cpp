@@ -76,16 +76,15 @@ namespace db0
         }
     }
     
-    std::size_t GC0::size() const
-    {
+    std::size_t GC0::size() const {
         return m_vptr_map.size();
     }
-     
+    
     void GC0::commit()
     {
         // call pre-commit where it's provided
         for (auto &item : m_pre_commit_map) {
-            m_ops[item.second].preCommit(item.first);
+            m_ops[item.second].preCommit(item.first, false);
         }
 
         super_t::clear();
@@ -115,10 +114,14 @@ namespace db0
         }
         super_t::clear();
     }
-
+    
     void GC0::beginAtomic()
     {
         assert(!m_atomic);
+        // call pre-commit where it's provided (i.e. to flush internal buffers)
+        for (auto &item : m_pre_commit_map) {
+            m_ops[item.second].preCommit(item.first, false);
+        }
         m_atomic = true;
     }
 
@@ -134,6 +137,10 @@ namespace db0
         assert(m_atomic);
         for (auto vptr : m_volatile) {
             remove(vptr);
+        }
+        // call pre-commit where it's provided (use revert = true)
+        for (auto &item : m_pre_commit_map) {
+            m_ops[item.second].preCommit(item.first, true);
         }
         m_volatile.clear();
         m_atomic = false;

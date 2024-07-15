@@ -94,9 +94,14 @@ namespace db0::object_model
         
         void moveTo(db0::swine_ptr<Fixture> &);
 
+        void flush();
+        
+        // remove any cached updates / revert
+        void rollback();
+        
     protected:
-        void preCommit();
-        static void preCommitOp(void *);
+        void preCommit(bool revert);
+        static void preCommitOp(void *, bool revert);
         
     private:        
         // the default/provisional type
@@ -125,7 +130,7 @@ namespace db0::object_model
 
         // get existing or create new range-tree builder
         template <typename T> IndexBuilder<T> &getIndexBuilder(bool as_auto = false)
-        {        
+        {
             if (!m_index_builder) {
                 m_index_builder = db0::make_shared_void<IndexBuilder<T> >();
                 if (as_auto) {
@@ -227,8 +232,6 @@ namespace db0::object_model
                 return nullptr;
             }
         }
-
-        void flush();
 
         // adds to with a null key, compatible with all types
         void addNull(ObjectPtr);

@@ -162,3 +162,37 @@ def test_atomic_tags_revert_assign(db0_fixture, memo_tags):
 
     assert len(list(db0.find("tag1"))) == l1
     
+    
+def test_atomic_index_add(db0_fixture):
+    index = db0.index()
+    with db0.atomic():
+        index.add(1, MemoTestClass(100))
+        index.add(2, MemoTestClass(200))
+    # validate with the range query            
+    values = set([x.value for x in index.range(0, 100)])
+    assert values == set([100, 200])
+    
+    
+def test_atomic_index_revert_add(db0_fixture):
+    index = db0.index()
+    index.add(1, MemoTestClass(200))
+    with db0.atomic() as atomic:
+        index.add(2, MemoTestClass(100))
+        index.add(3, MemoTestClass(300))
+        atomic.cancel()
+    # validate with the range query
+    values = set([x.value for x in index.range(0, 100)])
+    assert values == set([200])
+
+
+def test_atomic_index_revert_flushed_add(db0_fixture):
+    index = db0.index()
+    index.add(1, MemoTestClass(200))
+    with db0.atomic() as atomic:
+        index.add(2, MemoTestClass(100))
+        index.add(3, MemoTestClass(300))
+        index.flush()
+        atomic.cancel()
+    # validate with the range query
+    values = set([x.value for x in index.range(0, 100)])
+    assert values == set([200])

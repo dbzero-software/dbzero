@@ -120,6 +120,34 @@ namespace db0::object_model
         }            
     }
 
+    void Index::rollback() 
+    {
+        if (m_index_builder) {
+            switch (m_data_type) {
+                case IndexDataType::Int64: {
+                    getIndexBuilder<std::int64_t>().close();
+                    break;
+                }
+
+                case IndexDataType::UInt64: {
+                    getIndexBuilder<std::uint64_t>().close();
+                    break;
+                }
+                
+                // flush using default / provisional data type
+                case IndexDataType::Auto: {
+                    getIndexBuilder<DefaultT>(true).close();
+                    break;
+                }
+
+                default:
+                    THROWF(db0::InputException) << "Unsupported index data type: " << static_cast<std::uint16_t>(m_data_type);
+            
+            }
+        }
+        m_index_builder = nullptr;
+    }
+    
     std::size_t Index::size() const
     {
         const_cast<Index*>(this)->flush();
@@ -323,12 +351,17 @@ namespace db0::object_model
         return type_manager.extractUInt64(type_manager.getTypeId(value), value);
     }
 
-    void Index::preCommit() {
-        flush();
+    void Index::preCommit(bool revert)
+    {
+        if (revert) {
+            rollback();
+        } else {
+            flush();
+        }        
     }
 
-    void Index::preCommitOp(void *ptr) {
-        static_cast<Index*>(ptr)->preCommit();
+    void Index::preCommitOp(void *ptr, bool revert) {
+        static_cast<Index*>(ptr)->preCommit(revert);
     }
 
     IndexDataType Index::updateIndexBuilder(TypeId type_id)

@@ -117,7 +117,7 @@ namespace db0
         friend class db0::GC0;
 
         // member should be overridden for derived types which need pre-commit
-        using PreCommitFunction = void (*)(void *);
+        using PreCommitFunction = void (*)(void *, bool revert);
         static PreCommitFunction getPreCommitFunction() {
             return nullptr;
         }

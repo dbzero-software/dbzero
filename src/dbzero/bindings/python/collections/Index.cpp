@@ -11,6 +11,7 @@ namespace db0::python
         {"remove", (PyCFunction)IndexObject_remove, METH_FASTCALL, "Remove item from index if it exists."},
         {"sort", (PyCFunction)IndexObject_sort, METH_VARARGS | METH_KEYWORDS, "Sort results of other iterator."},
         {"range", (PyCFunction)IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Extract values from a specific range"},
+        {"flush", (PyCFunction)IndexObject_flush, METH_NOARGS, "Flush buffered changes"},
         {NULL}
     };
 
@@ -163,4 +164,10 @@ namespace db0::python
         return PyObject_TypeCheck(py_object, &IndexObjectType);
     }
     
+    PyObject *IndexObject_flush(IndexObject *self)
+    {
+        self->modifyExt().flush();
+        Py_RETURN_NONE;
+    }
+
 }

@@ -29,7 +29,7 @@ namespace db0
     using GetTypedAddress = TypedAddress (*)(const void *);
     using StorageClass = db0::object_model::StorageClass;
     using DropByAddrFunction = void (*)(db0::swine_ptr<Fixture> &, std::uint64_t);
-    using PreCommitFunction = void (*)(void *);
+    using PreCommitFunction = void (*)(void *, bool revert);
     using LangCache = db0::object_model::LangCache;
     
     struct GC_Ops

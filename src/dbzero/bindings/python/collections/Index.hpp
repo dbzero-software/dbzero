@@ -18,6 +18,7 @@ namespace db0::python
     PyObject *IndexObject_remove(IndexObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *IndexObject_sort(IndexObject *, PyObject *args, PyObject *kwargs);
     PyObject *IndexObject_range(IndexObject *, PyObject *args, PyObject *kwargs);
+    PyObject *IndexObject_flush(IndexObject *);
        
     extern PyTypeObject IndexObjectType;
     
