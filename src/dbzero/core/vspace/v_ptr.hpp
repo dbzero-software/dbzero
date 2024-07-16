@@ -208,8 +208,7 @@ namespace db0
                         m_address, this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
                     lock.commit_set();
                 }
-            }
-            assert(!(m_resource_flags.load() & RESOURCE_LOCK));
+            }            
             return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());            
         }
 

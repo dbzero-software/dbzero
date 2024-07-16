@@ -3,7 +3,7 @@
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
 #include "ObjectId.hpp"
-#include <dbzero/bindings/python/collections/List.hpp>
+#include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/ByteArray.hpp>
 #include <dbzero/bindings/python/collections/Index.hpp>
 #include <dbzero/bindings/python/collections/Set.hpp>

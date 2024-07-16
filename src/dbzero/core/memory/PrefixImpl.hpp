@@ -376,6 +376,9 @@ namespace db0
     template <typename StorageT> void PrefixImpl<StorageT>::endAtomic()
     {
         assert(m_atomic);
+        // merge all results into the current transaction
+        m_cache.merge(m_head_state_num, m_head_state_num - 1);
+        --m_head_state_num;
         m_atomic = false;
     }
     

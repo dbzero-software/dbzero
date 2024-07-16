@@ -2,6 +2,7 @@ import time
 import pytest
 import dbzero_ce as db0
 from .memo_test_types import MemoTestClass
+from .conftest import DB0_DIR
 
 
 def test_new_object_inside_atomic_operation(db0_fixture):
@@ -212,3 +213,42 @@ def test_atomic_index_revert_remove(db0_fixture, flush):
         index.remove(1, obj_1) 
         atomic.cancel()   
     assert len(index) == 1
+
+
+def test_transaction_number_not_affected_by_atomic(db0_fixture):    
+    state_num = db0.get_state_num()
+    with db0.atomic():
+        for _ in range(5):
+            object = MemoTestClass(999)
+            db0.tags(object).add("tag1")
+    assert state_num == db0.get_state_num()
+
+
+def test_atomic_operation_merged_into_current_transaction(db0_fixture):
+    prefix_name = db0.get_current_prefix()    
+    with db0.atomic():
+        for _ in range(5):
+            object = MemoTestClass(999)
+            db0.tags(object).add("tag1")
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    # open db0 as read-only
+    db0.open(prefix_name, "r")
+    # results of the atomic update should be available in the transaction
+    assert len(list(db0.find("tag1"))) == 5
+
+
+def test_atomic_operation_results_accessible_from_snapshot(db0_fixture): 
+    with db0.atomic():
+        for _ in range(5):
+            object = MemoTestClass(999)
+            db0.tags(object).add("tag1")
+    snap = db0.snapshot()
+    db0.commit()
+    for _ in range(3):
+        object = MemoTestClass(999)
+        db0.tags(object).add("tag1")
+
+    # results of the atomic update should be available in the transaction
+    assert len(list(snap.find("tag1"))) == 5

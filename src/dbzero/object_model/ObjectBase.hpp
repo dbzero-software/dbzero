@@ -124,7 +124,7 @@ namespace db0
 
         // called from GC0 to bind GC_Ops for this type
         static GC_Ops getGC_Ops() {
-            return { hasRefsOp, dropOp, detachOp, getTypedAddress, dropByAddr, T::getPreCommitFunction() };
+            return { hasRefsOp, dropOp, detachOp, commitOp, getTypedAddress, dropByAddr, T::getPreCommitFunction() };
         }
         
         void operator=(ObjectBase &&other)
@@ -161,6 +161,10 @@ namespace db0
             static_cast<T*>(vptr)->detach();
         }        
 
+        static void commitOp(void *vptr) {
+            static_cast<T*>(vptr)->commit();
+        }
+        
         static void dropOp(void *vptr) {
             static_cast<T*>(vptr)->destroy();
         }

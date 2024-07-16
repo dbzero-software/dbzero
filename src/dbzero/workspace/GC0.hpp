@@ -23,8 +23,7 @@ namespace db0
     // C-style hasrefs / drop / detatch functions
     class Fixture;
     using HasRefsFunction = bool (*)(const void *);
-    using DropFunction = void (*)(void *);
-    using DetachFunction = void (*)(void *);    
+    using NoArgsFunction = void (*)(void *);
     using TypedAddress = db0::object_model::TypedAddress;
     using GetTypedAddress = TypedAddress (*)(const void *);
     using StorageClass = db0::object_model::StorageClass;
@@ -35,10 +34,12 @@ namespace db0
     struct GC_Ops
     {
         HasRefsFunction hasRefs = nullptr;
-        DropFunction drop = nullptr;
-        DetachFunction detach = nullptr;
+        NoArgsFunction drop = nullptr;
+        NoArgsFunction detach = nullptr;
+        // commit is a lightweight version of "detach" for a writer process
+        NoArgsFunction commit = nullptr;
         GetTypedAddress address = nullptr;
-        DropByAddrFunction dropByAddr = nullptr;
+        DropByAddrFunction dropByAddr = nullptr;        
         // null allowed, preCommit handler is called just before fixture.commit
         PreCommitFunction preCommit = nullptr;
     };
@@ -84,7 +85,7 @@ namespace db0
             // detach function must always be provided
             assert(m_ops[T::m_gc_ops_id].detach);
             assert(m_ops[T::m_gc_ops_id].address);
-            m_vptr_map[vptr] = T::m_gc_ops_id;            
+            m_vptr_map[vptr] = T::m_gc_ops_id;
             // if the type implements preCommit then also add it to the preCommit map
             if (m_ops[T::m_gc_ops_id].preCommit) {
                 m_pre_commit_map[vptr] = T::m_gc_ops_id;
@@ -104,6 +105,7 @@ namespace db0
          * Detach all instances held by this registry.
         */
         void detachAll();
+        void commitAll();
         
         std::size_t size() const;
 

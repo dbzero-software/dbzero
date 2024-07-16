@@ -3,7 +3,7 @@
 #include <dbzero/bindings/TypeId.hpp>
 #include "Value.hpp"
 #include "StorageClass.hpp"
-#include <dbzero/bindings/python/collections/List.hpp>
+#include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/Set.hpp>
 #include <dbzero/bindings/python/collections/Dict.hpp>
 #include <dbzero/bindings/python/collections/Tuple.hpp>

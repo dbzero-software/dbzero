@@ -29,7 +29,7 @@ namespace db0
     bool GC0::remove(void *vptr)
     {
         auto it = m_vptr_map.find(vptr);
-        DropFunction drop_op = nullptr;
+        NoArgsFunction drop_op = nullptr;
         if (it != m_vptr_map.end()) {
             auto ops = m_ops[it->second];
             // if type implements preCommit then remove it from pre-commit map as well
@@ -75,7 +75,14 @@ namespace db0
             m_ops[vptr_item.second].detach(vptr_item.first);
         }
     }
-    
+
+    void GC0::commitAll()
+    {
+        for (auto &vptr_item : m_vptr_map) {
+            m_ops[vptr_item.second].commit(vptr_item.first);
+        }
+    }
+
     std::size_t GC0::size() const {
         return m_vptr_map.size();
     }
@@ -118,6 +125,8 @@ namespace db0
     void GC0::beginAtomic()
     {
         assert(!m_atomic);
+        // commmit all active v_object instances so that the underlying locks can be re-created (CoW)        
+        commitAll();
         // call pre-commit where it's provided (i.e. to flush internal buffers)
         for (auto &item : m_pre_commit_map) {
             m_ops[item.second].preCommit(item.first, false);
@@ -138,7 +147,7 @@ namespace db0
         for (auto vptr : m_volatile) {
             remove(vptr);
         }
-        // call pre-commit where it's provided (use revert = true)
+        // call reverse pre-commit where it's provided (use revert=true)
         for (auto &item : m_pre_commit_map) {
             m_ops[item.second].preCommit(item.first, true);
         }

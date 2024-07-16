@@ -10,7 +10,7 @@
 #include "PyInternalAPI.hpp"
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
-#include <dbzero/bindings/python/collections/List.hpp>
+#include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>

@@ -179,11 +179,11 @@ namespace db0::object_model
         m_index.clear(); 
         modify().m_size = 0; 
     }
-
+    
     void Dict::commit() const
     {
         super_t::commit();
-        m_index.commit();        
+        m_index.commit();
     }
 
     void Dict::detach() const

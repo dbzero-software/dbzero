@@ -100,8 +100,7 @@ namespace db0
                 // clear read/write flags
                 lock.commit_reset();
             }
-        }
-        assert(!(m_resource_flags.load() & RESOURCE_LOCK));
+        }        
     }
     
     void vtypeless::commit()

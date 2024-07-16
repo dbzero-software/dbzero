@@ -279,12 +279,9 @@ namespace db0
     void Fixture::beginAtomic(AtomicContext *context)
     {
         assert(!m_atomic_context_ptr);
-        m_atomic_context_ptr = context;
-        // detach all active v_object instances so that the underlying locks can be re-created (CoW)
-        // FIXME: should change to "commit"
-        getGC0().detachAll();
+        m_atomic_context_ptr = context;        
         getGC0().beginAtomic();
-
+        
         for (auto &commit: m_close_handlers) {
             commit(true);
         }

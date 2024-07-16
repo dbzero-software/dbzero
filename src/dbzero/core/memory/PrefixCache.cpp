@@ -72,6 +72,10 @@ namespace db0
                 // re-register the upgraded lock under a new state
                 m_page_map.insertRange(state_num, lock, first_page, first_page + 1);
                 read_state_num = state_num;
+                // upgraded locks may need to be registered as volatile
+                if (access_mode[AccessOptions::no_flush]) {
+                    m_volatile_locks.push_back(lock);
+                }
             }
         }
 
@@ -256,7 +260,7 @@ namespace db0
         } else {
             m_page_map.replaceRange(state_num, std::dynamic_pointer_cast<ResourceLock>(new_lock), first_page, end_page);
         }
-    }    
+    }
     
     void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num)
     {
