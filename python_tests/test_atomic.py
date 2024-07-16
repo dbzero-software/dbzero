@@ -1,4 +1,5 @@
 import time
+import pytest
 import dbzero_ce as db0
 from .memo_test_types import MemoTestClass
 
@@ -171,28 +172,43 @@ def test_atomic_index_add(db0_fixture):
     # validate with the range query            
     values = set([x.value for x in index.range(0, 100)])
     assert values == set([100, 200])
+
     
-    
-def test_atomic_index_revert_add(db0_fixture):
+@pytest.mark.parametrize("flush", [True, False])
+def test_atomic_index_revert_add(db0_fixture, flush):
     index = db0.index()
     index.add(1, MemoTestClass(200))
     with db0.atomic() as atomic:
         index.add(2, MemoTestClass(100))
         index.add(3, MemoTestClass(300))
+        if flush:
+            index.flush()
         atomic.cancel()
     # validate with the range query
     values = set([x.value for x in index.range(0, 100)])
     assert values == set([200])
 
 
-def test_atomic_index_revert_flushed_add(db0_fixture):
-    index = db0.index()
-    index.add(1, MemoTestClass(200))
-    with db0.atomic() as atomic:
-        index.add(2, MemoTestClass(100))
-        index.add(3, MemoTestClass(300))
+@pytest.mark.parametrize("flush", [True, False])
+def test_atomic_index_remove(db0_fixture, flush):
+    index = db0.index()    
+    obj_1 = MemoTestClass(999)    
+    index.add(1, obj_1)
+    if flush:
         index.flush()
-        atomic.cancel()
-    # validate with the range query
-    values = set([x.value for x in index.range(0, 100)])
-    assert values == set([200])
+    with db0.atomic():
+        index.remove(1, obj_1)    
+    assert len(index) == 0
+
+
+@pytest.mark.parametrize("flush", [True, False])
+def test_atomic_index_revert_remove(db0_fixture, flush):
+    index = db0.index()
+    obj_1 = MemoTestClass(999)    
+    index.add(1, obj_1)
+    if flush:    
+        index.flush()
+    with db0.atomic() as atomic:
+        index.remove(1, obj_1) 
+        atomic.cancel()   
+    assert len(index) == 1
