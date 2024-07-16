@@ -1,8 +1,8 @@
 #include "PyToolkit.hpp"
 #include "Memo.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
-#include <dbzero/bindings/python/collections/Tuple.hpp>
-#include <dbzero/bindings/python/collections/Index.hpp>
+#include <dbzero/bindings/python/collections/PyTuple.hpp>
+#include <dbzero/bindings/python/collections/PyIndex.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/object_model/class.hpp>
@@ -10,8 +10,8 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/pandas/Block.hpp>
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
-#include <dbzero/bindings/python/collections/Set.hpp>
-#include <dbzero/bindings/python/collections/Dict.hpp>
+#include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>

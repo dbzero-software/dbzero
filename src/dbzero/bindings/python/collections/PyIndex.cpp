@@ -1,4 +1,4 @@
-#include "Index.hpp"
+#include "PyIndex.hpp"
 #include <dbzero/bindings/python/PyObjectIterator.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 

@@ -5,10 +5,10 @@
 #include "ObjectId.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/ByteArray.hpp>
-#include <dbzero/bindings/python/collections/Index.hpp>
-#include <dbzero/bindings/python/collections/Set.hpp>
-#include <dbzero/bindings/python/collections/Tuple.hpp>
-#include <dbzero/bindings/python/collections/Dict.hpp>
+#include <dbzero/bindings/python/collections/PyIndex.hpp>
+#include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyTuple.hpp>
+#include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/PyWorkspace.hpp>
 #include "PyObjectTagManager.hpp"
 #include "PyObjectIterator.hpp"

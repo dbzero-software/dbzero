@@ -1,5 +1,5 @@
-#include "Set.hpp"
-#include "Iterator.hpp"
+#include "PySet.hpp"
+#include "PyIterator.hpp"
 #include <dbzero/bindings/python/Utils.hpp>
 #include <dbzero/object_model/set/Set.hpp>
 #include <dbzero/object_model/set/SetIterator.hpp>

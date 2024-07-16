@@ -3,10 +3,10 @@
 #include "Memo.hpp"
 #include "ObjectId.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
-#include <dbzero/bindings/python/collections/Dict.hpp>
-#include <dbzero/bindings/python/collections/Tuple.hpp>
-#include <dbzero/bindings/python/collections/Set.hpp>
-#include <dbzero/bindings/python/collections/Index.hpp>
+#include <dbzero/bindings/python/collections/PyDict.hpp>
+#include <dbzero/bindings/python/collections/PyTuple.hpp>
+#include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyIndex.hpp>
 #include <dbzero/bindings/python/PyObjectIterator.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Workspace.hpp>

@@ -1,5 +1,5 @@
-#include "Tuple.hpp"
-#include "Iterator.hpp"
+#include "PyTuple.hpp"
+#include "PyIterator.hpp"
 #include <dbzero/object_model/tuple/TupleIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>

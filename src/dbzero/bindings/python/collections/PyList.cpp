@@ -1,10 +1,10 @@
 #include "PyList.hpp"
+#include "PyIterator.hpp"
 #include "CollectionMethods.hpp"
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/object_model/list/ListIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include "Iterator.hpp"
 #include <dbzero/bindings/python/Utils.hpp>
 
 namespace db0::python

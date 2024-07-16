@@ -4,7 +4,7 @@
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
-#include <dbzero/bindings/python/collections/Tuple.hpp>
+#include <dbzero/bindings/python/collections/PyTuple.hpp>
 
 namespace db0::object_model
 

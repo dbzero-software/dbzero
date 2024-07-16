@@ -1,6 +1,6 @@
 #include "ByteArray.hpp"
 #include <functional>
-#include "Iterator.hpp"
+#include "PyIterator.hpp"
 #include "CollectionMethods.hpp"
 #include <dbzero/object_model/bytes/ByteArray.hpp>
 #include <dbzero/workspace/Fixture.hpp>

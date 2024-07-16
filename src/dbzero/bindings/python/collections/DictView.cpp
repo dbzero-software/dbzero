@@ -1,11 +1,10 @@
 #include "DictView.hpp"
-#include <dbzero/bindings/python/collections/Dict.hpp>
-#include <dbzero/bindings/python/collections/Iterator.hpp>
+#include "PyDict.hpp"
+#include "PyIterator.hpp"
 #include <dbzero/bindings/python/Utils.hpp>
 #include <dbzero/object_model/dict/DictIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-
 
 namespace db0::python
 

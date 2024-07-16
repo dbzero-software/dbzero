@@ -4,9 +4,9 @@
 #include "Value.hpp"
 #include "StorageClass.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
-#include <dbzero/bindings/python/collections/Set.hpp>
-#include <dbzero/bindings/python/collections/Dict.hpp>
-#include <dbzero/bindings/python/collections/Tuple.hpp>
+#include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyDict.hpp>
+#include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/serialization/string.hpp>
