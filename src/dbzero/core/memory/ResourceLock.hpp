@@ -48,9 +48,11 @@ namespace db0
          * Update lock to a different state number
          * this can safely be done only for unused locks (cached only)
          * This operation will also upgrade the acccess mode to "write"
+         * @param state_num the new state number
+         * @param no_flush true to additionally assign the no_flush flag
          */
-        void updateStateNum(std::uint64_t state_num);
-
+        void updateStateNum(std::uint64_t state_num, bool no_flush);
+        
         std::uint64_t getStateNum() const;
         
     protected:

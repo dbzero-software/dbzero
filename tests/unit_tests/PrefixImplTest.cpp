@@ -402,4 +402,32 @@ namespace tests
         cut.close();
     }
 
+    TEST_F( PrefixImplTest , testMergingAtomicAndNonAtomicUpdates )
+    {
+        BDevStorage::create(file_name);        
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, file_name);        
+        
+        // initial update, keep the lock active
+        auto w1 = cut.mapRange(0, 8, { AccessOptions::create, AccessOptions::write });
+        memcpy(w1.modify(), "12345678", 8);
+
+        // atomic update the same page, release lock
+        cut.beginAtomic();
+        auto w2 = cut.mapRange(8, 4, { AccessOptions::read, AccessOptions::write });
+        memcpy(w2.modify(), "ABCD", 4);
+        w2.release();        
+        cut.endAtomic();
+
+        // partially update w1 again
+        memcpy((char*)w1.modify() + 2 , "CKJA", 4);
+        w1.release();
+        // commit & validate the contents
+        cut.commit();
+
+        auto r1 = cut.mapRange(0, 12, { AccessOptions::read });
+        auto str_value = std::string((char *)r1.m_buffer, 12);
+        ASSERT_EQ(str_value, "12CKJA78ABCD");
+        cut.close();
+    }
+    
 }

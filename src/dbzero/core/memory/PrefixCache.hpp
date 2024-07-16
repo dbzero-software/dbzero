@@ -129,7 +129,8 @@ namespace db0
         // marker lock (to mark missing ranges)
         const std::shared_ptr<ResourceLock> m_missing_lock_ptr;
         // locks with no_flush flag (e.g. from an atomic update)
-        mutable std::vector<std::shared_ptr<BaseLock> > m_volatile_locks;
+        mutable std::vector<std::shared_ptr<ResourceLock> > m_volatile_locks;
+        mutable std::vector<std::shared_ptr<BoundaryLock> > m_volatile_boundary_locks;
         
         /**
          * Execute specific function for each stored resource lock, boundary locks processed first
@@ -139,7 +140,7 @@ namespace db0
         void eraseRange(std::uint64_t address, std::size_t size, std::uint64_t state_num);
         // insert new or replace existing range
         void replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
-            std::shared_ptr<BaseLock> new_lock);
+            std::shared_ptr<ResourceLock> new_lock);
     };
 
 }

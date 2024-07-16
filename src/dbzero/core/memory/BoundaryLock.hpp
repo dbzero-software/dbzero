@@ -18,7 +18,7 @@ namespace db0
         virtual ~BoundaryLock();
         
         void flush() override;
-                
+        
     private:
         std::shared_ptr<ResourceLock> m_lhs;
         const std::size_t m_lhs_size;

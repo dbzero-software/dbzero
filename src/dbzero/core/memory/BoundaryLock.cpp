@@ -31,6 +31,7 @@ namespace db0
     
     void BoundaryLock::_flush()
     {
+        // note that boundary locks are flushed even with no_flush flag
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
@@ -46,9 +47,9 @@ namespace db0
                 // reset the dirty flag
                 lock.commit_reset();
             }
-        }
+        }        
     }
-
+    
     void BoundaryLock::flush()
     {
         _flush();
@@ -56,5 +57,5 @@ namespace db0
         m_lhs->flush();
         m_rhs->flush();
     }
-        
+
 }

@@ -59,7 +59,9 @@ namespace db0
         void eraseRange(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page);        
         
         void replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num);
-        void replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t first_page,
+
+        // @return true if the lock was reused (inserted into the existing range)
+        bool replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t first_page,
             std::uint64_t end_page);
 
         void clear();
@@ -274,13 +276,22 @@ namespace db0
     }
     
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock,
+    bool PageMap<ResourceLockT>::replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock,
         std::uint64_t first_page, std::uint64_t end_page)
     {
-        eraseRange(state_num, first_page, end_page);
-        insertRange(state_num, lock, first_page, end_page);
+        std::uint64_t existing_state_num;
+        auto existing_lock = findRange(state_num, first_page, end_page, existing_state_num);        
+        if (existing_lock && existing_state_num == state_num) {
+            assert(existing_lock->size() == lock->size());
+            // apply changes from the lock being merged
+            existing_lock->copyFrom(*lock);
+            return false;
+        } else {
+            insertRange(state_num, lock, first_page, end_page);
+            return true;
+        }
     }
-
+    
     template <typename ResourceLockT>
     std::size_t PageMap<ResourceLockT>::size() const {
         return m_cache.size();

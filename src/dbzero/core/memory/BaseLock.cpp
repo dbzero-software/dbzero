@@ -15,6 +15,7 @@ namespace db0
         , m_resource_flags(
             (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) | 
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
+        , m_access_mode(access_mode)            
         , m_data(size)
     {
         if (create_new) {
@@ -29,14 +30,15 @@ namespace db0
         , m_resource_flags(
             ((lock.m_resource_flags | db0::RESOURCE_DIRTY) & ~db0::RESOURCE_RECYCLED) |
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
+        , m_access_mode(access_mode)            
         , m_data(lock.m_data)
     {
     }
     
     BaseLock::~BaseLock()
     {
-        // make sure the dirty flag is not set
-        assert(!isDirty());
+        // make sure the dirty flag is not set (unless no-flush lock)
+        assert(!isDirty() || m_access_mode[AccessOptions::no_flush]);
     }
     
     bool BaseLock::addrPageAligned(BaseStorage &storage) const {
@@ -69,6 +71,17 @@ namespace db0
         }
 
         return false;
+    }
+
+    void BaseLock::resetNoFlush() {
+        m_access_mode.set(AccessOptions::no_flush, false);
+    }
+    
+    void BaseLock::copyFrom(const BaseLock &other)
+    {
+        assert(other.size() == size());
+        setDirty();
+        std::memcpy(m_data.data(), other.m_data.data(), m_data.size());
     }
 
 }

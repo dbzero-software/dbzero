@@ -76,11 +76,12 @@ namespace db0
         // note that we don't flush from prefix on begin atomic
         m_prefix->beginAtomic();
     }
-
+    
     void Memspace::endAtomic()
     {
         assert(m_atomic);
-        m_atomic = false;        
+        m_atomic = false;
+        getAllocator().detach();
         m_prefix->endAtomic();
     }
     

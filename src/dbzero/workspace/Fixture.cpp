@@ -296,9 +296,17 @@ namespace db0
     {
         assert(m_atomic_context_ptr);
         m_atomic_context_ptr = nullptr;
+        
+        // detach owned resources (potentially modified in atomic context)
+        for (auto &detach: m_detach_handlers) {
+            detach();
+        }
+
+        m_string_pool.detach();
+        m_object_catalogue.detach();
         m_v_object_cache.endAtomic();
-        Memspace::endAtomic();
         getGC0().endAtomic();
+        Memspace::endAtomic();        
     }
     
     void Fixture::cancelAtomic()

@@ -68,7 +68,8 @@ namespace db0
             // note that dirty locks cannot be upgraded (otherwise data would be lost)
             if (!lock->isDirty() && lock.use_count() == (lock->isRecycled() ? 1 : 0) + 1) {
                 m_page_map.erase(state_num, lock);
-                lock->updateStateNum(state_num);
+                // note that this operation may also assign the no_flush flag if it was requested
+                lock->updateStateNum(state_num, access_mode[AccessOptions::no_flush]);
                 // re-register the upgraded lock under a new state
                 m_page_map.insertRange(state_num, lock, first_page, first_page + 1);
                 read_state_num = state_num;
@@ -160,7 +161,7 @@ namespace db0
         // note that BoundaryLocks are not recycled
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {
-            m_volatile_locks.push_back(result);
+            m_volatile_boundary_locks.push_back(result);
         }
         
         return result;
@@ -181,6 +182,7 @@ namespace db0
     void PrefixCache::release()
     {
         m_volatile_locks.clear();
+        m_volatile_boundary_locks.clear();
         // undo write / remove dirty flag from all owned locks
         forEach([&](BaseLock &lock) {
             lock.resetDirtyFlag();            
@@ -231,6 +233,11 @@ namespace db0
     void PrefixCache::rollback(std::uint64_t state_num)
     {
         // remove all volatile locks
+        for (auto &lock: m_volatile_boundary_locks) {
+            // erase range
+            eraseRange(lock->getAddress(), lock->size(), state_num);
+        }
+        m_volatile_boundary_locks.clear();
         for (auto &lock: m_volatile_locks) {
             // erase range
             eraseRange(lock->getAddress(), lock->size(), state_num);
@@ -247,31 +254,39 @@ namespace db0
         }
         m_page_map.eraseRange(state_num, first_page, end_page);
     }
-
+    
     void PrefixCache::replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
-        std::shared_ptr<BaseLock> new_lock)
+        std::shared_ptr<ResourceLock> new_lock)
     {
         auto first_page = address >> m_shift;
-        auto end_page = ((address + size - 1) >> m_shift) + 1;       
-        if (isBoundaryRange(first_page, end_page, address & m_mask)) {
-            assert(end_page == first_page + 2);
-            m_boundary_map.replacePage(state_num, std::dynamic_pointer_cast<BoundaryLock>(new_lock),
-                first_page);
-        } else {
-            m_page_map.replaceRange(state_num, std::dynamic_pointer_cast<ResourceLock>(new_lock), first_page, end_page);
+        auto end_page = ((address + size - 1) >> m_shift) + 1;
+        // operation not allowed for the boundary range
+        assert(!isBoundaryRange(first_page, end_page, address & m_mask));
+        if (m_page_map.replaceRange(state_num, new_lock, first_page, end_page)) {
+            // must clear the no_flush flag if lock was reused
+            new_lock->resetNoFlush();
         }
     }
     
     void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num)
     {
+        // simply erase volatile boundary locks
+        for (auto &lock: m_volatile_boundary_locks) {
+            // erase volatile range related lock
+            eraseRange(lock->getAddress(), lock->size(), from_state_num);
+        }
+        m_volatile_boundary_locks.clear();
+
         for (auto &lock: m_volatile_locks) {
-            // erase volatile range
-            eraseRange(lock->getAddress(), lock->size(), from_state_num);            
-            replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);
+            if (lock->isDirty()) {
+                // erase volatile range related lock
+                eraseRange(lock->getAddress(), lock->size(), from_state_num);
+                replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);
+            }
         }
         m_volatile_locks.clear();
     }
-
+    
     std::size_t PrefixCache::getPageSize() const {
         return m_page_size;
     }

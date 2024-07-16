@@ -81,6 +81,11 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_DIRTY;
         }
         
+        void copyFrom(const BaseLock &);
+
+        // clears the no_flush flag if it was set
+        void resetNoFlush();
+
     protected:
         friend class CacheRecycler;
         using list_t = db0::FixedList<std::shared_ptr<BaseLock> >;
@@ -93,9 +98,10 @@ namespace db0
             db0::RESOURCE_LOCK >;
         
         // the updated state number or read-only state number
-        BaseStorage &m_storage;        
+        BaseStorage &m_storage;
         const std::uint64_t m_address;
-        mutable std::atomic<std::uint16_t> m_resource_flags = 0;        
+        mutable std::atomic<std::uint16_t> m_resource_flags = 0;
+        FlagSet<AccessOptions> m_access_mode;
         
         mutable std::vector<std::byte> m_data;
         // CacheRecycler's iterator

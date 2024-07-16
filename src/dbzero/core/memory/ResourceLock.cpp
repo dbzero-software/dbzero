@@ -32,6 +32,11 @@ namespace db0
     
     void ResourceLock::flush()
     {
+        // no-flush flag is important for volatile locks (atomic operations)
+        if (m_access_mode[AccessOptions::no_flush]) {
+            return;
+        }
+
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
@@ -41,19 +46,22 @@ namespace db0
                 // reset the dirty flag
                 lock.commit_reset();
             }
-        }
+        }        
     }
     
     std::uint64_t ResourceLock::getStateNum() const {
         return m_state_num;
     }
     
-    void ResourceLock::updateStateNum(std::uint64_t state_num)
+    void ResourceLock::updateStateNum(std::uint64_t state_num, bool no_flush)
     {
         assert(state_num > m_state_num);
         assert(!isDirty());        
         m_state_num = state_num;
         setDirty();
+        if (no_flush) {
+            m_access_mode.set(AccessOptions::no_flush);
+        }
     }
     
 }
