@@ -258,8 +258,7 @@ namespace db0
     private:
 
         void assureInitialized() const
-        {
-            assert(!(m_resource_flags.load() & RESOURCE_LOCK));
+        {            
             assert(m_memspace_ptr);
             // access the resource for read (or check if the read or read/write access has already been gained)
             while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {
