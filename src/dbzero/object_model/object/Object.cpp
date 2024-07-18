@@ -577,5 +577,22 @@ namespace db0::object_model
         // switch to a type located on a different fixture (translated)
         m_init_manager.getInitializer(*this).setClass(new_type);        
     }
+
+    void Object::detach() const
+    {
+        m_type->detach();
+        // invalidate since detach is not supported by the MorphingBIndex
+        m_kv_index = nullptr;
+        super_t::detach();
+    }
+
+    void Object::commit() const
+    {
+        m_type->commit();
+        if (m_kv_index) {
+            m_kv_index->commit();
+        }
+        super_t::detach();
+    }
     
 }

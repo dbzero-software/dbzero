@@ -617,12 +617,14 @@ namespace db0
 			return *m_memspace_ptr;
 		}
 		
-		void detach() const {
-			m_interface.detach();
+		void detach() const
+		{
+			assert(false && "Detach not supported by MorphingBIndex");
+			THROWF(db0::InternalException) << "Detach not supported by MorphingBIndex" << THROWF_END;
 		}
 
 		void commit() const {
-			m_interface.detach();
+			m_interface.commit();
 		}
 
 	private:

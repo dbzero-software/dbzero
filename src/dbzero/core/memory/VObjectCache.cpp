@@ -12,8 +12,7 @@ namespace db0
     {
     }
 
-    bool FixedObjectList::full() const
-    {
+    bool FixedObjectList::full() const {
         return m_size == m_capacity;
     }
 
@@ -68,7 +67,7 @@ namespace db0
         return m_size;
     }
     
-    void FixedObjectList::clear() 
+    void FixedObjectList::clear()
     {
         m_size = 0;
         std::fill(m_data.begin(), m_data.end(), nullptr);
@@ -91,7 +90,7 @@ namespace db0
         if (it != m_cache.end()) {
             if (!std::get<0>(it->second).expired()) {
                 m_shared_object_list.eraseAt(std::get<1>(it->second));
-            } 
+            }
             m_cache.erase(it);
         }
     }
@@ -109,11 +108,23 @@ namespace db0
     
     void VObjectCache::detach()
     {
-        // detach all cached instances
-        for (auto &item : m_cache) {
-            if (!std::get<0>(item.second).expired()) {
+        // detach all cached instance
+        auto it = m_cache.begin();
+        while (it != m_cache.end()) {
+            if (std::get<0>(it->second).expired()) {
+                ++it;
+                continue;
+            }
+
+            // detach or erase (if detach operator not provided)
+            if (std::get<3>(it->second)) {
                 // detach
-                std::get<3>(item.second)();
+                std::get<3>(it->second)();
+                ++it;
+            } else {
+                // erase when detach is not available
+                m_shared_object_list.eraseAt(std::get<1>(it->second));
+                it = m_cache.erase(it);
             }
         }
     }

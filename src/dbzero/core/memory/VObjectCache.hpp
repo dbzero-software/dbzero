@@ -56,9 +56,10 @@ namespace db0
 
         /**
          * Create a new v_object instance add add to cache
+         * @param has_detach whether the object can be detached
          * @return the v_object's shared_ptr
         */
-        template <typename T, typename... Args> std::shared_ptr<T> create(Args&&... args);
+        template <typename T, typename... Args> std::shared_ptr<T> create(bool has_detach, Args&&... args);
         
         /**
          * Try locating an existing instance in cache
@@ -69,9 +70,12 @@ namespace db0
 
         /**
          * Either locate existing instance in cache or create a new one
+         * @param address the instance address
+         * @param has_detach whether the object can be detached         
          * @return the v_object's shared_ptr
         */
-        template <typename T, typename... Args> std::shared_ptr<T> findOrCreate(std::uint64_t address, Args&&... args);
+        template <typename T, typename... Args> std::shared_ptr<T> findOrCreate(std::uint64_t address, 
+            bool has_detach, Args&&... args);
 
         /**
          * Remove element from cache if it exists, object is not destroyed
@@ -94,7 +98,8 @@ namespace db0
     private:
         Memspace &m_memspace;
         FixedObjectList &m_shared_object_list;
-        // store pairs: address -> (weak_ptr, likely index, commit function, detach function)
+        // Store tuples: address -> (weak_ptr, likely index, commit function, detach function)
+        // note that detach function may not be present (non-detachable)
         mutable std::unordered_map<std::uint64_t, std::tuple<std::weak_ptr<void>, std::uint32_t,
             std::function<void()>, std::function<void()> > > m_cache;
         bool m_atomic = false;
@@ -103,13 +108,13 @@ namespace db0
     };
     
     template <typename T, typename... Args>
-    std::shared_ptr<T> VObjectCache::create(Args&&... args)
+    std::shared_ptr<T> VObjectCache::create(bool has_detach, Args&&... args)
     {
         if (m_shared_object_list.full()) {
             // remove 1/4 of cached objects once the max_size is reached
             m_shared_object_list.eraseItems((m_shared_object_list.size() >> 2) + 1);
         }
-        
+
         auto ptr = make_shared_void<T>(m_memspace, std::forward<Args>(args)...);
         // note that the index may be at any moment released and reused by other item
         auto index = m_shared_object_list.append(ptr);
@@ -118,9 +123,13 @@ namespace db0
         auto commit_func = [raw_ptr]() {
             raw_ptr->commit();
         };
-        auto detach_func = [raw_ptr]() {
-            raw_ptr->detach();
-        };
+        std::function<void()> detach_func;
+        // only available if has_detach is true (e.g. not available for MorphingBIndex)
+        if (has_detach) {
+            detach_func = [raw_ptr]() {
+                raw_ptr->detach();
+            };
+        }
         m_cache[result_ptr->getAddress()] = { ptr, index, commit_func, detach_func };
         if (m_atomic) {
             m_volatile.insert(result_ptr->getAddress());
@@ -129,7 +138,7 @@ namespace db0
     }
     
     template <typename T, typename... Args>
-    std::shared_ptr<T> VObjectCache::findOrCreate(std::uint64_t address, Args&&... args)
+    std::shared_ptr<T> VObjectCache::findOrCreate(std::uint64_t address, bool has_detach, Args&&... args)
     {
         auto it = m_cache.find(address);
         if (it != m_cache.end()) {
@@ -145,7 +154,7 @@ namespace db0
                 m_cache.erase(it);            
             }
         }
-        return create<T>(std::forward<Args>(args)...);
+        return create<T>(has_detach, std::forward<Args>(args)...);
     }
     
     template <typename T>

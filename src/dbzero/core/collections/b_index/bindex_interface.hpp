@@ -89,9 +89,7 @@ namespace db0::bindex::interface
         std::size_t(*)(const void *this_ptr, typename DefinitionT::Containers::IInputRange&, std::size_t max_count);
 
     template <typename item_t, typename AddrT> using getAddrPtr = AddrT (*)(const void *this_ptr);
-
-    template <typename item_t> using detachPtr = void (*)(void *this_ptr);
-
+    
     template <typename item_t> using commitPtr = void (*)(void *this_ptr);
 
     template <typename DefinitionT, typename T> struct BulkInsertUniqueFunctor {};
@@ -125,9 +123,7 @@ namespace db0::bindex::interface
     template <typename item_t, typename T> struct BeginFunctor {};
 
     template <typename item_t, typename T> struct GetAddrFunctor {};
-
-    template <typename item_t, typename T> struct DetachFunctor {};
-
+    
     template <typename item_t, typename T> struct CommitFunctor {};
 
     template<typename DefinitionT, typename ContainerT>
@@ -312,14 +308,6 @@ namespace db0::bindex::interface
         }
     };
 
-    template <typename item_t, typename... T> struct DetachFunctor<item_t, db0::v_bindex<T...> > 
-    {
-        static void execute(void *this_ptr) {
-            db0::v_bindex<T...> &index = *reinterpret_cast<db0::v_bindex<T...>*>(this_ptr);            
-            index.detach();
-        }
-    };
-
     template <typename item_t, typename... T> struct CommitFunctor<item_t, db0::v_bindex<T...> > 
     {
         static void execute(void *this_ptr) {
@@ -476,15 +464,6 @@ namespace db0::bindex::interface
         {
             using ContainerT = db0::v_sorted_sequence<typename DefinitionT::item_t, N, T...>;
             return countExistingGenericImpl<DefinitionT, ContainerT>(this_ptr, input, max_count);
-        }
-    };
-
-    template <typename item_t, int N, typename... T> struct DetachFunctor<item_t, db0::v_sorted_sequence<item_t, N, T...> > 
-    {
-        static void execute(void *this_ptr) {            
-            db0::v_sorted_sequence<item_t, N, T...> &index =
-                *reinterpret_cast<db0::v_sorted_sequence<item_t, N, T...>*>(this_ptr);            
-            index.detach();
         }
     };
 
@@ -648,14 +627,6 @@ namespace db0::bindex::interface
         }
     };
 
-    template <typename item_t, typename... T> struct DetachFunctor<item_t, db0::v_sorted_vector<item_t, T...> > 
-    {
-        static void execute(void *this_ptr) {
-            db0::v_sorted_vector<item_t, T...> &index = *reinterpret_cast<db0::v_sorted_vector<item_t, T...>*>(this_ptr);            
-            index.detach();
-        }
-    };
-
     template <typename item_t, typename... T> struct CommitFunctor<item_t, db0::v_sorted_vector<item_t, T...> > 
     {
         static void execute(void *this_ptr) {
@@ -806,12 +777,6 @@ namespace db0::bindex::interface
         }
     };
 
-    template <typename item_t, typename... T> struct DetachFunctor<item_t, db0::IttyIndex<item_t, T...> > 
-    {
-        static void execute(void *) {
-        }
-    };
-
     template <typename item_t, typename... T> struct CommitFunctor<item_t, db0::IttyIndex<item_t, T...> > 
     {
         static void execute(void *) {
@@ -937,11 +902,6 @@ namespace db0::bindex::interface
         }
     };
 
-    template <typename item_t, typename... T> struct DetachFunctor<item_t, db0::empty_index<T...> > {
-        static void execute(void *) {
-        }
-    };
-
     template <typename item_t, typename... T> struct CommitFunctor<item_t, db0::empty_index<T...> > {
         static void execute(void *) {
         }
@@ -979,8 +939,7 @@ namespace db0::bindex::interface
             , m_size_of_ptr(SizeOfFunctor<item_t, T>::execute)
             , m_destroy_ptr(DestroyFunctor<item_t, T>::execute)
             , m_begin_ptr(BeginFunctor<item_t, T>::execute)            
-            , m_erase_ptr(EraseFunctor<item_t, T>::execute)
-            , m_detach_ptr(DetachFunctor<item_t, T>::execute)
+            , m_erase_ptr(EraseFunctor<item_t, T>::execute)            
             , m_commit_ptr(CommitFunctor<item_t, T>::execute)
         {}
         
@@ -1097,10 +1056,6 @@ namespace db0::bindex::interface
             return m_get_addr_ptr(m_ptr);
         }
 
-        void detach() const {
-            m_detach_ptr(m_ptr);
-        }
-
         void commit() const {
             m_commit_ptr(m_ptr);
         }
@@ -1124,8 +1079,7 @@ namespace db0::bindex::interface
         sizeOfPtr<item_t> m_size_of_ptr = nullptr;
         destroyPtr<item_t> m_destroy_ptr = nullptr;
         beginPtr<item_t> m_begin_ptr = nullptr;        
-        erasePtr<item_t> m_erase_ptr = nullptr;
-        detachPtr<item_t> m_detach_ptr = nullptr;
+        erasePtr<item_t> m_erase_ptr = nullptr;        
         commitPtr<item_t> m_commit_ptr = nullptr;
     };
 

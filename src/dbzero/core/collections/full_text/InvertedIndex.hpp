@@ -26,7 +26,8 @@ namespace db0
         auto index_type = static_cast<db0::bindex::type>(address >> 60);
         auto mb_addr = address & 0x0FFFFFFFFFFFFFFF;
         // NOTE: first address is for cache, the latter for MorphingBIndex
-        return cache.findOrCreate<db0::MorphingBIndex<KeyT> >(mb_addr, mb_addr, index_type);
+        // NOTE: MorphingBIndex does not provide detach functionality
+        return cache.findOrCreate<db0::MorphingBIndex<KeyT> >(mb_addr, false, mb_addr, index_type);
     }
     
     template <typename IndexKeyT = std::uint64_t, typename KeyT = std::uint64_t, typename ValueT = std::uint64_t>
@@ -182,7 +183,8 @@ namespace db0
     InvertedIndex<IndexKeyT, KeyT, ValueT>::getInvertedList(iterator &it)
     {
 		if ((*it).value == ValueT()) {
-            auto list_ptr = m_cache.create<ListT>();
+            // assume ListT as non-detachable (e.g. MorphingBIndex)
+            auto list_ptr = m_cache.create<ListT>(false);
             it.modifyItem().value = m_value_function(*list_ptr);
             return list_ptr;
 		} else {

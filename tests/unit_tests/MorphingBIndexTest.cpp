@@ -438,5 +438,5 @@ namespace tests
 		// morphology retained
 		ASSERT_EQ(bindex::type::bindex, cut.getIndexType());
 	}
-
+		
 } 

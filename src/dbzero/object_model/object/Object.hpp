@@ -246,6 +246,10 @@ namespace db0::object_model
          */
         void setFixture(db0::swine_ptr<Fixture> &);
         
+        void detach() const;
+
+        void commit() const;
+        
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
