@@ -75,25 +75,24 @@ def test_append_list_member_in_multiple_transactions(db0_fixture):
     assert len(root.value) == 50
 
 
-# FIXME: blocked
-# def test_untag_instances_in_multiple_transactions(db0_fixture):
-#     # prepare instances first
-#     count = 10
-#     for _ in range(count):
-#         task = MemoTask("etl", "processor1")
-#         db0.tags(task).add("ready")
+def test_untag_instances_in_multiple_transactions(db0_fixture):
+    # prepare instances first
+    count = 10
+    for _ in range(count):
+        task = MemoTask("etl", "processor1")
+        db0.tags(task).add("ready")
     
-#     db0.commit()
-#     repeats = 0
-#     while count > 0:
-#         tasks = list(islice(db0.find("ready"), 2))
-#         for task in tasks:
-#             task.runs.append(MemoTestClass(1))
+    db0.commit()
+    repeats = 0
+    while count > 0:
+        tasks = list(islice(db0.find("ready"), 2))
+        for task in tasks:
+            task.runs.append(MemoTestClass(1))
             
-#         count -= len(tasks)
-#         repeats += 1
-#         db0.tags(*tasks).remove("ready")
-#         db0.tags(*tasks).add("running")
-#         db0.commit()
+        count -= len(tasks)
+        repeats += 1
+        db0.tags(*tasks).remove("ready")
+        db0.tags(*tasks).add("running")
+        db0.commit()
     
-#     assert repeats == 5
+    assert repeats == 5
