@@ -51,5 +51,17 @@ namespace db0::object_model
         }
         m_cache.clear();
     }
+    
+    void LangCache::moveFrom(LangCache &other, std::uint64_t src_address, 
+        std::uint64_t dst_address)
+    {
+        auto it = other.m_cache.find(src_address);
+        // instance not found
+        if (it == other.m_cache.end()) {
+            return;
+        }
+        m_cache[dst_address] = std::move(it->second);
+        other.m_cache.erase(it);
+    }
 
 }

@@ -31,6 +31,10 @@ namespace db0::object_model
         */
         void add(std::uint64_t address, ObjectPtr, bool strong_ref);
 
+        // Move instance from a different cache (changing its address)
+        void moveFrom(LangCache &other, std::uint64_t src_address, 
+            std::uint64_t dst_address);
+        
         void erase(std::uint64_t address);
         
         std::size_t size() const;

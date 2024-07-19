@@ -1,8 +1,9 @@
 import time
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedSingleton, MemoScopedClass
 from .conftest import DB0_DIR
+from datetime import datetime
 
 
 def test_new_object_inside_atomic_operation(db0_fixture):
@@ -170,11 +171,36 @@ def test_atomic_index_add(db0_fixture):
     with db0.atomic():
         index.add(1, MemoTestClass(100))
         index.add(2, MemoTestClass(200))
-    # validate with the range query            
+    # validate with the range query
     values = set([x.value for x in index.range(0, 100)])
     assert values == set([100, 200])
 
+
+def test_atomic_index_create(db0_fixture):
+    obj = MemoTestClass(None)
+    with db0.atomic():
+        obj.value = db0.index()    
+        obj.value.add(None, MemoTestClass(100))    
+    assert len(list(obj.value.range(None, 100, null_first=True))) == 1
+
+
+def test_atomic_index_add_with_transaction(db0_fixture):
+    prefix_name = db0.get_current_prefix()
+    root = MemoTestSingleton(db0.index())
+    index = root.value
+    with db0.atomic():
+        index.add(1, MemoTestClass(100))
+        index.add(2, MemoTestClass(200))
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "r")
+    # validate with the range query
+    index = MemoTestSingleton().value
+    values = set([x.value for x in index.range(0, 100)])
+    assert values == set([100, 200])
     
+
 @pytest.mark.parametrize("flush", [True, False])
 def test_atomic_index_revert_add(db0_fixture, flush):
     index = db0.index()
@@ -252,3 +278,26 @@ def test_atomic_operation_results_accessible_from_snapshot(db0_fixture):
 
     # results of the atomic update should be available in the transaction
     assert len(list(snap.find("tag1"))) == 5
+
+
+def test_atomic_index_as_member(db0_fixture):
+    root = MemoTestSingleton({})
+    with db0.atomic():
+        root.value["x"] = MemoTestClass(db0.index())     
+        # add to index
+        root.value["x"].value.add(None, MemoTestClass(100))
+    
+    # check if element was added to index
+    root = MemoTestSingleton()
+    assert len(list(root.value["x"].value.range(None, 100, null_first=True))) == 1
+
+
+def test_atomic_with_multiple_prefixes(db0_fixture):
+    prefix = "test-data"
+    obj = MemoScopedClass(None, prefix=prefix)    
+    with db0.atomic():
+        obj.value = db0.index()
+        obj.value.add(None, MemoScopedClass(100, prefix=prefix))
+    
+    assert len(list(obj.value.range(None, 100, null_first=True))) == 1
+    

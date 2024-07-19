@@ -98,7 +98,7 @@ namespace db0
         }
         m_workspace->endAtomic();
     }
-
+    
     void AtomicContext::add(ObjectPtr lang_object) {
         m_objects.insert(lang_object);
     }

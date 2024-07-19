@@ -6,7 +6,8 @@ from datetime import datetime
 
 @memo(singleton=True)
 class Zorch:
-    def __init__(self):
+    def __init__(self, prefix = None):
+        db0.set_prefix(self, prefix)
         # set of keys to prevent task duplication
         # FIXME: can be replaced with a bloom filter in future versions
         self.keys = set()
@@ -19,7 +20,8 @@ class Zorch:
 @memo
 class Task:
     def __init__(self, type, processor_type, data = None, key = None, parent = None,
-                 requirements = None, scheduled_at = None, deadline = None):
+                 requirements = None, scheduled_at = None, deadline = None, prefix = None):
+        db0.set_prefix(self, prefix)
         # optional task key (None is allowed)
         self.key = key
         # task type e.g. 'etl'
@@ -68,6 +70,9 @@ class TaskQueue:
         self.ix_deadline = db0.index()
         # index related with the "created_at" property
         self.ix_created_at = db0.index()
+        
+    def test_schedule(self):
+        return self.ix_scheduled_at.range(None, datetime.now(), null_first=True)
 
 
 @memo
@@ -145,3 +150,15 @@ def test_push_tasks_into_zorch_model(db0_fixture):
     print("Duration: ", (end - start).total_seconds())
     # push tasks / sec
     print("Push tasks / sec: ", task_count / (end - start).total_seconds())
+
+
+def test_atomic_push_tasks_find_runnable_pods(db0_fixture):    
+    zorch = Zorch()
+    with db0.atomic():
+        tq = TaskQueue()
+        zorch.task_queues["q"] = tq
+        task = Task("etl", "etl", key = "1")
+        tq.ix_scheduled_at.add(None, task)
+
+    zorch = Zorch()
+    assert len(list(zorch.task_queues["q"].test_schedule())) == 1

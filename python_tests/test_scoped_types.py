@@ -1,6 +1,7 @@
 import pytest
 import dbzero_ce as db0
 from .conftest import DB0_DIR
+from .memo_test_types import MemoScopedClass
 
 
 @db0.memo(prefix="scoped-class-prefix")
@@ -140,3 +141,11 @@ def test_zorch_scoped_types_issue(db0_fixture):
     ix_test = TestScopedSingleton().container.ix_test
     query = ix_test.range(None, 100, null_first=True)
     assert len(list(query)) == 10
+
+
+def test_scoped_index_issue(db0_fixture):
+    prefix = "test-data"
+    obj = MemoScopedClass(db0.index(), prefix=prefix)    
+    index = obj.value
+    index.add(None, MemoScopedClass(100, prefix=prefix))
+    assert len(list(index.range(None, 100, null_first=True))) == 1

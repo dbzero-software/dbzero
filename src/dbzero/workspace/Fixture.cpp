@@ -277,7 +277,7 @@ namespace db0
     }
 
     void Fixture::beginAtomic(AtomicContext *context)
-    {
+    {        
         assert(!m_atomic_context_ptr);
         m_atomic_context_ptr = context;        
         getGC0().beginAtomic();
@@ -297,7 +297,10 @@ namespace db0
         assert(m_atomic_context_ptr);
         m_atomic_context_ptr = nullptr;
         
-        // detach owned resources (potentially modified in atomic context)
+        // commit and then detach owned resources (potentially modified in atomic context)
+        for (auto &commit: m_close_handlers) {
+            commit(true);
+        }                
         for (auto &detach: m_detach_handlers) {
             detach();
         }
@@ -306,7 +309,7 @@ namespace db0
         m_object_catalogue.detach();
         m_v_object_cache.endAtomic();
         getGC0().endAtomic();
-        Memspace::endAtomic();        
+        Memspace::endAtomic();
     }
     
     void Fixture::cancelAtomic()

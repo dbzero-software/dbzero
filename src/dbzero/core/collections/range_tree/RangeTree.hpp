@@ -589,7 +589,7 @@ namespace db0
             */
             void flush(RangeTree &range_tree, CallbackT *add_callback_ptr = nullptr,
                 CallbackT *erase_callback_ptr = nullptr)
-            {
+            {                
                 // erase items first
                 if (!m_remove_items.empty()) {
                     std::vector<ItemT> items;

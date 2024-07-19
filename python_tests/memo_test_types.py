@@ -8,6 +8,13 @@ class MemoTestClass:
 
 
 @db0.memo
+class MemoScopedClass:
+    def __init__(self, value, prefix=None):
+        db0.set_prefix(self, prefix)        
+        self.value = value   
+
+
+@db0.memo
 class MemoTestPxClass:
     def __init__(self, value, prefix=None):
         if prefix is not None:
@@ -25,6 +32,15 @@ class KVTestClass:
 @db0.memo(singleton=True)
 class MemoTestSingleton:
     def __init__(self, value, value_2 = None):
+        self.value = value
+        if value_2 is not None:
+            self.value_2 = value_2        
+
+
+@db0.memo(singleton=True)
+class MemoScopedSingleton:
+    def __init__(self, value = None, value_2 = None, prefix = None):
+        db0.set_prefix(self, prefix)
         self.value = value
         if value_2 is not None:
             self.value_2 = value_2        
