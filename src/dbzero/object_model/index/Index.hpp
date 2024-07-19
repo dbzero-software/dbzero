@@ -65,7 +65,8 @@ namespace db0::object_model
         using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
                 
         Index(db0::swine_ptr<Fixture> &, std::uint64_t address);
-
+        ~Index();
+        
         static Index *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Index *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
         
@@ -87,7 +88,7 @@ namespace db0::object_model
          */
         std::unique_ptr<IteratorFactory>
         range(ObjectPtr min, ObjectPtr max, bool null_first = false) const;
-
+        
         static PreCommitFunction getPreCommitFunction() {
             return preCommitOp;
         }
@@ -96,6 +97,10 @@ namespace db0::object_model
 
         void flush();
         
+        void commit() const;
+
+        void detach() const;
+
         // remove any cached updates / revert
         void rollback();
         
@@ -108,7 +113,8 @@ namespace db0::object_model
         using DefaultT = std::int64_t;
 
         mutable std::shared_ptr<void> m_index_builder;
-        mutable IndexDataType m_data_type;
+        // cached / applied data type must be reset on detach
+        mutable std::optional<IndexDataType> m_data_type;
         // actual index instance (must be cast to a specific type)
         mutable std::shared_ptr<void> m_index;
         
@@ -117,7 +123,7 @@ namespace db0::object_model
         
         void operator=(Index &&);
 
-        template <typename T> IndexDataType getDataType() const
+        template <typename T> IndexDataType getDataTypeOf() const
         {
             if constexpr (std::is_same_v<T, std::int64_t>) {
                 return IndexDataType::Int64;
@@ -136,10 +142,10 @@ namespace db0::object_model
                 if (as_auto) {
                     m_data_type = IndexDataType::Auto;
                 } else {
-                    m_data_type = getDataType<T>();               
+                    m_data_type = getDataTypeOf<T>();
                 }
             }
-            assert(m_data_type == getDataType<T>() || (as_auto && m_data_type == IndexDataType::Auto));
+            assert(m_data_type == getDataTypeOf<T>() || (as_auto && m_data_type == IndexDataType::Auto));
             return *static_cast<IndexBuilder<T>*>(m_index_builder.get());
         }
         
@@ -160,7 +166,7 @@ namespace db0::object_model
                 );
             }
             // set or update the data type
-            m_data_type = getDataType<ToType>();
+            m_data_type = getDataTypeOf<ToType>();
         }
         
         // get existing or create a new range tree of a specific type
@@ -175,10 +181,12 @@ namespace db0::object_model
                     // create a new range tree instance
                     m_index = db0::make_shared_void<RangeTreeT>(this->getMemspace());
                     this->modify().m_index_addr = static_cast<const RangeTreeT*>(m_index.get())->getAddress();
+                    // and assign a concrete data type
+                    this->modify().m_data_type = getDataTypeOf<T>();
+                    // invalidate cache
+                    m_data_type = std::nullopt;
                 }
-                m_data_type = getDataType<T>();
             }
-            assert(m_data_type == getDataType<T>());
             return *static_cast<RangeTreeT*>(m_index.get());
         }
         
@@ -193,8 +201,11 @@ namespace db0::object_model
             }
             RangeTreeT new_range_tree(this->getMemspace(), other);
             this->modify().m_index_addr = new_range_tree.getAddress();
+            this->modify().m_data_type = getDataTypeOf<T>();
+            // invalidate cache
+            m_data_type = std::nullopt;
         }
-
+        
         template <typename T> const typename db0::RangeTree<T, std::uint64_t> &getRangeTree() const {
             return const_cast<Index*>(this)->getRangeTree<T>();
         }
@@ -238,6 +249,8 @@ namespace db0::object_model
         void removeNull(ObjectPtr);
 
         template <typename T> std::optional<T> extractOptionalValue(ObjectPtr value) const;
+
+        IndexDataType getDataType() const;
     };
 
     // extract optional value specializations
