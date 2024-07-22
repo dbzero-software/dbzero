@@ -1,7 +1,7 @@
 import pytest
 import dbzero_ce as db0
 from .conftest import DB0_DIR
-from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedClass
 from dbzero_ce import find
 from datetime import timedelta, datetime
 
@@ -339,7 +339,7 @@ def test_index_sort_descending(db0_fixture):
         db0.tags(objects[i]).add(["tag1", "tag2"])
         # key, value
         index.add(priority[i], objects[i])
-        
+    
     # retrieve sorted elements using index
     sorted = index.sort(find("tag1"), desc=True)
     values = [x.value for x in sorted]
@@ -359,3 +359,11 @@ def test_index_sort_asc_desc_with_null_first_policy(db0_fixture):
     assert [x.value for x in index.sort(find("tag1"), desc=True, null_first=False)] == [None, None, 888, 666, 555]
     assert [x.value for x in index.sort(find("tag1"), desc=True)] == [None, None, 888, 666, 555]
     assert [x.value for x in index.sort(find("tag1"), null_first=True)] == [None, None, 555, 666, 888]
+
+
+def test_scoped_datetime_index_issue(db0_fixture):
+    prefix = "test-data"
+    obj = MemoScopedClass(db0.index(), prefix=prefix)    
+    index = obj.value
+    index.add(datetime.now(), MemoScopedClass(100, prefix=prefix))
+    assert len(list(index.range(None, None, null_first=True))) == 1

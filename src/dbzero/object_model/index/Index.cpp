@@ -40,47 +40,46 @@ namespace db0::object_model
 
     Index::Index(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, db0::createInstanceId(), IndexType::RangeTree, IndexDataType::Auto)
-        , m_data_type((*this)->m_data_type)
+        , m_builder(*this)
     {
     }
 
     Index::Index(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
         : super_t(super_t::tag_from_address(), fixture, address)
-        , m_data_type((*this)->m_data_type)
+        , m_builder(*this)
     {
     }
 
     Index::Index(db0::swine_ptr<Fixture> &fixture, const Index &other)
-        : super_t(tag_as_temp(), fixture, *other.getData())        
+        : super_t(tag_as_temp(), fixture, *other.getData())
+        , m_builder(*this)   
     {
-        switch (getDataType()) {
-            case IndexDataType::Int64: {
-                makeRangeTree(other.getRangeTree<std::int64_t>());
-                break;
-            }
+        if (other.hasRangeTree()) {
+            switch ((*this)->m_data_type) {
+                case IndexDataType::Int64: {
+                    makeRangeTree(other.getRangeTree<std::int64_t>());
+                    break;
+                }
 
-            case IndexDataType::UInt64: {
-                makeRangeTree(other.getRangeTree<std::uint64_t>());
-                break;
-            }
+                case IndexDataType::UInt64: {
+                    makeRangeTree(other.getRangeTree<std::uint64_t>());
+                    break;
+                }
 
-            // flush using default / provisional data type
-            case IndexDataType::Auto: {
-                makeRangeTree(other.getRangeTree<DefaultT>());
-                break;
-            }
+                // flush using default / provisional data type
+                case IndexDataType::Auto: {
+                    makeRangeTree(other.getRangeTree<DefaultT>());
+                    break;
+                }
 
-            default:
-                THROWF(db0::InputException) 
-                    << "Unsupported index data type: " 
-                    << static_cast<std::uint16_t>(getDataType());
+                default:
+                    THROWF(db0::InputException) 
+                        << "Unsupported index data type: " 
+                        << static_cast<std::uint16_t>((*this)->m_data_type);
+            }
         }
     }
-
-    Index::~Index() {
-        flush();
-    }
-
+    
     Index *Index::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
         return new (at_ptr) Index(fixture);
     }
@@ -89,70 +88,93 @@ namespace db0::object_model
         return new (at_ptr) Index(fixture, address);
     }
     
+    Index::Builder::Builder(Index &index)
+        : m_index(index)
+        , m_initial_type(index->m_data_type)
+        , m_new_type(m_initial_type)
+    {
+    }
+
+    void Index::Builder::flush()
+    {
+        if (!m_index_builder) {
+            return;
+        }
+        switch (m_new_type) {
+            case IndexDataType::Int64: {
+                getExisting<std::int64_t>().flush(m_index.getRangeTree<std::int64_t>());                    
+                break;
+            }
+
+            case IndexDataType::UInt64: {
+                getExisting<std::uint64_t>().flush(m_index.getRangeTree<std::uint64_t>());
+                break;
+            }
+            
+            // flush using default / provisional data type
+            case IndexDataType::Auto: {
+                getExisting<DefaultT>().flush(m_index.getRangeTree<DefaultT>());
+                break;
+            }
+
+            default:
+                THROWF(db0::InputException) 
+                    << "Unsupported index data type: " 
+                    << static_cast<std::uint16_t>(m_new_type);
+        }
+        // reflect modified data type with the underlying index
+        if (m_new_type != m_initial_type) {
+            m_initial_type = m_new_type;
+            m_index.modify().m_data_type = m_new_type;            
+        }
+    }
+
+    void Index::Builder::update(TypeId type_id) {
+        m_new_type = getIndexDataType(type_id);
+    }
+
     void Index::flush()
     {
         // no instance due to move
         if (!hasInstance()) {
             return;
         }
-
-        // apply locally modified data type
-        if (m_data_type && (*this)->m_data_type != *m_data_type) {
-            modify().m_data_type = *m_data_type;
-        }
         
-        if (m_index_builder) {
-            switch (getDataType()) {
-                case IndexDataType::Int64: {
-                    getIndexBuilder<std::int64_t>().flush(getRangeTree<std::int64_t>());                    
-                    break;
-                }
-
-                case IndexDataType::UInt64: {
-                    getIndexBuilder<std::uint64_t>().flush(getRangeTree<std::uint64_t>());
-                    break;
-                }
-
-                // flush using default / provisional data type
-                case IndexDataType::Auto: {
-                    getIndexBuilder<DefaultT>(true).flush(getRangeTree<DefaultT>());
-                    break;
-                }
-
-                default:
-                    THROWF(db0::InputException) 
-                        << "Unsupported index data type: " 
-                        << static_cast<std::uint16_t>(getDataType());
-            }
-        }            
+        m_builder.flush();
     }
 
-    void Index::rollback() 
+    void Index::rollback() {
+        m_builder.rollback();
+    }
+    
+    void Index::Builder::rollback()
     {
-        if (m_index_builder) {
-            switch (getDataType()) {
-                case IndexDataType::Int64: {
-                    getIndexBuilder<std::int64_t>().close();
-                    break;
-                }
-
-                case IndexDataType::UInt64: {
-                    getIndexBuilder<std::uint64_t>().close();
-                    break;
-                }
-                
-                // flush using default / provisional data type
-                case IndexDataType::Auto: {
-                    getIndexBuilder<DefaultT>(true).close();
-                    break;
-                }
-
-                default:
-                    THROWF(db0::InputException) 
-                        << "Unsupported index data type: " 
-                        << static_cast<std::uint16_t>(getDataType());
-            }
+        if (!m_index_builder) {
+            return;
         }
+        switch (m_new_type) {
+            case IndexDataType::Int64: {
+                getExisting<std::int64_t>().close();
+                break;
+            }
+
+            case IndexDataType::UInt64: {
+                getExisting<std::uint64_t>().close();
+                break;
+            }
+            
+            // flush using default / provisional data type
+            case IndexDataType::Auto: {
+                getExisting<DefaultT>().close();
+                break;
+            }
+
+            default:
+                THROWF(db0::InputException) 
+                    << "Unsupported index data type: " 
+                    << static_cast<std::uint16_t>(m_new_type);
+        }
+        m_new_type = m_initial_type;
         m_index_builder = nullptr;
     }
     
@@ -162,8 +184,8 @@ namespace db0::object_model
         if (!(*this)->m_index_addr) {
             return 0;
         }
-
-        switch (getDataType()) {
+        
+        switch ((*this)->m_data_type) {
             case IndexDataType::Int64: {
                 return getRangeTree<std::int64_t>().size();
                 break;
@@ -174,10 +196,15 @@ namespace db0::object_model
                 break;
             }
 
+            case IndexDataType::Auto: {
+                return getRangeTree<DefaultT>().size();
+                break;
+            }
+
             default:
                 THROWF(db0::InputException)
                     << "Unsupported index data type: " 
-                    << static_cast<std::uint16_t>(getDataType()) << THROWF_END;
+                    << static_cast<std::uint16_t>((*this)->m_data_type) << THROWF_END;
         }
     }
     
@@ -191,26 +218,25 @@ namespace db0::object_model
             return;
         }
 
-        auto data_type = getDataType();
-        if (data_type == IndexDataType::Auto) {
-            // update to a concrete data type
-            data_type = updateIndexBuilder(type_manager.getTypeId(key));
+        if (m_builder.getDataType() == IndexDataType::Auto) {
+            // update builder to a concrete data type
+            m_builder.update(type_manager.getTypeId(key));
         }
 
-        switch (data_type) {
+        switch (m_builder.getDataType()) {
             case IndexDataType::Int64: {
-                getIndexBuilder<std::int64_t>().add(type_manager.extractInt64(key), value); 
+                m_builder.get<std::int64_t>().add(type_manager.extractInt64(key), value); 
                 break;
             }
 
             case IndexDataType::UInt64: {
-                getIndexBuilder<std::uint64_t>().add(type_manager.extractUInt64(key), value);
+                m_builder.get<std::uint64_t>().add(type_manager.extractUInt64(key), value);
                 break;
             }
 
             default:
                 THROWF(db0::InputException) << "Index of type " 
-                    << static_cast<std::uint16_t>(getDataType())
+                    << static_cast<std::uint16_t>(m_builder.getDataType())
                     << " does not allow adding key type: " 
                     << LangToolkit::getTypeName(key) << THROWF_END;
         }
@@ -226,26 +252,25 @@ namespace db0::object_model
             return;
         }
 
-        auto data_type = getDataType();
-        if (data_type == IndexDataType::Auto) {
+        if (m_builder.getDataType() == IndexDataType::Auto) {
             // update to a concrete data type
-            data_type = updateIndexBuilder(type_manager.getTypeId(key));
+            m_builder.update(type_manager.getTypeId(key));
         }
 
-        switch (data_type) {
+        switch (m_builder.getDataType()) {
             case IndexDataType::Int64: {
-                getIndexBuilder<std::int64_t>().remove(type_manager.extractInt64(key), value); 
+                m_builder.get<std::int64_t>().remove(type_manager.extractInt64(key), value); 
                 break;
             }
 
             case IndexDataType::UInt64: {
-                getIndexBuilder<std::uint64_t>().remove(type_manager.extractUInt64(key), value);
+                m_builder.get<std::uint64_t>().remove(type_manager.extractUInt64(key), value);
                 break;
             }
 
             default:
                 THROWF(db0::InputException) << "Index of type " 
-                    << static_cast<std::uint16_t>(getDataType())
+                    << static_cast<std::uint16_t>(m_builder.getDataType())
                     << " does not allow keys of type: " 
                     << LangToolkit::getTypeName(key) << THROWF_END;
         }            
@@ -255,7 +280,7 @@ namespace db0::object_model
     {
         assert(hasInstance());
         const_cast<Index*>(this)->flush();        
-        switch (getDataType()) {
+        switch ((*this)->m_data_type) {
             case IndexDataType::Int64: {
                 return rangeQuery<std::int64_t>(min, true, max, true, null_first);
             }
@@ -266,11 +291,16 @@ namespace db0::object_model
             }
             break;
 
+            case IndexDataType::Auto: {
+                return rangeQuery<DefaultT>(min, true, max, true, null_first);
+            }
+            break;
+
             default:
                 THROWF(db0::InputException) 
                     << "Unsupported index data type: " 
-                    << static_cast<std::uint16_t>(getDataType()) << THROWF_END;
-        }        
+                    << static_cast<std::uint16_t>((*this)->m_data_type) << THROWF_END;
+        }      
     }
     
     std::unique_ptr<db0::SortedIterator<std::uint64_t> >
@@ -281,7 +311,7 @@ namespace db0::object_model
         std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort_iter;
         if (iter.isSorted()) {
             // sort by additional criteria
-            switch (getDataType()) {
+            switch ((*this)->m_data_type) {
                 case IndexDataType::Int64: {
                     return sortSortedQuery<std::int64_t>(iter.beginSorted(), asc, null_first);
                 }
@@ -292,16 +322,21 @@ namespace db0::object_model
                 }
                 break;
 
+                case IndexDataType::Auto: {
+                    return sortSortedQuery<DefaultT>(iter.beginSorted(), asc, null_first);
+                }
+                break;
+
                 default:
                     THROWF(db0::InputException) 
                         << "Unsupported index data type: " 
-                        << static_cast<std::uint16_t>(getDataType()) << THROWF_END;
+                        << static_cast<std::uint16_t>((*this)->m_data_type) << THROWF_END;
             }
         } else {
             // sort a full-text query
             // FIXME: incorporate observers in the sorted iterator
             std::vector<std::unique_ptr<QueryObserver> > observers;
-            switch (getDataType()) {
+            switch ((*this)->m_data_type) {
                 case IndexDataType::Int64: {
                     return sortQuery<std::int64_t>(iter.beginFTQuery(observers), asc, null_first);
                 }
@@ -312,10 +347,15 @@ namespace db0::object_model
                 }
                 break;
 
+                case IndexDataType::Auto: {
+                    return sortQuery<DefaultT>(iter.beginFTQuery(observers), asc, null_first);
+                }
+                break;
+
                 default:
                     THROWF(db0::InputException) 
                         << "Unsupported index data type: " 
-                        << static_cast<std::uint16_t>(getDataType()) << THROWF_END;
+                        << static_cast<std::uint16_t>((*this)->m_data_type) << THROWF_END;
             }
         }
     }
@@ -323,27 +363,27 @@ namespace db0::object_model
     void Index::addNull(ObjectPtr obj_ptr)
     {
         assert(hasInstance());
-        switch (getDataType()) {
+        switch (m_builder.getDataType()) {
             // use provisional data type for Auto
             case IndexDataType::Auto: {
-                getIndexBuilder<DefaultT>(true).addNull(obj_ptr);
+                m_builder.getAuto().addNull(obj_ptr);
                 break;
             }
 
             case IndexDataType::Int64: {
-                getIndexBuilder<std::int64_t>().addNull(obj_ptr);
+                m_builder.get<std::int64_t>().addNull(obj_ptr);
                 break;
             }
 
             case IndexDataType::UInt64: {
-                getIndexBuilder<std::uint64_t>().addNull(obj_ptr);
+                m_builder.get<std::uint64_t>().addNull(obj_ptr);
                 break;
             }
 
             default:
                 THROWF(db0::InputException) 
                     << "Unsupported index data type: " 
-                    << static_cast<std::uint16_t>(getDataType()) << THROWF_END;
+                    << static_cast<std::uint16_t>(m_builder.getDataType()) << THROWF_END;
         }
     }
     
@@ -379,6 +419,7 @@ namespace db0::object_model
         static_cast<Index*>(ptr)->preCommit(revert);
     }
 
+    /* FIXME:
     IndexDataType Index::updateIndexBuilder(TypeId type_id)
     {
         auto index_data_type = getIndexDataType(type_id);
@@ -415,30 +456,31 @@ namespace db0::object_model
         }
         return index_data_type;
     }
+    */
 
     void Index::removeNull(ObjectPtr obj_ptr)
     {
-        switch (getDataType()) {
+        switch (m_builder.getDataType()) {
             // use provisional data type for Auto
             case IndexDataType::Auto: {
-                return getIndexBuilder<DefaultT>(true).removeNull(obj_ptr);
+                m_builder.getAuto().removeNull(obj_ptr);
                 break;
             }
 
             case IndexDataType::Int64: {
-                return getIndexBuilder<std::int64_t>().removeNull(obj_ptr);
+                m_builder.get<std::int64_t>().removeNull(obj_ptr);
                 break;
             }
 
             case IndexDataType::UInt64: {
-                return getIndexBuilder<std::uint64_t>().removeNull(obj_ptr);
+                m_builder.get<std::uint64_t>().removeNull(obj_ptr);
                 break;
             }
 
             default:
                 THROWF(db0::InputException) 
                     << "Unsupported index data type: " 
-                    << static_cast<std::uint16_t>(getDataType()) << THROWF_END;
+                    << static_cast<std::uint16_t>(m_builder.getDataType()) << THROWF_END;
         }
     }
 
@@ -458,9 +500,7 @@ namespace db0::object_model
     {
         other.flush();
         super_t::operator=(std::move(other));
-        m_data_type = other.m_data_type;
         m_index = other.m_index;
-        other.m_index_builder = nullptr;
         other.m_index = nullptr;
         assert(!other.hasInstance());
     }
@@ -470,7 +510,8 @@ namespace db0::object_model
         const_cast<Index*>(this)->flush();
         // commit the underlying range tree if exists
         if (m_index) {
-            switch (getDataType()) {
+            assert(hasRangeTree());
+            switch ((*this)->m_data_type) {
                 case IndexDataType::Int64: {
                     getRangeTree<std::int64_t>().commit();
                     break;
@@ -488,21 +529,20 @@ namespace db0::object_model
                 }
 
                 default:
-                    THROWF(db0::InputException) 
+                    THROWF(db0::InputException)
                         << "Unsupported index data type: " 
-                        << static_cast<std::uint16_t>(getDataType());
+                        << static_cast<std::uint16_t>((*this)->m_data_type);
             }
         }
         super_t::commit();
     }
-    
+
     void Index::detach() const
     {
-        // must invalidate the cached data type
-        m_data_type = std::nullopt;
         // detach the underlying range tree if exists
         if (m_index) {
-            switch (getDataType()) {
+            assert(hasRangeTree());
+            switch ((*this)->m_data_type) {
                 case IndexDataType::Int64: {
                     getRangeTree<std::int64_t>().detach();
                     break;
@@ -522,19 +562,10 @@ namespace db0::object_model
                 default:
                     THROWF(db0::InputException)
                         << "Unsupported index data type: " 
-                        << static_cast<std::uint16_t>(getDataType());
+                        << static_cast<std::uint16_t>((*this)->m_data_type);
             }
         }
         super_t::detach();
-    }
-
-    IndexDataType Index::getDataType() const
-    {
-        // fetch from instance if not cached locally
-        if (!m_data_type) {
-            m_data_type = (*this)->m_data_type;
-        }
-        return *m_data_type;
     }
 
 }

@@ -43,7 +43,7 @@ namespace db0::object_model
         o_object_header m_header;
         const std::uint32_t m_instance_id;
         IndexType m_type;
-        IndexDataType m_data_type;
+        IndexDataType m_data_type = IndexDataType::Auto;
         // address of the actual index instance
         std::uint64_t m_index_addr = 0;
         std::array<std::uint64_t, 2> m_reserved;
@@ -65,7 +65,6 @@ namespace db0::object_model
         using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
                 
         Index(db0::swine_ptr<Fixture> &, std::uint64_t address);
-        ~Index();
         
         static Index *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Index *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
@@ -105,25 +104,13 @@ namespace db0::object_model
         void rollback();
         
     protected:
+        // the default / provisional type
+        using DefaultT = std::int64_t;        
+        friend struct Builder;
         void preCommit(bool revert);
         static void preCommitOp(void *, bool revert);
         
-    private:        
-        // the default/provisional type
-        using DefaultT = std::int64_t;
-
-        mutable std::shared_ptr<void> m_index_builder;
-        // cached / applied data type must be reset on detach
-        mutable std::optional<IndexDataType> m_data_type;
-        // actual index instance (must be cast to a specific type)
-        mutable std::shared_ptr<void> m_index;
-        
-        Index(db0::swine_ptr<Fixture> &);
-        Index(db0::swine_ptr<Fixture> &, const Index &);
-        
-        void operator=(Index &&);
-
-        template <typename T> IndexDataType getDataTypeOf() const
+        template <typename T> static constexpr IndexDataType dataTypeOf()
         {
             if constexpr (std::is_same_v<T, std::int64_t>) {
                 return IndexDataType::Int64;
@@ -133,42 +120,86 @@ namespace db0::object_model
                 return IndexDataType::Unknown;
             }
         }
+        
+        struct Builder
+        {
+            using IndexDataType = db0::object_model::IndexDataType;
+            Index &m_index;
+            // concrete data type to be assigned (only allowed to update from Auto)
+            IndexDataType m_initial_type;
+            IndexDataType m_new_type;
+            mutable std::shared_ptr<void> m_index_builder;    
 
-        // get existing or create new range-tree builder
-        template <typename T> IndexBuilder<T> &getIndexBuilder(bool as_auto = false)
-        {
-            if (!m_index_builder) {
-                m_index_builder = db0::make_shared_void<IndexBuilder<T> >();
-                if (as_auto) {
-                    m_data_type = IndexDataType::Auto;
-                } else {
-                    m_data_type = getDataTypeOf<T>();
-                }
+            Builder(Index &);
+
+            void flush();
+            void rollback();
+            
+            inline IndexDataType getDataType() const {
+                return m_new_type;
             }
-            assert(m_data_type == getDataTypeOf<T>() || (as_auto && m_data_type == IndexDataType::Auto));
-            return *static_cast<IndexBuilder<T>*>(m_index_builder.get());
-        }
-        
-        // update index builder instance to a concrete type
-        IndexDataType updateIndexBuilder(TypeId);
-        
-        template <typename FromType, typename ToType> void updateIndexBuilder()
-        {
-            if (!m_index_builder) {
-                return;
+
+            IndexBuilder<DefaultT> &getAuto()
+            {
+                if (!m_index_builder) {
+                    m_index_builder = db0::make_shared_void<IndexBuilder<DefaultT> >();
+                    m_new_type = IndexDataType::Auto;
+                }
+                return *static_cast<IndexBuilder<DefaultT>*>(m_index_builder.get());                
+            }
+
+            template <typename T> IndexBuilder<T> &get()
+            {
+                if (!m_index_builder) {
+                    m_index_builder = db0::make_shared_void<IndexBuilder<T> >();
+                    m_new_type = Index::dataTypeOf<T>();
+                }
+                return *static_cast<IndexBuilder<T>*>(m_index_builder.get());                
             }
             
-            if (!std::is_same_v<FromType, ToType>) {
-                m_index_builder = db0::make_shared_void<IndexBuilder<ToType> >(
-                    getIndexBuilder<FromType>(true).releaseRemoveNullItems(),
-                    getIndexBuilder<FromType>(true).releaseAddNullItems(),
-                    getIndexBuilder<FromType>(true).releaseObjectCache()
-                );
+            template <typename T> IndexBuilder<T> &getExisting()
+            {
+                assert(m_index_builder);
+                return *static_cast<IndexBuilder<T>*>(m_index_builder.get());                
             }
-            // set or update the data type
-            m_data_type = getDataTypeOf<ToType>();
-        }
+
+            // Update to a concrete data type
+            void update(TypeId);
+            
+            // Update to a concrete data type (ToType must not be Auto)
+            template <typename FromType, typename ToType> void update()
+            {
+                if (!m_index_builder) {
+                    return;
+                }
+                
+                if (!std::is_same_v<FromType, ToType>) {
+                    m_index_builder = db0::make_shared_void<IndexBuilder<ToType> >(
+                        get<FromType>().releaseRemoveNullItems(),
+                        get<FromType>().releaseAddNullItems(),
+                        get<FromType>().releaseObjectCache()
+                    );
+                    m_new_type = Index::dataTypeOf<ToType>();
+                }
+            }
+
+        };
         
+        Builder m_builder;
+
+    private:        
+        // actual index instance (must be cast to a specific type)
+        mutable std::shared_ptr<void> m_index;
+
+        Index(db0::swine_ptr<Fixture> &);
+        Index(db0::swine_ptr<Fixture> &, const Index &);
+        
+        void operator=(Index &&);
+
+        bool hasRangeTree() const {
+            return (*this)->m_index_addr != 0;
+        }
+
         // get existing or create a new range tree of a specific type
         template <typename T> typename db0::RangeTree<T, std::uint64_t> &getRangeTree()
         {
@@ -181,10 +212,6 @@ namespace db0::object_model
                     // create a new range tree instance
                     m_index = db0::make_shared_void<RangeTreeT>(this->getMemspace());
                     this->modify().m_index_addr = static_cast<const RangeTreeT*>(m_index.get())->getAddress();
-                    // and assign a concrete data type
-                    this->modify().m_data_type = getDataTypeOf<T>();
-                    // invalidate cache
-                    m_data_type = std::nullopt;
                 }
             }
             return *static_cast<RangeTreeT*>(m_index.get());
@@ -201,12 +228,11 @@ namespace db0::object_model
             }
             RangeTreeT new_range_tree(this->getMemspace(), other);
             this->modify().m_index_addr = new_range_tree.getAddress();
-            this->modify().m_data_type = getDataTypeOf<T>();
-            // invalidate cache
-            m_data_type = std::nullopt;
         }
         
-        template <typename T> const typename db0::RangeTree<T, std::uint64_t> &getRangeTree() const {
+        template <typename T> const typename db0::RangeTree<T, std::uint64_t> &getRangeTree() const 
+        {
+            assert(hasRangeTree());
             return const_cast<Index*>(this)->getRangeTree<T>();
         }
 
@@ -249,8 +275,6 @@ namespace db0::object_model
         void removeNull(ObjectPtr);
 
         template <typename T> std::optional<T> extractOptionalValue(ObjectPtr value) const;
-
-        IndexDataType getDataType() const;
     };
 
     // extract optional value specializations
