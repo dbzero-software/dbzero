@@ -26,23 +26,23 @@ namespace db0::object_model
 
     Index::Index(db0::swine_ptr<Fixture> &fixture, const Index &other)
         : super_t(tag_as_temp(), fixture, *other.getData())
-        , m_builder(*this)   
+        , m_builder(*this)
     {
         if (other.hasRangeTree()) {
             switch ((*this)->m_data_type) {
                 case IndexDataType::Int64: {
-                    makeRangeTree(other.getRangeTree<std::int64_t>());
+                    makeRangeTree(other.getExistingRangeTree<std::int64_t>());
                     break;
                 }
 
                 case IndexDataType::UInt64: {
-                    makeRangeTree(other.getRangeTree<std::uint64_t>());
+                    makeRangeTree(other.getExistingRangeTree<std::uint64_t>());
                     break;
                 }
 
                 // flush using default / provisional data type
                 case IndexDataType::Auto: {
-                    makeRangeTree(other.getRangeTree<DefaultT>());
+                    makeRangeTree(other.getExistingRangeTree<DefaultT>());
                     break;
                 }
 
@@ -102,9 +102,31 @@ namespace db0::object_model
             m_index.modify().m_data_type = m_new_type;            
         }
     }
+    
+    void Index::Builder::update(TypeId type_id) 
+    {
+        auto new_type = getIndexDataType(type_id);        
+        if (m_new_type == IndexDataType::Auto) {
+            // convert from the provisional to a concrete data type
+            switch (new_type) {
+                case IndexDataType::Int64: {
+                    update<DefaultT, std::int64_t>();
+                    break;
+                }    
 
-    void Index::Builder::update(TypeId type_id) {
-        m_new_type = getIndexDataType(type_id);
+                case IndexDataType::UInt64: {
+                    update<DefaultT, std::uint64_t>();
+                    break;
+                }
+
+                default:
+                    THROWF(db0::InputException) 
+                        << "Unsupported index key type: " 
+                        << static_cast<std::uint16_t>(type_id) << THROWF_END;
+            }            
+        }
+
+        m_new_type = new_type;
     }
 
     void Index::flush()
@@ -155,23 +177,23 @@ namespace db0::object_model
     std::size_t Index::size() const
     {
         const_cast<Index*>(this)->flush();
-        if (!(*this)->m_index_addr) {
+        if (!hasRangeTree()) {
             return 0;
         }
         
         switch ((*this)->m_data_type) {
             case IndexDataType::Int64: {
-                return getRangeTree<std::int64_t>().size();
+                return getExistingRangeTree<std::int64_t>().size();
                 break;
             }
 
             case IndexDataType::UInt64: {
-                return getRangeTree<std::uint64_t>().size();
+                return getExistingRangeTree<std::uint64_t>().size();
                 break;
             }
 
             case IndexDataType::Auto: {
-                return getRangeTree<DefaultT>().size();
+                return getExistingRangeTree<DefaultT>().size();
                 break;
             }
 
@@ -393,45 +415,6 @@ namespace db0::object_model
         static_cast<Index*>(ptr)->preCommit(revert);
     }
 
-    /* FIXME:
-    IndexDataType Index::updateIndexBuilder(TypeId type_id)
-    {
-        auto index_data_type = getIndexDataType(type_id);
-        if (!m_index_builder) {
-            return index_data_type;
-        }
-        
-        if (getDataType() == IndexDataType::Auto) {
-            // convert from the provisional to a concrete data type
-            switch (index_data_type) {
-                case IndexDataType::Int64: {
-                    updateIndexBuilder<DefaultT, std::int64_t>();
-                    break;
-                }    
-
-                case IndexDataType::UInt64: {
-                    updateIndexBuilder<DefaultT, std::uint64_t>();
-                    break;
-                }
-
-                default:
-                    THROWF(db0::InputException) 
-                        << "Unsupported index key type: " 
-                        << static_cast<std::uint16_t>(type_id) << THROWF_END;
-            }
-            return getDataType();
-        }
-
-        // validate if concrete type is matching
-        if (getDataType() != index_data_type) {
-            THROWF(db0::InputException) << "Index key type mismatch: " 
-                << static_cast<std::uint16_t>(type_id) << " != " 
-                << static_cast<std::uint16_t>(getDataType()) << THROWF_END;
-        }
-        return index_data_type;
-    }
-    */
-
     void Index::removeNull(ObjectPtr obj_ptr)
     {
         switch (m_builder.getDataType()) {
@@ -477,28 +460,31 @@ namespace db0::object_model
         m_index = other.m_index;
         other.m_index = nullptr;
         assert(!other.hasInstance());
+        // if m_index exists then also must have a range tree
+        assert(m_index || !hasRangeTree());
     }
     
     void Index::commit() const
     {
+        // if m_index exists then also must have a range tree
+        assert(m_index || !hasRangeTree());
         const_cast<Index*>(this)->flush();
-        // commit the underlying range tree if exists
+        // commit the underlying range tree if it exists
         if (m_index) {
-            assert(hasRangeTree());
             switch ((*this)->m_data_type) {
                 case IndexDataType::Int64: {
-                    getRangeTree<std::int64_t>().commit();
+                    getExistingRangeTree<std::int64_t>().commit();
                     break;
                 }
 
                 case IndexDataType::UInt64: {
-                    getRangeTree<std::uint64_t>().commit();
+                    getExistingRangeTree<std::uint64_t>().commit();
                     break;
                 }
 
                 // flush using default / provisional data type
                 case IndexDataType::Auto: {
-                    getRangeTree<DefaultT>().commit();
+                    getExistingRangeTree<DefaultT>().commit();
                     break;
                 }
 
@@ -513,23 +499,25 @@ namespace db0::object_model
 
     void Index::detach() const
     {
+        // if m_index exists then also must have a range tree
+        assert(m_index || !hasRangeTree());
         // detach the underlying range tree if exists
         if (m_index) {
             assert(hasRangeTree());
             switch ((*this)->m_data_type) {
                 case IndexDataType::Int64: {
-                    getRangeTree<std::int64_t>().detach();
+                    getExistingRangeTree<std::int64_t>().detach();
                     break;
                 }
 
                 case IndexDataType::UInt64: {
-                    getRangeTree<std::uint64_t>().detach();
+                    getExistingRangeTree<std::uint64_t>().detach();
                     break;
                 }
 
                 // flush using default / provisional data type
                 case IndexDataType::Auto: {
-                    getRangeTree<DefaultT>().detach();
+                    getExistingRangeTree<DefaultT>().detach();
                     break;
                 }
 

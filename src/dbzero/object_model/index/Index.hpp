@@ -182,6 +182,7 @@ namespace db0::object_model
                     this->modify().m_index_addr = static_cast<const RangeTreeT*>(m_index.get())->getAddress();
                 }
             }
+            assert(hasRangeTree());
             return m_index;
         }
 
@@ -193,7 +194,7 @@ namespace db0::object_model
         template <typename T> typename db0::RangeTree<T, std::uint64_t> &getRangeTree() {
             return *getRangeTreePtr<T>();
         }
-
+        
         // Construct range tree as a copy of an other one
         template <typename T> void makeRangeTree(const typename  db0::RangeTree<T, std::uint64_t> &other)
         {
@@ -207,7 +208,7 @@ namespace db0::object_model
             this->modify().m_index_addr = new_range_tree.getAddress();
         }
         
-        template <typename T> const typename db0::RangeTree<T, std::uint64_t> &getRangeTree() const 
+        template <typename T> const typename db0::RangeTree<T, std::uint64_t> &getExistingRangeTree() const
         {
             assert(hasRangeTree());
             return const_cast<Index*>(this)->getRangeTree<T>();
@@ -239,7 +240,7 @@ namespace db0::object_model
         {
             // FIXME: make inclusive flags configurable
             // we need to handle all-null case separately because provisional data type and range type may differ
-            auto &range_tree = getRangeTree<T>();
+            auto &range_tree = getExistingRangeTree<T>();
             if (range_tree.hasAnyNonNull()) {
                 return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, extractOptionalValue<T>(min),
                     min_inclusive, extractOptionalValue<T>(max), max_inclusive, null_first);
