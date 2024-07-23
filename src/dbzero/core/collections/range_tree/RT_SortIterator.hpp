@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RangeTree.hpp"
+#include "IndexBase.hpp"
 #include <dbzero/core/collections/full_text/FT_IteratorBase.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
@@ -9,6 +10,7 @@
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/core/serialization/hash.hpp>
+#include <dbzero/core/utils/shared_void.hpp>
 
 namespace db0
 
@@ -28,21 +30,23 @@ namespace db0
         using super_t = SortedIterator<ValueT>;
     public:
         // Create joined with FT-iterator
-        RT_SortIterator(const RT_TreeT &tree, std::unique_ptr<FT_Iterator<ValueT> > &&it, bool asc = true, bool null_first = false)
-            : RT_SortIterator(this->nextUID(), tree, true, std::move(it), asc, null_first, nullptr)
+        RT_SortIterator(const IndexBase &index, SharedPtrWrapper<RT_TreeT> tree_ptr, std::unique_ptr<FT_Iterator<ValueT> > &&it,
+            bool asc = true, bool null_first = false)
+            : RT_SortIterator(index, this->nextUID(), tree_ptr, true, std::move(it), asc, null_first, nullptr)
         {
         }
         
         // Create for sorting by additional criteria
-        RT_SortIterator(const RT_TreeT &tree, std::unique_ptr<SortedIterator<ValueT> > &&inner_it, bool asc = true, bool null_first = false)
-            : RT_SortIterator(this->nextUID(), tree, inner_it->hasFTQuery(), inner_it->beginFTQuery(), 
+        RT_SortIterator(const IndexBase &index, SharedPtrWrapper<RT_TreeT> tree_ptr, std::unique_ptr<SortedIterator<ValueT> > &&inner_it, 
+            bool asc = true, bool null_first = false)
+            : RT_SortIterator(index, this->nextUID(), tree_ptr, inner_it->hasFTQuery(), inner_it->beginFTQuery(), 
                 asc, null_first, std::move(inner_it))
         {
         }
         
         // Create for sorting the entire range tree
-        RT_SortIterator(const RT_TreeT &tree, bool asc = true, bool null_first = false)
-            : RT_SortIterator(this->nextUID(), tree, false, nullptr, asc, null_first, nullptr)
+        RT_SortIterator(const IndexBase &index, SharedPtrWrapper<RT_TreeT> tree_ptr, bool asc = true, bool null_first = false)
+            : RT_SortIterator(index, this->nextUID(), tree_ptr, false, nullptr, asc, null_first, nullptr)
         {
         }
 
@@ -78,8 +82,9 @@ namespace db0
         double compareTo(const RT_SortIterator &it) const;
 
     private:
+        IndexBase m_index;
         using BlockItemT = typename RT_TreeT::BlockT::ItemT;
-        RT_TreeT m_tree;
+        SharedPtrWrapper<RT_TreeT> m_tree_ptr;
         typename RT_TreeT::RangeIterator m_tree_it;
         std::unique_ptr<FT_Iterator<ValueT> > m_query_it;
         const bool m_asc;
@@ -92,13 +97,14 @@ namespace db0
         std::unique_ptr<SortedIterator<ValueT> > m_sorted_it;
         // a flag indicating that m_sorted_it was created over the null block
         bool m_sorted_null_block = false;
-
+        
         // Create AND-joined with FT-iterator
-        RT_SortIterator(std::uint64_t uid, const RT_TreeT &tree, bool has_query, std::unique_ptr<FT_Iterator<ValueT> > &&it, bool asc,
-            bool null_first, std::unique_ptr<SortedIterator<ValueT> > &&inner_it)
+        RT_SortIterator(const IndexBase &index, std::uint64_t uid, SharedPtrWrapper<RT_TreeT> tree_ptr, bool has_query,
+            std::unique_ptr<FT_Iterator<ValueT> > &&it, bool asc, bool null_first, std::unique_ptr<SortedIterator<ValueT> > &&inner_it)
             : super_t(uid)
-            , m_tree(tree)
-            , m_tree_it(m_tree.beginRange(asc))
+            , m_index(index)            
+            , m_tree_ptr(tree_ptr)
+            , m_tree_it(m_tree_ptr ? m_tree_ptr->beginRange(asc) : typename RT_TreeT::RangeIterator(asc))
             , m_query_it(std::move(it))
             , m_asc(asc)
             , m_null_first(null_first)
@@ -113,7 +119,7 @@ namespace db0
                 m_null_query_it = nullptr;
             }
         }
-
+        
         struct HeapItem
         {
             KeyT m_key;
@@ -205,7 +211,11 @@ namespace db0
             return nullptr;
         }
 
-        auto null_block = m_tree.getNullBlock();
+        if (!m_tree_ptr) {
+            return nullptr;
+        }
+
+        auto null_block = m_tree_ptr->getNullBlock();
         if (null_block) {
             FT_ANDIteratorFactory<ValueT> and_factory;
             if (m_has_query) {
@@ -421,9 +431,9 @@ namespace db0
     std::unique_ptr<FT_IteratorBase> RT_SortIterator<KeyT, ValueT>::begin() const
     {
         if (m_has_query) {
-            return std::make_unique<self_t>(m_tree, (m_query_it ? m_query_it->beginTyped() : nullptr), m_asc, m_null_first);
+            return std::make_unique<self_t>(m_index, m_tree_ptr, (m_query_it ? m_query_it->beginTyped() : nullptr), m_asc, m_null_first);
         } else {
-            return std::make_unique<self_t>(m_tree, m_asc, m_null_first);
+            return std::make_unique<self_t>(m_index, m_tree_ptr, m_asc, m_null_first);
         }
     }
 
@@ -451,12 +461,12 @@ namespace db0
         }
         if (ft_query) {
             // sort specific inner query
-            return std::unique_ptr<self_t>(new self_t(this->m_uid, m_tree, true, ft_query->beginTyped(-1),
+            return std::unique_ptr<self_t>(new self_t(m_index, this->m_uid, m_tree_ptr, true, ft_query->beginTyped(-1),
                 m_asc, m_null_first, std::move(nested_inner_it)));
         } else {
             // create a clone of this iterator
-            return std::unique_ptr<self_t>(new self_t(this->m_uid, m_tree, m_has_query, (m_query_it ? m_query_it->beginTyped(-1) : nullptr),
-                m_asc, m_null_first, std::move(nested_inner_it)));
+            return std::unique_ptr<self_t>(new self_t(m_index, this->m_uid, m_tree_ptr, m_has_query,
+                (m_query_it ? m_query_it->beginTyped(-1) : nullptr), m_asc, m_null_first, std::move(nested_inner_it)));
         }
     }
 
@@ -470,8 +480,8 @@ namespace db0
     {
         db0::serial::write(v, db0::serial::typeId<KeyT>());
         db0::serial::write(v, db0::serial::typeId<ValueT>());
-        db0::serial::write(v, m_tree.getMemspace().getUUID());
-        db0::serial::write(v, m_tree.getAddress());
+        db0::serial::write(v, m_index.getMemspace().getUUID());
+        db0::serial::write(v, m_index.getAddress());
         db0::serial::write<bool>(v, m_asc);
         db0::serial::write<bool>(v, m_null_first);
         db0::serial::write<bool>(v, m_inner_it != nullptr);
@@ -503,7 +513,7 @@ namespace db0
             }
             return 1.0;            
         }
-        return m_tree.getAddress() == other.m_tree.getAddress() ? 0.0 : 1.0;
+        return m_index.getAddress() == other.m_index.getAddress() ? 0.0 : 1.0;
     }
 
     template <typename KeyT, typename ValueT>
@@ -515,8 +525,8 @@ namespace db0
             std::vector<std::byte> bytes;
             db0::serial::write(v, db0::serial::typeId<KeyT>());
             db0::serial::write(v, db0::serial::typeId<ValueT>());
-            db0::serial::write(v, m_tree.getMemspace().getUUID());
-            db0::serial::write(v, m_tree.getAddress());
+            db0::serial::write(v, m_index.getMemspace().getUUID());
+            db0::serial::write(v, m_index.getAddress());
             // get signature as a hash from bytes
             db0::serial::sha256(bytes, v);
         }

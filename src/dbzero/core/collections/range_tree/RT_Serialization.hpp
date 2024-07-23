@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RT_SortIterator.hpp"
+#include "IndexBase.hpp"
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/collections/full_text/FT_Serialization.hpp>
@@ -38,20 +39,24 @@ namespace db0
         bool has_inner = db0::serial::read<bool>(iter, end);
         if (has_inner) {
             auto inner_it = deserializeSortedIterator<ValueT>(snapshot, iter, end);
-            return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), 
+            IndexBase index(fixture->myPtr(addr));
+            return std::make_unique<RT_SortIterator<KeyT, ValueT>>(index, db0::tryGetRangeTree<RT_TreeT>(index),
                 std::move(inner_it), asc, null_first);
         } else {
             bool has_query = db0::serial::read<bool>(iter, end);
             if (has_query) {
                 auto query_it = deserializeFT_Iterator<ValueT>(snapshot, iter, end);
-                return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), 
+                IndexBase index(fixture->myPtr(addr));
+                return std::make_unique<RT_SortIterator<KeyT, ValueT>>(index, db0::tryGetRangeTree<RT_TreeT>(index),
                     std::move(query_it), asc, null_first);
             } else {
-                return std::make_unique<RT_SortIterator<KeyT, ValueT>>(RT_TreeT(fixture->myPtr(addr)), asc, null_first);
+                IndexBase index(fixture->myPtr(addr));
+                return std::make_unique<RT_SortIterator<KeyT, ValueT>>(index, db0::tryGetRangeTree<RT_TreeT>(index), 
+                    asc, null_first);
             }
         }
     }
-
+    
     template <typename KeyT> std::unique_ptr<db0::SortedIterator<KeyT> > deserializeSortedIterator(
         db0::Snapshot &snapshot, std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end)

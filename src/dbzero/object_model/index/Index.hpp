@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
+#include <dbzero/core/collections/range_tree/IndexBase.hpp>
 #include <dbzero/core/collections/range_tree/RangeTree.hpp>
 #include <dbzero/core/collections/range_tree/RT_SortIterator.hpp>
 #include <dbzero/core/collections/range_tree/RT_RangeIterator.hpp>
@@ -20,39 +21,7 @@ namespace db0::object_model
     // range-tree based index
     using RT_IndexInt = db0::RangeTree<std::int64_t, std::uint64_t>;
     class ObjectIterator;
-
-    // known index implementations
-    enum class IndexType: std::uint16_t
-    {
-        Unknown = 0,
-        RangeTree = 1
-    };
-
-    enum class IndexDataType: std::uint16_t
-    {
-        Unknown = 0,
-        // type will be auto-assigned on first non-null element added
-        Auto = 1,
-        Int64 = 2,
-        UInt64 = 3
-    };
-
-    struct [[gnu::packed]] o_index: public o_fixed<o_index>
-    {
-        // common object header
-        o_object_header m_header;
-        const std::uint32_t m_instance_id;
-        IndexType m_type;
-        IndexDataType m_data_type = IndexDataType::Auto;
-        // address of the actual index instance
-        std::uint64_t m_index_addr = 0;
-        std::array<std::uint64_t, 2> m_reserved;
-        
-        o_index(std::uint32_t instance_id, IndexType, IndexDataType);
-        // header not copied
-        o_index(const o_index &other);
-    };
-
+    
     class Index: public db0::ObjectBase<Index, db0::v_object<o_index>, StorageClass::DB0_INDEX>
     {
         GC0_Declare
@@ -123,7 +92,7 @@ namespace db0::object_model
         
         struct Builder
         {
-            using IndexDataType = db0::object_model::IndexDataType;
+            using IndexDataType = db0::IndexDataType;
             Index &m_index;
             // concrete data type to be assigned (only allowed to update from Auto)
             IndexDataType m_initial_type;
@@ -131,10 +100,10 @@ namespace db0::object_model
             mutable std::shared_ptr<void> m_index_builder;    
 
             Builder(Index &);
-
+            
             void flush();
             void rollback();
-            
+
             inline IndexDataType getDataType() const {
                 return m_new_type;
             }
@@ -199,9 +168,8 @@ namespace db0::object_model
         bool hasRangeTree() const {
             return (*this)->m_index_addr != 0;
         }
-
-        // get existing or create a new range tree of a specific type
-        template <typename T> typename db0::RangeTree<T, std::uint64_t> &getRangeTree()
+        
+        template <typename T> std::shared_ptr<void> getRangeTreeRawPtr()
         {
             using RangeTreeT = db0::RangeTree<T, std::uint64_t>;
             if (!m_index) {
@@ -214,9 +182,18 @@ namespace db0::object_model
                     this->modify().m_index_addr = static_cast<const RangeTreeT*>(m_index.get())->getAddress();
                 }
             }
-            return *static_cast<RangeTreeT*>(m_index.get());
+            return m_index;
+        }
+
+        // Get existing or create a new range tree of a specific type
+        template <typename T> SharedPtrWrapper<typename db0::RangeTree<T, std::uint64_t> > getRangeTreePtr() {
+            return getRangeTreeRawPtr<T>();
         }
         
+        template <typename T> typename db0::RangeTree<T, std::uint64_t> &getRangeTree() {
+            return *getRangeTreePtr<T>();
+        }
+
         // Construct range tree as a copy of an other one
         template <typename T> void makeRangeTree(const typename  db0::RangeTree<T, std::uint64_t> &other)
         {
@@ -236,17 +213,25 @@ namespace db0::object_model
             return const_cast<Index*>(this)->getRangeTree<T>();
         }
 
+        template <typename T> SharedPtrWrapper<typename db0::RangeTree<T, std::uint64_t> > tryGetRangeTree() const
+        {
+            if (hasRangeTree()) {
+                return const_cast<Index*>(this)->getRangeTreeRawPtr<T>();
+            }
+            return {};
+        }
+
         /**
          * Construct sorted query iterator from an unsorted full-text query iterator
         */
         template <typename T> std::unique_ptr<RT_SortIterator<T, std::uint64_t> >
         sortQuery(std::unique_ptr<db0::FT_Iterator<std::uint64_t> > &&query_iterator, bool asc, bool null_first) const {
-            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(getRangeTree<T>(), std::move(query_iterator), asc, null_first);
+            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(*this, tryGetRangeTree<T>(), std::move(query_iterator), asc, null_first);
         }
-
+        
         template <typename T> std::unique_ptr<RT_SortIterator<T, std::uint64_t> >
         sortSortedQuery(std::unique_ptr<db0::SortedIterator<std::uint64_t> > &&sorted_iterator, bool asc, bool null_first) const {
-            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(getRangeTree<T>(), std::move(sorted_iterator), asc, null_first);
+            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(*this, tryGetRangeTree<T>(), std::move(sorted_iterator), asc, null_first);
         }
         
         template <typename T> std::unique_ptr<IteratorFactory>

@@ -245,9 +245,15 @@ namespace db0
         class RangeIterator
         {
         public:
+            // default / empty iterator instance
+            RangeIterator(bool asc)
+                : m_asc(asc)
+            {
+            }
+
             RangeIterator(RT_Index &index, const iterator &it, const iterator &begin,
                 const iterator &end, bool is_first, bool asc)
-                : m_index(index)                
+                : m_index_ptr(&index)
                 , m_it(it)
                 , m_next_it(it)
                 , m_begin(begin)
@@ -299,7 +305,7 @@ namespace db0
             BlockT &operator*()
             {
                 if (!m_block) {
-                    m_block = std::make_unique<BlockT>((*m_it).m_block_ptr(m_index.getMemspace()));
+                    m_block = std::make_unique<BlockT>((*m_it).m_block_ptr(m_index_ptr->getMemspace()));
                 }
                 return *m_block;
             }
@@ -316,7 +322,7 @@ namespace db0
             
             void operator=(RangeIterator &&other)
             {                
-                assert(&m_index == &other.m_index);
+                assert(m_index_ptr == other.m_index_ptr);
                 assert(m_begin == other.m_begin);
                 assert(m_end == other.m_end);
                 assert(m_asc == other.m_asc);
@@ -388,7 +394,7 @@ namespace db0
                 }
 
                 // create new block & populate with remaining items
-                BlockT new_block(m_index.getMemspace());
+                BlockT new_block(m_index_ptr->getMemspace());
                 new_block.bulkInsert(items.begin(), end);
                 return new_block;
             }
@@ -449,15 +455,15 @@ namespace db0
                 // destroy the range associated block
                 m_block->destroy();
                 m_block = nullptr;
-                m_index.erase(m_it);                
+                m_index_ptr->erase(m_it);
             }
-
+            
             bool empty() const {
                 return !m_block || m_block->empty();
             }
 
         private:
-            RT_Index &m_index;            
+            RT_Index *m_index_ptr = nullptr;
             iterator m_it;
             iterator m_next_it;
             const iterator m_begin;
@@ -466,7 +472,7 @@ namespace db0
             std::pair<std::optional<ItemT>, std::optional<ItemT>> m_bounds;
             // flag indicating if we're at the first range
             bool m_is_first;
-            const bool m_asc;            
+            const bool m_asc;
 
             void next(iterator &it)
             {
