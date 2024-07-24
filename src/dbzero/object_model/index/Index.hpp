@@ -251,7 +251,7 @@ namespace db0::object_model
             // FIXME: make inclusive flags configurable
             // we need to handle all-null case separately because provisional data type and range type may differ
             auto range_tree_ptr = tryGetRangeTree<T>();
-            if (!range_tree_ptr || range_tree_ptr->hasAnyNonNull()) {
+            if (range_tree_ptr && range_tree_ptr->hasAnyNonNull()) {
                 return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(*this, range_tree_ptr, extractOptionalValue<T>(min),
                     min_inclusive, extractOptionalValue<T>(max), max_inclusive, null_first);
             } else {

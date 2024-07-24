@@ -372,3 +372,8 @@ def test_scoped_datetime_index_issue(db0_fixture):
 def test_range_query_on_empty_index(db0_fixture):
     index = db0.index()
     assert len(list(index.range(1, 2))) == 0
+
+
+def test_range_query_on_empty_index_using_non_default_range_type(db0_fixture):
+    index = db0.index()
+    assert len(list(index.range(None, datetime.now()))) == 0

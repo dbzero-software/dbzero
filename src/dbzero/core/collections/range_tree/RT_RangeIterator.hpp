@@ -256,6 +256,11 @@ namespace db0
             return nullptr;
         }
 
+        // the underlying index is empty
+        if (!m_tree_ptr) {
+            return nullptr;
+        }
+
         auto null_block = m_tree_ptr->getNullBlock();
         if (null_block) {
             FT_ANDIteratorFactory<ValueT> and_factory;
