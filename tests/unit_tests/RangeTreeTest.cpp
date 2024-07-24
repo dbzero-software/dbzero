@@ -342,15 +342,16 @@ namespace tests
                 
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
-        RangeTreeT rt(memspace, 4);
+        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        auto rt = std::make_shared<RangeTreeT>(memspace, 4);
         std::vector<ItemT> values_1 {
             { 99, 3 },  { 199, 5 }, { 13, 2 }, { 199, 7 }, { 142, 9}, { 152, 8}, { 27, 4 },
             { 123, 6}, { 148, 11 }, { 391, 10 }, { 9234, 12 }
         };
 
-        rt.bulkInsert(values_1.begin(), values_1.end());
+        rt->bulkInsert(values_1.begin(), values_1.end());
         std::unordered_set<std::uint64_t> values;
-        RT_RangeIterator<int, std::uint64_t> cut(rt, 100, true, 199, true);
+        RT_RangeIterator<int, std::uint64_t> cut(index, rt, 100, true, 199, true);
         while (!cut.isEnd()) {
             std::uint64_t value;
             cut.next(&value);
@@ -367,15 +368,16 @@ namespace tests
         
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
-        RangeTreeT rt(memspace, 4);
+        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        auto rt = std::make_shared<RangeTreeT>(memspace, 4);
         std::vector<ItemT> values_1 {
             { 99, 3 },  { 199, 5 }, { 13, 2 }, { 199, 7 }, { 142, 9}, { 152, 8}, { 27, 4 },
             { 123, 6}, { 148, 11 }, { 391, 10 }, { 9234, 12 }
         };
 
-        rt.bulkInsert(values_1.begin(), values_1.end());
+        rt->bulkInsert(values_1.begin(), values_1.end());
         std::unordered_set<std::uint64_t> values;
-        RT_FTIterator<int, std::uint64_t> cut(rt, 100, true, 199, true, false);
+        RT_FTIterator<int, std::uint64_t> cut(index, rt, 100, true, 199, true, false);
         while (!cut.isEnd()) {
             std::uint64_t value;
             cut.next(&value);
@@ -390,15 +392,16 @@ namespace tests
         using RangeTreeT = RangeTree<int, std::uint64_t>;
         using ItemT = typename RangeTreeT::ItemT;
         
-        auto memspace = getMemspace();        
-        RangeTreeT rt(memspace, 128);
+        auto memspace = getMemspace();
+        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        auto rt = std::make_shared<RangeTreeT>(memspace, 128);
         std::vector<ItemT> values_1 {
             {666, 0}, {22, 1}, {99, 2}, {888, 3}, {444, 4}
         };
 
-        rt.bulkInsert(values_1.begin(), values_1.end());
+        rt->bulkInsert(values_1.begin(), values_1.end());
         std::unordered_set<std::uint64_t> values;
-        RT_RangeIterator<int, std::uint64_t> cut(rt, 22, true, 444, true);
+        RT_RangeIterator<int, std::uint64_t> cut(index, rt, 22, true, 444, true);
         while (!cut.isEnd()) {
             std::uint64_t value;
             cut.next(&value);
@@ -445,11 +448,12 @@ namespace tests
         
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
-        RangeTreeT rt(memspace, 128);
+        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        auto rt = std::make_shared<RangeTreeT>(memspace, 128);
         std::vector<std::uint64_t> values_1 { 0, 1, 2, 3, 4 };        
-        rt.bulkInsertNull(values_1.begin(), values_1.end());
+        rt->bulkInsertNull(values_1.begin(), values_1.end());
 
-        RangeIteratorFactory<int, std::uint64_t> factory(rt);
+        RangeIteratorFactory<int, std::uint64_t> factory(index, rt);
         std::unordered_set<std::uint64_t> x_values;
         auto it = factory.createBaseIterator();
         std::uint64_t next_value;
@@ -467,12 +471,13 @@ namespace tests
         
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
-        RangeTreeT rt(memspace, 4);
+        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        auto rt = std::make_shared<RangeTreeT>(memspace, 4);
         std::vector<std::uint64_t> values_1 { 0, 1, 2, 3, 4 };
-        rt.bulkInsertNull(values_1.begin(), values_1.end());
+        rt->bulkInsertNull(values_1.begin(), values_1.end());
 
         std::unordered_set<std::uint64_t> values;
-        RangeIteratorFactory<int, std::uint64_t> factory(rt);    
+        RangeIteratorFactory<int, std::uint64_t> factory(index, rt);
         auto it = factory.createFTIterator();
         while (!it->isEnd()) {
             std::uint64_t value;
@@ -512,7 +517,7 @@ namespace tests
 
         ASSERT_EQ(values, (std::vector<std::uint64_t> { 0, 8, 444, 94 }));
     }
-
+    
     TEST_F( RangeTreeTest , testRangeTreeBulkEraseIgnoresNonExistingItems )
     {
         using RangeTreeT = RangeTree<int, std::uint64_t>;

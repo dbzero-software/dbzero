@@ -81,7 +81,7 @@ namespace db0
         
         double compareTo(const RT_SortIterator &it) const;
 
-    private:
+    private:        
         IndexBase m_index;
         using BlockItemT = typename RT_TreeT::BlockT::ItemT;
         SharedPtrWrapper<RT_TreeT> m_tree_ptr;
@@ -102,7 +102,7 @@ namespace db0
         RT_SortIterator(const IndexBase &index, std::uint64_t uid, SharedPtrWrapper<RT_TreeT> tree_ptr, bool has_query,
             std::unique_ptr<FT_Iterator<ValueT> > &&it, bool asc, bool null_first, std::unique_ptr<SortedIterator<ValueT> > &&inner_it)
             : super_t(uid)
-            , m_index(index)            
+            , m_index(index)
             , m_tree_ptr(tree_ptr)
             , m_tree_it(m_tree_ptr ? m_tree_ptr->beginRange(asc) : typename RT_TreeT::RangeIterator(asc))
             , m_query_it(std::move(it))
@@ -426,10 +426,10 @@ namespace db0
     template <typename KeyT, typename ValueT> const std::type_info &RT_SortIterator<KeyT, ValueT>::typeId() const {
         return typeid(self_t);
     }
-
+    
     template <typename KeyT, typename ValueT>
     std::unique_ptr<FT_IteratorBase> RT_SortIterator<KeyT, ValueT>::begin() const
-    {
+    {        
         if (m_has_query) {
             return std::make_unique<self_t>(m_index, m_tree_ptr, (m_query_it ? m_query_it->beginTyped() : nullptr), m_asc, m_null_first);
         } else {
@@ -479,7 +479,7 @@ namespace db0
     void RT_SortIterator<KeyT, ValueT>::serializeImpl(std::vector<std::byte> &v) const
     {
         db0::serial::write(v, db0::serial::typeId<KeyT>());
-        db0::serial::write(v, db0::serial::typeId<ValueT>());
+        db0::serial::write(v, db0::serial::typeId<ValueT>());        
         db0::serial::write(v, m_index.getMemspace().getUUID());
         db0::serial::write(v, m_index.getAddress());
         db0::serial::write<bool>(v, m_asc);
@@ -513,6 +513,7 @@ namespace db0
             }
             return 1.0;            
         }
+        return false;        
         return m_index.getAddress() == other.m_index.getAddress() ? 0.0 : 1.0;
     }
 
@@ -524,7 +525,7 @@ namespace db0
         } else {
             std::vector<std::byte> bytes;
             db0::serial::write(v, db0::serial::typeId<KeyT>());
-            db0::serial::write(v, db0::serial::typeId<ValueT>());
+            db0::serial::write(v, db0::serial::typeId<ValueT>());            
             db0::serial::write(v, m_index.getMemspace().getUUID());
             db0::serial::write(v, m_index.getAddress());
             // get signature as a hash from bytes

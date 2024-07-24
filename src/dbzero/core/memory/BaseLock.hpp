@@ -37,7 +37,8 @@ namespace db0
             return m_data.data();
         }
 
-        inline void *getBuffer(std::uint64_t address) const {
+        inline void *getBuffer(std::uint64_t address) const 
+        {
             assert(address >= m_address && address < m_address + m_data.size());
             return static_cast<std::byte*>(getBuffer()) + address - m_address;
         }

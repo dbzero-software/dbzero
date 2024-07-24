@@ -34,6 +34,7 @@ namespace db0::object_model
         using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
                 
         Index(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        Index(const Index &) = delete;
         
         static Index *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Index *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
@@ -71,10 +72,12 @@ namespace db0::object_model
 
         // remove any cached updates / revert
         void rollback();
+
+        void operator=(const Index &) = delete;
         
     protected:
         // the default / provisional type
-        using DefaultT = std::int64_t;        
+        using DefaultT = std::int64_t;
         friend struct Builder;
         void preCommit(bool revert);
         static void preCommitOp(void *, bool revert);
@@ -194,18 +197,19 @@ namespace db0::object_model
         template <typename T> typename db0::RangeTree<T, std::uint64_t> &getRangeTree() {
             return *getRangeTreePtr<T>();
         }
-        
+
         // Construct range tree as a copy of an other one
         template <typename T> void makeRangeTree(const typename  db0::RangeTree<T, std::uint64_t> &other)
-        {
+        {            
             using RangeTreeT = db0::RangeTree<T, std::uint64_t>;
             assert(!m_index);
             assert(!(*this)->m_index_addr);
             if (m_index || (*this)->m_index_addr) {
                 return;
             }
+
             RangeTreeT new_range_tree(this->getMemspace(), other);
-            this->modify().m_index_addr = new_range_tree.getAddress();
+            this->modify().m_index_addr = new_range_tree.getAddress();            
         }
         
         template <typename T> const typename db0::RangeTree<T, std::uint64_t> &getExistingRangeTree() const
@@ -226,13 +230,19 @@ namespace db0::object_model
          * Construct sorted query iterator from an unsorted full-text query iterator
         */
         template <typename T> std::unique_ptr<RT_SortIterator<T, std::uint64_t> >
-        sortQuery(std::unique_ptr<db0::FT_Iterator<std::uint64_t> > &&query_iterator, bool asc, bool null_first) const {
-            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(*this, tryGetRangeTree<T>(), std::move(query_iterator), asc, null_first);
+        sortQuery(std::unique_ptr<db0::FT_Iterator<std::uint64_t> > &&query_iterator, bool asc, bool null_first) const 
+        {
+            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(
+                *this, tryGetRangeTree<T>(), std::move(query_iterator), asc, null_first
+            );
         }
         
         template <typename T> std::unique_ptr<RT_SortIterator<T, std::uint64_t> >
-        sortSortedQuery(std::unique_ptr<db0::SortedIterator<std::uint64_t> > &&sorted_iterator, bool asc, bool null_first) const {
-            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(*this, tryGetRangeTree<T>(), std::move(sorted_iterator), asc, null_first);
+        sortSortedQuery(std::unique_ptr<db0::SortedIterator<std::uint64_t> > &&sorted_iterator, bool asc, bool null_first) const 
+        {
+            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(
+                *this, tryGetRangeTree<T>(), std::move(sorted_iterator), asc, null_first
+            );
         }
         
         template <typename T> std::unique_ptr<IteratorFactory>
@@ -240,16 +250,15 @@ namespace db0::object_model
         {
             // FIXME: make inclusive flags configurable
             // we need to handle all-null case separately because provisional data type and range type may differ
-            auto &range_tree = getExistingRangeTree<T>();
-            if (range_tree.hasAnyNonNull()) {
-                return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, extractOptionalValue<T>(min),
+            auto range_tree_ptr = tryGetRangeTree<T>();
+            if (!range_tree_ptr || range_tree_ptr->hasAnyNonNull()) {
+                return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(*this, range_tree_ptr, extractOptionalValue<T>(min),
                     min_inclusive, extractOptionalValue<T>(max), max_inclusive, null_first);
             } else {
-                // FIXME: handle null-first policy
                 auto &type_manager = LangToolkit::getTypeManager();
                 if ((null_first && type_manager.isNull(min)) || (!null_first && type_manager.isNull(max))) {
                     // return all null elements
-                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(range_tree, RT_Range<T> {}, true);
+                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(*this, range_tree_ptr, RT_Range<T> {}, true);
                 }
                 // no results
                 return nullptr;

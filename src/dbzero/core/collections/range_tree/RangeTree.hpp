@@ -644,6 +644,12 @@ namespace db0
                 return std::move(m_remove_null_items);
             }
 
+            bool empty() const
+            {
+                return m_add_items.empty() && m_remove_items.empty() && m_add_null_items.empty() 
+                    && m_remove_null_items.empty();
+            }
+
         private:
             // buffer with items to be removed
             std::unordered_set<ItemT, typename ItemT::Hash> m_remove_items;

@@ -7,6 +7,7 @@
 #include "RT_RangeIterator.hpp"
 #include "RT_Range.hpp"
 #include "RT_FTIterator.hpp"
+#include "IndexBase.hpp"
 #include <dbzero/workspace/Fixture.hpp>
 
 namespace db0
@@ -22,16 +23,19 @@ namespace db0
     public:
         using RT_TreeT = RangeTree<KeyT, ValueT>;
 
-        RangeIteratorFactory(const RT_TreeT &tree, std::optional<KeyT> min = {},
+        RangeIteratorFactory(const IndexBase &index, SharedPtrWrapper<RT_TreeT> tree_ptr, std::optional<KeyT> min = {},
             bool min_inclusive = false, std::optional<KeyT> max = {}, bool max_inclusive = false, bool null_first = false)
-            : m_tree(tree)
+            : m_index(index)
+            , m_tree_ptr(tree_ptr)
             , m_range { min, min_inclusive, max, max_inclusive }
             , m_null_first(null_first)
         {
         }
 
-        RangeIteratorFactory(const RT_TreeT &tree, const RT_Range<KeyT> &range, bool null_first)
-            : m_tree(tree)
+        RangeIteratorFactory(const IndexBase &index, SharedPtrWrapper<RT_TreeT> tree_ptr,
+            const RT_Range<KeyT> &range, bool null_first)
+            : m_index(index)
+            , m_tree_ptr(tree_ptr)
             , m_range(range)
             , m_null_first(null_first)
         {
@@ -47,7 +51,8 @@ namespace db0
         void serializeImpl(std::vector<std::byte> &) const override;
         
     private:
-        RT_TreeT m_tree;
+        IndexBase m_index;
+        SharedPtrWrapper<RT_TreeT> m_tree_ptr;
         const RT_Range<KeyT> m_range;
         const bool m_null_first;
     };
@@ -55,14 +60,14 @@ namespace db0
     template <typename KeyT, typename ValueT> std::unique_ptr<FT_IteratorBase>
     RangeIteratorFactory<KeyT, ValueT>::createBaseIterator()
     {
-        return std::make_unique<RT_RangeIterator<KeyT, ValueT>>(m_tree, m_range.m_min, m_range.m_min_inclusive,
+        return std::make_unique<RT_RangeIterator<KeyT, ValueT>>(m_index, m_tree_ptr, m_range.m_min, m_range.m_min_inclusive,
             m_range.m_max, m_range.m_max_inclusive, m_null_first);
     }
-
+    
     template <typename KeyT, typename ValueT> std::unique_ptr<FT_Iterator<ValueT> >
     RangeIteratorFactory<KeyT, ValueT>::createFTIterator()
-    {        
-        return std::make_unique<RT_FTIterator<KeyT, ValueT>>(m_tree, m_range.m_min, m_range.m_min_inclusive,
+    {
+        return std::make_unique<RT_FTIterator<KeyT, ValueT>>(m_index, m_tree_ptr, m_range.m_min, m_range.m_min_inclusive,
             m_range.m_max, m_range.m_max_inclusive, m_null_first);
     }
     
@@ -78,8 +83,8 @@ namespace db0
         // store underlying typeId-s
         db0::serial::write(v, db0::serial::typeId<KeyT>());
         db0::serial::write(v, db0::serial::typeId<ValueT>());
-        db0::serial::write(v, m_tree.getMemspace().getUUID());
-        db0::serial::write(v, m_tree.getAddress());
+        db0::serial::write(v, m_index.getMemspace().getUUID());
+        db0::serial::write(v, m_index.getAddress());
         m_range.serialize(v);
         db0::serial::write<bool>(v, m_null_first);
     }
@@ -106,7 +111,8 @@ namespace db0
         auto null_first = db0::serial::read<bool>(iter, end);
 
         using RT_TreeT = RangeTree<KeyT, ValueT>;
-        return std::make_unique<RangeIteratorFactory<KeyT, ValueT>>(RT_TreeT { fixture->myPtr(addr) }, range, null_first);
+        IndexBase index(fixture->myPtr(addr));
+        return std::make_unique<RangeIteratorFactory<KeyT, ValueT>>(index, tryGetRangeTree<RT_TreeT>(index), range, null_first);
     }
 
 }

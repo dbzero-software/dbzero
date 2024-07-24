@@ -367,3 +367,8 @@ def test_scoped_datetime_index_issue(db0_fixture):
     index = obj.value
     index.add(datetime.now(), MemoScopedClass(100, prefix=prefix))
     assert len(list(index.range(None, None, null_first=True))) == 1
+
+
+def test_range_query_on_empty_index(db0_fixture):
+    index = db0.index()
+    assert len(list(index.range(1, 2))) == 0

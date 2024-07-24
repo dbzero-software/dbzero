@@ -65,7 +65,7 @@ namespace db0
         // this is to avoid CoW in a writer process
         if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::create] && read_state_num != state_num) {
             // unused lock condition (i.e. might only be used by the CacheRecycler)
-            // note that dirty locks cannot be upgraded (otherwise data would be lost)
+            // note that dirty locks cannot be upgraded (otherwise data would be lost)            
             if (!lock->isDirty() && lock.use_count() == (lock->isRecycled() ? 1 : 0) + 1) {
                 m_page_map.erase(state_num, lock);
                 // note that this operation may also assign the no_flush flag if it was requested
@@ -130,7 +130,7 @@ namespace db0
     
     std::shared_ptr<ResourceLock> PrefixCache::insertCopy(const ResourceLock &lock,
         std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
-    {        
+    {
         auto first_page = lock.getAddress() >> m_shift;
         auto end_page = ((lock.getAddress() + lock.size() - 1) >> m_shift) + 1;
         auto result = std::make_shared<ResourceLock>(lock, write_state_num, access_mode);

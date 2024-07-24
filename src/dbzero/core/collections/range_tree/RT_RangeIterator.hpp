@@ -2,6 +2,7 @@
 
 #include <optional>
 #include "RangeTree.hpp"
+#include "IndexBase.hpp"
 #include <dbzero/core/collections/full_text/FT_IteratorBase.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
@@ -23,16 +24,16 @@ namespace db0
         using self_t = RT_RangeIterator<KeyT, ValueT>;
     public:
         // Create to range-filter results of a specific FT-iterator (e.g. tag query)
-        RT_RangeIterator(const RT_TreeT &tree, std::unique_ptr<FT_Iterator<ValueT> > &&it, std::optional<KeyT> min,
-            bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool null_first)
-            : RT_RangeIterator(this->nextUID(), tree, true, std::move(it), min, min_inclusive, max, max_inclusive, null_first)
+        RT_RangeIterator(const IndexBase &index, SharedPtrWrapper<RT_TreeT> tree_ptr, std::unique_ptr<FT_Iterator<ValueT> > &&it, 
+            std::optional<KeyT> min, bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool null_first)
+            : RT_RangeIterator(index, this->nextUID(), tree_ptr, true, std::move(it), min, min_inclusive, max, max_inclusive, null_first)
         {
         }
         
         // Create range-only filter
-        RT_RangeIterator(const RT_TreeT &tree, std::optional<KeyT> min = {},
+        RT_RangeIterator(const IndexBase &index, SharedPtrWrapper<RT_TreeT> tree_ptr, std::optional<KeyT> min = {},
             bool min_inclusive = false, std::optional<KeyT> max = {}, bool max_inclusive = false, bool null_first = false)
-            : RT_RangeIterator(this->nextUID(), tree, false, nullptr, min, min_inclusive, max, max_inclusive, null_first)
+            : RT_RangeIterator(index, this->nextUID(), tree_ptr, false, nullptr, min, min_inclusive, max, max_inclusive, null_first)
         {
         }
 
@@ -60,8 +61,11 @@ namespace db0
     private:
         using ItemT = typename RT_TreeT::ItemT;
         using RT_IteratorT = typename RT_TreeT::BlockT::FT_IteratorT;
-        RT_TreeT m_tree;
-        typename RT_TreeT::RangeIterator m_tree_it;
+        using RangeIterator = typename RT_TreeT::RangeIterator;
+
+        IndexBase m_index;
+        SharedPtrWrapper<RT_TreeT> m_tree_ptr;
+        RangeIterator m_tree_it;
         const bool m_has_query;
         std::unique_ptr<FT_Iterator<ValueT> > m_query_it;
         // the iterator over null keys only
@@ -73,13 +77,15 @@ namespace db0
         const bool m_null_first;
 
         // Create to range-filter results of a specific FT-iterator (e.g. tag query)
-        RT_RangeIterator(std::uint64_t uid, const RT_TreeT &tree, bool has_query, std::unique_ptr<FT_Iterator<ValueT> > &&it, std::optional<KeyT> min,
-            bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool null_first)
+        RT_RangeIterator(const IndexBase &index, std::uint64_t uid, SharedPtrWrapper<RT_TreeT> tree_ptr, bool has_query, 
+            std::unique_ptr<FT_Iterator<ValueT> > &&it, std::optional<KeyT> min, bool min_inclusive, std::optional<KeyT> max, 
+            bool max_inclusive, bool null_first)
             : FT_IteratorBase(uid)
-            , m_tree(tree)
-            , m_tree_it((min ? tree.lowerBound(*min, min_inclusive) : tree.beginRange()))
+            , m_index(index)
+            , m_tree_ptr(tree_ptr)
+            , m_tree_it(tree_ptr ? (min ? tree_ptr->lowerBound(*min, min_inclusive) : tree_ptr->beginRange()) : RangeIterator(true))
             , m_has_query(has_query)
-            , m_query_it(std::move(it))            
+            , m_query_it(std::move(it))
             , m_min(min)
             , m_min_inclusive(min_inclusive)
             , m_max(max)
@@ -129,13 +135,11 @@ namespace db0
         }
 
         // check if a null value fits into the requested range
-        bool inRange() const
-        {
+        bool inRange() const {
             return (m_null_first && !m_min) || (!m_null_first && !m_max);
         }
 
-        inline bool inRange(const KeyT &key) const
-        {
+        inline bool inRange(const KeyT &key) const {
             return (!m_min || (m_min_inclusive ? key >= *m_min : key > *m_min)) &&
                 (!m_max || (m_max_inclusive ? key <= *m_max : key < *m_max));
         }
@@ -161,18 +165,15 @@ namespace db0
         return typeid(ValueT);
     }
 
-    template <typename KeyT, typename ValueT> const std::type_info &RT_RangeIterator<KeyT, ValueT>::typeId() const
-    {
+    template <typename KeyT, typename ValueT> const std::type_info &RT_RangeIterator<KeyT, ValueT>::typeId() const {
         return typeid(self_t);
     }
 
-    template <typename KeyT, typename ValueT> std::ostream &RT_RangeIterator<KeyT, ValueT>::dump(std::ostream &os) const
-    {
+    template <typename KeyT, typename ValueT> std::ostream &RT_RangeIterator<KeyT, ValueT>::dump(std::ostream &os) const {
         return os << "RT_RangeIterator";
     }
     
-    template <typename KeyT, typename ValueT> bool RT_RangeIterator<KeyT, ValueT>::isEnd() const
-    {
+    template <typename KeyT, typename ValueT> bool RT_RangeIterator<KeyT, ValueT>::isEnd() const {
         return !m_has_lh_item;
     }
     
@@ -244,7 +245,7 @@ namespace db0
     template <typename KeyT, typename ValueT>
     std::unique_ptr<FT_IteratorBase> RT_RangeIterator<KeyT, ValueT>::begin() const
     {        
-        return std::unique_ptr<FT_IteratorBase>(new self_t(this->m_uid, m_tree, m_has_query, (m_query_it ? m_query_it->beginTyped() : nullptr), 
+        return std::unique_ptr<FT_IteratorBase>(new self_t(m_index, m_uid, m_tree_ptr, m_has_query, (m_query_it ? m_query_it->beginTyped() : nullptr),
             m_min, m_min_inclusive, m_max, m_max_inclusive, m_null_first));
     }
     
@@ -255,7 +256,7 @@ namespace db0
             return nullptr;
         }
 
-        auto null_block = m_tree.getNullBlock();
+        auto null_block = m_tree_ptr->getNullBlock();
         if (null_block) {
             FT_ANDIteratorFactory<ValueT> and_factory;
             if (m_has_query) {
@@ -284,7 +285,7 @@ namespace db0
     double RT_RangeIterator<KeyT, ValueT>::compareTo(const RT_RangeIterator &it) const
     {   
         double result = 0.0;             
-        if (m_tree.getAddress() != it.m_tree.getAddress()) {
+        if (m_index.getAddress() != it.m_index.getAddress()) {
             return 1.0;
         } else if (m_has_query != it.m_has_query) {
             return 1.0;
@@ -303,8 +304,8 @@ namespace db0
         std::vector<std::byte> bytes;
         db0::serial::write<TypeIdType>(bytes, db0::serial::typeId<KeyT>());
         db0::serial::write<TypeIdType>(bytes, db0::serial::typeId<ValueT>());
-        db0::serial::write<std::uint64_t>(bytes, m_tree.getMemspace().getUUID());
-        db0::serial::write(bytes, m_tree.getAddress());
+        db0::serial::write<std::uint64_t>(bytes, m_index.getMemspace().getUUID());
+        db0::serial::write(bytes, m_index.getAddress());
         if (m_has_query) {
             m_query_it->getSignature(bytes);
         }

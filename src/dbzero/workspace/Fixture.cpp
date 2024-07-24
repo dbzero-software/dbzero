@@ -304,7 +304,7 @@ namespace db0
         for (auto &detach: m_detach_handlers) {
             detach();
         }
-
+        
         m_string_pool.detach();
         m_object_catalogue.detach();
         m_v_object_cache.endAtomic();

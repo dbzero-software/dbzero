@@ -301,3 +301,38 @@ def test_atomic_with_multiple_prefixes(db0_fixture):
     
     assert len(list(obj.value.range(None, 100, null_first=True))) == 1
     
+    
+def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_1(db0_fixture):
+    prefix = "test-data"
+    obj = MemoScopedClass(None, prefix=prefix)    
+    with db0.atomic():        
+        obj.value = db0.index()        
+        obj.value.add(1, MemoScopedClass(None, prefix=prefix))
+    
+    with db0.atomic():        
+        obj.value.add(2, MemoScopedClass(None, prefix=prefix))        
+
+    with db0.atomic():
+        pass
+    
+    assert len(list(obj.value.range(None, 10, null_first=True))) == 2
+
+
+def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_2(db0_fixture):
+    prefix = "test-data"
+    obj = MemoScopedClass(None, prefix=prefix)    
+    with db0.atomic():
+        obj.value = db0.index()
+        for _ in range(3):
+            obj.value.add(datetime.now(), MemoScopedClass(None, prefix=prefix))
+    
+    with db0.atomic():
+        for _ in range(3):
+            obj.value.add(datetime.now(), MemoScopedClass(None, prefix=prefix))
+    
+    with db0.atomic():
+        for _ in range(3):
+            obj.value.add(datetime.now(), MemoScopedClass(None, prefix=prefix))
+    
+    assert len(list(obj.value.range(None, datetime.now(), null_first=True))) == 9
+    

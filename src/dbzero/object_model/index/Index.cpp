@@ -15,13 +15,13 @@ namespace db0::object_model
     Index::Index(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, db0::createInstanceId(), IndexType::RangeTree, IndexDataType::Auto)
         , m_builder(*this)
-    {
+    {        
     }
 
     Index::Index(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_builder(*this)
-    {
+    {        
     }
 
     Index::Index(db0::swine_ptr<Fixture> &fixture, const Index &other)
@@ -51,7 +51,7 @@ namespace db0::object_model
                         << "Unsupported index data type: " 
                         << static_cast<std::uint16_t>((*this)->m_data_type);
             }
-        }
+        }        
     }
     
     Index *Index::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
@@ -70,24 +70,34 @@ namespace db0::object_model
     }
 
     void Index::Builder::flush()
-    {
+    {        
         if (!m_index_builder) {
             return;
         }
+
         switch (m_new_type) {
             case IndexDataType::Int64: {
-                getExisting<std::int64_t>().flush(m_index.getRangeTree<std::int64_t>());                    
+                auto &ib = getExisting<std::int64_t>();
+                if (!ib.empty()) {
+                    ib.flush(m_index.getRangeTree<std::int64_t>());
+                }
                 break;
             }
 
             case IndexDataType::UInt64: {
-                getExisting<std::uint64_t>().flush(m_index.getRangeTree<std::uint64_t>());
+                auto &ib = getExisting<std::uint64_t>();
+                if (!ib.empty()) {
+                    ib.flush(m_index.getRangeTree<std::uint64_t>());
+                }
                 break;
             }
             
             // flush using default / provisional data type
             case IndexDataType::Auto: {
-                getExisting<DefaultT>().flush(m_index.getRangeTree<DefaultT>());
+                auto &ib = getExisting<DefaultT>();
+                if (!ib.empty()) {
+                    ib.flush(m_index.getRangeTree<DefaultT>());
+                }
                 break;
             }
 
@@ -460,14 +470,12 @@ namespace db0::object_model
         m_index = other.m_index;
         other.m_index = nullptr;
         assert(!other.hasInstance());
-        // if m_index exists then also must have a range tree
-        assert(m_index || !hasRangeTree());
     }
     
     void Index::commit() const
     {
         // if m_index exists then also must have a range tree
-        assert(m_index || !hasRangeTree());
+        assert(!m_index || hasRangeTree());
         const_cast<Index*>(this)->flush();
         // commit the underlying range tree if it exists
         if (m_index) {
@@ -496,37 +504,13 @@ namespace db0::object_model
         }
         super_t::commit();
     }
-
+    
     void Index::detach() const
     {
         // if m_index exists then also must have a range tree
-        assert(m_index || !hasRangeTree());
-        // detach the underlying range tree if exists
-        if (m_index) {
-            assert(hasRangeTree());
-            switch ((*this)->m_data_type) {
-                case IndexDataType::Int64: {
-                    getExistingRangeTree<std::int64_t>().detach();
-                    break;
-                }
-
-                case IndexDataType::UInt64: {
-                    getExistingRangeTree<std::uint64_t>().detach();
-                    break;
-                }
-
-                // flush using default / provisional data type
-                case IndexDataType::Auto: {
-                    getExistingRangeTree<DefaultT>().detach();
-                    break;
-                }
-
-                default:
-                    THROWF(db0::InputException)
-                        << "Unsupported index data type: " 
-                        << static_cast<std::uint16_t>((*this)->m_data_type);
-            }
-        }
+        assert(!m_index || hasRangeTree());
+        // invalidate cached index instance since its type might've been updated
+        m_index = nullptr;
         super_t::detach();
     }
 
