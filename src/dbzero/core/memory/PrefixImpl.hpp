@@ -173,7 +173,7 @@ namespace db0
             }
         }
 
-        assert(lock);
+        assert(lock);        
         // fetch data from storage if not initialized
         return { lock->getBuffer(address), lock };
     }

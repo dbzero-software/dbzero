@@ -292,11 +292,8 @@ namespace db0
         Memspace::beginAtomic();
     }
     
-    void Fixture::endAtomic()
+    void Fixture::detach()
     {
-        assert(m_atomic_context_ptr);
-        m_atomic_context_ptr = nullptr;
-        
         // commit and then detach owned resources (potentially modified in atomic context)
         for (auto &commit: m_close_handlers) {
             commit(true);
@@ -307,6 +304,13 @@ namespace db0
         
         m_string_pool.detach();
         m_object_catalogue.detach();
+    }
+    
+    void Fixture::endAtomic()
+    {
+        assert(m_atomic_context_ptr);
+        m_atomic_context_ptr = nullptr;
+
         m_v_object_cache.endAtomic();
         getGC0().endAtomic();
         Memspace::endAtomic();

@@ -405,7 +405,17 @@ namespace db0
         m_atomic_context_ptr = context;
     }
 
-    void Workspace::endAtomic() 
+    void Workspace::detach()
+    {        
+        // detach mutable fixtures only (as a preparation step before endAtomic)
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                fixture->detach();
+            }
+        }        
+    }
+    
+    void Workspace::endAtomic()
     {
         assert(m_atomic_context_ptr);
         // end atomic with all open fixtures

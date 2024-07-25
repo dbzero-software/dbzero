@@ -2,6 +2,7 @@ import pytest
 import dbzero_ce as db0
 from dbzero_ce import memo, no
 from datetime import datetime
+from itertools import islice
 
 
 @memo(singleton=True)
@@ -15,8 +16,11 @@ class Zorch:
         self.tasks = []
         # task queues by processor type
         self.task_queues = {}
+        # index related with the "last_update" property of TaskRunLog (does not store nulls)
+        self.ix_last_update = db0.index()
+        self.ix_completed_at = db0.index()
     
-
+    
 @memo
 class Task:
     def __init__(self, type, processor_type, data = None, key = None, parent = None,
@@ -63,16 +67,30 @@ class TaskRunLog:
     
 @memo
 class TaskQueue:
-    def __init__(self):
+    def __init__(self, prefix = None):
+        db0.set_prefix(self, prefix)
         # index corresponding to the "scheduled_at" property
         self.ix_scheduled_at = db0.index()
         # index related with the "deadline" property
         self.ix_deadline = db0.index()
         # index related with the "created_at" property
         self.ix_created_at = db0.index()
-        
+    
     def test_schedule(self):
         return self.ix_scheduled_at.range(None, datetime.now(), null_first=True)
+
+    def __grab_from(self, query, limit):
+        result = 0
+        for task in islice(query, limit):
+            db0.tags(task).remove("ready")        
+            result += 1
+        return result
+            
+    def test_grab(self, limit):        
+        return self.__grab_from(db0.find(Task, "ready"), limit)
+
+    def test_grab_sorted(self, limit):
+        return self.__grab_from(self.ix_created_at.sort(db0.find(Task, "ready")), limit)
 
 
 @memo
@@ -162,3 +180,24 @@ def test_atomic_push_tasks_find_runnable_pods(db0_fixture):
 
     zorch = Zorch()
     assert len(list(zorch.task_queues["q"].test_schedule())) == 1
+
+
+def test_atomic_grab_tasks_issue(db0_fixture):
+    prefix = "zorch-test-prefix"
+    zorch = Zorch(prefix=prefix)
+    for _ in range(2):
+        with db0.atomic():
+            for _ in range(2):
+                tq = zorch.task_queues.get("q", None)
+                if tq is None:
+                    tq = TaskQueue(prefix=prefix)
+                    zorch.task_queues["q"] = tq
+                
+                task = Task("etl", "etl", prefix=prefix)
+                db0.tags(task).add("ready")
+        
+    # open to change current prefix (to define the find's scope)
+    db0.open(prefix)
+    assert zorch.task_queues["q"].test_grab(2) == 2
+    assert zorch.task_queues["q"].test_grab(2) == 2
+    assert zorch.task_queues["q"].test_grab(2) == 0

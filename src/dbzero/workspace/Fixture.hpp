@@ -196,10 +196,11 @@ namespace db0
         inline AccessType getAccessType() const {
             return m_access_type;
         }
-
+        
         bool operator==(const Fixture &other) const;
         
         void beginAtomic(AtomicContext *context);
+        void detach();
         void endAtomic();
         
         void cancelAtomic();

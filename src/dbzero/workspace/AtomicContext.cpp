@@ -14,7 +14,7 @@ namespace db0
 
     // MEMO_OBJECT specialization
     template <> void detachObject<TypeId::MEMO_OBJECT, PyToolkit>(PyObjectPtr lang_value) {
-        PyToolkit::getTypeManager().extractObject(lang_value).detach();        
+        PyToolkit::getTypeManager().extractObject(lang_value).detach();
     }
 
     // DB0_BLOCK specialization
@@ -91,11 +91,14 @@ namespace db0
             return;
         }
 
+        // detach / flush all workspace objects first
+        m_workspace->detach();        
         // all objects from context need to be detached
         auto &type_manager = LangToolkit::getTypeManager();
         for (auto &object : m_objects) {
             detachObject<PyToolkit>(type_manager.getTypeId(object.get()), object.get());
-        }
+        }        
+
         m_workspace->endAtomic();
     }
     

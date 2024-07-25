@@ -1,5 +1,6 @@
 #include "BoundaryLock.hpp"
 #include <cstring>
+#include "utils.hpp"
 
 namespace db0
 

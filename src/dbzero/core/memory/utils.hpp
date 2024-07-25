@@ -16,6 +16,8 @@ namespace db0
 
     std::uint64_t getPageMask(std::size_t page_size);
 
+    void printBuffer(unsigned char *data, std::size_t len);
+    
     /**
      * Unconditionally align address to the page boundary
      * @param addr the address to align

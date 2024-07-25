@@ -15,8 +15,7 @@ namespace db0
         return shift;
     }
 
-    std::uint64_t getPageMask(std::size_t page_size)
-    {
+    std::uint64_t getPageMask(std::size_t page_size) {
         return page_size - 1;
     }
 
@@ -27,9 +26,17 @@ namespace db0
         return addr;
     }
 
-    std::uint64_t alignWideRange(std::uint64_t addr, std::size_t size, std::size_t page_size, int direction) 
-    {
+    std::uint64_t alignWideRange(std::uint64_t addr, std::size_t size, std::size_t page_size, int direction) {
         return size > (page_size << 1) ? alignAddress(addr, page_size, direction) : addr;
+    }
+
+    void printBuffer(unsigned char *data, std::size_t len)
+    {
+        std::cout << "buffer: ";
+        for (std::size_t i = 0; i < len; ++i) {
+            std::cout << (int)data[i] << " ";
+        }
+        std::cout << std::endl;
     }
 
 }

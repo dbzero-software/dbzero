@@ -158,8 +158,7 @@ namespace db0::object_model
             // bind singleton address (now that instance exists)
             if (m_type->isSingleton()) {
                 m_type->setSingletonAddress(*this);
-            }
-
+            }            
             initializer.close();
         }
 
@@ -583,7 +582,7 @@ namespace db0::object_model
         m_type->detach();
         // invalidate since detach is not supported by the MorphingBIndex
         m_kv_index = nullptr;
-        super_t::detach();
+        super_t::detach();   
     }
 
     void Object::commit() const

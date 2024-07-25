@@ -150,6 +150,9 @@ namespace db0::python
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());
             object.postInit(fixture);
+            // need to call modifyExt again after postInit because the instance has just been created
+            // and potentially needs to be included in the AtomicContext
+            self->modifyExt();
             // register weak-ref with the lang cache
             fixture->getLangCache().add(object.getAddress(), self, false);
         }

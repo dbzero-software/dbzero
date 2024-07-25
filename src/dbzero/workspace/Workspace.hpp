@@ -209,6 +209,7 @@ namespace db0
         std::optional<std::uint64_t> getDefaultUUID() const;
         
         void beginAtomic(AtomicContext *context);
+        void detach();
         void endAtomic();
         
         void cancelAtomic();

@@ -162,7 +162,7 @@ namespace db0::object_model
     }
 
     void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
-    {
+    {        
         using TypeId = db0::bindings::TypeId;
         if (nargs == 0) {
             return;
