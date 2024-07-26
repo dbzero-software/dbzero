@@ -450,7 +450,7 @@ namespace db0::object_model
                     << static_cast<std::uint16_t>(m_builder.getDataType()) << THROWF_END;
         }
     }
-
+    
     void Index::moveTo(db0::swine_ptr<Fixture> &fixture)
     {
         assert(hasInstance());
@@ -459,6 +459,13 @@ namespace db0::object_model
         // move instance to a different cache (changing its address)
         fixture->getLangCache().moveFrom(this->getFixture()->getLangCache(), getAddress(), 
             new_index.getAddress());
+        auto atomic_ctx_ptr = fixture->tryGetAtomicContext();
+        if (atomic_ctx_ptr) {
+            // move instance to a different atomic context (changing its address)
+            assert(this->getFixture()->tryGetAtomicContext());
+            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), getAddress(), new_index.getAddress());             
+        }
+        
         this->destroy();
         *this = std::move(new_index);
     }

@@ -11,7 +11,7 @@
 namespace db0
 
 {
-
+    
     // MEMO_OBJECT specialization
     template <> void detachObject<TypeId::MEMO_OBJECT, PyToolkit>(PyObjectPtr lang_value) {
         PyToolkit::getTypeManager().extractObject(lang_value).detach();
@@ -78,8 +78,8 @@ namespace db0
 
         // all objects from context need to be detached
         auto &type_manager = LangToolkit::getTypeManager();
-        for (auto &object : m_objects) {
-            detachObject<PyToolkit>(type_manager.getTypeId(object.get()), object.get());
+        for (auto &pair : m_objects) {
+            detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
         }
         m_workspace->cancelAtomic();
         m_active = false;
@@ -95,15 +95,27 @@ namespace db0
         m_workspace->detach();        
         // all objects from context need to be detached
         auto &type_manager = LangToolkit::getTypeManager();
-        for (auto &object : m_objects) {
-            detachObject<PyToolkit>(type_manager.getTypeId(object.get()), object.get());
+        for (auto &pair : m_objects) {
+            detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
         }        
 
         m_workspace->endAtomic();
     }
     
-    void AtomicContext::add(ObjectPtr lang_object) {
-        m_objects.insert(lang_object);
+    void AtomicContext::add(std::uint64_t address, ObjectPtr lang_object) 
+    {        
+        if (m_objects.find(address) == m_objects.end()) {
+            m_objects.insert({address, lang_object});            
+        }        
+    }
+
+    void AtomicContext::moveFrom(AtomicContext &other, std::uint64_t src_address, std::uint64_t dst_address)
+    {
+        auto it = other.m_objects.find(src_address);
+        if (it != other.m_objects.end()) {
+            add(dst_address, it->second.get());
+            other.m_objects.erase(it);
+        }
     }
 
 }

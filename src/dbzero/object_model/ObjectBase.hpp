@@ -189,7 +189,7 @@ namespace db0
             if (fixture) {
                 auto atomic_context_ptr = fixture->tryGetAtomicContext();
                 if (atomic_context_ptr) {
-                    atomic_context_ptr->add(ptr);
+                    atomic_context_ptr->add(this->getAddress(), ptr);
                 }
             }
         }

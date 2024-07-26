@@ -21,7 +21,7 @@ namespace db0::object_model
             object.moveTo(fixture);
         }
     }
-
+    
     // INTEGER specialization
     template <> Value createMember<TypeId::INTEGER, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr lang_value)
     {

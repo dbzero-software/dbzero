@@ -48,16 +48,19 @@ namespace db0
         AtomicContext(std::shared_ptr<Workspace> &);
 
         // Register specific instance with the current transaction (for rollback/detach)
-        void add(ObjectPtr);
-
+        void add(std::uint64_t address, ObjectPtr);
+        
+        // Try moving instance from a different AtomicContext
+        void moveFrom(AtomicContext &, std::uint64_t src_address, std::uint64_t dst_address);
+        
         void cancel();
         void exit();
-        
+                
         static void makeNew(void *, std::shared_ptr<Workspace> &);
-
+        
     private:
         std::shared_ptr<Workspace> m_workspace;
-        std::unordered_set<ObjectSharedPtr> m_objects;
+        std::unordered_map<std::uint64_t, ObjectSharedPtr> m_objects;
         bool m_active = true;
     };
 
