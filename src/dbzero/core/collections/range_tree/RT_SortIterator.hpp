@@ -2,6 +2,7 @@
 
 #include "RangeTree.hpp"
 #include "IndexBase.hpp"
+#include "FastQueue.hpp"
 #include <dbzero/core/collections/full_text/FT_IteratorBase.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
@@ -52,6 +53,7 @@ namespace db0
 
 		bool isEnd() const override;
 
+        // @param buf to ValueT type
         void next(void *buf = nullptr) override;
         
         const std::type_info &keyTypeId() const override;
@@ -110,14 +112,14 @@ namespace db0
             , m_null_first(null_first)
             , m_has_query(has_query)
             , m_null_query_it(beginNullBlockQuery())
-            , m_inner_it(std::move(inner_it))
-            // force end if they underlying query is end / empty
-            , m_force_end(m_has_query && (!m_query_it || m_query_it->isEnd()))
+            , m_inner_it(std::move(inner_it)) 
+            , m_is_end(m_has_query && (!m_query_it || m_query_it->isEnd()))
         {
             if (m_tree_it.isEnd()) {
                 m_null_it = std::move(m_null_query_it);
                 m_null_query_it = nullptr;
             }
+            fetchNext();            
         }
         
         struct HeapItem
@@ -127,6 +129,12 @@ namespace db0
 
             HeapItem() = default;
 
+            inline HeapItem(const KeyT &key, const ValueT &value)
+                : m_key(key)
+                , m_value(value)
+            {
+            }
+            
             // construct from block item
             inline HeapItem(const BlockItemT &item)
                 : m_key(item.m_key)
@@ -144,12 +152,11 @@ namespace db0
         std::vector<ValueT> m_sort_buffer;
         // the sort key associated with the sort buffer (if it's not empty)
         KeyT m_sort_key;
-        // the look-ahead item
-        bool m_has_lh_item = false;
-        // flag indicating if the look-ahead item is null-key
-        bool m_lh_is_null = false;
-        HeapItem m_lh_item;
-        bool m_force_end = false;
+        // the look-ahead queue (up to 2 items + is null key flag)
+        FastQueue<std::pair<HeapItem, bool>, 2> m_lh_queue;
+        // fetch queue (non-final items)
+        FastQueue<std::pair<HeapItem, bool>, 2> m_fetch_queue;
+        bool m_is_end = false;
 
         struct MaxCompT
         {
@@ -174,34 +181,19 @@ namespace db0
         };
 
         std::unique_ptr<FT_Iterator<ValueT> > beginNullBlockQuery();
-
+        
         /**
          * Internal implementation without the look-ahead logic
-         * @return true if a null key was fetched
+         * @return false if no more items available
          */
-        bool _next(ValueT *value_buf, KeyT *key_buf = nullptr);
+        bool tryNextSorted(HeapItem &, bool &next_key_null);
 
-        /**
-         * Pulls the next item and maintain the look-ahead buffer
-         * @return true if a null key was fetched
-         */        
-        bool nextItem(HeapItem &next_item);
-
-        // checks end condition without the look-ahead logic
-        inline bool _isEndNoLH() const {
-            return m_items.empty() && ((m_has_query && !m_query_it) || m_tree_it.isEnd()) && !m_null_it && !m_sorted_it;
-        }
-
-        /**
-         * Internal and inlined version of isEnd
-        */
-        inline bool _isEnd() const {
-            return (this->_isEndNoLH() && !m_has_lh_item) || m_force_end;
-        }
+        // Feed the next item into the look-ahead buffer (if anything available)
+        void fetchNext();
     };
     
     template <typename KeyT, typename ValueT> bool RT_SortIterator<KeyT, ValueT>::isEnd() const {
-        return this->_isEnd();
+        return m_lh_queue.empty();
     }
     
     template <typename KeyT, typename ValueT> std::unique_ptr<FT_Iterator<ValueT> >
@@ -232,38 +224,53 @@ namespace db0
     }
 
     template <typename KeyT, typename ValueT> void RT_SortIterator<KeyT, ValueT>::next(void *buf)
-    {        
-        assert(!this->_isEnd());
+    {
+        // pulls from the the look-ahead buffer and tries retrieving the next element        
+        if (buf) {
+            *static_cast<ValueT*>(buf) = m_lh_queue.head().first.m_value;
+        }
+        m_lh_queue.pop();        
+        fetchNext();        
+    }
+
+    template <typename KeyT, typename ValueT> void RT_SortIterator<KeyT, ValueT>::fetchNext()
+    {
+        if (m_is_end) {
+            return;
+        }
         if (m_inner_it) {
             for (;;) {
                 // pull from inner sorted iterator if available
                 if (m_sorted_it) {
-                    m_sorted_it->next(buf);
+                    assert(!m_sorted_it->isEnd());
+                    ValueT value;
+                    m_sorted_it->next(&value);
+                    m_lh_queue.push(std::make_pair(HeapItem(m_sort_key, value), false));
                     if (m_sorted_it->isEnd()) {
                         m_sorted_it = nullptr;
                         m_sort_buffer.clear();
                         if (m_sorted_null_block) {
                             // end the iterator after completing the null block
-                            m_force_end = true;
+                            m_is_end = true;
                         }
                     }
                     return;
                 }
-
-                HeapItem next_item;
-                bool next_key_null = nextItem(next_item);
-                if (buf) {
-                    *static_cast<ValueT*>(buf) = next_item.m_value;
+                
+                HeapItem next_item_1;
+                bool next_key_null_1 = false;
+                if (!tryNextSorted(next_item_1, next_key_null_1)) {
+                    return;
                 }
-
-                if (next_key_null) {
-                    // since the null are was reached, finished with combining the 
+                
+                if (next_key_null_1) {
+                    // since the null area was reached, finish with combining the
                     // null block and the inner sorted iterator
                     m_sorted_it = m_inner_it->beginSorted(beginNullBlockQuery());
                     if (m_sorted_it->isEnd()) {
                         // edge case when null items cannot be joined with the inner iterator
                         m_sorted_it = nullptr;
-                        m_force_end = true;
+                        m_is_end = true;
                         return;
                     }
                     m_sorted_null_block = true;
@@ -271,115 +278,134 @@ namespace db0
                     continue;
                 }
 
-                // collect identical keys into the sort buffer
-                if (m_has_lh_item && m_lh_item.m_key == next_item.m_key) {
-                    while (m_has_lh_item && m_lh_item.m_key == next_item.m_key && !m_lh_is_null) {
-                        m_sort_buffer.push_back(next_item.m_value);
-                        next_key_null = nextItem(next_item);
-                    }
-                    m_sort_buffer.push_back(next_item.m_value);
-                } else {                
-                    // no look-ahead items, just return
+                HeapItem next_item_2;
+                bool next_key_null_2 = false;
+                if (!tryNextSorted(next_item_2, next_key_null_2)) {
+                    m_lh_queue.push(std::make_pair(next_item_1, next_key_null_1));
                     return;
                 }
-                
-                std::sort(m_sort_buffer.begin(), m_sort_buffer.end());
-                // resolve sort order with the underlying sorted iterator
-                // FIXME: #opt for small buffers we should improve performance here
-                using MemoryIndexT = FT_MemoryIndex<ValueT>;
-                auto inner_query = std::make_unique<FT_IndexIterator<MemoryIndexT, ValueT>>(
-                    MemoryIndexT(m_sort_buffer.data(), m_sort_buffer.data() + m_sort_buffer.size()), -1
-                    );
-                // sort the buffer with the inner iterator
-                m_sorted_it = m_inner_it->beginSorted(std::move(inner_query));
-                m_sorted_null_block = false;
-                // it might happen that values are not present in the inner iterator
-                if (m_sorted_it->isEnd()) {
-                    m_sorted_it = nullptr;
-                    m_sort_buffer.clear();
-                }                
+
+                // Collect identical keys into the sort buffer
+                if (!next_key_null_2 && next_item_1.m_key == next_item_2.m_key) {
+                    m_sort_buffer.push_back(next_item_1.m_value);                    
+                    m_sort_buffer.push_back(next_item_2.m_value);
+                    m_sort_key = next_item_1.m_key;
+                    while (tryNextSorted(next_item_2, next_key_null_2)) {
+                        if (!next_key_null_2 && next_item_1.m_key == next_item_2.m_key) {
+                            m_sort_buffer.push_back(next_item_2.m_value);
+                        } else {
+                            // return item to fetch buffer
+                            m_fetch_queue.push(std::make_pair(next_item_2, next_key_null_2));
+                            break;
+                        }
+                    }
+
+                    assert(m_sort_buffer.size() > 1);
+                    std::sort(m_sort_buffer.begin(), m_sort_buffer.end());
+                    // resolve sort order with the underlying sorted iterator
+                    // FIXME: #opt for small buffers we should improve performance here
+                    using MemoryIndexT = FT_MemoryIndex<ValueT>;
+                    auto inner_query = std::make_unique<FT_IndexIterator<MemoryIndexT, ValueT>>(
+                        MemoryIndexT(m_sort_buffer.data(), m_sort_buffer.data() + m_sort_buffer.size()), -1
+                        );
+                    
+                    // sort the buffer with the inner iterator
+                    m_sorted_it = m_inner_it->beginSorted(std::move(inner_query));
+                    m_sorted_null_block = false;
+                    // it might happen that values are not present in the inner iterator (need to be ignored)
+                    if (m_sorted_it->isEnd()) {
+                        m_sorted_it = nullptr;
+                        m_sort_buffer.clear();
+                    }
+
+                } else {
+                    // return item 2 to fetch buffer
+                    m_fetch_queue.push(std::make_pair(next_item_2, next_key_null_2));
+                    m_lh_queue.push(std::make_pair(next_item_1, next_key_null_1));
+                    return;
+                }
             }
         } else {
-            this->_next(static_cast<ValueT*>(buf));
+            HeapItem next_item;
+            bool next_key_null = false;
+            if (tryNextSorted(next_item, next_key_null)) {
+                m_lh_queue.push(std::make_pair(next_item, next_key_null));
+            }
         }
     }
 
     template <typename KeyT, typename ValueT>
-    bool RT_SortIterator<KeyT, ValueT>::nextItem(HeapItem &next_item)
+    bool RT_SortIterator<KeyT, ValueT>::tryNextSorted(HeapItem &next_item, bool &next_key_null)
     {
-        assert(!this->_isEnd());
-        if (!m_has_lh_item) {            
-            // feed the 1st lh-item
-            m_lh_is_null = this->_next(&m_lh_item.m_value, &m_lh_item.m_key);
-            m_has_lh_item = true;
+        // pull from the fetch queue if not empty
+        if (!m_fetch_queue.empty()) {
+            next_item = m_fetch_queue.head().first;
+            next_key_null = m_fetch_queue.head().second;            
+            m_fetch_queue.pop();
+            return true;
         }
 
-        // pull item from the lh-buffer
-        next_item = m_lh_item;
-        bool result = m_lh_is_null;
-        // feed the lh-buffer
-        if (this->_isEndNoLH()) {
-            m_has_lh_item = false;
-            assert(this->_isEnd());
-        } else {
-            m_lh_is_null = this->_next(&m_lh_item.m_value, &m_lh_item.m_key);
-        }
-        return result;
-    }
-
-    template <typename KeyT, typename ValueT>
-    bool RT_SortIterator<KeyT, ValueT>::_next(ValueT *value_buf, KeyT *key_buf)
-    {
-        assert(!isEnd());
+        next_key_null = false;
         using RT_IteratorT = typename RT_TreeT::BlockT::FT_IteratorT;
         // pull null values first (if asc and nulls first policy has been set)
         if (m_null_query_it && m_null_first == m_asc) {
             m_null_it = std::move(m_null_query_it);
             m_null_query_it = nullptr;
         }
+
         for (;;) {
             // pull from heap if anything available there
             if (!m_items.empty()) {
-                if (value_buf) {
-                    *value_buf = m_items.front().m_value;
-                }
-                if (key_buf) {
-                    *key_buf = m_items.front().m_key;
-                }
+                next_item = m_items.front();
                 if (m_asc) {
                     std::pop_heap(m_items.begin(), m_items.end(), MinCompT());
                 } else {
                     std::pop_heap(m_items.begin(), m_items.end(), MaxCompT());
                 }
                 m_items.pop_back();
-                return false;
+                return true;
             }
             
             // pull directly from the null block iterator if available
             if (m_null_it) {
-                m_null_it->next(value_buf);
+                m_null_it->next(&next_item.m_value);
                 if (m_null_it->isEnd()) {
                     m_null_it = nullptr;
                 }
-                // return true to indicate null key
+                // set flat to true to indicate null key
+                next_key_null = true;
                 return true;
             }
             
+            if (m_tree_it.isEnd()) {
+                if (m_null_first != m_asc) {
+                    m_null_it = std::move(m_null_query_it);
+                    m_null_query_it = nullptr;
+                    if (!m_null_it) {                        
+                        return false;
+                    }
+                    // continue with null items
+                    continue;
+                } else {                    
+                    return false;
+                }
+            }
+
             // ingest another range (block of data) by joining with the query iterator
             FT_ANDIteratorFactory<ValueT> and_factory;
             if (m_has_query) {
                 and_factory.add(m_query_it->beginTyped(-1));
             }
-            auto rt_tree_it = m_tree_it->makeIterator();            
+
+            auto rt_tree_it = m_tree_it->makeIterator();
             auto rt_tree_it_uid = rt_tree_it->getUID();
             and_factory.add(std::move(rt_tree_it));
             auto it = and_factory.release(-1);
 
             // find the range-tree iterator in the query tree (always available)
             auto inner_it = it->find(rt_tree_it_uid);
-            // no results if no inner it
+            // inner iterator may not exist (e.g. if no join was found)
             if (inner_it) {
-                assert(inner_it);
                 // cast to well known type
                 const auto &rt_inner_it = *static_cast<const RT_IteratorT*>(inner_it);
                 while (!it->isEnd()) {  
@@ -394,15 +420,11 @@ namespace db0
                 }
             }
             
+            // continue with the next range
             m_tree_it.next();
-            // initialize the null-key block query as the last step (depending on null first policy)
-            if (m_tree_it.isEnd() && m_null_first != m_asc) {
-                m_null_it = std::move(m_null_query_it);
-                m_null_query_it = nullptr;
-            }
         }
     }
-    
+
     template <typename KeyT, typename ValueT> std::ostream &RT_SortIterator<KeyT, ValueT>::dump(std::ostream &os) const {
         return os << "RT_SortIterator";        
     }

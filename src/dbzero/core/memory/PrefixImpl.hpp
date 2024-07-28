@@ -143,6 +143,14 @@ namespace db0
     template <typename StorageT> MemLock PrefixImpl<StorageT>::mapRange(std::uint64_t address, std::size_t size, 
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode) const
     {
+        // FIXME: log
+        /*
+        bool is_tracked = (address == 14425);
+        if (is_tracked) {
+            std::cout << "mapRange: " << address << ",state = " << state_num << ", " << access_mode << std::endl;  
+        }
+        */
+
         assert(state_num > 0);
         // create flag must be accompanied by write flag
         assert(!access_mode[AccessOptions::create] || access_mode[AccessOptions::write]);
@@ -162,7 +170,13 @@ namespace db0
         } else {
             auto addr_offset = address & (m_page_size - 1);
             // boundary ranges are NOT page aligned
-            if ((end_page == first_page + 2) && addr_offset) {                
+            if ((end_page == first_page + 2) && addr_offset) {
+                // FIXME: log
+                /*
+                if (is_tracked) {
+                    std::cout << "Boundary range: " << address << std::endl;
+                }
+                */
                 // create mode not allowed for boundary range
                 access_mode.set(AccessOptions::create, false);
                 lock = mapBoundaryRange(first_page, address, size, state_num, access_mode);
@@ -172,6 +186,13 @@ namespace db0
                 lock = mapWideRange(first_page, end_page, state_num, access_mode);
             }
         }
+
+        // FIXME: log
+        /*
+        if (is_tracked) {
+            printBuffer((unsigned char*)lock->getBuffer(address), size);
+        }
+        */
 
         assert(lock);        
         // fetch data from storage if not initialized

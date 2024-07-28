@@ -9,8 +9,7 @@ from itertools import islice
 class Zorch:
     def __init__(self, prefix = None):
         db0.set_prefix(self, prefix)
-        # set of keys to prevent task duplication
-        # FIXME: can be replaced with a bloom filter in future versions
+        # set of keys to prevent task duplication        
         self.keys = set()
         # this list of root-level tasks
         self.tasks = []
@@ -19,8 +18,8 @@ class Zorch:
         # index related with the "last_update" property of TaskRunLog (does not store nulls)
         self.ix_last_update = db0.index()
         self.ix_completed_at = db0.index()
-    
-    
+        
+            
 @memo
 class Task:
     def __init__(self, type, processor_type, data = None, key = None, parent = None,
@@ -50,6 +49,7 @@ class Task:
         self.child_tasks = []
         self.requirements = requirements        
         self.max_retry = None
+        self.root = parent.root if parent is not None else self
     
 
 @memo
@@ -79,12 +79,10 @@ class TaskQueue:
     def test_schedule(self):
         return self.ix_scheduled_at.range(None, datetime.now(), null_first=True)
 
-    def __grab_from(self, query, limit):
-        result = 0
-        for task in islice(query, limit):
-            db0.tags(task).remove("ready")        
-            result += 1
-        return result
+    def __grab_from(self, query, limit):        
+        tasks = list(islice(query, limit))        
+        db0.tags(*tasks).remove("ready")        
+        return len(tasks)
             
     def test_grab(self, limit):        
         return self.__grab_from(db0.find(Task, "ready"), limit)
@@ -182,7 +180,7 @@ def test_atomic_push_tasks_find_runnable_pods(db0_fixture):
     assert len(list(zorch.task_queues["q"].test_schedule())) == 1
 
 
-def test_atomic_grab_tasks_issue(db0_fixture):
+def test_atomic_grab_tasks_issue_1(db0_fixture):
     prefix = "zorch-test-prefix"
     zorch = Zorch(prefix=prefix)
     for _ in range(2):
@@ -195,9 +193,36 @@ def test_atomic_grab_tasks_issue(db0_fixture):
                 
                 task = Task("etl", "etl", prefix=prefix)
                 db0.tags(task).add("ready")
-        
+    
     # open to change current prefix (to define the find's scope)
     db0.open(prefix)
     assert zorch.task_queues["q"].test_grab(2) == 2
     assert zorch.task_queues["q"].test_grab(2) == 2
     assert zorch.task_queues["q"].test_grab(2) == 0
+
+
+def test_atomic_grab_tasks_issue_2(db0_fixture):
+    prefix = "zorch-test-prefix"    
+    for _ in range(6):
+        zorch = Zorch(prefix=prefix)
+        with db0.atomic():
+            for _ in range(6):
+                tq = zorch.task_queues.get("etl", None)
+                if tq is None:
+                    tq = TaskQueue(prefix=prefix)
+                    zorch.task_queues["etl"] = tq
+                
+                task = Task("etl", "etl", prefix=prefix)
+                tq.ix_created_at.add(datetime.now(), task)
+                db0.tags(task).add("ready")
+    
+    # open to change current prefix (to define the find's scope)
+    db0.open(prefix)
+    
+    def __grab_sorted(limit):
+        zorch = Zorch(prefix=prefix)
+        return zorch.task_queues["etl"].test_grab_sorted(limit)
+    
+    assert __grab_sorted(2) == 2
+    assert __grab_sorted(2) == 2
+    assert __grab_sorted(2) == 2    

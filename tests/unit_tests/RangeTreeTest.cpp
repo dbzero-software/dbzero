@@ -187,7 +187,7 @@ namespace tests
         }
         ASSERT_EQ(_str.str(), "13:6;");
     }
-
+    
     TEST_F( RangeTreeTest , testRangeTreeValuesCanBeSortedUsingSortIterator )
     {
         using RangeTreeT = RangeTree<int, std::uint64_t>;

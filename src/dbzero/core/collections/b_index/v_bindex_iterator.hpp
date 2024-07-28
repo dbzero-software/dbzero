@@ -42,10 +42,10 @@ namespace db0
                 m_it_data = beginNode(m_node_iterator, true);
             }
         }
-
+        
         const item_t &operator*() const
         {
-            assert(!this->isEnd());            
+            assert(!this->isEnd());
             return *m_it_data;
         }
 
@@ -96,8 +96,7 @@ namespace db0
             return *this;
         }
 
-        bool isEnd() const
-        {
+        bool isEnd() const {
             return m_node_iterator == m_node_end;
         }
         
@@ -114,7 +113,7 @@ namespace db0
          * pull operation may be continued (until end reached)
          * NOTICE: must not call over end state iterator
          */
-        template <typename push_back_iterator> void pullBlock(push_back_iterator out) 
+        template <typename push_back_iterator> void pullBlock(push_back_iterator out)
         {
             while (!m_it_data.isEnd()) {
                 *out = *m_it_data;
@@ -160,8 +159,7 @@ namespace db0
             return this->m_node_iterator;
         }
         
-        bool tryAppendBlock(DataVectorT &&data_block)
-        {
+        bool tryAppendBlock(DataVectorT &&data_block) {
             return m_it_data.tryAppendBlock(std::move(data_block));
         }
 
@@ -206,8 +204,7 @@ namespace db0
                 }
             }
 
-            bool isEnd() const
-            {
+            bool isEnd() const {
                 return m_it_data == m_data_buf->end();
             }
 
@@ -240,8 +237,7 @@ namespace db0
                 return m_data_buf.empty();
             }
 
-            bool compact()
-            {
+            bool compact() {
                 return m_data_buf.compact();
             }
 
@@ -287,4 +283,4 @@ namespace db0
 
     };
 
-}  // dbz namespace {
+}  // db0 namespace {
