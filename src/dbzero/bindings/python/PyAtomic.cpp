@@ -62,10 +62,24 @@ namespace db0::python
         return self;
     }
     
-    PyObject *PyAtomic_exit(PyObject *self, PyObject *)
+    PyObject *PyAtomic_exit(PyObject *self, PyObject *args)
     {
-        reinterpret_cast<PyAtomic*>(self)->modifyExt().exit();
-        Py_RETURN_NONE;
+        // extract exception info from args
+        PyObject *exc_type, *exc_value, *traceback;
+        if (!PyArg_UnpackTuple(args, "exit", 3, 3, &exc_type, &exc_value, &traceback)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        // cancel atomic operation on exception an re-raise       
+        if (exc_type != Py_None) {
+            reinterpret_cast<PyAtomic*>(self)->modifyExt().cancel();
+            PyErr_SetObject(exc_type, exc_value);
+            return NULL;
+        } else {
+            reinterpret_cast<PyAtomic*>(self)->modifyExt().exit();
+            Py_RETURN_NONE;
+        }        
     }
 
     PyObject *tryPyAtomic_cancel(PyObject *self) 
