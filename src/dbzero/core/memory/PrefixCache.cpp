@@ -109,6 +109,10 @@ namespace db0
             result = std::make_shared<BoundaryLock>(m_storage, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
             // register with the read state number
             m_boundary_map.insertPage(read_state_num, result, first_page);
+            // the new lock may need to be registered as volatile
+            if (access_mode[AccessOptions::no_flush]) {
+                m_volatile_boundary_locks.push_back(result);
+            }
         }
 
         // in case of a boundary lock the address must be precisely matched
@@ -149,13 +153,14 @@ namespace db0
         return result;
     }
     
-    std::shared_ptr<BoundaryLock> PrefixCache::insertCopy(std::uint64_t address, std::size_t size, std::shared_ptr<ResourceLock> lhs,
-        std::shared_ptr<ResourceLock> rhs, std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
+    std::shared_ptr<BoundaryLock> PrefixCache::insertCopy(std::uint64_t address, std::size_t size,
+        const BoundaryLock &lock, std::shared_ptr<ResourceLock> lhs, std::shared_ptr<ResourceLock> rhs, 
+        std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
     {
         auto lhs_size = ((lhs->getAddress() + lhs->size()) - address);
         auto rhs_size = size - lhs_size;
         assert(!isCreateNew(access_mode) && "Cannot use create mode for BoundaryLocks");
-        auto result = std::make_shared<BoundaryLock>(m_storage, address, lhs, lhs_size, rhs, rhs_size, access_mode, false);
+        auto result = std::make_shared<BoundaryLock>(m_storage, address, lock, lhs, lhs_size, rhs, rhs_size, access_mode);
         m_boundary_map.insertPage(state_num, result, address >> m_shift);
         
         // note that BoundaryLocks are not recycled
@@ -212,6 +217,13 @@ namespace db0
         return m_boundary_map.empty() && m_page_map.empty();
     }
     
+    void PrefixCache::flushBoundary()
+    {
+        m_boundary_map.forEach([&](BaseLock &lock) {
+            lock.flush();
+        });
+    }
+
     void PrefixCache::flush()
     {
         // flush all dirty locks with the related storage, this is a synchronous operation
@@ -235,7 +247,7 @@ namespace db0
         // remove all volatile locks
         for (auto &lock: m_volatile_boundary_locks) {
             // erase range
-            eraseRange(lock->getAddress(), lock->size(), state_num);
+            eraseBoundaryRange(lock->getAddress(), lock->size(), state_num);
         }
         m_volatile_boundary_locks.clear();
         for (auto &lock: m_volatile_locks) {
@@ -244,17 +256,22 @@ namespace db0
         }
         m_volatile_locks.clear();
     }
-
+    
     void PrefixCache::eraseRange(std::uint64_t address, std::size_t size, std::uint64_t state_num)
     {
         auto first_page = address >> m_shift;
         auto end_page = ((address + size - 1) >> m_shift) + 1;        
-        if (isBoundaryRange(first_page, end_page, address & m_mask)) {
-            m_boundary_map.erasePage(state_num, first_page);
-        }
-        m_page_map.eraseRange(state_num, first_page, end_page);
+        assert(!isBoundaryRange(first_page, end_page, address & m_mask));
+        m_page_map.eraseRange(state_num, first_page, end_page);        
     }
-    
+
+    void PrefixCache::eraseBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num)
+    {
+        auto first_page = address >> m_shift;
+        assert(isBoundaryRange(first_page, ((address + size - 1) >> m_shift) + 1, address & m_mask));
+        m_boundary_map.erasePage(state_num, first_page);
+    }
+
     void PrefixCache::replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
         std::shared_ptr<ResourceLock> new_lock)
     {
@@ -265,15 +282,27 @@ namespace db0
         if (m_page_map.replaceRange(state_num, new_lock, first_page, end_page)) {
             // must clear the no_flush flag if lock was reused
             new_lock->resetNoFlush();
+        }        
+    }
+    
+    void PrefixCache::replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+        std::shared_ptr<BoundaryLock> new_lock)
+    {
+        auto first_page = address >> m_shift;
+        assert(isBoundaryRange(first_page, ((address + size - 1) >> m_shift) + 1, address & m_mask));
+        if (m_boundary_map.replacePage(state_num, new_lock, first_page)) {
+            // must clear the no_flush flag if lock was reused
+            new_lock->resetNoFlush();
         }
     }
     
     void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num)
     {
-        // simply erase volatile boundary locks
+        // merge boundary locks first
         for (auto &lock: m_volatile_boundary_locks) {
             // erase volatile range related lock
-            eraseRange(lock->getAddress(), lock->size(), from_state_num);
+            eraseBoundaryRange(lock->getAddress(), lock->size(), from_state_num);
+            replaceBoundaryRange(lock->getAddress(), lock->size(), to_state_num, lock);
         }
         m_volatile_boundary_locks.clear();
 

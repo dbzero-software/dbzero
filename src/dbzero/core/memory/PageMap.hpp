@@ -58,11 +58,11 @@ namespace db0
         void erasePage(std::uint64_t state_num, std::uint64_t page_num);
         void eraseRange(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page);        
         
-        void replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num);
-
         // @return true if the lock was reused (inserted into the existing range)
         bool replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t first_page,
             std::uint64_t end_page);
+        // @return true if the lock was reused (inserted into the existing range)
+        bool replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num);
 
         void clear();
 
@@ -268,13 +268,22 @@ namespace db0
     }
     
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock,
+    bool PageMap<ResourceLockT>::replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
         std::uint64_t page_num)
     {
-        erasePage(state_num, page_num);
-        insertPage(state_num, lock, page_num);
+        std::uint64_t existing_state_num;
+        auto existing_lock = findPage(state_num, page_num, existing_state_num);
+        if (existing_lock && existing_state_num == state_num) {
+            assert(existing_lock->size() == lock->size());
+            // apply changes from the lock being merged
+            existing_lock->copyFrom(*lock);
+            return false;
+        } else {
+            insertPage(state_num, lock, page_num);
+            return true;
+        }
     }
-    
+
     template <typename ResourceLockT>
     bool PageMap<ResourceLockT>::replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock,
         std::uint64_t first_page, std::uint64_t end_page)
@@ -291,7 +300,7 @@ namespace db0
             return true;
         }
     }
-    
+       
     template <typename ResourceLockT>
     std::size_t PageMap<ResourceLockT>::size() const {
         return m_cache.size();

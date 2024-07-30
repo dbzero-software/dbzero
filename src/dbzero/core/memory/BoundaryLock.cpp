@@ -24,6 +24,21 @@ namespace db0
         }
     }
     
+    BoundaryLock::BoundaryLock(BaseStorage &storage, std::uint64_t address, const BoundaryLock &lock,
+        std::shared_ptr<ResourceLock> lhs, std::size_t lhs_size,
+        std::shared_ptr<ResourceLock> rhs, std::size_t rhs_size, 
+        FlagSet<AccessOptions> access_mode)
+        // important to use no_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
+        : BaseLock(storage, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache, false)
+        , m_lhs(lhs)
+        , m_lhs_size(lhs_size)
+        , m_rhs(rhs)
+        , m_rhs_size(rhs_size)
+    {
+        // copy existing data
+        std::memcpy(m_data.data(), lock.m_data.data(), lock.m_data.size());
+    }
+
     BoundaryLock::~BoundaryLock()
     {
         // internal BoundaryLock flush can be performed on destruction since it's a non-IO operation        
@@ -48,7 +63,7 @@ namespace db0
                 // reset the dirty flag
                 lock.commit_reset();
             }
-        }        
+        }
     }
     
     void BoundaryLock::flush()

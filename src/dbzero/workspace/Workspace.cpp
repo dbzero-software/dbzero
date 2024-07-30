@@ -392,7 +392,7 @@ namespace db0
     db0::swine_ptr<Fixture> Workspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type) {
         return getFixtureEx(prefix_name, access_type);
     }
-
+    
     void Workspace::beginAtomic(AtomicContext *context)
     {
         assert(!m_atomic_context_ptr);
@@ -414,7 +414,7 @@ namespace db0
             }
         }        
     }
-    
+     
     void Workspace::endAtomic()
     {
         assert(m_atomic_context_ptr);

@@ -454,5 +454,31 @@ namespace tests
         
         cut.close();
     }
+    
+    TEST_F( PrefixImplTest , testAtomicBoundaryUpdatesWithPreExistingLocks )
+    {
+        BDevStorage::create(file_name);
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, file_name);
+        auto page_size = cut.getPageSize();
+
+        // create boundary range in state = 1 but don't flush it
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });        
+        memcpy(w1.modify(), "12345678", 8);
+        
+        // update the pre-existing boundary lock as atomic
+        cut.beginAtomic();
+        {
+            auto w2 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read, AccessOptions::write });
+            memcpy((char*)w2.modify() + 2, "abcd", 4);
+            w2.release();
+        }
+        cut.endAtomic();
+        w1.release();
+        
+        auto lock = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read, AccessOptions::write });
+        auto str_value = std::string((char *)lock.m_buffer, 8);
+        ASSERT_EQ(str_value, "12abcd78");
+        cut.close();
+    }
 
 }

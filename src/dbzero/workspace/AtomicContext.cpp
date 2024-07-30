@@ -91,14 +91,14 @@ namespace db0
             return;
         }
 
-        // detach / flush all workspace objects first
-        m_workspace->detach();        
+        // detach / flush all workspace objects
+        m_workspace->detach();
         // all objects from context need to be detached
         auto &type_manager = LangToolkit::getTypeManager();
         for (auto &pair : m_objects) {
             detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
         }        
-
+        
         m_workspace->endAtomic();
     }
     

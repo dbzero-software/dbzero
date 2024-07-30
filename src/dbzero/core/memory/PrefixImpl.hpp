@@ -143,14 +143,6 @@ namespace db0
     template <typename StorageT> MemLock PrefixImpl<StorageT>::mapRange(std::uint64_t address, std::size_t size, 
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode) const
     {
-        // FIXME: log
-        /*
-        bool is_tracked = (address == 14425);
-        if (is_tracked) {
-            std::cout << "mapRange: " << address << ",state = " << state_num << ", " << access_mode << std::endl;  
-        }
-        */
-
         assert(state_num > 0);
         // create flag must be accompanied by write flag
         assert(!access_mode[AccessOptions::create] || access_mode[AccessOptions::write]);
@@ -171,12 +163,6 @@ namespace db0
             auto addr_offset = address & (m_page_size - 1);
             // boundary ranges are NOT page aligned
             if ((end_page == first_page + 2) && addr_offset) {
-                // FIXME: log
-                /*
-                if (is_tracked) {
-                    std::cout << "Boundary range: " << address << std::endl;
-                }
-                */
                 // create mode not allowed for boundary range
                 access_mode.set(AccessOptions::create, false);
                 lock = mapBoundaryRange(first_page, address, size, state_num, access_mode);
@@ -186,13 +172,6 @@ namespace db0
                 lock = mapWideRange(first_page, end_page, state_num, access_mode);
             }
         }
-
-        // FIXME: log
-        /*
-        if (is_tracked) {
-            printBuffer((unsigned char*)lock->getBuffer(address), size);
-        }
-        */
 
         assert(lock);        
         // fetch data from storage if not initialized
@@ -229,10 +208,10 @@ namespace db0
                     rhs = mapPage(first_page_num + 1, state_num, access_mode | AccessOptions::read);
                 }
                 // ... and finally the BoundaryLock on top of existing lhs / rhs locks
-                lock = m_cache.insertCopy(address, size, lhs, rhs, state_num, access_mode);
+                lock = m_cache.insertCopy(address, size, *lock, lhs, rhs, state_num, access_mode);
             }
         }
-
+                      
         return lock;
     }
     
@@ -389,6 +368,11 @@ namespace db0
     template <typename StorageT> void PrefixImpl<StorageT>::beginAtomic()
     {
         assert(!m_atomic);
+        // Flush all boundary locks before the start of a new atomic operation
+        // this is to avoid flushing (which in case of the boundary locks - mutates the underlying DPs)
+        // during the atomic operation. Otherwise it would result in a data inconsistency - 
+        // this is because the atomic operation needs to start over a DP-consistent state
+        m_cache.flushBoundary();
         // increment state number to allow isolation
         ++m_head_state_num;
         m_atomic = true;

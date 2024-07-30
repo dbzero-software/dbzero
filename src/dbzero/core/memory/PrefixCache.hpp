@@ -68,8 +68,9 @@ namespace db0
         /**
          * Insert a copy of an existing BoundaryLock
          */
-        std::shared_ptr<BoundaryLock> insertCopy(std::uint64_t address, std::size_t size, std::shared_ptr<ResourceLock> lhs, 
-            std::shared_ptr<ResourceLock> rhs, std::uint64_t state_num, FlagSet<AccessOptions> access_mode);
+        std::shared_ptr<BoundaryLock> insertCopy(std::uint64_t address, std::size_t size, const BoundaryLock &, 
+            std::shared_ptr<ResourceLock> lhs, std::shared_ptr<ResourceLock> rhs, std::uint64_t state_num, 
+            FlagSet<AccessOptions> access_mode);
         
         /**
          * Mark specific range as NOT available in cache (missing)
@@ -97,6 +98,9 @@ namespace db0
         */
         void flush();
 
+        // Flush managed boundary locks only
+        void flushBoundary();
+
         /**
          * Relase / rollback all locks stored by the cache
          * this is required for a proper winding down in unit tests
@@ -120,7 +124,7 @@ namespace db0
         const std::size_t m_page_size;
         const unsigned int m_shift;
         const std::uint64_t m_mask;
-        // boundary locks        
+        // boundary locks
         mutable PageMap<BoundaryLock> m_boundary_map;
         // regular resource locks (page-wise)
         mutable PageMap<ResourceLock> m_page_map;
@@ -138,9 +142,13 @@ namespace db0
         void forEach(std::function<void(BaseLock &)>) const;
         
         void eraseRange(std::uint64_t address, std::size_t size, std::uint64_t state_num);
+        void eraseBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num);
+
         // insert new or replace existing range
         void replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
             std::shared_ptr<ResourceLock> new_lock);
+        void replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+            std::shared_ptr<BoundaryLock> new_lock);
     };
 
 }

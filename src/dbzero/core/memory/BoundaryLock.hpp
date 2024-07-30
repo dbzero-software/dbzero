@@ -14,7 +14,11 @@ namespace db0
     {
     public:
         BoundaryLock(BaseStorage &, std::uint64_t address, std::shared_ptr<ResourceLock> lhs, std::size_t lhs_size,
-            std::shared_ptr<ResourceLock> rhs, std::size_t rhs_size, FlagSet<AccessOptions>, bool create_new = false);        
+            std::shared_ptr<ResourceLock> rhs, std::size_t rhs_size, FlagSet<AccessOptions>, bool create_new = false);
+        // Create copy of an existing BoundaryLock (for CoW)
+        BoundaryLock(BaseStorage &, std::uint64_t address, const BoundaryLock &lock, std::shared_ptr<ResourceLock> lhs, std::size_t lhs_size,
+            std::shared_ptr<ResourceLock> rhs, std::size_t rhs_size, FlagSet<AccessOptions>);
+        
         virtual ~BoundaryLock();
         
         void flush() override;
