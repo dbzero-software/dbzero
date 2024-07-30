@@ -138,7 +138,7 @@ namespace db0
         auto first_page = lock.getAddress() >> m_shift;
         auto end_page = ((lock.getAddress() + lock.size() - 1) >> m_shift) + 1;
         auto result = std::make_shared<ResourceLock>(lock, write_state_num, access_mode);
-        m_page_map.insertRange(write_state_num, result, first_page, end_page);
+        m_page_map.insertRange(result->getStateNum(), result, first_page, end_page);
 
         // register / update lock with the recycler
         if (m_cache_recycler_ptr) {
@@ -300,9 +300,11 @@ namespace db0
     {
         // merge boundary locks first
         for (auto &lock: m_volatile_boundary_locks) {
-            // erase volatile range related lock
-            eraseBoundaryRange(lock->getAddress(), lock->size(), from_state_num);
-            replaceBoundaryRange(lock->getAddress(), lock->size(), to_state_num, lock);
+            if (lock->isDirty()) {
+                // erase volatile range related lock
+                eraseBoundaryRange(lock->getAddress(), lock->size(), from_state_num);
+                replaceBoundaryRange(lock->getAddress(), lock->size(), to_state_num, lock);
+            }
         }
         m_volatile_boundary_locks.clear();
 
@@ -310,6 +312,8 @@ namespace db0
             if (lock->isDirty()) {
                 // erase volatile range related lock
                 eraseRange(lock->getAddress(), lock->size(), from_state_num);
+                // need to update to final state number before merging with active transaction
+                lock->merge(to_state_num);
                 replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);
             }
         }

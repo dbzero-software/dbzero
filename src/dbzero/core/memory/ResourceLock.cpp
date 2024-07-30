@@ -63,5 +63,12 @@ namespace db0
             m_access_mode.set(AccessOptions::no_flush);
         }
     }
+        
+    void ResourceLock::merge(std::uint64_t final_state_num)
+    {
+        // for atomic operations current state num is active transaction +1
+        assert(m_state_num == final_state_num + 1);
+        m_state_num = final_state_num;
+    }
     
 }

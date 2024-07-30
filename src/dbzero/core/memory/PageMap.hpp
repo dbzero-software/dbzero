@@ -44,9 +44,6 @@ namespace db0
         void insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT>, std::uint64_t first_page,
             std::uint64_t end_page);
 
-        void updateRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT>, std::uint64_t first_page,
-            std::uint64_t end_page);
-        
         void insertPage(std::uint64_t state_num, std::shared_ptr<ResourceLockT>, std::uint64_t page_num);
 
         void forEach(std::function<void(const ResourceLockT &)>) const;
@@ -91,11 +88,12 @@ namespace db0
         : m_shift(getPageShift(page_size))
     {
     }
-
-    template <typename ResourceLockT> 
+    
+    template <typename ResourceLockT>
     void PageMap<ResourceLockT>::insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
         std::uint64_t first_page, std::uint64_t end_page)
     {
+        assert(state_num == lock->getStateNum());
         PageKeyT key { first_page, state_num };
         while (key.first != end_page) {
             // this is to overwrite existing keys which may already exist
@@ -104,22 +102,7 @@ namespace db0
             ++key.first;
         }
     }
-    
-    template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::updateRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
-        std::uint64_t first_page, std::uint64_t end_page)
-    {
-        PageKeyT key { first_page, state_num };
-        while (key.first != end_page) {
-            auto it = m_cache.find(key);
-            if (it == m_cache.end()) {
-                THROWF(InternalException) << "PageMap::updateRange: lock not found for page " << key.first << " in state " << key.second;
-            }
-            it->second = lock;
-            ++key.first;
-        }
-    }
-    
+        
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::insertPage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num)
     {

@@ -55,6 +55,9 @@ namespace db0
         
         std::uint64_t getStateNum() const;
         
+        // Updates the local state number before merging atomic operation with active transaction
+        void merge(std::uint64_t final_state_num);
+        
     protected:
         // the updated state number or read-only state number
         std::uint64_t m_state_num;
