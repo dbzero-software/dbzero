@@ -335,4 +335,25 @@ def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_2(db0_fixtur
             obj.value.add(datetime.now(), MemoScopedClass(None, prefix=prefix))
     
     assert len(list(obj.value.range(None, datetime.now(), null_first=True))) == 9
+
+
+def test_atomic_operation_auto_canceled_on_exception(db0_fixture):
+    object_1 = MemoTestClass(123)
+    try:
+        with db0.atomic() as atomic:
+            object_1.value = 951
+            raise Exception("Test exception")
+    except Exception:
+        pass
+    assert object_1.value == 123
+    
+    
+def test_atomic_context_reraises_exception(db0_fixture):
+    object_1 = MemoTestClass(123)
+    try:
+        with db0.atomic() as atomic:
+            object_1.value = 951
+            raise RuntimeError("Test exception")
+    except RuntimeError as e:
+        assert str(e) == "Test exception"
     

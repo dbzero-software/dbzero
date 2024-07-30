@@ -101,13 +101,13 @@ namespace db0
             ++key.first;
         }
     }
-        
+    
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::insertPage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num)
     {
         m_cache.insert({{page_num, state_num}, lock});
     }
-
+    
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::forEach(std::function<void(const ResourceLockT &)> f) const {
         for (const auto &p: m_cache) {
