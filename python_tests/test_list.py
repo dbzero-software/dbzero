@@ -342,3 +342,16 @@ def test_db0_list_append_in_multiple_transactions(db0_fixture):
     db0.commit()
     cut.append(1)    
     assert len(cut) == 2
+    
+    
+@pytest.mark.stress_test
+def test_list_append_stress_test(db0_fixture):
+    append_count = 1000000
+    cut = db0.list()
+    for i in range(append_count):
+        cut.append(i)
+    
+    # validate list's contents with random access
+    for i in range(append_count):
+        assert cut[i] == i
+    assert len(cut) == append_count    

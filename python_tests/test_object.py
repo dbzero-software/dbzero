@@ -1,5 +1,6 @@
 import pytest
 import dbzero_ce as db0
+from .memo_test_types import MemoTestClass
 
 
 @db0.memo()
@@ -178,3 +179,32 @@ def test_memo_object_equality(db0_fixture):
     assert object_1 == object3
     assert object_2.value_2 == object_1
     assert object_1 != object_2
+    
+    
+@pytest.mark.stress_test
+def test_create_random_objects_stress_test(db0_fixture):    
+    def rand_string(max_len):
+        import random
+        import string
+        actual_len = random.randint(1, max_len)
+        return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
+    
+    append_count = 100000
+    buf = []
+    for i in range(append_count):
+        buf.append(MemoTestClass(rand_string(8192)))
+        
+        
+@pytest.mark.stress_test
+def test_create_random_objects_with_short_members(db0_fixture):    
+    def rand_string(max_len):
+        import random
+        import string
+        actual_len = random.randint(1, max_len)
+        return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
+    
+    append_count = 100000
+    buf = []
+    for i in range(append_count):
+        buf.append(MemoTestClass(rand_string(32)))
+    

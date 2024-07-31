@@ -61,7 +61,7 @@ namespace db0::python
         Py_IncRef(self);
         return self;
     }
-    
+
     PyObject *PyAtomic_exit(PyObject *self, PyObject *args)
     {
         // extract exception info from args
@@ -81,7 +81,7 @@ namespace db0::python
             Py_RETURN_NONE;
         }        
     }
-
+    
     PyObject *tryPyAtomic_cancel(PyObject *self) 
     {
         reinterpret_cast<PyAtomic*>(self)->modifyExt().cancel();
