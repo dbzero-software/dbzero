@@ -36,18 +36,19 @@ namespace db0
     public: 
         using iterator = typename super_t::iterator;
         using const_iterator = typename super_t::const_iterator;
+        using HeapCompT = typename super_t::HeapCompT;
         
-        o_sgb_compressed_lookup_tree_node(const KeyItemT &item, CapacityT capacity)
+        o_sgb_compressed_lookup_tree_node(const KeyItemT &item, CapacityT capacity, const HeapCompT &comp)
             : ext_t(capacity)
         {
             // make sure at least 1 item can be appended
             assert(capacity >= this->measureSizeOf(1));
             // initialize header by compressing the key item (first item in the node)
             // need to append with base, otherwise is_sorted_flag would be erased
-            base_t::append(this->header().compressFirst(item));
+            base_t::append(comp, this->header().compressFirst(item));
         }
-
-        static std::size_t measure(const KeyItemT &, CapacityT capacity) {
+        
+        static std::size_t measure(const KeyItemT &, CapacityT capacity, const HeapCompT &) {
             return capacity;
         }
 
@@ -58,48 +59,49 @@ namespace db0
             return this->header().uncompress(super_t::keyItem());
         }
         
-        iterator append(const KeyItemT &item) {
-            return super_t::append(this->header().compress(item));
+        iterator append(const HeapCompT &comp, const KeyItemT &item) {
+            return super_t::append(comp, this->header().compress(item));
         }
 
         /**
          * Rebalance sorted node by moving items after "at" to the other node
          * and finally removing the "at" item
         */
-        void rebalance_at(const_iterator at, o_sgb_compressed_lookup_tree_node &other) 
+        void rebalance_at(const_iterator at, o_sgb_compressed_lookup_tree_node &other, const HeapCompT &comp)
         {
             assert(this->is_sorted());
             if (this->is_reversed()) {
-                rebalance_at<ReverseOperators<const_iterator> >(at, other);
+                rebalance_at<ReverseOperators<const_iterator> >(at, other, comp);
             } else {
-                rebalance_at<Operators<const_iterator> >(at, other);
+                rebalance_at<Operators<const_iterator> >(at, other, comp);
             }
         }
         
     protected:
         
-        template <typename op> void rebalance_at(const_iterator at, o_sgb_compressed_lookup_tree_node &other) 
+        template <typename op> void rebalance_at(const_iterator at, o_sgb_compressed_lookup_tree_node &other, 
+            const HeapCompT &comp)
         {
             assert(this->is_sorted());
             auto len = op::sub(this->cend(), at);
             op::next(at);
-            other.append_sorted<op>(*this, at, this->cend());
+            other.append_sorted<op>(*this, at, this->cend(), comp);
             // remove elements including "at"
             this->m_size -= len;
         }
 
         template <typename op_src> void append_sorted(const o_sgb_compressed_lookup_tree_node &from, 
-            const_iterator begin, const_iterator end) 
+            const_iterator begin, const_iterator end, const HeapCompT &comp)
         {
             if (this->is_reversed()) {
-                append_sorted<op_src, ReverseOperators<iterator> >(from, begin, end);
+                append_sorted<op_src, ReverseOperators<iterator> >(from, begin, end, comp);
             } else {
-                append_sorted<op_src, Operators<iterator> >(from, begin, end);
+                append_sorted<op_src, Operators<iterator> >(from, begin, end, comp);
             }
         }
 
         template <typename op_src, typename op> void append_sorted(const o_sgb_compressed_lookup_tree_node &from,
-            const_iterator begin, const_iterator end) 
+            const_iterator begin, const_iterator end, const HeapCompT &comp)
         {            
             if (begin == end) {
                 return;
@@ -107,11 +109,13 @@ namespace db0
             
             const auto &from_head = from.header();
             auto &this_head = this->header();
-            if (!this->is_sorted() || super_t::heapComp.itemComp(this_head.compress(from_head.uncompress(*begin)), *this->find_max())) {
+            if (!this->is_sorted() || 
+                comp.itemComp(this_head.compress(from_head.uncompress(*begin)), *this->find_max(comp))) 
+            {
                 // must append one-by-one
                 while (begin != end) {
                     // change element's base (uncompress / compress)
-                    super_t::append(this_head.compress(from_head.uncompress(*begin)));
+                    super_t::append(comp, this_head.compress(from_head.uncompress(*begin)));
                     op_src::next(begin);
                 }
             } else {
@@ -160,6 +164,7 @@ namespace db0
         using ptr_set_t = sgb_tree_ptr_set<AddressT>;
         using NodeT = SGB_IntrusiveNode<o_sgb_node_t, ItemT, ItemCompT, typename node_traits::comp_t, TreeHeaderT>;
         using CompT = typename NodeT::comp_t;
+        using HeapCompT = typename o_sgb_node_t::HeapCompT;
         
         using SG_TreeT = v_sgtree<NodeT, intrusive::detail::h_alpha_sqrt2_t>;
     };
@@ -208,16 +213,18 @@ namespace db0
         using sg_tree_const_iterator = typename super_t::sg_tree_const_iterator;
         using ItemIterator = typename super_t::ItemIterator;
         using ConstItemIterator = typename super_t::ConstItemIterator;
-        
+
         SGB_CompressedLookupTree(Memspace &memspace, std::size_t node_capacity, AccessType access_type,
-            unsigned int sort_threshold = 3)
-            : super_t(memspace, node_capacity, access_type, sort_threshold)            
+            const ItemCompT &item_cmp = ItemCompT(), const ItemEqualT &item_eq = ItemEqualT(),
+            unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
+            : super_t(memspace, node_capacity, access_type, item_cmp, item_eq, sort_thr)
         {
         }
         
         SGB_CompressedLookupTree(mptr ptr, std::size_t node_capacity, AccessType access_type,
-            unsigned int sort_threshold = 3)
-            : super_t(ptr, node_capacity, access_type, sort_threshold)            
+            const ItemCompT &item_cmp = ItemCompT(), const ItemEqualT &item_eq = ItemEqualT(),
+            unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
+            : super_t(ptr, node_capacity, access_type, item_cmp, item_eq, sort_thr)
         {
         }
 
@@ -299,19 +306,19 @@ namespace db0
             }
         }
 
-    private:        
+    private:
 
         template <typename... Args> void insert_into(sg_tree_const_iterator &node, int recursion, const ItemT &item)
         {
             // Split node if full or unable to fit item
             if (node->isFull() || ((node->size() > 2) && (recursion < 2) && !node->header().canFit(item))) {
                 // erase the max element and create the new node
-                auto item_ptr = node.modify().find_middle();
-                auto new_node = super_t::insert_equal(node->header().uncompress(*item_ptr), this->m_node_capacity);
+                auto item_ptr = node.modify().find_middle(this->m_heap_comp);
+                auto new_node = super_t::insert_equal(node->header().uncompress(*item_ptr), this->m_node_capacity, this->m_heap_comp);
                 // rebalance the nodes around the middle item and remove the middle item from "node"
-                node.modify().rebalance_at(item_ptr, new_node.modify());
+                node.modify().rebalance_at(item_ptr, new_node.modify(), this->m_heap_comp);
                 // append to either of the nodes
-                if (!ItemCompT()(item, new_node->keyItem())) {
+                if (!this->m_item_comp(item, new_node->keyItem())) {
                     insert_into(new_node, recursion + 1, item);
                     return;
                 }                
@@ -319,10 +326,10 @@ namespace db0
             
             if (!node->header().canFit(item)) {
                 // must insert a new node to be able to fit the new item
-                auto new_node = super_t::insert_equal(item, this->m_node_capacity);
+                auto new_node = super_t::insert_equal(item, this->m_node_capacity, this->m_heap_comp);
                 new_node->begin();                
-            } else {                
-                node.modify().append(item);            
+            } else {
+                node.modify().append(this->m_heap_comp, item);
             }
         }
 

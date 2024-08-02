@@ -25,6 +25,7 @@ namespace db0
         using node_const_iterator = typename TypesT::o_sgb_node_t::const_iterator;
         using sg_tree_const_iterator = typename super_t::const_iterator;
         using sgb_node_const_sorting_iterator = typename TypesT::o_sgb_node_t::const_sorting_iterator;
+        using HeapCompT = typename TypesT::HeapCompT;
 
         struct ItemIterator: std::pair<node_iterator, sg_tree_const_iterator>
         {
@@ -86,15 +87,17 @@ namespace db0
          * @param capacity default capacity of a single node
          * @tparam args optional arguments for the header's constructor
          */
-        SGB_TreeBase(Memspace &memspace, std::size_t node_capacity)
+        SGB_TreeBase(Memspace &memspace, std::size_t node_capacity, const ItemCompT &item_cmp = ItemCompT())
             : super_t(memspace, CompT(), node_capacity)
             , m_node_capacity(node_capacity)
+            , m_item_comp(item_cmp)
         {
         }
         
-        SGB_TreeBase(mptr ptr, std::size_t node_capacity)
+        SGB_TreeBase(mptr ptr, std::size_t node_capacity, const ItemCompT &item_cmp = ItemCompT())
             : super_t(ptr, CompT())
             , m_node_capacity(node_capacity)
+            , m_item_comp(item_cmp)
         {
         }
         
@@ -134,7 +137,7 @@ namespace db0
                 // rebalance the nodes
                 node.modify().rebalance(new_node.modify());
                 // append to either of the nodes
-                if (!ItemCompT()(ItemT(std::forward<Args>(args)...), new_node->keyItem())) {
+                if (!m_item_comp(ItemT(std::forward<Args>(args)...), new_node->keyItem())) {
                     return { new_node.modify().append(std::forward<Args>(args)...), new_node }; 
                 }
             }
@@ -522,9 +525,11 @@ namespace db0
         void detach() {
             super_t::detach();
         }
-
+        
     protected:
         const std::size_t m_node_capacity;
+        const ItemCompT m_item_comp;
+        const HeapCompT m_heap_comp;
 
         template <typename... Args> ItemIterator emplace_to_empty(Args&&... args)
         {
@@ -539,7 +544,9 @@ namespace db0
             // a mapped root address
             auto root_address = MappedAddress { this->getAddress() + offset, mem_lock.getSubrange(offset) };
             // create from the mapped address (no new alloc required)
-            auto new_node = super_t::insert_equal(ItemT(std::forward<Args>(args)...), residual_capacity, std::move(root_address));
+            auto new_node = super_t::insert_equal(
+                ItemT(std::forward<Args>(args)...), residual_capacity, this->m_heap_comp, std::move(root_address)
+            );
             return { new_node->begin(), new_node };
         }
                 
@@ -559,15 +566,15 @@ namespace db0
     {
         using super_t = SGB_TreeBase<sgb_types<ItemT, ItemCompT, ItemEqualT, CapacityT, AddressT, HeaderT, TreeHeaderT> >;
     public:
-        SGB_Tree(Memspace &memspace, std::size_t node_capacity)
-            : super_t(memspace, node_capacity)
+        SGB_Tree(Memspace &memspace, std::size_t node_capacity, const ItemCompT &item_comp = ItemCompT())
+            : super_t(memspace, node_capacity, item_comp)
         {
         }
         
-        SGB_Tree(mptr ptr, std::size_t node_capacity)
+        SGB_Tree(mptr ptr, std::size_t node_capacity, const ItemCompT &item_comp = ItemCompT())
             : super_t(ptr, node_capacity)
         {
         }
     };
-
+    
 }

@@ -61,6 +61,7 @@ namespace db0
     public: 
         using iterator = typename super_t::iterator;
         using const_iterator = typename super_t::const_iterator;
+        using HeapCompT = typename super_t::HeapCompT;
         
         o_sgb_lookup_tree_node(CapacityT capacity)
             : ext_t(capacity)
@@ -123,7 +124,7 @@ namespace db0
             return this->header().m_flags[LookupHeaderFlags::sorted];
         }
 
-        template <typename... Args> iterator append(Args&&... args)
+        template <typename... Args> iterator append(const HeapCompT &comp, Args&&... args)
         {
             assert(!this->isFull());
             *(this->end()) = ItemT(std::forward<Args>(args)...);
@@ -131,9 +132,9 @@ namespace db0
             // heapify (as min heap), return pointer to the position of the item
             iterator result;
             if (this->is_reversed()) {
-                result = dheap::rpush<D>(this->begin(), this->end(), super_t::heapComp);
+                result = dheap::rpush<D>(this->begin(), this->end(), comp);
             } else {
-                result = dheap::push<D>(this->begin(), this->end(), super_t::heapComp);
+                result = dheap::push<D>(this->begin(), this->end(), comp);
             }
             // reset the lookup counter and sorted flag
             this->header().reset();
@@ -145,20 +146,20 @@ namespace db0
          * 
          * @return true if item was erased
         */
-        template <typename KeyT> bool erase(const KeyT &key)
+        template <typename KeyT> bool erase(const KeyT &key, const HeapCompT &comp)
         {            
             if (this->is_reversed()) {
-                auto item_ptr = dheap::rfind<D>(this->begin(), this->end(), key, super_t::heapComp.itemEqual);
+                auto item_ptr = dheap::rfind<D>(this->begin(), this->end(), key, comp.itemEqual);
                 if (!item_ptr) {
                     return false;
                 }
-                dheap::rerase<D>(this->begin(), this->end(), item_ptr, super_t::heapComp);
+                dheap::rerase<D>(this->begin(), this->end(), item_ptr, comp);
             } else {
-                auto item_ptr = dheap::find<D>(this->begin(), this->end(), key, super_t::heapComp.itemEqual);
+                auto item_ptr = dheap::find<D>(this->begin(), this->end(), key, comp.itemEqual);
                 if (!item_ptr) {
                     return false;
                 }
-                dheap::erase<D>(this->begin(), this->end(), item_ptr, super_t::heapComp);
+                dheap::erase<D>(this->begin(), this->end(), item_ptr, comp);
             }
             --this->m_size;
             // reset the lookup counter and sorted flag
@@ -171,12 +172,12 @@ namespace db0
          * 
          * @return true if node is empty after the operation
         */
-        bool erase_existing(const_iterator item_ptr)
+        bool erase_existing(const_iterator item_ptr, const HeapCompT &comp)
         {            
             if (is_reversed()) {
-                dheap::rerase<D>(this->begin(), this->end(), const_cast<iterator>(item_ptr), super_t::heapComp);
+                dheap::rerase<D>(this->begin(), this->end(), const_cast<iterator>(item_ptr), comp);
             } else {
-                dheap::erase<D>(this->begin(), this->end(), const_cast<iterator>(item_ptr), super_t::heapComp);
+                dheap::erase<D>(this->begin(), this->end(), const_cast<iterator>(item_ptr), comp);
             }
             --this->m_size;
             this->header().reset();
@@ -187,16 +188,16 @@ namespace db0
             return this->header().m_flags[LookupHeaderFlags::reversed] ? -1 : 1;
         }
 
-        template <typename KeyT> const_iterator lower_equal_bound(const KeyT &key) const
+        template <typename KeyT> const_iterator lower_equal_bound(const KeyT &key, const HeapCompT &comp) const
         {
             const_iterator result = nullptr;
             if (is_sorted()) {
                 // if sorted, use binary search
                 const_iterator it, end_ = this->cend();
                 if (is_reversed()) {
-                    it = bisect::rlower_equal(this->cbegin(), end_, key, super_t::heapComp.itemComp);
+                    it = bisect::rlower_equal(this->cbegin(), end_, key, comp.itemComp);
                 } else {
-                    it = bisect::lower_equal(this->cbegin(), end_, key, super_t::heapComp.itemComp);
+                    it = bisect::lower_equal(this->cbegin(), end_, key, comp.itemComp);
                 }
                 if (it != end_) {
                     result = it;
@@ -205,8 +206,8 @@ namespace db0
                 // must scan all items otherwise
                 auto step_ = this->step();
                 for (auto it = this->cbegin(); it != this->cend(); it += step_) {
-                    if (!super_t::heapComp(*it, key)) {
-                        if (!result || super_t::heapComp(*it, *result)) {
+                    if (!comp(*it, key)) {
+                        if (!result || comp(*it, *result)) {
                             result = it;
                         }
                     }
@@ -215,16 +216,16 @@ namespace db0
             return result;
         }
         
-        void flipSort() 
+        void flipSort(const HeapCompT &comp) 
         {
             if (is_sorted()) {
                 // already sorted
                 return;
             }
             if (is_reversed()) {
-                dheap::rsort<D>(this->begin(), this->end(), this->last(), super_t::heapComp);
+                dheap::rsort<D>(this->begin(), this->end(), this->last(), comp);
             } else {
-                dheap::sort<D>(this->begin(), this->end(), this->last(), super_t::heapComp);
+                dheap::sort<D>(this->begin(), this->end(), this->last(), comp);
             }
             // flip the reversed flag
             this->header().m_flags.set(LookupHeaderFlags::reversed, !is_reversed());
@@ -268,20 +269,20 @@ namespace db0
             }
         }
         
-        const_iterator find_middle()
+        const_iterator find_middle(const HeapCompT &comp)
         {
             if (!is_sorted()) {
-                this->flipSort();
+                this->flipSort(comp);
             }
             return this->begin() + (this->size() >> 1) * this->step();
         }
 
-        const_iterator find_max() const 
+        const_iterator find_max(const HeapCompT &comp) const
         {
             if (is_sorted()) {
                 return this->cend() + this->step();
             }            
-            return super_t::find_max();
+            return super_t::find_max(comp);
         }
     };
 
@@ -308,6 +309,7 @@ namespace db0
         using ptr_set_t = sgb_tree_ptr_set<AddressT>;
         using NodeT = SGB_IntrusiveNode<o_sgb_node_t, ItemT, ItemCompT, typename node_traits::comp_t, TreeHeaderT>;
         using CompT = typename NodeT::comp_t;
+        using HeapCompT = typename o_sgb_node_t::HeapCompT;
         
         using SG_TreeT = v_sgtree<NodeT, intrusive::detail::h_alpha_sqrt2_t>;
     };
@@ -328,24 +330,28 @@ namespace db0
         using sg_tree_const_iterator = typename super_t::sg_tree_const_iterator;
         using ItemIterator = typename super_t::ItemIterator;
         using ConstItemIterator = typename super_t::ConstItemIterator;
+        using ItemCompT = typename TypesT::ItemCompT;
+        using ItemEqualT = typename TypesT::ItemEqualT;
+        using HeapCompT = typename TypesT::HeapCompT;
+        static constexpr unsigned int DEFAULT_SORT_THRESHOLD = 3;
 
         SGB_LookupTreeBase(Memspace &memspace, std::size_t node_capacity, AccessType access_type,
-            unsigned int sort_threshold = 3)
-            : super_t(memspace, node_capacity)
-            , m_sort_threshold(sort_threshold)
+            const ItemCompT item_cmp = ItemCompT(), unsigned int sort_thr = DEFAULT_SORT_THRESHOLD)
+            : super_t(memspace, node_capacity, item_cmp)
+            , m_sort_threshold(sort_thr)
             , m_access_type(access_type)
         {
         }
         
-        SGB_LookupTreeBase(mptr ptr, std::size_t node_capacity, AccessType access_type, 
-            unsigned int sort_threshold = 3)
-            : super_t(ptr, node_capacity)
-            , m_sort_threshold(sort_threshold)
+        SGB_LookupTreeBase(mptr ptr, std::size_t node_capacity, AccessType access_type,
+            const ItemCompT item_cmp = ItemCompT(), unsigned int sort_thr = DEFAULT_SORT_THRESHOLD)
+            : super_t(ptr, node_capacity, item_cmp)
+            , m_sort_threshold(sort_thr)
             , m_access_type(access_type)
         {
         }
 
-        void insert(const ItemT &item) 
+        void insert(const ItemT &item)
         {
             assert(m_access_type == AccessType::READ_WRITE);
             this->emplace(item);
@@ -399,7 +405,7 @@ namespace db0
                 return;
             }
             node.modify().flipSort();
-        }
+        }    
     };
     
     template <
@@ -416,13 +422,15 @@ namespace db0
     protected:
         using super_t = SGB_LookupTreeBase<sgb_lookup_types<ItemT, ItemCompT, ItemEqualT, CapacityT, AddressT, HeaderT, TreeHeaderT> >;
     public:
-        SGB_LookupTree(Memspace &memspace, std::size_t node_capacity, AccessType access_type, unsigned int sort_threshold = 3)
-            : super_t(memspace, node_capacity, access_type, sort_threshold)
+        SGB_LookupTree(Memspace &memspace, std::size_t node_capacity, AccessType access_type, 
+            const ItemCompT &item_cmp = ItemCompT(), unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
+            : super_t(memspace, node_capacity, access_type, item_cmp, sort_thr)
         {
         }
         
-        SGB_LookupTree(mptr ptr, std::size_t node_capacity, AccessType access_type, unsigned int sort_threshold = 3)
-            : super_t(ptr, node_capacity, access_type, sort_threshold)
+        SGB_LookupTree(mptr ptr, std::size_t node_capacity, AccessType access_type, 
+            const ItemCompT &item_cmp, unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
+            : super_t(ptr, node_capacity, access_type, item_cmp, sort_thr)
         {
         }
     };

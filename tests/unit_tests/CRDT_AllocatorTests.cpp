@@ -61,7 +61,7 @@ namespace tests
             m_blanks->insert(Blank(max_addr, 0x0));
         }
     };
-     
+    
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorCanAllocFromBlanks )
     {
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
@@ -335,5 +335,5 @@ namespace tests
             ASSERT_EQ(addr % page_size, 0);
         }
     }
-
+        
 }

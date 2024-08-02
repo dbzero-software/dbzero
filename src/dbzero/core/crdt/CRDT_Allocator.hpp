@@ -231,6 +231,12 @@ namespace db0
             Blank() = default;
             Blank(std::uint32_t size, std::uint32_t address);
 
+            // Get first aligned address within the blank (must satisfy aligned size > 0)
+            std::uint32_t getAlignedAddress(std::uint32_t mask, std::uint32_t page_size) const;
+            
+            // Get size of the aligned block within the blank
+            std::uint32_t getAlignedSize(std::uint32_t mask, std::uint32_t page_size) const;
+            
             struct CompT
             {
                 inline bool operator()(const Blank &lhs, const Blank &rhs) const {
@@ -244,12 +250,37 @@ namespace db0
                 }                
             };
 
+            // Comparator by aligned blank size
+            struct AlignedCompT
+            {
+                const std::uint32_t m_mask;
+                const std::uint32_t m_page_size;
+
+                AlignedCompT(std::uint32_t mask, std::uint32_t page_size)
+                    : m_mask(mask)
+                    , m_page_size(page_size) 
+                {                    
+                }
+
+                inline bool operator()(const Blank &lhs, const Blank &rhs) const
+                {
+                    if (lhs.getAlignedSize(m_mask, m_page_size) < rhs.getAlignedSize(m_mask, m_page_size)) {
+                        return true;
+                    } else if (lhs.getAlignedSize(m_mask, m_page_size) > rhs.getAlignedSize(m_mask, m_page_size)) {
+                        return false;
+                    } else {
+                        return lhs.m_address < rhs.m_address;
+                    }
+                }
+            };
+
             struct EqualT
             {
                 inline bool operator()(const Blank &lhs, const Blank &rhs) const {
-                    return lhs.m_size == rhs.m_size && lhs.m_address == rhs.m_address;
-                }                
-            };            
+                    // address is unique, it's sufficient to compare by the address only
+                    return lhs.m_address == rhs.m_address;
+                }
+            };
         };
         
         struct Stripe
@@ -300,6 +331,7 @@ namespace db0
 
         using AllocSetT = db0::SGB_Tree<Alloc, Alloc::CompT, Alloc::EqualT, std::uint16_t, std::uint32_t>;
         using BlankSetT = db0::SGB_Tree<Blank, Blank::CompT, Blank::EqualT, std::uint16_t, std::uint32_t>;
+        using AlignedBlankSetT = db0::SGB_Tree<Blank, Blank::AlignedCompT, Blank::EqualT, std::uint16_t, std::uint32_t>;
         using StripeSetT = db0::SGB_Tree<Stripe, Stripe::CompT, Stripe::EqualT, std::uint16_t, std::uint32_t>;
 
     public:
@@ -307,7 +339,7 @@ namespace db0
          * Construct the allocator from initialized containers
          * @param page_size required for page-aligned allocations
         */
-        CRDT_Allocator(AllocSetT &allocs, BlankSetT &blanks, BlankSetT &aligned_blanks, StripeSetT &stripes, 
+        CRDT_Allocator(AllocSetT &allocs, BlankSetT &blanks, AlignedBlankSetT &aligned_blanks, StripeSetT &stripes,
             std::uint32_t size, std::uint32_t page_size);
         ~CRDT_Allocator();
 
@@ -358,9 +390,8 @@ namespace db0
     private:
         AllocSetT &m_allocs;
         BlankSetT &m_blanks;
-        // the dedicated index for blanks where 0 < aligned_size < 2DP
-        // this is to overcome the "blind spot" problem of the aligned allocations
-        BlankSetT &m_aligned_blanks;
+        // additional index which organizes blanks (only where 0 < aligned size < 2DP)        
+        AlignedBlankSetT &m_aligned_blanks;
         StripeSetT &m_stripes;
         // size of the space available to the allocator (i.e. a single slab)
         std::uint32_t m_size;
@@ -403,26 +434,102 @@ namespace db0
         /**
          * Check if this blank is within current dynamic bounds (if set)
         */
-        bool inBounds(const Blank &, std::uint32_t min_size, std::optional<std::uint32_t> &cache) const;
+        template <typename IndexT> bool inBounds(const IndexT &, const Blank &, std::uint32_t min_size, 
+            std::optional<std::uint32_t> &cache) const;
+
+        // Get first accessible address from the blank from a given index
+        // the purpose of this function is to be able to retrieve aligned addresses if blank comes from the aligned index
+        template <typename IndexT> std::uint32_t getFirstAddress(const IndexT &, const Blank &) const;
 
         /**
          * Check if the unit taken from this allocation would be within current dynamic bounds (if set)
         */
         bool inBounds(const Alloc &, std::optional<std::uint32_t> &cache) const;
 
-        // Find blank of a given minimal size and remove it from the set
-        std::optional<Blank> tryPullBlank(std::uint32_t min_size);
-        
-        // Get first aligned address within the blank (must satisfy aligned size > 0)
-        std::uint32_t getAlignedAddress(const Blank &) const;
+        // Erase either from blanks or from aligned blanks
+        template <typename IndexT> void erase(IndexT &index, const Blank &);
 
-        // Get size of the aligned block within the blank        
-        std::uint32_t getAlignedSize(const Blank &) const;
+        // Find blank of a given minimal size and remove it from a specific index
+        template <typename IndexT> std::optional<Blank> tryPullBlank(IndexT &index, std::uint32_t min_size);
+
+        // Erase record from the corresponding indexes (m_blanks / m_aligned_blanks)
+        void erase(const Blank &);        
+        // Insert with proper indexes (m_blanks / m_aligned_blanks)
+        void insertBlank(const Blank &);
         
-        // Determine the index to which the blank should be inserted
-        BlankSetT &getBlankIndex(const Blank &) const;
+        // Checks if the aligned size is in the range 0 < aligned size < 1DP
+        bool isAligned(const Blank &) const;
     };
+    
+    template <typename IndexT> bool CRDT_Allocator::inBounds(const IndexT &index, const Blank &blank, std::uint32_t size,
+        std::optional<std::uint32_t> &cache) const
+    {
+        // this is to avoid unnecessary calls to bounds_fn
+        if (!cache && m_bounds_fn) {
+            cache = m_bounds_fn();
+        }
+        if (cache) {
+            return getFirstAddress(index, blank) + size <= *cache;
+        }
+        return true;
+    }
 
+    template <typename IndexT>
+    void CRDT_Allocator::erase(IndexT &index, const Blank &blank)
+    {
+        auto it = index.find_equal(blank);
+        if (!it.first) {
+            THROWF(db0::InternalException) << "CRDT_Allocator internal error: blank not found";
+        }
+        index.erase(it);
+    }
+    
+    template <typename IndexT>
+    std::optional<CRDT_Allocator::Blank> CRDT_Allocator::tryPullBlank(IndexT &index, std::uint32_t min_size)
+    {
+        // note that for aligned blanks the size will represent the aligned size
+        auto blank_ptr = index.upper_equal_bound(Blank(min_size, 0));
+        // no blank of sufficient size (or aligned size) exists
+        if (!blank_ptr) {
+            return std::nullopt;
+        }
+        
+        // validate dynamic bounds if such exist
+        Blank blank;
+        std::optional<std::uint32_t> cache;
+        if (inBounds(index, *blank_ptr.first, min_size, cache)) {
+            blank = *blank_ptr.first;
+        } else {
+            // try with other registered blanks (possibly bigger size)
+            auto it = index.upper_slice(blank_ptr);
+            ++it;
+            while (!it.is_end()) {
+                if ((*it).m_size >= min_size && inBounds(index, *it, min_size, cache)) {
+                    break;
+                }
+                ++it;
+            }
+            // no blanks of sufficient size / within bounds exist
+            if (it.is_end()) {
+                return std::nullopt;
+            }
+            blank = *it;
+        }
+        
+        // remove the blank
+        index.erase(blank_ptr);        
+        if ((void*)&index == (void*)&m_blanks && isAligned(blank)) {
+            // need also to remove from aligned blanks
+            erase(m_aligned_blanks, blank);
+        } else {
+            assert((void*)&index == (void*)&m_aligned_blanks);
+            // need also to remove from regular blanks (always present)
+            erase(m_blanks, blank);
+        }
+        
+        return blank;
+    }
+    
 }
 
 namespace std 

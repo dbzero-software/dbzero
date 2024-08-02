@@ -74,13 +74,11 @@ namespace db0
         {
         }
 
-        inline operator ptr_t&()
-        {
+        inline operator ptr_t&() {
             return this->v_this;
         }
         
-        inline operator const ptr_t&() const
-        {
+        inline operator const ptr_t&() const {
             return this->v_this;
         }
     };
@@ -108,6 +106,7 @@ namespace db0
         using ptr_set_t = sgb_tree_ptr_set<AddressT>;
         using NodeT = SGB_IntrusiveNode<o_sgb_node_t, ItemT, ItemCompT, typename node_traits::comp_t, TreeHeaderT>;
         using CompT = typename NodeT::comp_t;
+        using HeapCompT = typename o_sgb_node_t::HeapCompT;
         
         using SG_TreeT = v_sgtree<NodeT, intrusive::detail::h_alpha_sqrt2_t>;
     };
