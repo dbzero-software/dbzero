@@ -21,15 +21,18 @@ namespace db0
         // relative pointers (relative to the beginning of the slab)
         std::uint32_t m_alloc_set_ptr = 0;
         std::uint32_t m_blank_set_ptr = 0;
+        std::uint32_t m_aligned_blank_set_ptr = 0;
         std::uint32_t m_stripe_set_ptr = 0;
         std::uint32_t m_reserved[3] = {0};
 
         o_slab_header() = default;
         
-        o_slab_header(std::uint32_t size, std::uint32_t alloc_set_ptr, std::uint32_t blank_set_ptr, std::uint32_t stripe_set_ptr)
+        o_slab_header(std::uint32_t size, std::uint32_t alloc_set_ptr, std::uint32_t blank_set_ptr, 
+            std::uint32_t aligned_blank_set_ptr, std::uint32_t stripe_set_ptr)
             : m_size(size)
             , m_alloc_set_ptr(alloc_set_ptr)
             , m_blank_set_ptr(blank_set_ptr)
+            , m_aligned_blank_set_ptr(aligned_blank_set_ptr)
             , m_stripe_set_ptr(stripe_set_ptr)            
         {
         }
@@ -145,6 +148,7 @@ namespace db0
         BitSpace<SLAB_BITSPACE_SIZE()> m_bitspace;
         AllocSetT m_allocs;
         BlankSetT m_blanks;
+        BlankSetT m_aligned_blanks;
         StripeSetT m_stripes;
         CRDT_Allocator m_allocator;
         const std::optional<std::size_t> m_initial_remaining_capacity;

@@ -117,7 +117,7 @@ namespace db0
         struct Stripe;
         struct Blank;
 
-        // 12-bit allocation record
+        // 16-byte allocation record
         struct [[gnu::packed]] Alloc
         {
             std::uint32_t m_address = 0;
@@ -249,7 +249,7 @@ namespace db0
                 inline bool operator()(const Blank &lhs, const Blank &rhs) const {
                     return lhs.m_size == rhs.m_size && lhs.m_address == rhs.m_address;
                 }                
-            };
+            };            
         };
         
         struct Stripe
@@ -305,14 +305,21 @@ namespace db0
     public:
         /**
          * Construct the allocator from initialized containers
+         * @param page_size required for page-aligned allocations
         */
-        CRDT_Allocator(AllocSetT &allocs, BlankSetT &blanks, StripeSetT &stripes, std::uint32_t size);
-        
+        CRDT_Allocator(AllocSetT &allocs, BlankSetT &blanks, BlankSetT &aligned_blanks, StripeSetT &stripes, 
+            std::uint32_t size, std::uint32_t page_size);
         ~CRDT_Allocator();
 
-        std::uint64_t alloc(std::size_t size);
+        /**
+         * @param align if true, the allocation will be aligned to the page boundary
+         */
+        std::uint64_t alloc(std::size_t size, bool align = false);
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size);
+        /**
+         * @param align if true, the allocation will be aligned to the page boundary
+         */
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, bool align = false);
         
         void free(std::uint64_t address);
         
@@ -351,11 +358,17 @@ namespace db0
     private:
         AllocSetT &m_allocs;
         BlankSetT &m_blanks;
+        // the dedicated index for blanks where 0 < aligned_size < 2DP
+        // this is to overcome the "blind spot" problem of the aligned allocations
+        BlankSetT &m_aligned_blanks;
         StripeSetT &m_stripes;
-        // size of the space available to the allocator
+        // size of the space available to the allocator (i.e. a single slab)
         std::uint32_t m_size;
+        const std::uint32_t m_page_size;
+        const std::uint32_t m_shift;
+        const std::uint32_t m_mask;
         std::function<std::uint32_t()> m_bounds_fn;
-        // the largest allocated address
+        // the highest allocated address
         std::uint32_t m_max_addr = 0;
         // the cummulative size of performed allocations / deallocations since creation of this instance
         // can be a negative number
@@ -363,6 +376,8 @@ namespace db0
         // the purpose of this cache is to speed up allocations of identical size sequences
         std::unique_ptr<L0_Cache<crdt::L0_CACHE_SIZE> > m_cache;
         
+        std::optional<std::uint64_t> tryAlignedAlloc(std::size_t size);
+
         std::optional<std::uint32_t> tryAllocFromStripe(std::uint32_t size, std::uint32_t &last_stripe_units);
 
         std::optional<std::uint32_t> tryAllocFromStripe(typename StripeSetT::ConstItemIterator &, std::uint32_t &last_stripe_units,
@@ -375,7 +390,8 @@ namespace db0
          * @param count the number of strides to pre-allocate         
          * @return the address of the allocated unit or std::nullopt if unable to allocate
         */
-        std::optional<std::uint32_t> tryAllocFromBlanks(std::uint32_t stride, std::uint32_t count);
+        std::optional<std::uint32_t> tryAllocFromBlanks(std::uint32_t stride, std::uint32_t count);        
+        std::optional<std::uint32_t> tryAlignedAllocFromBlanks(std::uint32_t size);
         
         /**
          * Try reclaiming at least min_size bytes from registered stripes
@@ -393,6 +409,18 @@ namespace db0
          * Check if the unit taken from this allocation would be within current dynamic bounds (if set)
         */
         bool inBounds(const Alloc &, std::optional<std::uint32_t> &cache) const;
+
+        // Find blank of a given minimal size and remove it from the set
+        std::optional<Blank> tryPullBlank(std::uint32_t min_size);
+        
+        // Get first aligned address within the blank (must satisfy aligned size > 0)
+        std::uint32_t getAlignedAddress(const Blank &) const;
+
+        // Get size of the aligned block within the blank        
+        std::uint32_t getAlignedSize(const Blank &) const;
+        
+        // Determine the index to which the blank should be inserted
+        BlankSetT &getBlankIndex(const Blank &) const;
     };
 
 }

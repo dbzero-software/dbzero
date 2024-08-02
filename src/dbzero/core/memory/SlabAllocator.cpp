@@ -20,8 +20,9 @@ namespace db0
         // calculate relative pointers to CRDT Allocator data structures
         , m_allocs(m_bitspace.myPtr(begin_addr + m_header->m_alloc_set_ptr), page_size)
         , m_blanks(m_bitspace.myPtr(begin_addr + m_header->m_blank_set_ptr), page_size)
+        , m_aligned_blanks(m_bitspace.myPtr(begin_addr + m_header->m_aligned_blank_set_ptr), page_size)
         , m_stripes(m_bitspace.myPtr(begin_addr + m_header->m_stripe_set_ptr), page_size)
-        , m_allocator(m_allocs, m_blanks, m_stripes, m_header->m_size)
+        , m_allocator(m_allocs, m_blanks, m_aligned_blanks, m_stripes, m_header->m_size, page_size)
         , m_initial_remaining_capacity(remaining_capacity)
         , m_initial_admin_size(getAdminSpaceSize(true))
     {
@@ -89,6 +90,7 @@ namespace db0
         // create the CRDT allocator data structures on top of the bitspace
         AllocSetT allocs(bitspace, page_size);
         BlankSetT blanks(bitspace, page_size);
+        BlankSetT aligned_blanks(bitspace, page_size);
         StripeSetT stripes(bitspace, page_size);
         // calculate size initially available to CRTD allocator
         auto crdt_size = size - admin_size - 3 * page_size;
@@ -107,11 +109,12 @@ namespace db0
             // assign addresses relative to the slab beginning
             allocs.getAddress() - begin_addr,
             blanks.getAddress() - begin_addr,
+            aligned_blanks.getAddress() - begin_addr,
             stripes.getAddress() - begin_addr
             );
         return crdt_size;
     }
-
+    
     const std::size_t SlabAllocator::getSlabSize() const {
         return m_slab_size;
     }
@@ -177,6 +180,7 @@ namespace db0
         m_header.commit();
         m_allocs.commit();
         m_blanks.commit();
+        m_aligned_blanks.commit();
         m_stripes.commit();
         m_allocator.commit();
     }
@@ -186,6 +190,7 @@ namespace db0
         m_header.detach();
         m_allocs.detach();
         m_blanks.detach();
+        m_aligned_blanks.detach();
         m_stripes.detach();
         m_allocator.detach();
     }
