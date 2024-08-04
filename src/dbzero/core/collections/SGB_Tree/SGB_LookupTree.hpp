@@ -330,22 +330,24 @@ namespace db0
         using sg_tree_const_iterator = typename super_t::sg_tree_const_iterator;
         using ItemIterator = typename super_t::ItemIterator;
         using ConstItemIterator = typename super_t::ConstItemIterator;
-        using ItemCompT = typename TypesT::ItemCompT;
-        using ItemEqualT = typename TypesT::ItemEqualT;
+        using NodeItemCompT = typename TypesT::NodeItemCompT;
+        using NodeItemEqualT = typename TypesT::NodeItemEqualT;
         using HeapCompT = typename TypesT::HeapCompT;
         static constexpr unsigned int DEFAULT_SORT_THRESHOLD = 3;
 
-        SGB_LookupTreeBase(Memspace &memspace, std::size_t node_capacity, AccessType access_type,
-            const ItemCompT item_cmp = ItemCompT(), unsigned int sort_thr = DEFAULT_SORT_THRESHOLD)
-            : super_t(memspace, node_capacity, item_cmp)
+        SGB_LookupTreeBase(Memspace &memspace, std::size_t node_capacity, 
+            AccessType access_type, const NodeItemCompT item_cmp = {}, const NodeItemEqualT item_eq = {},
+            unsigned int sort_thr = DEFAULT_SORT_THRESHOLD)
+            : super_t(memspace, node_capacity, item_cmp, item_eq)
             , m_sort_threshold(sort_thr)
             , m_access_type(access_type)
         {
         }
         
-        SGB_LookupTreeBase(mptr ptr, std::size_t node_capacity, AccessType access_type,
-            const ItemCompT item_cmp = ItemCompT(), unsigned int sort_thr = DEFAULT_SORT_THRESHOLD)
-            : super_t(ptr, node_capacity, item_cmp)
+        SGB_LookupTreeBase(mptr ptr, std::size_t node_capacity,
+            AccessType access_type, const NodeItemCompT item_cmp = {}, const NodeItemEqualT item_eq = {},
+            unsigned int sort_thr = DEFAULT_SORT_THRESHOLD)
+            : super_t(ptr, node_capacity, item_cmp, item_eq)
             , m_sort_threshold(sort_thr)
             , m_access_type(access_type)
         {
@@ -404,7 +406,7 @@ namespace db0
                 // not enough lookups
                 return;
             }
-            node.modify().flipSort();
+            node.modify().flipSort(this->m_heap_comp);
         }    
     };
     

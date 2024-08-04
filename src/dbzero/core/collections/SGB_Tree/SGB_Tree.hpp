@@ -16,7 +16,6 @@ namespace db0
 
     public:
         using ItemT = typename TypesT::ItemT;
-        using ItemCompT = typename TypesT::ItemCompT;
         using CompT = typename TypesT::CompT;
         using AddressT = typename TypesT::AddressT;
         using NodeT = typename TypesT::NodeT;
@@ -25,6 +24,8 @@ namespace db0
         using node_const_iterator = typename TypesT::o_sgb_node_t::const_iterator;
         using sg_tree_const_iterator = typename super_t::const_iterator;
         using sgb_node_const_sorting_iterator = typename TypesT::o_sgb_node_t::const_sorting_iterator;
+        using NodeItemCompT = typename TypesT::NodeItemCompT;
+        using NodeItemEqualT = typename TypesT::NodeItemEqualT;
         using HeapCompT = typename TypesT::HeapCompT;
 
         struct ItemIterator: std::pair<node_iterator, sg_tree_const_iterator>
@@ -87,17 +88,21 @@ namespace db0
          * @param capacity default capacity of a single node
          * @tparam args optional arguments for the header's constructor
          */
-        SGB_TreeBase(Memspace &memspace, std::size_t node_capacity, const ItemCompT &item_cmp = ItemCompT())
+        SGB_TreeBase(Memspace &memspace, std::size_t node_capacity, 
+            const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {})
             : super_t(memspace, CompT(), node_capacity)
             , m_node_capacity(node_capacity)
             , m_item_comp(item_cmp)
+            , m_heap_comp(item_cmp, item_eq)
         {
         }
         
-        SGB_TreeBase(mptr ptr, std::size_t node_capacity, const ItemCompT &item_cmp = ItemCompT())
+        SGB_TreeBase(mptr ptr, std::size_t node_capacity, 
+            const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {})
             : super_t(ptr, CompT())
             , m_node_capacity(node_capacity)
             , m_item_comp(item_cmp)
+            , m_heap_comp(item_cmp, item_eq)
         {
         }
         
@@ -131,17 +136,17 @@ namespace db0
 
             if (node->isFull()) {
                 // erase the max element and create the new node
-                auto max_item_ptr = node->find_max();
-                auto new_node = super_t::insert_equal(*max_item_ptr, m_node_capacity);
-                node.modify().erase_existing(max_item_ptr);
+                auto max_item_ptr = node->find_max(m_heap_comp);
+                auto new_node = super_t::insert_equal(*max_item_ptr, m_node_capacity, m_heap_comp);
+                node.modify().erase_existing(max_item_ptr, m_heap_comp);
                 // rebalance the nodes
-                node.modify().rebalance(new_node.modify());
+                node.modify().rebalance(new_node.modify(), m_heap_comp);
                 // append to either of the nodes
                 if (!m_item_comp(ItemT(std::forward<Args>(args)...), new_node->keyItem())) {
-                    return { new_node.modify().append(std::forward<Args>(args)...), new_node }; 
+                    return { new_node.modify().append(m_heap_comp, std::forward<Args>(args)...), new_node };
                 }
             }
-            return { node.modify().append(std::forward<Args>(args)...), node };
+            return { node.modify().append(m_heap_comp, std::forward<Args>(args)...), node };
         }
 
         /**
@@ -156,7 +161,7 @@ namespace db0
             if (node == super_t::end()) {
                 return { false, NodeT() };
             }
-            if (!node.modify().erase(std::forward<Args>(args)...)) {
+            if (!node.modify().erase(std::forward<Args>(args)..., m_heap_comp)) {
                 return { false, NodeT() };
             }
             super_t::modify().m_sgb_size--;
@@ -178,7 +183,7 @@ namespace db0
             super_t::modify().m_sgb_size--;
             auto index = item.second->indexOf(item.first);
             // erase by index since item pointer gets modified (due to CoW)
-            if (const_cast<sg_tree_const_iterator &>(item.second).modify().erase_existing(index)) {
+            if (const_cast<sg_tree_const_iterator &>(item.second).modify().erase_existing(index, m_heap_comp)) {
                 // delete the entire node
                 super_t::erase(const_cast<sg_tree_const_iterator &>(item.second));
             }
@@ -346,7 +351,7 @@ namespace db0
         {
             assert(!item.is_end());
             super_t::modify().m_sgb_size--;
-            if (item.m_item_it.second.modify().erase_existing(item.m_item_it.first)) {
+            if (item.m_item_it.second.modify().erase_existing(item.m_item_it.first, m_heap_comp)) {
                 // delete the entire node
                 super_t::erase(item.m_item_it.second);
             }
@@ -375,7 +380,7 @@ namespace db0
             if (node == super_t::end()) {
                 return { nullptr, sg_tree_const_iterator() };
             }
-            return { node->lower_equal_bound(key), node };
+            return { node->lower_equal_bound(key, m_heap_comp), node };
         }
 
         template <typename KeyT> ConstItemIterator find_equal(const KeyT &key) const
@@ -384,7 +389,7 @@ namespace db0
             if (node == super_t::end()) {
                 return { nullptr, sg_tree_const_iterator() };
             }
-            return { node->find_equal(key), node };
+            return { node->find_equal(key, m_heap_comp), node };
         }
 
         template <typename KeyT> ConstItemIterator upper_equal_bound(const KeyT &key) const
@@ -396,13 +401,13 @@ namespace db0
             if (node == super_t::end()) {
                 node = super_t::begin();
             } else {
-                if (node->keyEqual(key) || node == super_t::begin()) {
+                if (node->keyEqual(key, m_heap_comp) || node == super_t::begin()) {
                     return { node->begin(), node };
                 }
                 // find value in the preceeding node                
                 --node;                
             }
-            return { node->upper_equal_bound(key), node };
+            return { node->upper_equal_bound(key, m_heap_comp), node };
         }
 
         /**
@@ -428,7 +433,7 @@ namespace db0
             }
             auto node = super_t::end();
             --node;
-            return { node->find_max(), node };
+            return { node->find_max(m_heap_comp), node };
         }
 
         /**
@@ -489,13 +494,13 @@ namespace db0
             }
             
             result[1].second = node;
-            result[1].first = node->lower_equal_window(key, result[0].first, result[2].first);
+            result[1].first = node->lower_equal_window(key, result[0].first, result[2].first, m_heap_comp);
             if (!result[0].first) {
                 // try finding in the preceeding SG-node
                 if (node != super_t::begin()) {
                     auto it = node;
                     --it;
-                    result[0] = { it->find_max(), it };
+                    result[0] = { it->find_max(m_heap_comp), it };
                 }
             }
             
@@ -528,7 +533,7 @@ namespace db0
         
     protected:
         const std::size_t m_node_capacity;
-        const ItemCompT m_item_comp;
+        const NodeItemCompT m_item_comp;
         const HeapCompT m_heap_comp;
 
         template <typename... Args> ItemIterator emplace_to_empty(Args&&... args)

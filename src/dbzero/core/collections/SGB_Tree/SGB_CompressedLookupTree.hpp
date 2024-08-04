@@ -164,6 +164,8 @@ namespace db0
         using ptr_set_t = sgb_tree_ptr_set<AddressT>;
         using NodeT = SGB_IntrusiveNode<o_sgb_node_t, ItemT, ItemCompT, typename node_traits::comp_t, TreeHeaderT>;
         using CompT = typename NodeT::comp_t;
+        using NodeItemCompT = typename o_sgb_node_t::CompT;
+        using NodeItemEqualT = typename o_sgb_node_t::EqualT;
         using HeapCompT = typename o_sgb_node_t::HeapCompT;
         
         using SG_TreeT = v_sgtree<NodeT, intrusive::detail::h_alpha_sqrt2_t>;
@@ -213,16 +215,18 @@ namespace db0
         using sg_tree_const_iterator = typename super_t::sg_tree_const_iterator;
         using ItemIterator = typename super_t::ItemIterator;
         using ConstItemIterator = typename super_t::ConstItemIterator;
+        using NodeItemCompT = typename super_t::NodeItemCompT;
+        using NodeItemEqualT = typename super_t::NodeItemEqualT;
 
-        SGB_CompressedLookupTree(Memspace &memspace, std::size_t node_capacity, AccessType access_type,
-            const ItemCompT &item_cmp = ItemCompT(), const ItemEqualT &item_eq = ItemEqualT(),
+        SGB_CompressedLookupTree(Memspace &memspace, std::size_t node_capacity,
+            AccessType access_type, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {},
             unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
             : super_t(memspace, node_capacity, access_type, item_cmp, item_eq, sort_thr)
         {
         }
         
-        SGB_CompressedLookupTree(mptr ptr, std::size_t node_capacity, AccessType access_type,
-            const ItemCompT &item_cmp = ItemCompT(), const ItemEqualT &item_eq = ItemEqualT(),
+        SGB_CompressedLookupTree(mptr ptr, std::size_t node_capacity,
+            AccessType access_type, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {},
             unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
             : super_t(ptr, node_capacity, access_type, item_cmp, item_eq, sort_thr)
         {
@@ -277,7 +281,7 @@ namespace db0
                 this->onNodeLookup(node);
             }
             // within the node look up by compressed key
-            auto item_ptr = node->lower_equal_bound(node->header().compress(key));
+            auto item_ptr = node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
             if (!item_ptr) {
                 return std::nullopt;
             }
@@ -307,6 +311,7 @@ namespace db0
         }
 
     private:
+        ItemCompT m_raw_item_comp;
 
         template <typename... Args> void insert_into(sg_tree_const_iterator &node, int recursion, const ItemT &item)
         {
@@ -318,10 +323,10 @@ namespace db0
                 // rebalance the nodes around the middle item and remove the middle item from "node"
                 node.modify().rebalance_at(item_ptr, new_node.modify(), this->m_heap_comp);
                 // append to either of the nodes
-                if (!this->m_item_comp(item, new_node->keyItem())) {
+                if (!this->m_raw_item_comp(item, new_node->keyItem())) {
                     insert_into(new_node, recursion + 1, item);
                     return;
-                }                
+                }
             }
             
             if (!node->header().canFit(item)) {

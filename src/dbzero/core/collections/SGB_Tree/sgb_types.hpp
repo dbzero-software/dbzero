@@ -106,6 +106,8 @@ namespace db0
         using ptr_set_t = sgb_tree_ptr_set<AddressT>;
         using NodeT = SGB_IntrusiveNode<o_sgb_node_t, ItemT, ItemCompT, typename node_traits::comp_t, TreeHeaderT>;
         using CompT = typename NodeT::comp_t;
+        using NodeItemCompT = typename o_sgb_node_t::CompT;
+        using NodeItemEqualT = typename o_sgb_node_t::EqualT;
         using HeapCompT = typename o_sgb_node_t::HeapCompT;
         
         using SG_TreeT = v_sgtree<NodeT, intrusive::detail::h_alpha_sqrt2_t>;

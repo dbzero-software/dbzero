@@ -37,6 +37,8 @@ namespace db0
         using Initializer = ItemT;
         using iterator = ItemT *;
         using const_iterator = const ItemT *;
+        using CompT = ItemCompT;
+        using EqualT = ItemEqualT;
 
         // tree pointers (possibly relative to slab)
         sgb_tree_ptr_set<AddressT> ptr_set;
@@ -51,6 +53,7 @@ namespace db0
             ItemCompT itemComp;
             ItemEqualT itemEqual;
 
+            HeapCompT() = default;
             HeapCompT(const ItemCompT &itemComp = ItemCompT(), const ItemEqualT &itemEqual = ItemEqualT())
                 : itemComp(itemComp)
                 , itemEqual(itemEqual)
@@ -80,17 +83,17 @@ namespace db0
         }
         
         /// Must be initialized with an item
-        o_sgb_tree_node(const ItemT &item, CapacityT capacity)
+        o_sgb_tree_node(const ItemT &item, CapacityT capacity, const HeapCompT &comp)
             : o_sgb_tree_node(capacity)
         {
-            this->append(item);
+            this->append(comp, item);
         }
 
         static std::size_t measure(CapacityT capacity) {
             return capacity;
         }
 
-        static std::size_t measure(const ItemT &, CapacityT capacity) {
+        static std::size_t measure(const ItemT &, CapacityT capacity, const HeapCompT &) {
             return capacity;
         }
 
@@ -186,8 +189,8 @@ namespace db0
             return m_size == 0;
         }
         
-        bool erase_existing(unsigned int item_index) {
-            return erase_existing(cbegin() + item_index);
+        bool erase_existing(unsigned int item_index, const HeapCompT &comp) {
+            return erase_existing(cbegin() + item_index, comp);
         }
 
         inline unsigned int indexOf(const_iterator item_ptr) const
@@ -397,8 +400,8 @@ namespace db0
                     if (comp.itemComp(*it, split_item)) {
                         ++it;
                     } else {
-                        other.append(*it);
-                        this->erase_existing(it);
+                        other.append(comp, *it);
+                        this->erase_existing(it, comp);
                         --end_;
                     }
                 }
