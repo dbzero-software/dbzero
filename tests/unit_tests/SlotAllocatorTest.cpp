@@ -28,7 +28,7 @@ namespace tests
         auto alloc = std::make_shared<EmbeddedAllocator>();
         auto slot_alloc = std::make_shared<EmbeddedAllocator>();
         std::stringstream _str;
-        slot_alloc->setAllocCallback([&](std::size_t size, std::uint32_t slot_num, std::optional<std::uint64_t>) {
+        slot_alloc->setAllocCallback([&](std::size_t, std::uint32_t slot_num, bool, std::optional<std::uint64_t>) {
             _str << "slot_num:" << slot_num;
         });
         SlotAllocator cut(alloc);

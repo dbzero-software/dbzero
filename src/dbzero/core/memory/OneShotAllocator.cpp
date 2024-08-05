@@ -12,9 +12,10 @@ namespace db0
     {
     }
 
-    std::optional<std::uint64_t> OneShotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num) 
+    std::optional<std::uint64_t> OneShotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
         assert(slot_num == 0);
+        assert(!aligned && "OneShotAllocator: aligned allocation not supported");
         if (size != m_size || m_allocated) {
             return std::nullopt;
         }

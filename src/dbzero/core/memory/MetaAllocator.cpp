@@ -580,7 +580,7 @@ namespace db0
         return meta_header.const_ref();
     }
     
-    std::optional<std::uint64_t> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num)
+    std::optional<std::uint64_t> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
         assert(slot_num == 0);
         assert(size > 0);
@@ -590,7 +590,7 @@ namespace db0
         bool is_new = false;
         for (;;) {
             if (slab.m_slab) {
-                auto addr = slab.m_slab->tryAlloc(size);
+                auto addr = slab.m_slab->tryAlloc(size, 0, aligned);
                 if (addr) {
                     return addr;
                 }
@@ -615,7 +615,7 @@ namespace db0
         }
     }
     
-    void MetaAllocator::free(std::uint64_t address) 
+    void MetaAllocator::free(std::uint64_t address)
     {
         auto slab_id = m_slab_id_function(address);
         auto slab = m_slab_manager->find(slab_id);

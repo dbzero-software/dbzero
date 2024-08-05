@@ -14,7 +14,8 @@ namespace db0
     public:
         OneShotAllocator(std::uint64_t addr, std::size_t size);
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0) override;
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
+            bool aligned = false) override;
         
         void free(std::uint64_t address) override;
 

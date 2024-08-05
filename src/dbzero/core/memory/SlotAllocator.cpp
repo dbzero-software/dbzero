@@ -23,8 +23,8 @@ namespace db0
         m_slots[slot_num] = slot_allocator;
     }
 
-    std::optional<std::uint64_t> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num) {
-        return select(slot_num).tryAlloc(size, 0);
+    std::optional<std::uint64_t> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned) {
+        return select(slot_num).tryAlloc(size, 0, aligned);
     }
 
     void SlotAllocator::free(std::uint64_t address) {

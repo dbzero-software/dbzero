@@ -26,6 +26,8 @@ namespace db0
         , m_initial_remaining_capacity(remaining_capacity)
         , m_initial_admin_size(getAdminSpaceSize(true))
     {
+        // For aligned allocations the begin address must be also aligned
+        assert(m_begin_addr % m_page_size == 0);
         // apply dynamic bound on the CRDT allocator to not assign addresses overlapping with the admin space
         // include ADMIN_SPAN bitspace allocations to allow margin for the admin space to grow
         std::uint64_t bounds_base = m_slab_size - (m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + ADMIN_SPAN * m_page_size);
@@ -46,12 +48,12 @@ namespace db0
         }
     }
 
-    std::optional<std::uint64_t> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num)
+    std::optional<std::uint64_t> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
         assert(slot_num == 0);
-        assert(size > 0);
+        assert(size > 0);        
         // obtain relative address from the underlying CRDT allocator
-        auto relative = m_allocator.tryAlloc(size);
+        auto relative = m_allocator.tryAlloc(size, aligned);
         if (relative) {
             m_alloc_delta += size;
             return makeAbsolute(*relative);

@@ -347,12 +347,12 @@ namespace db0
         /**
          * @param align if true, the allocation will be aligned to the page boundary
          */
-        std::uint64_t alloc(std::size_t size, bool align = false);
+        std::uint64_t alloc(std::size_t size, bool aligned = false);
         
         /**
          * @param align if true, the allocation will be aligned to the page boundary
          */
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, bool align = false);
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, bool aligned = false);
         
         void free(std::uint64_t address);
         

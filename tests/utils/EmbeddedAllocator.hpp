@@ -17,7 +17,7 @@ namespace db0
     public:
         EmbeddedAllocator() = default;
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t) override;
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t, bool aligned) override;
         
         void free(std::uint64_t address) override;
 
@@ -27,12 +27,13 @@ namespace db0
 
         void detach() override;
 
-        void setAllocCallback(std::function<void(std::size_t, std::uint32_t, std::optional<std::uint64_t>)> callback);
+        // size, slot_num, aligned, address (result)
+        void setAllocCallback(std::function<void(std::size_t, std::uint32_t, bool, std::optional<std::uint64_t>)> callback);
 
     private:
         unsigned int m_count = 0;
         std::unordered_map<std::uint64_t, std::size_t> m_allocations;
-        std::function<void(std::size_t, std::uint32_t, std::optional<std::uint64_t>)> m_alloc_callback;
+        std::function<void(std::size_t, std::uint32_t, bool, std::optional<std::uint64_t>)> m_alloc_callback;
     };
     
 }
