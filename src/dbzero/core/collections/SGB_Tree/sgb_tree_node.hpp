@@ -52,8 +52,7 @@ namespace db0
         {
             ItemCompT itemComp;
             ItemEqualT itemEqual;
-
-            HeapCompT() = default;
+            
             HeapCompT(const ItemCompT &itemComp = ItemCompT(), const ItemEqualT &itemEqual = ItemEqualT())
                 : itemComp(itemComp)
                 , itemEqual(itemEqual)
@@ -83,7 +82,7 @@ namespace db0
         }
         
         /// Must be initialized with an item
-        o_sgb_tree_node(const ItemT &item, CapacityT capacity, const HeapCompT &comp)
+        o_sgb_tree_node(const ItemT &item, CapacityT capacity, const HeapCompT &comp = {})
             : o_sgb_tree_node(capacity)
         {
             this->append(comp, item);
@@ -93,7 +92,7 @@ namespace db0
             return capacity;
         }
 
-        static std::size_t measure(const ItemT &, CapacityT capacity, const HeapCompT &) {
+        static std::size_t measure(const ItemT &, CapacityT capacity, const HeapCompT & = {}) {
             return capacity;
         }
 
@@ -281,8 +280,8 @@ namespace db0
             HeapCompT m_comp;
         };
         
-        const_sorting_iterator cbegin_sorted() const {
-            return const_sorting_iterator(cbegin(), cend());
+        const_sorting_iterator cbegin_sorted(const HeapCompT &comp) const {
+            return const_sorting_iterator(cbegin(), cend(), comp);
         }
 
         const_iterator find_max(const HeapCompT &comp) const {

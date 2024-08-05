@@ -23,7 +23,7 @@ namespace db0
         std::uint32_t m_blank_set_ptr = 0;
         std::uint32_t m_aligned_blank_set_ptr = 0;
         std::uint32_t m_stripe_set_ptr = 0;
-        std::uint32_t m_reserved[3] = {0};
+        std::uint32_t m_reserved[2] = {0};
 
         o_slab_header() = default;
         
@@ -133,11 +133,15 @@ namespace db0
         inline std::uint32_t makeRelative(std::uint64_t absolute) const {
             return absolute - m_begin_addr;
         }
-        
+            
     private:
+        // the number of administrative area pages
+        static constexpr std::uint32_t ADMIN_SPAN = 4;
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
         using BlankSetT = db0::CRDT_Allocator::BlankSetT;
+        using AlignedBlankSetT = db0::CRDT_Allocator::AlignedBlankSetT;
         using StripeSetT = db0::CRDT_Allocator::StripeSetT;
+        using CompT = typename AlignedBlankSetT::CompT;
         
         std::shared_ptr<Prefix> m_prefix;
         const std::uint64_t m_begin_addr;
@@ -148,7 +152,7 @@ namespace db0
         BitSpace<SLAB_BITSPACE_SIZE()> m_bitspace;
         AllocSetT m_allocs;
         BlankSetT m_blanks;
-        BlankSetT m_aligned_blanks;
+        AlignedBlankSetT m_aligned_blanks;
         StripeSetT m_stripes;
         CRDT_Allocator m_allocator;
         const std::optional<std::size_t> m_initial_remaining_capacity;

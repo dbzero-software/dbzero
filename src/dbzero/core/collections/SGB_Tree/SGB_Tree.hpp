@@ -88,18 +88,18 @@ namespace db0
          * @param capacity default capacity of a single node
          * @tparam args optional arguments for the header's constructor
          */
-        SGB_TreeBase(Memspace &memspace, std::size_t node_capacity, 
-            const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {})
-            : super_t(memspace, CompT(), node_capacity)
+        SGB_TreeBase(Memspace &memspace, std::size_t node_capacity,
+            const CompT &comp = {}, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {})
+            : super_t(memspace, comp, node_capacity)
             , m_node_capacity(node_capacity)
             , m_item_comp(item_cmp)
             , m_heap_comp(item_cmp, item_eq)
         {
         }
         
-        SGB_TreeBase(mptr ptr, std::size_t node_capacity, 
-            const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {})
-            : super_t(ptr, CompT())
+        SGB_TreeBase(mptr ptr, std::size_t node_capacity,
+            const CompT &comp = {}, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {})
+            : super_t(ptr, comp)
             , m_node_capacity(node_capacity)
             , m_item_comp(item_cmp)
             , m_heap_comp(item_cmp, item_eq)
@@ -195,12 +195,13 @@ namespace db0
         class const_iterator
         {
         public:
-            const_iterator(const sg_tree_const_iterator &tree_it, const sg_tree_const_iterator &tree_end)
+            const_iterator(const sg_tree_const_iterator &tree_it, const sg_tree_const_iterator &tree_end, const HeapCompT &comp)
                 : m_tree_it(tree_it)
                 , m_tree_end(tree_end)
+                , m_comp(comp)
             {
                 if (m_tree_it != m_tree_end) {
-                    m_node_it = m_tree_it->cbegin_sorted();                    
+                    m_node_it = m_tree_it->cbegin_sorted(m_comp);
                 }
             }
             
@@ -211,7 +212,7 @@ namespace db0
                 if (m_node_it.is_end()) {
                     ++m_tree_it;
                     if (m_tree_it != m_tree_end) {
-                        m_node_it = m_tree_it->cbegin_sorted();
+                        m_node_it = m_tree_it->cbegin_sorted(m_comp);
                     }
                 }
                 return *this;
@@ -232,10 +233,11 @@ namespace db0
         private:
             sg_tree_const_iterator m_tree_it, m_tree_end;
             sgb_node_const_sorting_iterator m_node_it;
+            HeapCompT m_comp;
         };
 
         const_iterator cbegin() const {
-            return const_iterator(super_t::begin(), super_t::end());
+            return const_iterator(super_t::begin(), super_t::end(), m_heap_comp);
         }
 
         /// Partially sorted iterator (nodes are sorted but individual elements are only heap-ordered)
@@ -569,15 +571,19 @@ namespace db0
         typename CapacityT = std::uint16_t, typename AddressT = std::uint32_t, typename HeaderT = o_null, typename TreeHeaderT = o_null>
     class SGB_Tree: public SGB_TreeBase<sgb_types<ItemT, ItemCompT, ItemEqualT, CapacityT, AddressT, HeaderT, TreeHeaderT> >
     {
-        using super_t = SGB_TreeBase<sgb_types<ItemT, ItemCompT, ItemEqualT, CapacityT, AddressT, HeaderT, TreeHeaderT> >;
+        using super_t = SGB_TreeBase<sgb_types<ItemT, ItemCompT, ItemEqualT, CapacityT, AddressT, HeaderT, TreeHeaderT> >;        
     public:
-        SGB_Tree(Memspace &memspace, std::size_t node_capacity, const ItemCompT &item_comp = ItemCompT())
-            : super_t(memspace, node_capacity, item_comp)
+        using CompT = typename super_t::CompT;
+
+        SGB_Tree(Memspace &memspace, std::size_t node_capacity, const CompT &comp = {}, const ItemCompT &item_comp = {}, 
+            const ItemEqualT &item_eq = {})
+            : super_t(memspace, node_capacity, comp, item_comp, item_eq)
         {
         }
         
-        SGB_Tree(mptr ptr, std::size_t node_capacity, const ItemCompT &item_comp = ItemCompT())
-            : super_t(ptr, node_capacity)
+        SGB_Tree(mptr ptr, std::size_t node_capacity, const CompT &comp = {}, const ItemCompT &item_comp = {}, 
+            const ItemEqualT &item_eq = {})
+            : super_t(ptr, node_capacity, comp, item_comp, item_eq)
         {
         }
     };

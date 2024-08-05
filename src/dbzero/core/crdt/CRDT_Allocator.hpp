@@ -3,6 +3,7 @@
 #include <optional>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/collections/SGB_Tree/SGB_Tree.hpp>
+#include <dbzero/core/memory/utils.hpp>
 
 namespace db0
 
@@ -256,9 +257,9 @@ namespace db0
                 const std::uint32_t m_mask;
                 const std::uint32_t m_page_size;
 
-                AlignedCompT(std::uint32_t mask, std::uint32_t page_size)
-                    : m_mask(mask)
-                    , m_page_size(page_size) 
+                AlignedCompT(std::uint32_t page_size)
+                    : m_mask(getPageMask(page_size))
+                    , m_page_size(page_size)
                 {                    
                 }
 
@@ -370,7 +371,7 @@ namespace db0
         inline std::uint32_t getMaxAddr() const {
             return m_max_addr;
         }
-        
+                
         /**
          * Get cummulative size of allocations / dellocations performed since creation of this instance
         */
@@ -386,6 +387,10 @@ namespace db0
         void commit();
 
         void detach();
+
+        // Static versions of methods required for SlabAllocator integration
+        static void insertBlank(BlankSetT &blanks, AlignedBlankSetT &aligned_blanks, const Blank &blank, std::uint32_t page_size);
+        static bool isAligned(const Blank &blank, std::uint32_t page_size);
 
     private:
         AllocSetT &m_allocs;
@@ -517,10 +522,12 @@ namespace db0
         }
         
         // remove the blank
-        index.erase(blank_ptr);        
-        if ((void*)&index == (void*)&m_blanks && isAligned(blank)) {
-            // need also to remove from aligned blanks
-            erase(m_aligned_blanks, blank);
+        index.erase(blank_ptr);
+        if ((void*)&index == (void*)&m_blanks) {
+            // need also to remove from aligned blanks (if aligned)
+            if (isAligned(blank)) {
+                erase(m_aligned_blanks, blank);
+            }
         } else {
             assert((void*)&index == (void*)&m_aligned_blanks);
             // need also to remove from regular blanks (always present)
@@ -530,6 +537,16 @@ namespace db0
         return blank;
     }
     
+    template <typename IndexT>
+    std::uint32_t CRDT_Allocator::getFirstAddress(const IndexT &index, const Blank &blank) const
+    {
+        if ((void*)&index == (void*)&m_aligned_blanks) {
+            return blank.getAlignedAddress(m_mask, m_page_size);
+        }  
+        assert((void*)&index == (void*)&m_blanks);
+        return blank.m_address;        
+    }
+
 }
 
 namespace std 

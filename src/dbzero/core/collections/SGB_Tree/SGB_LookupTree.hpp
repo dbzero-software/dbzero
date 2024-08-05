@@ -49,12 +49,12 @@ namespace db0
         int D = 2>
     class [[gnu::packed]] o_sgb_lookup_tree_node:
     public o_ext<
-        o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>, 
+        o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>,
         o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>, 0, false>
     {
     protected:
         using ext_t = o_ext<
-            o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>, 
+            o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>,
             o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>, 0, false>;
         using super_t = o_sgb_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, o_lookup_header<HeaderT>, D>;
 
@@ -68,12 +68,12 @@ namespace db0
         {            
         }
         
-        o_sgb_lookup_tree_node(const ItemT &item, CapacityT capacity)
-            : ext_t(item, capacity)
-        {            
+        o_sgb_lookup_tree_node(const ItemT &item, CapacityT capacity, const HeapCompT &comp)
+            : ext_t(item, capacity, comp)
+        {
         }
 
-        const_iterator cbegin() const 
+        const_iterator cbegin() const
         {
             if (!is_reversed()) {
                 return super_t::cbegin();                
@@ -232,20 +232,20 @@ namespace db0
             this->header().m_flags.set(LookupHeaderFlags::sorted, true);
         }
         
-        void rebalance(o_sgb_lookup_tree_node &other) 
+        void rebalance(o_sgb_lookup_tree_node &other, const HeapCompT &comp)
         {
             if (this->size() == other.size()) {
                 // already balanced
                 return;
             }
             if (other.size() > this->size()) {
-                other.rebalance(*this);
+                other.rebalance(*this, comp);
                 return;
             }
             
             if (!is_sorted()) {
                 // sort the heap for better balancing
-                this->flipSort();
+                this->flipSort(comp);
             }
             // pick the split point assuming that elements are already approximately sorted (heap sorted)
             int max_repeat = 2;
@@ -254,11 +254,11 @@ namespace db0
                 auto split_item = *(this->cbegin() + ((this->size() + other.size()) >> 1) * step_);
                 auto it = this->begin(), end_ = this->end();
                 while (it != end_) {
-                    if (super_t::heapComp.itemComp(*it, split_item)) {
+                    if (comp.itemComp(*it, split_item)) {
                         it += step_;
                     } else {
-                        other.append(*it);
-                        this->erase_existing(it);
+                        other.append(comp, *it);
+                        this->erase_existing(it, comp);
                         end_ -= step_;
                     }
                 }
@@ -309,8 +309,10 @@ namespace db0
         using ptr_set_t = sgb_tree_ptr_set<AddressT>;
         using NodeT = SGB_IntrusiveNode<o_sgb_node_t, ItemT, ItemCompT, typename node_traits::comp_t, TreeHeaderT>;
         using CompT = typename NodeT::comp_t;
+        using NodeItemCompT = typename o_sgb_node_t::CompT;
+        using NodeItemEqualT = typename o_sgb_node_t::EqualT;
         using HeapCompT = typename o_sgb_node_t::HeapCompT;
-        
+                
         using SG_TreeT = v_sgtree<NodeT, intrusive::detail::h_alpha_sqrt2_t>;
     };
 
@@ -325,6 +327,7 @@ namespace db0
 
     public:
         using ItemT = typename TypesT::ItemT;
+        using CompT = typename TypesT::CompT;
         using CapacityT = typename TypesT::CapacityT;
         using AddressT = typename TypesT::AddressT;
         using sg_tree_const_iterator = typename super_t::sg_tree_const_iterator;
@@ -336,18 +339,18 @@ namespace db0
         static constexpr unsigned int DEFAULT_SORT_THRESHOLD = 3;
 
         SGB_LookupTreeBase(Memspace &memspace, std::size_t node_capacity, 
-            AccessType access_type, const NodeItemCompT item_cmp = {}, const NodeItemEqualT item_eq = {},
+            AccessType access_type, const CompT &comp = {}, const NodeItemCompT item_cmp = {}, const NodeItemEqualT item_eq = {},
             unsigned int sort_thr = DEFAULT_SORT_THRESHOLD)
-            : super_t(memspace, node_capacity, item_cmp, item_eq)
+            : super_t(memspace, node_capacity, comp, item_cmp, item_eq)
             , m_sort_threshold(sort_thr)
             , m_access_type(access_type)
         {
         }
         
         SGB_LookupTreeBase(mptr ptr, std::size_t node_capacity,
-            AccessType access_type, const NodeItemCompT item_cmp = {}, const NodeItemEqualT item_eq = {},
+            AccessType access_type, const CompT &comp = {}, const NodeItemCompT item_cmp = {}, const NodeItemEqualT item_eq = {},
             unsigned int sort_thr = DEFAULT_SORT_THRESHOLD)
-            : super_t(ptr, node_capacity, item_cmp, item_eq)
+            : super_t(ptr, node_capacity, comp, item_cmp, item_eq)
             , m_sort_threshold(sort_thr)
             , m_access_type(access_type)
         {
@@ -376,7 +379,7 @@ namespace db0
             if (m_access_type == AccessType::READ_WRITE) {
                 this->onNodeLookup(node);
             }
-            return { node->lower_equal_bound(key), node };
+            return { node->lower_equal_bound(key, this->m_heap_comp), node };
         }
 
         AddressT getAddress() const {
@@ -424,15 +427,19 @@ namespace db0
     protected:
         using super_t = SGB_LookupTreeBase<sgb_lookup_types<ItemT, ItemCompT, ItemEqualT, CapacityT, AddressT, HeaderT, TreeHeaderT> >;
     public:
+        using CompT = typename super_t::CompT;
+
         SGB_LookupTree(Memspace &memspace, std::size_t node_capacity, AccessType access_type, 
-            const ItemCompT &item_cmp = ItemCompT(), unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
-            : super_t(memspace, node_capacity, access_type, item_cmp, sort_thr)
+            const CompT &comp = {}, const ItemCompT &item_cmp = {}, const ItemEqualT &item_eq = {}, 
+            unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
+            : super_t(memspace, node_capacity, access_type, comp, item_cmp, item_eq, sort_thr)
         {
         }
         
         SGB_LookupTree(mptr ptr, std::size_t node_capacity, AccessType access_type, 
-            const ItemCompT &item_cmp, unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
-            : super_t(ptr, node_capacity, access_type, item_cmp, sort_thr)
+            const CompT &comp = {}, const ItemCompT &item_cmp = {}, const ItemEqualT &item_eq = {}, 
+            unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
+            : super_t(ptr, node_capacity, access_type, comp, item_cmp, item_eq, sort_thr)
         {
         }
     };

@@ -38,6 +38,7 @@ namespace tests
         using Blank = db0::CRDT_Allocator::Blank;
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
         using BlankSetT = db0::CRDT_Allocator::BlankSetT;
+        using AlignedBlankSetT = db0::CRDT_Allocator::AlignedBlankSetT;
         using StripeSetT = db0::CRDT_Allocator::StripeSetT;
 
         static constexpr unsigned int MAX_ADDRESS = 1000;
@@ -47,18 +48,20 @@ namespace tests
         db0::BitSpace<0x8000> m_bitspace;
         std::unique_ptr<AllocSetT> m_allocs;
         std::unique_ptr<BlankSetT> m_blanks;
-        std::unique_ptr<BlankSetT> m_aligned_blanks;
+        std::unique_ptr<AlignedBlankSetT> m_aligned_blanks;
         std::unique_ptr<StripeSetT> m_stripes;
 
         void init(std::size_t max_addr)
         {
+            using CompT = typename AlignedBlankSetT::CompT;
+
             // put allocs and stripes on the same bitspace
             m_allocs = std::make_unique<AllocSetT>(m_bitspace, page_size);
             m_blanks = std::make_unique<BlankSetT>(m_bitspace, page_size);
-            m_aligned_blanks = std::make_unique<BlankSetT>(m_bitspace, page_size);
+            m_aligned_blanks = std::make_unique<AlignedBlankSetT>(m_bitspace, page_size, CompT(page_size), page_size);
             m_stripes = std::make_unique<StripeSetT>(m_bitspace, page_size);
             // initialize containers by registering a single blank starting at 0x0
-            m_blanks->insert(Blank(max_addr, 0x0));
+            db0::CRDT_Allocator::insertBlank(*m_blanks, *m_aligned_blanks, { static_cast<std::uint32_t>(max_addr), 0 }, page_size);
         }
     };
     

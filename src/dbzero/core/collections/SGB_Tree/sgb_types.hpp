@@ -21,7 +21,7 @@ namespace db0
         struct comp_t
         {
             ItemCompT itemComp;
-            comp_t(ItemCompT _comp = ItemCompT())
+            comp_t(ItemCompT _comp = {})
                 : itemComp(_comp)
             {
             }

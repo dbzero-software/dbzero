@@ -215,20 +215,21 @@ namespace db0
         using sg_tree_const_iterator = typename super_t::sg_tree_const_iterator;
         using ItemIterator = typename super_t::ItemIterator;
         using ConstItemIterator = typename super_t::ConstItemIterator;
+        using CompT = typename super_t::CompT;
         using NodeItemCompT = typename super_t::NodeItemCompT;
         using NodeItemEqualT = typename super_t::NodeItemEqualT;
 
         SGB_CompressedLookupTree(Memspace &memspace, std::size_t node_capacity,
-            AccessType access_type, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {},
+            AccessType access_type, const CompT &comp = {}, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {},
             unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
-            : super_t(memspace, node_capacity, access_type, item_cmp, item_eq, sort_thr)
+            : super_t(memspace, node_capacity, access_type, comp, item_cmp, item_eq, sort_thr)
         {
         }
         
         SGB_CompressedLookupTree(mptr ptr, std::size_t node_capacity,
-            AccessType access_type, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {},
+            AccessType access_type, const CompT &comp = {}, const NodeItemCompT &item_cmp = {}, const NodeItemEqualT &item_eq = {},
             unsigned int sort_thr = super_t::DEFAULT_SORT_THRESHOLD)
-            : super_t(ptr, node_capacity, access_type, item_cmp, item_eq, sort_thr)
+            : super_t(ptr, node_capacity, access_type, comp, item_cmp, item_eq, sort_thr)
         {
         }
 

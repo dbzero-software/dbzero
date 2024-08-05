@@ -2,7 +2,6 @@
 #include <iostream>
 #include <dbzero/core/crdt/CRDT_Allocator.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
-#include <dbzero/core/memory/utils.hpp>
 
 namespace db0
 
@@ -358,6 +357,15 @@ namespace db0
             m_aligned_blanks.insert(blank);
         }
     }
+    
+    void CRDT_Allocator::insertBlank(BlankSetT &blanks,
+        AlignedBlankSetT &aligned_blanks, const Blank &blank, std::uint32_t page_size)
+    {
+        blanks.insert(blank);
+        if (isAligned(blank, page_size)) {
+            aligned_blanks.insert(blank);
+        }
+    }
 
     bool CRDT_Allocator::tryReclaimSpaceFromStripes(std::uint32_t min_size) 
     {
@@ -703,19 +711,29 @@ namespace db0
 
     std::uint32_t CRDT_Allocator::Blank::getAlignedSize(std::uint32_t mask, std::uint32_t page_size) const
     {
-        auto aligned_addr = getAlignedAddress(mask, page_size);
-        if (aligned_addr < m_address + m_size) {
-            return m_size - (aligned_addr - m_address);
-        } else {
-            // non-aligned blank
-            return 0;
-        }
+        if (m_address & mask) {
+            auto aligned_addr = (m_address & ~mask) + page_size;
+            if (aligned_addr < m_address + m_size) {
+                return m_size - (aligned_addr - m_address);
+            } else {
+                // non-aligned blank
+                return 0;
+            }
+        } 
+        // already aligned
+        return m_size;
     }
     
     bool CRDT_Allocator::isAligned(const Blank &blank) const
     {
         auto aligned_size = blank.getAlignedSize(m_mask, m_page_size);
         return aligned_size > 0 && aligned_size < m_page_size;
+    }
+
+    bool CRDT_Allocator::isAligned(const Blank &blank, std::uint32_t page_size)
+    {
+        auto aligned_size = blank.getAlignedSize(getPageMask(page_size), page_size);
+        return aligned_size > 0 && aligned_size < page_size;
     }
 
 }
