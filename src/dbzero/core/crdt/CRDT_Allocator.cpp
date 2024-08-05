@@ -66,14 +66,24 @@ namespace db0
         std::array<std::pair<std::uint32_t, std::uint32_t>, N> m_hints;
     };
     
+    std::uint32_t getMinAlignedAllocSize(std::optional<std::uint32_t> min_aligned_alloc_size, std::uint32_t page_size)
+    {
+        // use page_size + 1 as the default minimum
+        if (!min_aligned_alloc_size) {
+            return page_size + 1;            
+        }
+        return *min_aligned_alloc_size;
+    }
+
     CRDT_Allocator::CRDT_Allocator(AllocSetT &allocs, BlankSetT &blanks, AlignedBlankSetT &aligned_blanks, StripeSetT &stripes,
-        std::uint32_t size, std::uint32_t page_size)
+        std::uint32_t size, std::uint32_t page_size, std::optional<std::uint32_t> min_aligned_alloc_size)
         : m_allocs(allocs)
         , m_blanks(blanks)
         , m_aligned_blanks(aligned_blanks)
         , m_stripes(stripes)
         , m_size(size)
-        , m_page_size(page_size)        
+        , m_page_size(page_size)
+        , m_min_aligned_alloc_size(getMinAlignedAllocSize(min_aligned_alloc_size, page_size))
         , m_shift(db0::getPageShift(page_size))
         , m_mask(getPageMask(page_size))
         , m_cache(std::make_unique<L0_Cache<crdt::L0_CACHE_SIZE> >(m_allocs))
@@ -270,6 +280,7 @@ namespace db0
 
     std::optional<std::uint64_t> CRDT_Allocator::tryAlignedAlloc(std::size_t size)
     {
+        assert(size >= m_min_aligned_alloc_size);
         for (;;) {
             if (!m_blanks.empty() || !m_aligned_blanks.empty()) {
                 auto result = tryAlignedAllocFromBlanks(size);
@@ -358,11 +369,11 @@ namespace db0
         }
     }
     
-    void CRDT_Allocator::insertBlank(BlankSetT &blanks,
-        AlignedBlankSetT &aligned_blanks, const Blank &blank, std::uint32_t page_size)
+    void CRDT_Allocator::insertBlank(BlankSetT &blanks, AlignedBlankSetT &aligned_blanks, const Blank &blank,
+        std::uint32_t page_size, std::optional<std::uint32_t> min_aligned_alloc_size)
     {
         blanks.insert(blank);
-        if (isAligned(blank, page_size)) {
+        if (isAligned(blank, page_size, min_aligned_alloc_size)) {
             aligned_blanks.insert(blank);
         }
     }
@@ -529,14 +540,15 @@ namespace db0
     
     std::optional<std::uint32_t> CRDT_Allocator::tryAlignedAllocFromBlanks(std::uint32_t size)
     {
+        assert(size >= m_min_aligned_alloc_size);
         std::optional<Blank> blank;
         // for small allocations (1 < DP) try retrieving from the aligned blanks first
-        if (size < m_page_size) {
+        if (size < m_page_size * ALIGNED_INDEX_THRESHOLD) {
             blank = tryPullBlank(m_aligned_blanks, size);
         }
         // if not present, then resort to regular blanks using adjusted blank size (to guarantee alignment)                
         if (!blank) {
-            // blank size must at least size + page size - 1            
+            // blank size must be at least size + page size - 1
             blank = tryPullBlank(m_blanks, size + m_page_size - 1);
         }
 
@@ -727,13 +739,14 @@ namespace db0
     bool CRDT_Allocator::isAligned(const Blank &blank) const
     {
         auto aligned_size = blank.getAlignedSize(m_mask, m_page_size);
-        return aligned_size > 0 && aligned_size < m_page_size;
+        // the upper boundary is arbitrary
+        return aligned_size >= m_min_aligned_alloc_size && aligned_size < m_page_size * ALIGNED_INDEX_THRESHOLD;
     }
 
-    bool CRDT_Allocator::isAligned(const Blank &blank, std::uint32_t page_size)
+    bool CRDT_Allocator::isAligned(const Blank &blank, std::uint32_t page_size, std::optional<std::uint32_t> min_aligned_alloc_size)
     {
         auto aligned_size = blank.getAlignedSize(getPageMask(page_size), page_size);
-        return aligned_size > 0 && aligned_size < page_size;
+        return aligned_size > getMinAlignedAllocSize(min_aligned_alloc_size, page_size) && aligned_size < page_size * ALIGNED_INDEX_THRESHOLD;
     }
 
 }

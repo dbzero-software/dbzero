@@ -51,7 +51,8 @@ namespace tests
         std::unique_ptr<AlignedBlankSetT> m_aligned_blanks;
         std::unique_ptr<StripeSetT> m_stripes;
 
-        void init(std::size_t max_addr)
+        void init(std::size_t max_addr, const std::vector<std::pair<std::uint32_t, std::uint32_t>> &blanks = {}, 
+            std::optional<std::uint32_t> min_aligned_alloc_size = {})
         {
             using CompT = typename AlignedBlankSetT::CompT;
 
@@ -60,8 +61,18 @@ namespace tests
             m_blanks = std::make_unique<BlankSetT>(m_bitspace, page_size);
             m_aligned_blanks = std::make_unique<AlignedBlankSetT>(m_bitspace, page_size, CompT(page_size), page_size);
             m_stripes = std::make_unique<StripeSetT>(m_bitspace, page_size);
-            // initialize containers by registering a single blank starting at 0x0
-            db0::CRDT_Allocator::insertBlank(*m_blanks, *m_aligned_blanks, { static_cast<std::uint32_t>(max_addr), 0 }, page_size);
+            // by default, initialize containers by registering a single blank starting at 0x0
+            if (blanks.empty()) {
+                db0::CRDT_Allocator::insertBlank(*m_blanks, *m_aligned_blanks,
+                    { static_cast<std::uint32_t>(max_addr), 0 }, page_size, min_aligned_alloc_size
+                );
+            } else {
+                for (auto &blank : blanks) {
+                    db0::CRDT_Allocator::insertBlank(
+                        *m_blanks, *m_aligned_blanks, { blank.first, blank.second }, page_size, min_aligned_alloc_size
+                    );
+                }
+            }
         }
     };
     
@@ -328,15 +339,36 @@ namespace tests
     TEST_F( CRDT_AllocatorTests , testCRDT_PageAlignedAllocs )
     {
         auto capacity = page_size * 3 * 100;
+        auto min_aligned_alloc_size = 16;
         init(capacity);
-        db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, capacity, page_size);
+        db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes,
+            capacity, page_size, min_aligned_alloc_size);
         // first allocation may not be able to page-align
         cut.alloc(8);
         for (int i = 0; i < 100; ++i) {
-            auto addr = cut.alloc(rand() % page_size * 2 + 1, true);
+            auto addr = cut.alloc(rand() % page_size * 2 + min_aligned_alloc_size, true);
             // make sure is page aligned
             ASSERT_EQ(addr % page_size, 0);
         }
     }
-        
+
+    TEST_F( CRDT_AllocatorTests , testCRDT_AlignedAllocsFromSmallBlanks )
+    {
+        auto capacity = page_size * 256;
+        auto min_aligned_alloc_size = 4;
+        // initialize with small blanks (size / address)
+        init(capacity, { { 100, 0 }, { 125, page_size - 25 }, { 2033, page_size * 2 - 33 }, { 10242, page_size * 10 },
+            { 14, page_size * 3 - 10 } }, min_aligned_alloc_size);
+        // Use custom configuration of min_aligned_alloc_size = 4
+        db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, capacity, page_size, min_aligned_alloc_size);
+        // first allocation may not be able to page-aligned
+        auto addr = cut.alloc(100);
+        ASSERT_EQ(addr, 0);
+        for (auto alloc_size: { 8192, 2000, 100, 4 }) {
+            auto addr = cut.alloc(alloc_size, true);
+            // make sure is page aligned
+            ASSERT_EQ(addr % page_size, 0);            
+        }
+    }
+
 }

@@ -48,7 +48,10 @@ namespace db0
     class CRDT_Allocator
     {    
     public:
-        
+        // upper blank size (as the number of pages) to be registered in the aligned blank index
+        // higher values allow eliminating "bind spots" in the allocator, but may incur storage & performance overhead
+        static constexpr std::uint32_t ALIGNED_INDEX_THRESHOLD = 4;
+
         struct [[gnu::packed]] FillMap
         {            
             // the low 62 (or 30) bits are used to encode unit allocations,
@@ -341,7 +344,7 @@ namespace db0
          * @param page_size required for page-aligned allocations
         */
         CRDT_Allocator(AllocSetT &allocs, BlankSetT &blanks, AlignedBlankSetT &aligned_blanks, StripeSetT &stripes,
-            std::uint32_t size, std::uint32_t page_size);
+            std::uint32_t size, std::uint32_t page_size, std::optional<std::uint32_t> min_aligned_alloc_size = {});
         ~CRDT_Allocator();
 
         /**
@@ -389,9 +392,11 @@ namespace db0
         void detach();
 
         // Static versions of methods required for SlabAllocator integration
-        static void insertBlank(BlankSetT &blanks, AlignedBlankSetT &aligned_blanks, const Blank &blank, std::uint32_t page_size);
-        static bool isAligned(const Blank &blank, std::uint32_t page_size);
-
+        // min_aligned_alloc_size must be identical as in the CRDT_Allocator constructor
+        static void insertBlank(BlankSetT &blanks, AlignedBlankSetT &aligned_blanks, const Blank &blank, std::uint32_t page_size,
+            std::optional<std::uint32_t> min_aligned_alloc_size = {});
+        static bool isAligned(const Blank &blank, std::uint32_t page_size, std::optional<std::uint32_t> min_aligned_alloc_size = {});
+        
     private:
         AllocSetT &m_allocs;
         BlankSetT &m_blanks;
@@ -401,6 +406,7 @@ namespace db0
         // size of the space available to the allocator (i.e. a single slab)
         std::uint32_t m_size;
         const std::uint32_t m_page_size;
+        const std::uint32_t m_min_aligned_alloc_size;
         const std::uint32_t m_shift;
         const std::uint32_t m_mask;
         std::function<std::uint32_t()> m_bounds_fn;
@@ -544,7 +550,7 @@ namespace db0
             return blank.getAlignedAddress(m_mask, m_page_size);
         }  
         assert((void*)&index == (void*)&m_blanks);
-        return blank.m_address;        
+        return blank.m_address;
     }
 
 }
