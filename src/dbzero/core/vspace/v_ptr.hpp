@@ -48,7 +48,7 @@ namespace db0
          * Within-prefix address of this object
         */
         std::uint64_t m_address = 0;
-        mutable Memspace *m_memspace_ptr = nullptr;
+        Memspace *m_memspace_ptr = nullptr;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         // initial access flags (e.g. read / write / create)
         mutable FlagSet<AccessOptions> m_access_mode;
@@ -108,12 +108,12 @@ namespace db0
             return m_address;
         }
 
-        Memspace &getMemspace() const {
+        inline Memspace &getMemspace() const {
             assert(m_memspace_ptr);
             return *m_memspace_ptr;
         }
 
-        Memspace *getMemspacePtr() const {
+        inline Memspace *getMemspacePtr() const {
             return m_memspace_ptr;
         }
 
@@ -190,7 +190,7 @@ namespace db0
             // container's destroy
             (*this)->destroy(*m_memspace_ptr);
             m_mem_lock.release();
-            m_memspace_ptr->getAllocator().free(m_address);
+            m_memspace_ptr->free(m_address);
             this->m_address = 0;
             this->m_resource_flags = 0;
         }
@@ -231,7 +231,7 @@ namespace db0
         
         static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode)
         {
-            auto address = memspace.getAllocator().alloc(size, SLOT_NUM);
+            auto address = memspace.alloc(size, SLOT_NUM);
             // lock for create & write
             auto mem_lock = memspace.getPrefix().mapRange(
                 address, size, access_mode | AccessOptions::write | AccessOptions::create

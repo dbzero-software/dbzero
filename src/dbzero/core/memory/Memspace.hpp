@@ -22,26 +22,13 @@ namespace db0
         Memspace() = default;
 
         Memspace(std::shared_ptr<Prefix> prefix, std::shared_ptr<Allocator> allocator,
-            std::optional<std::uint64_t> uuid = {})
-            : m_prefix(prefix)
-            , m_storage_ptr(&prefix->getStorage())
-            , m_allocator(allocator)
-            , m_allocator_ptr(m_allocator.get())
-            , m_derived_UUID(uuid)
-        {
-        }
-        
-        virtual ~Memspace() = default;
-        
+            std::optional<std::uint64_t> uuid = {});
+                
         struct tag_from_reference {};
         Memspace(tag_from_reference, std::shared_ptr<Prefix> prefix, Allocator &allocator,
-            std::optional<std::uint64_t> uuid = {})
-            : m_prefix(prefix)
-            , m_storage_ptr(&prefix->getStorage())
-            , m_allocator_ptr(&allocator)
-            , m_derived_UUID(uuid)
-        {
-        }
+            std::optional<std::uint64_t> uuid = {});
+
+        virtual ~Memspace() = default;
 
         void init(std::shared_ptr<Prefix> prefix, std::shared_ptr<Allocator> allocator);
 
@@ -49,15 +36,14 @@ namespace db0
             return mptr(*this, address, access_mode);
         }
         
-        inline Allocator &getAllocator() {
-            assert(m_allocator_ptr);
-            return *m_allocator_ptr;
-        }
-
         inline const Allocator &getAllocator() const {
             assert(m_allocator_ptr);
             return *m_allocator_ptr;
         }
+
+        // Memspace::alloc implements the auto-align logic
+        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0);
+        void free(std::uint64_t address);
 
         inline Prefix &getPrefix() {
             return *m_prefix;
@@ -106,7 +92,7 @@ namespace db0
         inline BaseStorage &getStorage() {
             return *m_storage_ptr;
         }
-        
+                
     protected:
         std::shared_ptr<Prefix> m_prefix;
         BaseStorage *m_storage_ptr = nullptr;
@@ -116,6 +102,13 @@ namespace db0
         std::optional<std::uint64_t> m_derived_UUID;
         // flag indicating if the atomic operation is in progress
         bool m_atomic = false;
+        std::size_t m_page_size;
+
+        inline Allocator &getAllocatorForUpdate() {
+            assert(m_allocator_ptr);
+            return *m_allocator_ptr;
+        }
+
     };
 
 }

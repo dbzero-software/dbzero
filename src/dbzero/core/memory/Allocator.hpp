@@ -18,10 +18,12 @@ namespace db0
         /**
          * @param the allocation size in bytes
          * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
+         * @param align for page-aligned allocation
          * Note that slot functionality is implementation specific and may not be supported by all allocators.
          * We use slots in special cases where objects needs to be allocated from a limited narrow address range
         */
-        virtual std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0) = 0;
+        virtual std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
+            bool aligned = false) = 0;
         
         /**
          * Free previously allocated address
@@ -41,7 +43,7 @@ namespace db0
         */
         virtual void commit() = 0;
 
-        virtual void detach() = 0;
+        virtual void detach() const = 0;
 
         /**
          * Allocate a new continuous range of a given size
@@ -50,7 +52,7 @@ namespace db0
          * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
          * @return the address of the range
         */
-        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0);
+        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false);
     };
     
 }

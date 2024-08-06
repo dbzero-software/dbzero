@@ -104,7 +104,7 @@ namespace tests
             fixture->commit();            
         }
         
-        fixture->getAllocator().free(address);
+        fixture->free(address);
         fixture->commit();                
         ASSERT_ANY_THROW(fixture->getAllocator().getAllocSize(address));        
     }
@@ -129,23 +129,23 @@ namespace tests
             33, 28, 4
         };
         for (auto size: allocs) {
-            addresses.push_back(fixture->getAllocator().alloc(size));
+            addresses.push_back(fixture->alloc(size));
         }
         fixture->commit();
-        fixture->getAllocator().alloc(8);
-        ASSERT_NO_THROW(fixture->getAllocator().free(addresses.back()));
+        fixture->alloc(8);
+        ASSERT_NO_THROW(fixture->free(addresses.back()));
     }
     
     TEST_F( WorkspaceTest , testAllocFromTypeSlotThenFree )
     {
         auto fixture = m_workspace.getFixture(prefix_name);
-        auto addr = fixture->getAllocator().alloc(100, Fixture::TYPE_SLOT_NUM);
+        auto addr = fixture->alloc(100, Fixture::TYPE_SLOT_NUM);
         ASSERT_TRUE(addr);
         // get alloc size does not require providing slot number
         ASSERT_EQ(fixture->getAllocator().getAllocSize(addr), 100);
 
         // free the allocated address (no need to provide slot number here)
-        fixture->getAllocator().free(addr);
+        fixture->free(addr);
         // make sure the address is no longer valid
         ASSERT_ANY_THROW(fixture->getAllocator().getAllocSize(addr));
     }

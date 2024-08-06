@@ -52,7 +52,7 @@ namespace db0::pools
     template <typename T, typename AddressT> template <typename... Args> AddressT LimitedPool<T, AddressT>::add(Args&&... args)
     {
         auto size_of = T::measure(std::forward<Args>(args)...);
-        auto address = m_memspace.getAllocator().alloc(size_of);
+        auto address = m_memspace.alloc(size_of);
         assert(address <= std::numeric_limits<AddressT>::max());
         auto ptr = m_memspace.getPrefix().mapRange(address, size_of, { AccessOptions::create, AccessOptions::write });
         T::__new(ptr.modify(), std::forward<Args>(args)...);        
@@ -69,7 +69,7 @@ namespace db0::pools
     }
     
     template <typename T, typename AddressT> void LimitedPool<T, AddressT>::erase(AddressT address) {
-        m_memspace.getAllocator().free(address);
+        m_memspace.free(address);
     }
     
     template <typename T, typename AddressT> void LimitedPool<T, AddressT>::close() {

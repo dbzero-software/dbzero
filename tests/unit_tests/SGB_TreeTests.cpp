@@ -333,8 +333,8 @@ namespace tests
         }
 
         // Identify min / max from nodes
-        auto last_node = --cut.cend_nodes();        
-        auto max_item = last_node->find_max();
+        auto last_node = --cut.cend_nodes();
+        auto max_item = last_node->find_max({});
         db0::SGB_Tree<std::uint64_t>::WindowT window;
         cut.lower_equal_window(*max_item + 10, window);
         ASSERT_TRUE(window[1].first);
@@ -431,16 +431,16 @@ namespace tests
         NodeT node_1(m_bitspace, 0, page_size);
         std::vector<std::uint64_t> values_1 { 5, 6, 7, 3, 4, 8, 9, 1, 2 };
         for (auto value : values_1) {
-            node_1.modify().append(value);
+            node_1.modify().append({}, value);
         }
 
         NodeT node_2(m_bitspace, 10, page_size);
         std::vector<std::uint64_t> values_2 { 17, 18, 12 };
         for (auto value : values_2) {
-            node_2.modify().append(value);
+            node_2.modify().append({}, value);
         }
 
-        node_1.modify().rebalance(node_2.modify());
+        node_1.modify().rebalance(node_2.modify(), {});
         ASSERT_TRUE(abs(node_1->size() - node_2->size()) <= 4);
 
         // make sure all elements from node_1 are less than those from node_2

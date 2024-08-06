@@ -21,15 +21,18 @@ namespace db0
         // relative pointers (relative to the beginning of the slab)
         std::uint32_t m_alloc_set_ptr = 0;
         std::uint32_t m_blank_set_ptr = 0;
+        std::uint32_t m_aligned_blank_set_ptr = 0;
         std::uint32_t m_stripe_set_ptr = 0;
-        std::uint32_t m_reserved[3] = {0};
+        std::uint32_t m_reserved[2] = {0};
 
         o_slab_header() = default;
         
-        o_slab_header(std::uint32_t size, std::uint32_t alloc_set_ptr, std::uint32_t blank_set_ptr, std::uint32_t stripe_set_ptr)
+        o_slab_header(std::uint32_t size, std::uint32_t alloc_set_ptr, std::uint32_t blank_set_ptr, 
+            std::uint32_t aligned_blank_set_ptr, std::uint32_t stripe_set_ptr)
             : m_size(size)
             , m_alloc_set_ptr(alloc_set_ptr)
             , m_blank_set_ptr(blank_set_ptr)
+            , m_aligned_blank_set_ptr(aligned_blank_set_ptr)
             , m_stripe_set_ptr(stripe_set_ptr)            
         {
         }
@@ -60,7 +63,8 @@ namespace db0
 
         virtual ~SlabAllocator();
 
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0) override;
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
+            bool aligned = false) override;
         
         void free(std::uint64_t address) override;
 
@@ -68,7 +72,7 @@ namespace db0
         
         void commit() override;
 
-        void detach() override;
+        void detach() const override;
         
         /**
          * Initialize a new allocator over a specific slab
@@ -130,11 +134,15 @@ namespace db0
         inline std::uint32_t makeRelative(std::uint64_t absolute) const {
             return absolute - m_begin_addr;
         }
-        
+            
     private:
+        // the number of administrative area pages
+        static constexpr std::uint32_t ADMIN_SPAN = 4;
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
         using BlankSetT = db0::CRDT_Allocator::BlankSetT;
+        using AlignedBlankSetT = db0::CRDT_Allocator::AlignedBlankSetT;
         using StripeSetT = db0::CRDT_Allocator::StripeSetT;
+        using CompT = typename AlignedBlankSetT::CompT;
         
         std::shared_ptr<Prefix> m_prefix;
         const std::uint64_t m_begin_addr;
@@ -145,6 +153,7 @@ namespace db0
         BitSpace<SLAB_BITSPACE_SIZE()> m_bitspace;
         AllocSetT m_allocs;
         BlankSetT m_blanks;
+        AlignedBlankSetT m_aligned_blanks;
         StripeSetT m_stripes;
         CRDT_Allocator m_allocator;
         const std::optional<std::size_t> m_initial_remaining_capacity;

@@ -5,12 +5,12 @@ namespace db0
 
 {
 
-    std::optional<std::uint64_t> EmbeddedAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num)
+    std::optional<std::uint64_t> EmbeddedAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
         auto new_address = 4096 * ++m_count;
         m_allocations[new_address] = size;
         if (m_alloc_callback) {
-            m_alloc_callback(size, slot_num, new_address);
+            m_alloc_callback(size, slot_num, aligned, new_address);
         }
         return new_address;
     }
@@ -38,13 +38,13 @@ namespace db0
         // nothing to do
     }
 
-    void EmbeddedAllocator::detach()
+    void EmbeddedAllocator::detach() const
     {
         // nothing to do
     }
 
     void EmbeddedAllocator::setAllocCallback(
-        std::function<void(std::size_t, std::uint32_t, std::optional<std::uint64_t>)> callback) 
+        std::function<void(std::size_t, std::uint32_t, bool, std::optional<std::uint64_t>)> callback)
     {
         this->m_alloc_callback = callback;
     }

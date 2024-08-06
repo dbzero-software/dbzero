@@ -485,10 +485,9 @@ namespace db0
             auto f = [&blocks](PtrT ptr, bool) {
                 blocks.insert(ptr);
             };
-            getEveryBlock(this->const_ref().m_ptr_root, height() -1, size(), f);
-            auto &allocator = this->getMemspace().getAllocator();
+            getEveryBlock(this->const_ref().m_ptr_root, height() -1, size(), f);            
             for (auto ptr : blocks) {
-                allocator.free(ptr);
+                this->getMemspace().free(ptr);
             }
         }
         

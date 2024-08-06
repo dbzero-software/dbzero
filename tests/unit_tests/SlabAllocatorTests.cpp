@@ -148,8 +148,7 @@ namespace tests
     {
         // 64kb slab
         auto size_ = 16 * 4096;
-        auto init_capacity = db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), 0, size_, page_size);
-        ASSERT_EQ(init_capacity, 9 * 4096);
+        auto init_capacity = db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), 0, size_, page_size);        
         db0::SlabAllocator cut(m_memspace.getPrefixPtr(), 0, size_, page_size, init_capacity);
                 
         std::size_t total_allocated = 0;

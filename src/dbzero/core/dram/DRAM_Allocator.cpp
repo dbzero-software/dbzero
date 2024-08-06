@@ -43,12 +43,11 @@ namespace db0
         m_next_page_id = max_page_id;
     }
     
-    std::optional<std::uint64_t> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num)
+    std::optional<std::uint64_t> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
         assert(slot_num == 0);
-        if (size != m_page_size) {
-            THROWF(db0::InternalException) << "DRAM_Allocator: invalid alloc size requested (" << size << ")" << THROWF_END;
-        }
+        assert(!aligned && "DRAM_Allocator: aligned allocation not supported");
+        assert(size == m_page_size && "DRAM_Allocator: invalid alloc size requested");
         if (m_free_pages.empty()) {
             return m_next_page_id++ * m_page_size;
         }
@@ -102,7 +101,7 @@ namespace db0
     {
     }
 
-    void DRAM_Allocator::detach() 
+    void DRAM_Allocator::detach() const
     {
     }
 

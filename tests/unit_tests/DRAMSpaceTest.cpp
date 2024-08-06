@@ -30,36 +30,36 @@ namespace tests
     TEST_F( DRAMSpaceTest, testDRAMSpaceCanAlloc )
     {
         auto cut = DRAMSpace::create(m_page_size);
-        auto addr_1 = cut.getAllocator().alloc(m_page_size);
-        auto addr_2 = cut.getAllocator().alloc(m_page_size);
+        auto addr_1 = cut.alloc(m_page_size);
+        auto addr_2 = cut.alloc(m_page_size);
         ASSERT_NE(addr_1, addr_2);
     }
 
     TEST_F( DRAMSpaceTest, testDRAMSpaceCanFree )
     {
         auto cut = DRAMSpace::create(m_page_size);
-        auto addr_1 = cut.getAllocator().alloc(m_page_size);
-        auto addr_2 = cut.getAllocator().alloc(m_page_size);
-        cut.getAllocator().free(addr_1);
-        cut.getAllocator().free(addr_2);
+        auto addr_1 = cut.alloc(m_page_size);
+        auto addr_2 = cut.alloc(m_page_size);
+        cut.free(addr_1);
+        cut.free(addr_2);
     }
 
     TEST_F( DRAMSpaceTest, testDRAMSpaceThrowsOnDoubleFree )
     {
         auto cut = DRAMSpace::create(m_page_size);
-        auto addr_1 = cut.getAllocator().alloc(m_page_size);
-        cut.getAllocator().alloc(m_page_size);
-        cut.getAllocator().free(addr_1);
-        ASSERT_ANY_THROW(cut.getAllocator().free(addr_1));
+        auto addr_1 = cut.alloc(m_page_size);
+        cut.alloc(m_page_size);
+        cut.free(addr_1);
+        ASSERT_ANY_THROW(cut.free(addr_1));
     }
 
     TEST_F( DRAMSpaceTest, testDRAMSpaceCanReuseAddress )
     {
         auto cut = DRAMSpace::create(m_page_size);        
-        cut.getAllocator().alloc(m_page_size);
-        auto addr_2 = cut.getAllocator().alloc(m_page_size);
-        cut.getAllocator().free(addr_2);
-        auto addr_3 = cut.getAllocator().alloc(m_page_size);
+        cut.alloc(m_page_size);
+        auto addr_2 = cut.alloc(m_page_size);
+        cut.free(addr_2);
+        auto addr_3 = cut.alloc(m_page_size);
         ASSERT_EQ(addr_2, addr_3);
     }
 
@@ -119,7 +119,7 @@ namespace tests
             std::cout << "std::set inserted " << item_count << " items in " << elapsed.count() << " ms" << std::endl;
         }
     }
-
+    
     TEST_F( DRAMSpaceTest, testDRAMAllocatorCanBeCreatedWithAllocs )
     {
         std::unordered_set<std::size_t> allocs { 1, 2, 3, 9, 15 };
