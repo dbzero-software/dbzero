@@ -71,7 +71,8 @@ namespace db0
                 // note that this operation may also assign the no_flush flag if it was requested
                 lock->updateStateNum(state_num, access_mode[AccessOptions::no_flush]);
                 // re-register the upgraded lock under a new state
-                m_page_map.insertRange(state_num, lock, first_page, first_page + 1);
+                // note that the actual lock may span a wider range, avoid passing first_page / end_page here !!
+                m_page_map.insertRange(state_num, lock);
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
                 if (access_mode[AccessOptions::no_flush]) {

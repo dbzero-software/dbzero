@@ -41,8 +41,9 @@ namespace db0
         std::shared_ptr<ResourceLockT> findPage(std::uint64_t state_num, std::uint64_t page_num,
             std::uint64_t &read_state_num) const;
         
-        void insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT>, std::uint64_t first_page,
-            std::uint64_t end_page);
+        void insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT>);
+        void insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT>,
+            std::uint64_t first_page, std::uint64_t end_page);
 
         void insertPage(std::uint64_t state_num, std::shared_ptr<ResourceLockT>, std::uint64_t page_num);
 
@@ -88,11 +89,11 @@ namespace db0
         : m_shift(getPageShift(page_size))
     {
     }
-    
+
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
+    void PageMap<ResourceLockT>::insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock,
         std::uint64_t first_page, std::uint64_t end_page)
-    {        
+    {
         PageKeyT key { first_page, state_num };
         while (key.first != end_page) {
             // this is to overwrite existing keys which may already exist
@@ -100,6 +101,14 @@ namespace db0
             m_cache[key] = lock;
             ++key.first;
         }
+    }
+    
+    template <typename ResourceLockT>
+    void PageMap<ResourceLockT>::insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock)
+    {
+        auto first_page = lock->getAddress() >> m_shift;
+        auto end_page = ((lock->getAddress() + lock->size() - 1) >> m_shift) + 1;
+        insertRange(state_num, lock, first_page, end_page);
     }
     
     template <typename ResourceLockT>
@@ -278,7 +287,7 @@ namespace db0
             existing_lock->copyFrom(*lock);
             return false;
         } else {
-            insertRange(state_num, lock, first_page, end_page);
+            insertRange(state_num, lock);
             return true;
         }
     }

@@ -182,7 +182,8 @@ def test_memo_object_equality(db0_fixture):
     
     
 @pytest.mark.stress_test
-def test_create_random_objects_stress_test(db0_fixture):    
+@pytest.mark.parametrize("db0_autocommit_fixture", [1], indirect=True)
+def test_create_random_objects_stress_test(db0_autocommit_fixture):
     def rand_string(max_len):
         import random
         import string
@@ -191,9 +192,9 @@ def test_create_random_objects_stress_test(db0_fixture):
     
     append_count = 100000
     buf = []
-    for i in range(append_count):
+    for _ in range(append_count):
         buf.append(MemoTestClass(rand_string(8192)))
-        
+    
     
 @pytest.mark.stress_test
 def test_create_random_objects_with_short_members(db0_fixture):
@@ -205,6 +206,6 @@ def test_create_random_objects_with_short_members(db0_fixture):
     
     append_count = 100000
     buf = []
-    for i in range(append_count):
+    for _ in range(append_count):
         buf.append(MemoTestClass(rand_string(32)))
     
