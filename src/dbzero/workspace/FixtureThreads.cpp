@@ -77,8 +77,7 @@ namespace db0
     {
     }
     
-    void AutoCommitThread::tryCommit(Fixture &fixture, std::uint64_t &) const
-    {
+    void AutoCommitThread::tryCommit(Fixture &fixture, std::uint64_t &) const {
         fixture.onAutoCommit();
     }
 

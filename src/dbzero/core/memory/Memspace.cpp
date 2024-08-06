@@ -59,6 +59,10 @@ namespace db0
         m_prefix = nullptr;
     }
     
+    bool Memspace::isClosed() const {
+        return !m_allocator_ptr || !m_prefix;
+    }
+
     AccessType Memspace::getAccessType() const
     {
         assert(m_prefix);

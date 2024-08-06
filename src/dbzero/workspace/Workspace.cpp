@@ -140,7 +140,7 @@ namespace db0
         m_refresh_thread->stop();
         for (auto &m_thread : m_threads) {
             m_thread.join();
-        }        
+        }
     }
     
     bool Workspace::close(const std::string &prefix_name)

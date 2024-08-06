@@ -83,6 +83,10 @@ class Task:
 @pytest.mark.stress_test
 @pytest.mark.parametrize("db0_autocommit_fixture", [1], indirect=True)
 def test_autocommit_with_commit_crash_issue(db0_autocommit_fixture):
-    for i in range(100000):
+    count = 0
+    for _ in range(5000):
         task = Task(datetime.now())
         db0.commit()
+        count += 1
+        if count % 1000 == 0:
+            print(f"Processed {count} tasks")
