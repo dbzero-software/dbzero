@@ -70,7 +70,9 @@ namespace db0
         /**
          * Close this memspace, drop uncommited data
         */
-        void close();
+        void close();        
+
+        bool isClosed() const;
         
         AccessType getAccessType() const;
 

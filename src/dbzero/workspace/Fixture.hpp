@@ -226,6 +226,7 @@ namespace db0
         // internal cache for DBZero based collections
         mutable VObjectCache m_v_object_cache;
         AtomicContext *m_atomic_context_ptr = nullptr;
+        std::atomic<bool> m_closed = false;
 
         // For read/write fixtures:
         // the onUpdate is called whenever the fixture is modified
@@ -249,9 +250,9 @@ namespace db0
         std::vector<std::function<void()> > m_rollback_handlers;
         
         std::uint64_t getUUID(MetaAllocator &);
-
+        
         // try commit if not closed yet
-        void tryCommit();
+        void tryCommit(std::unique_lock<std::shared_mutex> &);
 
         static std::shared_ptr<SlabAllocator> openSlot(MetaAllocator &, const v_object<o_fixture> &, std::uint32_t slot_id);
         
@@ -259,8 +260,9 @@ namespace db0
         friend class FixtureThread;
         friend class FixtureLock;
         friend class AutoCommitThread;
-        std::shared_mutex m_shared_mutex;
-        
+        mutable std::shared_mutex m_shared_mutex;
+        mutable std::mutex m_close_mutex;
+            
         /**
          * Called by the AutoCommitThread
         */

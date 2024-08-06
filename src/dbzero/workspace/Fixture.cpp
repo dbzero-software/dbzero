@@ -147,14 +147,15 @@ namespace db0
             rollback();
         }
     }
-
+    
     void Fixture::close()
     {
+        std::unique_lock<std::mutex> lock(m_close_mutex);
         for (auto &close: m_close_handlers) {
             close(false);
         }
         m_string_pool.close();
-        Memspace::close();
+        Memspace::close();        
     }
     
     bool Fixture::refresh()
@@ -196,10 +197,11 @@ namespace db0
     void Fixture::commit()
     {
         assert(getPrefixPtr());
-        tryCommit();
+        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
+        tryCommit(lock);
     }
-
-    void Fixture::tryCommit()
+    
+    void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &)
     {
         auto prefix_ptr = getPrefixPtr();
         // prefix may not exist if fixture has already been closed
@@ -230,14 +232,17 @@ namespace db0
     void Fixture::onAutoCommit()
     {
         if (m_pre_commit) {
-            // lock for exclusive access
-            std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
-            tryCommit();
-            m_pre_commit = false;
-            m_updated = false;
+            // prevents commit on a closed fixture
+            std::unique_lock<std::mutex> lock(m_close_mutex);
+            if (!Memspace::isClosed()) {
+                // lock for exclusive access
+                std::unique_lock<std::shared_mutex> lock(m_shared_mutex);            
+                tryCommit(lock);
+                m_pre_commit = false;
+                m_updated = false;
+            }
         }
         if (m_updated) {
-            // assign form commit
             m_pre_commit = true;            
         }
     }

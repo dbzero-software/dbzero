@@ -28,9 +28,7 @@ namespace db0
 
         void run();
 
-        void stop();
-        
-        void join();
+        void stop();        
         
         void setInterval(std::uint64_t interval_ms);
 

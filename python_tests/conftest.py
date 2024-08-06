@@ -25,16 +25,16 @@ def db0_fixture():
         shutil.rmtree(DB0_DIR)
 
 
-@pytest.fixture()
-def db0_autocommit_fixture():
+@pytest.fixture
+def db0_autocommit_fixture(request):
     """
     DB0 scope with a very short autocommit interval
-    """
+    """    
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR, autocommit_interval=10)
+    db0.init(DB0_DIR, autocommit_interval=request.param)
     db0.open("my-test-prefix")
     yield db0
     db0.close()
