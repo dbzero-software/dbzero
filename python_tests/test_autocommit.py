@@ -1,3 +1,4 @@
+from datetime import datetime
 import time
 import dbzero_ce as db0
 from .memo_test_types import MemoTestClass
@@ -69,3 +70,15 @@ def test_autocommit_disabled_by_fixture(db0_no_autocommit):
     # no autocommit, state not changed
     assert state_1 == state_2
     
+
+@db0.memo()
+class Task:
+    def __init__(self,deadline):
+        self.deadline = deadline
+        self.runs = []
+
+
+def test_autocommit_wit_commit(db0_autocommit_fixture):
+    for i in range(100000):
+        task = Task(datetime.now())
+        db0.commit()
