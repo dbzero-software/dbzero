@@ -196,7 +196,7 @@ def test_create_random_objects_stress_test(db0_fixture):
         
     
 @pytest.mark.stress_test
-def test_create_random_objects_with_short_members(db0_fixture):    
+def test_create_random_objects_with_short_members(db0_fixture):
     def rand_string(max_len):
         import random
         import string

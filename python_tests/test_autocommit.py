@@ -1,3 +1,4 @@
+import pytest
 from datetime import datetime
 import time
 import dbzero_ce as db0
@@ -52,6 +53,7 @@ def test_autocommit_can_be_disabled_for_prefix(db0_fixture):
     assert state_1 == state_2
     
     
+@pytest.mark.parametrize("db0_autocommit_fixture", [10], indirect=True)
 def test_dict_items_not_in_while_autocommit(db0_autocommit_fixture):
     dict_1 = db0.dict()
     for _ in range(100000):
@@ -78,7 +80,9 @@ class Task:
         self.runs = []
 
 
-def test_autocommit_wit_commit(db0_autocommit_fixture):
+@pytest.mark.stress_test
+@pytest.mark.parametrize("db0_autocommit_fixture", [1], indirect=True)
+def test_autocommit_with_commit_crash_issue(db0_autocommit_fixture):
     for i in range(100000):
         task = Task(datetime.now())
         db0.commit()
