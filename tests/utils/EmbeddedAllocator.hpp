@@ -25,7 +25,7 @@ namespace db0
 
         void commit() override;
 
-        void detach() override;
+        void detach() const override;
 
         // size, slot_num, aligned, address (result)
         void setAllocCallback(std::function<void(std::size_t, std::uint32_t, bool, std::optional<std::uint64_t>)> callback);

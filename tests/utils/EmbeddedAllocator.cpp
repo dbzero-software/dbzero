@@ -38,7 +38,7 @@ namespace db0
         // nothing to do
     }
 
-    void EmbeddedAllocator::detach()
+    void EmbeddedAllocator::detach() const
     {
         // nothing to do
     }

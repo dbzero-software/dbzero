@@ -46,7 +46,7 @@ namespace db0
         }
     }
     
-    void SlotAllocator::detach()
+    void SlotAllocator::detach() const
     {
         m_allocator_ptr->detach();
         for (auto &slot: m_slots) {

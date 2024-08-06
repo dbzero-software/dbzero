@@ -43,7 +43,7 @@ namespace db0
         // nothing to do
     }
 
-    void OneShotAllocator::detach() {
+    void OneShotAllocator::detach() const {
         // nothing to do
     }
 

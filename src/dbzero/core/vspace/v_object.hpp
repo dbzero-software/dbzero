@@ -185,7 +185,7 @@ namespace db0
             }
         }
         
-        Memspace &getMemspace() const {
+        inline Memspace &getMemspace() const {
             return v_this.getMemspace();
         }
         

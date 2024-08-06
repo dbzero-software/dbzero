@@ -34,7 +34,7 @@ namespace db0
         
         void commit() override;
 
-        void detach() override;
+        void detach() const override;
         
         /**
          * Get address of the 1st allocation

@@ -70,7 +70,7 @@ namespace db0
     {
         // use page_size + 1 as the default minimum
         if (!min_aligned_alloc_size) {
-            return page_size + 1;            
+            return page_size + 1;
         }
         return *min_aligned_alloc_size;
     }
@@ -96,7 +96,7 @@ namespace db0
     CRDT_Allocator::~CRDT_Allocator()
     {
     }
-
+    
     CRDT_Allocator::Alloc::Alloc(std::uint32_t address, std::uint32_t stride, std::uint32_t size)
         : m_address(address)
         , m_stride(stride)
@@ -705,7 +705,7 @@ namespace db0
         m_cache->clear();
     }
 
-    void CRDT_Allocator::detach() {
+    void CRDT_Allocator::detach() const {
         m_cache->clear();
     }
     

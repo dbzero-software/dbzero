@@ -72,7 +72,7 @@ namespace db0
         
         void commit() override;
 
-        void detach() override;
+        void detach() const override;
         
         /**
          * Initialize a new allocator over a specific slab

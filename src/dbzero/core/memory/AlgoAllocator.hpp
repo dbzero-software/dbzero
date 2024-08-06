@@ -26,7 +26,7 @@ namespace db0
         
         void commit() override;
 
-        void detach() override;
+        void detach() const override;
 
         /**
          * Set or update the max address assigned by the allocator

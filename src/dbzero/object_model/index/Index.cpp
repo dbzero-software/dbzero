@@ -454,8 +454,8 @@ namespace db0::object_model
     void Index::moveTo(db0::swine_ptr<Fixture> &fixture)
     {
         assert(hasInstance());
-        this->flush();        
-        Index new_index(fixture, *this);        
+        this->flush();
+        Index new_index(fixture, *this);
         // move instance to a different cache (changing its address)
         fixture->getLangCache().moveFrom(this->getFixture()->getLangCache(), getAddress(), 
             new_index.getAddress());
@@ -463,7 +463,7 @@ namespace db0::object_model
         if (atomic_ctx_ptr) {
             // move instance to a different atomic context (changing its address)
             assert(this->getFixture()->tryGetAtomicContext());
-            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), getAddress(), new_index.getAddress());             
+            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), getAddress(), new_index.getAddress());
         }
         
         this->destroy();

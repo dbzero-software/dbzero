@@ -389,7 +389,7 @@ namespace db0
 
         void commit();
 
-        void detach();
+        void detach() const;
 
         // Static versions of methods required for SlabAllocator integration
         // min_aligned_alloc_size must be identical as in the CRDT_Allocator constructor
@@ -416,7 +416,7 @@ namespace db0
         // can be a negative number
         std::int64_t m_alloc_delta = 0;
         // the purpose of this cache is to speed up allocations of identical size sequences
-        std::unique_ptr<L0_Cache<crdt::L0_CACHE_SIZE> > m_cache;
+        mutable std::unique_ptr<L0_Cache<crdt::L0_CACHE_SIZE> > m_cache;
         
         std::optional<std::uint64_t> tryAlignedAlloc(std::size_t size);
 

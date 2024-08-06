@@ -529,7 +529,7 @@ namespace db0
             super_t::commit();
         }
         
-        void detach() {
+        void detach() const {
             super_t::detach();
         }
         

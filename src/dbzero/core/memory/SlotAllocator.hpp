@@ -29,7 +29,7 @@ namespace db0
                 
         void commit() override;
 
-        void detach() override;
+        void detach() const override;
         
         std::shared_ptr<Allocator> getAllocator() const { return m_allocator; }
 

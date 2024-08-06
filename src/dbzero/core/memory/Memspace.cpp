@@ -4,13 +4,30 @@ namespace db0
 
 {
 
-    bool Memspace::operator==(const Memspace &other) const
+    Memspace::Memspace(std::shared_ptr<Prefix> prefix, std::shared_ptr<Allocator> allocator, std::optional<std::uint64_t> uuid)
+        : m_prefix(prefix)
+        , m_storage_ptr(&prefix->getStorage())
+        , m_allocator(allocator)
+        , m_allocator_ptr(m_allocator.get())
+        , m_derived_UUID(uuid)
+        , m_page_size(prefix->getPageSize())
     {
+    }
+
+    Memspace::Memspace(tag_from_reference, std::shared_ptr<Prefix> prefix, Allocator &allocator, std::optional<std::uint64_t> uuid)
+        : m_prefix(prefix)
+        , m_storage_ptr(&prefix->getStorage())
+        , m_allocator_ptr(&allocator)
+        , m_derived_UUID(uuid)
+        , m_page_size(prefix->getPageSize())
+    {
+    }
+
+    bool Memspace::operator==(const Memspace &other) const {
         return m_prefix == other.m_prefix;
     }
     
-    bool Memspace::operator!=(const Memspace &other) const
-    {
+    bool Memspace::operator!=(const Memspace &other) const {
         return m_prefix != other.m_prefix;
     }
     
@@ -19,18 +36,18 @@ namespace db0
         m_prefix = prefix;
         m_allocator = allocator;
         m_allocator_ptr = m_allocator.get();
+        m_page_size = prefix->getPageSize();
     }
 
-    std::size_t Memspace::getPageSize() const
-    {
-        return m_prefix->getPageSize();
+    std::size_t Memspace::getPageSize() const {
+        return m_page_size;
     }
     
     void Memspace::commit()
     {
         assert(m_prefix);
         // prepare the allocator for the next transaction
-        getAllocator().commit();
+        getAllocatorForUpdate().commit();
         m_prefix->commit();
     }
     
@@ -72,7 +89,7 @@ namespace db0
     {
         assert(!m_atomic);
         m_atomic = true;
-        getAllocator().commit();
+        getAllocatorForUpdate().commit();
         // note that we don't flush from prefix on begin atomic
         m_prefix->beginAtomic();
     }
@@ -92,5 +109,14 @@ namespace db0
         getAllocator().detach();
         m_prefix->cancelAtomic();
     }
+    
+    std::uint64_t Memspace::alloc(std::size_t size, std::uint32_t slot_num) {
+        // align if the alloc size > page size
+        return getAllocatorForUpdate().alloc(size, slot_num, size > m_page_size);
+    }
 
+    void Memspace::free(std::uint64_t address) {
+        getAllocatorForUpdate().free(address);
+    }
+        
 }

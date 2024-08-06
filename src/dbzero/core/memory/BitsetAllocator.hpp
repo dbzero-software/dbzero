@@ -32,7 +32,7 @@ namespace db0
 
         void commit() override;
 
-        void detach() override;
+        void detach() const override;
                 
         /// Get the total number of allocations
         std::size_t getAllocCount() const;
@@ -164,7 +164,7 @@ namespace db0
         // no-op
     }
 
-    template <typename BitSetT> void BitsetAllocator<BitSetT>::detach() {
+    template <typename BitSetT> void BitsetAllocator<BitSetT>::detach() const {
         // no-op
     }
 

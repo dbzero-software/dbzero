@@ -677,7 +677,7 @@ namespace db0
         m_slab_manager->commit();
     }
 
-    void MetaAllocator::detach()
+    void MetaAllocator::detach() const
     {
         m_slab_defs.detach();        
         m_capacity_items.detach();

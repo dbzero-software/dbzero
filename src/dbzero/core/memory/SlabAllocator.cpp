@@ -21,7 +21,7 @@ namespace db0
         , m_allocs(m_bitspace.myPtr(begin_addr + m_header->m_alloc_set_ptr), page_size)
         , m_blanks(m_bitspace.myPtr(begin_addr + m_header->m_blank_set_ptr), page_size)
         , m_aligned_blanks(m_bitspace.myPtr(begin_addr + m_header->m_aligned_blank_set_ptr), page_size, CompT(page_size), page_size)
-        , m_stripes(m_bitspace.myPtr(begin_addr + m_header->m_stripe_set_ptr), page_size)
+        , m_stripes(m_bitspace.myPtr(begin_addr + m_header->m_stripe_set_ptr), page_size)        
         , m_allocator(m_allocs, m_blanks, m_aligned_blanks, m_stripes, m_header->m_size, page_size)
         , m_initial_remaining_capacity(remaining_capacity)
         , m_initial_admin_size(getAdminSpaceSize(true))
@@ -41,7 +41,7 @@ namespace db0
         });
     }
     
-    SlabAllocator::~SlabAllocator() 
+    SlabAllocator::~SlabAllocator()
     {
         if (m_on_close_handler) {
             m_on_close_handler(*this);
@@ -53,7 +53,8 @@ namespace db0
         assert(slot_num == 0);
         assert(size > 0);        
         // obtain relative address from the underlying CRDT allocator
-        auto relative = m_allocator.tryAlloc(size, aligned);
+        // auto-align when requested size > page_size
+        auto relative = m_allocator.tryAlloc(size, (size > m_page_size) || aligned);
         if (relative) {
             m_alloc_delta += size;
             return makeAbsolute(*relative);
@@ -188,7 +189,7 @@ namespace db0
         m_allocator.commit();
     }
     
-    void SlabAllocator::detach()
+    void SlabAllocator::detach() const
     {
         m_header.detach();
         m_allocs.detach();

@@ -101,7 +101,7 @@ namespace db0
     {
     }
 
-    void DRAM_Allocator::detach() 
+    void DRAM_Allocator::detach() const
     {
     }
 

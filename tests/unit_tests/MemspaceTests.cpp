@@ -14,10 +14,20 @@ namespace tests
     };
     
     TEST_F( MemspaceTests , testMemspaceAllocatorCanAlloc )
-    {        
+    {
         // this test has been create to diagnose the crash on basic alloc
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-        ASSERT_NO_THROW(memspace.getAllocator().alloc(100));
+        ASSERT_NO_THROW(memspace.alloc(100));
+    }
+    
+    TEST_F( MemspaceTests , testMemspaceWideAllocationsArePageAligned )
+    {
+        // this test has been create to diagnose the crash on basic alloc
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        for (unsigned int i = 0; i < 100; i++) {
+            auto addr = memspace.alloc((rand() % 1000) + memspace.getPageSize() + 1);
+            ASSERT_EQ(0, addr % memspace.getPageSize());
+        }
     }
 
 }

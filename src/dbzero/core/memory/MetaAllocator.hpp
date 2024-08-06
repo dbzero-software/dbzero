@@ -150,7 +150,7 @@ namespace db0
             
         void commit() override;
 
-        void detach() override;
+        void detach() const override;
         
         /**
          * Calculate the number of slabs which can be annotated by a single page pair

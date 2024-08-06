@@ -43,7 +43,7 @@ namespace db0
         */
         virtual void commit() = 0;
 
-        virtual void detach() = 0;
+        virtual void detach() const = 0;
 
         /**
          * Allocate a new continuous range of a given size
@@ -52,7 +52,7 @@ namespace db0
          * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
          * @return the address of the range
         */
-        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0);
+        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false);
     };
     
 }
