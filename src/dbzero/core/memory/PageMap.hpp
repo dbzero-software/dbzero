@@ -147,7 +147,9 @@ namespace db0
         read_state_num = 0;
         for (auto page_num = first_page; page_num != end_page; ++page_num) {
             auto it = find(page_num, state_num);
-            assert((it != m_cache.end() || !result) && "PrefixCache::findRange: inconsistent locks exist for the same range");
+            if (it == m_cache.end() && result) {
+                THROWF(db0::InternalException) << "PrefixCache::findRange: inconsistent locks exist for the same range";
+            }
             assert(!(page_num > first_page && !result && it != m_cache.end())
                 && "PrefixCache::findRange: inconsistent locks exist for the same range");
             if (it != m_cache.end()) {
