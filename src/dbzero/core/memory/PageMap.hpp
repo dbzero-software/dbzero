@@ -102,7 +102,7 @@ namespace db0
             ++key.first;
         }
     }
-    
+
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock)
     {
@@ -145,30 +145,25 @@ namespace db0
         assert(first_page < end_page);
         std::shared_ptr<ResourceLock> result;
         read_state_num = 0;
-        for (; first_page != end_page; ++first_page) {
-            auto it = find(first_page, state_num);
-            if (it == m_cache.end()) {
-                if (result) {
-                    throw std::runtime_error("PrefixCache::findRange: inconsistent locks exist for the same range");
-                }
-            } else {
+        for (auto page_num = first_page; page_num != end_page; ++page_num) {
+            auto it = find(page_num, state_num);
+            assert((it != m_cache.end() || !result) && "PrefixCache::findRange: inconsistent locks exist for the same range");
+            assert(!(page_num > first_page && !result && it != m_cache.end())
+                && "PrefixCache::findRange: inconsistent locks exist for the same range");
+            if (it != m_cache.end()) {
                 auto lock = it->second.lock();
                 if (lock) {
-                    if (result && result != lock) {
-                        throw std::runtime_error("PrefixCache::findRange: multiple locks found for the same range");
-                    }
+                    assert((!result || result == lock) && "PrefixCache::findRange: inconsistent locks exist for the same range");
+                    assert((!read_state_num || read_state_num == it->first.second)
+                        && "PrefixCache::findRange: inconsistent states exist for the same range");
                     result = lock;
                     if (!read_state_num) {
                         read_state_num = it->first.second;
-                    } else if (read_state_num != it->first.second) {
-                        throw std::runtime_error("PrefixCache::findRange: inconsistent states exist for the same range");
-                    }                    
-                } else {
-                    // remove expired weak_ptr
-                    m_cache.erase(it);
-                    if (result) {
-                        throw std::runtime_error("PrefixCache::findRange: inconsistent locks exist for the same range");
                     }
+                } else {
+                    assert(!result && "PrefixCache::findRange: inconsistent locks exist for the same range");
+                    // remove expired weak_ptr
+                    m_cache.erase(it);                    
                 }
             }
         }

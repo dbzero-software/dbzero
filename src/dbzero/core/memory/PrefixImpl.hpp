@@ -161,8 +161,7 @@ namespace db0
             lock = mapPage(first_page, state_num, access_mode);
         } else {
             auto addr_offset = address & (m_page_size - 1);
-            // boundary ranges are NOT page aligned
-            if ((end_page == first_page + 2) && addr_offset) {
+            if (isBoundaryRange(first_page, end_page, addr_offset)) {
                 // create mode not allowed for boundary range
                 access_mode.set(AccessOptions::create, false);
                 lock = mapBoundaryRange(first_page, address, size, state_num, access_mode);
@@ -172,8 +171,8 @@ namespace db0
                 lock = mapWideRange(first_page, end_page, state_num, access_mode);
             }
         }
-
-        assert(lock);        
+        
+        assert(lock);
         // fetch data from storage if not initialized
         return { lock->getBuffer(address), lock };
     }

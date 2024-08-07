@@ -346,7 +346,7 @@ def test_db0_list_append_in_multiple_transactions(db0_fixture):
     
 @pytest.mark.stress_test
 def test_list_append_stress_test(db0_fixture):
-    append_count = 1000000
+    append_count = 10000000
     cut = db0.list()
     for i in range(append_count):
         cut.append(i)

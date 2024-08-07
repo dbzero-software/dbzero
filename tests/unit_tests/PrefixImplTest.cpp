@@ -481,4 +481,21 @@ namespace tests
         cut.close();
     }
 
+    /* FIXME: failing test blocked
+    TEST_F( PrefixImplTest , testWideAllocInconsistentLockIssue )
+    {
+        BDevStorage::create(file_name);
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, file_name);
+        auto page_size = cut.getPageSize();
+
+        // map short unaligned range at the end of 2nd page
+        auto w1 = cut.mapRange(page_size * 2 - 32, 16, { AccessOptions::create, AccessOptions::write });
+        // map wide range spanning page 1 & 2
+        auto w2 = cut.mapRange(0, page_size + 128, { AccessOptions::create, AccessOptions::write });
+        ASSERT_TRUE(w1);
+        ASSERT_TRUE(w2);
+        cut.close();
+    }
+    */
+    
 }

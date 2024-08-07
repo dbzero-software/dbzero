@@ -182,8 +182,8 @@ def test_memo_object_equality(db0_fixture):
     
     
 @pytest.mark.stress_test
-@pytest.mark.parametrize("db0_autocommit_fixture", [1], indirect=True)
-def test_create_random_objects_stress_test(db0_autocommit_fixture):
+# @pytest.mark.parametrize("db0_autocommit_fixture", [1], indirect=True)
+def test_create_random_objects_stress_test(db0_no_autocommit):
     def rand_string(max_len):
         import random
         import string
