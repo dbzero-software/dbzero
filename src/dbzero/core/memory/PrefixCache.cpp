@@ -46,29 +46,28 @@ namespace db0
 
         return lock;
     }
-
+    
     std::shared_ptr<ResourceLock> PrefixCache::findRange(std::uint64_t first_page, std::uint64_t end_page,
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num, int &conflicts) const
-    {        
+    {
         auto lock = m_page_map.findRange(state_num, first_page, end_page, read_state_num, conflicts);
         if (lock.get() == m_missing_lock_ptr.get()) {
             // invalidate result, this range is marked as missing
             lock = nullptr;
         }
         
-        if (conflicts) {
-            assert(lock);            
-            // remove a conflicting lock from cache (must be converted to BoundaryLock and resubmitted to cache by the caller)
-            // see Handling conflicting access patterns
-            m_page_map.erase(state_num, lock);
-            return lock;            
-        }
-
         if (!lock) {
             // not found
             return nullptr;
         }
-        
+
+        if (conflicts) {
+            // remove a conflicting lock from cache (must be converted to BoundaryLock and resubmitted to cache by the caller)
+            // see "Handling conflicting access patterns" documentation chapter
+            m_page_map.erase(state_num, lock);
+            return lock;            
+        }
+
         // Try upgrading the unused lock to the write state
         // this is to avoid CoW in a writer process
         if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::create] && read_state_num != state_num) {
@@ -339,7 +338,7 @@ namespace db0
     CacheRecycler *PrefixCache::getCacheRecycler() const {
         return m_cache_recycler_ptr;
     }
-    
+
     void PrefixCache::insertUnique(std::shared_ptr<BoundaryLock> lock, std::uint64_t state_num)
     {
         auto first_page = lock->getAddress() >> m_shift;

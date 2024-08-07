@@ -89,11 +89,15 @@ namespace db0
             m_members->m_rhs->flush();
         }
     }
-    
-    void convertToBoundaryLock(ResourceLock &lock, std::shared_ptr<ResourceLock> lhs) {
+
+    std::shared_ptr<BoundaryLock> convertToBoundaryLock(std::shared_ptr<ResourceLock> lock,
+        std::shared_ptr<ResourceLock> lhs) 
+    {
         // construct BoundaryLock in-place overwriting the existing ResourceLock
         // NOTE: this is fine (no memory leak) since all non-trivially constructed members are moved to the converted instance
-        new (&lock) BoundaryLock(std::move(lock), lhs);
+        new (lock.get()) BoundaryLock(std::move(*lock), lhs);        
+        std::shared_ptr<BaseLock> _lock = lock;        
+        return std::dynamic_pointer_cast<BoundaryLock>(_lock);
     }
     
 }

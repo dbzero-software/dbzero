@@ -57,6 +57,7 @@ namespace db0
     // Converts the underlying ResourceLock instance in-place into a BoundaryLock
     // as a result the new (foundational) ResourceLock is created and returned
     // for a rationale of this operation see "Handling conflicting access patterns" in the documentation
-    void convertToBoundaryLock(ResourceLock &, std::shared_ptr<ResourceLock> lhs);
+    std::shared_ptr<BoundaryLock> convertToBoundaryLock(std::shared_ptr<ResourceLock>,
+        std::shared_ptr<ResourceLock> lhs);
     
 }

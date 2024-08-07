@@ -109,9 +109,7 @@ namespace db0
         std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address,
             std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>) const;
         std::shared_ptr<ResourceLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page,
-            std::uint64_t state_num, FlagSet<AccessOptions>) const;
-        std::shared_ptr<ResourceLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page,
-            std::uint64_t state_num, FlagSet<AccessOptions>, int &conflicts) const;
+            std::uint64_t state_num, FlagSet<AccessOptions>, bool handle_conflicts = true) const;
 
         inline bool isPageAligned(std::uint64_t addr_or_size) const {
             return (addr_or_size & (m_page_size - 1)) == 0;
@@ -274,31 +272,21 @@ namespace db0
     
     template <typename StorageT> std::shared_ptr<ResourceLock> PrefixImpl<StorageT>::mapWideRange(
         std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num, 
-        FlagSet<AccessOptions> access_mode) const
-    {
-        int conflicts = 0;
-        return mapWideRange(first_page, end_page, state_num, access_mode, conflicts);
-    }
-
-    template <typename StorageT> std::shared_ptr<ResourceLock> PrefixImpl<StorageT>::mapWideRange(
-        std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num, 
-        FlagSet<AccessOptions> access_mode, int &conflicts) const
+        FlagSet<AccessOptions> access_mode, bool handle_conflicts) const
     {        
-        std::uint64_t read_state_num;        
+        std::uint64_t read_state_num;
+        int conflicts = 0;
         auto lock = m_cache.findRange(first_page, end_page, state_num, access_mode, read_state_num, conflicts);
         assert(!lock || read_state_num > 0);
-
-        // >2 conflicts suggest a bug (infinite loop of conflicts resolution)
-        assert(conflicts <= 2);
-        // see Handling conflicting access patterns        
-        if (conflicts) {
-            assert(lock);
+        
+        // Unresolvable conflicts suggest implementation bug (infinite loop of conflicts resolution)
+        assert((!conflicts || handle_conflicts) && "PrefixImpl::mapWideRange: unexpected conflicts");
+        // see Handling conflicting access patterns
+        if (conflicts) {            
             // the operation should succeed since the conflicting lock has been erased
-            auto lhs = mapWideRange(first_page, end_page, read_state_num, access_mode, conflicts);
-            // convert conflicting lock to a BoundaryLock
-            convertToBoundaryLock(*lock, lhs);
-            // return the conflicting lock to cache
-            m_cache.insertUnique(std::dynamic_pointer_cast<BoundaryLock>(lock), read_state_num);
+            auto lhs = mapWideRange(first_page, end_page, read_state_num, access_mode, false);
+            // convert conflicting lock to a BoundaryLock & return it to the cache            
+            m_cache.insertUnique(convertToBoundaryLock(lock, lhs), read_state_num);
             lock = std::move(lhs);
         }
         

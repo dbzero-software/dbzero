@@ -36,12 +36,7 @@ namespace db0
          * Create a copied-on-write lock from an existing lock         
         */
         ResourceLock(const ResourceLock &, std::uint64_t write_state_num, FlagSet<AccessOptions>);
-        
-        /**
-         * Create identical copy of the lock
-         */
-        ResourceLock(const ResourceLock &);
-        
+                
         /**
          * Flush data from local buffer and clear the 'dirty' flag
          * data is not flushed if not dirty.

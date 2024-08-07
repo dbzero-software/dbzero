@@ -182,7 +182,7 @@ namespace db0
         int conflicts = 0;
         auto lock = m_cache.findRange(first_page, end_page, m_state_num, { AccessOptions::read }, 
             read_state_num, conflicts);
-
+        
         /* FIXME: implement
         // see Handling conflicting access patterns
         // >2 conflicts suggest a bug (infinite loop of conflicts resolution)    
