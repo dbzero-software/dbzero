@@ -6,21 +6,27 @@ namespace db0
 
 {
     
-    BoundaryLock::BoundaryLock(BaseStorage &storage, std::uint64_t address, std::shared_ptr<ResourceLock> lhs, std::size_t lhs_size,
-        std::shared_ptr<ResourceLock> rhs, std::size_t rhs_size, FlagSet<AccessOptions> access_mode, bool create_new)
-        // important to use no_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
-        : BaseLock(storage, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache, create_new)
-        , m_lhs(lhs)
+    BoundaryLockMembers::BoundaryLockMembers(std::shared_ptr<ResourceLock> lhs, std::size_t lhs_size,
+        std::shared_ptr<ResourceLock> rhs, std::size_t rhs_size)
+        : m_lhs(lhs)
         , m_lhs_size(lhs_size)
         , m_rhs(rhs)
         , m_rhs_size(rhs_size)
     {
+    }
+
+    BoundaryLock::BoundaryLock(BaseStorage &storage, std::uint64_t address, std::shared_ptr<ResourceLock> lhs, std::size_t lhs_size,
+        std::shared_ptr<ResourceLock> rhs, std::size_t rhs_size, FlagSet<AccessOptions> access_mode, bool create_new)
+        // important to use no_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
+        : BaseLock(storage, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache, create_new)
+        , m_members(std::make_unique<BoundaryLockMembers>(lhs, lhs_size, rhs, rhs_size))
+    {
         if (!create_new) {
             // copy from parent locks into the local buffer
-            auto lhs_buffer = m_lhs->getBuffer(m_address);
-            std::memcpy(m_data.data(), lhs_buffer, m_lhs_size);
-            auto rhs_buffer = m_rhs->getBuffer(m_address + m_lhs_size);
-            std::memcpy(m_data.data() + m_lhs_size, rhs_buffer, m_rhs_size);
+            auto lhs_buffer = lhs->getBuffer(m_address);
+            std::memcpy(m_data.data(), lhs_buffer, lhs_size);
+            auto rhs_buffer = rhs->getBuffer(m_address + lhs_size);
+            std::memcpy(m_data.data() + lhs_size, rhs_buffer, rhs_size);
         }
     }
     
@@ -30,10 +36,7 @@ namespace db0
         FlagSet<AccessOptions> access_mode)
         // important to use no_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
         : BaseLock(storage, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache, false)
-        , m_lhs(lhs)
-        , m_lhs_size(lhs_size)
-        , m_rhs(rhs)
-        , m_rhs_size(rhs_size)
+        , m_members(std::make_unique<BoundaryLockMembers>(lhs, lhs_size, rhs, rhs_size))
     {
         // copy existing data
         std::memcpy(m_data.data(), lock.m_data.data(), lock.m_data.size());
@@ -53,12 +56,12 @@ namespace db0
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
                 // write back to parent locks and mark dirty
-                auto lhs_buffer = m_lhs->getBuffer(m_address);
-                std::memcpy(lhs_buffer, m_data.data(), m_lhs_size);
-                auto rhs_buffer = m_rhs->getBuffer(m_address + m_lhs_size);
-                std::memcpy(rhs_buffer, m_data.data() + m_lhs_size, m_rhs_size);
-                m_lhs->setDirty();
-                m_rhs->setDirty();
+                auto lhs_buffer = m_members->m_lhs->getBuffer(m_address);
+                std::memcpy(lhs_buffer, m_data.data(), m_members->m_lhs_size);
+                auto rhs_buffer = m_members->m_rhs->getBuffer(m_address + m_members->m_lhs_size);
+                std::memcpy(rhs_buffer, m_data.data() + m_members->m_lhs_size, m_members->m_rhs_size);
+                m_members->m_lhs->setDirty();
+                m_members->m_rhs->setDirty();
                 
                 // reset the dirty flag
                 lock.commit_reset();
@@ -70,8 +73,8 @@ namespace db0
     {
         _flush();
         // flush both parent locks
-        m_lhs->flush();
-        m_rhs->flush();
+        m_members->m_lhs->flush();
+        m_members->m_rhs->flush();
     }
 
 }

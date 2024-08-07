@@ -60,7 +60,7 @@ namespace db0
         
     protected:
         // the updated state number or read-only state number
-        std::uint64_t m_state_num;
+        std::uint64_t m_state_num;        
     };
     
 }
