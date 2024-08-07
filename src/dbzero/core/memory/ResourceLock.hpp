@@ -38,6 +38,11 @@ namespace db0
         ResourceLock(const ResourceLock &, std::uint64_t write_state_num, FlagSet<AccessOptions>);
         
         /**
+         * Create identical copy of the lock
+         */
+        ResourceLock(const ResourceLock &);
+        
+        /**
          * Flush data from local buffer and clear the 'dirty' flag
          * data is not flushed if not dirty.
          * Data is flushed into the current state of the associated storage view

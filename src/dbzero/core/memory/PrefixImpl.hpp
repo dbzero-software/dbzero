@@ -110,7 +110,9 @@ namespace db0
             std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>) const;
         std::shared_ptr<ResourceLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page,
             std::uint64_t state_num, FlagSet<AccessOptions>) const;
-        
+        std::shared_ptr<ResourceLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page,
+            std::uint64_t state_num, FlagSet<AccessOptions>, int &conflicts) const;
+
         inline bool isPageAligned(std::uint64_t addr_or_size) const {
             return (addr_or_size & (m_page_size - 1)) == 0;
         }
@@ -219,7 +221,9 @@ namespace db0
         FlagSet<AccessOptions> access_mode) const
     {
         std::uint64_t read_state_num;
-        auto lock = m_cache.findRange(page_num, page_num + 1, state_num, access_mode, read_state_num);
+        int conflicts = 0;
+        auto lock = m_cache.findRange(page_num, page_num + 1, state_num, access_mode, read_state_num, conflicts);
+        assert(!conflicts && "Unexpectd conflict during single page lock");
         assert(!lock || read_state_num > 0);
         if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read]) {
             assert(getAccessType() == AccessType::READ_WRITE);
@@ -272,9 +276,32 @@ namespace db0
         std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num, 
         FlagSet<AccessOptions> access_mode) const
     {
-        std::uint64_t read_state_num;
-        auto lock = m_cache.findRange(first_page, end_page, state_num, access_mode, read_state_num);
+        int conflicts = 0;
+        return mapWideRange(first_page, end_page, state_num, access_mode, conflicts);
+    }
+
+    template <typename StorageT> std::shared_ptr<ResourceLock> PrefixImpl<StorageT>::mapWideRange(
+        std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num, 
+        FlagSet<AccessOptions> access_mode, int &conflicts) const
+    {        
+        std::uint64_t read_state_num;        
+        auto lock = m_cache.findRange(first_page, end_page, state_num, access_mode, read_state_num, conflicts);
         assert(!lock || read_state_num > 0);
+
+        // >2 conflicts suggest a bug (infinite loop of conflicts resolution)
+        assert(conflicts <= 2);
+        // see Handling conflicting access patterns        
+        if (conflicts) {
+            assert(lock);
+            // the operation should succeed since the conflicting lock has been erased
+            auto lhs = mapWideRange(first_page, end_page, read_state_num, access_mode, conflicts);
+            // convert conflicting lock to a BoundaryLock
+            convertToBoundaryLock(*lock, lhs);
+            // return the conflicting lock to cache
+            m_cache.insertUnique(std::dynamic_pointer_cast<BoundaryLock>(lock), read_state_num);
+            lock = std::move(lhs);
+        }
+        
         if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read]) {
             assert(getAccessType() == AccessType::READ_WRITE);
             // create/write-only access

@@ -47,15 +47,23 @@ namespace db0
         return lock;
     }
 
-    std::shared_ptr<ResourceLock> PrefixCache::findRange(std::uint64_t first_page, std::uint64_t end_page, 
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num) const
-    {
-        auto lock = m_page_map.findRange(state_num, first_page, end_page, read_state_num);
+    std::shared_ptr<ResourceLock> PrefixCache::findRange(std::uint64_t first_page, std::uint64_t end_page,
+        std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num, int &conflicts) const
+    {        
+        auto lock = m_page_map.findRange(state_num, first_page, end_page, read_state_num, conflicts);
         if (lock.get() == m_missing_lock_ptr.get()) {
             // invalidate result, this range is marked as missing
             lock = nullptr;
         }
         
+        if (conflicts) {
+            assert(lock);            
+            // remove a conflicting lock from cache (must be converted to BoundaryLock and resubmitted to cache by the caller)
+            // see Handling conflicting access patterns
+            m_page_map.erase(state_num, lock);
+            return lock;            
+        }
+
         if (!lock) {
             // not found
             return nullptr;
@@ -97,8 +105,11 @@ namespace db0
         if (!result) {
             // if both lhs & rhs parents are available and from the same state, we may create the boundary lock
             std::uint64_t lhs_state_num, rhs_state_num;
-            auto lhs = findRange(first_page, first_page + 1, state_num, access_mode, lhs_state_num);
-            auto rhs = findRange(first_page + 1, first_page + 2, state_num, access_mode, rhs_state_num);
+            int conflicts = 0;
+            auto lhs = findRange(first_page, first_page + 1, state_num, access_mode, lhs_state_num, conflicts);
+            assert(!conflicts && "PrefixCache::findBoundaryRange unexpected conflicts");
+            auto rhs = findRange(first_page + 1, first_page + 2, state_num, access_mode, rhs_state_num, conflicts);
+            assert(!conflicts && "PrefixCache::findBoundaryRange unexpected conflicts");
             if (!lhs || !rhs) {
                 // inconsitent locks
                 return nullptr;
@@ -329,4 +340,10 @@ namespace db0
         return m_cache_recycler_ptr;
     }
     
+    void PrefixCache::insertUnique(std::shared_ptr<BoundaryLock> lock, std::uint64_t state_num)
+    {
+        auto first_page = lock->getAddress() >> m_shift;
+        m_boundary_map.insertPage(state_num, lock, first_page);
+    }
+
 }

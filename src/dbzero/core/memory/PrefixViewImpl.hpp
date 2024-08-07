@@ -64,7 +64,7 @@ namespace db0
 
         std::shared_ptr<ResourceLock> mapPage(std::uint64_t page_num) const;
         std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address, std::size_t size) const;
-        std::shared_ptr<ResourceLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page) const;
+        std::shared_ptr<ResourceLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page) const;        
     };
     
     template <typename StorageT>
@@ -149,7 +149,9 @@ namespace db0
     {
         // read-only access
         std::uint64_t read_state_num;
-        auto lock = m_cache.findRange(page_num, page_num + 1, m_state_num, { AccessOptions::read }, read_state_num);
+        int conflicts = 0;
+        auto lock = m_cache.findRange(page_num, page_num + 1, m_state_num, { AccessOptions::read }, read_state_num, conflicts);
+        assert(!conflicts && "PrefixViewImpl::mapPage: unexpected conflicts");
         if (!lock) {
             std::uint64_t mutation_id;
             // page may not be available in storage yet, in such case we pick from the head cache using state_num
@@ -157,7 +159,8 @@ namespace db0
                 mutation_id = m_state_num;
             }
             // try looking up the head transaction's cache next (using the actual mutation ID)
-            lock = m_head_cache.findRange(page_num, page_num + 1, mutation_id, { AccessOptions::read }, read_state_num);
+            lock = m_head_cache.findRange(page_num, page_num + 1, mutation_id, { AccessOptions::read }, read_state_num, conflicts);
+            assert(!conflicts && "PrefixViewImpl::mapPage: unexpected conflicts");
             if (lock && read_state_num == mutation_id) {
                 // add head transaction's range to the local cache under actual mutation ID
                 m_cache.insertRange(lock, mutation_id);
@@ -172,10 +175,21 @@ namespace db0
     }
 
     template <typename StorageT>
-    std::shared_ptr<ResourceLock> PrefixViewImpl<StorageT>::mapWideRange(std::uint64_t first_page, std::uint64_t end_page) const
+    std::shared_ptr<ResourceLock> PrefixViewImpl<StorageT>::mapWideRange(std::uint64_t first_page, 
+        std::uint64_t end_page) const
     {
         std::uint64_t read_state_num;
-        auto lock = m_cache.findRange(first_page, end_page, m_state_num, { AccessOptions::read }, read_state_num);
+        int conflicts = 0;
+        auto lock = m_cache.findRange(first_page, end_page, m_state_num, { AccessOptions::read }, 
+            read_state_num, conflicts);
+
+        /* FIXME: implement
+        // see Handling conflicting access patterns
+        // >2 conflicts suggest a bug (infinite loop of conflicts resolution)    
+        assert(conflicts <= 2);
+        */
+        assert(!conflicts && "PrefixViewImpl::not implemented / resolution of conflicts");
+
         if (!lock) {
             // a consistent mutation must exist for a wide-lock
             // since wide locks can be occupied by a single object only (page aligned)
@@ -184,7 +198,9 @@ namespace db0
                 mutation_id = m_state_num;
             }
             // try looking up the head transaction's cache next (using the actual mutation ID)
-            lock = m_head_cache.findRange(first_page, end_page, mutation_id, { AccessOptions::read }, read_state_num);
+            lock = m_head_cache.findRange(first_page, end_page, mutation_id, { AccessOptions::read }, read_state_num, conflicts);
+            // FIXME: implement
+            assert(!conflicts && "PrefixViewImpl::not implemented / resolution of conflicts");
             if (lock && read_state_num == mutation_id) {
                 m_cache.insertRange(lock, mutation_id);
             } else {
@@ -194,7 +210,7 @@ namespace db0
 
         assert(lock);
         return lock;
-    }    
+    }
 
     template <typename StorageT>
     std::shared_ptr<BoundaryLock> PrefixViewImpl<StorageT>::mapBoundaryRange(std::uint64_t first_page_num, 

@@ -34,15 +34,17 @@ namespace tests
         auto lock_2 = cut.createRange(0, 10, 0, 11, { AccessOptions::write });
         
         std::uint64_t state_num;
-        ASSERT_EQ(cut.findRange(0, 3, 1, {}, state_num), lock_1);
-        ASSERT_EQ(cut.findRange(0, 10, 1, {}, state_num), lock_1);
+        int conflicts = 0;
+        ASSERT_EQ(cut.findRange(0, 3, 1, {}, state_num, conflicts), lock_1);
+        ASSERT_EQ(cut.findRange(0, 10, 1, {}, state_num, conflicts), lock_1);
         // state 14 is reported as existing
-        ASSERT_NE(cut.findRange(4, 7, 14, {}, state_num), std::shared_ptr<ResourceLock> {});
+        ASSERT_NE(cut.findRange(4, 7, 14, {}, state_num, conflicts), std::shared_ptr<ResourceLock> {});
         
         // add range as negated in state 12
         cut.markRangeAsMissing(4, 7, 12);
         // state not existing in cache
-        ASSERT_EQ(cut.findRange(14, 17, 14, {}, state_num), std::shared_ptr<ResourceLock> {});
+        ASSERT_EQ(cut.findRange(14, 17, 14, {}, state_num, conflicts), std::shared_ptr<ResourceLock> {});
+        ASSERT_FALSE(conflicts);
         cut.release();
     }
     
@@ -60,10 +62,12 @@ namespace tests
         auto lock_3 = cut.createRange(0, 1, 0, 12, { AccessOptions::write });
         
         std::uint64_t state_num;
-        ASSERT_EQ(cut.findRange(0, 1, 14, {}, state_num), lock_3);
+        int conflicts = 0;
+        ASSERT_EQ(cut.findRange(0, 1, 14, {}, state_num, conflicts), lock_3);
+        ASSERT_FALSE(conflicts);
         cut.release();
     }
-
+    
     TEST_F( PrefixCacheTest , testPrefixCacheUpdateStateNumToAvoidCoW )
     {
         db0::Storage0 dev_null;
@@ -78,16 +82,18 @@ namespace tests
         }    
         // request state #2 for read-write (note that lock has been released)
         std::uint64_t read_state_num;
-        auto lock = cut.findRange(0, 1, 2, { AccessOptions::read, AccessOptions::write }, read_state_num);
+        int conflicts = 0;
+        auto lock = cut.findRange(0, 1, 2, { AccessOptions::read, AccessOptions::write }, read_state_num, conflicts);
         ASSERT_TRUE(lock);
 
         // make sure only 1 lock is cached (no CoW), since upgrade took place
         ASSERT_EQ(cache_recycler.size(), lock->size());
         
         // now, try reading the state #1 version of the page
-        auto lock_1 = cut.findRange(0, 1, 1, { AccessOptions::read }, read_state_num);
+        auto lock_1 = cut.findRange(0, 1, 1, { AccessOptions::read }, read_state_num, conflicts);
         // lock of this version should be no longer present in cache
         ASSERT_FALSE(lock_1);
+        ASSERT_FALSE(conflicts);
 
         cut.release();
     }

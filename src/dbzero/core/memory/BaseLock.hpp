@@ -28,6 +28,8 @@ namespace db0
         BaseLock(BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
             bool create_new);
         BaseLock(const BaseLock &, FlagSet<AccessOptions>);
+        BaseLock(BaseLock &&);
+        
         virtual ~BaseLock();
         
         /**
