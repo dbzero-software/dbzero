@@ -418,7 +418,7 @@ namespace db0
         typename ItemCompT = std::less<ItemT> ,
         typename ItemEqualT = std::equal_to<ItemT> ,
         typename CapacityT = std::uint16_t,
-        typename AddressT = std::uint32_t,
+        typename AddressT = std::uint64_t,
         typename HeaderT = o_null,
         typename TreeHeaderT = o_null>
     class SGB_LookupTree: 

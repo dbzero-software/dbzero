@@ -67,6 +67,10 @@ namespace db0
             db0::v_object<o_fixed_bitset<BitN> > new_instance(memspace, at);
             new_instance.modify().reset();
         }
+
+        static unsigned int size() {
+            return BitN;
+        }
     };
     
     template <unsigned int BitN> void o_fixed_bitset<BitN>::set(unsigned int at, bool value)

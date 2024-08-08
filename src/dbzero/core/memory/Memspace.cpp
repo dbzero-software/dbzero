@@ -118,7 +118,7 @@ namespace db0
         // align if the alloc size > page size
         return getAllocatorForUpdate().alloc(size, slot_num, size > m_page_size);
     }
-
+    
     void Memspace::free(std::uint64_t address) {
         getAllocatorForUpdate().free(address);
     }

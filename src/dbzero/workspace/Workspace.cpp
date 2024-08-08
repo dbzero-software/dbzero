@@ -367,9 +367,10 @@ namespace db0
         return m_default_fixture;
     }
     
-    void Workspace::open(const std::string &prefix_name, AccessType access_type, bool autocommit)
+    void Workspace::open(const std::string &prefix_name, AccessType access_type, bool autocommit, 
+        std::optional<std::size_t> slab_size)
     {
-        auto fixture = getFixtureEx(prefix_name, access_type, {}, {}, {}, autocommit);
+        auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit);
         // update default fixture
         if (!m_default_fixture || (m_default_fixture->getAccessType() <= access_type)) {
             m_default_fixture = fixture;

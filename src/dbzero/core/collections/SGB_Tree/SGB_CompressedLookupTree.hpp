@@ -170,7 +170,7 @@ namespace db0
         
         using SG_TreeT = v_sgtree<NodeT, intrusive::detail::h_alpha_sqrt2_t>;
     };
-
+    
     template <
         typename ItemT,
         typename CompressedItemT,
@@ -181,7 +181,7 @@ namespace db0
         typename CompressedItemEqualT = std::equal_to<CompressedItemT> ,
         typename TreeHeaderT = db0::o_null,
         typename CapacityT = std::uint16_t,
-        typename AddressT = std::uint32_t >
+        typename AddressT = std::uint64_t >
     class SGB_CompressedLookupTree: 
     protected SGB_LookupTreeBase<
         sgb_compressed_lookup_types<

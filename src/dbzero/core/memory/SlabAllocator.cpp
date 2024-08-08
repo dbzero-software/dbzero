@@ -6,8 +6,8 @@ namespace db0
 
 {
 
-    SlabAllocator::SlabAllocator(std::shared_ptr<Prefix> prefix, std::uint64_t begin_addr, std::uint32_t size, std::size_t page_size,
-        std::optional<std::size_t> remaining_capacity)
+    SlabAllocator::SlabAllocator(std::shared_ptr<Prefix> prefix, std::uint64_t begin_addr, std::uint32_t size,
+        std::size_t page_size, std::optional<std::size_t> remaining_capacity)
         : m_prefix(prefix)
         , m_begin_addr(begin_addr)
         , m_page_size(page_size)
@@ -88,6 +88,7 @@ namespace db0
         // put bitspace right before the header (at the end of the slab )
         BitSpace<SLAB_BITSPACE_SIZE()>::create(prefix, headerAddr(begin_addr, size), page_size, -1);
         // open newly created bitspace
+        // use offset = begin_addr (to allow storing internal addresses as 32bit)
         BitSpace<SLAB_BITSPACE_SIZE()> bitspace(prefix, headerAddr(begin_addr, size), page_size, -1);
         
         // create the CRDT allocator data structures on top of the bitspace
