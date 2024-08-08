@@ -37,27 +37,28 @@ namespace db0
         // Create copy of an existing BoundaryLock (for CoW)
         BoundaryLock(BaseStorage &, std::uint64_t address, const BoundaryLock &lock, std::shared_ptr<BaseLock> lhs, std::size_t lhs_size,
             std::shared_ptr<BaseLock> rhs, std::size_t rhs_size, FlagSet<AccessOptions>);
-        // Create a boundary lock converted from a ResourceLock, use just one parent lock (lhs)
-        BoundaryLock(ResourceLock &&, std::shared_ptr<ResourceLock> lhs);
 
         virtual ~BoundaryLock();
         
         void flush() override;
-        
+
+        // Converts the underlying ResourceLock instance in-place into a BoundaryLock
+        // as a result the new (foundational) ResourceLock is created and returned
+        // for a rationale of this operation see "Handling conflicting access patterns" in the documentation
+        static std::shared_ptr<BoundaryLock> convertToBoundaryLock(std::shared_ptr<ResourceLock>,
+            std::shared_ptr<ResourceLock> lhs);
+
     private:
         std::unique_ptr<BoundaryLockMembers> m_members;
         std::byte m_padding[BoundaryLockMembers::padding()];
 
+        // Create a boundary lock converted from a ResourceLock, use just one parent lock (lhs)
+        BoundaryLock(ResourceLock &&, std::vector<std::byte> &&data, std::shared_ptr<ResourceLock> lhs);
+        
         // internal flush, without flushing parents
         void _flush();        
     };
 
     static_assert(sizeof(BoundaryLock) == sizeof(ResourceLock), "BoundaryLock size mismatch");
-
-    // Converts the underlying ResourceLock instance in-place into a BoundaryLock
-    // as a result the new (foundational) ResourceLock is created and returned
-    // for a rationale of this operation see "Handling conflicting access patterns" in the documentation
-    std::shared_ptr<BoundaryLock> convertToBoundaryLock(std::shared_ptr<ResourceLock>,
-        std::shared_ptr<ResourceLock> lhs);
-    
+        
 }

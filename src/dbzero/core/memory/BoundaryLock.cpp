@@ -42,8 +42,8 @@ namespace db0
         std::memcpy(m_data.data(), lock.m_data.data(), lock.m_data.size());
     }
     
-    BoundaryLock::BoundaryLock(ResourceLock &&lock, std::shared_ptr<ResourceLock> lhs)
-        : BaseLock(std::move(lock))
+    BoundaryLock::BoundaryLock(ResourceLock &&lock, std::vector<std::byte> &&data, std::shared_ptr<ResourceLock> lhs)
+        : BaseLock(std::move(lock), std::move(data))
         // entire boundary lock is included in the lhs lock
         , m_members(std::make_unique<BoundaryLockMembers>(lhs, BaseLock::size(), nullptr, 0))
     {
@@ -90,13 +90,14 @@ namespace db0
         }
     }
 
-    std::shared_ptr<BoundaryLock> convertToBoundaryLock(std::shared_ptr<ResourceLock> lock,
+    std::shared_ptr<BoundaryLock> BoundaryLock::convertToBoundaryLock(std::shared_ptr<ResourceLock> lock,
         std::shared_ptr<ResourceLock> lhs) 
     {
         // construct BoundaryLock in-place overwriting the existing ResourceLock
         // NOTE: this is fine (no memory leak) since all non-trivially constructed members are moved to the converted instance
-        new (lock.get()) BoundaryLock(std::move(*lock), lhs);        
-        std::shared_ptr<BaseLock> _lock = lock;        
+        std::vector<std::byte> data(std::move(lock->m_data));
+        new (lock.get()) BoundaryLock(std::move(*lock), std::move(data), lhs);
+        std::shared_ptr<BaseLock> _lock = lock;
         return std::dynamic_pointer_cast<BoundaryLock>(_lock);
     }
     

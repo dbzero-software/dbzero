@@ -286,7 +286,7 @@ namespace db0
             // the operation should succeed since the conflicting lock has been erased
             auto lhs = mapWideRange(first_page, end_page, read_state_num, access_mode, false);
             // convert conflicting lock to a BoundaryLock & return it to the cache            
-            m_cache.insertUnique(convertToBoundaryLock(lock, lhs), read_state_num);
+            m_cache.insertUnique(BoundaryLock::convertToBoundaryLock(lock, lhs), read_state_num);
             lock = std::move(lhs);
         }
         
