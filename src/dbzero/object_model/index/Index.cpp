@@ -455,19 +455,7 @@ namespace db0::object_model
     {
         assert(hasInstance());
         this->flush();
-        Index new_index(fixture, *this);
-        // move instance to a different cache (changing its address)
-        fixture->getLangCache().moveFrom(this->getFixture()->getLangCache(), getAddress(), 
-            new_index.getAddress());
-        auto atomic_ctx_ptr = fixture->tryGetAtomicContext();
-        if (atomic_ctx_ptr) {
-            // move instance to a different atomic context (changing its address)
-            assert(this->getFixture()->tryGetAtomicContext());
-            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), getAddress(), new_index.getAddress());
-        }
-        
-        this->destroy();
-        *this = std::move(new_index);
+        super_t::moveTo(fixture);
     }
     
     void Index::operator=(Index &&other)

@@ -1,7 +1,7 @@
 import pytest
 import dbzero_ce as db0
 from .conftest import DB0_DIR
-from .memo_test_types import MemoScopedClass
+from .memo_test_types import MemoScopedClass, MemoTestClass
 
 
 @db0.memo(prefix="scoped-class-prefix")
@@ -149,3 +149,30 @@ def test_scoped_index_issue(db0_fixture):
     index = obj.value
     index.add(None, MemoScopedClass(100, prefix=prefix))
     assert len(list(index.range(None, 100, null_first=True))) == 1
+
+
+def test_scoped_dict_issue(db0_fixture):
+    prefix = "test-data"
+    obj = MemoScopedClass(db0.dict(), prefix=prefix)    
+    dict = obj.value
+    dict["asd"] = MemoScopedClass(100, prefix=prefix)
+    assert len(dict) == 1
+    assert dict["asd"].value == 100
+
+
+def test_scoped_set_issue(db0_fixture):
+    prefix = "test-data"
+    obj = MemoScopedClass(db0.set(), prefix=prefix)    
+    set = obj.value
+    set.add(MemoScopedClass(100, prefix=prefix))
+    assert len(set) == 1
+
+
+def test_scoped_list_issue(db0_fixture):
+    prefix = "test-data"
+    obj = MemoScopedClass(db0.list(), prefix=prefix)    
+    list = obj.value
+    list.append(MemoScopedClass(100, prefix=prefix))
+    assert len(list) == 1
+    assert list[0].value == 100
+

@@ -19,7 +19,16 @@ namespace db0::object_model
         : super_t(fixture, size)
     {
     }
-    
+
+    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, const Tuple & other)
+        : super_t(fixture, other.size())
+    {
+        for (std::size_t i = 0; i < other.size(); i++) {
+            auto [storage_class, value] = getData()->items()[i];
+            modify().items()[i] = { storage_class, value };
+        }
+    }
+
     Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
         : super_t(super_t::tag_from_address(), fixture, address)
     {
@@ -94,6 +103,11 @@ namespace db0::object_model
         return false;
     }
 
+    void Tuple::operator=(Tuple &&tuple) {
+        super_t::operator=(std::move(tuple));
+        assert(!tuple.hasInstance());
+    }
+
     bool Tuple::operator!=(const Tuple &tuple) const {
         return false;
     }
@@ -110,8 +124,9 @@ namespace db0::object_model
         return this->getData()->items().end();
     }
 
-    void Tuple::moveTo(db0::swine_ptr<Fixture> &) {
-        throw std::runtime_error("Not implemented");
+    void Tuple::moveTo(db0::swine_ptr<Fixture> &fixture) {
+        assert(hasInstance());
+        super_t::moveTo(fixture);
     }
     
 }

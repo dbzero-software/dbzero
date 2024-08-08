@@ -113,6 +113,8 @@ namespace db0
         // for detach (on rollback) but only if atomic operation is in progress
         void beginModify(ObjectPtr);
 
+        void moveTo(db0::swine_ptr<Fixture> &);
+
     protected:
         friend class db0::GC0;
 
@@ -195,4 +197,22 @@ namespace db0
         }
     }
 
+    
+    template <typename T, typename BaseT, StorageClass _CLS>
+    inline void ObjectBase<T, BaseT, _CLS>::moveTo(db0::swine_ptr<Fixture> & fixture)
+    {
+        T new_instance(fixture, *static_cast<T*>(this));
+        // // move instance to a different cache (changing its address)
+        fixture->getLangCache().moveFrom(this->getFixture()->getLangCache(), this->getAddress(), 
+            new_instance.getAddress());
+        auto atomic_ctx_ptr = fixture->tryGetAtomicContext();
+        if (atomic_ctx_ptr) {
+            // move instance to a different atomic context (changing its address)
+            assert(this->getFixture()->tryGetAtomicContext());
+            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), this->getAddress(), new_instance.getAddress());             
+        }
+        
+        this->destroy();
+        *this = std::move(new_instance);   
+    }
 }

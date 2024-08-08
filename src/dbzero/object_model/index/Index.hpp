@@ -26,6 +26,7 @@ namespace db0::object_model
     {
         GC0_Declare
         using super_t = db0::ObjectBase<Index, db0::v_object<o_index>, StorageClass::DB0_INDEX>;
+        friend class db0::ObjectBase<Index, db0::v_object<o_index>, StorageClass::DB0_INDEX>;       
     public:
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
@@ -159,7 +160,7 @@ namespace db0::object_model
         
         Builder m_builder;
 
-    private:        
+    private: 
         // actual index instance (must be cast to a specific type)
         mutable std::shared_ptr<void> m_index;
 
