@@ -35,6 +35,16 @@ namespace db0
     {
     }
     
+    BaseLock::BaseLock(BaseLock &&other, std::vector<std::byte> &&data)
+        : m_storage(other.m_storage)
+        , m_address(other.m_address)
+        , m_resource_flags(other.m_resource_flags.load())
+        , m_access_mode(other.m_access_mode)
+        , m_data(std::move(data))
+        , m_recycle_it(std::move(other.m_recycle_it))
+    {
+    }
+
     BaseLock::~BaseLock()
     {
         // make sure the dirty flag is not set (unless no-flush lock)

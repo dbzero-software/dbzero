@@ -88,7 +88,7 @@ namespace db0
         typename ItemCompType, 
         typename ItemEqualType,
         typename CapacityType = std::uint16_t, 
-        typename AddressType = std::uint32_t, 
+        typename AddressType = std::uint64_t,
         typename HeaderType = db0::o_null,
         typename TreeHeaderType = db0::o_null>
     class sgb_types

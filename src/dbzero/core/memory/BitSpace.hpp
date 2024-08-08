@@ -20,6 +20,7 @@ namespace db0
          * @param base_addr either the beginning or the end of the addressing space (depends on direction)
          * @param page_size allowed size of the single allocation
          * @param direction either 1 or -1 (the direction in which the addresses are allocated)
+         * @param offset allows generating shortened relative addresses (adequate for 32bit representation)
         */
         BitSpace(std::shared_ptr<Prefix> prefix, std::uint64_t base_addr, std::size_t page_size, int direction = 1);
 
@@ -36,8 +37,7 @@ namespace db0
         void clear();
         
         /// Return the size of the space occupied by the BitSpace itself
-        static constexpr std::size_t sizeOf()
-        {
+        static constexpr std::size_t sizeOf() {
             return BitSetT::sizeOf();
         }
 
@@ -53,15 +53,15 @@ namespace db0
             m_bitset_allocator->setDynamicBounds(bounds_fn);
         }
 
-    private:        
+    private:
         using BitSetT = VFixedBitset<BitN>;
-        using AllocatorT = BitsetAllocator<BitSetT>; 
+        using AllocatorT = BitsetAllocator<BitSetT>;
         const std::size_t m_page_size;
         // Convenience memspace (without an allocator) providing raw access to the underlying prefix
-        Memspace m_internal_memspace;    
+        Memspace m_internal_memspace;
         std::shared_ptr<AllocatorT> m_bitset_allocator;
         
-        // begin / end addres of the bitset
+        // begin / end address of the bitset
         static std::pair<std::uint64_t, std::uint64_t> bitsetAddr(std::uint64_t base_addr, std::size_t page_size, int direction)
         {
             // align base address if necessary
@@ -84,7 +84,7 @@ namespace db0
                 BitSetT(m_internal_memspace.myPtr(bitsetAddr(base_addr, page_size, direction).first)),
                 alignAddress(bitsetAddr(base_addr, page_size, direction).second, page_size, direction),
                 page_size,
-                direction
+                direction            
             )
         )
     {

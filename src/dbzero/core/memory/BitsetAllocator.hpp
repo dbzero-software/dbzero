@@ -19,11 +19,11 @@ namespace db0
          * @param bitset the underlying bit container compatible with FixedBitset
          * @param base_address the begin / end address of the managed range (depends on direction)
          * @param alloc_size the allowed allocation size, typically equal data page size
-         * @param direction either 1 or -1 (the direction in which the addresses are allocated)
+         * @param direction either 1 or -1 (the direction in which the addresses are allocated)         
         */
         BitsetAllocator(BitSetT &&bitset, std::uint64_t base_addr, std::size_t alloc_size, int direction);
 
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
             bool aligned = false) override;
         
         void free(std::uint64_t address) override;
@@ -74,6 +74,9 @@ namespace db0
         }
 
         std::size_t calculateSpan() const;
+        
+        std::uint64_t calculateOffset(std::uint64_t base_addr, std::size_t m_shift, std::size_t m_alloc_size,
+            int direction) const;
     };
 
     template <typename BitSetT> BitsetAllocator<BitSetT>::BitsetAllocator(BitSetT &&bitset, std::uint64_t base_addr,
@@ -82,9 +85,19 @@ namespace db0
         , m_alloc_size(alloc_size)
         , m_base_addr(base_addr)
         , m_direction(direction)
-        , m_shift(direction > 0 ? 0 : alloc_size)
-        , m_span(calculateSpan())
+        , m_shift(direction > 0 ? 0 : alloc_size)        
+        , m_span(calculateSpan())        
     {
+    }
+
+    template <typename BitSetT> std::uint64_t BitsetAllocator<BitSetT>::calculateOffset(std::uint64_t base_addr,
+        std::size_t shift, std::size_t alloc_size, int direction) const
+    {        
+        if (direction > 0) {
+             return m_base_addr - m_shift;
+        } else {
+            return m_base_addr - m_shift - (BitSetT::size() - 1) * m_alloc_size;
+        }
     }
     
     template <typename BitSetT> std::optional<std::uint64_t>
@@ -97,7 +110,7 @@ namespace db0
         if (index == m_bitset.npos) {
             return std::nullopt;
         }
-        // validate dynamic bounds if set                
+        // validate dynamic bounds if set
         if (m_direction > 0) {
             if (m_bounds_fn && m_base_addr + ((index + 1) * m_alloc_size) - m_shift > m_bounds_fn()) {
                 // address would exceed the bounds
@@ -111,16 +124,16 @@ namespace db0
         }
 
         m_bitset.modify().set(index, true);
-        m_span = calculateSpan();
+        m_span = calculateSpan();        
         return m_base_addr + (index * m_alloc_size) * m_direction - m_shift;
     }
-
+    
     template <typename BitSetT> void BitsetAllocator<BitSetT>::free(std::uint64_t address)
     {
         if (address % m_alloc_size != 0) {
             // do not dealloc sub-addresses
             return;            
-        } 
+        }
         std::uint64_t index = indexOf(address);
         if (index >= m_bitset.npos || !m_bitset->get(index)) {
             THROWF(db0::InternalException) << "Invalid address: " << address;
@@ -131,13 +144,13 @@ namespace db0
 
     template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::getAllocSize(std::uint64_t address) const
     {
-        auto offset = address % m_alloc_size;
-        auto index = indexOf(address - offset);
+        auto inner_offset = address % m_alloc_size;
+        auto index = indexOf(address - inner_offset);
         if (index >= m_bitset.npos || !m_bitset->get(index)) {
-            THROWF(db0::InternalException) << "Invalid address: " << address;
+            THROWF(db0::InternalException) << "BitsetAllocator " << this << " invalid address: " << address;
         }
-        // handle offset to allow resolution of sub-addresses
-        return m_alloc_size - offset;
+        // handle inner offset to allow resolution of sub-addresses
+        return m_alloc_size - inner_offset;
     }
     
     template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::getAllocCount() const {

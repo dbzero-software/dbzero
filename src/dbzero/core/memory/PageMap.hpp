@@ -29,9 +29,10 @@ namespace db0
         
         /**
          * Try finding the closest match for a given state
+         * @param conflict the conflict flag will be set if inconsistent locks exist (see Handling conflicting access patters in docs)
         */
         std::shared_ptr<ResourceLockT> findRange(std::uint64_t state_num, std::uint64_t first_page,
-            std::uint64_t end_page, std::uint64_t &read_state_num) const;
+            std::uint64_t end_page, std::uint64_t &read_state_num, int &conflicts) const;
 
         /**
          * Check if the range exists without returning its parameters
@@ -140,24 +141,28 @@ namespace db0
     
     template <typename ResourceLockT>
     std::shared_ptr<ResourceLockT> PageMap<ResourceLockT>::findRange(std::uint64_t state_num, std::uint64_t first_page,
-        std::uint64_t end_page, std::uint64_t &read_state_num) const
+        std::uint64_t end_page, std::uint64_t &read_state_num, int &conflicts) const
     {
         assert(first_page < end_page);
         std::shared_ptr<ResourceLock> result;
         read_state_num = 0;
         for (auto page_num = first_page; page_num != end_page; ++page_num) {
             auto it = find(page_num, state_num);
+            // this situation is disallowed
             if (it == m_cache.end() && result) {
                 THROWF(db0::InternalException) << "PrefixCache::findRange: inconsistent locks exist for the same range";
             }
-            assert(!(page_num > first_page && !result && it != m_cache.end())
-                && "PrefixCache::findRange: inconsistent locks exist for the same range");
             if (it != m_cache.end()) {
                 auto lock = it->second.lock();
-                if (lock) {
+                if (lock) {        
                     assert((!result || result == lock) && "PrefixCache::findRange: inconsistent locks exist for the same range");
                     assert((!read_state_num || read_state_num == it->first.second)
                         && "PrefixCache::findRange: inconsistent states exist for the same range");
+
+                    if (page_num > first_page && !result) {
+                        ++conflicts;
+                    }
+
                     result = lock;
                     if (!read_state_num) {
                         read_state_num = it->first.second;
@@ -165,13 +170,13 @@ namespace db0
                 } else {
                     assert(!result && "PrefixCache::findRange: inconsistent locks exist for the same range");
                     // remove expired weak_ptr
-                    m_cache.erase(it);                    
+                    m_cache.erase(it);
                 }
             }
-        }
+        }        
         return result;
     }
-
+    
     template <typename ResourceLockT>
     bool PageMap<ResourceLockT>::rangeExists(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page) const
     {                
@@ -271,13 +276,16 @@ namespace db0
             return true;
         }
     }
-
+    
     template <typename ResourceLockT>
     bool PageMap<ResourceLockT>::replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock,
         std::uint64_t first_page, std::uint64_t end_page)
     {
         std::uint64_t existing_state_num;
-        auto existing_lock = findRange(state_num, first_page, end_page, existing_state_num);        
+        int conflicts = 0;
+        auto existing_lock = findRange(state_num, first_page, end_page, existing_state_num, conflicts);
+        // FIXME: implement
+        assert(!conflicts && "PrefixCache::replaceRange: not implemented");
         if (existing_lock && existing_state_num == state_num) {
             assert(existing_lock->size() == lock->size());
             // apply changes from the lock being merged

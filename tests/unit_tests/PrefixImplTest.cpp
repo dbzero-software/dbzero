@@ -480,8 +480,7 @@ namespace tests
         ASSERT_EQ(str_value, "12abcd78");
         cut.close();
     }
-
-    /* FIXME: failing test blocked
+    
     TEST_F( PrefixImplTest , testWideAllocInconsistentLockIssue )
     {
         BDevStorage::create(file_name);
@@ -495,7 +494,6 @@ namespace tests
         ASSERT_TRUE(w1);
         ASSERT_TRUE(w2);
         cut.close();
-    }
-    */
+    }    
     
 }

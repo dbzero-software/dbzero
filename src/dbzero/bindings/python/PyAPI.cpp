@@ -60,12 +60,15 @@ namespace db0::python
     PyObject *tryOpen(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         // prefix_name, open_mode, autocommit (bool)
-        static const char *kwlist[] = {"prefix_name", "open_mode", "autocommit", NULL};
+        static const char *kwlist[] = {"prefix_name", "open_mode", "autocommit", "slab_size", NULL};
         const char *prefix_name = nullptr;
         const char *open_mode = nullptr;
         PyObject *py_autocommit = nullptr;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sO", const_cast<char**>(kwlist), &prefix_name, &open_mode, &py_autocommit)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        PyObject *py_slab_size = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOO", const_cast<char**>(kwlist),
+            &prefix_name, &open_mode, &py_autocommit, &py_slab_size))
+        {
+            PyErr_SetString(PyExc_TypeError, "Invalid arguments");
             return NULL;
         }
         
@@ -74,9 +77,19 @@ namespace db0::python
             autocommit_interval = PyLong_AsLong(py_autocommit);
         }
 
+        std::optional<std::size_t> slab_size;
+        if (py_slab_size && !PyLong_Check(py_slab_size)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type: slab_size");
+            return NULL;
+        }
+
+        if (py_slab_size) {
+            slab_size = PyLong_AsUnsignedLong(py_slab_size);
+        }
+
         bool autocommit = (py_autocommit ? PyObject_IsTrue(py_autocommit) : true) || autocommit_interval > 0;
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
-        PyToolkit::getPyWorkspace().open(prefix_name, access_type, autocommit);
+        PyToolkit::getPyWorkspace().open(prefix_name, access_type, autocommit, slab_size);
         Py_RETURN_NONE;
     }
 

@@ -27,7 +27,8 @@ namespace db0
     public:
         BaseLock(BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
             bool create_new);
-        BaseLock(const BaseLock &, FlagSet<AccessOptions>);
+        BaseLock(const BaseLock &, FlagSet<AccessOptions>);        
+        
         virtual ~BaseLock();
         
         /**
@@ -89,6 +90,7 @@ namespace db0
 
     protected:
         friend class CacheRecycler;
+        friend class BoundaryLock;
         using list_t = db0::FixedList<std::shared_ptr<BaseLock> >;
         using iterator = list_t::iterator;
         
@@ -107,6 +109,9 @@ namespace db0
         mutable std::vector<std::byte> m_data;
         // CacheRecycler's iterator
         iterator m_recycle_it = 0;
+
+        // Conversion constructor
+        BaseLock(BaseLock &&, std::vector<std::byte> &&data);
 
         void setRecycled(bool is_recycled);
 

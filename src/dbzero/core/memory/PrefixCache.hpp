@@ -43,7 +43,7 @@ namespace db0
          * @return the resource lock or nullptr if not found
         */
         std::shared_ptr<ResourceLock> findRange(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num,
-            FlagSet<AccessOptions>, std::uint64_t &read_state_num) const;
+            FlagSet<AccessOptions>, std::uint64_t &read_state_num, int &conflicts) const;
         
         std::shared_ptr<BoundaryLock> findBoundaryRange(std::uint64_t first_page_num, std::uint64_t address, std::size_t size,
             std::uint64_t state_num, FlagSet<AccessOptions>, std::uint64_t &read_state_num) const;
@@ -72,6 +72,9 @@ namespace db0
             std::shared_ptr<ResourceLock> lhs, std::shared_ptr<ResourceLock> rhs, std::uint64_t state_num, 
             FlagSet<AccessOptions> access_mode);
         
+        // This operation is required for the conflicting range resolution
+        void insertUnique(std::shared_ptr<BoundaryLock>, std::uint64_t state_num);
+
         /**
          * Mark specific range as NOT available in cache (missing)
          * this member is called when a data was mutated in a speciifc state number

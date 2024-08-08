@@ -36,7 +36,7 @@ namespace db0
          * Create a copied-on-write lock from an existing lock         
         */
         ResourceLock(const ResourceLock &, std::uint64_t write_state_num, FlagSet<AccessOptions>);
-        
+                
         /**
          * Flush data from local buffer and clear the 'dirty' flag
          * data is not flushed if not dirty.
@@ -60,7 +60,7 @@ namespace db0
         
     protected:
         // the updated state number or read-only state number
-        std::uint64_t m_state_num;
+        std::uint64_t m_state_num;        
     };
     
 }

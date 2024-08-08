@@ -27,11 +27,13 @@ namespace tests
         db0::Storage0 dev_null;
         PageMap<ResourceLock> cut(dev_null.getPageSize());
         std::uint64_t state_num;
-        ASSERT_EQ(cut.findRange(1, 0, 2, state_num), nullptr);
-        ASSERT_EQ(cut.findRange(1, 0, 10, state_num), nullptr);
-        ASSERT_EQ(cut.findRange(7, 5, 7, state_num), nullptr);
-        ASSERT_EQ(cut.findRange(16, 4, 8, state_num), nullptr);
-        ASSERT_EQ(cut.findRange(16, 0, 10, state_num), nullptr);
+        int conflicts = 0;
+        ASSERT_EQ(cut.findRange(1, 0, 2, state_num, conflicts), nullptr);
+        ASSERT_EQ(cut.findRange(1, 0, 10, state_num, conflicts), nullptr);
+        ASSERT_EQ(cut.findRange(7, 5, 7, state_num, conflicts), nullptr);
+        ASSERT_EQ(cut.findRange(16, 4, 8, state_num, conflicts), nullptr);
+        ASSERT_EQ(cut.findRange(16, 0, 10, state_num, conflicts), nullptr);
+        ASSERT_FALSE(conflicts);
     }
     
     TEST_F( PageMapTest , testPageMapCanFindBestStateMatch )
@@ -45,14 +47,16 @@ namespace tests
         // same range, different state
         cut.insertRange(11, lock_2, 0, 10);
         std::uint64_t state_num;
-        ASSERT_EQ(cut.findRange(1, 0, 2, state_num), lock_1);
-        ASSERT_EQ(cut.findRange(1, 0, 10, state_num), lock_1);
-        ASSERT_EQ(cut.findRange(7, 5, 7, state_num), lock_1);
-        ASSERT_EQ(cut.findRange(16, 4, 8, state_num), lock_2);
-        ASSERT_EQ(cut.findRange(16, 0, 10, state_num), lock_2);
+        int conflicts = 0;
+        ASSERT_EQ(cut.findRange(1, 0, 2, state_num, conflicts), lock_1);
+        ASSERT_EQ(cut.findRange(1, 0, 10, state_num, conflicts), lock_1);
+        ASSERT_EQ(cut.findRange(7, 5, 7, state_num, conflicts), lock_1);
+        ASSERT_EQ(cut.findRange(16, 4, 8, state_num, conflicts), lock_2);
+        ASSERT_EQ(cut.findRange(16, 0, 10, state_num, conflicts), lock_2);
+        ASSERT_FALSE(conflicts);
 
         // request invalid range
-        ASSERT_ANY_THROW(cut.findRange(5, 8, 14, state_num));
+        ASSERT_ANY_THROW(cut.findRange(5, 8, 14, state_num, conflicts));
     }
 
 }

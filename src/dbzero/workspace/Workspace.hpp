@@ -178,7 +178,8 @@ namespace db0
          * @param access_type
          * @param autocommit flag indicating if the prefix should be auto-committed
         */
-        void open(const std::string &prefix_name, AccessType access_type, bool autocommit = true);
+        void open(const std::string &prefix_name, AccessType access_type, bool autocommit = true,
+            std::optional<std::size_t> slab_size = {});
         
         bool drop(const std::string &prefix_name, bool if_exists = true);
 

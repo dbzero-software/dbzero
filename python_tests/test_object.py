@@ -192,10 +192,20 @@ def test_create_random_objects_stress_test(db0_no_autocommit):
     
     append_count = 100000
     buf = []
+    total_bytes = 0
+    count = 0
+    report_bytes = 1024 * 1024
     for _ in range(append_count):
         buf.append(MemoTestClass(rand_string(8192)))
-    
-    
+        total_bytes += len(buf[-1].value)
+        count += 1
+        if total_bytes > report_bytes:
+            print(f"Total bytes: {total_bytes}")
+            report_bytes += 1024 * 1024
+        if count % 1000 == 0:
+            print(f"Objects created: {count}")
+
+            
 @pytest.mark.stress_test
 def test_create_random_objects_with_short_members(db0_fixture):
     def rand_string(max_len):
