@@ -40,6 +40,13 @@ namespace db0::object_model
     {
     }
 
+    void Dict::operator=(Dict && other)
+    {
+        super_t::operator=(std::move(other));
+        m_index = std::move(other.m_index);
+        assert(!other.hasInstance());
+    }
+
     Dict::Dict(db0::swine_ptr<Fixture> &fixture, const Dict& dict)
         : super_t(fixture)
         , m_index(*fixture)
@@ -166,8 +173,9 @@ namespace db0::object_model
         return member;
     }
 
-    void Dict::moveTo(db0::swine_ptr<Fixture> &) {
-        throw std::runtime_error("Not implemented");
+    void Dict::moveTo(db0::swine_ptr<Fixture> &fixture) {
+        assert(hasInstance());    
+        super_t::moveTo(fixture);
     }
 
     std::size_t Dict::size() const { 

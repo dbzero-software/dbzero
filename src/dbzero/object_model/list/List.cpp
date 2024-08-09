@@ -148,8 +148,24 @@ namespace db0::object_model
         v_bvector<o_typed_item>::swapAndPop(element_numbers);
     }
 
-    void List::moveTo(db0::swine_ptr<Fixture> &) {
-        throw std::runtime_error("Not implemented");
+    void List::moveTo(db0::swine_ptr<Fixture> &fixture) {
+        assert(hasInstance());
+
+        auto old_address = this->getAddress();
+        auto old_fixture = this->getFixture();
+        this->destroy(); 
+        new(this) List(fixture, *this);
+        // // move instance to a different cache (changing its address)
+        fixture->getLangCache().moveFrom(old_fixture->getLangCache(), old_address, 
+            this->getAddress());
+        auto atomic_ctx_ptr = fixture->tryGetAtomicContext();
+        if (atomic_ctx_ptr) {
+            // move instance to a different atomic context (changing its address)
+            assert(old_fixture->tryGetAtomicContext());
+            atomic_ctx_ptr->moveFrom(*old_fixture->tryGetAtomicContext(), old_address, this->getAddress());             
+        }
+        
+
     }
 
 }

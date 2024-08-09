@@ -70,6 +70,7 @@ namespace db0::object_model
         GC0_Declare
     public:
         using super_t = db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>;
+        friend class db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
@@ -89,6 +90,7 @@ namespace db0::object_model
 
         // operators
         bool operator==(const Tuple &) const;
+        void operator=(Tuple &&);
         bool operator!=(const Tuple &) const;
         
         // drop underlying DBZero representation
@@ -102,6 +104,7 @@ namespace db0::object_model
     private:
         // new Tuples can only be created via factory members
         Tuple(std::size_t size, db0::swine_ptr<Fixture> &);
+        Tuple(db0::swine_ptr<Fixture> &, const Tuple &);
     };
     
 }

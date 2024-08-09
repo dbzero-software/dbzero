@@ -33,13 +33,34 @@ namespace db0::object_model
     {
         modify().m_index_ptr = m_index.getAddress();
     }
-    
+
+    Set::Set(db0::swine_ptr<Fixture> &fixture, const Set &set)
+        : super_t(fixture)
+        , m_index(*fixture)
+    {
+        modify().m_index_ptr = m_index.getAddress();
+        for(auto [hash, address] : set) {
+            auto bindex = address.getIndex(this->getMemspace());
+            auto bindex_copy = SetIndex(bindex);
+            m_index.insert(set_item(hash, bindex_copy));
+            
+        }
+        modify().m_size = set.size();
+    }
+
     Set::Set(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_index(myPtr((*this)->m_index_ptr))
     {
     }
-    
+
+    void Set::operator=(Set && other)
+    {
+        super_t::operator=(std::move(other));
+        m_index = std::move(other.m_index);
+        assert(!other.hasInstance());
+    }
+
     void Set::insert(const Set &set)
     {
         for (auto [key, address] : set) {
@@ -190,8 +211,9 @@ namespace db0::object_model
         return item != nullptr;
     }
 
-    void Set::moveTo(db0::swine_ptr<Fixture> &) {
-        throw std::runtime_error("Not implemented");
+    void Set::moveTo(db0::swine_ptr<Fixture> &fixture) {
+        assert(hasInstance());
+        super_t::moveTo(fixture);
     }
     
     std::size_t Set::size() const { 

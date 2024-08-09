@@ -40,6 +40,7 @@ namespace db0::object_model
 
     public:
         using super_t = db0::ObjectBase<Dict, db0::v_object<o_dict>, StorageClass::DB0_DICT>;
+        friend class db0::ObjectBase<Dict, db0::v_object<o_dict>, StorageClass::DB0_DICT>;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
@@ -47,6 +48,8 @@ namespace db0::object_model
         
         Dict(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
+        void operator=(Dict &&);
+
         ObjectSharedPtr getItem(std::size_t hash, ObjectPtr key_value) const;
         void setItem(std::size_t hash, ObjectPtr key, ObjectPtr value);
         
