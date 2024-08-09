@@ -14,6 +14,11 @@ namespace tests
     public:
     };
 
+    class VSortedVectorFixtureTest: public FixtureTestBase
+    {
+    public:
+    };
+
 	static void eraseVector(std::vector<int>& from, const std::vector<int>& to_erase)
 	{
 		for (int erased : to_erase) {
@@ -24,59 +29,57 @@ namespace tests
 		}
 	}
 
-	// FIXME: test fails due to unaligned wide range lock
-	// FIXME: unblock when the wide-lock problem gets resolved
-	// TEST_F( VSortedVectorTest , testVSortedVectorBulkInsertReverseSorted )
-    // {		
-	// 	auto memspace = getMemspace();
-	// 	v_sorted_vector<int> data_buf(memspace, 8);
-	// 	int insert_count = 100;
-	// 	while (insert_count-- > 0) {
-	// 		int count = 25;
-	// 		std::vector<int> data;
-	// 		while (count-- > 0) {
-	// 			data.push_back(rand() % 100);
-	// 		}
-	// 		// sort descending
-	// 		std::sort(data.begin(), data.end(), [](int i0, int i1) {
-	// 			return (i0 > i1);
-	// 		});
-	// 		data_buf.bulkInsertReverseSorted(data.begin(), data.size());
-	// 	}
-	// 	ASSERT_EQ(data_buf->m_size, 2500u);
-	// 	auto it0 = data_buf->begin();
-	// 	auto it1 = data_buf->begin();
-	// 	++it1;
-	// 	std::stringstream _str0;
-	// 	std::vector<int> erase_buf;
-	// 	while (it1!=data_buf->end()) {
-	// 		if (rand()%3==0) {
-	// 			erase_buf.push_back(*it0);
-	// 		}
-	// 		_str0 << *it0 << ",";
-	// 		ASSERT_EQ((*it0 <= *it1), true);
-	// 		++it0;
-	// 		++it1;
-	// 	}
-	// 	std::string str_dump = _str0.str();
+	TEST_F( VSortedVectorFixtureTest , testVSortedVectorBulkInsertReverseSorted )
+    {
+		auto fixture = m_workspace.getFixture("test-fixture");
+		v_sorted_vector<int> data_buf(*fixture, 8);
+		int insert_count = 100;
+		while (insert_count-- > 0) {
+			int count = 25;
+			std::vector<int> data;
+			while (count-- > 0) {
+				data.push_back(rand() % 100);
+			}
+			// sort descending
+			std::sort(data.begin(), data.end(), [](int i0, int i1) {
+				return (i0 > i1);
+			});
+			data_buf.bulkInsertReverseSorted(data.begin(), data.size());
+		}
+		ASSERT_EQ(data_buf->m_size, 2500u);
+		auto it0 = data_buf->begin();
+		auto it1 = data_buf->begin();
+		++it1;
+		std::stringstream _str0;
+		std::vector<int> erase_buf;
+		while (it1!=data_buf->end()) {
+			if (rand()%3==0) {
+				erase_buf.push_back(*it0);
+			}
+			_str0 << *it0 << ",";
+			ASSERT_EQ((*it0 <= *it1), true);
+			++it0;
+			++it1;
+		}
+		std::string str_dump = _str0.str();
 
-	// 	// test bulk erase sorted
-	// 	bool addr_changed;
-	// 	data_buf.bulkEraseSorted(erase_buf.begin(), erase_buf.end(), addr_changed);
-	// 	it0 = data_buf->begin();
-	// 	it1 = data_buf->begin();
-	// 	++it1;
-	// 	std::stringstream _str1;
-	// 	while (it1!=data_buf->end()) {
-	// 		_str1 << *it0 << ",";
-	// 		ASSERT_EQ((*it0 <= *it1), true);
-	// 		++it0;
-	// 		++it1;
-	// 	}
-	// 	str_dump = _str1.str();
-	// }
+		// test bulk erase sorted
+		bool addr_changed;
+		data_buf.bulkEraseSorted(erase_buf.begin(), erase_buf.end(), addr_changed);
+		it0 = data_buf->begin();
+		it1 = data_buf->begin();
+		++it1;
+		std::stringstream _str1;
+		while (it1!=data_buf->end()) {
+			_str1 << *it0 << ",";
+			ASSERT_EQ((*it0 <= *it1), true);
+			++it0;
+			++it1;
+		}
+		str_dump = _str1.str();
+	}
 
-	TEST_F( VSortedVectorTest , testVSortedVectorJoin) 
+	TEST_F( VSortedVectorTest , testVSortedVectorJoin)
     {
 		auto memspace = getMemspace();
 
@@ -232,5 +235,5 @@ namespace tests
 		}
 		ASSERT_EQ(result, (std::vector<std::uint64_t> { 55, 35, 35, 14, 7, 6, 3 }));
 	}
-
+	
 } 
