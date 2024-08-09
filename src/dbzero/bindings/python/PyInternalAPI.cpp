@@ -16,6 +16,7 @@
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
+#include <dbzero/core/memory/SlabAllocator.hpp>
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
@@ -345,4 +346,27 @@ namespace db0::python
         return res;
     }
     
+    PyObject *getSlabMetrics(const db0::SlabAllocator &slab)
+    {
+        PyObject *py_dict = PyDict_New();
+        PyDict_SetItemString(py_dict, "size", PyLong_FromUnsignedLong(slab.getSlabSize()));
+        PyDict_SetItemString(py_dict, "admin_space_size", PyLong_FromUnsignedLong(slab.getAdminSpaceSize(true)));
+        PyDict_SetItemString(py_dict, "remaining_capacity", PyLong_FromUnsignedLong(slab.getRemainingCapacity()));
+        PyDict_SetItemString(py_dict, "max_alloc_size", PyLong_FromUnsignedLong(slab.getMaxAllocSize()));
+        return py_dict;
+    }
+
+    PyObject *tryGetSlabMetrics(db0::Workspace *workspace)
+    {
+        auto fixture = workspace->getCurrentFixture();        
+        PyObject *py_dict = PyDict_New();
+        auto get_slab_metrics = [py_dict](const db0::SlabAllocator &slab, std::uint32_t slab_id) {
+            // report remaining capacity as dict item
+            PyObject *py_slab_id = PyLong_FromUnsignedLong(slab_id);
+            PyDict_SetItem(py_dict, py_slab_id, getSlabMetrics(slab));
+        };
+        fixture->forAllSlabs(get_slab_metrics);
+        return py_dict;
+    }
+
 }

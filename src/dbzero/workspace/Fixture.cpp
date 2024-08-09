@@ -56,14 +56,15 @@ namespace db0
         return StringPoolT(Memspace(this->getPrefixPtr(), lsp_slot), memspace.myPtr(fixture->m_string_pool_ptr.getAddress()));
     }
     
-    std::shared_ptr<SlabAllocator> Fixture::openSlot(Memspace &memspace, MetaAllocator &meta, std::uint32_t slot_num) 
+    std::shared_ptr<SlabAllocator> Fixture::openSlot(Memspace &memspace, MetaAllocator &meta, std::uint32_t slot_num)
     {
-        using v_fixture = v_object<o_fixture>;        
+        using v_fixture = v_object<o_fixture>;
         v_fixture fixture(this->myPtr(meta.getFirstAddress()));
         return openSlot(meta, fixture, slot_num);
     }
     
-    std::shared_ptr<SlabAllocator> Fixture::openSlot(MetaAllocator &meta, const v_object<o_fixture> &fixture, std::uint32_t slot_num) {
+    std::shared_ptr<SlabAllocator> Fixture::openSlot(MetaAllocator &meta, const v_object<o_fixture> &fixture, std::uint32_t slot_num) 
+    {
         auto index = slot_index(slot_num);
         return meta.openReservedSlab(fixture->m_slots[index].m_address, fixture->m_slots[index].m_size);
     }
@@ -344,4 +345,8 @@ namespace db0
         return m_atomic_context_ptr;
     }
     
+    void Fixture::forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)> f) const {
+        m_meta_allocator.forAllSlabs(f);
+    }
+
 }
