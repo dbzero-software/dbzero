@@ -48,7 +48,7 @@ namespace db0::python
         cache_recycler.clear();
         Py_RETURN_NONE;
     }
-        
+    
     PyObject *tryFetch(PyObject *const *args, Py_ssize_t nargs) {
         return tryFetchFrom(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }
@@ -684,7 +684,7 @@ namespace db0::python
         return runSafe(tryFilterBy, args, kwargs);
     }
     
-    PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
+    PyObject *setPrefix(PyObject *, PyObject *args, PyObject *kwargs)
     {
         // extract object / prefix name (can be None)
         PyObject *py_object = nullptr;
@@ -699,7 +699,11 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid object type");
             return NULL;
         }
-        return runSafe(PyMemo_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);        
+        return runSafe(PyMemo_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);
+    }
+
+    PyObject *getSlabMetrics(PyObject *, PyObject *) {
+        return runSafe(tryGetSlabMetrics, &PyToolkit::getPyWorkspace().getWorkspace());
     }
 
 }

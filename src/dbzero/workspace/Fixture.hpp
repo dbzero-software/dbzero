@@ -209,6 +209,9 @@ namespace db0
 
         AtomicContext *tryGetAtomicContext() const;
         
+        // Visit all slabs from the underlying meta-allocator
+        void forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t slab_id)>) const;
+        
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;

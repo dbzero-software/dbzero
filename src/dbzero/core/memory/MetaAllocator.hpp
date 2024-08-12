@@ -200,7 +200,10 @@ namespace db0
         std::uint64_t getFirstAddress() const;
         
         SlabRecycler *getSlabRecyclerPtr() const;
-
+        
+        // Visit all underlying slabs
+        void forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t slab_id)>) const;
+        
     private:
         std::shared_ptr<Prefix> m_prefix;
         o_meta_header m_header;

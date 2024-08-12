@@ -126,6 +126,8 @@ namespace db0::python
     PyObject *getTypeInfo(PyObject *self, PyObject *args);
     
     PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs);
+    
+    PyObject *getSlabMetrics(PyObject *self, PyObject *args);
 
     template <typename T> db0::object_model::StorageClass getStorageClass();
 
