@@ -14,15 +14,13 @@ namespace db0
         ops[T::m_gc_ops_id].dropByAddr(memspace, addr);
     }
 
-    GC0::GC0(db0::swine_ptr<Fixture> &fixture, LangCacheView &lang_cache)
-        : super_t(fixture)
-        , m_lang_cache(lang_cache)
+    GC0::GC0(db0::swine_ptr<Fixture> &fixture)
+        : super_t(fixture)        
     {
     }
     
-    GC0::GC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, LangCacheView &lang_cache)
-        : super_t(tag_from_address(), fixture, address)
-        , m_lang_cache(lang_cache)
+    GC0::GC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+        : super_t(tag_from_address(), fixture, address)        
     {
     }
     
@@ -41,8 +39,6 @@ namespace db0
                 drop_op = ops.drop;
             }
             m_vptr_map.erase(it);
-            // notify lang cache on object deleted (to be able to remove weak references)
-            m_lang_cache.erase(ops.address(vptr));
         }
 
         // drop object after erasing from map due to possible recursion
@@ -64,8 +60,6 @@ namespace db0
         if (it != m_vptr_map.end()) {
             auto ops = m_ops[it->second];
             m_vptr_map.erase(it);
-            // notify lang cache on object deleted (to be able to remove weak references)
-            m_lang_cache.erase(ops.address(vptr));
         }
     }
 

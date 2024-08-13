@@ -3,31 +3,7 @@
 namespace db0
 
 {
-
-    /* FIXME:
-    void LangCache::erase(std::uint64_t address)
-    {
-        auto it = m_cache.find(address);
-        if (it == m_cache.end()) {
-            return;
-        }
-        if (it->second.m_strong_ref) {
-            LangToolkit::decRef(it->second.m_object);
-        }
-        m_cache.erase(it);
-    }
-
-    void LangCache::clear()
-    {
-        for (auto &item : m_cache) {
-            if (item.second.m_strong_ref) {
-                LangToolkit::decRef(item.second.m_object);
-            }
-        }
-        m_cache.clear();
-    }
-    */
-
+    
     LangCache::LangCache(std::optional<std::size_t> capacity, std::optional<std::uint32_t> step)
         : m_capacity(std::max(DEFAULT_INITIAL_SIZE, capacity.value_or(DEFAULT_CAPACITY)))
         , m_step(step.value_or(DEFAULT_STEP))
@@ -35,10 +11,14 @@ namespace db0
         , m_evict_hand(m_cache.begin())
         , m_insert_hand(m_cache.begin())        
         , m_visited(DEFAULT_INITIAL_SIZE)
-    {
+    {        
         assert(DEFAULT_INITIAL_SIZE > 0);
     }
 
+    LangCache::~LangCache()
+    {
+    }
+    
     void LangCache::moveFrom(LangCache &other, const Fixture &src_fixture, std::uint64_t src_address,
         const Fixture &dst_fixture, std::uint64_t dst_address)
     {
@@ -54,7 +34,8 @@ namespace db0
         if (it == other.m_uid_to_index.end()) {
             return;
         }
-        add(dst_fixture_id, dst_address, m_cache[it->second].get());
+        // move object from the other LangCache
+        add(dst_fixture_id, dst_address, other.m_cache[it->second].get());
         other.m_cache[it->second] = nullptr;
         other.m_uid_to_index.erase(it);        
         --other.m_size;        
@@ -116,9 +97,11 @@ namespace db0
         if (it == m_uid_to_index.end()) {
             return;
         }
-        m_cache[it->second] = nullptr;
+        // need to remove from the map first because destroy may trigger erase from GC0
+        auto slot_id = it->second;
         m_uid_to_index.erase(it);
-        --m_size;        
+        m_cache[slot_id] = nullptr;
+        --m_size;
     }
 
     LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, std::uint64_t address) const {
@@ -189,6 +172,10 @@ namespace db0
         }
     }
 
+    std::size_t LangCache::size() const {
+        return m_size;
+    }
+    
     LangCacheView::LangCacheView(const Fixture &fixture, LangCache &cache)
         : m_fixture(fixture)
         , m_cache(cache)
@@ -196,12 +183,14 @@ namespace db0
     {
     }
     
-    void LangCacheView::add(std::uint64_t address, ObjectPtr obj) {
+    void LangCacheView::add(std::uint64_t address, ObjectPtr obj)
+    {
         m_cache.add(m_fixture_id, address, obj);
         m_objects.insert(address);
     }
 
-    void LangCacheView::erase(std::uint64_t address) {
+    void LangCacheView::erase(std::uint64_t address) 
+    {
         m_cache.erase(m_fixture_id, address);
         m_objects.erase(address);
     }
@@ -210,8 +199,11 @@ namespace db0
         return m_cache.get(m_fixture_id, address);
     }
     
-    void LangCacheView::moveFrom(LangCacheView &other, std::uint64_t src_address, std::uint64_t dst_address) {
+    void LangCacheView::moveFrom(LangCacheView &other, std::uint64_t src_address, std::uint64_t dst_address)
+    {
         m_cache.moveFrom(other.m_cache, other.m_fixture_id, src_address, m_fixture_id, dst_address);
+        other.m_objects.erase(src_address);
+        m_objects.insert(dst_address);
     }
 
     void LangCacheView::clear()

@@ -141,7 +141,7 @@ namespace db0
     Workspace::~Workspace()
     {
         // stop refresh/autocommit threads
-        m_auto_commit_thread->stop();        
+        m_auto_commit_thread->stop();
         m_refresh_thread->stop();
         for (auto &m_thread : m_threads) {
             m_thread.join();

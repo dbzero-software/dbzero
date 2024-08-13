@@ -25,7 +25,7 @@ namespace db0
         static constexpr std::size_t DEFAULT_INITIAL_SIZE = 128;
 
         LangCache(std::optional<std::size_t> capacity = {}, std::optional<std::uint32_t> step = {});
-        virtual ~LangCache() = default;
+        virtual ~LangCache();
 
         // Add a new instance to cache
         // @return slot id the element was written to
@@ -41,6 +41,8 @@ namespace db0
         void moveFrom(LangCache &other, const Fixture &src_fixture, std::uint64_t src_address,
             const Fixture &dst_fixture, std::uint64_t dst_address);
 
+        std::size_t size() const;
+        
     protected:
         friend class LangCacheView;
         mutable db0::auto_map<const Fixture*, std::uint16_t> m_fixture_to_id;
@@ -78,7 +80,7 @@ namespace db0
         
         // Combine high 48bits of the address with the fixture id
         inline std::uint64_t makeUID(std::uint16_t fixture_id, std::uint64_t address) const {
-            return (static_cast<std::uint64_t>(fixture_id) << 48) | address;
+            return (static_cast<std::uint64_t>(fixture_id) << 48) | (address & 0x0000FFFFFFFFFFFF);
         }
 
     };

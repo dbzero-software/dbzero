@@ -72,6 +72,10 @@ namespace db0
         });
     }
     
+    WorkspaceView::~WorkspaceView()
+    {
+    }
+
     db0::swine_ptr<Fixture> WorkspaceView::getFixture(
         const std::string &prefix_name, std::optional<AccessType> access_type)
     {

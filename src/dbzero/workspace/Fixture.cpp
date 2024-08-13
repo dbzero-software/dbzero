@@ -41,9 +41,7 @@ namespace db0
     }
     
     Fixture::~Fixture()
-    {
-        // clear cache before destroying the fixture to destroy object instances supported by the cache
-        m_lang_cache.clear();
+    {        
     }
     
     StringPoolT Fixture::openLimitedStringPool(Memspace &memspace, MetaAllocator &meta)
@@ -152,12 +150,14 @@ namespace db0
     
     void Fixture::close()
     {
+        // clear cache to destroy object instances supported by the cache
+        m_lang_cache.clear();
         std::unique_lock<std::mutex> lock(m_close_mutex);
         for (auto &close: m_close_handlers) {
             close(false);
         }
         m_string_pool.close();
-        Memspace::close();        
+        Memspace::close();
     }
     
     bool Fixture::refresh()

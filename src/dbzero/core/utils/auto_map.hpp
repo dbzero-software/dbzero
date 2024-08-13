@@ -23,7 +23,7 @@ namespace db0
         std::unordered_map<KeyT, ValueT> m_map;
         // reusable values
         std::deque<ValueT> m_unused;
-        ValueT m_next_value = 0;
+        ValueT m_next_value = 1;
     };
     
     template <typename KeyT, typename ValueT> ValueT auto_map<KeyT, ValueT>::addUnique(KeyT key)
