@@ -45,7 +45,7 @@ namespace db0
         // clear cache before destroying the fixture to destroy object instances supported by the cache
         m_lang_cache.clear();
     }
-
+    
     StringPoolT Fixture::openLimitedStringPool(Memspace &memspace, MetaAllocator &meta)
     {
         using v_fixture = v_object<o_fixture>;

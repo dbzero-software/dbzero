@@ -3,52 +3,14 @@
 #include "config.hpp"
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
+#include <dbzero/core/utils/auto_map.hpp>
 
 namespace db0 
 
 {
     
     class Fixture;
-
-    /**
-     * Language-specific object cache.
-    */
-    /* FIXME: legacy implementation
-    class LangCache
-    {
-    public:
-        using LangToolkit = Config::LangToolkit;
-        using ObjectPtr = typename LangToolkit::ObjectPtr;
-        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
-
-        LangCache() = default;
-        virtual ~LangCache();
-        
-        ObjectSharedPtr get(std::uint64_t address) const;
-        
-        void add(std::uint64_t address, ObjectPtr, bool strong_ref);
-
-        // Move instance from a different cache (changing its address)
-        void moveFrom(LangCache &other, std::uint64_t src_address, 
-            std::uint64_t dst_address);
-        
-        void erase(std::uint64_t address);
-        
-        std::size_t size() const;
-
-        void clear();
-
-    private:
-
-        struct LangCacheItem
-        {
-            ObjectPtr m_object;
-            bool m_strong_ref;
-        };
-
-        std::unordered_map<std::uint64_t, LangCacheItem> m_cache;
-    };
-    */
 
     class LangCache
     {
@@ -70,7 +32,7 @@ namespace db0
         void add(const Fixture &, std::uint64_t address, ObjectPtr);
         
         void erase(const Fixture &, std::uint64_t address);
-
+        
         // Try retrieving an existing instance from cache
         // nullptr will be returned if the instance has not been found in cache
         ObjectSharedPtr get(const Fixture &, std::uint64_t address) const;
@@ -81,6 +43,9 @@ namespace db0
 
     protected:
         friend class LangCacheView;
+        mutable db0::auto_map<const Fixture*, std::uint16_t> m_fixture_to_id;
+
+        std::uint16_t getFixtureId(const Fixture &fixture) const;
 
     private:        
         const std::size_t m_capacity;
@@ -96,11 +61,26 @@ namespace db0
         // instance UID to index in cache
         std::unordered_map<std::uint64_t, std::uint32_t> m_uid_to_index;
 
+        bool isFull() const;
+
+        void add(std::uint16_t fixture_id, std::uint64_t address, ObjectPtr);
+        
+        void erase(std::uint16_t fixture_id, std::uint64_t address);
+
+        ObjectSharedPtr get(std::uint16_t fixture_id, std::uint64_t address) const;
+
+        void moveFrom(LangCache &other, std::uint16_t src_fixture_id, std::uint64_t src_address,
+            std::uint16_t dst_fixture_id, std::uint64_t dst_address);
+
         // Try evicting one element from cache
         std::optional<std::uint32_t> evictOne();
         std::optional<std::uint32_t> findEmptySlot() const;
+        
+        // Combine high 48bits of the address with the fixture id
+        inline std::uint64_t makeUID(std::uint16_t fixture_id, std::uint64_t address) const {
+            return (static_cast<std::uint64_t>(fixture_id) << 48) | address;
+        }
 
-        bool isFull() const;
     };
     
     // The fixture-specific LangCache wrapper
@@ -124,7 +104,9 @@ namespace db0
         void clear();
 
     private:
+        const Fixture &m_fixture;
         LangCache &m_cache;
+        const std::uint16_t m_fixture_id;     
         std::unordered_set<std::uint64_t> m_objects;
     };
     
