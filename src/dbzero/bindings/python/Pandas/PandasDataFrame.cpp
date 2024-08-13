@@ -84,7 +84,7 @@ namespace db0::python
         db0::FixtureLock lock(fixture);
         auto dataframe_obj = PandasDataFrameObject_new(&PandasDataFrameObjectType, NULL, NULL);
         db0::object_model::pandas::DataFrame::makeNew(&dataframe_obj->modifyExt(), *lock);
-        lock->getLangCache().add(dataframe_obj->ext().getAddress(), dataframe_obj, true);
+        lock->getLangCache().add(dataframe_obj->ext().getAddress(), dataframe_obj);
         return dataframe_obj;
     }
 

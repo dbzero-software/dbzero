@@ -174,7 +174,7 @@ namespace db0::python
         }
 
         // register newly created set with py-object cache
-        fixture->getLangCache().add(set.getAddress(), py_set, true);
+        fixture->getLangCache().add(set.getAddress(), py_set);
         return py_set;
     }
 
@@ -307,7 +307,7 @@ namespace db0::python
         auto py_set = SetObject_new(&SetObjectType, NULL, NULL);
         db0::object_model::Set::makeNew(&py_set->modifyExt(), *lock);
         py_set->modifyExt().insert(py_src_set->ext());
-        lock->getLangCache().add(py_set->ext().getAddress(), py_set, true);
+        lock->getLangCache().add(py_set->ext().getAddress(), py_set);
         return py_set;
     }
     

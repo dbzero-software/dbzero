@@ -24,6 +24,7 @@ namespace db0
     class RefreshThread;
     class AutoCommitThread;
     class AtomicContext;
+    class LangCache;
 
     class BaseWorkspace
     {
@@ -92,6 +93,8 @@ namespace db0
             return m_prefix_catalog;
         }
         
+        void setCacheSize(std::size_t cache_size);
+
     protected:
         PrefixCatalog m_prefix_catalog;
         
@@ -115,7 +118,7 @@ namespace db0
     */
     class Workspace: protected BaseWorkspace, public Snapshot
     {
-    public:
+    public:        
         static constexpr std::uint32_t DEFAULT_AUTOCOMMIT_INTERVAL_MS = 250;
         static constexpr std::size_t DEFAULT_VOBJECT_CACHE_SIZE = 16384;
 
@@ -190,6 +193,8 @@ namespace db0
         */
         void close() override;
         
+        LangCache &getLangCache() const override;
+
         CacheRecycler &getCacheRecycler();
 
         const CacheRecycler &getCacheRecycler() const;
@@ -215,6 +220,8 @@ namespace db0
         
         void cancelAtomic();
 
+        void setCacheSize(std::size_t cache_size);
+        
     private:
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_fixture_initializer;
@@ -229,7 +236,8 @@ namespace db0
         mutable FixedObjectList m_shared_object_list;
         // flag indicating atomic operation in progress
         AtomicContext *m_atomic_context_ptr = nullptr;
-
+        std::unique_ptr<LangCache> m_lang_cache;
+        
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
     };
     

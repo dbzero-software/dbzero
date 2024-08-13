@@ -87,6 +87,8 @@ namespace db0::python
     PyObject *tryDeserialize(db0::Snapshot *, PyObject *py_bytes);
     
     PyObject *tryGetSlabMetrics(db0::Workspace *);
+
+    PyObject *trySetCacheSize(db0::Workspace *, std::size_t new_cache_size);
     
     PyObject *_PyObject_GetDescrOptional(PyObject *obj, PyObject *name);
 

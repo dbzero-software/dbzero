@@ -123,7 +123,7 @@ namespace db0::python
 
         Py_DECREF(iterator);
         // register newly created tuple with py-object cache
-        fixture->getLangCache().add(tuple.getAddress(), py_tuple, true);
+        fixture->getLangCache().add(tuple.getAddress(), py_tuple);
         return py_tuple;
     }
     

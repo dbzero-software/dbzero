@@ -139,4 +139,8 @@ namespace db0
         return m_fixtures.find(it->second) != m_fixtures.end();
     }
 
+    LangCache &TestWorkspace::getLangCache() const {
+        return m_lang_cache;
+    }
+    
 }

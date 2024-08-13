@@ -48,7 +48,7 @@ namespace db0::python
         auto bytearray_object = ByteArrayObject_new(&ByteArrayObjectType, NULL, NULL);
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         makeByteArrayFromPyBytes(*lock, bytearray_object, py_obj);
-        lock->getLangCache().add(bytearray_object->ext().getAddress(), bytearray_object, true);
+        lock->getLangCache().add(bytearray_object->ext().getAddress(), bytearray_object);
         return bytearray_object;
     }
 
@@ -272,7 +272,7 @@ namespace db0::python
             return NULL;
         }
         // register newly created bytearray with py-object cache
-        lock->getLangCache().add(bytearray_object->ext().getAddress(), bytearray_object, true);
+        lock->getLangCache().add(bytearray_object->ext().getAddress(), bytearray_object);
         return bytearray_object;
     }
     

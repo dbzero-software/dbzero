@@ -5,6 +5,7 @@
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
 #include <dbzero/core/memory/SlabRecycler.hpp>
+#include <dbzero/object_model/LangCache.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include "PrefixProxy.hpp"
@@ -58,6 +59,8 @@ namespace db0
         
         void close() override;
 
+        LangCache &getLangCache() const override;
+
         void tearDown();
         
     private:
@@ -67,6 +70,7 @@ namespace db0
         db0::swine_ptr<Fixture> m_current_fixture;
         std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;
         std::unordered_map<std::string, std::uint64_t> m_uuids;
+        mutable db0::LangCache m_lang_cache;
     };
 
 }

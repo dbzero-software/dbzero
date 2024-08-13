@@ -14,13 +14,13 @@ namespace db0
         ops[T::m_gc_ops_id].dropByAddr(memspace, addr);
     }
 
-    GC0::GC0(db0::swine_ptr<Fixture> &fixture, LangCache &lang_cache)
+    GC0::GC0(db0::swine_ptr<Fixture> &fixture, LangCacheView &lang_cache)
         : super_t(fixture)
         , m_lang_cache(lang_cache)
     {
     }
     
-    GC0::GC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, LangCache &lang_cache)
+    GC0::GC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, LangCacheView &lang_cache)
         : super_t(tag_from_address(), fixture, address)
         , m_lang_cache(lang_cache)
     {

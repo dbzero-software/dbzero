@@ -119,11 +119,10 @@ namespace db0::python
                 }
                 return object_ptr;
             }
-
+            
             // unload with instance_id validation & optional type validation
-            object_ptr = PyToolkit::unloadObject(fixture, addr, class_factory, object_id.m_instance_id, type);
-            // keep in cache (weak reference only)
-            fixture->getLangCache().add(addr, object_ptr, false);
+            object_ptr = PyToolkit::unloadObject(fixture, addr, class_factory, object_id.m_instance_id, type);            
+            fixture->getLangCache().add(addr, object_ptr);
             return object_ptr;
         }
 
@@ -369,4 +368,10 @@ namespace db0::python
         return py_dict;
     }
 
+    PyObject *trySetCacheSize(db0::Workspace *workspace, std::size_t new_cache_size) 
+    {
+        workspace->setCacheSize(new_cache_size);
+        Py_RETURN_NONE;
+    }
+    
 }

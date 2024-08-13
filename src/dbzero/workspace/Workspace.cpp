@@ -115,7 +115,11 @@ namespace db0
         return m_prefix_catalog.drop(prefix_name, if_exists);
     }
     
-    Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size, 
+    void BaseWorkspace::setCacheSize(std::size_t new_cache_size) {
+        m_cache_recycler.resize(new_cache_size);
+    }
+    
+    Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size,
         std::optional<std::size_t> vobject_cache_size, std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
         : BaseWorkspace(root_path, cache_size, slab_cache_size)
         , m_fixture_catalog(m_prefix_catalog)
@@ -123,7 +127,8 @@ namespace db0
         , m_refresh_thread(std::make_unique<RefreshThread>())
         , m_auto_commit_thread(std::make_unique<AutoCommitThread>(DEFAULT_AUTOCOMMIT_INTERVAL_MS))
         , m_shared_object_list(vobject_cache_size ? *vobject_cache_size : DEFAULT_VOBJECT_CACHE_SIZE)
-    {        
+        , m_lang_cache(std::make_unique<LangCache>())
+    {
         // run refresh / autocommit threads     
         m_threads.emplace_back([this]() {
             m_refresh_thread->run();
@@ -415,7 +420,7 @@ namespace db0
             }
         }        
     }
-     
+    
     void Workspace::endAtomic()
     {
         assert(m_atomic_context_ptr);
@@ -440,6 +445,14 @@ namespace db0
 
     void Workspace::setAutocommitInterval(std::uint64_t interval_ms) {
         m_auto_commit_thread->setInterval(interval_ms);
+    }
+
+    void Workspace::setCacheSize(std::size_t cache_size) {
+        BaseWorkspace::setCacheSize(cache_size);
+    }
+
+    LangCache &Workspace::getLangCache() const {
+        return *m_lang_cache;
     }
 
 }

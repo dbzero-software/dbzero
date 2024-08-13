@@ -82,9 +82,8 @@ namespace db0::python
 
         auto block_object = BlockDefaultObject_new();
         // retrieve actual DBZero instance        
-        db0::object_model::pandas::Block::unload(&block_object->modifyExt(), fixture, address);
-        // add blockobject to cache (weak ref)
-        lang_cache.add(address, block_object, false);
+        db0::object_model::pandas::Block::unload(&block_object->modifyExt(), fixture, address);        
+        lang_cache.add(address, block_object);
         return block_object;
     }
     
@@ -110,7 +109,7 @@ namespace db0::python
         }
 
         // add list object to cache
-        lang_cache.add(address, list_object, false);
+        lang_cache.add(address, list_object);
         return list_object;
     }
     
@@ -136,7 +135,7 @@ namespace db0::python
         }
 
         // add list object to cache
-        lang_cache.add(address, index_object, false);
+        lang_cache.add(address, index_object);
         return index_object;
     }
 
@@ -156,7 +155,7 @@ namespace db0::python
         db0::object_model::Set::unload(&set_object->modifyExt(), fixture, address);
 
         // add list object to cache
-        lang_cache.add(address, set_object, false);
+        lang_cache.add(address, set_object);
         return set_object;
     }
     
@@ -176,7 +175,7 @@ namespace db0::python
         db0::object_model::Dict::unload(&dict_object->modifyExt(), fixture, address);
     
         // add list object to cache
-        lang_cache.add(address, dict_object, false);
+        lang_cache.add(address, dict_object);
         return dict_object;
     }
     
@@ -196,7 +195,7 @@ namespace db0::python
         db0::object_model::Tuple::unload(&tuple_object->modifyExt(), fixture, address);
 
         // add list object to cache
-        lang_cache.add(address, tuple_object, false);
+        lang_cache.add(address, tuple_object);
         return tuple_object;
     }
 
@@ -334,4 +333,8 @@ namespace db0::python
         PyErr_SetObject(err_obj, PyLong_FromUnsignedLongLong(err_value));
     }
 
+    unsigned int PyToolkit::getRefCount(ObjectPtr obj) {
+        return Py_REFCNT(obj);
+    }
+            
 }

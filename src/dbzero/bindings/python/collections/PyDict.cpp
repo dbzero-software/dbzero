@@ -155,7 +155,7 @@ namespace db0::python
         // if args
         DictObject_update(py_dict, args, kwargs);
         // register newly created dict with py-object cache        
-        fixture->getLangCache().add(dict.getAddress(), py_dict, true);
+        fixture->getLangCache().add(dict.getAddress(), py_dict);
         return py_dict;
     }
 
@@ -177,7 +177,7 @@ namespace db0::python
         auto py_dict = DictObject_new(&DictObjectType, NULL, NULL);
         auto lock = db0::FixtureLock(py_src_dict->ext().getFixture());
         py_src_dict->ext().copy(&py_dict->modifyExt(), *lock);
-        lock->getLangCache().add(py_dict->ext().getAddress(), py_dict, true);
+        lock->getLangCache().add(py_dict->ext().getAddress(), py_dict);
         return py_dict;
     }
     
@@ -207,7 +207,7 @@ namespace db0::python
             DictObject_SetItem(py_dict, elem, value);
         }
 
-        lock->getLangCache().add(py_dict->ext().getAddress(), py_dict, true);
+        lock->getLangCache().add(py_dict->ext().getAddress(), py_dict);
         return py_dict;
     }
 

@@ -67,7 +67,7 @@ namespace db0::python
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         db0::object_model::Index::makeNew(&index_object->modifyExt(), *lock);
         // register newly created index with py-object cache
-        lock->getLangCache().add(index_object->ext().getAddress(), index_object, true);
+        lock->getLangCache().add(index_object->ext().getAddress(), index_object);
         return index_object;
     }
     

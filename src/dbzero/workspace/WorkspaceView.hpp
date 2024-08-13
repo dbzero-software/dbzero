@@ -12,6 +12,8 @@ namespace db0
 
 {
 
+    class LangCache;
+
     // A WorkspaceView exposes a limited read-only Workspace interface bound to a specific state number
     class WorkspaceView: public Snapshot
     {
@@ -35,7 +37,9 @@ namespace db0
         bool close(const std::string &prefix_name) override;
         
         void close() override;
-                
+
+        LangCache &getLangCache() const override;
+        
         /**
          * @param state_num if not provided then current state is used
          */        
@@ -45,7 +49,7 @@ namespace db0
     private:
         bool m_closed = false;
         std::shared_ptr<Workspace> m_workspace;
-        Workspace *m_workspace_ptr;        
+        Workspace *m_workspace_ptr;
         const std::optional<std::uint64_t> m_default_uuid;
         // user requested state numbers by prefix name
         std::unordered_map<std::string, std::uint64_t> m_prefix_state_nums;
@@ -55,6 +59,8 @@ namespace db0
         std::unordered_map<std::string, std::uint64_t> m_name_uuids;
         // state number by fixture UUID
         mutable std::unordered_map<std::uint64_t, std::uint64_t> m_state_nums;
+        // a WorkspaceView maintains a private LangCache instance
+        std::unique_ptr<LangCache> m_lang_cache;
 
         WorkspaceView(std::shared_ptr<Workspace>, Workspace *workspace_ptr, std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});

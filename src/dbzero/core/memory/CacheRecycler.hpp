@@ -36,10 +36,10 @@ namespace db0
 		 * Note that only locks with no active references are released
 		 */
 		void clear();
-
+		
         /**
          * Modify cache size
-         * @param new_size new nubmer of cached pages
+         * @param new_size as byte count
          */
         void resize(std::size_t new_size);
 
@@ -71,7 +71,7 @@ namespace db0
 		list_t m_res_buf;
 		std::size_t m_current_size = 0;
 		// cache capacity as number of bytes
-		std::size_t m_capacity;        
+		std::size_t m_capacity;
 		// number of locks to be flushed at once
 		unsigned int m_flush_size;        
 		mutable std::mutex m_mutex;
