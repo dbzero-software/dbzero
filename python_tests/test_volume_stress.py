@@ -47,7 +47,7 @@ def test_create_large_objects_low_cache(db0_slab_size):
     """
     This test was failing on BitsetAllocator:invalid address, 
     the effect is aggravated by the large slab size
-    """    
+    """
     append_count = 10000
     buf = db0.list()
     total_bytes = 0

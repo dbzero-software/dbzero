@@ -27,7 +27,7 @@ namespace db0
             // only release locks with no active external references
             if ((*it).use_count() == 1) {
                 std::shared_ptr<BaseLock> temp_lock = *it;
-                auto lock_size = temp_lock->size();                
+                auto lock_size = temp_lock->size();
                 released_size += lock_size;
                 temp_lock->setRecycled(false);
                 released_locks.push_back(std::move(temp_lock));
@@ -54,7 +54,7 @@ namespace db0
             // release excess locks plus flush size
             adjustSize(lock, released_locks, m_current_size - expected_size);
             lock.unlock();
-            // FIXME: we can do this in dedicated thread not to block this one
+            // FIXME: we can do this in a dedicated thread not to block this one
             // expired locks need to be flushed
             for (auto &lock: released_locks) {
                 lock->flush();

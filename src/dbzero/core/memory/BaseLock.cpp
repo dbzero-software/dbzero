@@ -7,7 +7,7 @@
 namespace db0
 
 {   
-
+    
     BaseLock::BaseLock(BaseStorage &storage, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, bool create_new)
         : m_storage(storage)
