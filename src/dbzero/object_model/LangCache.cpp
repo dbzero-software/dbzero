@@ -35,9 +35,9 @@ namespace db0
             return;
         }
         // move object from the other LangCache
-        add(dst_fixture_id, dst_address, other.m_cache[it->second].get());
-        other.m_cache[it->second] = nullptr;
-        other.m_uid_to_index.erase(it);        
+        add(dst_fixture_id, dst_address, other.m_cache[it->second].second.get());
+        other.m_cache[it->second] = {};
+        other.m_uid_to_index.erase(it);
         --other.m_size;        
     }
 
@@ -79,7 +79,7 @@ namespace db0
             assert(slot);
         }
         auto slot_id = *slot;
-        m_cache[slot_id] = obj;
+        m_cache[slot_id] = { uid, obj };
         m_visited[slot_id] = true;
         m_uid_to_index[uid] = slot_id;
         ++m_size;
@@ -100,15 +100,16 @@ namespace db0
         // need to remove from the map first because destroy may trigger erase from GC0
         auto slot_id = it->second;
         m_uid_to_index.erase(it);
-        m_cache[slot_id] = nullptr;
+        assert(m_cache[slot_id].first == uid);
+        m_cache[slot_id] = {};
         --m_size;
     }
     
     void LangCache::clear()
     {
         for (auto &item: m_cache) {
-            if (item) {
-                item = nullptr;                
+            if (item.second) {
+                item = {};
             }            
         }
         m_uid_to_index.clear();
@@ -128,7 +129,7 @@ namespace db0
         }
         // set the visited flag (see Sieve cache eviction algorithm)
         m_visited[it->second] = true;
-        return m_cache[it->second];
+        return m_cache[it->second].second;
     }
 
     std::optional<std::uint32_t> LangCache::evictOne()
@@ -150,13 +151,14 @@ namespace db0
                 }
             }
             // only cache-owned objects can be evicted
-            if (*m_evict_hand) {
+            if (m_evict_hand->second) {
                 if (m_visited[m_evict_hand - m_cache.begin()]) {
                     m_visited[m_evict_hand - m_cache.begin()] = false;
                 } else {
-                    if (LangToolkit::getRefCount(m_evict_hand->get()) == 1) {
+                    if (LangToolkit::getRefCount(m_evict_hand->second.get()) == 1) {
                         // evict the object
-                        *m_evict_hand = nullptr;
+                        m_uid_to_index.erase(m_evict_hand->first);
+                        *m_evict_hand = {};
                         --m_size;
                         return m_evict_hand - m_cache.begin();
                     }
@@ -169,15 +171,16 @@ namespace db0
     
     std::optional<std::uint32_t> LangCache::findEmptySlot() const
     {
+        auto end = m_insert_hand;
         for (;;) {
             if (m_insert_hand == m_cache.end()) {
                 m_insert_hand = m_cache.begin();
             }
-            if (!*m_insert_hand) {
+            if (!m_insert_hand->second) {
                 return m_insert_hand - m_cache.begin();
             }
             ++m_insert_hand;
-            if (m_insert_hand == m_evict_hand) {
+            if (m_insert_hand == end) {
                 return std::nullopt;
             }
         }

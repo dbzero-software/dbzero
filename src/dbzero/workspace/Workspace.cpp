@@ -182,6 +182,7 @@ namespace db0
 
     void Workspace::close()
     {
+        m_shared_object_list.clear();
         auto it = m_fixtures.begin(), end = m_fixtures.end();
         while (it != end) {
             it->second->close();

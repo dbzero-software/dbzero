@@ -18,12 +18,12 @@ namespace db0
         using Config = db0::object_model::Config;
         using LangToolkit = typename Config::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
-        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;        
         static constexpr std::size_t DEFAULT_CAPACITY = 1024;
-        // the default growth step after reaching capacity
-        static constexpr std::size_t DEFAULT_STEP = 32;
+        // the default growth step after reaching capacity        
+        static constexpr std::size_t DEFAULT_STEP = 32;        
         static constexpr std::size_t DEFAULT_INITIAL_SIZE = 128;
-
+        
         LangCache(std::optional<std::size_t> capacity = {}, std::optional<std::uint32_t> step = {});
         virtual ~LangCache();
 
@@ -52,15 +52,16 @@ namespace db0
 
         std::uint16_t getFixtureId(const Fixture &fixture) const;
 
-    private:        
+    private:
+        using CacheItem = std::pair<std::uint64_t, ObjectSharedPtr>;
         const std::size_t m_capacity;
         const std::uint32_t m_step;
         // the number of currently cached objects
         std::size_t m_size = 0;
-        // positionally encoded cached objects
-        mutable std::vector<ObjectSharedPtr> m_cache;
-        mutable std::vector<ObjectSharedPtr>::iterator m_evict_hand;
-        mutable std::vector<ObjectSharedPtr>::iterator m_insert_hand;
+        // positionally encoded cached objects (uid + instance)
+        mutable std::vector<CacheItem> m_cache;
+        mutable std::vector<CacheItem>::iterator m_evict_hand;
+        mutable std::vector<CacheItem>::iterator m_insert_hand;
         // the "visited" flags (see Sieve cache eviction algorithm)
         mutable std::vector<bool> m_visited;
         // instance UID to index in cache
@@ -83,6 +84,8 @@ namespace db0
         
         // Combine high 48bits of the address with the fixture id
         inline std::uint64_t makeUID(std::uint16_t fixture_id, std::uint64_t address) const {
+            // FIXME: this assert to be revisited after including instance_id in the address
+            assert((address & 0xFFFF000000000000) == 0);
             return (static_cast<std::uint64_t>(fixture_id) << 48) | (address & 0x0000FFFFFFFFFFFF);
         }
 
