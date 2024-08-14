@@ -11,11 +11,11 @@
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include "ResourceManager.hpp"
 #include "DependencyWrapper.hpp"
-
-#include <dbzero/object_model/LangCache.hpp>
+    
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 #include <dbzero/object_model/ObjectCatalogue.hpp>
+#include <dbzero/object_model/LangCache.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
 #include <dbzero/core/memory/SlotAllocator.hpp>
 
@@ -30,6 +30,7 @@ namespace db0
     class WorkspaceView;
     class SlabAllocator;
     class AtomicContext;
+    class LangCache;
     using StringPoolT = db0::pools::RC_LimitedStringPool;
     using ObjectCatalogue = db0::object_model::ObjectCatalogue;
 
@@ -65,8 +66,7 @@ namespace db0
     */
     class Fixture: public Memspace
     {
-    public:
-        using LangCache = db0::object_model::LangCache;
+    public:        
         // Limited String Pool's slot number
         static constexpr std::uint32_t LSP_SLOT_NUM = 1;
         // slot number for DB0 types and enums
@@ -153,11 +153,7 @@ namespace db0
             assert(m_gc0_ptr);
             return *m_gc0_ptr;
         }
-        
-        LangCache &getLangCache() const {
-            return m_lang_cache;
-        }
-        
+                
         VObjectCache &getVObjectCache() const {
             return m_v_object_cache;
         }
@@ -212,9 +208,15 @@ namespace db0
         // Visit all slabs from the underlying meta-allocator
         void forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t slab_id)>) const;
         
+        inline LangCacheView &getLangCache() const {
+            return m_lang_cache;
+        }
+
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;
+        // LangCache from the related workspace
+        mutable LangCacheView m_lang_cache;
         // Underlying allocator's convenience references
         SlotAllocator &m_slot_allocator;
         MetaAllocator &m_meta_allocator;
@@ -224,8 +226,6 @@ namespace db0
         db0::GC0 *m_gc0_ptr = nullptr;
         StringPoolT m_string_pool;
         ObjectCatalogue m_object_catalogue;
-        // language-specific object cache
-        mutable LangCache m_lang_cache;
         // internal cache for DBZero based collections
         mutable VObjectCache m_v_object_cache;
         AtomicContext *m_atomic_context_ptr = nullptr;

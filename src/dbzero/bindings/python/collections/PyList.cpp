@@ -84,7 +84,7 @@ namespace db0::python
         auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
         db0::FixtureLock lock(py_src_list->ext().getFixture());
         py_src_list->ext().copy(&py_list->modifyExt(), *lock);
-        lock->getLangCache().add(py_list->ext().getAddress(), py_list, true);
+        lock->getLangCache().add(py_list->ext().getAddress(), py_list);
         return py_list;
     }
     
@@ -205,7 +205,7 @@ namespace db0::python
             ObjectT_extend<ListObject>(py_list, args, nargs);
         }
         // register newly created list with py-object cache
-        fixture->getLangCache().add(list.getAddress(), py_list, true);
+        fixture->getLangCache().add(list.getAddress(), py_list);
         return py_list;
     }
     

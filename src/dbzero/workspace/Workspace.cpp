@@ -13,9 +13,12 @@ namespace db0
         }
     }
     
-    BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size)
+    BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size,
+        std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> flush_size)
         : m_prefix_catalog(root_path)
-        , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE)
+        , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE, flush_size, [this](bool threshold_reached) {
+            this->onCacheFlushed(threshold_reached);
+        })
         , m_slab_recycler(slab_cache_size ? *slab_cache_size : DEFAULT_SLAB_CACHE_SIZE)
     {
     }
@@ -115,15 +118,29 @@ namespace db0
         return m_prefix_catalog.drop(prefix_name, if_exists);
     }
     
-    Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size, 
-        std::optional<std::size_t> vobject_cache_size, std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
-        : BaseWorkspace(root_path, cache_size, slab_cache_size)
+    void BaseWorkspace::setCacheSize(std::size_t new_cache_size) {
+        m_cache_recycler.resize(new_cache_size);
+    }
+    
+    void BaseWorkspace::clearCache() const {
+        m_cache_recycler.clear();
+    }
+    
+    void BaseWorkspace::onCacheFlushed(bool) const
+    {
+    }
+
+    Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size,
+        std::optional<std::size_t> vobject_cache_size, std::optional<std::size_t> flush_size, 
+        std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
+        : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
         , m_refresh_thread(std::make_unique<RefreshThread>())
         , m_auto_commit_thread(std::make_unique<AutoCommitThread>(DEFAULT_AUTOCOMMIT_INTERVAL_MS))
         , m_shared_object_list(vobject_cache_size ? *vobject_cache_size : DEFAULT_VOBJECT_CACHE_SIZE)
-    {        
+        , m_lang_cache(std::make_unique<LangCache>())
+    {
         // run refresh / autocommit threads     
         m_threads.emplace_back([this]() {
             m_refresh_thread->run();
@@ -136,7 +153,7 @@ namespace db0
     Workspace::~Workspace()
     {
         // stop refresh/autocommit threads
-        m_auto_commit_thread->stop();        
+        m_auto_commit_thread->stop();
         m_refresh_thread->stop();
         for (auto &m_thread : m_threads) {
             m_thread.join();
@@ -173,6 +190,7 @@ namespace db0
 
     void Workspace::close()
     {
+        m_shared_object_list.clear();
         auto it = m_fixtures.begin(), end = m_fixtures.end();
         while (it != end) {
             it->second->close();
@@ -415,7 +433,7 @@ namespace db0
             }
         }        
     }
-     
+    
     void Workspace::endAtomic()
     {
         assert(m_atomic_context_ptr);
@@ -440,6 +458,29 @@ namespace db0
 
     void Workspace::setAutocommitInterval(std::uint64_t interval_ms) {
         m_auto_commit_thread->setInterval(interval_ms);
+    }
+
+    void Workspace::setCacheSize(std::size_t cache_size) {
+        BaseWorkspace::setCacheSize(cache_size);
+    }
+
+    LangCache &Workspace::getLangCache() const {
+        return *m_lang_cache;
+    }
+    
+    void Workspace::clearCache() const
+    {
+        BaseWorkspace::clearCache();
+        m_lang_cache->clear();
+    }
+    
+    void Workspace::onCacheFlushed(bool threshold_reached) const
+    {
+        BaseWorkspace::onCacheFlushed(threshold_reached);
+        if (!threshold_reached) {
+            // additionally erase the entire LangCache to attempt reaching the flush objective
+            m_lang_cache->clear();
+        }
     }
 
 }

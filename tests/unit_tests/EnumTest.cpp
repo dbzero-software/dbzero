@@ -30,7 +30,7 @@ namespace tests
             
     TEST_F( EnumTest , testEnumCanBeCreatedWithValues )
     {
-        Workspace workspace("", {}, {}, {}, db0::object_model::initializer());
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
         {
@@ -42,7 +42,7 @@ namespace tests
 
     TEST_F( EnumTest , testEnumCanFindExistingValues )
     {
-        Workspace workspace("", {}, {}, {}, db0::object_model::initializer());
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
         {
@@ -55,7 +55,7 @@ namespace tests
 
     TEST_F( EnumTest , testEnumThrowsOnAttemptToFindNonExistingValue )
     {
-        Workspace workspace("", {}, {}, {}, db0::object_model::initializer());
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
         {

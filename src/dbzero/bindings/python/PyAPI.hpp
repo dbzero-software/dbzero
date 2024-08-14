@@ -129,6 +129,8 @@ namespace db0::python
     
     PyObject *getSlabMetrics(PyObject *self, PyObject *args);
 
+    PyObject *setCacheSize(PyObject *self, PyObject *args);
+
     template <typename T> db0::object_model::StorageClass getStorageClass();
 
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>();

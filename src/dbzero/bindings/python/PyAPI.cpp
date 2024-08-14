@@ -40,12 +40,10 @@ namespace db0::python
         PyDict_SetItemString(dict, "capacity", PyLong_FromLong(cache_recycler.getCapacity()));
         return dict;
     }
-
+    
     PyObject *clearCache(PyObject *, PyObject *)
     {
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        auto &cache_recycler = const_cast<CacheRecycler&>(workspace.getCacheRecycler());
-        cache_recycler.clear();
+        PyToolkit::getPyWorkspace().getWorkspace().clearCache();
         Py_RETURN_NONE;
     }
     
@@ -278,7 +276,7 @@ namespace db0::python
             PyErr_SetString(PyExc_MemoryError, "Failed to create a list.");
             return NULL;
         }
-
+        
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         workspace.forAll([&py_list](auto &fixture) {
             auto dict_item = PyDict_New();
@@ -289,8 +287,7 @@ namespace db0::python
 
             PyDict_SetItemString(dict_item, "name", PyUnicode_FromString(fixture.getPrefix().getName().c_str()));
             PyDict_SetItemString(dict_item, "uuid", PyLong_FromLong(fixture.getUUID()));
-            PyDict_SetItemString(dict_item, "vptr_reg_size", PyLong_FromLong(fixture.getGC0().size()));
-            PyDict_SetItemString(dict_item, "py_cache_size", PyLong_FromLong(fixture.getLangCache().size()));
+            PyDict_SetItemString(dict_item, "vptr_reg_size", PyLong_FromLong(fixture.getGC0().size()));            
             PyList_Append(py_list, dict_item);
         });
         
@@ -705,5 +702,16 @@ namespace db0::python
     PyObject *getSlabMetrics(PyObject *, PyObject *) {
         return runSafe(tryGetSlabMetrics, &PyToolkit::getPyWorkspace().getWorkspace());
     }
+    
+    PyObject *setCacheSize(PyObject *, PyObject *args)
+    {        
+        Py_ssize_t cache_size;
+        if (!PyArg_ParseTuple(args, "n", &cache_size)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
 
+        return runSafe(trySetCacheSize, &PyToolkit::getPyWorkspace().getWorkspace(), cache_size);
+    }
+    
 }

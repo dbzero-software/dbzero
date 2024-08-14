@@ -28,6 +28,7 @@ namespace db0
         : Memspace(prefix, std::make_shared<SlotAllocator>(meta), getUUID(prefix, *meta))
         , m_access_type(prefix->getAccessType())
         , m_snapshot(snapshot)
+        , m_lang_cache(*this, snapshot.getLangCache())
         , m_slot_allocator(reinterpret_cast<SlotAllocator&>(*m_allocator))
         , m_meta_allocator(reinterpret_cast<MetaAllocator&>(*m_slot_allocator.getAllocator()))        
         , m_UUID(*m_derived_UUID)
@@ -40,11 +41,9 @@ namespace db0
     }
     
     Fixture::~Fixture()
-    {
-        // clear cache before destroying the fixture to destroy object instances supported by the cache
-        m_lang_cache.clear();        
+    {        
     }
-
+    
     StringPoolT Fixture::openLimitedStringPool(Memspace &memspace, MetaAllocator &meta)
     {
         using v_fixture = v_object<o_fixture>;
@@ -151,12 +150,14 @@ namespace db0
     
     void Fixture::close()
     {
+        // clear cache to destroy object instances supported by the cache
+        m_lang_cache.clear();
         std::unique_lock<std::mutex> lock(m_close_mutex);
         for (auto &close: m_close_handlers) {
             close(false);
         }
         m_string_pool.close();
-        Memspace::close();        
+        Memspace::close();
     }
     
     bool Fixture::refresh()
@@ -251,14 +252,14 @@ namespace db0
     db0::GC0 &Fixture::addGC0(db0::swine_ptr<Fixture> &fixture)
     {
         assert(!m_gc0_ptr);
-        m_gc0_ptr = &addResource<db0::GC0>(fixture, m_lang_cache);
+        m_gc0_ptr = &addResource<db0::GC0>(fixture);
         return *m_gc0_ptr;
     }
-
+    
     db0::GC0 &Fixture::addGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
     {
         assert(!m_gc0_ptr);
-        m_gc0_ptr = &addResource<db0::GC0>(fixture, address, m_lang_cache);
+        m_gc0_ptr = &addResource<db0::GC0>(fixture, address);
         return *m_gc0_ptr;
     }
 

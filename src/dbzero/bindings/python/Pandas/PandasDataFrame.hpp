@@ -7,7 +7,7 @@ namespace db0::object_model::pandas
 
 {
 
-    class DataFrame; 
+    class DataFrame;
     
 }
 

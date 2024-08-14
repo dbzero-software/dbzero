@@ -26,7 +26,7 @@ namespace db0::python
         }
 
         m_workspace = std::shared_ptr<db0::Workspace>(
-            new Workspace(root_path, {}, {}, {}, db0::object_model::initializer()));
+            new Workspace(root_path, {}, {}, {}, {}, db0::object_model::initializer()));
         if (autocommit_interval_ms) {
             m_workspace->setAutocommitInterval(*autocommit_interval_ms);
         }

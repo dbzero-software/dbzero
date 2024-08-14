@@ -154,7 +154,7 @@ namespace db0::python
             // and potentially needs to be included in the AtomicContext
             self->modifyExt();
             // register weak-ref with the lang cache
-            fixture->getLangCache().add(object.getAddress(), self, false);
+            fixture->getLangCache().add(object.getAddress(), self);
         }
 
         return 0;

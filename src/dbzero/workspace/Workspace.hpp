@@ -24,6 +24,7 @@ namespace db0
     class RefreshThread;
     class AutoCommitThread;
     class AtomicContext;
+    class LangCache;
 
     class BaseWorkspace
     {
@@ -45,7 +46,7 @@ namespace db0
          * @param root_path default search path for existing prefixes and storage for new ones (pass "" for current directory)
          **/        
         BaseWorkspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
-            std::optional<std::size_t> slab_cache_size = {});
+            std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {});
         virtual ~BaseWorkspace()= default;
         
         /**
@@ -92,6 +93,8 @@ namespace db0
             return m_prefix_catalog;
         }
         
+        void setCacheSize(std::size_t cache_size);
+
     protected:
         PrefixCatalog m_prefix_catalog;
         
@@ -103,8 +106,13 @@ namespace db0
             std::optional<std::size_t> slab_size = {},
             std::optional<std::size_t> sparse_index_node_size = {});
         
+        // Clear all internal in-memory caches
+        void clearCache() const;
+
+        virtual void onCacheFlushed(bool threshold_reached) const;
+        
     private:        
-        CacheRecycler m_cache_recycler;
+        mutable CacheRecycler m_cache_recycler;
         SlabRecycler m_slab_recycler;
         // memspace by name
         std::unordered_map<std::string, Memspace> m_memspaces;
@@ -115,12 +123,13 @@ namespace db0
     */
     class Workspace: protected BaseWorkspace, public Snapshot
     {
-    public:
+    public:        
         static constexpr std::uint32_t DEFAULT_AUTOCOMMIT_INTERVAL_MS = 250;
         static constexpr std::size_t DEFAULT_VOBJECT_CACHE_SIZE = 16384;
 
         Workspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
-            std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> vobject_cache_size = {},
+            std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {},
+            std::optional<std::size_t> vobject_cache_size = {},
             std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});            
         virtual ~Workspace();
         
@@ -190,6 +199,8 @@ namespace db0
         */
         void close() override;
         
+        LangCache &getLangCache() const override;
+
         CacheRecycler &getCacheRecycler();
 
         const CacheRecycler &getCacheRecycler() const;
@@ -215,6 +226,11 @@ namespace db0
         
         void cancelAtomic();
 
+        void setCacheSize(std::size_t cache_size);
+
+        // Clear all internal in-memory caches
+        void clearCache() const;
+        
     private:
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_fixture_initializer;
@@ -229,8 +245,11 @@ namespace db0
         mutable FixedObjectList m_shared_object_list;
         // flag indicating atomic operation in progress
         AtomicContext *m_atomic_context_ptr = nullptr;
-
+        mutable std::unique_ptr<LangCache> m_lang_cache;
+        
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
+        
+        void onCacheFlushed(bool threshold_reached) const override;
     };
     
 }

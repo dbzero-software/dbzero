@@ -33,7 +33,7 @@ namespace tests
     
     TEST_F( ObjectModelTest , testFixtureCanBeInitializedForTheObjectModel )
     {
-        Workspace workspace("", {}, {}, {}, db0::object_model::initializer());
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
         // make sure all ObjectModel requisites are present

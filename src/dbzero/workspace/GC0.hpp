@@ -9,13 +9,6 @@
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/object_model/has_fixture.hpp>
 
-namespace db0::object_model 
-
-{
-    class LangCache;
-
-}
-
 namespace db0
 
 {
@@ -29,7 +22,6 @@ namespace db0
     using StorageClass = db0::object_model::StorageClass;
     using DropByAddrFunction = void (*)(db0::swine_ptr<Fixture> &, std::uint64_t);
     using PreCommitFunction = void (*)(void *, bool revert);
-    using LangCache = db0::object_model::LangCache;
     
     struct GC_Ops
     {
@@ -76,8 +68,8 @@ namespace db0
     {
     public:
         using super_t = has_fixture<v_bvector<TypedAddress> >;
-        GC0(db0::swine_ptr<Fixture> &, LangCache &);
-        GC0(db0::swine_ptr<Fixture> &, std::uint64_t address, LangCache &);
+        GC0(db0::swine_ptr<Fixture> &);
+        GC0(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
         // register instance with type specific ops, must be a known / registered type
         template <typename T> void add(void *vptr)
@@ -140,8 +132,7 @@ namespace db0
         // GC-ops by storage class
         static std::unordered_map<StorageClass, GCOps_ID> m_ops_map;
         // flag indicating if static bindings were initialized
-        static bool m_initialized;
-        LangCache &m_lang_cache;
+        static bool m_initialized;        
         // type / ops_id
         std::unordered_map<void*, unsigned int> m_vptr_map;
         // the map dedicated to instances which implement preCommit

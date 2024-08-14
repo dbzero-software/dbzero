@@ -10,6 +10,7 @@ namespace db0
 {
 
     class Fixture;
+    class LangCache;
 
     /**
      * Snapshot is a common interface for Workspace and WorkspaceView
@@ -32,6 +33,8 @@ namespace db0
         virtual bool close(const std::string &prefix_name) = 0;
         
         virtual void close() = 0;
-    };
 
+        virtual LangCache &getLangCache() const = 0;
+    };
+    
 }

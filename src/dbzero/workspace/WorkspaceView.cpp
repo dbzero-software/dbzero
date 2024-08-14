@@ -1,5 +1,6 @@
 #include "WorkspaceView.hpp"
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/object_model/LangCache.hpp>
 
 namespace db0
 
@@ -33,6 +34,7 @@ namespace db0
         , m_workspace_ptr(workspace_ptr)        
         , m_default_uuid(workspace_ptr->getDefaultUUID())
         , m_prefix_state_nums(prefix_state_nums)
+        , m_lang_cache(std::make_unique<LangCache>())
     {
         if (!state_num && m_default_uuid) {
             // freeze state number of the default fixture
@@ -70,6 +72,10 @@ namespace db0
         });
     }
     
+    WorkspaceView::~WorkspaceView()
+    {
+    }
+
     db0::swine_ptr<Fixture> WorkspaceView::getFixture(
         const std::string &prefix_name, std::optional<AccessType> access_type)
     {
@@ -203,6 +209,10 @@ namespace db0
         }
 
         return {};
+    }
+    
+    LangCache &WorkspaceView::getLangCache() const {
+        return *m_lang_cache;
     }
 
 }
