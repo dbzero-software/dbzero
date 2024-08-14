@@ -7,11 +7,13 @@ namespace db0
 
 {
     
-    CacheRecycler::CacheRecycler(std::size_t size, unsigned int flush_size)
+    CacheRecycler::CacheRecycler(std::size_t size, std::optional<std::size_t> flush_size,
+        std::function<void(bool threshold_reached)> flush_callback)
         : m_res_buf((size > 0)?((size - 1) / MIN_PAGE_SIZE + 1):0)
         , m_capacity(size)
         // assign default flush size
-        , m_flush_size((flush_size > 0)?flush_size:(512 * 1024))
+        , m_flush_size(flush_size.value_or(DEFAULT_FLUSH_SIZE))
+        , m_flush_callback(flush_callback)
     {
     }
     
@@ -22,7 +24,7 @@ namespace db0
         // try flushing 'requested_release_size' number of excess elements
         auto it = m_res_buf.begin(), end = m_res_buf.end();
         while (it != end && released_size < requested_release_size) {
-            // only release locks with no active references
+            // only release locks with no active external references
             if ((*it).use_count() == 1) {
                 std::shared_ptr<BaseLock> temp_lock = *it;
                 auto lock_size = temp_lock->size();                
@@ -72,6 +74,7 @@ namespace db0
     
     void CacheRecycler::update(std::shared_ptr<BaseLock> res_lock)
     {
+        bool flushed, flush_result = false;        
 		if (res_lock) {
 			// access existing resource
 			std::unique_lock<std::mutex> lock(m_mutex);
@@ -90,6 +93,8 @@ namespace db0
                 if (m_current_size > m_capacity) {
                     // try reducing cache utilization to capacity minus flush size
                     updateSize(lock, m_capacity - m_flush_size);
+                    flushed = true;
+                    flush_result = m_current_size <= (m_capacity - m_flush_size);
                 }
                 assert(m_res_buf.size() < m_res_buf.max_size());
                 m_res_buf.push_back(res_lock);
@@ -97,6 +102,9 @@ namespace db0
                 res_lock->setRecycled(true);
 			}
 		}
+        if (flushed && m_flush_callback) {
+            m_flush_callback(flush_result);
+        }
 	}
     
 	void CacheRecycler::clear()

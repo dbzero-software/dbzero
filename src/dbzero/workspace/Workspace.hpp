@@ -46,7 +46,7 @@ namespace db0
          * @param root_path default search path for existing prefixes and storage for new ones (pass "" for current directory)
          **/        
         BaseWorkspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
-            std::optional<std::size_t> slab_cache_size = {});
+            std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {});
         virtual ~BaseWorkspace()= default;
         
         /**
@@ -108,6 +108,8 @@ namespace db0
         
         // Clear all internal in-memory caches
         void clearCache() const;
+
+        virtual void onCacheFlushed(bool threshold_reached) const;
         
     private:        
         mutable CacheRecycler m_cache_recycler;
@@ -126,7 +128,8 @@ namespace db0
         static constexpr std::size_t DEFAULT_VOBJECT_CACHE_SIZE = 16384;
 
         Workspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
-            std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> vobject_cache_size = {},
+            std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {},
+            std::optional<std::size_t> vobject_cache_size = {},
             std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> fixture_initializer = {});            
         virtual ~Workspace();
         
@@ -245,6 +248,8 @@ namespace db0
         mutable std::unique_ptr<LangCache> m_lang_cache;
         
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
+        
+        void onCacheFlushed(bool threshold_reached) const override;
     };
     
 }

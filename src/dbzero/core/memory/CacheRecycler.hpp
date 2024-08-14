@@ -5,6 +5,7 @@
 #include <mutex>
 #include <deque>
 #include <functional>
+#include <optional>
 #include <dbzero/core/memory/BaseLock.hpp>
 #include <dbzero/core/utils/FixedList.hpp>
 
@@ -15,14 +16,17 @@ namespace db0
 	class CacheRecycler
     {
 	public :
+		static constexpr std::size_t DEFAULT_FLUSH_SIZE = 512 << 10u;
 
 		/**
 		 * Holds resource locks and recycles based on LRU policy
          * 
 		 * @param size as the number of bytes
-		 * @param flush_size recommended number of bytes to be released in single operation (0 for default)
+		 * @param flush_size recommended number of bytes to be released in single operation
+		 * @param flush_callback to be notified on each flush operation (with indication if sufficient space was released)
 		 */
-		CacheRecycler(std::size_t size, unsigned int flush_size = 0);
+		CacheRecycler(std::size_t size, std::optional<std::size_t> flush_size = {},
+			std::function<void(bool threshold_reached)> flush_callback = {});
 
 		void update(std::shared_ptr<BaseLock> res_lock);
         
@@ -73,8 +77,9 @@ namespace db0
 		// cache capacity as number of bytes
 		std::size_t m_capacity;
 		// number of locks to be flushed at once
-		unsigned int m_flush_size;        
+		std::size_t m_flush_size;
 		mutable std::mutex m_mutex;
+		std::function<void(bool)> m_flush_callback;
 
         /**
          * Adjusts cache size after updates, collect locks to unlock (can be unlocked off main thread)

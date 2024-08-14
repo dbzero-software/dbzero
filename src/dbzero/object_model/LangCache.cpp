@@ -132,7 +132,7 @@ namespace db0
         return m_cache[it->second].second;
     }
 
-    std::optional<std::uint32_t> LangCache::evictOne()
+    std::optional<std::uint32_t> LangCache::evictOne(int *num_visited)
     {
         if (m_size == 0) {
             return std::nullopt;
@@ -153,6 +153,10 @@ namespace db0
             // only cache-owned objects can be evicted
             if (m_evict_hand->second) {
                 if (m_visited[m_evict_hand - m_cache.begin()]) {
+                    // visited but not evicted
+                    if (num_visited) {
+                        ++(*num_visited);
+                    }
                     m_visited[m_evict_hand - m_cache.begin()] = false;
                 } else {
                     if (LangToolkit::getRefCount(m_evict_hand->second.get()) == 1) {

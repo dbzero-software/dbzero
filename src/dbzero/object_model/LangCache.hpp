@@ -45,7 +45,7 @@ namespace db0
 
         // Remove all cached instances
         void clear();
-        
+                
     protected:
         friend class LangCacheView;
         mutable db0::auto_map<const Fixture*, std::uint16_t> m_fixture_to_id;
@@ -79,7 +79,7 @@ namespace db0
             std::uint16_t dst_fixture_id, std::uint64_t dst_address);
 
         // Try evicting one element from cache
-        std::optional<std::uint32_t> evictOne();
+        std::optional<std::uint32_t> evictOne(int *num_visited = nullptr);
         std::optional<std::uint32_t> findEmptySlot() const;
         
         // Combine high 48bits of the address with the fixture id

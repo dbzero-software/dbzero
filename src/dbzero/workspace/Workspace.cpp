@@ -13,9 +13,12 @@ namespace db0
         }
     }
     
-    BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size)
+    BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size,
+        std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> flush_size)
         : m_prefix_catalog(root_path)
-        , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE)
+        , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE, flush_size, [this](bool threshold_reached) {
+            this->onCacheFlushed(threshold_reached);
+        })
         , m_slab_recycler(slab_cache_size ? *slab_cache_size : DEFAULT_SLAB_CACHE_SIZE)
     {
     }
@@ -122,10 +125,15 @@ namespace db0
     void BaseWorkspace::clearCache() const {
         m_cache_recycler.clear();
     }
+    
+    void BaseWorkspace::onCacheFlushed(bool) const
+    {
+    }
 
     Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size,
-        std::optional<std::size_t> vobject_cache_size, std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
-        : BaseWorkspace(root_path, cache_size, slab_cache_size)
+        std::optional<std::size_t> vobject_cache_size, std::optional<std::size_t> flush_size, 
+        std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
+        : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
         , m_refresh_thread(std::make_unique<RefreshThread>())
@@ -465,6 +473,14 @@ namespace db0
         BaseWorkspace::clearCache();
         m_lang_cache->clear();
     }
-
+    
+    void Workspace::onCacheFlushed(bool threshold_reached) const
+    {
+        BaseWorkspace::onCacheFlushed(threshold_reached);
+        if (!threshold_reached) {
+            // additionally erase the entire LangCache to attempt reaching the flush objective
+            m_lang_cache->clear();
+        }
+    }
 
 }
