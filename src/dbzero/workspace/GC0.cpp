@@ -57,8 +57,7 @@ namespace db0
     void GC0::unregister(void *vptr)
     {
         auto it = m_vptr_map.find(vptr);
-        if (it != m_vptr_map.end()) {
-            auto ops = m_ops[it->second];
+        if (it != m_vptr_map.end()) {            
             m_vptr_map.erase(it);
         }
     }

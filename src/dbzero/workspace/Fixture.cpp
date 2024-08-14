@@ -252,14 +252,14 @@ namespace db0
     db0::GC0 &Fixture::addGC0(db0::swine_ptr<Fixture> &fixture)
     {
         assert(!m_gc0_ptr);
-        m_gc0_ptr = &addResource<db0::GC0>(fixture, m_lang_cache);
+        m_gc0_ptr = &addResource<db0::GC0>(fixture);
         return *m_gc0_ptr;
     }
     
     db0::GC0 &Fixture::addGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
     {
         assert(!m_gc0_ptr);
-        m_gc0_ptr = &addResource<db0::GC0>(fixture, address, m_lang_cache);
+        m_gc0_ptr = &addResource<db0::GC0>(fixture, address);
         return *m_gc0_ptr;
     }
 

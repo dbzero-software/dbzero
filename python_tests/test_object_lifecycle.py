@@ -9,7 +9,9 @@ def test_unreferenced_object_is_dropped_on_del_from_python(db0_fixture):
     object_1 = MemoTestClass(123)
     uuid = db0.uuid(object_1)
     del object_1
-    # object should be dropped from DBZero
+    # object might be internally cached
+    db0.clear_cache()
+    # object should be dropped from DBZero    
     with pytest.raises(Exception):
         db0.fetch(uuid)
 
@@ -26,10 +28,12 @@ def test_object_cannot_be_deleted_if_references_to_it_exist(db0_fixture):
 def test_unreferenced_object_are_persisted_throughout_series_of_commits(db0_fixture):
     object_1 = MemoTestClass(123)
     db0.commit()
+    db0.clear_cache()
     # object persisted after commit
     assert object_1.value == 123
     object_1.value = 567
     db0.commit()
+    db0.clear_cache()
     assert object_1.value == 567
 
 
@@ -53,6 +57,7 @@ def test_unreferenced_posvt_member_is_dropped_on_parent_destroy(db0_fixture):
     object_1 = MemoTestClass(member)
     del member
     del object_1
+    db0.clear_cache()
     # member object should no longer exist in DBZero
     with pytest.raises(Exception):
         db0.fetch(uuid)
@@ -67,6 +72,7 @@ def test_unreferenced_indexvt_member_is_dropped_on_parent_destroy(db0_fixture):
     del member
     del object_1
     del object_2
+    db0.clear_cache()
     # member object should no longer exist in DBZero
     with pytest.raises(Exception):
         db0.fetch(uuid)
@@ -79,7 +85,8 @@ def test_unreferenced_kvindex_member_is_dropped_on_parent_destroy(db0_fixture):
     # assign kv-index member
     object_1.kv_member = member
     del member
-    del object_1    
+    del object_1
+    db0.clear_cache()
     # member object should no longer exist in DBZero
     with pytest.raises(Exception):
         db0.fetch(uuid)
@@ -90,9 +97,10 @@ def test_multiple_py_instances_pointing_to_same_unreferenced_object(db0_fixture)
     uuid = db0.uuid(object_1)
     object_2 = db0.fetch(uuid)
     del object_1
-    # object should be still in dbzer0
+    # object should be still in db0
     db0.fetch(uuid)
     del object_2
+    db0.clear_cache()
     # object should be dropped from DBZero
     with pytest.raises(Exception):
         db0.fetch(uuid)

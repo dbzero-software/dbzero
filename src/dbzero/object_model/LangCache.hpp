@@ -42,6 +42,9 @@ namespace db0
             const Fixture &dst_fixture, std::uint64_t dst_address);
 
         std::size_t size() const;
+
+        // Remove all cached instances
+        void clear();
         
     protected:
         friend class LangCacheView;

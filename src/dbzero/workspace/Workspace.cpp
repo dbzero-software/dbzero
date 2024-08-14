@@ -119,6 +119,10 @@ namespace db0
         m_cache_recycler.resize(new_cache_size);
     }
     
+    void BaseWorkspace::clearCache() const {
+        m_cache_recycler.clear();
+    }
+
     Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size,
         std::optional<std::size_t> vobject_cache_size, std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
         : BaseWorkspace(root_path, cache_size, slab_cache_size)
@@ -454,5 +458,12 @@ namespace db0
     LangCache &Workspace::getLangCache() const {
         return *m_lang_cache;
     }
+    
+    void Workspace::clearCache() const
+    {
+        BaseWorkspace::clearCache();
+        m_lang_cache->clear();
+    }
+
 
 }

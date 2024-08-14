@@ -42,8 +42,10 @@ def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
     object_2 = db0.fetch(id_2)
     assert db0.get_metrics()[0]["vptr_reg_size"] > reg_size_1
     del object_1
+    db0.clear_cache()
     assert db0.get_metrics()[0]["vptr_reg_size"] == reg_size_1
     del object_2
+    db0.clear_cache()
     assert db0.get_metrics()[0]["vptr_reg_size"] < reg_size_1
 
         

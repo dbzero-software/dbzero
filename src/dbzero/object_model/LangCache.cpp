@@ -103,6 +103,17 @@ namespace db0
         m_cache[slot_id] = nullptr;
         --m_size;
     }
+    
+    void LangCache::clear()
+    {
+        for (auto &item: m_cache) {
+            if (item) {
+                item = nullptr;                
+            }            
+        }
+        m_uid_to_index.clear();
+        m_size = 0;        
+    }
 
     LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, std::uint64_t address) const {
         return get(getFixtureId(fixture), address);

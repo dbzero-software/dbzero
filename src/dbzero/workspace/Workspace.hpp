@@ -106,8 +106,11 @@ namespace db0
             std::optional<std::size_t> slab_size = {},
             std::optional<std::size_t> sparse_index_node_size = {});
         
+        // Clear all internal in-memory caches
+        void clearCache() const;
+        
     private:        
-        CacheRecycler m_cache_recycler;
+        mutable CacheRecycler m_cache_recycler;
         SlabRecycler m_slab_recycler;
         // memspace by name
         std::unordered_map<std::string, Memspace> m_memspaces;
@@ -221,6 +224,9 @@ namespace db0
         void cancelAtomic();
 
         void setCacheSize(std::size_t cache_size);
+
+        // Clear all internal in-memory caches
+        void clearCache() const;
         
     private:
         FixtureCatalog m_fixture_catalog;
@@ -236,7 +242,7 @@ namespace db0
         mutable FixedObjectList m_shared_object_list;
         // flag indicating atomic operation in progress
         AtomicContext *m_atomic_context_ptr = nullptr;
-        std::unique_ptr<LangCache> m_lang_cache;
+        mutable std::unique_ptr<LangCache> m_lang_cache;
         
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
     };

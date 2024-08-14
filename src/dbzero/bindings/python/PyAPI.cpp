@@ -40,12 +40,10 @@ namespace db0::python
         PyDict_SetItemString(dict, "capacity", PyLong_FromLong(cache_recycler.getCapacity()));
         return dict;
     }
-
+    
     PyObject *clearCache(PyObject *, PyObject *)
     {
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        auto &cache_recycler = const_cast<CacheRecycler&>(workspace.getCacheRecycler());
-        cache_recycler.clear();
+        PyToolkit::getPyWorkspace().getWorkspace().clearCache();
         Py_RETURN_NONE;
     }
     
