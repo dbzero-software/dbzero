@@ -213,6 +213,9 @@ namespace db0::object_model
 
     void Set::moveTo(db0::swine_ptr<Fixture> &fixture) {
         assert(hasInstance());
+        if(this->size() > 0) {
+            THROWF(db0::InputException) << "Set with items cannot be moved to another fixture";
+        }
         super_t::moveTo(fixture);
     }
     

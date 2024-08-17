@@ -110,6 +110,23 @@ namespace db0
             this->m_b_class = other.m_b_class;
         }
 
+        void operator=(v_bvector &&other)
+        {
+            // clean local cached objects first
+            this->m_pb_cache.clear();
+            this->m_last_block_key = {0, 0};
+            this->m_last_block = nullptr;
+
+            super_t::operator=(std::move(other));
+
+            assert(this->m_db_shift == other.m_db_shift);
+            assert(this->m_db_mask == other.m_db_mask);
+            assert(this->m_pb_shift == other.m_pb_shift);
+            assert(this->m_pb_mask == other.m_pb_mask);
+            this->m_last_known_size = std::move(other.m_last_known_size);
+            this->m_b_class = std::move(other.m_b_class);
+        }
+
         /**
          * Construct populated with values from specific sequence
          */

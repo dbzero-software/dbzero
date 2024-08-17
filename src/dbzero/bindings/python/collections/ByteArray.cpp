@@ -6,6 +6,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/Utils.hpp>
+#include <dbzero/bindings/python/GlobalMutex.hpp>
 
 namespace db0::python
 
@@ -258,6 +259,7 @@ namespace db0::python
         
     ByteArrayObject *makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if(nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "make_bytearray() takes exacly 1 arguments");
             return NULL;

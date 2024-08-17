@@ -82,7 +82,6 @@ def test_atomic_list_update(db0_fixture):
         object_1.value.append(1)
         object_1.value.append(2)
         object_1.value.append(3)
-    
     assert object_1.value == [0, 1, 2, 3]
     
     

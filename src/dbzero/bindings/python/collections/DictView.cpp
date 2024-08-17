@@ -5,6 +5,7 @@
 #include <dbzero/object_model/dict/DictIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/bindings/python/GlobalMutex.hpp>
 
 namespace db0::python
 
@@ -14,12 +15,14 @@ namespace db0::python
 
     DictIteratorObject *DictViewObject_iter(DictViewObject *self)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         auto dict_iterator_object = IteratorObject_new<DictIteratorObject>(&DictIteratorObjectType, NULL, NULL);        
         self->ext().begin(&dict_iterator_object->modifyExt());
         return dict_iterator_object;
     }
     
     Py_ssize_t DictViewObject_len(DictViewObject *dict_obj) {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         return dict_obj->ext().size();
     }
 
@@ -47,9 +50,15 @@ namespace db0::python
         .tp_free = PyObject_Free,        
     };
 
-    DictViewObject *DictViewObject_new(PyTypeObject *type, PyObject *, PyObject *)
+    DictViewObject *DictViewObject_newInternal(PyTypeObject *type, PyObject *, PyObject *)
     {
         return reinterpret_cast<DictViewObject*>(type->tp_alloc(type, 0));
+    }
+
+    DictViewObject *DictViewObject_new(PyTypeObject *type, PyObject *, PyObject *)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return DictViewObject_newInternal(type, NULL, NULL);
     }
 
     DictViewObject *DictViewDefaultObject_new()
@@ -59,6 +68,7 @@ namespace db0::python
     
     void DictViewObject_del(DictViewObject* dict_obj)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         // destroy associated DB0 Dict instance
         dict_obj->ext().~DictView();
         Py_TYPE(dict_obj)->tp_free((PyObject*)dict_obj);
@@ -72,7 +82,7 @@ namespace db0::python
     DictViewObject *makeDictView(const db0::object_model::Dict *ptr, db0::object_model::IteratorType iterator_type)
     {
         // make actual DBZero instance, use default fixture
-        auto dict_view_object = DictViewObject_new(&DictViewObjectType, NULL, NULL);
+        auto dict_view_object = DictViewObject_newInternal(&DictViewObjectType, NULL, NULL);
         db0::object_model::DictView::makeNew(&dict_view_object->modifyExt(), ptr, iterator_type);
         return dict_view_object;
     }

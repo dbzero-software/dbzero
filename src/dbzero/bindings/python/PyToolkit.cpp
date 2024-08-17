@@ -259,7 +259,7 @@ namespace db0::python
     }
 
     PyToolkit::ObjectPtr PyToolkit::getUUID(ObjectPtr py_object) {
-        return db0::python::getUUID(nullptr, &py_object, 1);
+        return db0::python::getUUIDInternal(nullptr, &py_object, 1);
     }
     
     bool PyToolkit::isEnumValue(ObjectPtr py_object) {

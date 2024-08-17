@@ -150,22 +150,10 @@ namespace db0::object_model
 
     void List::moveTo(db0::swine_ptr<Fixture> &fixture) {
         assert(hasInstance());
-
-        auto old_address = this->getAddress();
-        auto old_fixture = this->getFixture();
-        this->destroy(); 
-        new(this) List(fixture, *this);
-        // // move instance to a different cache (changing its address)
-        fixture->getLangCache().moveFrom(old_fixture->getLangCache(), old_address, 
-            this->getAddress());
-        auto atomic_ctx_ptr = fixture->tryGetAtomicContext();
-        if (atomic_ctx_ptr) {
-            // move instance to a different atomic context (changing its address)
-            assert(old_fixture->tryGetAtomicContext());
-            atomic_ctx_ptr->moveFrom(*old_fixture->tryGetAtomicContext(), old_address, this->getAddress());             
+        if(this->size() > 0) {
+            THROWF(db0::InputException) << "List with items cannot be moved to another fixture";
         }
-        
-
+        super_t::moveTo(fixture);
     }
 
 }
