@@ -1,4 +1,5 @@
 #include "PyTagSet.hpp"
+#include "GlobalMutex.hpp"
 
 namespace db0::python
 
@@ -21,7 +22,8 @@ namespace db0::python
     }
 
     PyObject *negTagSet(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {        
+    {  
+        std::lock_guard pbm_lock(python_bindings_mutex);      
         auto py_tag_set = PyObject_New(PyTagSet, &TagSetType);
         // construct actual instance via placement new
         new (&py_tag_set->m_tag_set) TagSet(args, nargs, true);

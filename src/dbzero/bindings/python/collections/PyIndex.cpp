@@ -1,6 +1,7 @@
 #include "PyIndex.hpp"
 #include <dbzero/bindings/python/PyObjectIterator.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/bindings/python/GlobalMutex.hpp>
 
 namespace db0::python
 
@@ -34,9 +35,15 @@ namespace db0::python
         .tp_free = PyObject_Free,   
     };
     
-    IndexObject *IndexObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+    IndexObject *IndexObject_newInternal(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<IndexObject*>(type->tp_alloc(type, 0));
     }
+
+    IndexObject *IndexObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return IndexObject_newInternal(type, NULL, NULL);
+    }
+
 
     IndexObject *IndexDefaultObject_new() {
         return IndexObject_new(&IndexObjectType, NULL, NULL);
@@ -51,19 +58,21 @@ namespace db0::python
     
     Py_ssize_t IndexObject_len(IndexObject *index_obj)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         index_obj->ext().getFixture()->refreshIfUpdated();
         return index_obj->ext().size();
     }
     
     IndexObject *makeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 0) {
             PyErr_SetString(PyExc_TypeError, "Index object does not accept arguments");
             return NULL;
         }
 
         // make actual DBZero instance, use default fixture
-        auto index_object = IndexObject_new(&IndexObjectType, NULL, NULL);
+        auto index_object = IndexObject_newInternal(&IndexObjectType, NULL, NULL);
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         db0::object_model::Index::makeNew(&index_object->modifyExt(), *lock);
         // register newly created index with py-object cache
@@ -73,6 +82,7 @@ namespace db0::python
     
     PyObject *IndexObject_add(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 2) {
             PyErr_SetString(PyExc_TypeError, "add() takes exactly two arguments");
             return NULL;
@@ -84,6 +94,7 @@ namespace db0::python
 
     PyObject *IndexObject_remove(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 2) {
             PyErr_SetString(PyExc_TypeError, "remove() takes exactly two arguments");
             return NULL;
@@ -95,6 +106,7 @@ namespace db0::python
 
     PyObject *IndexObject_sort(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         using ObjectIterator = db0::object_model::ObjectIterator;
         using TypedObjectIterator = db0::object_model::TypedObjectIterator;
 
@@ -143,6 +155,7 @@ namespace db0::python
 
     PyObject *IndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         // optional low, optional high, optional null_first (boolean)
         static const char *kwlist[] = {"low", "high", "null_first", NULL};
         PyObject *low = NULL, *high = NULL;
@@ -166,6 +179,7 @@ namespace db0::python
     
     PyObject *IndexObject_flush(IndexObject *self)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         self->modifyExt().flush();
         Py_RETURN_NONE;
     }

@@ -5,6 +5,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/utils/base32.hpp>
+#include <dbzero/bindings/python/GlobalMutex.hpp>
 
 namespace db0::python
 
@@ -132,6 +133,7 @@ namespace db0::python
     };
         
     PyObject *find(PyObject *, PyObject* const *args, Py_ssize_t nargs) {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         return findIn(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }
     

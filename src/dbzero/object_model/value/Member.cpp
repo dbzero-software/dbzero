@@ -147,7 +147,7 @@ namespace db0::object_model
     template <> Value createMember<TypeId::TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr lang_value)
     {
-        auto tuple = reinterpret_cast<db0::python::TupleObject*>(db0::python::makeDB0Tuple(fixture, &lang_value, 1));
+        auto tuple = reinterpret_cast<db0::python::TupleObject*>(db0::python::makeDB0TupleInternal(fixture, &lang_value, 1));
         tuple->modifyExt().incRef();
         return tuple->ext().getAddress();
     }

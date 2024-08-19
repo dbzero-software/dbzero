@@ -121,7 +121,7 @@ namespace db0
              */
             template <typename SequenceT> void addTags(std::uint64_t value, const SequenceT &tags_or_types)
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
                 for (auto tag_or_type: tags_or_types) {
                     m_add_set.emplace_back(tag_or_type, value);
@@ -131,7 +131,7 @@ namespace db0
             // Add a single tag
             void addTag(std::uint64_t value, IndexKeyT tag)
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
                 m_add_set.emplace_back(tag, value);
             }
@@ -153,7 +153,7 @@ namespace db0
             template <typename SequenceT>
             void removeTags(std::uint64_t value, const SequenceT &tags_or_types)
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
                 for (auto tag_or_type: tags_or_types) {
                     m_remove_set.emplace_back(tag_or_type, value);
@@ -162,7 +162,7 @@ namespace db0
 
             void removeTag(std::uint64_t value, IndexKeyT tag)
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;                
                 m_remove_set.emplace_back(tag, value);                
             }

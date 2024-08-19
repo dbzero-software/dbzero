@@ -4,6 +4,8 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/GlobalMutex.hpp>
+
 
 namespace db0::python
 
@@ -22,6 +24,7 @@ namespace db0::python
 
     PyObject *TupleObject_GetItem(TupleObject *tuple_obj, Py_ssize_t i)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (static_cast<std::size_t>(i) >= tuple_obj->ext().getData()->size()) {
             PyErr_SetString(PyExc_IndexError, "tuple index out of range");
             return NULL;
@@ -32,6 +35,7 @@ namespace db0::python
 
     PyObject *TupleObject_count(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "count() takes one argument.");
             return NULL;
@@ -42,6 +46,7 @@ namespace db0::python
 
     PyObject *TupleObject_index(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "index() takes one argument.");
             return NULL;
@@ -78,9 +83,15 @@ namespace db0::python
         .tp_free = PyObject_Free,        
     };
 
-    TupleObject *TupleObject_new(PyTypeObject *type, PyObject *, PyObject *)
+    TupleObject *TupleObject_newInternal(PyTypeObject *type, PyObject *, PyObject *)
     {
         return reinterpret_cast<TupleObject*>(type->tp_alloc(type, 0));
+    }
+
+    TupleObject *TupleObject_new(PyTypeObject *type, PyObject *, PyObject *)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return TupleObject_newInternal(type, NULL, NULL);
     }
 
     TupleObject *TupleDefaultObject_new()
@@ -90,6 +101,7 @@ namespace db0::python
     
     void TupleObject_del(TupleObject* tuple_obj)
     {
+                // std::lock_guard pbm_lock(python_bindings_mutex);
         // destroy associated DB0 Tuple instance
         tuple_obj->ext().~Tuple();
         Py_TYPE(tuple_obj)->tp_free((PyObject*)tuple_obj);
@@ -97,17 +109,18 @@ namespace db0::python
 
     Py_ssize_t TupleObject_len(TupleObject *tuple_obj)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         tuple_obj->ext().getFixture()->refreshIfUpdated();
         return tuple_obj->ext().getData()->size();
     }
     
-    PyObject *makeDB0Tuple(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
-    {        
+    PyObject *makeDB0TupleInternal(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    {      
         if (nargs != 1) {
             THROWF(db0::InputException) << "make_tuple() takes exacly 1 arguments";
         }
         // make actual DBZero instance, use default fixture
-        auto py_tuple = TupleObject_new(&TupleObjectType, NULL, NULL);
+        auto py_tuple = TupleObject_newInternal(&TupleObjectType, NULL, NULL);
         db0::FixtureLock lock(fixture);
         auto &tuple = py_tuple->modifyExt();
         db0::object_model::Tuple::makeNew(&tuple, *lock, PyObject_Length(args[0]));
@@ -125,6 +138,12 @@ namespace db0::python
         // register newly created tuple with py-object cache
         fixture->getLangCache().add(tuple.getAddress(), py_tuple);
         return py_tuple;
+    }
+
+    PyObject *makeDB0Tuple(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    {   
+        std::lock_guard pbm_lock(python_bindings_mutex);     
+        return makeDB0TupleInternal(fixture, args, nargs);
     }
     
     PyObject *makeTuple(PyObject *self, PyObject *const *args, Py_ssize_t nargs)

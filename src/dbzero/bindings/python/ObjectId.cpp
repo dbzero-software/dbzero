@@ -7,6 +7,7 @@
 #include "PyAPI.hpp"
 #include "PyObjectIterator.hpp"
 #include "Types.hpp"
+#include "GlobalMutex.hpp"
 
 namespace db0::python
 
@@ -33,7 +34,7 @@ namespace db0::python
         .tp_new = PyType_GenericNew,
     };
     
-    PyObject *getUUID(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *getUUIDInternal(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
@@ -41,6 +42,12 @@ namespace db0::python
         }
         PyObject *py_arg = args[0];
         return runSafe(tryGetUUID, py_arg);
+    }
+
+    PyObject *getUUID(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return getUUIDInternal(self, args, nargs);
     }
     
     PyObject *ObjectId_repr(PyObject *self)

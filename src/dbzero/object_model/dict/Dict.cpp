@@ -174,6 +174,9 @@ namespace db0::object_model
     }
 
     void Dict::moveTo(db0::swine_ptr<Fixture> &fixture) {
+        if(this->size() > 0) {
+            THROWF(db0::InputException) << "Dict with items cannot be moved to another fixture";
+        }
         assert(hasInstance());    
         super_t::moveTo(fixture);
     }

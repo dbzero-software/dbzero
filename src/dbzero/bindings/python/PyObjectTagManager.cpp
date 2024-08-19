@@ -1,5 +1,6 @@
 #include "PyObjectTagManager.hpp"
 #include "Memo.hpp"
+#include "GlobalMutex.hpp"
 
 namespace db0::python
 
@@ -73,6 +74,7 @@ namespace db0::python
     
     PyObjectTagManager *makeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         // all arguments must be Memo objects        
         for (Py_ssize_t i = 0; i < nargs; ++i) {
             if (!PyMemo_Check(args[i])) {

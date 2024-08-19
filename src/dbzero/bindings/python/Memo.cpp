@@ -14,6 +14,7 @@
 #include "PyClassFields.hpp"
 #include "Utils.hpp"
 #include "Types.hpp"
+#include "GlobalMutex.hpp"
 
 namespace db0::python
 
@@ -306,7 +307,7 @@ namespace db0::python
     }
     
     PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name, const char *type_id)
-    {        
+    {     
         Py_INCREF(py_class);
         PyObject *py_module = findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__"));
         if (!PyModule_Check(py_module)) {
@@ -393,7 +394,8 @@ namespace db0::python
     }
     
     PyObject *wrapPyClass(PyObject *, PyObject *args, PyObject *kwargs)
-    {        
+    {   
+        std::lock_guard pbm_lock(python_bindings_mutex);     
         PyObject* class_obj;
         PyObject *singleton = Py_False;
         PyObject *py_prefix_name = nullptr;
@@ -459,6 +461,7 @@ namespace db0::python
 
     PyObject *MemoObject_IsTag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
             return NULL;

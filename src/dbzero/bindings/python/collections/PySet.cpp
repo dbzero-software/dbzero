@@ -5,7 +5,7 @@
 #include <dbzero/object_model/set/SetIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-
+#include <dbzero/bindings/python/GlobalMutex.hpp>
 
 namespace db0::python
 
@@ -24,6 +24,8 @@ namespace db0::python
     
     int SetObject_SetItem(SetObject *set_obj, Py_ssize_t i, PyObject *value)
     {
+                
+        std::lock_guard pbm_lock(python_bindings_mutex);
         db0::FixtureLock lock(set_obj->ext().getFixture());
         set_obj->modifyExt().setItem(lock, i, value);
         return 0;
@@ -31,6 +33,7 @@ namespace db0::python
 
     int SetObject_HasItem(SetObject *set_obj, PyObject *key)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         return set_obj->ext().has_item(key);
     }
 
@@ -68,33 +71,107 @@ namespace db0::python
         .nb_inplace_or = (binaryfunc)SetObject_update,
     };
 
+    Py_ssize_t SetObject_lenInternal(SetObject *set_obj)
+    {
+        set_obj->ext().getFixture()->refreshIfUpdated();
+        return set_obj->ext().size();
+    }
+    
+
+    Py_ssize_t SetObject_len(SetObject *set_obj)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return SetObject_lenInternal(set_obj);
+    }
+
+    Py_ssize_t getLenPyObjectOrSet(PyObject *obj)
+    {
+        if (SetObject_Check(obj)) {
+            return SetObject_lenInternal((SetObject*)obj);
+        }
+        return PyObject_Length(obj);
+    }
+    
+
+    PyObject *SetObject_issubsetInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "isdisjoint() takes exactly one argument");
+            return NULL;
+        }
+        
+        if (SetObject_Check(args[0])) {
+            SetObject *other = (SetObject*)args[0];
+            if(SetObject_lenInternal(self) == 0 || SetObject_lenInternal(other) == 0) return Py_True;
+
+            auto it1 = self->ext().begin();
+            auto it2 = other->ext().begin();
+            auto it1End = self->ext().end();
+            auto it2End = other->ext().end();
+
+            while(it1 != it1End)
+            {
+                if(it2 == it2End) {
+                    return Py_False;
+                }
+                if(*it1 == *it2){
+                    ++it1;
+                }
+                ++it2;
+            }
+        } else {
+            PyObject *other = args[0];
+            if(SetObject_lenInternal(self) == 0 || PyObject_Length(other) == 0) return Py_True;
+            PyObject *iterator = PyObject_GetIter(self);
+            PyObject *elem;
+            while ((elem = PyIter_Next(iterator))) {
+                if(!PySequence_Contains(other, elem)){
+                    Py_DECREF(iterator);
+                    Py_DECREF(elem);
+                    return Py_False;
+                }
+                Py_DECREF(elem);
+            }
+            Py_DECREF(iterator);
+        }
+        return Py_True;
+    }
+
+     PyObject *SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return SetObject_issubsetInternal(self, args, nargs);
+    }
+
     static PyObject *SetObject_rq(SetObject *set_obj, PyObject *other, int op) 
     {        
+        std::lock_guard pbm_lock(python_bindings_mutex);
         PyObject** args = &other;    
         switch (op)
         {
         case Py_EQ:
-            if(SetObject_len(set_obj) != PyObject_Length(other)) {
+            if(SetObject_lenInternal(set_obj) != getLenPyObjectOrSet(other)) {
                 return Py_False;
             }
             return PyBool_fromBool(has_all_elements_in_collection(set_obj, other));
         case Py_NE:
-            if(SetObject_len(set_obj) != PyObject_Length(other)) {
+            if(SetObject_lenInternal(set_obj) != getLenPyObjectOrSet(other)) {
                 return Py_True;
             }
             return PyBool_fromBool(!has_all_elements_in_collection(set_obj, other));
         case Py_LE:  // Test whether every element in the set is in other.
-            return SetObject_issubset(set_obj, args, 1);
+            return SetObject_issubsetInternal(set_obj, args, 1);
         case Py_LT:{  // Test whether the set is a proper subset of other, that is, set <= other and set != other.
-            if(SetObject_len(set_obj) == PyObject_Length(other)){
+            if(SetObject_lenInternal(set_obj) == getLenPyObjectOrSet(other)){
                 return Py_False;
             }
-            return SetObject_issubset(set_obj, args, 1);
+            return SetObject_issubsetInternal(set_obj, args, 1);
         }
         case Py_GE:  // Test whether every element in the set is in other.
             return SetObject_issuperset(set_obj, args, 1);
         case Py_GT:{  // Test whether the set is a proper superset of other, that is, set >= other and set != other.
-            if(SetObject_len(set_obj) == PyObject_Length(other)){
+            if(SetObject_lenInternal(set_obj) == getLenPyObjectOrSet(other)){
                 return Py_False;
             }
             return SetObject_issuperset(set_obj, args, 1);
@@ -123,8 +200,13 @@ namespace db0::python
         .tp_free = PyObject_Free,        
     };
 
-    SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+    SetObject *SetObject_newInternal(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<SetObject*>(type->tp_alloc(type, 0));
+    }
+
+    SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return SetObject_newInternal(type, NULL, NULL);
     }
 
     SetObject *SetDefaultObject_new() {
@@ -133,19 +215,16 @@ namespace db0::python
     
     void SetObject_del(SetObject* set_obj)
     {
+                // std::lock_guard pbm_lock(python_bindings_mutex);
         // destroy associated DB0 Set instance
         set_obj->ext().~Set();
         Py_TYPE(set_obj)->tp_free((PyObject*)set_obj);
     }
 
-    Py_ssize_t SetObject_len(SetObject *set_obj)
-    {
-        set_obj->ext().getFixture()->refreshIfUpdated();
-        return set_obj->ext().size();
-    }
     
     PyObject *SetObject_add(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "add() takes exactly one argument");
             return NULL;
@@ -159,7 +238,8 @@ namespace db0::python
     SetObject *makeDB0Set(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
     {
         // make actual DBZero instance, use default fixture
-        auto py_set = SetObject_new(&SetObjectType, NULL, NULL);
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        auto py_set = SetObject_newInternal(&SetObjectType, NULL, NULL);
         db0::FixtureLock lock(fixture);
         auto &set = py_set->modifyExt();
         db0::object_model::Set::makeNew(&set, *lock);
@@ -190,6 +270,7 @@ namespace db0::python
 
     PyObject * SetObject_isdisjoint(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "isdisjoint() takes exactly one argument");
             return NULL;
@@ -197,7 +278,7 @@ namespace db0::python
 
         if (SetObject_Check(args[0])) {
             SetObject *other = (SetObject*)args[0];
-            if(SetObject_len(self) == 0 || SetObject_len(other) == 0) return Py_True;
+            if(SetObject_lenInternal(self) == 0 || SetObject_lenInternal(other) == 0) return Py_True;
             auto it1 = self->ext().begin();
             auto it2 = other->ext().begin();
             auto it1End = self->ext().end();
@@ -211,7 +292,7 @@ namespace db0::python
             }
         } else {
             PyObject *other = args[0];
-            if(SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
+            if(SetObject_lenInternal(self) == 0 || PyObject_Length(other) == 0) return Py_True;
             PyObject *iterator = PyObject_GetIter(other);
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
@@ -227,52 +308,11 @@ namespace db0::python
         return Py_True;
     }
 
-    PyObject *SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "isdisjoint() takes exactly one argument");
-            return NULL;
-        }
-        
-        if (SetObject_Check(args[0])) {
-            SetObject *other = (SetObject*)args[0];
-            if(SetObject_len(self) == 0 || SetObject_len(other) == 0) return Py_True;
-
-            auto it1 = self->ext().begin();
-            auto it2 = other->ext().begin();
-            auto it1End = self->ext().end();
-            auto it2End = other->ext().end();
-
-            while(it1 != it1End)
-            {
-                if(it2 == it2End) {
-                    return Py_False;
-                }
-                if(*it1 == *it2){
-                    ++it1;
-                }
-                ++it2;
-            }
-        } else {
-            PyObject *other = args[0];
-            if(SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
-            PyObject *iterator = PyObject_GetIter(self);
-            PyObject *elem;
-            while ((elem = PyIter_Next(iterator))) {
-                if(!PySequence_Contains(other, elem)){
-                    Py_DECREF(iterator);
-                    Py_DECREF(elem);
-                    return Py_False;
-                }
-                Py_DECREF(elem);
-            }
-            Py_DECREF(iterator);
-        }
-        return Py_True;
-    }
+    
 
     PyObject * SetObject_issuperset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "issuperset() takes exactly one argument");
             return NULL;
@@ -281,10 +321,10 @@ namespace db0::python
 
             SetObject *other = (SetObject*)args[0];
             PyObject *py_self = (PyObject*)self;
-            return SetObject_issubset(other, &py_self,1);
+            return SetObject_issubsetInternal(other, &py_self,1);
         } else {
             PyObject *other = args[0];
-            if(SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
+            if(SetObject_lenInternal(self) == 0 || PyObject_Length(other) == 0) return Py_True;
             PyObject *iterator = PyObject_GetIter(other);
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
@@ -301,10 +341,11 @@ namespace db0::python
     }
 
     PyObject *SetObject_copy(SetObject *py_src_set)
-    {        
+    {   
+        std::lock_guard pbm_lock(python_bindings_mutex);     
         db0::FixtureLock lock(py_src_set->ext().getFixture());
         // make actual DBZero instance, use default fixture
-        auto py_set = SetObject_new(&SetObjectType, NULL, NULL);
+        auto py_set = SetObject_newInternal(&SetObjectType, NULL, NULL);
         db0::object_model::Set::makeNew(&py_set->modifyExt(), *lock);
         py_set->modifyExt().insert(py_src_set->ext());
         lock->getLangCache().add(py_set->ext().getAddress(), py_set);
@@ -316,7 +357,8 @@ namespace db0::python
     }
 
     PyObject *SetObject_union(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {        
+    {    
+        std::lock_guard pbm_lock(python_bindings_mutex);    
         if (nargs == 0) {
             PyErr_SetString(PyExc_TypeError, "union() takes more than 0 arguments");
             return NULL;
@@ -345,6 +387,7 @@ namespace db0::python
     void SetObject_intersection(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1, 
         PyObject *it2, PyObject *elem2)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (elem1 == nullptr || elem2 == nullptr) {
             return;
         }
@@ -370,7 +413,8 @@ namespace db0::python
     }
 
     PyObject *SetObject_intersection_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {        
+    {    
+        std::lock_guard pbm_lock(python_bindings_mutex);    
         if (nargs == 0) {
             PyErr_SetString(PyExc_TypeError, "intersection() takes more than 0 arguments");
             return NULL;
@@ -396,6 +440,8 @@ namespace db0::python
     void SetObject_difference(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1,
         PyObject *it2, PyObject *elem2, bool symmetric)
     {
+
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (elem1 == nullptr && elem2 == nullptr) {
             return;
         }
@@ -440,7 +486,7 @@ namespace db0::python
 
     PyObject * SetObject_difference(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric)
     {
-        
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs == 0) {
             PyErr_SetString(PyExc_TypeError, "difference() takes more than 0 arguments");
             return NULL;
@@ -484,6 +530,7 @@ namespace db0::python
 
     PyObject *SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs, bool throw_ex)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "remove() takes exactly one argument");
             return NULL;
@@ -507,6 +554,7 @@ namespace db0::python
 
     PyObject *SetObject_pop(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         auto obj = set_obj->modifyExt().pop();
         if(obj == nullptr){
             PyErr_SetString(PyExc_KeyError, "Cannot pop from empty set");
@@ -517,12 +565,14 @@ namespace db0::python
 
     PyObject *SetObject_clear(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         set_obj->modifyExt().clear();
         Py_RETURN_NONE;
     }
 
     PyObject *SetObject_update(SetObject *self, PyObject * ob)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
         auto &set_impl = self->modifyExt();
@@ -539,6 +589,7 @@ namespace db0::python
 
     PyObject *SetObject_intersection_in_place(SetObject *self, PyObject * ob)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         PyObject* it = PyObject_GetIter(self);
         PyObject* item;
         std::list<std::pair<size_t, PyObject*>> hashes_and_items;
@@ -561,6 +612,7 @@ namespace db0::python
 
     PyObject *SetObject_difference_in_place(SetObject *self, PyObject * ob)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
         std::list<size_t> hashes;
@@ -578,6 +630,7 @@ namespace db0::python
 
     PyObject *SetObject_symmetric_difference_in_place(SetObject *self, PyObject * ob)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         std::list<std::pair<size_t, PyObject*>> hashes_and_items_to_remove;
         std::list<PyObject *> items_to_add;
         PyObject* it = PyObject_GetIter(ob);
