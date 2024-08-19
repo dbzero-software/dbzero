@@ -197,11 +197,3 @@ def test_scoped_list_issue(db0_fixture):
     list.append(MemoScopedClass(100, prefix=prefix))
     assert len(list) == 1
     assert list[0].value == 100
-
-
-# def test_scoped_memo_issue(db0_fixture):
-#     prefix = "test-data"
-#     obj = MemoScopedClass(MemoTestClass(123), prefix=prefix)    
-#     memo = obj.value
-#     memo.value = 324
-#     assert memo.value == 324
