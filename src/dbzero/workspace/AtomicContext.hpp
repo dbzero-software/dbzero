@@ -21,7 +21,7 @@ namespace db0
 
     template <TypeId type_id, typename LangToolkit> void detachObject(typename LangToolkit::ObjectPtr);
 
-    template <typename LangToolkit> void detachObject(TypeId type_id, typename LangToolkit::ObjectPtr lang_value)
+    template <typename LangToolkit> void detachObject(TypeId type_id, typename LangToolkit::ObjectPtr obj_ptr)
     {
         // detach object function pointer
         using DetachObjectFunc = void (*)(typename LangToolkit::ObjectPtr);
@@ -35,7 +35,7 @@ namespace db0
         if (!func_ptr) {
             THROWF(db0::InternalException) << "Unable to detach object of TypeID: " << (int)type_id << THROWF_END;
         }
-        return func_ptr(lang_value);
+        return func_ptr(obj_ptr);
     }
 
     class AtomicContext

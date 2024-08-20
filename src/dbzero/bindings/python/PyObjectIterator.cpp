@@ -42,8 +42,8 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
     
-    PyObjectIterator *PyObjectIteratorDefault_new() {
-        return PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL);
+    shared_py_object<PyObjectIterator*> PyObjectIteratorDefault_new() {
+        return { PyObjectIterator_new(&PyObjectIteratorType, NULL, NULL), false };
     }
     
     PyObjectIterator *PyObjectIterator_iter(PyObjectIterator *self)

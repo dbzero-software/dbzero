@@ -29,7 +29,6 @@ namespace db0::python
         return list_obj->ext().getItem(i).steal();
     }
 
-    
     PyObject *ListObject_copyInternal(ListObject *py_src_list)
     {
         // make actual DBZero instance, use default fixture
@@ -46,7 +45,6 @@ namespace db0::python
         return ListObject_copyInternal(py_src_list);
     }
 
-
     PyObject *ListObject_multiply(ListObject *list_obj, PyObject *elem)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
@@ -61,7 +59,9 @@ namespace db0::python
         return list_obj_copy;
     }
 
-    ListObject *makeDB0ListInternal(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs){
+    shared_py_object<ListObject*> makeDB0ListInternal(db0::swine_ptr<Fixture> &fixture,
+        PyObject *const *args, Py_ssize_t nargs)
+    {
         auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
         db0::FixtureLock lock(fixture);
         auto &list = py_list->modifyExt();
@@ -71,31 +71,30 @@ namespace db0::python
         }
         // register newly created list with py-object cache
         fixture->getLangCache().add(list.getAddress(), py_list);
-        return py_list;
+        return { py_list, false };
     }
 
-    ListObject *makeDB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    shared_py_object<ListObject*> makeDB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
         return makeDB0ListInternal(fixture, args, nargs);
     }
 
-    ListObject *makeListInternal(PyObject *self, PyObject *const *args, Py_ssize_t nargs){
-        
+    ListObject *makeListInternal(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {        
         if (nargs != 1 && nargs != 0) {
             PyErr_SetString(PyExc_TypeError, "list() takes exactly one or zero argument");
             return NULL;
         }
 
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return makeDB0ListInternal(fixture, args, nargs);
+        return makeDB0ListInternal(fixture, args, nargs).steal();
     }
 
-    ListObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
-        return makeListInternal(self, args, nargs);
-        
+        return makeListInternal(self, args, nargs);        
     }
 
     PyObject *ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
@@ -107,9 +106,9 @@ namespace db0::python
         if (PySlice_Check(elem)) {
             Py_ssize_t start, stop, step;
             PySlice_GetIndices(elem, py_src_list->ext().size(), &start, &stop, &step);
-            ListObject *py_list = makeListInternal(nullptr,nullptr, 0);
+            auto py_list = makeListInternal(nullptr, nullptr, 0);
             auto compare = [step](Py_ssize_t i, Py_ssize_t stop) {
-                if(step > 0){
+                if (step > 0) {
                     return i < stop; 
                 } else {
                     return i > stop;
@@ -137,7 +136,7 @@ namespace db0::python
         py_list->modifyExt().clear(lock);
         Py_RETURN_NONE;
     }
-
+    
     PyObject *ListObject_count(ListObject *py_list, PyObject *const *args, Py_ssize_t nargs)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);       
@@ -237,16 +236,17 @@ namespace db0::python
         return reinterpret_cast<ListObject*>(type->tp_alloc(type, 0));
     }
 
-    ListObject *ListDefaultObject_new() {
-        std::lock_guard pbm_lock(python_bindings_mutex);   
-        return ListObject_new(&ListObjectType, NULL, NULL);
-    }
-    
-    void ListObject_del(ListObject* list_obj)
+    shared_py_object<ListObject*> ListDefaultObject_new()
     {
-                // std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return { ListObject_new(&ListObjectType, NULL, NULL), false };
+    }
+
+    void ListObject_del(ListObject* list_obj)
+    {        
+        // std::lock_guard pbm_lock(python_bindings_mutex);
         // destroy associated DB0 List instance
-        list_obj->ext().~List();
+        list_obj->destroy();
         Py_TYPE(list_obj)->tp_free((PyObject*)list_obj);
     }
     

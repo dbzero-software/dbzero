@@ -128,6 +128,10 @@ namespace db0::python
     private:
         PyTypeObject *m_py_type = nullptr;
     };
+    
+    template <typename T, typename K> shared_py_object<T> shared_py_cast(shared_py_object<K> &&obj) {
+        return shared_py_object<T>(static_cast<T>(obj.steal()), false);
+    }
 
 }
 
@@ -138,7 +142,7 @@ namespace std
     // Hash of the shared_py_object
     template <typename T> struct hash<db0::python::shared_py_object<T>>
     {
-        std::size_t operator()(const db0::python::shared_py_object<T> &obj) const {
+        std::size_t operator()(const db0::python::shared_py_object<T> &obj) const noexcept {
             return std::hash<T>()(obj.get());
         }
     };

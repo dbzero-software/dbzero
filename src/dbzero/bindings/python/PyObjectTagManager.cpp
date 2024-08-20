@@ -50,13 +50,12 @@ namespace db0::python
         return tag_manager;
     }
 
-
     PyObject *PyObjectTagManager_remove(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs)
     {
         tag_manager->modifyExt().remove(args, nargs);
         Py_RETURN_NONE;
     }
-
+    
     PyTypeObject PyObjectTagManagerType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.Tags",

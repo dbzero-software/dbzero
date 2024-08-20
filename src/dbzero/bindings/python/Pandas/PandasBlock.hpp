@@ -2,6 +2,7 @@
 
 #include <Python.h>
 #include <dbzero/bindings/python/PyWrapper.hpp>
+#include <dbzero/bindings/python/shared_py_object.hpp>
 
 namespace db0::object_model::pandas 
 
@@ -38,7 +39,7 @@ namespace db0::python
 
     PandasBlockObject *makeBlock(PyObject *, PyObject *, PyObject *);
 
-    PandasBlockObject *BlockDefaultObject_new();
+    shared_py_object<PandasBlockObject*> BlockDefaultObject_new();
 
     PyObject * PandasBlockObject_GetStorageClass(PandasBlockObject *);
 

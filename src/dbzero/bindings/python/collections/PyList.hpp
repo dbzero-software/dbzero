@@ -2,16 +2,17 @@
 
 #include <Python.h>
 #include <dbzero/bindings/python/PyWrapper.hpp>
+#include <dbzero/bindings/python/shared_py_object.hpp>
 #include <dbzero/object_model/list/List.hpp>
 
-namespace db0::python 
+namespace db0::python
 
 {
     
     using ListObject = PyWrapper<db0::object_model::List>;
     
     ListObject *ListObject_new(PyTypeObject *type, PyObject *, PyObject *);
-    ListObject *ListDefaultObject_new();
+    shared_py_object<ListObject*> ListDefaultObject_new();
     void ListObject_del(ListObject* self);
     // python array methods methods
     PyObject *ListObject_clear(ListObject *list_obj);
@@ -26,8 +27,8 @@ namespace db0::python
     extern PyTypeObject ListObjectType;
     
     // construct from a Python list (or empty)
-    ListObject *makeDB0List(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
-    ListObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    shared_py_object<ListObject*> makeDB0List(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
     bool ListObject_Check(PyObject *);
     

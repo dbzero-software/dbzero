@@ -116,7 +116,7 @@ namespace db0::object_model
     }
     
     ObjectIterator::ObjectSharedPtr ObjectIterator::unload(std::uint64_t address) const {
-        return { LangToolkit::unloadObject(m_fixture, address, m_class_factory), false };
+        return LangToolkit::unloadObject(m_fixture, address, m_class_factory);
     }
     
     bool ObjectIterator::isNull() const {

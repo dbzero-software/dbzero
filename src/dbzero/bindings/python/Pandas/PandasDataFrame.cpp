@@ -65,7 +65,7 @@ namespace db0::python
         .tp_new = (newfunc)PandasDataFrameObject_new,
         .tp_free = PyObject_Free,        
     };
-
+    
     PandasDataFrameObject *PandasDataFrameObject_new(PyTypeObject *type, PyObject *args, PyObject *) {
         return reinterpret_cast<PandasDataFrameObject*>(type->tp_alloc(type, 0));
     }
@@ -73,7 +73,7 @@ namespace db0::python
     void PandasDataFrameObject_del(PandasDataFrameObject* dataframe_obj)
     {
         // destroy associated DB0 DataFrame instance
-        dataframe_obj->ext().~DataFrame();
+        dataframe_obj->destroy();
         Py_TYPE(dataframe_obj)->tp_free((PyObject*)dataframe_obj);
     }
 

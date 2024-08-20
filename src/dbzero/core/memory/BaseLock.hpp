@@ -14,7 +14,7 @@ namespace db0
 {
 
     class BaseStorage;
-    
+
     /**
      * A BaseLock is the foundation class for ResourceLock and BoundaryLock implementations    
      * it supposed to hold a single or multiple data pages in a specific state (read)
@@ -88,6 +88,11 @@ namespace db0
         // clears the no_flush flag if it was set
         void resetNoFlush();
 
+#ifndef NDEBUG
+        // get total memory usage of all BaseLock instances
+        static std::size_t getTotalMemoryUsage();
+#endif
+
     protected:
         friend class CacheRecycler;
         friend class BoundaryLock;
@@ -116,6 +121,12 @@ namespace db0
         void setRecycled(bool is_recycled);
 
         bool addrPageAligned(BaseStorage &) const;
+
+    private:
+#ifndef NDEBUG
+        static std::atomic<std::size_t> bl_usage;
+        static std::atomic<std::size_t> bl_op_count;
+#endif        
     };
 
 }

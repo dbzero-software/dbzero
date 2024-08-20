@@ -3,6 +3,7 @@
 #include <Python.h>
 #include <dbzero/bindings/python/PyWrapper.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
+#include <dbzero/bindings/python/shared_py_object.hpp>
 
 namespace db0::python 
 
@@ -11,7 +12,8 @@ namespace db0::python
     using TupleObject = PyWrapper<db0::object_model::Tuple>;
     
     TupleObject *TupleObject_new(PyTypeObject *type, PyObject *, PyObject *);
-    TupleObject *TupleDefaultObject_new();
+    shared_py_object<TupleObject*> TupleDefaultObject_new();
+
     void TupleObject_del(TupleObject* self);
     Py_ssize_t TupleObject_len(TupleObject *);
     // python array methods methods

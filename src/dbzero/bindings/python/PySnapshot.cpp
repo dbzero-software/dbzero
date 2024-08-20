@@ -58,7 +58,7 @@ namespace db0::python
         return py_object;
     }
     
-    PyObject *tryPySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject* tryPySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (!PySnapshot_Check(self)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -66,7 +66,7 @@ namespace db0::python
         }
 
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
-        return tryFetchFrom(snapshot, args, nargs);
+        return tryFetchFrom(snapshot, args, nargs).steal();
     }
 
     PyObject *tryPySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -79,8 +79,8 @@ namespace db0::python
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         return findIn(snapshot, args, nargs);
     }
-
-    PyObject *PySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
+    
+    PyObject* PySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         return runSafe(tryPySnapshot_fetch, self, args, nargs);
     }
 

@@ -5,6 +5,7 @@
 #include <dbzero/object_model/enum/EnumDef.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
+#include <dbzero/bindings/python/shared_py_object.hpp>
 
 namespace db0::python
 
@@ -21,7 +22,8 @@ namespace db0::python
     PyObject *PyEnum_getattro(PyEnum *, PyObject *attr);
     
     PyEnumValue *PyEnumValue_new(PyTypeObject *type, PyObject *, PyObject *);
-    PyEnumValue *PyEnumValueDefault_new();
+    shared_py_object<PyEnumValue*> PyEnumValueDefault_new();
+
     void PyEnumValue_del(PyEnumValue *);
     PyObject *PyEnumValue_str(PyEnumValue *self);
     PyObject *PyEnumValue_repr(PyEnumValue *self);
@@ -38,7 +40,7 @@ namespace db0::python
     PyObject *tryMakeEnumFromType(PyObject *, PyTypeObject *, const std::vector<std::string> &enum_values,
         const char *type_id, const char *prefix_name);
     
-    PyEnumValue *makePyEnumValue(const EnumValue &);
+    shared_py_object<PyEnumValue*> makePyEnumValue(const EnumValue &);
     
 }
 

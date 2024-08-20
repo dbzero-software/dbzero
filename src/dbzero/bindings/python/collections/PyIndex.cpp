@@ -45,8 +45,8 @@ namespace db0::python
     }
 
 
-    IndexObject *IndexDefaultObject_new() {
-        return IndexObject_new(&IndexObjectType, NULL, NULL);
+    shared_py_object<IndexObject*> IndexDefaultObject_new() {
+        return { IndexObject_new(&IndexObjectType, NULL, NULL), false };
     }
 
     void IndexObject_del(IndexObject* index_obj)
@@ -142,15 +142,15 @@ namespace db0::python
             auto typed_iter = std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(
                 iter->getFixture(), std::move(iter_sorted), iter.m_typed_iterator_ptr->getType(), {}, iter->getFilters())
             );
-            Iterator::makeNew(&iter_obj->modifyExt(), std::move(typed_iter));
+            Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::unique_ptr<ObjectIterator>(new ObjectIterator(
                 iter->getFixture(), std::move(iter_sorted), {}, iter->getFilters())
             );
-            Iterator::makeNew(&iter_obj->modifyExt(), std::move(_iter));
+            Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(_iter));
         }
 
-        return iter_obj;
+        return iter_obj.steal();
     }
 
     PyObject *IndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
@@ -169,8 +169,8 @@ namespace db0::python
         auto iter_factory = index.range(low, high, null_first);
         auto iter = std::make_unique<db0::object_model::ObjectIterator>(index.getFixture(), std::move(iter_factory));
         auto py_iter_obj = PyObjectIteratorDefault_new();
-        Iterator::makeNew(&py_iter_obj->modifyExt(), std::move(iter));
-        return py_iter_obj;
+        Iterator::makeNew(&(py_iter_obj.get())->modifyExt(), std::move(iter));
+        return py_iter_obj.steal();
     }
     
     bool IndexObject_Check(PyObject *py_object) {

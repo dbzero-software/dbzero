@@ -3,6 +3,7 @@
 #include "PyWrapper.hpp"
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/object_model/tags/TypedObjectIterator.hpp>
+#include <dbzero/bindings/python/shared_py_object.hpp>
 
 namespace db0::python
 
@@ -41,7 +42,7 @@ namespace db0::python
     using PyObjectIterator = PyWrapper<Iterator, false>;
     
     PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
-    PyObjectIterator *PyObjectIteratorDefault_new();
+    shared_py_object<PyObjectIterator*> PyObjectIteratorDefault_new();
     void PyObjectIterator_del(PyObjectIterator* self);
     
     extern PyTypeObject PyObjectIteratorType;

@@ -208,9 +208,9 @@ namespace db0::python
         std::lock_guard pbm_lock(python_bindings_mutex);
         return SetObject_newInternal(type, NULL, NULL);
     }
-
-    SetObject *SetDefaultObject_new() {
-        return SetObject_new(&SetObjectType, NULL, NULL);
+    
+    shared_py_object<SetObject*> SetDefaultObject_new() {
+        return { SetObject_new(&SetObjectType, NULL, NULL), false };
     }
     
     void SetObject_del(SetObject* set_obj)

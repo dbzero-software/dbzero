@@ -94,9 +94,8 @@ namespace db0::python
         return TupleObject_newInternal(type, NULL, NULL);
     }
 
-    TupleObject *TupleDefaultObject_new()
-    {   
-        return TupleObject_new(&TupleObjectType, NULL, NULL);
+    shared_py_object<TupleObject*> TupleDefaultObject_new() {
+        return { TupleObject_new(&TupleObjectType, NULL, NULL), false };
     }
     
     void TupleObject_del(TupleObject* tuple_obj)
@@ -152,8 +151,7 @@ namespace db0::python
         return runSafe(makeDB0Tuple, fixture, args, nargs);
     }
     
-    bool TupleObject_Check(PyObject *object)
-    {
+    bool TupleObject_Check(PyObject *object) {
         return Py_TYPE(object) == &TupleObjectType;        
     }
 

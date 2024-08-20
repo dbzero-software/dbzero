@@ -1,4 +1,7 @@
+#pragma once
+
 #include <dbzero/object_model/set/Set.hpp>
+#include <dbzero/bindings/python/shared_py_object.hpp>
 
 namespace db0::python
 
@@ -7,7 +10,7 @@ namespace db0::python
     using SetObject = PyWrapper<db0::object_model::Set>;
     
     SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *);
-    SetObject *SetDefaultObject_new();
+    shared_py_object<SetObject*> SetDefaultObject_new();
     void SetObject_del(SetObject* self);
     Py_ssize_t SetObject_len(SetObject *);
     PyObject *SetObject_add(SetObject *, PyObject *const *args, Py_ssize_t nargs);

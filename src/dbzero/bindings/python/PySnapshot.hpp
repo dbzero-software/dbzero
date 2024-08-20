@@ -4,6 +4,7 @@
 #include "PyWrapper.hpp"
 #include <dbzero/workspace/WorkspaceView.hpp>
 #include "WhichType.hpp"
+#include "shared_py_object.hpp"
 
 namespace db0::python
 
@@ -21,7 +22,7 @@ namespace db0::python
         const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums);
     bool PySnapshot_Check(PyObject *);
     
-    PyObject *PySnapshot_fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject* PySnapshot_fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PySnapshot_find(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PySnapshot_deserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PySnapshot_close(PyObject *, PyObject *);

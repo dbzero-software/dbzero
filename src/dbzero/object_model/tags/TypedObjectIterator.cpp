@@ -35,11 +35,10 @@ namespace db0::object_model
     }
     
     TypedObjectIterator::ObjectSharedPtr TypedObjectIterator::unload(std::uint64_t address) const {
-        return { LangToolkit::unloadObject(m_fixture, address, m_type), false };
+        return LangToolkit::unloadObject(m_fixture, address, m_type);
     }
     
-    TypedObjectIterator::TypeObjectSharedPtr TypedObjectIterator::getLangClass() const
-    {
+    TypedObjectIterator::TypeObjectSharedPtr TypedObjectIterator::getLangClass() const {
         return m_type->getLangClass();
     }
 

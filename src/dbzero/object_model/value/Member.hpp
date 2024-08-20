@@ -27,14 +27,14 @@ namespace db0::object_model
     using PyObjectPtr = PyToolkit::ObjectPtr;
 
     template <TypeId type_id, typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
-        typename LangToolkit::ObjectPtr lang_value);
+        typename LangToolkit::ObjectPtr obj_ptr);
 
     // register TypeId specialized functions
     template <typename LangToolkit> void registerCreateMemberFunctions(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr)> &functions);
 
     template <typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
-        TypeId type_id, typename LangToolkit::ObjectPtr lang_value)
+        TypeId type_id, typename LangToolkit::ObjectPtr obj_ptr)
     {   
         // create member function pointer
         using CreateMemberFunc = Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr);
@@ -49,7 +49,7 @@ namespace db0::object_model
             THROWF(db0::InternalException) << "Value of TypeID: " << (int)type_id << " cannot be converted to a member" << THROWF_END;
 
         }
-        return func_ptr(fixture, lang_value);
+        return func_ptr(fixture, obj_ptr);
     }
     
     template <typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(
@@ -84,11 +84,11 @@ namespace db0::object_model
     }
     
     /**
-     * Invoke materialize before setting lang_value as a member
+     * Invoke materialize before setting obj_ptr as a member
      * this is to materialize objects (where hasInstance = false) before using them as members
     */
-    void materialize(FixtureLock &, PyObjectPtr lang_value);
+    void materialize(FixtureLock &, PyObjectPtr obj_ptr);
 
-    bool isMaterialized(PyObjectPtr lang_value);
+    bool isMaterialized(PyObjectPtr obj_ptr);
 
 }

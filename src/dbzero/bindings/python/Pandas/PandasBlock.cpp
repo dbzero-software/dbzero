@@ -92,8 +92,8 @@ namespace db0::python
         return PandasBlockType_Check(Py_TYPE(obj));
     }
 
-    PandasBlockObject *BlockDefaultObject_new() {
-        return PandasBlockObject_new(&PandasBlockObjectType, NULL, NULL);
+    shared_py_object<PandasBlockObject*> BlockDefaultObject_new() {
+        return { PandasBlockObject_new(&PandasBlockObjectType, NULL, NULL), false };
     }
 
     PyObject * PandasBlockObject_GetStorageClass(PandasBlockObject *block_obj) {

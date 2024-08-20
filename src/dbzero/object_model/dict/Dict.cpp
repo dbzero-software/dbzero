@@ -118,7 +118,7 @@ namespace db0::object_model
             auto it = bindex.beginJoin(1);
             auto fixture = this->getFixture(); 
             
-            while(!it.is_end()){
+            while (!it.is_end()) {
                 auto [storage_class, value] = (*it).m_first;
                 auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
                 if (LangToolkit::compare(key_value, member.get())) {

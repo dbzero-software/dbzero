@@ -19,8 +19,8 @@ namespace db0::python
         return PyEnum_new(&PyEnumType, NULL, NULL);
     }
 
-    PyEnumValue *PyEnumValueDefault_new() {
-        return PyEnumValue_new(&PyEnumValueType, NULL, NULL);
+    shared_py_object<PyEnumValue*> PyEnumValueDefault_new() {
+        return { PyEnumValue_new(&PyEnumValueType, NULL, NULL), false };
     }
 
     void PyEnum_del(PyEnum* self)
@@ -148,10 +148,10 @@ namespace db0::python
         return tryMakeEnum(self, py_type->tp_name, enum_values, type_id, prefix_name);
     }
 
-    PyEnumValue *makePyEnumValue(const EnumValue &enum_value)
+    shared_py_object<PyEnumValue*> makePyEnumValue(const EnumValue &enum_value)
     {
         auto py_enum_value = PyEnumValueDefault_new();
-        py_enum_value->modifyExt() = enum_value;
+        py_enum_value.get()->modifyExt() = enum_value;
         return py_enum_value;
     }
     

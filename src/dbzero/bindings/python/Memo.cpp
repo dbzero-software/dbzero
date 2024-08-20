@@ -100,17 +100,17 @@ namespace db0::python
         return runSafe(tryMemoObject_new_singleton, py_type, args, kwargs);
     }
     
-    MemoObject *MemoObjectStub_new(PyTypeObject *py_type) {
-        return reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
+    shared_py_object<MemoObject*> MemoObjectStub_new(PyTypeObject *py_type) {
+        return { reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0)), false };
     }
-
+    
     PyObject *MemoObject_alloc(PyTypeObject *self, Py_ssize_t nitems) {
         return PyType_GenericAlloc(self, nitems);
     }
     
     void MemoObject_del(MemoObject* memo_obj)
     {
-        // destroy associated DB0 Object instance        
+        // destroy associated DB0 Object instance
         memo_obj->destroy();
         Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
     }
@@ -181,7 +181,7 @@ namespace db0::python
         }
         
         // create a null placeholder in place of the original instance to mark as deleted
-        memo_obj->ext().~Object();
+        memo_obj->destroy();
         db0::object_model::Object::makeNull((void*)(&memo_obj->ext()));
     }
     
@@ -227,6 +227,10 @@ namespace db0::python
         } catch (const std::exception &e) {
             Py_XDECREF(value);
             PyErr_SetString(PyExc_AttributeError, e.what());
+            return -1;
+        } catch (...) {
+            Py_XDECREF(value);
+            PyErr_SetString(PyExc_AttributeError, "Unknown exception");
             return -1;
         }
         Py_XDECREF(value);

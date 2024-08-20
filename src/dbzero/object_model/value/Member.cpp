@@ -23,30 +23,30 @@ namespace db0::object_model
     }
     
     // INTEGER specialization
-    template <> Value createMember<TypeId::INTEGER, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr lang_value)
+    template <> Value createMember<TypeId::INTEGER, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr obj_ptr)
     {
-        auto int_value = PyLong_AsLong(lang_value);
+        auto int_value = PyLong_AsLong(obj_ptr);
         return db0::binary_cast<std::uint64_t, std::int64_t>()(int_value);
     }
     
     // FLOAT specialization
-    template <>  Value createMember<TypeId::FLOAT, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr lang_value)
+    template <>  Value createMember<TypeId::FLOAT, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr obj_ptr)
     {
-        auto fp_value = PyFloat_AsDouble(lang_value);
+        auto fp_value = PyFloat_AsDouble(obj_ptr);
         return db0::binary_cast<std::uint64_t, double>()(fp_value);
     }
 
     // STRING specialization
-    template <> Value createMember<TypeId::STRING, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr lang_value) {
-        // create string-ref member and take its address                
-        return db0::v_object<db0::o_string>(*fixture, PyUnicode_AsUTF8(lang_value)).getAddress();
+    template <> Value createMember<TypeId::STRING, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr obj_ptr) {
+        // create string-ref member and take its address
+        return db0::v_object<db0::o_string>(*fixture, PyUnicode_AsUTF8(obj_ptr)).getAddress();
     }
-
+    
     // OBJECT specialization
     template <> Value createMember<TypeId::MEMO_OBJECT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {        
-        auto &obj = PyToolkit::getTypeManager().extractMutableObject(lang_value);
+        auto &obj = PyToolkit::getTypeManager().extractMutableObject(obj_ptr);
         assert(obj.hasInstance());
         assureSameFixture(fixture, obj);
         obj.modify().incRef();
@@ -55,9 +55,9 @@ namespace db0::object_model
 
     // BLOCK specialization
     template <> Value createMember<TypeId::DB0_BLOCK, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto &block = PyToolkit::getTypeManager().extractMutableBlock(lang_value);
+        auto &block = PyToolkit::getTypeManager().extractMutableBlock(obj_ptr);
         assureSameFixture(fixture, block);
         block.modify().incRef();
         return block.getAddress();
@@ -65,9 +65,9 @@ namespace db0::object_model
 
     // LIST specialization
     template <> Value createMember<TypeId::DB0_LIST, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto &list = PyToolkit::getTypeManager().extractMutableList(lang_value);
+        auto &list = PyToolkit::getTypeManager().extractMutableList(obj_ptr);
         assureSameFixture(fixture, list);
         list.modify().incRef();
         return list.getAddress();
@@ -75,9 +75,9 @@ namespace db0::object_model
     
     // INDEX specialization
     template <> Value createMember<TypeId::DB0_INDEX, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto &index = PyToolkit::getTypeManager().extractMutableIndex(lang_value);
+        auto &index = PyToolkit::getTypeManager().extractMutableIndex(obj_ptr);
         assureSameFixture(fixture, index);
         index.incRef();
         return index.getAddress();
@@ -85,9 +85,9 @@ namespace db0::object_model
 
     // SET specialization
     template <> Value createMember<TypeId::DB0_SET, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto &set = PyToolkit::getTypeManager().extractMutableSet(lang_value);
+        auto &set = PyToolkit::getTypeManager().extractMutableSet(obj_ptr);
         assureSameFixture(fixture, set);
         set.incRef();
         return set.getAddress();
@@ -95,9 +95,9 @@ namespace db0::object_model
 
     // DB0 DICT specialization
     template <> Value createMember<TypeId::DB0_DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto &dict = PyToolkit::getTypeManager().extractMutableDict(lang_value);
+        auto &dict = PyToolkit::getTypeManager().extractMutableDict(obj_ptr);
         assureSameFixture(fixture, dict);
         dict.incRef();
         return dict.getAddress();
@@ -105,9 +105,9 @@ namespace db0::object_model
 
     // TUPLE specialization
     template <> Value createMember<TypeId::DB0_TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto &tuple = PyToolkit::getTypeManager().extractMutableTuple(lang_value);
+        auto &tuple = PyToolkit::getTypeManager().extractMutableTuple(obj_ptr);
         assureSameFixture(fixture, tuple);
         tuple.incRef();
         return tuple.getAddress();
@@ -115,29 +115,29 @@ namespace db0::object_model
     
     // LIST specialization
     template <> Value createMember<TypeId::LIST, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto list = db0::python::makeDB0List(fixture, &lang_value, 1);
-        list->modifyExt().modify().incRef();
-        return list->ext().getAddress();
+        auto list_ptr = db0::python::makeDB0List(fixture, &obj_ptr, 1);
+        list_ptr.get()->modifyExt().modify().incRef();
+        return list_ptr.get()->ext().getAddress();
     }
     
     // SET specialization
     template <> Value createMember<TypeId::SET, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto set = db0::python::makeDB0Set(fixture, &lang_value, 1);
+        auto set = db0::python::makeDB0Set(fixture, &obj_ptr, 1);
         set->modifyExt().incRef();
         return set->ext().getAddress();
     }
 
     // DICT specialization
     template <> Value createMember<TypeId::DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
         PyObject* args = PyTuple_New(1);
-        Py_INCREF(lang_value);
-        PyTuple_SetItem(args, 0, lang_value);
+        Py_INCREF(obj_ptr);
+        PyTuple_SetItem(args, 0, obj_ptr);
         auto dict = db0::python::makeDB0Dict(fixture, args, nullptr);
         dict->modifyExt().incRef();
         return dict->ext().getAddress();
@@ -145,18 +145,18 @@ namespace db0::object_model
     
     // TUPLE specialization
     template <> Value createMember<TypeId::TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto tuple = reinterpret_cast<db0::python::TupleObject*>(db0::python::makeDB0TupleInternal(fixture, &lang_value, 1));
+        auto tuple = reinterpret_cast<db0::python::TupleObject*>(db0::python::makeDB0TupleInternal(fixture, &obj_ptr, 1));
         tuple->modifyExt().incRef();
         return tuple->ext().getAddress();
     }
 
     // DATETIME specialization
     template <> Value createMember<TypeId::DATETIME, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        return db0::python::pyDateTimeToToUint64(lang_value);
+        return db0::python::pyDateTimeToToUint64(obj_ptr);
     }
 
     // BYTES specialization
@@ -167,25 +167,25 @@ namespace db0::object_model
 
     // BYTES specialization
     template <> Value createMember<TypeId::BYTES, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto size = PyBytes_GET_SIZE(lang_value);
-        auto *str = PyBytes_AsString(lang_value);
+        auto size = PyBytes_GET_SIZE(obj_ptr);
+        auto *str = PyBytes_AsString(obj_ptr);
         return createBytesMember(fixture, reinterpret_cast<std::byte *>(str), size);
     }
 
     // NONE specialization
     template <> Value createMember<TypeId::NONE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
         return 0;
     }
 
     // OBJECT_ITERATOR specialization (serialized member)
     template <> Value createMember<TypeId::OBJECT_ITERATOR, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto &obj_iter = PyToolkit::getTypeManager().extractObjectIterator(lang_value);
+        auto &obj_iter = PyToolkit::getTypeManager().extractObjectIterator(obj_ptr);
         std::vector<std::byte> bytes;
         // put TypeId as a header
         db0::serial::write(bytes, TypeId::OBJECT_ITERATOR);
@@ -195,9 +195,9 @@ namespace db0::object_model
 
     // ENUM value specialization (serialized member)
     template <> Value createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr lang_value)
+        PyObjectPtr obj_ptr)
     {
-        auto enum_value = PyToolkit::getTypeManager().extractEnumValue(lang_value);
+        auto enum_value = PyToolkit::getTypeManager().extractEnumValue(obj_ptr);
         // make sure value from the same Fixture is assigned
         if (enum_value.m_fixture_uuid != fixture->getUUID()) {
             // migrate enum value to the destination fixture
@@ -377,15 +377,15 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
     }
     
-    bool isMaterialized(PyObjectPtr lang_value)
+    bool isMaterialized(PyObjectPtr obj_ptr)
     {
-        auto object_ptr = PyToolkit::getTypeManager().tryExtractObject(lang_value);
+        auto object_ptr = PyToolkit::getTypeManager().tryExtractObject(obj_ptr);
         return !object_ptr || object_ptr->hasInstance();
     }
     
-    void materialize(FixtureLock &fixture, PyObjectPtr lang_value)
+    void materialize(FixtureLock &fixture, PyObjectPtr obj_ptr)
     {
-        auto object_ptr = PyToolkit::getTypeManager().tryExtractMutableObject(lang_value);
+        auto object_ptr = PyToolkit::getTypeManager().tryExtractMutableObject(obj_ptr);
         if (object_ptr && !object_ptr->hasInstance()) {
             object_ptr->postInit(fixture);
         }

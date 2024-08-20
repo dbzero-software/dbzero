@@ -50,12 +50,12 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *tryFetch(PyObject *const *args, Py_ssize_t nargs) {
+    shared_py_object<PyObject*> tryFetch(PyObject *const *args, Py_ssize_t nargs) {
         return tryFetchFrom(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }
 
     PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs) {
-        return runSafe(tryFetch, args, nargs);
+        return runSafe(tryFetch, args, nargs).steal();
     }
 
     PyObject *tryOpen(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -629,18 +629,18 @@ namespace db0::python
         
         auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->modifyExt();
         auto split_query = splitBy(py_tag_list, *iter);
-        PyObjectIterator *py_iter = PyObjectIteratorDefault_new();
+        auto py_iter = PyObjectIteratorDefault_new();
         // create decorated iterator (either plain or typed)
         if (iter.isTyped()) {
             auto typed_iter = std::make_unique<TypedObjectIterator>(iter->getFixture(), std::move(split_query.first),
                 iter.m_typed_iterator_ptr->getType(), std::move(split_query.second), iter->getFilters());
-            Iterator::makeNew(&py_iter->modifyExt(), std::move(typed_iter));
+            Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::make_unique<ObjectIterator>(iter->getFixture(), std::move(split_query.first), 
                 std::move(split_query.second), iter->getFilters());
-            Iterator::makeNew(&py_iter->modifyExt(), std::move(_iter));
+            Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(_iter));
         }
-        return py_iter;
+        return py_iter.steal();
     }
 
     PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) {
@@ -690,16 +690,16 @@ namespace db0::python
         });
 
         auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->ext();
-        PyObjectIterator *py_iter = PyObjectIteratorDefault_new();
+        auto py_iter = PyObjectIteratorDefault_new();
         // create decorated iterator (either plain or typed)
         if (iter.isTyped()) {
             auto typed_iter = iter.m_typed_iterator_ptr->iterTyped(filters);
-            Iterator::makeNew(&py_iter->modifyExt(), std::move(typed_iter));
+            Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = iter->iter(filters);
-            Iterator::makeNew(&py_iter->modifyExt(), std::move(_iter));
+            Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(_iter));
         }
-        return py_iter;                
+        return py_iter.steal();
     }
     
     PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs) {
@@ -741,5 +741,11 @@ namespace db0::python
 
         return runSafe(trySetCacheSize, &PyToolkit::getPyWorkspace().getWorkspace(), cache_size);
     }
+    
+    PyObject *getBaseLockUsage(PyObject *, PyObject *)
+    {
+        std::size_t base_lock_usage = db0::BaseLock::getTotalMemoryUsage();
+        return PyLong_FromSize_t(base_lock_usage);
+    }    
     
 }

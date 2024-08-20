@@ -6,6 +6,8 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
+#include "shared_py_object.hpp"
+#include <type_traits>
 
 namespace db0
 
@@ -34,18 +36,20 @@ namespace db0::python
      * Open DBZero object from a specific fixture
      * with optional type validation
     */
-    PyObject *fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, PyTypeObject *py_expected_type = nullptr);
+    shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, 
+        PyTypeObject *py_expected_type = nullptr);
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name);
     
     /**
      * Runs a function, catch exeptions and translate into Python errors
     */
-    template <typename... Args, typename T> PyObject *runSafe(T func, Args... args)
+    template <typename... Args, typename T>
+    typename std::invoke_result_t<T, Args...> runSafe(T func, Args&&... args)
     {
         try {
-            PyObject * result = func(args...);
-            if(PyErr_Occurred()) {
+            auto result = func(std::forward<Args>(args)...);
+            if (PyErr_Occurred()) {
                 return NULL;
             }
             return result;
@@ -62,13 +66,13 @@ namespace db0::python
     }
     
     // Universal implementaton for both Workspace and WorkspaceView (aka Snapshot)
-    PyObject *tryFetchFrom(db0::Snapshot &, PyObject *const *args, Py_ssize_t nargs);
+    shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &, PyObject *const *args, Py_ssize_t nargs);
     
     /**
      * Open DBZero object by UUID     
      * @param py_expected_type - expected Python type of the object
     */    
-    PyObject *fetchObject(db0::Snapshot &, ObjectId object_id, PyTypeObject *py_expected_type = nullptr);
+    shared_py_object<PyObject*> fetchObject(db0::Snapshot &, ObjectId object_id, PyTypeObject *py_expected_type = nullptr);
 
     /**
      * Open DBZero singleton by its corresponding Python type

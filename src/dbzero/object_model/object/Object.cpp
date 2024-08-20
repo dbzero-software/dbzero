@@ -75,7 +75,7 @@ namespace db0::object_model
         // prepare for initialization
         m_init_manager.addInitializer(*this, db0_class);
     }
-    
+
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
         : super_t(fixture, classRef(*type), createInstanceId(), ref_count, pos_vt_data)
         , m_type(type)
@@ -179,13 +179,13 @@ namespace db0::object_model
         return { type_id, storage_class };
     }
 
-    void Object::setPreInit(const char *field_name, ObjectPtr lang_value) const
+    void Object::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
     {
         assert(!hasInstance());
         auto &initializer = m_init_manager.getInitializer(*this);
         auto fixture = initializer.getFixture();
         auto &db0_class = initializer.getClass();
-        auto [type_id, storage_class] = recognizeType(*fixture, lang_value);
+        auto [type_id, storage_class] = recognizeType(*fixture, obj_ptr);
                 
         // find already existing field index
         auto at = db0_class.findField(field_name);
@@ -195,9 +195,9 @@ namespace db0::object_model
         }
         
         // register a member with the initializer
-        initializer.set(at, storage_class, createMember<LangToolkit>(fixture, type_id, lang_value));
+        initializer.set(at, storage_class, createMember<LangToolkit>(fixture, type_id, obj_ptr));
     }
-
+    
     void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
     {
         assert(hasInstance());

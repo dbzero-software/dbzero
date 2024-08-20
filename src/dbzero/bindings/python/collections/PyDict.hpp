@@ -9,7 +9,8 @@ namespace db0::python
     using DictObject = PyWrapper<db0::object_model::Dict>;
 
     DictObject *DictObject_new(PyTypeObject *type, PyObject *, PyObject *);
-    DictObject *DictDefaultObject_new();
+    shared_py_object<DictObject*> DictDefaultObject_new();
+    
     void DictObject_del(DictObject* self);
     Py_ssize_t DictObject_len(DictObject *);
     PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key);

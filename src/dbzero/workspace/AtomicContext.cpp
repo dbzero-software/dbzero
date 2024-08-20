@@ -13,38 +13,38 @@ namespace db0
 {
     
     // MEMO_OBJECT specialization
-    template <> void detachObject<TypeId::MEMO_OBJECT, PyToolkit>(PyObjectPtr lang_value) {
-        PyToolkit::getTypeManager().extractObject(lang_value).detach();
+    template <> void detachObject<TypeId::MEMO_OBJECT, PyToolkit>(PyObjectPtr obj_ptr) {
+        PyToolkit::getTypeManager().extractObject(obj_ptr).detach();
     }
 
     // DB0_BLOCK specialization
-    template <> void detachObject<TypeId::DB0_BLOCK, PyToolkit>(PyObjectPtr lang_value) {
-        PyToolkit::getTypeManager().extractBlock(lang_value).detach();
+    template <> void detachObject<TypeId::DB0_BLOCK, PyToolkit>(PyObjectPtr obj_ptr) {
+        PyToolkit::getTypeManager().extractBlock(obj_ptr).detach();
     }
 
     // DB0_LIST specialization
-    template <> void detachObject<TypeId::DB0_LIST, PyToolkit>(PyObjectPtr lang_value) {
-        PyToolkit::getTypeManager().extractList(lang_value).detach();
+    template <> void detachObject<TypeId::DB0_LIST, PyToolkit>(PyObjectPtr obj_ptr) {
+        PyToolkit::getTypeManager().extractList(obj_ptr).detach();
     }
 
     // DB0_INDEX specialization
-    template <> void detachObject<TypeId::DB0_INDEX, PyToolkit>(PyObjectPtr lang_value) {
-        PyToolkit::getTypeManager().extractIndex(lang_value).detach();
+    template <> void detachObject<TypeId::DB0_INDEX, PyToolkit>(PyObjectPtr obj_ptr) {
+        PyToolkit::getTypeManager().extractIndex(obj_ptr).detach();
     }
 
     // DB0_SET specialization
-    template <> void detachObject<TypeId::DB0_SET, PyToolkit>(PyObjectPtr lang_value) {
-        PyToolkit::getTypeManager().extractSet(lang_value).detach();
+    template <> void detachObject<TypeId::DB0_SET, PyToolkit>(PyObjectPtr obj_ptr) {
+        PyToolkit::getTypeManager().extractSet(obj_ptr).detach();
     }
 
     // DB0_DICT specialization
-    template <> void detachObject<TypeId::DB0_DICT, PyToolkit>(PyObjectPtr lang_value) {
-        PyToolkit::getTypeManager().extractDict(lang_value).detach();
+    template <> void detachObject<TypeId::DB0_DICT, PyToolkit>(PyObjectPtr obj_ptr) {
+        PyToolkit::getTypeManager().extractDict(obj_ptr).detach();
     }
 
     // DB0_TUPLE specialization
-    template <> void detachObject<TypeId::DB0_TUPLE, PyToolkit>(PyObjectPtr lang_value) {
-        PyToolkit::getTypeManager().extractTuple(lang_value).detach();
+    template <> void detachObject<TypeId::DB0_TUPLE, PyToolkit>(PyObjectPtr obj_ptr) {
+        PyToolkit::getTypeManager().extractTuple(obj_ptr).detach();
     }
     
     template <> void registerDetachFunctions<PyToolkit>(std::vector<void (*)(PyObjectPtr)> &functions)

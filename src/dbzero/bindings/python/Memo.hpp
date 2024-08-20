@@ -4,6 +4,7 @@
 #include <Python.h>
 #include "PyWrapper.hpp"
 #include <atomic>
+#include "shared_py_object.hpp"
 
 namespace db0::object_model
 
@@ -36,7 +37,7 @@ namespace db0::python
     
     MemoObject *MemoObject_new(PyTypeObject *type, PyObject * = nullptr, PyObject * = nullptr);
     // create a memo object stub
-    MemoObject *MemoObjectStub_new(PyTypeObject *type);
+    shared_py_object<MemoObject*> MemoObjectStub_new(PyTypeObject *type);
     PyObject *MemoObject_alloc(PyTypeObject *type, Py_ssize_t nitems);
     
     void MemoObject_del(MemoObject* self);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <dbzero/object_model/index/Index.hpp>
+#include <dbzero/bindings/python/shared_py_object.hpp>
 
 namespace db0::python
 
@@ -9,7 +10,7 @@ namespace db0::python
     using IndexObject = PyWrapper<db0::object_model::Index>;
     
     IndexObject *IndexObject_new(PyTypeObject *type, PyObject *, PyObject *);
-    IndexObject *IndexDefaultObject_new();
+    shared_py_object<IndexObject*> IndexDefaultObject_new();
     void IndexObject_del(IndexObject* self);
     Py_ssize_t IndexObject_len(IndexObject *);
     

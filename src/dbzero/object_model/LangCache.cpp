@@ -110,7 +110,7 @@ namespace db0
         for (auto &item: m_cache) {
             if (item.second) {
                 item = {};
-            }            
+            }
         }
         m_uid_to_index.clear();
         m_size = 0;        

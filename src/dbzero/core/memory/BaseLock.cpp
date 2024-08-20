@@ -8,6 +8,11 @@ namespace db0
 
 {   
     
+#ifndef NDEBUG
+    std::atomic<std::size_t> BaseLock::bl_usage = 0;
+    std::atomic<std::size_t> BaseLock::bl_op_count = 0;
+#endif    
+
     BaseLock::BaseLock(BaseStorage &storage, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, bool create_new)
         : m_storage(storage)
@@ -20,9 +25,13 @@ namespace db0
     {
         if (create_new) {
             std::memset(m_data.data(), 0, m_data.size());
-        }
+        }        
+#ifndef NDEBUG        
+        bl_usage += m_data.size();
+        ++bl_op_count;
+#endif        
     }
-    
+
     BaseLock::BaseLock(const BaseLock &lock, FlagSet<AccessOptions> access_mode)
         : m_storage(lock.m_storage)
         , m_address(lock.m_address)
@@ -33,6 +42,10 @@ namespace db0
         , m_access_mode(access_mode)            
         , m_data(lock.m_data)
     {
+#ifndef NDEBUG
+        bl_usage += m_data.size();
+        ++bl_op_count;
+#endif        
     }
     
     BaseLock::BaseLock(BaseLock &&other, std::vector<std::byte> &&data)
@@ -43,10 +56,18 @@ namespace db0
         , m_data(std::move(data))
         , m_recycle_it(std::move(other.m_recycle_it))
     {
+#ifndef NDEBUG
+        bl_usage += m_data.size();
+        ++bl_op_count;
+#endif
     }
 
     BaseLock::~BaseLock()
     {
+#ifndef NDEBUG        
+        bl_usage -= m_data.size();
+        ++bl_op_count;
+#endif
         // make sure the dirty flag is not set (unless no-flush lock)
         assert(!isDirty() || m_access_mode[AccessOptions::no_flush]);
     }
@@ -92,6 +113,10 @@ namespace db0
         assert(other.size() == size());
         setDirty();
         std::memcpy(m_data.data(), other.m_data.data(), m_data.size());
+    }
+
+    std::size_t BaseLock::getTotalMemoryUsage() {
+        return bl_usage;
     }
 
 }

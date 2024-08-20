@@ -126,9 +126,10 @@ namespace db0::python
         return DictObject_newInternal(type, NULL, NULL);     
     }
     
-    DictObject *DictDefaultObject_new() {   
+    shared_py_object<DictObject*> DictDefaultObject_new()
+    {
         std::lock_guard pbm_lock(python_bindings_mutex);
-        return DictObject_newInternal(&DictObjectType, NULL, NULL);
+        return { DictObject_newInternal(&DictObjectType, NULL, NULL), false };
     }
     
     PyObject *DictObject_updateInternal(DictObject *dict_object, PyObject* args, PyObject* kwargs) 

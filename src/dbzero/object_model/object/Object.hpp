@@ -98,7 +98,7 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeManager = typename LangToolkit::TypeManager;
         using ObjectStem = db0::v_object<o_object>;
-        
+                
         Object(const Object &) = delete;
         Object(Object &&) = delete;
         Object(db0::swine_ptr<Fixture> &, std::uint64_t address);

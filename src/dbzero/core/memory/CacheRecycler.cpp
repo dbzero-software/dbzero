@@ -96,7 +96,17 @@ namespace db0
                     flushed = true;
                     flush_result = m_current_size <= (m_capacity - m_flush_size);
                 }
-                assert(m_res_buf.size() < m_res_buf.max_size());
+                // resize is a costly operation but cannot be avoided if the number of locked
+                // resources exceeds the assumed limit
+                // note that this operation does not change the configured cache capacity
+                if (m_res_buf.size() == m_res_buf.max_size()) {
+                    // After resize, all iterators to cached elements will be invalidated!!
+                    m_res_buf.resize(m_res_buf.size() * 2);
+                    // Update self-iterators in all cached locks
+                    for (auto it = m_res_buf.begin(), end = m_res_buf.end(); it != end; ++it) {
+                        (*it)->m_recycle_it = it;
+                    }                    
+                }
                 m_res_buf.push_back(res_lock);
                 res_lock->m_recycle_it = std::prev(m_res_buf.end());
                 res_lock->setRecycled(true);
@@ -126,7 +136,7 @@ namespace db0
         // new capacity of the fixed list should allow storing existing locks
         auto new_max_size = std::max((m_capacity - 1) / MIN_PAGE_SIZE + 1, m_res_buf.size());                
         if (new_max_size != m_res_buf.max_size()) {
-            // After resize, all iterators to cached elements will be invalidated!
+            // After resize, all iterators to cached elements will be invalidated!!
             m_res_buf.resize(new_max_size);
 
             // Update self-iterators in all cached locks

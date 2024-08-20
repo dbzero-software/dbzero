@@ -10,6 +10,12 @@ def rand_string(max_len):
     return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
 
 
+def rand_array(max_len):
+    import random
+    actual_len = random.randint(1, max_len)
+    return [1] * (int(actual_len / 8) + 1)
+
+
 def get_memory_usage():
     import os
     import psutil
@@ -40,6 +46,17 @@ def test_create_large_objects_bitset_issue(db0_slab_size):
             print(f"Objects created: {count}")
 
 
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1024 * 1024 * 1024}], indirect=True)
+def test_create_large_objects_cache_recycler_issue_1(db0_slab_size):
+    """
+    This test was failing on CacheRecycler's::update assert
+    the effect is aggravated by low cache size
+    """
+    append_count = 200
+    db0.set_cache_size(1024 * 1024)
+    for _ in range(append_count):
+        obj = MemoTestClass(rand_array(8 * 1024 + 8192))
+
 
 @pytest.mark.stress_test
 @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1024 * 1024 * 1024}], indirect=True)
@@ -48,20 +65,22 @@ def test_create_large_objects_low_cache(db0_slab_size):
     This test was failing on BitsetAllocator:invalid address, 
     the effect is aggravated by the large slab size
     """
-    append_count = 10000
+    init_mem_usage = get_memory_usage()
+    append_count = 10000    
     buf = db0.list()
     total_bytes = 0
     count = 0
-    report_bytes = 1024 * 1024
+    report_bytes_step = 16 * 1024 * 1024
+    report_bytes = report_bytes_step
     # reduce cache to 4MB
     db0.set_cache_size(4 * 1024 * 1024)
     for _ in range(append_count):
-        buf.append(MemoTestClass(rand_string(16 * 1024 + 8192)))
-        total_bytes += len(buf[-1].value)
+        obj = MemoTestClass(rand_array(8 * 1024 + 8192))
+        buf.append(obj)
+        total_bytes += len(obj.value) * 8
         count += 1
         if total_bytes > report_bytes:
             print(f"Total bytes: {total_bytes}")
-            print(f"Memory usage: {get_memory_usage()}")
-            report_bytes += 1024 * 1024
-        if count % 1000 == 0:
-            print(f"Objects created: {count}")
+            print(f"Memory usage: {get_memory_usage() - init_mem_usage}")
+            print(f"Base lock usage: {db0.get_base_lock_usage()}")
+            report_bytes += report_bytes_step

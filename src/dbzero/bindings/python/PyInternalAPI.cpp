@@ -41,7 +41,7 @@ namespace db0::python
         return *reinterpret_cast<ObjectId*>(py_object_id);
     }
     
-    PyObject *tryFetchFrom(db0::Snapshot &snapshot, PyObject *const *args, Py_ssize_t nargs)
+    shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &snapshot, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs < 1 || nargs > 2) {
             PyErr_SetString(PyExc_TypeError, "fetch requires 1 or 2 arguments");
@@ -55,7 +55,7 @@ namespace db0::python
         } else {
             if (!PyType_Check(args[0])) {
                 PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-                return NULL;
+                return nullptr;
             }
             type_arg = reinterpret_cast<PyTypeObject*>(args[0]);
             uuid_arg = args[1];
@@ -72,7 +72,7 @@ namespace db0::python
             // check if type_arg is exact or a base of uuid_arg
             if (type_arg && !isBase(uuid_type, reinterpret_cast<PyTypeObject*>(type_arg))) {
                 PyErr_SetString(PyExc_TypeError, "Type mismatch");
-                return NULL;
+                return nullptr;
             }
             return fetchSingletonObject(snapshot, uuid_type);
         }
@@ -81,7 +81,8 @@ namespace db0::python
         return NULL;        
     }
 
-    PyObject *fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, PyTypeObject *py_expected_type)
+    shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, 
+        PyTypeObject *py_expected_type)
     {   
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
@@ -95,7 +96,7 @@ namespace db0::python
             auto type_id = PyToolkit::getTypeManager().getTypeId(py_expected_type);
             if (storage_class != db0::object_model::TypeUtils::m_storage_class_mapper.getStorageClass(type_id)) {
                 PyErr_SetString(PyExc_TypeError, "Object ID type mismatch");
-                return NULL;
+                return nullptr;
             }
         }
         
@@ -107,23 +108,22 @@ namespace db0::python
                 type = class_factory.getExistingType(py_expected_type);
             }
             // try pulling from cache first
-            auto object_ptr = lang_cache.get(addr).steal();
+            auto object_ptr = lang_cache.get(addr);
             if (object_ptr) {
                 // validate type if requested
                 if (type) {
-                    MemoObject *ptr = reinterpret_cast<MemoObject*>(object_ptr);
-                    if (ptr->ext().getType() != *type) {
-                        Py_DECREF(object_ptr);
+                    MemoObject *memo_ptr = reinterpret_cast<MemoObject*>(object_ptr.get());
+                    if (memo_ptr->ext().getType() != *type) {                        
                         PyErr_SetString(PyExc_TypeError, "Object ID type mismatch");
-                        return NULL;
+                        return nullptr;
                     }
                 }
                 return object_ptr;
             }
             
             // unload with instance_id validation & optional type validation
-            object_ptr = PyToolkit::unloadObject(fixture, addr, class_factory, object_id.m_instance_id, type);            
-            fixture->getLangCache().add(addr, object_ptr);
+            object_ptr = PyToolkit::unloadObject(fixture, addr, class_factory, object_id.m_instance_id, type);
+            fixture->getLangCache().add(addr, object_ptr.get());
             return object_ptr;
         }
 
@@ -138,7 +138,7 @@ namespace db0::python
         } 
 
         PyErr_SetString(PyExc_TypeError, "Invalid object ID");
-        return NULL;
+        return nullptr;
     }
     
     PyObject *fetchSingletonObject(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
@@ -233,7 +233,7 @@ namespace db0::python
         return PyObject_IsSubclass(reinterpret_cast<PyObject*>(py_type), reinterpret_cast<PyObject*>(base_type));
     }
 
-    PyObject *fetchObject(db0::Snapshot &snapshot, ObjectId object_id, PyTypeObject *py_expected_type)
+    shared_py_object<PyObject*> fetchObject(db0::Snapshot &snapshot, ObjectId object_id, PyTypeObject *py_expected_type)
     {        
         auto fixture = snapshot.getFixture(object_id.m_fixture_uuid, AccessType::READ_ONLY);
         assert(fixture);
@@ -259,13 +259,13 @@ namespace db0::python
             // construct as typed iterator when a type was specified
             auto typed_iter = std::make_unique<TypedObjectIterator>(fixture, std::move(query_iterator), 
                 type, std::move(query_observers));
-            Iterator::makeNew(&iter_obj->modifyExt(), std::move(typed_iter));
+            Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::make_unique<ObjectIterator>(fixture, std::move(query_iterator), 
                 std::move(query_observers));
-            Iterator::makeNew(&iter_obj->modifyExt(), std::move(_iter));
+            Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(_iter));
         }
-        return iter_obj;
+        return iter_obj.steal();
     }
 
     PyObject *trySerialize(PyObject *py_serializable)
@@ -305,7 +305,7 @@ namespace db0::python
         auto iter = bytes.cbegin(), end = bytes.cend();
         auto type_id = db0::serial::read<TypeId>(iter, end);
         if (type_id == TypeId::OBJECT_ITERATOR) {
-            return PyToolkit::unloadObjectIterator(fixture, iter, end);
+            return PyToolkit::unloadObjectIterator(fixture, iter, end).steal();
         } else {
             THROWF(db0::InputException) << "Unsupported serialized type id: " 
                 << static_cast<int>(type_id) << THROWF_END;
