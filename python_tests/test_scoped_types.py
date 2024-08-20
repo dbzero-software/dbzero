@@ -48,10 +48,9 @@ def test_list_as_a_scoped_type_member(db0_fixture):
     assert obj.value == [1,2,3]
 
 
-# FIXME: test fails due to missing "reference hardening" feature
-# def test_db0_list_as_a_scoped_type_member(db0_fixture):
-#     obj = ScopedDataClass(db0.list([1,2,3]))
-#     assert obj.value == [1,2,3]
+def test_hardening_of_non_empty_list_reference_not_supported(db0_fixture):
+    with pytest.raises(Exception):
+        obj = ScopedDataClass(db0.list([1,2,3]))
 
 
 def test_dict_as_a_scoped_type_member(db0_fixture):

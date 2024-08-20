@@ -43,6 +43,8 @@ namespace db0
 
         std::size_t size() const;
 
+        std::size_t getCapacity() const;
+
         // Remove all cached instances
         void clear();
                 
@@ -88,7 +90,8 @@ namespace db0
             assert((address & 0xFFFF000000000000) == 0);
             return (static_cast<std::uint64_t>(fixture_id) << 48) | (address & 0x0000FFFFFFFFFFFF);
         }
-
+        
+        void resize(std::size_t new_size);
     };
     
     // The fixture-specific LangCache wrapper

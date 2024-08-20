@@ -33,7 +33,6 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"wrap_memo_type", (PyCFunction)&py::wrapPyClass, METH_VARARGS | METH_KEYWORDS, "Wraps a memo type for use with DBZero"},
     {"get_type_info", &py::getTypeInfo, METH_VARARGS, "Get DBZero type information"},
     {"uuid", (PyCFunction)&py::getUUID, METH_FASTCALL, "Get unique object ID"},
-    {"cache_stats", &py::cacheStats, METH_NOARGS, "Retrieve DBZero cache statistics"},
     {"clear_cache", &py::clearCache, METH_NOARGS, "Clear DBZero cache"},
     {"list", (PyCFunction)&py::makeList, METH_FASTCALL, "Create a new DBZero list instance"},
     {"index", (PyCFunction)&py::makeIndex, METH_FASTCALL, "Create a new DBZero index instance"},
@@ -68,7 +67,9 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"filter", (PyCFunction)&py::filter, METH_VARARGS | METH_KEYWORDS, "Filter with a Python callable"},
     {"set_prefix", (PyCFunction)&py::setPrefix, METH_VARARGS | METH_KEYWORDS, "Allows dynamically specifying object's prefix during initialization"},
     {"get_slab_metrics", (PyCFunction)&py::getSlabMetrics, METH_NOARGS, "Retrieve slab metrics of the current prefix"},
-    {"set_cache_size", (PyCFunction)&py::setCacheSize, METH_VARARGS, "Update DBZero cache size with immediate effect"},    
+    {"set_cache_size", (PyCFunction)&py::setCacheSize, METH_VARARGS, "Update DBZero cache size with immediate effect"},
+    {"get_cache_stats", &py::getCacheStats, METH_NOARGS, "Retrieve DBZero cache statistics"},
+    {"get_lang_cache_stats", &py::getLangCacheStats, METH_NOARGS, "Retrieve DBZero language cache statistics"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

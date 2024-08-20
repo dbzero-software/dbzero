@@ -21,7 +21,12 @@ namespace db0::python
     /**
      * Retrieve cache utilization statistics dict
     */
-    PyObject *cacheStats(PyObject *, PyObject *);
+    PyObject *getCacheStats(PyObject *, PyObject *);
+    
+    /**
+     * Retrieve LangCache utilization statistics dict
+     */
+    PyObject *getLangCacheStats(PyObject *, PyObject *);
 
     /**
      * Forwards to CacheRecycler::clear(expired_only)

@@ -26,7 +26,7 @@ namespace db0::python
 
 {
 
-    PyObject *cacheStats(PyObject *, PyObject *)
+    PyObject *getCacheStats(PyObject *, PyObject *)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
@@ -43,6 +43,22 @@ namespace db0::python
         return dict;
     }
     
+    PyObject *getLangCacheStats(PyObject *, PyObject *)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        auto &lang_cache = PyToolkit::getPyWorkspace().getWorkspace().getLangCache();        
+        
+        PyObject* dict = PyDict_New();
+        if (dict == NULL) {
+            PyErr_SetString(PyExc_MemoryError, "Failed to create a dictionary.");
+            return NULL;
+        }
+        
+        PyDict_SetItemString(dict, "size", PyLong_FromLong(lang_cache.size()));
+        PyDict_SetItemString(dict, "capacity", PyLong_FromLong(lang_cache.getCapacity()));
+        return dict;
+    }
+
     PyObject *clearCache(PyObject *, PyObject *)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);

@@ -53,26 +53,39 @@ namespace db0
         add(getFixtureId(fixture), address, obj);
     }
 
+    void LangCache::resize(std::size_t new_size)
+    {
+        assert(new_size > m_cache.size());
+        auto evict_index = m_evict_hand - m_cache.begin();
+        auto insert_index = m_insert_hand - m_cache.begin();                        
+        m_cache.resize(new_size);
+        m_visited.resize(m_cache.size());
+        m_evict_hand = m_cache.begin() + evict_index;
+        m_insert_hand = m_cache.begin() + insert_index;
+    }
+
     void LangCache::add(std::uint16_t fixture_id, std::uint64_t address, ObjectPtr obj)
     {
         auto uid = makeUID(fixture_id, address);
         std::optional<std::uint32_t> slot;
         if (isFull()) {
-            slot = evictOne();
-            if (!slot) {
-                auto evict_index = m_evict_hand - m_cache.begin();
-                auto insert_index = m_insert_hand - m_cache.begin();                
-                if (m_cache.size() < m_capacity) {
-                    m_cache.resize(m_cache.size() * 2);
-                    m_visited.resize(m_cache.size());
-                } else {
-                    m_cache.resize(m_cache.size() + m_step);
-                    m_visited.resize(m_cache.size());
-                }
-                m_evict_hand = m_cache.begin() + evict_index;
-                m_insert_hand = m_cache.begin() + insert_index;
+            if (m_cache.size() < m_capacity) {                
+                resize(m_cache.size() * 2);                
                 slot = findEmptySlot();
                 assert(slot);
+            } else {
+                int num_visited = 0;
+                slot = evictOne(&num_visited);
+                if (!slot && num_visited > 0) {
+                    // try again after visiting some elements
+                    slot = evictOne();
+                }
+                if (!slot) {
+                    // resize by a predefined step
+                    resize(m_cache.size() + m_step);
+                    slot = findEmptySlot();
+                    assert(slot);
+                }
             }
         } else {
             slot = findEmptySlot();
@@ -194,6 +207,10 @@ namespace db0
         return m_size;
     }
     
+    std::size_t LangCache::getCapacity() const {
+        return m_capacity;
+    }
+
     LangCacheView::LangCacheView(const Fixture &fixture, LangCache &cache)
         : m_fixture(fixture)
         , m_cache(cache)

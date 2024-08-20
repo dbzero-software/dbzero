@@ -74,9 +74,9 @@ def test_memo_object_setget_int_attr(db0_fixture):
 
 
 def test_db0_object_multiple_allocs(db0_fixture):
-    cache_0 = db0.cache_stats()
+    cache_0 = db0.get_cache_stats()
     objects = [DataClassWithAttr(123) for _ in range(256)]
-    cache_1 = db0.cache_stats()
+    cache_1 = db0.get_cache_stats()
     # make sure cache utlization increased after object instance has been created
     assert cache_1["size"] > cache_0["size"]
     objects = []
@@ -85,18 +85,18 @@ def test_db0_object_multiple_allocs(db0_fixture):
 def test_db0_object_gets_unlocked_when_memo_object_deleted(db0_fixture):
     # collect initial cache statistics    
     db0.clear_cache()
-    cache_0 = db0.cache_stats()
+    cache_0 = db0.get_cache_stats()
     # create multiple objects, so that mutliple pages are affected
     objects = [DataClassWithAttr(123) for _ in range(96)]    
     db0.clear_cache()
     # collect cache statistics while object is locked
-    cache_1 = db0.cache_stats()
+    cache_1 = db0.get_cache_stats()
     # make sure cache utilization increased after object instance has been created    
     assert cache_1["size"] > cache_0["size"]
     # delete memo objects
     del objects    
     db0.clear_cache()
-    cache_2 = db0.cache_stats()
+    cache_2 = db0.get_cache_stats()
     # after deletion, some cache should be freed    
     assert cache_2["size"] < cache_1["size"]
 
