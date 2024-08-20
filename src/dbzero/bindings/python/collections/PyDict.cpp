@@ -117,19 +117,20 @@ namespace db0::python
         .tp_free = PyObject_Free,
     };
 
-    DictObject *DictObject_newInternal(PyTypeObject *type, PyObject *, PyObject *) {
-        return reinterpret_cast<DictObject*>(type->tp_alloc(type, 0));        
+    shared_py_object<DictObject*> DictObject_newInternal(PyTypeObject *type, PyObject *, PyObject *) {
+        return { reinterpret_cast<DictObject*>(type->tp_alloc(type, 0)), false };
     }
 
-    DictObject *DictObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+    DictObject *DictObject_new(PyTypeObject *type, PyObject *, PyObject *) 
+    {
         std::lock_guard pbm_lock(python_bindings_mutex);
-        return DictObject_newInternal(type, NULL, NULL);     
+        return DictObject_newInternal(type, NULL, NULL).steal();
     }
     
     shared_py_object<DictObject*> DictDefaultObject_new()
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
-        return { DictObject_newInternal(&DictObjectType, NULL, NULL), false };
+        return DictObject_newInternal(&DictObjectType, NULL, NULL);
     }
     
     PyObject *DictObject_updateInternal(DictObject *dict_object, PyObject* args, PyObject* kwargs) 
@@ -173,22 +174,21 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *DictObject_update(DictObject *dict_object, PyObject* args, PyObject* kwargs) 
-    {
+    PyObject *DictObject_update(DictObject *dict_object, PyObject* args, PyObject* kwargs) {
         return DictObject_updateInternal(dict_object, args, kwargs);
     }
-
-    DictObject *makeDB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args, PyObject *kwargs)
+    
+    shared_py_object<DictObject*> makeDB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args, PyObject *kwargs)
     {
         auto py_dict = DictObject_newInternal(&DictObjectType, NULL, NULL);
         db0::FixtureLock lock(fixture);
-        auto &dict = py_dict->modifyExt();
+        auto &dict = py_dict.get()->modifyExt();
         db0::object_model::Dict::makeNew(&dict, *lock);
         
         // if args
-        DictObject_updateInternal(py_dict, args, kwargs);
+        DictObject_updateInternal(py_dict.get(), args, kwargs);
         // register newly created dict with py-object cache        
-        fixture->getLangCache().add(dict.getAddress(), py_dict);
+        fixture->getLangCache().add(dict.getAddress(), py_dict.get());
         return py_dict;
     }
 
@@ -196,7 +196,7 @@ namespace db0::python
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return makeDB0Dict(fixture, args, kwargs);
+        return makeDB0Dict(fixture, args, kwargs).steal();
     }
     
     PyObject *DictObject_clear(DictObject *dict_obj)
@@ -212,9 +212,9 @@ namespace db0::python
         std::lock_guard pbm_lock(python_bindings_mutex);
         auto py_dict = DictObject_newInternal(&DictObjectType, NULL, NULL);
         auto lock = db0::FixtureLock(py_src_dict->ext().getFixture());
-        py_src_dict->ext().copy(&py_dict->modifyExt(), *lock);
-        lock->getLangCache().add(py_dict->ext().getAddress(), py_dict);
-        return py_dict;
+        py_src_dict->ext().copy(&py_dict.get()->modifyExt(), *lock);
+        lock->getLangCache().add(py_dict.get()->ext().getAddress(), py_dict.get());
+        return py_dict.steal();
     }
     
     PyObject *DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs)
@@ -225,7 +225,7 @@ namespace db0::python
             return NULL;
             
         }
-        if(nargs > 2){
+        if (nargs > 2) {
             PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
             return NULL;
             
@@ -233,7 +233,7 @@ namespace db0::python
         // make actual DBZero instance, use default fixture
         auto py_dict = DictObject_newInternal(&DictObjectType, NULL, NULL);
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
-        db0::object_model::Dict::makeNew(&py_dict->modifyExt(), *lock);        
+        db0::object_model::Dict::makeNew(&py_dict.get()->modifyExt(), *lock);
         PyObject *iterator = PyObject_GetIter(args[0]);
         PyObject *elem;
         PyObject *value = Py_None;
@@ -241,11 +241,11 @@ namespace db0::python
             value = args[1];
         }
         while ((elem = PyIter_Next(iterator))) {
-            DictObject_SetItemInternal(py_dict, elem, value);
+            DictObject_SetItemInternal(py_dict.get(), elem, value);
         }
 
-        lock->getLangCache().add(py_dict->ext().getAddress(), py_dict);
-        return py_dict;
+        lock->getLangCache().add(py_dict.get()->ext().getAddress(), py_dict.get());
+        return py_dict.steal();
     }
 
     PyObject *DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)

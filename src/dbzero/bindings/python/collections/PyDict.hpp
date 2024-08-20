@@ -27,8 +27,7 @@ namespace db0::python
     PyObject *DictObject_items(DictObject *dict_obj);
     extern PyTypeObject DictObjectType;
     
-    DictObject *makeDB0Dict(db0::swine_ptr<Fixture> &, PyObject *args, PyObject *kwargs);
-    DictObject *makeDB0DictInternal(db0::swine_ptr<Fixture> &, PyObject *args, PyObject *kwargs);
+    shared_py_object<DictObject*> makeDB0Dict(db0::swine_ptr<Fixture> &, PyObject *args, PyObject *kwargs);
     DictObject *makeDict(PyObject *, PyObject*, PyObject*);
     bool DictObject_Check(PyObject *);
     

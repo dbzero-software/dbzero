@@ -127,10 +127,10 @@ namespace db0::object_model
         PyObjectPtr obj_ptr)
     {
         auto set = db0::python::makeDB0Set(fixture, &obj_ptr, 1);
-        set->modifyExt().incRef();
-        return set->ext().getAddress();
+        set.get()->modifyExt().incRef();
+        return set.get()->ext().getAddress();
     }
-
+    
     // DICT specialization
     template <> Value createMember<TypeId::DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr)
@@ -139,17 +139,17 @@ namespace db0::object_model
         Py_INCREF(obj_ptr);
         PyTuple_SetItem(args, 0, obj_ptr);
         auto dict = db0::python::makeDB0Dict(fixture, args, nullptr);
-        dict->modifyExt().incRef();
-        return dict->ext().getAddress();
+        dict.get()->modifyExt().incRef();
+        return dict.get()->ext().getAddress();
     }
     
     // TUPLE specialization
     template <> Value createMember<TypeId::TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr)
     {
-        auto tuple = reinterpret_cast<db0::python::TupleObject*>(db0::python::makeDB0TupleInternal(fixture, &obj_ptr, 1));
-        tuple->modifyExt().incRef();
-        return tuple->ext().getAddress();
+        auto tuple = db0::python::makeDB0TupleInternal(fixture, &obj_ptr, 1);
+        tuple.get()->modifyExt().incRef();
+        return tuple.get()->ext().getAddress();
     }
 
     // DATETIME specialization

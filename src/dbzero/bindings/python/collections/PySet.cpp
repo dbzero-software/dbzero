@@ -199,14 +199,15 @@ namespace db0::python
         .tp_new = (newfunc)SetObject_new,
         .tp_free = PyObject_Free,        
     };
-
-    SetObject *SetObject_newInternal(PyTypeObject *type, PyObject *, PyObject *) {
+    
+    shared_py_object<SetObject*> SetObject_newInternal(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<SetObject*>(type->tp_alloc(type, 0));
     }
 
-    SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+    SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *) 
+    {
         std::lock_guard pbm_lock(python_bindings_mutex);
-        return SetObject_newInternal(type, NULL, NULL);
+        return SetObject_newInternal(type, NULL, NULL).steal();
     }
     
     shared_py_object<SetObject*> SetDefaultObject_new() {
@@ -235,13 +236,13 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    SetObject *makeDB0Set(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    shared_py_object<SetObject*> makeDB0Set(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
     {
         // make actual DBZero instance, use default fixture
         std::lock_guard pbm_lock(python_bindings_mutex);
         auto py_set = SetObject_newInternal(&SetObjectType, NULL, NULL);
         db0::FixtureLock lock(fixture);
-        auto &set = py_set->modifyExt();
+        auto &set = py_set.get()->modifyExt();
         db0::object_model::Set::makeNew(&set, *lock);
         if (nargs == 1) {
             PyObject *iterator = PyObject_GetIter(args[0]);
@@ -254,14 +255,14 @@ namespace db0::python
         }
 
         // register newly created set with py-object cache
-        fixture->getLangCache().add(set.getAddress(), py_set);
+        fixture->getLangCache().add(set.getAddress(), py_set.get());
         return py_set;
     }
 
     SetObject *makeSet(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return makeDB0Set(fixture, args, nargs);
+        return makeDB0Set(fixture, args, nargs).steal();
     }
     
     bool SetObject_Check(PyObject *object) {
@@ -346,10 +347,10 @@ namespace db0::python
         db0::FixtureLock lock(py_src_set->ext().getFixture());
         // make actual DBZero instance, use default fixture
         auto py_set = SetObject_newInternal(&SetObjectType, NULL, NULL);
-        db0::object_model::Set::makeNew(&py_set->modifyExt(), *lock);
-        py_set->modifyExt().insert(py_src_set->ext());
-        lock->getLangCache().add(py_set->ext().getAddress(), py_set);
-        return py_set;
+        db0::object_model::Set::makeNew(&py_set.get()->modifyExt(), *lock);
+        py_set.get()->modifyExt().insert(py_src_set->ext());
+        lock->getLangCache().add(py_set.get()->ext().getAddress(), py_set.get());
+        return py_set.steal();
     }
     
     PyObject * SetObject_union_binary(SetObject *self, PyObject * obj) {

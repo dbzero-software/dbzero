@@ -39,7 +39,7 @@ namespace db0::python
     PyObject * SetObject_update(SetObject *self, PyObject * ob);
     PyObject * SetObject_intersection_in_place(SetObject *self, PyObject * ob);
 
-    SetObject *makeDB0Set(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
+    shared_py_object<SetObject*> makeDB0Set(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
     SetObject *makeSet(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     bool SetObject_Check(PyObject *);

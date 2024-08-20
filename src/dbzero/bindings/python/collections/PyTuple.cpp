@@ -83,15 +83,14 @@ namespace db0::python
         .tp_free = PyObject_Free,        
     };
 
-    TupleObject *TupleObject_newInternal(PyTypeObject *type, PyObject *, PyObject *)
-    {
-        return reinterpret_cast<TupleObject*>(type->tp_alloc(type, 0));
+    shared_py_object<TupleObject*> TupleObject_newInternal(PyTypeObject *type, PyObject *, PyObject *) {
+        return { reinterpret_cast<TupleObject*>(type->tp_alloc(type, 0)), false };
     }
 
     TupleObject *TupleObject_new(PyTypeObject *type, PyObject *, PyObject *)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
-        return TupleObject_newInternal(type, NULL, NULL);
+        return TupleObject_newInternal(type, NULL, NULL).steal();
     }
 
     shared_py_object<TupleObject*> TupleDefaultObject_new() {
@@ -113,7 +112,8 @@ namespace db0::python
         return tuple_obj->ext().getData()->size();
     }
     
-    PyObject *makeDB0TupleInternal(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    shared_py_object<TupleObject*> makeDB0TupleInternal(db0::swine_ptr<Fixture> &fixture, PyObject *const *args,
+        Py_ssize_t nargs)
     {      
         if (nargs != 1) {
             THROWF(db0::InputException) << "make_tuple() takes exacly 1 arguments";
@@ -121,7 +121,7 @@ namespace db0::python
         // make actual DBZero instance, use default fixture
         auto py_tuple = TupleObject_newInternal(&TupleObjectType, NULL, NULL);
         db0::FixtureLock lock(fixture);
-        auto &tuple = py_tuple->modifyExt();
+        auto &tuple = py_tuple.get()->modifyExt();
         db0::object_model::Tuple::makeNew(&tuple, *lock, PyObject_Length(args[0]));
 
         PyObject *iterator = PyObject_GetIter(args[0]);
@@ -135,14 +135,14 @@ namespace db0::python
 
         Py_DECREF(iterator);
         // register newly created tuple with py-object cache
-        fixture->getLangCache().add(tuple.getAddress(), py_tuple);
+        fixture->getLangCache().add(tuple.getAddress(), py_tuple.get());
         return py_tuple;
     }
-
+    
     PyObject *makeDB0Tuple(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
     {   
         std::lock_guard pbm_lock(python_bindings_mutex);     
-        return makeDB0TupleInternal(fixture, args, nargs);
+        return makeDB0TupleInternal(fixture, args, nargs).steal();
     }
     
     PyObject *makeTuple(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
