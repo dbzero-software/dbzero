@@ -180,6 +180,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
     assert not set_1.issuperset([2,3,5,6,7])
 
 
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_issuperset_ge(db0_fixture, make_set):
 #     set_1 = make_set([1,2,3,4,5,6])
@@ -192,6 +193,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert not set_1 >= set([2,3,5,6,7])
 
 
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_issubset_gt(db0_fixture, make_set):
 #     set_1 = make_set([1,2,3,4,5,6])
@@ -207,16 +209,17 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert not set_1 > set([2,3,5,6,7])
 
 
-# @pytest.mark.parametrize("make_set", set_test_params)
-# def test_set_can_copy(db0_fixture, make_set):
-#     set_1 = make_set([1,3,2])
-#     set_copy = set_1.copy()
-#     assert set_copy == set([1,3,2])
-#     set_copy.add(7)
-#     assert len(set_copy) == 4
-#     assert set_copy != set([1,3,2])
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_can_copy(db0_fixture, make_set):
+    set_1 = make_set([1,3,2])
+    set_copy = set_1.copy()
+    assert set_copy == set([1,3,2])
+    set_copy.add(7)
+    assert len(set_copy) == 4
+    assert set_copy != set([1,3,2])
 
 
+# FIXME: test deadlocks
 # def test_set_union_issue(db0_fixture):
 #     set_1 = db0.set([1])
 #     set_2 = db0.set([3])
@@ -224,6 +227,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert set(set_union) == set([1, 3])
 
 
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_can_union(db0_fixture, make_set):
 #     set_1 = db0.set([1, 3, 2])    
@@ -233,6 +237,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert set(set_union) == set([1, 2, 3, 4, 5, 6, 7])
 
 
+# FIXME: test deadlocks
 # def test_set_can_union_db0_set_with_python_sets(db0_fixture):
 #     set_1 = db0.set([1, 3, 2])
 #     set_2 = set([3, 4, 5])
@@ -241,6 +246,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert set_union == set([1, 2, 3, 4, 5, 6, 7])
 
 
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_can_union_as_or(db0_fixture, make_set):
 #     set_1 = make_set([1, 3, 2])
@@ -253,6 +259,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert len(set_3) == 3
 
 
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_intersection(db0_fixture, make_set):
 #     set_1 = make_set([1, 2, 3, 4, 5, 6, 7, 8])
@@ -262,6 +269,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert set_union == set([5])
 
 
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_intersection_as_op(db0_fixture, make_set):
 #     set_1 = make_set([1, 2, 3, 4, 5, 6, 7, 8])
@@ -271,6 +279,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert set_union == set([5])
 
 
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_difference(db0_fixture, make_set):
 #     set_1 = make_set([1, 2, 3, 4, 5, 6, 7, 8, 9])
@@ -281,6 +290,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert set_union == set([1, 2, 9])
 
 
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_difference_as_operator(db0_fixture, make_set):
 #     set_1 = make_set([1, 2, 3, 4, 5, 6, 7, 8, 9])
@@ -291,6 +301,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert set_union == set([1, 2, 9])
 
 
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_symmetric_difference(db0_fixture, make_set):
 #     set_1 = make_set([1, 2, 3, 4, 5, 6, 7, 8, 9])
@@ -300,6 +311,7 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert set_union == set([1, 2, 9, 10, 11])
 
 
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_difference_as_operator(db0_fixture, make_set):
 #     set_1 = make_set([1, 2, 3, 4, 5, 6, 7, 8, 9])
@@ -309,67 +321,68 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert set_union == set([1, 2, 9, 10, 11])
 
 
-# @pytest.mark.parametrize("make_set", set_test_params)
-# def test_set_can_remove_item(db0_fixture, make_set):
-#     set_1 = make_set([1, 2, 3, 4])
-#     set_1.remove(2)
-#     assert len(set_1) == 3
-#     assert set_1 == set([1, 3, 4])
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_can_remove_item(db0_fixture, make_set):
+    set_1 = make_set([1, 2, 3, 4])
+    set_1.remove(2)
+    assert len(set_1) == 3
+    assert set_1 == set([1, 3, 4])
 
-#     set_2 = make_set(["a", "b", "c", "d"])
-#     set_2.remove("b")
-#     assert len(set_2) == 3
-#     assert set_2 == set(["a", "c", "d"])
+    set_2 = make_set(["a", "b", "c", "d"])
+    set_2.remove("b")
+    assert len(set_2) == 3
+    assert set_2 == set(["a", "c", "d"])
     
-#     with pytest.raises(KeyError):
-#         set_1.remove(10)
+    with pytest.raises(KeyError):
+        set_1.remove(10)
     
-#     with pytest.raises(KeyError):
-#         set_2.remove("g")
+    with pytest.raises(KeyError):
+        set_2.remove("g")
 
 
-# @pytest.mark.parametrize("make_set", set_test_params)
-# def test_set_can_discard_item(db0_fixture, make_set):
-#     set_1 = make_set([1, 2, 3, 4])
-#     set_1.discard(2)
-#     assert len(set_1) == 3
-#     assert set_1 == set([1, 3, 4])
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_can_discard_item(db0_fixture, make_set):
+    set_1 = make_set([1, 2, 3, 4])
+    set_1.discard(2)
+    assert len(set_1) == 3
+    assert set_1 == set([1, 3, 4])
 
-#     set_2 = make_set(["a", "b", "c", "d"])
-#     set_2.discard("b")
-#     assert len(set_2) == 3
-#     assert set_2 == set(["a", "c", "d"])
-#     set_1.discard(10)
-#     set_2.discard("g")
-
-
-# @pytest.mark.parametrize("make_set", set_test_params)
-# def test_set_can_pop(db0_fixture, make_set):
-#     items = [1, 2, 3, 4]
-#     set_1 = make_set(items)
-#     item = set_1.pop()
-#     assert len(set_1) == 3
-#     assert item in items
-#     item = set_1.pop()
-#     assert len(set_1) == 2
-#     assert item in items
-#     item = set_1.pop()
-#     assert len(set_1) == 1
-#     assert item in items
-#     item = set_1.pop()
-#     assert len(set_1) == 0
-#     assert item in items
-#     with pytest.raises(KeyError):
-#         item = set_1.pop()
+    set_2 = make_set(["a", "b", "c", "d"])
+    set_2.discard("b")
+    assert len(set_2) == 3
+    assert set_2 == set(["a", "c", "d"])
+    set_1.discard(10)
+    set_2.discard("g")
 
 
-# @pytest.mark.parametrize("make_set", set_test_params)
-# def test_set_can_clear_items(db0_fixture, make_set):
-#     set_1 = make_set([1, 2, 3, 4])
-#     set_1.clear()
-#     assert len(set_1) == 0
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_can_pop(db0_fixture, make_set):
+    items = [1, 2, 3, 4]
+    set_1 = make_set(items)
+    item = set_1.pop()
+    assert len(set_1) == 3
+    assert item in items
+    item = set_1.pop()
+    assert len(set_1) == 2
+    assert item in items
+    item = set_1.pop()
+    assert len(set_1) == 1
+    assert item in items
+    item = set_1.pop()
+    assert len(set_1) == 0
+    assert item in items
+    with pytest.raises(KeyError):
+        item = set_1.pop()
 
 
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_can_clear_items(db0_fixture, make_set):
+    set_1 = make_set([1, 2, 3, 4])
+    set_1.clear()
+    assert len(set_1) == 0
+
+
+# FIXME: test deadlocks
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_can_intersect_in_place(db0_fixture, make_set):
 #     set_1 = make_set([1, 2, 3, 4, 5])
@@ -380,64 +393,63 @@ def test_set_issuperset(db0_no_autocommit, make_set):
 #     assert set_1 == set([5])
 
 
-# @pytest.mark.parametrize("make_set", set_test_params)
-# def test_set_difference_in_place(db0_fixture, make_set):
-#     set_1 = make_set([1, 2, 3, 4, 5])
-#     set_2 = make_set([3, 4, 7])
-#     set_1 -= set_2
-#     assert set_1 == set([1, 2, 5])
-#     set_1 -= set([2, 5, 9])
-#     assert set_1 == set([1])
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_difference_in_place(db0_fixture, make_set):
+    set_1 = make_set([1, 2, 3, 4, 5])
+    set_2 = make_set([3, 4, 7])
+    set_1 -= set_2
+    assert set_1 == set([1, 2, 5])
+    set_1 -= set([2, 5, 9])
+    assert set_1 == set([1])
 
 
-# @pytest.mark.parametrize("make_set", set_test_params)
-# def test_set_symmetric_difference_in_place(db0_fixture, make_set):
-#     set_1 = make_set([1, 2, 3, 4, 5])
-#     set_2 = make_set([3, 4, 7])
-#     set_1 ^= set_2
-#     assert len(set_1) == 4
-#     assert set_1 == set([1, 2, 5, 7])
-#     set_1 ^= set([2, 5, 7, 9])
-#     assert set_1 == set([1, 9])
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_symmetric_difference_in_place(db0_fixture, make_set):
+    set_1 = make_set([1, 2, 3, 4, 5])
+    set_2 = make_set([3, 4, 7])
+    set_1 ^= set_2
+    assert len(set_1) == 4
+    assert set_1 == set([1, 2, 5, 7])
+    set_1 ^= set([2, 5, 7, 9])
+    assert set_1 == set([1, 9])
 
 
-# FIXME: test crashing with segfault
-# def test_set_items_in(db0_fixture):
-#     # tests iteration over values from set
-#     set_1 = db0.set()
-#     # insert 1000 random items
-#     for i in range(100):
-#         set_1.add(i)
-#     assert len(set_1) == 100
-#     now = datetime.datetime.now()
-#     for i in range(1000000):
-#         random_int = random.randint(0, 300)
-#         if random_int < 100:
-#             assert random_int in set_1
-#         else:
-#             assert random_int not in set_1
-#     end = datetime.datetime.now()
-#     print("Elapsed time: ", end - now)
+def test_set_items_in(db0_fixture):
+    # tests iteration over values from set
+    set_1 = db0.set()
+    # insert 1000 random items
+    for i in range(100):
+        set_1.add(i)
+    assert len(set_1) == 100
+    now = datetime.datetime.now()
+    for i in range(1000000):
+        random_int = random.randint(0, 300)
+        if random_int < 100:
+            assert random_int in set_1
+        else:
+            assert random_int not in set_1
+    end = datetime.datetime.now()
+    print("Elapsed time: ", end - now)
 
 
-# def test_set_as_member(db0_fixture):
-#     object_1 = MemoTestClass(set([1,2,3,4,5]))
-#     assert set(object_1.value) == set([1,2,3,4,5])
+def test_set_as_member(db0_fixture):
+    object_1 = MemoTestClass(set([1,2,3,4,5]))
+    assert set(object_1.value) == set([1,2,3,4,5])
     
 
-# def test_set_update_after_commit(db0_fixture):
-#     prefix_name = db0.get_current_prefix()
-#     object_1 = MemoTestClass(set([1,2,3,4,5]))
-#     root = MemoTestSingleton(object_1)
-#     uuid = db0.uuid(object_1)
-#     del object_1
-#     db0.commit()
-#     db0.close()
-#     db0.init(DB0_DIR)
-#     db0.open(prefix_name)
-#     object_2 = db0.fetch(uuid)
-#     object_2.value.add(6)
-#     assert set(object_2.value) == set([1,2,3,4,5,6])
+def test_set_update_after_commit(db0_fixture):
+    prefix_name = db0.get_current_prefix()
+    object_1 = MemoTestClass(set([1,2,3,4,5]))
+    root = MemoTestSingleton(object_1)
+    uuid = db0.uuid(object_1)
+    del object_1
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(prefix_name)
+    object_2 = db0.fetch(uuid)
+    object_2.value.add(6)
+    assert set(object_2.value) == set([1,2,3,4,5,6])
 
     
 # fixme: Needs to fix problem with __eq__ method
