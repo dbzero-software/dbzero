@@ -130,7 +130,7 @@ namespace db0
          * Create GC0 as a resource
         */
         db0::GC0 &addGC0(db0::swine_ptr<Fixture> &fixture);
-        db0::GC0 &addGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address);
+        db0::GC0 &addGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only);
         
         // add commit or close handler (the actual operation identified by the boolean flag)
         void addCloseHandler(std::function<void(bool commit)>);
@@ -143,13 +143,15 @@ namespace db0
         void commit();
         
         void close();
-
-        inline GC0 &getGC0() {
+        
+        inline GC0 &getGC0()
+        {
             assert(m_gc0_ptr);
             return *m_gc0_ptr;
         }
 
-        inline const GC0 &getGC0() const {
+        inline const GC0 &getGC0() const
+        {
             assert(m_gc0_ptr);
             return *m_gc0_ptr;
         }

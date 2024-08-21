@@ -20,7 +20,7 @@ namespace db0::object_model
 
 {
     
-    std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> initializer()
+    std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool read_only)> initializer()
     {
         using Block = db0::object_model::pandas::Block;
         using DataFrame = db0::object_model::pandas::DataFrame;        
@@ -32,12 +32,15 @@ namespace db0::object_model
         using Dict = db0::object_model::Dict;
         using FT_BaseIndexLong = db0::object_model::FT_BaseIndex<db0::num_pack<std::uint64_t, 2u> >;
         
-        return [](db0::swine_ptr<Fixture> &fixture, bool is_new)
+        return [](db0::swine_ptr<Fixture> &fixture, bool is_new, bool read_only)
         {
             // static GC0 bindings initialization
             GC0::registerTypes<Class, Object, List, Set, Dict, Tuple, Block, DataFrame, Index, Enum>();
             auto &oc = fixture->getObjectCatalogue();
             if (is_new) {
+                if (read_only) {
+                    THROWF(db0::InternalException) << "Cannot create a new fixture in read-only mode";
+                }
                 // create GC0 instance first
                 auto &gc0 = fixture->addGC0(fixture);
                 // create ClassFactory and register with the object catalogue
@@ -73,7 +76,8 @@ namespace db0::object_model
                 oc.addUnique(enum_factory);
                 oc.addUnique(gc0);
             } else {
-                fixture->addGC0(fixture, oc.findUnique<db0::GC0>()->second());
+                // initialize GC0 (possibly as read-only)
+                fixture->addGC0(fixture, oc.findUnique<db0::GC0>()->second(), read_only);
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture, oc.findUnique<ClassFactory>()->second());                
                 auto &enum_factory = fixture->addResource<EnumFactory>(fixture, oc.findUnique<EnumFactory>()->second());
                 auto &tag_index = fixture->addResource<TagIndex>(

@@ -167,8 +167,8 @@ namespace db0
         if (!Memspace::refresh()) {
             return false;
         }
-        // detach all active v_object instances so that they can be refreshed
-        getGC0().detachAll();
+        // detach all active v_object instances so that they can be refreshed        
+        getGC0().detachAll();        
         return true;
     }
     
@@ -256,10 +256,10 @@ namespace db0
         return *m_gc0_ptr;
     }
     
-    db0::GC0 &Fixture::addGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    db0::GC0 &Fixture::addGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only)
     {
         assert(!m_gc0_ptr);
-        m_gc0_ptr = &addResource<db0::GC0>(fixture, address);
+        m_gc0_ptr = &addResource<db0::GC0>(fixture, address, read_only);
         return *m_gc0_ptr;
     }
 
@@ -284,8 +284,8 @@ namespace db0
     }
 
     void Fixture::beginAtomic(AtomicContext *context)
-    {        
-        assert(!m_atomic_context_ptr);
+    {
+        assert(!m_atomic_context_ptr);        
         m_atomic_context_ptr = context;        
         getGC0().beginAtomic();
         
@@ -314,7 +314,7 @@ namespace db0
     }
     
     void Fixture::endAtomic()
-    {
+    {        
         assert(m_atomic_context_ptr);
         m_atomic_context_ptr = nullptr;
 

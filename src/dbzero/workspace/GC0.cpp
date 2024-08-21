@@ -19,8 +19,9 @@ namespace db0
     {
     }
     
-    GC0::GC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-        : super_t(tag_from_address(), fixture, address)        
+    GC0::GC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only)
+        : super_t(tag_from_address(), fixture, address)
+        , m_read_only(read_only)
     {
     }
     
@@ -33,8 +34,9 @@ namespace db0
             // if type implements preCommit then remove it from pre-commit map as well
             if (ops.preCommit) {
                 m_pre_commit_map.erase(vptr);                
-            }            
-            if (ops.hasRefs && ops.drop && !ops.hasRefs(it->first)) {
+            }
+            // do not drop when in read-only mode (e.g. snapshot owned)
+            if (!m_read_only && ops.hasRefs && ops.drop && !ops.hasRefs(it->first)) {
                 // at this stage just collect the ops and remove the entry
                 drop_op = ops.drop;
             }
@@ -105,6 +107,9 @@ namespace db0
         if (!fixture) {
             THROWF(db0::InternalException) << "GC0::collect: cannot collect without a valid fixture";
         }
+        if (m_read_only) {
+            THROWF(db0::InternalException) << "GC0::collect: cannot collect in read-only mode";
+        }
 
         for (auto addr: *this) {
             auto ops_id = m_ops_map[addr.getType()];
@@ -133,7 +138,7 @@ namespace db0
         m_volatile.clear();
         m_atomic = false;
     }
-
+    
     void GC0::cancelAtomic()
     {
         assert(m_atomic);

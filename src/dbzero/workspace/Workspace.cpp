@@ -132,7 +132,7 @@ namespace db0
 
     Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size,
         std::optional<std::size_t> vobject_cache_size, std::optional<std::size_t> flush_size, 
-        std::function<void(db0::swine_ptr<Fixture> &, bool)> fixture_initializer)
+        std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer)
         : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
@@ -208,7 +208,7 @@ namespace db0
     const CacheRecycler &Workspace::getCacheRecycler() const {
         return BaseWorkspace::getCacheRecycler();
     }
-
+    
     db0::swine_ptr<Fixture> Workspace::getFixtureEx(const std::string &prefix_name, std::optional<AccessType> access_type,
         std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size, bool autocommit)
@@ -221,6 +221,7 @@ namespace db0
                 if (!access_type) {
                     THROWF(db0::InputException) << "Fixture with name " << prefix_name << " not found";
                 }
+                bool read_only = (*access_type == AccessType::READ_ONLY);
                 auto [prefix, allocator] = openMemspace(
                     prefix_name, file_created, *access_type, page_size, slab_size, sparse_index_node_size
                 );
@@ -231,9 +232,9 @@ namespace db0
                 auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator);
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
-                    m_fixture_initializer(fixture, file_created);
+                    m_fixture_initializer(fixture, file_created, read_only);
                 }
-
+                
                 if (m_atomic_context_ptr && *access_type == AccessType::READ_WRITE) {
                     // begin atomic with the new read/write fixture
                     fixture->beginAtomic(m_atomic_context_ptr);
@@ -242,9 +243,9 @@ namespace db0
                 it = m_fixtures.emplace(fixture->getUUID(), fixture).first;
                 m_fixture_catalog.add(prefix_name, *fixture);
                 if (*access_type == AccessType::READ_ONLY) {
-                    // add fixture to be monitored by the refresh thread (will be removed automatically when closed)
+                    // add read-only fixture to be monitored by the refresh thread (will be removed automatically when closed)
                     m_refresh_thread->addFixture(fixture);
-                }                
+                }
                 if (*access_type == AccessType::READ_WRITE && autocommit) {
                     // register fixture for auto-commit
                     m_auto_commit_thread->addFixture(fixture);
@@ -357,7 +358,8 @@ namespace db0
         }
     }
 
-    std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> Workspace::getFixtureInitializer() const {
+    std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool is_read_only)>
+    Workspace::getFixtureInitializer() const {
         return m_fixture_initializer;
     }
 

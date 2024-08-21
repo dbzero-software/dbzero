@@ -314,7 +314,7 @@ namespace db0::python
             }
 
             PyDict_SetItemString(dict_item, "name", PyUnicode_FromString(fixture.getPrefix().getName().c_str()));
-            PyDict_SetItemString(dict_item, "uuid", PyLong_FromLong(fixture.getUUID()));
+            PyDict_SetItemString(dict_item, "uuid", PyLong_FromLong(fixture.getUUID()));            
             PyDict_SetItemString(dict_item, "vptr_reg_size", PyLong_FromLong(fixture.getGC0().size()));            
             PyList_Append(py_list, dict_item);
         });

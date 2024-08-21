@@ -69,7 +69,7 @@ namespace db0
     public:
         using super_t = has_fixture<v_bvector<TypedAddress> >;
         GC0(db0::swine_ptr<Fixture> &);
-        GC0(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        GC0(db0::swine_ptr<Fixture> &, std::uint64_t address, bool read_only);
         
         // register instance with type specific ops, must be a known / registered type
         template <typename T> void add(void *vptr)
@@ -132,7 +132,8 @@ namespace db0
         // GC-ops by storage class
         static std::unordered_map<StorageClass, GCOps_ID> m_ops_map;
         // flag indicating if static bindings were initialized
-        static bool m_initialized;        
+        static bool m_initialized;
+        const bool m_read_only = false;
         // type / ops_id
         std::unordered_map<void*, unsigned int> m_vptr_map;
         // the map dedicated to instances which implement preCommit

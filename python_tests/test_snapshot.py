@@ -211,3 +211,31 @@ def test_tag_query_over_snapshot(db0_fixture, memo_tags):
     
     assert len(list(db0.find("tag1"))) == 11
     assert len(list(snap.find("tag1"))) == 10
+
+
+def test_retrieving_object_dependencies_from_snapshot(db0_fixture):
+    obj_1 = MemoTestClass(9123)
+    obj_2 = MemoTestClass(obj_1)
+    snap_1 = db0.snapshot()
+    db0.commit()
+    obj_3 = MemoTestClass(91237123)
+    obj_2.value = obj_3
+    snap_2 = db0.snapshot()
+    db0.commit()
+    # retrieve related object from snapshot
+    obj = snap_1.fetch(db0.uuid(obj_2))
+    assert obj.value.value == 9123
+    obj = snap_2.fetch(db0.uuid(obj_2))
+    assert obj.value.value == 91237123
+
+
+def test_retrieving_snapshot_specific_object_version(db0_fixture):
+    obj_1 = MemoTestClass(9123)
+    obj_2 = MemoTestClass(obj_1)
+    snap = db0.snapshot()
+    db0.commit()
+    obj_1.value = 1234
+    db0.commit()
+    # retrieve related object from snapshot
+    obj = snap.fetch(db0.uuid(obj_2))
+    assert obj.value.value == 9123

@@ -9,9 +9,9 @@ namespace db0
     /**
      * Fixture view initializer (currently empty)
     */
-    std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> view_initializer()
-    {       
-        return [](db0::swine_ptr<Fixture> &fixture, bool)
+    std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> view_initializer()
+    {
+        return [](db0::swine_ptr<Fixture> &fixture, bool, bool)
         {
         };
     }
@@ -92,15 +92,16 @@ namespace db0
             // resolve by UUID
             return getFixture(it->second);
         }
-        
+
         auto fixture = m_workspace_ptr->getFixture(prefix_name);
         // get snapshot of the latest state
         auto result = fixture->getSnapshot(*this, getSnapshotStateNum(*fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
+        // initialize as read-only
         if (fx_initializer) {
-            fx_initializer(result, false);
-            view_initializer()(result, false);
+            fx_initializer(result, false, true);
+            view_initializer()(result, false, true);
         }
 
         m_fixtures[fixture->getUUID()] = result;
@@ -138,9 +139,10 @@ namespace db0
         auto result = fixture->getSnapshot(*this, getSnapshotStateNum(*fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
+        // initialize as read-only
         if (fx_initializer) {
-            fx_initializer(result, false);
-            view_initializer()(result, false);
+            fx_initializer(result, false, true);
+            view_initializer()(result, false, true);
         }
         m_fixtures[fixture->getUUID()] = result;
         m_name_uuids[fixture->getPrefix().getName()] = fixture->getUUID();

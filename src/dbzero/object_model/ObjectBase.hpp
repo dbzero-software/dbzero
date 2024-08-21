@@ -32,24 +32,24 @@ namespace db0
         // create a new instance
         template <typename... Args> ObjectBase(db0::swine_ptr<Fixture> &fixture, Args &&... args)
             : has_fixture<BaseT>(fixture, std::forward<Args>(args)...)
-        {
-            fixture->getGC0().add<T>(this);
+        {            
+            fixture->getGC0().add<T>(this);            
         }
         
         // open existing instance
         struct tag_from_address {};
         ObjectBase(tag_from_address, db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
             : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_address(), fixture, address)
-        {
-            fixture->getGC0().add<T>(this);
+        {            
+            fixture->getGC0().add<T>(this);            
         }
         
         // move existing instance / stem
         struct tag_from_stem {};
         ObjectBase(tag_from_stem, db0::swine_ptr<Fixture> &fixture, BaseT &&stem)
             : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_stem(), fixture, std::move(stem))
-        {            
-            fixture->getGC0().add<T>(this);
+        {                        
+            fixture->getGC0().add<T>(this);            
         }
 
         // for creating temporary objects to later be moved to other instance
@@ -70,8 +70,8 @@ namespace db0
         template <typename... Args> void init(db0::swine_ptr<Fixture> &fixture, Args &&... args)
         {            
             unregister();
-            has_fixture<BaseT>::init(fixture, std::forward<Args>(args)...);
-            fixture->getGC0().add<T>(this);
+            has_fixture<BaseT>::init(fixture, std::forward<Args>(args)...);            
+            fixture->getGC0().add<T>(this);            
         }
         
         inline bool hasInstance() const {
@@ -196,8 +196,7 @@ namespace db0
             }
         }
     }
-
-    
+        
     template <typename T, typename BaseT, StorageClass _CLS>
     inline void ObjectBase<T, BaseT, _CLS>::moveTo(db0::swine_ptr<Fixture> & fixture)
     {

@@ -31,9 +31,9 @@ def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
     db0.commit()
     db0.close()
     
-    # open in read-only mode
+    # open as read/write (otherwise GC0 not initialized)
     db0.init(DB0_DIR)
-    db0.open(prefix_name, "r")
+    db0.open(prefix_name, "rw")
     assert db0.get_metrics()[0]["vptr_reg_size"] == 0
     object_1 = db0.fetch(id_1)
     reg_size_1 = db0.get_metrics()[0]["vptr_reg_size"]
@@ -48,7 +48,7 @@ def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
     db0.clear_cache()
     assert db0.get_metrics()[0]["vptr_reg_size"] < reg_size_1
 
-        
+
 def test_refresh_can_fetch_object_changes_done_by_other_process(db0_fixture):
     # create a singleton
     object_1 = MemoClassX(0, "text")

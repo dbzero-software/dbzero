@@ -18,6 +18,6 @@ namespace db0::object_model
     /**
      * Retrieve the model specific fixture initializer.
     */
-    std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> initializer();
+    std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool is_read_only)> initializer();
     
 }
