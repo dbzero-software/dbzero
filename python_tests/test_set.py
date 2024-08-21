@@ -414,7 +414,7 @@ def test_set_symmetric_difference_in_place(db0_fixture, make_set):
     assert set_1 == set([1, 9])
 
 
-def test_set_items_in(db0_fixture):
+def test_set_items_in(db0_no_autocommit):
     # tests iteration over values from set
     set_1 = db0.set()
     # insert 1000 random items

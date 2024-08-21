@@ -99,6 +99,8 @@ def test_refresh_can_handle_objects_deleted_by_other_process(db0_fixture):
         object_x = db0.fetch(object_id)
         # drop the singleton
         db0.delete(object_x)
+        # must also remove python object, otherwise the instance will not be removed immediately
+        del object_x
         db0.commit()
         db0.close()
     
@@ -113,11 +115,11 @@ def test_refresh_can_handle_objects_deleted_by_other_process(db0_fixture):
     object_1 = db0.fetch(object_id)
     max_repeat = 10
     while max_repeat > 0:
-        db0.refresh()     
+        db0.refresh() 
         max_repeat -= 1
         try :
-            a = object_1.value1
-        except Exception as e:        
+            a = object_1.value
+        except Exception:
             break
         time.sleep(0.1)
 

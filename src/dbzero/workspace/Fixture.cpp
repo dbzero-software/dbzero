@@ -168,7 +168,7 @@ namespace db0
             return false;
         }
         // detach all active v_object instances so that they can be refreshed        
-        getGC0().detachAll();        
+        getGC0().detachAll();
         return true;
     }
     

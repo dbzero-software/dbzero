@@ -225,7 +225,7 @@ def test_dict_with_tuples_as_keys(db0_fixture):
         assert key[0] == "first"
 
 
-def test_dict_items_in(db0_fixture):
+def test_dict_items_in(db0_no_autocommit):
     # tests iteration over values from dict
     dict_1 = db0.dict()
     # insert 1000 random items

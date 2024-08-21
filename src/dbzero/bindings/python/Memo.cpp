@@ -166,23 +166,28 @@ namespace db0::python
         // since objects are destroyed by GC0 drop is only responsible for marking
         // singletons as unreferenced
         if (memo_obj->ext().isSingleton()) {
-            // the acutal destroy will be performed by the GC0
             memo_obj->modifyExt().unSingleton();
+            // the acutal destroy will be performed by the GC0 once removed from the LangCache
+            auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
+            lang_cache.erase(memo_obj->ext().getAddress());
             return;
         }
-
+        
         if (!memo_obj->ext().hasInstance()) {
             return;
         }
         
         if (memo_obj->ext().hasRefs()) {
-            PyErr_SetString(PyExc_RuntimeError, "Object has references");
+            PyErr_SetString(PyExc_RuntimeError, "delete failed: object has references");
             return;    
         }
         
         // create a null placeholder in place of the original instance to mark as deleted
+        auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
         memo_obj->destroy();
         db0::object_model::Object::makeNull((void*)(&memo_obj->ext()));
+        // remove instance from the lang cache        
+        lang_cache.erase(memo_obj->ext().getAddress());
     }
     
     PyObject *tryMemoObject_getattro(MemoObject *self, PyObject *attr)

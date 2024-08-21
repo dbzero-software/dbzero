@@ -114,7 +114,7 @@ namespace db0
         auto slot_id = it->second;
         m_uid_to_index.erase(it);
         assert(m_cache[slot_id].first == uid);
-        m_cache[slot_id] = {};
+        m_cache[slot_id] = {};        
         --m_size;
     }
     
