@@ -18,8 +18,8 @@ namespace db0
     
     struct [[gnu::packed]] o_prefix_config: public o_fixed<o_prefix_config>
     {
-        // magic number for the .db0 file
-        static constexpr std::uint64_t DB0_MAGIC = 0x0C8783E9296E96A6;
+        // magic number for the .db0 file        
+        static constexpr std::uint64_t DB0_MAGIC = 0x0DB0DB0DB0DB0DB0;
 
         std::uint64_t m_magic = DB0_MAGIC;
         std::uint32_t m_version = 1;

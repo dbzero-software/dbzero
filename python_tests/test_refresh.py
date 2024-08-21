@@ -356,3 +356,4 @@ def test_objects_created_by_different_process_are_not_dropped(db0_fixture):
     db0.open(prefix_name, "r")
     object_1 = db0.fetch(id)
     assert object_1.value == 123123
+    
