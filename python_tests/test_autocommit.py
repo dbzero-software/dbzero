@@ -2,6 +2,7 @@ import pytest
 from datetime import datetime
 import time
 import dbzero_ce as db0
+import random
 from .memo_test_types import MemoTestClass
 
 
@@ -90,3 +91,21 @@ def test_autocommit_with_commit_crash_issue(db0_autocommit_fixture):
         count += 1
         if count % 1000 == 0:
             print(f"Processed {count} tasks")
+            
+            
+@pytest.mark.parametrize("db0_autocommit_fixture", [500], indirect=True)
+def test_dict_items_in_segfault_issue_1(db0_autocommit_fixture):
+    """
+    This test was failing with segfault when autocommit enabled.
+    Must be repeated at least 15-20 times to reproduce the issue.
+    """
+    dict_1 = db0.dict()
+    item_count = 100
+    for i in range(item_count):
+        dict_1[i] = i
+    for i in range(100000):
+        random_int = random.randint(0, 300)
+        if random_int < item_count:
+            assert random_int in dict_1
+        else:
+            assert random_int not in dict_1
