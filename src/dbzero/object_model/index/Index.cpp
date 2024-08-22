@@ -23,9 +23,9 @@ namespace db0::object_model
         , m_builder(*this)
     {        
     }
-
-    Index::Index(db0::swine_ptr<Fixture> &fixture, const Index &other)
-        : super_t(tag_as_temp(), fixture, *other.getData())
+    
+    Index::Index(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Index &other)
+        : super_t(tag_no_gc(), fixture, *other.getData())
         , m_builder(*this)
     {
         if (other.hasRangeTree()) {
@@ -306,7 +306,7 @@ namespace db0::object_model
                 THROWF(db0::InputException) 
                     << "Unsupported index data type: " 
                     << static_cast<std::uint16_t>((*this)->m_data_type) << THROWF_END;
-        }      
+        }
     }
     
     std::unique_ptr<db0::SortedIterator<std::uint64_t> >
@@ -462,9 +462,11 @@ namespace db0::object_model
     {
         other.flush();
         super_t::operator=(std::move(other));
-        m_index = other.m_index;
+        m_index = std::move(other.m_index);
         other.m_index = nullptr;
         assert(!other.hasInstance());
+        // if m_index exists then also must have a range tree
+        assert(!m_index || hasRangeTree());
     }
     
     void Index::commit() const

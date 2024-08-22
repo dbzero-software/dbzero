@@ -46,10 +46,22 @@ namespace db0::object_model
         m_index = std::move(other.m_index);
         assert(!other.hasInstance());
     }
-
-    Dict::Dict(db0::swine_ptr<Fixture> &fixture, const Dict& dict)
+    
+    Dict::Dict(db0::swine_ptr<Fixture> &fixture, const Dict &dict)
         : super_t(fixture)
         , m_index(*fixture)
+    {
+        initWith(dict);
+    }
+
+    Dict::Dict(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Dict &dict)
+        : super_t(tag_no_gc(), fixture)
+        , m_index(*fixture)
+    {
+        initWith(dict);
+    }
+    
+    void Dict::initWith(const Dict &dict)
     {
         modify().m_index_ptr = m_index.getAddress();
         for(auto [hash, address] : dict) {
@@ -60,7 +72,7 @@ namespace db0::object_model
         }
         modify().m_size = dict.size();
     }
-    
+
     void Dict::setItem(std::size_t hash, ObjectPtr key, ObjectPtr value)
     {
         using TypeId = db0::bindings::TypeId;
@@ -173,11 +185,12 @@ namespace db0::object_model
         return member;
     }
 
-    void Dict::moveTo(db0::swine_ptr<Fixture> &fixture) {
-        if(this->size() > 0) {
+    void Dict::moveTo(db0::swine_ptr<Fixture> &fixture)
+    {
+        if (this->size() > 0) {
             THROWF(db0::InputException) << "Dict with items cannot be moved to another fixture";
         }
-        assert(hasInstance());    
+        assert(hasInstance());
         super_t::moveTo(fixture);
     }
 

@@ -1,4 +1,4 @@
-#include "ByteArray.hpp"
+#include "PyByteArray.hpp"
 #include <functional>
 #include "PyIterator.hpp"
 #include "CollectionMethods.hpp"
@@ -14,16 +14,15 @@ namespace db0::python
 
     static PySequenceMethods ByteArrayObject_sq = getPySequenceMehods<ByteArrayObject>();
 
-    ByteArrayObject *makeByteArrayFromPyBytes(db0::swine_ptr<Fixture> &fixture, ByteArrayObject * bytearray_object,
+    void makeByteArrayFromPyBytes(db0::swine_ptr<Fixture> &fixture, ByteArrayObject * bytearray_object,
         PyObject *py_bytes)
     {
         auto size = PyBytes_GET_SIZE(py_bytes);
         auto *str = PyBytes_AsString(py_bytes);
         std::byte * bytes = reinterpret_cast<std::byte *>(str);
-        db0::object_model::ByteArray::makeNew(&bytearray_object->modifyExt(), fixture, bytes, size);
-        return bytearray_object;
+        db0::object_model::ByteArray::makeNew(&bytearray_object->modifyExt(), fixture, bytes, size);        
     }
-
+    
     PyObject* asPyObject(ByteArrayObject *bytearray_obj) {
         char * bytes_str = new char[bytearray_obj->ext().size() + 1];
        
@@ -108,13 +107,14 @@ namespace db0::python
     ADD_BYTEARRAY_CALL_METHOD(upper)
     ADD_BYTEARRAY_CALL_METHOD(zfill)
     
-    PyObject *ByteArray_Count(ByteArrayObject *object_inst, PyObject *const *args, Py_ssize_t nargs) {
-        if(nargs != 1) {
+    PyObject *ByteArray_Count(ByteArrayObject *object_inst, PyObject *const *args, Py_ssize_t nargs) 
+    {
+        if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "count() takes exactly one argument");
             return NULL;
         }
         auto arg = args[0];
-        if(PyLong_Check(arg)) {
+        if (PyLong_Check(arg)) {
             long value = PyLong_AsLong(arg);
             if (value < 0 || value > 255) {
                 PyErr_SetString(PyExc_ValueError, "byte must be in range(0, 256)");
@@ -239,43 +239,43 @@ namespace db0::python
         .tp_methods = ByteArrayObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)ByteArrayObject_new,
-        .tp_free = PyObject_Free,        
+        .tp_free = PyObject_Free,   
     };
-
+    
     ByteArrayObject *ByteArrayObject_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<ByteArrayObject*>(type->tp_alloc(type, 0));
     }
 
-    ByteArrayObject *ByteArrayDefaultObject_new() {
-        return ByteArrayObject_new(&ByteArrayObjectType, NULL, NULL);
+    shared_py_object<ByteArrayObject *> ByteArrayDefaultObject_new() {
+        return { ByteArrayObject_new(&ByteArrayObjectType, NULL, NULL), false };
     }
     
     void ByteArrayObject_del(ByteArrayObject* bytearray_obj)
     {
         // destroy associated DB0 ByteArray instance
-        bytearray_obj->ext().~ByteArray();
+        bytearray_obj->destroy();
         Py_TYPE(bytearray_obj)->tp_free((PyObject*)bytearray_obj);
     }
-        
+    
     ByteArrayObject *makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
-        if(nargs != 1) {
+        if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "make_bytearray() takes exacly 1 arguments");
             return NULL;
         }
         // make actual DBZero instance, use default fixture
-        auto bytearray_object = ByteArrayObject_new(&ByteArrayObjectType, NULL, NULL);
+        auto bytearray_object = ByteArrayDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         if (PyBytes_Check(args[0])) {
-            makeByteArrayFromPyBytes(*lock, bytearray_object, args[0]);
+            makeByteArrayFromPyBytes(*lock, bytearray_object.get(), args[0]);
         } else {
-            PyErr_SetString(PyExc_TypeError, "bytearray() targument needs to be bytearray");
+            PyErr_SetString(PyExc_TypeError, "bytearray() argument needs to be bytearray");
             return NULL;
         }
         // register newly created bytearray with py-object cache
-        lock->getLangCache().add(bytearray_object->ext().getAddress(), bytearray_object);
-        return bytearray_object;
+        lock->getLangCache().add(bytearray_object.get()->ext().getAddress(), bytearray_object.get());
+        return bytearray_object.steal();
     }
     
     bool ByteArrayObject_Check(PyObject *object) {

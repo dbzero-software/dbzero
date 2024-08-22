@@ -9,6 +9,7 @@
 #include <dbzero/workspace/GC0.hpp>
     
 namespace db0
+
 {
 
     class Fixture;
@@ -63,6 +64,7 @@ namespace db0::object_model
         // new lists can only be created via factory members
         List(db0::swine_ptr<Fixture> &);
         List(db0::swine_ptr<Fixture> &, const List &);
+        List(tag_no_gc, db0::swine_ptr<Fixture> &, const List &);
     };
     
 }

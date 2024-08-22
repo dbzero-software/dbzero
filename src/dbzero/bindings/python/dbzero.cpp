@@ -4,7 +4,7 @@
 #include "PyInternalAPI.hpp"
 #include "ObjectId.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
-#include <dbzero/bindings/python/collections/ByteArray.hpp>
+#include <dbzero/bindings/python/collections/PyByteArray.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>

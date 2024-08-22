@@ -79,7 +79,7 @@ namespace db0::object_model
 
         // new sets can only be created via factory members
         Set(db0::swine_ptr<Fixture> &);
-        Set(db0::swine_ptr<Fixture> &, const Set& dict);      
+        Set(tag_no_gc, db0::swine_ptr<Fixture> &, const Set &);
         
         void append(db0::swine_ptr<Fixture> &, std::size_t key, ObjectPtr lang_value);
     };

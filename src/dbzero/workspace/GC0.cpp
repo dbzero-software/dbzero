@@ -25,23 +25,45 @@ namespace db0
     {
     }
     
-    bool GC0::remove(void *vptr)
+    GC0::CommitContext::CommitContext(GC0 &gc0)
+        : m_gc0(gc0)
+    {        
+        assert(!m_gc0.m_commit_pending);
+        m_gc0.m_commit_pending = true;
+    }
+
+    GC0::CommitContext::~CommitContext()
+    {
+        assert(m_gc0.m_commit_pending);
+        m_gc0.m_commit_pending = false;
+    }
+
+    void GC0::CommitContext::commit()
+    {
+        assert(m_gc0.m_commit_pending);
+        m_gc0.commit();
+    }
+    
+    bool GC0::tryRemove(void *vptr)
     {
         auto it = m_vptr_map.find(vptr);
-        NoArgsFunction drop_op = nullptr;
-        if (it != m_vptr_map.end()) {
-            auto ops = m_ops[it->second];
-            // if type implements preCommit then remove it from pre-commit map as well
-            if (ops.preCommit) {
-                m_pre_commit_map.erase(vptr);                
-            }
-            // do not drop when in read-only mode (e.g. snapshot owned)
-            if (!m_read_only && ops.hasRefs && ops.drop && !ops.hasRefs(it->first)) {
-                // at this stage just collect the ops and remove the entry
-                drop_op = ops.drop;
-            }
-            m_vptr_map.erase(it);
+        if (it == m_vptr_map.end()) {
+            return false;
         }
+
+        NoArgsFunction drop_op = nullptr;        
+        auto ops = m_ops[it->second];
+        // if type implements preCommit then remove it from pre-commit map as well
+        if (ops.preCommit) {
+            m_pre_commit_map.erase(vptr);
+        }
+        // do not drop when in read-only mode (e.g. snapshot owned)
+        // NOTE: drop not allowed when commit pending
+        if (!m_read_only && ops.hasRefs && ops.drop && !ops.hasRefs(it->first) && !m_commit_pending) {
+            // at this stage just collect the ops and remove the entry
+            drop_op = ops.drop;
+        }
+        m_vptr_map.erase(it);
 
         // drop object after erasing from map due to possible recursion
         if (drop_op) {
@@ -89,12 +111,18 @@ namespace db0
             m_ops[item.second].preCommit(item.first, false);
         }
 
-        super_t::clear();
+        // Important ! Collect instance addresses first because push_back can trigger "remove" calls
+        std::vector<TypedAddress> addresses;
         for (auto &vptr_item : m_vptr_map) {
             auto ops = m_ops[vptr_item.second];
             if (ops.hasRefs && !ops.hasRefs(vptr_item.first)) {
-                super_t::push_back(ops.address(vptr_item.first));
+                addresses.push_back(ops.address(vptr_item.first));
             }
+        }
+
+        super_t::clear();
+        for (auto addr: addresses) {
+            super_t::push_back(addr);
         }
     }
     
@@ -143,7 +171,9 @@ namespace db0
     {
         assert(m_atomic);
         for (auto vptr : m_volatile) {
-            remove(vptr);
+            if (vptr) {
+                tryRemove(vptr);
+            }
         }
         // call reverse pre-commit where it's provided (use revert=true)
         for (auto &item : m_pre_commit_map) {
@@ -151,6 +181,10 @@ namespace db0
         }
         m_volatile.clear();
         m_atomic = false;
+    }
+
+    std::unique_ptr<GC0::CommitContext> GC0::beginCommit() {
+        return std::make_unique<CommitContext>(*this);
     }
 
 }

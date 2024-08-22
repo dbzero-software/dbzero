@@ -15,56 +15,35 @@ namespace db0::object_model
 
 {
 
-
-    struct [[gnu::packed]] o_byte : public db0::o_fixed<o_byte> {
-        std::byte m_byte;
-
-        o_byte() = default;
-
-        inline o_byte(std::byte byte)
-            : m_byte(byte)
-        {
-        }
-        
-        //operators 
-        bool operator==(const o_byte &other) const
-        {
-            return m_byte == other.m_byte;
-        }
-
-        bool operator!=(const o_byte &other) const
-        {
-            return m_byte != other.m_byte;
-        }
-
-    };
-
     using Fixture = db0::Fixture;
     
-    class ByteArray: public db0::ObjectBase<ByteArray, v_bvector<o_byte>, StorageClass::DB0_BYTES_ARRAY>
+    class ByteArray: public db0::ObjectBase<ByteArray, v_bvector<std::byte>, StorageClass::DB0_BYTES_ARRAY>
     {
         GC0_Declare
-        public:
-            using super_t = db0::ObjectBase<ByteArray, v_bvector<o_byte>, StorageClass::DB0_BYTES_ARRAY>;
-            using LangToolkit = db0::python::PyToolkit;
-            using ObjectPtr = typename LangToolkit::ObjectPtr;
-            using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
-            
-            static ByteArray *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
-            ObjectSharedPtr getItem(std::size_t i) const;
-            std::byte getByte(std::size_t i) const;
-            void setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value);
-            void append(FixtureLock &, ObjectPtr lang_value);
+    public:
+        using super_t = db0::ObjectBase<ByteArray, v_bvector<std::byte>, StorageClass::DB0_BYTES_ARRAY>;
+        using LangToolkit = db0::python::PyToolkit;
+        using ObjectPtr = typename LangToolkit::ObjectPtr;
+        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        
+        ByteArray(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
-            std::size_t count(std::byte value) const;
-            std::size_t count(const std::byte *value, std::size_t size) const;
-            std::size_t count(const ByteArray& value, std::size_t size) const;
+        static ByteArray *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
+        ObjectSharedPtr getItem(std::size_t i) const;
+        std::byte getByte(std::size_t i) const;
+        void setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value);
+        void append(FixtureLock &, ObjectPtr lang_value);
 
-            // operators
-            bool operator==(const ByteArray &) const;
-            bool operator!=(const ByteArray &) const;
+        std::size_t count(std::byte value) const;
+        std::size_t count(const std::byte *value, std::size_t size) const;
+        std::size_t count(const ByteArray& value, std::size_t size) const;
 
-        private:
-            ByteArray(db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
+        // operators
+        bool operator==(const ByteArray &) const;
+        bool operator!=(const ByteArray &) const;
+
+    private:
+        ByteArray(db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
     };
+
 }

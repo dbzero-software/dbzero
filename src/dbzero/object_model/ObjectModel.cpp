@@ -15,6 +15,7 @@
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
+#include <dbzero/object_model/bytes/ByteArray.hpp>
 
 namespace db0::object_model
 
@@ -35,7 +36,7 @@ namespace db0::object_model
         return [](db0::swine_ptr<Fixture> &fixture, bool is_new, bool read_only)
         {
             // static GC0 bindings initialization
-            GC0::registerTypes<Class, Object, List, Set, Dict, Tuple, Block, DataFrame, Index, Enum>();
+            GC0::registerTypes<Class, Object, List, Set, Dict, Tuple, Block, DataFrame, Index, Enum, ByteArray>();
             auto &oc = fixture->getObjectCatalogue();
             if (is_new) {
                 if (read_only) {

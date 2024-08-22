@@ -33,9 +33,16 @@ namespace db0
         template <typename... Args> ObjectBase(db0::swine_ptr<Fixture> &fixture, Args &&... args)
             : has_fixture<BaseT>(fixture, std::forward<Args>(args)...)
         {            
-            fixture->getGC0().add<T>(this);            
+            fixture->getGC0().add<T>(this);
         }
-        
+
+        // create a new instance (no garbage collection)
+        struct tag_no_gc {};
+        template <typename... Args> ObjectBase(tag_no_gc, db0::swine_ptr<Fixture> &fixture, Args &&... args)
+            : has_fixture<BaseT>(fixture, std::forward<Args>(args)...)
+        {         
+        }
+
         // open existing instance
         struct tag_from_address {};
         ObjectBase(tag_from_address, db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
@@ -51,15 +58,7 @@ namespace db0
         {                        
             fixture->getGC0().add<T>(this);            
         }
-
-        // for creating temporary objects to later be moved to other instance
-        // no GC0 registration is done
-        struct tag_as_temp {};
-        template <typename... Args> ObjectBase(tag_as_temp, db0::swine_ptr<Fixture> &fixture, Args &&... args)
-            : has_fixture<BaseT>(fixture, std::forward<Args>(args)...)            
-        {
-        }
-
+        
         ~ObjectBase() {
             unregister();
         }
@@ -130,16 +129,9 @@ namespace db0
         }
         
         void operator=(ObjectBase &&other)
-        {
-            unregister();
+        {            
             has_fixture<BaseT>::operator=(std::move(other));
             assert(!other.hasInstance());
-            if (hasInstance()) {
-                auto fixture = this->tryGetFixture();
-                if (fixture) {
-                    fixture->getGC0().template add<T>(this);
-                }
-            }            
         }
 
     private:
@@ -150,7 +142,7 @@ namespace db0
             if (hasInstance()) {
                 auto fixture = this->tryGetFixture();
                 if (fixture) {
-                    fixture->getGC0().remove(this);
+                    fixture->getGC0().tryRemove(this);
                 }
             }
         }
@@ -196,22 +188,27 @@ namespace db0
             }
         }
     }
-        
+    
     template <typename T, typename BaseT, StorageClass _CLS>
-    inline void ObjectBase<T, BaseT, _CLS>::moveTo(db0::swine_ptr<Fixture> & fixture)
+    void ObjectBase<T, BaseT, _CLS>::moveTo(db0::swine_ptr<Fixture> &fixture)
     {
-        T new_instance(fixture, *static_cast<T*>(this));
-        // // move instance to a different cache (changing its address)
+        // NOTE: newly created instance is not registered in GC0 because existing wrapper object will be reused
+        T new_instance(tag_no_gc(), fixture, *static_cast<T*>(this));
+        // move instance to a different cache (changing its address)
         fixture->getLangCache().moveFrom(this->getFixture()->getLangCache(), this->getAddress(), 
             new_instance.getAddress());
+        // move instance to a different GC0 (preserving the same wrapper object)
+        fixture->getGC0().moveFrom<T>(this->getFixture()->getGC0(), this);
         auto atomic_ctx_ptr = fixture->tryGetAtomicContext();
         if (atomic_ctx_ptr) {
             // move instance to a different atomic context (changing its address)
             assert(this->getFixture()->tryGetAtomicContext());
-            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), this->getAddress(), new_instance.getAddress());             
+            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), this->getAddress(), 
+                new_instance.getAddress());
         }
         
         this->destroy();
-        *this = std::move(new_instance);   
+        *this = std::move(new_instance);
     }
+
 }

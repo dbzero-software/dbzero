@@ -110,6 +110,7 @@ def test_assigned_tags_can_be_removed_as_list_with_operators(db0_fixture):
     assert len(list(db0.find("tag1"))) == 0
     assert len(list(db0.find("tag2"))) == 0
 
+
 # def test_object_gets_dropped_if_norefs_after_tags_removed(db0_fixture):
 #     object_1 = MemoClassForTags(1)
 #     uuid = db0.uuid(object_1)

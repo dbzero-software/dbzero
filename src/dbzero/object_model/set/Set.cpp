@@ -34,8 +34,8 @@ namespace db0::object_model
         modify().m_index_ptr = m_index.getAddress();
     }
 
-    Set::Set(db0::swine_ptr<Fixture> &fixture, const Set &set)
-        : super_t(fixture)
+    Set::Set(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Set &set)
+        : super_t(tag_no_gc(), fixture)
         , m_index(*fixture)
     {
         modify().m_index_ptr = m_index.getAddress();

@@ -161,7 +161,7 @@ namespace db0::object_model
             }            
             initializer.close();
         }
-
+        
         assert(hasInstance());
     }
     

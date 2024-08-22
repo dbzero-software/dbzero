@@ -41,7 +41,7 @@ def test_unreferenced_object_are_dropped_on_close(db0_fixture):
     prefix_name = db0.get_current_prefix()
     object_1 = MemoTestClass(123)
     uuid = db0.uuid(object_1)
-    db0.commit()
+    del object_1
     db0.close()
     
     db0.init(DB0_DIR)

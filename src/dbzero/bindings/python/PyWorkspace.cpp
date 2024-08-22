@@ -55,6 +55,7 @@ namespace db0::python
             m_workspace = nullptr;
         }
         PyToolkit::getTypeManager().close();
+        m_workspace = nullptr;
     }
     
     bool PyWorkspace::hasWorkspace() const {

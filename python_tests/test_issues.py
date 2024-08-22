@@ -2,6 +2,8 @@ import pytest
 import dbzero_ce as db0
 import random
 import string
+from .memo_test_types import MemoTestClass, DynamicDataSingleton
+from .conftest import DB0_DIR
 
 
 @db0.memo
@@ -122,13 +124,18 @@ def test_print_type(db0_fixture):
     test_int= IntMock(int_1)
     print(test_int)
     print(type(test_int))
-
-
-@pytest.mark.skip(" what():  PrefixCache::findRange: inconsistent locks exist for the same range")
-def test_dict_items_in(db0_fixture):
-    # tests iteration over values from dict
-    dict_1 = db0.dict()
-    # insert 1000 random items
-    for i in range(1000):
-        dict_1[i] = i
-    assert len(dict_1) == 1000
+    
+    
+def test_db0_commit_close_issue_1(db0_fixture):
+    """
+    The problem was due to collect using incorrect object type
+    """
+    object_x = MemoTestClass(123123)
+    prefix_name = db0.get_current_prefix()
+    
+    db0.commit()
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "rw")
+    

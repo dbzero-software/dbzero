@@ -8,20 +8,21 @@ namespace db0::object_model
 
 {
     
+    GC0_Define(Tuple)
+
     template <typename LangToolkit> o_typed_item createTupleItem(db0::swine_ptr<Fixture> &fixture,
         db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
         return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value) };
     }
-    
-    GC0_Define(Tuple)
+        
     Tuple::Tuple(std::size_t size, db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, size)
     {
     }
 
-    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, const Tuple & other)
-        : super_t(fixture, other.size())
+    Tuple::Tuple(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Tuple &other)
+        : super_t(tag_no_gc(), fixture, other.size())
     {
         for (std::size_t i = 0; i < other.size(); i++) {
             auto [storage_class, value] = getData()->items()[i];
@@ -94,8 +95,7 @@ namespace db0::object_model
         return -1;
     }
 
-    std::size_t Tuple::size() const
-    {
+    std::size_t Tuple::size() const {
         return getData()->size();
     }
 
@@ -124,7 +124,8 @@ namespace db0::object_model
         return this->getData()->items().end();
     }
 
-    void Tuple::moveTo(db0::swine_ptr<Fixture> &fixture) {
+    void Tuple::moveTo(db0::swine_ptr<Fixture> &fixture)
+    {
         assert(hasInstance());
         super_t::moveTo(fixture);
     }

@@ -198,7 +198,8 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *close(PyObject *self, PyObject *args) {
+    PyObject *close(PyObject *self, PyObject *args) 
+    {
         std::lock_guard pbm_lock(python_bindings_mutex);
         return runSafe(tryClose, self, args);
     }

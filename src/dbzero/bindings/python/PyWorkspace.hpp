@@ -10,7 +10,7 @@
 #include <dbzero/core/memory/swine_ptr.hpp>
 
 namespace db0 {
-
+    
     class Workspace;
     class Fixture;
     class Memspace;

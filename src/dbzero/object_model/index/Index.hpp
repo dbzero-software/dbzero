@@ -165,7 +165,7 @@ namespace db0::object_model
         mutable std::shared_ptr<void> m_index;
 
         Index(db0::swine_ptr<Fixture> &);
-        Index(db0::swine_ptr<Fixture> &, const Index &);
+        Index(tag_no_gc, db0::swine_ptr<Fixture> &, const Index &);
         
         void operator=(Index &&);
 

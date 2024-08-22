@@ -151,7 +151,14 @@ namespace db0
     void Fixture::close()
     {
         // clear cache to destroy object instances supported by the cache
+        // this has to be done before commit
         m_lang_cache.clear();
+        // auto-commit before closing
+        if (m_access_type == AccessType::READ_WRITE) {
+            // perform the operation twice to ensure both pre-commit and commit
+            onAutoCommit();
+            onAutoCommit();
+        }
         std::unique_lock<std::mutex> lock(m_close_mutex);
         for (auto &close: m_close_handlers) {
             close(false);
@@ -199,8 +206,10 @@ namespace db0
     void Fixture::commit()
     {
         assert(getPrefixPtr());
-        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
+        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);        
         tryCommit(lock);
+        m_pre_commit = false;
+        m_updated = false;        
     }
     
     void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &)
@@ -211,19 +220,21 @@ namespace db0
             return;
         }
         
+        std::unique_ptr<GC0::CommitContext> gc0_ctx;
         // FIXME: this should be changed to commit-op
         if (m_gc0_ptr) {
+            gc0_ctx = getGC0().beginCommit();
             getGC0().detachAll();
         }
         
         for (auto &commit: m_close_handlers) {
             commit(true);
         }
-
+        
         // commit garbage collector's state
         // we check if gc0 exists because the unit-tests set up may not have it
-        if (m_gc0_ptr) {
-            m_gc0_ptr->commit();
+        if (gc0_ctx) {
+            gc0_ctx->commit();
         }
         m_string_pool.commit();
         m_object_catalogue.commit();

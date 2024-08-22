@@ -1,6 +1,7 @@
 #include "Workspace.hpp"
 #include <dbzero/core/memory/MetaAllocator.hpp>
 #include "FixtureThreads.hpp"
+#include <thread>
 
 namespace db0
 
@@ -130,40 +131,69 @@ namespace db0
     {
     }
 
+    class WorkspaceThreads
+    {
+    public:
+        WorkspaceThreads()
+            : m_auto_commit_thread(Workspace::DEFAULT_AUTOCOMMIT_INTERVAL_MS)
+        {
+            // run refresh / autocommit threads     
+            m_threads.emplace_back([this]() {
+                m_refresh_thread.run();
+            });
+            m_threads.emplace_back([this]() {
+                m_auto_commit_thread.run();
+            });        
+        }
+
+        ~WorkspaceThreads()
+        {
+            // stop refresh/autocommit threads            
+            m_auto_commit_thread.stop();
+            m_refresh_thread.stop();
+            for (auto &m_thread : m_threads) {
+                m_thread.join();
+            }
+        }
+
+        void startRefresh(db0::swine_ptr<Fixture> &fixture) {
+            m_refresh_thread.addFixture(fixture);
+        }
+
+        void startAutoCommit(db0::swine_ptr<Fixture> &fixture) {
+            m_auto_commit_thread.addFixture(fixture);
+        }
+
+        void setAutocommitInterval(std::uint64_t interval_ms) {            
+            m_auto_commit_thread.setInterval(interval_ms);
+        }
+
+    private:
+        std::vector<std::thread> m_threads;
+        RefreshThread m_refresh_thread;
+        AutoCommitThread m_auto_commit_thread;
+    };
+
     Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size,
         std::optional<std::size_t> vobject_cache_size, std::optional<std::size_t> flush_size, 
         std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer)
         : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
-        , m_refresh_thread(std::make_unique<RefreshThread>())
-        , m_auto_commit_thread(std::make_unique<AutoCommitThread>(DEFAULT_AUTOCOMMIT_INTERVAL_MS))
         , m_shared_object_list(vobject_cache_size ? *vobject_cache_size : DEFAULT_VOBJECT_CACHE_SIZE)
         , m_lang_cache(std::make_unique<LangCache>())
+        , m_workspace_threads(std::make_unique<WorkspaceThreads>())
     {
-        // run refresh / autocommit threads     
-        m_threads.emplace_back([this]() {
-            m_refresh_thread->run();
-        });
-        m_threads.emplace_back([this]() {
-            m_auto_commit_thread->run();
-        });        
     }
     
     Workspace::~Workspace()
-    {
-        // stop refresh/autocommit threads
-        m_auto_commit_thread->stop();
-        m_refresh_thread->stop();
-        for (auto &m_thread : m_threads) {
-            m_thread.join();
-        }
+    {    
     }
-    
+
     bool Workspace::close(const std::string &prefix_name)
     {
         BaseWorkspace::close(prefix_name);
-        auto uuid = getUUID(prefix_name);      
+        auto uuid = getUUID(prefix_name);
         if (uuid) {
             auto it = m_fixtures.find(*uuid);
             if (it != m_fixtures.end()) {
@@ -190,6 +220,8 @@ namespace db0
 
     void Workspace::close()
     {
+        // stop all workspace threads first
+        m_workspace_threads = nullptr;
         m_shared_object_list.clear();
         auto it = m_fixtures.begin(), end = m_fixtures.end();
         while (it != end) {
@@ -244,11 +276,11 @@ namespace db0
                 m_fixture_catalog.add(prefix_name, *fixture);
                 if (*access_type == AccessType::READ_ONLY) {
                     // add read-only fixture to be monitored by the refresh thread (will be removed automatically when closed)
-                    m_refresh_thread->addFixture(fixture);
+                    m_workspace_threads->startRefresh(fixture);
                 }
                 if (*access_type == AccessType::READ_WRITE && autocommit) {
                     // register fixture for auto-commit
-                    m_auto_commit_thread->addFixture(fixture);
+                    m_workspace_threads->startAutoCommit(fixture);
                 }
             }
         } catch (...) {
@@ -339,7 +371,7 @@ namespace db0
             }
         }
     }
-    
+
     bool Workspace::refresh()
     {
         bool refreshed = false;
@@ -459,7 +491,7 @@ namespace db0
     }
 
     void Workspace::setAutocommitInterval(std::uint64_t interval_ms) {
-        m_auto_commit_thread->setInterval(interval_ms);
+        m_workspace_threads->setAutocommitInterval(interval_ms);        
     }
 
     void Workspace::setCacheSize(std::size_t cache_size) {
@@ -484,5 +516,5 @@ namespace db0
             m_lang_cache->clear();
         }
     }
-
+    
 }

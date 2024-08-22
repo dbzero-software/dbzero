@@ -2,38 +2,40 @@
 #include <dbzero/object_model/value/TypeUtils.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 
-namespace db0::object_model 
+namespace db0::object_model
 
 {
 
     GC0_Define(ByteArray)
 
-    ByteArray *ByteArray::makeNew(void *at_ptr, db0::swine_ptr<Fixture> & fixture, std::byte * bytes, std::size_t size)
-    {
+    ByteArray *ByteArray::makeNew(void *at_ptr, db0::swine_ptr<Fixture> & fixture, std::byte * bytes, std::size_t size) {
         return new (at_ptr) ByteArray(fixture, bytes, size);
     }
 
-    ByteArray::ByteArray(db0::swine_ptr<Fixture> &fixture, std::byte * bytes, std::size_t size)
+    ByteArray::ByteArray(db0::swine_ptr<Fixture> &fixture, std::byte *bytes, std::size_t size)
         : super_t(fixture)
     {
-        for(std::size_t i =0; i < size; ++i, ++bytes){
-            v_bvector::push_back(o_byte(*bytes));
+        for (auto *bytes_ptr = bytes, *end = bytes + size; bytes_ptr != end; ++bytes_ptr) {            
+            v_bvector::push_back(*bytes_ptr);
         }
     }
+    
+    ByteArray::ByteArray(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+        : super_t(super_t::tag_from_address(), fixture, address)
+    {
+    }
 
-        ByteArray::ObjectSharedPtr ByteArray::getItem(std::size_t i) const {
+    ByteArray::ObjectSharedPtr ByteArray::getItem(std::size_t i) const
+    {
         if (i >= size()) {
             THROWF(db0::InputException) << "Index out of range: " << i;
         }
-        o_byte byte= (*this)[i];
         auto fixture = this->getFixture();
-        return unloadMember<LangToolkit>(fixture, StorageClass::INT64, (long)byte.m_byte);
+        return unloadMember<LangToolkit>(fixture, StorageClass::INT64, (long)(*this)[i]);
     }
 
-    std::byte ByteArray::getByte(std::size_t i) const
-    {
-        o_byte byte= (*this)[i];
-        return byte.m_byte;
+    std::byte ByteArray::getByte(std::size_t i) const {
+        return (*this)[i];        
     }
 
     void ByteArray::setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value)
@@ -49,16 +51,14 @@ namespace db0::object_model
     {
         using TypeId = db0::bindings::TypeId;
         auto &type_manager = LangToolkit::getTypeManager();
-        v_bvector::push_back(
-            o_byte(std::byte(type_manager.extractInt64(lang_value)))
-        );
+        v_bvector::push_back(std::byte(type_manager.extractInt64(lang_value)));
     }
 
     std::size_t ByteArray::count(std::byte value) const
     {
         std::size_t count = 0;
         for (auto &elem: *this) {
-            if (elem.m_byte == value) {
+            if (elem == value) {
                 count += 1;
             }
         }
@@ -90,11 +90,11 @@ namespace db0::object_model
         std::size_t i = 0;
         std::size_t j = 0;
         while (i < size()) {
-            if (values[j] == (*this)[i].m_byte) {
+            if (values[j] == (*this)[i]) {
                 i++;
                 j++;
                 if (j == values_size) {
-                    count++;
+                    ++count;
                     j = P[j];
                 }
             } else if (j == 0) {
@@ -110,7 +110,7 @@ namespace db0::object_model
     {
         std::byte bytes[size];
         for (std::size_t i = 0; i < size; i++) {
-            bytes[i] = value[i].m_byte;
+            bytes[i] = value[i];
         }
         return count(bytes, size);
     }

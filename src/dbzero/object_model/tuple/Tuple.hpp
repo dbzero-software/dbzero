@@ -104,7 +104,7 @@ namespace db0::object_model
     private:
         // new Tuples can only be created via factory members
         Tuple(std::size_t size, db0::swine_ptr<Fixture> &);
-        Tuple(db0::swine_ptr<Fixture> &, const Tuple &);
+        Tuple(tag_no_gc, db0::swine_ptr<Fixture> &, const Tuple &);
     };
     
 }

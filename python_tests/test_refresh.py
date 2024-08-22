@@ -327,25 +327,23 @@ def test_objects_created_by_different_process_are_not_dropped(db0_fixture):
     object_x = MemoTestClass(123123)
     prefix_name = db0.get_current_prefix()
     
-    # update kv-store field from a separate process
     def create_process(result_queue):
         db0.init(DB0_DIR)
         db0.open(prefix_name, "rw")
         object_x = MemoTestClass(123123)
         top_object = MemoTestSingleton(object_x)
-        result_queue.put(db0.uuid(object_x))                
+        result_queue.put(db0.uuid(object_x))
         db0.commit()
         db0.close()
     
-    # close db0 and open as read-only    
     db0.commit()
     db0.close()
-
+    
     result_queue = multiprocessing.Queue()
     p = multiprocessing.Process(target=create_process, args = (result_queue,))
     p.start()
     p.join()    
-    id = result_queue.get()    
+    id = result_queue.get()
     db0.init(DB0_DIR)
     db0.open(prefix_name, "r")    
     object_1 = db0.fetch(id)

@@ -72,26 +72,15 @@ namespace db0
         GC0(db0::swine_ptr<Fixture> &, std::uint64_t address, bool read_only);
         
         // register instance with type specific ops, must be a known / registered type
-        template <typename T> void add(void *vptr)
-        {
-            // detach function must always be provided
-            assert(m_ops[T::m_gc_ops_id].detach);
-            assert(m_ops[T::m_gc_ops_id].address);
-            m_vptr_map[vptr] = T::m_gc_ops_id;
-            // if the type implements preCommit then also add it to the preCommit map
-            if (m_ops[T::m_gc_ops_id].preCommit) {
-                m_pre_commit_map[vptr] = T::m_gc_ops_id;
-            }
-            if (m_atomic) {
-                m_volatile.push_back(vptr);
-            }
-        }
-        
+        template <typename T> void add(void *vptr);
+        // move instance from another GC0
+        template <typename T> void moveFrom(GC0 &other, void *vptr);
+
         /**
          * Unregister instance (i.e. when reference from Python was removed)
          * @return true if object was also dropped
          */
-        bool remove(void *vptr);
+        bool tryRemove(void *vptr);
         
         /**
          * Detach all instances held by this registry.
@@ -101,22 +90,24 @@ namespace db0
         
         std::size_t size() const;
 
+        struct CommitContext
+        {
+            GC0 &m_gc0;
+
+            CommitContext(GC0 &gc0);
+            ~CommitContext();
+
+            void commit();
+        };
+
         /**
          * Commit serializes the list of unreferenced instances to the persistence layer
          * this is to be able to drop those instances once the corresponding references from Python expire
         */
-        void commit();
+        std::unique_ptr<CommitContext> beginCommit();
 
-        template <typename... T> static void registerTypes()
-        {
-            if (m_initialized) {
-                return;
-            }
-            
-            (registerSingleType<T>(), ...);
-            m_initialized = true;
-        }
-        
+        template <typename... T> static void registerTypes();
+
         /**
          * The collect operation visits all stored references and drops
          * instances with a zero ref-count.
@@ -127,6 +118,12 @@ namespace db0
         void endAtomic();
         void cancelAtomic();
 
+    protected:
+        friend CommitContext;
+        bool m_commit_pending = false;
+
+        void commit();
+        
     private:
         static std::vector<GC_Ops> m_ops;
         // GC-ops by storage class
@@ -140,7 +137,7 @@ namespace db0
         // it's assumed that it's much smaller than m_vptr_map (it duplicates some of its entries)
         std::unordered_map<void*, unsigned int> m_pre_commit_map;
         // flag indicating atomic operation in progress
-        bool m_atomic = false;
+        bool m_atomic = false;        
         // the list of volatile instances - i.e. created during atomic operation
         std::vector<void*> m_volatile;
         
@@ -155,5 +152,46 @@ namespace db0
         // unregister volatile instance from GC0 (e.g. on rollback)
         void unregister(void *vptr);
     };
+
+    template <typename T> void GC0::add(void *vptr)
+    {
+        // detach function must always be provided
+        assert(m_ops[T::m_gc_ops_id].detach);
+        assert(m_ops[T::m_gc_ops_id].address);
+        m_vptr_map[vptr] = T::m_gc_ops_id;
+        // if the type implements preCommit then also add it to the preCommit map
+        if (m_ops[T::m_gc_ops_id].preCommit) {
+            m_pre_commit_map[vptr] = T::m_gc_ops_id;
+        }
+        if (m_atomic) {
+            m_volatile.push_back(vptr);
+        }
+    }
     
+    template <typename T> void GC0::moveFrom(GC0 &other, void *vptr)
+    {
+        assert(other.m_vptr_map.find(vptr) != other.m_vptr_map.end());
+        other.m_vptr_map.erase(vptr);
+        m_vptr_map[vptr] = T::m_gc_ops_id;
+        if (m_atomic) {
+            m_volatile.push_back(vptr);
+            // also need to remove from volatile list of the other GC0
+            for (auto &other_vptr: other.m_volatile) {
+                if (other_vptr == vptr) {
+                    other_vptr = nullptr;
+                }
+            }
+        }
+    }
+
+    template <typename... T> void GC0::registerTypes()
+    {
+        if (m_initialized) {
+            return;
+        }
+        
+        (registerSingleType<T>(), ...);
+        m_initialized = true;
+    }
+
 }

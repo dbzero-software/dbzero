@@ -12,7 +12,6 @@
 #include <dbzero/core/storage/Storage0.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include "Fixture.hpp"
-#include <thread>
 #include <filesystem>
 #include "PrefixCatalog.hpp"
 #include "Snapshot.hpp"
@@ -117,6 +116,8 @@ namespace db0
         // memspace by name
         std::unordered_map<std::string, Memspace> m_memspaces;
     };
+
+    class WorkspaceThreads;
 
     /**
      * Workspace extends BaseWorkspace and provides access to Fixtures instead of the raw Memspaces
@@ -237,9 +238,6 @@ namespace db0
         std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> m_fixture_initializer;
         // fixture by UUID
         std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;
-        std::vector<std::thread> m_threads;
-        std::unique_ptr<RefreshThread> m_refresh_thread;
-        std::unique_ptr<AutoCommitThread> m_auto_commit_thread;
         swine_ptr<db0::Fixture> m_default_fixture;
         std::vector<std::string> m_current_prefix_history;
         // shared object list is for maintainig v_object cache evition policy at a process level
@@ -247,6 +245,7 @@ namespace db0
         // flag indicating atomic operation in progress
         AtomicContext *m_atomic_context_ptr = nullptr;
         mutable std::unique_ptr<LangCache> m_lang_cache;
+        std::unique_ptr<WorkspaceThreads> m_workspace_threads;
         
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
         

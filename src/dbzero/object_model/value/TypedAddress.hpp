@@ -26,19 +26,16 @@ namespace db0::object_model
             assert(address < 0x100000000000000);
         }
 
-        inline StorageClass getType() const
-        {
+        inline StorageClass getType() const {
             return static_cast<StorageClass>(m_value >> 56);
         }
 
-        inline std::uint64_t getAddress() const
-        {
+        inline std::uint64_t getAddress() const {
             return m_value & 0x00FFFFFFFFFFFFFF;
         }
 
-        // cast operator
-        inline operator std::uint64_t() const
-        {
+        // Cast operator
+        inline operator std::uint64_t() const {
             return getAddress();
         }
 

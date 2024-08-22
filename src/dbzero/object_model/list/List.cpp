@@ -29,6 +29,11 @@ namespace db0::object_model
         : super_t(fixture, list)
     {
     }
+
+    List::List(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const List &list)
+        : super_t(tag_no_gc(), fixture, list)
+    {
+    }
     
     void List::append(FixtureLock &fixture, ObjectPtr lang_value)
     {
