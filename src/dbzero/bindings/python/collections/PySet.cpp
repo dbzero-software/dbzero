@@ -144,6 +144,40 @@ namespace db0::python
         return SetObject_issubsetInternal(self, args, nargs);
     }
 
+    PyObject * SetObject_issupersetInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs){
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "issuperset() takes exactly one argument");
+            return NULL;
+        }
+        if(SetObject_Check(args[0])) {
+
+            SetObject *other = (SetObject*)args[0];
+            PyObject *py_self = (PyObject*)self;
+            return SetObject_issubsetInternal(other, &py_self,1);
+        } else {
+            PyObject *other = args[0];
+            if(SetObject_lenInternal(self) == 0 || PyObject_Length(other) == 0) return Py_True;
+            PyObject *iterator = PyObject_GetIter(other);
+            PyObject *elem;
+            while ((elem = PyIter_Next(iterator))) {
+                if(!self->ext().has_item(elem)){
+                    Py_DECREF(iterator);
+                    Py_DECREF(elem);
+                    return Py_False;
+                }
+                Py_DECREF(elem);
+            }
+            Py_DECREF(iterator);
+        }
+        return Py_True;
+    }
+
+    PyObject * SetObject_issuperset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return SetObject_issupersetInternal(self, args, nargs);
+    }
+
     static PyObject *SetObject_rq(SetObject *set_obj, PyObject *other, int op) 
     {        
         std::lock_guard pbm_lock(python_bindings_mutex);
@@ -169,12 +203,12 @@ namespace db0::python
             return SetObject_issubsetInternal(set_obj, args, 1);
         }
         case Py_GE:  // Test whether every element in the set is in other.
-            return SetObject_issuperset(set_obj, args, 1);
+            return SetObject_issupersetInternal(set_obj, args, 1);
         case Py_GT:{  // Test whether the set is a proper superset of other, that is, set >= other and set != other.
             if(SetObject_lenInternal(set_obj) == getLenPyObjectOrSet(other)){
                 return Py_False;
             }
-            return SetObject_issuperset(set_obj, args, 1);
+            return SetObject_issupersetInternal(set_obj, args, 1);
         }
         default:
             return Py_NotImplemented;
@@ -236,10 +270,9 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    shared_py_object<SetObject*> makeDB0Set(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    shared_py_object<SetObject*> makeDB0SetInternal(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
     {
         // make actual DBZero instance, use default fixture
-        std::lock_guard pbm_lock(python_bindings_mutex);
         auto py_set = SetObject_newInternal(&SetObjectType, NULL, NULL);
         db0::FixtureLock lock(fixture);
         auto &set = py_set.get()->modifyExt();
@@ -259,10 +292,22 @@ namespace db0::python
         return py_set;
     }
 
-    SetObject *makeSet(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    shared_py_object<SetObject*> makeDB0Set(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return makeDB0SetInternal(fixture, args, nargs);
+    }
+
+    SetObject *makeSetInternal(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return makeDB0Set(fixture, args, nargs).steal();
+        return makeDB0SetInternal(fixture, args, nargs).steal();
+    }
+
+    SetObject *makeSet(PyObject *obj, PyObject *const *args, Py_ssize_t nargs)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return makeSetInternal(obj, args, nargs);
     }
     
     bool SetObject_Check(PyObject *object) {
@@ -310,40 +355,8 @@ namespace db0::python
     }
 
     
-
-    PyObject * SetObject_issuperset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {
-        std::lock_guard pbm_lock(python_bindings_mutex);
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "issuperset() takes exactly one argument");
-            return NULL;
-        }
-        if(SetObject_Check(args[0])) {
-
-            SetObject *other = (SetObject*)args[0];
-            PyObject *py_self = (PyObject*)self;
-            return SetObject_issubsetInternal(other, &py_self,1);
-        } else {
-            PyObject *other = args[0];
-            if(SetObject_lenInternal(self) == 0 || PyObject_Length(other) == 0) return Py_True;
-            PyObject *iterator = PyObject_GetIter(other);
-            PyObject *elem;
-            while ((elem = PyIter_Next(iterator))) {
-                if(!self->ext().has_item(elem)){
-                    Py_DECREF(iterator);
-                    Py_DECREF(elem);
-                    return Py_False;
-                }
-                Py_DECREF(elem);
-            }
-            Py_DECREF(iterator);
-        }
-        return Py_True;
-    }
-
-    PyObject *SetObject_copy(SetObject *py_src_set)
+PyObject *SetObject_copyInternal(SetObject *py_src_set)
     {   
-        std::lock_guard pbm_lock(python_bindings_mutex);     
         db0::FixtureLock lock(py_src_set->ext().getFixture());
         // make actual DBZero instance, use default fixture
         auto py_set = SetObject_newInternal(&SetObjectType, NULL, NULL);
@@ -351,6 +364,12 @@ namespace db0::python
         py_set.get()->modifyExt().insert(py_src_set->ext());
         lock->getLangCache().add(py_set.get()->ext().getAddress(), py_set.get());
         return py_set.steal();
+    }
+
+    PyObject *SetObject_copy(SetObject *py_src_set)
+    {   
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return SetObject_copyInternal(py_src_set);
     }
     
     PyObject * SetObject_union_binary(SetObject *self, PyObject * obj) {
@@ -365,7 +384,7 @@ namespace db0::python
             return NULL;
         }        
         db0::FixtureLock lock(self->ext().getFixture());
-        SetObject *copy = (SetObject* )SetObject_copy(self);
+        SetObject *copy = (SetObject* )SetObject_copyInternal(self);
         for (Py_ssize_t i =0; i < nargs; ++i) {
             if (SetObject_Check(args[i])) {
                 SetObject *other = (SetObject* )args[i];
@@ -385,10 +404,9 @@ namespace db0::python
         return copy;
     }
 
-    void SetObject_intersection(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1, 
+    void SetObject_intersectionInternal(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1, 
         PyObject *it2, PyObject *elem2)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
         if (elem1 == nullptr || elem2 == nullptr) {
             return;
         }
@@ -406,7 +424,14 @@ namespace db0::python
             elem1 = PyIter_Next(it1);
             elem2 = PyIter_Next(it2);
         }
-        return SetObject_intersection(fixture, set_obj, it1 ,elem1, it2, elem2);
+        return SetObject_intersectionInternal(fixture, set_obj, it1 ,elem1, it2, elem2);
+    }
+
+    void SetObject_intersection(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1, 
+        PyObject *it2, PyObject *elem2)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return SetObject_intersectionInternal(fixture, set_obj, it1, elem1, it2, elem2);
     }
     
     PyObject *SetObject_intersection_binary(SetObject *self, PyObject * obj) {        
@@ -421,7 +446,7 @@ namespace db0::python
             return NULL;
         }
         
-        SetObject *set_obj = makeSet(nullptr, nullptr, 0);
+        SetObject *set_obj = makeSetInternal(nullptr, nullptr, 0);
         PyObject *elem1, *elem2, *it2;
         PyObject *it1 = PyObject_GetIter((PyObject*)self);
         db0::FixtureLock lock(self->ext().getFixture());
@@ -429,8 +454,8 @@ namespace db0::python
             it2 = PyObject_GetIter(args[i]);
             elem1 = PyIter_Next(it1);
             elem2 = PyIter_Next(it2);
-            set_obj = makeSet(nullptr, nullptr, 0);
-            SetObject_intersection(lock, set_obj, it1, elem1, it2, elem2);
+            set_obj = makeSetInternal(nullptr, nullptr, 0);
+            SetObject_intersectionInternal(lock, set_obj, it1, elem1, it2, elem2);
             Py_DECREF(it1);
             Py_DECREF(it2);
             it1 = PyObject_GetIter((PyObject*)set_obj);        
@@ -438,11 +463,11 @@ namespace db0::python
         return set_obj;
     }
 
-    void SetObject_difference(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1,
+    
+    void SetObject_differenceInternal(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1,
         PyObject *it2, PyObject *elem2, bool symmetric)
     {
 
-        std::lock_guard pbm_lock(python_bindings_mutex);
         if (elem1 == nullptr && elem2 == nullptr) {
             return;
         }
@@ -482,17 +507,24 @@ namespace db0::python
             elem1 = PyIter_Next(it1);
             elem2 = PyIter_Next(it2);
         }
-        return SetObject_difference(fixture, set_obj, it1 ,elem1, it2, elem2, symmetric);
+        return SetObject_differenceInternal(fixture, set_obj, it1 ,elem1, it2, elem2, symmetric);
     }
 
-    PyObject * SetObject_difference(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric)
+    void SetObject_difference(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1,
+        PyObject *it2, PyObject *elem2, bool symmetric)
     {
+
         std::lock_guard pbm_lock(python_bindings_mutex);
+        return SetObject_differenceInternal(fixture, set_obj, it1, elem1, it2, elem2, symmetric);
+    }
+
+    PyObject * SetObject_differenceInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric)
+    {
         if (nargs == 0) {
             PyErr_SetString(PyExc_TypeError, "difference() takes more than 0 arguments");
             return NULL;
         }
-        SetObject *set_obj = makeSet(nullptr, nullptr, 0);
+        SetObject *set_obj = makeSetInternal(nullptr, nullptr, 0);
         PyObject *elem1, *elem2, *it2;
         PyObject *it1 = PyObject_GetIter((PyObject*)self);
         db0::FixtureLock lock(self->ext().getFixture());
@@ -500,13 +532,19 @@ namespace db0::python
             it2 = PyObject_GetIter(args[i]);
             elem1 = PyIter_Next(it1);
             elem2 = PyIter_Next(it2);
-            set_obj = makeSet(nullptr, nullptr, 0);
-            SetObject_difference(lock, set_obj, it1, elem1, it2, elem2, symmetric);
+            set_obj = makeSetInternal(nullptr, nullptr, 0);
+            SetObject_differenceInternal(lock, set_obj, it1, elem1, it2, elem2, symmetric);
             Py_DECREF(it1);
             Py_DECREF(it2);
             it1 = PyObject_GetIter((PyObject*)set_obj);        
         }
         return set_obj;
+    }
+
+    PyObject * SetObject_difference(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric)
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return SetObject_differenceInternal(self, args, nargs, symmetric);
     }
 
     PyObject *SetObject_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs) {
@@ -588,6 +626,15 @@ namespace db0::python
         return self;
     }
 
+    bool sequenceContainsItem(PyObject *set_obj, PyObject *item)
+    {
+        if (SetObject_Check(set_obj)) {
+            return ((SetObject*)set_obj)->ext().has_item(item);
+        } else {
+            return PySequence_Contains(set_obj, item);
+        }
+    }
+
     PyObject *SetObject_intersection_in_place(SetObject *self, PyObject * ob)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
@@ -595,7 +642,7 @@ namespace db0::python
         PyObject* item;
         std::list<std::pair<size_t, PyObject*>> hashes_and_items;
         while ((item = PyIter_Next(it))) {
-            if(!PySequence_Contains(ob, item)){
+            if(!sequenceContainsItem(ob, item)){
                 auto hash = PyObject_Hash(item);
                 hashes_and_items.push_back({hash,item});
             }
