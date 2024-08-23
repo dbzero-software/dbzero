@@ -147,12 +147,9 @@ namespace db0
             T::m_gc_ops_id = GCOps_ID(m_ops.size());
             m_ops.push_back(T::getGC_Ops());
             m_ops_map[T::storageClass()] = T::m_gc_ops_id;
-        }
-        
-        // unregister volatile instance from GC0 (e.g. on rollback)
-        void unregister(void *vptr);
+        }        
     };
-
+    
     template <typename T> void GC0::add(void *vptr)
     {
         // detach function must always be provided

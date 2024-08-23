@@ -377,3 +377,14 @@ def test_range_query_on_empty_index(db0_fixture):
 def test_range_query_on_empty_index_using_non_default_range_type(db0_fixture):
     index = db0.index()
     assert len(list(index.range(None, datetime.now()))) == 0
+
+
+def test_unflushed_index_data_is_discarded_if_destroyed(db0_fixture):
+    """
+    This test was initially failing due to a non-virtual destructor not being invoked
+    from the ObjectBase class
+    """
+    index = db0.index()
+    index.add(1, MemoTestClass(999))
+    del index
+    db0.close()

@@ -134,8 +134,6 @@ namespace db0
             assert(!other.hasInstance());
         }
 
-    private:
-
         void unregister()
         {
             // remove from the registry (on condition the underlying instance & fixture still exists)
@@ -146,7 +144,9 @@ namespace db0
                 }
             }
         }
-        
+
+    private:
+
         static bool hasRefsOp(const void *vptr) {
             return (*static_cast<const T*>(vptr))->m_header.hasRefs();
         }

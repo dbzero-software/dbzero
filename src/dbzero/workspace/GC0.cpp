@@ -78,14 +78,6 @@ namespace db0
         return false;
     }
     
-    void GC0::unregister(void *vptr)
-    {
-        auto it = m_vptr_map.find(vptr);
-        if (it != m_vptr_map.end()) {            
-            m_vptr_map.erase(it);
-        }
-    }
-
     void GC0::detachAll()
     {
         for (auto &vptr_item : m_vptr_map) {

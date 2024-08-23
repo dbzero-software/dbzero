@@ -44,7 +44,6 @@ namespace db0::python
         return IndexObject_newInternal(type, NULL, NULL);
     }
 
-
     shared_py_object<IndexObject*> IndexDefaultObject_new() {
         return { IndexObject_new(&IndexObjectType, NULL, NULL), false };
     }
@@ -52,7 +51,7 @@ namespace db0::python
     void IndexObject_del(IndexObject* index_obj)
     {
         // destroy associated DB0 Index instance
-        index_obj->ext().~Index();
+        index_obj->destroy();
         Py_TYPE(index_obj)->tp_free((PyObject*)index_obj);
     }
     

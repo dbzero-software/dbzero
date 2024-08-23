@@ -95,17 +95,18 @@ dict_test_params = [(db0.index, lambda ix, values: ix.add(*values)),
                     (db0.list, lambda list, values: list.append(values[1])),
                     (make_tuple, lambda _, values: values[1])]
 
-# FIXME: test failing due to object lifecycle issue
-# @pytest.mark.parametrize("make_add_param", dict_test_params)
-# def test_auto_hardening_of_weak_object_references(db0_fixture, make_add_param):
-#     make_obj, add_to_obj = make_add_param
-#     obj = make_obj()
-#     assert db0.get_prefix(obj) == db0.get_current_prefix()
-#     scoped_data = ScopedDataClass(obj)
-#     add_to_obj(scoped_data.value, (10, scoped_data))
-#     # make sure object was moved to proper scope and the reference was hardened
-#     assert db0.get_prefix(scoped_data.value) == db0.get_prefix(scoped_data)
-#     db0.commit()
+
+@pytest.mark.parametrize("make_add_param", dict_test_params)
+def test_auto_hardening_of_weak_object_references(db0_fixture, make_add_param):
+    make_obj, add_to_obj = make_add_param
+    obj = make_obj()
+    assert db0.get_prefix(obj) == db0.get_current_prefix()
+    scoped_data = ScopedDataClass(obj)
+    add_to_obj(scoped_data.value, (10, scoped_data))
+    # make sure object was moved to proper scope and the reference was hardened
+    assert db0.get_prefix(scoped_data.value) == db0.get_prefix(scoped_data)
+    db0.commit()
+    
     
 @db0.memo(prefix="scoped-class-prefix", singleton=True)
 class ScopedSingleton:

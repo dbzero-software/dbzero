@@ -15,7 +15,7 @@ namespace db0::object_model
     Index::Index(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, db0::createInstanceId(), IndexType::RangeTree, IndexDataType::Auto)
         , m_builder(*this)
-    {        
+    {
     }
 
     Index::Index(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
@@ -54,6 +54,13 @@ namespace db0::object_model
         }        
     }
     
+    Index::~Index()
+    {
+        // in case of index we need to unregister first because otherwise
+        // it may trigger discard of unflushed data (which has to be performed before destruction of 'builder')
+        unregister();
+    }
+
     Index *Index::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
         return new (at_ptr) Index(fixture);
     }
@@ -113,7 +120,7 @@ namespace db0::object_model
         }
     }
     
-    void Index::Builder::update(TypeId type_id) 
+    void Index::Builder::update(TypeId type_id)
     {
         auto new_type = getIndexDataType(type_id);        
         if (m_new_type == IndexDataType::Auto) {
@@ -168,8 +175,7 @@ namespace db0::object_model
                 getExisting<std::uint64_t>().close();
                 break;
             }
-            
-            // flush using default / provisional data type
+                        
             case IndexDataType::Auto: {
                 getExisting<DefaultT>().close();
                 break;
@@ -509,6 +515,36 @@ namespace db0::object_model
         // invalidate cached index instance since its type might've been updated
         m_index = nullptr;
         super_t::detach();
+    }
+    
+    void Index::destroy() const
+    {
+        // discard any pending changes
+        const_cast<Builder&>(m_builder).rollback();
+        if (hasRangeTree()) {
+             switch ((*this)->m_data_type) {
+                case IndexDataType::Int64: {
+                    getExistingRangeTree<std::int64_t>().destroy();
+                    break;
+                }
+
+                case IndexDataType::UInt64: {
+                    getExistingRangeTree<std::uint64_t>().destroy();
+                    break;
+                }
+                
+                case IndexDataType::Auto: {
+                    getExistingRangeTree<DefaultT>().destroy();
+                    break;
+                }
+
+                default:
+                    THROWF(db0::InputException)
+                        << "Unsupported index data type: " 
+                        << static_cast<std::uint16_t>((*this)->m_data_type);
+            }           
+        }
+        super_t::destroy();
     }
 
 }

@@ -151,7 +151,7 @@ namespace db0
     void Fixture::close()
     {
         // clear cache to destroy object instances supported by the cache
-        // this has to be done before commit
+        // this has to be done before commit (to not commit unrefereced objects)
         m_lang_cache.clear();
         // auto-commit before closing
         if (m_access_type == AccessType::READ_WRITE) {
@@ -315,7 +315,7 @@ namespace db0
         // commit and then detach owned resources (potentially modified in atomic context)
         for (auto &commit: m_close_handlers) {
             commit(true);
-        }                
+        }
         for (auto &detach: m_detach_handlers) {
             detach();
         }
