@@ -1,7 +1,7 @@
 import pytest
 import dbzero_ce as db0
 from .conftest import DB0_DIR
-from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedClass
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedClass, MemoScopedSingleton
 from dbzero_ce import find
 from datetime import timedelta, datetime
 
@@ -26,6 +26,20 @@ def test_index_updates_are_flushed_on_commit(db0_fixture):
     # key, value
     index.add(1, MemoTestClass(999))
     db0.commit()
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "r")    
+    index = db0.fetch(uuid)
+    assert len(index) == 1
+
+
+def test_index_updates_are_flushed_on_close(db0_fixture):
+    index = db0.index()
+    prefix_name = db0.get_current_prefix()
+    uuid = db0.uuid(index)
+    index.add(1, MemoTestClass(999))
+    # NOTE: index not getting destroyed because Python instance is still alive
     db0.close()
     
     db0.init(DB0_DIR)
@@ -379,7 +393,7 @@ def test_range_query_on_empty_index_using_non_default_range_type(db0_fixture):
     assert len(list(index.range(None, datetime.now()))) == 0
 
 
-def test_unflushed_index_data_is_discarded_if_destroyed(db0_fixture):
+def test_unflushed_index_data_is_discarded_when_destroyed(db0_fixture):
     """
     This test was initially failing due to a non-virtual destructor not being invoked
     from the ObjectBase class
@@ -387,4 +401,32 @@ def test_unflushed_index_data_is_discarded_if_destroyed(db0_fixture):
     index = db0.index()
     index.add(1, MemoTestClass(999))
     del index
+    # unreferenced index instance destroyed on close
     db0.close()
+
+
+def test_unflushed_index_data_is_discarded_when_destroyed_before_close(db0_fixture):
+    """
+    This test was initially failing due to a non-virtual destructor not being invoked
+    from the ObjectBase class
+    """
+    index = db0.index()
+    index.add(1, MemoTestClass(999))
+    del index
+    # Clear cache to destroy index before close
+    db0.clear_cache()
+    db0.close()
+
+
+def test_moved_index_updates_are_flushed_on_close(db0_fixture):
+    prefix_name = db0.get_current_prefix()
+    # index instance moved from default prefix
+    root = MemoScopedSingleton(db0.index(), prefix="some-other-prefix")
+    root.value.add(1, MemoTestClass(999))
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "r")
+    db0.open("some-other-prefix", "rw")
+    root = MemoScopedSingleton(prefix="some-other-prefix")    
+    assert len(root.value) == 1

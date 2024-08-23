@@ -96,13 +96,16 @@ namespace db0
         return m_vptr_map.size();
     }
     
-    void GC0::commit()
-    {
+    void GC0::preCommit()
+    {                
         // call pre-commit where it's provided
         for (auto &item : m_pre_commit_map) {
             m_ops[item.second].preCommit(item.first, false);
         }
-
+    }
+    
+    void GC0::commit()
+    {
         // Important ! Collect instance addresses first because push_back can trigger "remove" calls
         std::vector<TypedAddress> addresses;
         for (auto &vptr_item : m_vptr_map) {

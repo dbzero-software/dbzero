@@ -219,11 +219,15 @@ namespace db0
         if (!prefix_ptr) {
             return;
         }
+
+        // pre-commit to prepare objects which require it (e.g. Index) for commit
+        if (m_gc0_ptr) {
+            getGC0().preCommit();
+        }
         
-        std::unique_ptr<GC0::CommitContext> gc0_ctx;
+        std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
         // FIXME: this should be changed to commit-op
         if (m_gc0_ptr) {
-            gc0_ctx = getGC0().beginCommit();
             getGC0().detachAll();
         }
         

@@ -75,6 +75,9 @@ namespace db0
         template <typename T> void add(void *vptr);
         // move instance from another GC0
         template <typename T> void moveFrom(GC0 &other, void *vptr);
+        
+        // preCommit calls the operation on objects which implement it
+        void preCommit();
 
         /**
          * Unregister instance (i.e. when reference from Python was removed)
@@ -170,6 +173,12 @@ namespace db0
         assert(other.m_vptr_map.find(vptr) != other.m_vptr_map.end());
         other.m_vptr_map.erase(vptr);
         m_vptr_map[vptr] = T::m_gc_ops_id;
+        // also move between pre-commit maps
+        auto it = other.m_pre_commit_map.find(vptr);
+        if (it != other.m_pre_commit_map.end()) {
+            m_pre_commit_map[vptr] = it->second;
+            other.m_pre_commit_map.erase(it);
+        }
         if (m_atomic) {
             m_volatile.push_back(vptr);
             // also need to remove from volatile list of the other GC0

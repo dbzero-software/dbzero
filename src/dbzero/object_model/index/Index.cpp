@@ -59,8 +59,12 @@ namespace db0::object_model
         // in case of index we need to unregister first because otherwise
         // it may trigger discard of unflushed data (which has to be performed before destruction of 'builder')
         unregister();
+        // after unregister object might still have unflushed data, we need to flush them
+        if (hasInstance()) {
+            flush();
+        }        
     }
-
+    
     Index *Index::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
         return new (at_ptr) Index(fixture);
     }

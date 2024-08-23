@@ -2,7 +2,7 @@ import pytest
 import dbzero_ce as db0
 import random
 import string
-from .memo_test_types import MemoTestClass, DynamicDataSingleton
+from .memo_test_types import MemoTestClass, DynamicDataSingleton, MemoScopedSingleton
 from .conftest import DB0_DIR
 
 
