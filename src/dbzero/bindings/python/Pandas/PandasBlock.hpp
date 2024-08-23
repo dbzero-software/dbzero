@@ -20,7 +20,7 @@ namespace db0::python
 
     using PandasBlockObject = PyWrapper<db0::object_model::pandas::Block>;
     
-    PandasBlockObject *PandasBlockObject_new(PyTypeObject *type, PyObject *, PyObject *);
+    shared_py_object<PandasBlockObject *> PandasBlockObject_new(PyTypeObject *type, PyObject *, PyObject *);
     void PandasBlockObject_del(PandasBlockObject* self);
 
     void PandasBlockObject_dtype(PandasBlockObject* self);
@@ -37,7 +37,7 @@ namespace db0::python
 
     // PandasBlockObject* PandasBlockObject_copy(PandasBlockObject* self);
 
-    PandasBlockObject *makeBlock(PyObject *, PyObject *, PyObject *);
+    PyObject *makeBlock(PyObject *, PyObject *const *, Py_ssize_t );
 
     shared_py_object<PandasBlockObject*> BlockDefaultObject_new();
 

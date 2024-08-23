@@ -3,7 +3,10 @@
 #include <dbzero/object_model/pandas/Block.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/GlobalMutex.hpp>
 #include "PandasBlock.hpp"
+
 
 namespace db0::python
 
@@ -11,22 +14,26 @@ namespace db0::python
     ////////// PANDAS BLOCK ////////////
 
     PyObject *PandasBlockObject_GetItem(PandasBlockObject *block_obj, Py_ssize_t i) {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         return block_obj->ext().getItem(i).steal();
     }
 
     int PandasBlockObject_SetItem(PandasBlockObject *block_obj, Py_ssize_t i, PyObject *value)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         db0::FixtureLock lock(block_obj->ext().getFixture());
         block_obj->modifyExt().setItem(lock, i, value);
         return 0;
     }
 
     Py_ssize_t PandasBlockObject_len(PandasBlockObject *block_obj) {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         return block_obj->ext().size();
     }
 
     PyObject *PandasBlockObject_append(PandasBlockObject *block_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        std::lock_guard pbm_lock(python_bindings_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "append() takes exactly one argument");
             return NULL;
@@ -64,8 +71,9 @@ namespace db0::python
         .tp_free = PyObject_Free,        
     };
 
-    PandasBlockObject *PandasBlockObject_new(PyTypeObject *type, PyObject *args, PyObject *) {
-        return reinterpret_cast<PandasBlockObject*>(type->tp_alloc(type, 0));
+    shared_py_object<PandasBlockObject *> PandasBlockObject_new(PyTypeObject *type, PyObject *args, PyObject *) {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        return shared_py_object<PandasBlockObject *>(reinterpret_cast<PandasBlockObject*>(type->tp_alloc(type, 0)), false);
     }
     
     void PandasBlockObject_del(PandasBlockObject* block_obj)
@@ -75,13 +83,22 @@ namespace db0::python
         Py_TYPE(block_obj)->tp_free((PyObject*)block_obj);
     }
     
-    PandasBlockObject *makeBlock(PyObject *, PyObject *, PyObject *)
+    shared_py_object<PandasBlockObject*> makeDB0PandasBlock(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    {   
+
+        auto block_object = PandasBlockObject_new(&PandasBlockObjectType, NULL, NULL);
+        db0::FixtureLock lock(fixture);
+        auto &block = block_object.get()->modifyExt();
+        db0::object_model::pandas::Block::makeNew(&block, *lock);
+        return block_object;
+    }
+    
+    PyObject *makeBlock(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {        
         // make actual DBZero instance, use default fixture
-        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
-        auto block_object = PandasBlockObject_new(&PandasBlockObjectType, NULL, NULL);
-        db0::object_model::pandas::Block::makeNew(&block_object->modifyExt(), *lock);
-        return block_object;
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+
+        return makeDB0PandasBlock(fixture, args, nargs).steal();
     }
     
     bool PandasBlockType_Check(PyTypeObject *type) {
@@ -93,7 +110,7 @@ namespace db0::python
     }
 
     shared_py_object<PandasBlockObject*> BlockDefaultObject_new() {
-        return { PandasBlockObject_new(&PandasBlockObjectType, NULL, NULL), false };
+        return PandasBlockObject_new(&PandasBlockObjectType, NULL, NULL).steal();
     }
 
     PyObject * PandasBlockObject_GetStorageClass(PandasBlockObject *block_obj) {
