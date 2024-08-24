@@ -259,7 +259,7 @@ namespace db0
             }
             return this->begin() + (this->size() >> 1) * this->step();
         }
-
+        
         const_iterator find_max(const HeapCompT &comp) const
         {
             if (is_sorted()) {
@@ -272,8 +272,8 @@ namespace db0
          * Erase existing item, return true if the node is empty after the operation         
          * @return true if node is empty after the operation
         */
-        bool erase_existing(std::uint32_t at, const HeapCompT &comp) {
-            return erase_existing(cbegin() + at, comp);
+        bool erase_existing(unsigned int at, const HeapCompT &comp) {
+            return this->erase_existing(this->itemAt(at), comp);
         }
 
     private:
