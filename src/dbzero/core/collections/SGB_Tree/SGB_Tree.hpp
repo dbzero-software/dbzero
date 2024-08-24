@@ -138,7 +138,8 @@ namespace db0
                 // erase the max element and create the new node
                 auto max_item_ptr = node->find_max(m_heap_comp);
                 auto new_node = super_t::insert_equal(*max_item_ptr, m_node_capacity, m_heap_comp);
-                node.modify().erase_existing(max_item_ptr, m_heap_comp);
+                auto max_item_index = node->indexOf(max_item_ptr);
+                node.modify().erase_existing(max_item_index, m_heap_comp);
                 // rebalance the nodes
                 node.modify().rebalance(new_node.modify(), m_heap_comp);
                 // append to either of the nodes
@@ -352,8 +353,8 @@ namespace db0
         void erase(unsorted_const_iterator &item)
         {
             assert(!item.is_end());
-            super_t::modify().m_sgb_size--;
-            if (item.m_item_it.second.modify().erase_existing(item.m_item_it.first, m_heap_comp)) {
+            --(super_t::modify().m_sgb_size);
+            if (item.m_item_it.second.modify().erase_existing(item.m_item_it.getIndex(), m_heap_comp)) {
                 // delete the entire node
                 super_t::erase(item.m_item_it.second);
             }

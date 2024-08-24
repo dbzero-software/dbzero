@@ -93,6 +93,9 @@ namespace db0
     std::shared_ptr<BoundaryLock> BoundaryLock::convertToBoundaryLock(std::shared_ptr<ResourceLock> lock,
         std::shared_ptr<ResourceLock> lhs) 
     {
+        // FIXME: log
+        std::cout << "Converting ResourceLock to BoundaryLock" << std::endl;
+
         // construct BoundaryLock in-place overwriting the existing ResourceLock
         // NOTE: this is fine (no memory leak) since all non-trivially constructed members are moved to the converted instance
         std::vector<std::byte> data(std::move(lock->m_data));

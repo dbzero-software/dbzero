@@ -173,21 +173,6 @@ namespace db0
             return true;
         }
 
-        /**
-         * Erase existing item, return true if the node is empty after the operation
-         * 
-         * @return true if node is empty after the operation
-        */
-        bool erase_existing(const_iterator item_ptr, const HeapCompT &comp)
-        {
-
-            assert(item_ptr != nullptr);
-            assert(item_ptr >= cbegin() && item_ptr < cend());
-            dheap::erase<D>(begin(), end(), const_cast<iterator>(item_ptr), comp);
-            --m_size;
-            return m_size == 0;
-        }
-        
         bool erase_existing(unsigned int item_index, const HeapCompT &comp) {
             return erase_existing(cbegin() + item_index, comp);
         }
@@ -419,6 +404,21 @@ namespace db0
 
     private:
 
+        /**
+         * Erase existing item, return true if the node is empty after the operation
+         * 
+         * @return true if node is empty after the operation
+        */
+        bool erase_existing(const_iterator item_ptr, const HeapCompT &comp)
+        {
+
+            assert(item_ptr != nullptr);
+            assert(item_ptr >= cbegin() && item_ptr < cend());
+            dheap::erase<D>(begin(), end(), const_cast<iterator>(item_ptr), comp);
+            --m_size;
+            return m_size == 0;
+        }
+        
         std::size_t usedCapacity() const {
             return sizeof(o_sgb_tree_node) + HeaderT::sizeOf() + m_size * sizeof(ItemT);
         }

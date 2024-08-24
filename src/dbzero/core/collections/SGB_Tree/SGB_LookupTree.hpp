@@ -86,7 +86,7 @@ namespace db0
             return const_cast<ItemT*>(this->cbegin());
         }
 
-        const_iterator cend() const 
+        const_iterator cend() const
         {
             if (!is_reversed()) {
                 return super_t::cend();    
@@ -167,23 +167,6 @@ namespace db0
             return true;
         }
 
-        /**
-         * Erase existing item, return true if the node is empty after the operation
-         * 
-         * @return true if node is empty after the operation
-        */
-        bool erase_existing(const_iterator item_ptr, const HeapCompT &comp)
-        {            
-            if (is_reversed()) {
-                dheap::rerase<D>(this->begin(), this->end(), const_cast<iterator>(item_ptr), comp);
-            } else {
-                dheap::erase<D>(this->begin(), this->end(), const_cast<iterator>(item_ptr), comp);
-            }
-            --this->m_size;
-            this->header().reset();
-            return this->m_size == 0;
-        }
-        
         inline int step() const {
             return this->header().m_flags[LookupHeaderFlags::reversed] ? -1 : 1;
         }
@@ -281,8 +264,34 @@ namespace db0
         {
             if (is_sorted()) {
                 return this->cend() + this->step();
-            }            
+            }
             return super_t::find_max(comp);
+        }
+
+        /**
+         * Erase existing item, return true if the node is empty after the operation         
+         * @return true if node is empty after the operation
+        */
+        bool erase_existing(std::uint32_t at, const HeapCompT &comp) {
+            return erase_existing(cbegin() + at, comp);
+        }
+
+    private:
+
+        /**
+         * Erase existing item, return true if the node is empty after the operation         
+         * @return true if node is empty after the operation
+        */
+        bool erase_existing(const_iterator item_ptr, const HeapCompT &comp)
+        {
+            if (is_reversed()) {
+                dheap::rerase<D>(this->begin(), this->end(), const_cast<iterator>(item_ptr), comp);
+            } else {
+                dheap::erase<D>(this->begin(), this->end(), const_cast<iterator>(item_ptr), comp);
+            }
+            --this->m_size;
+            this->header().reset();
+            return this->m_size == 0;
         }
     };
 
