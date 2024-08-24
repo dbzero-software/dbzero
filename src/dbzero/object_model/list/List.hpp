@@ -50,15 +50,14 @@ namespace db0::object_model
         // operators
         bool operator==(const List &) const;
         bool operator!=(const List &) const;
-
-        // drop underlying DBZero representation
-        void drop();
-
+        
         void clear(FixtureLock &);
 
         void swapAndPop(FixtureLock &, const std::vector<uint64_t> &element_numbers);
 
         void moveTo(db0::swine_ptr<Fixture> &);
+
+        void destroy() const;
         
     private:        
         // new lists can only be created via factory members

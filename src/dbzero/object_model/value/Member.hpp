@@ -83,6 +83,30 @@ namespace db0::object_model
         return unload_member_functions[static_cast<int>(storage_class)](fixture, value, name);
     }
     
+    // unreference a member (decref / destroy where applicable)
+    template <StorageClass storage_class, typename LangToolkit> void unrefMember(
+        db0::swine_ptr<Fixture> &fixture, Value value);
+    
+    // register StorageClass specializations
+    template <typename LangToolkit> void registerUnrefMemberFunctions(
+        std::vector<void (*)(db0::swine_ptr<Fixture> &, Value)> &functions);
+    
+    template <typename LangToolkit> void unrefMember(
+        db0::swine_ptr<Fixture> &fixture, StorageClass storage_class, Value value)
+    {
+        // create member function pointer
+        using UnrefMemberFunc = void (*)(db0::swine_ptr<Fixture> &, Value);
+        static std::vector<UnrefMemberFunc> unref_member_functions;
+        if (unref_member_functions.empty()) {
+            registerUnrefMemberFunctions<LangToolkit>(unref_member_functions);
+        }
+
+        assert(static_cast<int>(storage_class) < unref_member_functions.size());
+        if (unref_member_functions[static_cast<int>(storage_class)]) {
+            unref_member_functions[static_cast<int>(storage_class)](fixture, value);
+        }
+    }
+
     /**
      * Invoke materialize before setting obj_ptr as a member
      * this is to materialize objects (where hasInstance = false) before using them as members

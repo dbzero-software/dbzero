@@ -139,10 +139,6 @@ namespace db0::object_model
         return !(*this == list);
     }
 
-    void List::drop() {
-        v_bvector<o_typed_item>::destroy();
-    }
-
     void List::clear(FixtureLock &) {
         // FIXME: drop items
         v_bvector<o_typed_item>::clear();
@@ -153,12 +149,18 @@ namespace db0::object_model
         v_bvector<o_typed_item>::swapAndPop(element_numbers);
     }
 
-    void List::moveTo(db0::swine_ptr<Fixture> &fixture) {
+    void List::moveTo(db0::swine_ptr<Fixture> &fixture) 
+    {
         assert(hasInstance());
-        if(this->size() > 0) {
+        if (this->size() > 0) {
             THROWF(db0::InputException) << "List with items cannot be moved to another fixture";
         }
         super_t::moveTo(fixture);
+    }
+    
+    void List::destroy() const {
+        // FIXME: drop non-trivial items
+        super_t::destroy();        
     }
 
 }

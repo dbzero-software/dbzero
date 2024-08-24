@@ -92,6 +92,7 @@ namespace db0
             assert(slot);
         }
         auto slot_id = *slot;
+        assert(!m_cache[slot_id].second);
         m_cache[slot_id] = { uid, obj };
         m_visited[slot_id] = true;
         m_uid_to_index[uid] = slot_id;
@@ -113,8 +114,7 @@ namespace db0
         // need to remove from the map first because destroy may trigger erase from GC0
         auto slot_id = it->second;
         m_uid_to_index.erase(it);
-        assert(m_cache[slot_id].first == uid);
-        m_cache[slot_id] = {};        
+        m_cache[slot_id] = {};
         --m_size;
     }
     
@@ -124,7 +124,7 @@ namespace db0
             if (item.second) {
                 item = {};
             }
-        }
+        }        
         m_uid_to_index.clear();
         m_size = 0;        
     }
@@ -140,6 +140,7 @@ namespace db0
         if (it == m_uid_to_index.end()) {
             return {};
         }
+        assert(it->second < m_visited.size());
         // set the visited flag (see Sieve cache eviction algorithm)
         m_visited[it->second] = true;
         return m_cache[it->second].second;

@@ -249,7 +249,7 @@ namespace db0
             }
         }
 
-        void destroy() 
+        void destroy() const
         {
             destroyAllBlocks();
             m_pb_cache.clear();

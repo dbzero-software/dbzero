@@ -309,12 +309,14 @@ namespace db0
         {        
         }
         
-        inline db0::swine_ptr<Fixture> &operator*() {
+        inline db0::swine_ptr<Fixture> &operator*() 
+        {
             m_fixture->onUpdated();
             return m_fixture;
         }
         
-        inline Fixture *operator->() const {
+        inline Fixture *operator->() const
+        {
             m_fixture->onUpdated();
             return m_fixture.get();
         }

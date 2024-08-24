@@ -359,15 +359,6 @@ namespace db0::object_model
         return getType().isSingleton();
     }
     
-    void Object::dropMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value) const
-    {
-        if (type == StorageClass::OBJECT_REF) {
-            Object instance(fixture, value.cast<std::uint64_t>());
-            instance.decRef();
-            // member will be deleted by GC0 if its ref-count = 0
-        }
-    }
-    
     void Object::dropMembers() const
     {
         if (hasInstance()) {
@@ -379,14 +370,14 @@ namespace db0::object_model
                 auto &values = (*this)->pos_vt().values();
                 auto value = values.begin();
                 for (auto type = types.begin(); type != types.end(); ++type, ++value) {
-                    dropMember(fixture, *type, *value);
+                    unrefMember<LangToolkit>(fixture, *type, *value);
                 }
             }
             // drop index-vt members next
             {
                 auto &xvalues = (*this)->index_vt().xvalues();
                 for (auto &xvalue: xvalues) {
-                    dropMember(fixture, xvalue.m_type, xvalue.m_value);
+                    unrefMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value);
                 }
             }
             // finally drop kv-index members
@@ -394,7 +385,7 @@ namespace db0::object_model
             if (kv_index_ptr) {
 		        auto it = kv_index_ptr->beginJoin(1);
                 for (;!it.is_end(); ++it) {                    
-                    dropMember(fixture, (*it).m_type, (*it).m_value);
+                    unrefMember<LangToolkit>(fixture, (*it).m_type, (*it).m_value);
                 }
             }
         }

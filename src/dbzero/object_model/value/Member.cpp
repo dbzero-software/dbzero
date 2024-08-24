@@ -376,6 +376,95 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
     }
+
+    template <typename T, typename LangToolkit> void unrefObjectBase(
+        db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    {
+        auto &lang_cache = fixture->getLangCache();
+        auto obj_ptr = lang_cache.get(address);
+        if (obj_ptr) {
+            db0::FixtureLock lock(fixture);
+            // decref cached instance via language specific wrapper type
+            auto lang_wrapper = LangToolkit::template getWrapperTypeOf<T>(obj_ptr.get());
+            lang_wrapper->modifyExt().decRef();
+        } else {
+            T object(fixture, address);
+            object.decRef();
+            // member will be deleted by GC0 if its ref-count = 0
+        }
+    }
+
+    // OBJECT_REF specialization
+    template <> void unrefMember<StorageClass::OBJECT_REF, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value)
+    {
+        unrefObjectBase<Object, PyToolkit>(fixture, value.cast<std::uint64_t>());
+    }
+
+    template <> void unrefMember<StorageClass::DB0_LIST, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value) 
+    {
+        unrefObjectBase<List, PyToolkit>(fixture, value.cast<std::uint64_t>());
+    }
+
+    template <> void unrefMember<StorageClass::DB0_BLOCK, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value) 
+    {
+        unrefObjectBase<db0::object_model::pandas::Block, PyToolkit>(fixture, value.cast<std::uint64_t>());
+    }
+
+    template <> void unrefMember<StorageClass::DB0_INDEX, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value) 
+    {
+        unrefObjectBase<Index, PyToolkit>(fixture, value.cast<std::uint64_t>());
+    }
+
+    template <> void unrefMember<StorageClass::DB0_SET, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value) 
+    {
+        unrefObjectBase<Set, PyToolkit>(fixture, value.cast<std::uint64_t>());
+    }
+
+    template <> void unrefMember<StorageClass::DB0_DICT, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value)
+    {
+        unrefObjectBase<Dict, PyToolkit>(fixture, value.cast<std::uint64_t>());
+    }
+
+    template <> void unrefMember<StorageClass::DB0_TUPLE, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value)
+    {
+        unrefObjectBase<Tuple, PyToolkit>(fixture, value.cast<std::uint64_t>());
+    }
+
+    template <> void unrefMember<StorageClass::DB0_BYTES, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value)
+    {
+        throw std::runtime_error("Not implemented");
+    }
+    
+    template <> void unrefMember<StorageClass::DB0_SERIALIZED, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value)
+    {
+        throw std::runtime_error("Not implemented");
+    }
+
+    template <> void registerUnrefMemberFunctions<PyToolkit>(
+        std::vector<void (*)(db0::swine_ptr<Fixture> &, Value)> &functions)
+    {
+        functions.resize(static_cast<int>(StorageClass::COUNT));
+        std::fill(functions.begin(), functions.end(), nullptr);
+        functions[static_cast<int>(StorageClass::OBJECT_REF)] = unrefMember<StorageClass::OBJECT_REF, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_BLOCK)] = unrefMember<StorageClass::DB0_BLOCK, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_LIST)] = unrefMember<StorageClass::DB0_LIST, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_INDEX)] = unrefMember<StorageClass::DB0_INDEX, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_SET)] = unrefMember<StorageClass::DB0_SET, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_DICT)] = unrefMember<StorageClass::DB0_DICT, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_TUPLE)] = unrefMember<StorageClass::DB0_TUPLE, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_BYTES)] = unrefMember<StorageClass::DB0_BYTES, PyToolkit>;
+        // FIXME: uncomment and refactor when handling of BYTES if fixed (same storage)
+        // functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unrefMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
+    }
     
     bool isMaterialized(PyObjectPtr obj_ptr)
     {

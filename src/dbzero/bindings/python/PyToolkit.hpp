@@ -57,6 +57,10 @@ namespace db0::python
             return m_py_workspace;
         }
         
+        template <typename T> inline static PyWrapper<T> *getWrapperTypeOf(ObjectPtr ptr) {
+            return static_cast<PyWrapper<T> *>(ptr);
+        }
+
         /**
          * Construct shared type from raw pointer (shared ownership)         
         */
@@ -121,7 +125,7 @@ namespace db0::python
         static std::uint64_t getTag(ObjectPtr py_object, StringPoolT &, bool create);
         
         static bool isString(ObjectPtr py_object);
-        static bool isIterable(ObjectPtr py_object);        
+        static bool isIterable(ObjectPtr py_object);
         static bool isType(ObjectPtr py_object);
         static bool isMemoType(TypeObjectPtr py_type);
         static bool isMemoObject(ObjectPtr py_object);
