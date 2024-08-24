@@ -173,30 +173,19 @@ namespace db0
             return true;
         }
 
-        /**
-         * Erase existing item, return true if the node is empty after the operation
-         * 
-         * @return true if node is empty after the operation
-        */
-        bool erase_existing(const_iterator item_ptr, const HeapCompT &comp)
-        {
-
-            assert(item_ptr != nullptr);
-            assert(item_ptr >= cbegin() && item_ptr < cend());
-            dheap::erase<D>(begin(), end(), const_cast<iterator>(item_ptr), comp);
-            --m_size;
-            return m_size == 0;
+        bool erase_existing(unsigned int item_index, const HeapCompT &comp) {
+            return this->erase_existing(itemAt(item_index), comp);
         }
         
-        bool erase_existing(unsigned int item_index, const HeapCompT &comp) {
-            return erase_existing(cbegin() + item_index, comp);
-        }
-
         inline unsigned int indexOf(const_iterator item_ptr) const
         {
             assert(item_ptr != nullptr);
             assert(item_ptr >= cbegin() && item_ptr < cend());
             return item_ptr - cbegin();
+        }
+
+        inline const_iterator itemAt(unsigned int index) const {
+            return cbegin() + index;
         }
 
         const ItemT &keyItem() const {
@@ -344,8 +333,7 @@ namespace db0
         /**
          * A helper function to retrieve the mutable iterator from the const one
         */
-        iterator modifyItem(const_iterator item) const
-        {
+        iterator modifyItem(const_iterator item) const {
             return const_cast<iterator>(item);
         }
 
@@ -419,6 +407,20 @@ namespace db0
 
     private:
 
+        /**
+         * Erase existing item, return true if the node is empty after the operation
+         * 
+         * @return true if node is empty after the operation
+        */
+        bool erase_existing(const_iterator item_ptr, const HeapCompT &comp)
+        {
+            assert(item_ptr != nullptr);
+            assert(item_ptr >= cbegin() && item_ptr < cend());
+            dheap::erase<D>(begin(), end(), const_cast<iterator>(item_ptr), comp);
+            --m_size;
+            return m_size == 0;
+        }
+        
         std::size_t usedCapacity() const {
             return sizeof(o_sgb_tree_node) + HeaderT::sizeOf() + m_size * sizeof(ItemT);
         }

@@ -6,6 +6,12 @@ from .conftest import DB0_DIR
 from datetime import datetime
 
 
+def rand_string(str_len):
+    import random
+    import string
+    return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+
+
 def test_new_object_inside_atomic_operation(db0_fixture):
     # this is to create a new class in dbzero
     MemoTestClass(123)    
@@ -356,3 +362,14 @@ def test_atomic_context_reraises_exception(db0_fixture):
     except RuntimeError as e:
         assert str(e) == "Test exception"
     
+    
+@pytest.mark.stress_test
+def test_atomic_stress_test_1(db0_no_autocommit):
+    count = 0
+    buf = db0.list()
+    for _ in range(250):
+        with db0.atomic():
+            for _ in range(100):
+                buf.append(MemoTestClass(rand_string(4096)))
+        count += 1        
+        print(f"Atomic operations completed: {count}")

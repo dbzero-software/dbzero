@@ -137,8 +137,9 @@ namespace db0
             if (node->isFull()) {
                 // erase the max element and create the new node
                 auto max_item_ptr = node->find_max(m_heap_comp);
-                auto new_node = super_t::insert_equal(*max_item_ptr, m_node_capacity, m_heap_comp);
-                node.modify().erase_existing(max_item_ptr, m_heap_comp);
+                auto max_item_index = node->indexOf(max_item_ptr);
+                auto new_node = super_t::insert_equal(*max_item_ptr, m_node_capacity, m_heap_comp);                
+                node.modify().erase_existing(max_item_index, m_heap_comp);
                 // rebalance the nodes
                 node.modify().rebalance(new_node.modify(), m_heap_comp);
                 // append to either of the nodes
@@ -180,10 +181,10 @@ namespace db0
         void erase(ConstItemIterator &item)
         {
             assert(item.validate());
-            super_t::modify().m_sgb_size--;
-            auto index = item.second->indexOf(item.first);
+            --(super_t::modify().m_sgb_size);
+            auto item_index = item.second->indexOf(item.first);
             // erase by index since item pointer gets modified (due to CoW)
-            if (const_cast<sg_tree_const_iterator &>(item.second).modify().erase_existing(index, m_heap_comp)) {
+            if (const_cast<sg_tree_const_iterator &>(item.second).modify().erase_existing(item_index, m_heap_comp)) {
                 // delete the entire node
                 super_t::erase(const_cast<sg_tree_const_iterator &>(item.second));
             }
@@ -352,8 +353,9 @@ namespace db0
         void erase(unsorted_const_iterator &item)
         {
             assert(!item.is_end());
-            super_t::modify().m_sgb_size--;
-            if (item.m_item_it.second.modify().erase_existing(item.m_item_it.first, m_heap_comp)) {
+            --(super_t::modify().m_sgb_size);
+            auto item_index = item.m_item_it.getIndex();
+            if (item.m_item_it.second.modify().erase_existing(item_index, m_heap_comp)) {
                 // delete the entire node
                 super_t::erase(item.m_item_it.second);
             }
