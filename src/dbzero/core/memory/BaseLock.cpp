@@ -114,9 +114,11 @@ namespace db0
         setDirty();
         std::memcpy(m_data.data(), other.m_data.data(), m_data.size());
     }
-
+    
+#ifndef NDEBUG
     std::size_t BaseLock::getTotalMemoryUsage() {
         return bl_usage;
     }
+#endif
 
 }

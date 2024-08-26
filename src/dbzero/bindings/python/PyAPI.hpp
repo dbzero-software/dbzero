@@ -136,7 +136,9 @@ namespace db0::python
 
     PyObject *setCacheSize(PyObject *self, PyObject *args);
 
+#ifndef NDEBUG
     PyObject *getBaseLockUsage(PyObject *self, PyObject *);
+#endif
 
     template <typename T> db0::object_model::StorageClass getStorageClass();
 
