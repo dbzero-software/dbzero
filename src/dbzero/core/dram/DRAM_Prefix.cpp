@@ -25,7 +25,7 @@ namespace db0
         close();
     }
     
-    MemLock DRAM_Prefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions>) const
+    MemLock DRAM_Prefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions>)
     {
         auto page_num = address / m_page_size;
         auto offset = address % m_page_size;

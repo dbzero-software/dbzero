@@ -67,5 +67,11 @@ namespace db0
             }
         }
     }
-        
+    
+    void WideLock::undoWrite()
+    {        
+        m_res_lock = nullptr;
+        ResourceLock::resetDirtyFlag();
+    }
+
 }

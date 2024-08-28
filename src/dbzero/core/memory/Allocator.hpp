@@ -8,7 +8,7 @@
 namespace db0
 
 {
-
+    
     /**
      * The DB0 allocator interface
     */
@@ -45,6 +45,10 @@ namespace db0
 
         virtual void detach() const = 0;
 
+        // Flush any pending deferred operations (e.g. deferred free)
+        // the default empty implementation is provieded
+        virtual void flush() const;
+        
         /**
          * Allocate a new continuous range of a given size
          * 
@@ -54,5 +58,5 @@ namespace db0
         */
         std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false);
     };
-    
+
 }

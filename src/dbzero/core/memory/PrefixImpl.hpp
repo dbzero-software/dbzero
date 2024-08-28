@@ -53,7 +53,7 @@ namespace db0
         {
         }
         
-        MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) const override;
+        MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
         std::uint64_t getStateNum() const override;
         
@@ -91,7 +91,7 @@ namespace db0
         void cancelAtomic() override;
         
         MemLock mapRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
-            FlagSet<AccessOptions>) const;
+            FlagSet<AccessOptions>);
 
     protected:
         template <typename T> friend class PrefixImpl;
@@ -105,11 +105,11 @@ namespace db0
         // flag indicating atomic operation in progress
         bool m_atomic = false;
 
-        std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num, std::uint64_t state_num, FlagSet<AccessOptions>) const;
+        std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num, std::uint64_t state_num, FlagSet<AccessOptions>);
         std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address,
-            std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>) const;
+            std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>);
         std::shared_ptr<WideLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page, std::size_t size,
-            std::uint64_t state_num, FlagSet<AccessOptions>) const;
+            std::uint64_t state_num, FlagSet<AccessOptions>);
 
         inline bool isPageAligned(std::uint64_t addr_or_size) const {
             return (addr_or_size & (m_page_size - 1)) == 0;
@@ -117,9 +117,9 @@ namespace db0
 
         void adjustAccessMode(FlagSet<AccessOptions> &access_mode, std::uint64_t address, std::size_t size) const;
     };
-
+    
     template <typename StorageT> MemLock PrefixImpl<StorageT>::mapRange(std::uint64_t address,
-        std::size_t size, FlagSet<AccessOptions> access_mode) const
+        std::size_t size, FlagSet<AccessOptions> access_mode)
     {
         return mapRange(address, size, m_head_state_num, access_mode);
     }
@@ -140,8 +140,8 @@ namespace db0
         }
     }
 
-    template <typename StorageT> MemLock PrefixImpl<StorageT>::mapRange(std::uint64_t address, std::size_t size, 
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode) const
+    template <typename StorageT> MemLock PrefixImpl<StorageT>::mapRange(std::uint64_t address, std::size_t size,
+        std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
     {        
         assert(state_num > 0);
         assert(size > 0);
@@ -179,7 +179,7 @@ namespace db0
     
     template <typename StorageT> std::shared_ptr<BoundaryLock> PrefixImpl<StorageT>::mapBoundaryRange(
         std::uint64_t first_page_num, std::uint64_t address, std::size_t size, std::uint64_t state_num, 
-        FlagSet<AccessOptions> access_mode) const
+        FlagSet<AccessOptions> access_mode)
     {
         std::uint64_t read_state_num;
         std::shared_ptr<BoundaryLock> lock;
@@ -216,7 +216,7 @@ namespace db0
     
     template <typename StorageT>
     std::shared_ptr<DP_Lock> PrefixImpl<StorageT>::mapPage(std::uint64_t page_num, std::uint64_t state_num,
-        FlagSet<AccessOptions> access_mode) const
+        FlagSet<AccessOptions> access_mode)
     {
         std::uint64_t read_state_num;
         auto lock = m_cache.findPage(page_num, state_num, access_mode, read_state_num);        
@@ -270,7 +270,7 @@ namespace db0
     
     template <typename StorageT> std::shared_ptr<WideLock> PrefixImpl<StorageT>::mapWideRange(
         std::uint64_t first_page, std::uint64_t end_page, std::size_t size, std::uint64_t state_num, 
-        FlagSet<AccessOptions> access_mode) const
+        FlagSet<AccessOptions> access_mode)
     {
         std::uint64_t read_state_num = 0;
         auto lock = m_cache.findRange(first_page, end_page, state_num, access_mode, read_state_num);
@@ -419,5 +419,5 @@ namespace db0
     template <typename StorageT> BaseStorage &PrefixImpl<StorageT>::getStorage() const {
         return *m_storage_ptr;
     }
-
+        
 } 

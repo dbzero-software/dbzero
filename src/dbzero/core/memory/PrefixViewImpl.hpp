@@ -31,7 +31,7 @@ namespace db0
         {
         }
 
-        MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) const override;
+        MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
         std::uint64_t getStateNum() const override;
         
@@ -62,10 +62,10 @@ namespace db0
         const std::size_t m_page_size;
         const std::uint32_t m_shift;
 
-        std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num) const;
-        std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address, std::size_t size) const;
+        std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num);
+        std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address, std::size_t size);
         std::shared_ptr<WideLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page, 
-            std::size_t size) const;
+            std::size_t size);
 
         inline bool isPageAligned(std::uint64_t addr_or_size) const {
             return (addr_or_size & (m_page_size - 1)) == 0;
@@ -74,7 +74,7 @@ namespace db0
     
     template <typename StorageT>
     MemLock PrefixViewImpl<StorageT>::mapRange(std::uint64_t address, std::size_t size, 
-        FlagSet<AccessOptions> access_mode) const
+        FlagSet<AccessOptions> access_mode)
     {
         // read-only access is allowed
         assert(!access_mode[AccessOptions::create] && !access_mode[AccessOptions::write]);
@@ -150,7 +150,7 @@ namespace db0
     }
     
     template <typename StorageT>
-    std::shared_ptr<DP_Lock> PrefixViewImpl<StorageT>::mapPage(std::uint64_t page_num) const
+    std::shared_ptr<DP_Lock> PrefixViewImpl<StorageT>::mapPage(std::uint64_t page_num)
     {
         // read-only access
         std::uint64_t read_state_num;
@@ -178,7 +178,7 @@ namespace db0
     
     template <typename StorageT>
     std::shared_ptr<WideLock> PrefixViewImpl<StorageT>::mapWideRange(
-        std::uint64_t first_page, std::uint64_t end_page, std::size_t size) const
+        std::uint64_t first_page, std::uint64_t end_page, std::size_t size)
     {
         std::uint64_t read_state_num;        
         auto lock = m_cache.findRange(first_page, end_page, m_state_num, { AccessOptions::read }, read_state_num);
@@ -210,7 +210,7 @@ namespace db0
 
     template <typename StorageT>
     std::shared_ptr<BoundaryLock> PrefixViewImpl<StorageT>::mapBoundaryRange(std::uint64_t first_page_num, 
-        std::uint64_t address, std::size_t size) const
+        std::uint64_t address, std::size_t size)
     {
         std::uint64_t read_state_num;
         std::shared_ptr<BoundaryLock> lock;

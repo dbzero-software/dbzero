@@ -253,7 +253,8 @@ namespace tests
         std::map<int, std::vector<std::uint64_t> > addr_map;
         auto count = 10000;
         {
-            MetaAllocator cut(m_prefix, &recycler);
+            // deferred free is disabled
+            MetaAllocator cut(m_prefix, &recycler, false);
             // make random allocations
             for (int i = 0; i < count; ++i) {
                 auto alloc_size = rand() % 1000 + 1;
@@ -266,7 +267,7 @@ namespace tests
         
         // Remove from the highest slabs first
         auto slab_count = addr_map.size();
-        MetaAllocator cut(m_prefix, &recycler);
+        MetaAllocator cut(m_prefix, &recycler, false);
         for (auto it = addr_map.rbegin(), end = addr_map.rend(); it != end; ++it) {
             for (auto ptr: it->second) {
                 cut.free(ptr);
@@ -275,7 +276,7 @@ namespace tests
             ASSERT_EQ(cut.getSlabCount(), slab_count);
         }
     }
-
+    
     TEST_F( MetaAllocatorTests , testMetaAllocatorAllocSpeed )
     {
         /*

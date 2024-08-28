@@ -6,6 +6,7 @@
 #include "Allocator.hpp"
 #include <deque>
 #include <unordered_map>
+#include <unordered_set>
 #include <functional>
 #include <dbzero/core/serialization/Fixed.hpp>
     
@@ -39,8 +40,10 @@ namespace db0
     public:
         /**
          * Opens an existing instance of a MetaAllocator over a specific prefix
+         * @param deferred_free if true, free operations are deferred until commit (see Transactional Allocator)
         */
-        MetaAllocator(std::shared_ptr<Prefix> prefix, SlabRecycler *recycler = nullptr);
+        MetaAllocator(std::shared_ptr<Prefix> prefix, SlabRecycler *recycler = nullptr, 
+            bool deferred_free = true);
         
         virtual ~MetaAllocator();
 
@@ -151,6 +154,9 @@ namespace db0
         void commit() override;
 
         void detach() const override;
+
+        // Flush any pending "deferred" free operations
+        void flush() const override;
         
         /**
          * Calculate the number of slabs which can be annotated by a single page pair
@@ -214,6 +220,8 @@ namespace db0
         CapacityTreeT m_capacity_items;
         std::unique_ptr<SlabManager> m_slab_manager;
         SlabRecycler *m_recycler_ptr;
+        const bool m_deferred_free;
+        mutable std::unordered_set<std::uint64_t> m_deferred_free_ops;
         std::function<std::uint32_t(std::uint64_t)> m_slab_id_function;
         
         /**
@@ -228,6 +236,9 @@ namespace db0
          * if not found then create a new slab
         */
         std::shared_ptr<SlabAllocator> getSlabAllocator(std::size_t min_capacity);
+
+        // internal "free" implementation which performs the dealloc instanly
+        void _free(std::uint64_t address);
     };
 
 }

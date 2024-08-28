@@ -146,6 +146,8 @@ namespace tests
 
         // free the allocated address (no need to provide slot number here)
         fixture->free(addr);
+        // must commit due to deferred free
+        fixture->commit();
         // make sure the address is no longer valid
         ASSERT_ANY_THROW(fixture->getAllocator().getAllocSize(addr));
     }

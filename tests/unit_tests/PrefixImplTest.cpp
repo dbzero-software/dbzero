@@ -516,7 +516,7 @@ namespace tests
         w3.release();
         cut.close();
     }
-
+    
     TEST_F( PrefixImplTest , testInconsistentLocksFromMultipleTransactionsIssue_2 )
     {
         BDevStorage::create(file_name);
@@ -546,5 +546,30 @@ namespace tests
 
         cut.close();
     }
-    
+        
+    TEST_F( PrefixImplTest , testInconsistentWideLockInDifferentTransactions )
+    {
+        // This test simulates creating a wide object, deleting it and then replacing
+        // it with a larger object at the same address (in 2 distinct transactions)
+        // such a situation cannot happen during a single transaction due to deferred free-s in MetaAllocator.
+        BDevStorage::create(file_name);
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, file_name);
+        auto page_size = cut.getPageSize();
+        
+        auto w1 = cut.mapRange(0, page_size * 2, { AccessOptions::create, AccessOptions::write });
+        w1.release();
+        cut.commit();
+        
+        // non-conflicting operations, independent locks should be created
+        auto w2 = cut.mapRange(0, page_size * 3, { AccessOptions::create, AccessOptions::write });
+        memcpy(w2.modify(), "12345678abcdefgh", 16);
+        w2.release();
+        cut.commit();
+
+        auto r1 = cut.mapRange(0, page_size * 3, { AccessOptions::read, AccessOptions::write });
+        auto str_value = std::string((char *)r1.m_buffer, 16);
+        ASSERT_EQ(str_value, "12345678abcdefgh");
+        cut.close();
+    }
+
 }

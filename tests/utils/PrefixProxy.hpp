@@ -19,7 +19,7 @@ namespace db0::tests
         {
         }
 
-        MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> options = {}) const override
+        MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> options = {}) override
         {
             if (m_map_range_callback) {
                 m_map_range_callback(address, size, options);

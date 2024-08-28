@@ -194,16 +194,13 @@ namespace db0
     void PageMap<ResourceLockT>::erase(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock)
     {
         std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
-        auto first_page = lock->getAddress() >> m_shift;
-        auto end_page = ((lock->getAddress() + lock->size() - 1) >> m_shift) + 1;
-        for (;first_page != end_page; ++first_page) {
-            auto it = find(first_page, state_num);
-            assert(it != m_cache.end());
-            assert(it->second.lock() == lock);
-            m_cache.erase(it);
-        }
+        auto page_num = lock->getAddress() >> m_shift;                
+        auto it = find(page_num, state_num);
+        assert(it != m_cache.end());
+        assert(it->second.lock() == lock);
+        m_cache.erase(it);        
     }
-
+    
     template <typename ResourceLockT> void PageMap<ResourceLockT>::clear() 
     {
         std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);

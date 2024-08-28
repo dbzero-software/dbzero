@@ -115,8 +115,8 @@ namespace db0
         return lock;
     }
     
-    std::shared_ptr<WideLock> PrefixCache::findRange(std::uint64_t first_page, std::uint64_t end_page,
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num) const    
+    std::shared_ptr<WideLock> PrefixCache::findRange(std::uint64_t first_page, std::uint64_t end_page, 
+        std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num) const
     {
         // wide range must span at least 2 pages
         assert(end_page > first_page + 1);
@@ -132,8 +132,16 @@ namespace db0
         }
         
         assert(lock->size() > 0);
-        // FIXME: handle conflicting wide locks
-        assert(((((lock->size() - 1) >> m_shift) + 1) == end_page - first_page) && "PrefixCache::findRange unexpected lock size");
+        // Conflicting lock exists in the same transaction
+        if ((((lock->size() - 1) >> m_shift) + 1) != end_page - first_page) {            
+            // Report conflicting lock as missing
+            if (read_state_num < state_num && !access_mode[AccessOptions::read]) {
+                return nullptr;
+            }
+
+            assert(false && "Conflicting wide lock found");
+            THROWF(db0::InternalException) << "Conflicting wide lock found";
+        }
         
         // Try upgrading the unused lock to the write state
         // this is to avoid CoW in a writer process
@@ -154,7 +162,7 @@ namespace db0
                 }
             }
         }
-
+        
         // register / update lock with the recycler (mark as accessed for LRU policy evaluation)
         assert(lock);
         if (m_cache_recycler_ptr) {

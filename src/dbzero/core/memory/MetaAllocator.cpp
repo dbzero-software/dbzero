@@ -525,7 +525,7 @@ namespace db0
     
     };
     
-    MetaAllocator::MetaAllocator(std::shared_ptr<Prefix> prefix, SlabRecycler *recycler)
+    MetaAllocator::MetaAllocator(std::shared_ptr<Prefix> prefix, SlabRecycler *recycler, bool deferred_free)
         : m_prefix(prefix)
         , m_header(getMetaHeader(prefix))
         , m_algo_allocator(
@@ -543,6 +543,7 @@ namespace db0
             getSlabIdFunction(o_meta_header::sizeOf(), m_header.m_page_size, m_header.m_slab_size)
             ))
         , m_recycler_ptr(recycler)
+        , m_deferred_free(deferred_free)
         , m_slab_id_function(getSlabIdFunction(o_meta_header::sizeOf(), m_header.m_page_size, m_header.m_slab_size))
     {
         // iterate the slab-defs / capacity items trees to determine the max address assigned within the algo-space
@@ -636,8 +637,18 @@ namespace db0
             }
         }
     }
-    
+
     void MetaAllocator::free(std::uint64_t address)
+    {
+        assert(m_deferred_free_ops.find(address) == m_deferred_free_ops.end());
+        if (m_deferred_free) {
+            m_deferred_free_ops.insert(address);
+        } else {
+            _free(address);
+        }
+    }
+
+    void MetaAllocator::_free(std::uint64_t address)
     {
         auto slab_id = m_slab_id_function(address);
         auto slab = m_slab_manager->find(slab_id);
@@ -648,8 +659,9 @@ namespace db0
         }
     }
     
-    std::size_t MetaAllocator::getAllocSize(std::uint64_t address) const 
+    std::size_t MetaAllocator::getAllocSize(std::uint64_t address) const
     {
+        assert(m_deferred_free_ops.find(address) == m_deferred_free_ops.end());
         auto slab_id = m_slab_id_function(address);
         return m_slab_manager->find(slab_id).m_slab->getAllocSize(address);        
     }
@@ -691,21 +703,25 @@ namespace db0
         assert(result->size() == size);
         return result;
     }
-
+    
     void MetaAllocator::commit()
     {
+        flush();
         m_slab_defs.commit();        
         m_capacity_items.commit();
         m_slab_manager->commit();
     }
 
     void MetaAllocator::detach() const
-    {
+    { 
+        if (!m_deferred_free_ops.empty()) {
+            m_deferred_free_ops.clear();        
+        }        
         m_slab_defs.detach();        
         m_capacity_items.detach();
         m_slab_manager->detach();
     }
-
+    
     SlabRecycler *MetaAllocator::getSlabRecyclerPtr() const {
         return m_recycler_ptr;
     }
@@ -716,6 +732,17 @@ namespace db0
         for (;!it.is_end();++it) {
             auto slab = m_slab_manager->openExistingSlab(*it);
             f(*slab, it->m_slab_id);
+        }
+    }
+
+    void MetaAllocator::flush() const
+    {
+        // perform the deferred free operations
+        if (!m_deferred_free_ops.empty()) {
+            for (auto addr : m_deferred_free_ops) {
+                const_cast<MetaAllocator&>(*this)._free(addr);
+            }
+            m_deferred_free_ops.clear();
         }
     }
 

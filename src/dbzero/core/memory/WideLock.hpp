@@ -24,6 +24,9 @@ namespace db0
             std::shared_ptr<DP_Lock> res_lock);
         
         void flush() override;
+
+        // Discard any writes made to the lock (before it's getting destroyed)
+        void undoWrite();
         
     private:
         std::shared_ptr<DP_Lock> m_res_lock;

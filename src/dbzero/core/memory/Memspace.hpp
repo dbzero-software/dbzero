@@ -45,15 +45,11 @@ namespace db0
         std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0);
         void free(std::uint64_t address);
 
-        inline Prefix &getPrefix() {
+        inline Prefix &getPrefix() const {
             return *m_prefix;
         }
 
-        inline const Prefix &getPrefix() const {
-            return *m_prefix;
-        }
-
-        std::shared_ptr<Prefix> getPrefixPtr() {
+        std::shared_ptr<Prefix> getPrefixPtr() const {
             return m_prefix;
         }
 

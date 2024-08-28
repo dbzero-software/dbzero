@@ -13,5 +13,8 @@ namespace db0
         }
         return *result;
     }
+    
+    void Allocator::flush() const {
+    }
 
 }

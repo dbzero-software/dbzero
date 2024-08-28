@@ -27,7 +27,7 @@ namespace db0
         DRAM_Prefix(std::size_t page_size);
         virtual ~DRAM_Prefix();
 
-        MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) const override;
+        MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
         std::uint64_t getStateNum() const override;
         

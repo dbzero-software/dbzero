@@ -228,6 +228,7 @@ def test_memo_object_destroys_its_pos_vt_dependencies(db0_fixture):
     db0.delete(obj)
     del obj
     db0.clear_cache()
+    db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
         db0.fetch(dep_uuid)
