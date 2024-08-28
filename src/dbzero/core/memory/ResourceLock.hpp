@@ -3,7 +3,8 @@
 #include <cstdint>
 #include <memory>
 #include <atomic>
-#include "BaseLock.hpp"
+#include <cassert>
+#include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
 #include <dbzero/core/threading/Flags.hpp>
 #include <dbzero/core/utils/FixedList.hpp>
@@ -12,55 +13,120 @@ namespace db0
 
 {
 
+    class BaseStorage;
+
     /**
-     * A ResourceLock holds a single or multiple data pages in a specific state (read)
+     * A ResourceLock is the foundation class for DP_Lock and BoundaryLock implementations    
+     * it supposed to hold a single or multiple data pages in a specific state (read)
      * mutable locks can process updates from the current transaction only and cannot be later mutated
-     * If a ResourceLock has no owner object, it can be dragged on to the next transaction (to avoid CoWs)
+     * If a DP_Lock has no owner object, it can be dragged on to the next transaction (to avoid CoWs)
      * and improve cache performance
      */
-    class ResourceLock: public BaseLock
+    class ResourceLock
     {
     public:
-        /**         
-         * @param address the resource address
-         * @param size size of the resource
-         * @param access_mode access flags
-         * @param read_state_num the existing state number of the finalized transaction (or 0 if not available)
-         * @param write_state_num the current transaction number (or 0 for read-only locks)
-         * @param create_new flag indicating if this a newly created resource (e.g. newly appended data page)
-        */
-        ResourceLock(BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint64_t read_state_num,
-            std::uint64_t write_state_num , bool create_new = false);
+        ResourceLock(BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
+            bool create_new);
+        ResourceLock(const ResourceLock &, FlagSet<AccessOptions>);        
+        
+        virtual ~ResourceLock();
         
         /**
-         * Create a copied-on-write lock from an existing lock         
+         * Get the underlying buffer
         */
-        ResourceLock(const ResourceLock &, std::uint64_t write_state_num, FlagSet<AccessOptions>);
-                
+        inline void *getBuffer() const {
+            return m_data.data();
+        }
+
+        inline void *getBuffer(std::uint64_t address) const
+        {
+            assert(address >= m_address && address < m_address + m_data.size());
+            return static_cast<std::byte*>(getBuffer()) + address - m_address;
+        }
+        
         /**
          * Flush data from local buffer and clear the 'dirty' flag
          * data is not flushed if not dirty.
          * Data is flushed into the current state of the associated storage view
         */
-        void flush() override;
-        
+        virtual void flush() = 0;
+
         /**
-         * Update lock to a different state number
-         * this can safely be done only for unused locks (cached only)
-         * This operation will also upgrade the acccess mode to "write"
-         * @param state_num the new state number
-         * @param no_flush true to additionally assign the no_flush flag
-         */
-        void updateStateNum(std::uint64_t state_num, bool no_flush);
+         * Clear the 'dirty' flag if it has been set
+         * @return true if the flag was set
+        */
+        bool resetDirtyFlag();
+            
+        inline std::uint64_t getAddress() const {
+            return m_address;
+        }
+
+        inline std::size_t size() const {
+            return m_data.size();
+        }
+
+        inline bool isRecycled() const {
+            return m_resource_flags & db0::RESOURCE_RECYCLED;
+        }
         
-        std::uint64_t getStateNum() const;
+        inline void setDirty() {
+            safeSetFlags(m_resource_flags, db0::RESOURCE_DIRTY);
+        }
         
-        // Updates the local state number before merging atomic operation with active transaction
-        void merge(std::uint64_t final_state_num);
+        bool isCached() const;
         
+        BaseStorage &getStorage() const {
+            return m_storage;
+        }
+
+        bool isDirty() const {
+            return m_resource_flags & db0::RESOURCE_DIRTY;
+        }
+        
+        void copyFrom(const ResourceLock &);
+
+        // clears the no_flush flag if it was set
+        void resetNoFlush();
+
+#ifndef NDEBUG
+        // get total memory usage of all ResourceLock instances
+        static std::size_t getTotalMemoryUsage();
+#endif
+
     protected:
+        friend class CacheRecycler;
+        friend class BoundaryLock;
+        using list_t = db0::FixedList<std::shared_ptr<ResourceLock> >;
+        using iterator = list_t::iterator;
+        
+        using ResourceDirtyMutexT = ROWO_Mutex<
+            std::uint16_t, 
+            db0::RESOURCE_DIRTY,
+            db0::RESOURCE_DIRTY,
+            db0::RESOURCE_LOCK >;
+        
         // the updated state number or read-only state number
-        std::uint64_t m_state_num;        
+        BaseStorage &m_storage;
+        const std::uint64_t m_address;
+        mutable std::atomic<std::uint16_t> m_resource_flags = 0;
+        FlagSet<AccessOptions> m_access_mode;
+        
+        mutable std::vector<std::byte> m_data;
+        // CacheRecycler's iterator
+        iterator m_recycle_it = 0;
+
+        // Conversion constructor
+        ResourceLock(ResourceLock &&, std::vector<std::byte> &&data);
+
+        void setRecycled(bool is_recycled);
+
+        bool addrPageAligned(BaseStorage &) const;
+
+    private:
+#ifndef NDEBUG
+        static std::atomic<std::size_t> bl_usage;
+        static std::atomic<std::size_t> bl_op_count;
+#endif        
     };
-    
+
 }

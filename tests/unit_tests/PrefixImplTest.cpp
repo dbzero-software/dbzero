@@ -103,7 +103,7 @@ namespace tests
         cut.close();
     }
     
-    TEST_F( PrefixImplTest , testMapRangeCanReuseResourceLocks )
+    TEST_F( PrefixImplTest , testMapRangeCanReuseDP_Locks )
     {
         BDevStorage::create(file_name);
         PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, file_name);
@@ -494,6 +494,57 @@ namespace tests
         ASSERT_TRUE(w1);
         ASSERT_TRUE(w2);
         cut.close();
-    }    
+    }
+    
+    TEST_F( PrefixImplTest , testInconsistentLocksFromMultipleTransactionsIssue_1 )
+    {
+        BDevStorage::create(file_name);
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, file_name);
+        auto page_size = cut.getPageSize();
+
+        // lock page #1 from transaction #1
+        auto w1 = cut.mapRange(0, 32, { AccessOptions::create, AccessOptions::write });        
+        w1.release();
+        cut.commit();
+
+        // lock page #2 from transaction #2
+        auto w2 = cut.mapRange(page_size + 16, 16, { AccessOptions::create, AccessOptions::write });        
+        w2.release();
+
+        // lock page #1 + #2 from transaction #3 (as a wide lock)
+        auto w3 = cut.mapRange(0, page_size + 128, { AccessOptions::create, AccessOptions::write });    
+        w3.release();
+        cut.close();
+    }
+
+    TEST_F( PrefixImplTest , testInconsistentLocksFromMultipleTransactionsIssue_2 )
+    {
+        BDevStorage::create(file_name);
+        PrefixImpl<BDevStorage> cut(file_name, &m_cache_recycler, file_name);
+        auto page_size = cut.getPageSize();
+
+        auto w1 = cut.mapRange(0, 32, { AccessOptions::create, AccessOptions::write });        
+        memcpy(w1.modify(), "88888888", 8);
+        w1.release();
+        cut.commit();
+        
+        // lock page #2 from transaction #2 & update it
+        auto w2 = cut.mapRange(page_size + 1024, 16, { AccessOptions::create, AccessOptions::write });
+        memcpy(w2.modify(), "12345678abcdefgh", 16);
+        w2.release();
+
+        // lock page #1 + #2 (as incomplete wide range) from transaction #3 & update it
+        auto w3 = cut.mapRange(0, page_size + 16, { AccessOptions::create, AccessOptions::write });
+        memcpy((char*)w3.modify() + page_size, "99999999", 8);
+        w3.release();
+        cut.commit();
+        
+        // now, try reading the page #2 using the latest transaction number
+        auto r1 = cut.mapRange(page_size + 1024, 16, { AccessOptions::read });
+        auto str_value = std::string((char *)r1.m_buffer, 16);
+        ASSERT_EQ(str_value, "12345678abcdefgh");
+
+        cut.close();
+    }
     
 }

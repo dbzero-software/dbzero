@@ -7,7 +7,7 @@ namespace db0
 {
     
     DRAM_Prefix::MemoryPage::MemoryPage(BaseStorage &storage, std::uint64_t address, std::size_t size)
-        : m_lock(std::make_shared<ResourceLock>(storage, address, size,
+        : m_lock(std::make_shared<DP_Lock>(storage, address, size,
             FlagSet<AccessOptions> { AccessOptions::write, AccessOptions::create }, 0, 0, true))
         // pull from Storage0 temp instance
         , m_buffer(m_lock->getBuffer(address))

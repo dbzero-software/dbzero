@@ -4,22 +4,28 @@
 namespace db0
 
 {
-
+    
     SnapshotCache::SnapshotCache(BaseStorage &storage, CacheRecycler *recycler_ptr)
         : PrefixCache(storage, recycler_ptr)
     {
     }
     
-    void SnapshotCache::insertRange(std::shared_ptr<ResourceLock> lock, std::uint64_t state_num)
+    void SnapshotCache::insert(std::shared_ptr<DP_Lock> lock, std::uint64_t state_num)
     {
-        auto first_page = lock->getAddress() >> m_shift;
-        auto end_page = ((lock->getAddress() + lock->size() - 1) >> m_shift) + 1;
-        m_page_map.insertRange(state_num, lock, first_page, end_page);
-
+        m_dp_map.insert(state_num, lock);
         // register / update lock with the recycler
         if (m_cache_recycler_ptr) {
             m_cache_recycler_ptr->update(lock);
         }                
     }
     
+    void SnapshotCache::insertWide(std::shared_ptr<WideLock> lock, std::uint64_t state_num)
+    {
+        m_wide_map.insert(state_num, lock);
+        // register / update lock with the recycler
+        if (m_cache_recycler_ptr) {
+            m_cache_recycler_ptr->update(lock);
+        }                
+    }
+
 }

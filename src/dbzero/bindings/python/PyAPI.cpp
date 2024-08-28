@@ -759,9 +759,9 @@ namespace db0::python
         return runSafe(trySetCacheSize, &PyToolkit::getPyWorkspace().getWorkspace(), cache_size);
     }
     
-    PyObject *getBaseLockUsage(PyObject *, PyObject *)
+    PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {
-        std::size_t base_lock_usage = db0::BaseLock::getTotalMemoryUsage();
+        std::size_t base_lock_usage = db0::ResourceLock::getTotalMemoryUsage();
         return PyLong_FromSize_t(base_lock_usage);
     }    
     

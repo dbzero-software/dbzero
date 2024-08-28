@@ -6,7 +6,7 @@ namespace db0
 
 {
 
-    MemLock::MemLock(void *buffer, std::shared_ptr<BaseLock> lock)
+    MemLock::MemLock(void *buffer, std::shared_ptr<ResourceLock> lock)
         : m_buffer(buffer)
         , m_lock(lock)
     {

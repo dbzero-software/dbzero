@@ -24,7 +24,7 @@ namespace db0
     static constexpr std::uint16_t RESOURCE_AVAILABLE_FOR_WRITE = 0x0002;
     static constexpr std::uint16_t RESOURCE_AVAILABLE_FOR_RW    = RESOURCE_AVAILABLE_FOR_READ | RESOURCE_AVAILABLE_FOR_WRITE;
     static constexpr std::uint16_t RESOURCE_LOCK                = 0x0010;
-    // DIRTY / RECYCLED flags are used by the ResourceLock
+    // DIRTY / RECYCLED flags are used by the DP_Lock
     static constexpr std::uint16_t RESOURCE_DIRTY               = 0x0100;
     // Flag indicating if the lock has been registered with cache recycler
     static constexpr std::uint16_t RESOURCE_RECYCLED            = 0x0200;

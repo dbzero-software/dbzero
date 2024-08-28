@@ -1,7 +1,7 @@
 #pragma once
 
 #include <memory>
-#include <dbzero/core/memory/ResourceLock.hpp>
+#include <dbzero/core/memory/DP_Lock.hpp>
 
 namespace db0
 
@@ -17,10 +17,10 @@ namespace db0
         /**
          * Underlying locked resource
         */
-		std::shared_ptr<BaseLock> m_lock;
+		std::shared_ptr<ResourceLock> m_lock;
         
         MemLock() = default;
-        MemLock(void *buffer, std::shared_ptr<BaseLock> lock);
+        MemLock(void *buffer, std::shared_ptr<ResourceLock> lock);
         MemLock(const MemLock &other) = default;
 
         /**

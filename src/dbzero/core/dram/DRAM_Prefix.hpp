@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <functional>
 #include <dbzero/core/memory/Prefix.hpp>
-#include <dbzero/core/memory/ResourceLock.hpp>
+#include <dbzero/core/memory/DP_Lock.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
 #include <optional>
 
@@ -76,7 +76,7 @@ namespace db0
 
         struct MemoryPage
         {
-            mutable std::shared_ptr<ResourceLock> m_lock;
+            mutable std::shared_ptr<DP_Lock> m_lock;
             void *m_buffer;
             
             MemoryPage(BaseStorage &, std::uint64_t address, std::size_t size);

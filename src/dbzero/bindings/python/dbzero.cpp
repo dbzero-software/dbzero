@@ -74,7 +74,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
     {"dbg_read_bytes", &py::readBytes, METH_VARARGS, "Debug function"},
-    {"get_base_lock_usage", &py::getBaseLockUsage, METH_VARARGS, "Debug function, retrieves total memory occupied by BaseLocks"},
+    {"get_base_lock_usage", &py::getResourceLockUsage, METH_VARARGS, "Debug function, retrieves total memory occupied by ResourceLocks"},
 #endif
     {NULL} // Sentinel
 };

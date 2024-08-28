@@ -1,0 +1,81 @@
+#include <dbzero/core/memory/DP_Lock.hpp>
+#include <iostream>
+#include <cstring>
+#include <cassert>
+#include <dbzero/core/storage/BaseStorage.hpp>
+
+namespace db0
+
+{
+    
+    DP_Lock::DP_Lock(BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
+        std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new)
+        : ResourceLock(storage, address, size, access_mode, create_new)
+        , m_state_num(std::max(read_state_num, write_state_num))
+    {
+        assert(addrPageAligned(m_storage));
+        // initialzie the local buffer
+        if (access_mode[AccessOptions::read]) {
+            assert(read_state_num > 0);
+            // read into the local buffer
+            storage.read(m_address, read_state_num, m_data.size(), m_data.data(), access_mode);
+        }
+    }
+
+    DP_Lock::DP_Lock(tag_derived, BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
+        std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new)
+        : ResourceLock(storage, address, size, access_mode, create_new)
+        , m_state_num(std::max(read_state_num, write_state_num))
+    {
+    }
+    
+    DP_Lock::DP_Lock(const DP_Lock &other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
+        : ResourceLock(other, access_mode)
+        , m_state_num(write_state_num)
+    {
+        assert(addrPageAligned(m_storage));
+        assert(m_state_num > 0);
+    }
+    
+    void DP_Lock::flush()
+    {
+        // no-flush flag is important for volatile locks (atomic operations)
+        if (m_access_mode[AccessOptions::no_flush]) {
+            return;
+        }
+
+        using MutexT = ResourceDirtyMutexT;
+        while (MutexT::__ref(m_resource_flags).get()) {
+            MutexT::WriteOnlyLock lock(m_resource_flags);
+            if (lock.isLocked()) {
+                // write from the local buffer
+                m_storage.write(m_address, m_state_num, m_data.size(), m_data.data());
+                // reset the dirty flag
+                lock.commit_reset();
+            }
+        }        
+    }
+    
+    std::uint64_t DP_Lock::getStateNum() const {
+        return m_state_num;
+    }
+    
+    void DP_Lock::updateStateNum(std::uint64_t state_num, bool no_flush)
+    {
+        assert(state_num > m_state_num);
+        assert(!isDirty());        
+        m_state_num = state_num;
+        setDirty();
+        if (no_flush) {
+            m_access_mode.set(AccessOptions::no_flush);
+        }
+    }
+    
+    void DP_Lock::merge(std::uint64_t final_state_num)
+    {
+        // for atomic operations current state num is active transaction +1
+        assert(m_state_num == final_state_num + 1);
+        m_state_num = final_state_num;
+    }
+    
+}

@@ -12,7 +12,8 @@ namespace db0
         SnapshotCache(BaseStorage &, CacheRecycler *);
 
         // adds the read-only range to this instance
-        void insertRange(std::shared_ptr<ResourceLock>, std::uint64_t state_num);
+        void insert(std::shared_ptr<DP_Lock>, std::uint64_t state_num);
+        void insertWide(std::shared_ptr<WideLock>, std::uint64_t state_num);
     };
-
-}
+    
+}   

@@ -18,15 +18,15 @@ namespace db0
     }
     
     void CacheRecycler::adjustSize(std::unique_lock<std::mutex> &, 
-        std::vector<std::shared_ptr<BaseLock> > &released_locks, std::size_t requested_release_size)
+        std::vector<std::shared_ptr<ResourceLock> > &released_locks, std::size_t requested_release_size)
     {
         std::size_t released_size = 0;
         // try flushing 'requested_release_size' number of excess elements
         auto it = m_res_buf.begin(), end = m_res_buf.end();
         while (it != end && released_size < requested_release_size) {
-            // only release locks with no active external references
+            // only release locks with no active external references (other than the CacheRecycler itself)
             if ((*it).use_count() == 1) {
-                std::shared_ptr<BaseLock> temp_lock = *it;
+                std::shared_ptr<ResourceLock> temp_lock = *it;
                 auto lock_size = temp_lock->size();
                 released_size += lock_size;
                 temp_lock->setRecycled(false);
@@ -43,7 +43,7 @@ namespace db0
 
     void CacheRecycler::updateSize(std::unique_lock<std::mutex> &lock, std::size_t expected_size)
     {
-        std::vector<std::shared_ptr<BaseLock> > released_locks;
+        std::vector<std::shared_ptr<ResourceLock> > released_locks;
         // we make 2 iterations because dependent locks (i.e. owned by the boundary lock)
         // will be released only during the second pass
         for (int i = 0; i < 2; ++i) {
@@ -72,7 +72,7 @@ namespace db0
         }
     }
     
-    void CacheRecycler::update(std::shared_ptr<BaseLock> res_lock)
+    void CacheRecycler::update(std::shared_ptr<ResourceLock> res_lock)
     {
         bool flushed, flush_result = false;        
 		if (res_lock) {
@@ -146,7 +146,7 @@ namespace db0
         }
     }
     
-    void CacheRecycler::release(BaseLock &res, std::unique_lock<std::mutex> &)
+    void CacheRecycler::release(ResourceLock &res, std::unique_lock<std::mutex> &)
     {
         if (res.isRecycled()) {
             res.setRecycled(false);
@@ -163,7 +163,7 @@ namespace db0
         return m_capacity;
     }
     
-    void CacheRecycler::forEach(std::function<void(std::shared_ptr<BaseLock>)> f) const
+    void CacheRecycler::forEach(std::function<void(std::shared_ptr<ResourceLock>)> f) const
     {
         std::unique_lock<std::mutex> lock(m_mutex);
         for (const auto &p: m_res_buf) {

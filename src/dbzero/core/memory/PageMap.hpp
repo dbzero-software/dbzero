@@ -6,7 +6,7 @@
 #include <functional>
 #include <shared_mutex>
 #include <mutex>
-#include <dbzero/core/memory/ResourceLock.hpp>
+#include <dbzero/core/memory/DP_Lock.hpp>
 #include <dbzero/core/memory/BoundaryLock.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/memory/utils.hpp>
@@ -30,47 +30,40 @@ namespace db0
         using PageKeyT = std::pair<std::uint64_t, std::uint64_t>;
         
         /**
-         * Try finding the closest match for a given state
-         * @param conflict the conflict flag will be set if inconsistent locks exist (see Handling conflicting access patters in docs)
+         * Check if the DP exists without returning its parameters
         */
-        std::shared_ptr<ResourceLockT> findRange(std::uint64_t state_num, std::uint64_t first_page,
-            std::uint64_t end_page, std::uint64_t &read_state_num, int &conflicts) const;
+        bool exists(std::uint64_t state_num, std::uint64_t page_num) const;
 
-        /**
-         * Check if the range exists without returning its parameters
-        */
-        bool rangeExists(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page) const;
-
-        std::shared_ptr<ResourceLockT> findPage(std::uint64_t state_num, std::uint64_t page_num,
+        std::shared_ptr<ResourceLockT> find(std::uint64_t state_num, std::uint64_t page_num,
             std::uint64_t &read_state_num) const;
         
-        void insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT>);
-        void insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT>,
-            std::uint64_t first_page, std::uint64_t end_page);
+        void insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT>);
 
-        void insertPage(std::uint64_t state_num, std::shared_ptr<ResourceLockT>, std::uint64_t page_num);
+        void insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT>, std::uint64_t page_num);
 
         void forEach(std::function<void(const ResourceLockT &)>) const;
 
         void forEach(std::function<void(ResourceLockT &)>);
 
-        // Erase lock stored under a known state number
-        void erase(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock);
-        void erasePage(std::uint64_t state_num, std::uint64_t page_num);
-        void eraseRange(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page);        
-        
         // @return true if the lock was reused (inserted into the existing range)
-        bool replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t first_page,
-            std::uint64_t end_page);
-        // @return true if the lock was reused (inserted into the existing range)
-        bool replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num);
+        bool replace(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num);
 
         void clear();
 
         bool empty() const;
 
         std::size_t size() const;
+                
+    protected:
+        // NOTE: since erase operations may potentially lead to inconsistencies 
+        // (e.g. data not available in cache and not flushed to storage yet)
+        // we need to only perform them from a well researched contexts
+        friend class PrefixCache;
         
+        // Erase lock stored under a known state number
+        void erase(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock);
+        void erase(std::uint64_t state_num, std::uint64_t page_num);
+
     private:        
         const unsigned int m_shift;
         mutable std::shared_mutex m_rw_mutex;
@@ -81,11 +74,15 @@ namespace db0
             }
         };
 
-        // page-wise cache, note that a single ResourceLock may be associated with multiple pages
+        // page-wise cache, note that a single DP_Lock may be associated with multiple pages
         mutable std::map<PageKeyT, std::weak_ptr<ResourceLockT>, CompT> m_cache;        
         using CacheIterator = typename decltype(m_cache)::iterator;
 
         CacheIterator find(std::uint64_t page_num, std::uint64_t state_num) const;
+
+        // Erase ALL locks with a given page number where state < state_num
+        // irrespective of their use count, this is required for handling inconsistent locks problem
+        void eraseAll(std::uint64_t page_num, std::uint64_t state_num) const;
     };
     
     template <typename ResourceLockT>
@@ -95,34 +92,20 @@ namespace db0
     }
 
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock,
-        std::uint64_t first_page, std::uint64_t end_page)
+    void PageMap<ResourceLockT>::insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock)
     {
-        PageKeyT key { first_page, state_num };
         std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
-        while (key.first != end_page) {
-            // this is to overwrite existing keys which may already exist
-            // e.g. due to "missing" range sentinels
-            m_cache[key] = lock;
-            ++key.first;
-        }
+        m_cache[{lock->getAddress() >> m_shift, state_num}] = lock;
     }
 
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::insertRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock)
-    {
-        auto first_page = lock->getAddress() >> m_shift;
-        auto end_page = ((lock->getAddress() + lock->size() - 1) >> m_shift) + 1;
-        insertRange(state_num, lock, first_page, end_page);
-    }
-    
-    template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::insertPage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num)
+    void PageMap<ResourceLockT>::insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
+        std::uint64_t page_num)
     {
         std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
-        m_cache.insert({{page_num, state_num}, lock});
+        m_cache[{page_num, state_num}] = lock;
     }
-    
+
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::forEach(std::function<void(const ResourceLockT &)> f) const 
     {
@@ -146,63 +129,16 @@ namespace db0
             }
         }
     }
-    
+
     template <typename ResourceLockT>
-    std::shared_ptr<ResourceLockT> PageMap<ResourceLockT>::findRange(std::uint64_t state_num, std::uint64_t first_page,
-        std::uint64_t end_page, std::uint64_t &read_state_num, int &conflicts) const
+    bool PageMap<ResourceLockT>::exists(std::uint64_t state_num, std::uint64_t page_num) const
     {
-        assert(first_page < end_page);
-        std::shared_ptr<ResourceLock> result;
-        read_state_num = 0;
-        // needs to be a unique lock due to potential m_cache::erase operation
-        // might want to refactor to a progressive mutex in the future
-        std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
-        for (auto page_num = first_page; page_num != end_page; ++page_num) {
-            auto it = find(page_num, state_num);
-            // this situation is disallowed
-            if (it == m_cache.end() && result) {
-                THROWF(db0::InternalException) << "PrefixCache::findRange: inconsistent locks exist for the same range";
-            }
-            if (it != m_cache.end()) {
-                auto lock = it->second.lock();
-                if (lock) {        
-                    assert((!result || result == lock) && "PrefixCache::findRange: inconsistent locks exist for the same range");
-                    assert((!read_state_num || read_state_num == it->first.second)
-                        && "PrefixCache::findRange: inconsistent states exist for the same range");
-
-                    if (page_num > first_page && !result) {
-                        ++conflicts;
-                    }
-
-                    result = lock;
-                    if (!read_state_num) {
-                        read_state_num = it->first.second;
-                    }
-                } else {
-                    assert(!result && "PrefixCache::findRange: inconsistent locks exist for the same range");
-                    // remove expired weak_ptr
-                    m_cache.erase(it);
-                }
-            }
-        }
-        return result;
+        std::shared_lock<std::shared_mutex> _lock(m_rw_mutex);        
+        return find(page_num, state_num) != m_cache.end();
     }
     
     template <typename ResourceLockT>
-    bool PageMap<ResourceLockT>::rangeExists(std::uint64_t state_num, std::uint64_t first_page, std::uint64_t end_page) const
-    {
-        std::shared_lock<std::shared_mutex> _lock(m_rw_mutex);
-        for (; first_page != end_page; ++first_page) {
-            auto it = find(first_page, state_num);
-            if (it != m_cache.end()) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    template <typename ResourceLockT>
-    std::shared_ptr<ResourceLockT> PageMap<ResourceLockT>::findPage(std::uint64_t state_num, std::uint64_t page_num,
+    std::shared_ptr<ResourceLockT> PageMap<ResourceLockT>::find(std::uint64_t state_num, std::uint64_t page_num,
         std::uint64_t &read_state_num) const
     {
         // needs to be unique locked due to potential m_cache::erase operation
@@ -232,12 +168,28 @@ namespace db0
         if (it != m_cache.begin() && (it->first.second > state_num || it->first.first != page_num)) {
             --it;
         }
-        if (it->first.first != page_num || it->first.second > state_num) {
-            return m_cache.end();
+        if (it->first.first == page_num && it->first.second <= state_num) {
+            return it;
         }
-        return it;
+        return m_cache.end();
     }
-    
+
+    template <typename ResourceLockT> void PageMap<ResourceLockT>::eraseAll(
+        std::uint64_t page_num, std::uint64_t state_num) const
+    {
+        auto it = m_cache.lower_bound({page_num, state_num});
+        if (it == m_cache.end() && !m_cache.empty()) {
+            --it;
+        }
+        if (it != m_cache.begin() && (it->first.second > state_num || it->first.first != page_num)) {
+            --it;
+        }
+        // NOTE: we're NOT erasing locks exactly matching the state number
+        while (it->first.first == page_num && it->first.second < state_num) {
+            it = m_cache.erase(it);
+        }
+    }
+
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::erase(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock)
     {
@@ -265,55 +217,25 @@ namespace db0
     }
     
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::erasePage(std::uint64_t state_num, std::uint64_t page_num)
+    void PageMap<ResourceLockT>::erase(std::uint64_t state_num, std::uint64_t page_num)
     {
         std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
         m_cache.erase({page_num, state_num});
     }
 
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::eraseRange(std::uint64_t state_num, std::uint64_t first_page,
-        std::uint64_t end_page)
-    {
-        std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
-        for (; first_page != end_page; ++first_page) {
-            m_cache.erase({first_page, state_num});
-        }
-    }
-    
-    template <typename ResourceLockT>
-    bool PageMap<ResourceLockT>::replacePage(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
+    bool PageMap<ResourceLockT>::replace(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
         std::uint64_t page_num)
     {
         std::uint64_t existing_state_num;
-        auto existing_lock = findPage(state_num, page_num, existing_state_num);
+        auto existing_lock = find(state_num, page_num, existing_state_num);
         if (existing_lock && existing_state_num == state_num) {
             assert(existing_lock->size() == lock->size());
             // apply changes from the lock being merged
             existing_lock->copyFrom(*lock);
             return false;
         } else {
-            insertPage(state_num, lock, page_num);
-            return true;
-        }
-    }
-    
-    template <typename ResourceLockT>
-    bool PageMap<ResourceLockT>::replaceRange(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock,
-        std::uint64_t first_page, std::uint64_t end_page)
-    {        
-        std::uint64_t existing_state_num;
-        int conflicts = 0;
-        auto existing_lock = findRange(state_num, first_page, end_page, existing_state_num, conflicts);
-        // FIXME: implement
-        assert(!conflicts && "PrefixCache::replaceRange: not implemented");
-        if (existing_lock && existing_state_num == state_num) {
-            assert(existing_lock->size() == lock->size());
-            // apply changes from the lock being merged
-            existing_lock->copyFrom(*lock);
-            return false;
-        } else {
-            insertRange(state_num, lock);
+            insert(state_num, lock);
             return true;
         }
     }
@@ -324,5 +246,5 @@ namespace db0
         std::shared_lock<std::shared_mutex> _lock(m_rw_mutex);
         return m_cache.size();
     }
-    
+
 }

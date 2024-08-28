@@ -2,7 +2,7 @@
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/core/memory/PrefixCache.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
-#include <dbzero/core/memory/ResourceLock.hpp>
+#include <dbzero/core/memory/DP_Lock.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
 
@@ -13,7 +13,7 @@ namespace tests
 
 {
 
-    class PrefixCacheTest: public testing::Test 
+    class PrefixCacheTest: public testing::Test
     {
     public:
         virtual void SetUp() override {            
@@ -23,48 +23,43 @@ namespace tests
         }    
     };
     
-    TEST_F( PrefixCacheTest , testPrefixCacheCanTrackNegations )
+    TEST_F( PrefixCacheTest , testPrefixCacheCanTrackDPNegations )
     {        
         db0::Storage0 dev_null;
         PrefixCache cut(dev_null, nullptr);
 
-        // state = 1, pages = 0 ... 9
-        auto lock_1 = cut.createRange(0, 10, 0, 1, { AccessOptions::write });
-        // same range, different state (11)
-        auto lock_2 = cut.createRange(0, 10, 0, 11, { AccessOptions::write });
+        // state = 1, page_num = 0
+        auto lock_1 = cut.createPage(0, 0, 1, { AccessOptions::write });
+        // same page, different state (11)
+        auto lock_2 = cut.createPage(0, 0, 11, { AccessOptions::write });
         
         std::uint64_t state_num;
-        int conflicts = 0;
-        ASSERT_EQ(cut.findRange(0, 3, 1, {}, state_num, conflicts), lock_1);
-        ASSERT_EQ(cut.findRange(0, 10, 1, {}, state_num, conflicts), lock_1);
+        ASSERT_EQ(cut.findPage(0, 1, {}, state_num), lock_1);        
         // state 14 is reported as existing
-        ASSERT_NE(cut.findRange(4, 7, 14, {}, state_num, conflicts), std::shared_ptr<ResourceLock> {});
+        ASSERT_NE(cut.findPage(0, 14, {}, state_num), nullptr);
         
         // add range as negated in state 12
-        cut.markRangeAsMissing(4, 7, 12);
+        cut.markAsMissing(0, 12);
         // state not existing in cache
-        ASSERT_EQ(cut.findRange(14, 17, 14, {}, state_num, conflicts), std::shared_ptr<ResourceLock> {});
-        ASSERT_FALSE(conflicts);
+        ASSERT_EQ(cut.findPage(0, 14, {}, state_num), nullptr);
         cut.release();
     }
     
-    TEST_F( PrefixCacheTest , testPrefixCacheNegationsClearedByCreateRange )
+    TEST_F( PrefixCacheTest , testPrefixCacheNegationsClearedByCreatePage )
     {
         db0::Storage0 dev_null;
         PrefixCache cut(dev_null, nullptr);
 
         // address, state_num, size
-        auto lock_1 = cut.createRange(0, 1, 0, 1, { AccessOptions::write });
-        auto lock_2 = cut.createRange(0, 1, 0, 11, { AccessOptions::write });
-        // this simulates transaction 12 executed by an external process
-        cut.markRangeAsMissing(0, 1, 12);
+        auto lock_1 = cut.createPage(0, 0, 1, { AccessOptions::write });
+        auto lock_2 = cut.createPage(0, 0, 11, { AccessOptions::write });
+        // this simulates transaction 12 on page #0 executed by an external process
+        cut.markAsMissing(0, 12);
         // this simulates retrieval of data from state_num = 12
-        auto lock_3 = cut.createRange(0, 1, 0, 12, { AccessOptions::write });
+        auto lock_3 = cut.createPage(0, 0, 12, { AccessOptions::write });
         
         std::uint64_t state_num;
-        int conflicts = 0;
-        ASSERT_EQ(cut.findRange(0, 1, 14, {}, state_num, conflicts), lock_3);
-        ASSERT_FALSE(conflicts);
+        ASSERT_EQ(cut.findPage(0, 14, {}, state_num), lock_3);
         cut.release();
     }
     
@@ -77,24 +72,21 @@ namespace tests
         // first page, end page, read state num, state num
         // create page in state #1
         {
-            auto lock = cut.createRange(0, 1, 0, 1, { AccessOptions::write });
+            auto lock = cut.createPage(0, 0, 1, { AccessOptions::write });
             lock->flush();
-        }    
+        }
         // request state #2 for read-write (note that lock has been released)
         std::uint64_t read_state_num;
-        int conflicts = 0;
-        auto lock = cut.findRange(0, 1, 2, { AccessOptions::read, AccessOptions::write }, read_state_num, conflicts);
+        auto lock = cut.findPage(0, 2, { AccessOptions::read, AccessOptions::write }, read_state_num);
         ASSERT_TRUE(lock);
-
+        
         // make sure only 1 lock is cached (no CoW), since upgrade took place
         ASSERT_EQ(cache_recycler.size(), lock->size());
         
         // now, try reading the state #1 version of the page
-        auto lock_1 = cut.findRange(0, 1, 1, { AccessOptions::read }, read_state_num, conflicts);
+        auto lock_1 = cut.findPage(0, 1, { AccessOptions::read }, read_state_num);
         // lock of this version should be no longer present in cache
         ASSERT_FALSE(lock_1);
-        ASSERT_FALSE(conflicts);
-
         cut.release();
     }
     

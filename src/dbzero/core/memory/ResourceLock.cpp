@@ -1,4 +1,4 @@
-#include <dbzero/core/memory/ResourceLock.hpp>
+#include "ResourceLock.hpp"
 #include <iostream>
 #include <cstring>
 #include <cassert>
@@ -6,69 +6,117 @@
 
 namespace db0
 
-{
+{   
     
-    ResourceLock::ResourceLock(BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-        std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new)
-        : BaseLock(storage, address, size, access_mode, create_new)
-        , m_state_num(std::max(read_state_num, write_state_num))
-    {
-        assert(addrPageAligned(m_storage));
-        // initialzie the local buffer
-        if (access_mode[AccessOptions::read]) {
-            assert(read_state_num > 0);
-            // read into the local buffer
-            storage.read(m_address, read_state_num, m_data.size(), m_data.data(), access_mode);
-        }
-    }
-    
-    ResourceLock::ResourceLock(const ResourceLock &other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
-        : BaseLock(other, access_mode)
-        , m_state_num(write_state_num)
-    {
-        assert(addrPageAligned(m_storage));
-        assert(m_state_num > 0);
-    }
-    
-    void ResourceLock::flush()
-    {
-        // no-flush flag is important for volatile locks (atomic operations)
-        if (m_access_mode[AccessOptions::no_flush]) {
-            return;
-        }
+#ifndef NDEBUG
+    std::atomic<std::size_t> ResourceLock::bl_usage = 0;
+    std::atomic<std::size_t> ResourceLock::bl_op_count = 0;
+#endif    
 
+    ResourceLock::ResourceLock(BaseStorage &storage, std::uint64_t address, std::size_t size,
+        FlagSet<AccessOptions> access_mode, bool create_new)
+        : m_storage(storage)
+        , m_address(address)
+        , m_resource_flags(
+            (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) | 
+            (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
+        , m_access_mode(access_mode)            
+        , m_data(size)
+    {
+        if (create_new) {
+            std::memset(m_data.data(), 0, m_data.size());
+        }        
+#ifndef NDEBUG        
+        bl_usage += m_data.size();
+        ++bl_op_count;
+#endif        
+    }
+
+    ResourceLock::ResourceLock(const ResourceLock &lock, FlagSet<AccessOptions> access_mode)
+        : m_storage(lock.m_storage)
+        , m_address(lock.m_address)
+        // copy-on-write, assume dirty, the recycled flag must be erased
+        , m_resource_flags(
+            ((lock.m_resource_flags | db0::RESOURCE_DIRTY) & ~db0::RESOURCE_RECYCLED) |
+            (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
+        , m_access_mode(access_mode)            
+        , m_data(lock.m_data)
+    {
+#ifndef NDEBUG
+        bl_usage += m_data.size();
+        ++bl_op_count;
+#endif        
+    }
+    
+    ResourceLock::ResourceLock(ResourceLock &&other, std::vector<std::byte> &&data)
+        : m_storage(other.m_storage)
+        , m_address(other.m_address)
+        , m_resource_flags(other.m_resource_flags.load())
+        , m_access_mode(other.m_access_mode)
+        , m_data(std::move(data))
+        , m_recycle_it(std::move(other.m_recycle_it))
+    {
+#ifndef NDEBUG
+        bl_usage += m_data.size();
+        ++bl_op_count;
+#endif
+    }
+
+    ResourceLock::~ResourceLock()
+    {
+#ifndef NDEBUG        
+        bl_usage -= m_data.size();
+        ++bl_op_count;
+#endif
+        // make sure the dirty flag is not set (unless no-flush lock)
+        assert(!isDirty() || m_access_mode[AccessOptions::no_flush]);
+    }
+    
+    bool ResourceLock::addrPageAligned(BaseStorage &storage) const {
+        return m_address % storage.getPageSize() == 0;
+    }
+    
+    void ResourceLock::setRecycled(bool is_recycled)
+    {
+        if (is_recycled) {
+            safeSetFlags(m_resource_flags, RESOURCE_RECYCLED);
+        } else {
+            safeResetFlags(m_resource_flags, RESOURCE_RECYCLED);
+        }
+    }
+    
+    bool ResourceLock::isCached() const {
+        return !(m_resource_flags & db0::RESOURCE_NO_CACHE);
+    }
+    
+    bool ResourceLock::resetDirtyFlag()
+    {
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
-                // write from the local buffer
-                m_storage.write(m_address, m_state_num, m_data.size(), m_data.data());
-                // reset the dirty flag
                 lock.commit_reset();
+                // dirty flag successfully reset by this thread
+                return true;
             }
-        }        
-    }
-    
-    std::uint64_t ResourceLock::getStateNum() const {
-        return m_state_num;
-    }
-    
-    void ResourceLock::updateStateNum(std::uint64_t state_num, bool no_flush)
-    {
-        assert(state_num > m_state_num);
-        assert(!isDirty());        
-        m_state_num = state_num;
-        setDirty();
-        if (no_flush) {
-            m_access_mode.set(AccessOptions::no_flush);
         }
+
+        return false;
     }
-        
-    void ResourceLock::merge(std::uint64_t final_state_num)
-    {
-        // for atomic operations current state num is active transaction +1
-        assert(m_state_num == final_state_num + 1);
-        m_state_num = final_state_num;
+
+    void ResourceLock::resetNoFlush() {
+        m_access_mode.set(AccessOptions::no_flush, false);
     }
     
+    void ResourceLock::copyFrom(const ResourceLock &other)
+    {
+        assert(other.size() == size());
+        setDirty();
+        std::memcpy(m_data.data(), other.m_data.data(), m_data.size());
+    }
+
+    std::size_t ResourceLock::getTotalMemoryUsage() {
+        return bl_usage;
+    }
+
 }

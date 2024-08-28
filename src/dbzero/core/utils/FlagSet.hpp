@@ -41,7 +41,8 @@ namespace db0
         FlagSet(const FlagSet &) = default;
 
         // Initializer list constructor
-        FlagSet(const std::initializer_list<enum_t> &initList) {
+        FlagSet(const std::initializer_list<enum_t> &initList)
+        {
             for (enum_t t: initList) {
                 m_flags |= static_cast<store_t>(t);
             }
@@ -51,7 +52,8 @@ namespace db0
          * Construct from vector of elements (can be std::string)
          * @tparam T
          */
-        template <typename T = EnumT> FlagSet(const std::vector<T> &values) {
+        template <typename T = EnumT> FlagSet(const std::vector<T> &values) 
+        {
             for (auto &value: values) {
                 if constexpr (std::is_same<T, EnumT>::value) {
                     this->set(value, true);
@@ -75,17 +77,20 @@ namespace db0
             return m_flags;
         }
 
-        FlagSet &set() {
+        FlagSet &set() 
+        {
             m_flags = ~store_t(0);
             return *this;
         }
 
-        FlagSet &set(enum_t flag, bool val = true) {
+        FlagSet &set(enum_t flag, bool val = true)
+        {
             m_flags = val ? (m_flags|static_cast<store_t>(flag)) : (m_flags&~static_cast<store_t>(flag));
             return *this;
         }
 
-        std::size_t count() const {
+        std::size_t count() const
+        {
             store_t bits = m_flags;
             std::size_t total = 0;
             for(; bits != 0; ++total){
@@ -147,7 +152,8 @@ namespace db0
          * @tparam T unpacked type
          * @return vector of unpacked values
          */
-        template <typename T = EnumT> std::vector<T> unpack() const {
+        template <typename T = EnumT> std::vector<T> unpack() const 
+        {
             store_t flag = 1u;
             std::vector<T> result;
             for (auto value = m_flags;value > 0;value >>= 1, flag <<= 1) {
