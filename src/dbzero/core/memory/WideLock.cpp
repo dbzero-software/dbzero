@@ -68,10 +68,30 @@ namespace db0
         }
     }
     
-    void WideLock::undoWrite()
-    {        
-        m_res_lock = nullptr;
-        ResourceLock::resetDirtyFlag();
-    }
+    void WideLock::flushResidual()
+    {
+        if (!m_res_lock) {
+            return;
+        }
 
+        // no-flush flag is important for volatile locks (atomic operations)
+        if (m_access_mode[AccessOptions::no_flush]) {
+            return;
+        }
+
+        using MutexT = ResourceDirtyMutexT;
+        while (MutexT::__ref(m_resource_flags).get()) {
+            MutexT::WriteOnlyLock lock(m_resource_flags);
+            if (lock.isLocked()) {
+                auto dp_size = static_cast<std::size_t>(m_data.size() / m_storage.getPageSize()) * m_storage.getPageSize();
+                assert(dp_size > 0);
+                assert(dp_size < m_data.size());                    
+                // and the residual part into the res_lock (which may be flushed independently)
+                m_res_lock->setDirty();
+                std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, m_data.size() - dp_size);
+                // note the dirty flag is not reset here
+            }
+        }
+    }
+    
 }

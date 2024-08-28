@@ -393,6 +393,7 @@ namespace db0
         // this is to avoid flushing (which in case of the boundary locks - mutates the underlying DPs)
         // during the atomic operation. Otherwise it would result in a data inconsistency - 
         // this is because the atomic operation needs to start over a DP-consistent state
+        // Due to the same reason, also flush the residual parts of wide locks
         m_cache.flushBoundary();
         // increment state number to allow isolation
         ++m_head_state_num;

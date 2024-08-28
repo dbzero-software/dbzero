@@ -24,9 +24,8 @@ namespace db0
             std::shared_ptr<DP_Lock> res_lock);
         
         void flush() override;
-
-        // Discard any writes made to the lock (before it's getting destroyed)
-        void undoWrite();
+        // Flush the residual part only of the wide lock
+        void flushResidual();
         
     private:
         std::shared_ptr<DP_Lock> m_res_lock;

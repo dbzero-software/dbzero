@@ -325,11 +325,15 @@ namespace db0
     
     void PrefixCache::flushBoundary()
     {
-        m_boundary_map.forEach([&](ResourceLock &lock) {
+        m_boundary_map.forEach([&](BoundaryLock &lock) {
             lock.flush();
         });
+        // flush residual part of the wide locks
+        m_wide_map.forEach([&](WideLock &lock) {
+            lock.flushResidual();
+        });
     }
-
+    
     void PrefixCache::flush()
     {
         // flush all dirty locks with the related storage, this is a synchronous operation
