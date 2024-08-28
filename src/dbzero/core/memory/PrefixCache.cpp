@@ -204,9 +204,13 @@ namespace db0
         m_dp_map.forEach([&](const DP_Lock &lock) {
             result += lock.size();
         });
+        m_wide_map.forEach([&](const WideLock &lock) {
+            // include size page-aligned
+            result += static_cast<std::size_t>(lock.size() / m_page_size) * m_page_size;            
+        });
         return result;
     }
-        
+    
     std::shared_ptr<DP_Lock> PrefixCache::insertCopy(const DP_Lock &lock, std::uint64_t write_state_num,
         FlagSet<AccessOptions> access_mode)
     {
@@ -267,12 +271,14 @@ namespace db0
     void PrefixCache::forEach(std::function<void(ResourceLock &)> f) const
     {
         m_boundary_map.forEach(f);
+        m_wide_map.forEach(f);
         m_dp_map.forEach(f);
     }
     
     void PrefixCache::clear()
     {        
         m_boundary_map.clear();
+        m_wide_map.clear();
         m_dp_map.clear();    
     }
     
@@ -306,7 +312,7 @@ namespace db0
     }
     
     bool PrefixCache::empty() const {
-        return m_boundary_map.empty() && m_dp_map.empty();
+        return m_boundary_map.empty() && m_dp_map.empty() && m_wide_map.empty();
     }
     
     void PrefixCache::flushBoundary()
@@ -319,7 +325,7 @@ namespace db0
     void PrefixCache::flush()
     {
         // flush all dirty locks with the related storage, this is a synchronous operation
-        // note that BoundaryLocks are flushed first
+        // note that BoundaryLocks are flushed first, WideLocks next and finally DP_Locks
         forEach([&](ResourceLock &lock) {
             lock.flush();
         });

@@ -24,7 +24,7 @@ namespace db0
             std::shared_ptr<DP_Lock> res_lock);
         
         void flush() override;
-
+        
     private:
         std::shared_ptr<DP_Lock> m_res_lock;
     };
