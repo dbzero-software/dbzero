@@ -333,7 +333,7 @@ namespace db0
             lock.flushResidual();
         });
     }
-    
+
     void PrefixCache::flush()
     {
         // flush all dirty locks with the related storage, this is a synchronous operation
@@ -371,7 +371,7 @@ namespace db0
         }
         m_volatile_locks.clear();
     }
-        
+    
     void PrefixCache::eraseRange(std::uint64_t address, std::size_t size, std::uint64_t state_num)
     {
         auto first_page = address >> m_shift;

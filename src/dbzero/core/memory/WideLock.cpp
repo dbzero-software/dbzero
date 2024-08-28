@@ -78,7 +78,7 @@ namespace db0
         if (m_access_mode[AccessOptions::no_flush]) {
             return;
         }
-
+        
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
@@ -90,8 +90,9 @@ namespace db0
                 m_res_lock->setDirty();
                 std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, m_data.size() - dp_size);
                 // note the dirty flag is not reset here
+                break;
             }
         }
     }
-    
+
 }
