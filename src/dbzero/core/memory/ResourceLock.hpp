@@ -124,8 +124,8 @@ namespace db0
 
     private:
 #ifndef NDEBUG
-        static std::atomic<std::size_t> bl_usage;
-        static std::atomic<std::size_t> bl_op_count;
+        static std::atomic<std::size_t> rl_usage;
+        static std::atomic<std::size_t> rl_op_count;
 #endif        
     };
 

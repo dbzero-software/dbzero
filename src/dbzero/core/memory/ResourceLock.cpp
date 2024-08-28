@@ -9,9 +9,9 @@ namespace db0
 {   
     
 #ifndef NDEBUG
-    std::atomic<std::size_t> ResourceLock::bl_usage = 0;
-    std::atomic<std::size_t> ResourceLock::bl_op_count = 0;
-#endif    
+    std::atomic<std::size_t> ResourceLock::rl_usage = 0;
+    std::atomic<std::size_t> ResourceLock::rl_op_count = 0;
+#endif
 
     ResourceLock::ResourceLock(BaseStorage &storage, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, bool create_new)
@@ -27,8 +27,8 @@ namespace db0
             std::memset(m_data.data(), 0, m_data.size());
         }        
 #ifndef NDEBUG        
-        bl_usage += m_data.size();
-        ++bl_op_count;
+        rl_usage += m_data.size();
+        ++rl_op_count;
 #endif        
     }
 
@@ -43,8 +43,8 @@ namespace db0
         , m_data(lock.m_data)
     {
 #ifndef NDEBUG
-        bl_usage += m_data.size();
-        ++bl_op_count;
+        rl_usage += m_data.size();
+        ++rl_op_count;
 #endif        
     }
     
@@ -57,16 +57,16 @@ namespace db0
         , m_recycle_it(std::move(other.m_recycle_it))
     {
 #ifndef NDEBUG
-        bl_usage += m_data.size();
-        ++bl_op_count;
+        rl_usage += m_data.size();
+        ++rl_op_count;
 #endif
     }
 
     ResourceLock::~ResourceLock()
     {
 #ifndef NDEBUG        
-        bl_usage -= m_data.size();
-        ++bl_op_count;
+        rl_usage -= m_data.size();
+        ++rl_op_count;
 #endif
         // make sure the dirty flag is not set (unless no-flush lock)
         assert(!isDirty() || m_access_mode[AccessOptions::no_flush]);
@@ -116,7 +116,7 @@ namespace db0
     }
 
     std::size_t ResourceLock::getTotalMemoryUsage() {
-        return bl_usage;
+        return rl_usage;
     }
 
 }

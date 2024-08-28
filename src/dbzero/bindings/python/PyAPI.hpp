@@ -135,8 +135,10 @@ namespace db0::python
     PyObject *getSlabMetrics(PyObject *self, PyObject *args);
 
     PyObject *setCacheSize(PyObject *self, PyObject *args);
-
-    PyObject *getResourceLockUsage(PyObject *self, PyObject *);
+    
+#ifndef NDEBUG
+    PyObject *getResourceLockUsage(PyObject *self, PyObject *);    
+#endif
 
     template <typename T> db0::object_model::StorageClass getStorageClass();
 
