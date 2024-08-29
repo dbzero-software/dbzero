@@ -37,14 +37,16 @@ namespace db0
         // register under the lock's evaluated state number
         m_dp_map.insert(lock->getStateNum(), lock);
         
-        // register or update lock with the recycler
-        if (lock && m_cache_recycler_ptr) {
-            m_cache_recycler_ptr->update(lock);
-        }
-
         // register with the volatile locks
+        assert(lock);
         if (access_mode[AccessOptions::no_flush]) {
+            // NOTE: volatile locks are not registered with the recycler
             m_volatile_locks.push_back(lock);
+        } else {
+            // register or update lock with the recycler
+            if (m_cache_recycler_ptr) {
+                m_cache_recycler_ptr->update(lock);
+            }
         }
 
         return lock;
@@ -64,6 +66,7 @@ namespace db0
             return nullptr;
         }
 
+        bool is_volatile = access_mode[AccessOptions::no_flush];
         // Try upgrading the unused lock to the write state
         // this is to avoid CoW in a writer process
         if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::create] && read_state_num != state_num) {
@@ -78,7 +81,7 @@ namespace db0
                 m_dp_map.insert(state_num, lock);
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
-                if (access_mode[AccessOptions::no_flush]) {
+                if (is_volatile) {
                     m_volatile_locks.push_back(lock);
                 }
             }
@@ -86,7 +89,7 @@ namespace db0
 
         // register / update lock with the recycler (mark as accessed for LRU policy evaluation)
         assert(lock);
-        if (m_cache_recycler_ptr) {
+        if (m_cache_recycler_ptr && !is_volatile) {
             m_cache_recycler_ptr->update(lock);
         }
 
@@ -102,14 +105,15 @@ namespace db0
         // register under the lock's evaluated state number
         m_wide_map.insert(lock->getStateNum(), lock);
         
-        // register or update lock with the recycler
-        if (lock && m_cache_recycler_ptr) {
-            m_cache_recycler_ptr->update(lock);
-        }
-
+        assert(lock);
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {
             m_volatile_locks.push_back(lock);
+        } else {
+            // register or update lock with the recycler
+            if (m_cache_recycler_ptr) {
+                m_cache_recycler_ptr->update(lock);
+            }
         }
 
         return lock;
@@ -143,6 +147,7 @@ namespace db0
             THROWF(db0::InternalException) << "Conflicting wide lock found";
         }
         
+        bool is_volatile = access_mode[AccessOptions::no_flush];
         // Try upgrading the unused lock to the write state
         // this is to avoid CoW in a writer process
         if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::create] && read_state_num != state_num) {
@@ -157,7 +162,7 @@ namespace db0
                 m_wide_map.insert(state_num, lock);
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
-                if (access_mode[AccessOptions::no_flush]) {
+                if (is_volatile) {
                     m_volatile_locks.push_back(lock);
                 }
             }
@@ -165,7 +170,7 @@ namespace db0
         
         // register / update lock with the recycler (mark as accessed for LRU policy evaluation)
         assert(lock);
-        if (m_cache_recycler_ptr) {
+        if (m_cache_recycler_ptr && !is_volatile) {
             m_cache_recycler_ptr->update(lock);
         }
 
@@ -225,14 +230,14 @@ namespace db0
         auto result = std::make_shared<DP_Lock>(lock, write_state_num, access_mode);
         m_dp_map.insert(result->getStateNum(), result);
 
-        // register / update lock with the recycler
-        if (m_cache_recycler_ptr) {
-            m_cache_recycler_ptr->update(result);
-        }
-        
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {
             m_volatile_locks.push_back(result);
+        } else {
+            // register with the recycler
+            if (m_cache_recycler_ptr) {
+                m_cache_recycler_ptr->update(result);
+            }
         }
 
         return result;
@@ -244,14 +249,14 @@ namespace db0
         auto result = std::make_shared<WideLock>(lock, write_state_num, access_mode, res_lock);
         m_wide_map.insert(result->getStateNum(), result);
 
-        // register / update lock with the recycler
-        if (m_cache_recycler_ptr) {
-            m_cache_recycler_ptr->update(result);
-        }
-        
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {
             m_volatile_locks.push_back(result);
+        } else {
+            // register with the recycler
+            if (m_cache_recycler_ptr) {
+                m_cache_recycler_ptr->update(result);
+            }
         }
 
         return result;
@@ -384,7 +389,7 @@ namespace db0
             m_wide_map.erase(state_num, first_page);
         }
     }
-
+    
     void PrefixCache::eraseBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num)
     {
         auto first_page = address >> m_shift;
@@ -400,14 +405,22 @@ namespace db0
         // operation not allowed for the boundary range
         assert(!isBoundaryRange(first_page, end_page, address & m_mask));
         if (end_page == first_page + 1) {
-            if (m_dp_map.replace(state_num, new_lock, first_page)) {
+            if (!m_dp_map.replace(state_num, new_lock, first_page)) {            
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
+                // add add to / update with cache recycler
+                if (m_cache_recycler_ptr) {
+                    m_cache_recycler_ptr->update(new_lock);
+                }
             }
         } else {
-            if (m_wide_map.replace(state_num, std::dynamic_pointer_cast<WideLock>(new_lock), first_page)) {
+            if (!m_wide_map.replace(state_num, std::dynamic_pointer_cast<WideLock>(new_lock), first_page)) {
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
+                // add add to / update with cache recycler
+                if (m_cache_recycler_ptr) {
+                    m_cache_recycler_ptr->update(new_lock);
+                }
             }
         }
     }
@@ -417,9 +430,13 @@ namespace db0
     {
         auto first_page = address >> m_shift;
         assert(isBoundaryRange(first_page, ((address + size - 1) >> m_shift) + 1, address & m_mask));
-        if (m_boundary_map.replace(state_num, new_lock, first_page)) {
+        if (!m_boundary_map.replace(state_num, new_lock, first_page)) {
             // must clear the no_flush flag if lock was reused
             new_lock->resetNoFlush();
+            // add add to / update with cache recycler
+            if (m_cache_recycler_ptr) {
+                m_cache_recycler_ptr->update(new_lock);
+            }
         }
     }
     
@@ -439,7 +456,7 @@ namespace db0
             if (lock->isDirty()) {
                 // erase volatile range related lock
                 eraseRange(lock->getAddress(), lock->size(), from_state_num);
-                // need to update to final state number before merging with active transaction
+                // need to update to final state number (head) before merging with active transaction
                 lock->merge(to_state_num);
                 replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);
             }

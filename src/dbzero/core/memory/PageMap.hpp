@@ -224,19 +224,26 @@ namespace db0
     bool PageMap<ResourceLockT>::replace(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
         std::uint64_t page_num)
     {
-        std::uint64_t existing_state_num;
-        auto existing_lock = find(state_num, page_num, existing_state_num);
-        if (existing_lock && existing_state_num == state_num) {
-            assert(existing_lock->size() == lock->size());
-            // apply changes from the lock being merged
-            existing_lock->copyFrom(*lock);
-            return false;
-        } else {
+        // find exact match of the page / state
+        auto it = m_cache.find({page_num, state_num});
+        if (it == m_cache.end()) {
             insert(state_num, lock);
-            return true;
+            return false;
         }
+        auto existing_lock = it->second.lock();
+        if (!existing_lock) {
+            // remove expired weak_ptr
+            m_cache.erase(it);
+            insert(state_num, lock);
+            return false;
+        }
+
+        assert(existing_lock->size() == lock->size());
+        // apply changes from the lock being merged
+        existing_lock->copyFrom(*lock);
+        return true;
     }
-    
+
     template <typename ResourceLockT>
     std::size_t PageMap<ResourceLockT>::size() const 
     {
