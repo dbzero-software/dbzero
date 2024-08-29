@@ -1,6 +1,6 @@
 #pragma once
 
-#include <dbzero/object_model/config.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/core/collections/full_text/FT_IteratorBase.hpp>
 
 namespace db0::object_model
@@ -11,7 +11,7 @@ namespace db0::object_model
     class QueryObserver
     {
     public:
-        using LangToolkit = Config::LangToolkit;
+        using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
 
         virtual ~QueryObserver() = default;

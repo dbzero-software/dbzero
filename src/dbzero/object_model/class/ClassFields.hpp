@@ -2,7 +2,7 @@
 
 #include <memory>
 #include "Class.hpp"
-#include <dbzero/object_model/config.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 
 namespace db0::object_model
 
@@ -19,7 +19,7 @@ namespace db0::object_model
     {
     public:
         using Member = Class::Member;
-        using LangToolkit = Config::LangToolkit;
+        using LangToolkit = LangConfig::LangToolkit;
         using TypeObjectPtr = LangToolkit::TypeObjectPtr;
         using TypeObjectSharedPtr = LangToolkit::TypeObjectSharedPtr;
 

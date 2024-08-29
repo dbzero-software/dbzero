@@ -7,7 +7,7 @@ namespace db0::object_model
 {
 
     // Language-specific configuration
-    struct Config
+    struct LangConfig
     {
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;

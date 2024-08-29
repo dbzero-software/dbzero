@@ -24,6 +24,7 @@ namespace db0
     class AutoCommitThread;
     class AtomicContext;
     class LangCache;
+    class Config;
 
     class BaseWorkspace
     {
@@ -131,7 +132,8 @@ namespace db0
         Workspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
             std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {},
             std::optional<std::size_t> vobject_cache_size = {},
-            std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer = {});
+            std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer = {}, 
+            std::shared_ptr<Config> config = nullptr);
         virtual ~Workspace();
         
         // Set or change the autocommit interval in milliseconds
@@ -151,7 +153,7 @@ namespace db0
         swine_ptr<Fixture> getFixtureEx(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE,
             std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {}, 
             std::optional<std::size_t> sparse_index_node_size = {},
-            bool autocommit = true);
+            std::optional<bool> autocommit = {});
         
         /**
          * Get existing fixture by UUID
@@ -159,9 +161,9 @@ namespace db0
         */
         db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
         
-        db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, 
+        db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name,
             std::optional<AccessType> = AccessType::READ_WRITE) override;
-    
+        
         /**
          * Find existing (opened) fixture or return nullptr
         */
@@ -188,7 +190,7 @@ namespace db0
          * @param access_type
          * @param autocommit flag indicating if the prefix should be auto-committed
         */
-        void open(const std::string &prefix_name, AccessType access_type, bool autocommit = true,
+        void open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit = {},
             std::optional<std::size_t> slab_size = {});
         
         bool drop(const std::string &prefix_name, bool if_exists = true);
@@ -246,6 +248,7 @@ namespace db0
         AtomicContext *m_atomic_context_ptr = nullptr;
         mutable std::unique_ptr<LangCache> m_lang_cache;
         std::unique_ptr<WorkspaceThreads> m_workspace_threads;
+        std::shared_ptr<Config> m_config;
         
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
         

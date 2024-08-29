@@ -3,7 +3,7 @@
 #include "QueryObserver.hpp"
 #include <dbzero/core/collections/full_text/FT_ORXIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_Iterator.hpp>
-#include <dbzero/object_model/config.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 
 namespace db0::object_model
 
@@ -13,7 +13,7 @@ namespace db0::object_model
     class OR_QueryObserverBuilder
     {
     public:
-        using LangToolkit = Config::LangToolkit;
+        using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
         using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
 

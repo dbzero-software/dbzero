@@ -2,7 +2,7 @@
 
 #include <vector>
 #include <string>
-#include <dbzero/object_model/config.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 
 namespace db0::object_model
 
@@ -11,7 +11,7 @@ namespace db0::object_model
     class TagSet
     {
     public:
-        using LangToolkit = Config::LangToolkit;
+        using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
 
         TagSet(ObjectPtr const *args, std::size_t nargs, bool is_negated);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <dbzero/object_model/config.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 
 namespace db0::object_model
 
@@ -12,7 +12,7 @@ namespace db0::object_model
     class VarArgsIterator
     {
     public:
-        using LangToolkit = Config::LangToolkit;
+        using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
         using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
 

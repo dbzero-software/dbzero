@@ -103,8 +103,14 @@ namespace db0::python
         if (py_slab_size) {
             slab_size = PyLong_AsUnsignedLong(py_slab_size);
         }
-
-        bool autocommit = (py_autocommit ? PyObject_IsTrue(py_autocommit) : true) || autocommit_interval > 0;
+        
+        std::optional<bool> autocommit;
+        if (autocommit_interval > 0) {
+            autocommit = true;
+        } else if (py_autocommit) {
+            autocommit = PyObject_IsTrue(py_autocommit);
+        }
+        
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
         PyToolkit::getPyWorkspace().open(prefix_name, access_type, autocommit, slab_size);
         Py_RETURN_NONE;
@@ -114,24 +120,25 @@ namespace db0::python
         std::lock_guard pbm_lock(python_bindings_mutex);
         return runSafe(tryOpen, self, args, kwargs);
     }
-
+    
     PyObject *tryInit(PyObject *self, PyObject *args, PyObject *kwargs)
-    {        
+    {
         const char *path = "";
-        std::optional<long> autocommit_interval;
-        PyObject *py_autocommit_interval = nullptr;
+        PyObject *py_config = nullptr;
         // extract optional "path" string argument and "autcommit_interval" keyword argument
-        static const char *kwlist[] = {"path", "autocommit_interval", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sO", const_cast<char**>(kwlist), &path, &py_autocommit_interval)) {
+        static const char *kwlist[] = {"path", "config", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sO", const_cast<char**>(kwlist), &path, &py_config)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
         
-        if (py_autocommit_interval && PyLong_Check(py_autocommit_interval)) {
-            autocommit_interval = PyLong_AsLong(py_autocommit_interval);
+        // py_config must be a dict
+        if (py_config && !PyDict_Check(py_config)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type: config");
+            return NULL;
         }
         
-        PyToolkit::getPyWorkspace().initWorkspace(path, autocommit_interval);
+        PyToolkit::getPyWorkspace().initWorkspace(path, py_config);
         Py_RETURN_NONE;
     }
     
@@ -759,12 +766,12 @@ namespace db0::python
         return runSafe(trySetCacheSize, &PyToolkit::getPyWorkspace().getWorkspace(), cache_size);
     }
     
-    #ifndef NDEBUG
+#ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {
         std::size_t rl_mem_usage = db0::ResourceLock::getTotalMemoryUsage();
         return PyLong_FromSize_t(rl_mem_usage);
     }
-    #endif
+#endif
     
 }

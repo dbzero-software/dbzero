@@ -1,7 +1,7 @@
 #pragma once
 
 #include <memory>
-#include <dbzero/object_model/config.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 #include <unordered_set>
 #include <vector>
 #include <dbzero/bindings/TypeId.hpp>
@@ -41,7 +41,7 @@ namespace db0
     class AtomicContext
     {
     public:
-        using LangToolkit = db0::object_model::Config::LangToolkit;
+        using LangToolkit = db0::object_model::LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
         using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
 

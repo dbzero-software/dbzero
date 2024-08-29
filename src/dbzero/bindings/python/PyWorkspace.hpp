@@ -12,6 +12,7 @@
 namespace db0 {
     
     class Workspace;
+    class Config;
     class Fixture;
     class Memspace;
 
@@ -38,24 +39,28 @@ namespace db0::python
     {
     public:
         using ObjectPtr = typename PyTypes::ObjectPtr;
+        using ObjectSharedPtr = typename PyTypes::ObjectSharedPtr;
         using TypeObjectPtr = typename PyTypes::TypeObjectPtr;
         
         PyWorkspace() = default;
-                
+        ~PyWorkspace();
+        
         bool hasWorkspace() const;
-
+        
         /**
          * Initialize Python workspace
          * @param root_path use "" for current directory
+         * @param py_config reference to a python dict which holds configuration, from which configuration 
+         * is dynamically fetched just-in-time
         */
-        void initWorkspace(const std::string &root_path, std::optional<long> autocommit_interval_ms = {});
+        void initWorkspace(const std::string &root_path, ObjectPtr py_config = nullptr);
         
         /**
          * Opens a specific prefix for read or read/write
          * a newly opened read/write prefix becomes the default one
          * @param slab_size will only have effect for a newly created prefixes
         */
-        void open(const std::string &prefix_name, AccessType, bool autocommit,
+        void open(const std::string &prefix_name, AccessType, std::optional<bool> autocommit = {},
             std::optional<std::size_t> slab_size = {});
         
         db0::Workspace &getWorkspace() const;
@@ -65,9 +70,11 @@ namespace db0::python
         void close();
 
         bool refresh();
-                    
+
     private:
         std::shared_ptr<db0::Workspace> m_workspace;
+        // optional DB0 config object
+        std::shared_ptr<db0::Config> m_config;        
     };
     
 }

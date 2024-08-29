@@ -161,6 +161,11 @@ namespace db0::python
         static void setError(ObjectPtr err_obj, std::uint64_t err_value);
         
         static unsigned int getRefCount(ObjectPtr);
+        
+        // Extract keys (if present) from a Python dict object
+        static std::optional<long> getLong(ObjectPtr py_object, const std::string &key);
+        static std::optional<bool> getBool(ObjectPtr py_object, const std::string &key);
+        static std::optional<std::string> getString(ObjectPtr py_object, const std::string &key);
 
     private:
         static TypeManager m_type_manager;

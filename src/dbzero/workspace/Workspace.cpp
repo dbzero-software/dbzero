@@ -1,6 +1,7 @@
 #include "Workspace.hpp"
 #include <dbzero/core/memory/MetaAllocator.hpp>
 #include "FixtureThreads.hpp"
+#include "Config.hpp"
 #include <thread>
 
 namespace db0
@@ -174,16 +175,23 @@ namespace db0
         AutoCommitThread m_auto_commit_thread;
     };
 
-    Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, std::optional<std::size_t> slab_cache_size,
-        std::optional<std::size_t> vobject_cache_size, std::optional<std::size_t> flush_size, 
-        std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer)
+    Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, 
+        std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> vobject_cache_size, 
+        std::optional<std::size_t> flush_size, std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer,
+        std::shared_ptr<Config> config)
         : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
         , m_shared_object_list(vobject_cache_size ? *vobject_cache_size : DEFAULT_VOBJECT_CACHE_SIZE)
         , m_lang_cache(std::make_unique<LangCache>())
         , m_workspace_threads(std::make_unique<WorkspaceThreads>())
+        , m_config(config)
     {
+        // apply autocommit interval if configured
+        std::optional<long> autocommit_interval_ms = (m_config ? m_config->get<long>("autocommit_interval") : std::nullopt);
+        if (autocommit_interval_ms) {
+            this->setAutocommitInterval(*autocommit_interval_ms);
+        }
     }
     
     Workspace::~Workspace()
@@ -217,7 +225,7 @@ namespace db0
         }
         return false;
     }
-
+    
     void Workspace::close()
     {
         // stop all workspace threads first
@@ -243,11 +251,14 @@ namespace db0
     
     db0::swine_ptr<Fixture> Workspace::getFixtureEx(const std::string &prefix_name, std::optional<AccessType> access_type,
         std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
-        std::optional<std::size_t> sparse_index_node_size, bool autocommit)
+        std::optional<std::size_t> sparse_index_node_size, std::optional<bool> autocommit)
     {
         bool file_created = false;
         auto uuid = getUUID(prefix_name);
-        auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();
+        auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();        
+        if (!autocommit && m_config) {
+            autocommit = m_config->get<bool>("autocommit");
+        }
         try {
             if (it == m_fixtures.end()) {
                 if (!access_type) {
@@ -278,7 +289,7 @@ namespace db0
                     // add read-only fixture to be monitored by the refresh thread (will be removed automatically when closed)
                     m_workspace_threads->startRefresh(fixture);
                 }
-                if (*access_type == AccessType::READ_WRITE && autocommit) {
+                if (*access_type == AccessType::READ_WRITE && autocommit.value_or(true)) {
                     // register fixture for auto-commit
                     m_workspace_threads->startAutoCommit(fixture);
                 }
@@ -311,7 +322,7 @@ namespace db0
 
         return hasMemspace(prefix_name);
     }
-
+    
     db0::swine_ptr<Fixture> Workspace::tryFindFixture(const std::string &prefix_name) const
     {
         auto uuid = getUUID(prefix_name);
@@ -345,7 +356,7 @@ namespace db0
                 if (!maybe_prefix_name) {
                     THROWF(db0::InputException) << "Fixture with UUID " << uuid << " not found";
                 }
-                // try opening fixture by name
+                // try opening fixture by name                
                 return getFixtureEx(*maybe_prefix_name, *access_type);
             }
             result = it->second;
@@ -419,7 +430,7 @@ namespace db0
         return m_default_fixture;
     }
     
-    void Workspace::open(const std::string &prefix_name, AccessType access_type, bool autocommit, 
+    void Workspace::open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit,
         std::optional<std::size_t> slab_size)
     {
         auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit);
@@ -429,7 +440,7 @@ namespace db0
             m_current_prefix_history.push_back(prefix_name);
         }
     }
-
+    
     FixedObjectList &Workspace::getSharedObjectList() const {
         return m_shared_object_list;
     }

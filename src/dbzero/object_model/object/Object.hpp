@@ -1,6 +1,6 @@
 #pragma once
 
-#include <dbzero/object_model/config.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/workspace/GC0.hpp>
@@ -93,7 +93,7 @@ namespace db0::object_model
         GC0_Declare
     public:
         using super_t = db0::ObjectBase<Object, db0::v_object<o_object>, StorageClass::OBJECT_REF>;
-        using LangToolkit = Config::LangToolkit;
+        using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeManager = typename LangToolkit::TypeManager;

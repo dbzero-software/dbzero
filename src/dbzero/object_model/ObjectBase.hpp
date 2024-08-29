@@ -4,7 +4,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
-#include <dbzero/object_model/config.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/workspace/AtomicContext.hpp>
 
 namespace db0
@@ -24,7 +24,7 @@ namespace db0
     class ObjectBase: public has_fixture<BaseT>
     {
     public:
-        using LangToolkit = db0::object_model::Config::LangToolkit;
+        using LangToolkit = db0::object_model::LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
 
         ObjectBase() = default;

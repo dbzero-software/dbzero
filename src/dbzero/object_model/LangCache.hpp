@@ -1,6 +1,6 @@
 #pragma once
 
-#include "config.hpp"
+#include "LangConfig.hpp"
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -11,12 +11,11 @@ namespace db0
 {
     
     class Fixture;
-
+    
     class LangCache
     {
-    public:
-        using Config = db0::object_model::Config;
-        using LangToolkit = typename Config::LangToolkit;
+    public:        
+        using LangToolkit = typename db0::object_model::LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;        
         static constexpr std::size_t DEFAULT_CAPACITY = 1024;

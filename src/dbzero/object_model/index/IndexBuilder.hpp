@@ -1,6 +1,6 @@
 #pragma once
 
-#include <dbzero/object_model/config.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 
 namespace db0::object_model
@@ -14,7 +14,7 @@ namespace db0::object_model
     {
     public:
         using RangeTreeT = RangeTree<KeyT, std::uint64_t>;
-        using LangToolkit = typename Config::LangToolkit;
+        using LangToolkit = typename LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using super_t = typename RangeTree<KeyT, std::uint64_t>::Builder;        

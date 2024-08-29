@@ -8,7 +8,7 @@
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/workspace/Fixture.hpp>
-#include <dbzero/object_model/config.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 
 namespace db0::object_model
 
@@ -40,7 +40,7 @@ namespace db0::object_model
     public:
         static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
         using super_t = db0::ObjectBase<Enum, db0::v_object<o_enum, SLOT_NUM>, StorageClass::DB0_ENUM_TYPE_REF>;
-        using LangToolkit = Config::LangToolkit;
+        using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         
