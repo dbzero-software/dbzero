@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass
+from .memo_test_types import MemoTestClass, DynamicDataClass
 
 
 @db0.memo()
@@ -225,6 +225,36 @@ def test_memo_object_destroys_its_pos_vt_dependencies(db0_fixture):
     dep_uuid = db0.uuid(obj.value)
     # make sure member is stored as pos-vt
     assert len(db0.describe(obj)["field_layout"]["pos_vt"]) == 1
+    db0.delete(obj)
+    del obj
+    db0.clear_cache()
+    db0.commit()
+    # make sure dependent instance has been destroyed as well
+    with pytest.raises(Exception):
+        db0.fetch(dep_uuid)
+        
+    
+def test_memo_object_destroys_its_index_vt_dependencies(db0_fixture):
+    obj_1 = DynamicDataClass(120)
+    obj = DynamicDataClass([0, 1, 2, 11, 33, 119], values = {0:0, 1:1, 2:2, 11:None, 33:None, 119:MemoTestClass(119)})
+    dep_uuid = db0.uuid(obj.field_119)
+    # make sure member is stored as index-vt    
+    assert len(db0.describe(obj)["field_layout"]["index_vt"]) == 3
+    db0.delete(obj)
+    del obj
+    db0.clear_cache()
+    db0.commit()
+    # make sure dependent instance has been destroyed as well
+    with pytest.raises(Exception):
+        db0.fetch(dep_uuid)
+        
+        
+def test_memo_object_destroys_its_kv_dependencies(db0_fixture):
+    obj = DynamicDataClass(5)
+    obj.field_60 = MemoTestClass(60)
+    dep_uuid = db0.uuid(obj.field_60)
+    # make sure member is stored as index-vt    
+    assert len(db0.describe(obj)["field_layout"]["kv_index"]) == 1
     db0.delete(obj)
     del obj
     db0.clear_cache()

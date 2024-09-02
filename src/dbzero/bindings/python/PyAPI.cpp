@@ -400,7 +400,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
+        
         return MemoObject_DescribeObject(reinterpret_cast<MemoObject*>(py_object));
     }
     

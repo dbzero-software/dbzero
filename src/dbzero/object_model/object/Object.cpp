@@ -420,9 +420,19 @@ namespace db0::object_model
         for (auto &xvalue: (*this)->index_vt().xvalues()) {
             layout.m_index_vt_fields.emplace_back(xvalue.getIndex(), xvalue.m_type);
         }
+
+        // collect kv-index information
+        auto kv_index_ptr = tryGetKV_Index();
+        if (kv_index_ptr) {
+            auto it = kv_index_ptr->beginJoin(1);
+            for (;!it.is_end(); ++it) {
+                layout.m_kv_index_fields.emplace_back((*it).getIndex(), (*it).m_type);
+            }
+        }
+
         return layout;
     }
-
+    
     KV_Index *Object::addKV_First(const XValue &value)
     {
         if (!m_kv_index) {
