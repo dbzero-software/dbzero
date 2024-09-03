@@ -39,7 +39,7 @@ namespace db0
         
         void close() override;
 
-        LangCache &getLangCache() const override;
+        std::shared_ptr<LangCache> getLangCache() const override;
         
         /**
          * @param state_num if not provided then current state is used
@@ -61,7 +61,7 @@ namespace db0
         // state number by fixture UUID
         mutable std::unordered_map<std::uint64_t, std::uint64_t> m_state_nums;
         // a WorkspaceView maintains a private LangCache instance
-        std::unique_ptr<LangCache> m_lang_cache;
+        std::shared_ptr<LangCache> m_lang_cache;
 
         WorkspaceView(std::shared_ptr<Workspace>, Workspace *workspace_ptr, std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});

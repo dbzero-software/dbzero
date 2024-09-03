@@ -681,6 +681,9 @@ namespace db0
             return !m_index.empty();
         }
 
+        // perform operation "f" on all elements, e.g. to drop all references
+        void forAll(std::function<void(ValueT)> f) const;
+
     private:
         RT_Index m_index;
 
@@ -728,5 +731,23 @@ namespace db0
             return { m_index, it, m_index.begin(), m_index.end(), it == m_index.begin(), true };
         }
     };
-    
+
+    template <typename KeyT, typename ValueT>
+    void RangeTree<KeyT, ValueT>::forAll(std::function<void(ValueT)> f) const
+    {
+        for (auto it = m_index.begin(), end = m_index.end(); it != end; ++it) {
+            auto block = (*it).m_block_ptr(this->getMemspace());
+            for (auto block_it = block.begin(), block_end = block.end(); block_it != block_end; ++block_it) {
+                f((*block_it).m_value);
+            }
+        }
+        // also iterate over null block if it exists
+        if ((*this)->m_rt_null_block_addr != 0) {
+            NullBlockT null_block(this->myPtr((*this)->m_rt_null_block_addr));
+            for (auto it = null_block.begin(), end = null_block.end(); it != end; ++it) {
+                f(*it);
+            }
+        }
+    }
+
 }

@@ -33,12 +33,14 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeId = db0::bindings::TypeId;
         using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
-                
+        
         Index(db0::swine_ptr<Fixture> &, std::uint64_t address);
         Index(const Index &) = delete;
         ~Index();
         
         static Index *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
+        // make null instance (e.g. after destroying the original one)
+        static Index *makeNull(void *at_ptr);
         static Index *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
         
         std::size_t size() const;
@@ -166,7 +168,9 @@ namespace db0::object_model
     private: 
         // actual index instance (must be cast to a specific type)
         mutable std::shared_ptr<void> m_index;
-
+        
+        // null instance constructor
+        Index();
         Index(db0::swine_ptr<Fixture> &);
         Index(tag_no_gc, db0::swine_ptr<Fixture> &, const Index &);
         

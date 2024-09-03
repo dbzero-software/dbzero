@@ -42,12 +42,12 @@ namespace db0
             : has_fixture<BaseT>(fixture, std::forward<Args>(args)...)
         {         
         }
-
+        
         // open existing instance
         struct tag_from_address {};
         ObjectBase(tag_from_address, db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
             : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_address(), fixture, address)
-        {            
+        {
             fixture->getGC0().add<T>(this);            
         }
         
@@ -137,7 +137,7 @@ namespace db0
         void unregister()
         {
             // remove from the registry (on condition the underlying instance & fixture still exists)
-            if (hasInstance()) {
+            if (hasInstance()) {                
                 auto fixture = this->tryGetFixture();
                 if (fixture) {
                     fixture->getGC0().tryRemove(this);

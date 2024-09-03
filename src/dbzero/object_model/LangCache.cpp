@@ -211,11 +211,12 @@ namespace db0
     std::size_t LangCache::getCapacity() const {
         return m_capacity;
     }
-
-    LangCacheView::LangCacheView(const Fixture &fixture, LangCache &cache)
+    
+    LangCacheView::LangCacheView(const Fixture &fixture, std::shared_ptr<LangCache> cache_ptr)
         : m_fixture(fixture)
-        , m_cache(cache)
-        , m_fixture_id(cache.getFixtureId(fixture))
+        , m_cache_ptr(cache_ptr)
+        , m_cache(*m_cache_ptr)
+        , m_fixture_id(m_cache.getFixtureId(fixture))
     {
     }
     

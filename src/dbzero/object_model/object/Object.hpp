@@ -85,6 +85,7 @@ namespace db0::object_model
     {
         std::vector<StorageClass> m_pos_vt_fields;
         std::vector<std::pair<unsigned int, StorageClass> > m_index_vt_fields;
+        std::vector<std::pair<unsigned int, StorageClass> > m_kv_index_fields;        
     };
     
     class Object: public db0::ObjectBase<Object, db0::v_object<o_object>, StorageClass::OBJECT_REF>
@@ -249,6 +250,10 @@ namespace db0::object_model
         void detach() const;
 
         void commit() const;
+
+        inline std::uint32_t getInstanceId() const {
+            return m_instance_id;
+        }
         
     private:
         // Class will only be assigned after initialization

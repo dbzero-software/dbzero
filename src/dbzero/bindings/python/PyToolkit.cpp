@@ -45,11 +45,41 @@ namespace db0::python
         Py_DECREF(py_module_name);
         return result;
     }
-    
+
+    PyToolkit::ObjectSharedPtr tryUnloadObjectFromCache(LangCacheView &lang_cache, std::uint64_t address,
+        std::optional<std::uint32_t> instance_id, std::shared_ptr<db0::object_model::Class> expected_type)
+    {
+        auto obj_ptr = lang_cache.get(address);
+        if (obj_ptr) {
+            if (!PyMemo_Check(obj_ptr.get())) {
+                THROWF(db0::InputException) << "Invalid object type: " << PyToolkit::getTypeName(obj_ptr.get()) << " (Memo expected)";
+            }
+            auto &memo = reinterpret_cast<MemoObject*>(obj_ptr.get())->ext();
+            // validate instance_id
+            if (instance_id && *instance_id != memo.getInstanceId()) {
+                THROWF(db0::InputException) << "Instance IDs don't match";
+            }
+            // validate type
+            if (expected_type && memo.getType() != *expected_type) {
+                THROWF(db0::InputException) << "Memo type mismatch";
+            }
+        }
+        return obj_ptr;       
+    }
+
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
         const ClassFactory &class_factory, std::optional<std::uint32_t> instance_id, std::shared_ptr<Class> expected_type)
     {
-        auto stem = db0::object_model::Object::unloadStem(fixture, address, instance_id);
+        // try unloading from cache first
+        auto &lang_cache = fixture->getLangCache();
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, instance_id, expected_type);
+        
+        if (obj_ptr) {
+            return obj_ptr;
+        }
+
+        // unload from backend otherwise
+        auto stem = db0::object_model::Object::unloadStem(fixture, address, instance_id);        
         auto type = db0::object_model::unloadClass(stem->m_class_ref, class_factory);
         if (expected_type && type != expected_type) {
             THROWF(db0::InputException) << "Type mismatch";
@@ -59,15 +89,27 @@ namespace db0::python
         auto memo_object = MemoObjectStub_new(type->getLangClass().get());
         // unload from stem
         db0::object_model::Object::unload(&(memo_object.get())->modifyExt(), std::move(stem), type);
-        return shared_py_cast<PyObject*>(std::move(memo_object));
+        obj_ptr = shared_py_cast<PyObject*>(std::move(memo_object));
+        lang_cache.add(address, obj_ptr.get());
+        return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
         std::shared_ptr<Class> type, std::optional<std::uint32_t> instance_id)
     {
+        // try unloading from cache first
+        auto &lang_cache = fixture->getLangCache();
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, instance_id, type);
+        
+        if (obj_ptr) {
+            return obj_ptr;
+        }
+        
         auto memo_object = MemoObjectStub_new(type->getLangClass().get());
         db0::object_model::Object::unload(&(memo_object.get())->modifyExt(), address, type);
-        return shared_py_cast<PyObject*>(std::move(memo_object));
+        obj_ptr = shared_py_cast<PyObject*>(std::move(memo_object));
+        lang_cache.add(address, obj_ptr.get());
+        return obj_ptr;
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadBlock(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)

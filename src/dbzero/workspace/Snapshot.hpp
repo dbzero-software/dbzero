@@ -34,7 +34,7 @@ namespace db0
         
         virtual void close() = 0;
 
-        virtual LangCache &getLangCache() const = 0;
+        virtual std::shared_ptr<LangCache> getLangCache() const = 0;
     };
     
 }

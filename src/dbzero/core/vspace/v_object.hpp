@@ -8,6 +8,8 @@ namespace db0
     
 {
 
+    struct tag_verified {}; 
+
     /**
      * Base class for vspace-mapped objects
      * @tparam T container object type
@@ -25,14 +27,16 @@ namespace db0
         {
         }
 
-        v_object(mptr ptr)
-            : v_this(ptr, { AccessOptions::read })
-        {
-        }
-
-        v_object(mptr ptr, FlagSet<AccessOptions> access_mode)
+        v_object(mptr ptr, FlagSet<AccessOptions> access_mode = {})
             : v_this(ptr, access_mode | AccessOptions::read)
         {
+        }
+        
+        // construct a verified instance - i.e. backed by a valid db0 address        
+        v_object(db0::tag_verified, mptr ptr, FlagSet<AccessOptions> access_mode = {})
+            : v_this(ptr, access_mode | AccessOptions::read)
+        {
+            v_this.get();    
         }
 
         v_object(const v_object<T> &other)

@@ -14,6 +14,8 @@ namespace db0::python
      **/
     template <typename T, bool is_object_base=true> struct PyWrapper: public PyObject
     {
+        using ExtT = T;
+
         inline const T &ext() const {
             return *reinterpret_cast<const T*>((char*)this + Py_TYPE(this)->tp_basicsize - sizeof(T));
         }
@@ -86,5 +88,28 @@ namespace db0::python
             Shared<T>::makeNew(&super_t::ext(), ptr);
         }
     };
+    
+    // Common drop implementation for wrapper db0 types
+    // @tparam T underlying db0 type (derived from ObjectBase) must implement a static makeNull method
+    template <typename T> void PyWrapper_drop(T *ptr)
+    {
+        using ExtT = typename T::ExtT;
+        // db0 instance does not exist
+        if (!ptr->ext().hasInstance()) {
+            return;
+        }
         
+        if (ptr->ext().hasRefs()) {
+            PyErr_SetString(PyExc_RuntimeError, "delete failed: object has references");
+            return;    
+        }
+        
+        // create a null placeholder in place of the original instance to mark as deleted
+        auto &lang_cache = ptr->ext().getFixture()->getLangCache();
+        ptr->destroy();
+        ExtT::makeNull((void*)(&ptr->ext()));
+        // remove instance from the lang cache
+        lang_cache.erase(ptr->ext().getAddress());
+    }
+
 }

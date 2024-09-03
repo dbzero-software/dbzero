@@ -81,6 +81,12 @@ namespace db0
             , m_b_class(evaluateBClass(m_last_known_size))
         {
         }
+        
+        // compatibility constructor
+        v_bvector(db0::tag_verified, mptr ptr)
+            : v_bvector(ptr)
+        {        
+        }
 
         v_bvector(const v_bvector &other)
             : super_t(other)

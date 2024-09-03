@@ -3,6 +3,7 @@
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/value/TypeUtils.hpp>
+#include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -89,7 +90,6 @@ namespace db0::python
 
         auto storage_class = object_id.m_typed_addr.getType();
         auto addr = object_id.m_typed_addr;
-        auto &lang_cache = fixture->getLangCache();
 
         // validate storage class first
         if (py_expected_type) {
@@ -107,26 +107,11 @@ namespace db0::python
             if (py_expected_type) {
                 type = class_factory.getExistingType(py_expected_type);
             }
-            // try pulling from cache first
-            auto object_ptr = lang_cache.get(addr);
-            if (object_ptr) {
-                // validate type if requested
-                if (type) {
-                    MemoObject *memo_ptr = reinterpret_cast<MemoObject*>(object_ptr.get());
-                    if (memo_ptr->ext().getType() != *type) {                        
-                        PyErr_SetString(PyExc_TypeError, "Object ID type mismatch");
-                        return nullptr;
-                    }
-                }
-                return object_ptr;
-            }
             
             // unload with instance_id validation & optional type validation
-            object_ptr = PyToolkit::unloadObject(fixture, addr, class_factory, object_id.m_instance_id, type);
-            fixture->getLangCache().add(addr, object_ptr.get());
-            return object_ptr;
+            return PyToolkit::unloadObject(fixture, addr, class_factory, object_id.m_instance_id, type);
         }
-
+        
         if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             // unload with instance_id validation
             return PyToolkit::unloadList(fixture, object_id.m_typed_addr, object_id.m_instance_id);
@@ -377,4 +362,37 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
+    // MEMO_OBJECT specialization
+    template <> void dropInstance<TypeId::MEMO_OBJECT>(PyObject *py_wrapper) {
+        MemoObject_drop(reinterpret_cast<MemoObject*>(py_wrapper));                
+    }
+
+    // DB0_INDEX specialization
+    template <> void dropInstance<TypeId::DB0_INDEX>(PyObject *py_wrapper) {
+        PyWrapper_drop(reinterpret_cast<IndexObject*>(py_wrapper));
+    }
+
+    void registerDropInstanceFunctions(std::vector<void (*)(PyObject *)> &functions)
+    {
+        using TypeId = db0::bindings::TypeId;
+        functions.resize(static_cast<int>(TypeId::COUNT));
+        std::fill(functions.begin(), functions.end(), nullptr);
+        functions[static_cast<int>(TypeId::MEMO_OBJECT)] = dropInstance<TypeId::MEMO_OBJECT>;
+    }
+    
+    void dropInstance(db0::bindings::TypeId type_id, PyObject *py_instance)
+    {        
+        // type-id specializations
+        using DropInstanceFunc = void (*)(PyObject *);
+        static std::vector<DropInstanceFunc> drop_instance_functions;
+        if (drop_instance_functions.empty()) {
+            registerDropInstanceFunctions(drop_instance_functions);
+        }
+        
+        assert(static_cast<int>(type_id) < drop_instance_functions.size());
+        if (drop_instance_functions[static_cast<int>(type_id)]) {
+            drop_instance_functions[static_cast<int>(type_id)](py_instance);
+        }
+    }
+
 }

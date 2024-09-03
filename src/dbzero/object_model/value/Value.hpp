@@ -15,8 +15,7 @@ namespace db0::object_model
         {
         }
 
-        template <typename T> inline T cast() const
-        {
+        template <typename T> inline T cast() const {
             return db0::binary_cast<T, std::uint64_t>()(m_store);
         }
 

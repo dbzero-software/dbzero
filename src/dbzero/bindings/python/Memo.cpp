@@ -25,7 +25,7 @@ namespace db0::python
         , m_type_id(type_id)
     {
     }
-
+    
     std::uint64_t MemoTypeDecoration::getFixtureUUID()
     {
         if (m_prefix_name_ptr && !m_fixture_uuid) {
@@ -154,7 +154,6 @@ namespace db0::python
             // need to call modifyExt again after postInit because the instance has just been created
             // and potentially needs to be included in the AtomicContext
             self->modifyExt();
-            // register weak-ref with the lang cache
             fixture->getLangCache().add(object.getAddress(), self);
         }
 
@@ -186,7 +185,7 @@ namespace db0::python
         auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
         memo_obj->destroy();
         db0::object_model::Object::makeNull((void*)(&memo_obj->ext()));
-        // remove instance from the lang cache        
+        // remove instance from the lang cache
         lang_cache.erase(memo_obj->ext().getAddress());
     }
     
@@ -439,21 +438,31 @@ namespace db0::python
         auto &pos_vt = field_layout.m_pos_vt_fields;
         auto &index_vt = field_layout.m_index_vt_fields;
         
+        // report pos-vt members
         PyObject *py_pos_vt = PyList_New(pos_vt.size());
         for (std::size_t i = 0; i < pos_vt.size(); ++i) {        
             auto type_name = db0::to_string(pos_vt[i]);
             PyList_SET_ITEM(py_pos_vt, i, PyUnicode_FromString(type_name.c_str()));
         }
         
+        // report index-vt members
         PyObject *py_index_vt = PyDict_New();
         for (auto &item: index_vt) {
             auto type_name = db0::to_string(item.second);
             PyDict_SetItem(py_index_vt, PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
         }
         
+        // report kv-index members
+        PyObject *py_kv_index = PyDict_New();
+        for (auto &item: field_layout.m_kv_index_fields) {
+            auto type_name = db0::to_string(item.second);
+            PyDict_SetItem(py_kv_index, PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
+        }
+
         PyObject *py_result = PyDict_New();
         PyDict_SetItemString(py_result, "pos_vt", py_pos_vt);
-        PyDict_SetItemString(py_result, "index_vt", py_index_vt);        
+        PyDict_SetItemString(py_result, "index_vt", py_index_vt);
+        PyDict_SetItemString(py_result, "kv_index", py_kv_index);
         return py_result;
     }
     

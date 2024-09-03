@@ -75,7 +75,7 @@ namespace db0::object_model
         // prepare for initialization
         m_init_manager.addInitializer(*this, db0_class);
     }
-
+    
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
         : super_t(fixture, classRef(*type), createInstanceId(), ref_count, pos_vt_data)
         , m_type(type)
@@ -116,7 +116,7 @@ namespace db0::object_model
     Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, 
         std::optional<std::uint32_t> instance_id)
     {
-        db0::v_object<o_object> stem(fixture->myPtr(address));
+        db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
         // validate the instance ID
         if (instance_id && (*instance_id != stem->m_instance_id)) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
@@ -149,7 +149,7 @@ namespace db0::object_model
             // place object in the same fixture as class
             // construct the DBZero instance & assign to self       
             m_type = initializer.getClassPtr();
-            assert(m_type);            
+            assert(m_type);
             // assign unique instance ID
             m_instance_id = createInstanceId();
             super_t::init(*fixture, classRef(*m_type), m_instance_id, initializer.getRefCount(), pos_vt_data,
@@ -401,7 +401,7 @@ namespace db0::object_model
             modify().m_header.decRef();
         }
     }
-
+    
     void Object::destroy() const
     {
         dropMembers();
@@ -420,9 +420,19 @@ namespace db0::object_model
         for (auto &xvalue: (*this)->index_vt().xvalues()) {
             layout.m_index_vt_fields.emplace_back(xvalue.getIndex(), xvalue.m_type);
         }
+
+        // collect kv-index information
+        auto kv_index_ptr = tryGetKV_Index();
+        if (kv_index_ptr) {
+            auto it = kv_index_ptr->beginJoin(1);
+            for (;!it.is_end(); ++it) {
+                layout.m_kv_index_fields.emplace_back((*it).getIndex(), (*it).m_type);
+            }
+        }
+
         return layout;
     }
-
+    
     KV_Index *Object::addKV_First(const XValue &value)
     {
         if (!m_kv_index) {

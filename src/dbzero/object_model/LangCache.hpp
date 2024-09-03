@@ -99,8 +99,8 @@ namespace db0
     public:
         using ObjectPtr = typename LangCache::ObjectPtr;
         using ObjectSharedPtr = typename LangCache::ObjectSharedPtr;
-
-        LangCacheView(const Fixture &, LangCache &);
+        
+        LangCacheView(const Fixture &, std::shared_ptr<LangCache>);
         
         void add(std::uint64_t address, ObjectPtr);
 
@@ -115,6 +115,7 @@ namespace db0
 
     private:
         const Fixture &m_fixture;
+        std::shared_ptr<LangCache> m_cache_ptr;
         LangCache &m_cache;
         const std::uint16_t m_fixture_id;     
         std::unordered_set<std::uint64_t> m_objects;

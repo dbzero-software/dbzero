@@ -430,3 +430,37 @@ def test_moved_index_updates_are_flushed_on_close(db0_fixture):
     db0.open("some-other-prefix", "rw")
     root = MemoScopedSingleton(prefix="some-other-prefix")    
     assert len(root.value) == 1
+
+
+def test_index_unbounded_range_query(db0_fixture):
+    # 2-side unbounded range query
+    index = db0.index()
+    for i in range(10):
+        index.add(i, MemoTestClass(i))
+    values = set([x for x in index.range(None, None)])
+    assert len(values) == 10
+
+
+def test_index_default_range_query(db0_fixture):
+    # a default range query should return all elements (unbounded)
+    index = db0.index()
+    for i in range(10):
+        index.add(i, MemoTestClass(i))
+    values = set([x for x in index.range()])
+    assert len(values) == 10
+
+
+def test_index_destroys_its_depencencies_when_dropped(db0_fixture):
+    index = db0.index()
+    index.add(1, MemoTestClass(999))
+    for obj in index.range(None, None):
+        dep_uuid = db0.uuid(obj)
+        # NOTE: important to drop python reference to obj otherwise will be accessible outside of the scope
+        del obj    
+    db0.delete(index)    
+    del index
+    db0.clear_cache()
+    db0.commit()
+    # make sure dependent instance has been destroyed as well
+    with pytest.raises(Exception):
+        db0.fetch(dep_uuid)

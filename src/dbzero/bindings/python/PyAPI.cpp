@@ -46,7 +46,7 @@ namespace db0::python
     PyObject *getLangCacheStats(PyObject *, PyObject *)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
-        auto &lang_cache = PyToolkit::getPyWorkspace().getWorkspace().getLangCache();        
+        auto lang_cache = PyToolkit::getPyWorkspace().getWorkspace().getLangCache();
         
         PyObject* dict = PyDict_New();
         if (dict == NULL) {
@@ -54,11 +54,11 @@ namespace db0::python
             return NULL;
         }
         
-        PyDict_SetItemString(dict, "size", PyLong_FromLong(lang_cache.size()));
-        PyDict_SetItemString(dict, "capacity", PyLong_FromLong(lang_cache.getCapacity()));
+        PyDict_SetItemString(dict, "size", PyLong_FromLong(lang_cache->size()));
+        PyDict_SetItemString(dict, "capacity", PyLong_FromLong(lang_cache->getCapacity()));
         return dict;
     }
-
+    
     PyObject *clearCache(PyObject *, PyObject *)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
@@ -257,15 +257,11 @@ namespace db0::python
             return NULL;
         }
 
-        if (!PyMemo_Check(py_object)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
-        }
-
-        MemoObject_drop(reinterpret_cast<MemoObject*>(py_object));
+        auto type_id = PyToolkit::getTypeManager().getTypeId(py_object);
+        dropInstance(type_id, py_object);      
         Py_RETURN_NONE;
     }
-
+    
     PyObject *del(PyObject *self, PyObject *args) {
         return runSafe(tryDel, self, args);
     }

@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import DynamicDataClass
+from .memo_test_types import DynamicDataClass, MemoTestClass
 
         
 def test_pos_vt_created_for_consecutive_slots(db0_fixture):
@@ -10,7 +10,7 @@ def test_pos_vt_created_for_consecutive_slots(db0_fixture):
     assert len(db0.describe(object_2)["field_layout"]["pos_vt"]) == 10
     
     
-def test_indexp_vt_created_with_sparsely_filled_slots(db0_fixture):
+def test_index_vt_created_with_sparsely_filled_slots(db0_fixture):
     # 120 fields will be registered in the class field layout
     object_1 = DynamicDataClass(120)
     object_2 = DynamicDataClass([0, 1, 2, 11, 33, 119])
