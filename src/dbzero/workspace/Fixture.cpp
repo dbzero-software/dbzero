@@ -206,13 +206,20 @@ namespace db0
     void Fixture::commit()
     {
         assert(getPrefixPtr());
+
+        // pre-commit to prepare objects which require it (e.g. Index) for commit
+        // NOTE: pre-commit must NOT lock the fixture's shared mutex
+        if (m_gc0_ptr) {
+            getGC0().preCommit();            
+        }
+
         std::unique_lock<std::shared_mutex> lock(m_shared_mutex);        
         tryCommit(lock);
         m_pre_commit = false;
-        m_updated = false;        
+        m_updated = false;
     }
     
-    void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &)
+    void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock)
     {
         auto prefix_ptr = getPrefixPtr();
         // prefix may not exist if fixture has already been closed
@@ -220,11 +227,6 @@ namespace db0
             return;
         }
 
-        // pre-commit to prepare objects which require it (e.g. Index) for commit
-        if (m_gc0_ptr) {
-            getGC0().preCommit();
-        }
-        
         std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
         // FIXME: this should be changed to commit-op
         if (m_gc0_ptr) {
@@ -252,6 +254,12 @@ namespace db0
             // prevents commit on a closed fixture
             std::unique_lock<std::mutex> lock(m_close_mutex);
             if (!Memspace::isClosed()) {
+                // pre-commit to prepare objects which require it (e.g. Index) for commit
+                // NOTE: pre-commit must NOT lock the fixture's shared mutex
+                if (m_gc0_ptr) {
+                    getGC0().preCommit();            
+                }
+
                 // lock for exclusive access
                 std::unique_lock<std::shared_mutex> lock(m_shared_mutex);            
                 tryCommit(lock);

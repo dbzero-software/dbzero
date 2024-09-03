@@ -44,6 +44,9 @@ namespace db0::object_model
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the range-tree index
         mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
+
+        // add to cache and return object address
+        std::uint64_t addToCache(ObjectPtr);
     };
 
     template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder()
@@ -61,34 +64,22 @@ namespace db0::object_model
     {
     }
 
-    template <typename KeyT> void IndexBuilder<KeyT>::add(KeyT key, ObjectPtr obj_ptr)
-    {
-        auto obj_addr = m_type_manager.extractObject(obj_ptr).getAddress();
-        super_t::add(key, obj_addr);
-        // cache object locally
-        if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
-            m_object_cache.emplace(obj_addr, obj_ptr);
-        }
+    template <typename KeyT> void IndexBuilder<KeyT>::add(KeyT key, ObjectPtr obj_ptr) {
+        super_t::add(key, addToCache(obj_ptr));
     }
 
-    template <typename KeyT> void IndexBuilder<KeyT>::remove(KeyT key, ObjectPtr obj_ptr) {
-        super_t::remove(key, m_type_manager.extractObject(obj_ptr).getAddress());
+    template <typename KeyT> void IndexBuilder<KeyT>::remove(KeyT key, ObjectPtr obj_ptr) {              
+        super_t::remove(key, addToCache(obj_ptr));
     }
 
-    template <typename KeyT> void IndexBuilder<KeyT>::addNull(ObjectPtr obj_ptr)
-    {
-        auto obj_addr = m_type_manager.extractObject(obj_ptr).getAddress();
-        super_t::addNull(obj_addr);
-        // cache object locally
-        if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
-            m_object_cache.emplace(obj_addr, obj_ptr);
-        }
+    template <typename KeyT> void IndexBuilder<KeyT>::addNull(ObjectPtr obj_ptr) {
+        super_t::addNull(addToCache(obj_ptr));
     }
-
-    template <typename KeyT> void IndexBuilder<KeyT>::removeNull(ObjectPtr obj_ptr) {
-        super_t::removeNull(m_type_manager.extractObject(obj_ptr).getAddress());
+    
+    template <typename KeyT> void IndexBuilder<KeyT>::removeNull(ObjectPtr obj_ptr) {        
+        super_t::removeNull(addToCache(obj_ptr));
     }
-
+       
     template <typename KeyT> void IndexBuilder<KeyT>::flush(RangeTreeT &index)
     {
         std::function<void(std::uint64_t)> add_callback = [&](std::uint64_t address) {
@@ -96,7 +87,7 @@ namespace db0::object_model
             assert(it != m_object_cache.end());
             m_type_manager.extractMutableObject(it->second.get()).incRef();
         };
-
+        
         std::function<void(std::uint64_t)> erase_callback = [&](std::uint64_t address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
@@ -104,6 +95,16 @@ namespace db0::object_model
         };
 
         super_t::flush(index, &add_callback, &erase_callback);
+        m_object_cache.clear();
+    }
+
+    template <typename KeyT> std::uint64_t IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
+    {
+        auto obj_addr = m_type_manager.extractObject(obj_ptr).getAddress();
+        if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
+            m_object_cache.emplace(obj_addr, obj_ptr);
+        }
+        return obj_addr;
     }
 
 }

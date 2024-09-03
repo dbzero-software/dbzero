@@ -597,7 +597,7 @@ namespace db0
                 CallbackT *erase_callback_ptr = nullptr)
             {                
                 // erase items first
-                if (!m_remove_items.empty()) {
+                if (!m_remove_items.empty()) {                    
                     std::vector<ItemT> items;
                     std::copy(m_remove_items.begin(), m_remove_items.end(), std::back_inserter(items));
                     range_tree.bulkErase(items.begin(), items.end(), erase_callback_ptr);

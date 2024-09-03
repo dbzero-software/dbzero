@@ -64,12 +64,12 @@ namespace db0
             drop_op = ops.drop;
         }
         m_vptr_map.erase(it);
-
+        
         // drop object after erasing from map due to possible recursion
         if (drop_op) {
-            // lock to synchronize with the auto-commit thread
             auto fixture = this->getFixture();
             fixture->onUpdated();
+            // lock to synchronize with the auto-commit thread            
             FixtureLock lock(fixture);
             drop_op(vptr);
             return true;
@@ -97,9 +97,13 @@ namespace db0
     }
     
     void GC0::preCommit()
-    {                
+    {   
+        // collect ops first (this is necessary because preCommit can trigger "remove" calls)
+        std::vector<std::pair<void*, unsigned int>> pre_commit_ops;
+        std::copy(m_pre_commit_map.begin(), m_pre_commit_map.end(), std::back_inserter(pre_commit_ops));
+        
         // call pre-commit where it's provided
-        for (auto &item : m_pre_commit_map) {
+        for (auto &item : pre_commit_ops) {
             m_ops[item.second].preCommit(item.first, false);
         }
     }
