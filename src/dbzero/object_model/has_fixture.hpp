@@ -29,10 +29,11 @@ namespace db0
             fixture.take_weak();
         }
         
-        // open existing instance
+        // Open an existing instance
+        // NOTE: we use tag_verified to avoid registering unverified instance with GC0
         struct tag_from_address {};
         has_fixture(tag_from_address, db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-            : BaseT(mptr(*fixture, address))
+            : BaseT(db0::tag_verified(), mptr(*fixture, address))
         {
             // take weak ref of the Fixture
             fixture.take_weak();

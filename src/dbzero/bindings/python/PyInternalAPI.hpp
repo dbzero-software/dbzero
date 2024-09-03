@@ -108,6 +108,12 @@ namespace db0::python
 #endif
     
     bool isBase(PyTypeObject *py_type, PyTypeObject *base_type);
-
+    
+    // drop unreferenced db0 object with a python representation    
+    template <db0::bindings::TypeId> void dropInstance(PyObject *);
+    // register TypeId specializations
+    void registerDropInstanceFunctions(std::vector<void (*)(PyObject *)> &functions);
+    void dropInstance(db0::bindings::TypeId type_id, PyObject *);
+    
 }
 

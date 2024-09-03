@@ -202,7 +202,7 @@ namespace db0
         */
         void close() override;
         
-        LangCache &getLangCache() const override;
+        std::shared_ptr<LangCache> getLangCache() const override;
 
         CacheRecycler &getCacheRecycler();
 
@@ -246,7 +246,7 @@ namespace db0
         mutable FixedObjectList m_shared_object_list;
         // flag indicating atomic operation in progress
         AtomicContext *m_atomic_context_ptr = nullptr;
-        mutable std::unique_ptr<LangCache> m_lang_cache;
+        mutable std::shared_ptr<LangCache> m_lang_cache;
         std::unique_ptr<WorkspaceThreads> m_workspace_threads;
         std::shared_ptr<Config> m_config;
         

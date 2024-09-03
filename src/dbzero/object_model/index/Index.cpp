@@ -4,6 +4,7 @@
 #include <dbzero/core/collections/full_text/SortedIterator.hpp>
 #include <dbzero/core/utils/uuid.hpp>
 #include <dbzero/bindings/TypeId.hpp>
+#include <dbzero/object_model/value/Member.hpp>
 
 namespace db0::object_model
 
@@ -12,6 +13,11 @@ namespace db0::object_model
     GC0_Define(Index)
     using TypeId = db0::bindings::TypeId;
     
+    Index::Index()
+        : m_builder(*this)
+    {
+    }
+
     Index::Index(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, db0::createInstanceId(), IndexType::RangeTree, IndexDataType::Auto)
         , m_builder(*this)
@@ -81,7 +87,7 @@ namespace db0::object_model
     }
 
     void Index::Builder::flush()
-    {        
+    {
         if (!m_index_builder) {
             return;
         }
@@ -526,18 +532,28 @@ namespace db0::object_model
         // discard any pending changes
         const_cast<Builder&>(m_builder).rollback();
         if (hasRangeTree()) {
-             switch ((*this)->m_data_type) {
+            auto fixture = this->getFixture();
+            auto unref_func = [&fixture](std::uint64_t obj_addr) {
+                unrefMember<StorageClass::OBJECT_REF, LangToolkit>(fixture, obj_addr);
+            };
+            switch ((*this)->m_data_type) {
                 case IndexDataType::Int64: {
+                    // unreference all elements
+                    getExistingRangeTree<std::int64_t>().forAll(unref_func);
                     getExistingRangeTree<std::int64_t>().destroy();
                     break;
                 }
 
                 case IndexDataType::UInt64: {
+                    // unreference all elements
+                    getExistingRangeTree<std::uint64_t>().forAll(unref_func);
                     getExistingRangeTree<std::uint64_t>().destroy();
                     break;
                 }
                 
                 case IndexDataType::Auto: {
+                    // unreference all elements
+                    getExistingRangeTree<DefaultT>().forAll(unref_func);
                     getExistingRangeTree<DefaultT>().destroy();
                     break;
                 }
@@ -549,6 +565,10 @@ namespace db0::object_model
             }           
         }
         super_t::destroy();
+    }
+    
+    Index *Index::makeNull(void *at_ptr) {
+        return new (at_ptr) Index();
     }
 
 }

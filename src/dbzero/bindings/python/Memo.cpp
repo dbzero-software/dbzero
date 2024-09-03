@@ -25,7 +25,7 @@ namespace db0::python
         , m_type_id(type_id)
     {
     }
-
+    
     std::uint64_t MemoTypeDecoration::getFixtureUUID()
     {
         if (m_prefix_name_ptr && !m_fixture_uuid) {
@@ -154,7 +154,6 @@ namespace db0::python
             // need to call modifyExt again after postInit because the instance has just been created
             // and potentially needs to be included in the AtomicContext
             self->modifyExt();
-            // register weak-ref with the lang cache
             fixture->getLangCache().add(object.getAddress(), self);
         }
 
@@ -186,7 +185,7 @@ namespace db0::python
         auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
         memo_obj->destroy();
         db0::object_model::Object::makeNull((void*)(&memo_obj->ext()));
-        // remove instance from the lang cache        
+        // remove instance from the lang cache
         lang_cache.erase(memo_obj->ext().getAddress());
     }
     

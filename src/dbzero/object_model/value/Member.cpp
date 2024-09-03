@@ -448,7 +448,7 @@ namespace db0::object_model
     {
         throw std::runtime_error("Not implemented");
     }
-
+    
     template <> void registerUnrefMemberFunctions<PyToolkit>(
         std::vector<void (*)(db0::swine_ptr<Fixture> &, Value)> &functions)
     {

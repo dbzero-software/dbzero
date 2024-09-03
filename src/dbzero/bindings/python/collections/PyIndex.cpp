@@ -159,10 +159,10 @@ namespace db0::python
         static const char *kwlist[] = {"low", "high", "null_first", NULL};
         PyObject *low = NULL, *high = NULL;
         int null_first = 0;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|Op", const_cast<char**>(kwlist), &low, &high, &null_first)) {
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOp", const_cast<char**>(kwlist), &low, &high, &null_first)) {
             return NULL;
         }
-
+        
         auto &index = py_index->ext();
         // construct range iterator        
         auto iter_factory = index.range(low, high, null_first);

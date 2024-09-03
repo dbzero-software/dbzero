@@ -250,6 +250,10 @@ namespace db0::object_model
         void detach() const;
 
         void commit() const;
+
+        inline std::uint32_t getInstanceId() const {
+            return m_instance_id;
+        }
         
     private:
         // Class will only be assigned after initialization

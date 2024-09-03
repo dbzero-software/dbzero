@@ -59,7 +59,7 @@ namespace db0
         
         void close() override;
 
-        LangCache &getLangCache() const override;
+        std::shared_ptr<LangCache> getLangCache() const override;
 
         void tearDown();
         
@@ -70,7 +70,7 @@ namespace db0
         db0::swine_ptr<Fixture> m_current_fixture;
         std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;
         std::unordered_map<std::string, std::uint64_t> m_uuids;
-        mutable db0::LangCache m_lang_cache;
+        mutable std::shared_ptr<db0::LangCache> m_lang_cache;
     };
 
 }

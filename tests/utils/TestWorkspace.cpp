@@ -76,6 +76,7 @@ namespace db0
         : TestWorkspaceBase(page_size, cache_size)
         , m_slab_size(slab_size)
         , m_shared_object_list(100)
+        , m_lang_cache(std::make_shared<LangCache>())
     {
     }
 
@@ -138,8 +139,8 @@ namespace db0
         }
         return m_fixtures.find(it->second) != m_fixtures.end();
     }
-
-    LangCache &TestWorkspace::getLangCache() const {
+    
+    std::shared_ptr<LangCache> TestWorkspace::getLangCache() const {
         return m_lang_cache;
     }
     

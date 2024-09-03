@@ -183,7 +183,7 @@ namespace db0
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
         , m_shared_object_list(vobject_cache_size ? *vobject_cache_size : DEFAULT_VOBJECT_CACHE_SIZE)
-        , m_lang_cache(std::make_unique<LangCache>())
+        , m_lang_cache(std::make_shared<LangCache>())
         , m_workspace_threads(std::make_unique<WorkspaceThreads>())
         , m_config(config)
     {
@@ -509,8 +509,8 @@ namespace db0
         BaseWorkspace::setCacheSize(cache_size);
     }
 
-    LangCache &Workspace::getLangCache() const {
-        return *m_lang_cache;
+    std::shared_ptr<LangCache> Workspace::getLangCache() const {
+        return m_lang_cache;
     }
     
     void Workspace::clearCache() const

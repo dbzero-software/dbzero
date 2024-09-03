@@ -5,8 +5,7 @@ namespace db0
 
 {
 
-    void o_object_header::incRef()
-    {
+    void o_object_header::incRef() {
         ++m_ref_count;
     }
 
