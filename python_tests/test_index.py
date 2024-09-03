@@ -453,17 +453,20 @@ def test_index_default_range_query(db0_fixture):
 def test_index_destroys_its_depencencies_when_dropped(db0_fixture):
     index = db0.index()
     index.add(1, MemoTestClass(999))
+    index.add(None, MemoTestClass(999))
+    dep_uuids = []
     for obj in index.range(None, None):
-        dep_uuid = db0.uuid(obj)
+        dep_uuids.append(db0.uuid(obj))
         # NOTE: important to drop python reference to obj otherwise will be accessible outside of the scope
-        del obj    
-    db0.delete(index)    
+        del obj
+    db0.delete(index)
     del index
     db0.clear_cache()
     db0.commit()
-    # make sure dependent instance has been destroyed as well
-    with pytest.raises(Exception):
-        db0.fetch(dep_uuid)
+    # make sure dependent instances has been destroyed as well
+    for dep_uuid in dep_uuids:
+        with pytest.raises(Exception):
+            db0.fetch(dep_uuid)
         
 
 def test_unflushed_index_destroys_its_depencencies_when_dropped(db0_fixture):    
