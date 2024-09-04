@@ -14,7 +14,7 @@ def rand_string(str_len):
 
 def test_new_object_inside_atomic_operation(db0_fixture):
     # this is to create a new class in dbzero
-    MemoTestClass(123)    
+    MemoTestClass(123)
     with db0.atomic() as atomic:
         object_2 = MemoTestClass(951)
         assert object_2.value == 951
@@ -375,14 +375,29 @@ def test_atomic_stress_test_1(db0_no_autocommit):
         print(f"Atomic operations completed: {count}")
 
 
-# FIXME: 
-# def test_atomic_deletion(db0_fixture):
-#     obj = MemoTestClass(MemoTestClass(123))    
-#     dep_uuid = db0.uuid(obj.value)
-#     # drop related object as atomic
-#     with db0.atomic() as atomic:
-#         obj.value = None
-#     db0.clear_cache()
-#     db0.commit()
-#     with pytest.raises(Exception):
-#         db0.fetch(dep_uuid)
+def test_atomic_deletion(db0_fixture):
+    obj = MemoTestClass(MemoTestClass(123))    
+    dep_uuid = db0.uuid(obj.value)
+    # drop related object as atomic
+    with db0.atomic():
+        obj.value = None
+    db0.clear_cache()
+    db0.commit()
+    with pytest.raises(Exception):
+        db0.fetch(dep_uuid)
+
+        
+def test_atomic_deletion_issue_1(db0_fixture):
+    """
+    This test was failing due to incorrect implementation of AtomicContext.exit() - 
+    the method was not releasing references to associated objects
+    """
+    obj = MemoTestClass(MemoTestClass(123))
+    dep_uuid = db0.uuid(obj.value)
+    # drop related object as atomic
+    with db0.atomic() as atomic:
+        obj.value = None
+    db0.clear_cache()
+    db0.commit()
+    with pytest.raises(Exception):
+        db0.fetch(dep_uuid)

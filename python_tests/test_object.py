@@ -291,6 +291,9 @@ def test_memo_object_destroys_its_index_vt_members_on_reassign(db0_fixture):
 
 def test_memo_object_destroys_its_kv_members_on_reassign(db0_fixture):
     obj = DynamicDataClass(5)
+    # assign None first (to check unreferencing None values on reassign)
+    obj.field_60 = None
+    # assign memo object next
     obj.field_60 = MemoTestClass(60)
     dep_uuid = db0.uuid(obj.field_60)
     # member should be dropped

@@ -64,7 +64,7 @@ namespace db0
             drop_op = ops.drop;
         }
         m_vptr_map.erase(it);
-        
+                
         // drop object after erasing from map due to possible recursion
         if (drop_op) {
             auto fixture = this->getFixture();

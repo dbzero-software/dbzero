@@ -82,10 +82,11 @@ namespace db0
             detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
         }
         m_workspace->cancelAtomic();
+        m_objects.clear();
         m_active = false;
     }
     
-    void AtomicContext::exit()
+    void AtomicContext::exit()    
     {
         if (!m_active) {
             return;
@@ -97,9 +98,10 @@ namespace db0
         auto &type_manager = LangToolkit::getTypeManager();
         for (auto &pair : m_objects) {
             detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
-        }        
+        }
         
         m_workspace->endAtomic();
+        m_objects.clear();
     }
     
     void AtomicContext::add(std::uint64_t address, ObjectPtr lang_object) 

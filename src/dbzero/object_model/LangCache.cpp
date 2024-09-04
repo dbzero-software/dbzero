@@ -124,7 +124,7 @@ namespace db0
             if (item.second) {
                 item = {};
             }
-        }        
+        }
         m_uid_to_index.clear();
         m_size = 0;        
     }
