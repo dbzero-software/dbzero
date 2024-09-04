@@ -159,7 +159,7 @@ namespace tests
         cut.bulkInsert(values_2.begin(), values_2.end());
         ASSERT_EQ(cut.getRangeCount(), 3);
     }
-
+    
     TEST_F( RangeTreeTest , testCanUpdateExistingRange )
     {
         using RangeTreeT = RangeTree<int, std::uint64_t>;

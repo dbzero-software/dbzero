@@ -202,8 +202,8 @@ namespace db0::object_model
     {
         assert(hasInstance());
         auto [type_id, storage_class] = recognizeType(**fixture, lang_value);
-                
-        assert(m_type);        
+        
+        assert(m_type);
         // find already existing field index
         auto field_id = m_type->findField(field_name);
         if (field_id == Class::NField) {
@@ -214,15 +214,19 @@ namespace db0::object_model
         // FIXME: value should be destroyed on exception
         auto value = createMember<LangToolkit>(*fixture, type_id, lang_value);
         if (field_id < (*this)->pos_vt().size()) {
+            auto &pos_vt = modify().pos_vt();
+            unrefMember(*fixture, pos_vt.types()[field_id], pos_vt.values()[field_id]);
             // update attribute stored in the positional value-table
-            modify().pos_vt().set(field_id, storage_class, value);
+            pos_vt.set(field_id, storage_class, value);
             return;
         }
         
         // try updating field in the index-vt
         unsigned int index_vt_pos;
         if ((*this)->index_vt().find(field_id, index_vt_pos)) {
-            modify().index_vt().set(index_vt_pos, storage_class, value);
+            auto &index_vt = modify().index_vt();
+            unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
+            index_vt.set(index_vt_pos, storage_class, value);
             return;
         }
         
@@ -231,7 +235,9 @@ namespace db0::object_model
         auto kv_index_ptr = addKV_First(xvalue);
         if (kv_index_ptr) {
             // try updating an existing element first
-            if (kv_index_ptr->updateExisting(xvalue)) {
+            XValue old_value;
+            if (kv_index_ptr->updateExisting(xvalue, &old_value)) {
+                unrefMember(*fixture, old_value);
                 // in case of the IttyIndex updating an element changes the address
                 // which needs to be updated in the object
                 if (kv_index_ptr->getIndexType() == bindex::itty) {
@@ -370,22 +376,22 @@ namespace db0::object_model
                 auto &values = (*this)->pos_vt().values();
                 auto value = values.begin();
                 for (auto type = types.begin(); type != types.end(); ++type, ++value) {
-                    unrefMember<LangToolkit>(fixture, *type, *value);
+                    unrefMember(fixture, *type, *value);
                 }
             }
             // drop index-vt members next
             {
                 auto &xvalues = (*this)->index_vt().xvalues();
                 for (auto &xvalue: xvalues) {
-                    unrefMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value);
+                    unrefMember(fixture, xvalue);
                 }
             }
             // finally drop kv-index members
             auto kv_index_ptr = tryGetKV_Index();
             if (kv_index_ptr) {
 		        auto it = kv_index_ptr->beginJoin(1);
-                for (;!it.is_end(); ++it) {                    
-                    unrefMember<LangToolkit>(fixture, (*it).m_type, (*it).m_value);
+                for (;!it.is_end(); ++it) {
+                    unrefMember(fixture, *it);
                 }
             }
         }
@@ -594,5 +600,13 @@ namespace db0::object_model
         }
         super_t::detach();
     }
-    
+
+    void Object::unrefMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value) const {
+        db0::object_model::unrefMember<LangToolkit>(fixture, type, value);
+    }
+
+    void Object::unrefMember(db0::swine_ptr<Fixture> &fixture, XValue value) const {
+        db0::object_model::unrefMember<LangToolkit>(fixture, value.m_type, value.m_value);
+    }
+
 }

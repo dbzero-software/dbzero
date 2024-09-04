@@ -77,12 +77,15 @@ namespace db0
 		ItemT getValue() const {
 			return m_value;
 		}
-
-		bool updateExisting(const ItemT &value) 
+		
+		bool updateExisting(const ItemT &value, ItemT *old_value = nullptr)
 		{
 			// only update if compares equal
 			if (m_compare(m_value, value) || m_compare(value, m_value)) {
-				return false;				
+				return false;
+			}
+			if (old_value) {
+				*old_value = m_value;
 			}
 			m_value = value;
 			return true;

@@ -889,13 +889,16 @@ namespace db0
         /**
          * Update existing element in place, without changing its key part
         */
-        bool updateExisting(const data_t &data)
+        bool updateExisting(const data_t &data, data_t *old_data = nullptr)
         {
             auto it = (*this)->find(data);
             if (it == (*this)->end()) {
                 return false;
             }
-
+            
+            if (old_data) {
+                *old_data = *it;
+            }
             // NOTE: need to use index because modify() may invalidate iterator
             auto index = (*this)->getItemIndex(it);
             this->modify().modifyItem(index) = data;

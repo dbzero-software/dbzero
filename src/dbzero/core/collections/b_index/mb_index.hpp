@@ -222,10 +222,12 @@ namespace db0
 		/**
 		 * Update existing item without modifying it's key part (important)
 		 * this operation does not affect the collection type
+		 * @param new_item new item value
+		 * @param old_item optional buffer to store old item value
 		 * @return false if item does not exist / not updated
 		*/
-		bool updateExisting(const item_t &new_item) {
-            return m_interface.updateExisting(new_item);
+		bool updateExisting(const item_t &new_item, item_t *old_item = nullptr) {
+            return m_interface.updateExisting(new_item, old_item);
 		}
 
 		/**

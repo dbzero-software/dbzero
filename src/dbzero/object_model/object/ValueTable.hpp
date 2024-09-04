@@ -49,13 +49,11 @@ namespace db0::object_model
 
     public:
 
-        inline o_micro_array<StorageClass> &types()
-        {
+        inline o_micro_array<StorageClass> &types() {
             return getDynFirst(o_micro_array<StorageClass>::type());
         }
 
-        inline const o_micro_array<StorageClass> &types() const
-        {
+        inline const o_micro_array<StorageClass> &types() const {
             return getDynFirst(o_micro_array<StorageClass>::type());
         }
         
@@ -105,20 +103,17 @@ namespace db0::object_model
         
     public:
 
-        inline o_micro_array<XValue> &xvalues()
-        {
+        inline o_micro_array<XValue> &xvalues() {
             return getDynFirst(o_micro_array<XValue>::type());
         }
 
-        inline const o_micro_array<XValue> &xvalues() const
-        {
+        inline const o_micro_array<XValue> &xvalues() const {
             return getDynFirst(o_micro_array<XValue>::type());
         }
         
         static std::size_t measure(const XValue *begin = nullptr, const XValue *end = nullptr);
         
-        template <typename BufT> static std::size_t safeSizeOf(BufT buf)
-        {
+        template <typename BufT> static std::size_t safeSizeOf(BufT buf) {
             return o_micro_array<XValue>::safeSizeOf(buf);
         }
         
@@ -139,5 +134,5 @@ namespace db0::object_model
         */
         void set(unsigned int pos, StorageClass, Value);
     };
-
+    
 }

@@ -76,7 +76,7 @@ namespace db0::bindex::interface
      * Update existing element without affecting its key part
      * @return false if element was not found
     */
-    template <typename item_t> using updateExistingPtr = bool (*)(void *this_ptr, const item_t &);
+    template <typename item_t> using updateExistingPtr = bool (*)(void *this_ptr, const item_t &, item_t *);
 
     template <typename item_t> using findOnePtr = bool (*)(const void *this_ptr, item_t &);
     
@@ -228,9 +228,9 @@ namespace db0::bindex::interface
 
     template <typename item_t, typename... T> struct UpdateExistingFunctor<item_t, db0::v_bindex<T...> >
     {
-        static bool execute(void *this_ptr, const item_t &item) {
+        static bool execute(void *this_ptr, const item_t &item, item_t *old_item) {
             db0::v_bindex<T...> &index = *reinterpret_cast<db0::v_bindex<T...>*>(this_ptr);
-            return index.updateExisting(item);
+            return index.updateExisting(item, old_item);
         }
     };
 
@@ -440,10 +440,10 @@ namespace db0::bindex::interface
 
     template <typename item_t, int N, typename... T> struct UpdateExistingFunctor<item_t, db0::v_sorted_sequence<item_t, N, T...> >
     {
-        static bool execute(void *this_ptr, const item_t &item) {
+        static bool execute(void *this_ptr, const item_t &item, item_t *old_item) {
             db0::v_sorted_sequence<item_t, N, T...> &index =
                 *reinterpret_cast<db0::v_sorted_sequence<item_t, N, T...>*>(this_ptr);
-            return index.updateExisting(item);
+            return index.updateExisting(item, old_item);
         }
     };
 
@@ -601,10 +601,10 @@ namespace db0::bindex::interface
 
     template <typename item_t, typename... T> struct UpdateExistingFunctor<item_t, db0::v_sorted_vector<item_t, T...> >
     {
-        static bool execute(void *this_ptr, const item_t &item) {
+        static bool execute(void *this_ptr, const item_t &item, item_t *old_item) {
             db0::v_sorted_vector<item_t, T...> &index =
                 *reinterpret_cast<db0::v_sorted_vector<item_t, T...>*>(this_ptr);
-            return index.updateExisting(item);
+            return index.updateExisting(item, old_item);
         }
     };
 
@@ -751,10 +751,10 @@ namespace db0::bindex::interface
     
     template <typename item_t, typename... T> struct UpdateExistingFunctor<item_t, db0::IttyIndex<item_t, T...> >
     {
-        static bool execute(void *this_ptr, const item_t &item) {
+        static bool execute(void *this_ptr, const item_t &item, item_t *old_item) {
             db0::IttyIndex<item_t, T...> &index =
                 *reinterpret_cast<db0::IttyIndex<item_t, T...>*>(this_ptr);
-            return index.updateExisting(item);
+            return index.updateExisting(item, old_item);
         }
     };
 
@@ -882,7 +882,7 @@ namespace db0::bindex::interface
     };
 
     template <typename item_t, typename... T> struct UpdateExistingFunctor<item_t, db0::empty_index<T...> > {
-        static bool execute(void *, const item_t &) {
+        static bool execute(void *, const item_t &, item_t *) {
             return false;
         }
     };
@@ -997,8 +997,8 @@ namespace db0::bindex::interface
          * Update existing element in collection
          * @return true if found and updated
         */
-        bool updateExisting(const item_t &item) {
-            return m_update_existing_ptr(m_ptr, item);
+        bool updateExisting(const item_t &item, item_t *old_item = nullptr) {
+            return m_update_existing_ptr(m_ptr, item, old_item);
         }
         
         bool findOne(item_t &item) const {

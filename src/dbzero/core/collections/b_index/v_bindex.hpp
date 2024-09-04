@@ -513,7 +513,7 @@ namespace db0
             this->modify().size = 0;
         }
         
-        bool updateExisting(const item_t &item)
+        bool updateExisting(const item_t &item, item_t *old_item = nullptr)
         {
             node_iterator it_node = m_index.lower_equal_bound(item);
             if (it_node == m_index.end()) {
@@ -527,6 +527,9 @@ namespace db0
                 return false;
             }
             
+            if (old_item) {
+                *old_item = *it;
+            }
             auto index = data_buf->getItemIndex(it);
             data_buf.modify().modifyItem(index) = item;
             return true;

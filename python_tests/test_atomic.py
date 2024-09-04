@@ -371,5 +371,18 @@ def test_atomic_stress_test_1(db0_no_autocommit):
         with db0.atomic():
             for _ in range(100):
                 buf.append(MemoTestClass(rand_string(4096)))
-        count += 1        
+        count += 1
         print(f"Atomic operations completed: {count}")
+
+
+# FIXME: 
+# def test_atomic_deletion(db0_fixture):
+#     obj = MemoTestClass(MemoTestClass(123))    
+#     dep_uuid = db0.uuid(obj.value)
+#     # drop related object as atomic
+#     with db0.atomic() as atomic:
+#         obj.value = None
+#     db0.clear_cache()
+#     db0.commit()
+#     with pytest.raises(Exception):
+#         db0.fetch(dep_uuid)

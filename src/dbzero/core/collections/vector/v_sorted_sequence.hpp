@@ -50,13 +50,11 @@ namespace db0
         }
 
         // get element number pointed by the iterator
-        std::uint32_t getIndex(const_iterator it) const
-        {
+        std::uint32_t getIndex(const_iterator it) const {
             return it - begin();
         }
 
-        void setAt(unsigned int index, const item_t &item)
-        {
+        void setAt(unsigned int index, const item_t &item) {
             data[index] = item;
         }
     };
@@ -155,13 +153,16 @@ namespace db0
             return inner_t::sizeOf();
         }
         
-        bool updateExisting(const item_t &value)
+        bool updateExisting(const item_t &value, item_t *old_value = nullptr)
         {
             auto it = (*this)->find(value);
             if (it == (*this)->end()) {
                 return false;
             }
-                    
+
+            if (old_value) {
+                *old_value = *it;
+            }        
             auto index = (*this)->getIndex(it);
             this->modify().setAt(index, value);
             return true;            
