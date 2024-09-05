@@ -101,7 +101,7 @@ namespace db0
 
     void LangCache::erase(const Fixture &fixture, std::uint64_t address) {
         return erase(getFixtureId(fixture), address);
-    }
+    }    
 
     void LangCache::erase(std::uint16_t fixture_id, std::uint64_t address)
     {
@@ -116,17 +116,18 @@ namespace db0
         m_uid_to_index.erase(it);
         m_cache[slot_id] = {};
         --m_size;
-    }
-    
+    }    
+
     void LangCache::clear()
     {
         for (auto &item: m_cache) {
-            if (item.second) {
-                item = {};
-            }
-        }
-        m_uid_to_index.clear();
-        m_size = 0;        
+            // FIXME: log
+            if (item.second && LangToolkit::getRefCount(item.second.get()) == 1) {                
+                m_uid_to_index.erase(item.first);
+                item = {};                
+            }        
+        }        
+        m_size = 0;
     }
 
     LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, std::uint64_t address) const {
@@ -230,8 +231,8 @@ namespace db0
     {
         m_cache.erase(m_fixture_id, address);
         m_objects.erase(address);
-    }
-
+    }    
+    
     LangCacheView::ObjectSharedPtr LangCacheView::get(std::uint64_t address) const {
         return m_cache.get(m_fixture_id, address);
     }

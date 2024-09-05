@@ -377,11 +377,10 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
     }
 
-    template <typename T, typename LangToolkit> void unrefObjectBase(
-        db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    template <typename T, typename LangToolkit>
+    void unrefObjectBase(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
     {
-        auto &lang_cache = fixture->getLangCache();
-        auto obj_ptr = lang_cache.get(address);
+        auto obj_ptr = fixture->getLangCache().get(address);        
         if (obj_ptr) {
             db0::FixtureLock lock(fixture);
             // decref cached instance via language specific wrapper type
@@ -393,7 +392,7 @@ namespace db0::object_model
             // member will be deleted by GC0 if its ref-count = 0
         }
     }
-
+    
     // OBJECT_REF specialization
     template <> void unrefMember<StorageClass::OBJECT_REF, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value)

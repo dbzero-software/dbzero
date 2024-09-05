@@ -386,7 +386,7 @@ def test_atomic_deletion(db0_fixture):
     with pytest.raises(Exception):
         db0.fetch(dep_uuid)
 
-        
+    
 def test_atomic_deletion_issue_1(db0_fixture):
     """
     This test was failing due to incorrect implementation of AtomicContext.exit() - 
@@ -401,3 +401,41 @@ def test_atomic_deletion_issue_1(db0_fixture):
     db0.commit()
     with pytest.raises(Exception):
         db0.fetch(dep_uuid)
+
+
+def test_reverting_atomic_deletion(db0_fixture):
+    obj = MemoTestClass(MemoTestClass(123))    
+    dep_uuid = db0.uuid(obj.value)
+    # drop related object as atomic without completing the operation
+    try:
+        with db0.atomic():
+            obj.value = None
+            # NOTE: object not dropped yet because it's referenced from the atomic context
+            raise Exception("Test exception")
+    except Exception:
+        pass
+    
+    # drop/assign should be reverted by here
+    db0.clear_cache()
+    db0.commit()
+    db0.fetch(dep_uuid)
+    assert db0.uuid(obj.value) == dep_uuid
+
+
+def test_reverting_atomic_free(db0_fixture):
+    obj = db0.list([1, 2, 3])
+    list_uuid = db0.uuid(obj)
+    try:
+        with db0.atomic():
+            # NOTE: list.append may internally perform a free operation to reallocate list            
+            for i in range(1000):
+                obj.append(i)
+            raise Exception("Test exception")
+    except Exception:
+        pass
+    
+    # free/append should be reverted by here
+    assert list(obj) == [1, 2, 3]
+    db0.clear_cache()
+    db0.commit()
+    assert list(db0.fetch(list_uuid)) == [1, 2, 3]

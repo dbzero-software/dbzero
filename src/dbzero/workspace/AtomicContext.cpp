@@ -86,7 +86,7 @@ namespace db0
         m_active = false;
     }
     
-    void AtomicContext::exit()    
+    void AtomicContext::exit()
     {
         if (!m_active) {
             return;
@@ -104,8 +104,8 @@ namespace db0
         m_objects.clear();
     }
     
-    void AtomicContext::add(std::uint64_t address, ObjectPtr lang_object) 
-    {        
+    void AtomicContext::add(std::uint64_t address, ObjectPtr lang_object)
+    {
         if (m_objects.find(address) == m_objects.end()) {
             m_objects.insert({address, lang_object});            
         }        

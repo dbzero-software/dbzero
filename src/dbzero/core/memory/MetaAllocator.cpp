@@ -637,9 +637,9 @@ namespace db0
             }
         }
     }
-
+    
     void MetaAllocator::free(std::uint64_t address)
-    {
+    {        
         assert(m_deferred_free_ops.find(address) == m_deferred_free_ops.end());
         if (m_deferred_free) {
             m_deferred_free_ops.insert(address);

@@ -86,17 +86,21 @@ def test_db0_object_gets_unlocked_when_memo_object_deleted(db0_fixture):
     # collect initial cache statistics    
     db0.clear_cache()
     cache_0 = db0.get_cache_stats()
+    print(cache_0)
     # create multiple objects, so that mutliple pages are affected
-    objects = [DataClassWithAttr(123) for _ in range(96)]    
+    objects = [DataClassWithAttr(123) for _ in range(96)]
     db0.clear_cache()
     # collect cache statistics while object is locked
     cache_1 = db0.get_cache_stats()
+    print(cache_1)
     # make sure cache utilization increased after object instance has been created    
     assert cache_1["size"] > cache_0["size"]
     # delete memo objects
-    del objects    
+    del objects
     db0.clear_cache()
+    db0.commit()
     cache_2 = db0.get_cache_stats()
+    print(cache_2)
     # after deletion, some cache should be freed    
     assert cache_2["size"] < cache_1["size"]
 

@@ -488,7 +488,7 @@ def test_unflushed_index_destroys_its_depencencies_when_dropped(db0_fixture):
         db0.fetch(dep_uuid)
 
 
-def test_index_destroys_its_depencencies_when_removed(db0_fixture):
+def test_index_destroys_its_dependencies_when_removed(db0_fixture):
     index = db0.index()
     obj = MemoTestClass(999)
     dep_uuid = db0.uuid(obj)
@@ -496,7 +496,8 @@ def test_index_destroys_its_depencencies_when_removed(db0_fixture):
     del obj
     for obj in index.range(None, None):
         index.remove(1, obj)
-    del obj
+        del obj
+    index.flush()
     db0.clear_cache()
     db0.commit()
     # make sure dependent instance has been unreferenced

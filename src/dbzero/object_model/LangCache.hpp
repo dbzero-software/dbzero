@@ -29,7 +29,7 @@ namespace db0
         // Add a new instance to cache
         // @return slot id the element was written to
         void add(const Fixture &, std::uint64_t address, ObjectPtr);
-        
+                
         void erase(const Fixture &, std::uint64_t address);
         
         // Try retrieving an existing instance from cache
@@ -45,6 +45,8 @@ namespace db0
         std::size_t getCapacity() const;
 
         // Remove all cached instances
+        // NOTE: only instances with NO existing references will be removed from cache
+        // this is to avoid instance duplication in the program (e.g. when later being fetched by UUID)
         void clear();
                 
     protected:
@@ -71,7 +73,7 @@ namespace db0
         bool isFull() const;
 
         void add(std::uint16_t fixture_id, std::uint64_t address, ObjectPtr);
-        
+                
         void erase(std::uint16_t fixture_id, std::uint64_t address);
 
         ObjectSharedPtr get(std::uint16_t fixture_id, std::uint64_t address) const;

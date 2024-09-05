@@ -178,7 +178,7 @@ namespace db0::python
         lang_cache.add(address, index_object.get());
         return shared_py_cast<PyObject*>(std::move(index_object));
     }
-
+    
     PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
         std::optional<std::uint32_t> instance_id)
     {

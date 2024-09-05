@@ -188,7 +188,7 @@ namespace db0::python
         // remove instance from the lang cache
         lang_cache.erase(memo_obj->ext().getAddress());
     }
-    
+        
     PyObject *tryMemoObject_getattro(MemoObject *self, PyObject *attr)
     {
         // The method resolution order for Memo types is following:

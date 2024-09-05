@@ -91,7 +91,7 @@ namespace db0::python
     
     // Common drop implementation for wrapper db0 types
     // @tparam T underlying db0 type (derived from ObjectBase) must implement a static makeNull method
-    template <typename T> void PyWrapper_drop(T *ptr)
+    template <typename T> void PyWrapper_drop(T *ptr)    
     {
         using ExtT = typename T::ExtT;
         // db0 instance does not exist
@@ -110,6 +110,6 @@ namespace db0::python
         ExtT::makeNull((void*)(&ptr->ext()));
         // remove instance from the lang cache
         lang_cache.erase(ptr->ext().getAddress());
-    }
-
+    }    
+    
 }
