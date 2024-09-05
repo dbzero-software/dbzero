@@ -179,7 +179,7 @@ namespace db0
     std::uint64_t SlabAllocator::getFirstAddress() {
         return CRDT_Allocator::getFirstAddress();
     }
-        
+    
     void SlabAllocator::commit()
     {
         m_header.commit();

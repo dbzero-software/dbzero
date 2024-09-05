@@ -305,11 +305,12 @@ namespace db0
     bool Fixture::operator==(const Fixture &other) const {
         return m_UUID == other.m_UUID;
     }
-
+    
     void Fixture::beginAtomic(AtomicContext *context)
     {
-        assert(!m_atomic_context_ptr);        
+        assert(!m_atomic_context_ptr);
         m_atomic_context_ptr = context;        
+        m_meta_allocator.beginAtomic();
         getGC0().beginAtomic();
         
         for (auto &commit: m_close_handlers) {
@@ -341,6 +342,7 @@ namespace db0
         assert(m_atomic_context_ptr);
         m_atomic_context_ptr = nullptr;
 
+        m_meta_allocator.endAtomic();
         m_v_object_cache.endAtomic();
         getGC0().endAtomic();
         Memspace::endAtomic();
@@ -350,6 +352,7 @@ namespace db0
     {
         assert(m_atomic_context_ptr);
         m_atomic_context_ptr = nullptr;
+        m_meta_allocator.cancelAtomic();
         getGC0().cancelAtomic();
         // rollback any uncommited changes
         rollback();

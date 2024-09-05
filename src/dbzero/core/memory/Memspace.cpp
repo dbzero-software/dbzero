@@ -102,8 +102,6 @@ namespace db0
     {
         assert(m_atomic);
         m_atomic = false;
-        // flush to performed any deferred operations
-        getAllocator().flush();
         getAllocator().detach();
         m_prefix->endAtomic();
     }

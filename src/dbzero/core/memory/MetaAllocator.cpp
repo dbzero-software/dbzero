@@ -642,7 +642,11 @@ namespace db0
     {        
         assert(m_deferred_free_ops.find(address) == m_deferred_free_ops.end());
         if (m_deferred_free) {
-            m_deferred_free_ops.insert(address);
+            if (m_atomic) {
+                m_atomic_deferred_free_ops.push_back(address);
+            } else {
+                m_deferred_free_ops.insert(address);
+            }
         } else {
             _free(address);
         }
@@ -708,18 +712,19 @@ namespace db0
     
     void MetaAllocator::commit()
     {
-        flush();
-        m_slab_defs.commit();        
+        // NOTE: if atomic operation is in progress, the deferred free operations are not flushed
+        // this is not a finalized and potentially reversible commit        
+        if (!m_atomic) {
+            flush();
+        }
+        m_slab_defs.commit();
         m_capacity_items.commit();
         m_slab_manager->commit();
     }
 
     void MetaAllocator::detach() const
     { 
-        if (!m_deferred_free_ops.empty()) {
-            m_deferred_free_ops.clear();        
-        }        
-        m_slab_defs.detach();        
+        m_slab_defs.detach();
         m_capacity_items.detach();
         m_slab_manager->detach();
     }
@@ -739,6 +744,8 @@ namespace db0
 
     void MetaAllocator::flush() const
     {
+        assert(!m_atomic);
+        assert(m_atomic_deferred_free_ops.empty());
         // perform the deferred free operations
         if (!m_deferred_free_ops.empty()) {
             for (auto addr : m_deferred_free_ops) {
@@ -747,7 +754,38 @@ namespace db0
             m_deferred_free_ops.clear();
         }
     }
+    
+    std::size_t MetaAllocator::getDeferredFreeCount() const {
+        return m_deferred_free_ops.size();
+    }
 
+    void MetaAllocator::beginAtomic()
+    {
+        assert(!m_atomic);
+        m_atomic = true;
+    }
+
+    void MetaAllocator::endAtomic()
+    {
+        assert(m_atomic);
+        m_atomic = false;
+        // merge atomic deferred free operations
+        if (!m_atomic_deferred_free_ops.empty()) {
+            for (auto addr : m_atomic_deferred_free_ops) {
+                m_deferred_free_ops.insert(addr);
+            }
+            m_atomic_deferred_free_ops.clear();
+        }
+    }
+
+    void MetaAllocator::cancelAtomic()
+    {
+        assert(m_atomic);
+        m_atomic = false;
+        // rollback atomic deferred free operations
+        m_atomic_deferred_free_ops.clear(); 
+    }
+    
 }
 
 namespace std 

@@ -210,6 +210,14 @@ namespace db0
         // Visit all underlying slabs
         void forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t slab_id)>) const;
         
+        // Get the number of queued defferred free operations
+        std::size_t getDeferredFreeCount() const;
+
+        // Atomic operations need special handling of the deferred free operations
+        void beginAtomic();
+        void endAtomic();
+        void cancelAtomic();
+
     private:
         std::shared_ptr<Prefix> m_prefix;
         o_meta_header m_header;
@@ -223,6 +231,9 @@ namespace db0
         const bool m_deferred_free;
         mutable std::unordered_set<std::uint64_t> m_deferred_free_ops;
         std::function<std::uint32_t(std::uint64_t)> m_slab_id_function;
+        // flag indicating if the atomic operation is in progress
+        bool m_atomic = false;
+        std::vector<std::uint64_t> m_atomic_deferred_free_ops;
         
         /**
          * Reads header information from the prefix

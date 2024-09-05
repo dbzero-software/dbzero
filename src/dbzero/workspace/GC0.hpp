@@ -83,7 +83,7 @@ namespace db0
          * Unregister instance (i.e. when reference from Python was removed)
          * @return true if object was also dropped
          */
-        bool tryRemove(void *vptr);
+        bool tryRemove(void *vptr, bool is_volatile = false);
         
         /**
          * Detach all instances held by this registry.

@@ -213,6 +213,10 @@ namespace db0
         inline LangCacheView &getLangCache() const {
             return m_lang_cache;
         }
+        
+        const MetaAllocator &getMetaAllocator() const {
+            return m_meta_allocator;
+        }
 
     private:
         const AccessType m_access_type;

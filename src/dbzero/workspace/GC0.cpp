@@ -44,7 +44,7 @@ namespace db0
         m_gc0.commit();
     }
     
-    bool GC0::tryRemove(void *vptr)
+    bool GC0::tryRemove(void *vptr, bool is_volatile)
     {        
         auto it = m_vptr_map.find(vptr);
         if (it == m_vptr_map.end()) {
@@ -59,7 +59,10 @@ namespace db0
         }
         // do not drop when in read-only mode (e.g. snapshot owned)
         // NOTE: drop not allowed when commit pending
-        if (!m_read_only && ops.hasRefs && ops.drop && !ops.hasRefs(it->first) && !m_commit_pending) {
+        // do not drop volatile instances
+        if (!m_read_only && ops.hasRefs && ops.drop && !ops.hasRefs(it->first) 
+            && !m_commit_pending && !is_volatile) 
+        {
             // at this stage just collect the ops and remove the entry
             drop_op = ops.drop;
         }
@@ -171,7 +174,7 @@ namespace db0
         assert(m_atomic);
         for (auto vptr : m_volatile) {
             if (vptr) {
-                tryRemove(vptr);
+                tryRemove(vptr, true);
             }
         }
         // call reverse pre-commit where it's provided (use revert=true)

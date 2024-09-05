@@ -24,7 +24,7 @@ def test_new_object_inside_atomic_operation(db0_fixture):
 def test_new_type_reverted_from_atomic_operation(db0_fixture):
     with db0.atomic() as atomic:
         # since MemoTestClass is used for the 1st time its type will be created
-        object_1 = MemoTestClass(951)        
+        object_1 = MemoTestClass(951)
         atomic.cancel()
     # MemoTestClass type created here again (after atomic cancel)
     object_2 = MemoTestClass(123)
@@ -425,16 +425,19 @@ def test_reverting_atomic_deletion(db0_fixture):
 def test_reverting_atomic_free(db0_fixture):
     obj = db0.list([1, 2, 3])
     list_uuid = db0.uuid(obj)
+    count_1 = db0.get_cache_stats()["deferred_free_count"]
     try:
         with db0.atomic():
             # NOTE: list.append may internally perform a free operation to reallocate list            
             for i in range(1000):
                 obj.append(i)
+            assert db0.get_cache_stats()["deferred_free_count"] > count_1
             raise Exception("Test exception")
     except Exception:
         pass
     
-    # free/append should be reverted by here
+    # free/deferred free should be reverted by here
+    assert db0.get_cache_stats()["deferred_free_count"] == count_1
     assert list(obj) == [1, 2, 3]
     db0.clear_cache()
     db0.commit()

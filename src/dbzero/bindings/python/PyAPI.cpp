@@ -18,6 +18,7 @@
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/core/memory/MetaAllocator.hpp>
 #include "Types.hpp"
 #include "PyAtomic.hpp"
 #include "GlobalMutex.hpp"
@@ -31,6 +32,10 @@ namespace db0::python
         std::lock_guard pbm_lock(python_bindings_mutex);
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         auto &cache_recycler = workspace.getCacheRecycler();
+        std::size_t deferred_free_count = 0;
+        workspace.forAll([&deferred_free_count](auto &fixture) {
+            deferred_free_count += fixture.getMetaAllocator().getDeferredFreeCount();
+        });
         
         PyObject* dict = PyDict_New();
         if (dict == NULL) {
@@ -40,6 +45,7 @@ namespace db0::python
         
         PyDict_SetItemString(dict, "size", PyLong_FromLong(cache_recycler.size()));
         PyDict_SetItemString(dict, "capacity", PyLong_FromLong(cache_recycler.getCapacity()));
+        PyDict_SetItemString(dict, "deferred_free_count", PyLong_FromLong(deferred_free_count));
         return dict;
     }
     
