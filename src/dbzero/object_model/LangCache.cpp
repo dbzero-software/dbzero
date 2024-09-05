@@ -120,8 +120,7 @@ namespace db0
 
     void LangCache::clear()
     {
-        for (auto &item: m_cache) {
-            // FIXME: log
+        for (auto &item: m_cache) {            
             if (item.second && LangToolkit::getRefCount(item.second.get()) == 1) {                
                 m_uid_to_index.erase(item.first);
                 item = {};                
