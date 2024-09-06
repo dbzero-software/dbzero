@@ -243,7 +243,7 @@ namespace db0::python
     }
 
     void ListObject_del(ListObject* list_obj)
-    {        
+    {
         // std::lock_guard pbm_lock(python_bindings_mutex);
         // destroy associated DB0 List instance
         list_obj->destroy();

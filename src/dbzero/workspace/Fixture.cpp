@@ -375,5 +375,12 @@ namespace db0
     void Fixture::forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)> f) const {
         m_meta_allocator.forAllSlabs(f);
     }
+    
+    void Fixture::onCacheFlushed(bool) const
+    {
+        if (m_prefix) {
+            m_prefix->cleanup();
+        }
+    }
 
 }

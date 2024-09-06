@@ -5,15 +5,55 @@
 namespace db0
 
 {
-    
+
+#ifndef NDEBUG
+    // cummulated size (in bytes) of all DRAM_Prefix instances
+    std::size_t DRAM_Prefix::dp_size = 0;
+    // total number of resource locks / data pages
+    std::size_t DRAM_Prefix::dp_count = 0;
+#endif
+
     DRAM_Prefix::MemoryPage::MemoryPage(BaseStorage &storage, std::uint64_t address, std::size_t size)
         : m_lock(std::make_shared<DP_Lock>(storage, address, size,
             FlagSet<AccessOptions> { AccessOptions::write, AccessOptions::create }, 0, 0, true))
         // pull from Storage0 temp instance
         , m_buffer(m_lock->getBuffer(address))
     {
+#ifndef NDEBUG
+        dp_size += m_lock->size();
+        ++dp_count;
+#endif
     }
     
+    DRAM_Prefix::MemoryPage::MemoryPage(const MemoryPage &dp)
+        : m_lock(dp.m_lock)
+        , m_buffer(dp.m_buffer)
+    {
+#ifndef NDEBUG
+        dp_size += m_lock->size();
+        ++dp_count;
+#endif
+    }
+    
+    DRAM_Prefix::MemoryPage::MemoryPage(MemoryPage &&dp)
+        : m_lock(std::move(dp.m_lock))
+        , m_buffer(dp.m_buffer)
+    {
+#ifndef NDEBUG
+        dp.m_lock = nullptr;
+#endif
+    }
+
+#ifndef NDEBUG
+    DRAM_Prefix::MemoryPage::~MemoryPage()
+    {
+        if (m_lock) {
+            dp_size -= m_lock->size();
+            --dp_count;
+        }
+    }
+#endif                        
+
     DRAM_Prefix::DRAM_Prefix(std::size_t page_size)
         : Prefix("/sys/DRAM")
         , m_page_size(page_size)
@@ -111,7 +151,7 @@ namespace db0
     std::uint64_t DRAM_Prefix::refresh() {
         return 0;
     }
-
+    
     std::uint64_t DRAM_Prefix::getLastUpdated() const {
         return 0;
     }
@@ -123,5 +163,15 @@ namespace db0
     BaseStorage &DRAM_Prefix::getStorage() const {
         return m_dev_null;
     }
+
+    std::size_t DRAM_Prefix::size() const {
+        return m_pages.size() * m_page_size;
+    }
     
+#ifndef NDEBUG
+    std::pair<std::size_t, std::size_t> DRAM_Prefix::getTotalMemoryUsage() {
+        return { DRAM_Prefix::dp_size, DRAM_Prefix::dp_count };
+    }
+#endif
+
 }

@@ -220,7 +220,7 @@ namespace tests
             m_workspace.close(prefix_name);
         }
         
-        // now go back to specific transactions and validate object state
+        // now, go back to specific transactions and validate object state
         // note that read-only mode is used to access transactions
         for (auto &log: state_log)
         {
@@ -229,6 +229,19 @@ namespace tests
             ASSERT_EQ(obj->a, log.second.first);
             ASSERT_EQ(obj->b, log.second.second);
             m_workspace.close(prefix_name);
+        }
+    }
+    
+    // This test should be run using the massif tool to analyze memory usage
+    TEST_F( WorkspaceTest , testMemoryUsageOverTime )
+    {
+        m_workspace.setCacheSize(1u << 20);
+        auto fixture = m_workspace.getFixture(prefix_name);
+        for (int i = 0; i < 1000; ++i) {
+            std::vector<db0::v_object<db0::o_binary> > objects;
+            for (int j = 0; j < 250; ++j) {
+                objects.emplace_back(*fixture, 1024);
+            }
         }
     }
 

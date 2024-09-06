@@ -35,7 +35,7 @@ namespace db0::python
         }
         return m_fixture_uuid;
     }
-
+    
     void MemoTypeDecoration::close() {
         m_fixture_uuid = 0;
     }
@@ -111,7 +111,7 @@ namespace db0::python
     void MemoObject_del(MemoObject* memo_obj)
     {
         // destroy associated DB0 Object instance
-        memo_obj->destroy();
+        memo_obj->destroy();        
         Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
     }
     

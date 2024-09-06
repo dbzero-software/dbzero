@@ -90,7 +90,8 @@ namespace db0
 
 #ifndef NDEBUG
         // get total memory usage of all ResourceLock instances
-        static std::size_t getTotalMemoryUsage();
+        // @return total size in bytes / total count
+        static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
 #endif
 
     protected:
@@ -125,6 +126,7 @@ namespace db0
     private:
 #ifndef NDEBUG
         static std::atomic<std::size_t> rl_usage;
+        static std::atomic<std::size_t> rl_count;
         static std::atomic<std::size_t> rl_op_count;
 #endif        
     };

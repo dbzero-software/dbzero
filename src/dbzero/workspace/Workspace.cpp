@@ -526,6 +526,9 @@ namespace db0
             // additionally erase the entire LangCache to attempt reaching the flush objective
             m_lang_cache->clear();
         }
+        for (auto &[uuid, fixture] : m_fixtures) {
+            fixture->onCacheFlushed(threshold_reached);
+        }
     }
     
 }

@@ -126,7 +126,9 @@ namespace db0
         std::size_t getPageSize() const;
         
         CacheRecycler *getCacheRecycler() const;
-
+        
+        void clearExpired() const;
+        
     protected:
         BaseStorage &m_storage;
         const std::size_t m_page_size;

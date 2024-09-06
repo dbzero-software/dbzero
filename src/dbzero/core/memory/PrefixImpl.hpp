@@ -93,6 +93,8 @@ namespace db0
         MemLock mapRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
             FlagSet<AccessOptions>);
 
+        void cleanup() const override;
+
     protected:
         template <typename T> friend class PrefixImpl;
 
@@ -420,5 +422,9 @@ namespace db0
     template <typename StorageT> BaseStorage &PrefixImpl<StorageT>::getStorage() const {
         return *m_storage_ptr;
     }
-        
+    
+    template <typename StorageT> void PrefixImpl<StorageT>::cleanup() const {
+        m_cache.clearExpired();
+    }      
+
 } 

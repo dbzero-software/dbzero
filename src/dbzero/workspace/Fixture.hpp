@@ -218,6 +218,9 @@ namespace db0
             return m_meta_allocator;
         }
 
+        // Called by the CacheRecycler when cache limit has been reached
+        void onCacheFlushed(bool threshold_reached) const;
+
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;
@@ -236,7 +239,7 @@ namespace db0
         mutable VObjectCache m_v_object_cache;
         AtomicContext *m_atomic_context_ptr = nullptr;
         std::atomic<bool> m_closed = false;
-
+        
         // For read/write fixtures:
         // the onUpdate is called whenever the fixture is modified
         // For read-only fixtures:

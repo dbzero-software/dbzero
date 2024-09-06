@@ -19,6 +19,9 @@
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/memory/MetaAllocator.hpp>
+#include <dbzero/core/dram/DRAM_Prefix.hpp>
+#include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/core/serialization/Types.hpp>
 #include "Types.hpp"
 #include "PyAtomic.hpp"
 #include "GlobalMutex.hpp"
@@ -36,6 +39,10 @@ namespace db0::python
         workspace.forAll([&deferred_free_count](auto &fixture) {
             deferred_free_count += fixture.getMetaAllocator().getDeferredFreeCount();
         });
+        auto lang_cache_size = workspace.getLangCache()->size();
+#ifndef NDEBUG
+        auto dram_prefix_size = DRAM_Prefix::getTotalMemoryUsage().first;
+#endif        
         
         PyObject* dict = PyDict_New();
         if (dict == NULL) {
@@ -46,9 +53,13 @@ namespace db0::python
         PyDict_SetItemString(dict, "size", PyLong_FromLong(cache_recycler.size()));
         PyDict_SetItemString(dict, "capacity", PyLong_FromLong(cache_recycler.getCapacity()));
         PyDict_SetItemString(dict, "deferred_free_count", PyLong_FromLong(deferred_free_count));
+        PyDict_SetItemString(dict, "lang_cache_size", PyLong_FromLong(lang_cache_size));
+#ifndef NDEBUG
+        PyDict_SetItemString(dict, "dram_prefix_size", PyLong_FromLong(dram_prefix_size));
+#endif        
         return dict;
     }
-    
+        
     PyObject *getLangCacheStats(PyObject *, PyObject *)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
@@ -771,8 +782,22 @@ namespace db0::python
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {
-        std::size_t rl_mem_usage = db0::ResourceLock::getTotalMemoryUsage();
-        return PyLong_FromSize_t(rl_mem_usage);
+        std::pair<std::size_t, std::size_t> rl_usage = db0::ResourceLock::getTotalMemoryUsage();        
+        return Py_BuildValue("KK", rl_usage.first, rl_usage.second);
+    }
+    
+    PyObject *testCreateThenFree(PyObject *self, PyObject *args)
+    {
+        std::vector<db0::v_object<db0::o_binary> > objects;
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+        for (int i = 0; i < 100; ++i) {
+            objects.emplace_back(*fixture, 1024);
+        }
+        // destroy the objects        
+        for (auto &obj: objects) {
+            obj.destroy();
+        }        
+        Py_RETURN_NONE;
     }
 #endif
     

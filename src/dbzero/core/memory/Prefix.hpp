@@ -81,6 +81,10 @@ namespace db0
 
         // Cancel/revert atomic operation with this prefix
         virtual void cancelAtomic();
+        
+        // Perform memory cleanups, e.g. by removing expired weak pointers
+        // the default empty implementation is provided
+        virtual void cleanup() const;
 
     private:
         const std::string m_name;

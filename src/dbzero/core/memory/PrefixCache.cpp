@@ -471,5 +471,12 @@ namespace db0
     CacheRecycler *PrefixCache::getCacheRecycler() const {
         return m_cache_recycler_ptr;
     }
+    
+    void PrefixCache::clearExpired() const
+    {
+        m_dp_map.clearExpired();
+        m_boundary_map.clearExpired();  
+        m_wide_map.clearExpired();
+    }
 
 }

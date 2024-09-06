@@ -59,8 +59,7 @@ namespace db0
         */
         void operator=(const DRAM_Prefix &);
 
-        AccessType getAccessType() const override
-        {
+        AccessType getAccessType() const override {
             return AccessType::READ_WRITE;
         }
 
@@ -70,16 +69,36 @@ namespace db0
         
         BaseStorage &getStorage() const override;
         
+        // Total number of bytes occupied by all pages        
+        std::size_t size() const;
+
+#ifndef NDEBUG
+        // get total memory usage across all instances of DRAM_Prefix
+        static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
+#endif
+
     private:
-        const std::size_t m_page_size;        
+        const std::size_t m_page_size;
         mutable Storage0 m_dev_null;
+#ifndef NDEBUG
+        // cummulated size (in bytes) of all DRAM_Prefix instances
+        static std::size_t dp_size;
+        // total number of resource locks / data pages
+        static std::size_t dp_count;
+#endif        
 
         struct MemoryPage
         {
             mutable std::shared_ptr<DP_Lock> m_lock;
             void *m_buffer;
             
+            MemoryPage(const MemoryPage &);
+            MemoryPage(MemoryPage &&);
             MemoryPage(BaseStorage &, std::uint64_t address, std::size_t size);
+#ifndef NDEBUG
+            ~MemoryPage();
+#endif                        
+
             void resetDirtyFlag();
         };
 

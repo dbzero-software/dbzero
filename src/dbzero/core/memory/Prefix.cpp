@@ -25,4 +25,8 @@ namespace db0
         THROWF(db0::InternalException) << "Atomic operations not supported by this prefix implementation" << THROWF_END;        
     }
 
+    void Prefix::cleanup() const
+    {
+    }
+
 }

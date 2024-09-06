@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cassert>
 #include <dbzero/core/storage/BaseStorage.hpp>
+#include <dbzero/core/dram/DRAM_Prefix.hpp>
 
 namespace db0
 
@@ -10,6 +11,7 @@ namespace db0
     
 #ifndef NDEBUG
     std::atomic<std::size_t> ResourceLock::rl_usage = 0;
+    std::atomic<std::size_t> ResourceLock::rl_count = 0;
     std::atomic<std::size_t> ResourceLock::rl_op_count = 0;
 #endif
 
@@ -28,8 +30,9 @@ namespace db0
         }        
 #ifndef NDEBUG        
         rl_usage += m_data.size();
+        ++rl_count;
         ++rl_op_count;
-#endif        
+#endif
     }
 
     ResourceLock::ResourceLock(const ResourceLock &lock, FlagSet<AccessOptions> access_mode)
@@ -44,8 +47,9 @@ namespace db0
     {
 #ifndef NDEBUG
         rl_usage += m_data.size();
+        ++rl_count;
         ++rl_op_count;
-#endif        
+#endif      
     }
     
     ResourceLock::ResourceLock(ResourceLock &&other, std::vector<std::byte> &&data)
@@ -58,6 +62,7 @@ namespace db0
     {
 #ifndef NDEBUG
         rl_usage += m_data.size();
+        ++rl_count;
         ++rl_op_count;
 #endif
     }
@@ -66,6 +71,7 @@ namespace db0
     {
 #ifndef NDEBUG        
         rl_usage -= m_data.size();
+        --rl_count;
         ++rl_op_count;
 #endif
         // make sure the dirty flag is not set (unless no-flush lock)
@@ -115,8 +121,13 @@ namespace db0
         std::memcpy(m_data.data(), other.m_data.data(), m_data.size());
     }
 
-    std::size_t ResourceLock::getTotalMemoryUsage() {
-        return rl_usage;
+#ifndef NDEBUG
+    std::pair<std::size_t, std::size_t> ResourceLock::getTotalMemoryUsage() 
+    {
+        // NOTE: we subtract DRAM_Prefix utilized locks since they are reported separately
+        auto dp_usage = DRAM_Prefix::getTotalMemoryUsage();
+        return { rl_usage - dp_usage.first, rl_count - dp_usage.second };
     }
+#endif    
 
 }

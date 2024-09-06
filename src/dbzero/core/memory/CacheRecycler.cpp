@@ -35,12 +35,12 @@ namespace db0
             } else {
                 ++it;
             }       
-        }    
+        }
         
         // update current size
         m_current_size -= released_size;
     }
-
+    
     void CacheRecycler::updateSize(std::unique_lock<std::mutex> &lock, std::size_t expected_size)
     {
         std::vector<std::shared_ptr<ResourceLock> > released_locks;

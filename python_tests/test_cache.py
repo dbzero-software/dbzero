@@ -35,11 +35,11 @@ def test_base_lock_usage_does_not_exceed_limits(db0_fixture):
         append_count = 200
         cache_size = 1024 * 1024
         db0.set_cache_size(cache_size)
-        usage_1 = db0.get_base_lock_usage()
+        usage_1 = db0.get_base_lock_usage()[0]
         for _ in range(append_count):
             obj = MemoTestClass(rand_array(16384))
         db0.clear_cache()
-        usage_2 = db0.get_base_lock_usage()
+        usage_2 = db0.get_base_lock_usage()[0]
         assert usage_2 - usage_1 < cache_size * 1.5
 
 

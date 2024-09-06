@@ -25,6 +25,7 @@ namespace db0::object_model
 
     class Class;
     class Object;
+    class ObjectInitializerManager;
     using Fixture = db0::Fixture;
 
     /**
@@ -34,9 +35,9 @@ namespace db0::object_model
     {
     public:
         using XValue = db0::object_model::XValue;
-        
-        ObjectInitializer() = default;
-        ObjectInitializer(Object &object, std::shared_ptr<Class> db0_class);
+                
+        // loc - position in the initializer manager's array
+        ObjectInitializer(ObjectInitializerManager &, std::uint32_t loc, Object &object, std::shared_ptr<Class> db0_class);
 
         void init(Object &object, std::shared_ptr<Class> db0_class);
 
@@ -89,9 +90,17 @@ namespace db0::object_model
         // Can only be executed on an empty initializer
         void setClass(std::shared_ptr<Class>);
         
+    protected:
+        friend class ObjectInitializerManager;
+        void reset();
+
+        void operator=(std::uint32_t new_loc);
+
     private:
         // maximum size of the position-encoded value-block (pos-VT)
         static constexpr std::size_t POSVT_MAX_SIZE = 128;
+        ObjectInitializerManager &m_manager;
+        std::uint32_t m_loc = std::numeric_limits<std::uint32_t>::max();
         bool m_closed = true;
         Object *m_object_ptr = nullptr;
         std::shared_ptr<Class> m_class;
@@ -139,6 +148,10 @@ namespace db0::object_model
         }
 
         ObjectInitializer *findInitializer(const Object &object) const;
+
+    protected:
+        friend class ObjectInitializer;
+        void closeAt(std::uint32_t loc);
 
     private:
         mutable std::vector<std::unique_ptr<ObjectInitializer> > m_initializers;

@@ -60,6 +60,58 @@ def test_create_large_objects_cache_recycler_issue_1(db0_slab_size):
 
 @pytest.mark.stress_test
 @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1024 * 1024 * 1024}], indirect=True)
+def test_create_and_drop_simple_memo_objects(db0_slab_size):
+    """
+    Run on valgrind with --tool=massif to detect memory problems
+    """
+    init_mem_usage = get_memory_usage()
+    append_count = 250
+    buf = db0.list()
+    total_count = 0
+    report_count_step = 5000
+    report_count = report_count_step
+    db0.set_cache_size(1 * 1024 * 1024)
+    for _ in range(append_count):
+        buf = []
+        for _ in range(100):
+            buf.append(MemoTestClass(1))            
+        del buf
+        db0.clear_cache()
+        total_count += 100
+        if total_count > report_count:
+            print(f"Memory usage: {get_memory_usage() - init_mem_usage}")
+            print(f"Base lock usage: {db0.get_base_lock_usage()}")
+            print(f"Cache: {db0.get_cache_stats()}")
+            report_count += report_count_step
+
+
+@pytest.mark.stress_test
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1024 * 1024 * 1024}], indirect=True)
+def test_create_then_free(db0_slab_size):
+    """
+    The purpose of this stress-test is to check if the memory usage is stable
+    all alloc / free operations are performed on the C++ side
+    """
+    if 'D' in db0.build_flags():
+        init_mem_usage = get_memory_usage()
+        append_count = 1000
+        total_count = 0
+        report_count_step = 5000
+        report_count = report_count_step
+        db0.set_cache_size(1 * 1024 * 1024)
+        for _ in range(append_count):
+            db0.test_create_then_free()
+            total_count += 100
+            db0.clear_cache()
+            if total_count > report_count:
+                print(f"Memory usage: {get_memory_usage() - init_mem_usage}")
+                print(f"Base lock usage: {db0.get_base_lock_usage()}")
+                print(f"Cache: {db0.get_cache_stats()}")
+                report_count += report_count_step
+
+    
+@pytest.mark.stress_test
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1024 * 1024 * 1024}], indirect=True)
 def test_create_large_objects_low_cache(db0_slab_size):
     """
     This test was failing on BitsetAllocator:invalid address, 

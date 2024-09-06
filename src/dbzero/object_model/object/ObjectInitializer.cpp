@@ -6,8 +6,11 @@ namespace db0::object_model
 
 {
 
-    ObjectInitializer::ObjectInitializer(Object &object, std::shared_ptr<Class> db0_class)
-        : m_closed(false)
+    ObjectInitializer::ObjectInitializer(ObjectInitializerManager &manager, std::uint32_t loc, 
+        Object &object, std::shared_ptr<Class> db0_class)
+        : m_manager(manager)
+        , m_loc(loc)
+        , m_closed(false)
         , m_object_ptr(&object)
         , m_class(db0_class)        
     {
@@ -16,29 +19,36 @@ namespace db0::object_model
     
     void ObjectInitializer::init(Object &object, std::shared_ptr<Class> db0_class)
     {
-        assert(m_closed);
+        assert(m_closed);        
         m_closed = false;
         m_object_ptr = &object;
         m_class = db0_class;
     }
 
-    void ObjectInitializer::close()
+    void ObjectInitializer::close() {
+        m_manager.closeAt(m_loc);
+    }
+
+    void ObjectInitializer::reset()
     {
         m_closed = true;
         m_object_ptr = nullptr;
-        m_instance_key = {};
-        auto result = m_class;
+        m_instance_key = {};        
         m_class = nullptr;        
         m_values.clear();
         m_sorted_size = 0;
         m_ref_count = 0;
     }
     
+    void ObjectInitializer::operator=(std::uint32_t loc) {
+        m_loc = loc;
+    }
+
     void ObjectInitializer::set(unsigned int at, StorageClass storage_class, Value value) {
         m_values.push_back({ at, storage_class, value });
     }
     
-    bool ObjectInitializer::tryGetAt(unsigned int index, std::pair<StorageClass, Value> &result) const    
+    bool ObjectInitializer::tryGetAt(unsigned int index, std::pair<StorageClass, Value> &result) const
     {
         // try locating element within the unsorted items first (starting from the end)
         auto alt_it = m_values.end() - 1;
@@ -86,60 +96,6 @@ namespace db0::object_model
         return m_class->tryGetFixture();
     }
     
-    void ObjectInitializerManager::addInitializer(Object &object, std::shared_ptr<Class> db0_class)
-    {
-        if (m_active_count < m_total_count) {
-            m_initializers[m_active_count++]->init(object, db0_class);
-            return;
-        }
-        
-        for (;;) {
-            if (m_total_count < m_initializers.size()) {
-                m_initializers[m_total_count++].reset(new ObjectInitializer(object, db0_class));
-                ++m_active_count;
-                return;
-            }
-            // double the number of slots
-            m_initializers.resize(std::max(1u, static_cast<unsigned int>(m_initializers.size())) << 1);
-        }
-    }
-    
-    std::shared_ptr<Class> ObjectInitializerManager::tryCloseInitializer(const Object &object)
-    {        
-        for (auto i = 0u; i < m_active_count; ++i) {
-            if (m_initializers[i]->operator==(object)) {
-                auto result = m_initializers[i]->getClassPtr();
-                m_initializers[i]->close();
-                std::swap(m_initializers[i], m_initializers[--m_active_count]);
-                return result;
-            }
-        }
-        return nullptr;
-    }
-    
-    std::shared_ptr<Class> ObjectInitializerManager::closeInitializer(const Object &object)
-    {
-        auto result = tryCloseInitializer(object);
-        if (result) {
-            return result;
-        }
-        THROWF(db0::InternalException) << "Initializer not found" << THROWF_END;
-    }
-    
-    ObjectInitializer *ObjectInitializerManager::findInitializer(const Object &object) const
-    {
-        for (auto i = 0u; i < m_active_count; ++i) {
-            if (m_initializers[i]->operator==(object)) {
-                // bind to front to allow faster lookup the next time
-                if (i != 0) {
-                    std::swap(m_initializers[i], m_initializers[0]);
-                }
-                return m_initializers[0].get();
-            }
-        }
-        return nullptr;   
-    }
-
     std::uint32_t ObjectInitializer::finalizeValues()
     {
         if (m_values.empty()) {
@@ -213,5 +169,73 @@ namespace db0::object_model
         assert(empty());
         m_class = new_class;
     }
+
+    void ObjectInitializerManager::addInitializer(Object &object, std::shared_ptr<Class> db0_class)
+    {
+        if (m_active_count < m_total_count) {
+            auto loc = m_active_count++;
+            m_initializers[loc]->init(object, db0_class);
+            return;
+        }
+        
+        for (;;) {
+            if (m_total_count < m_initializers.size()) {
+                auto loc = m_total_count++;
+                m_initializers[loc].reset(new ObjectInitializer(*this, loc, object, db0_class));
+                ++m_active_count;
+                return;
+            }
+            // double the number of slots
+            m_initializers.resize(std::max(1u, static_cast<unsigned int>(m_initializers.size())) << 1);
+        }
+    }
     
+    std::shared_ptr<Class> ObjectInitializerManager::tryCloseInitializer(const Object &object)
+    {        
+        for (auto i = 0u; i < m_active_count; ++i) {
+            if (m_initializers[i]->operator==(object)) {
+                auto result = m_initializers[i]->getClassPtr();
+                closeAt(i);
+                return result;
+            }
+        }
+        return nullptr;
+    }
+    
+    std::shared_ptr<Class> ObjectInitializerManager::closeInitializer(const Object &object)
+    {
+        auto result = tryCloseInitializer(object);
+        if (result) {
+            return result;
+        }
+        THROWF(db0::InternalException) << "Initializer not found" << THROWF_END;
+    }
+    
+    ObjectInitializer *ObjectInitializerManager::findInitializer(const Object &object) const
+    {
+        for (auto i = 0u; i < m_active_count; ++i) {
+            if (m_initializers[i]->operator==(object)) {
+                // move to front to allow faster lookup the next time
+                if (i != 0) {
+                    std::swap(m_initializers[i], m_initializers[0]);
+                    *(m_initializers[i]) = i;
+                    *(m_initializers[0]) = 0;
+                }
+                return m_initializers[0].get();
+            }
+        }
+        return nullptr;   
+    }
+    
+    void ObjectInitializerManager::closeAt(std::uint32_t loc)
+    {
+        auto result = m_initializers[loc]->getClassPtr();
+        m_initializers[loc]->reset();
+        // move to inactive slot
+        std::swap(m_initializers[loc], m_initializers[m_active_count - 1]);
+        *(m_initializers[loc]) = loc;
+        *(m_initializers[m_active_count - 1]) = m_active_count - 1;
+        --m_active_count;        
+    }
+
 }

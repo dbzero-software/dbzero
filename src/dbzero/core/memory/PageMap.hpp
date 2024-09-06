@@ -83,6 +83,10 @@ namespace db0
         // Erase ALL locks with a given page number where state < state_num
         // irrespective of their use count, this is required for handling inconsistent locks problem
         void eraseAll(std::uint64_t page_num, std::uint64_t state_num) const;
+
+        // remove expired locks only
+        // @return the number of removed (expired) locks
+        std::size_t clearExpired();
     };
     
     template <typename ResourceLockT>
@@ -90,14 +94,14 @@ namespace db0
         : m_shift(getPageShift(page_size))
     {
     }
-
+    
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock)
     {
         std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
         m_cache[{lock->getAddress() >> m_shift, state_num}] = lock;
     }
-
+    
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
         std::uint64_t page_num)
@@ -249,6 +253,22 @@ namespace db0
     {
         std::shared_lock<std::shared_mutex> _lock(m_rw_mutex);
         return m_cache.size();
+    }
+
+    template <typename ResourceLockT>
+    std::size_t PageMap<ResourceLockT>::clearExpired()
+    {
+        std::size_t count = 0;
+        std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
+        for (auto it = m_cache.begin(); it != m_cache.end();) {
+            if (it->second.expired()) {
+                it = m_cache.erase(it);
+                ++count;
+            } else {
+                ++it;
+            }
+        }
+        return count;
     }
 
 }
