@@ -113,10 +113,6 @@ def test_create_then_free(db0_slab_size):
 @pytest.mark.stress_test
 @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1024 * 1024 * 1024}], indirect=True)
 def test_create_large_objects_low_cache(db0_slab_size):
-    """
-    This test was failing on BitsetAllocator:invalid address, 
-    the effect is aggravated by the large slab size
-    """
     init_mem_usage = get_memory_usage()
     append_count = 10000    
     buf = db0.list()
