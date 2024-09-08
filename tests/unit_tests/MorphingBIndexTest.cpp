@@ -438,5 +438,22 @@ namespace tests
 		// morphology retained
 		ASSERT_EQ(bindex::type::bindex, cut.getIndexType());
 	}
+
+	TEST_F( MorphingBIndexTest , testIteratingOverEmptyIndexAfterErase )
+	{
+		auto memspace = getMemspace();
 		
+		index_t cut(memspace);
+		insertUnique(cut, { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+		// erase all elements
+		erase(cut, { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+		auto it = cut.beginJoin(-1);
+		int count = 0;
+		while (!it.is_end()) {
+			--it;
+			++count;
+		}
+		ASSERT_EQ(0, count);
+	}
+
 } 

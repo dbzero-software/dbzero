@@ -198,13 +198,14 @@ namespace db0
 		bindex::type getIndexTypeAfterErase(std::size_t key_count)
 		{
 			bindex::type index_type = getIndexType();
-			if (index_type!=bindex::bindex) {
-				size_t final_size = m_interface.size() - key_count;
-				return assessIndexType(final_size);
+			// NOTE: we don't dongrade once type = bindex is reached
+			if (index_type == bindex::bindex) {
+				return index_type;
 			}
-			return bindex::bindex;
+			std::size_t final_size = m_interface.size() - key_count;
+			return assessIndexType(final_size);
 		}
-
+		
 		/**
          * @param unique_count number of unique items attempted to insert
          * @return type after insertion / number of unique items (up to N_SV_LIMIT) in source collection
@@ -212,11 +213,11 @@ namespace db0
 		bindex::type getIndexTypeAfterInsertion(std::size_t unique_count)
         {
 			bindex::type index_type = getIndexType();
-			if (index_type!=bindex::bindex) {
-				size_t final_size = m_interface.size() + unique_count;
-				return assessIndexType(final_size);
+			if (index_type == bindex::bindex) {
+				return index_type;
 			}
-			return bindex::bindex;
+			std::size_t final_size = m_interface.size() + unique_count;
+			return assessIndexType(final_size);
 		}
 		
 		/**

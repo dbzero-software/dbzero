@@ -602,10 +602,11 @@ namespace db0
             if (direction > 0) {
                 return joinable_const_iterator(getData(), getData() + m_size, getData(), direction);
             } else {
-                return joinable_const_iterator(getData(), getData() + m_size, getData() + m_size - 1, direction);
+                return joinable_const_iterator(getData(), getData() + m_size,
+                    (m_size > 0) ? (getData() + m_size - 1): getData(), direction);
             }
         }
-
+        
         /**
          * Evaluate maximum number of items that can be stored
          * with the specified buffer (size)

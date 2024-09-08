@@ -239,3 +239,27 @@ def test_retrieving_snapshot_specific_object_version(db0_fixture):
     # retrieve related object from snapshot
     obj = snap.fetch(db0.uuid(obj_2))
     assert obj.value.value == 9123
+
+
+def test_snapshot_find_query(db0_fixture):
+    for i in range(10):        
+        db0.tags(MemoTestClass(i)).add(["tag1", "tag2"])
+    db0.commit()
+    query = db0.snapshot().find(("tag1", "tag2"))
+    assert len(list(query)) == 10
+
+
+# FIXME: failing test blocked
+# def test_snapshot_mutation_attempt_should_raise_exception(db0_fixture):
+#     for i in range(10):
+#         obj = MemoTestClass(i)
+#         db0.tags(obj).add(["tag1", "tag2"])
+#     db0.commit()
+#     # run query over a snapshot and try updating it
+#     count = 0
+#     for obj in db0.snapshot().find(("tag1", "tag2")):
+#         with pytest.raises (Exception):
+#             db0.tags(obj).remove("tag1")
+#         count += 1
+    
+#     assert count == 10

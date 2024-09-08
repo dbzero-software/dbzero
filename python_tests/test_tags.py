@@ -40,6 +40,7 @@ def test_assign_multiple_tags_as_varargs(db0_fixture):
     assert len(list(db0.find("tag2"))) == 1
     assert len(list(db0.find("tag3"))) == 0
 
+
 def test_assign_tags_as_values_with_operator(db0_fixture):
     object_1 = MemoClassForTags(1)
     root = MemoTestSingleton(object_1)
@@ -61,6 +62,7 @@ def test_assign_multiple_tags_as_list(db0_fixture):
     assert len(list(db0.find("tag2"))) == 1
     assert len(list(db0.find("tag3"))) == 0
 
+
 def test_assign_multiple_tags_as_list_with_operator(db0_fixture):
     object_1 = MemoClassForTags(1)
     root = MemoTestSingleton(object_1)
@@ -70,6 +72,7 @@ def test_assign_multiple_tags_as_list_with_operator(db0_fixture):
     assert len(list(db0.find("tag1"))) == 1
     assert len(list(db0.find("tag2"))) == 1
     assert len(list(db0.find("tag3"))) == 0
+
 
 def test_object_gets_incref_by_tags(db0_fixture):
     object_1 = MemoClassForTags(1)
@@ -90,6 +93,7 @@ def test_assigned_tags_can_be_removed(db0_fixture):
     db0.tags(object_1).remove("tag2")
     assert len(list(db0.find("tag2"))) == 0
 
+
 def test_assigned_tags_can_be_removed_with_operators(db0_fixture):
     object_1 = MemoClassForTags(1)
     tags = db0.tags(object_1)
@@ -99,6 +103,7 @@ def test_assigned_tags_can_be_removed_with_operators(db0_fixture):
     assert len(list(db0.find("tag2"))) == 1
     tags -= "tag2"
     assert len(list(db0.find("tag2"))) == 0
+
 
 def test_assigned_tags_can_be_removed_as_list_with_operators(db0_fixture):
     object_1 = MemoClassForTags(1)
@@ -229,3 +234,42 @@ def test_assign_tags_in_multiple_operations(db0_fixture):
                 
         count = len(list(db0.find("tag1")))
         assert count == 3 * (x + 1)
+
+
+def test_query_by_non_existing_tag(db0_fixture):
+    assert len(list(db0.find("tag1"))) == 0
+
+
+def test_query_by_removed_tag_issue_1(db0_fixture):
+    """
+    This test was failing with slab does not exist exception
+    (accessing invalid address 0x0)
+    """
+    buf = []
+    for i in range(10):
+        obj = MemoTestClass(i)
+        db0.tags(obj).add(["tag1", "tag2"])
+        buf.append(obj)
+    
+    db0.tags(*buf).remove("tag1")
+    assert len(list(db0.find("tag1"))) == 0
+
+
+def test_mutating_tags_while_running_query_from_snapshot(db0_fixture):
+    for i in range(10):
+        obj = MemoTestClass(i)
+        db0.tags(obj).add(["tag1", "tag2"])
+    db0.commit()
+    # run query over a snapshot while updating tags
+    count = 0
+    for snaphot_obj in db0.snapshot().find(("tag1", "tag2")):
+        # NOTE: since snapshot objects are immutable we need to fetch the object from
+        # the head transaction to mutate it
+        if count % 2 == 0:
+            obj = db0.fetch(db0.uuid(snaphot_obj))        
+            db0.tags(obj).remove("tag1")
+        count += 1
+    
+    assert count == 10
+    assert len(list(db0.find("tag1"))) == 5
+    
