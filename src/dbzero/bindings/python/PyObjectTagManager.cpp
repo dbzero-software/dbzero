@@ -87,21 +87,29 @@ namespace db0::python
         .tp_new = (newfunc)PyObjectTagManager_new,
         .tp_free = PyObject_Free,
     };
-    
-    PyObjectTagManager *makeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+
+    PyObjectTagManager *tryMakeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
         // all arguments must be Memo objects        
         for (Py_ssize_t i = 0; i < nargs; ++i) {
             if (!PyMemo_Check(args[i])) {
-                PyErr_SetString(PyExc_TypeError, "All arguments must be memo objects");
-                return NULL;
+                THROWF(db0::InputException) << "All arguments must be memo objects";
             }            
         }
         
         auto tags_obj = PyObjectTagManager_new(&PyObjectTagManagerType, NULL, NULL);
-        ObjectTagManager::makeNew(&tags_obj->modifyExt(), args, nargs);
+        try {
+            ObjectTagManager::makeNew(&tags_obj->modifyExt(), args, nargs);
+        } catch (const std::exception &e) {
+            Py_DECREF(tags_obj);
+            throw;
+        }
         return tags_obj;
+    }
+
+    PyObjectTagManager *makeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs) {
+        return runSafe(tryMakeObjectTagManager, nullptr, args, nargs);
     }
 
 }

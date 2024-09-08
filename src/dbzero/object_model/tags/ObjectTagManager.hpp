@@ -32,11 +32,9 @@ namespace db0::object_model
          * Assign tags from a language-specific collection (e.g. Python list)
         */
         void add(ObjectPtr const *args, Py_ssize_t nargs);
-                
+        
         void remove(ObjectPtr const *args, Py_ssize_t nargs);
-
-        void clear();
-
+        
         static ObjectTagManager *makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs);
 
     private:
@@ -47,6 +45,7 @@ namespace db0::object_model
             const Object *m_object_ptr = nullptr;
             TagIndex *m_tag_index_ptr = nullptr;
             std::shared_ptr<Class> m_type;
+            AccessType m_access_mode;
 
             ObjectInfo() = default;
             ObjectInfo(ObjectPtr memo_ptr);
@@ -61,7 +60,7 @@ namespace db0::object_model
         // optional additional objects' info
         ObjectInfo *m_info_vec_ptr;
         std::size_t m_info_vec_size = 0;
-        const AccessType m_access_mode = AccessType::READ_ONLY;
+        AccessType m_access_mode;
     };
     
 }

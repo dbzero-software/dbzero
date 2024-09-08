@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestSingleton, MemoTestClass
+from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass
 
 
 @db0.memo()
@@ -273,3 +273,11 @@ def test_mutating_tags_while_running_query_from_snapshot(db0_fixture):
     assert count == 10
     assert len(list(db0.find("tag1"))) == 5
     
+    
+def test_adding_tags_on_mixed_prefixes(db0_fixture):
+    obj_1 = MemoTestClass(1)
+    db0.open("my-other-prefix", "rw")
+    obj_2 = MemoScopedClass(2, prefix = "my-other-prefix")
+    
+    # it's allowed to update both prefixes in one operation
+    db0.tags(obj_1, obj_2).add("tag1")
