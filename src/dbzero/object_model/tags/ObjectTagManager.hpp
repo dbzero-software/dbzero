@@ -2,6 +2,7 @@
 
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/core/memory/AccessOptions.hpp>
 
 namespace db0::object_model
 
@@ -60,6 +61,7 @@ namespace db0::object_model
         // optional additional objects' info
         ObjectInfo *m_info_vec_ptr;
         std::size_t m_info_vec_size = 0;
+        const AccessType m_access_mode = AccessType::READ_ONLY;
     };
-
+    
 }

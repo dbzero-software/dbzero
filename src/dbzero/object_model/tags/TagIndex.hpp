@@ -146,7 +146,7 @@ namespace db0::object_model
         bool isScopeIdentifier(ObjectPtr) const;
         bool isScopeIdentifier(ObjectSharedPtr) const;
     };
-
+    
     template <typename BaseIndexT, typename BatchOperationT>
     BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, BatchOperationT &batch_op)
     {

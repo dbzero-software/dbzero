@@ -1,6 +1,7 @@
 #include "PyObjectTagManager.hpp"
 #include "Memo.hpp"
 #include "GlobalMutex.hpp"
+#include "PyInternalAPI.hpp"
 
 namespace db0::python
 
@@ -30,30 +31,46 @@ namespace db0::python
         Py_TYPE(tags_obj)->tp_free((PyObject*)tags_obj);
     }
     
-    PyObject *PyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object)
+    PyObject *tryPyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object)
     {
         tag_manager->modifyExt().add(&object, 1);
         Py_INCREF(tag_manager);
         return tag_manager;
     }
 
-    PyObject *PyObjectTagManager_add(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs)
-    {        
+    PyObject *PyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object) {
+        return runSafe(tryPyObjectTagManager_add_binary, tag_manager, object);
+    }
+
+    PyObject *tryPyObjectTagManager_add(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) 
+    {
         tag_manager->modifyExt().add(args, nargs);
         Py_RETURN_NONE;
     }
+
+    PyObject *PyObjectTagManager_add(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) {        
+        return runSafe(tryPyObjectTagManager_add, tag_manager, args, nargs);
+    }
     
-    PyObject *PyObjectTagManager_remove_binary(PyObjectTagManager *tag_manager, PyObject *object)
-    {        
+    PyObject *tryPyObjectTagManager_remove_binary(PyObjectTagManager *tag_manager, PyObject *object)
+    {
         tag_manager->modifyExt().remove(&object, 1);
         Py_INCREF(tag_manager);
         return tag_manager;
     }
 
-    PyObject *PyObjectTagManager_remove(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyObjectTagManager_remove_binary(PyObjectTagManager *tag_manager, PyObject *object) {
+        return runSafe(tryPyObjectTagManager_remove_binary, tag_manager, object);
+    }
+
+    PyObject *tryPyObjectTagManager_remove(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs)
     {
         tag_manager->modifyExt().remove(args, nargs);
         Py_RETURN_NONE;
+    }
+
+    PyObject *PyObjectTagManager_remove(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) {
+        return runSafe(tryPyObjectTagManager_remove, tag_manager, args, nargs);
     }
     
     PyTypeObject PyObjectTagManagerType = {
