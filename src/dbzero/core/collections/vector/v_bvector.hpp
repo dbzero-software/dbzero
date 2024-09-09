@@ -61,8 +61,8 @@ namespace db0
         /**
          * New, empty instance of the data structure
          */
-        v_bvector(Memspace &mem)
-            : super_t(mem, mem.getPageSize())
+        v_bvector(Memspace &mem, FlagSet<AccessOptions> access_mode = {})
+            : super_t(mem, mem.getPageSize(), access_mode)
             , m_db_shift(data_container::shift(mem.getPageSize()))
             , m_db_mask(data_container::mask(mem.getPageSize()))
             , m_pb_shift(ptr_container::shift(mem.getPageSize()))
@@ -87,9 +87,9 @@ namespace db0
             : v_bvector(ptr)
         {        
         }
-
-        v_bvector(const v_bvector &other)
-            : super_t(other)
+        
+        v_bvector(const v_bvector &other, FlagSet<AccessOptions> access_mode = {})
+            : super_t(other, access_mode)
             , m_db_shift(other.m_db_shift)
             , m_db_mask(other.m_db_mask)
             , m_pb_shift(other.m_pb_shift)
@@ -134,10 +134,10 @@ namespace db0
         }
 
         /**
-         * Construct populated with values from specific sequence
+         * Construct populated with values from a specific sequence
          */
-        template <class SequenceT> v_bvector(Memspace &mem, const SequenceT &in)
-            : v_bvector(mem)
+        template <class SequenceT> v_bvector(Memspace &mem, const SequenceT &in, FlagSet<AccessOptions> access_mode = {})
+            : v_bvector(mem, access_mode)
         {
             for (const auto &item: in) {
                 push_back(item);

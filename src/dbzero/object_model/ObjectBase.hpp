@@ -29,17 +29,17 @@ namespace db0
 
         ObjectBase() = default;
         
-        // create a new instance
+        // Create a new instance with a unique address
         template <typename... Args> ObjectBase(db0::swine_ptr<Fixture> &fixture, Args &&... args)
-            : has_fixture<BaseT>(fixture, std::forward<Args>(args)...)
+            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., FlagSet<AccessOptions> { AccessOptions::unique })
         {            
             fixture->getGC0().add<T>(this);
         }
 
-        // create a new instance (no garbage collection)
+        // Create a new instance with a unique address (no garbage collection)
         struct tag_no_gc {};
         template <typename... Args> ObjectBase(tag_no_gc, db0::swine_ptr<Fixture> &fixture, Args &&... args)
-            : has_fixture<BaseT>(fixture, std::forward<Args>(args)...)
+            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., FlagSet<AccessOptions> { AccessOptions::unique })
         {         
         }
         
@@ -64,12 +64,12 @@ namespace db0
         }
         
         /**
-         * Initialize the instance in place
+         * Initialize the instance in place with a unique address
         */
         template <typename... Args> void init(db0::swine_ptr<Fixture> &fixture, Args &&... args)
-        {            
+        {
             unregister();
-            has_fixture<BaseT>::init(fixture, std::forward<Args>(args)...);            
+            has_fixture<BaseT>::init(fixture, { AccessOptions::unique }, std::forward<Args>(args)...);
             fixture->getGC0().add<T>(this);            
         }
         

@@ -211,7 +211,9 @@ namespace db0
     bool SlabAllocator::makeUnique(std::uint64_t &address)
     {
         // make sure top 14 bits are 0
-        assert((address >> 50) == 0);
+        if ((address >> 50) != 0) {
+            THROWF(db0::InternalException) << "SlabAllocator: address space exhausted";
+        }
         auto page_id = makeRelative(address) / m_page_size;
         std::uint16_t instance_id;
         if (!m_alloc_counter.atomicInc(page_id, instance_id)) {            
@@ -223,5 +225,5 @@ namespace db0
         address = (address << 14) | instance_id;
         return true;
     }
-
+    
 }

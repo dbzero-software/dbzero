@@ -1,6 +1,6 @@
 #include <dbzero/core/memory/AccessOptions.hpp>
 
-DEFINE_ENUM_VALUES(db0::AccessOptions, "read", "write", "create", "no_cache", "no_flush")
+DEFINE_ENUM_VALUES(db0::AccessOptions, "read", "write", "create", "no_cache", "no_flush", "unique")
 
 namespace db0
 
