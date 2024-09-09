@@ -72,6 +72,10 @@ namespace db0
         inline T &operator[](std::size_t index) {
             return begin()[index];
         }
+        
+        inline T get(std::size_t index) const {
+            return begin()[index];
+        }
     };
 
     template <typename T> o_unbound_array<T>::o_unbound_array(std::size_t)

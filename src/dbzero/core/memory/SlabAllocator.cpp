@@ -190,6 +190,7 @@ namespace db0
         m_blanks.commit();
         m_aligned_blanks.commit();
         m_stripes.commit();
+        m_instance_ids.commit();
         m_allocator.commit();
     }
     
@@ -200,6 +201,7 @@ namespace db0
         m_blanks.detach();
         m_aligned_blanks.detach();
         m_stripes.detach();
+        m_instance_ids.detach();
         m_allocator.detach();
     }
 
