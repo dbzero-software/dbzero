@@ -22,7 +22,8 @@ namespace db0
         , m_blanks(m_bitspace.myPtr(begin_addr + m_header->m_blank_set_ptr), page_size)
         , m_aligned_blanks(m_bitspace.myPtr(begin_addr + m_header->m_aligned_blank_set_ptr), page_size, CompT(page_size), page_size)
         , m_stripes(m_bitspace.myPtr(begin_addr + m_header->m_stripe_set_ptr), page_size)
-        , m_instance_ids(m_bitspace.myPtr(begin_addr + m_header->m_instance_ids_ptr), page_size)
+        // use 14 bit page level allocation counters
+        , m_alloc_counter(m_bitspace.myPtr(begin_addr + m_header->m_alloc_counter_ptr), page_size, (1u << 14) - 1)
         , m_allocator(m_allocs, m_blanks, m_aligned_blanks, m_stripes, m_header->m_size, page_size)
         , m_initial_remaining_capacity(remaining_capacity)
         , m_initial_admin_size(getAdminSpaceSize(true))
@@ -48,11 +49,13 @@ namespace db0
             m_on_close_handler(*this);
         }
     }
-
-    std::optional<std::uint64_t> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    
+    std::optional<std::uint64_t> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+        bool aligned, bool unique)
     {
         assert(slot_num == 0);
         assert(size > 0);        
+        assert(!unique && "SlabAllocator does not support unique allocations");
         // obtain relative address from the underlying CRDT allocator
         // auto-align when requested size > page_size
         auto relative = m_allocator.tryAlloc(size, (size > m_page_size) || aligned);
@@ -64,11 +67,11 @@ namespace db0
     }
     
     void SlabAllocator::free(std::uint64_t address) {
-        m_allocator.free(makeRelative(address));
+        m_allocator.free(makeRelative(makeRaw(address)));
     }
     
     std::size_t SlabAllocator::getAllocSize(std::uint64_t address) const {
-        return m_allocator.getAllocSize(makeRelative(address));
+        return m_allocator.getAllocSize(makeRelative(makeRaw(address)));
     }
 
     std::uint64_t SlabAllocator::headerAddr(std::uint64_t begin_addr, std::uint32_t size) {
@@ -97,7 +100,7 @@ namespace db0
         BlankSetT blanks(bitspace, page_size);
         AlignedBlankSetT aligned_blanks(bitspace, page_size, CompT(page_size), page_size);
         StripeSetT stripes(bitspace, page_size);
-        LimitedVector<std::uint16_t> instance_ids(bitspace, page_size);
+        LimitedVector<std::uint16_t> alloc_counter(bitspace, page_size);
         // calculate size initially available to CRTD allocator
         std::uint32_t crdt_size = static_cast<std::uint32_t>(size - admin_size - ADMIN_SPAN * page_size);
         assert(crdt_size > 0);
@@ -117,7 +120,7 @@ namespace db0
             blanks.getAddress() - begin_addr,
             aligned_blanks.getAddress() - begin_addr,
             stripes.getAddress() - begin_addr,
-            instance_ids.getAddress() - begin_addr
+            alloc_counter.getAddress() - begin_addr
             );
         return crdt_size;
     }
@@ -190,7 +193,7 @@ namespace db0
         m_blanks.commit();
         m_aligned_blanks.commit();
         m_stripes.commit();
-        m_instance_ids.commit();
+        m_alloc_counter.commit();
         m_allocator.commit();
     }
     
@@ -201,8 +204,24 @@ namespace db0
         m_blanks.detach();
         m_aligned_blanks.detach();
         m_stripes.detach();
-        m_instance_ids.detach();
+        m_alloc_counter.detach();
         m_allocator.detach();
+    }
+    
+    bool SlabAllocator::makeUnique(std::uint64_t &address)
+    {
+        // make sure top 14 bits are 0
+        assert((address >> 50) == 0);
+        auto page_id = makeRelative(address) / m_page_size;
+        std::uint16_t instance_id;
+        if (!m_alloc_counter.atomicInc(page_id, instance_id)) {            
+            // makeUnique failed due to counter overflow
+            return false;
+        }
+        assert(instance_id > 0);
+        assert((instance_id >> 14) == 0);
+        address = (address << 14) | instance_id;
+        return true;
     }
 
 }

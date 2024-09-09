@@ -23,10 +23,12 @@ namespace db0
         m_slots[slot_num] = slot_allocator;
     }
 
-    std::optional<std::uint64_t> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned) {
-        return select(slot_num).tryAlloc(size, 0, aligned);
+    std::optional<std::uint64_t> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+        bool aligned, bool unique) 
+    {
+        return select(slot_num).tryAlloc(size, 0, aligned, unique);
     }
-
+    
     void SlotAllocator::free(std::uint64_t address) {
         // can free from the general allocator
         m_allocator_ptr->free(address);

@@ -18,12 +18,13 @@ namespace db0
         /**
          * @param the allocation size in bytes
          * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
-         * @param align for page-aligned allocation
+         * @param align a flag for page-aligned allocation
+         * @param unique a flag for generating a unique, never repeating addresses
          * Note that slot functionality is implementation specific and may not be supported by all allocators.
          * We use slots in special cases where objects needs to be allocated from a limited narrow address range
         */
         virtual std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false) = 0;
+            bool aligned = false, bool unique = false) = 0;
         
         /**
          * Free previously allocated address

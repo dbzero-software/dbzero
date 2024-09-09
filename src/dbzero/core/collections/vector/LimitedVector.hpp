@@ -20,8 +20,8 @@ namespace db0
     template <typename ValueT> class LimitedVector
     {
     public:
-        LimitedVector(Memspace &, std::size_t page_size);
-        LimitedVector(mptr, std::size_t page_size);
+        LimitedVector(Memspace &, std::size_t page_size, ValueT value_limit = std::numeric_limits<ValueT>::max());
+        LimitedVector(mptr, std::size_t page_size, ValueT value_limit = std::numeric_limits<ValueT>::max());
 
         // atomically try incrementing (or creating) value at a specific index
         // return false in case of a numeric overflow (value is not incremented)
@@ -39,6 +39,7 @@ namespace db0
     private:
         Memspace &m_memspace;
         const std::size_t m_page_size;
+        const ValueT m_value_limit;
         // a root block with pointers to data blocks
         db0::v_object<o_unbound_array<std::uint64_t> > m_root;
         // cache of actual data blocks
@@ -57,16 +58,18 @@ namespace db0
         db0::v_object<o_unbound_array<std::uint64_t> > &getBlock(std::uint32_t block_num);
     };
 
-    template <typename ValueT> LimitedVector<ValueT>::LimitedVector(Memspace &memspace, std::size_t page_size)
+    template <typename ValueT> LimitedVector<ValueT>::LimitedVector(Memspace &memspace, std::size_t page_size, ValueT value_limit)
         : m_memspace(memspace)
         , m_page_size(page_size)
+        , m_value_limit(value_limit)
         , m_root(memspace, getMaxBlockCount(), 0)
     {
     }
     
-    template <typename ValueT> LimitedVector<ValueT>::LimitedVector(mptr ptr, std::size_t page_size)
+    template <typename ValueT> LimitedVector<ValueT>::LimitedVector(mptr ptr, std::size_t page_size, ValueT value_limit)
         : m_memspace(ptr.m_memspace)
         , m_page_size(page_size)
+        , m_value_limit(value_limit)
         , m_root(ptr)
     {
     }
@@ -164,12 +167,12 @@ namespace db0
             }
         }
     }
-
+    
     template <typename ValueT> bool LimitedVector<ValueT>::atomicInc(std::size_t index, ValueT &value)
     {
         auto [block_num, block_pos] = getBlockPosition(index);
         auto &block = getBlock(block_num);
-        if (block->get(block_pos) == std::numeric_limits<ValueT>::max()) {
+        if (block->get(block_pos) == m_value_limit) {
             // unable to increment, limit reached
             return false;
         }

@@ -21,7 +21,7 @@ namespace db0
         void setSlot(std::uint32_t slot_num, std::shared_ptr<Allocator> slot_allocator);
 
         std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false) override;
+            bool aligned = false, bool unique = false) override;
 
         void free(std::uint64_t address) override;
 

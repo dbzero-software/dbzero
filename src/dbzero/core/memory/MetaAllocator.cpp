@@ -603,7 +603,8 @@ namespace db0
         return meta_header.const_ref();
     }
     
-    std::optional<std::uint64_t> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    std::optional<std::uint64_t> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+        bool aligned, bool unique)
     {
         assert(slot_num == 0);
         assert(size > 0);
@@ -613,9 +614,16 @@ namespace db0
         bool is_new = false;
         for (;;) {
             if (slab.m_slab) {
-                auto addr = slab.m_slab->tryAlloc(size, 0, aligned);
-                if (addr) {
-                    return addr;
+                for (;;) {
+                    auto addr = slab.m_slab->tryAlloc(size, 0, aligned, false);
+                    if (!addr) {
+                        break;
+                    }
+                    if (!unique || slab.m_slab->makeUnique(*addr)) {
+                        return addr;
+                    }
+                    // unable to make the address unique, schedule for deferred free and try again
+                    deferredFree(*addr);
                 }
                 if (size > slab.m_slab->getMaxAllocSize()) {
                     THROWF(db0::InternalException) 
@@ -642,13 +650,18 @@ namespace db0
     {        
         assert(m_deferred_free_ops.find(address) == m_deferred_free_ops.end());
         if (m_deferred_free) {
-            if (m_atomic) {
-                m_atomic_deferred_free_ops.push_back(address);
-            } else {
-                m_deferred_free_ops.insert(address);
-            }
+            deferredFree(address);
         } else {
             _free(address);
+        }
+    }
+    
+    void MetaAllocator::deferredFree(std::uint64_t address) 
+    {        
+        if (m_atomic) {
+            m_atomic_deferred_free_ops.push_back(address);
+        } else {
+            m_deferred_free_ops.insert(address);
         }
     }
 

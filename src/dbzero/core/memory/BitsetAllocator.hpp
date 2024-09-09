@@ -24,7 +24,7 @@ namespace db0
         BitsetAllocator(BitSetT &&bitset, std::uint64_t base_addr, std::size_t alloc_size, int direction);
 
         std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false) override;
+            bool aligned = false, bool unique = false) override;
         
         void free(std::uint64_t address) override;
 
@@ -101,10 +101,11 @@ namespace db0
     }
     
     template <typename BitSetT> std::optional<std::uint64_t>
-    BitsetAllocator<BitSetT>::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    BitsetAllocator<BitSetT>::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique)
     {
         assert(slot_num == 0);
         assert(!aligned && "BitsetAllocator: aligned allocation not supported");
+        assert(!unique && "BitsetAllocator: unique address allocation not supported");
         assert(size == m_alloc_size && "BitsetAllocator: invalid alloc size requested");
         auto index = m_bitset->firstIndexOf(false);
         if (index == m_bitset.npos) {

@@ -24,19 +24,19 @@ namespace db0
         std::uint32_t m_blank_set_ptr = 0;
         std::uint32_t m_aligned_blank_set_ptr = 0;
         std::uint32_t m_stripe_set_ptr = 0;
-        std::uint32_t m_instance_ids_ptr = 0;
+        std::uint32_t m_alloc_counter_ptr = 0;
         std::uint32_t m_reserved[2] = {0};
 
         o_slab_header() = default;
         
         o_slab_header(std::uint32_t size, std::uint32_t alloc_set_ptr, std::uint32_t blank_set_ptr, 
-            std::uint32_t aligned_blank_set_ptr, std::uint32_t stripe_set_ptr, std::uint32_t instance_ids_ptr)
+            std::uint32_t aligned_blank_set_ptr, std::uint32_t stripe_set_ptr, std::uint32_t alloc_counter_ptr)
             : m_size(size)
             , m_alloc_set_ptr(alloc_set_ptr)
             , m_blank_set_ptr(blank_set_ptr)
             , m_aligned_blank_set_ptr(aligned_blank_set_ptr)
             , m_stripe_set_ptr(stripe_set_ptr)        
-            , m_instance_ids_ptr(instance_ids_ptr)
+            , m_alloc_counter_ptr(alloc_counter_ptr)
         {
         }
     };
@@ -65,9 +65,9 @@ namespace db0
             std::optional<std::size_t> remaining_capacity = {});
 
         virtual ~SlabAllocator();
-
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false) override;
+        
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false, bool unique = false) override;
         
         void free(std::uint64_t address) override;
 
@@ -137,7 +137,23 @@ namespace db0
         inline std::uint32_t makeRelative(std::uint64_t absolute) const {
             return absolute - m_begin_addr;
         }
-            
+
+        // Try adjusting the address to make it unique
+        // @return false if SlabAllocator was unable to make the address unique (counter overflow)
+        bool makeUnique(std::uint64_t &address);
+
+        // remove instance ID from the address (if assigned)
+        // this is a reverse operation to makeUnique but can be performed on any address
+        inline std::uint64_t makeRaw(std::uint64_t absolute) const 
+        {
+            if (absolute & 0xFFFC000000000000) {
+                // remove instance ID (encoded in the low 14 bits)
+                return absolute >> 14;
+            } else {
+                return absolute;
+            }
+        }
+        
     private:
         // the number of administrative area pages
         static constexpr std::uint32_t ADMIN_SPAN = 5;
@@ -158,8 +174,8 @@ namespace db0
         BlankSetT m_blanks;
         AlignedBlankSetT m_aligned_blanks;
         StripeSetT m_stripes;
-        // a dedicated storage for page-level managed instance IDs
-        LimitedVector<std::uint16_t> m_instance_ids;
+        // a dedicated storage for page-level instance ID counters
+        LimitedVector<std::uint16_t> m_alloc_counter;
         CRDT_Allocator m_allocator;
         const std::optional<std::size_t> m_initial_remaining_capacity;
         std::size_t m_initial_admin_size;
