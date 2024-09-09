@@ -109,3 +109,23 @@ def test_dict_items_in_segfault_issue_1(db0_autocommit_fixture):
             assert random_int in dict_1
         else:
             assert random_int not in dict_1
+
+
+@pytest.mark.parametrize("db0_autocommit_fixture", [500], indirect=True)
+def test_list_items_append(db0_autocommit_fixture):
+    """
+    This test was failing with segfault when autocommit enabled.
+    Must be repeated at least 15-20 times to reproduce the issue.
+    """
+    list_1 = db0.list()
+    item_count = 100
+    for i in range(item_count):
+        list_1.append(i)
+    for i in range(item_count):
+        list_1[i] = 2*i
+    for i in range(100000):
+        random_int = random.randint(0, 300)
+        if random_int < item_count * 2 and random_int % 2 == 0:
+            assert random_int in list_1
+        else:
+            assert random_int not in list_1

@@ -74,14 +74,18 @@ namespace db0::object_model
 
         const_iterator begin() const;
         const_iterator end() const;
-                
+
+        void unrefMembers() const;
+
+        void destroy();
+
     private:
         db0::v_bindex<dict_item> m_index;
         
         // new dicts can only be created via factory members
-        Dict(db0::swine_ptr<Fixture> &);
-        Dict(db0::swine_ptr<Fixture> &fixture, const Dict &);
-        Dict(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Dict &);
+        explicit Dict(db0::swine_ptr<Fixture> &);
+        explicit Dict(db0::swine_ptr<Fixture> &fixture, const Dict &);
+        explicit Dict(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Dict &);
 
         void initWith(const Dict &);
     };
