@@ -7,6 +7,7 @@
 #include <dbzero/core/crdt/CRDT_Allocator.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/core/collections/vector/LimitedVector.hpp>
 
 namespace db0
 
@@ -23,17 +24,19 @@ namespace db0
         std::uint32_t m_blank_set_ptr = 0;
         std::uint32_t m_aligned_blank_set_ptr = 0;
         std::uint32_t m_stripe_set_ptr = 0;
+        std::uint32_t m_instance_ids_ptr = 0;
         std::uint32_t m_reserved[2] = {0};
 
         o_slab_header() = default;
         
         o_slab_header(std::uint32_t size, std::uint32_t alloc_set_ptr, std::uint32_t blank_set_ptr, 
-            std::uint32_t aligned_blank_set_ptr, std::uint32_t stripe_set_ptr)
+            std::uint32_t aligned_blank_set_ptr, std::uint32_t stripe_set_ptr, std::uint32_t instance_ids_ptr)
             : m_size(size)
             , m_alloc_set_ptr(alloc_set_ptr)
             , m_blank_set_ptr(blank_set_ptr)
             , m_aligned_blank_set_ptr(aligned_blank_set_ptr)
-            , m_stripe_set_ptr(stripe_set_ptr)            
+            , m_stripe_set_ptr(stripe_set_ptr)        
+            , m_instance_ids_ptr(instance_ids_ptr)
         {
         }
     };
@@ -137,7 +140,7 @@ namespace db0
             
     private:
         // the number of administrative area pages
-        static constexpr std::uint32_t ADMIN_SPAN = 4;
+        static constexpr std::uint32_t ADMIN_SPAN = 5;
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
         using BlankSetT = db0::CRDT_Allocator::BlankSetT;
         using AlignedBlankSetT = db0::CRDT_Allocator::AlignedBlankSetT;
@@ -155,6 +158,8 @@ namespace db0
         BlankSetT m_blanks;
         AlignedBlankSetT m_aligned_blanks;
         StripeSetT m_stripes;
+        // a dedicated storage for page-level managed instance IDs
+        LimitedVector<std::uint16_t> m_instance_ids;
         CRDT_Allocator m_allocator;
         const std::optional<std::size_t> m_initial_remaining_capacity;
         std::size_t m_initial_admin_size;

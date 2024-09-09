@@ -15,7 +15,7 @@ namespace db0
     protected:
         using super_t = o_base<o_unbound_array<T>, 0, false>;
         friend super_t;
-
+        
         o_unbound_array(std::size_t size);
 
         /**
@@ -39,13 +39,11 @@ namespace db0
 
     public:
 
-        static std::size_t measure(std::size_t size)
-        {
+        static std::size_t measure(std::size_t size) {
             return super_t::measureMembers() + size * sizeof(T);
         }
 
-        static std::size_t measure(std::size_t size, T)
-        {
+        static std::size_t measure(std::size_t size, T) {
             return measure(size);
         }
 
@@ -55,28 +53,23 @@ namespace db0
             return measure(data.size());
         }
 
-        std::size_t sizeOf() const
-        {
+        std::size_t sizeOf() const {
             throw std::runtime_error("o_unbound_array has no sizeOf");
         }
 
-        T *begin()
-        {
+        T *begin() {
             return reinterpret_cast<T*>(&this->getDynFirst(o_null::type()));
         }
 
-        const T *begin() const
-        {
+        const T *begin() const {
             return reinterpret_cast<const T*>(&this->getDynFirst(o_null::type()));
         }
 
-        inline T operator[](std::size_t index) const
-        {
+        inline T operator[](std::size_t index) const {
             return begin()[index];
         }
 
-        inline T &operator[](std::size_t index)
-        {
+        inline T &operator[](std::size_t index) {
             return begin()[index];
         }
     };
@@ -85,8 +78,7 @@ namespace db0
     {
     }
     
-    template <typename T> o_unbound_array<T>::o_unbound_array(std::size_t size, T default_value)
-    {
+    template <typename T> o_unbound_array<T>::o_unbound_array(std::size_t size, T default_value) {
         std::fill_n(begin(), size, default_value);
     }
 

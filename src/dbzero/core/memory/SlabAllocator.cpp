@@ -21,7 +21,8 @@ namespace db0
         , m_allocs(m_bitspace.myPtr(begin_addr + m_header->m_alloc_set_ptr), page_size)
         , m_blanks(m_bitspace.myPtr(begin_addr + m_header->m_blank_set_ptr), page_size)
         , m_aligned_blanks(m_bitspace.myPtr(begin_addr + m_header->m_aligned_blank_set_ptr), page_size, CompT(page_size), page_size)
-        , m_stripes(m_bitspace.myPtr(begin_addr + m_header->m_stripe_set_ptr), page_size)        
+        , m_stripes(m_bitspace.myPtr(begin_addr + m_header->m_stripe_set_ptr), page_size)
+        , m_instance_ids(m_bitspace.myPtr(begin_addr + m_header->m_instance_ids_ptr), page_size)
         , m_allocator(m_allocs, m_blanks, m_aligned_blanks, m_stripes, m_header->m_size, page_size)
         , m_initial_remaining_capacity(remaining_capacity)
         , m_initial_admin_size(getAdminSpaceSize(true))
@@ -96,6 +97,7 @@ namespace db0
         BlankSetT blanks(bitspace, page_size);
         AlignedBlankSetT aligned_blanks(bitspace, page_size, CompT(page_size), page_size);
         StripeSetT stripes(bitspace, page_size);
+        LimitedVector<std::uint16_t> instance_ids(bitspace, page_size);
         // calculate size initially available to CRTD allocator
         std::uint32_t crdt_size = static_cast<std::uint32_t>(size - admin_size - ADMIN_SPAN * page_size);
         assert(crdt_size > 0);
@@ -109,12 +111,13 @@ namespace db0
         // finally create the Slab header
         v_object<o_slab_header> header(
             memspace,
-            crdt_size,                 
+            crdt_size,
             // assign addresses relative to the slab beginning
             allocs.getAddress() - begin_addr,
             blanks.getAddress() - begin_addr,
             aligned_blanks.getAddress() - begin_addr,
-            stripes.getAddress() - begin_addr
+            stripes.getAddress() - begin_addr,
+            instance_ids.getAddress() - begin_addr
             );
         return crdt_size;
     }
