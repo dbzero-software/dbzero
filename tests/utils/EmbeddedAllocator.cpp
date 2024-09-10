@@ -34,19 +34,15 @@ namespace db0
         return it->second;
     }
     
-    void EmbeddedAllocator::commit()
-    {
+    void EmbeddedAllocator::commit() {
         // nothing to do
     }
 
-    void EmbeddedAllocator::detach() const
-    {
+    void EmbeddedAllocator::detach() const {
         // nothing to do
     }
     
-    void EmbeddedAllocator::setAllocCallback(
-        std::function<void(std::size_t, std::uint32_t, bool, bool, std::optional<std::uint64_t>)> callback)
-    {
+    void EmbeddedAllocator::setAllocCallback(AllocCallbackT callback) {
         this->m_alloc_callback = callback;
     }
     

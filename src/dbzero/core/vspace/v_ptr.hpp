@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <atomic>
+#include <dbzero/core/memory/Allocator.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
@@ -204,8 +205,9 @@ namespace db0
                 if (lock.isLocked()) {
                     // lock for +write
                     // note that lock is getting updated, possibly copy-on-write is being performed
+                    // NOTE: must extract physical address for mapRange
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        m_address, this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
+                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
                     lock.commit_set();
                 }
             }            
@@ -231,10 +233,11 @@ namespace db0
         
         static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode)
         {
-            auto address = memspace.alloc(size, SLOT_NUM);
+            auto address = memspace.alloc(size, SLOT_NUM, access_mode[AccessOptions::unique]);
             // lock for create & write
+            // NOTE: must extract physical address for mapRange
             auto mem_lock = memspace.getPrefix().mapRange(
-                address, size, access_mode | AccessOptions::write | AccessOptions::create
+                getPhysicalAddress(address), size, access_mode | AccessOptions::write | AccessOptions::create
             );
             // mark as available for both write & read
             return v_ptr<ContainerT>(
@@ -258,13 +261,15 @@ namespace db0
     private:
 
         void assureInitialized() const
-        {            
+        {
             assert(m_memspace_ptr);
             // access the resource for read (or check if the read or read/write access has already been gained)
             while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {
                 ResourceReadMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
-                    m_mem_lock = m_memspace_ptr->getPrefix().mapRange(m_address, this->getSize(), m_access_mode | AccessOptions::read);
+                    // NOTE: must extract physical address for mapRange
+                    m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
+                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::read);
                     lock.commit_set();
                 }
             }

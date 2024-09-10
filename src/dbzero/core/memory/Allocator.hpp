@@ -9,8 +9,18 @@ namespace db0
 
 {
     
+    // Converts allocator's logical address into a physical one (by removing high 14 bits)
+    inline std::uint64_t getPhysicalAddress(std::uint64_t address) {
+        return address & 0x0003'FFFF'FFFF'FFFF;
+    }
+    
+    inline bool isPhysicalAddress(std::uint64_t address) {
+        return (address & 0xFFFC'0000'0000'0000) == 0;
+    }
+    
     /**
      * The DB0 allocator interface
+     * NOTE: allocators may return logical adddress which needs to be converted to physical one
     */
     class Allocator
     {
@@ -57,7 +67,8 @@ namespace db0
          * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
          * @return the address of the range
         */
-        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false);
+        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false, 
+            bool unique = false);
     };
 
 }

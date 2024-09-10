@@ -9,6 +9,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include "PrefixProxy.hpp"
+#include "EmbeddedAllocator.hpp"
 
 namespace db0
 
@@ -17,13 +18,14 @@ namespace db0
     class TestWorkspaceBase
     {
     public:
+        using AllocCallbackT = EmbeddedAllocator::AllocCallbackT;
         TestWorkspaceBase(std::size_t page_size = 4096, std::size_t cache_size = 2u << 30);
         ~TestWorkspaceBase();
         
         /**
          * Opens a prefix associated memspace
         */
-        Memspace getMemspace(const std::string &prefix);
+        Memspace getMemspace(const std::string &prefix, AllocCallbackT = {});
         
         CacheRecycler &getCacheRecycler() {
             return m_cache_recycler;

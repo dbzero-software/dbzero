@@ -165,7 +165,7 @@ namespace db0
 
         static std::function<std::uint64_t(unsigned int)> getAddressPool(std::size_t offset, std::size_t page_size,
             std::size_t slab_size);
-
+        
         static std::function<unsigned int(std::uint64_t)> getReverseAddressPool(std::size_t offset, std::size_t page_size,
             std::size_t slab_size);
 

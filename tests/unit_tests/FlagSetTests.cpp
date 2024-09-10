@@ -87,7 +87,7 @@ namespace tests
         auto cut = FlagSet<AccessOptions>::all();
         std::stringstream ss;
         ss << cut;
-        ASSERT_EQ ("[read, write, create, no_cache, no_flush]", ss.str());
+        ASSERT_EQ ("[read, write, create, no_cache, no_flush, unique]", ss.str());
     }
     
 }

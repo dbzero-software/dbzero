@@ -43,7 +43,7 @@ namespace db0
         // a root block with pointers to data blocks
         db0::v_object<o_unbound_array<std::uint64_t> > m_root;
         // cache of actual data blocks
-        mutable std::vector<db0::v_object<o_unbound_array<std::uint64_t> > > m_cache;
+        mutable std::vector<db0::v_object<o_unbound_array<ValueT> > > m_cache;
 
         std::size_t getMaxBlockCount() const;
         std::size_t getBlockSize() const;
@@ -52,10 +52,10 @@ namespace db0
         std::pair<std::uint32_t, std::uint32_t> getBlockPosition(std::size_t index) const;
 
         // retrieve existing block
-        const db0::v_object<o_unbound_array<std::uint64_t> > &getExistingBlock(std::uint32_t block_num) const;
+        const db0::v_object<o_unbound_array<ValueT> > &getExistingBlock(std::uint32_t block_num) const;
 
         // retrieve existing or create new block
-        db0::v_object<o_unbound_array<std::uint64_t> > &getBlock(std::uint32_t block_num);
+        db0::v_object<o_unbound_array<ValueT> > &getBlock(std::uint32_t block_num);
     };
 
     template <typename ValueT> LimitedVector<ValueT>::LimitedVector(Memspace &memspace, std::size_t page_size, ValueT value_limit)
@@ -108,7 +108,7 @@ namespace db0
     }
 
     template <typename ValueT>
-    const db0::v_object<o_unbound_array<std::uint64_t> > &LimitedVector<ValueT>::getExistingBlock(std::uint32_t block_num) const
+    const db0::v_object<o_unbound_array<ValueT> > &LimitedVector<ValueT>::getExistingBlock(std::uint32_t block_num) const
     {
         assert(block_num < getMaxBlockCount());
         // return from cache if block is already loaded
@@ -121,22 +121,24 @@ namespace db0
                 m_cache.resize(block_num + 1);
             }
             // open existing data block
-            m_cache[block_num] = db0::v_object<o_unbound_array<std::uint64_t> >(m_memspace.myPtr(block_addr));
+            m_cache[block_num] = db0::v_object<o_unbound_array<ValueT> >(m_memspace.myPtr(block_addr));
         }
         // pull from cache
         return m_cache[block_num];
     }
-
+    
     template <typename ValueT>
-    db0::v_object<o_unbound_array<std::uint64_t> > &LimitedVector<ValueT>::getBlock(std::uint32_t block_num)
+    db0::v_object<o_unbound_array<ValueT> > &LimitedVector<ValueT>::getBlock(std::uint32_t block_num)
     {
         assert(block_num < getMaxBlockCount());
         if (block_num >= m_cache.size() || !m_cache[block_num]) {
             if (block_num >= m_cache.size()) {
                 m_cache.resize(block_num + 1);
             }
+            // data block is expected to occupy a full page
+            assert(o_unbound_array<ValueT>::measure(getBlockSize()) == m_page_size);
             // allocate new data block
-            m_cache[block_num] = db0::v_object<o_unbound_array<std::uint64_t> >(m_memspace, getBlockSize(), ValueT());
+            m_cache[block_num] = db0::v_object<o_unbound_array<ValueT> >(m_memspace, getBlockSize(), ValueT());
             m_root.modify()[block_num] = m_cache[block_num].getAddress();
         }
         return m_cache[block_num];
@@ -170,7 +172,7 @@ namespace db0
     
     template <typename ValueT> bool LimitedVector<ValueT>::atomicInc(std::size_t index, ValueT &value)
     {
-        auto [block_num, block_pos] = getBlockPosition(index);
+        auto [block_num, block_pos] = getBlockPosition(index);    
         auto &block = getBlock(block_num);
         if (block->get(block_pos) == m_value_limit) {
             // unable to increment, limit reached

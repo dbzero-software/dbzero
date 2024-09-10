@@ -70,7 +70,7 @@ namespace db0
         {
             unregister();
             has_fixture<BaseT>::init(fixture, { AccessOptions::unique }, std::forward<Args>(args)...);
-            fixture->getGC0().add<T>(this);            
+            fixture->getGC0().add<T>(this);
         }
         
         inline bool hasInstance() const {

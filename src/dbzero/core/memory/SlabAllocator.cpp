@@ -11,6 +11,7 @@ namespace db0
         : m_prefix(prefix)
         , m_begin_addr(begin_addr)
         , m_page_size(page_size)
+        , m_page_shift(getPageShift(page_size))
         , m_slab_size(size)
         , m_internal_memspace(prefix, nullptr)
         // header starts at the beginning of the slab
@@ -32,11 +33,14 @@ namespace db0
         assert(m_begin_addr % m_page_size == 0);
         // apply dynamic bound on the CRDT allocator to not assign addresses overlapping with the admin space
         // include ADMIN_SPAN bitspace allocations to allow margin for the admin space to grow
-        std::uint64_t bounds_base = m_slab_size - (m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + ADMIN_SPAN * m_page_size);
+        // NOTE: CRDT allocator's dynamic bounds are specified as relative to the allocator's base address
+        std::uint64_t bounds_base = m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() - ADMIN_SPAN * m_page_size;
+        // FIXME: log
+        // std::uint64_t bounds_base = m_slab_size - (m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + ADMIN_SPAN * m_page_size);
         m_allocator.setDynamicBound([this, bounds_base]() {
             return bounds_base - m_bitspace.span() * m_page_size;
         });
-
+        
         // provide CRDT allocator's dynamic bound to the bitspace (this is for address validation/ collision prevention purposes)
         m_bitspace.setDynamicBounds([this]() {
             return m_begin_addr + m_allocator.getMaxAddr();
@@ -66,12 +70,16 @@ namespace db0
         return std::nullopt;
     }
     
-    void SlabAllocator::free(std::uint64_t address) {
-        m_allocator.free(makeRelative(makeRaw(address)));
+    void SlabAllocator::free(std::uint64_t address)
+    {
+        assert(db0::isPhysicalAddress(address));
+        m_allocator.free(makeRelative(address));
     }
     
-    std::size_t SlabAllocator::getAllocSize(std::uint64_t address) const {
-        return m_allocator.getAllocSize(makeRelative(makeRaw(address)));
+    std::size_t SlabAllocator::getAllocSize(std::uint64_t address) const 
+    {
+        assert(db0::isPhysicalAddress(address));
+        return m_allocator.getAllocSize(makeRelative(address));
     }
 
     std::uint64_t SlabAllocator::headerAddr(std::uint64_t begin_addr, std::uint32_t size) {
@@ -207,22 +215,23 @@ namespace db0
         m_alloc_counter.detach();
         m_allocator.detach();
     }
-    
-    bool SlabAllocator::makeUnique(std::uint64_t &address)
+
+    bool SlabAllocator::makeAddressUnique(std::uint64_t &address)
     {
-        // make sure top 14 bits are 0
+        // make sure high 14 bits are 0
         if ((address >> 50) != 0) {
             THROWF(db0::InternalException) << "SlabAllocator: address space exhausted";
         }
-        auto page_id = makeRelative(address) / m_page_size;
+        auto page_id = makeRelative(address) >> m_page_shift;
         std::uint16_t instance_id;
-        if (!m_alloc_counter.atomicInc(page_id, instance_id)) {            
-            // makeUnique failed due to counter overflow
+        if (!m_alloc_counter.atomicInc(page_id, instance_id)) {
+            // makeAddressUnique failed due to counter overflow
             return false;
         }
         assert(instance_id > 0);
         assert((instance_id >> 14) == 0);
-        address = (address << 14) | instance_id;
+
+        address |= static_cast<std::uint64_t>(instance_id) << 50;
         return true;
     }
     

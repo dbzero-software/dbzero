@@ -104,7 +104,7 @@ namespace db0
     BitsetAllocator<BitSetT>::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique)
     {
         assert(slot_num == 0);
-        assert(!aligned && "BitsetAllocator: aligned allocation not supported");
+        // all BitSetAllocator allocations are aligned
         assert(!unique && "BitsetAllocator: unique address allocation not supported");
         assert(size == m_alloc_size && "BitsetAllocator: invalid alloc size requested");
         auto index = m_bitset->firstIndexOf(false);

@@ -45,7 +45,7 @@ namespace db0
         // typical configuration, sufficient for a 64MB slab
         return 64 * 1024 * 1024 / 4096;
     }
-    
+
     /**
      * The SlabAllocator takes a fixed size address range (e.g. 64MB)
      * and organizes the space with the use of BitSetAllocator/BitSpace + CRDT_Allocator 
@@ -140,22 +140,12 @@ namespace db0
 
         // Try adjusting the address to make it unique
         // @return false if SlabAllocator was unable to make the address unique (counter overflow)
-        bool makeUnique(std::uint64_t &address);
-
-        // remove instance ID from the address (if assigned)
-        // this is a reverse operation to makeUnique but can be performed on any address
-        inline std::uint64_t makeRaw(std::uint64_t absolute) const 
-        {
-            if (absolute & 0xFFFC000000000000) {
-                // remove instance ID (encoded in the low 14 bits)
-                return absolute >> 14;
-            } else {
-                return absolute;
-            }
-        }
+        bool makeAddressUnique(std::uint64_t &address);
         
     private:
         // the number of administrative area pages
+        // we determined this number to reflect the number of underlying collections
+        // and based on the assumption that each of them needs at least 1 page for expansion
         static constexpr std::uint32_t ADMIN_SPAN = 5;
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
         using BlankSetT = db0::CRDT_Allocator::BlankSetT;
@@ -166,6 +156,7 @@ namespace db0
         std::shared_ptr<Prefix> m_prefix;
         const std::uint64_t m_begin_addr;
         const std::size_t m_page_size;
+        const std::uint32_t m_page_shift;
         const std::uint32_t m_slab_size;
         Memspace m_internal_memspace;
         v_object<o_slab_header> m_header;

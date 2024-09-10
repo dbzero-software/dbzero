@@ -22,7 +22,7 @@ namespace db0
         }
     }
     
-    Memspace TestWorkspaceBase::getMemspace(const std::string &name)
+    Memspace TestWorkspaceBase::getMemspace(const std::string &name, AllocCallbackT callback)
     {
         using PrefixT = PrefixImpl<db0::Storage0>;
         if (!m_prefix) {
@@ -30,6 +30,9 @@ namespace db0
             m_prefix = std::make_shared<db0::tests::PrefixProxy>(prefix);
         }
         auto allocator = std::make_shared<EmbeddedAllocator>();
+        if (callback) {
+            allocator->setAllocCallback(callback);
+        }
         return { m_prefix, allocator, TEST_MEMSPACE_UUID };
     }
     

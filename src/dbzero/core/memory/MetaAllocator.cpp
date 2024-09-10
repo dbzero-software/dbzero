@@ -63,6 +63,7 @@ namespace db0
         offset = align(offset, page_size);
         auto block_size = 2 * page_size + slab_size * slab_count;
         return [offset, page_size, slab_size, slab_count, block_size](std::uint64_t address) -> std::uint32_t {
+            assert(db0::isPhysicalAddress(address));
             auto block_id = (address - offset) / block_size;
             auto slab_num = (address - offset - block_id * block_size - 2 * page_size) / slab_size;
             return block_id * slab_count + slab_num;
@@ -593,7 +594,7 @@ namespace db0
         meta_header.modify().m_slab_defs_ptr = slab_defs.getAddress();
         meta_header.modify().m_capacity_items_ptr = capacity_items.getAddress();
     }
-
+    
     o_meta_header MetaAllocator::getMetaHeader(std::shared_ptr<Prefix> prefix)
     {
         // meta-header has fixed address 0x00
@@ -603,7 +604,7 @@ namespace db0
         return meta_header.const_ref();
     }
     
-    std::optional<std::uint64_t> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+    std::optional<std::uint64_t> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
         bool aligned, bool unique)
     {
         assert(slot_num == 0);
@@ -619,7 +620,8 @@ namespace db0
                     if (!addr) {
                         break;
                     }
-                    if (!unique || slab.m_slab->makeUnique(*addr)) {
+                    if (!unique || slab.m_slab->makeAddressUnique(*addr)) {
+                        // NOTE: the returned address is logical
                         return addr;
                     }
                     // unable to make the address unique, schedule for deferred free and try again
@@ -647,7 +649,8 @@ namespace db0
     }
     
     void MetaAllocator::free(std::uint64_t address)
-    {        
+    {
+        address = db0::getPhysicalAddress(address);
         assert(m_deferred_free_ops.find(address) == m_deferred_free_ops.end());
         if (m_deferred_free) {
             deferredFree(address);
@@ -656,8 +659,9 @@ namespace db0
         }
     }
     
-    void MetaAllocator::deferredFree(std::uint64_t address) 
+    void MetaAllocator::deferredFree(std::uint64_t address)
     {        
+        assert(db0::isPhysicalAddress(address));
         if (m_atomic) {
             m_atomic_deferred_free_ops.push_back(address);
         } else {
@@ -667,9 +671,10 @@ namespace db0
 
     void MetaAllocator::_free(std::uint64_t address)
     {
+        assert(db0::isPhysicalAddress(address));
         auto slab_id = m_slab_id_function(address);
         auto slab = m_slab_manager->find(slab_id);
-        slab.m_slab->free(address);        
+        slab.m_slab->free(address);
         if (slab.m_slab->empty()) {
             // erase or mark as erased
             m_slab_manager->erase(slab);
@@ -678,6 +683,7 @@ namespace db0
     
     std::size_t MetaAllocator::getAllocSize(std::uint64_t address) const
     {
+        address = db0::getPhysicalAddress(address);
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             THROWF(db0::InputException) << "Address " << address << " not found (pending deferred free)";
         }
