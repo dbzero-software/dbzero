@@ -30,7 +30,8 @@ namespace db0
         assert(m_begin_addr % m_page_size == 0);
         // apply dynamic bound on the CRDT allocator to not assign addresses overlapping with the admin space
         // include ADMIN_SPAN bitspace allocations to allow margin for the admin space to grow
-        std::uint64_t bounds_base = m_slab_size - (m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + ADMIN_SPAN * m_page_size);
+        // NOTE: CRDT allocator's dynamic bounds are specified as relative to the allocator's base address
+        std::uint64_t bounds_base = m_bitspace.getBaseAddress() - m_begin_addr - ADMIN_SPAN * m_page_size;
         m_allocator.setDynamicBound([this, bounds_base]() {
             return bounds_base - m_bitspace.span() * m_page_size;
         });
@@ -124,9 +125,9 @@ namespace db0
     }
 
     const std::size_t SlabAllocator::getAdminSpaceSize(bool include_margin) const 
-    {
-        // add +ADMIN_SPAN bitspace allocations to allow growth of the CRDT collections
+    {        
         auto result = m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + m_bitspace.span() * m_page_size;
+        // add +ADMIN_SPAN bitspace allocations to allow growth of the CRDT collections
         if (include_margin) {
             result += ADMIN_SPAN * m_page_size;
         }
