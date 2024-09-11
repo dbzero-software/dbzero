@@ -35,10 +35,10 @@ def test_db0_can_filter_dataframe(db0_fixture):
     assert df2.shape == (3, 2)
     assert isinstance(df2._mgr.arrays[0], db0.pandas.BlockInterface)
     # df2 = df[df.a > 4]
-    # assert df2.shape == (3, 2)
+    # assert df2.shape == (2, 2)
     # assert isinstance(df2._mgr.arrays[0], db0.pandas.BlockInterface)
     # df2 = df[df.a <= 4]
-    # assert df2.shape == (3, 2)
+    # assert df2.shape == (4, 2)
     # assert isinstance(df2._mgr.arrays[0], db0.pandas.BlockInterface)
     # df2 = df[df.a >= 4]
     # assert df2.shape == (3, 2)
