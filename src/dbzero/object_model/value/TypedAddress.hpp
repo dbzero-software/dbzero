@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cassert>
+#include <dbzero/core/memory/Allocator.hpp>
 #include "StorageClass.hpp"
 
 namespace db0::object_model
@@ -21,20 +22,21 @@ namespace db0::object_model
         }
         
         inline TypedAddress(StorageClass type, std::uint64_t address)
-            : m_value((static_cast<std::uint64_t>(type) << 56) | address)
+            : m_value((static_cast<std::uint64_t>(type) << 56) | db0::getPhysicalAddress(address))
         {
-            assert(address < 0x100000000000000);
+            assert(db0::getPhysicalAddress(address) < 0x100000000000000);
         }
 
         inline StorageClass getType() const {
             return static_cast<StorageClass>(m_value >> 56);
         }
 
+        // NOTE: physical address is returned
         inline std::uint64_t getAddress() const {
             return m_value & 0x00FFFFFFFFFFFFFF;
         }
-
-        // Cast operator
+        
+        // Cast operator (to physical address)
         inline operator std::uint64_t() const {
             return getAddress();
         }
