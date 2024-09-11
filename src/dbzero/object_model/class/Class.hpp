@@ -62,12 +62,13 @@ namespace db0::object_model
             const char *type_id, const char *prefix_name, ClassFlags);
     };
     
-    // Note that Class type uses SLOT_NUM = TYPE_SLOT_NUM
-    class Class: public db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS>,
+    // NOTE: Class type uses SLOT_NUM = TYPE_SLOT_NUM
+    // NOTE: class allocations are NOT unique
+    class Class: public db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS, false>,
         public std::enable_shared_from_this<Class>
     {
         GC0_Declare
-        using super_t = db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS>;
+        using super_t = db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS, false>;
     public:
         static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
         // e.g. PyObject*

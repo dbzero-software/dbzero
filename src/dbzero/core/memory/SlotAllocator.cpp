@@ -53,6 +53,9 @@ namespace db0
             return m_allocator_ptr->tryAlloc(size, 0, aligned, unique);
         }
         
+        // Unique allocations are not supported because of the limited slot's address space
+        assert(!unique && "slot-level unique allocations are not supported");
+        /* FIXME: below code can be used for a future implementation of slot-level unique allocations
         if (unique) {
             // allocate a unique address from a specific slot
             auto &slot = getSlot(slot_num);
@@ -67,9 +70,9 @@ namespace db0
                 }
                 pending_free.add(*addr);
             }
-        } else {
-            return select(slot_num).tryAlloc(size, 0, aligned, false);
         }
+        */
+        return select(slot_num).tryAlloc(size, 0, aligned, false);
     }
     
     void SlotAllocator::free(std::uint64_t address) {

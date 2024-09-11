@@ -114,7 +114,7 @@ namespace tests
         }
         
         // make sure the max address is not conflicting with the admin space
-        ASSERT_TRUE(max_addr + max_size + cut.getAdminSpaceSize(true) <= cut.getSlabSize());
+        ASSERT_TRUE(max_addr + max_size + cut.getAdminSpaceSize(false) <= cut.getSlabSize());
         
         size = 1;
         for (auto &addr: addresses) {

@@ -31,15 +31,16 @@ namespace db0::object_model
     };
     
     /**
-     * Note that enum types use SLOT_NUM = TYPE_SLOT_NUM
+     * NOTE: enum types use SLOT_NUM = TYPE_SLOT_NUM
+     * NOTE: enum allocations are NOT unique
     */
-    class Enum: public db0::ObjectBase<Enum, db0::v_object<o_enum, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_ENUM_TYPE_REF>
+    class Enum: public db0::ObjectBase<Enum, db0::v_object<o_enum, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_ENUM_TYPE_REF, false>
     {
         // GC0 specific declarations
         GC0_Declare
     public:
         static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
-        using super_t = db0::ObjectBase<Enum, db0::v_object<o_enum, SLOT_NUM>, StorageClass::DB0_ENUM_TYPE_REF>;
+        using super_t = db0::ObjectBase<Enum, db0::v_object<o_enum, SLOT_NUM>, StorageClass::DB0_ENUM_TYPE_REF, false>;
         using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;

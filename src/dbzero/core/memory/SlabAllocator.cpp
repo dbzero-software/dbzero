@@ -31,14 +31,16 @@ namespace db0
     {
         // For aligned allocations the begin address must be also aligned
         assert(m_begin_addr % m_page_size == 0);
+        
         // apply dynamic bound on the CRDT allocator to not assign addresses overlapping with the admin space
         // include ADMIN_SPAN bitspace allocations to allow margin for the admin space to grow
         // NOTE: CRDT allocator's dynamic bounds are specified as relative to the allocator's base address
-        std::uint64_t bounds_base = m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() - ADMIN_SPAN * m_page_size;
-        // FIXME: log
-        // std::uint64_t bounds_base = m_slab_size - (m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + ADMIN_SPAN * m_page_size);
-        m_allocator.setDynamicBound([this, bounds_base]() {
-            return bounds_base - m_bitspace.span() * m_page_size;
+        std::uint64_t bounds_base = makeRelative(m_bitspace.getBaseAddress());
+        auto admin_span_bytes = ADMIN_SPAN << m_page_shift;
+        // returns recommended & hard bound
+        m_allocator.setDynamicBound([this, bounds_base, admin_span_bytes]() {
+            auto hard_bound = bounds_base - (m_bitspace.span() << m_page_shift);
+            return std::make_pair<std::uint32_t, std::uint32_t>(hard_bound - admin_span_bytes, hard_bound);
         });
         
         // provide CRDT allocator's dynamic bound to the bitspace (this is for address validation/ collision prevention purposes)
@@ -136,11 +138,11 @@ namespace db0
     const std::size_t SlabAllocator::getSlabSize() const {
         return m_slab_size;
     }
-
-    const std::size_t SlabAllocator::getAdminSpaceSize(bool include_margin) const 
-    {
-        // add +ADMIN_SPAN bitspace allocations to allow growth of the CRDT collections
+    
+    const std::size_t SlabAllocator::getAdminSpaceSize(bool include_margin) const
+    {        
         auto result = m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + m_bitspace.span() * m_page_size;
+        // add +ADMIN_SPAN bitspace allocations to allow growth of the CRDT collections
         if (include_margin) {
             result += ADMIN_SPAN * m_page_size;
         }

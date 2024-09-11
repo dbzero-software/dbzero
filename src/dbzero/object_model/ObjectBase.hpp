@@ -18,9 +18,10 @@ namespace db0
      * @tparam BaseT must be some v_object or derived class
      * @tparam _CLS the storage class
      * @tparam T the actual type of the object. T must implement the following optional operations (or specialzations): destroy, detach
+     * @tparam unique if true, the object will be created with a unique address (using AccessOptions::unique)
      * and must contain the m_header as the first overlaid member and define static GCOps_ID m_gc_ops_id as its member (see GC0_Declare macro)
     */
-    template <typename T, typename BaseT, StorageClass _CLS>
+    template <typename T, typename BaseT, StorageClass _CLS, bool Unique = true>
     class ObjectBase: public has_fixture<BaseT>
     {
     public:
@@ -31,7 +32,7 @@ namespace db0
         
         // Create a new instance with a unique address
         template <typename... Args> ObjectBase(db0::swine_ptr<Fixture> &fixture, Args &&... args)
-            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., FlagSet<AccessOptions> { AccessOptions::unique })
+            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())
         {            
             fixture->getGC0().add<T>(this);
         }
@@ -39,7 +40,7 @@ namespace db0
         // Create a new instance with a unique address (no garbage collection)
         struct tag_no_gc {};
         template <typename... Args> ObjectBase(tag_no_gc, db0::swine_ptr<Fixture> &fixture, Args &&... args)
-            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., FlagSet<AccessOptions> { AccessOptions::unique })
+            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())
         {         
         }
         
@@ -69,7 +70,7 @@ namespace db0
         template <typename... Args> void init(db0::swine_ptr<Fixture> &fixture, Args &&... args)
         {
             unregister();
-            has_fixture<BaseT>::init(fixture, { AccessOptions::unique }, std::forward<Args>(args)...);
+            has_fixture<BaseT>::init(fixture, accessFlags(), std::forward<Args>(args)...);
             fixture->getGC0().add<T>(this);
         }
         
@@ -173,10 +174,14 @@ namespace db0
             // and immediately unregistered, if its ref-count is 0 then it will get dropped
             T instance(fixture, addr);
         }
-    };
 
-    template <typename T, typename BaseT, StorageClass _CLS>
-    void ObjectBase<T, BaseT, _CLS>::beginModify(ObjectPtr ptr)
+        static constexpr FlagSet<AccessOptions> accessFlags() {
+            return Unique ? FlagSet<AccessOptions> { AccessOptions::unique } : FlagSet<AccessOptions>();
+        }   
+    };
+    
+    template <typename T, typename BaseT, StorageClass _CLS, bool Unique>
+    void ObjectBase<T, BaseT, _CLS, Unique>::beginModify(ObjectPtr ptr)
     {
         if (hasInstance()) {
             auto fixture = this->tryGetFixture();
@@ -189,8 +194,8 @@ namespace db0
         }
     }
     
-    template <typename T, typename BaseT, StorageClass _CLS>
-    void ObjectBase<T, BaseT, _CLS>::moveTo(db0::swine_ptr<Fixture> &fixture)
+    template <typename T, typename BaseT, StorageClass _CLS, bool Unique>
+    void ObjectBase<T, BaseT, _CLS, Unique>::moveTo(db0::swine_ptr<Fixture> &fixture)
     {
         // NOTE: newly created instance is not registered in GC0 because existing wrapper object will be reused
         T new_instance(tag_no_gc(), fixture, *static_cast<T*>(this));

@@ -25,9 +25,9 @@ def test_collecting_slab_metrics(db0_slab_size):
 def test_remaining_capacity_metric(db0_slab_size):
     buf = []    
     trc1 = sum(slab["remaining_capacity"] for slab in db0.get_slab_metrics().values())
-    str_size = [18, 1273, 133, 912, 993, 9213]
+    str_size = [18, 1273, 133, 912, 993, 9213, 12312, 9432, 7349, 333]
     for str_len in str_size:
         buf.append(MemoTestClass(rand_string(str_len)))
-        
+    
     trc2 = sum(slab["remaining_capacity"] for slab in db0.get_slab_metrics().values())
     assert  sum(str_size) / (trc1 - trc2) > 0.8

@@ -141,10 +141,10 @@ namespace db0
             }
         }
     }
-
+    
     template <typename StorageT> MemLock PrefixImpl<StorageT>::mapRange(std::uint64_t address, std::size_t size,
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
-    {        
+    {
         assert(state_num > 0);
         assert(size > 0);
         // create flag must be accompanied by write flag
