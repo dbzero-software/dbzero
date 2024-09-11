@@ -20,7 +20,7 @@ namespace db0::object_model
         return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value) };
     }
 
-    template <typename LangToolkit> dict_item createDictItem(Memspace & memspace, const Dict &dict, std::uint64_t hash, 
+    template <typename LangToolkit> dict_item createDictItem(Memspace & memspace, std::uint64_t hash, 
         o_typed_item key, o_typed_item value)
     {
         DictIndex bindex(memspace, o_pair_item(key, value) );
@@ -42,6 +42,7 @@ namespace db0::object_model
 
     void Dict::operator=(Dict && other)
     {
+        clear();
         super_t::operator=(std::move(other));
         m_index = std::move(other.m_index);
         assert(!other.hasInstance());
@@ -88,7 +89,7 @@ namespace db0::object_model
             auto type_id = LangToolkit::getTypeManager().getTypeId(key);
             auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
             auto key_item = createTypedItem<LangToolkit>(*lock, type_id, key, storage_class);
-            m_index.insert(createDictItem<LangToolkit>(memspace, *lock, hash, key_item, value_item));
+            m_index.insert(createDictItem<LangToolkit>(memspace, hash, key_item, value_item));
             ++modify().m_size;
         } else {
             auto type_id = LangToolkit::getTypeManager().getTypeId(key);
@@ -104,6 +105,7 @@ namespace db0::object_model
                 auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
                 if (LangToolkit::compare(key, member.get())) {
                     bindex.erase(*it_join);
+                    unrefMember<LangToolkit>(fixture, storage_class, value);
                     --modify().m_size;
                     break;
                 }
@@ -115,7 +117,7 @@ namespace db0::object_model
             auto new_address = bindex.getAddress();
             if(new_address != address.m_index_address){
                 m_index.erase(it);
-                m_index.insert(createDictItem<LangToolkit>(memspace, *lock, hash, key_item, value_item));
+                m_index.insert(createDictItem<LangToolkit>(memspace, hash, key_item, value_item));
             }
         }           
     }
@@ -178,10 +180,13 @@ namespace db0::object_model
         if(bindex.size() == 1) {
             m_index.erase(iter);
             bindex.destroy();
+            auto [key_storage_class, key_value] = (*it).m_first;
+            unrefMember<LangToolkit>(fixture, key_storage_class, key_value);
         } else {
             bindex.erase(*it);
         }
         modify().m_size -= 1;
+        unrefMember<LangToolkit>(fixture, storage_class, value);
         return member;
     }
 
@@ -199,8 +204,9 @@ namespace db0::object_model
     }
 
     void Dict::clear()
-    { 
-        m_index.clear(); 
+    {
+        unrefMembers();
+        m_index.clear();
         modify().m_size = 0; 
     }
     
@@ -222,6 +228,42 @@ namespace db0::object_model
 
     Dict::const_iterator Dict::end() const {
         return m_index.end();
+    }
+
+    void Dict::destroy() {
+        std::list<o_typed_item> items;
+        auto fixture = this->getFixture();
+        
+        for (auto index_it = m_index.begin(); index_it != m_index.end(); ++index_it) {
+            auto [_, address] = *index_it;
+            auto bindex = address.getIndex(this->getMemspace());
+            auto it = bindex.beginJoin(1);
+            while (!it.is_end()) {
+                items.push_back((*it).m_first);
+                items.push_back((*it).m_second);
+                ++it;
+            }
+        }
+        //m_index.destroy();
+        for(auto [item_type, item_value] : items) {
+            unrefMember<LangToolkit>(fixture, item_type, item_value);
+        }
+        super_t::destroy();
+    }
+
+    void Dict::unrefMembers() const {
+        auto fixture = this->getFixture();
+        for (auto [_, address] : m_index) {
+            auto bindex = address.getIndex(this->getMemspace());
+            auto it = bindex.beginJoin(1);
+            while (!it.is_end()) {
+                auto [storage_class, value] = (*it).m_first;
+                unrefMember<LangToolkit>(fixture, storage_class, value);
+                auto [storage_class2, value2] = (*it).m_second;
+                unrefMember<LangToolkit>(fixture, storage_class2, value2);
+                ++it;
+            }
+        }
     }
 
 }

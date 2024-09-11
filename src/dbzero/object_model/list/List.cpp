@@ -80,7 +80,9 @@ namespace db0::object_model
         // recognize type ID from language specific object
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);        
+        auto [storage_class_value, value] = (*this)[i];
         v_bvector::setItem(i, createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class));
+        unrefMember<LangToolkit>(*fixture, storage_class_value, value);
     }
     
     List *List::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
@@ -140,7 +142,7 @@ namespace db0::object_model
     }
 
     void List::clear(FixtureLock &) {
-        // FIXME: drop items
+        clearMembers();
         v_bvector<o_typed_item>::clear();
     }
 
@@ -159,8 +161,16 @@ namespace db0::object_model
     }
     
     void List::destroy() const {
-        // FIXME: drop non-trivial items
+        clearMembers();
         super_t::destroy();        
+    }
+
+    void List::clearMembers() const {
+        auto fixture = this->getFixture();
+        for (auto &elem: (*this)) {
+            auto [storage_class, value] = elem;
+            unrefMember<LangToolkit>(fixture, storage_class, value);
+        }
     }
 
 }

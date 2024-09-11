@@ -26,6 +26,9 @@ namespace db0::python
     {
         dict_obj->ext().getFixture()->refreshIfUpdated();
         auto hash = PyObject_Hash(key);
+        if (hash == -1) {
+            return NULL;
+        }
         return dict_obj->ext().getItem(hash, key).steal();
     }
 
@@ -38,6 +41,9 @@ namespace db0::python
     int DictObject_SetItemInternal(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
         auto hash = PyObject_Hash(key);
+        if (hash == -1) {
+            return -1;
+        }
         dict_obj->modifyExt().setItem(hash, key, value);
         return 0;
     }
@@ -65,7 +71,7 @@ namespace db0::python
     void DictObject_del(DictObject* dict_obj)
     {
         // destroy associated DB0 Dict instance
-        dict_obj->ext().~Dict();
+        dict_obj->destroy();
         Py_TYPE(dict_obj)->tp_free((PyObject*)dict_obj);
     }
 

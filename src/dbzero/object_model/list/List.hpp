@@ -58,6 +58,8 @@ namespace db0::object_model
         void moveTo(db0::swine_ptr<Fixture> &);
 
         void destroy() const;
+
+        void clearMembers() const;
         
     private:        
         // new lists can only be created via factory members

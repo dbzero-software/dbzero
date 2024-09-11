@@ -21,15 +21,6 @@ namespace db0::python
         return makeIterator<SetIteratorObject,db0::object_model::SetIterator>(SetIteratorObjectType, 
             self->ext().begin(), &self->ext());        
     }
-    
-    int SetObject_SetItem(SetObject *set_obj, Py_ssize_t i, PyObject *value)
-    {
-                
-        std::lock_guard pbm_lock(python_bindings_mutex);
-        db0::FixtureLock lock(set_obj->ext().getFixture());
-        set_obj->modifyExt().setItem(lock, i, value);
-        return 0;
-    }
 
     int SetObject_HasItem(SetObject *set_obj, PyObject *key)
     {
@@ -39,7 +30,6 @@ namespace db0::python
 
     static PySequenceMethods SetObject_sq = {
         .sq_length = (lenfunc)SetObject_len,
-        .sq_ass_item = (ssizeobjargproc)SetObject_SetItem,
         .sq_contains = (objobjproc)SetObject_HasItem
     };
     
@@ -235,7 +225,7 @@ namespace db0::python
     };
     
     shared_py_object<SetObject*> SetObject_newInternal(PyTypeObject *type, PyObject *, PyObject *) {
-        return reinterpret_cast<SetObject*>(type->tp_alloc(type, 0));
+        return {reinterpret_cast<SetObject*>(type->tp_alloc(type, 0)), false};
     }
 
     SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *) 
@@ -245,14 +235,14 @@ namespace db0::python
     }
     
     shared_py_object<SetObject*> SetDefaultObject_new() {
-        return { SetObject_new(&SetObjectType, NULL, NULL), false };
+        return SetObject_new(&SetObjectType, NULL, NULL);
     }
     
     void SetObject_del(SetObject* set_obj)
     {
                 // std::lock_guard pbm_lock(python_bindings_mutex);
         // destroy associated DB0 Set instance
-        set_obj->ext().~Set();
+        set_obj->destroy();
         Py_TYPE(set_obj)->tp_free((PyObject*)set_obj);
     }
 
@@ -295,7 +285,7 @@ namespace db0::python
     shared_py_object<SetObject*> makeDB0Set(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
-        return makeDB0SetInternal(fixture, args, nargs);
+        return makeDB0SetInternal(fixture, args, nargs).steal();
     }
 
     SetObject *makeSetInternal(PyObject *, PyObject *const *args, Py_ssize_t nargs)

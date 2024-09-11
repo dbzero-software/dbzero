@@ -100,7 +100,10 @@ namespace db0::object_model
     }
 
     bool Tuple::operator==(const Tuple &tuple) const {
-        return false;
+        if (size() != tuple.size()) {
+            return false;
+        }
+        return std::equal(begin(), end(), tuple.begin());
     }
 
     void Tuple::operator=(Tuple &&tuple) {
@@ -109,11 +112,16 @@ namespace db0::object_model
     }
 
     bool Tuple::operator!=(const Tuple &tuple) const {
-        return false;
+        return !(*this == tuple);
     }
-    
-    void Tuple::drop() {
-        v_object<o_tuple>::destroy();
+
+    void Tuple::destroy() const {
+        auto fixture = this->getFixture();
+        for (auto &elem: this->getData()->items()){
+            auto [elem_storage_class, elem_value] = elem;
+            unrefMember<LangToolkit>(fixture, elem_storage_class, elem_value);
+        }
+        super_t::destroy();  
     }
 
     const o_typed_item *Tuple::begin() const {
