@@ -94,13 +94,14 @@ namespace db0
             : v_object(memspace, std::forward<Args>(args)..., FlagSet<AccessOptions> { AccessOptions::write })
         {
         }
-        
+                
         /**
          * Create a new DBZero instance in the given memory space
-        */
-        template <typename... Args> void init(Memspace &memspace, Args&&... args)
+        */       
+        template <typename... Args>
+        void init(Memspace &memspace, FlagSet<AccessOptions> access_mode, Args&&... args)
         {
-            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...), { AccessOptions::write });
+            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...), access_mode | AccessOptions::write);
             // placement new syntax
             c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::forward<Args>(args)...);
         }

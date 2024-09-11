@@ -243,7 +243,8 @@ namespace db0
             
             struct CompT
             {
-                inline bool operator()(const Blank &lhs, const Blank &rhs) const {
+                inline bool operator()(const Blank &lhs, const Blank &rhs) const
+                {
                     if (lhs.m_size < rhs.m_size) {
                         return true;
                     } else if (lhs.m_size > rhs.m_size) {
@@ -339,6 +340,11 @@ namespace db0
         using StripeSetT = db0::SGB_Tree<Stripe, Stripe::CompT, Stripe::EqualT, std::uint16_t, std::uint64_t>;
 
     public:
+        // The bounds function returns the recommended bound (first)
+        // and the hard bound (second). The recommended bound includes a margin allowing underlying collections
+        // to grow by +1 page. The hard bound cannot be exceeded by any of the allocations
+        using BoundsFunctionT = std::function<std::pair<std::uint32_t, std::uint32_t>()>;
+
         /**
          * Construct the allocator from initialized containers
          * @param page_size required for page-aligned allocations
@@ -369,7 +375,7 @@ namespace db0
          * 
          * @param bounds_fn the size bounds checking function
         */
-        void setDynamicBound(std::function<std::uint32_t()> bounds_fn);
+        void setDynamicBound(BoundsFunctionT bounds_fn);
         
         inline std::uint32_t getMaxAddr() const {
             return m_max_addr;
@@ -409,7 +415,7 @@ namespace db0
         const std::uint32_t m_min_aligned_alloc_size;
         const std::uint32_t m_shift;
         const std::uint32_t m_mask;
-        std::function<std::uint32_t()> m_bounds_fn;
+        BoundsFunctionT m_bounds_fn;
         // the highest allocated address
         std::uint32_t m_max_addr = 0;
         // the cummulative size of performed allocations / deallocations since creation of this instance
@@ -459,6 +465,7 @@ namespace db0
 
         // Erase either from blanks or from aligned blanks
         template <typename IndexT> void erase(IndexT &index, const Blank &);
+        template <typename IndexT> bool isAlignedIndex(const IndexT &index) const;
 
         // Find blank of a given minimal size and remove it from a specific index
         template <typename IndexT> std::optional<Blank> tryPullBlank(IndexT &index, std::uint32_t min_size);
@@ -477,20 +484,29 @@ namespace db0
     {
         // this is to avoid unnecessary calls to bounds_fn
         if (!cache && m_bounds_fn) {
-            cache = m_bounds_fn();
+            cache = m_bounds_fn().first;
         }
         if (cache) {
             return getFirstAddress(index, blank) + size <= *cache;
         }
         return true;
     }
-
+    
+    template <typename IndexT>
+    bool CRDT_Allocator::isAlignedIndex(const IndexT &index) const
+    {
+        return reinterpret_cast<const void*>(&index) == reinterpret_cast<const void*>(&m_aligned_blanks);
+    }
+    
     template <typename IndexT>
     void CRDT_Allocator::erase(IndexT &index, const Blank &blank)
     {
         auto it = index.find_equal(blank);
         if (!it.first) {
-            THROWF(db0::InternalException) << "CRDT_Allocator internal error: blank not found";
+            assert(false && "CRDT_Allocator internal error: blank not found");
+            THROWF(db0::InternalException)
+                << "CRDT_Allocator internal error: blank not found (address = " << blank.m_address 
+                << ", size = " << blank.m_size << ")" << THROWF_END;
         }
         index.erase(it);
     }
@@ -506,13 +522,24 @@ namespace db0
         }
         
         // validate dynamic bounds if such exist
-        Blank blank;
         std::optional<std::uint32_t> cache;
         if (inBounds(index, *blank_ptr.first, min_size, cache)) {
-            blank = *blank_ptr.first;
+            Blank blank = *blank_ptr.first;
+            index.erase(blank_ptr);
+            if (isAlignedIndex(index)) {
+                // need also to remove from regular blanks (always present)
+                erase(m_blanks, blank);
+            } else {
+                // need also to remove from aligned blanks (if aligned)
+                if (isAligned(blank)) {
+                    erase(m_aligned_blanks, blank);
+                }
+            }
+            return blank;
         } else {
             // try with other registered blanks (possibly bigger size)
             auto it = index.upper_slice(blank_ptr);
+            assert(!it.is_end());
             ++it;
             while (!it.is_end()) {
                 if ((*it).m_size >= min_size && inBounds(index, *it, min_size, cache)) {
@@ -524,32 +551,28 @@ namespace db0
             if (it.is_end()) {
                 return std::nullopt;
             }
-            blank = *it;
-        }
-        
-        // remove the blank
-        index.erase(blank_ptr);
-        if ((void*)&index == (void*)&m_blanks) {
-            // need also to remove from aligned blanks (if aligned)
-            if (isAligned(blank)) {
-                erase(m_aligned_blanks, blank);
+
+            Blank blank = *it;
+            erase(index, blank);
+            if (isAlignedIndex(index)) {
+                // need also to remove from regular blanks (always present)
+                erase(m_blanks, blank);
+            } else {
+                // need also to remove from aligned blanks (if aligned)
+                if (isAligned(blank)) {
+                    erase(m_aligned_blanks, blank);
+                }
             }
-        } else {
-            assert((void*)&index == (void*)&m_aligned_blanks);
-            // need also to remove from regular blanks (always present)
-            erase(m_blanks, blank);
+            return blank;
         }
-        
-        return blank;
     }
     
     template <typename IndexT>
     std::uint32_t CRDT_Allocator::getFirstAddress(const IndexT &index, const Blank &blank) const
     {
-        if ((void*)&index == (void*)&m_aligned_blanks) {
+        if (isAlignedIndex(index)) {
             return blank.getAlignedAddress(m_mask, m_page_size);
-        }  
-        assert((void*)&index == (void*)&m_blanks);
+        }
         return blank.m_address;
     }
 

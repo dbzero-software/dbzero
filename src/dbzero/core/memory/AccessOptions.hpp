@@ -14,7 +14,9 @@ namespace db0
         create      = 0x0004,
         no_cache    = 0x0008,
         // resource which should be kept in-memory
-        no_flush    = 0x0010
+        no_flush    = 0x0010,
+        // request to allocate a unique address
+        unique      = 0x0020
     };
     
     /**
@@ -41,4 +43,4 @@ namespace db0
     
 }
 
-DECLARE_ENUM_VALUES(db0::AccessOptions, 5)
+DECLARE_ENUM_VALUES(db0::AccessOptions, 6)

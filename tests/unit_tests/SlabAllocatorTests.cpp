@@ -207,5 +207,20 @@ namespace tests
         std::cout << "Total bytes: " << total_bytes << std::endl;
         std::cout << "MB / sec : " << (total_bytes / 1024.0 / 1024.0) * 1000.0 / elapsed.count() << std::endl;
     }
+
+    TEST_F( SlabAllocatorTests , testSlabAllocatorCanMakeAddressUnique )
+    {        
+        auto size_ = 64 * 1024 * 1024;
+        db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), 0, size_, page_size);
+        db0::SlabAllocator cut(m_memspace.getPrefixPtr(), 0, size_, page_size);
+
+        auto addr = cut.alloc(100);
+        auto addr1 = addr;
+        ASSERT_TRUE(cut.makeAddressUnique(addr1));
+        auto addr2 = addr;
+        ASSERT_TRUE(cut.makeAddressUnique(addr2));
+        ASSERT_NE(addr, addr1);
+        ASSERT_NE(addr1, addr2);
+    }
     
 }

@@ -7,6 +7,7 @@
 #include <dbzero/core/crdt/CRDT_Allocator.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/core/collections/vector/LimitedVector.hpp>
 
 namespace db0
 
@@ -23,17 +24,19 @@ namespace db0
         std::uint32_t m_blank_set_ptr = 0;
         std::uint32_t m_aligned_blank_set_ptr = 0;
         std::uint32_t m_stripe_set_ptr = 0;
+        std::uint32_t m_alloc_counter_ptr = 0;
         std::uint32_t m_reserved[2] = {0};
 
         o_slab_header() = default;
         
         o_slab_header(std::uint32_t size, std::uint32_t alloc_set_ptr, std::uint32_t blank_set_ptr, 
-            std::uint32_t aligned_blank_set_ptr, std::uint32_t stripe_set_ptr)
+            std::uint32_t aligned_blank_set_ptr, std::uint32_t stripe_set_ptr, std::uint32_t alloc_counter_ptr)
             : m_size(size)
             , m_alloc_set_ptr(alloc_set_ptr)
             , m_blank_set_ptr(blank_set_ptr)
             , m_aligned_blank_set_ptr(aligned_blank_set_ptr)
-            , m_stripe_set_ptr(stripe_set_ptr)            
+            , m_stripe_set_ptr(stripe_set_ptr)        
+            , m_alloc_counter_ptr(alloc_counter_ptr)
         {
         }
     };
@@ -42,7 +45,7 @@ namespace db0
         // typical configuration, sufficient for a 64MB slab
         return 64 * 1024 * 1024 / 4096;
     }
-    
+
     /**
      * The SlabAllocator takes a fixed size address range (e.g. 64MB)
      * and organizes the space with the use of BitSetAllocator/BitSpace + CRDT_Allocator 
@@ -62,9 +65,9 @@ namespace db0
             std::optional<std::size_t> remaining_capacity = {});
 
         virtual ~SlabAllocator();
-
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false) override;
+        
+        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false, bool unique = false) override;
         
         void free(std::uint64_t address) override;
 
@@ -134,10 +137,16 @@ namespace db0
         inline std::uint32_t makeRelative(std::uint64_t absolute) const {
             return absolute - m_begin_addr;
         }
-            
+
+        // Try adjusting the address to make it unique
+        // @return false if SlabAllocator was unable to make the address unique (counter overflow)
+        bool makeAddressUnique(std::uint64_t &address);
+        
     private:
         // the number of administrative area pages
-        static constexpr std::uint32_t ADMIN_SPAN = 4;
+        // we determined this number to reflect the number of underlying collections
+        // and based on the assumption that each of them needs at least 1 page for expansion
+        static constexpr std::uint32_t ADMIN_SPAN = 5;
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
         using BlankSetT = db0::CRDT_Allocator::BlankSetT;
         using AlignedBlankSetT = db0::CRDT_Allocator::AlignedBlankSetT;
@@ -147,6 +156,7 @@ namespace db0
         std::shared_ptr<Prefix> m_prefix;
         const std::uint64_t m_begin_addr;
         const std::size_t m_page_size;
+        const std::uint32_t m_page_shift;
         const std::uint32_t m_slab_size;
         Memspace m_internal_memspace;
         v_object<o_slab_header> m_header;
@@ -155,6 +165,8 @@ namespace db0
         BlankSetT m_blanks;
         AlignedBlankSetT m_aligned_blanks;
         StripeSetT m_stripes;
+        // a dedicated storage for page-level instance ID counters
+        LimitedVector<std::uint16_t> m_alloc_counter;
         CRDT_Allocator m_allocator;
         const std::optional<std::size_t> m_initial_remaining_capacity;
         std::size_t m_initial_admin_size;

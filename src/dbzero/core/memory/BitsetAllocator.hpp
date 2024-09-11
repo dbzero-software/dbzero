@@ -24,7 +24,7 @@ namespace db0
         BitsetAllocator(BitSetT &&bitset, std::uint64_t base_addr, std::size_t alloc_size, int direction);
 
         std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false) override;
+            bool aligned = false, bool unique = false) override;
         
         void free(std::uint64_t address) override;
 
@@ -53,21 +53,26 @@ namespace db0
         */
         void setDynamicBounds(std::function<std::uint64_t()> bounds_fn);
 
+        inline std::uint64_t addressOf(unsigned int index) const {
+            return m_base_addr + (index * m_alloc_size) * m_direction - m_shift;
+        }
+
     private:
         BitSetT m_bitset;
         const std::size_t m_alloc_size;
         const std::uint64_t m_base_addr;
         const int m_direction;
-        // allocation shift to account for the direction
+        // allocation shift to account for the direction (0 for forward direction)
         const std::size_t m_shift;
         std::function<std::uint64_t()> m_bounds_fn;
         // pre-calculated span
         std::size_t m_span = 0;
         
-        unsigned int indexOf(std::uint64_t address) const 
+        unsigned int indexOf(std::uint64_t address) const
         {
             if (m_direction > 0) {
-                return (address - m_base_addr + m_shift) / m_alloc_size;
+                assert(m_shift == 0);
+                return (address - m_base_addr) / m_alloc_size;
             } else {
                 return (m_base_addr - address - m_shift) / m_alloc_size;
             }
@@ -76,7 +81,7 @@ namespace db0
         std::size_t calculateSpan() const;
         
         std::uint64_t calculateOffset(std::uint64_t base_addr, std::size_t m_shift, std::size_t m_alloc_size,
-            int direction) const;
+            int direction) const;            
     };
 
     template <typename BitSetT> BitsetAllocator<BitSetT>::BitsetAllocator(BitSetT &&bitset, std::uint64_t base_addr,
@@ -101,10 +106,11 @@ namespace db0
     }
     
     template <typename BitSetT> std::optional<std::uint64_t>
-    BitsetAllocator<BitSetT>::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    BitsetAllocator<BitSetT>::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique)
     {
         assert(slot_num == 0);
-        assert(!aligned && "BitsetAllocator: aligned allocation not supported");
+        // all BitSetAllocator allocations are aligned
+        assert(!unique && "BitsetAllocator: unique address allocation not supported");
         assert(size == m_alloc_size && "BitsetAllocator: invalid alloc size requested");
         auto index = m_bitset->firstIndexOf(false);
         if (index == m_bitset.npos) {
@@ -112,20 +118,21 @@ namespace db0
         }
         // validate dynamic bounds if set
         if (m_direction > 0) {
-            if (m_bounds_fn && m_base_addr + ((index + 1) * m_alloc_size) - m_shift > m_bounds_fn()) {
+            assert(m_shift == 0);
+            if (m_bounds_fn && m_base_addr + ((index + 1) * m_alloc_size) > m_bounds_fn()) {
                 // address would exceed the bounds
                 return std::nullopt;
             }
         } else {
-            if (m_bounds_fn && m_base_addr - (index * m_alloc_size) - m_shift < m_bounds_fn()) {
+            if (m_bounds_fn && addressOf(index) < m_bounds_fn()) {
                 // address would exceed the bounds
                 return std::nullopt;
             }
         }
 
         m_bitset.modify().set(index, true);
-        m_span = calculateSpan();        
-        return m_base_addr + (index * m_alloc_size) * m_direction - m_shift;
+        m_span = calculateSpan();
+        return addressOf(index);
     }
     
     template <typename BitSetT> void BitsetAllocator<BitSetT>::free(std::uint64_t address)
@@ -141,7 +148,7 @@ namespace db0
         m_bitset.modify().set(index, false);
         m_span = calculateSpan();
     }
-
+    
     template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::getAllocSize(std::uint64_t address) const
     {
         auto inner_offset = address % m_alloc_size;

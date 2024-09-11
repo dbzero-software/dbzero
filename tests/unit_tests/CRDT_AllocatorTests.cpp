@@ -259,9 +259,10 @@ namespace tests
 
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFromStripeCanBeConstrainedWithDynamicBounds )
     {
+        auto admin_span = page_size * 4;
         std::uint32_t dynamic_bound = MAX_ADDRESS;
-        auto bounds_fn = [&dynamic_bound]() -> std::uint32_t {
-            return dynamic_bound;
+        auto bounds_fn = [admin_span, &dynamic_bound]() -> std::pair<std::uint32_t, std::uint32_t> {
+            return { dynamic_bound - admin_span, dynamic_bound };
         };
         
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
@@ -272,8 +273,8 @@ namespace tests
             max_addr = std::max(max_addr, cut.alloc(4));
         }
 
-        // update dynamic bound to the last assigned address
-        dynamic_bound = max_addr;
+        // update dynamic bound to the last assigned address (plus admin margin)
+        dynamic_bound = max_addr + admin_span;
         std::optional<std::uint64_t> alloc;
         // all subsequent allocations must be within the updated bounds
         while ((alloc = cut.tryAlloc(4))) {
@@ -371,4 +372,25 @@ namespace tests
         }
     }
 
+    TEST_F( CRDT_AllocatorTests , testBlanksInsertEraseIssue_1 )
+    {
+        auto erase = [&](Blank blank) {
+            auto it = m_blanks->find_equal(blank);
+            ASSERT_TRUE(it.first);
+            m_blanks->erase(it);
+        };
+
+        m_blanks->insert({ 5617, 4143631 });
+        m_blanks->insert({ 8064, 2414479 });
+        erase({ 8064, 2414479 });
+        m_blanks->insert({ 5760, 2416783 });
+        erase({ 5760, 2416783 });
+        m_blanks->insert({ 3456, 2419087 });
+        erase({ 3456, 2419087 });
+        m_blanks->insert({ 1152, 2421391 });
+
+        auto blank_ptr = m_blanks->upper_equal_bound(Blank(2304, 0));
+        ASSERT_EQ((*blank_ptr.first).m_size, 5617);
+    }
+    
 }

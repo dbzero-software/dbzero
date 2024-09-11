@@ -16,10 +16,10 @@ namespace db0::object_model
     
     GC0_Define(Object)
     thread_local ObjectInitializerManager Object::m_init_manager;
-
+    
     std::uint32_t classRef(const Class &db0_class)
-    {        
-        auto address = db0_class.getAddress();
+    {
+        auto address = db0::getPhysicalAddress(db0_class.getAddress());
         if (address > std::numeric_limits<std::uint32_t>::max()) {
             THROWF(db0::InternalException) << "Class address out of allowed range: " << address << THROWF_END;
         }

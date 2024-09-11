@@ -115,9 +115,9 @@ namespace db0
         m_prefix->cancelAtomic();
     }
     
-    std::uint64_t Memspace::alloc(std::size_t size, std::uint32_t slot_num) {
+    std::uint64_t Memspace::alloc(std::size_t size, std::uint32_t slot_num, bool unique) {
         // align if the alloc size > page size
-        return getAllocatorForUpdate().alloc(size, slot_num, size > m_page_size);
+        return getAllocatorForUpdate().alloc(size, slot_num, size > m_page_size, unique);
     }
     
     void Memspace::free(std::uint64_t address) {

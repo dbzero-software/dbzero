@@ -85,11 +85,9 @@ namespace db0
         std::optional<std::uint32_t> evictOne(int *num_visited = nullptr);
         std::optional<std::uint32_t> findEmptySlot() const;
         
-        // Combine high 48bits of the address with the fixture id
+        // Combine high 50 bits of the physical address with the fixture id
         inline std::uint64_t makeUID(std::uint16_t fixture_id, std::uint64_t address) const {
-            // FIXME: this assert to be revisited after including instance_id in the address
-            assert((address & 0xFFFF000000000000) == 0);
-            return (static_cast<std::uint64_t>(fixture_id) << 48) | (address & 0x0000FFFFFFFFFFFF);
+            return (static_cast<std::uint64_t>(fixture_id) << 50) | db0::getPhysicalAddress(address);
         }
         
         void resize(std::size_t new_size);

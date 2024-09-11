@@ -145,7 +145,7 @@ namespace db0
         using SlabTreeT = SGB_Tree<SlabDef, SlabDef::CompT, SlabDef::EqualT>;
         
         std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false) override;
+            bool aligned = false, bool unique = false) override;
         
         void free(std::uint64_t address) override;
 
@@ -165,7 +165,7 @@ namespace db0
 
         static std::function<std::uint64_t(unsigned int)> getAddressPool(std::size_t offset, std::size_t page_size,
             std::size_t slab_size);
-
+        
         static std::function<unsigned int(std::uint64_t)> getReverseAddressPool(std::size_t offset, std::size_t page_size,
             std::size_t slab_size);
 
@@ -250,8 +250,9 @@ namespace db0
 
         // internal "free" implementation which performs the dealloc instanly
         void _free(std::uint64_t address);
+        void deferredFree(std::uint64_t address);
     };
-
+    
 }
 
 namespace std 

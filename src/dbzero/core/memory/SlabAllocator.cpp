@@ -11,6 +11,7 @@ namespace db0
         : m_prefix(prefix)
         , m_begin_addr(begin_addr)
         , m_page_size(page_size)
+        , m_page_shift(getPageShift(page_size))
         , m_slab_size(size)
         , m_internal_memspace(prefix, nullptr)
         // header starts at the beginning of the slab
@@ -21,21 +22,27 @@ namespace db0
         , m_allocs(m_bitspace.myPtr(begin_addr + m_header->m_alloc_set_ptr), page_size)
         , m_blanks(m_bitspace.myPtr(begin_addr + m_header->m_blank_set_ptr), page_size)
         , m_aligned_blanks(m_bitspace.myPtr(begin_addr + m_header->m_aligned_blank_set_ptr), page_size, CompT(page_size), page_size)
-        , m_stripes(m_bitspace.myPtr(begin_addr + m_header->m_stripe_set_ptr), page_size)        
+        , m_stripes(m_bitspace.myPtr(begin_addr + m_header->m_stripe_set_ptr), page_size)
+        // use 14 bit page level allocation counters
+        , m_alloc_counter(m_bitspace.myPtr(begin_addr + m_header->m_alloc_counter_ptr), page_size, (1u << 14) - 1)
         , m_allocator(m_allocs, m_blanks, m_aligned_blanks, m_stripes, m_header->m_size, page_size)
         , m_initial_remaining_capacity(remaining_capacity)
         , m_initial_admin_size(getAdminSpaceSize(true))
     {
         // For aligned allocations the begin address must be also aligned
         assert(m_begin_addr % m_page_size == 0);
+        
         // apply dynamic bound on the CRDT allocator to not assign addresses overlapping with the admin space
         // include ADMIN_SPAN bitspace allocations to allow margin for the admin space to grow
         // NOTE: CRDT allocator's dynamic bounds are specified as relative to the allocator's base address
-        std::uint64_t bounds_base = m_bitspace.getBaseAddress() - m_begin_addr - ADMIN_SPAN * m_page_size;
-        m_allocator.setDynamicBound([this, bounds_base]() {
-            return bounds_base - m_bitspace.span() * m_page_size;
+        std::uint64_t bounds_base = makeRelative(m_bitspace.getBaseAddress());
+        auto admin_span_bytes = ADMIN_SPAN << m_page_shift;
+        // returns recommended & hard bound
+        m_allocator.setDynamicBound([this, bounds_base, admin_span_bytes]() {
+            auto hard_bound = bounds_base - (m_bitspace.span() << m_page_shift);
+            return std::make_pair<std::uint32_t, std::uint32_t>(hard_bound - admin_span_bytes, hard_bound);
         });
-
+        
         // provide CRDT allocator's dynamic bound to the bitspace (this is for address validation/ collision prevention purposes)
         m_bitspace.setDynamicBounds([this]() {
             return m_begin_addr + m_allocator.getMaxAddr();
@@ -48,11 +55,13 @@ namespace db0
             m_on_close_handler(*this);
         }
     }
-
-    std::optional<std::uint64_t> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    
+    std::optional<std::uint64_t> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+        bool aligned, bool unique)
     {
         assert(slot_num == 0);
         assert(size > 0);        
+        assert(!unique && "SlabAllocator does not support unique allocations");
         // obtain relative address from the underlying CRDT allocator
         // auto-align when requested size > page_size
         auto relative = m_allocator.tryAlloc(size, (size > m_page_size) || aligned);
@@ -63,11 +72,15 @@ namespace db0
         return std::nullopt;
     }
     
-    void SlabAllocator::free(std::uint64_t address) {
+    void SlabAllocator::free(std::uint64_t address)
+    {
+        assert(db0::isPhysicalAddress(address));
         m_allocator.free(makeRelative(address));
     }
     
-    std::size_t SlabAllocator::getAllocSize(std::uint64_t address) const {
+    std::size_t SlabAllocator::getAllocSize(std::uint64_t address) const 
+    {
+        assert(db0::isPhysicalAddress(address));
         return m_allocator.getAllocSize(makeRelative(address));
     }
 
@@ -97,6 +110,7 @@ namespace db0
         BlankSetT blanks(bitspace, page_size);
         AlignedBlankSetT aligned_blanks(bitspace, page_size, CompT(page_size), page_size);
         StripeSetT stripes(bitspace, page_size);
+        LimitedVector<std::uint16_t> alloc_counter(bitspace, page_size);
         // calculate size initially available to CRTD allocator
         std::uint32_t crdt_size = static_cast<std::uint32_t>(size - admin_size - ADMIN_SPAN * page_size);
         assert(crdt_size > 0);
@@ -110,12 +124,13 @@ namespace db0
         // finally create the Slab header
         v_object<o_slab_header> header(
             memspace,
-            crdt_size,                 
+            crdt_size,
             // assign addresses relative to the slab beginning
             allocs.getAddress() - begin_addr,
             blanks.getAddress() - begin_addr,
             aligned_blanks.getAddress() - begin_addr,
-            stripes.getAddress() - begin_addr
+            stripes.getAddress() - begin_addr,
+            alloc_counter.getAddress() - begin_addr
             );
         return crdt_size;
     }
@@ -123,8 +138,8 @@ namespace db0
     const std::size_t SlabAllocator::getSlabSize() const {
         return m_slab_size;
     }
-
-    const std::size_t SlabAllocator::getAdminSpaceSize(bool include_margin) const 
+    
+    const std::size_t SlabAllocator::getAdminSpaceSize(bool include_margin) const
     {        
         auto result = m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + m_bitspace.span() * m_page_size;
         // add +ADMIN_SPAN bitspace allocations to allow growth of the CRDT collections
@@ -188,6 +203,7 @@ namespace db0
         m_blanks.commit();
         m_aligned_blanks.commit();
         m_stripes.commit();
+        m_alloc_counter.commit();
         m_allocator.commit();
     }
     
@@ -198,7 +214,27 @@ namespace db0
         m_blanks.detach();
         m_aligned_blanks.detach();
         m_stripes.detach();
+        m_alloc_counter.detach();
         m_allocator.detach();
     }
 
+    bool SlabAllocator::makeAddressUnique(std::uint64_t &address)
+    {
+        // make sure high 14 bits are 0
+        if ((address >> 50) != 0) {
+            THROWF(db0::InternalException) << "SlabAllocator: address space exhausted";
+        }
+        auto page_id = makeRelative(address) >> m_page_shift;
+        std::uint16_t instance_id;
+        if (!m_alloc_counter.atomicInc(page_id, instance_id)) {
+            // makeAddressUnique failed due to counter overflow
+            return false;
+        }
+        assert(instance_id > 0);
+        assert((instance_id >> 14) == 0);
+
+        address |= static_cast<std::uint64_t>(instance_id) << 50;
+        return true;
+    }
+    
 }

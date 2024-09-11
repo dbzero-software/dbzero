@@ -76,8 +76,7 @@ namespace db0
             return measure(data.size());
         }
 
-        static std::size_t measure(const T *begin = nullptr, const T *end = nullptr)
-        {
+        static std::size_t measure(const T *begin = nullptr, const T *end = nullptr) {
             return measure(end - begin);
         }
         
@@ -92,13 +91,11 @@ namespace db0
             return buf - start;
         }
         
-        inline T *begin()
-        {
+        inline T *begin() {
             return reinterpret_cast<T*>(&this->getDynAfter(packed_size(), o_null::type()));
         }
 
-        inline const T *begin() const
-        {
+        inline const T *begin() const {
             return reinterpret_cast<const T*>(&this->getDynAfter(packed_size(), o_null::type()));
         }
 
@@ -110,13 +107,11 @@ namespace db0
             return begin() + size();
         }
 
-        inline T operator[](std::size_t index) const
-        {
+        inline T operator[](std::size_t index) const {
             return begin()[index];
         }
 
-        inline T &operator[](std::size_t index)
-        {
+        inline T &operator[](std::size_t index) {
             return begin()[index];
         }        
     };
@@ -133,8 +128,7 @@ namespace db0
         std::fill_n(begin(), size, default_value);
     }
     
-    template <typename T> const packed_int32 &o_micro_array<T>::packed_size() const
-    {
+    template <typename T> const packed_int32 &o_micro_array<T>::packed_size() const {
         return this->getDynFirst(packed_int32::type());
     }
 
@@ -147,8 +141,7 @@ namespace db0
         return result;
     }
 
-    template <typename T> std::size_t o_micro_array<T>::measure(std::size_t size, T)
-    {
+    template <typename T> std::size_t o_micro_array<T>::measure(std::size_t size, T) {
         return measure(size);
     }
     
@@ -159,8 +152,7 @@ namespace db0
         return result;
     }
 
-    template <typename T> std::size_t o_micro_array<T>::size() const
-    {
+    template <typename T> std::size_t o_micro_array<T>::size() const {
         return packed_size().value();
     }
 

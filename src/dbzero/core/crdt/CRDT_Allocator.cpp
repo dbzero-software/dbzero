@@ -91,6 +91,7 @@ namespace db0
         if (!m_allocs.empty()) {
             m_max_addr = m_allocs.find_max().first->endAddr();
         }
+        assert(!m_bounds_fn || m_max_addr <= m_bounds_fn().second);
     }
 
     CRDT_Allocator::~CRDT_Allocator()
@@ -285,6 +286,8 @@ namespace db0
             if (!m_blanks.empty() || !m_aligned_blanks.empty()) {
                 auto result = tryAlignedAllocFromBlanks(size);
                 if (result) {
+                    // address must be within the dynamic bounds (hard limit)
+                    assert(!m_bounds_fn || (*result + size) <= m_bounds_fn().second);
                     m_alloc_delta += size;
                     return *result;
                 }
@@ -312,6 +315,8 @@ namespace db0
         // aligned ranges cannot be allocated from stripes        
         auto result  = tryAllocFromStripe(size, last_stripe_units);
         if (result) {
+            // address must be within the dynamic bounds
+            assert(!m_bounds_fn || (*result + size) <= m_bounds_fn().second);
             m_alloc_delta += size;
             return *result;
         }        
@@ -330,6 +335,8 @@ namespace db0
                     }
                     result = tryAllocFromBlanks(size, crdt::SIZE_MAP[index]);
                     if (result) {
+                        // address must be within the dynamic bounds
+                        assert(!m_bounds_fn || (*result + size) <= m_bounds_fn().second);
                         m_alloc_delta += size;
                         return *result;
                     }
@@ -350,7 +357,7 @@ namespace db0
         // out of memory
         return std::nullopt;        
     }
-
+    
     void CRDT_Allocator::erase(const Blank &blank)
     {
         // primary index, holds all blanks
@@ -360,7 +367,7 @@ namespace db0
             erase(m_aligned_blanks, blank);
         }
     }
-
+    
     void CRDT_Allocator::insertBlank(const Blank &blank)
     {
         m_blanks.insert(blank);
@@ -377,7 +384,7 @@ namespace db0
             aligned_blanks.insert(blank);
         }
     }
-
+    
     bool CRDT_Allocator::tryReclaimSpaceFromStripes(std::uint32_t min_size) 
     {
         using AllocWindowT = typename CRDT_Allocator::AllocSetT::WindowT;
@@ -404,6 +411,7 @@ namespace db0
             if (blank.m_size > 0) {
                 // reclaimed space may affect the max address
                 m_max_addr = m_allocs.find_max().first->endAddr();
+                assert(!m_bounds_fn || m_max_addr <= m_bounds_fn().second);
                 // merge with the neighboring blank if such exists
                 std::optional<Blank> b1;
                 if (alloc_window[2]) {
@@ -517,6 +525,7 @@ namespace db0
             m_max_addr = 0;
         } else {
             m_max_addr = m_allocs.find_max().first->endAddr();
+            assert(!m_bounds_fn || m_max_addr <= m_bounds_fn().second);
         }
         // re-insert the merged blank
         if (!b0) {
@@ -563,8 +572,9 @@ namespace db0
         assert(addr >= blank->m_address);
         assert(addr + size <= blank->m_address + blank->m_size);
         auto alloc = m_allocs.emplace(addr, size, 1u);
-        m_max_addr = std::max(m_max_addr, alloc.first->endAddr());
         auto result = alloc.first->allocUnit();
+        m_max_addr = std::max(m_max_addr, alloc.first->endAddr());
+        assert(!m_bounds_fn || m_max_addr <= m_bounds_fn().second);
         m_stripes.insert(alloc.first->toStripe());
         
         // give back the part of the blank before the allocated (aligned) address
@@ -592,9 +602,10 @@ namespace db0
         
         // L0 cache must be invalidated
         m_cache->clear();
-        auto alloc = m_allocs.emplace(blank->m_address, stride, count);
-        m_max_addr = std::max(m_max_addr, alloc.first->endAddr());       
+        auto alloc = m_allocs.emplace(blank->m_address, stride, count);        
         auto result = alloc.first->allocUnit();
+        m_max_addr = std::max(m_max_addr, alloc.first->endAddr());
+        assert(!m_bounds_fn || m_max_addr <= m_bounds_fn().second);
         if (count > 1) {
             // register with L0 cache
             m_cache->addMutable(alloc, alloc.first);
@@ -619,7 +630,7 @@ namespace db0
         if (!alloc.first) {
             THROWF(db0::InternalException) << "CRDT_Allocator internal error: alloc not found";
         }
-
+        
         if (alloc.first->isFull()) {
             last_stripe_units = alloc.first->getUnitCount();
             // remove from stripes
@@ -643,7 +654,7 @@ namespace db0
     {
         std::optional<std::uint32_t> addr_bound;
         if (m_bounds_fn) {
-            addr_bound = m_bounds_fn();
+            addr_bound = m_bounds_fn().first;
         }
         
         auto result = m_cache->tryAlloc(size, addr_bound);
@@ -692,8 +703,8 @@ namespace db0
         }
         return *result;
     }
-
-    void CRDT_Allocator::setDynamicBound(std::function<std::uint32_t()> bounds_fn) {
+    
+    void CRDT_Allocator::setDynamicBound(BoundsFunctionT bounds_fn) {
         this->m_bounds_fn = bounds_fn;
     }
 

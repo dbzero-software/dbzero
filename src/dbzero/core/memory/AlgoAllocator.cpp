@@ -13,10 +13,12 @@ namespace db0
     {
     }
     
-    std::optional<std::uint64_t> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    std::optional<std::uint64_t> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+        bool aligned, bool unique)
     {
         assert(slot_num == 0);
         assert(!aligned && "AlgoAllocator: aligned allocation not supported");
+        assert(!unique && "AlgoAllocator: unique allocation not supported");
         assert(size == m_alloc_size && "AlgoAllocator: invalid alloc size requested");
         return m_address_pool_f(m_next_i++);
     }

@@ -1,6 +1,5 @@
 #include "Enum.hpp"
 
-
 namespace db0::object_model
 
 {
@@ -11,7 +10,7 @@ namespace db0::object_model
         : m_values(memspace)
     {
     }
-
+    
     Enum::Enum(db0::swine_ptr<Fixture> &fixture, const std::string &name, const std::string &module_name, 
         const std::vector<std::string> &values, const char *type_id)
         : super_t(fixture, *fixture)

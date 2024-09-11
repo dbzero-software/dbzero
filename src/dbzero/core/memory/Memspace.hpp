@@ -40,9 +40,9 @@ namespace db0
             assert(m_allocator_ptr);
             return *m_allocator_ptr;
         }
-
+        
         // Memspace::alloc implements the auto-align logic
-        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0);
+        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0, bool unique = false);
         void free(std::uint64_t address);
 
         inline Prefix &getPrefix() const {

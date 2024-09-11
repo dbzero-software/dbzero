@@ -295,11 +295,11 @@ namespace db0
     }
 
     std::uint64_t Fixture::makeRelative(std::uint64_t address, std::uint32_t slot_num) const {
-        return reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num)).makeRelative(address);
+        return m_slot_allocator.getSlot(slot_num).makeRelative(address);
     }
     
     std::uint64_t Fixture::makeAbsolute(std::uint64_t address, std::uint32_t slot_num) const {
-        return reinterpret_cast<const SlabAllocator&>(m_slot_allocator.getSlot(slot_num)).makeAbsolute(address);
+        return m_slot_allocator.getSlot(slot_num).makeAbsolute(address);
     }
     
     bool Fixture::operator==(const Fixture &other) const {
