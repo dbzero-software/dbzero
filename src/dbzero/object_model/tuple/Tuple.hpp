@@ -24,7 +24,7 @@ namespace db0::object_model
     struct [[gnu::packed]] o_tuple: public o_base<o_tuple, 0, false>
     {
         // common object header
-        o_object_header m_header;
+        o_unique_header m_header;
 
         o_tuple(std::size_t size)
         {

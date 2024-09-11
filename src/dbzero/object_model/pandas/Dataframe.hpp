@@ -25,7 +25,7 @@ namespace db0::object_model::pandas
 
     struct [[gnu::packed]] o_data_frame: public db0::o_fixed<o_data_frame>
     {
-        db0::o_object_header m_header;
+        db0::o_unique_header m_header;
         db0::db0_ptr<db0::v_bvector<Value>> m_blocks;
         db0::db0_ptr<db0::v_bvector<Value>> m_indexes;
 

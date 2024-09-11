@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <optional>
 #include <memory>
+#include <cassert>
 
 namespace db0
 
@@ -16,6 +17,18 @@ namespace db0
     
     inline bool isPhysicalAddress(std::uint64_t address) {
         return (address & 0xFFFC'0000'0000'0000) == 0;
+    }
+    
+    // extract the instance ID part from the physical address (high 14 bits)
+    inline std::uint16_t getInstanceId(std::uint64_t address) {
+        return address >> 50;
+    }
+    
+    // combine physical address & instance ID to form a logical address
+    std::uint64_t makeLogicalAddress(std::uint64_t address, std::uint16_t instance_id) 
+    {
+        assert(isPhysicalAddress(address));
+        return (static_cast<std::uint64_t>(instance_id) << 50) | address;
     }
     
     /**

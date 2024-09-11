@@ -43,9 +43,10 @@ namespace db0::object_model
 
     public:
         // common object header
-        o_object_header m_header;
+        o_unique_header m_header;
         const std::uint32_t m_class_ref;
-        const std::uint32_t m_instance_id;
+        // cached instance ID
+        const std::uint16_t m_instance_id;
         // optional address of the key-value store (to store extension fields)
         KV_Address m_kv_address;
         // kv-index type must be stored separately from the address
@@ -61,10 +62,10 @@ namespace db0::object_model
         IndexVT &index_vt();
 
         // ref_count - the initial reference count inherited from the initializer
-        o_object(std::uint32_t class_ref, std::uint32_t instance_id, std::uint32_t ref_count,
-            const PosVT::Data &pos_vt_data, const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
+        o_object(std::uint32_t class_ref, std::uint32_t ref_count, const PosVT::Data &pos_vt_data, 
+            const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
 
-        static std::size_t measure(std::uint32_t, std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
+        static std::size_t measure(std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
             const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
@@ -250,11 +251,7 @@ namespace db0::object_model
         void detach() const;
 
         void commit() const;
-
-        inline std::uint32_t getInstanceId() const {
-            return m_instance_id;
-        }
-        
+                
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;

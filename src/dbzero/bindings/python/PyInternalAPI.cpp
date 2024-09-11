@@ -81,15 +81,16 @@ namespace db0::python
         PyErr_SetString(PyExc_TypeError, "Invalid argument type");
         return NULL;        
     }
-
-    shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, 
+    
+    shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id,
         PyTypeObject *py_expected_type)
     {   
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
 
         auto storage_class = object_id.m_typed_addr.getType();
-        auto addr = object_id.m_typed_addr;
+        // use logical address to access the object
+        auto addr = db0::makeLogicalAddress(object_id.m_typed_addr, object_id.m_instance_id);
 
         // validate storage class first
         if (py_expected_type) {
@@ -109,17 +110,17 @@ namespace db0::python
             }
             
             // unload with instance_id validation & optional type validation
-            return PyToolkit::unloadObject(fixture, addr, class_factory, object_id.m_instance_id, type);
+            return PyToolkit::unloadObject(fixture, addr, class_factory, type);
         }
         
         if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
-            // unload with instance_id validation
-            return PyToolkit::unloadList(fixture, object_id.m_typed_addr, object_id.m_instance_id);
+            // unload by logical address
+            return PyToolkit::unloadList(fixture, addr);
         } 
-        
+
         if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {
-            // unload with instance_id validation
-            return PyToolkit::unloadIndex(fixture, object_id.m_typed_addr, object_id.m_instance_id);
+            // unload by logical address
+            return PyToolkit::unloadIndex(fixture, addr);
         } 
 
         PyErr_SetString(PyExc_TypeError, "Invalid object ID");

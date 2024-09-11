@@ -11,8 +11,9 @@ namespace db0::object_model
     struct ObjectId
     {    
         std::uint64_t m_fixture_uuid;
+        // NOTE: typed address holds the physical address only
         TypedAddress m_typed_addr;
-        std::uint32_t m_instance_id;
+        std::uint16_t m_instance_id;
         
         // encodes with base-32 characters (no format prefix / suffix)
         // the buffer must be at least 'encodedSize' + 1 bytes long
@@ -34,7 +35,7 @@ namespace db0::object_model
         static constexpr std::size_t rawSize() {
             return sizeof(m_fixture_uuid) + sizeof(m_typed_addr) + sizeof(m_instance_id);
         }
-
+        
         static constexpr std::size_t encodedSize() {
             return (rawSize() * 8 - 1) / 5 + 1;
         }

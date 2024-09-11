@@ -6,16 +6,14 @@ namespace db0
     
     using TypeId = db0::bindings::TypeId;
     
-    o_index::o_index(std::uint32_t instance_id, IndexType type, IndexDataType data_type)
-        : m_instance_id(instance_id)
-        , m_type(type)
+    o_index::o_index(IndexType type, IndexDataType data_type)
+        : m_type(type)
         , m_data_type(data_type)
     {
     }
     
     o_index::o_index(const o_index &other)
-        : m_instance_id(other.m_instance_id)
-        , m_type(other.m_type)
+        : m_type(other.m_type)
         , m_data_type(other.m_data_type)        
     {
     }

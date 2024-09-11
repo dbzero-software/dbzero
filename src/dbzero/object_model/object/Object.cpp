@@ -33,11 +33,10 @@ namespace db0::object_model
         return class_factory.getTypeByPtr(class_ptr);
     }
     
-    o_object::o_object(std::uint32_t class_ref, std::uint32_t instance_id, std::uint32_t ref_count, const PosVT::Data &pos_vt_data,
+    o_object::o_object(std::uint32_t class_ref, std::uint32_t ref_count, const PosVT::Data &pos_vt_data,
         const XValue *index_vt_begin, const XValue *index_vt_end)
         : m_header(ref_count)
-        , m_class_ref(class_ref)
-        , m_instance_id(instance_id)
+        , m_class_ref(class_ref)        
     {
         arrangeMembers()
             (PosVT::type(), pos_vt_data)
@@ -77,22 +76,22 @@ namespace db0::object_model
     }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
-        : super_t(fixture, classRef(*type), createInstanceId(), ref_count, pos_vt_data)
+        : super_t(fixture, classRef(*type), ref_count, pos_vt_data)
         , m_type(type)
-        , m_instance_id((*this)->m_instance_id)
+        , m_instance_id((*this)->m_header.m_instance_id)
     {
     }
 
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
         : super_t(super_t::tag_from_address(), fixture, address)
-        , m_instance_id((*this)->m_instance_id)
+        , m_instance_id((*this)->m_header.m_instance_id)
     {
     }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
         : super_t(super_t::tag_from_stem(), fixture, std::move(stem))
         , m_type(type)
-        , m_instance_id((*this)->m_instance_id)
+        , m_instance_id((*this)->m_header.m_instance_id)
     {
     }
     
@@ -113,12 +112,12 @@ namespace db0::object_model
         return new (at_ptr) Object();
     }
     
-    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, 
-        std::optional<std::uint32_t> instance_id)
+    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
     {
         db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-        // validate the instance ID
-        if (instance_id && (*instance_id != stem->m_instance_id)) {
+        // validate the instance ID if assigned
+        auto instance_id = db0::getInstanceId(address);
+        if (instance_id && (instance_id != stem->m_header.m_instance_id)) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
         }
         return stem;
@@ -150,11 +149,12 @@ namespace db0::object_model
             // construct the DBZero instance & assign to self       
             m_type = initializer.getClassPtr();
             assert(m_type);
-            // assign unique instance ID
-            m_instance_id = createInstanceId();
-            super_t::init(*fixture, classRef(*m_type), m_instance_id, initializer.getRefCount(), pos_vt_data,
+            super_t::init(*fixture, classRef(*m_type), initializer.getRefCount(), pos_vt_data,
                 index_vt_data.first, index_vt_data.second);
-            
+
+            // copy instance ID from a created object's address
+            m_instance_id = db0::getInstanceId(this->getAddress());
+
             // bind singleton address (now that instance exists)
             if (m_type->isSingleton()) {
                 m_type->setSingletonAddress(*this);
@@ -274,7 +274,7 @@ namespace db0::object_model
         }
         
         // assure instance ID is valid (will be invalidated on object deletion)
-        if (hasInstance() && (m_instance_id != (*this)->m_instance_id)) {
+        if (hasInstance() && (m_instance_id != (*this)->m_header.m_instance_id)) {
             THROWF(db0::InputException) << "Object has been deleted";
         }
         

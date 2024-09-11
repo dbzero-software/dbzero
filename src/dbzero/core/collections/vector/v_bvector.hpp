@@ -13,23 +13,20 @@
 namespace db0
 
 {
-
+    
     template <typename PtrT> struct [[gnu::packed]] o_bvector: public o_fixed<o_bvector<PtrT> >
     {
         // common DBZero object header
-        db0::o_object_header m_header;
+        db0::o_unique_header m_header;
         // root node pointer (may be data or pointers' block)
         PtrT m_ptr_root = 0;
         // number of items contained
         std::uint64_t m_size = 0;
         // page size hint
         std::uint32_t m_page_size;
-        // auto-generated instance ID
-        std::uint32_t m_instance_id;
-        
-        o_bvector(std::uint32_t page_size_hint)       
-            : m_page_size(page_size_hint)
-            , m_instance_id(db0::createInstanceId())
+
+        o_bvector(std::uint32_t page_size_hint)
+            : m_page_size(page_size_hint)            
         {
         }
         
