@@ -44,14 +44,13 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = typename db0::v_bindex<set_item>::const_iterator;
         
-        Set(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        explicit Set(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
         void operator=(Set &&);
 
         void append(FixtureLock &, std::size_t key, ObjectPtr lang_value);
         bool remove(FixtureLock &, std::size_t key, ObjectPtr key_value);
         ObjectSharedPtr getItem(std::size_t i, ObjectPtr key_value) const;
-        void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
         
         static Set *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Set *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
@@ -74,12 +73,14 @@ namespace db0::object_model
         const_iterator begin() const;
         const_iterator end() const;
         
+        void unrefMembers() const;
+
     private:
         db0::v_bindex<set_item> m_index;
 
         // new sets can only be created via factory members
-        Set(db0::swine_ptr<Fixture> &);
-        Set(tag_no_gc, db0::swine_ptr<Fixture> &, const Set &);
+        explicit Set(db0::swine_ptr<Fixture> &);
+        explicit Set(tag_no_gc, db0::swine_ptr<Fixture> &, const Set &);
         
         void append(db0::swine_ptr<Fixture> &, std::size_t key, ObjectPtr lang_value);
     };

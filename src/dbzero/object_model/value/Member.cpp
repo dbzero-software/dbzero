@@ -435,12 +435,6 @@ namespace db0::object_model
     {
         unrefObjectBase<Tuple, PyToolkit>(fixture, value.cast<std::uint64_t>());
     }
-
-    template <> void unrefMember<StorageClass::DB0_BYTES, PyToolkit>(
-        db0::swine_ptr<Fixture> &fixture, Value value)
-    {
-        throw std::runtime_error("Not implemented");
-    }
     
     template <> void unrefMember<StorageClass::DB0_SERIALIZED, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value)
@@ -460,7 +454,6 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_SET)] = unrefMember<StorageClass::DB0_SET, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_DICT)] = unrefMember<StorageClass::DB0_DICT, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_TUPLE)] = unrefMember<StorageClass::DB0_TUPLE, PyToolkit>;
-        functions[static_cast<int>(StorageClass::DB0_BYTES)] = unrefMember<StorageClass::DB0_BYTES, PyToolkit>;
         // FIXME: uncomment and refactor when handling of BYTES if fixed (same storage)
         // functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unrefMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
     }

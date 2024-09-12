@@ -5,7 +5,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/GlobalMutex.hpp>
-
+#include <dbzero/bindings/python/Utils.hpp>
 
 namespace db0::python
 
@@ -67,6 +67,37 @@ namespace db0::python
         {NULL}
     };
 
+    static PyObject *TupleObject_rq(TupleObject *tuple_obj, TupleObject *other, int op) 
+    {
+        std::lock_guard pbm_lock(python_bindings_mutex);
+        if (TupleObject_Check(other)) {
+            TupleObject * other_tuple = (TupleObject*) other;
+            switch (op)
+            {
+            case Py_EQ:
+                return PyBool_fromBool(tuple_obj->ext() == other_tuple->ext());
+            case Py_NE:
+                return PyBool_fromBool(tuple_obj->ext() != other_tuple->ext());
+            default:
+                return Py_NotImplemented;
+            }
+        } else {
+            PyObject *iterator = PyObject_GetIter(other);
+            switch (op)
+            {
+            case Py_EQ:
+                return PyBool_fromBool(has_all_elements_same(tuple_obj, iterator));
+            case Py_NE:
+                return PyBool_fromBool(!has_all_elements_same(tuple_obj, iterator));
+            default:
+                return Py_NotImplemented;
+            }
+
+            Py_DECREF(iterator);
+            return Py_True;
+        }
+    }
+
     PyTypeObject TupleObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.Tuple",
@@ -76,6 +107,7 @@ namespace db0::python
         .tp_as_sequence = &TupleObject_sq,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
         .tp_doc = "DBZero tuple",
+        .tp_richcompare = (richcmpfunc)TupleObject_rq,
         .tp_iter = (getiterfunc)TupleObject_iter,
         .tp_methods = TupleObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
@@ -94,14 +126,14 @@ namespace db0::python
     }
 
     shared_py_object<TupleObject*> TupleDefaultObject_new() {
-        return { TupleObject_new(&TupleObjectType, NULL, NULL), false };
+        return TupleObject_new(&TupleObjectType, NULL, NULL);
     }
     
     void TupleObject_del(TupleObject* tuple_obj)
     {
-                // std::lock_guard pbm_lock(python_bindings_mutex);
+        // std::lock_guard pbm_lock(python_bindings_mutex);
         // destroy associated DB0 Tuple instance
-        tuple_obj->ext().~Tuple();
+        tuple_obj->destroy();
         Py_TYPE(tuple_obj)->tp_free((PyObject*)tuple_obj);
     }
 

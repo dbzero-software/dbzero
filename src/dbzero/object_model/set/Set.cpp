@@ -56,6 +56,7 @@ namespace db0::object_model
 
     void Set::operator=(Set && other)
     {
+        unrefMembers();
         super_t::operator=(std::move(other));
         m_index = std::move(other.m_index);
         assert(!other.hasInstance());
@@ -124,7 +125,8 @@ namespace db0::object_model
             auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
             if (LangToolkit::compare(key_value, member.get())) {
                 if (bindex.size() == 1) {
-                    m_index.erase(iter);                 
+                    m_index.erase(iter);
+                    unrefMember<LangToolkit>(fixture, storage_class, value);                 
                     bindex.destroy();
                 } else {
                     bindex.erase(*it);
@@ -159,14 +161,6 @@ namespace db0::object_model
         return nullptr;
     }
     
-    void Set::setItem(FixtureLock &fixture, std::size_t key, ObjectPtr lang_value)
-    {
-        // recognize type ID from language specific object
-        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
-        m_index.insert(createSetItem<LangToolkit>(*fixture, key, type_id, lang_value, storage_class));
-    }
-    
     Set *Set::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
         return new (at_ptr) Set(fixture);
     }
@@ -177,7 +171,9 @@ namespace db0::object_model
 
     void Set::destroy()
     {
-        m_index.destroy();
+        unrefMembers();
+        // FIXME: THIS SHOULD BE REMOVED? when uncommented it causes "unsorted double linked list corrupted"
+        //m_index.destroy();
         super_t::destroy();
     }
 
@@ -225,6 +221,7 @@ namespace db0::object_model
 
     void Set::clear()
     {
+        unrefMembers();
         m_index.clear();
         modify().m_size = 0; 
     }
@@ -247,6 +244,19 @@ namespace db0::object_model
     {
         m_index.detach();
         super_t::detach();
+    }
+
+    void Set::unrefMembers() const {
+        auto fixture = this->getFixture();
+        for (auto [_, address] : m_index) {
+            auto bindex = address.getIndex(this->getMemspace());
+            auto it = bindex.beginJoin(1);
+            while (!it.is_end()) {
+                auto [storage_class, value] = *it;
+                unrefMember<LangToolkit>(fixture, storage_class, value);
+                ++it;
+            }
+        }
     }
 
 }

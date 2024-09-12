@@ -438,7 +438,16 @@ def test_set_update_after_commit(db0_fixture):
     object_2.value.add(6)
     assert set(object_2.value) == set([1,2,3,4,5,6])
 
-    
+
+def test_set_with_tuples(db0_fixture):
+    set = db0.set()
+    set.add((1,2,3))
+    set.add((4,5,6))
+    set.add((7,8,9))
+    for i in set:
+        assert i in [(1,2,3), (4,5,6), (7,8,9)]
+
+
 # fixme: Needs to fix problem with __eq__ method
 # @pytest.mark.parametrize("make_set", set_test_params)
 # def test_set_items_collisions(db0_fixture, make_set):
@@ -458,3 +467,41 @@ def test_set_update_after_commit(db0_fixture):
 #     assert CollisionClass(22) in set_1
 #     assert CollisionClass(33) in set_1
 #     assert CollisionClass(4) not in set_1
+
+def test_clear_set_unref_values(db0_fixture):
+    my_set = db0.set()
+    my_set.add(MemoTestClass("key"))
+    uuid_value = db0.uuid([value for value in my_set][0])
+    my_set.clear()
+    db0.clear_cache()
+    db0.commit()
+    with pytest.raises(Exception):
+        db0.fetch(uuid_value)
+
+def test_remove_unref_values(db0_fixture):
+    my_set = db0.set()
+    my_set.add(MemoTestClass("Value"))
+    value = [value for value in my_set][0]
+    uuid_value = db0.uuid(value)
+    my_set.remove(value)
+    value = None
+    db0.clear_cache()
+    db0.commit()
+    with pytest.raises(Exception):
+        db0.fetch(uuid_value)
+
+def test_set_destroy_removes_reference(db0_fixture):
+    obj = MemoTestClass(db0.set())
+    obj.value.add(MemoTestClass("asd"))
+    db0.commit()
+    value = [value for value in obj.value][0]
+    value_uuid = db0.uuid(value)
+    value = None
+    db0.delete(obj)
+    del obj
+    obj = None
+    db0.clear_cache()
+    db0.commit()
+    with pytest.raises(Exception):
+        db0.fetch(value_uuid)
+

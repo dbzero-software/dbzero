@@ -9,7 +9,7 @@
 namespace db0
 
 {
-        
+    
     /**
      * The DB0 allocator interface
      * NOTE: allocators may return logical adddress which needs to be converted to physical one

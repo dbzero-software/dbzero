@@ -76,7 +76,7 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = const o_typed_item *;
 
-        Tuple(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        explicit Tuple(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
         ObjectSharedPtr getItem(std::size_t i) const;
         void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
@@ -93,8 +93,7 @@ namespace db0::object_model
         void operator=(Tuple &&);
         bool operator!=(const Tuple &) const;
         
-        // drop underlying DBZero representation
-        void drop();
+        void destroy() const;
 
         const o_typed_item * begin() const;
         const o_typed_item * end() const;
@@ -103,8 +102,8 @@ namespace db0::object_model
 
     private:
         // new Tuples can only be created via factory members
-        Tuple(std::size_t size, db0::swine_ptr<Fixture> &);
-        Tuple(tag_no_gc, db0::swine_ptr<Fixture> &, const Tuple &);
+        explicit Tuple(std::size_t size, db0::swine_ptr<Fixture> &);
+        explicit Tuple(tag_no_gc, db0::swine_ptr<Fixture> &, const Tuple &);
     };
     
 }

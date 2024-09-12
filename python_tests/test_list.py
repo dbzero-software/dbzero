@@ -2,6 +2,7 @@ import pytest
 import dbzero_ce as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR
+from .memo_test_types import MemoTestClass
 
 
 def make_python_list():
@@ -180,17 +181,74 @@ def test_can_pop_from_list(db0_fixture, make_list):
     assert len(list_1) == 4
 
 @pytest.mark.parametrize("make_list", list_test_params)
-def test_can_clear_list(db0_fixture, make_list):
+def test_pop_from_list_deref_object(db0_fixture, make_list):
     list_1 = make_list()
     for i in range(5):
         list_1.append(i)
     assert len(list_1) == 5
+    elem = list_1.pop()
+    assert elem == 4
+    assert len(list_1) == 4
+    elem = list_1.pop(0)
+    assert elem == 0
+    assert len(list_1) == 3
+    list_1 = make_list()
+    for i in range(5):
+        list_1.append(i)
+    elem = list_1.pop(3)
+    assert len(list_1) == 4
+
+
+def test_can_clear_list(db0_fixture):
+    list_1 = db0.list()
+    ids = []
+    for i in range(5):
+        list_1.append(db0.tuple(["asd"]))
+
+    tup1 = list_1.pop()
+    tup2 = list_1.pop()
+    db0.clear_cache()
+    db0.commit()
+    assert len(list_1) == 3
+
+    
+
+def test_clear_list_unref_objects(db0_fixture):
+    list_1 = db0.list()
+    list_1.append(MemoTestClass("asd"))
+    uuid = db0.uuid(list_1[0])
     list_1.clear()
-    assert len(list_1) == 0
-    list_1.append(1)
-    assert len(list_1) == 1
-    list_1.clear()
-    assert len(list_1) == 0
+    db0.clear_cache()
+    db0.commit()
+    with pytest.raises(Exception):
+        db0.fetch(uuid)
+
+
+def test_set_item_to_list_unref_objects(db0_fixture):
+    list_1 = db0.list()
+    list_1.append(MemoTestClass("asd"))
+    uuid = db0.uuid(list_1[0])
+    list_1[0] = MemoTestClass("asd")
+    uuid2 = db0.uuid(list_1[0])
+    db0.clear_cache()
+    db0.commit()
+    with pytest.raises(Exception):
+        db0.fetch(uuid)
+    db0.fetch(uuid2)
+
+def test_list_destroy_removes_reference(db0_fixture):
+    obj = MemoTestClass(db0.list([MemoTestClass("asd")]))
+    assert obj.value[0] is not None
+
+    dep_uuid = db0.uuid(obj.value[0])
+    db0.delete(obj)
+    del obj
+    db0.clear_cache()
+    db0.commit()
+    # make sure dependent instance has been destroyed as well
+    with pytest.raises(Exception):
+        db0.fetch(dep_uuid)
+
 
 
 @pytest.mark.parametrize("make_list", list_test_params)

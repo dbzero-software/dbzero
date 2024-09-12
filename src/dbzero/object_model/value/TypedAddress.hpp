@@ -23,8 +23,7 @@ namespace db0::object_model
         
         inline TypedAddress(StorageClass type, std::uint64_t address)
             : m_value((static_cast<std::uint64_t>(type) << 50) | db0::getPhysicalAddress(address))
-        {
-            assert(db0::getPhysicalAddress(address) < 0x100000000000000);
+        {            
         }
 
         inline StorageClass getType() const {

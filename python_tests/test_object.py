@@ -52,6 +52,46 @@ class MemoWithSelfRef:
         self.value = self
 
 
+# @db0.memo
+# class DataClassWithRepr:
+#     def __init__(self, value):
+#         self.value = value
+    
+#     def __repr__(self):
+#         return "<DataClassWithRepr value={self.value!r}>"
+
+
+# @db0.memo
+# class DataClassWithComparators:
+#     def __init__(self, value):
+#         self.value = value
+
+#     def __eq__(self, other):
+#         if isinstance(other, DataClassWithComparators):
+#             return self.value == other.value
+#         return NotImplemented
+
+#     def __lt__(self, other):
+#         if isinstance(other, DataClassWithComparators):
+#             return self.value < other.value
+#         return NotImplemented
+
+#     def __le__(self, other):
+#         if isinstance(other, DataClassWithComparators):
+#             return self.value <= other.value
+#         return NotImplemented
+
+#     def __gt__(self, other):
+#         if isinstance(other, DataClassWithComparators):
+#             return self.value > other.value
+#         return NotImplemented
+
+#     def __ge__(self, other):
+#         if isinstance(other, DataClassWithComparators):
+#             return self.value >= other.value
+#         return NotImplemented
+
+
 def test_create_memo_object(db0_fixture):
     object_1 = DataClass()
     assert object_1 is not None
@@ -303,3 +343,59 @@ def test_memo_object_destroys_its_kv_members_on_reassign(db0_fixture):
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
         db0.fetch(dep_uuid)
+
+
+# def test_repr_should_not_be_overriden(db0_fixture):
+#     obj = DataClassWithRepr(1)
+#     assert "<DataClassWithRepr value=1>" in repr(obj)
+
+
+# def test_comparators_should_work_for_memo_object_if_defined(db0_fixture):
+#     obj1 = DataClassWithComparators(5)
+#     obj2 = DataClassWithComparators(10)
+    
+#     # Test __eq__ and __ne__
+#     assert obj1 == obj1
+#     assert obj1 != obj2
+
+#     # Test __lt__
+#     assert obj1 < obj2
+#     assert not obj2 < obj1
+
+#     # Test __le__
+#     assert obj1 <= obj1
+#     assert obj1 <= obj2
+#     assert not obj2 <= obj1
+
+#     # Test __gt__
+#     assert obj2 > obj1
+#     assert not obj1 > obj2
+
+#     # Test __ge__
+#     assert obj2 >= obj2
+#     assert obj2 >= obj1
+#     assert not obj1 >= obj2
+
+
+# def test_equality_operator_on_instances_created_in_line(db0_fixture):
+#     # Test __eq__ and __ne__
+#     assert DataClassWithComparators(10) == DataClassWithComparators(10)
+#     assert DataClassWithComparators(5) != DataClassWithComparators(10)
+
+#     # Test __lt__
+#     assert DataClassWithComparators(5) < DataClassWithComparators(10)
+#     assert not DataClassWithComparators(10) < DataClassWithComparators(5)
+
+#     # Test __le__
+#     assert DataClassWithComparators(5) <= DataClassWithComparators(5)
+#     assert DataClassWithComparators(5) <= DataClassWithComparators(10)
+#     assert not DataClassWithComparators(10) <= DataClassWithComparators(5)
+
+#     # Test __gt__
+#     assert DataClassWithComparators(10) > DataClassWithComparators(5)
+#     assert not DataClassWithComparators(5) > DataClassWithComparators(10)
+
+#     # Test __ge__
+#     assert DataClassWithComparators(10) >= DataClassWithComparators(10)
+#     assert DataClassWithComparators(10) >= DataClassWithComparators(5)
+#     assert not DataClassWithComparators(5) >= DataClassWithComparators(10)
