@@ -516,7 +516,8 @@ namespace db0
     void Workspace::clearCache() const
     {
         BaseWorkspace::clearCache();
-        m_lang_cache->clear();
+        // remove expired only objects
+        m_lang_cache->clear(true);
     }
     
     void Workspace::onCacheFlushed(bool threshold_reached) const
@@ -524,7 +525,7 @@ namespace db0
         BaseWorkspace::onCacheFlushed(threshold_reached);
         if (!threshold_reached) {
             // additionally erase the entire LangCache to attempt reaching the flush objective
-            m_lang_cache->clear();
+            m_lang_cache->clear(true);
         }
         for (auto &[uuid, fixture] : m_fixtures) {
             fixture->onCacheFlushed(threshold_reached);

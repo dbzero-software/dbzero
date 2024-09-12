@@ -660,7 +660,7 @@ namespace db0
     }
     
     void MetaAllocator::deferredFree(std::uint64_t address)
-    {        
+    {
         assert(db0::isPhysicalAddress(address));
         if (m_atomic) {
             m_atomic_deferred_free_ops.push_back(address);

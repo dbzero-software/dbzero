@@ -14,6 +14,7 @@ namespace db0::object_model
     public:
         using ThisType = PyObjectIterator<ClassT, CollectionT>;
         using LangToolkit = db0::python::PyToolkit;
+        using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using IteratorT = typename CollectionT::const_iterator;
         virtual ObjectSharedPtr next() = 0;

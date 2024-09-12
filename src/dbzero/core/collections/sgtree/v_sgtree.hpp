@@ -436,7 +436,7 @@ namespace db0
         /**
          * Destroy SG-Tree and all its nodes (v-objects)
          */
-        void destroy()
+        void destroy() const
         {
             // destroy SG-Tree starting from the "head" element
             destroyHeadNode(this->head());
@@ -482,7 +482,7 @@ namespace db0
     #pragma GCC diagnostic pop
 #endif
 
-        bool destroyHeadNode(node_ptr_t &head_node) const
+        bool destroyHeadNode(const node_ptr_t &head_node) const
         {
             auto ptr_root = head_node->ptr_set.parent;
             if (!ptr_root || (ptr_root == head_node.getAddress())) {

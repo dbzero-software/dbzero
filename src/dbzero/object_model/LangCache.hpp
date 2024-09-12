@@ -29,8 +29,10 @@ namespace db0
         // Add a new instance to cache
         // @return slot id the element was written to
         void add(const Fixture &, std::uint64_t address, ObjectPtr);
-                
-        void erase(const Fixture &, std::uint64_t address);
+        
+        // Erase an instance from cache
+        // @param expired_only if true, only expired instances will be removed
+        void erase(const Fixture &, std::uint64_t address, bool expired_only = false);
         
         // Try retrieving an existing instance from cache
         // nullptr will be returned if the instance has not been found in cache
@@ -47,13 +49,17 @@ namespace db0
         // Remove all cached instances
         // NOTE: only instances with NO existing references will be removed from cache
         // this is to avoid instance duplication in the program (e.g. when later being fetched by UUID)
-        void clear();
-                
+        void clear(bool expired_only);
+        
     protected:
         friend class LangCacheView;
         mutable db0::auto_map<const Fixture*, std::uint16_t> m_fixture_to_id;
 
         std::uint16_t getFixtureId(const Fixture &fixture) const;
+
+        void add(std::uint16_t fixture_id, std::uint64_t address, ObjectPtr);
+        
+        void erase(std::uint16_t fixture_id, std::uint64_t address, bool expired_only = false);
 
     private:
         using CacheItem = std::pair<std::uint64_t, ObjectSharedPtr>;
@@ -71,10 +77,6 @@ namespace db0
         std::unordered_map<std::uint64_t, std::uint32_t> m_uid_to_index;
 
         bool isFull() const;
-
-        void add(std::uint16_t fixture_id, std::uint64_t address, ObjectPtr);
-                
-        void erase(std::uint16_t fixture_id, std::uint64_t address);
 
         ObjectSharedPtr get(std::uint16_t fixture_id, std::uint64_t address) const;
 
@@ -111,7 +113,7 @@ namespace db0
         void moveFrom(LangCacheView &other, std::uint64_t src_address, std::uint64_t dst_address);
         
         // Erase all instances added via this view
-        void clear();
+        void clear(bool expired_only);
 
     private:
         const Fixture &m_fixture;

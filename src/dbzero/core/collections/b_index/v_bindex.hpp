@@ -53,7 +53,7 @@ namespace db0
         {
             this->modify().ptr_index = m_index.getAddress();
         }
-
+        
         /**
          * Note that this constructor has additional parameter "page_size_hint"
          * which is unusual for v_object descendants but is required to distinguish from the "data_vector" constructor
@@ -120,10 +120,7 @@ namespace db0
             return b_index.getAddress();
         }
         
-        /**
-         * Compatibility
-         */
-        void destroy()
+        void destroy() const
         {
             // must clear all nodes (item destroy)
             auto &memspace = this->getMemspace();

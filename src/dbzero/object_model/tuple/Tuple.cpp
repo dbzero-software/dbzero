@@ -10,13 +10,35 @@ namespace db0::object_model
     
     GC0_Define(Tuple)
 
+    o_tuple::o_tuple(std::size_t size)
+    {
+        arrangeMembers()
+            (o_micro_array<o_typed_item>::type(), size).ptr();
+    }
+
+    std::size_t o_tuple::size() const {
+        return items().size();
+    }
+
+    std::size_t o_tuple::sizeOf() const
+    {
+        return sizeOfMembers()
+            (o_micro_array<o_typed_item>::type());
+    }
+
+    std::size_t o_tuple::measure(std::size_t size)
+    {
+        return measureMembers()
+            (o_micro_array<o_typed_item>::measure(size));
+    }
+    
     template <typename LangToolkit> o_typed_item createTupleItem(db0::swine_ptr<Fixture> &fixture,
         db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
         return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value) };
     }
-        
-    Tuple::Tuple(std::size_t size, db0::swine_ptr<Fixture> &fixture)
+    
+    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, tag_new_tuple, std::size_t size)
         : super_t(fixture, size)
     {
     }
@@ -29,12 +51,16 @@ namespace db0::object_model
             modify().items()[i] = { storage_class, value };
         }
     }
-
+    
     Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
         : super_t(super_t::tag_from_address(), fixture, address)
     {
     }
-    
+
+    Tuple::~Tuple()
+    {
+    }
+
     Tuple::ObjectSharedPtr Tuple::getItem(std::size_t i) const
     {
         if (i >= getData()->size()) {
@@ -56,14 +82,12 @@ namespace db0::object_model
         auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
         modify().items()[i] = createTupleItem<LangToolkit>(*fixture, type_id, lang_value, storage_class);
     }
-    
-    Tuple *Tuple::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::size_t size)
-    {
-        return new (at_ptr) Tuple(size, fixture);
+
+    Tuple *Tuple::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::size_t size) {
+        return new (at_ptr) Tuple(fixture, tag_new_tuple(), size);
     }
     
-    Tuple *Tuple::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-    {
+    Tuple *Tuple::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
         return new (at_ptr) Tuple(fixture, address);
     }
 
@@ -114,10 +138,11 @@ namespace db0::object_model
     bool Tuple::operator!=(const Tuple &tuple) const {
         return !(*this == tuple);
     }
-
-    void Tuple::destroy() const {
+    
+    void Tuple::destroy() const
+    {
         auto fixture = this->getFixture();
-        for (auto &elem: this->getData()->items()){
+        for (auto &elem: this->getData()->items()) {
             auto [elem_storage_class, elem_value] = elem;
             unrefMember<LangToolkit>(fixture, elem_storage_class, elem_value);
         }

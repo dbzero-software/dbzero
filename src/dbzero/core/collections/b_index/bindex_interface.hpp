@@ -1044,7 +1044,7 @@ namespace db0::bindex::interface
         /**
          * Destroys corresponding v-space instance
          */
-        void destroy(Memspace &memspace) {
+        void destroy(Memspace &memspace) const {
             m_destroy_ptr(m_ptr, memspace);
         }
 

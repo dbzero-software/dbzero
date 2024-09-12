@@ -45,13 +45,13 @@ namespace db0
     }
     
     bool GC0::tryRemove(void *vptr, bool is_volatile)
-    {        
+    {   
         auto it = m_vptr_map.find(vptr);
         if (it == m_vptr_map.end()) {
             return false;
         }
 
-        NoArgsFunction drop_op = nullptr;        
+        NoArgsFunction drop_op = nullptr;
         auto ops = m_ops[it->second];
         // if type implements preCommit then remove it from pre-commit map as well
         if (ops.preCommit) {
@@ -60,14 +60,14 @@ namespace db0
         // do not drop when in read-only mode (e.g. snapshot owned)
         // NOTE: drop not allowed when commit pending
         // do not drop volatile instances
-        if (!m_read_only && ops.hasRefs && ops.drop && !ops.hasRefs(it->first) 
-            && !m_commit_pending && !is_volatile) 
+        if (!m_read_only && ops.hasRefs && ops.drop && !m_commit_pending && !is_volatile
+            && !ops.hasRefs(it->first))
         {
             // at this stage just collect the ops and remove the entry
             drop_op = ops.drop;
         }
         m_vptr_map.erase(it);
-                
+        
         // drop object after erasing from map due to possible recursion
         if (drop_op) {
             auto fixture = this->getFixture();
@@ -122,10 +122,10 @@ namespace db0
             }
         }
 
-        super_t::clear();
+        super_t::clear();        
         for (auto addr: addresses) {
             super_t::push_back(addr);
-        }
+        }        
     }
     
     void GC0::collect()

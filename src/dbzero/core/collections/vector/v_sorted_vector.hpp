@@ -847,8 +847,8 @@ namespace db0
         bool empty() const {
             return ((*this)->m_size==0);
         }
-
-        void destroy() 
+        
+        void destroy() const
         {
             // container destroy
             (*this)->destroy(this->getMemspace(), m_item_destroy_func);

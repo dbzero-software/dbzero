@@ -140,7 +140,7 @@ namespace db0
     void Fixture::addRollbackHandler(std::function<void()> f) {
         m_rollback_handlers.push_back(f);
     }
-
+    
     void Fixture::rollback()
     {
         for (auto &rollback: m_rollback_handlers) {
@@ -152,7 +152,8 @@ namespace db0
     {
         // clear cache to destroy object instances supported by the cache
         // this has to be done before commit (to not commit unrefereced objects)
-        m_lang_cache.clear();
+        // NOTE: since fixture is being closed we remove all objects (even not expired) from the cache
+        m_lang_cache.clear(false);
         // auto-commit before closing
         if (m_access_type == AccessType::READ_WRITE) {
             // perform the operation twice to ensure both pre-commit and commit

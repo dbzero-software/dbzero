@@ -380,7 +380,7 @@ namespace db0::object_model
     template <typename T, typename LangToolkit>
     void unrefObjectBase(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
     {
-        auto obj_ptr = fixture->getLangCache().get(address);        
+        auto obj_ptr = fixture->getLangCache().get(address);
         if (obj_ptr) {
             db0::FixtureLock lock(fixture);
             // decref cached instance via language specific wrapper type

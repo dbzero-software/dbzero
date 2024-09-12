@@ -21,62 +21,53 @@ namespace db0::object_model
 
     using Fixture = db0::Fixture;
     
-    struct [[gnu::packed]] o_tuple: public o_base<o_tuple, 0, false>
+    class [[gnu::packed]] o_tuple: public o_base<o_tuple, 0, false>
     {
+    protected:
+        using super_t = o_base<o_tuple, 0, false>;
+        friend super_t;
+
+        o_tuple(std::size_t size);
+
+    public:         
         // common object header
         o_unique_header m_header;
 
-        o_tuple(std::size_t size)
-        {
-            arrangeMembers()
-            (o_micro_array<o_typed_item>::type(), size).ptr();
-        }
-
-        inline o_micro_array<o_typed_item> &items()
-        {
+        inline o_micro_array<o_typed_item> &items() {
             return getDynFirst(o_micro_array<o_typed_item>::type());
-        }
-
-        inline const o_micro_array<o_typed_item> &items() const
-        {
-            return getDynFirst(o_micro_array<o_typed_item>::type());
-        }
-
-        std::size_t size() const {
-            return items().size();
         }
         
-        std::size_t sizeOf() const{
-            return sizeOfMembers()
-            (o_micro_array<o_typed_item>::type());
+        inline const o_micro_array<o_typed_item> &items() const {
+            return getDynFirst(o_micro_array<o_typed_item>::type());
         }
 
-        static std::size_t measure(std::size_t size){
-            return measureMembers()
-            (o_micro_array<o_typed_item>::measure(size));
-        }
+        std::size_t size() const;
+        std::size_t sizeOf() const;
+
+        static std::size_t measure(std::size_t size);
 
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
             auto start = buf;
-            auto size = o_micro_array<o_typed_item>::__const_ref(buf).size();
+            buf += super_t::baseSize();            
             buf += o_micro_array<o_typed_item>::safeSizeOf(buf);
             return buf - start;
         }
     };
-
-    class Tuple: public db0::ObjectBase<Tuple, v_object<o_tuple >, StorageClass::DB0_TUPLE>
+    
+    class Tuple: public db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>
     {
         GC0_Declare
     public:
         using super_t = db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>;
-        friend class db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>;
+        friend super_t;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = const o_typed_item *;
 
         explicit Tuple(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        ~Tuple();
 
         ObjectSharedPtr getItem(std::size_t i) const;
         void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
@@ -95,14 +86,15 @@ namespace db0::object_model
         
         void destroy() const;
 
-        const o_typed_item * begin() const;
-        const o_typed_item * end() const;
+        const o_typed_item *begin() const;
+        const o_typed_item *end() const;
 
         void moveTo(db0::swine_ptr<Fixture> &);
 
     private:
         // new Tuples can only be created via factory members
-        explicit Tuple(std::size_t size, db0::swine_ptr<Fixture> &);
+        struct tag_new_tuple {};
+        explicit Tuple(db0::swine_ptr<Fixture> &, tag_new_tuple, std::size_t size);
         explicit Tuple(tag_no_gc, db0::swine_ptr<Fixture> &, const Tuple &);
     };
     

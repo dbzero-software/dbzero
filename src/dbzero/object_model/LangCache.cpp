@@ -99,11 +99,11 @@ namespace db0
         ++m_size;
     }
 
-    void LangCache::erase(const Fixture &fixture, std::uint64_t address) {
-        return erase(getFixtureId(fixture), address);
-    }    
-
-    void LangCache::erase(std::uint16_t fixture_id, std::uint64_t address)
+    void LangCache::erase(const Fixture &fixture, std::uint64_t address, bool expired_only) {
+        return erase(getFixtureId(fixture), address, expired_only);
+    }
+    
+    void LangCache::erase(std::uint16_t fixture_id, std::uint64_t address, bool expired_only)
     {
         auto uid = makeUID(fixture_id, address);
         auto it = m_uid_to_index.find(uid);
@@ -111,24 +111,29 @@ namespace db0
         if (it == m_uid_to_index.end()) {
             return;
         }
-        // need to remove from the map first because destroy may trigger erase from GC0
+
         auto slot_id = it->second;
+        if (expired_only && LangToolkit::getRefCount(m_cache[slot_id].second.get()) > 1) {
+            return;
+        }
+
+        // need to remove from the map first because destroy may trigger erase from GC0        
         m_uid_to_index.erase(it);
         m_cache[slot_id] = {};
         --m_size;
-    }    
-
-    void LangCache::clear()
+    }
+    
+    void LangCache::clear(bool expired_only)
     {
-        for (auto &item: m_cache) {            
-            if (item.second && LangToolkit::getRefCount(item.second.get()) == 1) {                
+        for (auto &item: m_cache) {
+            if (item.second && (!expired_only || LangToolkit::getRefCount(item.second.get()) == 1)) {
                 m_uid_to_index.erase(item.first);
                 item = {};
-                --m_size;
-            }        
+                --m_size;            
+            }
         }
     }
-
+    
     LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, std::uint64_t address) const {
         return get(getFixtureId(fixture), address);
     }
@@ -226,7 +231,7 @@ namespace db0
         m_objects.insert(address);
     }
 
-    void LangCacheView::erase(std::uint64_t address) 
+    void LangCacheView::erase(std::uint64_t address)
     {
         m_cache.erase(m_fixture_id, address);
         m_objects.erase(address);
@@ -242,11 +247,12 @@ namespace db0
         other.m_objects.erase(src_address);
         m_objects.insert(dst_address);
     }
-
-    void LangCacheView::clear()
+    
+    void LangCacheView::clear(bool expired_only)
     {
+        // erase expired objects only
         for (auto addr: m_objects) {
-            m_cache.erase(m_fixture_id, addr);
+            m_cache.erase(m_fixture_id, addr, expired_only);
         }
     }
 

@@ -74,10 +74,10 @@ namespace db0::object_model
 
         const_iterator begin() const;
         const_iterator end() const;
-
+        
         void unrefMembers() const;
 
-        void destroy();
+        void destroy() const;
 
     private:
         db0::v_bindex<dict_item> m_index;

@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass
+from .memo_test_types import MemoTestClass, MemoTestSingleton
 
 
 def test_create_enum_type(db0_fixture):
@@ -62,6 +62,7 @@ def test_enum_values_can_be_stored_as_members(db0_fixture):
 def test_enum_values_can_be_stored_as_dict_keys(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     dict = db0.dict({Colors.RED: "red", Colors.GREEN: "green"})
+    _ = MemoTestSingleton(dict)
     assert dict[Colors.RED] == "red"
     assert dict[Colors.GREEN] == "green"
 

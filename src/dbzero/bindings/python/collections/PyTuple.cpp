@@ -172,7 +172,7 @@ namespace db0::python
     }
     
     PyObject *makeDB0Tuple(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
-    {   
+    {           
         std::lock_guard pbm_lock(python_bindings_mutex);     
         return makeDB0TupleInternal(fixture, args, nargs).steal();
     }

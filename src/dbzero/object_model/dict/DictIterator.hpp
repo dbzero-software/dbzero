@@ -19,27 +19,35 @@ namespace db0::object_model
     */
     class DictIterator : public PyObjectIterator<DictIterator, Dict>
     {
-        DictIndex::joinable_const_iterator m_join_iterator;
-        IteratorType m_type;
-        DictIndex m_index;
-        void setJoinIterator();
-        public:
+    public:
+        DictIterator(Dict::const_iterator iterator, const Dict *, IteratorType type = IteratorType::KEYS);
 
-        struct DictItem {
-
-            DictItem(ObjectSharedPtr p_key, ObjectSharedPtr p_value) : key(p_key), value(p_value) {
+        struct DictItem
+        {
+            DictItem(ObjectPtr p_key, ObjectPtr p_value) 
+                : key(p_key)
+                , value(p_value) 
+            {
             }
 
             ObjectSharedPtr key;
             ObjectSharedPtr value;
         };
 
+        ObjectSharedPtr next() override;
+
         DictItem nextItem();
         ObjectSharedPtr nextValue();
         ObjectSharedPtr nextKey();
-        ObjectSharedPtr next() override;
-
-        DictIterator(Dict::const_iterator iterator, const Dict *, IteratorType type = IteratorType::KEYS);
+        
+    private:
+        DictIndex::joinable_const_iterator m_join_iterator;
+        IteratorType m_type = IteratorType::KEYS;
+        DictIndex m_index;
+        
+        void setJoinIterator();
+        // advance iterator's position
+        void iterNext();
     };
 
     class DictView 
