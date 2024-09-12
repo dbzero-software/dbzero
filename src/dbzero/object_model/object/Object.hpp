@@ -195,14 +195,7 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> getFixture() const;
 
         Memspace &getMemspace() const;
-        
-        /**
-         * Check if the instance is null (dropped)
-        */
-        inline bool isNull() const {
-            return m_instance_id == 0;
-        }
-        
+                
         /**
          * Get description of the field layout
         */
@@ -254,9 +247,9 @@ namespace db0::object_model
         std::shared_ptr<Class> m_type;
         // local kv-index instance cache (created at first use)
         mutable std::unique_ptr<KV_Index> m_kv_index;
-        // locally cached instance ID (required for handling deleted objects)
-        std::uint32_t m_instance_id = 0;
         static thread_local ObjectInitializerManager m_init_manager;
+        // flag indicating that the underlying db0 instance has been dropped
+        const bool m_is_dropped = true;
 
         Object() = default;
         Object(std::shared_ptr<Class>);

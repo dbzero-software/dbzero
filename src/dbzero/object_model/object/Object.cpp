@@ -68,8 +68,7 @@ namespace db0::object_model
     }
     
     Object::Object(std::shared_ptr<Class> db0_class)
-        // assign temporary instance ID to distinguish from null
-        : m_instance_id(1)
+        : m_is_dropped(false)
     {
         // prepare for initialization
         m_init_manager.addInitializer(*this, db0_class);
@@ -78,20 +77,20 @@ namespace db0::object_model
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
         : super_t(fixture, classRef(*type), ref_count, pos_vt_data)
         , m_type(type)
-        , m_instance_id((*this)->m_header.m_instance_id)
+        , m_is_dropped(false)
     {
     }
 
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
         : super_t(super_t::tag_from_address(), fixture, address)
-        , m_instance_id((*this)->m_header.m_instance_id)
+        , m_is_dropped(false)
     {
     }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
         : super_t(super_t::tag_from_stem(), fixture, std::move(stem))
         , m_type(type)
-        , m_instance_id((*this)->m_header.m_instance_id)
+        , m_is_dropped(false)        
     {
     }
     
@@ -151,10 +150,7 @@ namespace db0::object_model
             assert(m_type);
             super_t::init(*fixture, classRef(*m_type), initializer.getRefCount(), pos_vt_data,
                 index_vt_data.first, index_vt_data.second);
-
-            // copy instance ID from a created object's address
-            m_instance_id = db0::getInstanceId(this->getAddress());
-
+            
             // bind singleton address (now that instance exists)
             if (m_type->isSingleton()) {
                 m_type->setSingletonAddress(*this);
@@ -269,15 +265,10 @@ namespace db0::object_model
         }
         */
         
-        if (isNull()) {
+        if (m_is_dropped) {
             THROWF(db0::InputException) << "Object does not exist";
         }
-        
-        // assure instance ID is valid (will be invalidated on object deletion)
-        if (hasInstance() && (m_instance_id != (*this)->m_header.m_instance_id)) {
-            THROWF(db0::InputException) << "Object has been deleted";
-        }
-        
+                
         auto class_ptr = m_type.get();
         if (!class_ptr) {
             // retrieve class from the initializer
