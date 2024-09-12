@@ -28,20 +28,19 @@ def test_cache_size_can_be_updated_at_runtime(db0_fixture):
     assert abs(1.0 - (512 * 1024) / cache_2["size"]) < 0.05
     assert cache_2["capacity"] == cache_2["size"]
     
-
-# # FIXME: test fails with Assertion `slot' failed.
-# def test_base_lock_usage_does_not_exceed_limits(db0_fixture):
-#     # run this test only in debug mode
-#     if 'D' in db0.build_flags():
-#         append_count = 200
-#         cache_size = 1024 * 1024
-#         db0.set_cache_size(cache_size)
-#         usage_1 = db0.get_base_lock_usage()[0]
-#         for _ in range(append_count):
-#             obj = MemoTestClass(rand_array(16384))
-#         db0.clear_cache()
-#         usage_2 = db0.get_base_lock_usage()[0]
-#         assert usage_2 - usage_1 < cache_size * 1.5
+    
+def test_base_lock_usage_does_not_exceed_limits(db0_fixture):
+    # run this test only in debug mode
+    if 'D' in db0.build_flags():
+        append_count = 200
+        cache_size = 1024 * 1024
+        db0.set_cache_size(cache_size)
+        usage_1 = db0.get_base_lock_usage()[0]
+        for _ in range(append_count):
+            obj = MemoTestClass(rand_array(16384))
+        db0.clear_cache()
+        usage_2 = db0.get_base_lock_usage()[0]
+        assert usage_2 - usage_1 < cache_size * 1.5
 
 
 def test_lang_cache_can_reach_capacity(db0_fixture):

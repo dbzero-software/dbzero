@@ -38,7 +38,7 @@ namespace db0
         add(dst_fixture_id, dst_address, other.m_cache[it->second].second.get());
         other.m_cache[it->second] = {};
         other.m_uid_to_index.erase(it);
-        --other.m_size;        
+        --other.m_size;
     }
 
     bool LangCache::isFull() const {
@@ -123,10 +123,10 @@ namespace db0
         for (auto &item: m_cache) {            
             if (item.second && LangToolkit::getRefCount(item.second.get()) == 1) {                
                 m_uid_to_index.erase(item.first);
-                item = {};                
+                item = {};
+                --m_size;
             }        
-        }        
-        m_size = 0;
+        }
     }
 
     LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, std::uint64_t address) const {
