@@ -194,7 +194,7 @@ namespace tests
         using ItemT = typename RangeTreeT::ItemT;
         
         auto memspace = getMemspace();
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
         // create with the limit of 8 items per range
         auto rt = std::make_shared<RangeTreeT>(memspace, 8);
         std::vector<ItemT> values_1 {
@@ -221,7 +221,7 @@ namespace tests
             
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
         auto rt = std::make_shared<RangeTreeT>(memspace, 4);
         std::vector<ItemT> values_1 {
             { 99, 3 },  { 199, 5 }, { 13, 2 }, { 199, 7 }, { 142, 9}, { 152, 8}, { 27, 4 },
@@ -247,7 +247,7 @@ namespace tests
 
         auto memspace = getMemspace();
         // create with the limit of 8 items per range
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
         auto rt = std::make_shared<RangeTreeT>(memspace, 8);
         std::vector<ItemT> values_1 {
             { 99, 3 },  { 199, 5 }, { 13, 2 }, { 199, 7 }, { 142, 9}, { 152, 8}, { 27, 4 }
@@ -342,7 +342,7 @@ namespace tests
                 
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
         auto rt = std::make_shared<RangeTreeT>(memspace, 4);
         std::vector<ItemT> values_1 {
             { 99, 3 },  { 199, 5 }, { 13, 2 }, { 199, 7 }, { 142, 9}, { 152, 8}, { 27, 4 },
@@ -368,7 +368,7 @@ namespace tests
         
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
         auto rt = std::make_shared<RangeTreeT>(memspace, 4);
         std::vector<ItemT> values_1 {
             { 99, 3 },  { 199, 5 }, { 13, 2 }, { 199, 7 }, { 142, 9}, { 152, 8}, { 27, 4 },
@@ -393,7 +393,7 @@ namespace tests
         using ItemT = typename RangeTreeT::ItemT;
         
         auto memspace = getMemspace();
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
         auto rt = std::make_shared<RangeTreeT>(memspace, 128);
         std::vector<ItemT> values_1 {
             {666, 0}, {22, 1}, {99, 2}, {888, 3}, {444, 4}
@@ -448,7 +448,7 @@ namespace tests
         
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
         auto rt = std::make_shared<RangeTreeT>(memspace, 128);
         std::vector<std::uint64_t> values_1 { 0, 1, 2, 3, 4 };        
         rt->bulkInsertNull(values_1.begin(), values_1.end());
@@ -471,7 +471,7 @@ namespace tests
         
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
         auto rt = std::make_shared<RangeTreeT>(memspace, 4);
         std::vector<std::uint64_t> values_1 { 0, 1, 2, 3, 4 };
         rt->bulkInsertNull(values_1.begin(), values_1.end());
@@ -494,7 +494,7 @@ namespace tests
         using ItemT = typename RangeTreeT::ItemT;
         
         auto memspace = getMemspace();
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
         auto rt = std::make_shared<RangeTreeT>(memspace, 4);
         std::vector<ItemT> values_1 {
             { 0, 0 }, { 27, 4 }, { 42134, 44 }, { 99, 3 }, { 152, 8}, { 123, 9 }, { 152, 12 }, 
@@ -524,7 +524,7 @@ namespace tests
         using ItemT = typename RangeTreeT::ItemT;
         
         auto memspace = getMemspace();
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto);
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
         auto rt = std::make_shared<RangeTreeT>(memspace, 4);
         std::vector<ItemT> values_1 {
             { 0, 0 }, { 27, 4 }, { 42134, 44 }, { 99, 3 }, { 152, 8}, { 123, 9 }, { 152, 12 }, 
@@ -555,7 +555,7 @@ namespace tests
         using ItemT = typename RangeTreeT::ItemT;
         
         auto memspace = getMemspace();
-        IndexBase index(memspace, 0, db0::IndexType::Unknown, db0::IndexDataType::Auto); 
+        IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto); 
         auto rt = std::make_shared<RangeTreeT>(memspace, 128);
         std::vector<std::uint64_t> values_1 { 0, 1, 2, 3, 4 };
         rt->bulkInsertNull(values_1.begin(), values_1.end());

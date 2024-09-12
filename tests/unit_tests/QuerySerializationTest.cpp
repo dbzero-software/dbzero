@@ -29,7 +29,7 @@ namespace tests
         {
             auto fixture = getFixture();
             // create with the limit of 8 items per range
-            IndexBase index(*fixture, 0, IndexType::RangeTree, IndexDataType::Auto);
+            IndexBase index(*fixture, IndexType::RangeTree, IndexDataType::Auto);
             auto rt = std::make_shared<RangeTreeT>(*fixture, 8);
             index.modify().m_index_addr = rt->getAddress();
             std::vector<ItemT> values_1 {

@@ -10,12 +10,12 @@ namespace db0::object_model
 
     void TypedAddress::setAddress(std::uint64_t address)
     {
-        assert((db0::getPhysicalAddress(address) & 0xFF00000000000000) == 0);
-        m_value = (m_value & 0xFF00000000000000) | db0::getPhysicalAddress(address);
+        assert((db0::getPhysicalAddress(address) >> 50) == 0);
+        m_value = (m_value & 0xFFFC000000000000) | db0::getPhysicalAddress(address);
     }
     
     void TypedAddress::setType(StorageClass type) {
-        m_value = (m_value & 0x00FFFFFFFFFFFFFF) | ((std::uint64_t)type << 56);
+        m_value = (m_value & 0x0003FFFFFFFFFFFF) | (static_cast<std::uint64_t>(type) << 50);
     }
     
     bool TypedAddress::operator<(const TypedAddress &other) const {

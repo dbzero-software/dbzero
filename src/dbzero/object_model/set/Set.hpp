@@ -27,7 +27,7 @@ namespace db0::object_model
     struct [[gnu::packed]] o_set: public db0::o_fixed<o_set>
     {
         // common object header
-        o_object_header m_header;
+        o_unique_header m_header;
         std::uint64_t m_index_ptr = 0;
         std::uint64_t m_size = 0;
         std::uint64_t m_reserved[2] = {0, 0};

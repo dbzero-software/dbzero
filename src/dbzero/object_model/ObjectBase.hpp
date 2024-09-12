@@ -30,18 +30,24 @@ namespace db0
 
         ObjectBase() = default;
         
-        // Create a new instance with a unique address
+        // Create a new instance
         template <typename... Args> ObjectBase(db0::swine_ptr<Fixture> &fixture, Args &&... args)
             : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())
-        {            
+        {
+            if constexpr (Unique) {
+                this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
+            }
             fixture->getGC0().add<T>(this);
         }
 
-        // Create a new instance with a unique address (no garbage collection)
+        // Create a new instance (no garbage collection)
         struct tag_no_gc {};
         template <typename... Args> ObjectBase(tag_no_gc, db0::swine_ptr<Fixture> &fixture, Args &&... args)
             : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())
-        {         
+        {
+            if constexpr (Unique) {            
+                this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
+            }
         }
         
         // open existing instance
@@ -71,6 +77,9 @@ namespace db0
         {
             unregister();
             has_fixture<BaseT>::init(fixture, accessFlags(), std::forward<Args>(args)...);
+            if constexpr (Unique) {
+                this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
+            }
             fixture->getGC0().add<T>(this);
         }
         

@@ -12,14 +12,5 @@ namespace db0
         std::uniform_int_distribution<std::uint64_t> dis;        
         return dis(gen);
     }
-
-    std::uint32_t createInstanceId()
-    {
-        static thread_local std::random_device rd;
-        static thread_local std::mt19937_64 gen(rd());
-
-        std::uniform_int_distribution<std::uint32_t> dis;
-        return dis(gen);
-    }
-    
+        
 }

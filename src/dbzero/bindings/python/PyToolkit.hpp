@@ -84,33 +84,26 @@ namespace db0::python
         */
         static std::string getModuleName(TypeObjectPtr py_type);
         
-        // Unload with optional instance_id & type validation
+        // Unload with optional type validation
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, const ClassFactory &,
-            std::optional<std::uint32_t> instance_id = {}, std::shared_ptr<Class> expected_type = nullptr);
+            std::shared_ptr<Class> expected_type = nullptr);
 
-        // Unload with known type and optional instance_id validation
-        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, std::shared_ptr<Class>,
-            std::optional<std::uint32_t> instance_id = {});
+        // Unload with known type
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, std::shared_ptr<Class>);
 
-        // Unload dbzero list instance with optional instance ID validation
-        static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture> &, std::uint64_t address,
-            std::optional<std::uint32_t> instance_id = {});
+        static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
-        static ObjectSharedPtr unloadIndex(db0::swine_ptr<Fixture> &, std::uint64_t address,
-            std::optional<std::uint32_t> instance_id = {});
+        static ObjectSharedPtr unloadIndex(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
-        static ObjectSharedPtr unloadSet(db0::swine_ptr<Fixture> &, std::uint64_t address,
-            std::optional<std::uint32_t> instance_id = {});
+        static ObjectSharedPtr unloadSet(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
-        static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture> &, std::uint64_t address,
-            std::optional<std::uint32_t> instance_id = {});
+        static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
-        static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture> &, std::uint64_t address,
-            std::optional<std::uint32_t> instance_id = {});
+        static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
         // Unload dbzero block instance
         static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture> &fixture, std::uint64_t address);
-
+        
         // Unload from serialized bytes
         static ObjectSharedPtr unloadObjectIterator(db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);

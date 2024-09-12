@@ -30,15 +30,14 @@ namespace db0
     struct [[gnu::packed]] o_index: public o_fixed<o_index>
     {
         // common object header
-        o_object_header m_header;
-        const std::uint32_t m_instance_id;
+        o_unique_header m_header;        
         IndexType m_type;
         IndexDataType m_data_type = IndexDataType::Auto;
         // address of the actual index instance
         std::uint64_t m_index_addr = 0;
         std::array<std::uint64_t, 2> m_reserved;
         
-        o_index(std::uint32_t instance_id, IndexType, IndexDataType);
+        o_index(IndexType, IndexDataType);
         // header not copied
         o_index(const o_index &other);
     };

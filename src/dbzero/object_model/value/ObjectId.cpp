@@ -14,7 +14,7 @@ namespace db0::object_model
 
         // allocate +1 byte since decoded content might be up to 1 byte larger
         std::array<std::uint8_t, rawSize() + 1> bytes;
-        if (db0::base32_decode(buf, bytes.data()) != rawSize()) {
+        if (db0::base32_decode(buf, bytes.data()) < rawSize()) {
             THROWF(db0::InputException) << "Invalid UUID";
         }
         
@@ -24,7 +24,7 @@ namespace db0::object_model
         ptr += sizeof(obj.m_fixture_uuid);
         obj.m_typed_addr.m_value = *reinterpret_cast<std::uint64_t*>(ptr);
         ptr += sizeof(obj.m_typed_addr.m_value);
-        obj.m_instance_id = *reinterpret_cast<std::uint32_t*>(ptr);
+        obj.m_instance_id = *reinterpret_cast<std::uint16_t*>(ptr);
         return obj;
     }
     
@@ -37,7 +37,7 @@ namespace db0::object_model
         ptr += sizeof(m_fixture_uuid);
         *reinterpret_cast<std::uint64_t*>(ptr) = m_typed_addr.m_value;
         ptr += sizeof(m_typed_addr.m_value);
-        *reinterpret_cast<std::uint32_t*>(ptr) = m_instance_id;
+        *reinterpret_cast<std::uint16_t*>(ptr) = m_instance_id;
         db0::base32_encode(bytes.data(), bytes.size(), buffer);
     }
     
@@ -47,8 +47,7 @@ namespace db0::object_model
             && (m_instance_id == other.m_instance_id);
     }
 
-    bool ObjectId::operator!=(const ObjectId &other) const
-    {
+    bool ObjectId::operator!=(const ObjectId &other) const {
         return !(*this == other);
     }
 
@@ -58,18 +57,15 @@ namespace db0::object_model
             (m_fixture_uuid == other.m_fixture_uuid && m_typed_addr == other.m_typed_addr && m_instance_id < other.m_instance_id);
     }
     
-    bool ObjectId::operator<=(const ObjectId &other) const
-    {
+    bool ObjectId::operator<=(const ObjectId &other) const {
         return *this < other || *this == other;
     }
 
-    bool ObjectId::operator>(const ObjectId &other) const
-    {
+    bool ObjectId::operator>(const ObjectId &other) const {
         return !(*this <= other);
     }
 
-    bool ObjectId::operator>=(const ObjectId &other) const
-    {
+    bool ObjectId::operator>=(const ObjectId &other) const {
         return !(*this < other);
     }
 

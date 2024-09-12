@@ -58,7 +58,7 @@ namespace db0::python
         auto fixture_uuid = reinterpret_cast<PyEnumValue*>(py_value)->ext().m_fixture_uuid;
         return PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid);
     }
-
+    
     void registerGetFixtureOfFunctions(std::vector<db0::swine_ptr<Fixture> (*)(PyObject*)> &functions)
     {
         functions.resize(static_cast<int>(TypeId::COUNT));
@@ -72,11 +72,10 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = getFixtureOf<TypeId::DB0_ENUM_VALUE>;
         /**
         functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;                                        
-        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = createMember<TypeId::OBJECT_ITERATOR, PyToolkit>;
-        
+        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = createMember<TypeId::OBJECT_ITERATOR, PyToolkit>;        
         */
     }
-
+    
     db0::swine_ptr<Fixture> getFixtureOf(PyObject *object)
     {
         // create member function pointer
@@ -103,7 +102,7 @@ namespace db0::python
         auto fixture = instance.getFixture();
         assert(fixture);
         object_id.m_fixture_uuid = fixture->getUUID();
-        object_id.m_instance_id = instance->m_instance_id;
+        object_id.m_instance_id = db0::getInstanceId(instance.getAddress());
         object_id.m_typed_addr.setAddress(instance.getAddress());
         object_id.m_typed_addr.setType(getStorageClass<T>());
 

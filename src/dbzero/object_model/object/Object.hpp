@@ -43,9 +43,8 @@ namespace db0::object_model
 
     public:
         // common object header
-        o_object_header m_header;
+        o_unique_header m_header;
         const std::uint32_t m_class_ref;
-        const std::uint32_t m_instance_id;
         // optional address of the key-value store (to store extension fields)
         KV_Address m_kv_address;
         // kv-index type must be stored separately from the address
@@ -61,12 +60,12 @@ namespace db0::object_model
         IndexVT &index_vt();
 
         // ref_count - the initial reference count inherited from the initializer
-        o_object(std::uint32_t class_ref, std::uint32_t instance_id, std::uint32_t ref_count,
-            const PosVT::Data &pos_vt_data, const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
-
-        static std::size_t measure(std::uint32_t, std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
+        o_object(std::uint32_t class_ref, std::uint32_t ref_count, const PosVT::Data &pos_vt_data, 
             const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
 
+        static std::size_t measure(std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
+            const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
+        
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
             auto start = buf;
@@ -136,8 +135,7 @@ namespace db0::object_model
         static Object *makeNull(void *at_ptr);
         
         // Unload the object stem, to retrieve its type and validate UUID / instance ID
-        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, std::uint64_t address, 
-            std::optional<std::uint32_t> instance_id = {});
+        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
         // unload from stem with a known type
         static Object *unload(void *at_ptr, ObjectStem &&, std::shared_ptr<Class>);
@@ -250,11 +248,7 @@ namespace db0::object_model
         void detach() const;
 
         void commit() const;
-
-        inline std::uint32_t getInstanceId() const {
-            return m_instance_id;
-        }
-        
+                
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <dbzero/core/serialization/Fixed.hpp>
+#include <dbzero/core/serialization/Ext.hpp>
 
 namespace db0
 
@@ -30,5 +31,18 @@ namespace db0
             return m_ref_count > 0;
         }
     };
+    
+    // Unique header for objects with unique instance id
+    struct [[gnu::packed]] o_unique_header: public o_fixed_ext<o_unique_header, o_object_header>
+    {
+        // instance ID is decoded from object's address (see. db0::getInstanceId)
+        std::uint16_t m_instance_id = 0;
         
+        o_unique_header() = default;
+        o_unique_header(std::uint32_t ref_count)
+            : o_fixed_ext<o_unique_header, o_object_header>(ref_count)
+        {
+        }
+    };
+
 }
