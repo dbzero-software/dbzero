@@ -17,7 +17,7 @@ def test_uid_has_base32_repr(db0_fixture):
     uuid = db0.uuid(object_1)
     # only uppercase or digit characters
     assert all([c.isupper() or c.isdigit() for c in uuid])
-    assert len(uuid) == 32
+    assert len(uuid) == 29
 
 
 def test_uid_can_be_encoded_in_json(db0_fixture):

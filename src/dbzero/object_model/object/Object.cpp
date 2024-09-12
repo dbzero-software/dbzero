@@ -43,7 +43,7 @@ namespace db0::object_model
             (IndexVT::type(), index_vt_begin, index_vt_end);
     }
 
-    std::size_t o_object::measure(std::uint32_t, std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
+    std::size_t o_object::measure(std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
         const XValue *index_vt_begin, const XValue *index_vt_end)
     {
         return super_t::measureMembers()

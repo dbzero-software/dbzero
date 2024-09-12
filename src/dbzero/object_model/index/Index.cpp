@@ -19,7 +19,7 @@ namespace db0::object_model
     }
 
     Index::Index(db0::swine_ptr<Fixture> &fixture)
-        : super_t(fixture, db0::createInstanceId(), IndexType::RangeTree, IndexDataType::Auto)
+        : super_t(fixture, IndexType::RangeTree, IndexDataType::Auto)
         , m_builder(*this)
     {
     }

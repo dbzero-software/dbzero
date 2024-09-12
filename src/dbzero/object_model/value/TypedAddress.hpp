@@ -9,7 +9,7 @@ namespace db0::object_model
 
 {
 
-    // A struct that combine StorageClass (8bit) + address (56bits) in a single 64bit value
+    // A struct that combine StorageClass (14bit) + address (50bits) in a single 64bit value
     struct [[gnu::packed]] TypedAddress
     {
         std::uint64_t m_value;
@@ -22,18 +22,18 @@ namespace db0::object_model
         }
         
         inline TypedAddress(StorageClass type, std::uint64_t address)
-            : m_value((static_cast<std::uint64_t>(type) << 56) | db0::getPhysicalAddress(address))
+            : m_value((static_cast<std::uint64_t>(type) << 50) | db0::getPhysicalAddress(address))
         {
             assert(db0::getPhysicalAddress(address) < 0x100000000000000);
         }
 
         inline StorageClass getType() const {
-            return static_cast<StorageClass>(m_value >> 56);
+            return static_cast<StorageClass>(m_value >> 50);
         }
 
         // NOTE: physical address is returned
         inline std::uint64_t getAddress() const {
-            return m_value & 0x00FFFFFFFFFFFFFF;
+            return db0::getPhysicalAddress(m_value);
         }
         
         // Cast operator (to physical address)

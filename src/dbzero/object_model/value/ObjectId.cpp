@@ -14,7 +14,7 @@ namespace db0::object_model
 
         // allocate +1 byte since decoded content might be up to 1 byte larger
         std::array<std::uint8_t, rawSize() + 1> bytes;
-        if (db0::base32_decode(buf, bytes.data()) != rawSize()) {
+        if (db0::base32_decode(buf, bytes.data()) < rawSize()) {
             THROWF(db0::InputException) << "Invalid UUID";
         }
         

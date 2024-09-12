@@ -9,28 +9,7 @@
 namespace db0
 
 {
-    
-    // Converts allocator's logical address into a physical one (by removing high 14 bits)
-    inline std::uint64_t getPhysicalAddress(std::uint64_t address) {
-        return address & 0x0003'FFFF'FFFF'FFFF;
-    }
-    
-    inline bool isPhysicalAddress(std::uint64_t address) {
-        return (address & 0xFFFC'0000'0000'0000) == 0;
-    }
-    
-    // extract the instance ID part from the physical address (high 14 bits)
-    inline std::uint16_t getInstanceId(std::uint64_t address) {
-        return address >> 50;
-    }
-    
-    // combine physical address & instance ID to form a logical address
-    std::uint64_t makeLogicalAddress(std::uint64_t address, std::uint16_t instance_id) 
-    {
-        assert(isPhysicalAddress(address));
-        return (static_cast<std::uint64_t>(instance_id) << 50) | address;
-    }
-    
+        
     /**
      * The DB0 allocator interface
      * NOTE: allocators may return logical adddress which needs to be converted to physical one
@@ -84,4 +63,21 @@ namespace db0
             bool unique = false);
     };
 
+    // Converts allocator's logical address into a physical one (by removing high 14 bits)
+    inline std::uint64_t getPhysicalAddress(std::uint64_t address) {
+        return address & 0x0003'FFFF'FFFF'FFFF;
+    }
+    
+    inline bool isPhysicalAddress(std::uint64_t address) {
+        return (address & 0xFFFC'0000'0000'0000) == 0;
+    }
+    
+    // extract the instance ID part from the physical address (high 14 bits)
+    inline std::uint16_t getInstanceId(std::uint64_t address) {
+        return address >> 50;
+    }
+    
+    // combine physical address & instance ID to form a logical address
+    std::uint64_t makeLogicalAddress(std::uint64_t address, std::uint16_t instance_id);
+    
 }
