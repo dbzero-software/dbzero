@@ -410,4 +410,8 @@ namespace db0::python
         return result;
     }
     
+    bool PyToolkit::compare(ObjectPtr py_object1, ObjectPtr py_object2) {
+        return PyObject_RichCompareBool(py_object1, py_object2, Py_EQ);
+    }
+    
 }

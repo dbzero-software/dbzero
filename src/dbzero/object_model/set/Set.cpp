@@ -169,11 +169,10 @@ namespace db0::object_model
         return new (at_ptr) Set(fixture, address);
     }
 
-    void Set::destroy()
+    void Set::destroy() const
     {
-        unrefMembers();
-        // FIXME: THIS SHOULD BE REMOVED? when uncommented it causes "unsorted double linked list corrupted"
-        //m_index.destroy();
+        unrefMembers();        
+        m_index.destroy();
         super_t::destroy();
     }
 
@@ -242,11 +241,14 @@ namespace db0::object_model
     
     void Set::detach() const
     {
+        // FIXME: can be removed when GC0 calls commit-op
+        commit();
         m_index.detach();
         super_t::detach();
     }
 
-    void Set::unrefMembers() const {
+    void Set::unrefMembers() const
+    {
         auto fixture = this->getFixture();
         for (auto [_, address] : m_index) {
             auto bindex = address.getIndex(this->getMemspace());

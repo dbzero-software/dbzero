@@ -108,6 +108,8 @@ namespace db0
         // commit clears the reasource available for write flag
         // it might still be available for read
         safeResetFlags(m_resource_flags, db0::RESOURCE_AVAILABLE_FOR_WRITE);
+        m_access_mode.set(AccessOptions::write, false);
+        m_access_mode.set(AccessOptions::create, false);
     }
     
 }

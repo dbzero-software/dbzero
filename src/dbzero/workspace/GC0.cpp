@@ -87,14 +87,14 @@ namespace db0
             m_ops[vptr_item.second].detach(vptr_item.first);
         }
     }
-
+    
     void GC0::commitAll()
     {
         for (auto &vptr_item : m_vptr_map) {
             m_ops[vptr_item.second].commit(vptr_item.first);
         }
     }
-
+    
     std::size_t GC0::size() const {
         return m_vptr_map.size();
     }

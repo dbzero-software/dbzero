@@ -227,7 +227,7 @@ namespace db0
         if (!prefix_ptr) {
             return;
         }
-
+        
         std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
         // FIXME: this should be changed to commit-op
         if (m_gc0_ptr) {

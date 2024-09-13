@@ -29,7 +29,7 @@ namespace db0
                 m_node = index.begin();
                 if (!index.empty()) {
                     // open bucket / bucket iterator at first item available
-                    m_data_buf = data_vector(index.myPtr(m_node->data.ptr_b_data));
+                    m_data_buf = data_vector(index.myPtr(m_node->m_data.ptr_b_data));
                     m_it_data = m_data_buf->beginJoin(direction);
                 }
             } else {
@@ -37,7 +37,7 @@ namespace db0
                 if (!index.empty()) {
                     --m_node;
                     // open bucket / bucket iterator at first item available
-                    m_data_buf = data_vector(index.myPtr(m_node->data.ptr_b_data));
+                    m_data_buf = data_vector(index.myPtr(m_node->m_data.ptr_b_data));
                     m_it_data = m_data_buf->beginJoin(direction);
                 }
             }
@@ -55,7 +55,7 @@ namespace db0
         {
             if (!index.empty()) {
                 // open bucket / bucket iterator at first item available
-                m_data_buf = data_vector(index.myPtr(it_node->data.ptr_b_data));                
+                m_data_buf = data_vector(index.myPtr(it_node->m_data.ptr_b_data));
                 m_it_data = m_data_buf->beginJoin(m_direction);
             }
         }
@@ -70,7 +70,7 @@ namespace db0
             if (!it.is_end()) {
                 if(!m_index_ptr->empty()) {
                     // open bucket / bucket iterator at first item available
-                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->data.ptr_b_data));                    
+                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->m_data.ptr_b_data));
                     m_it_data = m_data_buf->beginJoin(m_direction);
                     join(*it, m_direction);
                 }
@@ -125,7 +125,7 @@ namespace db0
                     if (m_index_ptr->join(m_stack, key, cast_comp, direction)) {
                         // must check with preceeding bucket unless equal match
                         node_iterator it = *m_stack;
-                        if (m_comp(key, static_cast<KeyT>(it->data.lo_bound))) {
+                        if (m_comp(key, static_cast<KeyT>(it->m_data.lo_bound))) {
                             --it;
                             if (it==m_node) {
                                 m_node = *m_stack;
@@ -151,7 +151,7 @@ namespace db0
                         }
                     }
                     // Open bucket / bucket iterator
-                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->data.ptr_b_data));
+                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->m_data.ptr_b_data));
                     m_it_data = m_data_buf->beginJoin(direction);
                 }
             } else {
@@ -182,7 +182,7 @@ namespace db0
                         return false;
                     }
                     // open bucket / bucket iterator
-                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->data.ptr_b_data));
+                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->m_data.ptr_b_data));
                     m_it_data = m_data_buf->beginJoin(direction);
                 }
             }
@@ -199,17 +199,17 @@ namespace db0
             }
             typename types_t::template cast_then_compare<KeyT> cast_comp;
             // check with the index
-            if (m_comp(key, static_cast<KeyT>(m_node->data.lo_bound)) && m_node!=m_index_ptr->begin()) {
+            if (m_comp(key, static_cast<KeyT>(m_node->m_data.lo_bound)) && m_node!=m_index_ptr->begin()) {
                 m_index_ptr->joinBound(m_stack, key, cast_comp);
                 if (m_node!=*m_stack) {
                     m_node = *m_stack;
-                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->data.ptr_b_data));
+                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->m_data.ptr_b_data));
                     m_it_data = m_data_buf->beginJoin(-1);
                 }
                 node_iterator it_prev = m_node;
                 --it_prev;
                 // check with the previous bucket
-                data_vector buf = data_vector(m_index_ptr->myPtr(it_prev->data.ptr_b_data));
+                data_vector buf = data_vector(m_index_ptr->myPtr(it_prev->m_data.ptr_b_data));
                 if (!m_comp(static_cast<KeyT>(buf->back()), key)) {
                     m_node = it_prev;
                     m_data_buf = buf;
@@ -253,7 +253,7 @@ namespace db0
                 }
                 if (m_index_ptr->join(*peek_stack, key, -1)) {
                     // open ping bucket / bucket iterator
-                    peek_buf.reset(new data_vector(m_index_ptr->myPtr((**peek_stack)->data.ptr_b_data)));
+                    peek_buf.reset(new data_vector(m_index_ptr->myPtr((**peek_stack)->m_data.ptr_b_data)));
                     peek_data = std::make_unique<typename data_vector::joinable_const_iterator>((*peek_buf)->beginJoin(-1));
                 } else {
                     // limit check
@@ -333,7 +333,7 @@ namespace db0
                 }
                 else {
                     // open bucket / bucket iterator
-                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->data.ptr_b_data));
+                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->m_data.ptr_b_data));
                     m_it_data = m_data_buf->beginJoin(1);
                 }
             }
@@ -353,11 +353,10 @@ namespace db0
                     // invalidate, set end
                     set_end();
                     return;
-                }
-                else {
+                } else {
                     --m_node;
                     // open bucket / bucket iterator
-                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->data.ptr_b_data));
+                    m_data_buf = data_vector(m_index_ptr->myPtr(m_node->m_data.ptr_b_data));
                     m_it_data = m_data_buf->beginJoin(-1);
                 }
             }
@@ -377,10 +376,10 @@ namespace db0
         {
             auto it = m_index_ptr->begin();
             assert(it!=m_index_ptr->end());
-            data_vector first(v_object_t::myPtr(it->data.ptr_b_data));
+            data_vector first(v_object_t::myPtr(it->m_data.ptr_b_data));
             auto it_end = m_index_ptr->begin();
             --it_end;
-            data_vector last(v_object_t::myPtr(it->data.ptr_b_data));
+            data_vector last(v_object_t::myPtr(it->m_data.ptr_b_data));
             return std::make_pair(first.front(), last.back());
         }
 

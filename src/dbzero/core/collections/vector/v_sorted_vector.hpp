@@ -476,7 +476,7 @@ namespace db0
             this->m_size -= erase_count;
             return erase_count;
         }
-
+        
         /**
          * Find element by key
          * @return nullptr if element not found, valid iterator if found

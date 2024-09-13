@@ -1,10 +1,10 @@
 #pragma once
+
 #include <dbzero/workspace/Fixture.hpp>
 
 namespace db0::object_model
 
 {
-
 
     struct [[gnu::packed]] o_typed_item: public db0::o_fixed<o_typed_item>
     {
@@ -52,7 +52,7 @@ namespace db0::object_model
             return as_ptr;
         }
 
-        operator bool () const{
+        operator bool () const {
             return as_ptr != 0;
         }
         

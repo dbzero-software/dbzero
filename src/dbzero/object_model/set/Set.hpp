@@ -54,9 +54,7 @@ namespace db0::object_model
         
         static Set *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Set *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
-        
-        // drop underlying DBZero representation
-        void destroy();
+
         Set::ObjectSharedPtr pop();
         bool has_item(PyObject * obj) const;
         
@@ -70,6 +68,9 @@ namespace db0::object_model
 
         void detach() const;
 
+        // drop underlying DBZero representation
+        void destroy() const;
+        
         const_iterator begin() const;
         const_iterator end() const;
         

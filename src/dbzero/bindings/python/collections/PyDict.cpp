@@ -23,7 +23,7 @@ namespace db0::python
     }
     
     PyObject *DictObject_GetItemInternal(DictObject *dict_obj, PyObject *key)
-    {
+    {        
         dict_obj->ext().getFixture()->refreshIfUpdated();
         auto hash = PyObject_Hash(key);
         if (hash == -1) {
@@ -31,7 +31,7 @@ namespace db0::python
         }
         return dict_obj->ext().getItem(hash, key).steal();
     }
-
+    
     PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
@@ -44,10 +44,12 @@ namespace db0::python
         if (hash == -1) {
             return -1;
         }
-        dict_obj->modifyExt().setItem(hash, key, value);
+
+        db0::FixtureLock lock(dict_obj->ext().getFixture());
+        dict_obj->modifyExt().setItem(lock, hash, key, value);
         return 0;
     }
-
+    
     int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
         std::lock_guard pbm_lock(python_bindings_mutex);
@@ -81,7 +83,7 @@ namespace db0::python
                 //std::lock_guard pbm_lock(python_bindings_mutex);
         return DictObject_del(dict_obj);
     }
-
+    
     static PySequenceMethods DictObject_seq = {
         .sq_contains = (objobjproc)DictObject_HasItem
     };

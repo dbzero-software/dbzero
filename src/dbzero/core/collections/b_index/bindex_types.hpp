@@ -110,14 +110,14 @@ namespace db0
             comp_t key_comp;
 
             bool operator()(const typename bindex_node_traits::node_ptr_t &node, KeyT key) const {
-                return key_comp(static_cast<KeyT>(node->data.lo_bound), key);
+                return key_comp(static_cast<KeyT>(node->m_data.lo_bound), key);
             }
 
             bool operator()(KeyT key,const typename bindex_node_traits::node_ptr_t &node) const {
-                return key_comp(key, static_cast<KeyT>(node->data.lo_bound));
+                return key_comp(key, static_cast<KeyT>(node->m_data.lo_bound));
             }
         };
-
+        
         using node_iterator = typename bindex_tree_t::iterator;
         using node_stack = typename bindex_tree_t::join_stack;
 

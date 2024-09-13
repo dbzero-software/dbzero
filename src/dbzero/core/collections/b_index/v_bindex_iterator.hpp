@@ -140,13 +140,13 @@ namespace db0
             bool is_empty = this->m_it_data.erase(was_addr_changed);
 
             // check front item modified (key)
-            if (!is_empty && m_comp(this->m_node_iterator->data.lo_bound, this->m_it_data.front())) {
+            if (!is_empty && m_comp(this->m_node_iterator->m_data.lo_bound, this->m_it_data.front())) {
                 // this is safe as order not violated
-                this->m_node_iterator.modify().data.lo_bound = this->m_it_data.front();
+                this->m_node_iterator.modify().m_data.lo_bound = this->m_it_data.front();
             }
 
             if (was_addr_changed) {
-                this->m_node_iterator.modify().data.ptr_b_data = this->m_it_data.getAddress();
+                this->m_node_iterator.modify().m_data.ptr_b_data = this->m_it_data.getAddress();
             }
             return is_empty;
         }
@@ -167,7 +167,7 @@ namespace db0
         void compact()
         {
             if (this->m_it_data.compact()) {
-                this->m_node_iterator.modify().data.ptr_b_data = this->m_it_data.getAddress();
+                this->m_node_iterator.modify().m_data.ptr_b_data = this->m_it_data.getAddress();
             }
         }
 
@@ -269,7 +269,7 @@ namespace db0
         // Begin iteration from node (asc or desc)
         DataIterator beginNode(const node_iterator &node, bool asc)
         {
-            auto data_buf = DataVectorT(m_memspace_ptr->myPtr(node->data.ptr_b_data));
+            auto data_buf = DataVectorT(m_memspace_ptr->myPtr(node->m_data.ptr_b_data));
             auto it_data = asc ? data_buf->begin() : data_buf->end();
             if (!asc) {
                 if (it_data == data_buf->begin()) {

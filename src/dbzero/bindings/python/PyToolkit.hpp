@@ -144,11 +144,9 @@ namespace db0::python
         inline static void decRef(ObjectPtr py_object) {
             Py_DECREF(py_object);
         }
-
-        inline static bool compare(ObjectPtr py_object1, ObjectPtr py_object2) {
-            return PyObject_RichCompareBool(py_object1, py_object2, Py_EQ);
-        }
         
+        static bool compare(ObjectPtr, ObjectPtr);
+
         static std::string getLastError();
         // indicate failed operation with a specific value/code
         static void setError(ObjectPtr err_obj, std::uint64_t err_value);

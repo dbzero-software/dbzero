@@ -123,20 +123,23 @@ namespace db0
         void destroy() const
         {
             // must clear all nodes (item destroy)
+            assert(!m_item_destroy_func && "Operation not implemented");
+            // FIXME: functionality pending review
+            /*
             auto &memspace = this->getMemspace();
             for (auto it = m_index.begin(), end = m_index.end(); it != end; ++it) {
                 if (it->data.ptr_b_data) {
                     data_vector data_buf(memspace.myPtr(it->data.ptr_b_data), m_item_destroy_func);
                     data_buf.destroy();
-                }
-                it.modify().data.ptr_b_data = 0;
+                }                
             }
+            */
             // now, safe to destroy index
             m_index.destroy();
             // destroy bindex_container
             super_t::destroy();
         }
-
+        
         /**
          * Calculate total size of BN space occupied
          * @return size with additional information to help profile
@@ -153,7 +156,7 @@ namespace db0
                 ++result.node_count;
                 result.node_size += begin_node->sizeOf();
                 // size of data vector (under node)
-                data_vector dv(v_bindex::myPtr(begin_node->data.ptr_b_data));
+                data_vector dv(v_bindex::myPtr(begin_node->m_data.ptr_b_data));
                 result.data_size += dv->sizeOf();
                 ++begin_node;
             }
@@ -244,12 +247,12 @@ namespace db0
                 it_node = m_index.insert_equal(*begin_item);
                 // create initial data block buffer
                 data_buf = data_vector(this->getMemspace(), 8, sv_state::growing, m_item_destroy_func);
-                it_node.modify().data.ptr_b_data = data_buf.getAddress();
+                it_node.modify().m_data.ptr_b_data = data_buf.getAddress();
             } else {
                 it_node = m_index.end();
                 --it_node;
                 // open data bucket
-                data_buf = data_vector(this->myPtr(it_node->data.ptr_b_data), m_item_destroy_func);
+                data_buf = data_vector(this->myPtr(it_node->m_data.ptr_b_data), m_item_destroy_func);
             }
             while (begin_item != end_item) {
                 std::size_t diff = 0;
@@ -262,7 +265,7 @@ namespace db0
                 if (diff > 0) {
                     // grow data block
                     if (data_buf.bulkPushBack(begin_item, diff, m_max_size)) {
-                        it_node.modify().data.ptr_b_data = data_buf.getAddress();
+                        it_node.modify().m_data.ptr_b_data = data_buf.getAddress();
                     }
                     begin_item = _end;
                 }
@@ -271,7 +274,7 @@ namespace db0
                     it_node = m_index.insert_equal(*begin_item);
                     // create initial data block buffer
                     data_buf = data_vector(this->getMemspace(), 8, sv_state::growing, m_item_destroy_func);
-                    it_node.modify().data.ptr_b_data = data_buf.getAddress();
+                    it_node.modify().m_data.ptr_b_data = data_buf.getAddress();
                 }
                 total_diff += diff;
             }
@@ -280,7 +283,7 @@ namespace db0
             }
         }
 
-        void insert(const item_t &item) 
+        void insert(const item_t &item)
         {
             data_vector data_buf;
             node_iterator it_node = m_index.lower_equal_bound(item);
@@ -292,17 +295,17 @@ namespace db0
                     data_buf = data_vector(
                         this->getMemspace(), 8, sv_state::growing, m_item_destroy_func
                     );
-                    it_node.modify().data.ptr_b_data = data_buf.getAddress();
+                    it_node.modify().m_data.ptr_b_data = data_buf.getAddress();
                 } else {
                     // take first node, modify the bucket's key
                     it_node = m_index.begin();
-                    it_node.modify().data.lo_bound = item;
+                    it_node.modify().m_data.lo_bound = item;
                     // open data bucket
-                    data_buf = data_vector(this->getMemspace().myPtr(it_node->data.ptr_b_data), m_item_destroy_func);
+                    data_buf = data_vector(this->getMemspace().myPtr(it_node->m_data.ptr_b_data), m_item_destroy_func);
                 }
             } else {
                 // open data bucket
-                data_buf = data_vector(this->getMemspace().myPtr(it_node->data.ptr_b_data), m_item_destroy_func);
+                data_buf = data_vector(this->getMemspace().myPtr(it_node->m_data.ptr_b_data), m_item_destroy_func);
             }
 
             // actual insert
@@ -310,7 +313,7 @@ namespace db0
                 bool addr_changed = false;
                 data_buf.insert(item,addr_changed);
                 if (addr_changed) {
-                    it_node.modify().data.ptr_b_data = data_buf.getAddress();
+                    it_node.modify().m_data.ptr_b_data = data_buf.getAddress();
                 }
             }
 
@@ -332,7 +335,7 @@ namespace db0
                 if (it_next!=data_buf->end()) {
                     data_vector new_buf = data_buf.split(it_next);
                     node_iterator it_new = m_index.insert_equal(new_buf->front());
-                    it_new.modify().data.ptr_b_data = new_buf.getAddress();
+                    it_new.modify().m_data.ptr_b_data = new_buf.getAddress();
                 }
             }
             ++(this->modify().size);
@@ -348,7 +351,7 @@ namespace db0
                 // block not found
                 return end();
             }
-            data_vector data_buf(this->getMemspace().myPtr(it_node->data.ptr_b_data), m_item_destroy_func);
+            data_vector data_buf(this->getMemspace().myPtr(it_node->m_data.ptr_b_data), m_item_destroy_func);
             auto it_data = data_buf->find(key);
             if (it_data) {
                 return iterator(this->getMemspace(), it_node, m_index.begin(),
@@ -368,7 +371,7 @@ namespace db0
                 // block not found
                 return end();
             }
-            data_vector data_buf(this->getMemspace().myPtr(it_node->data.ptr_b_data), m_item_destroy_func);
+            data_vector data_buf(this->getMemspace().myPtr(it_node->m_data.ptr_b_data), m_item_destroy_func);
             // find in this block
             auto it_data = data_buf->findLowerEqualBound(key);
             if (it_data) {
@@ -394,7 +397,7 @@ namespace db0
                 // block / key not found
                 THROWF(db0::InputException) << "key not found: " << key;
             }
-            data_vector data_buf(this->getMemspace().myPtr(it_node->data.ptr_b_data), m_item_destroy_func);
+            data_vector data_buf(this->getMemspace().myPtr(it_node->m_data.ptr_b_data), m_item_destroy_func);
             auto it_data = data_buf->find(key);
             if (it_data) {
                 return iterator(this->getMemspace(), it_node, m_index.begin(),
@@ -429,7 +432,7 @@ namespace db0
                     auto it_next = it.getNode();
                     ++it_next;
                     if (it_next != m_index.end()) {
-                        data_vector next_buf(this->getMemspace().myPtr(it_next->data.ptr_b_data), m_item_destroy_func);
+                        data_vector next_buf(this->getMemspace().myPtr(it_next->m_data.ptr_b_data), m_item_destroy_func);
                         if (it.tryAppendBlock(std::move(next_buf))) {
                             m_index.erase(it_next);
                         }
@@ -481,13 +484,13 @@ namespace db0
             item_t last_item;
             node_iterator it = m_index.begin();
             while (it!=m_index.end()) {
-                if (!is_first && m_comp(it->data.lo_bound,last_item)) {
+                if (!is_first && m_comp(it->m_data.lo_bound,last_item)) {
                     THROWF(db0::InternalException) << "key order violation";
                 }
                 last_item = it->data.lo_bound;
                 is_first = false;
-                data_vector data_buf(this->getMemspace().myPtr(it->data.ptr_b_data), m_item_destroy_func);
-                if (m_comp(data_buf->front(), it->data.lo_bound)) {
+                data_vector data_buf(this->getMemspace().myPtr(it->m_data.ptr_b_data), m_item_destroy_func);
+                if (m_comp(data_buf->front(), it->m_data.lo_bound)) {
                     THROWF(db0::InternalException) << "key order violation";
                 }
                 data_buf->validateContent();
@@ -499,10 +502,10 @@ namespace db0
         {
             // destroy all blocks with items
             for (auto it = m_index.begin(), end = m_index.end(); it != end; ++it) {
-                if (it->data.ptr_b_data) {
-                    data_vector data_buf(this->getMemspace().myPtr(it->data.ptr_b_data), m_item_destroy_func);
+                if (it->m_data.ptr_b_data) {
+                    data_vector data_buf(this->getMemspace().myPtr(it->m_data.ptr_b_data), m_item_destroy_func);
                     data_buf.destroy();
-                    it.modify().data.ptr_b_data = 0;
+                    it.modify().m_data.ptr_b_data = 0;
                 }
             }
             // clear index next
@@ -517,7 +520,7 @@ namespace db0
                 // block not found
                 return false;
             }
-            data_vector data_buf(this->getMemspace().myPtr(it_node->data.ptr_b_data), m_item_destroy_func);
+            data_vector data_buf(this->getMemspace().myPtr(it_node->m_data.ptr_b_data), m_item_destroy_func);
             auto it = data_buf.find(item);
             if (it == data_buf.end()) {
                 // item not found
@@ -539,7 +542,7 @@ namespace db0
                 // block not found
                 return false;
             }
-            data_vector data_buf(this->getMemspace().myPtr(it_node->data.ptr_b_data), m_item_destroy_func);
+            data_vector data_buf(this->getMemspace().myPtr(it_node->m_data.ptr_b_data), m_item_destroy_func);
             auto it = data_buf.find(item);
             if (it == data_buf.end()) {
                 // item not found
@@ -597,10 +600,10 @@ namespace db0
                         m_it_node = ref.m_index.insert_equal(item);
                         // create initial data block buffer                        
                         m_data_buf = data_vector(ref.getMemspace(), 8, sv_state::growing, ref.m_item_destroy_func);
-                        m_it_node.modify().data.ptr_b_data = m_data_buf.getAddress();
+                        m_it_node.modify().m_data.ptr_b_data = m_data_buf.getAddress();
                     } else {
                         m_it_node = ref.m_index.begin();
-                        m_it_node.modify().data.lo_bound = item;
+                        m_it_node.modify().m_data.lo_bound = item;
                     }
                 }
                 // check the upper bound
@@ -608,10 +611,10 @@ namespace db0
                 ++it_next;
                 if (it_next!=ref.m_index.end()) {
                     m_has_upper_bound = true;
-                    m_upper_bound = it_next->data.lo_bound;
+                    m_upper_bound = it_next->m_data.lo_bound;
                 }
                 // open data bucket
-                m_data_buf = data_vector(ref.getMemspace().myPtr(m_it_node->data.ptr_b_data), ref.m_item_destroy_func);
+                m_data_buf = data_vector(ref.getMemspace().myPtr(m_it_node->m_data.ptr_b_data), ref.m_item_destroy_func);
             }
 
             /**
@@ -668,7 +671,7 @@ namespace db0
                         }
                     }
                     // complete with equal (as the last) values
-                    item_t last_item = ((buf_size > 0)?buf.front():m_it_node->data.lo_bound);
+                    item_t last_item = ((buf_size > 0)?buf.front():m_it_node->m_data.lo_bound);
                     while (!data.empty() && !m_ref.m_comp(last_item, data.front())) {
                         const item_t *item = nullptr;
                         if (!unique_only || (item = m_data_buf->find(data.front())) == nullptr) {
@@ -696,7 +699,7 @@ namespace db0
                         // grow data block
                         if (m_data_buf.bulkInsertReverseSorted(buf.begin(), buf_size, m_ref.m_max_size)) {
                             // update address (block size changed)
-                            m_it_node.modify().data.ptr_b_data = m_data_buf.getAddress();
+                            m_it_node.modify().m_data.ptr_b_data = m_data_buf.getAddress();
                         }
                     } else {
                         if (!data.empty()) {
@@ -718,14 +721,13 @@ namespace db0
                                 if (it_next != m_data_buf->end()) {
                                     data_vector new_buf = m_data_buf.split(it_next);
                                     node_iterator it_new = m_ref.m_index.insert_equal(new_buf->front());
-                                    it_new.modify().data.ptr_b_data = new_buf.getAddress();
+                                    it_new.modify().m_data.ptr_b_data = new_buf.getAddress();
                                     // continue with either of the buckets
                                     if (m_ref.m_comp(data.front(), new_buf->front())) {
                                         // continue with old bucket
                                         m_has_upper_bound = true;
                                         m_upper_bound = new_buf->front();
-                                    }
-                                    else {
+                                    } else {
                                         // continue with the new bucket
                                         m_it_node = it_new;
                                         m_data_buf = new_buf;
@@ -787,10 +789,10 @@ namespace db0
                 ++m_it_next;
                 if (m_it_next != ref.m_index.end()) {
                     m_has_upper_bound = true;
-                    m_upper_bound = m_it_next->data.lo_bound;
+                    m_upper_bound = m_it_next->m_data.lo_bound;
                 }
                 // open data bucket
-                m_data_buf = data_vector(ref.getMemspace().myPtr(m_it_node->data.ptr_b_data), ref.m_item_destroy_func);
+                m_data_buf = data_vector(ref.getMemspace().myPtr(m_it_node->m_data.ptr_b_data), ref.m_item_destroy_func);
             }
 
             /**
@@ -810,24 +812,24 @@ namespace db0
                 bool addr_changed;
                 std::size_t erase_count = m_data_buf.bulkEraseSorted(buf.begin(), buf.end(), addr_changed, callback_ptr);
                 if (addr_changed) {
-                    m_it_node.modify().data.ptr_b_data = m_data_buf.getAddress();
+                    m_it_node.modify().m_data.ptr_b_data = m_data_buf.getAddress();
                 }
                 
                 if (m_data_buf.empty()) {
                     m_ref.m_index.erase(m_it_node);
                     if (m_ref.m_index->size == 1) {
                         m_it_node = m_ref.m_index.begin();
-                        m_data_buf = data_vector(m_ref.getMemspace().myPtr(m_it_node->data.ptr_b_data), m_ref.m_item_destroy_func);
+                        m_data_buf = data_vector(m_ref.getMemspace().myPtr(m_it_node->m_data.ptr_b_data), m_ref.m_item_destroy_func);
                     }
                 } else {
                     // merge small blocks if possible
                     // check front item modified (key)
-                    if (m_ref.m_comp(m_it_node->data.lo_bound, m_data_buf->front())) {
+                    if (m_ref.m_comp(m_it_node->m_data.lo_bound, m_data_buf->front())) {
                         // this is safe as order not violated
-                        m_it_node.modify().data.lo_bound = m_data_buf->front();
+                        m_it_node.modify().m_data.lo_bound = m_data_buf->front();
                     }
                     if (m_has_upper_bound) {
-                        data_vector next_buf(m_ref.getMemspace().myPtr(m_it_next->data.ptr_b_data), m_ref.m_item_destroy_func);
+                        data_vector next_buf(m_ref.getMemspace().myPtr(m_it_next->m_data.ptr_b_data), m_ref.m_item_destroy_func);
                         if ((m_data_buf->m_capacity - m_data_buf->m_size) >= next_buf->m_size) {
                             m_data_buf.moveSorted(std::move(next_buf));
                             m_ref.m_index.erase(m_it_next);
@@ -838,7 +840,7 @@ namespace db0
                 // compact the last remaining block
                 if (m_ref.m_index->size == 1) {
                     if (m_data_buf.compact()) {
-                        m_it_node.modify().data.ptr_b_data = m_data_buf.getAddress();
+                        m_it_node.modify().m_data.ptr_b_data = m_data_buf.getAddress();
                     }
                 }
 
@@ -855,13 +857,13 @@ namespace db0
                 bool addr_changed;
                 std::size_t erase_count = m_data_buf.bulkErase(f, addr_changed, callback_ptr);
                 if (addr_changed) {
-                    m_it_node.modify().data.ptr_b_data = m_data_buf.getAddress();
+                    m_it_node.modify().m_data.ptr_b_data = m_data_buf.getAddress();
                 }
 
                 // update bound item if erased
-                if (!m_data_buf.empty() && m_ref.m_comp(m_it_node->data.lo_bound, m_data_buf->front())) {
+                if (!m_data_buf.empty() && m_ref.m_comp(m_it_node->m_data.lo_bound, m_data_buf->front())) {
                     // this is safe as order not violated
-                    m_it_node.modify().data.lo_bound = m_data_buf->front();
+                    m_it_node.modify().m_data.lo_bound = m_data_buf->front();
                 }
 
                 // move on to the next node
@@ -882,8 +884,7 @@ namespace db0
             data_vector m_data_buf;
         };
 
-        std::uint32_t getPageSize(std::optional<std::uint32_t> page_size, Memspace &memspace)
-        {
+        std::uint32_t getPageSize(std::optional<std::uint32_t> page_size, Memspace &memspace) {
             return page_size ? *page_size: memspace.getPageSize();
         }
 
@@ -896,8 +897,8 @@ namespace db0
             for (auto it = m_index.begin(), end = m_index.end(); it != end;) {
                 auto it_next = it;
                 ++it_next;
-                if (it->data.ptr_b_data) {
-                    data_vector data_buf(this->getMemspace().myPtr(it->data.ptr_b_data), m_item_destroy_func);
+                if (it->m_data.ptr_b_data) {
+                    data_vector data_buf(this->getMemspace().myPtr(it->m_data.ptr_b_data), m_item_destroy_func);
                     if (data_buf.empty()) {
                         m_index.erase(it);
                     }
@@ -916,9 +917,9 @@ namespace db0
                 return;
             }
 
-            data_vector data_buf(this->myPtr(it->data.ptr_b_data), m_item_destroy_func);
+            data_vector data_buf(this->myPtr(it->m_data.ptr_b_data), m_item_destroy_func);
             for (auto end = m_index.end(); it_next != end;) {
-                data_vector next_buf(this->myPtr(it_next->data.ptr_b_data), m_item_destroy_func);
+                data_vector next_buf(this->myPtr(it_next->m_data.ptr_b_data), m_item_destroy_func);
                 // merge next buf
                 if ((data_buf->m_capacity - data_buf->m_size) >= next_buf->m_size) {
                     data_buf.moveSorted(std::move(next_buf));
@@ -976,5 +977,5 @@ namespace db0
         }
         
     };
-
+    
 }  

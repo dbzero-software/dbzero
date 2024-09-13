@@ -17,7 +17,7 @@ namespace db0
         using has_constant_size = typename data_t::has_constant_size;
         
         o_sgtree_node(Memspace &memspace, Memspace &other_memspace, const o_sgtree_node &other)
-            : data(memspace, other_memspace, other.data)
+            : m_data(memspace, other_memspace, other.m_data)
         {
             this->getSuper() = other.getSuper();
         }
@@ -65,15 +65,15 @@ namespace db0
         }
         
         void destroy(Memspace &memspace) const {
-            data.destroy(memspace);
+            m_data.destroy(memspace);
         }
         
         const data_t *operator->() const {
-            return &data;
+            return &m_data;
         }
                 
     public :
-        data_t data;
+        data_t m_data;
     };
     
     template <class data_t,class data_comp_t> class o_sgtree_node_traits
@@ -91,19 +91,19 @@ namespace db0
             }
 
             bool operator()(const node_ptr_t &n0,const node_ptr_t &n1) const {
-                return _comp(n0->data,n1->data);
+                return _comp(n0->m_data, n1->m_data);
             }
 
             bool operator()(const Initializer &d0,const node_ptr_t &n1) const {
-                return _comp(d0,n1->data);
+                return _comp(d0, n1->m_data);
             }		
 
             bool operator()(const node_ptr_t &n0,const Initializer &d1) const {
-                return _comp(n0->data,d1);
+                return _comp(n0->m_data, d1);
             }
 
             bool operator()(const Initializer &d0,const Initializer &d1) const {
-                return _comp(d0,d1);
+                return _comp(d0, d1);
             }
         };
     };
