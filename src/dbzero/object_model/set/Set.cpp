@@ -174,10 +174,10 @@ namespace db0::object_model
     Set *Set::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
         return new (at_ptr) Set(fixture, address);
     }
-
+    
     void Set::destroy() const
     {
-        unrefMembers();        
+        unrefMembers();
         m_index.destroy();
         super_t::destroy();
     }

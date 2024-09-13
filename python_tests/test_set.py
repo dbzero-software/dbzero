@@ -478,6 +478,7 @@ def test_clear_set_unref_values(db0_fixture):
     with pytest.raises(Exception):
         db0.fetch(uuid_value)
 
+
 def test_remove_unref_values(db0_fixture):
     my_set = db0.set()
     my_set.add(MemoTestClass("Value"))
@@ -490,10 +491,10 @@ def test_remove_unref_values(db0_fixture):
     with pytest.raises(Exception):
         db0.fetch(uuid_value)
 
+
 def test_set_destroy_removes_reference(db0_fixture):
     obj = MemoTestClass(db0.set())
     obj.value.add(MemoTestClass("asd"))
-    db0.commit()
     value = [value for value in obj.value][0]
     value_uuid = db0.uuid(value)
     value = None
