@@ -45,7 +45,7 @@ namespace db0
     }
     
     bool GC0::tryRemove(void *vptr, bool is_volatile)
-    {   
+    {    
         auto it = m_vptr_map.find(vptr);
         if (it == m_vptr_map.end()) {
             return false;

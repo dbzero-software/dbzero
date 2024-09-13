@@ -264,13 +264,29 @@ def test_dict_items_in(db0_no_autocommit):
     end = datetime.datetime.now()
     print("Elapsed time: ", end - now)
 
+
+def test_dict_insert_mixed_types_issue_1(db0_fixture):
+    """
+    This test was failing with "invalid address" due to memo wrappers not being destroyed
+    in fact the memo object will be destroyed by Python after db0.close() and will be persisted in db0
+    without references
+    """
+    my_dict = db0.dict()
+    my_dict["abc"] = { 0: MemoTestClass("abc") }
+
+
+def test_dict_insert_mixed_types_v1(db0_fixture):
+    my_dict = db0.dict(
+        { "abc": (123, { "a": MemoTestClass("abc"), "b": MemoTestClass("def") }),
+          "def": (123, { "a": MemoTestClass("abc"), "b": MemoTestClass("def") }) })
+    assert len(my_dict) == 2
+
     
-# FIXME: failing with "pending deferred free" error
-# def test_dict_insert_mixed_types(db0_fixture):
-#     my_dict = db0.dict()
-#     my_dict["abc"] = (123, { "a": MemoTestClass("abc"), "b": MemoTestClass("def") })
-#     my_dict["def"] = (123, { "a": MemoTestClass("abc"), "b": MemoTestClass("def") })
-#     assert len(my_dict) == 2
+def test_dict_insert_mixed_types_v2(db0_fixture):
+    my_dict = db0.dict()
+    my_dict["abc"] = (123, { "a": MemoTestClass("abc"), "b": MemoTestClass("def") })
+    my_dict["def"] = (123, { "a": MemoTestClass("abc"), "b": MemoTestClass("def") })
+    assert len(my_dict) == 2
     
 
 def test_dict_with_tuples_as_values(db0_fixture):

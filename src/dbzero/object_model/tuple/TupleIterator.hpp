@@ -12,11 +12,11 @@ namespace db0::object_model
     */
     class TupleIterator : public PyObjectIterator<TupleIterator, Tuple>
     {
-        public:
-            ObjectSharedPtr next() override;
-            TupleIterator(Tuple::const_iterator iterator, const Tuple *ptr);
+    public:
+        ObjectSharedPtr next() override;
+        TupleIterator(Tuple::const_iterator iterator, const Tuple *ptr);
 
-            bool is_end() const;
+        bool is_end() const;
     };
-
+    
 }

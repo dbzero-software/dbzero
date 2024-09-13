@@ -145,7 +145,7 @@ namespace db0::python
     
     shared_py_object<TupleObject*> makeDB0TupleInternal(db0::swine_ptr<Fixture> &fixture, PyObject *const *args,
         Py_ssize_t nargs)
-    {      
+    {
         if (nargs != 1) {
             THROWF(db0::InputException) << "make_tuple() takes exacly 1 arguments";
         }

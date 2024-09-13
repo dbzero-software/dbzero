@@ -125,7 +125,8 @@ namespace db0::object_model
         return getData()->size();
     }
 
-    bool Tuple::operator==(const Tuple &tuple) const {
+    bool Tuple::operator==(const Tuple &tuple) const 
+    {
         if (size() != tuple.size()) {
             return false;
         }
@@ -148,7 +149,7 @@ namespace db0::object_model
             auto [elem_storage_class, elem_value] = elem;
             unrefMember<LangToolkit>(fixture, elem_storage_class, elem_value);
         }
-        super_t::destroy();  
+        super_t::destroy();
     }
 
     const o_typed_item *Tuple::begin() const {

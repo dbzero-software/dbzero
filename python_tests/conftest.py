@@ -2,6 +2,7 @@
 # pylint: disable=redefined-outer-name
 import os
 import pytest
+import gc
 import dbzero_ce as db0
 import shutil
 from .memo_test_types import MemoTestClass, MemoTestSingleton
@@ -20,6 +21,7 @@ def db0_fixture():
     db0.init(DB0_DIR)
     db0.open("my-test-prefix")
     yield db0
+    gc.collect()
     db0.close()
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
@@ -36,7 +38,8 @@ def db0_slab_size(request):
     os.mkdir(DB0_DIR)
     db0.init(DB0_DIR)
     db0.open("my-test-prefix", slab_size=request.param["slab_size"])
-    yield db0
+    yield db0 
+    gc.collect()
     db0.close()
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
@@ -54,6 +57,7 @@ def db0_autocommit_fixture(request):
     db0.init(DB0_DIR, config = {"autocommit_interval": request.param})
     db0.open("my-test-prefix")
     yield db0
+    gc.collect()
     db0.close()
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
@@ -72,6 +76,7 @@ def db0_no_autocommit():
     db0.init(DB0_DIR, config = {"autocommit": False})
     db0.open("my-test-prefix")
     yield db0
+    gc.collect()
     db0.close()
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)

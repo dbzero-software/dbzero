@@ -129,7 +129,7 @@ namespace db0
             if (item.second && (!expired_only || LangToolkit::getRefCount(item.second.get()) == 1)) {
                 m_uid_to_index.erase(item.first);
                 item = {};
-                --m_size;            
+                --m_size;
             }
         }
     }

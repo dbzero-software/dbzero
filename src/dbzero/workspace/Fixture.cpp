@@ -153,7 +153,7 @@ namespace db0
         // clear cache to destroy object instances supported by the cache
         // this has to be done before commit (to not commit unrefereced objects)
         // NOTE: since fixture is being closed we remove all objects (even not expired) from the cache        
-        m_lang_cache.clear(false);
+        m_lang_cache.clear(true);
         // auto-commit before closing
         if (m_access_type == AccessType::READ_WRITE) {
             // perform the operation twice to ensure both pre-commit and commit

@@ -8,8 +8,9 @@ namespace db0::object_model
         : PyObjectIterator<TupleIterator, Tuple>(iterator, ptr) 
     {
     }
-
-    TupleIterator::ObjectSharedPtr TupleIterator::next() {
+    
+    TupleIterator::ObjectSharedPtr TupleIterator::next()
+    {
         auto [storage_class, value] = *m_iterator;
         ++m_iterator;
         auto fixture = m_collection->getFixture();
