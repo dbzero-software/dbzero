@@ -54,6 +54,12 @@ namespace db0::object_model
     {
     }
 
+    Set::~Set()
+    {
+        // unregister needs to be called before destruction of members
+        unregister();
+    }
+    
     void Set::operator=(Set && other)
     {
         unrefMembers();
@@ -206,9 +212,10 @@ namespace db0::object_model
         return item != nullptr;
     }
 
-    void Set::moveTo(db0::swine_ptr<Fixture> &fixture) {
+    void Set::moveTo(db0::swine_ptr<Fixture> &fixture) 
+    {
         assert(hasInstance());
-        if(this->size() > 0) {
+        if (this->size() > 0) {
             THROWF(db0::InputException) << "Set with items cannot be moved to another fixture";
         }
         super_t::moveTo(fixture);
@@ -246,7 +253,7 @@ namespace db0::object_model
         m_index.detach();
         super_t::detach();
     }
-
+    
     void Set::unrefMembers() const
     {
         auto fixture = this->getFixture();

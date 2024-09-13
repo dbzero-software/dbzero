@@ -65,11 +65,19 @@ namespace db0
         {                        
             fixture->getGC0().add<T>(this);            
         }
-        
-        ~ObjectBase() {
-            unregister();
+         
+        // Unregister must be called pre-destruction
+        void unregister() const
+        {
+            // remove from the registry (on condition the underlying instance & fixture still exists)
+            if (hasInstance()) {                
+                auto fixture = this->tryGetFixture();
+                if (fixture) {
+                    fixture->getGC0().tryRemove((void*)this);
+                }
+            }
         }
-        
+
         /**
          * Initialize the instance in place with a unique address
         */
@@ -142,17 +150,6 @@ namespace db0
         {            
             has_fixture<BaseT>::operator=(std::move(other));
             assert(!other.hasInstance());
-        }
-
-        void unregister()
-        {
-            // remove from the registry (on condition the underlying instance & fixture still exists)
-            if (hasInstance()) {                
-                auto fixture = this->tryGetFixture();
-                if (fixture) {
-                    fixture->getGC0().tryRemove(this);
-                }
-            }
         }
 
     private:

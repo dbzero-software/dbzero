@@ -45,6 +45,12 @@ namespace db0::object_model
         return new (at_ptr) Enum(fixture, name, module_name, values, type_id);
     }
 
+    Enum::~Enum()
+    {
+        // unregister needs to be called before destruction of members
+        unregister();
+    }
+    
     LP_String Enum::find(const char *value) const
     {
         assert(value);        

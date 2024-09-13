@@ -27,6 +27,7 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         
         ByteArray(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        ~ByteArray();
 
         static ByteArray *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
         ObjectSharedPtr getItem(std::size_t i) const;

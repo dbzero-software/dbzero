@@ -1,7 +1,7 @@
 #include "PyIndex.hpp"
 #include <dbzero/bindings/python/PyObjectIterator.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include <dbzero/bindings/python/GlobalMutex.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
 
@@ -40,7 +40,6 @@ namespace db0::python
     }
 
     IndexObject *IndexObject_new(PyTypeObject *type, PyObject *, PyObject *) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
         return IndexObject_newInternal(type, NULL, NULL);
     }
 
@@ -57,14 +56,14 @@ namespace db0::python
     
     Py_ssize_t IndexObject_len(IndexObject *index_obj)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         index_obj->ext().getFixture()->refreshIfUpdated();
         return index_obj->ext().size();
     }
     
     IndexObject *makeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 0) {
             PyErr_SetString(PyExc_TypeError, "Index object does not accept arguments");
             return NULL;
@@ -81,7 +80,7 @@ namespace db0::python
     
     PyObject *IndexObject_add(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 2) {
             PyErr_SetString(PyExc_TypeError, "add() takes exactly two arguments");
             return NULL;
@@ -93,7 +92,7 @@ namespace db0::python
 
     PyObject *IndexObject_remove(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 2) {
             PyErr_SetString(PyExc_TypeError, "remove() takes exactly two arguments");
             return NULL;
@@ -105,7 +104,7 @@ namespace db0::python
 
     PyObject *IndexObject_sort(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         using ObjectIterator = db0::object_model::ObjectIterator;
         using TypedObjectIterator = db0::object_model::TypedObjectIterator;
 
@@ -154,7 +153,7 @@ namespace db0::python
 
     PyObject *IndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         // optional low, optional high, optional null_first (boolean)
         static const char *kwlist[] = {"low", "high", "null_first", NULL};
         PyObject *low = NULL, *high = NULL;
@@ -178,7 +177,7 @@ namespace db0::python
     
     PyObject *IndexObject_flush(IndexObject *self)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         self->modifyExt().flush();
         Py_RETURN_NONE;
     }

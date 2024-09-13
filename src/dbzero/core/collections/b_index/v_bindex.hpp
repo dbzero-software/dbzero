@@ -44,7 +44,7 @@ namespace db0
          * Construct null instance
          */
         v_bindex() = default;
-
+                
         v_bindex(Memspace &memspace, std::optional<std::size_t> page_size_hint = {}, DestroyF item_destroy_func = {})
             : super_t(memspace)
             , m_index(memspace)

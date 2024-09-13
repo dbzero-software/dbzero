@@ -56,9 +56,11 @@ namespace db0::object_model
         : super_t(super_t::tag_from_address(), fixture, address)
     {
     }
-
+    
     Tuple::~Tuple()
     {
+        // unregister needs to be called before destruction of members
+        unregister();
     }
 
     Tuple::ObjectSharedPtr Tuple::getItem(std::size_t i) const

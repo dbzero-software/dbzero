@@ -6,7 +6,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/Utils.hpp>
-#include <dbzero/bindings/python/GlobalMutex.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
 {
@@ -24,7 +24,7 @@ namespace db0::python
 
     PyObject *ListObject_GetItem(ListObject *list_obj, Py_ssize_t i)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         list_obj->ext().getFixture()->refreshIfUpdated();
         return list_obj->ext().getItem(i).steal();
     }
@@ -41,13 +41,13 @@ namespace db0::python
 
     PyObject *ListObject_copy(ListObject *py_src_list)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);      
+        std::lock_guard api_lock(py_api_mutex);      
         return ListObject_copyInternal(py_src_list);
     }
 
     PyObject *ListObject_multiply(ListObject *list_obj, PyObject *elem)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         auto elems = PyLong_AsLong(elem);
         auto list_obj_copy = (ListObject *)ListObject_copyInternal(list_obj);
         PyObject * obj_list = (PyObject *)list_obj;
@@ -74,12 +74,6 @@ namespace db0::python
         return { py_list, false };
     }
 
-    shared_py_object<ListObject*> makeDB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
-    {
-        std::lock_guard pbm_lock(python_bindings_mutex);
-        return makeDB0ListInternal(fixture, args, nargs);
-    }
-
     ListObject *makeListInternal(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {        
         if (nargs != 1 && nargs != 0) {
@@ -90,17 +84,11 @@ namespace db0::python
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
         return makeDB0ListInternal(fixture, args, nargs).steal();
     }
-
-    PyObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {
-        std::lock_guard pbm_lock(python_bindings_mutex);
-        return makeListInternal(self, args, nargs);        
-    }
-
+    
     PyObject *ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
     {
         // FIXME: this operation should be immutable
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         db0::FixtureLock lock(py_src_list->ext().getFixture());
         // Check if the key is a slice object
         if (PySlice_Check(elem)) {
@@ -129,9 +117,9 @@ namespace db0::python
         return py_src_list->ext().getItem(index).steal();
     }
     
-    PyObject * ListObject_clear(ListObject *py_list)
+    PyObject *ListObject_clear(ListObject *py_list)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         db0::FixtureLock lock(py_list->ext().getFixture());
         py_list->modifyExt().clear(lock);
         Py_RETURN_NONE;
@@ -139,7 +127,7 @@ namespace db0::python
     
     PyObject *ListObject_count(ListObject *py_list, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);       
+        std::lock_guard api_lock(py_api_mutex);       
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "count() takes one argument.");
             return NULL;
@@ -149,7 +137,7 @@ namespace db0::python
     
     PyObject *ListObject_add(ListObject *list_obj_lh, ListObject *list_obj_rh)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         //make copy of first list
         PyObject * obj_list = (PyObject *)list_obj_rh;
         PyObject** args = &obj_list;
@@ -184,7 +172,7 @@ namespace db0::python
 
     static PyObject *ListObject_rq(ListObject *list_obj, PyObject *other, int op) 
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (ListObject_Check(other)) {
             ListObject * other_list = (ListObject*) other;
             switch (op)
@@ -233,18 +221,18 @@ namespace db0::python
     };
 
     ListObject *ListObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+        // not API method, lock not needed (otherwise may cause deadlock)     
         return reinterpret_cast<ListObject*>(type->tp_alloc(type, 0));
     }
-
-    shared_py_object<ListObject*> ListDefaultObject_new()
-    {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+    
+    shared_py_object<ListObject*> ListDefaultObject_new() {
+        // not API method, lock not needed (otherwise may cause deadlock)
         return { ListObject_new(&ListObjectType, NULL, NULL), false };
     }
-
+    
     void ListObject_del(ListObject* list_obj)
     {
-        // std::lock_guard pbm_lock(python_bindings_mutex);
+        // std::lock_guard api_lock(py_api_mutex);
         // destroy associated DB0 List instance
         list_obj->destroy();
         Py_TYPE(list_obj)->tp_free((PyObject*)list_obj);
@@ -252,6 +240,18 @@ namespace db0::python
     
     bool ListObject_Check(PyObject *object) {
         return Py_TYPE(object) == &ListObjectType;        
+    }
+
+    shared_py_object<ListObject*> makeDB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
+    {
+        std::lock_guard api_lock(py_api_mutex);
+        return makeDB0ListInternal(fixture, args, nargs);
+    }
+
+    PyObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        std::lock_guard api_lock(py_api_mutex);
+        return makeListInternal(self, args, nargs);        
     }
 
 }

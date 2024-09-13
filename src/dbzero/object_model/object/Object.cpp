@@ -95,7 +95,9 @@ namespace db0::object_model
     }
     
     Object::~Object()
-    {
+    {   
+        // unregister needs to be called before destruction of members
+        unregister();
         if (!hasInstance()) {
             // release initializer if it exists, object not created
             m_init_manager.tryCloseInitializer(*this);
@@ -574,7 +576,7 @@ namespace db0::object_model
         // switch to a type located on a different fixture (translated)
         m_init_manager.getInitializer(*this).setClass(new_type);        
     }
-
+    
     void Object::detach() const
     {
         m_type->detach();

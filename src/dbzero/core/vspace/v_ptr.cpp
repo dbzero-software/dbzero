@@ -102,12 +102,13 @@ namespace db0
             }
         }        
     }
-    
+     
     void vtypeless::commit()
     {
         // commit clears the reasource available for write flag
         // it might still be available for read
         safeResetFlags(m_resource_flags, db0::RESOURCE_AVAILABLE_FOR_WRITE);
+        // clear write / create flags since the following access may not be for update
         m_access_mode.set(AccessOptions::write, false);
         m_access_mode.set(AccessOptions::create, false);
     }

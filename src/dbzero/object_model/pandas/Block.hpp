@@ -30,7 +30,8 @@ namespace db0::object_model::pandas
         
         Block(db0::swine_ptr<Fixture> &);
         Block(db0::swine_ptr<Fixture> &, std::uint64_t address);
-        
+        ~Block();
+                
         ObjectSharedPtr getItem(std::size_t i) const;
         void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
 

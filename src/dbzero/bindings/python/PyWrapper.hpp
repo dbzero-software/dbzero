@@ -36,12 +36,12 @@ namespace db0::python
         static constexpr std::size_t sizeOf() {
             return sizeof(PyObject) + sizeof(T);
         }
-
+        
         void destroy() {
             ext().~T();
-        }        
+        }
     };
-
+    
     template <typename T> struct Shared
     {
         std::shared_ptr<T> m_ptr;

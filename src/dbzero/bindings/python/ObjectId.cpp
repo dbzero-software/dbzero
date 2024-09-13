@@ -7,7 +7,6 @@
 #include "PyAPI.hpp"
 #include "PyObjectIterator.hpp"
 #include "Types.hpp"
-#include "GlobalMutex.hpp"
 
 namespace db0::python
 
@@ -46,7 +45,7 @@ namespace db0::python
 
     PyObject *getUUID(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return getUUIDInternal(self, args, nargs);
     }
     

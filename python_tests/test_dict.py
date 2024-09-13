@@ -43,14 +43,16 @@ def test_can_dict_assign_item(db0_fixture, make_dict):
     dict_1["item"] = 7
     assert dict_1["item"] == 7
 
+
 @pytest.mark.parametrize("make_dict", dict_test_params)
-def test_constructors(db0_fixture, make_dict):
+def test_constructors(db0_no_autocommit, make_dict):
     a = make_dict(one=1, two=2, three=3)
     b = make_dict({'one': 1, 'three': 3}, two=2)
     c = make_dict(zip(['one', 'two', 'three'], [1, 2, 3]))
     d = make_dict([('two', 2), ('one', 1), ('three', 3)])
     e = make_dict({'three': 3, 'one': 1, 'two': 2})
     a == b == c == d == e
+
 
 @pytest.mark.parametrize("make_dict", dict_test_params)
 def test_can_check_in_dict(db0_fixture, make_dict):
@@ -375,3 +377,10 @@ def test_dict_destroy_removes_reference(db0_fixture):
         db0.fetch(key_uuid)
     with pytest.raises(Exception):
         db0.fetch(value_uuid)
+    
+    
+def test_make_dict_issue_1(db0_no_autocommit):
+    """
+    The test was failing with segfault
+    """
+    _ = [make_db0_dict() for _ in range(6)]

@@ -50,7 +50,8 @@ namespace db0::object_model
         Enum(db0::swine_ptr<Fixture> &, std::uint64_t address);
         Enum(db0::swine_ptr<Fixture> &, const std::string &name, const std::string &module_name, 
             const std::vector<std::string> &values, const char *type_id = nullptr);
-        
+        ~Enum();
+                
         std::string getName() const;
         std::string getModuleName() const;
         

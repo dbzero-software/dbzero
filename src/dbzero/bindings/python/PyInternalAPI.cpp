@@ -21,12 +21,13 @@
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
-#include "GlobalMutex.hpp"
 
 namespace db0::python
 
 {
     
+    std::mutex py_api_mutex;
+
     ObjectId extractObjectId(PyObject *args)
     {
         // extact ObjectId from args
@@ -154,7 +155,7 @@ namespace db0::python
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         using ClassFactory = db0::object_model::ClassFactory;
         auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));        
 
@@ -335,7 +336,7 @@ namespace db0::python
     
     PyObject *getSlabMetrics(const db0::SlabAllocator &slab)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         PyObject *py_dict = PyDict_New();
         PyDict_SetItemString(py_dict, "size", PyLong_FromUnsignedLong(slab.getSlabSize()));
         PyDict_SetItemString(py_dict, "admin_space_size", PyLong_FromUnsignedLong(slab.getAdminSpaceSize(true)));

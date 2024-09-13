@@ -14,7 +14,6 @@
 #include "PyClassFields.hpp"
 #include "Utils.hpp"
 #include "Types.hpp"
-#include "GlobalMutex.hpp"
 
 namespace db0::python
 
@@ -403,7 +402,7 @@ namespace db0::python
     
     PyObject *wrapPyClass(PyObject *, PyObject *args, PyObject *kwargs)
     {   
-        std::lock_guard pbm_lock(python_bindings_mutex);     
+        std::lock_guard api_lock(py_api_mutex);     
         PyObject* class_obj;
         PyObject *singleton = Py_False;
         PyObject *py_prefix_name = nullptr;
@@ -479,7 +478,7 @@ namespace db0::python
 
     PyObject *MemoObject_IsTag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
             return NULL;

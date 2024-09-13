@@ -35,6 +35,12 @@ namespace db0::object_model
     {
     }
     
+    List::~List()
+    {
+        // unregister needs to be called before destruction of members
+        unregister();
+    }
+    
     void List::append(FixtureLock &fixture, ObjectPtr lang_value)
     {
         using TypeId = db0::bindings::TypeId;

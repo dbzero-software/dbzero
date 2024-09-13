@@ -28,6 +28,12 @@ namespace db0::object_model::pandas
     {
     }
 
+    DataFrame::~DataFrame()
+    {
+        // unregister needs to be called before destruction of members
+        unregister();
+    }
+    
     void DataFrame::appendIndex(ObjectPtr lang_value)
     {
         using TypeId = db0::bindings::TypeId;

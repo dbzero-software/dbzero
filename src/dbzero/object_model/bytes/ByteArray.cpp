@@ -24,6 +24,12 @@ namespace db0::object_model
         : super_t(super_t::tag_from_address(), fixture, address)
     {
     }
+    
+    ByteArray::~ByteArray()
+    {
+        // unregister needs to be called before destruction of members
+        unregister();
+    }
 
     ByteArray::ObjectSharedPtr ByteArray::getItem(std::size_t i) const
     {

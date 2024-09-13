@@ -399,7 +399,7 @@ namespace db0::object_model
     {
         unrefObjectBase<Object, PyToolkit>(fixture, value.cast<std::uint64_t>());
     }
-
+    
     template <> void unrefMember<StorageClass::DB0_LIST, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value) 
     {

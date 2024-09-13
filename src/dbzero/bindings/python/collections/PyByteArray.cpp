@@ -6,7 +6,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/Utils.hpp>
-#include <dbzero/bindings/python/GlobalMutex.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
 
@@ -23,10 +23,10 @@ namespace db0::python
         db0::object_model::ByteArray::makeNew(&bytearray_object->modifyExt(), fixture, bytes, size);        
     }
     
-    PyObject* asPyObject(ByteArrayObject *bytearray_obj) {
-        char * bytes_str = new char[bytearray_obj->ext().size() + 1];
-       
-        for(unsigned int i = 0; i < bytearray_obj->ext().size(); i++) {
+    PyObject* asPyObject(ByteArrayObject *bytearray_obj)
+    {
+        char * bytes_str = new char[bytearray_obj->ext().size() + 1];       
+        for (unsigned int i = 0; i < bytearray_obj->ext().size(); i++) {
             bytes_str[i] = static_cast<char>(bytearray_obj->ext().getByte(i));
         }
         bytes_str[bytearray_obj->ext().size()] = '\0';
@@ -35,9 +35,9 @@ namespace db0::python
         return result;
     }
 
-    PyObject *callMethod(const char * name,  ByteArrayObject *object_inst, PyObject* args, PyObject* kwargs){
+    PyObject *callMethod(const char * name,  ByteArrayObject *object_inst, PyObject* args, PyObject* kwargs)
+    {
         auto py_obj = asPyObject(object_inst);
-
         auto *function = PyObject_GetAttrString(py_obj, name);
         return PyObject_Call(function, args, kwargs);
     }
@@ -243,10 +243,12 @@ namespace db0::python
     };
     
     ByteArrayObject *ByteArrayObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+        // not API method, lock not needed (otherwise may cause deadlock)
         return reinterpret_cast<ByteArrayObject*>(type->tp_alloc(type, 0));
     }
 
     shared_py_object<ByteArrayObject *> ByteArrayDefaultObject_new() {
+        // not API method, lock not needed (otherwise may cause deadlock)
         return { ByteArrayObject_new(&ByteArrayObjectType, NULL, NULL), false };
     }
     
@@ -259,7 +261,7 @@ namespace db0::python
     
     ByteArrayObject *makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "make_bytearray() takes exacly 1 arguments");
             return NULL;

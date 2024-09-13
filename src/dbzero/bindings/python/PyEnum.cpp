@@ -14,7 +14,7 @@ namespace db0::python
     PyEnumValue *PyEnumValue_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyEnumValue*>(type->tp_alloc(type, 0));
     }
-
+    
     PyEnum *PyEnumDefault_new() {
         return PyEnum_new(&PyEnumType, NULL, NULL);
     }

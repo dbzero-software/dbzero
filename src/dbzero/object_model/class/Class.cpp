@@ -59,6 +59,12 @@ namespace db0::object_model
         refreshMemberCache();
     }
     
+    Class::~Class()
+    {
+        // unregister needs to be called before the destruction of members
+        unregister();        
+    }
+    
     std::string Class::getName() const {
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }   

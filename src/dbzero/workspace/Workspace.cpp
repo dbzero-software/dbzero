@@ -107,8 +107,8 @@ namespace db0
     
     void BaseWorkspace::close()
     {
-        auto it = m_memspaces.begin(), end = m_memspaces.end();
-        while (it != end) {
+        auto it = m_memspaces.begin();
+        while (it != m_memspaces.end()) {
             it->second.close();
             it = m_memspaces.erase(it);
         }
@@ -131,7 +131,7 @@ namespace db0
     void BaseWorkspace::onCacheFlushed(bool) const
     {
     }
-
+    
     class WorkspaceThreads
     {
     public:
@@ -231,8 +231,8 @@ namespace db0
         // stop all workspace threads first
         m_workspace_threads = nullptr;
         m_shared_object_list.clear();
-        auto it = m_fixtures.begin(), end = m_fixtures.end();
-        while (it != end) {
+        auto it = m_fixtures.begin();
+        while (it != m_fixtures.end()) {
             it->second->close();
             it = m_fixtures.erase(it);
         }

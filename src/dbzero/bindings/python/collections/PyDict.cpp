@@ -5,7 +5,7 @@
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include <dbzero/bindings/python/GlobalMutex.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
 
@@ -34,7 +34,7 @@ namespace db0::python
     
     PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return DictObject_GetItemInternal(dict_obj, key);
     }
     
@@ -52,24 +52,24 @@ namespace db0::python
     
     int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return DictObject_SetItemInternal(dict_obj, key, value);
     }
 
     Py_ssize_t DictObject_len(DictObject *dict_obj)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         dict_obj->ext().getFixture()->refreshIfUpdated();
         return dict_obj->ext().size();
     }
     
     int DictObject_HasItem(DictObject *dict_obj, PyObject *key)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         dict_obj->ext().getFixture()->refreshIfUpdated();
         return dict_obj->ext().has_item(key);
     }
-
+    
     void DictObject_del(DictObject* dict_obj)
     {
         // destroy associated DB0 Dict instance
@@ -80,7 +80,7 @@ namespace db0::python
     void DictObject_del_locked(DictObject* dict_obj)
     {
         // destroy associated DB0 Dict instance
-                //std::lock_guard pbm_lock(python_bindings_mutex);
+                //std::lock_guard api_lock(py_api_mutex);
         return DictObject_del(dict_obj);
     }
     
@@ -131,13 +131,13 @@ namespace db0::python
 
     DictObject *DictObject_new(PyTypeObject *type, PyObject *, PyObject *) 
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return DictObject_newInternal(type, NULL, NULL).steal();
     }
     
     shared_py_object<DictObject*> DictDefaultObject_new()
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        // not API method, lock not needed (otherwise may cause deadlock)
         return DictObject_newInternal(&DictObjectType, NULL, NULL);
     }
     
@@ -202,14 +202,14 @@ namespace db0::python
 
     DictObject *makeDict(PyObject *, PyObject* args, PyObject* kwargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
         return makeDB0Dict(fixture, args, kwargs).steal();
     }
     
     PyObject *DictObject_clear(DictObject *dict_obj)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         dict_obj->modifyExt().clear();
         Py_RETURN_NONE;
     }
@@ -217,7 +217,7 @@ namespace db0::python
     PyObject *DictObject_copy(DictObject *py_src_dict)
     {
         // make actual DBZero instance, use default fixture
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         auto py_dict = DictObject_newInternal(&DictObjectType, NULL, NULL);
         auto lock = db0::FixtureLock(py_src_dict->ext().getFixture());
         py_src_dict->ext().copy(&py_dict.get()->modifyExt(), *lock);
@@ -227,7 +227,7 @@ namespace db0::python
     
     PyObject *DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs < 1) {
             PyErr_SetString(PyExc_TypeError, " fromkeys expected at least 1 argument");
             return NULL;
@@ -258,7 +258,7 @@ namespace db0::python
 
     PyObject *DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs < 1) {
             PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
             return NULL;
@@ -282,7 +282,7 @@ namespace db0::python
 
     PyObject *DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if(nargs < 1 ){
             PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
             return NULL;
@@ -312,7 +312,7 @@ namespace db0::python
 
     PyObject *DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if(nargs < 1 ){
             PyErr_SetString(PyExc_TypeError, "setdefault expected at least 1 argument");
             return NULL;
@@ -336,7 +336,7 @@ namespace db0::python
 
     PyObject *DictObject_keys(DictObject *dict_obj)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         // make actual DBZero instance, use default fixture
         auto dict_view_object = makeDictView(&dict_obj->ext(), db0::object_model::IteratorType::KEYS);
         return dict_view_object;
@@ -344,7 +344,7 @@ namespace db0::python
 
     PyObject *DictObject_values(DictObject *dict_obj)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         // make actual DBZero instance, use default fixture
         auto dict_view_object = makeDictView(&dict_obj->ext(), db0::object_model::IteratorType::VALUES);
         return dict_view_object;
@@ -352,7 +352,7 @@ namespace db0::python
 
     PyObject *DictObject_items(DictObject *dict_obj)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         // make actual DBZero instance, use default fixture
         auto dict_view_object = makeDictView(&dict_obj->ext(), db0::object_model::IteratorType::ITEMS);
         return dict_view_object;

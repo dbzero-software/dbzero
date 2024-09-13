@@ -24,7 +24,6 @@
 #include <dbzero/core/serialization/Types.hpp>
 #include "Types.hpp"
 #include "PyAtomic.hpp"
-#include "GlobalMutex.hpp"
 
 namespace db0::python
 
@@ -32,7 +31,7 @@ namespace db0::python
 
     PyObject *getCacheStats(PyObject *, PyObject *)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         auto &cache_recycler = workspace.getCacheRecycler();
         std::size_t deferred_free_count = 0;
@@ -62,7 +61,7 @@ namespace db0::python
         
     PyObject *getLangCacheStats(PyObject *, PyObject *)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         auto lang_cache = PyToolkit::getPyWorkspace().getWorkspace().getLangCache();
         
         PyObject* dict = PyDict_New();
@@ -78,7 +77,7 @@ namespace db0::python
     
     PyObject *clearCache(PyObject *, PyObject *)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         PyToolkit::getPyWorkspace().getWorkspace().clearCache();
         Py_RETURN_NONE;
     }
@@ -134,7 +133,7 @@ namespace db0::python
     }
 
     PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryOpen, self, args, kwargs);
     }
     
@@ -160,7 +159,7 @@ namespace db0::python
     }
     
     PyObject *init(PyObject *self, PyObject *args, PyObject *kwargs) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryInit, self, args, kwargs);
     }
     
@@ -179,7 +178,7 @@ namespace db0::python
     }
     
     PyObject *drop(PyObject *self, PyObject *args) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryDrop, self, args);
     }
     
@@ -201,7 +200,7 @@ namespace db0::python
     }
     
     PyObject *commit(PyObject *self, PyObject *args) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryCommit, self, args);
     }
 
@@ -224,13 +223,13 @@ namespace db0::python
     
     PyObject *close(PyObject *self, PyObject *args) 
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryClose, self, args);
     }
     
     PyObject *getPrefixName(PyObject *self, PyObject *args)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -261,7 +260,7 @@ namespace db0::python
     
     PyObject *getCurrentPrefixName(PyObject *, PyObject *)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
         return PyUnicode_FromString(fixture->getPrefix().getName().c_str());
     }
@@ -290,13 +289,13 @@ namespace db0::python
     }
     
     PyObject *refresh(PyObject *self, PyObject *args) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryRefresh, self, args);
     }
 
     PyObject *getStateNum(PyObject *self, PyObject *args, PyObject *kwargs)
     { 
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         const char *prefix_name = nullptr;
         // optional prefix parameter
         static const char *kwlist[] = {"prefix", NULL};
@@ -344,13 +343,13 @@ namespace db0::python
     }
     
     PyObject *getDBMetrics(PyObject *self, PyObject *args) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryGetDBMetrics, self, args);
     }
 
     PyObject *beginAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 0) {
             PyErr_SetString(PyExc_TypeError, "beginAtomic requires no arguments");
             return NULL;
@@ -361,7 +360,7 @@ namespace db0::python
 
     PyObject *getSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         // requested state number of the default fixture
         std::optional<std::uint64_t> state_num;
         // state numbers by prefix name
@@ -418,7 +417,7 @@ namespace db0::python
     }
     
     PyObject *describeObject(PyObject *self, PyObject *args) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryDescribeObject, self, args);
     }
     
@@ -449,7 +448,7 @@ namespace db0::python
     
     PyObject *isSingleton(PyObject *, PyObject *args)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -466,7 +465,7 @@ namespace db0::python
 
     PyObject *getRefCount(PyObject *, PyObject *args)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -483,7 +482,7 @@ namespace db0::python
     
     PyObject *getTypeInfo(PyObject *self, PyObject *args)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -513,7 +512,7 @@ namespace db0::python
 
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "toDict requires exactly 1 argument");
@@ -544,7 +543,7 @@ namespace db0::python
 
     PyObject *pySerialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "serialize requires exactly 1 argument");
             return NULL;
@@ -554,7 +553,7 @@ namespace db0::python
     
     PyObject *pyDeserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "deserialize requires exactly 1 argument");
             return NULL;
@@ -577,7 +576,7 @@ namespace db0::python
     
     PyObject *makeEnum(PyObject *self, PyObject *args, PyObject *kwargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         // extract string and list
         PyObject* py_first_arg = nullptr;
         PyObject *py_enum_values = nullptr;
@@ -642,7 +641,7 @@ namespace db0::python
     std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
     splitBy(PyObject *py_tag_list, ObjectIterator &iterator)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         std::vector<std::unique_ptr<QueryObserver> > query_observers;
         auto query = iterator.releaseQuery(query_observers);
         auto &tag_index = iterator.getFixture()->get<db0::object_model::TagIndex>();
@@ -686,7 +685,7 @@ namespace db0::python
     
     PyObject *isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "isEnumValue requires exactly 1 argument");
             return NULL;
@@ -740,13 +739,13 @@ namespace db0::python
     }
     
     PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryFilterBy, args, kwargs);
     }
     
     PyObject *setPrefix(PyObject *, PyObject *args, PyObject *kwargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         // extract object / prefix name (can be None)
         PyObject *py_object = nullptr;
         const char *prefix_name = nullptr;
@@ -769,7 +768,7 @@ namespace db0::python
     
     PyObject *setCacheSize(PyObject *, PyObject *args)
     {        
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         Py_ssize_t cache_size;
         if (!PyArg_ParseTuple(args, "n", &cache_size)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");

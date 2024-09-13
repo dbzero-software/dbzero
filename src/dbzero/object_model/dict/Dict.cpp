@@ -44,7 +44,7 @@ namespace db0::object_model
     {
     }
 
-    void Dict::operator=(Dict && other)
+    void Dict::operator=(Dict &&other)
     {
         clear();
         super_t::operator=(std::move(other));
@@ -64,6 +64,12 @@ namespace db0::object_model
         , m_index(*fixture)
     {
         initWith(dict);
+    }
+
+    Dict::~Dict()
+    {
+        // unregister needs to be called before destruction of members
+        unregister();
     }
     
     void Dict::initWith(const Dict &dict)
@@ -112,7 +118,7 @@ namespace db0::object_model
             }
         }
     }
-
+    
     Dict::ObjectSharedPtr Dict::getItem(std::uint64_t key_hash, ObjectPtr key_value) const
     {
         auto fixture = this->getFixture();

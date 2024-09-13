@@ -19,10 +19,11 @@ namespace db0
 
 namespace db0::python
 
-{
+{   
 
     using ObjectId = db0::object_model::ObjectId;
-
+    extern std::mutex py_api_mutex;
+    
     /**
      * Extarct full object UUID from python args compatible with db0.open()
     */

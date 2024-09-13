@@ -4,7 +4,6 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
-#include <dbzero/bindings/python/GlobalMutex.hpp>
 #include "PandasBlock.hpp"
 
 
@@ -13,27 +12,28 @@ namespace db0::python
 {
     ////////// PANDAS BLOCK ////////////
 
-    PyObject *PandasBlockObject_GetItem(PandasBlockObject *block_obj, Py_ssize_t i) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+    PyObject *PandasBlockObject_GetItem(PandasBlockObject *block_obj, Py_ssize_t i) 
+    {
+        std::lock_guard api_lock(py_api_mutex);
         return block_obj->ext().getItem(i).steal();
     }
 
     int PandasBlockObject_SetItem(PandasBlockObject *block_obj, Py_ssize_t i, PyObject *value)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         db0::FixtureLock lock(block_obj->ext().getFixture());
         block_obj->modifyExt().setItem(lock, i, value);
         return 0;
     }
 
     Py_ssize_t PandasBlockObject_len(PandasBlockObject *block_obj) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return block_obj->ext().size();
     }
 
     PyObject *PandasBlockObject_append(PandasBlockObject *block_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "append() takes exactly one argument");
             return NULL;
@@ -72,7 +72,7 @@ namespace db0::python
     };
 
     shared_py_object<PandasBlockObject *> PandasBlockObject_new(PyTypeObject *type, PyObject *args, PyObject *) {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return shared_py_object<PandasBlockObject *>(reinterpret_cast<PandasBlockObject*>(type->tp_alloc(type, 0)), false);
     }
     

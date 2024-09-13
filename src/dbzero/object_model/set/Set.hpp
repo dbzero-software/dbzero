@@ -45,6 +45,7 @@ namespace db0::object_model
         using const_iterator = typename db0::v_bindex<set_item>::const_iterator;
         
         explicit Set(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        ~Set();
 
         void operator=(Set &&);
 

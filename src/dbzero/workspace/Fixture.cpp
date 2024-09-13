@@ -152,7 +152,7 @@ namespace db0
     {
         // clear cache to destroy object instances supported by the cache
         // this has to be done before commit (to not commit unrefereced objects)
-        // NOTE: since fixture is being closed we remove all objects (even not expired) from the cache
+        // NOTE: since fixture is being closed we remove all objects (even not expired) from the cache        
         m_lang_cache.clear(false);
         // auto-commit before closing
         if (m_access_type == AccessType::READ_WRITE) {
@@ -206,15 +206,17 @@ namespace db0
     
     void Fixture::commit()
     {
+        // Clear expired instances from cache so that they're not persisted
+        m_lang_cache.clear(true);
         assert(getPrefixPtr());
-
+        
         // pre-commit to prepare objects which require it (e.g. Index) for commit
         // NOTE: pre-commit must NOT lock the fixture's shared mutex
         if (m_gc0_ptr) {
             getGC0().preCommit();            
         }
 
-        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);        
+        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
         tryCommit(lock);
         m_pre_commit = false;
         m_updated = false;

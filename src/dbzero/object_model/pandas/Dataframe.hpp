@@ -45,8 +45,8 @@ namespace db0::object_model::pandas
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
 
         DataFrame(db0::swine_ptr<Fixture> &);
-
         DataFrame(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        ~DataFrame();
 
         DataFrame::ObjectSharedPtr getBlock(std::size_t i) const;
         

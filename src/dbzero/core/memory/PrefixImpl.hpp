@@ -123,8 +123,6 @@ namespace db0
     template <typename StorageT> MemLock PrefixImpl<StorageT>::mapRange(std::uint64_t address,
         std::size_t size, FlagSet<AccessOptions> access_mode)
     {
-        // FIXME: log
-        // std::cout << "PrefixImpl::mapRange" << "address: " << address << " size: " << size << " mode: " << access_mode << std::endl;
         return mapRange(address, size, m_head_state_num, access_mode);
     }
     

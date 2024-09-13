@@ -89,6 +89,7 @@ namespace db0::object_model
         
         // Pull existing type (language class unknown)
         Class(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        ~Class();
         
         /**
          * Retrieves associated language specific class (raw pointer)

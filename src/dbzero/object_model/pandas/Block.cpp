@@ -20,6 +20,12 @@ namespace db0::object_model::pandas
         : super_t(super_t::tag_from_address(), fixture, address)
     {
     }
+    
+    Block::~Block()
+    {
+        // unregister needs to be called before destruction of members
+        unregister();
+    }
 
     void Block::append(FixtureLock &fixture, ObjectPtr lang_value)
     {

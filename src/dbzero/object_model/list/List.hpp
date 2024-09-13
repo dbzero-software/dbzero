@@ -35,6 +35,7 @@ namespace db0::object_model
         using const_iterator = typename v_bvector<o_typed_item>::const_iterator;
         
         List(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        ~List();
 
         void append(FixtureLock &, ObjectPtr lang_value);
         ObjectSharedPtr getItem(std::size_t i) const;

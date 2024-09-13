@@ -5,7 +5,7 @@
 #include <dbzero/object_model/set/SetIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include <dbzero/bindings/python/GlobalMutex.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
 
@@ -24,7 +24,7 @@ namespace db0::python
 
     int SetObject_HasItem(SetObject *set_obj, PyObject *key)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return set_obj->ext().has_item(key);
     }
 
@@ -70,7 +70,7 @@ namespace db0::python
 
     Py_ssize_t SetObject_len(SetObject *set_obj)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return SetObject_lenInternal(set_obj);
     }
 
@@ -82,7 +82,6 @@ namespace db0::python
         return PyObject_Length(obj);
     }
     
-
     PyObject *SetObject_issubsetInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
 
@@ -128,19 +127,19 @@ namespace db0::python
         return Py_True;
     }
 
-     PyObject *SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return SetObject_issubsetInternal(self, args, nargs);
     }
 
-    PyObject * SetObject_issupersetInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs){
+    PyObject * SetObject_issupersetInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "issuperset() takes exactly one argument");
             return NULL;
         }
-        if(SetObject_Check(args[0])) {
-
+        if (SetObject_Check(args[0])) {
             SetObject *other = (SetObject*)args[0];
             PyObject *py_self = (PyObject*)self;
             return SetObject_issubsetInternal(other, &py_self,1);
@@ -164,13 +163,13 @@ namespace db0::python
 
     PyObject * SetObject_issuperset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return SetObject_issupersetInternal(self, args, nargs);
     }
 
     static PyObject *SetObject_rq(SetObject *set_obj, PyObject *other, int op) 
     {        
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         PyObject** args = &other;    
         switch (op)
         {
@@ -228,28 +227,27 @@ namespace db0::python
         return {reinterpret_cast<SetObject*>(type->tp_alloc(type, 0)), false};
     }
 
-    SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *) 
-    {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+    SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *) {
+        // lock forbidden here, may cause deadlock      
         return SetObject_newInternal(type, NULL, NULL).steal();
     }
     
     shared_py_object<SetObject*> SetDefaultObject_new() {
+        // lock forbidden here, may cause deadlock
         return SetObject_new(&SetObjectType, NULL, NULL);
     }
     
     void SetObject_del(SetObject* set_obj)
     {
-                // std::lock_guard pbm_lock(python_bindings_mutex);
+                // std::lock_guard api_lock(py_api_mutex);
         // destroy associated DB0 Set instance
         set_obj->destroy();
         Py_TYPE(set_obj)->tp_free((PyObject*)set_obj);
     }
 
-    
     PyObject *SetObject_add(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "add() takes exactly one argument");
             return NULL;
@@ -284,7 +282,7 @@ namespace db0::python
 
     shared_py_object<SetObject*> makeDB0Set(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return makeDB0SetInternal(fixture, args, nargs).steal();
     }
 
@@ -296,7 +294,7 @@ namespace db0::python
 
     SetObject *makeSet(PyObject *obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return makeSetInternal(obj, args, nargs);
     }
     
@@ -306,7 +304,7 @@ namespace db0::python
 
     PyObject * SetObject_isdisjoint(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "isdisjoint() takes exactly one argument");
             return NULL;
@@ -358,7 +356,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
 
     PyObject *SetObject_copy(SetObject *py_src_set)
     {   
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return SetObject_copyInternal(py_src_set);
     }
     
@@ -368,7 +366,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
 
     PyObject *SetObject_union(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {    
-        std::lock_guard pbm_lock(python_bindings_mutex);    
+        std::lock_guard api_lock(py_api_mutex);    
         if (nargs == 0) {
             PyErr_SetString(PyExc_TypeError, "union() takes more than 0 arguments");
             return NULL;
@@ -420,7 +418,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
     void SetObject_intersection(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1, 
         PyObject *it2, PyObject *elem2)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return SetObject_intersectionInternal(fixture, set_obj, it1, elem1, it2, elem2);
     }
     
@@ -430,7 +428,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
 
     PyObject *SetObject_intersection_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {    
-        std::lock_guard pbm_lock(python_bindings_mutex);    
+        std::lock_guard api_lock(py_api_mutex);    
         if (nargs == 0) {
             PyErr_SetString(PyExc_TypeError, "intersection() takes more than 0 arguments");
             return NULL;
@@ -504,7 +502,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
         PyObject *it2, PyObject *elem2, bool symmetric)
     {
 
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return SetObject_differenceInternal(fixture, set_obj, it1, elem1, it2, elem2, symmetric);
     }
 
@@ -533,7 +531,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
 
     PyObject * SetObject_difference(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         return SetObject_differenceInternal(self, args, nargs, symmetric);
     }
 
@@ -559,7 +557,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
 
     PyObject *SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs, bool throw_ex)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "remove() takes exactly one argument");
             return NULL;
@@ -583,7 +581,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
 
     PyObject *SetObject_pop(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         auto obj = set_obj->modifyExt().pop();
         if(obj == nullptr){
             PyErr_SetString(PyExc_KeyError, "Cannot pop from empty set");
@@ -594,14 +592,14 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
 
     PyObject *SetObject_clear(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         set_obj->modifyExt().clear();
         Py_RETURN_NONE;
     }
 
     PyObject *SetObject_update(SetObject *self, PyObject * ob)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
         auto &set_impl = self->modifyExt();
@@ -627,7 +625,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
 
     PyObject *SetObject_intersection_in_place(SetObject *self, PyObject * ob)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         PyObject* it = PyObject_GetIter(self);
         PyObject* item;
         std::list<std::pair<size_t, PyObject*>> hashes_and_items;
@@ -650,7 +648,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
 
     PyObject *SetObject_difference_in_place(SetObject *self, PyObject * ob)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
         std::list<size_t> hashes;
@@ -668,7 +666,7 @@ PyObject *SetObject_copyInternal(SetObject *py_src_set)
 
     PyObject *SetObject_symmetric_difference_in_place(SetObject *self, PyObject * ob)
     {
-        std::lock_guard pbm_lock(python_bindings_mutex);
+        std::lock_guard api_lock(py_api_mutex);
         std::list<std::pair<size_t, PyObject*>> hashes_and_items_to_remove;
         std::list<PyObject *> items_to_add;
         PyObject* it = PyObject_GetIter(ob);
