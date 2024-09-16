@@ -45,7 +45,8 @@ namespace db0::object_model
         }
     }
     
-    ObjectTagManager *ObjectTagManager::makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs) {
+    ObjectTagManager *ObjectTagManager::makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs)
+    {
         if (nargs == 0) {
             // construct as empty
             return new (at_ptr) ObjectTagManager();
@@ -64,7 +65,7 @@ namespace db0::object_model
             m_type = nullptr;
         }
     }
-
+    
     void ObjectTagManager::ObjectInfo::remove(ObjectPtr const *args, Py_ssize_t nargs)
     {
         assert(m_access_mode == AccessType::READ_WRITE);

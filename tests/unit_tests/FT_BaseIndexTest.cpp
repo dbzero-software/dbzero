@@ -27,8 +27,8 @@ namespace tests
 	{
         FT_BaseIndex<std::uint64_t> cut(m_memspace, m_cache);
         auto batch_data = cut.beginBatchUpdate();
-        batch_data->addTags(123, std::vector<std::uint64_t> { 1, 2, 3 });
-        batch_data->addTags(99, std::vector<std::uint64_t> { 4, 5 });
+        batch_data->addTags({123, nullptr}, std::vector<std::uint64_t> { 1, 2, 3 });
+        batch_data->addTags({99, nullptr}, std::vector<std::uint64_t> { 4, 5 });
         batch_data->flush();
 
         ASSERT_EQ(cut.size(), 5u);
@@ -40,15 +40,15 @@ namespace tests
         // initalize with some tags
         {
             auto batch_data = cut.beginBatchUpdate();
-            batch_data->addTags(123, std::vector<std::uint64_t> { 1, 2, 3 });
-            batch_data->addTags(99, std::vector<std::uint64_t> { 4, 5 });
+            batch_data->addTags({123, nullptr}, std::vector<std::uint64_t> { 1, 2, 3 });
+            batch_data->addTags({99, nullptr}, std::vector<std::uint64_t> { 4, 5 });
             batch_data->flush();
         }
 
         // remove some tags with batch operation
         {
             auto batch_data = cut.beginBatchUpdate();
-            batch_data->removeTags(123, std::vector<std::uint64_t> { 1, 2 });
+            batch_data->removeTags({123, nullptr}, std::vector<std::uint64_t> { 1, 2 });
             batch_data->flush();
         }
 
@@ -61,8 +61,8 @@ namespace tests
         {
             FT_BaseIndex<std::uint64_t> cut(m_memspace, m_cache);
             auto batch_data = cut.beginBatchUpdate();
-            batch_data->addTags(123, std::vector<std::uint64_t> { 1, 2, 3 });
-            batch_data->addTags(99, std::vector<std::uint64_t> { 4, 5 });
+            batch_data->addTags({123, nullptr}, std::vector<std::uint64_t> { 1, 2, 3 });
+            batch_data->addTags({99, nullptr}, std::vector<std::uint64_t> { 4, 5 });
             batch_data->flush();
             ft_base_index_addr = cut.getAddress();
         }

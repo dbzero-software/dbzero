@@ -92,6 +92,51 @@ namespace db0
             TimeStats m_time_stats;                        
         };
         
+        // either of the elements is non-null
+        using ActiveValueT = std::pair<std::uint64_t, const std::uint64_t *>;
+
+        // NOTE: values can be optionally stored as pointers due to lazy address evaluation
+        // (may point to a placeholder where the actual value will be populated on flush)
+        struct TagValueBuffer
+        {
+            using value_type = std::pair<IndexKeyT, std::uint64_t>;
+
+            std::vector<std::pair<IndexKeyT, std::uint64_t> > m_values;
+            std::vector<std::pair<IndexKeyT, const std::uint64_t *> > m_value_refs;
+
+            void append(IndexKeyT key, ActiveValueT value);
+            bool empty() const;
+            
+            struct const_iterator
+            {
+                typename std::vector<std::pair<IndexKeyT, std::uint64_t> >::const_iterator m_values_it;
+                typename std::vector<std::pair<IndexKeyT, std::uint64_t> >::const_iterator m_values_end;
+                typename std::vector<std::pair<IndexKeyT, const std::uint64_t *> >::const_iterator m_value_refs_it;                
+                
+                struct tag_begin {};
+                const_iterator(const TagValueBuffer &, tag_begin);
+                struct tag_end {};
+                const_iterator(const TagValueBuffer &, tag_end);
+
+                void operator++();
+                bool operator!=(const const_iterator &) const;
+                bool operator==(const const_iterator &) const;
+
+                std::pair<IndexKeyT, std::uint64_t> operator*() const;
+            };
+
+            const_iterator begin() const;
+            const_iterator end() const;
+
+            void clear();
+        };
+        
+        class TagValueList: public std::vector<std::pair<IndexKeyT, std::uint64_t> >
+        {
+        public:
+            TagValueList(TagValueBuffer &&);
+        };
+
         /**
          * Batch operation builder should be used for bulk-loads and optimal performance
          */
@@ -99,12 +144,11 @@ namespace db0
         {
         protected :
             friend FT_BaseIndex;
-            using TagValueList = std::vector<std::pair<IndexKeyT, std::uint64_t> >;
             
             mutable std::mutex m_mutex;
             FT_BaseIndex *m_base_index_ptr;            
-            TagValueList m_add_set;
-            TagValueList m_remove_set;
+            TagValueBuffer m_add_set;
+            TagValueBuffer m_remove_set;
             bool m_commit_called = false;
 
             /**
@@ -119,65 +163,38 @@ namespace db0
             /**
              * Assign tags or types to a value (e.g. object instance)
              */
-            template <typename SequenceT> void addTags(std::uint64_t value, const SequenceT &tags_or_types)
+            template <typename SequenceT> void addTags(ActiveValueT value, const SequenceT &tags_or_types)
             {
-        std::lock_guard<std::mutex> lock(m_mutex);
+                std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
-                for (auto tag_or_type: tags_or_types) {
-                    m_add_set.emplace_back(tag_or_type, value);
+                for (auto key: tags_or_types) {
+                    m_add_set.append(key, value);
                 }
             }
             
             // Add a single tag
-            void addTag(std::uint64_t value, IndexKeyT tag)
+            void addTag(ActiveValueT value, IndexKeyT tag)
             {
-        std::lock_guard<std::mutex> lock(m_mutex);
+                std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
-                m_add_set.emplace_back(tag, value);
-            }
-
-            // Add tags using the active value
-            template <typename SequenceT> void addTags(const SequenceT &tags_or_types) 
-            {
-                assert(m_active_value);
-                addTags(m_active_value, tags_or_types);
-            }
-
-            // Add a single tag using the active value
-            void addTag(IndexKeyT tag) 
-            {
-                assert(m_active_value);
-                addTag(m_active_value, tag);
+                m_add_set.append(tag, value);
             }
 
             template <typename SequenceT>
-            void removeTags(std::uint64_t value, const SequenceT &tags_or_types)
+            void removeTags(ActiveValueT value, const SequenceT &tags_or_types)
             {
-        std::lock_guard<std::mutex> lock(m_mutex);
+                std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
-                for (auto tag_or_type: tags_or_types) {
-                    m_remove_set.emplace_back(tag_or_type, value);
+                for (auto key: tags_or_types) {
+                    m_remove_set.append(key, value);
                 }
             }
 
-            void removeTag(std::uint64_t value, IndexKeyT tag)
+            void removeTag(ActiveValueT value, IndexKeyT tag)
             {
-        std::lock_guard<std::mutex> lock(m_mutex);
-                m_commit_called = false;                
-                m_remove_set.emplace_back(tag, value);                
-            }
-
-            // Remove tags using the active value
-            template <typename SequenceT> void removeTags(const SequenceT &tags_or_types) 
-            {
-                assert(m_active_value);
-                removeTags(m_active_value, tags_or_types);
-            }
-
-            void removeTag(IndexKeyT tag) 
-            {
-                assert(m_active_value);
-                removeTag(m_active_value, tag);
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_commit_called = false;
+                m_remove_set.append(tag, value);
             }
 
             /**
@@ -196,11 +213,6 @@ namespace db0
              * @return
              */
             bool empty () const;
-
-            void setActiveValue(std::uint64_t value);
-
-        private:
-            std::uint64_t m_active_value = 0;
         };
 
         class BatchOperationBuilder

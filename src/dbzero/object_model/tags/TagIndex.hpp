@@ -93,6 +93,7 @@ namespace db0::object_model
         
     private:
         using TypeId = db0::bindings::TypeId;
+        using ActiveValueT = typename db0::FT_BaseIndex<ShortTagT>::ActiveValueT;
 
         const ClassFactory &m_class_factory;
         RC_LimitedStringPool &m_string_pool;
@@ -105,14 +106,18 @@ namespace db0::object_model
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
         mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
+        // A cache for incomplete objects (not yet fully initialized)
+        mutable std::list<std::pair<ObjectSharedPtr, std::uint64_t> > m_active_cache;
         
         template <typename BaseIndexT, typename BatchOperationT>
-        BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &);
+        BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result);
 
-        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr);
+        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr, 
+            ActiveValueT &result);
 
-        db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr);
-
+        db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr,
+            ActiveValueT &result);
+        
         /**
          * Make a tag from the provided argument (can be a string, type or a memo instance)        
         */        
@@ -145,22 +150,36 @@ namespace db0::object_model
         // Check if a specific parameter can be used as the scope identifieg (e.g. FieldDef)
         bool isScopeIdentifier(ObjectPtr) const;
         bool isScopeIdentifier(ObjectSharedPtr) const;
+
+        void buildActiveValues() const;
     };
     
     template <typename BaseIndexT, typename BatchOperationT>
-    BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, BatchOperationT &batch_op)
+    BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, 
+        BatchOperationT &batch_op, ActiveValueT &result)
     {
-        auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);
-        auto object_addr = memo.getAddress();
-        // cache object locally
-        if (m_object_cache.find(object_addr) == m_object_cache.end()) {
-            m_object_cache.emplace(object_addr, memo_ptr);
-        }
-
         if (!batch_op) {
             batch_op = base_index.beginBatchUpdate();
         }
-        batch_op->setActiveValue(object_addr);
+        
+        // prepare the active value only if it's not yet initialized
+        if (!result.first && !result.second) {
+            auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);
+            auto object_addr = memo.getAddress();
+            // NOTE: that memo object may not have address before fully initialized (before postInit)
+            if (object_addr) {
+                // cache object locally
+                if (m_object_cache.find(object_addr) == m_object_cache.end()) {
+                    m_object_cache.emplace(object_addr, memo_ptr);
+                }
+                result = ActiveValueT(object_addr, nullptr);
+            } else {
+                m_active_cache.emplace_back(memo_ptr, 0);
+                // use the address placeholder for an active value
+                result = ActiveValueT(0, &m_active_cache.back().second);
+            }
+        }
+
         return batch_op;
     }
     

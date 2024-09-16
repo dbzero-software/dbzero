@@ -15,6 +15,13 @@ class DifferentClassForTags:
         self.value = value
 
 
+@db0.memo
+class MemoWithTagsAssignedOnInit:
+    def __init__(self, value, *tags):
+        self.value = value
+        db0.tags(self).add(*tags)
+
+
 def test_assign_single_tag_to_memo_object(db0_fixture):
     object_1 = MemoClassForTags(1)
     root = MemoTestSingleton(object_1)
@@ -281,3 +288,12 @@ def test_adding_tags_on_mixed_prefixes(db0_fixture):
     
     # it's allowed to update both prefixes in one operation
     db0.tags(obj_1, obj_2).add("tag1")
+
+
+def test_tags_can_be_assigned_on_init(db0_no_autocommit):
+    obj = MemoWithTagsAssignedOnInit(1, "tag1", "tag2")
+    # find by type
+    assert len(list(db0.find(MemoWithTagsAssignedOnInit))) == 1
+    assert len(list(db0.find("tag1"))) == 1
+    assert len(list(db0.find("tag2"))) == 1
+    

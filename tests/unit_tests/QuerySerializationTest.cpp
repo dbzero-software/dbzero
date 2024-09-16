@@ -49,9 +49,9 @@ namespace tests
             auto &ft_index = tag_index.getBaseIndexShort();
             {
                 auto batch_data = ft_index.beginBatchUpdate();
-                batch_data->addTags(4, std::vector<std::uint64_t> { 1, 2, 3 });
-                batch_data->addTags(3, std::vector<std::uint64_t> { 1, 2 });
-                batch_data->addTags(8, std::vector<std::uint64_t> { 1, 2 });
+                batch_data->addTags({4, nullptr}, std::vector<std::uint64_t> { 1, 2, 3 });
+                batch_data->addTags({3, nullptr}, std::vector<std::uint64_t> { 1, 2 });
+                batch_data->addTags({8, nullptr}, std::vector<std::uint64_t> { 1, 2 });
                 batch_data->flush();
             }
             test(index, rt, ft_index);

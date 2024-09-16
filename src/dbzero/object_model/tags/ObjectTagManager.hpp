@@ -38,6 +38,7 @@ namespace db0::object_model
         static ObjectTagManager *makeNew(void *at_ptr, ObjectPtr const *memo_ptr, std::size_t nargs);
 
     private:
+    
         // Memo object to be assigned tags to (language specific)
         struct ObjectInfo
         {
