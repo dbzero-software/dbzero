@@ -58,11 +58,13 @@ namespace db0::object_model
         /**
          * Construct query result iterator (resolve and execute language specific query)
          * args - will be AND-combined
-         * @param type additional return value (if type was matched)
+         * @param type optional type to match by
          * @param observer buffer to receive query observers (possibly inherited from inner queries)
+         * @param no_result flag indicating if an empty query iterator should be returned
          */
         std::unique_ptr<QueryIterator> find(ObjectPtr const *args, std::size_t nargs,
-            std::shared_ptr<Class> &type, std::vector<std::unique_ptr<QueryObserver> > &observers) const;
+            std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, 
+            bool no_result = false) const;
         
         /**
          * Split query by all values from a specific tags_list (can be either short or long tag definitions)
@@ -213,13 +215,19 @@ namespace db0::object_model
         return { first, *it }; 
     }
 
-    /**
-     * Get fixture UUID (or 0 if not specified) related with "find" arguments
-     * @param args arguments passed to the find method
-     * @param nargs number of arguments
-     */
-    std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr const *args, std::size_t nargs);
     // Get type / enum / iterable associated fixture UUID (or 0 if not prefix bound)
     std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr);
 
+    /**
+     * Resolve find parameters from user supplied arguments
+     * @param args arguments passed to the find method
+     * @param nargs number of arguments
+     * @param args_offset result offset to the first argument to be used in actual find
+     * @param type the find type (if specified). Note that type must only be specified as the 1st argument
+     * @param no_result flag to indicate that the query yields no result
+     * @return the find associated fixture (or exception raised if could not be determined)
+     */
+    db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &, TagIndex::ObjectPtr const *args, std::size_t nargs, 
+        std::size_t &args_offset, std::shared_ptr<Class> &type, bool &no_result);
+    
 }

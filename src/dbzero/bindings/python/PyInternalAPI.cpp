@@ -73,14 +73,12 @@ namespace db0::python
             auto uuid_type = reinterpret_cast<PyTypeObject*>(uuid_arg);
             // check if type_arg is exact or a base of uuid_arg
             if (type_arg && !isBase(uuid_type, reinterpret_cast<PyTypeObject*>(type_arg))) {
-                PyErr_SetString(PyExc_TypeError, "Type mismatch");
-                return nullptr;
+                THROWF(db0::InputException) << "Type mismatch";                                
             }
             return fetchSingletonObject(snapshot, uuid_type);
         }
 
-        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-        return NULL;        
+        THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
     }
     
     shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id,
@@ -97,35 +95,33 @@ namespace db0::python
         if (py_expected_type) {
             auto type_id = PyToolkit::getTypeManager().getTypeId(py_expected_type);
             if (storage_class != db0::object_model::TypeUtils::m_storage_class_mapper.getStorageClass(type_id)) {
-                PyErr_SetString(PyExc_TypeError, "Object ID type mismatch");
-                return nullptr;
+                THROWF(db0::InputException) << "Object ID type mismatch";
             }
         }
         
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
             auto &class_factory = fixture->get<ClassFactory>();
             std::shared_ptr<Class> type;
-            // find class associated class with the ClassFactory
+            // find instance associated class with the ClassFactory
             if (py_expected_type) {
                 type = class_factory.getExistingType(py_expected_type);
             }
             
-            // unload with instance_id validation & optional type validation
+            // unload with optional type validation
             return PyToolkit::unloadObject(fixture, addr, class_factory, type);
-        }
-        
-        if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
+        } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             // unload by logical address
             return PyToolkit::unloadList(fixture, addr);
-        } 
-
-        if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {
+        } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {
             // unload by logical address
             return PyToolkit::unloadIndex(fixture, addr);
-        } 
-
-        PyErr_SetString(PyExc_TypeError, "Invalid object ID");
-        return nullptr;
+        } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
+            auto &class_factory = fixture->get<ClassFactory>();
+            // return as Python native type
+            return (PyObject*)class_factory.getTypeByPtr(db0_ptr_reinterpret_cast<Class>()(addr))->getLangClass().steal();
+        }
+        
+        THROWF(db0::InputException) << "Invalid object ID" << THROWF_END;
     }
     
     PyObject *fetchSingletonObject(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
@@ -236,11 +232,13 @@ namespace db0::python
         using TagIndex = db0::object_model::TagIndex;
         using Class = db0::object_model::Class;
         
+        std::size_t args_offset = 0;
+        bool no_result = false;
         std::shared_ptr<Class> type;
-        auto fixture = snapshot.getFixture(db0::object_model::getFindFixtureUUID(args, nargs));
+        auto fixture = db0::object_model::getFindParams(snapshot, args, nargs, args_offset, type, no_result);
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
-        auto query_iterator = tag_index.find(args, nargs, type, query_observers);
+        auto query_iterator = tag_index.find(args + args_offset, nargs - args_offset, type, query_observers, no_result);
         auto iter_obj = PyObjectIteratorDefault_new();
         if (type) {
             // construct as typed iterator when a type was specified

@@ -71,8 +71,20 @@ def test_get_memo_classes_returns_singletons(db0_fixture):
     obj = db0.fetch(singletons[0].singleton_uuid)
     assert obj == root
     
-    
+   
 def test_memo_class_get_attributes(db0_fixture):
     _ = MemoTestClass(123)
     memo_info = [obj for obj in db0.get_memo_classes() if not obj.is_singleton][0]
     assert len(list(memo_info.get_attributes())) > 0
+
+
+def test_discover_tagged_objects(db0_fixture):
+    obj = MemoTestClass(123)
+    db0.tags(obj).add("tag1", "tag2")
+    # using reflection API identify memo classess
+    memo_uuid = [obj for obj in db0.get_memo_classes()][0].memo_uuid
+    # fetch type by UUID
+    memo_type = db0.fetch(memo_uuid)    
+    # find all objects of this type
+    assert len(list(db0.find(memo_type))) == 1
+    

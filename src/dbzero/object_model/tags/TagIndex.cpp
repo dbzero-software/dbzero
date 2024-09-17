@@ -316,30 +316,20 @@ namespace db0::object_model
     }
 
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
-        std::shared_ptr<Class> &type, std::vector<std::unique_ptr<QueryObserver> > &observers) const
+        std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, bool no_result) const
     {
         db0::FT_ANDIteratorFactory<std::uint64_t> factory;
         // the negated root-level query components
-        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;        
-        if (nargs > 0) {
+        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
+        if (nargs > 0 || type) {
             // flush pending updates before querying
             flush();
             // if the 1st argument is a type then resolve as a TypedObjectIterator
             std::size_t offset = 0;
-            bool result = true;
-            if (LangToolkit::isType(args[offset])) {
-                auto lang_type = LangToolkit::getTypeManager().getTypeObject(args[offset]);
-                if (LangToolkit::isMemoType(lang_type)) {                
-                    // resolve existing DB0 type from python type and then use type as tag
-                    type = m_class_factory.tryGetExistingType(lang_type);
-                    if (type) {
-                        result &= m_base_index_short.addIterator(factory, type->getAddress());
-                    } else {
-                        // type not found implies no matching results exist
-                        result = false;
-                    }
-                    ++offset;
-                }
+            bool result = !no_result;
+            // apply type filter if provided
+            if (type) {
+                result &= m_base_index_short.addIterator(factory, type->getAddress());
             }
             
             while (result && (offset < nargs)) {
@@ -653,12 +643,15 @@ namespace db0::object_model
                     }
                 }
             }
-        }   
-        return fixture_uuid;     
+        }
+        return fixture_uuid;
     }
-
-    std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr const *args, std::size_t nargs)
+    
+    db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &workspace, TagIndex::ObjectPtr const *args, std::size_t nargs,
+        std::size_t &args_offset, std::shared_ptr<Class> &type, bool &no_result)
     {
+        using LangToolkit = TagIndex::LangToolkit;
+
         std::uint64_t fixture_uuid = 0;
         for (std::size_t i = 0; i < nargs; ++i) {
             auto uuid = getFindFixtureUUID(args[i]);
@@ -669,7 +662,25 @@ namespace db0::object_model
                 fixture_uuid = uuid;
             }
         }
-        return fixture_uuid;
+        
+        auto fixture = workspace.getFixture(fixture_uuid);
+        args_offset = 0;
+        no_result = false;
+        if (args_offset < nargs) {
+            if (LangToolkit::isType(args[args_offset])) {
+                auto lang_type = LangToolkit::getTypeManager().getTypeObject(args[args_offset]);
+                if (LangToolkit::isMemoType(lang_type)) {
+                    type = fixture->get<ClassFactory>().tryGetExistingType(lang_type);
+                    if (type) {
+                        ++args_offset;
+                    } else {
+                        // indicate non-existing type
+                        no_result = true;
+                    }
+                }
+            }
+        }
+        return fixture;
     }
 
 }

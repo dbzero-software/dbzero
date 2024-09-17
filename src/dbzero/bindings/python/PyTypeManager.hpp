@@ -91,6 +91,7 @@ namespace db0::python
         EnumValue extractEnumValue(ObjectPtr enum_value_ptr) const;
         ObjectIterator &extractObjectIterator(ObjectPtr) const;
         FieldDef &extractFieldDef(ObjectPtr) const;
+        std::string extractString(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
         
         ObjectPtr getBadPrefixError() const;
