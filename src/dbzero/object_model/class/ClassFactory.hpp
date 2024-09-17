@@ -15,7 +15,8 @@ namespace db0::object_model
 
 {
     
-    class Class;    
+    class Class;
+    struct ObjectId;
     using ClassPtr = db0::db0_ptr<Class>;
     using VClassMap = db0::v_map<db0::o_string, ClassPtr, o_string::comp_t>;
     using namespace db0;
@@ -89,8 +90,11 @@ namespace db0::object_model
         
         ClassPtr tryFindClassPtr(TypeObjectPtr lang_type, const char *type_id) const;
     };
-    
+
     std::optional<std::string> getNameVariant(ClassFactory::TypeObjectPtr lang_type,
         const char *type_id, int variant_id);
-
+    
+    // fetch class by UUID or throw
+    std::shared_ptr<Class> fetchClass(db0::Snapshot &, const ObjectId &class_uuid);
+    
 }

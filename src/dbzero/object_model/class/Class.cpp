@@ -361,7 +361,7 @@ namespace db0::object_model
             db0::getInstanceId(singleton_addr)
         };
     }
-     
+    
     ObjectId Class::getClassId() const
     {
         return {
@@ -369,6 +369,12 @@ namespace db0::object_model
             TypedAddress(StorageClass::DB0_CLASS, getAddress()),
             db0::getInstanceId(getAddress())
         };
+    }
+    
+    std::unordered_map<std::string, std::uint32_t> Class::getMembers() const
+    {
+        refreshMemberCache();
+        return m_index;
     }
 
 }

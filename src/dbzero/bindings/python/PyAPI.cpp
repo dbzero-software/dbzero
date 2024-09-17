@@ -799,7 +799,24 @@ namespace db0::python
 
         return runSafe(tryGetMemoClasses, prefix_name, prefix_uuid);
     }
-       
+
+    PyObject *getAttributes(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        std::lock_guard api_lock(py_api_mutex);
+        // expects the memo UUID string
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "getAttributes requires exactly 1 argument");
+            return NULL;
+        }
+
+        if (!PyUnicode_Check(args[0])) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+        
+        return runSafe(tryGetAttributes, PyUnicode_AsUTF8(args[0]));
+    }
+    
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {

@@ -2,6 +2,8 @@
 #include "Class.hpp"
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/core/utils/conversions.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/object_model/value/ObjectId.hpp>
 
 namespace db0::object_model
 
@@ -211,4 +213,14 @@ namespace db0::object_model
         }
     }
 
+    std::shared_ptr<Class> fetchClass(db0::Snapshot &workspace, const ObjectId &class_uuid)
+    {
+        if (class_uuid.m_typed_addr.getType() != StorageClass::DB0_CLASS) {
+            THROWF(db0::InputException) << "Invalid class UUID: " << class_uuid.toUUIDString();
+        }
+        auto fixture = workspace.getFixture(class_uuid.m_fixture_uuid, AccessType::READ_ONLY);
+        auto &class_factory = fixture->get<ClassFactory>();
+        return class_factory.getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(class_uuid.m_typed_addr.getAddress()));
+    }
+    
 }

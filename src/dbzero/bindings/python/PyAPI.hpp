@@ -139,6 +139,8 @@ namespace db0::python
     PyObject *getPrefixes(PyObject *, PyObject *);
     
     PyObject *getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs);
+
+    PyObject *getAttributes(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *self, PyObject *);

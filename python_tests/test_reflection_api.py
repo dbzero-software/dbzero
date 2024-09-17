@@ -65,10 +65,14 @@ def test_get_memo_classes_raises_when_mismatched_name_and_uuid(db0_fixture):
 def test_get_memo_classes_returns_singletons(db0_fixture):
     root = MemoTestSingleton(123)
     _ = MemoTestClass(123)
-    singletons = [obj for obj in db0.get_memo_classes() if obj.is_singleton]
-    print(singletons)
+    singletons = [obj for obj in db0.get_memo_classes() if obj.is_singleton]    
     assert len(singletons) == 1
     # try accessing the singleton by UUID
     obj = db0.fetch(singletons[0].singleton_uuid)
     assert obj == root
     
+    
+def test_memo_class_get_attributes(db0_fixture):
+    _ = MemoTestClass(123)
+    memo_info = [obj for obj in db0.get_memo_classes() if not obj.is_singleton][0]
+    assert len(list(memo_info.get_attributes())) > 0

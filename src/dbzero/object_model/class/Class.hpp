@@ -172,6 +172,9 @@ namespace db0::object_model
         // get class id (UUID) as an ObjectId type
         ObjectId getClassId() const;
 
+        // @return field name & index
+        std::unordered_map<std::string, std::uint32_t> getMembers() const;
+
     protected:
         friend class ClassFactory;
         friend ClassPtr;
@@ -189,7 +192,7 @@ namespace db0::object_model
 
     public:
         static constexpr std::uint32_t NField = std::numeric_limits<std::uint32_t>::max();
-                
+
     private:
         // member field definitions
         VFieldVector m_members;
@@ -198,7 +201,7 @@ namespace db0::object_model
         // field by-name index (cache)
         mutable std::unordered_map<std::string, std::uint32_t> m_index;
         const std::uint32_t m_uid;
-
+        
         /**
          * Load changes to the internal cache
         */
