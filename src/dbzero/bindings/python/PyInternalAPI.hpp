@@ -96,6 +96,8 @@ namespace db0::python
     PyObject *trySetCacheSize(db0::Workspace *, std::size_t new_cache_size);
     
     PyObject *_PyObject_GetDescrOptional(PyObject *obj, PyObject *name);
+    
+    PyObject *tryGetPrefixes();
 
 #ifndef NDEBUG
 

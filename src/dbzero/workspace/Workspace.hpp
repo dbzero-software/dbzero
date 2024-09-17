@@ -235,6 +235,8 @@ namespace db0
         // Clear all internal in-memory caches
         void clearCache() const;
         
+        const FixtureCatalog &getFixtureCatalog() const;
+
     private:
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> m_fixture_initializer;

@@ -25,7 +25,7 @@ from dbzero_ce import memo
 #     assert derived.base_value == 1
 #     assert derived.value == 2
 #     id = db0.uuid(derived)
-#     prefix_name = db0.get_prefix(derived)
+#     prefix_name = db0.get_prefix_of(derived)
 #     # close db0 and open as read-only
 #     db0.commit()
 #     db0.close()

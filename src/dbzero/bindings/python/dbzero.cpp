@@ -42,7 +42,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"block", (PyCFunction)&py::makeBlock, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero pandas block instance"},
     {"dataframe", (PyCFunction)&py::makeDataFrame, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero pandas dataframe instance"},
     {"bytearray", (PyCFunction)&py::makeByteArray, METH_FASTCALL, "Create a new DBZero bytearray instance"},
-    {"get_prefix", (PyCFunction)&py::getPrefixName, METH_VARARGS, ""},
+    {"get_prefix_of", (PyCFunction)&py::getPrefixNameOf, METH_VARARGS, "Get prefix name of a specific DBZero object instance"},
     {"get_current_prefix", &py::getCurrentPrefixName, METH_VARARGS, ""},
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
     {"find", (PyCFunction)&py::find, METH_FASTCALL, ""},
@@ -70,6 +70,8 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"set_cache_size", (PyCFunction)&py::setCacheSize, METH_VARARGS, "Update DBZero cache size with immediate effect"},
     {"get_cache_stats", &py::getCacheStats, METH_NOARGS, "Retrieve DBZero cache statistics"},
     {"get_lang_cache_stats", &py::getLangCacheStats, METH_NOARGS, "Retrieve DBZero language cache statistics"},
+    // the Reflection API functions
+    {"get_raw_prefixes", &py::getPrefixes, METH_NOARGS, "Get the list of prefixes accessible from the current context"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

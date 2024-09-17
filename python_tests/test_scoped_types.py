@@ -28,12 +28,12 @@ def test_get_type_info_from_scoped_class(db0_fixture):
     
 def test_create_scoped_class_instance(db0_fixture):
     obj = ScopedDataClass(42)
-    assert db0.get_prefix(obj) != db0.get_current_prefix()
+    assert db0.get_prefix_of(obj) != db0.get_current_prefix()
         
 
 def test_class_with_null_prefix_is_no_scoped(db0_fixture):
     obj = DataClass(42)
-    assert db0.get_prefix(obj) == db0.get_current_prefix()
+    assert db0.get_prefix_of(obj) == db0.get_current_prefix()
     
 
 def test_scoped_type_creation_does_not_change_current_prefix(db0_fixture):
@@ -75,11 +75,11 @@ def test_tuple_as_a_scoped_type_member(db0_fixture):
 
 def test_auto_hardening_of_weak_index_references(db0_fixture):
     ix = db0.index()
-    assert db0.get_prefix(ix) == db0.get_current_prefix()
+    assert db0.get_prefix_of(ix) == db0.get_current_prefix()
     obj = ScopedDataClass(ix)
     obj.value.add(0, obj)
     # make sure object was moved to proper scope and the reference was hardened
-    assert db0.get_prefix(obj.value) == db0.get_prefix(obj)
+    assert db0.get_prefix_of(obj.value) == db0.get_prefix_of(obj)
     db0.commit()
 
 
@@ -100,11 +100,11 @@ dict_test_params = [(db0.index, lambda ix, values: ix.add(*values)),
 def test_auto_hardening_of_weak_object_references(db0_fixture, make_add_param):
     make_obj, add_to_obj = make_add_param
     obj = make_obj()
-    assert db0.get_prefix(obj) == db0.get_current_prefix()
+    assert db0.get_prefix_of(obj) == db0.get_current_prefix()
     scoped_data = ScopedDataClass(obj)
     add_to_obj(scoped_data.value, (10, scoped_data))
     # make sure object was moved to proper scope and the reference was hardened
-    assert db0.get_prefix(scoped_data.value) == db0.get_prefix(scoped_data)
+    assert db0.get_prefix_of(scoped_data.value) == db0.get_prefix_of(scoped_data)
     db0.commit()
     
     
@@ -116,12 +116,12 @@ class ScopedSingleton:
 
 def test_scoped_singleton(db0_fixture):
     singleton = ScopedSingleton(42)
-    assert db0.get_prefix(singleton) != db0.get_current_prefix()
+    assert db0.get_prefix_of(singleton) != db0.get_current_prefix()
     db0.commit()
     object = ScopedSingleton()
     assert object == singleton
     assert object.value == 42
-    assert db0.get_prefix(object) == db0.get_prefix(singleton)
+    assert db0.get_prefix_of(object) == db0.get_prefix_of(singleton)
     
 
 def test_using_index_after_hardening(db0_fixture):

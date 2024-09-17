@@ -63,7 +63,7 @@ namespace db0::python
     /**
      * Get name of the prefix/file associated with a specific instance
     */
-    PyObject *getPrefixName(PyObject *self, PyObject *args);
+    PyObject *getPrefixNameOf(PyObject *self, PyObject *args);
     
     /**
      * Get name of the current/default prefix
@@ -133,9 +133,11 @@ namespace db0::python
     PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs);
     
     PyObject *getSlabMetrics(PyObject *self, PyObject *args);
-
+    
     PyObject *setCacheSize(PyObject *self, PyObject *args);
-        
+    
+    PyObject *getPrefixes(PyObject *, PyObject *);
+
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *self, PyObject *);
     PyObject *testCreateThenFree(PyObject *self, PyObject *args);

@@ -27,7 +27,7 @@ def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
     object_2 = RefreshTestClass(0, "text")
     id_2 = db0.uuid(object_2)
     root = MemoTestSingleton(object_1, object_2)
-    prefix_name = db0.get_prefix(object_1)
+    prefix_name = db0.get_prefix_of(object_1)
     db0.commit()
     db0.close()
     
@@ -52,7 +52,7 @@ def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
 def test_refresh_can_fetch_object_changes_done_by_other_process(db0_fixture):
     # create a singleton
     object_1 = MemoClassX(0, "text")
-    prefix_name = db0.get_prefix(object_1)
+    prefix_name = db0.get_prefix_of(object_1)
     max_value = 25
     
     # start a child process that will change the singleton
@@ -89,7 +89,7 @@ def test_refresh_can_handle_objects_deleted_by_other_process(db0_fixture):
     # create singleton so that it's not dropped
     object_1 = MemoTestSingleton(123)
     object_id = db0.uuid(object_1)
-    prefix_name = db0.get_prefix(object_1)
+    prefix_name = db0.get_prefix_of(object_1)
     
     # drop object from a separate transaction / process
     def update_process():
@@ -131,7 +131,7 @@ def test_auto_refresh(db0_fixture):
     # create singleton with a list type member
     object_1 = MemoClassX(123, "some text")
     object_id = db0.uuid(object_1)
-    prefix_name = db0.get_prefix(object_1)
+    prefix_name = db0.get_prefix_of(object_1)
     
     # update object from a separate process
     def update_process():
@@ -171,7 +171,7 @@ def test_refresh_can_detect_kv_index_updates(db0_fixture):
     object_1 = RefreshTestClass(123, "some text")
     object_id = db0.uuid(object_1)
     root = MemoTestSingleton(object_1)
-    prefix_name = db0.get_prefix(object_1)
+    prefix_name = db0.get_prefix_of(object_1)
     
     # add dynamic (kv-index) field from a separate process
     def update_process():
@@ -213,7 +213,7 @@ def test_refresh_can_detect_updates_in_posvt_fields(db0_fixture):
     object_1 = RefreshTestClass(123, "some text")
     object_id = db0.uuid(object_1)
     root = MemoTestSingleton(object_1)
-    prefix_name = db0.get_prefix(object_1)
+    prefix_name = db0.get_prefix_of(object_1)
     
     # update posvt field from a separate process
     def update_process():
@@ -251,7 +251,7 @@ def test_refresh_can_detect_updates_in_indexvt_fields(db0_fixture):
     object_1 = DynamicDataClass([0, 1, 2, 11, 33, 119])
     object_id = db0.uuid(object_1)
     root = MemoTestSingleton(object_1)
-    prefix_name = db0.get_prefix(object_1)
+    prefix_name = db0.get_prefix_of(object_1)
     
     # update index-vt field from a separate process
     def update_process():

@@ -29,7 +29,7 @@ namespace db0
         });
     }
 
-    std::string removeSuffix(const std::string& str, const std::string& suffix) 
+    std::string removeSuffix(const std::string& str, const std::string& suffix)
     {
         if (str.length() >= suffix.length() && str.compare(str.length() - suffix.length(), suffix.length(), suffix) == 0) {
             // The suffix exists, remove it
@@ -168,6 +168,10 @@ namespace db0
         m_prefix_catalog.refresh([this](const std::string &prefix_name) {
             tryAdd(prefix_name);
         });
+    }
+    
+    std::unordered_map<std::string, std::uint64_t> FixtureCatalog::getData() const {
+        return m_name_uuids;
     }
     
 }
