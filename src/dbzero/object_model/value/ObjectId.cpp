@@ -28,7 +28,7 @@ namespace db0::object_model
         return obj;
     }
     
-    void ObjectId::toBase32(char *buffer)
+    void ObjectId::toBase32(char *buffer) const
     {        
         std::array<std::uint8_t, rawSize()> bytes;
         std::memset(bytes.data(), 0, bytes.size());
@@ -67,6 +67,13 @@ namespace db0::object_model
 
     bool ObjectId::operator>=(const ObjectId &other) const {
         return !(*this < other);
+    }
+
+    std::string ObjectId::toUUIDString() const
+    {
+        char buffer[encodedSize() + 1];
+        toBase32(buffer);
+        return std::string(buffer);
     }
 
 }

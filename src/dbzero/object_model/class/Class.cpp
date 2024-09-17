@@ -2,8 +2,10 @@
 #include <dbzero/core/utils/uuid.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include "ClassFactory.hpp"
-#include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/value/ObjectId.hpp>
+#include <dbzero/object_model/value/StorageClass.hpp>
 
 DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON")
 
@@ -183,7 +185,7 @@ namespace db0::object_model
         return getFixture()->getLimitedStringPool().fetch((*this)->m_module_name);
     }
 
-    Class::TypeObjectSharedPtr Class::getLangClass() const
+    Class::TypeObjectSharedPtr Class::tryGetLangClass() const
     {
         if (!m_lang_type_ptr) {
             auto &type_manager = LangToolkit::getTypeManager();
@@ -197,23 +199,28 @@ namespace db0::object_model
                     }
                 }
             }
-
-            if (!m_lang_type_ptr) {
-                THROWF(db0::InternalException) << "Language class not found for DBZero class " << getTypeName();
-            }
         }
         return m_lang_type_ptr;
+    }
+
+    Class::TypeObjectSharedPtr Class::getLangClass() const
+    {
+        auto lang_type_ptr = tryGetLangClass();
+        if (!lang_type_ptr) {
+            THROWF(db0::InternalException) << "Language class not found for DBZero class " << getTypeName();
+        }        
+        return lang_type_ptr;
     }
     
     std::optional<std::string> getNameVariant(std::optional<std::string> type_id, std::optional<std::string> type_name,
         std::optional<std::string> module_name, std::optional<std::string> type_fields_str, int variant_id)
     {
         switch (variant_id) {
-            case 0: {                
-                if (type_id) {
-                    return type_id;
+            case 0: {
+                if (!type_id) {
+                    return std::nullopt;                    
                 }
-                return std::nullopt;
+                return type_id;
             }
             break;
 
@@ -340,6 +347,28 @@ namespace db0::object_model
             return false;
         }
         return other_type->unloadSingleton(at);
+    }
+    
+    ObjectId Class::getSingletonObjectId() const
+    {
+        if (!isSingleton() || !isExistingSingleton()) {
+            THROWF(db0::InternalException) << "Singleton object not found for class " << getTypeName();
+        }
+        auto singleton_addr = (*this)->m_singleton_address;
+        return {
+            getFixture()->getUUID(),
+            TypedAddress(StorageClass::OBJECT_REF, singleton_addr),
+            db0::getInstanceId(singleton_addr)
+        };
+    }
+     
+    ObjectId Class::getClassId() const
+    {
+        return {
+            getFixture()->getUUID(),
+            TypedAddress(StorageClass::DB0_CLASS, getAddress()),
+            db0::getInstanceId(getAddress())
+        };
     }
 
 }

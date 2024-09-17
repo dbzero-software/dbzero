@@ -17,7 +17,7 @@ namespace db0::object_model
         
         // encodes with base-32 characters (no format prefix / suffix)
         // the buffer must be at least 'encodedSize' + 1 bytes long
-        void toBase32(char *buf);
+        void toBase32(char *buf) const;
         static ObjectId fromBase32(const char *buf);
         
         bool operator==(const ObjectId &other) const;
@@ -39,6 +39,8 @@ namespace db0::object_model
         static constexpr std::size_t encodedSize() {
             return (rawSize() * 8 - 1) / 5 + 1;
         }
+
+        std::string toUUIDString() const;
     };
 
 }

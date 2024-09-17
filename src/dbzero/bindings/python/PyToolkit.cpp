@@ -15,7 +15,7 @@
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
-#include "ObjectId.hpp"
+#include "PyObjectId.hpp"
 #include "PyObjectIterator.hpp"
 #include "PyEnum.hpp"
 #include "PyClassFields.hpp"
