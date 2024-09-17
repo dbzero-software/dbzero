@@ -2,7 +2,7 @@
 
 #include <Python.h>
 #include <cstdint>
-#include "ObjectId.hpp"
+#include "PyObjectId.hpp"
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
@@ -97,8 +97,6 @@ namespace db0::python
     
     PyObject *_PyObject_GetDescrOptional(PyObject *obj, PyObject *name);
     
-    PyObject *tryGetPrefixes();
-
 #ifndef NDEBUG
 
     /**

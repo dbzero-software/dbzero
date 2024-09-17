@@ -2,7 +2,7 @@
 #include "PyInternalAPI.hpp"
 #include "PyToolkit.hpp"
 #include "PyEnum.hpp"
-#include "ObjectId.hpp"
+#include "PyObjectId.hpp"
 #include "PyTypeManager.hpp"
 #include "PyWorkspace.hpp"
 #include "Memo.hpp"
@@ -24,6 +24,7 @@
 #include <dbzero/core/serialization/Types.hpp>
 #include "Types.hpp"
 #include "PyAtomic.hpp"
+#include "PyReflectionAPI.hpp"
 
 namespace db0::python
 
@@ -778,10 +779,27 @@ namespace db0::python
         return runSafe(trySetCacheSize, &PyToolkit::getPyWorkspace().getWorkspace(), cache_size);
     }
     
-    PyObject *getPrefixes(PyObject *, PyObject *) {
+    PyObject *getPrefixes(PyObject *, PyObject *) 
+    {
+        std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryGetPrefixes);
     }
     
+    PyObject *getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
+        std::lock_guard api_lock(py_api_mutex);
+        // extract optional prefix_name or prefix_uuid
+        const char *prefix_name = nullptr;
+        std::uint64_t prefix_uuid = 0;
+        static const char *kwlist[] = {"prefix_name", "prefix_uuid", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sK", const_cast<char**>(kwlist), &prefix_name, &prefix_uuid)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        return runSafe(tryGetMemoClasses, prefix_name, prefix_uuid);
+    }
+       
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {

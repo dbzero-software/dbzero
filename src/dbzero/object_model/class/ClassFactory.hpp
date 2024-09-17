@@ -69,6 +69,9 @@ namespace db0::object_model
         void commit();
         
         void detach() const;
+
+        // Iterate over all classes (whether having language specific type assigned or not)
+        void forAll(std::function<void(std::shared_ptr<Class>)>) const;
         
     private:
         mutable std::vector<TypeObjectSharedPtr> m_types;

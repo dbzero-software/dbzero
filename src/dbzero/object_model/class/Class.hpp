@@ -39,6 +39,7 @@ namespace db0::object_model
     using Fixture = db0::Fixture;
     using ClassFlags = db0::ClassFlags;    
     class Object;
+    struct ObjectId;
     
     struct [[gnu::packed]] o_class: public db0::o_fixed<o_class>
     {
@@ -91,8 +92,12 @@ namespace db0::object_model
         Class(db0::swine_ptr<Fixture> &, std::uint64_t address);
         ~Class();
         
+        // Try retrieving associated language specific class if such exists in the current context
+        // @return nullptr if the class is not found
+        TypeObjectSharedPtr tryGetLangClass() const;
+        
         /**
-         * Retrieves associated language specific class (raw pointer)
+         * Retrieves associated language specific class or throws
         */
         TypeObjectSharedPtr getLangClass() const;
 
@@ -138,6 +143,9 @@ namespace db0::object_model
 
         // Check if singleton exists on a specific fixture (identified by UUID)
         bool isExistingSingleton(std::uint64_t fixure_uuid) const;
+        
+        // Construct singleton's ObjectId without unloading it
+        ObjectId getSingletonObjectId() const;
 
         void setSingletonAddress(Object &);
 
@@ -160,6 +168,9 @@ namespace db0::object_model
         bool operator!=(const Class &rhs) const;
 
         std::uint32_t getUID() const { return m_uid; }
+
+        // get class id (UUID) as an ObjectId type
+        ObjectId getClassId() const;
 
     protected:
         friend class ClassFactory;
@@ -193,11 +204,11 @@ namespace db0::object_model
         */
         void refreshMemberCache() const;
     };
-        
+    
     // retrieve one of 4 possible type name variants
     std::optional<std::string> getNameVariant(std::optional<std::string> type_id, std::optional<std::string> type_name,
         std::optional<std::string> module_name, std::optional<std::string> type_fields_str, int variant_id);
-
+    
     std::optional<std::string> getNameVariant(const Class &, int variant_id);
 
 }

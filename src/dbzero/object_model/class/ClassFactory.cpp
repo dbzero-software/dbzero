@@ -203,5 +203,12 @@ namespace db0::object_model
         }
         super_t::detach();
     }
+    
+    void ClassFactory::forAll(std::function<void(std::shared_ptr<Class>)> f) const
+    {
+        for (auto it = m_class_maps[1].begin(), end = m_class_maps[1].end(); it != end; ++it) {
+            f(getTypeByPtr(it->second()));
+        }
+    }
 
 }
