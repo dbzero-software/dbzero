@@ -1,8 +1,9 @@
 from collections import namedtuple
-from .dbzero_ce import get_raw_prefixes, get_raw_memo_classes
+from .dbzero_ce import get_raw_prefixes, get_raw_memo_classes, get_raw_attributes
 
 
-PrefixMetaData = namedtuple("PrefixMetaData", ["prefix_name", "prefix_uuid"])
+PrefixMetaData = namedtuple("PrefixMetaData", ["name", "puuid"])
+AttributeInfo = namedtuple("AttributeInfo", ["name"])
 
 class MemoMetaClass:
     def __init__(self, name, module, memo_uuid, is_singleton=False, singleton_uuid=None):
@@ -33,11 +34,12 @@ class MemoMetaClass:
         return self.__singleton_uuid
     
     def get_attributes(self):
-        raise NotImplementedError("Not implemented yet")
+        for attribute in get_raw_attributes(self.__memo_uuid):
+            yield AttributeInfo(attribute[0])
     
     def get_methods(self):
         raise NotImplementedError("Not implemented yet")
-        
+     
     def __str__(self):
         return f"{self.__module}.{self.__name} ({self.__memo_uuid})"
     
