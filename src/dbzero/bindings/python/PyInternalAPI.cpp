@@ -396,5 +396,18 @@ namespace db0::python
             drop_instance_functions[static_cast<int>(type_id)](py_instance);
         }
     }
+    
+    PyObject *tryGetPrefixes()
+    {
+        // prefix name / UUID pairs
+        auto data = PyToolkit::getPyWorkspace().getWorkspace().getFixtureCatalog().getData();
+        // return as python list of tuples
+        PyObject *py_list = PyList_New(0);
+        for (auto [name, uuid]: data) {
+            PyObject *py_tuple = PyTuple_Pack(2, PyUnicode_FromString(name.c_str()), PyLong_FromUnsignedLongLong(uuid));            
+            PyList_Append(py_list, py_tuple);
+        }
+        return py_list;
+    }
 
 }

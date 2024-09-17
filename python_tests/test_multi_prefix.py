@@ -9,7 +9,7 @@ def test_memo_objects_can_be_created_on_different_prefixes(db0_fixture):
     # open the 2nd prefix which becomes default
     db0.open("some-other-prefix")
     object_2 = MemoTestClass(456)
-    assert db0.get_prefix(object_1) != db0.get_prefix(object_2)
+    assert db0.get_prefix_of(object_1) != db0.get_prefix_of(object_2)
 
 
 def test_current_prefix_is_changed_by_open(db0_fixture):
@@ -57,7 +57,7 @@ def test_can_commit_specific_prefix(db0_fixture):
 
 def test_get_prefix_of_query(db0_fixture, memo_tags):
     query = db0.find(MemoTestClass, "tag1")
-    assert db0.get_prefix(query) == db0.get_current_prefix()
+    assert db0.get_prefix_of(query) == db0.get_current_prefix()
 
 
 def test_get_state_num_of_specific_prefix(db0_fixture, memo_tags):

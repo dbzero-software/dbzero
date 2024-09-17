@@ -179,7 +179,7 @@ class MaxScanExceeded(Exception):
     
 def group_by(group_defs, query, max_scan=1000) -> Dict:
     global px_fast_query
-    px_data = db0.get_prefix(query)
+    px_data = db0.get_prefix_of(query)
     """
     Group query results by the given key
     """

@@ -531,5 +531,9 @@ namespace db0
             fixture->onCacheFlushed(threshold_reached);
         }
     }
+        
+    const FixtureCatalog &Workspace::getFixtureCatalog() const {
+        return m_fixture_catalog;
+    }
     
 }

@@ -7,7 +7,7 @@ from .conftest import DB0_DIR
 def test_snapshot_can_fetch_object_by_id(db0_fixture):
     object_1 = MemoTestSingleton(123)
     uuid = db0.uuid(object_1)
-    prefix_name = db0.get_prefix(object_1)
+    prefix_name = db0.get_prefix_of(object_1)
     del object_1
     # commit data and close db0
     db0.commit()
@@ -40,7 +40,7 @@ def test_snapshot_can_access_data_from_past_transaction(db0_fixture):
 
 def test_snapshot_can_fetch_memo_singleton(db0_fixture):
     object_1 = MemoTestSingleton(123)
-    prefix_name = db0.get_prefix(object_1)
+    prefix_name = db0.get_prefix_of(object_1)
     del object_1
     # commit data and close db0
     db0.commit()

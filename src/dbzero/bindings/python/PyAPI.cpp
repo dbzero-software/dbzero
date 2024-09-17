@@ -227,7 +227,7 @@ namespace db0::python
         return runSafe(tryClose, self, args);
     }
     
-    PyObject *getPrefixName(PyObject *self, PyObject *args)
+    PyObject *getPrefixNameOf(PyObject *self, PyObject *args)
     {
         std::lock_guard api_lock(py_api_mutex);
         PyObject *py_object;
@@ -776,6 +776,10 @@ namespace db0::python
         }
 
         return runSafe(trySetCacheSize, &PyToolkit::getPyWorkspace().getWorkspace(), cache_size);
+    }
+    
+    PyObject *getPrefixes(PyObject *, PyObject *) {
+        return runSafe(tryGetPrefixes);
     }
     
 #ifndef NDEBUG
