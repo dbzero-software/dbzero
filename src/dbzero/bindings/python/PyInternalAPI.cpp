@@ -21,6 +21,7 @@
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
+#include "PyClass.hpp"
 
 namespace db0::python
 
@@ -117,8 +118,15 @@ namespace db0::python
             return PyToolkit::unloadIndex(fixture, addr);
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = fixture->get<ClassFactory>();
-            // return as Python native type
-            return (PyObject*)class_factory.getTypeByPtr(db0_ptr_reinterpret_cast<Class>()(addr))->getLangClass().steal();
+            // return as Python native type (if it can be located)
+            auto class_ptr = class_factory.getConstTypeByPtr(db0_ptr_reinterpret_cast<Class>()(addr));
+            if (class_ptr->hasLangClass()) {
+                // return as a Python type
+                return (PyObject*)class_ptr->getLangClass().steal();
+            } else {
+                // return as a DBZero class instance
+                return makeClass(class_ptr);
+            }
         }
         
         THROWF(db0::InputException) << "Invalid object ID" << THROWF_END;

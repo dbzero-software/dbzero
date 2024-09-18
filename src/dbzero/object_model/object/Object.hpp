@@ -26,7 +26,7 @@ namespace db0::object_model
     class Class;
     using Fixture = db0::Fixture;
     
-    std::shared_ptr<Class> unloadClass(std::uint32_t class_ref, const ClassFactory &);
+    std::shared_ptr<Class> getCachedClass(std::uint32_t class_ref, const ClassFactory &);
     
     enum class ObjectOptions: std::uint8_t
     {

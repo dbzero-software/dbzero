@@ -19,6 +19,7 @@
 #include "PyObjectIterator.hpp"
 #include "PyEnum.hpp"
 #include "PyClassFields.hpp"
+#include "PyClass.hpp"
 
 namespace db0::python
 
@@ -74,9 +75,9 @@ namespace db0::python
             return obj_ptr;
         }
 
-        // unload from backend otherwise
+        // Unload from backend otherwise
         auto stem = db0::object_model::Object::unloadStem(fixture, address);
-        auto type = db0::object_model::unloadClass(stem->m_class_ref, class_factory);
+        auto type = db0::object_model::getCachedClass(stem->m_class_ref, class_factory);
         if (expected_type && type != expected_type) {
             THROWF(db0::InputException) << "Type mismatch";
         }
@@ -414,4 +415,8 @@ namespace db0::python
         return PyObject_RichCompareBool(py_object1, py_object2, Py_EQ);
     }
     
+    bool PyToolkit::isClassObject(ObjectPtr py_object) {
+        return PyClassObject_Check(py_object);
+    }
+
 }

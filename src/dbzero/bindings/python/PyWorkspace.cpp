@@ -4,6 +4,7 @@
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/object_model/class/ClassFactory.hpp>
 #include "PyToolkit.hpp"
 
 namespace db0::python
@@ -33,8 +34,20 @@ namespace db0::python
         m_config = std::make_shared<db0::Config>(py_config);
         m_workspace = std::shared_ptr<db0::Workspace>(
             new Workspace(root_path, {}, {}, {}, {}, db0::object_model::initializer(), m_config));
+
+        // register a callback to register bindings between known memo types (language specific objects)
+        // and the corresponding Class instances. Note that types may be prefix agnostic therefore bindings may or
+        // may not exist depending on the prefix
+        m_workspace->setOnOpenCallback([](db0::swine_ptr<db0::Fixture> &fixture, bool is_new) {
+            if (!is_new) {
+                auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+                PyToolkit::getTypeManager().forAllMemoTypes([&class_factory](TypeObjectPtr memo_type) {
+                    class_factory.tryGetExistingType(memo_type);
+                });
+            }
+        });
     }
-        
+    
     db0::Workspace &PyWorkspace::getWorkspace() const
     {
         if (!m_workspace) {
@@ -65,7 +78,7 @@ namespace db0::python
     bool PyWorkspace::hasWorkspace() const {
         return m_workspace != nullptr;
     }
-    
+
     bool PyWorkspace::refresh() {
         return getWorkspace().refresh();
     }

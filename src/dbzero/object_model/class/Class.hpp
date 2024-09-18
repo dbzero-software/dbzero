@@ -88,10 +88,13 @@ namespace db0::object_model
             Member(std::uint32_t, const std::string &);
         };
         
-        // Pull existing type (language class unknown)
-        Class(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        // Pull existing type & assign associated language specific type object
+        Class(db0::swine_ptr<Fixture> &, std::uint64_t address, TypeObjectPtr lang_type_ptr);
         ~Class();
         
+        // Check if the associated language specific type is known
+        bool hasLangClass() const;
+
         // Try retrieving associated language specific class if such exists in the current context
         // @return nullptr if the class is not found
         TypeObjectSharedPtr tryGetLangClass() const;
@@ -116,7 +119,7 @@ namespace db0::object_model
         }
         
         const Member &get(std::uint32_t index) const;
-
+        
         const Member &get(const char *name) const;
 
         /* FIXME: review & implement
@@ -179,6 +182,10 @@ namespace db0::object_model
         friend class ClassFactory;
         friend ClassPtr;
         friend class Object;
+        friend super_t;
+        
+        // A protected constructor for temporary instances (without a binding to a language specific type)
+        Class(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
         // DBZero class instances should only be created by the ClassFactory
         // construct a new DBZero class

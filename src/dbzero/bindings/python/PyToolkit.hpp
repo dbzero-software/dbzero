@@ -124,6 +124,7 @@ namespace db0::python
         static bool isMemoObject(ObjectPtr py_object);
         static bool isEnumValue(ObjectPtr py_object);
         static bool isFieldDef(ObjectPtr py_object);
+        static bool isClassObject(ObjectPtr py_object);
         static ObjectSharedPtr getIterator(ObjectPtr py_object);
         static ObjectSharedPtr next(ObjectPtr py_object);
         // Get value associated fixture UUID (e.g. enum value)

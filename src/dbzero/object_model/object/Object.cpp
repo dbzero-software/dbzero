@@ -26,11 +26,12 @@ namespace db0::object_model
         return static_cast<std::uint32_t>(address);
     }
     
-    std::shared_ptr<Class> unloadClass(std::uint32_t class_ref, const ClassFactory &class_factory)
+    std::shared_ptr<Class> getCachedClass(std::uint32_t class_ref, const ClassFactory &class_factory)
     {
         // unload class object from class factory  
         auto class_ptr = db0::db0_ptr_reinterpret_cast<Class>()(class_ref);
-        return class_factory.getTypeByPtr(class_ptr);
+        // retrieve class object from cache
+        return class_factory[class_ptr];        
     }
     
     o_object::o_object(std::uint32_t class_ref, std::uint32_t ref_count, const PosVT::Data &pos_vt_data,

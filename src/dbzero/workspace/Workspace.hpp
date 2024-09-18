@@ -214,7 +214,11 @@ namespace db0
         */
         bool refresh();
         
-        void forAll(std::function<void(const Fixture &)> callback) const;
+        void forAll(std::function<void(const Fixture &)>) const;
+        
+        // Register a callback function to be invoked each time when a fixture is opened or created
+        // this is used to register known Class and language specific type bindings within the fixture
+        void setOnOpenCallback(std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> callback);
         
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool is_read_only)>
         getFixtureInitializer() const;
@@ -251,6 +255,7 @@ namespace db0
         mutable std::shared_ptr<LangCache> m_lang_cache;
         std::unique_ptr<WorkspaceThreads> m_workspace_threads;
         std::shared_ptr<Config> m_config;
+        std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;
         
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
         

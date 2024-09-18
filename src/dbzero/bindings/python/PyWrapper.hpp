@@ -79,13 +79,18 @@ namespace db0::python
         const T &ext() const {
             return *super_t::ext();
         }
-
+        
         template <typename... Args> void makeNew(Args &&...args) {
-            Shared<T>::makeNew(&super_t::ext(), std::make_shared<T>(std::forward<Args>(args)...));
+            Shared<T>::makeNew(&super_t::modifyExt(), std::make_shared<T>(std::forward<Args>(args)...));
         }
         
         void makeNew(std::shared_ptr<T> ptr) {
-            Shared<T>::makeNew(&super_t::ext(), ptr);
+            // note, here we don't call modifyExt, as the instance is already created
+            Shared<T>::makeNew((void*)&super_t::ext(), ptr);
+        }
+        
+        std::shared_ptr<T> getSharedPtr() const {
+            return super_t::ext().m_ptr;
         }
     };
     

@@ -316,7 +316,7 @@ namespace db0::object_model
     }
 
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
-        std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, bool no_result) const
+        std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, bool no_result) const
     {
         db0::FT_ANDIteratorFactory<std::uint64_t> factory;
         // the negated root-level query components
@@ -667,6 +667,7 @@ namespace db0::object_model
         args_offset = 0;
         no_result = false;
         if (args_offset < nargs) {
+            // a Python Memo type
             if (LangToolkit::isType(args[args_offset])) {
                 auto lang_type = LangToolkit::getTypeManager().getTypeObject(args[args_offset]);
                 if (LangToolkit::isMemoType(lang_type)) {
@@ -678,6 +679,15 @@ namespace db0::object_model
                         no_result = true;
                     }
                 }
+            // a PyClass instance
+            } else if (LangToolkit::isClassObject(args[args_offset])) {
+                auto const_type = LangToolkit::getTypeManager().extractConstClass(args[args_offset]);
+                // unable to query if the associated language specific class is not known
+                if (!const_type->hasLangClass()) {
+                    THROWF(db0::InputException) << "Unknown object type";
+                }
+                type = std::const_pointer_cast<Class>(const_type);
+                ++args_offset;
             }
         }
         return fixture;

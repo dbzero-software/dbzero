@@ -7,13 +7,12 @@ namespace db0
 {
     
     /**
-     * Fixture view initializer (currently empty)
+     * Fixture view initializer
     */
-    std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> view_initializer()
-    {
-        return [](db0::swine_ptr<Fixture> &fixture, bool, bool)
-        {
-        };
+    void initSnapshot(db0::swine_ptr<Fixture> &head, db0::swine_ptr<Fixture> &view) {
+        auto &class_factory = head->get<db0::object_model::ClassFactory>();
+        // copy all known type mappings from the head fixture
+        view->get<db0::object_model::ClassFactory>().initFrom(class_factory);
     }
 
     WorkspaceView::WorkspaceView(std::shared_ptr<Workspace> workspace, std::optional<std::uint64_t> state_num, 
@@ -74,6 +73,8 @@ namespace db0
     
     WorkspaceView::~WorkspaceView()
     {
+        // FIXME: log
+        std::cout << "WorkspaceView::~WorkspaceView()" << std::endl;
     }
 
     db0::swine_ptr<Fixture> WorkspaceView::getFixture(
@@ -93,19 +94,19 @@ namespace db0
             return getFixture(it->second);
         }
 
-        auto fixture = m_workspace_ptr->getFixture(prefix_name);
+        auto head_fixture = m_workspace_ptr->getFixture(prefix_name);
         // get snapshot of the latest state
-        auto result = fixture->getSnapshot(*this, getSnapshotStateNum(*fixture));
+        auto result = head_fixture->getSnapshot(*this, getSnapshotStateNum(*head_fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
         // initialize as read-only
         if (fx_initializer) {
             fx_initializer(result, false, true);
-            view_initializer()(result, false, true);
+            initSnapshot(head_fixture, result);
         }
 
-        m_fixtures[fixture->getUUID()] = result;
-        m_name_uuids[prefix_name] = fixture->getUUID();
+        m_fixtures[head_fixture->getUUID()] = result;
+        m_name_uuids[prefix_name] = head_fixture->getUUID();
         return result;
     }
     
@@ -135,20 +136,20 @@ namespace db0
             return it->second;
         }
         
-        auto fixture = m_workspace_ptr->getFixture(uuid);
-        auto result = fixture->getSnapshot(*this, getSnapshotStateNum(*fixture));
+        auto head_fixture = m_workspace_ptr->getFixture(uuid);
+        auto result = head_fixture->getSnapshot(*this, getSnapshotStateNum(*head_fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
         // initialize as read-only
         if (fx_initializer) {
             fx_initializer(result, false, true);
-            view_initializer()(result, false, true);
+            initSnapshot(head_fixture, result);
         }
-        m_fixtures[fixture->getUUID()] = result;
-        m_name_uuids[fixture->getPrefix().getName()] = fixture->getUUID();
+        m_fixtures[head_fixture->getUUID()] = result;
+        m_name_uuids[head_fixture->getPrefix().getName()] = head_fixture->getUUID();
         return result;
     }
-
+    
     bool WorkspaceView::close(const std::string &prefix_name)
     {
         if (m_closed) {

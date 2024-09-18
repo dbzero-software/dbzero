@@ -228,6 +228,9 @@ namespace db0
     
     void Workspace::close()
     {
+        // FIXME: log
+        std::cout << "Workspace::close" << std::endl;
+        
         // stop all workspace threads first
         m_workspace_threads = nullptr;
         m_shared_object_list.clear();
@@ -292,6 +295,11 @@ namespace db0
                 if (*access_type == AccessType::READ_WRITE && autocommit.value_or(true)) {
                     // register fixture for auto-commit
                     m_workspace_threads->startAutoCommit(fixture);
+                }
+
+                // complete fixture initialization
+                if (m_on_open_callback) {
+                    m_on_open_callback(it->second, file_created);
                 }
             }
         } catch (...) {
@@ -531,9 +539,13 @@ namespace db0
             fixture->onCacheFlushed(threshold_reached);
         }
     }
-        
+    
     const FixtureCatalog &Workspace::getFixtureCatalog() const {
         return m_fixture_catalog;
     }
     
+    void Workspace::setOnOpenCallback(std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> callback) {
+        m_on_open_callback = callback;
+    }
+
 }

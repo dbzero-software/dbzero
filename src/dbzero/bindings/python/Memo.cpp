@@ -331,7 +331,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Variable-length types not supported");
             return NULL;
         }
-
+        
         // Create a new python type which inherits after dbzero_ce.Object (tp_base)
         // implements methods from py_class and overrides the following methods:
         // __init__, __getattr__, __setattr__, __delattr__, __getattribute__

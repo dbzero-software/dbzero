@@ -27,7 +27,7 @@
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include "PyClassFields.hpp"
 #include "PyEnum.hpp"
-#include "Memo.hpp"
+#include "PyClass.hpp"
 
 namespace db0::python
 
@@ -56,11 +56,14 @@ namespace db0::python
         addStaticType(&SetObjectType, TypeId::DB0_SET);
         addStaticType(&DictObjectType, TypeId::DB0_DICT);
         addStaticType(&TupleObjectType, TypeId::DB0_TUPLE);
+        addStaticType(&ClassObjectType, TypeId::DB0_CLASS);
         addStaticType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
         addStaticType(&PyBytes_Type, TypeId::BYTES);
         addStaticType(&PyEnumType, TypeId::DB0_ENUM);
         addStaticType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
-        addStaticType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);        
+        addStaticType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
+        addStaticType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
+        addStaticType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
         // Python datetime type
         addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
@@ -72,32 +75,21 @@ namespace db0::python
             return TypeId::UNKNOWN;
         }
 
-        // check with static types first
-        auto it = m_id_map.find(reinterpret_cast<PyObject*>(py_type));
-        if (it != m_id_map.end()) {
-            // return a known registered ty
-            return it->second;
-        }
-
-        // check if memo class
+        // check if a memo class first
         if (PyMemoType_Check(py_type)) {
             return TypeId::MEMO_OBJECT;
         }
 
-        // check if block class
-        if (PandasBlockType_Check(py_type)) {
-            return TypeId::DB0_BLOCK;
+        // check with the static types next
+        auto it = m_id_map.find(reinterpret_cast<PyObject*>(py_type));
+        if (it == m_id_map.end()) {            
+            THROWF(db0::InputException) << "Type unsupported by DBZero: " << py_type->tp_name;
         }
 
-        // check if data frame class
-        if (PandasDataFrameType_Check(py_type)) {
-            return TypeId::DB0_PANDAS_DATAFRAME;
-        }
-
-        // Raise exception, type unknown
-        THROWF(db0::InputException) << "Type unsupported by DBZero: " << py_type->tp_name << THROWF_END;
+        // return a known registered type
+        return it->second;
     }
-
+    
     PyTypeManager::TypeId PyTypeManager::getTypeId(ObjectPtr ptr) const
     {
         if (!ptr) {
@@ -358,4 +350,19 @@ namespace db0::python
         return m_py_bad_prefix_error.get();
     }
 
+    std::shared_ptr<const db0::object_model::Class> PyTypeManager::extractConstClass(ObjectPtr py_class) const
+    {
+        if (!PyClassObject_Check(py_class)) {
+            THROWF(db0::InputException) << "Expected a Class object" << THROWF_END;
+        }
+        return reinterpret_cast<ClassObject*>(py_class)->getSharedPtr();
+    }
+
+    void PyTypeManager::forAllMemoTypes(std::function<void(TypeObjectPtr)> f) const
+    {
+        for (auto &memo_type: m_type_cache) {
+            f(memo_type.second.get());
+        }
+    }
+    
 }

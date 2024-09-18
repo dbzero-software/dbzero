@@ -270,7 +270,7 @@ def test_atomic_operation_merged_into_current_transaction(db0_fixture):
     assert len(list(db0.find("tag1"))) == 5
 
 
-def test_atomic_operation_results_accessible_from_snapshot(db0_fixture): 
+def test_atomic_operation_results_accessible_from_snapshot(db0_fixture):
     with db0.atomic():
         for _ in range(5):
             object = MemoTestClass(999)
