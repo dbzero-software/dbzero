@@ -72,11 +72,11 @@ namespace db0::python
     struct PySharedWrapper: public PyWrapper<Shared<T>, is_object_base>
     {
         using super_t = PyWrapper<Shared<T>, is_object_base>;
-        inline T &ext() {
-            return *super_t::ext();
+        inline T &modifyExt() {
+            return *super_t::modifyExt();
         }
 
-        const T &ext() const {
+        inline const T &ext() const {
             return *super_t::ext();
         }
         

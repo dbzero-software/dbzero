@@ -667,7 +667,7 @@ namespace db0::object_model
         args_offset = 0;
         no_result = false;
         if (args_offset < nargs) {
-            // a Python Memo type
+            // Python Memo type
             if (LangToolkit::isType(args[args_offset])) {
                 auto lang_type = LangToolkit::getTypeManager().getTypeObject(args[args_offset]);
                 if (LangToolkit::isMemoType(lang_type)) {
@@ -679,7 +679,7 @@ namespace db0::object_model
                         no_result = true;
                     }
                 }
-            // a PyClass instance
+            // PyClass instance
             } else if (LangToolkit::isClassObject(args[args_offset])) {
                 auto const_type = LangToolkit::getTypeManager().extractConstClass(args[args_offset]);
                 // unable to query if the associated language specific class is not known

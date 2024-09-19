@@ -19,9 +19,10 @@ namespace db0::python
 
 {
     
-    MemoTypeDecoration::MemoTypeDecoration(const char *prefix_name, const char *type_id)
+    MemoTypeDecoration::MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name)
         : m_prefix_name_ptr(prefix_name)
         , m_type_id(type_id)
+        , m_file_name(file_name)
     {
     }
     
@@ -37,6 +38,14 @@ namespace db0::python
     
     void MemoTypeDecoration::close() {
         m_fixture_uuid = 0;
+    }
+    
+    MemoTypeDecoration &MemoTypeDecoration::get(PyTypeObject *type) 
+    {
+        if (!PyMemoType_Check(type)) {
+            THROWF(db0::InternalException) << "Memo type expected for: " << type->tp_name << THROWF_END;
+        }
+        return *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
     }
     
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
@@ -313,8 +322,9 @@ namespace db0::python
         return new_dict;
     }
     
-    PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name, const char *type_id)
-    {     
+    PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name,
+        const char *type_id, const char *file_name)
+    {
         Py_INCREF(py_class);
         PyObject *py_module = findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__"));
         if (!PyModule_Check(py_module)) {
@@ -340,8 +350,11 @@ namespace db0::python
         auto &type_manager = PyToolkit::getTypeManager();
         char *data = new char[sizeof(PyHeapTypeObject) + sizeof(MemoTypeDecoration)];
         PyHeapTypeObject *ht_new_type = new (data) PyHeapTypeObject();
-        new (data + sizeof(PyHeapTypeObject)) 
-        MemoTypeDecoration(type_manager.getPooledString(prefix_name), type_manager.getPooledString(type_id));
+        new (data + sizeof(PyHeapTypeObject)) MemoTypeDecoration(
+            type_manager.getPooledString(prefix_name), 
+            type_manager.getPooledString(type_id),
+            type_manager.getPooledString(file_name)
+        );
         // Construct base type as a copy of the original type
         PyTypeObject *base_type = new PyTypeObject(*py_class);
         Py_INCREF(base_type);
@@ -352,7 +365,7 @@ namespace db0::python
         new_type->tp_name = full_type_name;
         // remove Py_TPFLAGS_READY flag so that the type can be initialized by the PyType_Ready
         new_type->tp_flags = py_class->tp_flags & ~Py_TPFLAGS_READY;
-        // extend basic size with pointer to a DBZero object instance        
+        // extend basic size with pointer to a DBZero object instance
         new_type->tp_basicsize = py_class->tp_basicsize + sizeof(db0::object_model::Object);
         // distinguish between singleton and non-singleton types
         new_type->tp_new = is_singleton ? reinterpret_cast<newfunc>(MemoObject_new_singleton) : reinterpret_cast<newfunc>(MemoObject_new);
@@ -407,8 +420,11 @@ namespace db0::python
         PyObject *singleton = Py_False;
         PyObject *py_prefix_name = nullptr;
         PyObject *py_type_id = nullptr;
-        static const char *kwlist[] = { "input", "singleton", "prefix", "id", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOO", const_cast<char**>(kwlist), &class_obj, &singleton, &py_prefix_name, &py_type_id)) {
+        PyObject *py_file_name = nullptr;
+        static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOO", const_cast<char**>(kwlist), &class_obj, &singleton,
+            &py_prefix_name, &py_type_id, &py_file_name))
+        {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
         }
@@ -416,7 +432,10 @@ namespace db0::python
         bool is_singleton = PyObject_IsTrue(singleton);
         const char *prefix_name = py_prefix_name ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;
-        return reinterpret_cast<PyObject*>(wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id));
+        const char *file_name = py_file_name ? PyUnicode_AsUTF8(py_file_name) : nullptr;
+        return reinterpret_cast<PyObject*>(
+            wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id, file_name)
+        );
     }
     
     bool PyMemoType_Check(PyTypeObject *type) {

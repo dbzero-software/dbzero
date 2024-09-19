@@ -2,6 +2,7 @@
 #include <dbzero/core/memory/MetaAllocator.hpp>
 #include "FixtureThreads.hpp"
 #include "Config.hpp"
+#include "WorkspaceView.hpp"
 #include <thread>
 
 namespace db0
@@ -227,10 +228,14 @@ namespace db0
     }
     
     void Workspace::close()
-    {
-        // FIXME: log
-        std::cout << "Workspace::close" << std::endl;
-        
+    {        
+        // close associated workspace views
+        for (auto &view_ptr : m_views) {
+            if (auto ptr = view_ptr.lock()) {
+                ptr->close();
+            }
+        }
+        m_views.clear();
         // stop all workspace threads first
         m_workspace_threads = nullptr;
         m_shared_object_list.clear();
@@ -546,6 +551,19 @@ namespace db0
     
     void Workspace::setOnOpenCallback(std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> callback) {
         m_on_open_callback = callback;
+    }
+
+    std::shared_ptr<WorkspaceView> Workspace::getWorkspaceView(std::optional<std::uint64_t> state_num,
+        const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums) const
+    {
+        // clean-up expired views
+        m_views.remove_if([](const std::weak_ptr<WorkspaceView> &view) {
+            return view.expired();
+        });
+        auto workspace_view = std::shared_ptr<WorkspaceView>(
+            new WorkspaceView(const_cast<Workspace&>(*this), state_num, prefix_state_nums));
+        m_views.push_back(workspace_view);
+        return workspace_view;
     }
 
 }

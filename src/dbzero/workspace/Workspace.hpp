@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <list>
 #include <functional>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
@@ -25,6 +26,7 @@ namespace db0
     class AtomicContext;
     class LangCache;
     class Config;
+    class WorkspaceView;
 
     class BaseWorkspace
     {
@@ -240,7 +242,11 @@ namespace db0
         void clearCache() const;
         
         const FixtureCatalog &getFixtureCatalog() const;
-
+        
+        std::shared_ptr<WorkspaceView> getWorkspaceView(
+            std::optional<std::uint64_t> state_num = {},
+            const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {}) const;
+        
     private:
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> m_fixture_initializer;
@@ -255,6 +261,8 @@ namespace db0
         mutable std::shared_ptr<LangCache> m_lang_cache;
         std::unique_ptr<WorkspaceThreads> m_workspace_threads;
         std::shared_ptr<Config> m_config;
+        // associated workspace view (some of which may already be deleted)
+        mutable std::list<std::weak_ptr<WorkspaceView> > m_views;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;
         
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;

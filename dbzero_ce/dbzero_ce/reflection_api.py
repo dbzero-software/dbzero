@@ -1,9 +1,9 @@
 from collections import namedtuple
 import dbzero_ce as db0
+from .storage_api import PrefixMetaData
 from .dbzero_ce import get_raw_prefixes, get_raw_memo_classes, get_raw_attributes
 
 
-PrefixMetaData = namedtuple("PrefixMetaData", ["name", "uuid"])
 AttributeInfo = namedtuple("AttributeInfo", ["name"])
 
 class MemoMetaClass:
@@ -56,12 +56,7 @@ class MemoMetaClass:
     def __repr__(self):
         return f"{self.__module}.{self.__name} ({self.__type_uuid})"
     
-    
-def get_prefixes():
-    for prefix in get_raw_prefixes():
-        yield PrefixMetaData(*prefix)
 
-
-def get_memo_classes(prefix: PrefixMetaData):
-    for memo_class in get_raw_memo_classes(prefix.name, prefix.uuid):
+def get_memo_classes(prefix: PrefixMetaData = None):
+    for memo_class in (get_raw_memo_classes(prefix.name, prefix.uuid) if prefix is not None else get_raw_memo_classes()):
         yield MemoMetaClass(*memo_class)

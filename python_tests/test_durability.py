@@ -5,7 +5,7 @@ from .conftest import DB0_DIR
 
 
 def test_persisting_single_transaction_data(db0_fixture):
-    prefix_name = db0.get_current_prefix()
+    prefix_name = db0.get_current_prefix().name
     root = MemoTestSingleton([])
     # add objects to root
     for i in range(100):
@@ -23,7 +23,7 @@ def test_persisting_single_transaction_data(db0_fixture):
 
 
 def test_persisting_data_in_multiple_transactions(db0_fixture):
-    prefix_name = db0.get_current_prefix()
+    prefix = db0.get_current_prefix()
     root = MemoTestSingleton([])
     # add objects to root (in 10 transactions)
     for i in range(10):
@@ -35,7 +35,7 @@ def test_persisting_data_in_multiple_transactions(db0_fixture):
     # now, close db0 and then reopen (transaction performed on close)
     db0.close()
     db0.init(DB0_DIR)
-    db0.open(prefix_name)
+    db0.open(prefix.name)
     root = MemoTestSingleton()
     # check if the objects are still there
     num = 0
@@ -45,7 +45,7 @@ def test_persisting_data_in_multiple_transactions(db0_fixture):
 
 
 def test_persisting_data_in_multiple_independent_transactions(db0_fixture):
-    prefix_name = db0.get_current_prefix()
+    prefix = db0.get_current_prefix()
     root = MemoTestSingleton([])
     # add objects to root (in 10 transactions)
     # close and reopen db0 after each transaction
@@ -55,13 +55,13 @@ def test_persisting_data_in_multiple_independent_transactions(db0_fixture):
         db0.commit()
         db0.close()
         db0.init(DB0_DIR)
-        db0.open(prefix_name)
+        db0.open(prefix.name)
         # need to reopen since python object is no longer accessible after close
         root = MemoTestSingleton()
     
     db0.close()
     db0.init(DB0_DIR)
-    db0.open(prefix_name)
+    db0.open(prefix.name)
     root = MemoTestSingleton()    
     num = 0
     for obj in root.value:

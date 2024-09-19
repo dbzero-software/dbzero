@@ -425,7 +425,7 @@ def test_set_as_member(db0_fixture):
     
 
 def test_set_update_after_commit(db0_fixture):
-    prefix_name = db0.get_current_prefix()
+    prefix_name = db0.get_current_prefix().name
     object_1 = MemoTestClass(set([1,2,3,4,5]))
     root = MemoTestSingleton(object_1)
     uuid = db0.uuid(object_1)

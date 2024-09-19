@@ -42,7 +42,7 @@ def test_autocommit_is_not_performed_during_mutations(db0_fixture):
 
 
 def test_autocommit_can_be_disabled_for_prefix(db0_fixture):
-    prefix_name = db0.get_current_prefix()
+    prefix_name = db0.get_current_prefix().name
     db0.commit()
     db0.close(prefix_name)
     db0.open(prefix_name, autocommit=False)
@@ -62,10 +62,10 @@ def test_dict_items_not_in_while_autocommit(db0_autocommit_fixture):
         
 
 def test_autocommit_disabled_by_fixture(db0_no_autocommit):
-    prefix_name = db0.get_current_prefix()
+    prefix = db0.get_current_prefix()
     db0.commit()
-    db0.close(prefix_name)
-    db0.open(prefix_name, autocommit=False)
+    db0.close(prefix.name)
+    db0.open(prefix.name, autocommit=False)
     state_1 = db0.get_state_num()
     object_1 = MemoTestClass(951)
     time.sleep(0.3)

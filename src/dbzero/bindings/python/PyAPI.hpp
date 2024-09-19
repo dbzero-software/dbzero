@@ -68,7 +68,7 @@ namespace db0::python
     /**
      * Get name of the current/default prefix
     */
-    PyObject *getCurrentPrefixName(PyObject *self, PyObject *args);
+    PyObject *getCurrentPrefix(PyObject *self, PyObject *args);
 
     /**
      * Delete specific DBZero object instance

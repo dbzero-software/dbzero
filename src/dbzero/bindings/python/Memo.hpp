@@ -22,12 +22,16 @@ namespace db0::python
     {
         const char *m_prefix_name_ptr = 0;
         const char *m_type_id = 0;
+        const char *m_file_name = 0;
         // resolved fixture UUID (initialized by the process)
-        std::atomic<std::uint64_t> m_fixture_uuid = 0;    
+        std::atomic<std::uint64_t> m_fixture_uuid = 0;
         
-        MemoTypeDecoration(const char *prefix_name, const char *type_id);
+        MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name);
         std::uint64_t getFixtureUUID();
         void close();
+        
+        // get decoration of a given memo type
+        static MemoTypeDecoration &get(PyTypeObject *type);
     };
 
     using MemoObject = PyWrapper<db0::object_model::Object>;

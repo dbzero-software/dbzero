@@ -20,7 +20,7 @@ def test_can_add_elements_to_index(db0_fixture):
 
 def test_index_updates_are_flushed_on_commit(db0_fixture):
     index = db0.index()
-    prefix_name = db0.get_current_prefix()
+    prefix = db0.get_current_prefix()
     uuid = db0.uuid(index)
     root = MemoTestSingleton(index)
     # key, value
@@ -29,21 +29,21 @@ def test_index_updates_are_flushed_on_commit(db0_fixture):
     db0.close()
     
     db0.init(DB0_DIR)
-    db0.open(prefix_name, "r")    
+    db0.open(prefix.name, "r")
     index = db0.fetch(uuid)
     assert len(index) == 1
 
 
 def test_index_updates_are_flushed_on_close(db0_fixture):
     index = db0.index()
-    prefix_name = db0.get_current_prefix()
+    prefix = db0.get_current_prefix()
     uuid = db0.uuid(index)
     index.add(1, MemoTestClass(999))
     # NOTE: index not getting destroyed because Python instance is still alive
     db0.close()
     
     db0.init(DB0_DIR)
-    db0.open(prefix_name, "r")    
+    db0.open(prefix.name, "r")
     index = db0.fetch(uuid)
     assert len(index) == 1
 
@@ -419,14 +419,14 @@ def test_unflushed_index_data_is_discarded_when_destroyed_before_close(db0_fixtu
 
 
 def test_moved_index_updates_are_flushed_on_close(db0_fixture):
-    prefix_name = db0.get_current_prefix()
+    prefix = db0.get_current_prefix()
     # index instance moved from default prefix
     root = MemoScopedSingleton(db0.index(), prefix="some-other-prefix")
     root.value.add(1, MemoTestClass(999))
     db0.close()
     
     db0.init(DB0_DIR)
-    db0.open(prefix_name, "r")
+    db0.open(prefix.name, "r")
     db0.open("some-other-prefix", "rw")
     root = MemoScopedSingleton(prefix="some-other-prefix")    
     assert len(root.value) == 1

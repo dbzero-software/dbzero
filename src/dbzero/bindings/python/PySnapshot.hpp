@@ -10,7 +10,7 @@ namespace db0::python
 
 {
     
-    using PySnapshotObject = PyWrapper<db0::WorkspaceView, false>;
+    using PySnapshotObject = PySharedWrapper<db0::WorkspaceView, false>;
     
     PySnapshotObject *PySnapshot_new(PyTypeObject *type, PyObject *, PyObject *);
     PySnapshotObject *PySnapshotDefault_new();
@@ -30,7 +30,7 @@ namespace db0::python
     PyObject *PySnapshot_enter(PyObject *, PyObject *);
     PyObject *PySnapshot_exit(PyObject *, PyObject *);
     
-    db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject);    
+    db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject);
 
     template <> bool Which_TypeCheck<PySnapshotObject>(PyObject *py_object);
     

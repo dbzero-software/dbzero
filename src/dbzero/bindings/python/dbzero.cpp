@@ -44,7 +44,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"dataframe", (PyCFunction)&py::makeDataFrame, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero pandas dataframe instance"},
     {"bytearray", (PyCFunction)&py::makeByteArray, METH_FASTCALL, "Create a new DBZero bytearray instance"},
     {"get_prefix_of", (PyCFunction)&py::getPrefixNameOf, METH_VARARGS, "Get prefix name of a specific DBZero object instance"},
-    {"get_current_prefix", &py::getCurrentPrefixName, METH_VARARGS, ""},
+    {"get_raw_current_prefix", &py::getCurrentPrefix, METH_VARARGS, "Get current prefix name & UUID as tuple"},
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
     {"find", (PyCFunction)&py::find, METH_FASTCALL, ""},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},

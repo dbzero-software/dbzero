@@ -13,18 +13,11 @@ namespace db0
 {
 
     class LangCache;
-
+    
     // A WorkspaceView exposes a limited read-only Workspace interface bound to a specific state number
     class WorkspaceView: public Snapshot
     {
     public:
-        /**
-         * @param state_num state number to be applied to the default fixture
-         */
-        WorkspaceView(std::shared_ptr<Workspace>, std::optional<std::uint64_t> state_num = {},
-            const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
-        WorkspaceView(Workspace &, std::optional<std::uint64_t> state_num = {},
-            const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
         virtual ~WorkspaceView();
 
         bool hasFixture(const std::string &prefix_name) const override;
@@ -40,13 +33,18 @@ namespace db0
         void close() override;
 
         std::shared_ptr<LangCache> getLangCache() const override;
-        
+                
+    protected:
+        friend class Workspace;
+
         /**
-         * @param state_num if not provided then current state is used
-         */        
-        static WorkspaceView *makeNew(void *at_ptr, std::shared_ptr<Workspace>, std::optional<std::uint64_t> state_num, 
-            const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums);
-        
+         * @param state_num state number to be applied to the default fixture
+         */
+        WorkspaceView(std::shared_ptr<Workspace>, std::optional<std::uint64_t> state_num = {},
+            const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
+        WorkspaceView(Workspace &, std::optional<std::uint64_t> state_num = {},
+            const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
+
     private:
         bool m_closed = false;
         std::shared_ptr<Workspace> m_workspace;
@@ -62,7 +60,7 @@ namespace db0
         mutable std::unordered_map<std::uint64_t, std::uint64_t> m_state_nums;
         // a WorkspaceView maintains a private LangCache instance
         std::shared_ptr<LangCache> m_lang_cache;
-
+        
         WorkspaceView(std::shared_ptr<Workspace>, Workspace *workspace_ptr, std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
 

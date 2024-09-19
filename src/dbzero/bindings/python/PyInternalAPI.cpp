@@ -91,7 +91,7 @@ namespace db0::python
         auto storage_class = object_id.m_typed_addr.getType();
         // use logical address to access the object
         auto addr = db0::makeLogicalAddress(object_id.m_typed_addr, object_id.m_instance_id);
-
+        
         // validate storage class first
         if (py_expected_type) {
             auto type_id = PyToolkit::getTypeManager().getTypeId(py_expected_type);

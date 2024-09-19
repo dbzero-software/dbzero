@@ -67,27 +67,27 @@ namespace db0::object_model
     ClassFactory::ClassFactory(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, *fixture)
         , m_class_maps(openClassMaps((*this)->m_class_map_ptrs, getMemspace()))
+        , m_class_ptr_index(getMemspace())
     {
+        modify().m_class_ptr_index_ptr = m_class_ptr_index;
     }
     
     ClassFactory::ClassFactory(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_class_maps(openClassMaps((*this)->m_class_map_ptrs, getMemspace()))
+        , m_class_ptr_index((*this)->m_class_ptr_index_ptr(getMemspace()))
     {
     }
     
-    void ClassFactory::initFrom(const ClassFactory &other)
+    void ClassFactory::initWith(const ClassFactory &other)
     {
         assert(m_type_cache.empty());
         assert(m_ptr_cache.empty());
         auto fixture = this->getFixture();
         for (auto [lang_type, type]: other.m_type_cache) {
-            // NOTE: instances may not exist in the snapshot yet
-            try {
-                m_type_cache.insert({ lang_type, std::make_shared<Class>(fixture, type->getAddress(), lang_type)});                
-                m_ptr_cache.insert({ ClassPtr(*type), type });
-            } catch (...) {
-                // ignore
+            // validate if type exists in the snapshot
+            if (exists(*type)) {
+                getTypeByPtr(ClassPtr(*type), lang_type);
             }
         }
     }
@@ -104,6 +104,8 @@ namespace db0::object_model
             }
             // pull existing DBZero class instance by pointer
             std::shared_ptr<Class> type = getTypeByPtr(class_ptr, lang_type);
+            // add to by-ptr cache
+            m_ptr_cache.insert({ClassPtr(*type), type});
             it_cached = m_type_cache.insert({lang_type, type}).first;
         }
         return it_cached->second;
@@ -148,6 +150,8 @@ namespace db0::object_model
                         m_class_maps[i].insert_equal(variant_name->c_str(), class_ptr);
                     }
                 }
+                // and register its address with the class pointer index
+                m_class_ptr_index.insert(class_ptr);
 
                 // registering type in the by-pointer cache (for accessing by-ClassPtr)                
                 type = this->getType(class_ptr, type);
@@ -173,7 +177,7 @@ namespace db0::object_model
         ClassPtr result;
         for (unsigned int i = 0; i < 4; ++i) {
             auto variant_key = getNameVariant(lang_type, type_id, i);
-            if (variant_key) {                
+            if (variant_key) {
                 if (tryFindByKey(m_class_maps[i], variant_key->c_str(), result)) {
                     return result;
                 }
@@ -206,27 +210,34 @@ namespace db0::object_model
         if (it_cached != m_ptr_cache.end()) {
             return it_cached->second;
         }
-
+        
         // A temporary instance will be pulled from backend
         // NOTE: no language specific type is associated with the class
         auto fixture = getFixture();
         return std::shared_ptr<Class>(new Class(fixture, ptr.getAddress()));        
     }
     
-    void ClassFactory::commit()
+    void ClassFactory::commit() const
     {
-        for (auto &[type, class_ptr]: m_type_cache) {
-            class_ptr->commit();
+        for (auto &item: m_ptr_cache) {
+            item.second->commit();
         }
+        for (auto &class_map: m_class_maps) {
+            class_map.commit();
+        }
+        m_class_ptr_index.commit();
         super_t::commit();
     }
 
     void ClassFactory::detach() const
     {
-        m_type_cache.clear();
-        m_ptr_cache.clear();
         for (auto &class_map: m_class_maps) {
             class_map.detach();
+        }
+        m_class_ptr_index.detach();
+        // detach class objects only, without removing them from the cache
+        for (auto &item: m_ptr_cache) {
+            item.second->detach();
         }
         super_t::detach();
     }
@@ -257,6 +268,10 @@ namespace db0::object_model
             THROWF(db0::InputException) << "Class not found: " << ptr.getAddress();
         }
         return it_cached->second;
+    }
+
+    bool ClassFactory::exists(const Class &class_obj) const {
+        return m_class_ptr_index.find(ClassPtr(class_obj)) != m_class_ptr_index.end();
     }
 
 }
