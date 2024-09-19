@@ -52,44 +52,69 @@ class MemoWithSelfRef:
         self.value = self
 
 
-# @db0.memo
-# class DataClassWithRepr:
-#     def __init__(self, value):
-#         self.value = value
+@db0.memo
+class DataClassWithRepr:
+    def __init__(self, value):
+        self.value = value
     
-#     def __repr__(self):
-#         return "<DataClassWithRepr value={self.value!r}>"
+    def __repr__(self):
+        return f"<DataClassWithRepr value={self.value}>"
 
 
-# @db0.memo
-# class DataClassWithComparators:
-#     def __init__(self, value):
-#         self.value = value
+@db0.memo
+class DataClassWithComparators:
+    def __init__(self, value):
+        self.value = value
 
-#     def __eq__(self, other):
-#         if isinstance(other, DataClassWithComparators):
-#             return self.value == other.value
-#         return NotImplemented
+    def __eq__(self, other):
+        if isinstance(other, DataClassWithComparators):
+            return self.value == other.value
+        return NotImplemented
+    
+    def __ne__(self, other: object) -> bool:
+        if isinstance(other, DataClassWithComparators):
+            return self.value != other.value
+        return NotImplemented
 
-#     def __lt__(self, other):
-#         if isinstance(other, DataClassWithComparators):
-#             return self.value < other.value
-#         return NotImplemented
+    def __lt__(self, other):
+        if isinstance(other, DataClassWithComparators):
+            return self.value < other.value
+        return NotImplemented
 
-#     def __le__(self, other):
-#         if isinstance(other, DataClassWithComparators):
-#             return self.value <= other.value
-#         return NotImplemented
+    def __le__(self, other):
+        if isinstance(other, DataClassWithComparators):
+            return self.value <= other.value
+        return NotImplemented
 
-#     def __gt__(self, other):
-#         if isinstance(other, DataClassWithComparators):
-#             return self.value > other.value
-#         return NotImplemented
+    def __gt__(self, other):
+        if isinstance(other, DataClassWithComparators):
+            return self.value > other.value
+        return NotImplemented
 
-#     def __ge__(self, other):
-#         if isinstance(other, DataClassWithComparators):
-#             return self.value >= other.value
-#         return NotImplemented
+    def __ge__(self, other):
+        if isinstance(other, DataClassWithComparators):
+            return self.value >= other.value
+        return NotImplemented
+
+@db0.memo
+class DataClassWithMinimalComparators:
+    def __init__(self, value):
+        self.value = value
+
+    def __eq__(self, other):
+        if isinstance(other, DataClassWithMinimalComparators):
+            return self.value == other.value
+        return NotImplemented
+
+    def __lt__(self, other):
+        if isinstance(other, DataClassWithMinimalComparators):
+            return self.value < other.value
+        return NotImplemented
+
+    def __le__(self, other):
+        if isinstance(other, DataClassWithMinimalComparators):
+            return self.value <= other.value
+        return NotImplemented
 
 
 def test_create_memo_object(db0_fixture):
@@ -345,17 +370,45 @@ def test_memo_object_destroys_its_kv_members_on_reassign(db0_fixture):
         db0.fetch(dep_uuid)
 
 
-# def test_repr_should_not_be_overriden(db0_fixture):
-#     obj = DataClassWithRepr(1)
-#     assert "<DataClassWithRepr value=1>" in repr(obj)
+def test_repr_should_not_be_overriden(db0_fixture):
+    obj = DataClassWithRepr(1)
+    assert "<DataClassWithRepr value=1>" in repr(obj)
 
 
-# def test_comparators_should_work_for_memo_object_if_defined(db0_fixture):
-#     obj1 = DataClassWithComparators(5)
-#     obj2 = DataClassWithComparators(10)
-    
-#     # Test __eq__ and __ne__
+def test_comparators_should_work_for_memo_object_if_defined(db0_fixture):
+    obj1 = DataClassWithComparators(5)
+    obj2 = DataClassWithComparators(10)
+
+    # Test __eq__ and __ne__
+    assert obj1 == obj1
+    assert obj1 != obj2
+
+    # Test __lt__
+    assert obj1 < obj2
+    assert not obj2 < obj1
+
+    # Test __le__
+    assert obj1 <= obj1
+    assert obj1 <= obj2
+    assert not obj2 <= obj1
+
+    # Test __gt__
+    assert obj2 > obj1
+    assert not obj1 > obj2
+
+    # Test __ge__
+    assert obj2 >= obj2
+    assert obj2 >= obj1
+    assert not obj1 >= obj2
+
+
+# def test_comparators_should_work_for_memo_when_opposed_opperator_is_defined(db0_fixture):
+#     obj1 = DataClassWithMinimalComparators(5)
+#     obj2 = DataClassWithMinimalComparators(10)
+
+#     # Test __eq__
 #     assert obj1 == obj1
+#     # Test __ne__ as opposed to __eq__
 #     assert obj1 != obj2
 
 #     # Test __lt__
@@ -367,7 +420,7 @@ def test_memo_object_destroys_its_kv_members_on_reassign(db0_fixture):
 #     assert obj1 <= obj2
 #     assert not obj2 <= obj1
 
-#     # Test __gt__
+#     # Test __gt__ 
 #     assert obj2 > obj1
 #     assert not obj1 > obj2
 

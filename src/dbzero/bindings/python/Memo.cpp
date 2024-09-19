@@ -195,7 +195,6 @@ namespace db0::python
         // 2. DB0 object extension methods
         // 3. DB0 object members (attributes)
         // 4. User instance members (e.g. attributes set during __postinit__)
-
         auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(self), attr);
         if (res) {
             return res;
@@ -246,6 +245,19 @@ namespace db0::python
     
     PyObject *MemoObject_rq(MemoObject *memo_obj, PyObject *other, int op)
     {
+
+        PyObject * obj_memo = reinterpret_cast<PyObject*>(memo_obj);
+        if(obj_memo->ob_type->tp_base->tp_richcompare != PyType_Type.tp_richcompare) {
+            if(op == Py_NE){
+                PyObject* ne_funct = PyObject_GetAttrString(memo_obj, "__ne__");
+                PyObject* eq_funct = PyObject_GetAttrString(memo_obj, "__eq__");
+                PyObject* args = PyTuple_Pack(1, other);
+                PyObject* result = PyObject_Call(ne_funct, args, NULL);
+                return result;
+            }
+            
+            return obj_memo->ob_type->tp_base->tp_richcompare(reinterpret_cast<PyObject*>(memo_obj), other, op);
+        }
         bool eq_result = false;
         if (PyMemo_Check(other)) {
             eq_result = isEqual(memo_obj, reinterpret_cast<MemoObject*>(other));
@@ -370,7 +382,7 @@ namespace db0::python
         // set original class (copy) as a base class
         new_type->tp_base = base_type;
         new_type->tp_richcompare = (richcmpfunc)MemoObject_rq;
-        
+        new_type->tp_base->tp_richcompare = py_class->tp_richcompare;
         // method resolution order, tp_mro and tp_bases are filled in by PyType_Ready
         new_type->tp_mro = 0;
         new_type->tp_bases = 0;
@@ -380,10 +392,15 @@ namespace db0::python
             return NULL;
         }
 
-        new_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
-        new_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
-        base_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
-        base_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
+        if(PyType_Type.tp_str == py_class->tp_str) {
+            new_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
+            base_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
+        }
+
+        if(PyType_Type.tp_repr == py_class->tp_repr) {
+            new_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
+            base_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
+        }
         PyToolkit::getTypeManager().addMemoType(new_type, nullptr);
         Py_INCREF(new_type);
         // register new type with the module where the original type was located
