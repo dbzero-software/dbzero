@@ -449,24 +449,24 @@ def test_set_with_tuples(db0_fixture):
 
 
 # fixme: Needs to fix problem with __eq__ method
-# @pytest.mark.parametrize("make_set", set_test_params)
-# def test_set_items_collisions(db0_fixture, make_set):
-#     # tests iteration over values from set
-#     set_1 = make_set()
-#     set_1.add(CollisionClass(1))
-#     set_1.add(CollisionClass(2))
-#     set_1.add(CollisionClass(3))
-#     set_1.add(CollisionClass(14))
-#     set_1.add(CollisionClass(22))
-#     set_1.add(CollisionClass(33))
-#     assert(len(set_1) == 6)
-#     assert CollisionClass(1) in set_1
-#     assert CollisionClass(2) in set_1
-#     assert CollisionClass(3) in set_1
-#     assert CollisionClass(14) in set_1
-#     assert CollisionClass(22) in set_1
-#     assert CollisionClass(33) in set_1
-#     assert CollisionClass(4) not in set_1
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_items_collisions(db0_fixture, make_set):
+    # tests iteration over values from set
+    set_1 = make_set()
+    set_1.add(CollisionClass(1))
+    set_1.add(CollisionClass(2))
+    set_1.add(CollisionClass(3))
+    set_1.add(CollisionClass(14))
+    set_1.add(CollisionClass(22))
+    set_1.add(CollisionClass(33))
+    assert(len(set_1) == 6)
+    assert CollisionClass(1) in set_1
+    assert CollisionClass(2) in set_1
+    assert CollisionClass(3) in set_1
+    assert CollisionClass(14) in set_1
+    assert CollisionClass(22) in set_1
+    assert CollisionClass(33) in set_1
+    assert CollisionClass(4) not in set_1
 
 def test_clear_set_unref_values(db0_fixture):
     my_set = db0.set()
