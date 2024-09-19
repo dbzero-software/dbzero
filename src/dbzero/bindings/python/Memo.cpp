@@ -375,7 +375,6 @@ namespace db0::python
         // set original class (copy) as a base class
         new_type->tp_base = base_type;
         new_type->tp_richcompare = (richcmpfunc)MemoObject_rq;
-        new_type->tp_base->tp_richcompare = py_class->tp_richcompare;
         // method resolution order, tp_mro and tp_bases are filled in by PyType_Ready
         new_type->tp_mro = 0;
         new_type->tp_bases = 0;
