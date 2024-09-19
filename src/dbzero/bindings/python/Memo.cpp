@@ -247,15 +247,8 @@ namespace db0::python
     {
 
         PyObject * obj_memo = reinterpret_cast<PyObject*>(memo_obj);
+        // if richcompare is overriden by the python class, call the python class implementation
         if(obj_memo->ob_type->tp_base->tp_richcompare != PyType_Type.tp_richcompare) {
-            if(op == Py_NE){
-                PyObject* ne_funct = PyObject_GetAttrString(memo_obj, "__ne__");
-                PyObject* eq_funct = PyObject_GetAttrString(memo_obj, "__eq__");
-                PyObject* args = PyTuple_Pack(1, other);
-                PyObject* result = PyObject_Call(ne_funct, args, NULL);
-                return result;
-            }
-            
             return obj_memo->ob_type->tp_base->tp_richcompare(reinterpret_cast<PyObject*>(memo_obj), other, op);
         }
         bool eq_result = false;
