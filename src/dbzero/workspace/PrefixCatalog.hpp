@@ -35,16 +35,19 @@ namespace db0
         /**
          * Refresh contents to locate newly created prefixes
         */
-        void refresh();
+        void refresh() const;
 
         // callback only notified when new prefix is detected
-        void refresh(std::function<void(const std::string &)> callback);
+        void refresh(std::function<void(const std::string &)> callback) const;
         
         void forAll(std::function<void(const std::string &prefix_name)> callback) const;
 
     protected:
         fs::path m_root_path;
-        std::unordered_set<std::string> m_prefix_names;
+        // cached prefix names
+        mutable std::unordered_set<std::string> m_prefix_names;
+
+        void refresh(const std::string &path, std::function<void(const std::string &)>) const;
     };
     
     class FixtureCatalog
@@ -55,7 +58,7 @@ namespace db0
         /**
          * Refresh contents to locate newly created fixtures
         */
-        void refresh();
+        void refresh() const;
 
         bool drop(const std::string &prefix_name, bool if_exists = true);
         
@@ -77,11 +80,11 @@ namespace db0
     private:
         PrefixCatalog &m_prefix_catalog;
         // name to UUID mapping
-        std::unordered_map<std::string, std::uint64_t> m_name_uuids;
+        mutable std::unordered_map<std::string, std::uint64_t> m_name_uuids;
         // UUID to name mapping
-        std::unordered_map<std::uint64_t, std::string> m_uuid_names;
+        mutable std::unordered_map<std::uint64_t, std::string> m_uuid_names;
 
-        void tryAdd(const std::string &maybe_prefix_name);
+        void tryAdd(const std::string &maybe_prefix_name) const;
     };
 
 }

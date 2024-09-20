@@ -9,13 +9,15 @@
 namespace db0::python
 
 {
-
+    
     PyObject *tryGetPrefixes()
-    {
-        // prefix name / UUID pairs
-        auto data = PyToolkit::getPyWorkspace().getWorkspace().getFixtureCatalog().getData();
+    {        
+        auto &fixture_catalog = PyToolkit::getPyWorkspace().getWorkspace().getFixtureCatalog();
+        fixture_catalog.refresh();
+        auto data = fixture_catalog.getData();
         // return as python list of tuples
         PyObject *py_list = PyList_New(0);
+        // prefix name / UUID pairs
         for (auto [name, uuid]: data) {
             PyObject *py_tuple = PyTuple_Pack(2, PyUnicode_FromString(name.c_str()), PyLong_FromUnsignedLongLong(uuid));            
             PyList_Append(py_list, py_tuple);

@@ -1,7 +1,7 @@
 from collections import namedtuple
 import dbzero_ce as db0
 from .storage_api import PrefixMetaData
-from .dbzero_ce import get_raw_prefixes, get_raw_memo_classes, get_raw_attributes
+from .dbzero_ce import get_raw_memo_classes, get_raw_attributes
 
 
 AttributeInfo = namedtuple("AttributeInfo", ["name"])

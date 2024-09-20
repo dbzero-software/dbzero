@@ -66,24 +66,38 @@ namespace db0
         return CFile::exists(getFileName(prefix_name).string());
     }
 
-    void PrefixCatalog::refresh(std::function<void(const std::string &)> callback)
+    void PrefixCatalog::refresh(std::function<void(const std::string &)> callback) const {
+        refresh("", callback);
+    }
+    
+    void PrefixCatalog::refresh(
+        const std::string &path, 
+        std::function<void(const std::string &)> callback) const
     {
-        for (auto &entry : fs::directory_iterator(m_root_path)) {
-            if (entry.is_regular_file()) {
+        // combine root path with the provided path
+        fs::path full_path = m_root_path / path;
+        for (auto &entry : fs::directory_iterator(full_path)) {
+            // visit sub-directories
+            if (entry.is_directory()) {
+                // append dicrectory to path
+                refresh(fs::path(path) / entry.path().filename().string(), callback);
+            } if (entry.is_regular_file()) {
                 auto file_name = removeSuffix(entry.path().filename().string(), ".db0");
-                if (m_prefix_names.find(file_name) == m_prefix_names.end()) {
+                auto full_name = fs::path(path) / file_name;
+                if (m_prefix_names.find(full_name) == m_prefix_names.end()) {
                     if (callback) {
-                        callback(file_name);
+                        callback(full_name);
                     }
-                    m_prefix_names.insert(file_name);
-                }                
+                    // full prefix name
+                    m_prefix_names.insert(full_name);
+                }
             }
         }
     }
 
-    void PrefixCatalog::refresh()
+    void PrefixCatalog::refresh() const
     {        
-        refresh([&](const std::string &prefix_name) {
+        refresh([&](const std::string &) {
             // do nothing
         });
     }
@@ -129,8 +143,8 @@ namespace db0
         m_name_uuids[prefix_name] = fixture.getUUID();
         m_uuid_names[fixture.getUUID()] = prefix_name;
     }
-
-    void FixtureCatalog::tryAdd(const std::string &maybe_prefix_name)
+    
+    void FixtureCatalog::tryAdd(const std::string &maybe_prefix_name) const
     {
         if (m_name_uuids.find(maybe_prefix_name) != m_name_uuids.end()) {
             return;
@@ -141,7 +155,7 @@ namespace db0
         }
 
         try {
-            // try opening as fixture file            
+            // try opening as fixture file (for validation)
             auto prefix = std::make_shared<PrefixImpl<BDevStorage> >(
                 maybe_prefix_name, nullptr, file_name, AccessType::READ_ONLY
             );
@@ -163,7 +177,7 @@ namespace db0
         return std::nullopt;
     }
 
-    void FixtureCatalog::refresh()
+    void FixtureCatalog::refresh() const
     {
         m_prefix_catalog.refresh([this](const std::string &prefix_name) {
             tryAdd(prefix_name);
