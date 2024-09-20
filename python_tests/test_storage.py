@@ -7,7 +7,7 @@ from .conftest import DB0_DIR
 def test_db0_state_can_be_persisted_and_then_retrieved_for_read(db0_fixture):
     # create singleton
     object_1 = MemoTestSingleton(999, "text")
-    prefix_name = db0.get_prefix_of(object_1)
+    prefix_name = db0.get_prefix_of(object_1).name
     # commit data and close db0
     db0.commit()
     db0.close()
@@ -23,7 +23,7 @@ def test_db0_state_can_be_persisted_and_then_retrieved_for_read(db0_fixture):
 def test_db0_state_modify_without_close(db0_fixture):
     # create singleton
     object_1 = MemoTestSingleton(999, "text")
-    prefix_name = db0.get_prefix_of(object_1)
+    prefix_name = db0.get_prefix_of(object_1).name
     # commit data and close db0
     db0.commit()    
     
@@ -36,7 +36,7 @@ def test_dynamic_fields_are_persisted(db0_fixture):
     # create singleton
     object_1 = MemoTestSingleton(999, "text")
     object_1.kv_field = 91123
-    prefix_name = db0.get_prefix_of(object_1)
+    prefix_name = db0.get_prefix_of(object_1).name
     object_2 = db0.fetch(db0.uuid(object_1))
     # commit data and close db0
     db0.commit()

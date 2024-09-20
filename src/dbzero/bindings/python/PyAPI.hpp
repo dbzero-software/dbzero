@@ -61,9 +61,9 @@ namespace db0::python
     PyObject *list(PyObject *self, PyObject *args);
     
     /**
-     * Get name of the prefix/file associated with a specific instance
+     * Get name/UUID of the prefix/file hosting specific instance
     */
-    PyObject *getPrefixNameOf(PyObject *self, PyObject *args);
+    PyObject *getPrefixOf(PyObject *self, PyObject *args);
     
     /**
      * Get name of the current/default prefix

@@ -228,7 +228,7 @@ namespace db0::python
         return runSafe(tryClose, self, args);
     }
     
-    PyObject *getPrefixNameOf(PyObject *self, PyObject *args)
+    PyObject *getPrefixOf(PyObject *self, PyObject *args)
     {
         std::lock_guard api_lock(py_api_mutex);
         PyObject *py_object;
@@ -237,6 +237,7 @@ namespace db0::python
             return NULL;
         }
         
+        db0::swine_ptr<Fixture> fixture;
         if (PyType_Check(py_object)) {
             if (PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
                 PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
@@ -248,15 +249,17 @@ namespace db0::python
             return Py_None;            
         } else if (PyObjectIterator_Check(py_object)) {
             auto &iter = reinterpret_cast<PyObjectIterator*>(py_object)->ext();
-            return PyUnicode_FromString(iter->getFixture()->getPrefix().getName().c_str());
+            fixture = iter->getFixture();
+        } else {
+            fixture = getFixtureOf(py_object);
         }
-        
-        db0::swine_ptr<Fixture> fixture = getFixtureOf(py_object);
+                
         if (!fixture) {
             return Py_None;
         }
         
-        return PyUnicode_FromString(fixture->getPrefix().getName().c_str());
+        // name & UUID as tuple
+        return Py_BuildValue("sK", fixture->getPrefix().getName().c_str(), fixture->getUUID());        
     }
     
     PyObject *getCurrentPrefix(PyObject *, PyObject *)

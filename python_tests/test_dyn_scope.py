@@ -12,7 +12,7 @@ class TestDynScopedSingleton:
 
 def test_dyn_scope_ignored_if_none(db0_fixture):
     object = TestDynScopedSingleton(prefix=None)
-    assert db0.get_prefix_of(object) == db0.get_current_prefix().name
+    assert db0.get_prefix_of(object).name == db0.get_current_prefix().name
     
 
 def test_dyn_scope_not_allowed_after_instantiation(db0_fixture):
@@ -23,13 +23,13 @@ def test_dyn_scope_not_allowed_after_instantiation(db0_fixture):
 
 def test_scope_defined_dynamically_for_a_singleton(db0_fixture):
     object = TestDynScopedSingleton("scoped-class-prefix")
-    assert db0.get_prefix_of(object) == "scoped-class-prefix"
+    assert db0.get_prefix_of(object).name == "scoped-class-prefix"
 
 
 def test_opening_dyn_scoped_singleton(db0_fixture):
     object = TestDynScopedSingleton("scoped-class-prefix", 123)
     del object
     object = TestDynScopedSingleton(prefix="scoped-class-prefix")
-    assert db0.get_prefix_of(object) == "scoped-class-prefix"
+    assert db0.get_prefix_of(object).name == "scoped-class-prefix"
     assert object.value == 123
     

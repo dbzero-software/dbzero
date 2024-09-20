@@ -57,7 +57,7 @@ def test_can_commit_specific_prefix(db0_fixture):
 
 def test_get_prefix_of_query(db0_fixture, memo_tags):
     query = db0.find(MemoTestClass, "tag1")
-    assert db0.get_prefix_of(query) == db0.get_current_prefix().name
+    assert db0.get_prefix_of(query) == db0.get_current_prefix()
 
 
 def test_get_state_num_of_specific_prefix(db0_fixture, memo_tags):

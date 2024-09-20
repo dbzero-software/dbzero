@@ -12,3 +12,7 @@ def get_prefixes():
 
 def get_current_prefix():
     return PrefixMetaData(*get_raw_current_prefix())
+
+
+def get_prefix_of(obj):
+    return PrefixMetaData(*db0.get_raw_prefix_of(obj))

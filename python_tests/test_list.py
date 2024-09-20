@@ -356,7 +356,7 @@ def test_db0_list_can_be_class_member(db0_fixture):
 def test_db0_list_can_be_retrieved_after_commit(db0_fixture):
     object_1 = MemoTestSingleton(db0.list())
     object_1.value.append(1)
-    prefix_name = db0.get_prefix_of(object_1)
+    prefix_name = db0.get_prefix_of(object_1).name
     del object_1    
     
     db0.commit()
@@ -383,7 +383,7 @@ def test_db0_list_can_be_appended_after_commit(db0_fixture):
     object_1 = MemoTestSingleton(db0.list())
     for i in range(1):
         object_1.value.append(i)
-    prefix_name = db0.get_prefix_of(object_1)
+    prefix_name = db0.get_prefix_of(object_1).name
     
     db0.commit()
     db0.close()

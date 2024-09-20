@@ -179,7 +179,7 @@ class MaxScanExceeded(Exception):
     
 def group_by(group_defs, query, max_scan=1000) -> Dict:
     global px_fast_query
-    px_data = db0.get_prefix_of(query)
+    px_name = db0.get_prefix_of(query).name
     """
     Group query results by the given key
     """
@@ -218,7 +218,7 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
             query_eval.add(fast_query.rows, max_scan)
         else:
             # evaluate from deltas
-            old_query = fast_query.rebase(db0.snapshot({px_data: last_result[0]}))
+            old_query = fast_query.rebase(db0.snapshot({px_name: last_result[0]}))
             # insertions since last result
             limit = query_eval.add(delta(old_query, fast_query), max_scan)
             query_eval.remove(delta(fast_query, old_query), limit)
@@ -228,7 +228,7 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
     last_result = cache.find_result(query)
     fast_query = FastQuery(query, group_defs)
     # do not limit max_scan when on a first transaction
-    state_num = db0.get_state_num(prefix=px_data)
+    state_num = db0.get_state_num(prefix=px_name)
     max_scan = max_scan if state_num > 1 else None
     while True:
         try:
@@ -237,6 +237,6 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
             max_scan = None
             # go back to the last finalized transaction and compute the result (possibly using deltas)
             # FIXME: change to db0.get_state_num(finalized = True) when feature available
-            result = try_query_eval(fast_query.rebase(db0.snapshot({px_data: state_num - 1})), last_result, max_scan)
+            result = try_query_eval(fast_query.rebase(db0.snapshot({px_name: state_num - 1})), last_result, max_scan)
             # update the cache with the result
             last_result = cache.update(state_num - 1, fast_query, result)
