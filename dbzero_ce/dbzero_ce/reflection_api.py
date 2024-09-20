@@ -7,10 +7,10 @@ from .dbzero_ce import get_raw_memo_classes, get_raw_attributes
 AttributeInfo = namedtuple("AttributeInfo", ["name"])
 
 class MemoMetaClass:
-    def __init__(self, name, module, type_uuid, is_singleton=False, instance_uuid=None):
+    def __init__(self, name, module, class_uuid, is_singleton=False, instance_uuid=None):
         self.__name = name
         self.__module = module
-        self.__type_uuid = type_uuid
+        self.__class_uuid = class_uuid
         self.__is_singleton = is_singleton
         self.__instance_uuid = instance_uuid
     
@@ -23,11 +23,11 @@ class MemoMetaClass:
         return self.__module
     
     @property
-    def type_uuid(self):
-        return self.__type_uuid
+    def class_uuid(self):
+        return self.__class_uuid
     
-    def get_type(self):
-        return db0.fetch(self.__type_uuid)
+    def get_class(self):
+        return db0.fetch(self.__class_uuid)
         
     @property
     def is_singleton(self):
@@ -41,20 +41,20 @@ class MemoMetaClass:
         return db0.fetch(self.__instance_uuid)
     
     def get_attributes(self):
-        for attribute in get_raw_attributes(self.__type_uuid):
+        for attribute in get_raw_attributes(self.__class_uuid):
             yield AttributeInfo(attribute[0])
     
     def get_methods(self):
         raise NotImplementedError("Not implemented yet")
     
     def all(self):
-        return db0.find(self.get_type())
+        return db0.find(self.get_class())
     
     def __str__(self):
-        return f"{self.__module}.{self.__name} ({self.__type_uuid})"
+        return f"{self.__module}.{self.__name} ({self.__class_uuid})"
     
     def __repr__(self):
-        return f"{self.__module}.{self.__name} ({self.__type_uuid})"
+        return f"{self.__module}.{self.__name} ({self.__class_uuid})"
     
 
 def get_memo_classes(prefix: PrefixMetaData = None):
