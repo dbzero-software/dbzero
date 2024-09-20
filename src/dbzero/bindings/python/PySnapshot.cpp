@@ -52,10 +52,10 @@ namespace db0::python
     PySnapshotObject *tryGetSnapshot(std::optional<std::uint64_t> state_num,
         const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums)
     {    
-        auto py_object = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
-        auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
-        db0::WorkspaceView::makeNew(&py_object->modifyExt(), workspace_ptr, state_num, prefix_state_nums);
-        return py_object;
+        auto py_snapshot = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        py_snapshot->makeNew(workspace.getWorkspaceView(state_num, prefix_state_nums));
+        return py_snapshot;
     }
     
     PyObject* tryPySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs)

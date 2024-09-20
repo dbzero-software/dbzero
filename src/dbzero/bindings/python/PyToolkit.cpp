@@ -19,6 +19,7 @@
 #include "PyObjectIterator.hpp"
 #include "PyEnum.hpp"
 #include "PyClassFields.hpp"
+#include "PyClass.hpp"
 
 namespace db0::python
 
@@ -34,14 +35,37 @@ namespace db0::python
     std::string PyToolkit::getTypeName(TypeObjectPtr py_type) {
         return std::string(py_type->tp_name);
     }
-
+    
+    std::string getModuleNameFromFileName(const std::string &file_name)
+    {
+        // remove extensions and path
+        auto pos = file_name.find_last_of('/');
+        if (pos == std::string::npos) {
+            pos = file_name.find_last_of('\\');
+        }
+        auto file_name_no_path = file_name.substr(pos + 1);
+        pos = file_name_no_path.find_last_of('.');
+        if (pos == std::string::npos) {
+            return file_name_no_path;
+        }
+        return file_name_no_path.substr(0, pos);
+    }
+    
     std::string PyToolkit::getModuleName(TypeObjectPtr py_type)
     {
         auto py_module_name = PyObject_GetAttrString(reinterpret_cast<ObjectPtr>(py_type), "__module__");
         if (!py_module_name) {
             THROWF(db0::InputException) << "Could not get module name for class " << getTypeName(py_type);
         }
-        auto result = std::string(PyUnicode_AsUTF8(py_module_name));
+        auto result = std::string(PyUnicode_AsUTF8(py_module_name));        
+        if (result == "__main__") {
+            // for Memo types we can determine the actual module name from the file name
+            // stored with the type decoration
+            if (PyMemoType_Check(py_type)) {
+                std::string file_name = MemoTypeDecoration::get(py_type).m_file_name;
+                result = getModuleNameFromFileName(file_name);
+            }            
+        }
         Py_DECREF(py_module_name);
         return result;
     }
@@ -74,9 +98,9 @@ namespace db0::python
             return obj_ptr;
         }
 
-        // unload from backend otherwise
+        // Unload from backend otherwise
         auto stem = db0::object_model::Object::unloadStem(fixture, address);
-        auto type = db0::object_model::unloadClass(stem->m_class_ref, class_factory);
+        auto type = db0::object_model::getCachedClass(stem->m_class_ref, class_factory);
         if (expected_type && type != expected_type) {
             THROWF(db0::InputException) << "Type mismatch";
         }
@@ -414,4 +438,8 @@ namespace db0::python
         return PyObject_RichCompareBool(py_object1, py_object2, Py_EQ);
     }
     
+    bool PyToolkit::isClassObject(ObjectPtr py_object) {
+        return PyClassObject_Check(py_object);
+    }
+
 }

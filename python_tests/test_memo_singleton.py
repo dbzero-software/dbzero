@@ -24,7 +24,7 @@ def test_memo_singleton_can_be_deleted(db0_fixture):
 
 
 def test_singleton_can_be_fetched_by_id(db0_fixture):
-    prefix_name = db0.get_current_prefix()
+    prefix = db0.get_current_prefix()
     object_x = MemoTestClass("x")
     object_1 = MemoTestSingleton(999, object_x)
     id1 = db0.uuid(object_1)
@@ -33,6 +33,6 @@ def test_singleton_can_be_fetched_by_id(db0_fixture):
     db0.close()
 
     db0.init(DB0_DIR)
-    db0.open(prefix_name, "r")
+    db0.open(prefix.name, "r")
     assert db0.is_singleton(db0.fetch(id1))
     assert not db0.is_singleton(db0.fetch(id2))

@@ -259,11 +259,12 @@ namespace db0::python
         return PyUnicode_FromString(fixture->getPrefix().getName().c_str());
     }
     
-    PyObject *getCurrentPrefixName(PyObject *, PyObject *)
+    PyObject *getCurrentPrefix(PyObject *, PyObject *)
     {
         std::lock_guard api_lock(py_api_mutex);
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return PyUnicode_FromString(fixture->getPrefix().getName().c_str());
+        // name & UUID as tuple
+        return Py_BuildValue("sK", fixture->getPrefix().getName().c_str(), fixture->getUUID());        
     }
     
     PyObject *tryDel(PyObject *self, PyObject *args)

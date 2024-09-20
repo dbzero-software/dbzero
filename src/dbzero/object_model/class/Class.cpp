@@ -52,13 +52,18 @@ namespace db0::object_model
     }
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-        // class instances are not garbage collected (no drop function provided) since they're managed by the ClassFactory
         : super_t(super_t::tag_from_address(), fixture, address)
-        , m_members(myPtr((*this)->m_members_ptr.getAddress()))
-        , m_uid(this->fetchUID())
+        , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
+        , m_uid(this->fetchUID())    
     {
         // fetch all members into cache
         refreshMemberCache();
+    }
+    
+    Class::Class(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, TypeObjectPtr lang_type_ptr)
+        : Class(fixture, address)            
+    {
+        m_lang_type_ptr = lang_type_ptr;
     }
     
     Class::~Class()
@@ -138,7 +143,7 @@ namespace db0::object_model
         auto fixture = getFixture();
         auto &class_factory = fixture->get<ClassFactory>();
         auto stem = Object::unloadStem(fixture, (*this)->m_singleton_address);
-        auto type = db0::object_model::unloadClass(stem->m_class_ref, class_factory);
+        auto type = db0::object_model::getCachedClass(stem->m_class_ref, class_factory);
         // unload from stem
         Object::unload(at, std::move(stem), type);
         return true;
@@ -185,6 +190,10 @@ namespace db0::object_model
         return getFixture()->getLimitedStringPool().fetch((*this)->m_module_name);
     }
 
+    bool Class::hasLangClass() const {
+        return m_lang_type_ptr;
+    }
+    
     Class::TypeObjectSharedPtr Class::tryGetLangClass() const
     {
         if (!m_lang_type_ptr) {

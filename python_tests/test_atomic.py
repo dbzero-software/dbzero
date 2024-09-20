@@ -190,7 +190,7 @@ def test_atomic_index_create(db0_fixture):
 
 
 def test_atomic_index_add_with_transaction(db0_fixture):
-    prefix_name = db0.get_current_prefix()
+    prefix = db0.get_current_prefix()
     root = MemoTestSingleton(db0.index())
     index = root.value
     with db0.atomic():
@@ -199,7 +199,7 @@ def test_atomic_index_add_with_transaction(db0_fixture):
     db0.commit()
     db0.close()
     db0.init(DB0_DIR)
-    db0.open(prefix_name, "r")
+    db0.open(prefix.name, "r")
     # validate with the range query
     index = MemoTestSingleton().value
     values = set([x.value for x in index.range(0, 100)])
@@ -256,7 +256,7 @@ def test_transaction_number_not_affected_by_atomic(db0_fixture):
 
 
 def test_atomic_operation_merged_into_current_transaction(db0_fixture):
-    prefix_name = db0.get_current_prefix()    
+    prefix = db0.get_current_prefix()
     with db0.atomic():
         for _ in range(5):
             object = MemoTestClass(999)
@@ -265,12 +265,12 @@ def test_atomic_operation_merged_into_current_transaction(db0_fixture):
     db0.close()
     db0.init(DB0_DIR)
     # open db0 as read-only
-    db0.open(prefix_name, "r")
+    db0.open(prefix.name, "r")
     # results of the atomic update should be available in the transaction
     assert len(list(db0.find("tag1"))) == 5
 
 
-def test_atomic_operation_results_accessible_from_snapshot(db0_fixture): 
+def test_atomic_operation_results_accessible_from_snapshot(db0_fixture):
     with db0.atomic():
         for _ in range(5):
             object = MemoTestClass(999)

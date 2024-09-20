@@ -131,11 +131,11 @@ def test_db0_commit_close_issue_1(db0_fixture):
     The problem was due to collect using incorrect object type
     """
     object_x = MemoTestClass(123123)
-    prefix_name = db0.get_current_prefix()
+    prefix = db0.get_current_prefix()
     
     db0.commit()
     db0.close()
     
     db0.init(DB0_DIR)
-    db0.open(prefix_name, "rw")
+    db0.open(prefix.name, "rw")
     

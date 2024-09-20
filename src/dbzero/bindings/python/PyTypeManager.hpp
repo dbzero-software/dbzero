@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <list>
 #include <vector>
+#include <functional>
 #include <dbzero/bindings/TypeId.hpp>
 #include "PyTypes.hpp"
 #include "PyEnumType.hpp"
@@ -10,6 +11,7 @@
 namespace db0::object_model {
 
     class Object;
+    class Class;
     class List;
     class Set;
     class Tuple;
@@ -52,6 +54,7 @@ namespace db0::python
         using ObjectIterator = db0::object_model::ObjectIterator;
         using EnumValue = db0::object_model::EnumValue;
         using FieldDef = db0::object_model::FieldDef;
+        using Class = db0::object_model::Class;
 
         PyTypeManager();
         
@@ -93,6 +96,7 @@ namespace db0::python
         FieldDef &extractFieldDef(ObjectPtr) const;
         std::string extractString(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
+        std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;
         
         ObjectPtr getBadPrefixError() const;
         
@@ -116,6 +120,10 @@ namespace db0::python
         TypeObjectPtr findType(const std::string &variant_name) const;
 
         bool isNull(ObjectPtr) const;
+
+        // Execute specific lambda for all memo types (language specific wrappers)
+        // available within the current process's context
+        void forAllMemoTypes(std::function<void(TypeObjectPtr)>) const;
 
         void close();
         

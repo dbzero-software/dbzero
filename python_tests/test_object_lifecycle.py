@@ -39,7 +39,7 @@ def test_unreferenced_object_are_persisted_throughout_series_of_commits(db0_fixt
 
 
 def test_unreferenced_object_are_dropped_on_close(db0_fixture):
-    prefix_name = db0.get_current_prefix()
+    prefix = db0.get_current_prefix()
     object_1 = MemoTestClass(123)
     uuid = db0.uuid(object_1)
     del object_1
@@ -47,7 +47,7 @@ def test_unreferenced_object_are_dropped_on_close(db0_fixture):
     
     db0.init(DB0_DIR)
     # open as read-write
-    db0.open(prefix_name)
+    db0.open(prefix.name)
     with pytest.raises(Exception):
         db0.fetch(uuid)
     

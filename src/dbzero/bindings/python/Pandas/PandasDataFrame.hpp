@@ -30,7 +30,6 @@ namespace db0::python
 
     PandasDataFrameObject *makeDataFrame(PyObject *, PyObject *, PyObject *);
     
-
     bool PandasDataFrame_Check(PyObject *obj);
     bool PandasDataFrameType_Check(PyTypeObject *type);
 

@@ -2,6 +2,7 @@
 #include <dbzero/core/memory/MetaAllocator.hpp>
 #include "FixtureThreads.hpp"
 #include "Config.hpp"
+#include "WorkspaceView.hpp"
 #include <thread>
 
 namespace db0
@@ -51,12 +52,17 @@ namespace db0
             new_file_created = true;
         }
         auto prefix = std::make_shared<PrefixImpl<StorageT> >(prefix_name, m_cache_recycler, file_name, access_type);
-        if (new_file_created) {
-            // prepare meta allocator for the 1st use
-            MetaAllocator::formatPrefix(prefix, *page_size, *slab_size);
+        try {
+            if (new_file_created) {
+                // prepare meta allocator for the 1st use
+                MetaAllocator::formatPrefix(prefix, *page_size, *slab_size);
+            }
+            auto allocator = std::make_shared<MetaAllocator>(prefix, &m_slab_recycler);
+            return { prefix, allocator };
+        } catch (...) {
+            prefix->close();
+            throw;
         }
-        auto allocator = std::make_shared<MetaAllocator>(prefix, &m_slab_recycler);
-        return { prefix, allocator };
     }
     
     bool BaseWorkspace::hasMemspace(const std::string &prefix_name) const {
@@ -227,7 +233,14 @@ namespace db0
     }
     
     void Workspace::close()
-    {
+    {        
+        // close associated workspace views
+        for (auto &view_ptr : m_views) {
+            if (auto ptr = view_ptr.lock()) {
+                ptr->close();
+            }
+        }
+        m_views.clear();
         // stop all workspace threads first
         m_workspace_threads = nullptr;
         m_shared_object_list.clear();
@@ -292,6 +305,11 @@ namespace db0
                 if (*access_type == AccessType::READ_WRITE && autocommit.value_or(true)) {
                     // register fixture for auto-commit
                     m_workspace_threads->startAutoCommit(fixture);
+                }
+
+                // complete fixture initialization
+                if (m_on_open_callback) {
+                    m_on_open_callback(it->second, file_created);
                 }
             }
         } catch (...) {
@@ -531,9 +549,26 @@ namespace db0
             fixture->onCacheFlushed(threshold_reached);
         }
     }
-        
+    
     const FixtureCatalog &Workspace::getFixtureCatalog() const {
         return m_fixture_catalog;
     }
     
+    void Workspace::setOnOpenCallback(std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> callback) {
+        m_on_open_callback = callback;
+    }
+
+    std::shared_ptr<WorkspaceView> Workspace::getWorkspaceView(std::optional<std::uint64_t> state_num,
+        const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums) const
+    {
+        // clean-up expired views
+        m_views.remove_if([](const std::weak_ptr<WorkspaceView> &view) {
+            return view.expired();
+        });
+        auto workspace_view = std::shared_ptr<WorkspaceView>(
+            new WorkspaceView(const_cast<Workspace&>(*this), state_num, prefix_state_nums));
+        m_views.push_back(workspace_view);
+        return workspace_view;
+    }
+
 }

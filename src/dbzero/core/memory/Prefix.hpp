@@ -48,7 +48,7 @@ namespace db0
          * @return the state ID after commit
         */
         virtual std::uint64_t commit() = 0;
-
+        
         virtual void close() = 0;
         
         /**

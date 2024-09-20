@@ -73,17 +73,17 @@ namespace tests
 
         // perform 10 object modifications in 10 transactions, take snapshot at 7th transaction
         db0::swine_ptr<Fixture> snap;
-        std::unique_ptr<WorkspaceView> workspace_view;
+        std::shared_ptr<WorkspaceView> workspace_view;
         for (int i = 0; i < 10; ++i)
         {
             auto fixture = m_workspace.getFixture(prefix_name);
             v_object<o_TT> obj(fixture->myPtr(address));
             obj.modify().a = i + 1;
             fixture->commit();
-
+            
             if (i == 6) {
                 // take snapshot
-                workspace_view = std::make_unique<WorkspaceView>(m_workspace, fixture->getStateNum());
+                workspace_view = m_workspace.getWorkspaceView(fixture->getStateNum());
                 snap = fixture->getSnapshot(*workspace_view, {});
             }
         }

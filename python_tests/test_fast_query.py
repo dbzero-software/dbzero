@@ -16,7 +16,7 @@ def test_simple_group_by_query(db0_fixture):
     assert groups["two"].count() == 3
     assert groups["three"].count() == 3
     
-    
+
 def test_delta_group_by_query(db0_fixture):
     keys = ["one", "two", "three"]
     objects = []

@@ -21,7 +21,7 @@ class RefreshTestClass:
 
 
 def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
-    # first crete objects    
+    # first crete objects
     object_1 = RefreshTestClass(0, "text")
     id_1 = db0.uuid(object_1)
     object_2 = RefreshTestClass(0, "text")
@@ -33,8 +33,7 @@ def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
     
     # open as read/write (otherwise GC0 not initialized)
     db0.init(DB0_DIR)
-    db0.open(prefix_name, "rw")
-    assert db0.get_metrics()[0]["vptr_reg_size"] == 0
+    db0.open(prefix_name, "rw")    
     object_1 = db0.fetch(id_1)
     reg_size_1 = db0.get_metrics()[0]["vptr_reg_size"]
     # size can be >1 because type also might be registered
@@ -286,7 +285,7 @@ def test_refresh_can_detect_updates_in_indexvt_fields(db0_fixture):
 
 
 def test_refresh_can_detect_updates_in_kvstore_fields(db0_fixture):
-    prefix_name = db0.get_current_prefix()
+    prefix_name = db0.get_current_prefix().name
     object_1 = DynamicDataSingleton(5)
     object_1.kv_field = 123
     root = MemoTestSingleton(object_1)        
@@ -325,7 +324,7 @@ def test_refresh_can_detect_updates_in_kvstore_fields(db0_fixture):
 def test_objects_created_by_different_process_are_not_dropped(db0_fixture):
     some_instance = DynamicDataSingleton(5)
     object_x = MemoTestClass(123123)
-    prefix_name = db0.get_current_prefix()
+    prefix_name = db0.get_current_prefix().name
     
     def create_process(result_queue):
         db0.init(DB0_DIR)

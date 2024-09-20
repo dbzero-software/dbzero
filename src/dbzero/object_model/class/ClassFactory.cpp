@@ -67,13 +67,29 @@ namespace db0::object_model
     ClassFactory::ClassFactory(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, *fixture)
         , m_class_maps(openClassMaps((*this)->m_class_map_ptrs, getMemspace()))
+        , m_class_ptr_index(getMemspace())
     {
+        modify().m_class_ptr_index_ptr = m_class_ptr_index;
     }
     
     ClassFactory::ClassFactory(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_class_maps(openClassMaps((*this)->m_class_map_ptrs, getMemspace()))
+        , m_class_ptr_index((*this)->m_class_ptr_index_ptr(getMemspace()))
     {
+    }
+    
+    void ClassFactory::initWith(const ClassFactory &other)
+    {
+        assert(m_type_cache.empty());
+        assert(m_ptr_cache.empty());
+        auto fixture = this->getFixture();
+        for (auto [lang_type, type]: other.m_type_cache) {
+            // validate if type exists in the snapshot
+            if (exists(*type)) {
+                getTypeByPtr(ClassPtr(*type), lang_type);
+            }
+        }
     }
     
     std::shared_ptr<Class> ClassFactory::tryGetExistingType(TypeObjectPtr lang_type) const
@@ -87,10 +103,10 @@ namespace db0::object_model
                 return nullptr;
             }
             // pull existing DBZero class instance by pointer
-            std::shared_ptr<Class> type = getTypeByPtr(class_ptr);
+            std::shared_ptr<Class> type = getTypeByPtr(class_ptr, lang_type);
+            // add to by-ptr cache
+            m_ptr_cache.insert({ClassPtr(*type), type});
             it_cached = m_type_cache.insert({lang_type, type}).first;
-            // persist type objects
-            m_types.push_back(lang_type);
         }
         return it_cached->second;
     }
@@ -116,7 +132,7 @@ namespace db0::object_model
             std::shared_ptr<Class> type;
             if (class_ptr) {
                 // pull existing DBZero class instance by pointer
-                type = getTypeByPtr(class_ptr);
+                type = getTypeByPtr(class_ptr, lang_type);
             } else {
                 // create new Class instance
                 bool is_singleton = LangToolkit::isSingleton(lang_type);
@@ -134,14 +150,14 @@ namespace db0::object_model
                         m_class_maps[i].insert_equal(variant_name->c_str(), class_ptr);
                     }
                 }
+                // and register its address with the class pointer index
+                m_class_ptr_index.insert(class_ptr);
 
                 // registering type in the by-pointer cache (for accessing by-ClassPtr)                
                 type = this->getType(class_ptr, type);
             }
 
             it_cached = m_type_cache.insert({lang_type, type}).first;
-            // persist type objects
-            m_types.push_back(lang_type);
         }
         return it_cached->second;
     }
@@ -161,7 +177,7 @@ namespace db0::object_model
         ClassPtr result;
         for (unsigned int i = 0; i < 4; ++i) {
             auto variant_key = getNameVariant(lang_type, type_id, i);
-            if (variant_key) {                
+            if (variant_key) {
                 if (tryFindByKey(m_class_maps[i], variant_key->c_str(), result)) {
                     return result;
                 }
@@ -174,53 +190,88 @@ namespace db0::object_model
         return result;
     }
     
-    std::shared_ptr<Class> ClassFactory::getTypeByPtr(ClassPtr ptr) const
+    std::shared_ptr<Class> ClassFactory::getTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const
     {
         auto it_cached = m_ptr_cache.find(ptr);
-        if (it_cached == m_ptr_cache.end())
-        {
+        if (it_cached == m_ptr_cache.end()) {
             // Since ptr points to existing instance, we can simply pull it from backend
             // note that Class has no associated language specific type object yet
             auto fixture = getFixture();
-            auto type = std::shared_ptr<Class>(new Class(fixture, ptr.getAddress()));
+            auto type = std::shared_ptr<Class>(new Class(fixture, ptr.getAddress(), lang_type));
             it_cached = m_ptr_cache.insert({ptr, type}).first;
         }
         return it_cached->second;
     }
-       
-    void ClassFactory::commit()
+    
+    std::shared_ptr<const Class> ClassFactory::getConstTypeByPtr(ClassPtr ptr) const
     {
-        for (auto &[type, class_ptr]: m_type_cache) {
-            class_ptr->commit();
+        // pull from cache if the instance is already loaded
+        auto it_cached = m_ptr_cache.find(ptr);
+        if (it_cached != m_ptr_cache.end()) {
+            return it_cached->second;
         }
+        
+        // A temporary instance will be pulled from backend
+        // NOTE: no language specific type is associated with the class
+        auto fixture = getFixture();
+        return std::shared_ptr<Class>(new Class(fixture, ptr.getAddress()));        
+    }
+    
+    void ClassFactory::commit() const
+    {
+        for (auto &item: m_ptr_cache) {
+            item.second->commit();
+        }
+        for (auto &class_map: m_class_maps) {
+            class_map.commit();
+        }
+        m_class_ptr_index.commit();
         super_t::commit();
     }
 
     void ClassFactory::detach() const
     {
-        m_type_cache.clear();
-        m_ptr_cache.clear();
         for (auto &class_map: m_class_maps) {
             class_map.detach();
+        }
+        m_class_ptr_index.detach();
+        // detach class objects only, without removing them from the cache
+        for (auto &item: m_ptr_cache) {
+            item.second->detach();
         }
         super_t::detach();
     }
     
-    void ClassFactory::forAll(std::function<void(std::shared_ptr<Class>)> f) const
+    void ClassFactory::forAll(std::function<void(std::shared_ptr<const Class>)> f) const
     {
         for (auto it = m_class_maps[1].begin(), end = m_class_maps[1].end(); it != end; ++it) {
-            f(getTypeByPtr(it->second()));
+            f(getConstTypeByPtr(it->second()));
         }
     }
-
-    std::shared_ptr<Class> fetchClass(db0::Snapshot &workspace, const ObjectId &class_uuid)
+    
+    std::shared_ptr<const Class> fetchConstClass(db0::Snapshot &workspace, const ObjectId &class_uuid)
     {
         if (class_uuid.m_typed_addr.getType() != StorageClass::DB0_CLASS) {
             THROWF(db0::InputException) << "Invalid class UUID: " << class_uuid.toUUIDString();
         }
         auto fixture = workspace.getFixture(class_uuid.m_fixture_uuid, AccessType::READ_ONLY);
         auto &class_factory = fixture->get<ClassFactory>();
-        return class_factory.getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(class_uuid.m_typed_addr.getAddress()));
+        return class_factory.getConstTypeByPtr(
+            db0::db0_ptr_reinterpret_cast<Class>()(class_uuid.m_typed_addr.getAddress())
+        );
     }
     
+    std::shared_ptr<Class> ClassFactory::operator[](ClassPtr ptr) const
+    {
+        auto it_cached = m_ptr_cache.find(ptr);
+        if (it_cached == m_ptr_cache.end()) {
+            THROWF(db0::InputException) << "Class not found: " << ptr.getAddress();
+        }
+        return it_cached->second;
+    }
+
+    bool ClassFactory::exists(const Class &class_obj) const {
+        return m_class_ptr_index.find(ClassPtr(class_obj)) != m_class_ptr_index.end();
+    }
+
 }

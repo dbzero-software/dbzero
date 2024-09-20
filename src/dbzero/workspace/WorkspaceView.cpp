@@ -7,16 +7,15 @@ namespace db0
 {
     
     /**
-     * Fixture view initializer (currently empty)
+     * Fixture view initializer
     */
-    std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> view_initializer()
-    {
-        return [](db0::swine_ptr<Fixture> &fixture, bool, bool)
-        {
-        };
+    void initSnapshot(db0::swine_ptr<Fixture> &head, db0::swine_ptr<Fixture> &view) {
+        auto &class_factory = head->get<db0::object_model::ClassFactory>();
+        // copy all known type mappings from the head fixture
+        view->get<db0::object_model::ClassFactory>().initWith(class_factory);
     }
-
-    WorkspaceView::WorkspaceView(std::shared_ptr<Workspace> workspace, std::optional<std::uint64_t> state_num, 
+    
+    WorkspaceView::WorkspaceView(std::shared_ptr<Workspace> workspace, std::optional<std::uint64_t> state_num,
         const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums)
         : WorkspaceView(workspace, workspace.get(), state_num, prefix_state_nums)
     {
@@ -54,11 +53,13 @@ namespace db0
             auto fixture = m_workspace_ptr->getFixture(*m_default_uuid);
             auto it = m_prefix_state_nums.find(fixture->getPrefix().getName());
             if (it != m_prefix_state_nums.end() && it->second != *state_num) {
-                THROWF(db0::InternalException) << "Conflicting state numbers requested for the default fixture: " << fixture->getPrefix().getName();
+                THROWF(db0::InternalException) 
+                    << "Conflicting state numbers requested for the default fixture: " 
+                    << fixture->getPrefix().getName();
             }
             m_state_nums[*m_default_uuid] = *state_num;
         }
-
+    
         // freeze state numbers of the remaining open fixtures
         m_workspace_ptr->forAll([this](const Fixture &fixture) {
             if (!m_default_uuid || *m_default_uuid != fixture.getUUID()) {
@@ -75,7 +76,7 @@ namespace db0
     WorkspaceView::~WorkspaceView()
     {
     }
-
+    
     db0::swine_ptr<Fixture> WorkspaceView::getFixture(
         const std::string &prefix_name, std::optional<AccessType> access_type)
     {
@@ -93,19 +94,19 @@ namespace db0
             return getFixture(it->second);
         }
 
-        auto fixture = m_workspace_ptr->getFixture(prefix_name);
+        auto head_fixture = m_workspace_ptr->getFixture(prefix_name);
         // get snapshot of the latest state
-        auto result = fixture->getSnapshot(*this, getSnapshotStateNum(*fixture));
+        auto result = head_fixture->getSnapshot(*this, getSnapshotStateNum(*head_fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
         // initialize as read-only
         if (fx_initializer) {
             fx_initializer(result, false, true);
-            view_initializer()(result, false, true);
+            initSnapshot(head_fixture, result);
         }
 
-        m_fixtures[fixture->getUUID()] = result;
-        m_name_uuids[prefix_name] = fixture->getUUID();
+        m_fixtures[head_fixture->getUUID()] = result;
+        m_name_uuids[prefix_name] = head_fixture->getUUID();
         return result;
     }
     
@@ -135,20 +136,20 @@ namespace db0
             return it->second;
         }
         
-        auto fixture = m_workspace_ptr->getFixture(uuid);
-        auto result = fixture->getSnapshot(*this, getSnapshotStateNum(*fixture));
+        auto head_fixture = m_workspace_ptr->getFixture(uuid);
+        auto result = head_fixture->getSnapshot(*this, getSnapshotStateNum(*head_fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
         // initialize as read-only
         if (fx_initializer) {
             fx_initializer(result, false, true);
-            view_initializer()(result, false, true);
+            initSnapshot(head_fixture, result);
         }
-        m_fixtures[fixture->getUUID()] = result;
-        m_name_uuids[fixture->getPrefix().getName()] = fixture->getUUID();
+        m_fixtures[head_fixture->getUUID()] = result;
+        m_name_uuids[head_fixture->getPrefix().getName()] = head_fixture->getUUID();
         return result;
     }
-
+    
     bool WorkspaceView::close(const std::string &prefix_name)
     {
         if (m_closed) {
@@ -178,6 +179,7 @@ namespace db0
             it->second->close();
             it = m_fixtures.erase(it);
         }
+        m_lang_cache = nullptr;
         m_closed = true;
     }
     
@@ -187,12 +189,6 @@ namespace db0
             THROWF(db0::InternalException) << "No default fixture";
         }
         return getFixture(*m_default_uuid);
-    }
-
-    WorkspaceView *WorkspaceView::makeNew(void *at_ptr, std::shared_ptr<Workspace> workspace,
-        std::optional<std::uint64_t> state_num, const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums) 
-    {
-        return new (at_ptr) WorkspaceView(workspace, state_num, prefix_state_nums);
     }
     
     std::optional<std::uint64_t> WorkspaceView::getSnapshotStateNum(const Fixture &fixture) const

@@ -63,7 +63,7 @@ namespace db0::object_model
          * @param no_result flag indicating if an empty query iterator should be returned
          */
         std::unique_ptr<QueryIterator> find(ObjectPtr const *args, std::size_t nargs,
-            std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, 
+            std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, 
             bool no_result = false) const;
         
         /**
@@ -113,7 +113,7 @@ namespace db0::object_model
         
         template <typename BaseIndexT, typename BatchOperationT>
         BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result);
-
+        
         db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr, 
             ActiveValueT &result);
 
@@ -223,7 +223,7 @@ namespace db0::object_model
      * @param args arguments passed to the find method
      * @param nargs number of arguments
      * @param args_offset result offset to the first argument to be used in actual find
-     * @param type the find type (if specified). Note that type must only be specified as the 1st argument
+     * @param type the find type (if specified). Note that type can only be specified as the 1st argument
      * @param no_result flag to indicate that the query yields no result
      * @return the find associated fixture (or exception raised if could not be determined)
      */

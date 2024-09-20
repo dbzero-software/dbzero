@@ -23,12 +23,12 @@ namespace db0::python
         return py_list;
     }
     
-    PyObject *getSingletonUUID(std::shared_ptr<db0::object_model::Class> type)
+    PyObject *getSingletonUUID(const db0::object_model::Class &type)
     {
-        if (!type->isSingleton() || !type->isExistingSingleton()) {
+        if (!type.isSingleton() || !type.isExistingSingleton()) {
             return Py_None;
         }
-        return PyUnicode_FromString(type->getSingletonObjectId().toUUIDString().c_str());
+        return PyUnicode_FromString(type.getSingletonObjectId().toUUIDString().c_str());
     }
     
     PyObject *getMemoClasses(db0::swine_ptr<Fixture> fixture)
@@ -37,7 +37,7 @@ namespace db0::python
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // collect class info as tuples
         PyObject *py_list = PyList_New(0);
-        class_factory.forAll([&](std::shared_ptr<db0::object_model::Class> type) {
+        class_factory.forAll([&](std::shared_ptr<const db0::object_model::Class> type) {
             PyObject *py_tuple = nullptr;
             if (type->isSingleton()) {
                 // name, module, memo_uuid, is_singleton, singleton_uuid
@@ -46,7 +46,7 @@ namespace db0::python
                     PyUnicode_FromString(type->getModuleName().c_str()),
                     PyUnicode_FromString(type->getClassId().toUUIDString().c_str()),
                     type->isSingleton() ? Py_True : Py_False,
-                    getSingletonUUID(type)
+                    getSingletonUUID(*type)
                 );
             } else {
                 // name, module, memo_uuid
@@ -94,7 +94,7 @@ namespace db0::python
     {        
         auto class_uuid = db0::object_model::ObjectId::fromBase32(memo_uuid);
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        auto members = db0::object_model::fetchClass(workspace, class_uuid)->getMembers();
+        auto members = db0::object_model::fetchConstClass(workspace, class_uuid)->getMembers();
         PyObject *py_list = PyList_New(0);
         for (auto [name, index]: members) {
             // name, index

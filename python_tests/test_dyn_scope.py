@@ -12,7 +12,7 @@ class TestDynScopedSingleton:
 
 def test_dyn_scope_ignored_if_none(db0_fixture):
     object = TestDynScopedSingleton(prefix=None)
-    assert db0.get_prefix_of(object) == db0.get_current_prefix()
+    assert db0.get_prefix_of(object) == db0.get_current_prefix().name
     
 
 def test_dyn_scope_not_allowed_after_instantiation(db0_fixture):

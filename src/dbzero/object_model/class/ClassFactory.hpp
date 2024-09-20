@@ -19,13 +19,17 @@ namespace db0::object_model
     struct ObjectId;
     using ClassPtr = db0::db0_ptr<Class>;
     using VClassMap = db0::v_map<db0::o_string, ClassPtr, o_string::comp_t>;
+    using VClassPtrIndex = db0::v_bindex<ClassPtr>;
     using namespace db0;
     using namespace db0::pools;
     
     struct [[gnu::packed]] o_class_factory: public o_fixed<o_class_factory>
     {
-        // 3 variants of class identification
+        // 4 variants of class identification
         db0::db0_ptr<VClassMap> m_class_map_ptrs[4];
+        // index of all class pointers
+        db0::db0_ptr<VClassPtrIndex> m_class_ptr_index_ptr;
+        std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
         
         o_class_factory(Memspace &memspace);
     };
@@ -42,6 +46,9 @@ namespace db0::object_model
         ClassFactory(db0::swine_ptr<Fixture> &);
 
         ClassFactory(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        
+        // Copy all cached type mappings from another ClassFactory
+        void initWith(const ClassFactory &);
 
         /**
          * Get existing class (or raise exception if not found)
@@ -65,18 +72,23 @@ namespace db0::object_model
         std::shared_ptr<Class> getOrCreateType(TypeObjectPtr lang_type);
         
         // reference the DBZero object model's class by its pointer
-        std::shared_ptr<Class> getTypeByPtr(ClassPtr) const;
+        std::shared_ptr<Class> getTypeByPtr(ClassPtr, TypeObjectPtr lang_type) const;
+
+        // retrieve type, possibly without a binding to any existing language specific type
+        // the result is not cached and can only be used for read-only operations
+        std::shared_ptr<const Class> getConstTypeByPtr(ClassPtr) const;
         
-        void commit();
+        // the index operator can only be used for pulling existing Class objects from the cache
+        std::shared_ptr<Class> operator[](ClassPtr) const;
+
+        void commit() const;
         
         void detach() const;
 
         // Iterate over all classes (whether having language specific type assigned or not)
-        void forAll(std::function<void(std::shared_ptr<Class>)>) const;
+        void forAll(std::function<void(std::shared_ptr<const Class>)>) const;
         
     private:
-        mutable std::vector<TypeObjectSharedPtr> m_types;
-        
         // Language specific type to DBZero class mapping
         mutable std::unordered_map<TypeObjectPtr, std::shared_ptr<Class> > m_type_cache;
         // DBZero Class objects by pointer (may not have language specific type assigned yet)
@@ -84,17 +96,22 @@ namespace db0::object_model
         mutable std::unordered_map<ClassPtr, std::shared_ptr<Class> > m_ptr_cache;
         // class maps in 4 variants: 0: type ID, 1: name + module, 2: name + fields: 3: module + fields
         std::array<VClassMap, 4> m_class_maps;
+        VClassPtrIndex m_class_ptr_index;
 
         // Pull through by-pointer cache
         std::shared_ptr<Class> getType(ClassPtr, std::shared_ptr<Class>);
         
         ClassPtr tryFindClassPtr(TypeObjectPtr lang_type, const char *type_id) const;
+
+        // check if the class object (possibly from a different snapshot) exists in the current snapshot
+        bool exists(const Class &) const;
     };
 
     std::optional<std::string> getNameVariant(ClassFactory::TypeObjectPtr lang_type,
         const char *type_id, int variant_id);
     
-    // fetch class by UUID or throw
-    std::shared_ptr<Class> fetchClass(db0::Snapshot &, const ObjectId &class_uuid);
+    // fetch immuatable Class object by UUID or throw
+    // the result may not be linked to any language specific type and can only be used for read-only operations
+    std::shared_ptr<const Class> fetchConstClass(db0::Snapshot &, const ObjectId &class_uuid);
     
 }
