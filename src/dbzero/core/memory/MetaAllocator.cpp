@@ -561,7 +561,8 @@ namespace db0
         }
     }
     
-    MetaAllocator::~MetaAllocator() {
+    MetaAllocator::~MetaAllocator()
+    {
     }
     
     Memspace MetaAllocator::createMetaspace() const

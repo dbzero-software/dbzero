@@ -52,12 +52,17 @@ namespace db0
             new_file_created = true;
         }
         auto prefix = std::make_shared<PrefixImpl<StorageT> >(prefix_name, m_cache_recycler, file_name, access_type);
-        if (new_file_created) {
-            // prepare meta allocator for the 1st use
-            MetaAllocator::formatPrefix(prefix, *page_size, *slab_size);
+        try {
+            if (new_file_created) {
+                // prepare meta allocator for the 1st use
+                MetaAllocator::formatPrefix(prefix, *page_size, *slab_size);
+            }
+            auto allocator = std::make_shared<MetaAllocator>(prefix, &m_slab_recycler);
+            return { prefix, allocator };
+        } catch (...) {
+            prefix->close();
+            throw;
         }
-        auto allocator = std::make_shared<MetaAllocator>(prefix, &m_slab_recycler);
-        return { prefix, allocator };
     }
     
     bool BaseWorkspace::hasMemspace(const std::string &prefix_name) const {
