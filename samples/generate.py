@@ -14,6 +14,13 @@ class Book:
         self.year = year
         db0.tags(self).add(author)
     
+    def full_desc(self):
+        return f"{self.title} by {self.author} ({self.year})"
+    
+    def author_initials(self):
+        return "".join([name[0] for name in self.author.split()])
+    
+    
 def __main__():
     db0.init()
     db0.open("/division by zero/dbzero/samples")
