@@ -196,7 +196,7 @@ namespace db0::python
         // remove instance from the lang cache
         lang_cache.erase(memo_obj->ext().getAddress());
     }
-        
+    
     PyObject *tryMemoObject_getattro(MemoObject *self, PyObject *attr)
     {
         // The method resolution order for Memo types is following:
@@ -397,12 +397,12 @@ namespace db0::python
             return NULL;
         }
 
-        if(PyType_Type.tp_str == py_class->tp_str) {
+        if (PyType_Type.tp_str == py_class->tp_str) {
             new_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
             base_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
         }
 
-        if(PyType_Type.tp_repr == py_class->tp_repr) {
+        if (PyType_Type.tp_repr == py_class->tp_repr) {
             new_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
             base_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
         }
