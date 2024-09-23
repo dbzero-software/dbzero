@@ -69,6 +69,13 @@ namespace db0::python
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
     }
     
+    PyTypeManager::~PyTypeManager()
+    {
+        for (auto &str: m_string_pool) {
+            delete str;
+        }
+    }
+    
     PyTypeManager::TypeId PyTypeManager::getTypeId(TypeObjectPtr py_type) const
     {
         if (!py_type) {
@@ -237,8 +244,8 @@ namespace db0::python
 
     const char *PyTypeManager::getPooledString(std::string str)
     {
-        m_string_pool.push_back(str);
-        return m_string_pool.back().c_str();
+        m_string_pool.push_back(new std::string(str));
+        return m_string_pool.back()->c_str();
     }
     
     const char *PyTypeManager::getPooledString(const char *str)

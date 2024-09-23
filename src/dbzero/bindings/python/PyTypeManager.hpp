@@ -57,6 +57,7 @@ namespace db0::python
         using Class = db0::object_model::Class;
 
         PyTypeManager();
+        ~PyTypeManager();
         
         /**
          * Add string to pool and return a managed pointer
@@ -128,7 +129,7 @@ namespace db0::python
         void close();
         
     private:
-        std::vector<std::string> m_string_pool;
+        std::vector<std::string*> m_string_pool;
         std::unordered_map<TypeId, ObjectPtr> m_py_type_map;
         std::unordered_map<ObjectPtr, TypeId> m_id_map;
         // lang types by name variant

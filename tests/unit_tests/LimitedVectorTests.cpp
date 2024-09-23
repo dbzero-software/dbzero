@@ -56,7 +56,7 @@ namespace tests
         std::vector<std::uint32_t> index {    0, 0, 1, 2, 2, 4, 2, 3, 4, 5, 6, 7, 8, 9, 11, 4, 0, 0, 11 };
         std::vector<std::uint32_t> expected { 1, 2, 1, 1, 2, 1, 3, 1, 2, 1, 1, 1, 1, 1, 1,  3, 3, 4, 2 };
         for (std::size_t i = 0; i < index.size(); ++i) {
-            std::uint16_t value;
+            std::uint16_t value = 0;
             cut.atomicInc(index[i], value);
             ASSERT_EQ(value, expected[i]);
         }

@@ -154,10 +154,10 @@ namespace db0
             for (auto it = other.begin(), end = other.end();it != end; ++it) {
                 node_t new_node(typename node_t::tag_copy(), memspace, other.getMemspace(), it);
                 SG_Tree::insert_equal_upper_bound(
-                    this->head(), new_node, this->_comp, this->modify().size++, _alpha,
-                    *((std::uint32_t*)&this->modify().max_tree_size)
+                    this->head(), new_node, this->_comp, this->modify().size++, _alpha
                 );
             }
+            this->updateMaxTreeSize();
         }
         
         /**
@@ -279,9 +279,8 @@ namespace db0
             );
             node_t new_node(this->getMemspace(), key, std::forward<Args>(args)...);
             SG_Tree::link(this->head(), new_node, ld);
-            SG_Tree::rebalance_after_insertion(
-                new_node, depth, ++(this->modify().size), _alpha, *((std::uint32_t*)&this->modify().max_tree_size)
-            );
+            SG_Tree::rebalance_after_insertion(new_node, depth, this->modify().size++, _alpha);
+            this->updateMaxTreeSize();
             return new_node.get_v_ptr();
         }
 
@@ -294,13 +293,12 @@ namespace db0
             std::size_t depth;
             link_data ld;
             SG_Tree::link_equal (
-                    this->head(), hint, key, this->_comp, ld, depth
+                this->head(), hint, key, this->_comp, ld, depth
             );
             node_t new_node(this->getMemspace(), key, std::forward<Args>(args)...);
             SG_Tree::link(this->head(), new_node, ld);
-            SG_Tree::rebalance_after_insertion(
-                    new_node, depth, ++(this->modify().size), _alpha, *((std::uint32_t*)&this->modify().max_tree_size)
-            );
+            SG_Tree::rebalance_after_insertion(new_node, depth, ++this->modify().size, _alpha);
+            this->updateMaxTreeSize();
             return new_node.get_v_ptr();
         }
 
@@ -326,20 +324,19 @@ namespace db0
             std::pair<iterator, bool> result = SG_Tree::insert_unique_check(
                 this->head(), key, _comp, commit_data
             );
-            if (!result.second)
-            {
+            if (!result.second) {
                 // node already exists
                 return result;
             }
             // allocate / initialize new SG-Tree node
             node_t new_node(this->getMemspace(), key, std::forward<Args>(args)...);
             SG_Tree::insert_unique_commit(
-                this->head(), new_node, commit_data, this->modify().size++, _alpha,
-                *((std::uint32_t*)&this->modify().max_tree_size)
+                this->head(), new_node, commit_data, this->modify().size++, _alpha
             );
+            this->updateMaxTreeSize();
             return std::make_pair(new_node.get_v_ptr(), true);
         }
-
+        
         /**
          * Find by node initializer / key
          */
@@ -374,11 +371,13 @@ namespace db0
          */
         void unlink(node_ptr_t &node)
         {
-            SG_Tree::erase (
-                    this->head(), node, this->modify().size--, *((std::uint32_t*)&this->modify().max_tree_size), _alpha
-            );
+            if (SG_Tree::erase(
+                this->head(), node, --this->modify().size, (*this)->max_tree_size, _alpha))
+            {
+                this->modify().max_tree_size = (*this)->size;
+            }
         }
-
+        
         /**
          * Static version of unlink, requires log(N) scan for the head-node
          */
@@ -510,6 +509,13 @@ namespace db0
             }
             // destroy node itself
             node.destroy();
+        }
+
+        void updateMaxTreeSize()
+        {
+            if ((*this)->size > (*this)->max_tree_size) {
+                this->modify().max_tree_size = (*this)->size;
+            }            
         }
 
         // join API

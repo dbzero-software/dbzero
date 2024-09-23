@@ -155,7 +155,7 @@ namespace db0::object_model
 
         m_new_type = new_type;
     }
-
+    
     void Index::flush()
     {
         // no instance due to move

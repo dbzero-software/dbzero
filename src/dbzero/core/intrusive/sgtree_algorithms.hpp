@@ -251,15 +251,11 @@ class sgtree_algorithms
    {  return tree_algorithms::size(header);   }
 
    template<class H_Alpha>
-   static void rebalance_after_insertion
-      ( const node_ptr &x, std::size_t depth
-      , std::size_t tree_size, H_Alpha h_alpha, uint32_t &max_tree_size)
-   {
-      if(tree_size > max_tree_size)
-         max_tree_size = tree_size;
-		
-      if(tree_size != 1 && depth > h_alpha(tree_size))
-	  {
+   static std::uint32_t rebalance_after_insertion
+      ( const node_ptr &x, std::size_t depth, std::size_t tree_size, H_Alpha h_alpha)
+   {		
+      if (tree_size != 1 && depth > h_alpha(tree_size))
+	   {
          //Find the first non height-balanced node
          //as described in the section 4.2 of the paper.
          //This method is the alternative method described
@@ -284,8 +280,9 @@ class sgtree_algorithms
 			s = s_parent;
          }
       }
+      return tree_size;
    }
-
+   
    //! <b>Requires</b>: p is a node from the tree except the header.
    //! 
    //! <b>Effects</b>: Returns the next node of the tree.
@@ -340,17 +337,17 @@ class sgtree_algorithms
    //! 
    //! <b>Throws</b>: Nothing.
    template<class AlphaByMaxSize>
-   static void erase(node_ptr &header, node_ptr &z, std::size_t tree_size, uint32_t &max_tree_size,
+   static bool erase(node_ptr &header, node_ptr &z, std::size_t final_tree_size, std::uint32_t max_tree_size,
 		AlphaByMaxSize alpha_by_maxsize)
    {
       //typename tree_algorithms::data_for_rebalance info;
       tree_algorithms::erase(header, z);
-      --tree_size;
-      if (tree_size > 0 && 
-          tree_size < alpha_by_maxsize(max_tree_size)){
+      if (final_tree_size > 0 && 
+         final_tree_size < alpha_by_maxsize(max_tree_size)) {
          tree_algorithms::rebalance(header);
-         max_tree_size = tree_size;
-      }      
+         return true;
+      }
+      return false;
    }
 	
    //! <b>Requires</b>: "cloner" must be a function
@@ -539,18 +536,17 @@ class sgtree_algorithms
    //! <b>Throws</b>: If "comp" throws.
    template<class NodePtrCompare, class H_Alpha>
    static node_ptr insert_equal_upper_bound
-      (node_ptr &h, node_ptr &new_node, NodePtrCompare comp
-      ,std::size_t tree_size, H_Alpha h_alpha, uint32_t &max_tree_size)
+      (node_ptr &h, node_ptr &new_node, NodePtrCompare comp, std::size_t tree_size, H_Alpha h_alpha)
    {
       std::size_t depth;
       tree_algorithms::insert_equal_upper_bound(h, new_node, comp, &depth);
-      rebalance_after_insertion(new_node, depth, tree_size+1, h_alpha, max_tree_size);
+      rebalance_after_insertion(new_node, depth, tree_size+1, h_alpha);
       return new_node;
    }
 
    template<class KeyType, class KeyNodePtrCompare>    
    static void link_equal_upper_bound
-      (node_ptr &h, const KeyType &key, KeyNodePtrCompare comp,link_data &ld, size_t &depth)
+      (node_ptr &h, const KeyType &key, KeyNodePtrCompare comp, link_data &ld, std::size_t &depth)
    {
       tree_algorithms::link_equal_upper_bound(h, key, comp, ld, &depth);
    }
@@ -568,16 +564,15 @@ class sgtree_algorithms
    //! 
    //! <b>Throws</b>: If "comp" throws.
    template<class NodePtrCompare, class H_Alpha>
-   static node_ptr insert_equal_lower_bound
-      (const node_ptr &h, node_ptr &new_node, NodePtrCompare comp
-      ,std::size_t tree_size, H_Alpha h_alpha, uint32_t &max_tree_size)
+   static node_ptr insert_equal_lower_bound(const node_ptr &h, node_ptr &new_node, NodePtrCompare comp,
+      std::size_t tree_size, H_Alpha h_alpha)
    {
-      std::size_t depth;	  
+      std::size_t depth;
       tree_algorithms::insert_equal_lower_bound(h, new_node, comp, &depth);	  
-      rebalance_after_insertion(new_node, depth, tree_size+1, h_alpha, max_tree_size);
+      rebalance_after_insertion(new_node, depth, tree_size+1, h_alpha);
       return new_node;
    }
-
+   
    //! <b>Requires</b>: "header" must be the header node of a tree.
    //!   NodePtrCompare is a function object that induces a strict weak
    //!   ordering compatible with the strict weak ordering used to create the
@@ -725,12 +720,11 @@ class sgtree_algorithms
    //!   previously executed to fill "commit_data". No value should be inserted or
    //!   erased between the "insert_check" and "insert_commit" calls.
    template<class H_Alpha>
-   static void insert_unique_commit
-      (node_ptr &header, node_ptr &new_value, insert_commit_data &commit_data
-      ,std::size_t tree_size, H_Alpha h_alpha, uint32_t &max_tree_size)
+   static void insert_unique_commit(node_ptr &header, node_ptr &new_value, insert_commit_data &commit_data, 
+      std::size_t tree_size, H_Alpha h_alpha)
    {
       tree_algorithms::insert_unique_commit(header, new_value, commit_data);
-      rebalance_after_insertion(new_value, commit_data.depth, tree_size+1, h_alpha, max_tree_size);
+      rebalance_after_insertion(new_value, commit_data.depth, tree_size+1, h_alpha);
    }
 
    //! <b>Requires</b>: header must be the header of a tree.

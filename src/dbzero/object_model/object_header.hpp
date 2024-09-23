@@ -7,7 +7,7 @@
 namespace db0
 
 {
-
+    
     class Fixture;
     
     /// Common object header

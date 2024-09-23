@@ -95,9 +95,9 @@ namespace db0::object_model
         };
 
         super_t::flush(index, &add_callback, &erase_callback);
-        m_object_cache.clear();
+        m_object_cache.clear();        
     }
-
+    
     template <typename KeyT> std::uint64_t IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
     {
         auto obj_addr = m_type_manager.extractObject(obj_ptr).getAddress();
