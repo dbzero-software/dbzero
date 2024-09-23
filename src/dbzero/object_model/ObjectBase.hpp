@@ -65,7 +65,11 @@ namespace db0
         {                        
             fixture->getGC0().add<T>(this);            
         }
-         
+        
+        ~ObjectBase()
+        {            
+        }
+
         // Unregister must be called pre-destruction
         void unregister() const
         {
@@ -157,7 +161,7 @@ namespace db0
         static bool hasRefsOp(const void *vptr) {
             return (*static_cast<const T*>(vptr))->m_header.hasRefs();
         }
-
+        
         static void detachOp(void *vptr) {
             static_cast<T*>(vptr)->detach();
         }        

@@ -46,7 +46,7 @@ namespace tests
             this->m_key = key;
         }
     };
-        
+    
     template <typename T> void testSizeOfDataBlockDoesNotExceedSizeOfPage(VBVectorTests &self) 
     {
         auto memspace = self.getMemspace();
@@ -733,4 +733,23 @@ namespace tests
         testSizeOfDataBlockDoesNotExceedSizeOfPage<b_item<16> >(*this);
     }
     
+    TEST_F( VBVectorTests, testVBVectorUseAfterClear )
+    {
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        std::uint64_t addr = 0;
+        {
+            db0::v_bvector<int> cut(memspace);
+            addr = cut.getAddress();
+            cut.emplace_back(0);
+            cut.clear();
+            cut.emplace_back(1);
+        }
+
+        db0::v_bvector<int> cut(memspace.myPtr(addr));
+        ASSERT_EQ(1u, cut.size());        
+        for (auto value: cut) {
+            ASSERT_EQ(1, value);
+        } 
+    }
+
 } 

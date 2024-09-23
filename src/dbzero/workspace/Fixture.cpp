@@ -151,15 +151,28 @@ namespace db0
     void Fixture::close()
     {
         // clear cache to destroy object instances supported by the cache
-        // this has to be done before commit (to not commit unrefereced objects)
-        // NOTE: since fixture is being closed we remove all objects (even not expired) from the cache        
+        // this has to be done before commit (to not commit unrefereced objects)        
         m_lang_cache.clear(true);
         // auto-commit before closing
         if (m_access_type == AccessType::READ_WRITE) {
-            // perform the operation twice to ensure both pre-commit and commit
-            onAutoCommit();
-            onAutoCommit();
+            // prevents commit on a closed fixture
+            std::unique_lock<std::mutex> lock(m_close_mutex);
+            if (!Memspace::isClosed()) {
+                // pre-commit to prepare objects which require it (e.g. Index) for commit
+                // NOTE: pre-commit must NOT lock the fixture's shared mutex
+                if (m_gc0_ptr) {
+                    getGC0().preCommit();
+                }
+                                
+                // clear lang cache again since pre-commit might've released some Python instances
+                m_lang_cache.clear(true);
+
+                // lock for exclusive access
+                std::unique_lock<std::shared_mutex> lock(m_shared_mutex);            
+                tryCommit(lock);
+            }
         }
+        
         std::unique_lock<std::mutex> lock(m_close_mutex);
         for (auto &close: m_close_handlers) {
             close(false);
@@ -206,16 +219,16 @@ namespace db0
     
     void Fixture::commit()
     {
-        // Clear expired instances from cache so that they're not persisted
-        m_lang_cache.clear(true);
-        assert(getPrefixPtr());
-        
+        assert(getPrefixPtr());                
         // pre-commit to prepare objects which require it (e.g. Index) for commit
         // NOTE: pre-commit must NOT lock the fixture's shared mutex
+        // NOTE: pre-commit may release some of the Python instances
         if (m_gc0_ptr) {
-            getGC0().preCommit();            
+            getGC0().preCommit();
         }
-
+        
+        // Clear expired instances from cache so that they're not persisted
+        m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
         tryCommit(lock);
         m_pre_commit = false;
@@ -260,7 +273,7 @@ namespace db0
                 // pre-commit to prepare objects which require it (e.g. Index) for commit
                 // NOTE: pre-commit must NOT lock the fixture's shared mutex
                 if (m_gc0_ptr) {
-                    getGC0().preCommit();            
+                    getGC0().preCommit();
                 }
 
                 // lock for exclusive access

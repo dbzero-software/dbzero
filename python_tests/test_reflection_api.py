@@ -88,7 +88,7 @@ def test_discover_tagged_objects(db0_fixture):
     obj = MemoTestClass(123)
     db0.tags(obj).add("tag1", "tag2")
     # using reflection API, identify memo classes
-    memo_type = [obj for obj in db0.get_memo_classes()][0].get_type()
+    memo_type = [obj for obj in db0.get_memo_classes()][0].get_class()
     # find all objects of this type
     assert len(list(db0.find(memo_type))) == 1
     

@@ -46,8 +46,7 @@ namespace db0
         {
         }
         
-        inline operator unsigned int() const
-        {
+        inline operator unsigned int() const {
             return m_value;
         }
     };
@@ -70,6 +69,7 @@ namespace db0
         using super_t = has_fixture<v_bvector<TypedAddress> >;
         GC0(db0::swine_ptr<Fixture> &);
         GC0(db0::swine_ptr<Fixture> &, std::uint64_t address, bool read_only);
+        ~GC0();
         
         // register instance with type specific ops, must be a known / registered type
         template <typename T> void add(void *vptr);
@@ -150,7 +150,7 @@ namespace db0
             T::m_gc_ops_id = GCOps_ID(m_ops.size());
             m_ops.push_back(T::getGC_Ops());
             m_ops_map[T::storageClass()] = T::m_gc_ops_id;
-        }        
+        }
     };
     
     template <typename T> void GC0::add(void *vptr)

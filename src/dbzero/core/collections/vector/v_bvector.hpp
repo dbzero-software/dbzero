@@ -184,8 +184,7 @@ namespace db0
         }
 
         // threadsafe
-        ItemT operator[](uint64_t index) const 
-        {
+        ItemT operator[](std::uint64_t index) const {
             return getItem(index);
         }
 
@@ -205,7 +204,7 @@ namespace db0
         }
 
         bool empty() const {
-            return ((*this)->m_size==0);
+            return ((*this)->m_size == 0);
         }
 
         /**
@@ -222,11 +221,11 @@ namespace db0
         /**
          * Reduce size of the vector by "count"
          */
-        void pop_back(uint64_t count) 
+        void pop_back(std::uint64_t count)
         {
             if (count > 0) {
                 assert(!(size() < count));
-                b_key key = getKey(0,size() - 1);
+                b_key key = getKey(0, size() - 1);
                 std::size_t span = getDataBlockSize(key);
                 while (count > 0) {
                     // pop full block
@@ -234,12 +233,11 @@ namespace db0
                         destroyDataBlock(key);
                         count -= span;
                         this->modify().m_size -= span;
-                    }
-                    else {
+                    } else {
                         this->modify().m_size -= count;
                         count = 0;
                         // compact single data block if possible
-                        if (height()==1) {
+                        if (height() == 1) {
                             growBlock(evaluateBClass(size()));
                         }
                         break;
@@ -248,7 +246,8 @@ namespace db0
                     span = (std::size_t)(1 << (m_db_shift - this->m_b_class));
                     --(key.second);
                 }
-                m_last_known_size = (*this)->m_size;
+                this->m_last_known_size = (*this)->m_size;
+                this->m_b_class = evaluateBClass(m_last_known_size);
             }
         }
 
@@ -285,8 +284,7 @@ namespace db0
         /**
          * Remove all elements
          */
-        void clear() 
-        {
+        void clear() {
             this->pop_back(this->size());
         }
 
@@ -585,7 +583,7 @@ namespace db0
                 return std::hash<std::uint64_t>()((std::uint64_t)x.first * 113u + (std::uint64_t)x.second);
             }
         };
-
+        
         // pointer block cache (h > 0)
         mutable std::unordered_map<b_key, std::shared_ptr<ptr_block>, b_key_hash> m_pb_cache;
         // last accessed data block (h = 0)
@@ -629,8 +627,7 @@ namespace db0
         /**
          * Block factory member (cast from specific b-class)
          */
-        std::unique_ptr<DataBlockType> newDataBlock(std::size_t b_class) const 
-        {
+        std::unique_ptr<DataBlockType> newDataBlock(std::size_t b_class) const {
             return newDataBlock(this->getMemspace(), b_class);
         }
 
@@ -1011,13 +1008,12 @@ namespace db0
                 m_last_block = nullptr;
                 m_last_block_key = { 0, 0 };
             }
-            if (key.second==0) {
+            if (key.second == 0) {
                 // root data block has been destroyed
                 this->modify().m_ptr_root = PtrT();
-            }
-            else {
+            } else {
                 // clear pointer block(s)
-                size_t index = getParentIndex(key);
+                std::size_t index = getParentIndex(key);
                 if ((index==0) || ((index==1) && (height()==2))) {
                     assert (this->m_b_class==0);
                     destroyPtrBlock(getParentKey(key), rw_lock);

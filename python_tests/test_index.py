@@ -41,7 +41,7 @@ def test_index_updates_are_flushed_on_close(db0_fixture):
     index.add(1, MemoTestClass(999))
     # NOTE: index not getting destroyed because Python instance is still alive
     db0.close()
-    
+        
     db0.init(DB0_DIR)
     db0.open(prefix.name, "r")
     index = db0.fetch(uuid)

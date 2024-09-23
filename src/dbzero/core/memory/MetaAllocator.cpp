@@ -648,7 +648,7 @@ namespace db0
             }
         }
     }
-    
+
     void MetaAllocator::free(std::uint64_t address)
     {
         address = db0::getPhysicalAddress(address);
@@ -659,7 +659,7 @@ namespace db0
             _free(address);
         }
     }
-    
+
     void MetaAllocator::deferredFree(std::uint64_t address)
     {
         assert(db0::isPhysicalAddress(address));
@@ -683,7 +683,7 @@ namespace db0
     }
     
     std::size_t MetaAllocator::getAllocSize(std::uint64_t address) const
-    {
+    {        
         address = db0::getPhysicalAddress(address);
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             THROWF(db0::InputException) << "Address " << address << " not found (pending deferred free)";

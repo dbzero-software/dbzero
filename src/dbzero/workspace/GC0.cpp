@@ -25,6 +25,10 @@ namespace db0
     {
     }
     
+    GC0::~GC0()
+    {
+    }
+    
     GC0::CommitContext::CommitContext(GC0 &gc0)
         : m_gc0(gc0)
     {        
@@ -52,7 +56,7 @@ namespace db0
         }
 
         NoArgsFunction drop_op = nullptr;
-        auto ops = m_ops[it->second];
+        auto &ops = m_ops[it->second];
         // if type implements preCommit then remove it from pre-commit map as well
         if (ops.preCommit) {
             m_pre_commit_map.erase(vptr);
@@ -112,20 +116,21 @@ namespace db0
     }
     
     void GC0::commit()
-    {
+    {        
         // Important ! Collect instance addresses first because push_back can trigger "remove" calls
         std::vector<TypedAddress> addresses;
         for (auto &vptr_item : m_vptr_map) {
-            auto ops = m_ops[vptr_item.second];
+            auto &ops = m_ops[vptr_item.second];
             if (ops.hasRefs && !ops.hasRefs(vptr_item.first)) {
                 addresses.push_back(ops.address(vptr_item.first));
             }
         }
-
-        super_t::clear();        
+        
+        super_t::clear();
         for (auto addr: addresses) {
             super_t::push_back(addr);
-        }        
+        }
+        super_t::commit();
     }
     
     void GC0::collect()
