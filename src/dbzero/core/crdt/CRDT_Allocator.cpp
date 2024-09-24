@@ -712,10 +712,10 @@ namespace db0
         return 0;
     }
     
-    void CRDT_Allocator::commit() {
+    void CRDT_Allocator::commit() const {
         m_cache->clear();
     }
-
+    
     void CRDT_Allocator::detach() const {
         m_cache->clear();
     }

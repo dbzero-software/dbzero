@@ -331,12 +331,11 @@ namespace db0::object_model
             if (type) {
                 result &= m_base_index_short.addIterator(factory, type->getAddress());
             }
-            
+
             while (result && (offset < nargs)) {
                 result &= addIterator(args[offset], factory, neg_iterators, observers);
                 ++offset;
             }
-
             if (!result) {
                 // invalidate factory since no matching results exist
                 factory.clear();
@@ -457,7 +456,7 @@ namespace db0::object_model
     }
     
     TagIndex::ShortTagT TagIndex::makeShortTag(TypeId type_id, ObjectPtr py_arg, bool create) const
-    {
+    {       
         if (type_id == TypeId::STRING) {
             return makeShortTagFromString(py_arg, create);
         } else if (type_id == TypeId::MEMO_OBJECT) {

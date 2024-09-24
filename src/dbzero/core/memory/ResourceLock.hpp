@@ -131,4 +131,6 @@ namespace db0
 #endif        
     };
 
+    std::ostream &showBytes(std::ostream &, const std::byte *, std::size_t);
+
 }

@@ -79,6 +79,8 @@ namespace db0
             , m_memspace_ptr(&ptr.m_memspace.get())
             , m_access_mode(ptr.m_access_mode | access_mode | AccessOptions::read)
         {
+            // FIXME: log
+            std::cout << "New vptr" << this << " flags: " << m_resource_flags.load() << std::endl;
         }
                 
         FlagSet<AccessOptions> getAccessMode() const;
@@ -201,6 +203,8 @@ namespace db0
             assert(m_memspace_ptr);
             // access resource for read-write
             while (!ResourceReadWriteMutexT::__ref(m_resource_flags).get()) {
+                // FIXME: log
+                std::cout << "Resource flags (before lock): " << m_resource_flags.load() << std::endl;                
                 ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
                     // lock for +write
@@ -211,7 +215,9 @@ namespace db0
                     lock.commit_set();
                 }
             }            
-            return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());            
+            // FIXME: log
+            std::cout << "Resource flags (before lock): " << m_resource_flags.load() << std::endl;
+            return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());           
         }
 
         const ContainerT& safeRef() const 
@@ -265,6 +271,8 @@ namespace db0
             assert(m_memspace_ptr);
             // access the resource for read (or check if the read or read/write access has already been gained)
             while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {
+                // FIXME: log
+                std::cout << "Resource flags (before lock): " << m_resource_flags.load() << std::endl;                
                 ResourceReadMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
                     // NOTE: must extract physical address for mapRange
@@ -273,6 +281,8 @@ namespace db0
                     lock.commit_set();
                 }
             }
+            // FIXME: log
+            std::cout << "Resource flags (after lock): " << m_resource_flags.load() << std::endl;             
         }
         
         /**

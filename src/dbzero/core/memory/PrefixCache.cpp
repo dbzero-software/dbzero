@@ -55,6 +55,8 @@ namespace db0
     std::shared_ptr<DP_Lock> PrefixCache::findPage(std::uint64_t page_num, std::uint64_t state_num,
         FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num) const
     {
+        // FIXME: log
+        std::cout << "findPage: " << state_num << " " << page_num << std::endl;
         auto lock = m_dp_map.find(state_num, page_num, read_state_num);
         if (lock.get() == m_missing_dp_lock_ptr.get()) {
             // invalidate result, this range is marked as missing
@@ -405,19 +407,27 @@ namespace db0
         // operation not allowed for the boundary range
         assert(!isBoundaryRange(first_page, end_page, address & m_mask));
         if (end_page == first_page + 1) {
-            if (!m_dp_map.replace(state_num, new_lock, first_page)) {            
+            // FIXME: log
+            std::cout << "replacing DP_Lock: " << state_num << " " << first_page << std::endl;
+            if (!m_dp_map.replace(state_num, new_lock, first_page)) {
+                // FIXME: log
+                std::cout << "not replaced" << std::endl;
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
-                // add add to / update with cache recycler
+                // add to / update with cache recycler
                 if (m_cache_recycler_ptr) {
                     m_cache_recycler_ptr->update(new_lock);
                 }
             }
         } else {
+            // FIXME: log
+            std::cout << "replacing WideLock: " << state_num << " " << first_page << std::endl;
             if (!m_wide_map.replace(state_num, std::dynamic_pointer_cast<WideLock>(new_lock), first_page)) {
+                // FIXME: log
+                std::cout << "not replaced" << std::endl;
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
-                // add add to / update with cache recycler
+                // add to / update with cache recycler
                 if (m_cache_recycler_ptr) {
                     m_cache_recycler_ptr->update(new_lock);
                 }
@@ -442,6 +452,9 @@ namespace db0
     
     void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num)
     {
+        // FIXME: log
+        std::cout << "volatile boundary locks: " << m_volatile_boundary_locks.size() << std::endl;
+        std::cout << "volatile locks: " << m_volatile_locks.size() << std::endl;
         // merge boundary locks first
         for (auto &lock: m_volatile_boundary_locks) {
             if (lock->isDirty()) {

@@ -580,19 +580,21 @@ namespace db0::object_model
     
     void Object::detach() const
     {
+        // FIXME: log
+        std::cout << "Object::detach() called: " << this << std::endl;
         m_type->detach();
         // invalidate since detach is not supported by the MorphingBIndex
         m_kv_index = nullptr;
-        super_t::detach();   
+        super_t::detach();
     }
-
+    
     void Object::commit() const
     {
         m_type->commit();
         if (m_kv_index) {
             m_kv_index->commit();
         }
-        super_t::detach();
+        super_t::commit();
     }
 
     void Object::unrefMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value) const {

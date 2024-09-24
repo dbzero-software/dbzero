@@ -246,9 +246,10 @@ namespace db0
             return slab_def_ptr.first->m_remaining_capacity;
         }
 
-        void close() 
+        void close()
         {
             m_active_slab = {};
+            m_reserved_slabs.clear();
             for (auto it = m_slabs.begin(); it != m_slabs.end();) {
                 it = unregisterSlab(it);
             }
@@ -300,7 +301,7 @@ namespace db0
             m_capacity_items.insert(cap_item);
             return slab;
         }
-
+        
         std::shared_ptr<SlabAllocator> openExistingSlab(const SlabDef &slab_def)
         {
             if (slab_def.m_slab_id >= m_next_slab_id) {
@@ -345,7 +346,10 @@ namespace db0
             }
             
             // pull through cache
-            return openSlab(*slab_def_ptr.first).m_slab;
+            auto result = openSlab(*slab_def_ptr.first).m_slab;
+            // and add for non-expiry cache
+            m_reserved_slabs.push_back(result);
+            return result;
         }
 
         std::uint64_t getFirstAddress() const {
@@ -406,6 +410,7 @@ namespace db0
         const std::uint32_t m_page_size;
         // slab cache by address
         std::unordered_map<std::uint64_t, std::shared_ptr<CacheItem> > m_slabs;
+        std::vector<std::shared_ptr<SlabAllocator> > m_reserved_slabs;
         FindResult m_active_slab;
         // address by allocation ID (from the algo-allocator)
         std::function<std::uint64_t(unsigned int)> m_slab_address_func;
@@ -730,7 +735,7 @@ namespace db0
         return result;
     }
     
-    void MetaAllocator::commit()
+    void MetaAllocator::commit() const
     {
         // NOTE: if atomic operation is in progress, the deferred free operations are not flushed
         // this is not a finalized and potentially reversible commit        

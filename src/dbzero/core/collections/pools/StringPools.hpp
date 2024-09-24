@@ -25,8 +25,7 @@ namespace db0::pools
             PtrT() = default;
             inline PtrT(std::uint32_t value) : m_value(value) {}
 
-            inline operator bool() const 
-            {
+            inline operator bool() const {
                 return m_value != 0;
             }
         };

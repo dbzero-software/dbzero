@@ -15,6 +15,8 @@ namespace db0
         , m_memspace_ptr(&memspace)
         , m_access_mode(access_mode)
     {
+        // FIXME: log
+        std::cout << "New vptr" << this << " flags: " << m_resource_flags.load() << std::endl;
         assert(!(m_resource_flags.load() & RESOURCE_LOCK));
     }
     
@@ -32,6 +34,8 @@ namespace db0
         , m_access_mode(access_mode)
         , m_mem_lock(std::move(mem_lock))
     {
+        // FIXME: log
+        std::cout << "New vptr" << this << " flags: " << m_resource_flags.load() << std::endl;
         // resource must be available
         assert(m_mem_lock.m_buffer);
     }
@@ -40,25 +44,38 @@ namespace db0
         return m_access_mode;
     }
 
-    vtypeless &vtypeless::operator=(const vtypeless &other) 
+    vtypeless &vtypeless::operator=(const vtypeless &other)
     {
         m_address = other.m_address;
         m_memspace_ptr = other.m_memspace_ptr;
         m_access_mode = other.m_access_mode;
 
         // lock for copy
+        // FIXME: log
+        std::cout << "Other resource " << &other << " flags: " << other.m_resource_flags.load() << std::endl;
+        // FIXME: log
+        if ((other.m_resource_flags.load() & db0::RESOURCE_LOCK)) {
+            throw std::runtime_error("Resource is locked");
+        }
+
         for (;;) {
             ResourceDetachMutexT::WriteOnlyLock lock(other.m_resource_flags);
             if (!lock.isLocked()) {
                 continue;
             }
+            // FIXME: log
+            std::cout << "Locked: " << &other << std::endl;
             // clear the lock flag when copying
             m_resource_flags = (other.m_resource_flags.load() & ~RESOURCE_LOCK);
+            // FIXME: log
+            std::cout << "Resource flags after move: " << m_resource_flags.load() << std::endl;
             m_mem_lock = other.m_mem_lock;
             assert(!(m_resource_flags.load() & db0::RESOURCE_AVAILABLE_FOR_READ) || m_mem_lock.m_buffer);
             break;
         }        
 
+        // FIXME: log
+        std::cout << "Unlocked: " << &other << " flags = " << other.m_resource_flags.load() << std::endl;
         return *this;
     }
     
@@ -76,6 +93,8 @@ namespace db0
             }
             // clear the lock flag when copying
             m_resource_flags = (other.m_resource_flags.load() & ~RESOURCE_LOCK);
+            // FIXME: log
+            std::cout << "Resource flags after move: " << m_resource_flags.load() << std::endl;
             m_mem_lock = std::move(other.m_mem_lock);
             assert(!(m_resource_flags.load() & db0::RESOURCE_AVAILABLE_FOR_READ) || m_mem_lock.m_buffer);
             break;
@@ -96,13 +115,15 @@ namespace db0
         while (ResourceDetachMutexT::__ref(m_resource_flags).get()) {
             ResourceDetachMutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
+                std::cout << "Resource locked: " << this << " flags = " << m_resource_flags.load() << std::endl;
                 m_mem_lock = {};
                 // clear read/write flags
                 lock.commit_reset();
             }
-        }        
+        }
+        std::cout << "Resource unlocked: " << this << " flags = " << m_resource_flags.load() << std::endl;
     }
-     
+    
     void vtypeless::commit()
     {
         // commit clears the reasource available for write flag
@@ -111,6 +132,8 @@ namespace db0
         // clear write / create flags since the following access may not be for update
         m_access_mode.set(AccessOptions::write, false);
         m_access_mode.set(AccessOptions::create, false);
+        // FIXME: log
+        std::cout << "Resource committed: " << this << " flags = " << m_resource_flags.load() << std::endl;
     }
     
 }

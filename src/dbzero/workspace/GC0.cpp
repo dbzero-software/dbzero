@@ -160,10 +160,6 @@ namespace db0
         assert(!m_atomic);
         // commmit all active v_object instances so that the underlying locks can be re-created (CoW)        
         commitAll();
-        // call pre-commit where it's provided (i.e. to flush internal buffers)
-        for (auto &item : m_pre_commit_map) {
-            m_ops[item.second].preCommit(item.first, false);
-        }
         m_atomic = true;
     }
 

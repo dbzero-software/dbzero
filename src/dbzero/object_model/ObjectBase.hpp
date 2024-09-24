@@ -67,9 +67,11 @@ namespace db0
         }
         
         ~ObjectBase()
-        {            
+        {      
+            // FIXME: log
+            std::cout << "ObjectBase::~ObjectBase(): " << this << std::endl;
         }
-
+        
         // Unregister must be called pre-destruction
         void unregister() const
         {

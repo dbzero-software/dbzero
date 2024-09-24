@@ -153,7 +153,7 @@ namespace db0
     std::shared_ptr<DP_Lock> PrefixViewImpl<StorageT>::mapPage(std::uint64_t page_num)
     {
         // read-only access
-        std::uint64_t read_state_num;
+        std::uint64_t read_state_num = 0;
         auto lock = m_cache.findPage(page_num, m_state_num, { AccessOptions::read }, read_state_num);        
         if (!lock) {
             std::uint64_t mutation_id;
@@ -180,7 +180,7 @@ namespace db0
     std::shared_ptr<WideLock> PrefixViewImpl<StorageT>::mapWideRange(
         std::uint64_t first_page, std::uint64_t end_page, std::size_t size)
     {
-        std::uint64_t read_state_num;        
+        std::uint64_t read_state_num = 0;
         auto lock = m_cache.findRange(first_page, end_page, m_state_num, { AccessOptions::read }, read_state_num);
         
         if (!lock) {
@@ -212,7 +212,7 @@ namespace db0
     std::shared_ptr<BoundaryLock> PrefixViewImpl<StorageT>::mapBoundaryRange(std::uint64_t first_page_num, 
         std::uint64_t address, std::size_t size)
     {
-        std::uint64_t read_state_num;
+        std::uint64_t read_state_num = 0;
         std::shared_ptr<BoundaryLock> lock;
         std::shared_ptr<DP_Lock> lhs, rhs;
         while (!lock) {

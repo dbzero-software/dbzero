@@ -76,6 +76,8 @@ namespace db0
 #endif
         // make sure the dirty flag is not set (unless no-flush lock)
         assert(!isDirty() || m_access_mode[AccessOptions::no_flush]);
+        // FIXME: log
+        std::cout << "ResourceLock::~ResourceLock(): " << this << std::endl;
     }
     
     bool ResourceLock::addrPageAligned(BaseStorage &storage) const {
@@ -120,7 +122,7 @@ namespace db0
         setDirty();
         std::memcpy(m_data.data(), other.m_data.data(), m_data.size());
     }
-
+    
 #ifndef NDEBUG
     std::pair<std::size_t, std::size_t> ResourceLock::getTotalMemoryUsage() 
     {
@@ -129,5 +131,13 @@ namespace db0
         return { rl_usage - dp_usage.first, rl_count - dp_usage.second };
     }
 #endif    
+
+    std::ostream &showBytes(std::ostream &os, const std::byte *data, std::size_t size)
+    {
+        for (std::size_t i = 0; i < size; ++i) {
+            os << std::hex << static_cast<int>(data[i]) << " ";
+        }
+        return os;
+    }
 
 }

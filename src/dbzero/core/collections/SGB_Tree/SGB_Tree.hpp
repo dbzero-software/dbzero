@@ -380,13 +380,17 @@ namespace db0
         */
         template <typename KeyT> ConstItemIterator lower_equal_bound(const KeyT &key) const
         {
+            // FIXME: log
+            std::cout << "lower_equal_bound(): " << key << std::endl;
             auto node = super_t::lower_equal_bound(key);
             if (node == super_t::end()) {
                 return { nullptr, sg_tree_const_iterator() };
             }
+            // FIXME: log
+            std::cout << "lower_equal_bound() node" << std::endl;
             return { node->lower_equal_bound(key, m_heap_comp), node };
         }
-
+        
         template <typename KeyT> ConstItemIterator find_equal(const KeyT &key) const
         {
             auto node = super_t::lower_equal_bound(key);
@@ -527,7 +531,7 @@ namespace db0
             return super_t::end();
         }
 
-        void commit() {
+        void commit() const {
             super_t::commit();
         }
         

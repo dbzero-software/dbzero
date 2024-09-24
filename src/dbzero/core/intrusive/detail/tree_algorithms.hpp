@@ -866,14 +866,15 @@ class tree_algorithms
    template<class KeyType, class KeyNodePtrCompare>
    static node_ptr lower_bound
       (const node_ptr &header, const KeyType &key, KeyNodePtrCompare comp)
-   {
+   {      
       node_ptr y = header;
       node_ptr x = NodeTraits::get_parent(header);
-      while(x){
-         if(comp(x, key)){
+      while (x) {
+         // FIXME: log
+         std::cout << "lower_bound: x=" << x.getAddress() << " y=" << y.getAddress() << std::endl;
+         if (comp(x, key)) {
             x = NodeTraits::get_right(x);
-         }
-         else {
+         } else {
             y = x;
             x = NodeTraits::get_left(x);
          }
@@ -904,25 +905,29 @@ class tree_algorithms
 	   static node_ptr lower_equal_bound
 	   (const node_ptr &header, const KeyType &key, KeyNodePtrCompare comp)
    {
+      // FIXME: log
+      std::cout << "lower_equal_bound: before assign header" << std::endl;
       node_ptr y = header;
+      // FIXME: log
+      std::cout << "lower_equal_bound: after assign header" << std::endl;
       node_ptr x = NodeTraits::get_parent(header);
       while (x) {
+         // FIXME: log
+         std::cout << "lower_equal_bound: x=" << x.getAddress() << " y=" << y.getAddress() << std::endl;
          if (comp(x, key)) {
-			 y = x;
-			 x = NodeTraits::get_right(x);
-         }
-         else {
-			 if (comp (key, x)) {
-				 x = NodeTraits::get_left(x);
-			 }
-			 else {
-				 y = NodeTraits::get_left(x);
-				 // continue with equal values
-				 if (!y || comp(y, key) || comp(key, y)) {
-					 return x;
-				 }
-				 x = y;
-			 }
+            y = x;
+            x = NodeTraits::get_right(x);
+         } else {
+            if (comp (key, x)) {
+               x = NodeTraits::get_left(x);
+			   } else {
+               y = NodeTraits::get_left(x);
+               // continue with equal values
+               if (!y || comp(y, key) || comp(key, y)) {
+                  return x;
+               }
+               x = y;
+			   }
          }
       }
       return y;

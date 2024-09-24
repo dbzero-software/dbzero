@@ -41,7 +41,7 @@ namespace db0
         return m_size;
     }
 
-    void OneShotAllocator::commit() {
+    void OneShotAllocator::commit() const {
         // nothing to do
     }
 

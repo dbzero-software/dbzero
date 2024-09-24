@@ -48,19 +48,19 @@ namespace db0
 		struct WriteOnlyLock
 		{
 			ROWO_Mutex &m_rowo_mutex;
-			bool m_locked;
+			std::atomic<bool> m_locked;
 
 			WriteOnlyLock(ROWO_Mutex &rowo_mutex)
 				: m_rowo_mutex(rowo_mutex)
 			{
+				auto old_val = rowo_mutex.load();
 				for (;;) {
-					auto old_val = rowo_mutex.load();
 					// some thread already gained write-only access
 					if (old_val & FLAG_LOCK) {
 						m_locked = false;
 						break;
-					}					
-					if (rowo_mutex.compare_exchange_weak(old_val, (old_val | FLAG_LOCK))) {
+					}
+					if (rowo_mutex.compare_exchange_strong(old_val, (old_val | FLAG_LOCK))) {
 						// lock bit set / resource access granted
 						m_locked = true;
 						break;
@@ -87,12 +87,8 @@ namespace db0
 			{
 				if (m_locked) {
 					// content written, set flag (with CAS) and release lock
-					for (;;) {
-						auto old_val = m_rowo_mutex.load();
-						if (m_rowo_mutex.compare_exchange_weak(old_val, ((old_val | FLAG_SET) & ~FLAG_LOCK))) {
-							break;
-						}
-					}
+					auto old_val = m_rowo_mutex.load();
+					while (!m_rowo_mutex.compare_exchange_strong(old_val, ((old_val | FLAG_SET) & ~FLAG_LOCK)));
 					m_locked = false;
 				}
 			}
@@ -104,12 +100,8 @@ namespace db0
 			{
 				if (m_locked) {
 					// content written, set flag (with CAS) and release lock
-					for (;;) {
-						auto old_val = m_rowo_mutex.load();
-						if (m_rowo_mutex.compare_exchange_weak(old_val, old_val & ~(FLAG_SET | FLAG_LOCK))) {
-							break;
-						}
-					}
+					auto old_val = m_rowo_mutex.load();
+					while (!m_rowo_mutex.compare_exchange_strong(old_val, old_val & ~(FLAG_SET | FLAG_LOCK)));
 					m_locked = false;
 				}
 			}

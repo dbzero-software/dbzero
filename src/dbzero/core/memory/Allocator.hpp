@@ -44,7 +44,7 @@ namespace db0
         /**
          * Prepare the allocator for the next transaction
         */
-        virtual void commit() = 0;
+        virtual void commit() const = 0;
 
         virtual void detach() const = 0;
 

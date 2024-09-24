@@ -393,7 +393,7 @@ namespace db0
         */
         static std::uint64_t getFirstAddress();
 
-        void commit();
+        void commit() const;
 
         void detach() const;
 

@@ -63,13 +63,14 @@ namespace db0
     AtomicContext::AtomicContext(std::shared_ptr<Workspace> &workspace)
         : m_workspace(workspace)
     {
+        m_workspace->preAtomic();
         m_workspace->beginAtomic(this);
     }
     
     void AtomicContext::makeNew(void *ptr, std::shared_ptr<Workspace> &workspace) {
         new (ptr) AtomicContext(workspace);
     }
-
+    
     void AtomicContext::cancel()
     {
         if (!m_active) {
@@ -78,7 +79,7 @@ namespace db0
 
         // all objects from context need to be detached
         auto &type_manager = LangToolkit::getTypeManager();
-        for (auto &pair : m_objects) {
+        for (auto &pair : m_objects) {            
             detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
         }
         m_workspace->cancelAtomic();
@@ -91,14 +92,14 @@ namespace db0
         if (!m_active) {
             return;
         }
-
+        
         // detach / flush all workspace objects
         m_workspace->detach();
         // all objects from context need to be detached
-        auto &type_manager = LangToolkit::getTypeManager();
+        auto &type_manager = LangToolkit::getTypeManager();        
         for (auto &pair : m_objects) {
             detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
-        }
+        }        
         
         m_workspace->endAtomic();
         m_objects.clear();
