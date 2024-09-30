@@ -76,8 +76,6 @@ namespace db0
 #endif
         // make sure the dirty flag is not set (unless no-flush lock)
         assert(!isDirty() || m_access_mode[AccessOptions::no_flush]);
-        // FIXME: log
-        std::cout << "ResourceLock::~ResourceLock(): " << this << std::endl;
     }
     
     bool ResourceLock::addrPageAligned(BaseStorage &storage) const {
@@ -87,9 +85,9 @@ namespace db0
     void ResourceLock::setRecycled(bool is_recycled)
     {
         if (is_recycled) {
-            safeSetFlags(m_resource_flags, RESOURCE_RECYCLED);
+            atomicSetFlags(m_resource_flags, RESOURCE_RECYCLED);
         } else {
-            safeResetFlags(m_resource_flags, RESOURCE_RECYCLED);
+            atomicResetFlags(m_resource_flags, RESOURCE_RECYCLED);
         }
     }
     

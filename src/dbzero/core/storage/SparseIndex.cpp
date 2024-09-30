@@ -82,33 +82,27 @@ namespace db0
         return lhs.second < rhs.m_state_num;
     }
 
-    bool SparseIndex::ItemEqualT::operator()(const Item &lhs, const Item &rhs) const 
-    {
+    bool SparseIndex::ItemEqualT::operator()(const Item &lhs, const Item &rhs) const {
         return lhs.m_page_num == rhs.m_page_num && lhs.m_state_num == rhs.m_state_num;
     }
 
-    bool SparseIndex::ItemEqualT::operator()(const Item &lhs, std::pair<std::uint64_t, std::uint32_t> rhs) const 
-    {
+    bool SparseIndex::ItemEqualT::operator()(const Item &lhs, std::pair<std::uint64_t, std::uint32_t> rhs) const {
         return lhs.m_page_num == rhs.first && lhs.m_state_num == rhs.second;
     }
 
-    bool SparseIndex::ItemEqualT::operator()(std::pair<std::uint64_t, std::uint32_t> lhs, const Item &rhs) const 
-    {
+    bool SparseIndex::ItemEqualT::operator()(std::pair<std::uint64_t, std::uint32_t> lhs, const Item &rhs) const {
         return lhs.first == rhs.m_page_num && lhs.second == rhs.m_state_num;
     }
 
-    bool SparseIndex::CompressedItemCompT::operator()(CompressedItem lhs, CompressedItem rhs) const 
-    {
+    bool SparseIndex::CompressedItemCompT::operator()(CompressedItem lhs, CompressedItem rhs) const {
         return lhs.getKey() < rhs.getKey();
     }
 
-    bool SparseIndex::CompressedItemEqualT::operator()(CompressedItem lhs, CompressedItem rhs) const 
-    {
+    bool SparseIndex::CompressedItemEqualT::operator()(CompressedItem lhs, CompressedItem rhs) const {
         return lhs.getKey() == rhs.getKey();
     }
     
-    SparseIndex::CompressedItem SparseIndex::BlockHeader::compressFirst(const Item &item)
-    {
+    SparseIndex::CompressedItem SparseIndex::BlockHeader::compressFirst(const Item &item) {
         m_first_page_num = item.m_page_num >> 23;
         return compress(item);
     }
@@ -238,13 +232,11 @@ namespace db0
         return ss.str();
     } 
 
-    std::string SparseIndex::BlockHeader::toString(const CompressedItem &item) const
-    {
+    std::string SparseIndex::BlockHeader::toString(const CompressedItem &item) const {
         return item.toString();
     }
     
-    std::size_t SparseIndex::getChangeLogSize() const
-    {
+    std::size_t SparseIndex::getChangeLogSize() const {
         return m_change_log.empty() ? 0 : m_change_log.size() - 1;
     }
 

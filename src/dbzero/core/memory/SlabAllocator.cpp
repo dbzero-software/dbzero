@@ -198,8 +198,6 @@ namespace db0
     
     void SlabAllocator::commit() const
     {
-        // FIXME: log
-        std::cout << "SlabAllocator::commit(): " << this << std::endl;
         m_header.commit();
         m_bitspace.commit();
         m_allocs.commit();
@@ -212,8 +210,6 @@ namespace db0
     
     void SlabAllocator::detach() const
     {
-        // FIXME: log
-        std::cout << "SlabAllocator::detach(): " << this << std::endl;
         m_header.detach();
         m_bitspace.detach();
         m_allocs.detach();

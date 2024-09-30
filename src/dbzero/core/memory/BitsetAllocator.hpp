@@ -181,15 +181,11 @@ namespace db0
     }
     
     template <typename BitSetT> void BitsetAllocator<BitSetT>::commit() const {
-        // FIXME: log
-        std::cout << "BitsetAllocator::commit(): " << this << std::endl;
         m_bitset.commit();
     }
 
     template <typename BitSetT> void BitsetAllocator<BitSetT>::detach() const {
-        // FIXME: log
-        std::cout << "BitsetAllocator::detach(): " << this << std::endl;
-        m_bitset.detach();        
+        m_bitset.detach();
     }
 
 }

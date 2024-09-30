@@ -79,8 +79,6 @@ namespace db0
             , m_memspace_ptr(&ptr.m_memspace.get())
             , m_access_mode(ptr.m_access_mode | access_mode | AccessOptions::read)
         {
-            // FIXME: log
-            std::cout << "New vptr" << this << " flags: " << m_resource_flags.load() << std::endl;
         }
                 
         FlagSet<AccessOptions> getAccessMode() const;
@@ -201,12 +199,13 @@ namespace db0
         ContainerT &modify()
         {
             assert(m_memspace_ptr);
-            // access resource for read-write
+            // access resource for read-write            
             while (!ResourceReadWriteMutexT::__ref(m_resource_flags).get()) {
-                // FIXME: log
-                std::cout << "Resource flags (before lock): " << m_resource_flags.load() << std::endl;                
                 ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
+                    // FIXME: log
+                    std::cout << "Locked by modify: @" << &m_resource_flags << std::endl;
+
                     // lock for +write
                     // note that lock is getting updated, possibly copy-on-write is being performed
                     // NOTE: must extract physical address for mapRange
@@ -214,13 +213,11 @@ namespace db0
                         getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
                     lock.commit_set();
                 }
-            }            
-            // FIXME: log
-            std::cout << "Resource flags (before lock): " << m_resource_flags.load() << std::endl;
-            return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());           
+            }
+            return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());
         }
-
-        const ContainerT& safeRef() const 
+        
+        const ContainerT& safeRef() const
         {
             assureInitialized();
             return ContainerT::__safe_ref(vs_buf_t(m_mem_lock.m_buffer, m_mem_lock.m_buffer + this->getSize()));
@@ -265,16 +262,17 @@ namespace db0
         }
 
     private:
-
+        
         void assureInitialized() const
         {
-            assert(m_memspace_ptr);
+            assert(m_memspace_ptr);            
             // access the resource for read (or check if the read or read/write access has already been gained)
             while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {
-                // FIXME: log
-                std::cout << "Resource flags (before lock): " << m_resource_flags.load() << std::endl;                
                 ResourceReadMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
+                    // FIXME: log
+                    std::cout << "Locked by assureInitialized: @" << &m_resource_flags << " this = " << this << ", prefix = " 
+                        << &m_memspace_ptr->getPrefix() << std::endl;
                     // NOTE: must extract physical address for mapRange
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
                         getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::read);
@@ -282,7 +280,7 @@ namespace db0
                 }
             }
             // FIXME: log
-            std::cout << "Resource flags (after lock): " << m_resource_flags.load() << std::endl;             
+            std::cout << "exit assureInitialized, this = " << this << ", prefix = " << &m_memspace_ptr->getPrefix() << std::endl;
         }
         
         /**
@@ -296,12 +294,20 @@ namespace db0
                 return ContainerT::measure();
             }
             else if constexpr(metaprog::has_fixed_header<ContainerT>::value) {
+                // FIXME: log
+                std::cout << "GetSize by header" << std::endl;
                 v_object<typename ContainerT::fixed_header_type, SLOT_NUM> header(mptr{*m_memspace_ptr, m_address, AccessOptions::read});
                 return header.getData()->getOBaseSize();
             }
-            
+
+            // FIXME: log
+            std::cout << "GetSize by allocator" << std::endl;
+
             // retrieve from allocator (slowest)
-            return m_memspace_ptr->getAllocator().getAllocSize(m_address);
+            // FIXME: log
+            auto result = m_memspace_ptr->getAllocator().getAllocSize(m_address);
+            std::cout << "exit getSize" << std::endl;
+            return result;
         }
 
         static void printTypeName() {

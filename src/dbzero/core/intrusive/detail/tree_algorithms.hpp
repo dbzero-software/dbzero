@@ -870,8 +870,6 @@ class tree_algorithms
       node_ptr y = header;
       node_ptr x = NodeTraits::get_parent(header);
       while (x) {
-         // FIXME: log
-         std::cout << "lower_bound: x=" << x.getAddress() << " y=" << y.getAddress() << std::endl;
          if (comp(x, key)) {
             x = NodeTraits::get_right(x);
          } else {
@@ -905,15 +903,9 @@ class tree_algorithms
 	   static node_ptr lower_equal_bound
 	   (const node_ptr &header, const KeyType &key, KeyNodePtrCompare comp)
    {
-      // FIXME: log
-      std::cout << "lower_equal_bound: before assign header" << std::endl;
       node_ptr y = header;
-      // FIXME: log
-      std::cout << "lower_equal_bound: after assign header" << std::endl;
       node_ptr x = NodeTraits::get_parent(header);
       while (x) {
-         // FIXME: log
-         std::cout << "lower_equal_bound: x=" << x.getAddress() << " y=" << y.getAddress() << std::endl;
          if (comp(x, key)) {
             y = x;
             x = NodeTraits::get_right(x);
@@ -932,7 +924,7 @@ class tree_algorithms
       }
       return y;
    }
-
+   
    struct join_stack : public ::std::list<node_ptr> {
 	   const node_ptr &operator*() const {
 		   return this->back();

@@ -73,10 +73,7 @@ namespace db0
     }
     
     void CacheRecycler::update(std::shared_ptr<ResourceLock> res_lock)
-    {
-        // FIXME: log
-        std::cout << "CacheRecycler::update(): " << res_lock.get() << std::endl;
-        
+    {        
         bool flushed, flush_result = false;
 		if (res_lock) {
 			// access existing resource

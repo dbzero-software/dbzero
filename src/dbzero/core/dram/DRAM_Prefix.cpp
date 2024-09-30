@@ -53,7 +53,7 @@ namespace db0
         }
     }
 #endif                        
-
+    
     DRAM_Prefix::DRAM_Prefix(std::size_t page_size)
         : Prefix("/sys/DRAM")
         , m_page_size(page_size)

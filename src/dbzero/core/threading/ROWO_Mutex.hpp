@@ -11,7 +11,7 @@ namespace db0
     // **********************************************************************************************
     // ROWO (read-only / write-only) mutex allows for single resource initialization operation only
     // it is guaranteed that "read-only" is always performed before full completion of "write-only"
-    // use this utility class in the following schema :
+    // use this utility class in the following schema:
     //
     //		ROWO_Mutex<> mutex;
     //		...
@@ -48,7 +48,7 @@ namespace db0
 		struct WriteOnlyLock
 		{
 			ROWO_Mutex &m_rowo_mutex;
-			std::atomic<bool> m_locked;
+			bool m_locked;
 
 			WriteOnlyLock(ROWO_Mutex &rowo_mutex)
 				: m_rowo_mutex(rowo_mutex)
@@ -60,7 +60,7 @@ namespace db0
 						m_locked = false;
 						break;
 					}
-					if (rowo_mutex.compare_exchange_strong(old_val, (old_val | FLAG_LOCK))) {
+					if (rowo_mutex.compare_exchange_weak(old_val, (old_val | FLAG_LOCK))) {
 						// lock bit set / resource access granted
 						m_locked = true;
 						break;
@@ -76,48 +76,55 @@ namespace db0
 			~WriteOnlyLock()
 			{
 			    if (m_locked) {
-					safeResetFlags(m_rowo_mutex, FLAG_LOCK);
+					assert(m_rowo_mutex.load() & FLAG_LOCK);
+					atomicResetFlags(m_rowo_mutex, FLAG_LOCK);
 			    }
 			}
 			
 			/**
-			 * Commit operation by setting the FLAG_SET flag
+			 * Commit operation by setting the FLAG_SET flag (must be locked)
 			 */
 			void commit_set()
 			{
-				if (m_locked) {
-					// content written, set flag (with CAS) and release lock
-					auto old_val = m_rowo_mutex.load();
-					while (!m_rowo_mutex.compare_exchange_strong(old_val, ((old_val | FLAG_SET) & ~FLAG_LOCK)));
-					m_locked = false;
-				}
+				assert(m_locked);
+				// content written, set flag (with CAS) and release lock
+				auto old_val = m_rowo_mutex.load();
+				for (;;) {
+					assert(old_val & FLAG_LOCK);
+					if (m_rowo_mutex.compare_exchange_weak(old_val, ((old_val | FLAG_SET) & ~FLAG_LOCK))) {
+						m_locked = false;
+						break;
+					}
+				}				
 			}
 
 			/**
-			 * Commit operation by resetting the FLAG_SET flag
+			 * Commit operation by resetting the FLAG_SET flag (must be locked)
 			 */
 			void commit_reset()
 			{
-				if (m_locked) {
-					// content written, set flag (with CAS) and release lock
-					auto old_val = m_rowo_mutex.load();
-					while (!m_rowo_mutex.compare_exchange_strong(old_val, old_val & ~(FLAG_SET | FLAG_LOCK)));
-					m_locked = false;
+				assert(m_locked);				
+				// content written, set flag (with CAS) and release lock
+				auto old_val = m_rowo_mutex.load();
+				for (;;) {
+					assert(old_val & FLAG_LOCK);
+					if (m_rowo_mutex.compare_exchange_weak(old_val, old_val & ~(FLAG_SET | FLAG_LOCK))) {
+						m_locked = false;
+						break;
+					}
 				}
 			}
 			
-			// test for write-only access granted
+			// test for write-only resource access granted
 			inline bool isLocked() const {
 				return m_locked;
 			}
 		};
-
+		
 		/// Test for content being set / written
 		/// @return true if read-only access granted (resource set)
-		bool get() const
-		{
-			auto value = this->load();
-			return !(value & FLAG_LOCK) && (value & FLAG_AVAILABLE);
+		inline bool get() const {
+			return this->load() & FLAG_AVAILABLE;
 		}
 		
         /// Clear all resource flags

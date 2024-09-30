@@ -70,7 +70,7 @@ namespace db0
         }
         
         inline void setDirty() {
-            safeSetFlags(m_resource_flags, db0::RESOURCE_DIRTY);
+            atomicSetFlags(m_resource_flags, db0::RESOURCE_DIRTY);
         }
         
         bool isCached() const;

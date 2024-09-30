@@ -580,8 +580,6 @@ namespace db0::object_model
     
     void Object::detach() const
     {
-        // FIXME: log
-        std::cout << "Object::detach() called: " << this << std::endl;
         m_type->detach();
         // invalidate since detach is not supported by the MorphingBIndex
         m_kv_index = nullptr;

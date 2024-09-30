@@ -4,7 +4,7 @@
 namespace db0
 
 {
-
+    
     std::uint64_t make_UUID()
     {
         // FIXME: log
