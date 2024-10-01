@@ -131,10 +131,10 @@ namespace db0
         }
 
         m_bitset.modify().set(index, true);
-        m_span = calculateSpan();
+        m_span = calculateSpan();        
         return addressOf(index);
     }
-    
+
     template <typename BitSetT> void BitsetAllocator<BitSetT>::free(std::uint64_t address)
     {
         if (address % m_alloc_size != 0) {
