@@ -199,7 +199,7 @@ namespace db0
         ContainerT &modify()
         {
             assert(m_memspace_ptr);
-            // access resource for read-write            
+            // access resource for read-write
             while (!ResourceReadWriteMutexT::__ref(m_resource_flags).get()) {
                 ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
@@ -209,6 +209,7 @@ namespace db0
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
                         getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
                     lock.commit_set();
+                    break;
                 }
             }
             return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());
@@ -220,10 +221,9 @@ namespace db0
             return ContainerT::__safe_ref(vs_buf_t(m_mem_lock.m_buffer, m_mem_lock.m_buffer + this->getSize()));
         }
 
-        inline const ContainerT *get() const
+        const ContainerT *get() const
         {
-            assureInitialized();
-            assert(m_mem_lock.m_buffer);
+            assureInitialized();            
             return reinterpret_cast<const ContainerT*>(m_mem_lock.m_buffer);
         }
 
@@ -262,7 +262,7 @@ namespace db0
         
         void assureInitialized() const
         {
-            assert(m_memspace_ptr);            
+            assert(m_memspace_ptr);
             // access the resource for read (or check if the read or read/write access has already been gained)
             while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {
                 ResourceReadMutexT::WriteOnlyLock lock(m_resource_flags);
@@ -271,8 +271,10 @@ namespace db0
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
                         getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::read);
                     lock.commit_set();
+                    break;
                 }
             }
+            assert(m_mem_lock.m_buffer);
         }
         
         /**
