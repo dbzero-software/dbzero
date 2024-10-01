@@ -30,7 +30,7 @@ namespace db0
 
         std::size_t getAllocSize(std::uint64_t address) const override;    
 
-        void commit() override;
+        void commit() const override;
 
         void detach() const override;
                 
@@ -175,17 +175,17 @@ namespace db0
     template <typename BitSetT> void BitsetAllocator<BitSetT>::setDynamicBounds(std::function<std::uint64_t()> bounds_fn) {   
         m_bounds_fn = bounds_fn;
     }
-
+    
     template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::span() const {
         return m_span;
     }
-        
-    template <typename BitSetT> void BitsetAllocator<BitSetT>::commit() {
-        // no-op
+    
+    template <typename BitSetT> void BitsetAllocator<BitSetT>::commit() const {
+        m_bitset.commit();
     }
 
     template <typename BitSetT> void BitsetAllocator<BitSetT>::detach() const {
-        // no-op
+        m_bitset.detach();
     }
 
 }

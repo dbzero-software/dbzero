@@ -386,7 +386,7 @@ namespace db0
             }
             return { node->lower_equal_bound(key, m_heap_comp), node };
         }
-
+        
         template <typename KeyT> ConstItemIterator find_equal(const KeyT &key) const
         {
             auto node = super_t::lower_equal_bound(key);
@@ -527,7 +527,7 @@ namespace db0
             return super_t::end();
         }
 
-        void commit() {
+        void commit() const {
             super_t::commit();
         }
         

@@ -196,9 +196,10 @@ namespace db0
         return CRDT_Allocator::getFirstAddress();
     }
     
-    void SlabAllocator::commit()
+    void SlabAllocator::commit() const
     {
         m_header.commit();
+        m_bitspace.commit();
         m_allocs.commit();
         m_blanks.commit();
         m_aligned_blanks.commit();
@@ -210,6 +211,7 @@ namespace db0
     void SlabAllocator::detach() const
     {
         m_header.detach();
+        m_bitspace.detach();
         m_allocs.detach();
         m_blanks.detach();
         m_aligned_blanks.detach();

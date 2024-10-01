@@ -866,14 +866,13 @@ class tree_algorithms
    template<class KeyType, class KeyNodePtrCompare>
    static node_ptr lower_bound
       (const node_ptr &header, const KeyType &key, KeyNodePtrCompare comp)
-   {
+   {      
       node_ptr y = header;
       node_ptr x = NodeTraits::get_parent(header);
-      while(x){
-         if(comp(x, key)){
+      while (x) {
+         if (comp(x, key)) {
             x = NodeTraits::get_right(x);
-         }
-         else {
+         } else {
             y = x;
             x = NodeTraits::get_left(x);
          }
@@ -908,26 +907,24 @@ class tree_algorithms
       node_ptr x = NodeTraits::get_parent(header);
       while (x) {
          if (comp(x, key)) {
-			 y = x;
-			 x = NodeTraits::get_right(x);
-         }
-         else {
-			 if (comp (key, x)) {
-				 x = NodeTraits::get_left(x);
-			 }
-			 else {
-				 y = NodeTraits::get_left(x);
-				 // continue with equal values
-				 if (!y || comp(y, key) || comp(key, y)) {
-					 return x;
-				 }
-				 x = y;
-			 }
+            y = x;
+            x = NodeTraits::get_right(x);
+         } else {
+            if (comp (key, x)) {
+               x = NodeTraits::get_left(x);
+			   } else {
+               y = NodeTraits::get_left(x);
+               // continue with equal values
+               if (!y || comp(y, key) || comp(key, y)) {
+                  return x;
+               }
+               x = y;
+			   }
          }
       }
       return y;
    }
-
+   
    struct join_stack : public ::std::list<node_ptr> {
 	   const node_ptr &operator*() const {
 		   return this->back();

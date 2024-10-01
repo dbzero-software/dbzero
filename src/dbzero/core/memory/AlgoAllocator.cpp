@@ -62,7 +62,7 @@ namespace db0
         m_next_i = m_reverse_address_pool_f(max_address - offset) + 1;
     }
         
-    void AlgoAllocator::commit()
+    void AlgoAllocator::commit() const
     {
     }
     

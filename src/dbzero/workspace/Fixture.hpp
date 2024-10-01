@@ -197,6 +197,8 @@ namespace db0
         
         bool operator==(const Fixture &other) const;
         
+        void preAtomic();
+        
         void beginAtomic(AtomicContext *context);
         
         void endAtomic();

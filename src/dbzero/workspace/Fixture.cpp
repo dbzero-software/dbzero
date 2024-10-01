@@ -322,17 +322,20 @@ namespace db0
         return m_UUID == other.m_UUID;
     }
     
-    void Fixture::beginAtomic(AtomicContext *context)
+    void Fixture::preAtomic()
     {
-        assert(!m_atomic_context_ptr);
-        m_atomic_context_ptr = context;        
-        m_meta_allocator.beginAtomic();
-        getGC0().beginAtomic();
-        
+        getGC0().preCommit();
         for (auto &commit: m_close_handlers) {
             commit(true);
         }
-        
+    }
+    
+    void Fixture::beginAtomic(AtomicContext *context)
+    {
+        assert(!m_atomic_context_ptr);
+        m_atomic_context_ptr = context;
+        m_meta_allocator.beginAtomic();        
+        getGC0().beginAtomic();
         m_string_pool.commit();
         m_object_catalogue.commit();
         m_v_object_cache.beginAtomic();
@@ -348,7 +351,7 @@ namespace db0
         for (auto &detach: m_detach_handlers) {
             detach();
         }
-        
+                
         m_string_pool.detach();
         m_object_catalogue.detach();
     }

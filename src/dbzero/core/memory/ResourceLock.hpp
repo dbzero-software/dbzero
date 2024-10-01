@@ -70,7 +70,7 @@ namespace db0
         }
         
         inline void setDirty() {
-            safeSetFlags(m_resource_flags, db0::RESOURCE_DIRTY);
+            atomicSetFlags(m_resource_flags, db0::RESOURCE_DIRTY);
         }
         
         bool isCached() const;
@@ -130,5 +130,7 @@ namespace db0
         static std::atomic<std::size_t> rl_op_count;
 #endif        
     };
+
+    std::ostream &showBytes(std::ostream &, const std::byte *, std::size_t);
 
 }

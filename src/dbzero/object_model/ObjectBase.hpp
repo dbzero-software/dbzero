@@ -67,9 +67,9 @@ namespace db0
         }
         
         ~ObjectBase()
-        {            
+        {      
         }
-
+        
         // Unregister must be called pre-destruction
         void unregister() const
         {

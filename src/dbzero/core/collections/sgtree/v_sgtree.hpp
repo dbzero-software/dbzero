@@ -253,15 +253,14 @@ namespace db0
             return (_Tree::begin_node(node_ptr_t(this->get_v_ptr())) == _Tree::end_node(node_ptr_t(this->get_v_ptr())));
         }
 
-        std::uint32_t size() const
-        {
+        std::uint32_t size() const {
             return (*this)->size;
         }
 
         template <typename... Args> std::pair<iterator, bool> emplace(Args&&... args){
             return insert_unique(std::forward<Args>(args)...);
         }
-
+        
         template <typename... Args> std::pair<iterator, bool> emplace(const std::string &key, Args&&... args){
             return insert_unique(key.c_str(),std::forward<Args>(args)...);
         }
@@ -308,10 +307,10 @@ namespace db0
          */
         void insert_equal(iterator &new_node)
         {
-            SG_Tree::insert_equal_upper_bound (
-                this->head(), new_node, this->_comp, this->modify().size++, _alpha,
-                *((std::uint32_t*)&this->modify().max_tree_size)
+            SG_Tree::insert_equal_upper_bound(
+                this->head(), new_node, this->_comp, this->modify().size++, _alpha
             );
+            this->updateMaxTreeSize();
         }
 
         /**

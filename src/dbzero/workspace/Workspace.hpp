@@ -230,6 +230,8 @@ namespace db0
         // Get current fixture UUID
         std::optional<std::uint64_t> getDefaultUUID() const;
         
+        // prepare for an atomic operation - e.g. by flushing internal update buffers
+        void preAtomic();
         void beginAtomic(AtomicContext *context);
         void detach();
         void endAtomic();

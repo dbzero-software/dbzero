@@ -405,10 +405,10 @@ namespace db0
         // operation not allowed for the boundary range
         assert(!isBoundaryRange(first_page, end_page, address & m_mask));
         if (end_page == first_page + 1) {
-            if (!m_dp_map.replace(state_num, new_lock, first_page)) {            
+            if (!m_dp_map.replace(state_num, new_lock, first_page)) {
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
-                // add add to / update with cache recycler
+                // add to / update with cache recycler
                 if (m_cache_recycler_ptr) {
                     m_cache_recycler_ptr->update(new_lock);
                 }
@@ -417,7 +417,7 @@ namespace db0
             if (!m_wide_map.replace(state_num, std::dynamic_pointer_cast<WideLock>(new_lock), first_page)) {
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
-                // add add to / update with cache recycler
+                // add to / update with cache recycler
                 if (m_cache_recycler_ptr) {
                     m_cache_recycler_ptr->update(new_lock);
                 }

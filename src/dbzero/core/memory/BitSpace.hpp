@@ -53,6 +53,10 @@ namespace db0
             m_bitset_allocator->setDynamicBounds(bounds_fn);
         }
 
+        void commit() const;
+
+        void detach() const;
+
     private:
         using BitSetT = VFixedBitset<BitN>;
         using AllocatorT = BitsetAllocator<BitSetT>;
@@ -102,4 +106,13 @@ namespace db0
         BitSetT::create(memspace, bitsetAddr(base_addr, page_size, direction).first);
     }
     
+    template <unsigned int BitN> void BitSpace<BitN>::commit() const {
+        // NOTE: we don't call Memspace::commit() to avoid unnecessary prefix commit
+        m_bitset_allocator->commit();
+    }
+    
+    template <unsigned int BitN> void BitSpace<BitN>::detach() const {
+        m_bitset_allocator->detach();
+    }    
+
 } 

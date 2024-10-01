@@ -183,7 +183,7 @@ namespace db0
         std::uint64_t first_page_num, std::uint64_t address, std::size_t size, std::uint64_t state_num, 
         FlagSet<AccessOptions> access_mode)
     {
-        std::uint64_t read_state_num;
+        std::uint64_t read_state_num = 0;
         std::shared_ptr<BoundaryLock> lock;
         std::shared_ptr<DP_Lock> lhs, rhs;
         while (!lock) {
@@ -220,7 +220,7 @@ namespace db0
     std::shared_ptr<DP_Lock> PrefixImpl<StorageT>::mapPage(std::uint64_t page_num, std::uint64_t state_num,
         FlagSet<AccessOptions> access_mode)
     {
-        std::uint64_t read_state_num;
+        std::uint64_t read_state_num = 0;
         auto lock = m_cache.findPage(page_num, state_num, access_mode, read_state_num);        
         assert(!lock || read_state_num > 0);
         if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read]) {

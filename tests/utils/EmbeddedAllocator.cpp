@@ -34,7 +34,7 @@ namespace db0
         return it->second;
     }
     
-    void EmbeddedAllocator::commit() {
+    void EmbeddedAllocator::commit() const {
         // nothing to do
     }
 

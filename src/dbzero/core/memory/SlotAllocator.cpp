@@ -84,7 +84,7 @@ namespace db0
         return m_allocator_ptr->getAllocSize(address);
     }
     
-    void SlotAllocator::commit()
+    void SlotAllocator::commit() const
     {
         m_allocator_ptr->commit();
         for (auto &slot: m_slots) {

@@ -199,7 +199,7 @@ namespace db0
         ContainerT &modify()
         {
             assert(m_memspace_ptr);
-            // access resource for read-write
+            // access resource for read-write            
             while (!ResourceReadWriteMutexT::__ref(m_resource_flags).get()) {
                 ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
@@ -210,11 +210,11 @@ namespace db0
                         getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
                     lock.commit_set();
                 }
-            }            
-            return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());            
+            }
+            return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());
         }
-
-        const ContainerT& safeRef() const 
+        
+        const ContainerT& safeRef() const
         {
             assureInitialized();
             return ContainerT::__safe_ref(vs_buf_t(m_mem_lock.m_buffer, m_mem_lock.m_buffer + this->getSize()));
@@ -259,10 +259,10 @@ namespace db0
         }
 
     private:
-
+        
         void assureInitialized() const
         {
-            assert(m_memspace_ptr);
+            assert(m_memspace_ptr);            
             // access the resource for read (or check if the read or read/write access has already been gained)
             while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {
                 ResourceReadMutexT::WriteOnlyLock lock(m_resource_flags);
@@ -289,8 +289,8 @@ namespace db0
                 v_object<typename ContainerT::fixed_header_type, SLOT_NUM> header(mptr{*m_memspace_ptr, m_address, AccessOptions::read});
                 return header.getData()->getOBaseSize();
             }
-            
-            // retrieve from allocator (slowest)
+
+            // retrieve from allocator (slowest)            
             return m_memspace_ptr->getAllocator().getAllocSize(m_address);
         }
 

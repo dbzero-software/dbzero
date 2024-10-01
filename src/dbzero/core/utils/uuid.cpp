@@ -4,7 +4,7 @@
 namespace db0
 
 {
-
+    
     std::uint64_t make_UUID()
     {
         std::random_device rd;
@@ -12,5 +12,5 @@ namespace db0
         std::uniform_int_distribution<std::uint64_t> dis;        
         return dis(gen);
     }
-        
+    
 }

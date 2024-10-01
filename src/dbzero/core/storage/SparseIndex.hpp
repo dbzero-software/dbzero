@@ -141,9 +141,9 @@ namespace db0
         struct DeltaItem
         {
             // the state number
-            std::uint32_t m_state_num;
+            std::uint32_t m_state_num = 0;
             // logical data page number
-            std::uint32_t m_page_num;
+            std::uint32_t m_page_num = 0;
         };
         
         /**
@@ -173,9 +173,9 @@ namespace db0
             // 2. state number (32 bits)
             // 3. page type (1 bit)
             // 4. physical page number (8 highest bits)
-            std::uint64_t m_high_bits;
+            std::uint64_t m_high_bits = 0;
             // low bits = physical page number (lower 32 bits)
-            std::uint32_t m_low_bits;
+            std::uint32_t m_low_bits = 0;
 
             inline std::uint64_t getPageNum() const {
                 return m_high_bits >> 41;
@@ -198,7 +198,7 @@ namespace db0
             std::string toString() const;
         };
         
-        struct CompressedItemCompT
+        struct CompressedItemCompT 
         {
             bool operator()(CompressedItem, CompressedItem) const;
         };
@@ -211,7 +211,7 @@ namespace db0
         struct BlockHeader
         {
             // number of the 1st page in a data block / node
-            std::uint32_t m_first_page_num;
+            std::uint32_t m_first_page_num = 0;
 
             CompressedItem compressFirst(const Item &);
 
@@ -235,7 +235,7 @@ namespace db0
             std::uint64_t m_next_page_num = 0;
             std::uint32_t m_max_state_num = 0;
         };
-
+        
         // DRAM space deployed sparse index (in-memory)
         using IndexT = SGB_CompressedLookupTree<
             Item, CompressedItem, BlockHeader,

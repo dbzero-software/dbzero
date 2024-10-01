@@ -475,6 +475,17 @@ namespace db0
         return getFixtureEx(prefix_name, access_type);
     }
     
+    void Workspace::preAtomic()
+    {
+        assert(!m_atomic_context_ptr);
+        // begin atomic with all open read/write fixtures
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                fixture->preAtomic();
+            }
+        }
+    }
+    
     void Workspace::beginAtomic(AtomicContext *context)
     {
         assert(!m_atomic_context_ptr);

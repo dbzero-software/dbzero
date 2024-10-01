@@ -43,6 +43,8 @@ namespace db0::pools
         */
         template <typename KeyT> bool find(const KeyT &, AddressT &) const;
 
+        void commit() const;
+
         void detach() const;
 
     private:
@@ -86,7 +88,7 @@ namespace db0::pools
         , m_pool_map(this->myPtr((*this)->m_pool_map_address))
     {
     }
-        
+    
     template <typename T, typename CompT, typename AddressT> template <typename KeyT> 
     bool RC_LimitedPool<T, CompT, AddressT>::find(const KeyT &key, AddressT &address) const
     {
@@ -118,8 +120,15 @@ namespace db0::pools
     }
     
     template <typename T, typename CompT, typename AddressT>
-    void RC_LimitedPool<T, CompT, AddressT>::detach() const
+    void RC_LimitedPool<T, CompT, AddressT>::commit() const
     {
+        m_pool_map.commit();
+        db0::v_object<o_rc_limited_pool>::commit();
+    }
+
+    template <typename T, typename CompT, typename AddressT>
+    void RC_LimitedPool<T, CompT, AddressT>::detach() const
+    {        
         m_pool_map.detach();
         db0::v_object<o_rc_limited_pool>::detach();
     }

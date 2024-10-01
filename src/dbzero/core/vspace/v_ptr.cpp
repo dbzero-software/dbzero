@@ -35,29 +35,27 @@ namespace db0
         // resource must be available
         assert(m_mem_lock.m_buffer);
     }
-
+    
     FlagSet<AccessOptions> vtypeless::getAccessMode() const {
         return m_access_mode;
     }
 
-    vtypeless &vtypeless::operator=(const vtypeless &other) 
+    vtypeless &vtypeless::operator=(const vtypeless &other)
     {
         m_address = other.m_address;
         m_memspace_ptr = other.m_memspace_ptr;
         m_access_mode = other.m_access_mode;
 
-        // lock for copy
-        for (;;) {
-            ResourceDetachMutexT::WriteOnlyLock lock(other.m_resource_flags);
-            if (!lock.isLocked()) {
-                continue;
-            }
+        // try locking for copy
+        ResourceDetachMutexT::WriteOnlyLock lock(other.m_resource_flags);
+        // NOTE: if unable to lock the resource will be retrieved from the underlying prefix
+        // this is to avoid deadlocks due to possible recursive dependencies
+        if (lock.isLocked()) {
             // clear the lock flag when copying
             m_resource_flags = (other.m_resource_flags.load() & ~RESOURCE_LOCK);
             m_mem_lock = other.m_mem_lock;
-            assert(!(m_resource_flags.load() & db0::RESOURCE_AVAILABLE_FOR_READ) || m_mem_lock.m_buffer);
-            break;
-        }        
+            assert(!(m_resource_flags.load() & db0::RESOURCE_AVAILABLE_FOR_READ) || m_mem_lock.m_buffer);                
+        } 
 
         return *this;
     }
@@ -68,18 +66,16 @@ namespace db0
         m_memspace_ptr = other.m_memspace_ptr;
         m_access_mode = other.m_access_mode;
 
-        // lock for copy
-        for (;;) {
-            ResourceDetachMutexT::WriteOnlyLock lock(other.m_resource_flags);
-            if (!lock.isLocked()) {
-                continue;
-            }
+        // try locking for copy
+        ResourceDetachMutexT::WriteOnlyLock lock(other.m_resource_flags);
+        // NOTE: if unable to lock the resource will be retrieved from the underlying prefix
+        // this is to avoid deadlocks due to possible recursive dependencies        
+        if (lock.isLocked()) {
             // clear the lock flag when copying
             m_resource_flags = (other.m_resource_flags.load() & ~RESOURCE_LOCK);
             m_mem_lock = std::move(other.m_mem_lock);
             assert(!(m_resource_flags.load() & db0::RESOURCE_AVAILABLE_FOR_READ) || m_mem_lock.m_buffer);
-            break;
-        }
+        }        
     }
     
     unsigned int vtypeless::use_count() const {
@@ -102,12 +98,12 @@ namespace db0
             }
         }        
     }
-     
+    
     void vtypeless::commit()
     {
         // commit clears the reasource available for write flag
         // it might still be available for read
-        safeResetFlags(m_resource_flags, db0::RESOURCE_AVAILABLE_FOR_WRITE);
+        atomicResetFlags(m_resource_flags, db0::RESOURCE_AVAILABLE_FOR_WRITE);
         // clear write / create flags since the following access may not be for update
         m_access_mode.set(AccessOptions::write, false);
         m_access_mode.set(AccessOptions::create, false);
