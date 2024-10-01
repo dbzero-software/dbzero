@@ -79,8 +79,8 @@ def test_create_and_drop_simple_memo_objects(db0_slab_size):
         db0.clear_cache()
         total_count += 100
         if total_count > report_count:
-            print(f"Memory usage: {get_memory_usage() - init_mem_usage}")
-            print(f"Base lock usage: {db0.get_base_lock_usage()}")
+            print(f"Memory usage: {get_memory_usage() - init_mem_usage}")            
+            print(f"Base lock usage: {db0.get_base_lock_usage() if 'D' in db0.build_flags() else 'unavailable'}")
             print(f"Cache: {db0.get_cache_stats()}")
             report_count += report_count_step
 
@@ -104,8 +104,8 @@ def test_create_then_free(db0_slab_size):
             total_count += 100
             db0.clear_cache()
             if total_count > report_count:
-                print(f"Memory usage: {get_memory_usage() - init_mem_usage}")
-                print(f"Base lock usage: {db0.get_base_lock_usage()}")
+                print(f"Memory usage: {get_memory_usage() - init_mem_usage}")                
+                print(f"Base lock usage: {db0.get_base_lock_usage() if 'D' in db0.build_flags() else 'unavailable'}")
                 print(f"Cache: {db0.get_cache_stats()}")
                 report_count += report_count_step
 
@@ -130,5 +130,5 @@ def test_create_large_objects_low_cache(db0_slab_size):
         if total_bytes > report_bytes:
             print(f"Total bytes: {total_bytes}")
             print(f"Memory usage: {get_memory_usage() - init_mem_usage}")
-            print(f"Base lock usage: {db0.get_base_lock_usage()}")
+            print(f"Base lock usage: {db0.get_base_lock_usage() if 'D' in db0.build_flags() else 'unavailable'}")
             report_bytes += report_bytes_step
