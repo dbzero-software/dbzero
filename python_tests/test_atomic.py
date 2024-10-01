@@ -21,15 +21,14 @@ def test_new_object_inside_atomic_operation(db0_fixture):
         atomic.cancel()
     
 
-# FIXME: failing test blocked
-# def test_new_type_reverted_from_atomic_operation(db0_fixture):
-#     with db0.atomic() as atomic:
-#         # since MemoTestClass is used for the 1st time its type will be created
-#         object_1 = MemoTestClass(951)
-#         atomic.cancel()
-#     # MemoTestClass type created here again (after atomic cancel)
-#     object_2 = MemoTestClass(123)
-#     assert object_2.value == 123
+def test_new_type_reverted_from_atomic_operation(db0_no_autocommit):
+    with db0.atomic() as atomic:
+        # since MemoTestClass is used for the 1st time its type will be created
+        object_1 = MemoTestClass(951)
+        atomic.cancel()
+    # MemoTestClass type created here again (after atomic cancel)
+    object_2 = MemoTestClass(123)
+    assert object_2.value == 123
     
     
 def test_query_after_atomic_cancel(db0_fixture):

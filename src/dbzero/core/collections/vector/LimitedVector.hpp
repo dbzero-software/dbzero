@@ -149,17 +149,13 @@ namespace db0
         auto [block_num, block_pos] = getBlockPosition(index);
         getBlock(block_num).modify()[block_pos] = value;
     }
-
+    
     template <typename ValueT> void LimitedVector<ValueT>::detach() const
     {
         m_root.detach();
-        for (auto &block: m_cache) {
-            if (block) {
-                block.detach();
-            }
-        }
+        m_cache.clear();
     }
-
+    
     template <typename ValueT> void LimitedVector<ValueT>::commit() const
     {
         m_root.commit();
