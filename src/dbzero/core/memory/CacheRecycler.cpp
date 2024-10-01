@@ -17,7 +17,7 @@ namespace db0
     {
     }
     
-    void CacheRecycler::adjustSize(std::unique_lock<std::mutex> &, 
+    void CacheRecycler::adjustSize(std::unique_lock<std::mutex> &,
         std::vector<std::shared_ptr<ResourceLock> > &released_locks, std::size_t requested_release_size)
     {
         std::size_t released_size = 0;
@@ -74,7 +74,7 @@ namespace db0
     
     void CacheRecycler::update(std::shared_ptr<ResourceLock> res_lock)
     {        
-        bool flushed, flush_result = false;
+        bool flushed = false, flush_result = false;
 		if (res_lock) {
 			// access existing resource
 			std::unique_lock<std::mutex> lock(m_mutex);

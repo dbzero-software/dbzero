@@ -92,14 +92,11 @@ namespace db0
         while (ResourceDetachMutexT::__ref(m_resource_flags).get()) {
             ResourceDetachMutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
-                // FIXME: log
-                std::cout << "Locked by detach: @" << &m_resource_flags << std::endl;
                 m_mem_lock = {};
                 // clear read/write flags
                 lock.commit_reset();
             }
-        }
-        std::cout << "Resource unlocked: " << this << " flags = " << m_resource_flags.load() << std::endl;
+        }        
     }
     
     void vtypeless::commit()
