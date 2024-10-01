@@ -23,7 +23,7 @@ namespace db0::object_model
         std::uint64_t m_base_index_long_ptr = 0;
         std::uint64_t m_reserved[4] = { 0, 0, 0, 0 };
     };
-
+        
     /**
      * A class to represent a full-text (tag) index and the corresponding batch-update buffer
      * typically the TagIndex instance is associated with the Class object

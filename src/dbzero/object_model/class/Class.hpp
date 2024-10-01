@@ -39,8 +39,12 @@ namespace db0::object_model
     using Fixture = db0::Fixture;
     using ClassFlags = db0::ClassFlags;    
     class Object;
+    class Class;
     struct ObjectId;
     
+    // Check if the provided Class instance represents a MemoBase type
+    bool isMemoBase(const Class &);
+
     struct [[gnu::packed]] o_class: public db0::o_fixed<o_class>
     {
         // common object header

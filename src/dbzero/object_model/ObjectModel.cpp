@@ -1,5 +1,6 @@
 #include "ObjectModel.hpp"
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/workspace/Config.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/list/List.hpp>
@@ -32,12 +33,14 @@ namespace db0::object_model
         using Set = db0::object_model::Set;
         using Dict = db0::object_model::Dict;
         using FT_BaseIndexLong = db0::object_model::FT_BaseIndex<db0::num_pack<std::uint64_t, 2u> >;
+        using LangToolkit = db0::object_model::LangConfig::LangToolkit;
         
         return [](db0::swine_ptr<Fixture> &fixture, bool is_new, bool read_only)
         {
             // static GC0 bindings initialization
             GC0::registerTypes<Class, Object, List, Set, Dict, Tuple, Block, DataFrame, Index, Enum, ByteArray>();
             auto &oc = fixture->getObjectCatalogue();
+            auto &type_manager = LangToolkit::getTypeManager();
             if (is_new) {
                 if (read_only) {
                     THROWF(db0::InternalException) << "Cannot create a new fixture in read-only mode";
@@ -46,6 +49,8 @@ namespace db0::object_model
                 auto &gc0 = fixture->addGC0(fixture);
                 // create ClassFactory and register with the object catalogue
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture);
+                // register MemoBase type with the class factory
+                class_factory.getOrCreateType(type_manager.getMemoBaseType().get());
                 auto &enum_factory = fixture->addResource<EnumFactory>(fixture);
                 auto &tag_index = fixture->addResource<TagIndex>(
                     *fixture, class_factory, fixture->getLimitedStringPool(), fixture->getVObjectCache());
@@ -116,5 +121,5 @@ namespace db0::object_model
             }
         };
     }
-    
+          
 }

@@ -298,3 +298,7 @@ def test_tags_can_be_assigned_on_init(db0_no_autocommit):
     assert len(list(db0.find("tag1"))) == 1
     assert len(list(db0.find("tag2"))) == 1
     
+    
+def test_find_as_memo_base(db0_fixture, memo_tags):
+    assert len(list(db0.find(db0.MemoBase, "tag1"))) == len(list(db0.find("tag1")))
+    

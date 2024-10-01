@@ -251,8 +251,9 @@ namespace db0::python
         auto iter_obj = PyObjectIteratorDefault_new();
         if (type) {
             // construct as typed iterator when a type was specified
+            // NOTE: type filter not applied for MemoBase
             auto typed_iter = std::make_unique<TypedObjectIterator>(fixture, std::move(query_iterator), 
-                type, std::move(query_observers));
+                !as_memo_base ? type : nullptr, std::move(query_observers));
             Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::make_unique<ObjectIterator>(fixture, std::move(query_iterator), 

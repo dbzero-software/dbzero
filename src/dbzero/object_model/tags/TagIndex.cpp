@@ -320,14 +320,14 @@ namespace db0::object_model
     {
         db0::FT_ANDIteratorFactory<std::uint64_t> factory;
         // the negated root-level query components
-        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
+        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;        
         if (nargs > 0 || type) {
             // flush pending updates before querying
             flush();
             // if the 1st argument is a type then resolve as a TypedObjectIterator
             std::size_t offset = 0;
             bool result = !no_result;
-            // apply type filter if provided
+            // apply type filter if provided (unless type is MemoBase)
             if (type) {
                 result &= m_base_index_short.addIterator(factory, type->getAddress());
             }
@@ -672,6 +672,8 @@ namespace db0::object_model
                 auto lang_type = type_manager.getTypeObject(args[args_offset]);
                 if (LangToolkit::isMemoType(lang_type)) {
                     if (type_manager.isMemoBase(lang_type)) {
+                        // MemoBase type must be available in each prefix
+                        type = fixture->get<ClassFactory>().getExistingType(lang_type);
                         as_memo_base = true;
                     } else {
                         type = fixture->get<ClassFactory>().tryGetExistingType(lang_type);
@@ -684,7 +686,7 @@ namespace db0::object_model
                 }
             // PyClass instance
             } else if (LangToolkit::isClassObject(args[args_offset])) {
-                auto const_type = LangToolkit::getTypeManager().extractConstClass(args[args_offset]);
+                auto const_type = type_manager.extractConstClass(args[args_offset]);
                 // unable to query if the associated language specific class is not known
                 if (!const_type->hasLangClass()) {
                     THROWF(db0::InputException) << "Unknown object type";
@@ -693,7 +695,7 @@ namespace db0::object_model
                 ++args_offset;
             }
         }
-
+        
         while (args_offset < nargs) {
             find_args.push_back(args[args_offset]);
             ++args_offset;
@@ -701,5 +703,5 @@ namespace db0::object_model
 
         return fixture;
     }
-
+    
 }
