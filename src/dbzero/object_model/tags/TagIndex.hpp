@@ -222,12 +222,13 @@ namespace db0::object_model
      * Resolve find parameters from user supplied arguments
      * @param args arguments passed to the find method
      * @param nargs number of arguments
-     * @param args_offset result offset to the first argument to be used in actual find
+     * @param find_args the resulting find arguments
      * @param type the find type (if specified). Note that type can only be specified as the 1st argument
      * @param no_result flag to indicate that the query yields no result
      * @return the find associated fixture (or exception raised if could not be determined)
      */
-    db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &, TagIndex::ObjectPtr const *args, std::size_t nargs, 
-        std::size_t &args_offset, std::shared_ptr<Class> &type, bool &no_result);
+    db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &, TagIndex::ObjectPtr const *args, std::size_t nargs,
+        std::vector<TagIndex::ObjectPtr> &find_args, std::shared_ptr<Class> &type, 
+        bool &no_result, bool &as_memo_base);
     
 }

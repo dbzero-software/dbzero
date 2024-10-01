@@ -130,8 +130,9 @@ namespace db0::python
         .tp_new = (newfunc)PyObjectIterator_new,
         .tp_free = PyObject_Free,
     };
-        
-    PyObject *find(PyObject *, PyObject* const *args, Py_ssize_t nargs) {
+    
+    PyObject *find(PyObject *, PyObject* const *args, Py_ssize_t nargs)
+    {
         std::lock_guard api_lock(py_api_mutex);
         return findIn(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }

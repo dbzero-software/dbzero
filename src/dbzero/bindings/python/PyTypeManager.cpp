@@ -265,6 +265,10 @@ namespace db0::python
                 m_type_cache.insert({*variant_name, TypeObjectSharedPtr(type)});
             }
         }
+        // identify the MemoBase Type
+        if (type_id && std::string(type_id) == "Division By Zero/dbzero_ce/MemoBase") {
+            m_memo_base_type = type;
+        }
     }
     
     PyTypeManager::TypeObjectPtr PyTypeManager::findType(const std::string &variant_name) const
@@ -370,6 +374,18 @@ namespace db0::python
         for (auto &memo_type: m_type_cache) {
             f(memo_type.second.get());
         }
+    }
+    
+    PyTypeManager::TypeObjectSharedPtr PyTypeManager::getMemoBaseType() const
+    {
+        if (!m_memo_base_type) {
+            THROWF(db0::InternalException) << "MemoBase type not found" << THROWF_END;
+        }
+        return m_memo_base_type;
+    }
+
+    bool PyTypeManager::isMemoBase(TypeObjectPtr py_type) const {
+        return py_type == getMemoBaseType().get();
     }
     
 }

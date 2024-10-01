@@ -647,7 +647,7 @@ namespace db0::object_model
     }
     
     db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &workspace, TagIndex::ObjectPtr const *args, std::size_t nargs,
-        std::size_t &args_offset, std::shared_ptr<Class> &type, bool &no_result)
+        std::vector<TagIndex::ObjectPtr> &find_args, std::shared_ptr<Class> &type, bool &no_result, bool &as_memo_base)
     {
         using LangToolkit = TagIndex::LangToolkit;
 
@@ -663,20 +663,24 @@ namespace db0::object_model
         }
         
         auto fixture = workspace.getFixture(fixture_uuid);
-        args_offset = 0;
         no_result = false;
+        auto &type_manager = LangToolkit::getTypeManager();
+        std::size_t args_offset = 0;
         if (args_offset < nargs) {
             // Python Memo type
             if (LangToolkit::isType(args[args_offset])) {
-                auto lang_type = LangToolkit::getTypeManager().getTypeObject(args[args_offset]);
+                auto lang_type = type_manager.getTypeObject(args[args_offset]);
                 if (LangToolkit::isMemoType(lang_type)) {
-                    type = fixture->get<ClassFactory>().tryGetExistingType(lang_type);
-                    if (type) {
-                        ++args_offset;
+                    if (type_manager.isMemoBase(lang_type)) {
+                        as_memo_base = true;
                     } else {
-                        // indicate non-existing type
-                        no_result = true;
+                        type = fixture->get<ClassFactory>().tryGetExistingType(lang_type);
+                        if (!type) {
+                            // indicate non-existing type
+                            no_result = true;
+                        }
                     }
+                    ++args_offset;
                 }
             // PyClass instance
             } else if (LangToolkit::isClassObject(args[args_offset])) {
@@ -689,6 +693,12 @@ namespace db0::object_model
                 ++args_offset;
             }
         }
+
+        while (args_offset < nargs) {
+            find_args.push_back(args[args_offset]);
+            ++args_offset;
+        }
+
         return fixture;
     }
 

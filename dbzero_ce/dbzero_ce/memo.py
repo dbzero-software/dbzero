@@ -13,3 +13,8 @@ def memo(cls=None, **kwargs):
 
     # We're called as @memo without parens.
     return wrap(cls, **kwargs)
+
+
+@memo(id="Division By Zero/dbzero_ce/MemoBase")
+class MemoBase:
+    pass

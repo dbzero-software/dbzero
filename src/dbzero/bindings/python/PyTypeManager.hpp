@@ -126,6 +126,11 @@ namespace db0::python
         // available within the current process's context
         void forAllMemoTypes(std::function<void(TypeObjectPtr)>) const;
 
+        // get special MemoBase type
+        TypeObjectSharedPtr getMemoBaseType() const;
+        
+        bool isMemoBase(TypeObjectPtr) const;
+
         void close();
         
     private:
@@ -136,6 +141,8 @@ namespace db0::python
         std::unordered_map<std::string, TypeObjectSharedPtr> m_type_cache;
         std::vector<ObjectSharedPtr> m_enum_cache;
         mutable ObjectSharedPtr m_py_bad_prefix_error;
+        // identified reference to a MemoBase type
+        TypeObjectPtr m_memo_base_type = nullptr;
         
         // Register a mapping from static type
         template <typename T> void addStaticType(T py_type, TypeId py_type_id);

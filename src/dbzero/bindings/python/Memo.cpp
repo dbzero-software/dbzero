@@ -406,7 +406,7 @@ namespace db0::python
             new_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
             base_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
         }
-        PyToolkit::getTypeManager().addMemoType(new_type, nullptr);
+        PyToolkit::getTypeManager().addMemoType(new_type, type_id);
         Py_INCREF(new_type);
         // register new type with the module where the original type was located
         PyModule_AddObject(py_module, type_name, reinterpret_cast<PyObject*>(new_type));

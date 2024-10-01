@@ -240,13 +240,14 @@ namespace db0::python
         using TagIndex = db0::object_model::TagIndex;
         using Class = db0::object_model::Class;
         
-        std::size_t args_offset = 0;
+        std::vector<PyObject*> find_args;
         bool no_result = false;
+        bool as_memo_base = false;
         std::shared_ptr<Class> type;
-        auto fixture = db0::object_model::getFindParams(snapshot, args, nargs, args_offset, type, no_result);
+        auto fixture = db0::object_model::getFindParams(snapshot, args, nargs, find_args, type, no_result, as_memo_base);
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
-        auto query_iterator = tag_index.find(args + args_offset, nargs - args_offset, type, query_observers, no_result);
+        auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);
         auto iter_obj = PyObjectIteratorDefault_new();
         if (type) {
             // construct as typed iterator when a type was specified
