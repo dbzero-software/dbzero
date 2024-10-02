@@ -85,9 +85,9 @@ namespace db0::python
     PyObject *tryPyAtomic_cancel(PyObject *self) 
     {
         reinterpret_cast<PyAtomic*>(self)->modifyExt().cancel();
-        return Py_None;        
+        return Py_None;
     }
-
+    
     PyObject *PyAtomic_cancel(PyObject *self, PyObject *) 
     {
         if (!PyAtomic_Check(self)) {

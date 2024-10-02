@@ -210,7 +210,7 @@ namespace db0::object_model
         auto &batch_operation = getBatchOperationLong(memo_ptr, active_key);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
     }
-
+    
     void TagIndex::removeTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
     {
         if (nargs == 0) {
@@ -314,20 +314,20 @@ namespace db0::object_model
             }
         }
     }
-
+    
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
         std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, bool no_result) const
-    {
+    {        
         db0::FT_ANDIteratorFactory<std::uint64_t> factory;
         // the negated root-level query components
-        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
+        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;        
         if (nargs > 0 || type) {
             // flush pending updates before querying
             flush();
             // if the 1st argument is a type then resolve as a TypedObjectIterator
             std::size_t offset = 0;
             bool result = !no_result;
-            // apply type filter if provided
+            // apply type filter if provided (unless type is MemoBase)
             if (type) {
                 result &= m_base_index_short.addIterator(factory, type->getAddress());
             }
@@ -364,7 +364,10 @@ namespace db0::object_model
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
 
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
-        if (type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE) {
+        // simple tag convertible type
+        if (type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE 
+            || type_id == TypeId::DB0_CLASS)
+        {
             return m_base_index_short.addIterator(factory, makeShortTag(type_id, arg, false));
         }
         
@@ -462,9 +465,11 @@ namespace db0::object_model
         } else if (type_id == TypeId::MEMO_OBJECT) {
             return makeShortTagFromMemo(py_arg, create);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
-            return makeShortTagFromEnumValue(py_arg, create);
+            return makeShortTagFromEnumValue(py_arg);
         } else if (type_id == TypeId::DB0_FIELD_DEF) {
-            return makeShortTagFromFieldDef(py_arg, create);
+            return makeShortTagFromFieldDef(py_arg);
+        } else if (type_id == TypeId::DB0_CLASS) {
+            return makeShortTagFromClass(py_arg);
         }
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
             << " as a tag" << THROWF_END;
@@ -475,7 +480,7 @@ namespace db0::object_model
         assert(LangToolkit::isString(py_arg));
         return LangToolkit::getTag(py_arg, m_string_pool, create);
     }
-    
+
     TagIndex::ShortTagT TagIndex::makeShortTagFromMemo(ObjectPtr py_arg, bool create) const
     {
         assert(LangToolkit::isMemoObject(py_arg));
@@ -490,10 +495,16 @@ namespace db0::object_model
         return object.getAddress();
     }
     
-    TagIndex::ShortTagT TagIndex::makeShortTagFromEnumValue(ObjectPtr py_arg, bool) const
+    TagIndex::ShortTagT TagIndex::makeShortTagFromEnumValue(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isEnumValue(py_arg));
         return LangToolkit::getTypeManager().extractEnumValue(py_arg).getUID().asULong();
+    }
+
+    TagIndex::ShortTagT TagIndex::makeShortTagFromClass(ObjectPtr py_arg) const
+    {
+        assert(LangToolkit::isClassObject(py_arg));
+        return LangToolkit::getTypeManager().extractConstClass(py_arg)->getAddress();
     }
     
     bool TagIndex::isScopeIdentifier(ObjectPtr ptr) const {
@@ -514,7 +525,7 @@ namespace db0::object_model
         return isShortTag(ptr.get());
     }
 
-    TagIndex::ShortTagT TagIndex::makeShortTagFromFieldDef(ObjectPtr py_arg, bool) const
+    TagIndex::ShortTagT TagIndex::makeShortTagFromFieldDef(ObjectPtr py_arg) const
     {
         auto &field_def = LangToolkit::getTypeManager().extractFieldDef(py_arg);
         // class UID (32bit) + field ID (32 bit)
@@ -646,8 +657,9 @@ namespace db0::object_model
         return fixture_uuid;
     }
     
-    db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &workspace, TagIndex::ObjectPtr const *args, std::size_t nargs,
-        std::size_t &args_offset, std::shared_ptr<Class> &type, bool &no_result)
+    db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &workspace, TagIndex::ObjectPtr const *args,
+        std::size_t nargs, std::vector<TagIndex::ObjectPtr> &find_args, std::shared_ptr<Class> &type,
+        TagIndex::TypeObjectPtr &lang_type, bool &no_result)
     {
         using LangToolkit = TagIndex::LangToolkit;
 
@@ -663,32 +675,51 @@ namespace db0::object_model
         }
         
         auto fixture = workspace.getFixture(fixture_uuid);
-        args_offset = 0;
         no_result = false;
-        if (args_offset < nargs) {
+        lang_type = nullptr;
+        auto &type_manager = LangToolkit::getTypeManager();
+        // locate and process type objects first 
+        std::size_t args_offset = 0;
+        while (args_offset < nargs) {
             // Python Memo type
             if (LangToolkit::isType(args[args_offset])) {
-                auto lang_type = LangToolkit::getTypeManager().getTypeObject(args[args_offset]);
+                lang_type = type_manager.getTypeObject(args[args_offset++]);           
                 if (LangToolkit::isMemoType(lang_type)) {
-                    type = fixture->get<ClassFactory>().tryGetExistingType(lang_type);
-                    if (type) {
-                        ++args_offset;
+                    if (type_manager.isMemoBase(lang_type)) {
+                        // MemoBase type must be available in each prefix
+                        type = fixture->get<ClassFactory>().getExistingType(lang_type);
+                        // continue with type find specialization
+                        continue;
                     } else {
-                        // indicate non-existing type
-                        no_result = true;
+                        type = fixture->get<ClassFactory>().tryGetExistingType(lang_type);
+                        if (!type) {
+                            // indicate non-existing type
+                            lang_type = nullptr;
+                            no_result = true;
+                        }
                     }
                 }
-            // PyClass instance
             } else if (LangToolkit::isClassObject(args[args_offset])) {
-                auto const_type = LangToolkit::getTypeManager().extractConstClass(args[args_offset]);
-                // unable to query if the associated language specific class is not known
-                if (!const_type->hasLangClass()) {
-                    THROWF(db0::InputException) << "Unknown object type";
+                // extract type from the Class object provided as argument
+                auto const_type = type_manager.extractConstClass(args[args_offset++]);
+                // can override MemoBase but not other types
+                if (type && !type->isMemoBase()) {
+                    THROWF(db0::InputException) << "Multiple type objects not allowed in the find query" << THROWF_END;
+                }
+                // NOTE: we only override lang class if its present
+                if (const_type->hasLangClass()) {
+                    lang_type = const_type->getLangClass().get();
                 }
                 type = std::const_pointer_cast<Class>(const_type);
-                ++args_offset;
             }
+            break;
         }
+        
+        while (args_offset < nargs) {
+            find_args.push_back(args[args_offset]);
+            ++args_offset;
+        }
+
         return fixture;
     }
 

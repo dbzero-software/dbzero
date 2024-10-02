@@ -95,8 +95,7 @@ namespace db0::object_model
     std::shared_ptr<Class> ClassFactory::tryGetExistingType(TypeObjectPtr lang_type) const
     {
         auto it_cached = m_type_cache.find(lang_type);
-        if (it_cached == m_type_cache.end())
-        {
+        if (it_cached == m_type_cache.end()) {
             // find type in the type map, use 4 variants of type identification
             auto class_ptr = tryFindClassPtr(lang_type, LangToolkit::getMemoTypeID(lang_type));
             if (!class_ptr) {

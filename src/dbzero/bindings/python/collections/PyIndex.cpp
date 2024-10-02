@@ -137,9 +137,8 @@ namespace db0::python
         
         auto iter_sorted = index.sort(*iter, asc, null_first);
         if (iter.isTyped()) {
-            auto typed_iter = std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(
-                iter->getFixture(), std::move(iter_sorted), iter.m_typed_iterator_ptr->getType(), {}, iter->getFilters())
-            );
+            // FIXME: do we need to move observers ?
+            auto typed_iter = iter.m_typed_iterator_ptr->makeTypedIter(std::move(iter_sorted), {}, iter->getFilters());
             Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::unique_ptr<ObjectIterator>(new ObjectIterator(

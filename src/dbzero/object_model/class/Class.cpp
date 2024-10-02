@@ -385,5 +385,9 @@ namespace db0::object_model
         refreshMemberCache();
         return m_index;
     }
-
+    
+    bool Class::isMemoBase() const {
+        return m_lang_type_ptr && LangToolkit::getTypeManager().isMemoBase(m_lang_type_ptr.get());
+    }
+    
 }

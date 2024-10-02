@@ -642,7 +642,7 @@ namespace db0::python
     using ObjectIterator = db0::object_model::ObjectIterator;
     using TypedObjectIterator = db0::object_model::TypedObjectIterator;
     using QueryObserver = db0::object_model::QueryObserver;
-
+    
     std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
     splitBy(PyObject *py_tag_list, ObjectIterator &iterator)
     {
@@ -673,8 +673,8 @@ namespace db0::python
         auto py_iter = PyObjectIteratorDefault_new();
         // create decorated iterator (either plain or typed)
         if (iter.isTyped()) {
-            auto typed_iter = std::make_unique<TypedObjectIterator>(iter->getFixture(), std::move(split_query.first),
-                iter.m_typed_iterator_ptr->getType(), std::move(split_query.second), iter->getFilters());
+            auto typed_iter = iter.m_typed_iterator_ptr->makeTypedIter(std::move(split_query.first), 
+                std::move(split_query.second), iter->getFilters());
             Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::make_unique<ObjectIterator>(iter->getFixture(), std::move(split_query.first), 
@@ -683,7 +683,7 @@ namespace db0::python
         }
         return py_iter.steal();
     }
-
+    
     PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) {
         return runSafe(trySplitBy, args, kwargs);
     }
@@ -803,24 +803,7 @@ namespace db0::python
 
         return runSafe(tryGetMemoClasses, prefix_name, prefix_uuid);
     }
-
-    PyObject *getAttributes(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        std::lock_guard api_lock(py_api_mutex);
-        // expects the memo UUID string
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "getAttributes requires exactly 1 argument");
-            return NULL;
-        }
-
-        if (!PyUnicode_Check(args[0])) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
-        }
         
-        return runSafe(tryGetAttributes, PyUnicode_AsUTF8(args[0]));
-    }
-    
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {
