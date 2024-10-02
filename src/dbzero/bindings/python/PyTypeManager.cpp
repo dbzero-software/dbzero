@@ -368,12 +368,16 @@ namespace db0::python
         }
         return reinterpret_cast<ClassObject*>(py_class)->getSharedPtr();
     }
-
+    
     void PyTypeManager::forAllMemoTypes(std::function<void(TypeObjectPtr)> f) const
     {
         for (auto &memo_type: m_type_cache) {
             f(memo_type.second.get());
         }
+    }
+    
+    PyTypeManager::TypeObjectSharedPtr PyTypeManager::tryGetMemoBaseType() const noexcept {
+        return m_memo_base_type;
     }
     
     PyTypeManager::TypeObjectSharedPtr PyTypeManager::getMemoBaseType() const
@@ -383,9 +387,11 @@ namespace db0::python
         }
         return m_memo_base_type;
     }
-
-    bool PyTypeManager::isMemoBase(TypeObjectPtr py_type) const {
-        return py_type == getMemoBaseType().get();
+    
+    bool PyTypeManager::isMemoBase(TypeObjectPtr py_type) const
+    {
+        assert(m_memo_base_type);
+        return py_type == m_memo_base_type;
     }
     
 }

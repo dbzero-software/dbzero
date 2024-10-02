@@ -16,7 +16,7 @@ namespace db0::python
     bool Iterator::isTyped() const {
         return m_typed_iterator_ptr != nullptr;
     }
-
+    
     void Iterator::makeNew(void *at_ptr, std::unique_ptr<db0::object_model::ObjectIterator> &&obj_iter) 
     {
         auto &iter = *(new (at_ptr) Iterator());

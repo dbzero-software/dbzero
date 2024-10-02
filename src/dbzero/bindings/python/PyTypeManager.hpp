@@ -125,8 +125,9 @@ namespace db0::python
         // Execute specific lambda for all memo types (language specific wrappers)
         // available within the current process's context
         void forAllMemoTypes(std::function<void(TypeObjectPtr)>) const;
-
+        
         // get special MemoBase type
+        TypeObjectSharedPtr tryGetMemoBaseType() const noexcept;
         TypeObjectSharedPtr getMemoBaseType() const;
         
         bool isMemoBase(TypeObjectPtr) const;

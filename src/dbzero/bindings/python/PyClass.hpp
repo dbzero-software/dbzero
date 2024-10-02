@@ -14,7 +14,9 @@ namespace db0::python
     ClassObject *ClassObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<ClassObject*> ClassDefaultObject_new();
     void ClassObject_del(ClassObject *);
-
+    PyObject *PyClass_type(PyObject *, PyObject *);
+    PyObject *PyClass_get_attributes(PyObject *, PyObject *);
+    
     extern PyTypeObject ClassObjectType;
 
     ClassObject *makeClass(std::shared_ptr<const db0::object_model::Class>);

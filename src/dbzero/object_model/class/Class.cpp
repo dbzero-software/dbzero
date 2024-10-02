@@ -386,8 +386,8 @@ namespace db0::object_model
         return m_index;
     }
     
-    bool isMemoBase(const Class &type) {
-        return Class::LangToolkit::getTypeManager().isMemoBase(type.getLangClass());
+    bool Class::isMemoBase() const {
+        return m_lang_type_ptr && LangToolkit::getTypeManager().isMemoBase(m_lang_type_ptr.get());
     }
-
+    
 }

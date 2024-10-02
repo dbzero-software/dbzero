@@ -74,7 +74,6 @@ static PyMethodDef DBZeroCE_Methods[] =
     // the Reflection API functions
     {"get_raw_prefixes", &py::getPrefixes, METH_NOARGS, "Get the list of prefixes accessible from the current context"},
     {"get_raw_memo_classes", (PyCFunction)&py::getMemoClasses, METH_VARARGS | METH_KEYWORDS, "Get the list of memo classes from a specific prefix"},
-    {"get_raw_attributes", (PyCFunction)&py::getAttributes, METH_FASTCALL, "Get memo class attributes"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

@@ -101,15 +101,17 @@ namespace db0::python
         }
         
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
-            auto &class_factory = fixture->get<ClassFactory>();
-            std::shared_ptr<Class> type;
-            // find instance associated class with the ClassFactory
+            auto &class_factory = fixture->get<ClassFactory>();         
+            auto result = PyToolkit::unloadObject(fixture, addr, class_factory);
+            // validate type if requested
             if (py_expected_type) {
-                type = class_factory.getExistingType(py_expected_type);
+                auto expected_type = class_factory.getExistingType(py_expected_type);
+                if (reinterpret_cast<MemoObject*>(result.get())->ext().getType() != *expected_type) {
+                    THROWF(db0::InputException) << "Object type mismatch";
+                }
             }
-            
-            // unload with optional type validation
-            return PyToolkit::unloadObject(fixture, addr, class_factory, type);
+
+            return result;
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             // unload by logical address
             return PyToolkit::unloadList(fixture, addr);
@@ -117,18 +119,12 @@ namespace db0::python
             // unload by logical address
             return PyToolkit::unloadIndex(fixture, addr);
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
-            auto &class_factory = fixture->get<ClassFactory>();
-            // return as Python native type (if it can be located)
+            auto &class_factory = fixture->get<ClassFactory>();            
             auto class_ptr = class_factory.getConstTypeByPtr(db0_ptr_reinterpret_cast<Class>()(addr));
-            if (class_ptr->hasLangClass()) {
-                // return as a Python type
-                return (PyObject*)class_ptr->getLangClass().steal();
-            } else {
-                // return as a DBZero class instance
-                return makeClass(class_ptr);
-            }
+            // return as a DBZero class instance
+            return makeClass(class_ptr);
         }
-        
+                
         THROWF(db0::InputException) << "Invalid object ID" << THROWF_END;
     }
     
@@ -238,22 +234,23 @@ namespace db0::python
         using ObjectIterator = db0::object_model::ObjectIterator;
         using TypedObjectIterator = db0::object_model::TypedObjectIterator;
         using TagIndex = db0::object_model::TagIndex;
-        using Class = db0::object_model::Class;
+        using Class = db0::object_model::Class;        
         
         std::vector<PyObject*> find_args;
-        bool no_result = false;
-        bool as_memo_base = false;
+        bool no_result = false;        
         std::shared_ptr<Class> type;
-        auto fixture = db0::object_model::getFindParams(snapshot, args, nargs, find_args, type, no_result, as_memo_base);
+        PyTypeObject *lang_type = nullptr;        
+        auto fixture = db0::object_model::getFindParams(snapshot, args, nargs, find_args, type, lang_type, no_result);
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
-        auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);
+        // NOTE: filtering disabled for MemoBase type
+        auto query_iterator = tag_index.find(find_args.data(), find_args.size(), (type && !type->isMemoBase()) ? type : nullptr,
+            query_observers, no_result);
         auto iter_obj = PyObjectIteratorDefault_new();
         if (type) {
             // construct as typed iterator when a type was specified
-            // NOTE: type filter not applied for MemoBase
-            auto typed_iter = std::make_unique<TypedObjectIterator>(fixture, std::move(query_iterator), 
-                !as_memo_base ? type : nullptr, std::move(query_observers));
+            auto typed_iter = std::make_unique<TypedObjectIterator>(fixture, std::move(query_iterator), type, 
+                lang_type, std::move(query_observers));
             Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::make_unique<ObjectIterator>(fixture, std::move(query_iterator), 

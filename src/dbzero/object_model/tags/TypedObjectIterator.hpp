@@ -28,27 +28,27 @@ namespace db0::object_model
 
         // Construct from a full-text query iterator
         TypedObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&ft_query_iterator, 
-            std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > && = {},
+            std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> &filters = {});
         
         // Construct from a sorted iterator
-        TypedObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&sorted_iterator, 
-            std::shared_ptr<Class> type, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
+        TypedObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&sorted_iterator,
+            std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
             const std::vector<FilterFunc> &filters = {});
         
-        std::unique_ptr<TypedObjectIterator> iterTyped(const std::vector<FilterFunc> & = {}) const;
+        // Clone with additional filters
         std::unique_ptr<ObjectIterator> iter(const std::vector<FilterFunc> & = {}) const override;
-                
-        /**
-         * Retrieves associated language specific class (raw pointer)
-        */
-        TypeObjectSharedPtr getLangClass() const;
-                
-        std::shared_ptr<Class> getType() const;
+        std::unique_ptr<TypedObjectIterator> iterTyped(const std::vector<FilterFunc> & = {}) const;
 
+        // Create with user provided arguments
+        std::unique_ptr<TypedObjectIterator> makeTypedIter(std::unique_ptr<QueryIterator> &&ft_query_iterator,
+            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {}) const;
+        std::unique_ptr<TypedObjectIterator> makeTypedIter(std::unique_ptr<SortedIterator> &&sorted_iterator,
+            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {}) const;
+        
     protected:
         // iter constructor
-        TypedObjectIterator(db0::swine_ptr<Fixture>, const ClassFactory &, std::shared_ptr<Class>, 
+        TypedObjectIterator(db0::swine_ptr<Fixture>, const ClassFactory &, std::shared_ptr<Class>, TypeObjectPtr,
             std::unique_ptr<QueryIterator> &&, std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>,
             std::vector<std::unique_ptr<QueryObserver> > &&, std::vector<FilterFunc> &&filters);
 
@@ -56,6 +56,7 @@ namespace db0::object_model
 
     private:
         std::shared_ptr<Class> m_type;
+        TypeObjectSharedPtr m_lang_type;
     };
 
 }

@@ -84,13 +84,14 @@ namespace db0::python
         */
         static std::string getModuleName(TypeObjectPtr py_type);
         
-        // Unload with optional type validation
-        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, const ClassFactory &,
-            std::shared_ptr<Class> expected_type = nullptr);
+        // Unload with type resolution
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, const ClassFactory &);
 
-        // Unload with known type
-        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, std::shared_ptr<Class>);
-
+        // Unload with known type / lang class
+        // note that lang_class may be a base of the actual type (e.g. MemoBase)
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,
+            std::shared_ptr<Class>, TypeObjectPtr lang_class = nullptr);
+        
         static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
         static ObjectSharedPtr unloadIndex(db0::swine_ptr<Fixture> &, std::uint64_t address);

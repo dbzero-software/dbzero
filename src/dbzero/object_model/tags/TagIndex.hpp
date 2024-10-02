@@ -23,7 +23,7 @@ namespace db0::object_model
         std::uint64_t m_base_index_long_ptr = 0;
         std::uint64_t m_reserved[4] = { 0, 0, 0, 0 };
     };
-        
+    
     /**
      * A class to represent a full-text (tag) index and the corresponding batch-update buffer
      * typically the TagIndex instance is associated with the Class object
@@ -34,6 +34,7 @@ namespace db0::object_model
         using LangToolkit = typename Object::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         // full-text query iterator
         using QueryIterator = FT_Iterator<std::uint64_t>;
         // string tokens and classes are represented as short tags
@@ -128,8 +129,9 @@ namespace db0::object_model
         ShortTagT makeShortTag(TypeId, ObjectPtr, bool create) const;
         ShortTagT makeShortTagFromString(ObjectPtr, bool create) const;
         ShortTagT makeShortTagFromMemo(ObjectPtr, bool create) const;
-        ShortTagT makeShortTagFromEnumValue(ObjectPtr, bool create) const;
-        ShortTagT makeShortTagFromFieldDef(ObjectPtr, bool create) const;
+        ShortTagT makeShortTagFromEnumValue(ObjectPtr) const;
+        ShortTagT makeShortTagFromFieldDef(ObjectPtr) const;
+        ShortTagT makeShortTagFromClass(ObjectPtr) const;
 
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
@@ -224,11 +226,12 @@ namespace db0::object_model
      * @param nargs number of arguments
      * @param find_args the resulting find arguments
      * @param type the find type (if specified). Note that type can only be specified as the 1st argument
+     * @param lang_type the associated language specific type object (only returned with type), can be of a base type (e.g. MemoBase)
      * @param no_result flag to indicate that the query yields no result
      * @return the find associated fixture (or exception raised if could not be determined)
      */
     db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &, TagIndex::ObjectPtr const *args, std::size_t nargs,
-        std::vector<TagIndex::ObjectPtr> &find_args, std::shared_ptr<Class> &type, 
-        bool &no_result, bool &as_memo_base);
+        std::vector<TagIndex::ObjectPtr> &find_args, std::shared_ptr<Class> &type, TagIndex::TypeObjectPtr &lang_type,
+        bool &no_result);
     
 }

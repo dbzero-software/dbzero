@@ -41,9 +41,6 @@ namespace db0::object_model
     class Object;
     class Class;
     struct ObjectId;
-    
-    // Check if the provided Class instance represents a MemoBase type
-    bool isMemoBase(const Class &);
 
     struct [[gnu::packed]] o_class: public db0::o_fixed<o_class>
     {
@@ -182,6 +179,9 @@ namespace db0::object_model
         // @return field name & index
         std::unordered_map<std::string, std::uint32_t> getMembers() const;
 
+        // Check if the Class instance represents a MemoBase type
+        bool isMemoBase() const;
+
     protected:
         friend class ClassFactory;
         friend ClassPtr;
@@ -224,5 +224,5 @@ namespace db0::object_model
         std::optional<std::string> module_name, std::optional<std::string> type_fields_str, int variant_id);
     
     std::optional<std::string> getNameVariant(const Class &, int variant_id);
-
+    
 }

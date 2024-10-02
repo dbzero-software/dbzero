@@ -50,7 +50,11 @@ namespace db0::object_model
                 // create ClassFactory and register with the object catalogue
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture);
                 // register MemoBase type with the class factory
-                class_factory.getOrCreateType(type_manager.getMemoBaseType().get());
+                // NOTE: MemoBase type may not exist (e.g in the native unit test environment)
+                auto memo_base_type = type_manager.tryGetMemoBaseType();
+                if (memo_base_type) {
+                    class_factory.getOrCreateType(memo_base_type.get());
+                }                
                 auto &enum_factory = fixture->addResource<EnumFactory>(fixture);
                 auto &tag_index = fixture->addResource<TagIndex>(
                     *fixture, class_factory, fixture->getLimitedStringPool(), fixture->getVObjectCache());

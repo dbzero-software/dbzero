@@ -40,6 +40,11 @@ namespace db0::python
         // collect class info as tuples
         PyObject *py_list = PyList_New(0);
         class_factory.forAll([&](std::shared_ptr<const db0::object_model::Class> type) {
+            // do not report MemoBase type
+            if (type->isMemoBase()) {
+                return;
+            }
+            
             PyObject *py_tuple = nullptr;
             if (type->isSingleton()) {
                 // name, module, memo_uuid, is_singleton, singleton_uuid
@@ -91,19 +96,5 @@ namespace db0::python
         }
         return getMemoClasses(fixture);    
     }
-    
-    PyObject *tryGetAttributes(const char *memo_uuid)
-    {        
-        auto class_uuid = db0::object_model::ObjectId::fromBase32(memo_uuid);
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        auto members = db0::object_model::fetchConstClass(workspace, class_uuid)->getMembers();
-        PyObject *py_list = PyList_New(0);
-        for (auto [name, index]: members) {
-            // name, index
-            PyObject *py_tuple = PyTuple_Pack(2, PyUnicode_FromString(name.c_str()), PyLong_FromUnsignedLong(index));
-            PyList_Append(py_list, py_tuple);
-        }
-        return py_list;
-    }
-    
+        
 }
