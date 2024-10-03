@@ -460,6 +460,12 @@ namespace db0::python
         }
         PyDict_SetItemString(gc0_dict, "size", PyLong_FromLong(fixture->getGC0().size()));
         PyDict_SetItemString(stats_dict, "gc0", gc0_dict);
+        auto sp_dict = PyDict_New();
+        if (!sp_dict) {
+            THROWF(db0::MemoryException) << "Out of memory";
+        }
+        PyDict_SetItemString(sp_dict, "size", PyLong_FromLong(fixture->getLimitedStringPool().size()));
+        PyDict_SetItemString(stats_dict, "string_pool", sp_dict);
         return stats_dict;
     }
     

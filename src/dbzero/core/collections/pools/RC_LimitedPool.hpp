@@ -43,6 +43,8 @@ namespace db0::pools
         */
         template <typename KeyT> bool find(const KeyT &, AddressT &) const;
 
+        std::size_t size() const;
+
         void commit() const;
 
         void detach() const;
@@ -117,6 +119,11 @@ namespace db0::pools
         // add to the map
         m_pool_map.insert_equal(std::forward<Args>(args)..., MapItemT{new_address, 1});
         return new_address;
+    }
+    
+    template <typename T, typename CompT, typename AddressT>
+    std::size_t RC_LimitedPool<T, CompT, AddressT>::size() const {
+        return m_pool_map.size();
     }
     
     template <typename T, typename CompT, typename AddressT>
