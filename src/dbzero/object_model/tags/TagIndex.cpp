@@ -683,7 +683,7 @@ namespace db0::object_model
         while (args_offset < nargs) {
             // Python Memo type
             if (LangToolkit::isType(args[args_offset])) {
-                lang_type = type_manager.getTypeObject(args[args_offset++]);           
+                lang_type = type_manager.getTypeObject(args[args_offset++]);
                 if (LangToolkit::isMemoType(lang_type)) {
                     if (type_manager.isMemoBase(lang_type)) {
                         // MemoBase type must be available in each prefix

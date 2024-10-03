@@ -477,12 +477,7 @@ namespace db0::python
             return NULL;
         }
 
-        if (PyMemo_Check(py_object)) {
-            return PyLong_FromLong(reinterpret_cast<MemoObject*>(py_object)->ext().getRefCount());
-        }
-
-        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-        return NULL;
+        return runSafe(tryGetRefCount, py_object);
     }
     
     PyObject *getTypeInfo(PyObject *self, PyObject *args)
@@ -510,7 +505,7 @@ namespace db0::python
         PyErr_SetString(PyExc_TypeError, "Invalid argument type");
         return NULL;
     }
-
+    
     PyObject *negTags(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         return NULL;
     }

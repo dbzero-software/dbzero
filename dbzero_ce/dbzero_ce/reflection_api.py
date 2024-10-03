@@ -79,6 +79,9 @@ class MemoMetaClass:
             return db0.find(db0.MemoBase, self.get_class())
         return db0.find(py_type)
     
+    def get_instance_count(self):
+        return db0.getrefcount(self.get_class())
+    
     def __str__(self):
         return f"{self.__module}.{self.__name} ({self.__class_uuid})"
     

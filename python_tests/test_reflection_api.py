@@ -92,3 +92,9 @@ def test_discover_tagged_objects(db0_fixture):
     # find all objects of this type
     assert len(list(db0.find(memo_type))) == 1
     
+    
+def test_get_instance_count_for_class(db0_fixture):
+    _ = MemoTestClass(123)
+    memo_info = [obj for obj in db0.get_memo_classes() if not obj.is_singleton][0]
+    assert memo_info.get_instance_count() > 0
+    

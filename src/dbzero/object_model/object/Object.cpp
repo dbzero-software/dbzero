@@ -34,6 +34,12 @@ namespace db0::object_model
         return class_factory[class_ptr];        
     }
     
+    std::shared_ptr<const Class> getConstClass(std::uint32_t class_ref, const ClassFactory &class_factory)
+    {
+        auto class_ptr = db0::db0_ptr_reinterpret_cast<Class>()(class_ref);
+        return class_factory.getConstTypeByPtr(class_ptr);
+    }
+    
     o_object::o_object(std::uint32_t class_ref, std::uint32_t ref_count, const PosVT::Data &pos_vt_data,
         const XValue *index_vt_begin, const XValue *index_vt_end)
         : m_header(ref_count)
@@ -148,12 +154,14 @@ namespace db0::object_model
             auto index_vt_data = initializer.getData(pos_vt_data);
 
             // place object in the same fixture as class
-            // construct the DBZero instance & assign to self       
+            // construct the DBZero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
             super_t::init(*fixture, classRef(*m_type), initializer.getRefCount(), pos_vt_data,
                 index_vt_data.first, index_vt_data.second);
-            
+            // reference associated class
+            m_type->incRef();
+
             // bind singleton address (now that instance exists)
             if (m_type->isSingleton()) {
                 m_type->setSingletonAddress(*this);
@@ -360,35 +368,33 @@ namespace db0::object_model
     }
     
     void Object::dropMembers() const
-    {
-        if (hasInstance()) {
-            auto fixture = this->getFixture();
-            assert(fixture);
-            // drop pos-vt members first
-            {
-                auto &types = (*this)->pos_vt().types();
-                auto &values = (*this)->pos_vt().values();
-                auto value = values.begin();
-                for (auto type = types.begin(); type != types.end(); ++type, ++value) {
-                    unrefMember(fixture, *type, *value);
-                }
-            }
-            // drop index-vt members next
-            {
-                auto &xvalues = (*this)->index_vt().xvalues();
-                for (auto &xvalue: xvalues) {
-                    unrefMember(fixture, xvalue);
-                }
-            }
-            // finally drop kv-index members
-            auto kv_index_ptr = tryGetKV_Index();
-            if (kv_index_ptr) {
-		        auto it = kv_index_ptr->beginJoin(1);
-                for (;!it.is_end(); ++it) {
-                    unrefMember(fixture, *it);
-                }
+    {        
+        auto fixture = this->getFixture();
+        assert(fixture);
+        // drop pos-vt members first
+        {
+            auto &types = (*this)->pos_vt().types();
+            auto &values = (*this)->pos_vt().values();
+            auto value = values.begin();
+            for (auto type = types.begin(); type != types.end(); ++type, ++value) {
+                unrefMember(fixture, *type, *value);
             }
         }
+        // drop index-vt members next
+        {
+            auto &xvalues = (*this)->index_vt().xvalues();
+            for (auto &xvalue: xvalues) {
+                unrefMember(fixture, xvalue);
+            }
+        }
+        // finally drop kv-index members
+        auto kv_index_ptr = tryGetKV_Index();
+        if (kv_index_ptr) {
+            auto it = kv_index_ptr->beginJoin(1);
+            for (;!it.is_end(); ++it) {
+                unrefMember(fixture, *it);
+            }
+        }        
     }
     
     void Object::unSingleton()
@@ -404,7 +410,15 @@ namespace db0::object_model
     
     void Object::destroy() const
     {
-        dropMembers();
+        if (hasInstance()) {
+            dropMembers();
+            // dereference associated class (may require unloading)
+            if (m_type) {
+                m_type->decRef();            
+            } else {
+                std::const_pointer_cast<Class>(unloadType())->decRef();
+            }
+        }
         super_t::destroy();
     }
     
@@ -601,6 +615,12 @@ namespace db0::object_model
 
     void Object::unrefMember(db0::swine_ptr<Fixture> &fixture, XValue value) const {
         db0::object_model::unrefMember<LangToolkit>(fixture, value.m_type, value.m_value);
+    }
+
+    std::shared_ptr<const Class> Object::unloadType() const
+    {
+        auto fixture = this->getFixture();
+        return db0::object_model::getConstClass((*this)->m_class_ref, fixture->get<ClassFactory>());
     }
 
 }

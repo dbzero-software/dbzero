@@ -402,6 +402,25 @@ def test_comparators_should_work_for_memo_object_if_defined(db0_fixture):
     assert not obj1 >= obj2
 
 
+def test_memo_object_ref_counting(db0_fixture):
+    object_2 = MemoTestClass(0)
+    object_1 = MemoTestClass(object_2)
+    # object_2 is referenced by object_1
+    assert db0.getrefcount(object_2) == 1
+
+
+def test_memo_classes_ref_counting(db0_fixture):
+    count_1 = db0.getrefcount(MemoTestClass)
+    # each new instance should increase ref-count
+    object_2 = MemoTestClass(0)
+    count_2 = db0.getrefcount(MemoTestClass)
+    object_1 = MemoTestClass(object_2)
+    count_3 = db0.getrefcount(MemoTestClass)
+    # may be more references when first object is created
+    assert count_2 >= count_1 + 1
+    assert count_3 == count_2 + 1
+    
+
 # def test_comparators_should_work_for_memo_when_opposed_opperator_is_defined(db0_fixture):
 #     obj1 = DataClassWithMinimalComparators(5)
 #     obj2 = DataClassWithMinimalComparators(10)
