@@ -28,14 +28,15 @@ ADD requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt --upgrade
 
 RUN ulimit -c unlimited
-RUN echo "/tmp/core.%e.%p" | tee /proc/sys/kernel/core_pattern
+RUN mkdir -p "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
+RUN chmod 777 "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
 
 COPY . /usr/src/dbzero
 WORKDIR /usr/src/dbzero
 
 RUN python3 scripts/generate_meson.py ./src/dbzero/ core
 RUN python3 scripts/generate_meson_tests.py tests/
-RUN ./build.sh -r
-WORKDIR /usr/src/dbzero/build/release/
-RUN meson install
-WORKDIR /usr/src/dbzero
+# RUN ./build.sh -r
+# WORKDIR /usr/src/dbzero/build/release/
+# RUN meson install
+# WORKDIR /usr/src/dbzero
