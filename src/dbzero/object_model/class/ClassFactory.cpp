@@ -30,10 +30,10 @@ namespace db0::object_model
             case 1 : 
             case 2 : {
                 return getNameVariant(db0::getOptionalString(type_id), LangToolkit::getTypeName(lang_type),
-                    LangToolkit::getModuleName(lang_type), {}, variant_id);
+                    LangToolkit::tryGetModuleName(lang_type), {}, variant_id);
             }
             break;
-
+            
             case 3 : {
                 // return getNameVariant({}, LangToolkit::getTypeName(lang_type), {}, 
                 //     db0::python::getTypeFields(lang_class), variant_id);
@@ -138,7 +138,7 @@ namespace db0::object_model
                 auto fixture = getFixture();
                 ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
                 type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type), 
-                    LangToolkit::getModuleName(lang_type), lang_type, type_id, prefix_name, flags));
+                    LangToolkit::tryGetModuleName(lang_type), lang_type, type_id, prefix_name, flags));
                 class_ptr = ClassPtr(*type);
                 // inc-ref to persist the class
                 type->incRef();

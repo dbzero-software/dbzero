@@ -49,7 +49,7 @@ namespace db0::object_model
         // auto-generated class UUID
         const std::uint64_t m_uuid;
         LP_String m_name;
-        LP_String m_module_name;
+        LP_String m_module_name = 0;
         LP_String m_type_id;
         // optional scoped-class prefix
         LP_String m_prefix_name;
@@ -60,7 +60,7 @@ namespace db0::object_model
         // unused, reserved for future purposes
         std::array<std::uint64_t, 4> m_reserved;
         
-        o_class(RC_LimitedStringPool &, const std::string &name, const std::string &module_name, const VFieldVector &,
+        o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name, const VFieldVector &,
             const char *type_id, const char *prefix_name, ClassFlags);
     };
     
@@ -157,6 +157,7 @@ namespace db0::object_model
 
         std::string getTypeName() const;
 
+        std::optional<std::string> tryGetModuleName() const;
         std::string getModuleName() const;
         
         /**
@@ -193,7 +194,8 @@ namespace db0::object_model
         
         // DBZero class instances should only be created by the ClassFactory
         // construct a new DBZero class
-        Class(db0::swine_ptr<Fixture> &, const std::string &name, const std::string &module_name, TypeObjectPtr lang_type_ptr, 
+        // NOTE: module name may not be available in some contexts (e.g. classes defined in notebooks)
+        Class(db0::swine_ptr<Fixture> &, const std::string &name, std::optional<std::string> module_name, TypeObjectPtr lang_type_ptr, 
             const char *type_id, const char *prefix_name, ClassFlags);
         
         void unlinkSingleton();

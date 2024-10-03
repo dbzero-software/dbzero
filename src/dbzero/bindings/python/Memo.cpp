@@ -424,7 +424,7 @@ namespace db0::python
     
     PyObject *wrapPyClass(PyObject *, PyObject *args, PyObject *kwargs)
     {   
-        std::lock_guard api_lock(py_api_mutex);     
+        std::lock_guard api_lock(py_api_mutex);
         PyObject* class_obj;
         PyObject *singleton = Py_False;
         PyObject *py_prefix_name = nullptr;
@@ -437,11 +437,11 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
         }
-
+        
         bool is_singleton = PyObject_IsTrue(singleton);
         const char *prefix_name = py_prefix_name ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
-        const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;
-        const char *file_name = py_file_name ? PyUnicode_AsUTF8(py_file_name) : nullptr;
+        const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
+        const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
         return reinterpret_cast<PyObject*>(
             wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id, file_name)
         );

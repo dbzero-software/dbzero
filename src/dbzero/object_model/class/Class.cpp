@@ -18,16 +18,18 @@ namespace db0::object_model
 
     GC0_Define(Class)
     
-    o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, const std::string &module_name,
+    o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
         const VFieldVector &members, const char *type_id, const char *prefix_name, ClassFlags flags)
         : m_uuid(db0::make_UUID())
-        , m_name(string_pool.add(name))
-        , m_module_name(string_pool.add(module_name))
+        , m_name(string_pool.add(name))        
         , m_type_id(type_id ? string_pool.add(type_id) : LP_String())
         , m_prefix_name(prefix_name ? string_pool.add(prefix_name) : LP_String())
         , m_members_ptr(members)
         , m_flags(flags)
     {
+        if (module_name) {
+            m_module_name = string_pool.add(*module_name);
+        }
     }
     
     Class::Member::Member(std::uint32_t field_id, const char *name)
@@ -42,7 +44,7 @@ namespace db0::object_model
     {
     }
     
-    Class::Class(db0::swine_ptr<Fixture> &fixture, const std::string &name, const std::string &module_name,
+    Class::Class(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
         TypeObjectPtr lang_type_ptr, const char *type_id, const char *prefix_name, ClassFlags flags)
         : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, prefix_name, flags)
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))
@@ -186,9 +188,22 @@ namespace db0::object_model
         return getFixture()->getLimitedStringPool().fetch((*this)->m_name);
     }
 
-    std::string Class::getModuleName() const {
+    std::optional<std::string> Class::tryGetModuleName() const 
+    {
+        if (!(*this)->m_module_name) {
+            return std::nullopt;
+        }
         return getFixture()->getLimitedStringPool().fetch((*this)->m_module_name);
     }
+
+    std::string Class::getModuleName() const
+    {
+        auto module_name = tryGetModuleName();
+        if (!module_name) {
+            THROWF(db0::InternalException) << "Module name not found for class " << getTypeName();
+        }
+        return *module_name;
+    }   
 
     bool Class::hasLangClass() const {
         return m_lang_type_ptr;
@@ -234,10 +249,15 @@ namespace db0::object_model
             break;
 
             case 1: {
-                // type & module name are required
-                assert(type_name && module_name);
+                // NOTE: module name may not be available in some contexts - e.g. 
+                // dynamically loaded classes or jupyter notebook
+                // FIXME: design handling missing module names
+                assert(type_name);
                 std::stringstream _str;
-                _str << "cls:" << *type_name << ".pkg:" << *module_name;
+                _str << "cls:" << *type_name;
+                if (module_name) {
+                    _str << ".pkg:" << *module_name;
+                }
                 return _str.str();                
             }
             break;
@@ -266,11 +286,10 @@ namespace db0::object_model
         }
         return std::nullopt;
     }
-
-    std::optional<std::string> getNameVariant(const Class &_class, int variant_id)
-    {
+    
+    std::optional<std::string> getNameVariant(const Class &_class, int variant_id) {
         // FIXME: implement get type fields
-        return getNameVariant(_class.getTypeId(), _class.getTypeName(), _class.getModuleName(), std::nullopt, variant_id);
+        return getNameVariant(_class.getTypeId(), _class.getTypeName(), _class.tryGetModuleName(), std::nullopt, variant_id);
     }
 
     void Class::renameField(const char *from_name, const char *to_name)

@@ -51,23 +51,36 @@ namespace db0::python
         return file_name_no_path.substr(0, pos);
     }
     
-    std::string PyToolkit::getModuleName(TypeObjectPtr py_type)
+    std::optional<std::string> PyToolkit::tryGetModuleName(TypeObjectPtr py_type)
     {
         auto py_module_name = PyObject_GetAttrString(reinterpret_cast<ObjectPtr>(py_type), "__module__");
         if (!py_module_name) {
-            THROWF(db0::InputException) << "Could not get module name for class " << getTypeName(py_type);
+            return std::nullopt;
         }
-        auto result = std::string(PyUnicode_AsUTF8(py_module_name));        
+        auto result = std::string(PyUnicode_AsUTF8(py_module_name));
+        Py_DECREF(py_module_name);
         if (result == "__main__") {
             // for Memo types we can determine the actual module name from the file name
-            // stored with the type decoration
+            // (if stored with the type decoration)
             if (PyMemoType_Check(py_type)) {
-                std::string file_name = MemoTypeDecoration::get(py_type).m_file_name;
-                result = getModuleNameFromFileName(file_name);
-            }            
+                // file name may not be available in the type decoration
+                auto file_name = MemoTypeDecoration::get(py_type).m_file_name;
+                if (file_name) {
+                    return getModuleNameFromFileName(file_name);
+                }
+            }
+            return std::nullopt;
         }
-        Py_DECREF(py_module_name);
         return result;
+    }
+
+    std::string PyToolkit::getModuleName(TypeObjectPtr py_type)
+    {
+        auto result = tryGetModuleName(py_type);
+        if (!result) {
+            THROWF(db0::InputException) << "Could not get module name for class " << getTypeName(py_type);
+        }
+        return *result;
     }
 
     PyToolkit::ObjectSharedPtr tryUnloadObjectFromCache(LangCacheView &lang_cache, std::uint64_t address,

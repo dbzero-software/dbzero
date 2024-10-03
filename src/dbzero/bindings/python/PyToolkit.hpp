@@ -79,9 +79,10 @@ namespace db0::python
         static std::string getTypeName(TypeObjectPtr py_type);
         
         /**
-         * Retrieve module name where the class is defined
+         * Retrieve module name where the class is defined (may not be available e.g. for built-in types)
          * @param py_class the python class object
         */
+        static std::optional<std::string> tryGetModuleName(TypeObjectPtr py_type);
         static std::string getModuleName(TypeObjectPtr py_type);
         
         // Unload with type resolution
