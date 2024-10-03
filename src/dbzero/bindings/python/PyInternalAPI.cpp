@@ -401,5 +401,30 @@ namespace db0::python
             drop_instance_functions[static_cast<int>(type_id)](py_instance);
         }
     }
-        
+    
+    PyObject *tryGetRefCount(PyObject *py_object)
+    {
+        if (PyMemo_Check(py_object)) {
+            return PyLong_FromLong(reinterpret_cast<MemoObject*>(py_object)->ext().getRefCount());
+        } else if (PyClassObject_Check(py_object)) {
+            return PyLong_FromLong(reinterpret_cast<ClassObject*>(py_object)->ext().getRefCount());
+        } else if (PyType_Check(py_object)) {
+            auto py_type = PyToolkit::getTypeManager().getTypeObject(py_object);
+            if (PyToolkit::isMemoType(py_type)) {
+                auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+                // sum over all prefixes
+                std::uint64_t ref_count = 0;                
+                workspace.forAll([&ref_count, py_type](const db0::Fixture &fixture) {
+                    auto type = fixture.get<db0::object_model::ClassFactory>().tryGetExistingType(py_type);
+                    if (type) {
+                        ref_count += type->getRefCount();                        
+                    }
+                });
+                return PyLong_FromLong(ref_count);
+            }
+        }
+        THROWF(db0::InputException) << "Unable to retrieve ref count for type: "
+            << Py_TYPE(py_object)->tp_name << THROWF_END;
+    }
+
 }
