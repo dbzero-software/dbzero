@@ -49,7 +49,7 @@ namespace db0::python
             if (type->isSingleton()) {
                 // name, module, memo_uuid, is_singleton, singleton_uuid
                 py_tuple = PyTuple_Pack(5,
-                    PyUnicode_FromString(type->getTypeName().c_str()), 
+                    PyUnicode_FromString(type->getTypeName().c_str()),
                     PyUnicode_FromString(type->getModuleName().c_str()),
                     PyUnicode_FromString(type->getClassId().toUUIDString().c_str()),
                     type->isSingleton() ? Py_True : Py_False,

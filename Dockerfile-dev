@@ -27,6 +27,9 @@ RUN pip3 install build
 ADD requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt --upgrade
 
+RUN ulimit -c unlimited
+RUN echo "/tmp/core.%e.%p" | tee /proc/sys/kernel/core_pattern
+
 COPY . /usr/src/dbzero
 WORKDIR /usr/src/dbzero
 
