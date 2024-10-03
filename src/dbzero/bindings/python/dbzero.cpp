@@ -49,7 +49,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"find", (PyCFunction)&py::find, METH_FASTCALL, ""},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
     {"get_state_num", (PyCFunction)&py::getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
-    {"get_metrics", &py::getDBMetrics, METH_VARARGS, ""},
+    {"get_prefix_stats", (PyCFunction)&py::getPrefixStats, METH_VARARGS | METH_KEYWORDS, "Retrieve prefix specific statistics"},
     {"snapshot", (PyCFunction)&py::getSnapshot, METH_FASTCALL, "Get snapshot of DBZero state"},
     {"atomic", (PyCFunction)&py::beginAtomic, METH_FASTCALL, "Opens a new atomic operation's context"},
     {"describe", &py::describeObject, METH_VARARGS, "Get snapshot of DBZero state"},

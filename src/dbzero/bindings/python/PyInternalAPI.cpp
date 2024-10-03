@@ -427,4 +427,40 @@ namespace db0::python
             << Py_TYPE(py_object)->tp_name << THROWF_END;
     }
 
+    db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name)
+    {
+        const char *prefix_name = nullptr;
+        // optional prefix parameter
+        static const char *kwlist[] = { param_name, NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|s", const_cast<char**>(kwlist), &prefix_name)) {
+            THROWF(db0::InputException) << "Invalid argument type";
+        }
+
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        if (prefix_name) {
+            return workspace.findFixture(prefix_name);
+        } else {
+            return workspace.getCurrentFixture();
+        }
+    }
+    
+    PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs)
+    {
+        auto fixture = getPrefixFromArgs(args, kwargs, "prefix");
+        auto stats_dict = PyDict_New();
+        if (!stats_dict) {
+            THROWF(db0::MemoryException) << "Out of memory";
+        }
+
+        PyDict_SetItemString(stats_dict, "name", PyUnicode_FromString(fixture->getPrefix().getName().c_str()));
+        PyDict_SetItemString(stats_dict, "uuid", PyLong_FromLong(fixture->getUUID()));
+        auto gc0_dict = PyDict_New();
+        if (!gc0_dict) {
+            THROWF(db0::MemoryException) << "Out of memory";
+        }
+        PyDict_SetItemString(gc0_dict, "size", PyLong_FromLong(fixture->getGC0().size()));
+        PyDict_SetItemString(stats_dict, "gc0", gc0_dict);
+        return stats_dict;
+    }
+    
 }
