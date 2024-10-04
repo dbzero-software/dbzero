@@ -41,36 +41,42 @@ namespace db0
             return size;
         }
 
-        template <class buf_t> static size_t safeSizeOf(buf_t at) {
+        template <class buf_t> static size_t safeSizeOf(buf_t at) 
+        {
             size_t size = self::safeBaseSize(at);
             size += KeyT::__const_ref(&at[size]).sizeOf();
             size += data_t::__const_ref(&at[size]).sizeOf();
             return size;
         }
 
-        const KeyT &first() const {
+        const KeyT &first() const 
+        {
             const std::byte *at = self::beginOfDynamicArea();
             return KeyT::__const_ref(at);
         }
 
-        const data_t &second() const {
+        const data_t &second() const 
+        {
             const std::byte *at = self::beginOfDynamicArea();
             at += first().sizeOf();
             return data_t::__const_ref(at);
         }
 
-        KeyT &first() {
+        KeyT &first() 
+        {
             std::byte *at = self::beginOfDynamicArea();
             return KeyT::__ref(at);
         }
             
-        data_t &second() {
+        data_t &second() 
+        {
             std::byte *at = self::beginOfDynamicArea();
             at += first().sizeOf();
             return data_t::__ref(at);
         }
 
-        void destroy (db0::Memspace &memspace) const {
+        void destroy (db0::Memspace &memspace) const 
+        {
             first().destroy(memspace);
             second().destroy(memspace);
         }
@@ -112,7 +118,7 @@ namespace db0
         using ptr_t = typename super_t::ptr_t;
         using comp_t = typename v_map_node_traits<KeyT, data_t, KeyCompT>::comp_t;
         using KeyType = KeyT;
-        using mapped_type = data_t;
+        using mapped_type = data_t;        
 
         /**
          * Create null instance
@@ -141,7 +147,7 @@ namespace db0
         v_map(mptr _ptr,comp_t _comp = comp_t())
             : super_t(_ptr, _comp)
         {
-        }
+        }        
     };
 
 } 

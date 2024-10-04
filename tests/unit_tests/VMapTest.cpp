@@ -152,5 +152,43 @@ namespace tests
 		v_map<o_simple<int>, o_string> cut(memspace.myPtr(address));
 		ASSERT_EQ(cut.size(), 3u);
 	}
+
+	TEST_F( VMapTest , testVMapIteratorCanBeConveredToAddress )
+	{
+        auto memspace = getMemspace();	
+		
+		v_map<o_simple<int>, o_string> v_map(memspace);
+		v_map.insert_equal(1, "one");
+		auto it = v_map.begin();
+		auto addr = it.getAddress();
+		ASSERT_NE(addr, 0u);
+	}
+
+	TEST_F( VMapTest , testVMapIteratorCanBeConstructedFromAddress )
+	{
+        auto memspace = getMemspace();		
+		
+		v_map<o_simple<int>, o_string> v_map(memspace);
+		v_map.insert_equal(1, "one");
+		auto it = v_map.begin();
+		auto addr = it.getAddress();
+		auto it_from_addr = v_map.beginFromAddress(addr);
+		ASSERT_EQ(it, it_from_addr);
+	}
+
+	TEST_F( VMapTest , testVMapIteratorsRemainValidAfterUpdates )
+	{
+        auto memspace = getMemspace();
+
+		v_map<o_simple<int>, o_string> v_map(memspace);
+		v_map.insert_equal(2, "two");
+		auto addr = v_map.begin().getAddress();
+		v_map.insert_equal(1, "one");
+		v_map.insert_equal(3, "three");
+		auto it = v_map.beginFromAddress(addr);
+		ASSERT_EQ(it->first(), 2);
+		++it;
+		ASSERT_EQ(it->first(), 3);
+	}
 	
 }

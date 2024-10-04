@@ -312,3 +312,16 @@ def test_tags_string_pool_storage(db0_fixture):
     db0.commit()
     sp_size_2 = db0.get_prefix_stats()["string_pool"]["size"]
     assert sp_size_2 > sp_size_1
+
+
+def test_unused_tags_removed_from_string_pool(db0_fixture):    
+    obj = MemoTestClass(0)
+    db0.tags(obj).add(["completely-new-tag"])
+    # commit to flush updates
+    db0.commit()
+    sp_size_1 = db0.get_prefix_stats()["string_pool"]["size"]
+    db0.tags(obj).remove(["completely-new-tag"])
+    db0.commit()
+    sp_size_2 = db0.get_prefix_stats()["string_pool"]["size"]
+    # make sure tag was removed from string pool
+    assert sp_size_2 < sp_size_1

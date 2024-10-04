@@ -3,6 +3,7 @@
 #include "LimitedPool.hpp"
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/collections/map/v_map.hpp>
+#include <dbzero/core/serialization/compose.hpp>
 
 namespace db0::pools
 
@@ -17,7 +18,22 @@ namespace db0::pools
         {            
         }
     };
+    
+    // Item object with the additional map back-reference
+    /* FIXME: 
+    template <typename T> struct [[gnu::packed]] o_rc_limited_pool_item: 
+    public o_base<o_rc_limited_pool_item<T> >
+    {
+        std::uint64_t m_map_item_addr = 0;
 
+        template <typename... Args> o_rc_limited_pool_item(const T &item, std::uint64_t map_address)
+            : m_item(item)
+            , m_map_address(map_address)
+        {
+        }
+    };
+    */
+        
     /**
      * Limited pool with in-memory lookup index and ref-counting
     */
@@ -36,6 +52,11 @@ namespace db0::pools
          * Adds a new object or increase ref-count of the existing element
         */
         template <typename... Args> AddressT add(Args&&... args);
+
+        /**
+         * Unreference existing element by key, drop when ref-count reaches 0
+        */
+        template <typename... Args> void unRef(Args&&... args);
 
         /**
          * Try finding element by an arbitrary key
@@ -119,6 +140,22 @@ namespace db0::pools
         // add to the map
         m_pool_map.insert_equal(std::forward<Args>(args)..., MapItemT{new_address, 1});
         return new_address;
+    }
+    
+    template <typename T, typename CompT, typename AddressT> template <typename... Args>
+    void RC_LimitedPool<T, CompT, AddressT>::unRef(Args&&... args)
+    {
+        // find existing element
+        auto it = m_pool_map.find(std::forward<Args>(args)...);
+        assert(it != m_pool_map.end());
+
+        auto &item = it.modify().second();
+        if (--item.m_ref_count == 0) {
+            // erase from the underlying limited pool
+            LimitedPool<T, AddressT>::erase(item.m_address);
+            // drop from the map
+            m_pool_map.erase(it);
+        }
     }
     
     template <typename T, typename CompT, typename AddressT>
