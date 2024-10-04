@@ -42,11 +42,10 @@ namespace db0::pools
     }
 
     std::string RC_LimitedStringPool::fetch(PtrT ptr) const {
-        return super_t::fetch<std::string>(ptr.m_value);
+        return super_t::fetch<const ItemT&>(ptr.m_value).second();
     }
     
-    std::uint64_t RC_LimitedStringPool::toAddress(PtrT ptr) const
-    {
+    std::uint64_t RC_LimitedStringPool::toAddress(PtrT ptr) const {
         // FIXME: convert to address when this functionality is available
         return ptr.m_value;
     }

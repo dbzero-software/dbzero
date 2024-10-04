@@ -18,31 +18,20 @@ namespace db0::pools
         {            
         }
     };
-    
-    // Item object with the additional map back-reference
-    /* FIXME: 
-    template <typename T> struct [[gnu::packed]] o_rc_limited_pool_item: 
-    public o_base<o_rc_limited_pool_item<T> >
-    {
-        std::uint64_t m_map_item_addr = 0;
-
-        template <typename... Args> o_rc_limited_pool_item(const T &item, std::uint64_t map_address)
-            : m_item(item)
-            , m_map_address(map_address)
-        {
-        }
-    };
-    */
         
     /**
      * Limited pool with in-memory lookup index and ref-counting
+     * NOTE: limited pool items combine (using o_compose) map iterator's address + actual item (T)
+     * the iterator is required to implement unRef by address
     */
     template <typename T, typename CompT, typename AddrT = std::uint32_t> class RC_LimitedPool
-        : public LimitedPool<T, AddrT>
+        : public LimitedPool<db0::o_compose<std::uint64_t, T>, AddrT>
         , public db0::v_object<o_rc_limited_pool>
     {
     public:
         using AddressT = AddrT;
+        using ItemT = o_compose<std::uint64_t, T>;
+        using LP_Type = LimitedPool<db0::o_compose<std::uint64_t, T>, AddrT>;
 
         RC_LimitedPool(const Memspace &pool_memspace, Memspace &);
         RC_LimitedPool(const Memspace &pool_memspace, mptr);
@@ -57,6 +46,9 @@ namespace db0::pools
          * Unreference existing element by key, drop when ref-count reaches 0
         */
         template <typename... Args> void unRef(Args&&... args);
+
+        // Unreference existing element by its address
+        void unRefByAddr(AddressT address);
 
         /**
          * Try finding element by an arbitrary key
@@ -86,11 +78,13 @@ namespace db0::pools
 
         using PoolMapT = db0::v_map<T, MapItemT, CompT>;
         PoolMapT m_pool_map;
+
+        void unRefItem(typename PoolMapT::iterator &);
     };
     
     template <typename T, typename CompT, typename AddressT>
     RC_LimitedPool<T, CompT, AddressT>::RC_LimitedPool(const Memspace &pool_memspace, Memspace &memspace)
-        : LimitedPool<T, AddressT>(pool_memspace)
+        : LP_Type(pool_memspace)
         , db0::v_object<o_rc_limited_pool>(memspace, PoolMapT(memspace).getAddress())
         , m_pool_map(memspace.myPtr((*this)->m_pool_map_address))
     {
@@ -98,7 +92,7 @@ namespace db0::pools
     
     template <typename T, typename CompT, typename AddressT>
     RC_LimitedPool<T, CompT, AddressT>::RC_LimitedPool(const Memspace &pool_memspace, mptr ptr)
-        : LimitedPool<T, AddressT>(pool_memspace)
+        : LP_Type(pool_memspace)
         , db0::v_object<o_rc_limited_pool>(ptr)
         , m_pool_map(this->myPtr((*this)->m_pool_map_address))
     {
@@ -106,7 +100,7 @@ namespace db0::pools
     
     template <typename T, typename CompT, typename AddressT>
     RC_LimitedPool<T, CompT, AddressT>::RC_LimitedPool(RC_LimitedPool const &other)
-        : LimitedPool<T, AddressT>(other)
+        : LP_Type(other)
         , db0::v_object<o_rc_limited_pool>(other->myPtr(other.getAddress()))
         , m_pool_map(this->myPtr((*this)->m_pool_map_address))
     {
@@ -135,10 +129,11 @@ namespace db0::pools
             return item.m_address;
         }
 
-        // add new element into the underlying limited pool
-        auto new_address = LimitedPool<T, AddressT>::add(std::forward<Args>(args)...);
-        // add to the map
-        m_pool_map.insert_equal(std::forward<Args>(args)..., MapItemT{new_address, 1});
+        // add to the map (use address placeholder)
+        it = m_pool_map.insert_equal(std::forward<Args>(args)..., MapItemT{0, 1});        
+        // add new element (and the iterator's address) into the underlying limited pool
+        auto new_address = LP_Type::add(it.getAddress(), std::forward<Args>(args)...);
+        it.modify().second().m_address = new_address;
         return new_address;
     }
     
@@ -147,15 +142,7 @@ namespace db0::pools
     {
         // find existing element
         auto it = m_pool_map.find(std::forward<Args>(args)...);
-        assert(it != m_pool_map.end());
-
-        auto &item = it.modify().second();
-        if (--item.m_ref_count == 0) {
-            // erase from the underlying limited pool
-            LimitedPool<T, AddressT>::erase(item.m_address);
-            // drop from the map
-            m_pool_map.erase(it);
-        }
+        unRefItem(it);
     }
     
     template <typename T, typename CompT, typename AddressT>
@@ -175,6 +162,27 @@ namespace db0::pools
     {        
         m_pool_map.detach();
         db0::v_object<o_rc_limited_pool>::detach();
+    }
+    
+    template <typename T, typename CompT, typename AddressT>
+    void RC_LimitedPool<T, CompT, AddressT>::unRefByAddr(AddressT addr)
+    {
+        auto it_addr = LP_Type::template fetch<const ItemT&>(addr).m_first;
+        auto it = m_pool_map.beginFromAddress(it_addr);
+        unRefItem(it);
+    }
+
+    template <typename T, typename CompT, typename AddressT>
+    void RC_LimitedPool<T, CompT, AddressT>::unRefItem(typename PoolMapT::iterator &it)
+    {
+        assert(it != m_pool_map.end());
+        auto &item = it.modify().second();
+        if (--item.m_ref_count == 0) {
+            // erase from the underlying limited pool
+            LP_Type::erase(item.m_address);
+            // drop from the map
+            m_pool_map.erase(it);
+        }
     }
 
 }

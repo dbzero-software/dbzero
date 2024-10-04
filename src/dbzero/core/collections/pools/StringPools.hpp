@@ -12,6 +12,7 @@ namespace db0::pools
     {
     public:
         using super_t = RC_LimitedPool<o_string, o_string::comp_t, std::uint32_t>;
+        using ItemT = typename super_t::ItemT;
         
         RC_LimitedStringPool(const Memspace &pool_memspace, Memspace &);
         RC_LimitedStringPool(const Memspace &pool_memspace, mptr);

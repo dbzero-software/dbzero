@@ -89,4 +89,26 @@ namespace tests
         ASSERT_FALSE(pool.find("cztery", find_result));
     }
     
+    TEST_F( LimitedPoolTest , testRC_LimitedPoolCanUnRefByAddress )
+    {
+        using PoolT = db0::pools::RC_LimitedPool<db0::o_string, db0::o_string::comp_t>;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+
+        PoolT pool(memspace, memspace);
+        auto addr_0 = pool.add("jeden");
+        auto addr_1 = pool.add("dwa");        
+        auto addr_2 = pool.add("trzy");
+        pool.add("dwa");
+
+        ASSERT_EQ(pool.size(), 3);
+        pool.unRefByAddr(addr_0);
+        ASSERT_EQ(pool.size(), 2);
+        pool.unRefByAddr(addr_1);
+        ASSERT_EQ(pool.size(), 2);
+        pool.unRefByAddr(addr_1);        
+        ASSERT_EQ(pool.size(), 1);
+        pool.unRefByAddr(addr_2);
+        ASSERT_EQ(pool.size(), 0);
+    }
+
 }
