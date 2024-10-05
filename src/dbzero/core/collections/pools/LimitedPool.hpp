@@ -24,7 +24,7 @@ namespace db0::pools
          * Adds a new object to the pool and returns its address
         */
         template <typename... Args> AddressT add(Args&&... args);
-
+        
         /**
          * Fetch object from the pool by its address
          * fetch is performed as the call operation if provided arguments over T instance

@@ -38,9 +38,16 @@ namespace db0::pools
         RC_LimitedPool(RC_LimitedPool const &);
 
         /**
-         * Adds a new object or increase ref-count of the existing element
+        * Adds a new object or increase ref-count of the existing element (upon request)
+         * @param inc_ref - whether to increase ref-count of the existing element, note that for
+         * newly created elements ref-count is always set to 1 (in such case inc_ref fill be flipped from false to true)
         */
-        template <typename... Args> AddressT add(Args&&... args);
+        template <typename... Args> AddressT add(bool &inc_ref, Args&&... args);
+
+        /**
+         * Adds a new object with ref_count = 1 or increase ref-count of the existing element
+         */
+        template <typename... Args> AddressT addRef(Args&&... args);
 
         /**
          * Unreference existing element by key, drop when ref-count reaches 0
@@ -118,19 +125,42 @@ namespace db0::pools
     }
     
     template <typename T, typename CompT, typename AddressT> template <typename... Args>
-    AddressT RC_LimitedPool<T, CompT, AddressT>::add(Args&&... args)
+    AddressT RC_LimitedPool<T, CompT, AddressT>::add(bool &inc_ref, Args&&... args)
     {
         // try finding existing element
         auto it = m_pool_map.find(std::forward<Args>(args)...);
         if (it != m_pool_map.end()) {
             // increase ref count
+            if (inc_ref) {
+                ++it.modify().second().m_ref_count;                
+            }
+            return it->second().m_address;
+        }
+        
+        // add to the map with ref_cout = 1 (use 0x0 address placeholder)
+        it = m_pool_map.insert_equal(std::forward<Args>(args)..., MapItemT{0, 1});        
+        // add new element (and the iterator's address) into the underlying limited pool
+        auto new_address = LP_Type::add(it.getAddress(), std::forward<Args>(args)...);
+        it.modify().second().m_address = new_address;
+        // set inc_ref to true to indicate that ref_count was set to 1
+        inc_ref = true;
+        return new_address;
+    }
+
+    template <typename T, typename CompT, typename AddressT> template <typename... Args>
+    AddressT RC_LimitedPool<T, CompT, AddressT>::addRef(Args&&... args)
+    {
+        // try finding existing element
+        auto it = m_pool_map.find(std::forward<Args>(args)...);
+        if (it != m_pool_map.end()) {
+            // increase ref count            
             auto &item = it.modify().second();
             ++item.m_ref_count;
             return item.m_address;
         }
-
-        // add to the map (use address placeholder)
-        it = m_pool_map.insert_equal(std::forward<Args>(args)..., MapItemT{0, 1});        
+        
+        // add to the map with ref_cout = 1 (use 0x0 address placeholder)
+        it = m_pool_map.insert_equal(std::forward<Args>(args)..., MapItemT{0, 1});
         // add new element (and the iterator's address) into the underlying limited pool
         auto new_address = LP_Type::add(it.getAddress(), std::forward<Args>(args)...);
         it.modify().second().m_address = new_address;
@@ -171,7 +201,7 @@ namespace db0::pools
         auto it = m_pool_map.beginFromAddress(it_addr);
         unRefItem(it);
     }
-
+    
     template <typename T, typename CompT, typename AddressT>
     void RC_LimitedPool<T, CompT, AddressT>::unRefItem(typename PoolMapT::iterator &it)
     {

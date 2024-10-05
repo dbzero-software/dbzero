@@ -41,7 +41,7 @@ namespace tests
     TEST_F( WorkspaceTest , testCanAccessLimitedStringPool )
     {
         auto fixture = m_workspace.getFixture(prefix_name);
-        auto ptr = fixture->getLimitedStringPool().add("test");
+        auto ptr = fixture->getLimitedStringPool().addRef("test");
         ASSERT_NE(ptr.m_value, 0);
     }
     

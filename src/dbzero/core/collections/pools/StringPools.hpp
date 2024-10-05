@@ -31,11 +31,21 @@ namespace db0::pools
             }
         };
         
-        PtrT add(const char *);
-        PtrT add(const std::string &);
-        // find existing or crate a new tag (if create set to true)
-        PtrT get(const char *, bool create);
-        PtrT get(const std::string &, bool create);
+        /**
+         * Adds a new object or increase ref-count of the existing element
+         * @param inc_ref - whether to increase ref-count of the existing element, note that for
+         * newly created elements ref-count is always set to 1 (in such case inc_ref fill be flipped from false to true)
+        */
+        PtrT add(bool &inc_ref, const char *);        
+        PtrT add(bool &inc_ref, const std::string &);
+        PtrT addRef(const char *);
+        PtrT addRef(const std::string &);
+        
+        void unRef(PtrT);
+        
+        // Find existing or return nullptr if does not exist
+        PtrT get(const char *) const;
+        PtrT get(const std::string &) const;
 
         std::string fetch(PtrT) const;
         

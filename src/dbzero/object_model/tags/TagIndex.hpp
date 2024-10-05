@@ -122,17 +122,29 @@ namespace db0::object_model
             ActiveValueT &result);
         
         /**
-         * Make a tag from the provided argument (can be a string, type or a memo instance)        
+         * Make a tag from the provided argument (can be a string, type or a memo instance)
+         * @return 0x0 if the tag does not exist
         */        
-        ShortTagT makeShortTag(ObjectPtr, bool create) const;
-        ShortTagT makeShortTag(ObjectSharedPtr, bool create) const;
-        ShortTagT makeShortTag(TypeId, ObjectPtr, bool create) const;
-        ShortTagT makeShortTagFromString(ObjectPtr, bool create) const;
-        ShortTagT makeShortTagFromMemo(ObjectPtr, bool create) const;
-        ShortTagT makeShortTagFromEnumValue(ObjectPtr) const;
-        ShortTagT makeShortTagFromFieldDef(ObjectPtr) const;
-        ShortTagT makeShortTagFromClass(ObjectPtr) const;
+        ShortTagT getShortTag(ObjectPtr) const;
+        ShortTagT getShortTag(ObjectSharedPtr) const;
+        ShortTagT getShortTag(TypeId, ObjectPtr) const;
+        ShortTagT getShortTagFromString(ObjectPtr) const;
+        ShortTagT getShortTagFromMemo(ObjectPtr) const;
+        ShortTagT getShortTagFromEnumValue(ObjectPtr) const;
+        ShortTagT getShortTagFromFieldDef(ObjectPtr) const;
+        ShortTagT getShortTagFromClass(ObjectPtr) const;
 
+        /**
+         * Adds a new object or increase ref-count of the existing element
+         * @param inc_ref - whether to increase ref-count of the existing element, note that for
+         * newly created elements ref-count is always set to 1 (in such case inc_ref fill be flipped from false to true)
+        */
+        ShortTagT addShortTag(ObjectPtr, bool &inc_ref) const;
+        ShortTagT addShortTag(ObjectSharedPtr, bool &inc_ref) const;
+        ShortTagT addShortTag(TypeId, ObjectPtr, bool &inc_ref) const;
+        ShortTagT addShortTagFromString(ObjectPtr, bool &inc_ref) const;
+        ShortTagT addShortTagFromMemo(ObjectPtr) const;
+        
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
@@ -143,14 +155,16 @@ namespace db0::object_model
         bool isLongTag(ObjectPtr) const;
         bool isLongTag(ObjectSharedPtr) const;
         
-        LongTagT makeLongTag(ObjectPtr, bool create) const;
-        LongTagT makeLongTag(ObjectSharedPtr, bool create) const;
+        LongTagT getLongTag(ObjectPtr) const;
+        LongTagT getLongTag(ObjectSharedPtr) const;        
 
+        LongTagT addLongTag(ObjectPtr, bool &inc_ref) const;
+        LongTagT addLongTag(ObjectSharedPtr, bool &inc_ref) const;
+        template <typename SequenceT> LongTagT makeLongTagFromSequence(const SequenceT &) const;
+        
         // Check if the sequence represents a long tag (i.e. scope + short tag)
         template <typename IteratorT> bool isLongTag(IteratorT begin, IteratorT end) const;
-
-        template <typename SequenceT> LongTagT makeLongTagFromSequence(const SequenceT &) const;
-
+        
         // Check if a specific parameter can be used as the scope identifieg (e.g. FieldDef)
         bool isScopeIdentifier(ObjectPtr) const;
         bool isScopeIdentifier(ObjectSharedPtr) const;

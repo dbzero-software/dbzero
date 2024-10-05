@@ -266,16 +266,25 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(py_iter));
     }
     
-    std::uint64_t PyToolkit::getTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool, bool create)
+    std::uint64_t PyToolkit::getTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)
     {
-        if (PyUnicode_Check(py_object)) {
-            return string_pool.toAddress(string_pool.get(PyUnicode_AsUTF8(py_object), create));
+        if (!PyUnicode_Check(py_object)) {
+            // unable to resolve as tag
+            THROWF(db0::InputException) << "Unable to resolve object as tag";
         }
-
-        // unable to resolve as tag
-        THROWF(db0::InputException) << "Unable to resolve object as tag" << THROWF_END;        
+                
+        return string_pool.toAddress(string_pool.get(PyUnicode_AsUTF8(py_object)));
     }
     
+    std::uint64_t PyToolkit::addTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool, bool &inc_ref)
+    {
+        if (!PyUnicode_Check(py_object)) {
+            // unable to resolve as tag
+            THROWF(db0::InputException) << "Unable to resolve object as tag";
+        }        
+        return string_pool.toAddress(string_pool.add(inc_ref, PyUnicode_AsUTF8(py_object)));
+    }
+
     bool PyToolkit::isIterable(ObjectPtr py_object) {
         return Py_TYPE(py_object)->tp_iter != nullptr;
     }
