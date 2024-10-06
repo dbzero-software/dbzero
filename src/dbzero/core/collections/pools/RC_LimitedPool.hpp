@@ -54,6 +54,9 @@ namespace db0::pools
         */
         template <typename... Args> void unRef(Args&&... args);
 
+        // Increment ref-count of an existing element by its address
+        void addRefByAddr(AddressT address);
+
         // Unreference existing element by its address
         void unRefByAddr(AddressT address);
 
@@ -192,6 +195,14 @@ namespace db0::pools
     {        
         m_pool_map.detach();
         db0::v_object<o_rc_limited_pool>::detach();
+    }
+    
+    template <typename T, typename CompT, typename AddressT>
+    void RC_LimitedPool<T, CompT, AddressT>::addRefByAddr(AddressT address)
+    {
+        auto it = m_pool_map.beginFromAddress(address);
+        assert(it != m_pool_map.end());
+        ++it.modify().second().m_ref_count;
     }
     
     template <typename T, typename CompT, typename AddressT>

@@ -105,6 +105,8 @@ namespace db0::object_model
         // Current batch-operation buffer (may not be initialized)
         mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_operation_short;
         mutable db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder m_batch_operation_long;
+        // the set of tags to which the ref-count has been increased when they were first created
+        mutable std::unordered_set<std::uint64_t> m_inc_refed_tags;
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
@@ -144,7 +146,7 @@ namespace db0::object_model
         ShortTagT addShortTag(TypeId, ObjectPtr, bool &inc_ref) const;
         ShortTagT addShortTagFromString(ObjectPtr, bool &inc_ref) const;
         ShortTagT addShortTagFromMemo(ObjectPtr) const;
-        
+
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
@@ -170,6 +172,10 @@ namespace db0::object_model
         bool isScopeIdentifier(ObjectSharedPtr) const;
 
         void buildActiveValues() const;
+
+        // adds reference to tags (string pool tokens)
+        // unless such reference has already been added when the tag was first created
+        void tagIncRef(std::uint64_t tag_addr) const;
     };
     
     template <typename BaseIndexT, typename BatchOperationT>

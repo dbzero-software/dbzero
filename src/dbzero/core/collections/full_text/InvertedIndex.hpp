@@ -67,20 +67,30 @@ namespace db0
         
         /**
          * Similar as getObjectIndex but performed in a bulk operation for all provided keys
-         * @param keys ***MUST BE SORTED*** ascending
+         * @param keys ***MUST BE SORTED*** ascendingS
+         * @param callback_ptr optional callback to be called for each newly created inverted list
          * NOTICE: result iterator may point at null (not initialized list and must be initialized)
          */
         template<typename InputIterator>
-        std::vector<iterator> bulkGetInvertedList(InputIterator first_key, InputIterator last_key)
+        std::vector<iterator> bulkGetInvertedLists(InputIterator first_key, InputIterator last_key,
+            std::function<void(IndexKeyT)> *callback_ptr = nullptr)
         {
             std::vector<iterator> result;
             using InputIteratorCategory = typename std::iterator_traits<InputIterator>::iterator_category;
             if constexpr(std::is_same_v<InputIteratorCategory, std::random_access_iterator_tag>) {
-                // We only preallocate vector when number of keys can be computed easly
+                // We only preallocate vector when number of keys can be computed easily
                 result.reserve(std::distance(first_key, last_key));
             }
-            // First pass will insert non existing items                            
-            this->bulkInsertUnique(first_key, last_key);
+            
+            std::function<void(key_value<IndexKeyT, ValueT>)> callback;
+            if (callback_ptr) {
+                callback = [callback_ptr](key_value<IndexKeyT, ValueT> item) {
+                    (*callback_ptr)(item.key);
+                };
+            }            
+            
+            // First pass will insert non existing items
+            this->bulkInsertUnique(first_key, last_key, callback ? &callback : nullptr);
             
             // Second pass is to pull results (can run on many threads when this makes sense)
             {                

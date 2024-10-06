@@ -25,12 +25,15 @@ namespace db0
         bool operator==(const num_pack &other) const;
 
         bool operator!=(const num_pack &other) const;
+
+        inline T operator[](unsigned int i) const {
+            return data[i];
+        }
     };
     
     template <typename T, unsigned int N> bool num_pack<T, N>::operator<(const num_pack &other) const
     {
-        for (unsigned int i = 0; i < N; i++)
-        {
+        for (unsigned int i = 0; i < N; i++) {
             if (data[i] < other.data[i])
                 return true;
             if (data[i] > other.data[i])
@@ -41,8 +44,7 @@ namespace db0
 
     template <typename T, unsigned int N> bool num_pack<T, N>::operator==(const num_pack &other) const
     {
-        for (unsigned int i = 0; i < N; i++)
-        {
+        for (unsigned int i = 0; i < N; i++) {
             if (data[i] != other.data[i])
                 return false;
         }

@@ -33,6 +33,10 @@ namespace db0::pools
 
         void erase(AddressT address);
 
+        // Check if the address is a pointential token's address
+        // i.e. is the address within the pool's range
+        bool isTokenAddr(AddressT address) const;
+
         void close();
 
     private:
@@ -76,4 +80,8 @@ namespace db0::pools
         m_memspace = {};
     }
     
+    template <typename T, typename AddressT> bool LimitedPool<T, AddressT>::isTokenAddr(AddressT address) const {
+        return m_memspace.getAllocator().inRange(address);
+    }
+
 }

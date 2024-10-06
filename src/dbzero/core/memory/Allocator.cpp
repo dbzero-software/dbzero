@@ -17,10 +17,14 @@ namespace db0
     void Allocator::flush() const {
     }
     
+    bool Allocator::inRange(std::uint64_t address) const {
+        return true;
+    }
+
     std::uint64_t makeLogicalAddress(std::uint64_t address, std::uint16_t instance_id)
     {
         assert(isPhysicalAddress(address));
         return (static_cast<std::uint64_t>(instance_id) << 50) | address;
     }
-
+    
 }

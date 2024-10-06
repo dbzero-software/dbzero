@@ -61,8 +61,12 @@ namespace db0
         */
         std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false, 
             bool unique = false);
-    };
 
+        // Check if the address is wihith the range managed by the allocator
+        // (only applicable to limited allocators - e.g. SlabAllocator)
+        virtual bool inRange(std::uint64_t address) const;
+    };
+    
     // Converts allocator's logical address into a physical one (by removing high 14 bits)
     inline std::uint64_t getPhysicalAddress(std::uint64_t address) {
         return address & 0x0003'FFFF'FFFF'FFFF;

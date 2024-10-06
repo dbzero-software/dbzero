@@ -182,7 +182,7 @@ namespace db0::object_model
                     bool inc_ref = false;
                     auto result = addShortTag(arg.get(), inc_ref);
                     if (inc_ref) {
-                        // FIXME: collect inc-refed tags
+                        m_inc_refed_tags.insert(result);                        
                     }
                     return result;
                 });
@@ -198,9 +198,10 @@ namespace db0::object_model
                 }
             } else {
                 bool inc_ref = false;
-                batch_op_short->addTag(active_key, addShortTag(type_id, args[i], inc_ref));
+                auto tag_addr = addShortTag(type_id, args[i], inc_ref);
+                batch_op_short->addTag(active_key, tag_addr);
                 if (inc_ref) {
-                    // FIXME: collect inc-refed tags
+                    m_inc_refed_tags.insert(tag_addr);
                 }
             }
         }
@@ -253,14 +254,18 @@ namespace db0::object_model
         }
         if (m_batch_operation_long) {
             m_batch_operation_long.reset();
+        }
+        // undo inc-ref
+        for (auto tag_addr: m_inc_refed_tags) {
+            m_string_pool.unRefByAddr(tag_addr);
         }        
     }
-    
+
     void TagIndex::clear()
     {
         rollback();
         m_base_index_short.clear();
-        m_base_index_long.clear();
+        m_base_index_long.clear();    
     }
 
     void TagIndex::close()
@@ -273,38 +278,60 @@ namespace db0::object_model
         }
         m_object_cache.clear();
         m_active_cache.clear();
+        m_inc_refed_tags.clear();
     }
     
+    void TagIndex::tagIncRef(std::uint64_t tag_addr) const
+    {
+        if (m_string_pool.isTokenAddr(tag_addr) && 
+            m_inc_refed_tags.find(tag_addr) == m_inc_refed_tags.end()) 
+        {
+            m_string_pool.addRefByAddr(tag_addr);
+        }            
+    }
+
     void TagIndex::flush() const
     {
         auto &type_manager = LangToolkit::getTypeManager();
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
         // the purpose of callback is to incRef to objects when a new tag is assigned
-        std::function<void(std::uint64_t)> add_tag_callback = [&](std::uint64_t address) {
-            auto it = m_object_cache.find(address);
+        std::function<void(std::uint64_t)> add_tag_callback = [&](std::uint64_t obj_addr) {
+            auto it = m_object_cache.find(obj_addr);
             assert(it != m_object_cache.end());
             type_manager.extractMutableObject(it->second.get()).incRef();
         };
 
-        std::function<void(std::uint64_t)> remove_tag_callback = [&](std::uint64_t address) {
-            auto it = m_object_cache.find(address);
+        // add_index_callback adds reference to tags (string pool tokens)
+        // unless such reference has already been added when the tag was first created
+        std::function<void(ShortTagT)> add_index_callback = [&](ShortTagT tag_addr) {
+            tagIncRef(tag_addr);
+        };
+
+        std::function<void(std::uint64_t)> remove_tag_callback = [&](std::uint64_t obj_addr) {
+            auto it = m_object_cache.find(obj_addr);
             assert(it != m_object_cache.end());
             type_manager.extractMutableObject(it->second.get()).decRef();
         };
 
         // flush all short tags' updates
         if (!m_batch_operation_short.empty()) {
-            m_batch_operation_short->flush(&add_tag_callback, &remove_tag_callback);
+            m_batch_operation_short->flush(&add_tag_callback, &remove_tag_callback, &add_index_callback);
         }
-
+        
+        std::function<void(LongTagT)> add_long_index_callback = [&](LongTagT long_tag_addr) {
+            tagIncRef(long_tag_addr[0]);
+            tagIncRef(long_tag_addr[1]);
+        };
+        
         // flush all long tags' updates
         if (!m_batch_operation_long.empty()) {
-            m_batch_operation_long->flush(&add_tag_callback, &remove_tag_callback);
+            m_batch_operation_long->flush(&add_tag_callback, &remove_tag_callback, &add_long_index_callback);
         }
 
         m_object_cache.clear();           
         m_active_cache.clear();
+        m_inc_refed_tags.clear();
     }
 
     void TagIndex::buildActiveValues() const
@@ -388,7 +415,7 @@ namespace db0::object_model
                     bool inc_ref = false;
                     auto result = addShortTag(arg.get(), inc_ref);
                     if (inc_ref) {
-                        // FIXME: collect inc-refed tags
+                        m_inc_refed_tags.insert(result);                        
                     }
                     return result;
                 });
