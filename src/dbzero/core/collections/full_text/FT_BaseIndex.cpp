@@ -147,7 +147,10 @@ namespace db0
         using ValueIterator = db0::ConverterIteratorAdapter<typename TagValueList::iterator, GetPairSecond>;
         auto add =
         [insert_callback_ptr, index_insert_callback_ptr](std::uint32_t &all_count, std::uint32_t &new_count) {
-            return [insert_callback_ptr, index_insert_callback_ptr, &all_count, &new_count](TagValueList &buf, FT_BaseIndex &index) {
+            return 
+                [insert_callback_ptr, index_insert_callback_ptr, &all_count, &new_count]
+                (TagValueList &buf, FT_BaseIndex &index) 
+            {
                 auto buf_begin = buf.begin(), buf_end = buf.end();
                 if (buf_begin == buf_end) {
                     return;
@@ -211,8 +214,11 @@ namespace db0
         };
 
         auto remove = 
-        [erase_callback_ptr](std::uint32_t& all_count, std::uint32_t& removed_count) {
-            return [erase_callback_ptr, &all_count, &removed_count](TagValueList &buf, FT_BaseIndex &index) {
+        [erase_callback_ptr, index_erase_callback_ptr](std::uint32_t& all_count, std::uint32_t& removed_count) {
+            return 
+                [erase_callback_ptr, index_erase_callback_ptr, &all_count, &removed_count]
+                (TagValueList &buf, FT_BaseIndex &index) 
+            {
                 auto buf_begin = buf.begin(), buf_end = buf.end();
                 if (buf_begin == buf_end) {
                     return;
@@ -246,6 +252,10 @@ namespace db0
                             if (tag_index_ptr->getIndexType() == db0::bindex::empty) {
                                 // remove empty inverted list completely
                                 index.erase(it);
+                                // notify callback on index erased
+                                if (index_erase_callback_ptr) {
+                                    (*index_erase_callback_ptr)(first_item.first);
+                                }
                             } else {
                                 it.modifyItem().value = new_map_value;
                             }

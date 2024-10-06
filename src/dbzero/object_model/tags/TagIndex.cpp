@@ -281,13 +281,20 @@ namespace db0::object_model
         m_inc_refed_tags.clear();
     }
     
-    void TagIndex::tagIncRef(std::uint64_t tag_addr) const
+    void TagIndex::tryTagIncRef(ShortTagT tag_addr) const
     {
         if (m_string_pool.isTokenAddr(tag_addr) && 
             m_inc_refed_tags.find(tag_addr) == m_inc_refed_tags.end()) 
         {
             m_string_pool.addRefByAddr(tag_addr);
         }            
+    }
+
+    void TagIndex::tryTagDecRef(ShortTagT tag_addr) const
+    {
+        if (m_string_pool.isTokenAddr(tag_addr)) {
+            m_string_pool.unRefByAddr(tag_addr);
+        }
     }
 
     void TagIndex::flush() const
@@ -305,28 +312,39 @@ namespace db0::object_model
         // add_index_callback adds reference to tags (string pool tokens)
         // unless such reference has already been added when the tag was first created
         std::function<void(ShortTagT)> add_index_callback = [&](ShortTagT tag_addr) {
-            tagIncRef(tag_addr);
+            tryTagIncRef(tag_addr);
         };
-
+        
         std::function<void(std::uint64_t)> remove_tag_callback = [&](std::uint64_t obj_addr) {
             auto it = m_object_cache.find(obj_addr);
             assert(it != m_object_cache.end());
             type_manager.extractMutableObject(it->second.get()).decRef();
         };
 
+        std::function<void(ShortTagT)> erase_index_callback = [&](ShortTagT tag_addr) {
+            tryTagDecRef(tag_addr);
+        };
+
         // flush all short tags' updates
         if (!m_batch_operation_short.empty()) {
-            m_batch_operation_short->flush(&add_tag_callback, &remove_tag_callback, &add_index_callback);
+            m_batch_operation_short->flush(&add_tag_callback, &remove_tag_callback, 
+                &add_index_callback, &erase_index_callback);
         }
         
         std::function<void(LongTagT)> add_long_index_callback = [&](LongTagT long_tag_addr) {
-            tagIncRef(long_tag_addr[0]);
-            tagIncRef(long_tag_addr[1]);
+            tryTagIncRef(long_tag_addr[0]);
+            tryTagIncRef(long_tag_addr[1]);
         };
-        
+
+        std::function<void(LongTagT)> erase_long_index_callback = [&](LongTagT long_tag_addr) {
+            tryTagDecRef(long_tag_addr[0]);
+            tryTagDecRef(long_tag_addr[1]);
+        };
+
         // flush all long tags' updates
         if (!m_batch_operation_long.empty()) {
-            m_batch_operation_long->flush(&add_tag_callback, &remove_tag_callback, &add_long_index_callback);
+            m_batch_operation_long->flush(&add_tag_callback, &remove_tag_callback, 
+                &add_long_index_callback, &erase_long_index_callback);
         }
 
         m_object_cache.clear();           

@@ -135,7 +135,7 @@ namespace db0::pools
         if (it != m_pool_map.end()) {
             // increase ref count
             if (inc_ref) {
-                ++it.modify().second().m_ref_count;                
+                ++it.modify().second().m_ref_count;
             }
             return it->second().m_address;
         }
@@ -204,7 +204,7 @@ namespace db0::pools
         assert(it != m_pool_map.end());
         ++it.modify().second().m_ref_count;
     }
-    
+
     template <typename T, typename CompT, typename AddressT>
     void RC_LimitedPool<T, CompT, AddressT>::unRefByAddr(AddressT addr)
     {

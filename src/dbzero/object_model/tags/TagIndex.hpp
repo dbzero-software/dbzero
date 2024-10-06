@@ -175,7 +175,8 @@ namespace db0::object_model
 
         // adds reference to tags (string pool tokens)
         // unless such reference has already been added when the tag was first created
-        void tagIncRef(std::uint64_t tag_addr) const;
+        void tryTagIncRef(ShortTagT tag_addr) const;
+        void tryTagDecRef(ShortTagT tag_addr) const;
     };
     
     template <typename BaseIndexT, typename BatchOperationT>

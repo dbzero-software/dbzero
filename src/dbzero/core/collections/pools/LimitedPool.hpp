@@ -35,7 +35,8 @@ namespace db0::pools
 
         // Check if the address is a pointential token's address
         // i.e. is the address within the pool's range
-        bool isTokenAddr(AddressT address) const;
+        // NOTE: the param address may be of different type than AddressT (higher range)
+        bool isTokenAddr(std::uint64_t address) const;
 
         void close();
 
@@ -80,7 +81,7 @@ namespace db0::pools
         m_memspace = {};
     }
     
-    template <typename T, typename AddressT> bool LimitedPool<T, AddressT>::isTokenAddr(AddressT address) const {
+    template <typename T, typename AddressT> bool LimitedPool<T, AddressT>::isTokenAddr(std::uint64_t address) const {
         return m_memspace.getAllocator().inRange(address);
     }
 

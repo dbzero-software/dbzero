@@ -120,5 +120,9 @@ namespace db0
         }
         return *m_slots[slot_num];
     }
+    
+    bool SlotAllocator::inRange(std::uint64_t address) const {
+        return m_allocator_ptr->inRange(address);
+    }
 
 }
