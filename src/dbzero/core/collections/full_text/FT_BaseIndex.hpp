@@ -199,9 +199,17 @@ namespace db0
 
             /**
              * Flush all updates into actual object inverted indexes
+             * @param insert_callback_ptr optional callback to be called for each added object
+             * @param erase_callback_ptr optional callback to be called for each removed object
+             * @param index_insert_callback_ptr optional callback to be called for each new inverted list
+             * @param index_erase_callback_ptr optional callback to be called for each removed inverted list
              */
             using CallbackT = std::function<void(std::uint64_t)>;
-            FlushStats flush(CallbackT *insert_callback_ptr = nullptr, CallbackT *erase_callback_ptr = nullptr);
+            using IndexCallbackT = std::function<void(IndexKeyT)>;
+            FlushStats flush(CallbackT *insert_callback_ptr = nullptr, 
+                CallbackT *erase_callback_ptr = nullptr,
+                IndexCallbackT *index_insert_callback_ptr = nullptr, 
+                IndexCallbackT *index_erase_callback_ptr = nullptr);
 
             /**
              * Cancel all modifications
@@ -230,12 +238,6 @@ namespace db0
                 assert(m_batch_operation);
                 return m_batch_operation.get();
             }
-
-            /**
-             * Flush all updates into actual object inverted indexes
-             */
-            using CallbackT = std::function<void(std::uint64_t)>;
-            FlushStats flush(CallbackT *insert_callback_ptr = nullptr, CallbackT *erase_callback_ptr = nullptr);
 
             /**
              * Clear operation builder / render invalid

@@ -49,8 +49,8 @@ namespace tests
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         
         PoolT pool(memspace, memspace);
-        auto addr_0 = pool.add("anna");
-        auto addr_1 = pool.add("maria");
+        auto addr_0 = pool.addRef("anna");
+        auto addr_1 = pool.addRef("maria");
 
         // retrieve as std::string
         ASSERT_EQ(pool.fetch(addr_0), "anna");        
@@ -64,7 +64,7 @@ namespace tests
         
         PoolT pool(memspace, memspace);
         db0::LP_String str_0;
-        db0::LP_String str_1 = pool.add("anna");
+        db0::LP_String str_1 = pool.addRef("anna");
         ASSERT_FALSE(str_0);
         ASSERT_TRUE(str_1);
     }
@@ -75,9 +75,9 @@ namespace tests
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
 
         PoolT pool(memspace, memspace);
-        auto addr_0 = pool.add("jeden");
-        auto addr_1 = pool.add("dwa");
-        auto addr_2 = pool.add("trzy");
+        auto addr_0 = pool.addRef("jeden");
+        auto addr_1 = pool.addRef("dwa");
+        auto addr_2 = pool.addRef("trzy");
         decltype(addr_0) find_result;
         ASSERT_TRUE(pool.find("jeden", find_result));
         ASSERT_EQ(find_result, addr_0);
@@ -89,4 +89,26 @@ namespace tests
         ASSERT_FALSE(pool.find("cztery", find_result));
     }
     
+    TEST_F( LimitedPoolTest , testRC_LimitedPoolCanUnRefByAddress )
+    {
+        using PoolT = db0::pools::RC_LimitedPool<db0::o_string, db0::o_string::comp_t>;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+
+        PoolT pool(memspace, memspace);
+        auto addr_0 = pool.addRef("jeden");
+        auto addr_1 = pool.addRef("dwa");        
+        auto addr_2 = pool.addRef("trzy");
+        pool.addRef("dwa");
+
+        ASSERT_EQ(pool.size(), 3);
+        pool.unRefByAddr(addr_0);
+        ASSERT_EQ(pool.size(), 2);
+        pool.unRefByAddr(addr_1);
+        ASSERT_EQ(pool.size(), 2);
+        pool.unRefByAddr(addr_1);        
+        ASSERT_EQ(pool.size(), 1);
+        pool.unRefByAddr(addr_2);
+        ASSERT_EQ(pool.size(), 0);
+    }
+
 }

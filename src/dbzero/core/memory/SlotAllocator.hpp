@@ -33,6 +33,8 @@ namespace db0
 
         void detach() const override;
         
+        bool inRange(std::uint64_t address) const override;
+
         std::shared_ptr<Allocator> getAllocator() const { return m_allocator; }
 
         SlabAllocator &getSlot(std::uint32_t slot_num) const;

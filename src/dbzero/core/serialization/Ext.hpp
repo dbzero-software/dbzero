@@ -57,10 +57,9 @@ namespace db0
     // - you can change base type version within the same version of derived type
     // - it will be better
 
-
     // T - this type
     // base_T - some overlaid type to extend from
-
+    
     template <
         typename T,
         typename super_t,
@@ -154,13 +153,15 @@ namespace db0
         }
 
         template<typename... Args>
-        static Meter measureMembersFromBase(Args&& ...args){
+        static Meter measureMembersFromBase(Args&& ...args)
+        {
             return Foundation::measureMembersOf<T>
                 (true_size_of<T>() + ext_version_base<VER, STORE_VER>::storedVerSize() - true_size_of<super_t>())
                 (super_t::type(), std::forward<Args>(args)...);
         }
 
-        template <typename buf_t> static Foundation::SafeSize<buf_t> sizeOfMembers(buf_t at) {
+        template <typename buf_t> static Foundation::SafeSize<buf_t> sizeOfMembers(buf_t at)
+        {
             std::size_t s = safeBaseSize(at);
             return Foundation::sizeOfMembers<T>(
                 s, at, ext_version_base<VER, STORE_VER>::objVer(((const std::byte*)at) + s - ext_version_base<VER, STORE_VER>::storedVerSize())
@@ -176,12 +177,14 @@ namespace db0
             }
             return type.__ref(reinterpret_cast<std::byte*>(this) + baseSize());
         }
+
         template<typename member_t> typename member_t::type &getDynFirst(member_t type, typename member_t::type &value, std::uint16_t minVersion=0){
             if(getObjVer() < minVersion){
                 return value;
             }
             return type.__ref(reinterpret_cast<std::byte*>(this) + baseSize());
         }
+
         template<typename member_t> const typename member_t::type &getDynFirst(member_t type, std::uint16_t minVersion=0) const {
             if(getObjVer() < minVersion){
                 THROWF(InputException)<<"Version too low to support operation. Current is: "<<getObjVer()<<", for minimum support you need "<<minVersion;
@@ -231,7 +234,8 @@ namespace db0
 
         // measures space requirement of the base overlaid type
         // plus size of all fixed size members of derived type
-        template <typename... Args> static size_t measureBase(Args&& ...args) {
+        template <typename... Args> static size_t measureBase(Args&& ...args) 
+        {
             std::size_t result = super_t::measure(std::forward<Args>(args)...);
             // adjust for fixed size members in derived class
             result += true_size_of<T>() - true_size_of<super_t>();
@@ -245,20 +249,22 @@ namespace db0
         /**
          * safe object reference ( buffer bounds validated by buf_t )
          */
-        template <typename buf_t> static T &__safe_ref(buf_t buf) {
+        template <typename buf_t> static T &__safe_ref(buf_t buf) 
+        {
             T::safeSizeOf(buf); // scan members & validate bounds
             return __ref(buf);
         }
 
-        template <typename buf_t> static const T &__safe_const_ref(buf_t buf) {
+        template <typename buf_t> static const T &__safe_const_ref(buf_t buf) 
+        {
             T::safeSizeOf(buf); // scan members & validate bounds
             return __const_ref(buf);
         }
 
         // bcs of constant measure, we can safely call placement new...
-        template<typename... Args>
-        static T &__new(void *buf, Args&& ...args) {
-            //for now T expected size is its full size,
+        template<typename... Args> static T &__new(void *buf, Args&& ...args) 
+        {
+            // for now T expected size is its full size,
             // eventually T() will call o_ext(some_args from args)
             // only then this expected size will by lowered by super_t expected size
             // why then? bcs now we do not know what args go to the ctor of super_t
@@ -278,18 +284,17 @@ namespace db0
 
     // T - this type ( fixed size )
     // super_t - some fixed-size overlaid type to extend from
-
-    template <typename T, typename super_t> class [[gnu::packed]] o_fixed_ext : public super_t {
-        struct NullInitializer {
-        };
+    template <typename T, typename super_t> class [[gnu::packed]] o_fixed_ext : public super_t 
+    {
+        struct NullInitializer {};
 
     public:
         typedef NullInitializer Initializer;
 
-        template<typename... Args>
-        o_fixed_ext(Args&& ...args)
+        template<typename... Args> o_fixed_ext(Args&& ...args)
             : super_t(std::forward<Args>(args)...)
-        {}
+        {            
+        }
 
         template<typename... Args>
         static T &__new(void *buf, Args&& ...args) {
@@ -315,14 +320,16 @@ namespace db0
         /**
          * Safe object reference (buffer bounds validated by buf_t)
          */
-        template <typename buf_t> static T &__safe_ref(buf_t buf) {
+        template <typename buf_t> static T &__safe_ref(buf_t buf) 
+        {
             // validate bounds
             buf_t _buf = buf;
             _buf += true_size_of<T>();
             return __ref(buf);
         }
 
-        template <typename buf_t> static const T &__safe_const_ref(buf_t buf) {
+        template <typename buf_t> static const T &__safe_const_ref(buf_t buf) 
+        {
             // validate bounds
             buf_t _buf = buf;
             _buf += true_size_of<T>();
@@ -343,32 +350,26 @@ namespace db0
             return true_size_of<T>();
         }
 
-        // swap content of the containers
-        /* FIXME 
-        void swap(T &other) {
-            std::size_t size_of = sizeOf();
-            db0::MEM_BLOCK temp_buf(size_of);
-            std::memcpy(temp_buf,this,size_of);
-            std::memcpy(this,&other,size_of);
-            std::memcpy(&other,temp_buf,size_of);
-        }
-        */
-
-        static constexpr bool getIsVerStored(){
+        static constexpr bool getIsVerStored() {
             return false;
         }
+
         static constexpr std::uint16_t getObjVer() {
             return 0;
         }
+
         static constexpr std::uint16_t getImplVer() {
             return 0;
         }
-        static constexpr bool isExtType(){
+
+        static constexpr bool isExtType() {
             return true;
         }
+
         static Foundation::Type<T> type () {
             return Foundation::Type<T>();
         }
+
         void assertImplVersion() const {
         }
     };

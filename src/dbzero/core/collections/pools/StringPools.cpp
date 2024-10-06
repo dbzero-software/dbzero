@@ -14,17 +14,29 @@ namespace db0::pools
     {
     }
 
-    RC_LimitedStringPool::PtrT RC_LimitedStringPool::add(const char *value) {
-        return super_t::add(value);
+    RC_LimitedStringPool::PtrT RC_LimitedStringPool::add(bool &inc_ref, const char *value) {
+        return super_t::add(inc_ref, value);
     }
 
-    RC_LimitedStringPool::PtrT RC_LimitedStringPool::get(const char *str_value, bool create) 
+    RC_LimitedStringPool::PtrT RC_LimitedStringPool::add(bool &inc_ref, const std::string &value) {
+        return super_t::add(inc_ref, value);
+    }
+
+    RC_LimitedStringPool::PtrT RC_LimitedStringPool::addRef(const char *value) {        
+        return super_t::addRef(value);
+    }
+
+    RC_LimitedStringPool::PtrT RC_LimitedStringPool::addRef(const std::string &value) {
+        return super_t::addRef(value);
+    }
+    
+    void RC_LimitedStringPool::unRef(PtrT ptr) {
+        super_t::unRefByAddr(ptr.m_value);
+    }
+
+    RC_LimitedStringPool::PtrT RC_LimitedStringPool::get(const char *str_value) const
     {
-        using AddressT = typename super_t::AddressT;
-        if (create) {
-            return super_t::add(str_value);
-        }
-        AddressT value;
+        typename super_t::AddressT value;        
         if (super_t::find(str_value, value)) {
             return value;
         }
@@ -32,21 +44,16 @@ namespace db0::pools
         // not found
         return {};
     }
-
-    RC_LimitedStringPool::PtrT RC_LimitedStringPool::add(const std::string &value) {
-        return super_t::add(value);
-    }
-
-    RC_LimitedStringPool::PtrT RC_LimitedStringPool::get(const std::string &value, bool create) {
-        return get(value.c_str(), create);
+    
+    RC_LimitedStringPool::PtrT RC_LimitedStringPool::get(const std::string &value) const {
+        return get(value.c_str());
     }
 
     std::string RC_LimitedStringPool::fetch(PtrT ptr) const {
-        return super_t::fetch<std::string>(ptr.m_value);
+        return super_t::fetch<const ItemT&>(ptr.m_value).second();
     }
     
-    std::uint64_t RC_LimitedStringPool::toAddress(PtrT ptr) const
-    {
+    std::uint64_t RC_LimitedStringPool::toAddress(PtrT ptr) const {
         // FIXME: convert to address when this functionality is available
         return ptr.m_value;
     }

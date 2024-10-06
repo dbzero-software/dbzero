@@ -117,7 +117,15 @@ namespace db0::python
         
         // Try converting specific PyObject instance into a tag, possibly adding a new tag into the pool        
         using StringPoolT = db0::pools::RC_LimitedStringPool;
-        static std::uint64_t getTag(ObjectPtr py_object, StringPoolT &, bool create);
+        
+        /**
+         * Adds a new object or increase ref-count of the existing element
+         * @param inc_ref - whether to increase ref-count of the existing element, note that for
+         * newly created elements ref-count is always set to 1 (in such case inc_ref fill be flipped from false to true)
+        */
+        static std::uint64_t addTag(ObjectPtr py_object, StringPoolT &, bool &inc_ref);
+        // Get existing tag or return 0x0 if not found
+        static std::uint64_t getTag(ObjectPtr py_object, StringPoolT &);
         
         static bool isString(ObjectPtr py_object);
         static bool isIterable(ObjectPtr py_object);

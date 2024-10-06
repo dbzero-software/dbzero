@@ -39,4 +39,9 @@ namespace db0
     {        
     }
 
+    MemoryException::MemoryException()
+        : CriticalException(exception_id)
+    {        
+    }
+    
 }

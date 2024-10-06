@@ -293,63 +293,27 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *refresh(PyObject *self, PyObject *args) {
+    PyObject *refresh(PyObject *self, PyObject *args)
+    {
         std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryRefresh, self, args);
     }
 
-    PyObject *getStateNum(PyObject *self, PyObject *args, PyObject *kwargs)
-    { 
-        std::lock_guard api_lock(py_api_mutex);
-        const char *prefix_name = nullptr;
-        // optional prefix parameter
-        static const char *kwlist[] = {"prefix", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|s", const_cast<char**>(kwlist), &prefix_name)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
-        }
-        
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        db0::swine_ptr<Fixture> fixture;
-        if (prefix_name) {
-            fixture = workspace.findFixture(prefix_name);
-        } else {
-            fixture = workspace.getCurrentFixture();            
-        }
-        
+    PyObject *tryGetStateNum(PyObject *args, PyObject *kwargs)
+    {
+        auto fixture = getPrefixFromArgs(args, kwargs, "prefix");
         fixture->refreshIfUpdated();
         return PyLong_FromLong(fixture->getPrefix().getStateNum());
     }
-    
-    PyObject *tryGetDBMetrics(PyObject *self, PyObject *args)
-    {
-        // construct python List
-        PyObject *py_list = PyList_New(0);
-        if (!py_list) {
-            PyErr_SetString(PyExc_MemoryError, "Failed to create a list.");
-            return NULL;
-        }
-        
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        workspace.forAll([&py_list](auto &fixture) {
-            auto dict_item = PyDict_New();
-            if (dict_item == NULL) {
-                PyErr_SetString(PyExc_MemoryError, "Failed to create a dictionary.");
-                return;
-            }
 
-            PyDict_SetItemString(dict_item, "name", PyUnicode_FromString(fixture.getPrefix().getName().c_str()));
-            PyDict_SetItemString(dict_item, "uuid", PyLong_FromLong(fixture.getUUID()));            
-            PyDict_SetItemString(dict_item, "vptr_reg_size", PyLong_FromLong(fixture.getGC0().size()));            
-            PyList_Append(py_list, dict_item);
-        });
-        
-        return py_list;
+    PyObject *getStateNum(PyObject *, PyObject *args, PyObject *kwargs) {
+        return runSafe(tryGetStateNum, args, kwargs);
     }
     
-    PyObject *getDBMetrics(PyObject *self, PyObject *args) {
+    PyObject *getPrefixStats(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
         std::lock_guard api_lock(py_api_mutex);
-        return runSafe(tryGetDBMetrics, self, args);
+        return runSafe(tryGetPrefixStats, args, kwargs);
     }
 
     PyObject *beginAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs)
@@ -362,7 +326,7 @@ namespace db0::python
 
         return runSafe(tryBeginAtomic, self);
     }
-
+    
     PyObject *getSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         std::lock_guard api_lock(py_api_mutex);
@@ -798,7 +762,7 @@ namespace db0::python
 
         return runSafe(tryGetMemoClasses, prefix_name, prefix_uuid);
     }
-        
+
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {

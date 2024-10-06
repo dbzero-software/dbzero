@@ -21,14 +21,14 @@ namespace db0::object_model
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
         const VFieldVector &members, const char *type_id, const char *prefix_name, ClassFlags flags)
         : m_uuid(db0::make_UUID())
-        , m_name(string_pool.add(name))        
-        , m_type_id(type_id ? string_pool.add(type_id) : LP_String())
-        , m_prefix_name(prefix_name ? string_pool.add(prefix_name) : LP_String())
+        , m_name(string_pool.addRef(name))
+        , m_type_id(type_id ? string_pool.addRef(type_id) : LP_String())
+        , m_prefix_name(prefix_name ? string_pool.addRef(prefix_name) : LP_String())
         , m_members_ptr(members)
         , m_flags(flags)
     {
         if (module_name) {
-            m_module_name = string_pool.add(*module_name);
+            m_module_name = string_pool.addRef(*module_name);
         }
     }
     
@@ -311,8 +311,9 @@ namespace db0::object_model
 
         // 1. update in fields vector
         auto &string_pool = getFixture()->getLimitedStringPool();
-        // FIXME: unreference old name in the string pool
-        m_members.modifyItem(field_id).m_name = string_pool.add(to_name);
+        // unreference old name in the string pool
+        string_pool.unRef(m_members[field_id].m_name);
+        m_members.modifyItem(field_id).m_name = string_pool.addRef(to_name);
         // 2. update in member's cache
         refreshMemberCache();
         m_member_cache[field_id].m_name = to_name;

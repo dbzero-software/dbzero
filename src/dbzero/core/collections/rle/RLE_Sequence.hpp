@@ -23,16 +23,14 @@ namespace db0
         }
 
         // the run_length member
-        const packed_int32 &run_length() const
-        {
+        const packed_int32 &run_length() const {
             return this->getDynFirst(packed_int32::type());
         }
 
     public:
         ItemT m_value;
                 
-        std::uint32_t getRunLength() const
-        {
+        std::uint32_t getRunLength() const {
             return run_length();
         }
 
@@ -62,18 +60,17 @@ namespace db0
             return reinterpret_cast<o_rle_sequence<ItemT> &>(super_t::__new(buf, std::forward<Args>(args)...));
         }
 
-        template <typename SequenceT, typename... Args> static std::size_t measure(const SequenceT &data, Args&& ...args)
+        template <typename SequenceT, typename... Args> 
+        static std::size_t measure(const SequenceT &data, Args&& ...args)
         {
             return super_t::measure(data, std::forward<Args>(args)...);            
         }
 
-        std::uint32_t size() const
-        {
+        std::uint32_t size() const {
             return super_t::size();
         }
 
-        std::size_t sizeOf () const
-        {
+        std::size_t sizeOf () const {
             return super_t::sizeOf();
         }
 
@@ -82,8 +79,8 @@ namespace db0
         public:
             // as invalid
             ConstIterator() = default;
-            bool operator!=(const ConstIterator &other) const
-            {
+            
+            bool operator!=(const ConstIterator &other) const {
                 return m_item != other.m_item || m_run_length != other.m_run_length;
             }
 
@@ -103,8 +100,7 @@ namespace db0
                 return *this;
             }
 
-            ItemT operator*() const
-            {
+            ItemT operator*() const {
                 return m_value;
             }
 
@@ -127,23 +123,19 @@ namespace db0
             unsigned int m_run_length = 0;
         };
 
-        ConstIterator begin() const
-        {
+        ConstIterator begin() const {
             return { super_t::begin(), super_t::end() };
         }
 
-        ConstIterator end() const
-        {
+        ConstIterator end() const {
             return { super_t::end(), super_t::end() };            
         }
 
-        static auto type()
-        {
+        static auto type() {
             return super_t::type();
         }
 
-        template <typename T> static std::size_t safeSizeOf(T buf)
-        {
+        template <typename T> static std::size_t safeSizeOf(T buf) {
             return super_t::safeSizeOf(buf);
         }
     };
@@ -204,8 +196,7 @@ namespace db0
         return m_data;
     }
 
-    template <typename ItemT> std::size_t RLE_SequenceBuilder<ItemT>::measure() const
-    {
+    template <typename ItemT> std::size_t RLE_SequenceBuilder<ItemT>::measure() const {
         return o_rle_sequence<ItemT>::measure(getData());
     }
 
@@ -218,8 +209,7 @@ namespace db0
         return o_rle_sequence<ItemT>::__new(buffer.data(), m_data);
     }
     
-    template <typename ItemT> bool RLE_SequenceBuilder<ItemT>::empty() const
-    {
+    template <typename ItemT> bool RLE_SequenceBuilder<ItemT>::empty() const {
         return m_data.empty() && m_run_length == 0;
     }
     
@@ -228,5 +218,5 @@ namespace db0
         m_run_length = 0;
         m_data.clear();
     }
-
+    
 }

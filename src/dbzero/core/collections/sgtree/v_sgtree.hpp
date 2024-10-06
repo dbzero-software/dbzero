@@ -20,23 +20,19 @@ namespace db0
         PtrT left;
         PtrT right;
 
-        tree_ptr_set() 
-        {
+        tree_ptr_set() {
             memset(this, 0, sizeof(*this));
         }
 
-        inline PtrT getLeft() const 
-        {
+        inline PtrT getLeft() const {
             return left;
         }
 
-        inline PtrT getRight() const 
-        {
+        inline PtrT getRight() const {
             return right;
         }
 
-        inline PtrT getParent() const 
-        {
+        inline PtrT getParent() const {
             return parent;
         }
     };
@@ -223,34 +219,34 @@ namespace db0
         // stl compatibility
         using const_iterator = iterator;
 
-        iterator begin()
-        {
+        iterator begin() {
             // cast to node_prt_t
             return _Tree::begin_node(node_ptr_t(this->get_v_ptr()));
         }
 
-        iterator end()
-        {
+        iterator end() {
             // cast to node_prt_t
             return _Tree::end_node(node_ptr_t(this->get_v_ptr()));
         }
 
-        iterator begin() const
-        {
+        iterator begin() const {
             // cast to node_prt_t
             return _Tree::begin_node(node_ptr_t(this->get_v_ptr()));
         }
 
-        iterator end() const
-        {
+        iterator end() const {
             // cast to node_prt_t
             return _Tree::end_node(node_ptr_t(this->get_v_ptr()));
         }
 
-        bool empty() const
-        {
+        bool empty() const {
             // cast to node_prt_t
             return (_Tree::begin_node(node_ptr_t(this->get_v_ptr())) == _Tree::end_node(node_ptr_t(this->get_v_ptr())));
+        }
+        
+        // This method allows constructing an iterator from a previously saved address
+        iterator beginFromAddress(std::uint64_t address) const {
+            return node_ptr_t(this->getMemspace(), address);
         }
 
         std::uint32_t size() const {

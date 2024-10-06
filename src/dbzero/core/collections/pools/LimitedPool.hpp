@@ -24,7 +24,7 @@ namespace db0::pools
          * Adds a new object to the pool and returns its address
         */
         template <typename... Args> AddressT add(Args&&... args);
-
+        
         /**
          * Fetch object from the pool by its address
          * fetch is performed as the call operation if provided arguments over T instance
@@ -32,6 +32,11 @@ namespace db0::pools
         template <typename ResultT> ResultT fetch(AddressT address) const;
 
         void erase(AddressT address);
+
+        // Check if the address is a pointential token's address
+        // i.e. is the address within the pool's range
+        // NOTE: the param address may be of different type than AddressT (higher range)
+        bool isTokenAddr(std::uint64_t address) const;
 
         void close();
 
@@ -76,4 +81,8 @@ namespace db0::pools
         m_memspace = {};
     }
     
+    template <typename T, typename AddressT> bool LimitedPool<T, AddressT>::isTokenAddr(std::uint64_t address) const {
+        return m_memspace.getAllocator().inRange(address);
+    }
+
 }

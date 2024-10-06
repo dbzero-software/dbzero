@@ -18,14 +18,14 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_string_pool(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
-    {
+    {        
         for (auto &value: values) {
-            m_values.insert(m_string_pool.add(value));
+            m_values.insert(m_string_pool.addRef(value));
         }
-        modify().m_name = m_string_pool.add(name);
-        modify().m_module_name = m_string_pool.add(module_name);
+        modify().m_name = m_string_pool.addRef(name);
+        modify().m_module_name = m_string_pool.addRef(module_name);
         if (type_id) {
-            modify().m_type_id = m_string_pool.add(type_id);
+            modify().m_type_id = m_string_pool.addRef(type_id);
         }
         modify().m_values = m_values;
     }
@@ -165,7 +165,7 @@ namespace db0::object_model
     std::string Enum::getName() const {
         return m_string_pool.fetch((*this)->m_name);
     }
-
+    
     std::string Enum::getModuleName() const {
         return m_string_pool.fetch((*this)->m_module_name);
     }

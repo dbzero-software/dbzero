@@ -20,7 +20,7 @@ class RefreshTestClass:
         self.value2 = value2        
 
 
-def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
+def test_objects_are_removed_from_gc0_registry_when_deleted(db0_fixture):
     # first crete objects
     object_1 = RefreshTestClass(0, "text")
     id_1 = db0.uuid(object_1)
@@ -35,17 +35,17 @@ def test_objects_are_removed_from_vptr_reg_when_deleted(db0_fixture):
     db0.init(DB0_DIR)
     db0.open(prefix_name, "rw")    
     object_1 = db0.fetch(id_1)
-    reg_size_1 = db0.get_metrics()[0]["vptr_reg_size"]
+    reg_size_1 = db0.get_prefix_stats()["gc0"]["size"]
     # size can be >1 because type also might be registered
     assert reg_size_1 > 0
     object_2 = db0.fetch(id_2)
-    assert db0.get_metrics()[0]["vptr_reg_size"] > reg_size_1
+    assert db0.get_prefix_stats()["gc0"]["size"] > reg_size_1
     del object_1
     db0.clear_cache()
-    assert db0.get_metrics()[0]["vptr_reg_size"] == reg_size_1
+    assert db0.get_prefix_stats()["gc0"]["size"] == reg_size_1
     del object_2
     db0.clear_cache()
-    assert db0.get_metrics()[0]["vptr_reg_size"] < reg_size_1
+    assert db0.get_prefix_stats()["gc0"]["size"] < reg_size_1
 
 
 def test_refresh_can_fetch_object_changes_done_by_other_process(db0_fixture):

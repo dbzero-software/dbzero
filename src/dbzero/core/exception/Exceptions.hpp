@@ -70,4 +70,12 @@ namespace db0
         OutOfDiskSpaceException();
     };
 
+    class MemoryException : public CriticalException
+    {
+    public:
+        static constexpr int exception_id = EXCEPTION_ID_PREFIX::BASIC | 0x0a;
+
+        MemoryException();
+    };
+    
 }

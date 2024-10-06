@@ -239,4 +239,8 @@ namespace db0
         return true;
     }
     
+    bool SlabAllocator::inRange(std::uint64_t address) const {
+        return address >= m_begin_addr && address < m_begin_addr + m_slab_size;
+    }
+    
 }

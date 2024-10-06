@@ -86,7 +86,7 @@ namespace db0::python
     PyObject *getStateNum(PyObject *self, PyObject *args, PyObject *kwargs);
     
     /**
-     * Retrieve the active DBZero fixture metrics
+     * Retrieve metrics of all active DBZero prefixes
     */
     PyObject *getDBMetrics(PyObject *self, PyObject *args);
     
@@ -139,6 +139,8 @@ namespace db0::python
     PyObject *getPrefixes(PyObject *, PyObject *);
     
     PyObject *getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs);
+    
+    PyObject *getPrefixStats(PyObject *self, PyObject *args, PyObject *kwargs);
         
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *self, PyObject *);

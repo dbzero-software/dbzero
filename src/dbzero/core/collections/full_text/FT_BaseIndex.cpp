@@ -125,7 +125,10 @@ namespace db0
     
     template <typename IndexKeyT>
     typename FT_BaseIndex<IndexKeyT>::FlushStats FT_BaseIndex<IndexKeyT>::BatchOperation::flush(
-        std::function<void(std::uint64_t)> *insert_callback_ptr, std::function<void(std::uint64_t)> *erase_callback_ptr)
+        std::function<void(std::uint64_t)> *insert_callback_ptr, 
+        std::function<void(std::uint64_t)> *erase_callback_ptr,
+        std::function<void(IndexKeyT)> *index_insert_callback_ptr, 
+        std::function<void(IndexKeyT)> *index_erase_callback_ptr)
     {
         using TagRangesVector = std::vector<typename TagValueList::iterator>;
         struct GetIteratorPairFirst {
@@ -143,8 +146,11 @@ namespace db0
 
         using ValueIterator = db0::ConverterIteratorAdapter<typename TagValueList::iterator, GetPairSecond>;
         auto add =
-        [insert_callback_ptr](std::uint32_t &all_count, std::uint32_t &new_count) {
-            return [insert_callback_ptr, &all_count, &new_count](TagValueList &buf, FT_BaseIndex &index) {
+        [insert_callback_ptr, index_insert_callback_ptr](std::uint32_t &all_count, std::uint32_t &new_count) {
+            return 
+                [insert_callback_ptr, index_insert_callback_ptr, &all_count, &new_count]
+                (TagValueList &buf, FT_BaseIndex &index) 
+            {
                 auto buf_begin = buf.begin(), buf_end = buf.end();
                 if (buf_begin == buf_end) {
                     return;
@@ -164,11 +170,12 @@ namespace db0
                         last_tag = it->first;
                     }
                 }
-
+                                
                 // Create inverted lists for tags and get corresponding iterators to them
-                std::vector<typename FT_BaseIndex<IndexKeyT>::iterator> tag_index_its = index.bulkGetInvertedList(
+                std::vector<typename FT_BaseIndex<IndexKeyT>::iterator> tag_index_its = index.bulkGetInvertedLists(
                     TagIterator(tag_ranges.begin()),
-                    TagIterator(tag_ranges.end())
+                    TagIterator(tag_ranges.end()),
+                    index_insert_callback_ptr
                 );
                 assert(tag_index_its.size() == tag_ranges.size());
                 // Add end iterator to avoid special case
@@ -207,8 +214,11 @@ namespace db0
         };
 
         auto remove = 
-        [erase_callback_ptr](std::uint32_t& all_count, std::uint32_t& removed_count) {
-            return [erase_callback_ptr, &all_count, &removed_count](TagValueList &buf, FT_BaseIndex &index) {
+        [erase_callback_ptr, index_erase_callback_ptr](std::uint32_t& all_count, std::uint32_t& removed_count) {
+            return 
+                [erase_callback_ptr, index_erase_callback_ptr, &all_count, &removed_count]
+                (TagValueList &buf, FT_BaseIndex &index) 
+            {
                 auto buf_begin = buf.begin(), buf_end = buf.end();
                 if (buf_begin == buf_end) {
                     return;
@@ -242,6 +252,10 @@ namespace db0
                             if (tag_index_ptr->getIndexType() == db0::bindex::empty) {
                                 // remove empty inverted list completely
                                 index.erase(it);
+                                // notify callback on index erased
+                                if (index_erase_callback_ptr) {
+                                    (*index_erase_callback_ptr)(first_item.first);
+                                }
                             } else {
                                 it.modifyItem().value = new_map_value;
                             }
@@ -277,14 +291,6 @@ namespace db0
 		}
 		return stats;
 	}
-    
-    template <typename IndexKeyT>
-    typename FT_BaseIndex<IndexKeyT>::FlushStats FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::flush(
-        std::function<void(std::uint64_t)> *insert_callback_ptr, 
-        std::function<void(std::uint64_t)> *erase_callback_ptr)
-    {
-        return m_batch_operation->flush(insert_callback_ptr, erase_callback_ptr);
-    }
     
     template <typename IndexKeyT>
     void FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::reset()

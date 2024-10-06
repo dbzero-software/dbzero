@@ -77,6 +77,8 @@ namespace db0
 
         void detach() const override;
         
+        bool inRange(std::uint64_t address) const override;
+        
         /**
          * Initialize a new allocator over a specific slab
          * 
