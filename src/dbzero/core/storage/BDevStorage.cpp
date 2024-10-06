@@ -47,7 +47,8 @@ namespace db0
         }
     }
     
-    BDevStorage::~BDevStorage() {
+    BDevStorage::~BDevStorage() 
+    {
     }
 
     DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, ChangeLogIOStream &change_log)
@@ -236,18 +237,15 @@ namespace db0
         m_file.close();
     }
     
-    BlockIOStream BDevStorage::getBlockIOStream(std::uint64_t first_block_pos, AccessType access_type)
-    {
+    BlockIOStream BDevStorage::getBlockIOStream(std::uint64_t first_block_pos, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
     }
     
-    DRAM_IOStream BDevStorage::getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType access_type)
-    {
+    DRAM_IOStream BDevStorage::getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type, dram_page_size };
     }
 
-    ChangeLogIOStream BDevStorage::getChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type)
-    {
+    ChangeLogIOStream BDevStorage::getChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
     }
     
@@ -362,14 +360,19 @@ namespace db0
         return result;
     }
     
-    bool BDevStorage::empty() const
-    {
+    bool BDevStorage::empty() const {
         return m_empty;
     }
 
-    std::uint64_t BDevStorage::getLastUpdated() const
-    {
+    std::uint64_t BDevStorage::getLastUpdated() const {
         return m_file.getLastModifiedTime();
     }
     
+    void BDevStorage::getStats(std::function<void(const std::string &, std::uint64_t)> callback) const
+    {
+#ifndef NDEBUG
+        callback("dram_io_rand_ops", m_dram_io.getRandOpsCount());
+#endif        
+    }
+
 }

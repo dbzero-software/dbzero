@@ -2,6 +2,7 @@
 
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <functional>
 
 namespace db0
 
@@ -71,7 +72,10 @@ namespace db0
          * Flush all changes to disk and close
         */
         virtual void close() = 0;
-                
+
+        // Collect storage statistics where applicable (default implementation is empty)
+        virtual void getStats(std::function<void(const std::string &, std::uint64_t)>) const;
+
     protected:
         AccessType m_access_type;
     };

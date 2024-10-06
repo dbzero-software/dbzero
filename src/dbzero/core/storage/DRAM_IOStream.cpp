@@ -11,9 +11,9 @@
 namespace db0
 
 {
-
-    DRAM_IOStream::DRAM_IOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size, std::function<std::uint64_t()> tail_function,
-        AccessType access_type, std::uint32_t dram_page_size)
+    
+    DRAM_IOStream::DRAM_IOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size,
+        std::function<std::uint64_t()> tail_function, AccessType access_type, std::uint32_t dram_page_size)
         : BlockIOStream(m_file, begin, block_size, tail_function, access_type, DRAM_IOStream::ENABLE_CHECKSUMS)
         , m_dram_page_size(dram_page_size)
         , m_chunk_size(dram_page_size + o_dram_chunk_header::sizeOf())
@@ -124,8 +124,7 @@ namespace db0
         
         // Finds reusable block, note that blocks from the last change log are not reused
         // otherwise the reader process might not be able to access the last transaction
-        auto find_reusable = [&, this]() -> std::optional<std::uint64_t>
-        {               
+        auto find_reusable = [&, this]() -> std::optional<std::uint64_t> {
             for (auto it = m_reusable_chunks.begin(); it != m_reusable_chunks.end(); ++it) {
                 if (last_changelog.find(*it) == last_changelog.end()) {
                     auto result = *it;
@@ -136,8 +135,7 @@ namespace db0
             return std::nullopt;
         };
 
-        auto update_page_location = [&, this](std::uint64_t page_num, std::uint64_t address)
-        {   
+        auto update_page_location = [&, this](std::uint64_t page_num, std::uint64_t address) {
             // remove address from reusable
             {
                 auto it = m_reusable_chunks.find(address);
@@ -165,6 +163,9 @@ namespace db0
                 std::memcpy(reusable_header.getData(), page_buffer, m_dram_page_size);
                 // overwrite chunk in the reusable block
                 writeToChunk(*reusable_addr, raw_block.data(), raw_block.size());
+#ifndef NDEBUG
+                ++m_rand_ops;
+#endif                
                 dram_changelog.push_back(*reusable_addr);
                 // update to the last known page location, collect previous location as reusable
                 update_page_location(page_num, *reusable_addr);
@@ -190,8 +191,7 @@ namespace db0
         dram_changelog_io.appendChangeLog(std::move(cl_data));
     }
     
-    DRAM_Pair DRAM_IOStream::getDRAMPair() const
-    {
+    DRAM_Pair DRAM_IOStream::getDRAMPair() const {
         return { m_prefix, m_allocator };
     }
     
@@ -212,7 +212,7 @@ namespace db0
         auto change_log_ptr = changelog_io.readChangeLogChunk();
         bool result = false;
         while (change_log_ptr) {
-            for (auto address: *change_log_ptr) {                
+            for (auto address: *change_log_ptr) {
                 // the address reported in changelog must already be available in the stream
                 // it may come from a more recent update as well (and potentially may only be partially written)
                 // therefore chunk-level checksum validation is necessary
@@ -227,18 +227,15 @@ namespace db0
         return result;
     }
     
-    void DRAM_IOStream::flush()
-    {
+    void DRAM_IOStream::flush() {
         THROWF(db0::IOException) << "DRAM_IOStream::flush not allowed";
     }
 
-    bool DRAM_IOStream::empty() const
-    {
+    bool DRAM_IOStream::empty() const {
         return m_prefix->empty();
     }
 
-    const DRAM_Prefix &DRAM_IOStream::getDRAMPrefix() const
-    {
+    const DRAM_Prefix &DRAM_IOStream::getDRAMPrefix() const {
         return *m_prefix;
     }
 
@@ -252,4 +249,10 @@ namespace db0
         return block_count * m_block_size;
     }
     
+#ifndef NDEBUG
+    std::size_t DRAM_IOStream::getRandOpsCount() const {
+        return m_rand_ops;
+    }
+#endif                    
+
 }

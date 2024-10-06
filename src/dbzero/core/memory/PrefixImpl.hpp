@@ -94,7 +94,7 @@ namespace db0
             FlagSet<AccessOptions>);
 
         void cleanup() const override;
-
+        
     protected:
         template <typename T> friend class PrefixImpl;
 

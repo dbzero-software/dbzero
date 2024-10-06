@@ -85,7 +85,7 @@ namespace db0
         // Perform memory cleanups, e.g. by removing expired weak pointers
         // the default empty implementation is provided
         virtual void cleanup() const;
-
+        
     private:
         const std::string m_name;
     };

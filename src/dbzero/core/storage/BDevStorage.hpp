@@ -82,6 +82,8 @@ namespace db0
         std::size_t getPageSize() const override;
 
         std::uint32_t getMaxStateNum() const override;
+        
+        void getStats(std::function<void(const std::string &, std::uint64_t)>) const override;
 
         const DRAM_IOStream &getDramIO() const {
             return m_dram_io;

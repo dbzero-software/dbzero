@@ -762,7 +762,11 @@ namespace db0::python
 
         return runSafe(tryGetMemoClasses, prefix_name, prefix_uuid);
     }
-
+    
+    PyObject *getStorageStats(PyObject *, PyObject *args, PyObject *kwargs) {
+        return runSafe(tryGetStorageStats, args, kwargs);
+    }
+    
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {

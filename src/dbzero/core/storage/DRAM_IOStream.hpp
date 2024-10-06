@@ -7,6 +7,7 @@
 #include <cstring>
 #include <dbzero/core/serialization/Types.hpp>
 #include <unordered_set>
+#include <atomic>
 
 namespace db0
 
@@ -77,8 +78,7 @@ namespace db0
         */
         DRAM_Pair getDRAMPair() const;
 
-        static constexpr std::size_t sizeOfHeader()
-        {
+        static constexpr std::size_t sizeOfHeader() {
             return o_dram_chunk_header::sizeOf();
         }
         
@@ -97,6 +97,11 @@ namespace db0
 
         const DRAM_Prefix &getDRAMPrefix() const;
 
+#ifndef NDEBUG
+        // get the number of random write operations performed while flushing updates
+        std::size_t getRandOpsCount() const;
+#endif                    
+
     private:        
         const std::uint32_t m_dram_page_size;
         const std::size_t m_chunk_size;
@@ -113,6 +118,11 @@ namespace db0
         void load();
         void updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
             const o_dram_chunk_header &header, void *bytes);
+        
+#ifndef NDEBUG
+        // the number of random write operations performed while flushing updates
+        std::atomic<std::size_t> m_rand_ops = 0;
+#endif                    
     };
 
 }
