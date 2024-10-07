@@ -17,8 +17,9 @@ namespace db0
     }
     
     BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size,
-        std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> flush_size)
+        std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> flush_size, std::optional<LockFlags> default_lock_flags)
         : m_prefix_catalog(root_path)
+        , m_default_lock_flags(default_lock_flags ? *default_lock_flags : LockFlags())
         , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE, flush_size, [this](bool threshold_reached) {
             this->onCacheFlushed(threshold_reached);
         })
@@ -28,7 +29,7 @@ namespace db0
     
     std::pair<std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator> > BaseWorkspace::openMemspace(const std::string &prefix_name,
         bool &new_file_created, AccessType access_type, std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
-        std::optional<std::size_t> sparse_index_node_size)
+        std::optional<std::size_t> sparse_index_node_size, std::optional<LockFlags> lock_flags)
     {
         if (!page_size) {
             page_size = DEFAULT_PAGE_SIZE;
@@ -51,7 +52,8 @@ namespace db0
             StorageT::create(file_name, *page_size, *sparse_index_node_size);
             new_file_created = true;
         }
-        auto prefix = std::make_shared<PrefixImpl<StorageT> >(prefix_name, m_cache_recycler, file_name, access_type);
+        auto prefix = std::make_shared<PrefixImpl<StorageT> >(prefix_name, m_cache_recycler, file_name, access_type,
+                                                              lock_flags ? *lock_flags : m_default_lock_flags);
         try {
             if (new_file_created) {
                 // prepare meta allocator for the 1st use
@@ -184,8 +186,8 @@ namespace db0
     Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, 
         std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> vobject_cache_size, 
         std::optional<std::size_t> flush_size, std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer,
-        std::shared_ptr<Config> config)
-        : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size)
+        std::shared_ptr<Config> config, std::optional<LockFlags> default_lock_flags)
+        : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size, default_lock_flags)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
         , m_shared_object_list(vobject_cache_size ? *vobject_cache_size : DEFAULT_VOBJECT_CACHE_SIZE)
@@ -264,7 +266,7 @@ namespace db0
     
     db0::swine_ptr<Fixture> Workspace::getFixtureEx(const std::string &prefix_name, std::optional<AccessType> access_type,
         std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
-        std::optional<std::size_t> sparse_index_node_size, std::optional<bool> autocommit)
+        std::optional<std::size_t> sparse_index_node_size, std::optional<bool> autocommit, std::optional<LockFlags> lock_flags)
     {
         bool file_created = false;
         auto uuid = getUUID(prefix_name);
@@ -279,7 +281,7 @@ namespace db0
                 }
                 bool read_only = (*access_type == AccessType::READ_ONLY);
                 auto [prefix, allocator] = openMemspace(
-                    prefix_name, file_created, *access_type, page_size, slab_size, sparse_index_node_size
+                    prefix_name, file_created, *access_type, page_size, slab_size, sparse_index_node_size, lock_flags
                 );
                 if (file_created) {
                     // initialize new fixture
@@ -449,9 +451,9 @@ namespace db0
     }
     
     void Workspace::open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit,
-        std::optional<std::size_t> slab_size)
+        std::optional<std::size_t> slab_size, std::optional<LockFlags> lock_flags)
     {
-        auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit);
+        auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit, lock_flags);
         // update default fixture
         if (!m_default_fixture || (m_default_fixture->getAccessType() <= access_type)) {
             m_default_fixture = fixture;

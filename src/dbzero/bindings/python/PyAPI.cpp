@@ -94,13 +94,14 @@ namespace db0::python
     PyObject *tryOpen(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         // prefix_name, open_mode, autocommit (bool)
-        static const char *kwlist[] = {"prefix_name", "open_mode", "autocommit", "slab_size", NULL};
+        static const char *kwlist[] = {"prefix_name", "open_mode", "autocommit", "slab_size", "lock_flags", NULL};
         const char *prefix_name = nullptr;
         const char *open_mode = nullptr;
         PyObject *py_autocommit = nullptr;
         PyObject *py_slab_size = nullptr;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOO", const_cast<char**>(kwlist),
-            &prefix_name, &open_mode, &py_autocommit, &py_slab_size))
+        PyObject *py_lock_flags = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOO", const_cast<char**>(kwlist),
+            &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags))
         {
             PyErr_SetString(PyExc_TypeError, "Invalid arguments");
             return NULL;
@@ -128,8 +129,13 @@ namespace db0::python
             autocommit = PyObject_IsTrue(py_autocommit);
         }
         
+        // py_config must be a dict
+        if (py_lock_flags && !PyDict_Check(py_lock_flags)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type: lock_flags");
+            return NULL;
+        }
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
-        PyToolkit::getPyWorkspace().open(prefix_name, access_type, autocommit, slab_size);
+        PyToolkit::getPyWorkspace().open(prefix_name, access_type, autocommit, slab_size, py_lock_flags);
         Py_RETURN_NONE;
     }
 
@@ -142,9 +148,10 @@ namespace db0::python
     {
         const char *path = "";
         PyObject *py_config = nullptr;
+        PyObject *py_flags= nullptr;
         // extract optional "path" string argument and "autcommit_interval" keyword argument
-        static const char *kwlist[] = {"path", "config", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sO", const_cast<char**>(kwlist), &path, &py_config)) {
+        static const char *kwlist[] = {"path", "config", "lock_flags", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sOO", const_cast<char**>(kwlist), &path, &py_config, &py_flags)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
@@ -155,7 +162,13 @@ namespace db0::python
             return NULL;
         }
         
-        PyToolkit::getPyWorkspace().initWorkspace(path, py_config);
+        // py_config must be a dict
+        if (py_flags && !PyDict_Check(py_flags)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type: flags");
+            return NULL;
+        }
+
+        PyToolkit::getPyWorkspace().initWorkspace(path, py_config, py_flags);
         Py_RETURN_NONE;
     }
     
