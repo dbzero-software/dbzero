@@ -11,7 +11,7 @@
 namespace db0
 
 {
-    
+
     DRAM_IOStream::DRAM_IOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size,
         std::function<std::uint64_t()> tail_function, AccessType access_type, std::uint32_t dram_page_size)
         : BlockIOStream(m_file, begin, block_size, tail_function, access_type, DRAM_IOStream::ENABLE_CHECKSUMS)
@@ -163,9 +163,7 @@ namespace db0
                 std::memcpy(reusable_header.getData(), page_buffer, m_dram_page_size);
                 // overwrite chunk in the reusable block
                 writeToChunk(*reusable_addr, raw_block.data(), raw_block.size());
-#ifndef NDEBUG
                 ++m_rand_ops;
-#endif                
                 dram_changelog.push_back(*reusable_addr);
                 // update to the last known page location, collect previous location as reusable
                 update_page_location(page_num, *reusable_addr);
@@ -249,10 +247,8 @@ namespace db0
         return block_count * m_block_size;
     }
     
-#ifndef NDEBUG
     std::size_t DRAM_IOStream::getRandOpsCount() const {
         return m_rand_ops;
     }
-#endif                    
 
 }

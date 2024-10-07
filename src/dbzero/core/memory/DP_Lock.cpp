@@ -8,23 +8,24 @@ namespace db0
 
 {
     
-    DP_Lock::DP_Lock(BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-        std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new)
-        : ResourceLock(storage, address, size, access_mode, create_new)
+    DP_Lock::DP_Lock(StorageContext context, std::uint64_t address, std::size_t size,
+        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num, bool create_new)
+        : ResourceLock(context, address, size, access_mode, create_new)
         , m_state_num(std::max(read_state_num, write_state_num))
     {
-        assert(addrPageAligned(m_storage));
+        assert(addrPageAligned(m_context.m_storage_ref.get()));
         // initialzie the local buffer
         if (access_mode[AccessOptions::read]) {
             assert(read_state_num > 0);
             // read into the local buffer
-            storage.read(m_address, read_state_num, m_data.size(), m_data.data(), access_mode);
+            m_context.m_storage_ref.get().read(
+                m_address, read_state_num, m_data.size(), m_data.data(), access_mode);
         }
     }
 
-    DP_Lock::DP_Lock(tag_derived, BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-        std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new)
-        : ResourceLock(storage, address, size, access_mode, create_new)
+    DP_Lock::DP_Lock(tag_derived, StorageContext context, std::uint64_t address, std::size_t size, 
+        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new)
+        : ResourceLock(context, address, size, access_mode, create_new)
         , m_state_num(std::max(read_state_num, write_state_num))
     {
     }
@@ -33,7 +34,7 @@ namespace db0
         : ResourceLock(other, access_mode)
         , m_state_num(write_state_num)
     {
-        assert(addrPageAligned(m_storage));
+        assert(addrPageAligned(m_context.m_storage_ref.get()));
         assert(m_state_num > 0);
     }
     
@@ -49,11 +50,11 @@ namespace db0
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
                 // write from the local buffer
-                m_storage.write(m_address, m_state_num, m_data.size(), m_data.data());
+                m_context.m_storage_ref.get().write(m_address, m_state_num, m_data.size(), m_data.data());
                 // reset the dirty flag
                 lock.commit_reset();
             }
-        }        
+        }
     }
     
     std::uint64_t DP_Lock::getStateNum() const {

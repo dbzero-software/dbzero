@@ -158,7 +158,7 @@ namespace db0
         write(&chunk_header, chunk_header.sizeOf(), address);
         m_chunk_left_bytes = chunk_header.m_chunk_size;
     }
-
+    
     void BlockIOStream::appendToChunk(const void *buffer, std::size_t size) 
     {
         assert(!m_closed);

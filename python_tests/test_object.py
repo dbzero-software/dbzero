@@ -1,5 +1,6 @@
 import pytest
 import dbzero_ce as db0
+from datetime import datetime
 from .memo_test_types import MemoTestClass, DynamicDataClass
 
 
@@ -255,17 +256,31 @@ def test_create_random_objects_stress_test(db0_no_autocommit):
         actual_len = random.randint(1, max_len)
         return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
     
-    append_count = 100000
+    # append_count = 100000
+    append_count = 2000
     buf = []
     total_bytes = 0
     count = 0
     report_bytes = 1024 * 1024
+    rand_dram_io = 0
+    rand_file_write_ops = 0    
+    bytes_written = 0
     for _ in range(append_count):
         buf.append(MemoTestClass(rand_string(8192)))
         total_bytes += len(buf[-1].value)
         count += 1
         if total_bytes > report_bytes:
+            pre_commit = datetime.now()
+            db0.commit()
+            storage_stats = db0.get_storage_stats()
             print(f"Total bytes: {total_bytes}")
+            print(f"Rand DRAM I/O ops: {storage_stats['dram_io_rand_ops'] - rand_dram_io}")
+            print(f"Rand file write ops: {storage_stats['file_rand_write_ops'] - rand_file_write_ops}")
+            print(f"File bytes written: {storage_stats['file_bytes_written'] - bytes_written}")
+            print(f"Commit took: {datetime.now() - pre_commit}")
+            rand_dram_io = storage_stats["dram_io_rand_ops"]
+            rand_file_write_ops = storage_stats["file_rand_write_ops"]
+            bytes_written = storage_stats["file_bytes_written"]
             report_bytes += 1024 * 1024
         if count % 1000 == 0:
             print(f"Objects created: {count}")

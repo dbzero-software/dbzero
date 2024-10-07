@@ -370,9 +370,13 @@ namespace db0
     
     void BDevStorage::getStats(std::function<void(const std::string &, std::uint64_t)> callback) const
     {
-#ifndef NDEBUG
         callback("dram_io_rand_ops", m_dram_io.getRandOpsCount());
-#endif        
+        auto file_rand_ops = m_file.getRandOps();
+        callback("file_rand_read_ops", file_rand_ops.first);
+        callback("file_rand_write_ops", file_rand_ops.second);
+        auto file_io_bytes = m_file.getIOBytes();
+        callback("file_bytes_read", file_io_bytes.first);
+        callback("file_bytes_written", file_io_bytes.second);
     }
 
 }

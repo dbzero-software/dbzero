@@ -29,7 +29,7 @@ namespace db0
          * @param write_state_num the current transaction number (or 0 for read-only locks)
          * @param create_new flag indicating if this a newly created resource (e.g. newly appended data page)
         */
-        DP_Lock(BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint64_t read_state_num,
+        DP_Lock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint64_t read_state_num,
             std::uint64_t write_state_num, bool create_new = false);
         
         /**
@@ -63,7 +63,7 @@ namespace db0
         std::uint64_t m_state_num;
 
         struct tag_derived {};
-        DP_Lock(tag_derived, BaseStorage &, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
+        DP_Lock(tag_derived, StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
             std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new);
     };
     

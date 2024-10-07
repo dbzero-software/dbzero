@@ -13,7 +13,7 @@ namespace db0
     class WideLock: public DP_Lock
     {
     public:
-        WideLock(BaseStorage &, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
+        WideLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
             std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<DP_Lock> res_lock, 
             bool create_new = false);
         

@@ -97,10 +97,8 @@ namespace db0
 
         const DRAM_Prefix &getDRAMPrefix() const;
 
-#ifndef NDEBUG
         // get the number of random write operations performed while flushing updates
         std::size_t getRandOpsCount() const;
-#endif                    
 
     private:        
         const std::uint32_t m_dram_page_size;
@@ -118,11 +116,9 @@ namespace db0
         void load();
         void updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
             const o_dram_chunk_header &header, void *bytes);
-        
-#ifndef NDEBUG
+
         // the number of random write operations performed while flushing updates
-        std::atomic<std::size_t> m_rand_ops = 0;
-#endif                    
+        std::uint64_t m_rand_ops = 0;
     };
 
 }

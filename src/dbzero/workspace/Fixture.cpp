@@ -5,6 +5,8 @@
 #include "GC0.hpp"
 #include "Workspace.hpp"
 #include "WorkspaceView.hpp"
+// FIXME: log
+#include <valgrind/callgrind.h>
 
 namespace db0
 
@@ -219,6 +221,7 @@ namespace db0
     
     void Fixture::commit()
     {
+        CALLGRIND_START_INSTRUMENTATION;
         assert(getPrefixPtr());                
         // pre-commit to prepare objects which require it (e.g. Index) for commit
         // NOTE: pre-commit must NOT lock the fixture's shared mutex
@@ -233,6 +236,7 @@ namespace db0
         tryCommit(lock);
         m_pre_commit = false;
         m_updated = false;
+        CALLGRIND_STOP_INSTRUMENTATION;
     }
     
     void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock)

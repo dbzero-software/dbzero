@@ -129,6 +129,9 @@ namespace db0
         
         void clearExpired() const;
         
+        // register resource with the dirty locks
+        void appendDirty(std::shared_ptr<ResourceLock>);
+          
     protected:
         BaseStorage &m_storage;
         const std::size_t m_page_size;
@@ -148,6 +151,9 @@ namespace db0
         // locks (DP_Lock or WideLock) with no_flush flag (e.g. from an atomic update)
         mutable std::vector<std::shared_ptr<DP_Lock> > m_volatile_locks;
         mutable std::vector<std::shared_ptr<BoundaryLock> > m_volatile_boundary_locks;
+        // the collection for tracking dirty locks (cleared on flush)
+        mutable std::mutex m_dirty_mutex;
+        std::vector<std::shared_ptr<ResourceLock> > m_dirty_locks;
         
         /**
          * Execute specific function for each stored resource lock, boundary locks processed first
@@ -163,5 +169,5 @@ namespace db0
         void replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
             std::shared_ptr<BoundaryLock> new_lock);
     };
-
+    
 }

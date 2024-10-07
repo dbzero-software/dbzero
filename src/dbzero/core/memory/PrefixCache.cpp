@@ -341,11 +341,11 @@ namespace db0
 
     void PrefixCache::flush()
     {
-        // flush all dirty locks with the related storage, this is a synchronous operation
-        // note that BoundaryLocks are flushed first, WideLocks next and finally DP_Locks
-        forEach([&](ResourceLock &lock) {
-            lock.flush();
-        });
+        std::unique_lock<std::mutex> _lock(m_dirty_mutex);
+        for (auto &lock_ptr: m_dirty_locks) {
+            lock_ptr->flush();
+        }
+        m_dirty_locks.clear();
     }
 
     void PrefixCache::markAsMissing(std::uint64_t page_num, std::uint64_t state_num)
@@ -478,5 +478,11 @@ namespace db0
         m_boundary_map.clearExpired();  
         m_wide_map.clearExpired();
     }
-
+    
+    void PrefixCache::appendDirty(std::shared_ptr<ResourceLock> lock) 
+    {
+        std::unique_lock<std::mutex> _lock(m_dirty_mutex);
+        m_dirty_locks.push_back(lock);
+    }
+    
 }
