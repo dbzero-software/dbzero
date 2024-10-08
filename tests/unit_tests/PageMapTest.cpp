@@ -35,10 +35,12 @@ namespace tests
     TEST_F( PageMapTest , testPageMapCanFindClosestStateMatch )
     {
         db0::Storage0 dev_null;
+        db0::DirtyCache null_cache(dev_null.getPageSize());
+        db0::StorageContext null_context { null_cache, dev_null };
         auto page_size = dev_null.getPageSize();
         PageMap<DP_Lock> cut(dev_null.getPageSize());
-        auto lock_1 = std::make_shared<DP_Lock>(dev_null, page_size, 1, FlagSet<AccessOptions> {}, 0, 0);
-        auto lock_2 = std::make_shared<DP_Lock>(dev_null, page_size, 1, FlagSet<AccessOptions> {}, 0, 0);
+        auto lock_1 = std::make_shared<DP_Lock>(null_context, page_size, 1, FlagSet<AccessOptions> {}, 0, 0);
+        auto lock_2 = std::make_shared<DP_Lock>(null_context, page_size, 1, FlagSet<AccessOptions> {}, 0, 0);
         // state = 1, page_num = 1
         cut.insert(1, lock_1);
         // same page_num, different state

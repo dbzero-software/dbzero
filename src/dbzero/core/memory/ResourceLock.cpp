@@ -4,6 +4,7 @@
 #include <cassert>
 #include <dbzero/core/storage/BaseStorage.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
+#include "PrefixCache.hpp"
 
 namespace db0
 
@@ -124,7 +125,7 @@ namespace db0
     void ResourceLock::setDirty()
     {
         if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
-            m_context.m_cache_ref.get().appendDirty(shared_from_this());
+            m_context.m_cache_ref.get().append(shared_from_this());
         }
     }
 

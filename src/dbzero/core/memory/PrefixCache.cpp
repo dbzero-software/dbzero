@@ -16,23 +16,25 @@ namespace db0
     }
 
     PrefixCache::PrefixCache(BaseStorage &storage, CacheRecycler *cache_recycler_ptr)
-        : m_storage(storage)
-        , m_page_size(storage.getPageSize())
+        : m_page_size(storage.getPageSize())
         , m_shift(getPageShift(m_page_size)) 
         , m_mask(getPageMask(m_page_size))
+        , m_storage(storage)
+        , m_dirty_cache(m_page_size)
+        , m_context { m_dirty_cache, storage }
         , m_dp_map(m_page_size)
         , m_boundary_map(m_page_size)
         , m_wide_map(m_page_size)
         , m_cache_recycler_ptr(cache_recycler_ptr)
-        , m_missing_dp_lock_ptr(std::make_shared<DP_Lock>(storage, 0, 0, FlagSet<AccessOptions> {}, 0, 0, true))
-        , m_missing_wide_lock_ptr(std::make_shared<WideLock>(storage, 0, 0, FlagSet<AccessOptions> {}, 0, 0, nullptr, true))
+        , m_missing_dp_lock_ptr(std::make_shared<DP_Lock>(m_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, true))
+        , m_missing_wide_lock_ptr(std::make_shared<WideLock>(m_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, nullptr, true))
     {
     }
     
     std::shared_ptr<DP_Lock> PrefixCache::createPage(std::uint64_t page_num, std::uint64_t read_state_num,
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
     {
-        auto lock = std::make_shared<DP_Lock>(m_storage, page_num << m_shift, m_page_size,
+        auto lock = std::make_shared<DP_Lock>(m_context, page_num << m_shift, m_page_size,
             access_mode, read_state_num, state_num, isCreateNew(access_mode));
         // register under the lock's evaluated state number
         m_dp_map.insert(lock->getStateNum(), lock);
@@ -100,7 +102,7 @@ namespace db0
         std::uint64_t read_state_num, std::uint64_t state_num, FlagSet<AccessOptions> access_mode, 
         std::shared_ptr<DP_Lock> res_dp)
     {
-        auto lock = std::make_shared<WideLock>(m_storage, page_num << m_shift, size,
+        auto lock = std::make_shared<WideLock>(m_context, page_num << m_shift, size,
             access_mode, read_state_num, state_num, res_dp, isCreateNew(access_mode));
         // register under the lock's evaluated state number
         m_wide_map.insert(lock->getStateNum(), lock);
@@ -194,7 +196,7 @@ namespace db0
             // pick the minimum of the underlying states as the read state number
             read_state_num = std::min(lhs_state_num, rhs_state_num);
             auto lhs_size = ((first_page + 1) << m_shift) - address;
-            result = std::make_shared<BoundaryLock>(m_storage, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
+            result = std::make_shared<BoundaryLock>(m_context, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
             // register with the read state number
             m_boundary_map.insert(read_state_num, result);
             // the new lock may need to be registered as volatile
@@ -269,7 +271,7 @@ namespace db0
         auto lhs_size = ((lhs->getAddress() + lhs->size()) - address);
         auto rhs_size = size - lhs_size;
         assert(!isCreateNew(access_mode) && "Cannot use create mode for BoundaryLocks");
-        auto result = std::make_shared<BoundaryLock>(m_storage, address, lock, lhs, lhs_size, rhs, rhs_size, access_mode);
+        auto result = std::make_shared<BoundaryLock>(m_context, address, lock, lhs, lhs_size, rhs, rhs_size, access_mode);
         m_boundary_map.insert(state_num, result);
         
         // note that BoundaryLocks are not recycled
@@ -338,14 +340,9 @@ namespace db0
             lock.flushResidual();
         });
     }
-
-    void PrefixCache::flush()
-    {
-        std::unique_lock<std::mutex> _lock(m_dirty_mutex);
-        for (auto &lock_ptr: m_dirty_locks) {
-            lock_ptr->flush();
-        }
-        m_dirty_locks.clear();
+    
+    void PrefixCache::flush() {
+        m_dirty_cache.flush();
     }
 
     void PrefixCache::markAsMissing(std::uint64_t page_num, std::uint64_t state_num)
@@ -477,12 +474,6 @@ namespace db0
         m_dp_map.clearExpired();
         m_boundary_map.clearExpired();  
         m_wide_map.clearExpired();
-    }
-    
-    void PrefixCache::appendDirty(std::shared_ptr<ResourceLock> lock) 
-    {
-        std::unique_lock<std::mutex> _lock(m_dirty_mutex);
-        m_dirty_locks.push_back(lock);
     }
     
 }

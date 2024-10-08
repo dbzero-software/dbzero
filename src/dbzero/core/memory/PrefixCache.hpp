@@ -11,6 +11,7 @@
 #include <dbzero/core/memory/WideLock.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include "PageMap.hpp"
+#include "DirtyCache.hpp"
 
 namespace db0
 
@@ -21,7 +22,7 @@ namespace db0
     inline bool isBoundaryRange(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t addr_offset) {
         return (end_page == first_page + 2) && (addr_offset != 0);
     }
-
+    
     /**
      * Prefix deficated cache
     */
@@ -128,15 +129,15 @@ namespace db0
         CacheRecycler *getCacheRecycler() const;
         
         void clearExpired() const;
-        
-        // register resource with the dirty locks
-        void appendDirty(std::shared_ptr<ResourceLock>);
-          
+
     protected:
-        BaseStorage &m_storage;
         const std::size_t m_page_size;
         const unsigned int m_shift;
         const std::uint64_t m_mask;
+        BaseStorage &m_storage;
+        // the collection for tracking dirty locks (cleared on flush)
+        mutable DirtyCache m_dirty_cache;
+        StorageContext m_context;        
         // single data-page resource locks
         mutable PageMap<DP_Lock> m_dp_map;
         // boundary locks
@@ -151,10 +152,7 @@ namespace db0
         // locks (DP_Lock or WideLock) with no_flush flag (e.g. from an atomic update)
         mutable std::vector<std::shared_ptr<DP_Lock> > m_volatile_locks;
         mutable std::vector<std::shared_ptr<BoundaryLock> > m_volatile_boundary_locks;
-        // the collection for tracking dirty locks (cleared on flush)
-        mutable std::mutex m_dirty_mutex;
-        std::vector<std::shared_ptr<ResourceLock> > m_dirty_locks;
-        
+
         /**
          * Execute specific function for each stored resource lock, boundary locks processed first
         */
@@ -169,5 +167,5 @@ namespace db0
         void replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
             std::shared_ptr<BoundaryLock> new_lock);
     };
-    
+
 }

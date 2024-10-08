@@ -14,12 +14,12 @@ namespace db0
 
 {
 
-    class PrefixCache;
+    class DirtyCache;
     class BaseStorage;
     
     struct StorageContext
     {
-        std::reference_wrapper<PrefixCache> m_cache_ref;
+        std::reference_wrapper<DirtyCache> m_cache_ref;
         std::reference_wrapper<BaseStorage> m_storage_ref;
     };
     
@@ -45,7 +45,7 @@ namespace db0
         inline void *getBuffer() const {
             return m_data.data();
         }
-
+        
         inline void *getBuffer(std::uint64_t address) const
         {
             assert(address >= m_address && address < m_address + m_data.size());

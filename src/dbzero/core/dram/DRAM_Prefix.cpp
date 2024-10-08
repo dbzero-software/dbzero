@@ -13,8 +13,21 @@ namespace db0
     std::size_t DRAM_Prefix::dp_count = 0;
 #endif
 
-    DRAM_Prefix::MemoryPage::MemoryPage(BaseStorage &storage, std::uint64_t address, std::size_t size)
-        : m_lock(std::make_shared<DP_Lock>(storage, address, size,
+    DRAM_Prefix::DRAM_Prefix(std::size_t page_size)
+        : Prefix("/sys/DRAM")
+        , m_page_size(page_size)
+        , m_dev_null(page_size)
+        , m_dirty_cache(page_size)
+        , m_context { m_dirty_cache, m_dev_null }
+    {
+    }
+    
+    DRAM_Prefix::~DRAM_Prefix() {
+        close();
+    }
+
+    DRAM_Prefix::MemoryPage::MemoryPage(StorageContext context, std::uint64_t address, std::size_t size)
+        : m_lock(std::make_shared<DP_Lock>(context, address, size,
             FlagSet<AccessOptions> { AccessOptions::write, AccessOptions::create }, 0, 0, true))
         // pull from Storage0 temp instance
         , m_buffer(m_lock->getBuffer(address))
@@ -52,18 +65,7 @@ namespace db0
             --dp_count;
         }
     }
-#endif                        
-    
-    DRAM_Prefix::DRAM_Prefix(std::size_t page_size)
-        : Prefix("/sys/DRAM")
-        , m_page_size(page_size)
-        , m_dev_null(page_size)        
-    {
-    }
-    
-    DRAM_Prefix::~DRAM_Prefix() {
-        close();
-    }
+#endif
     
     MemLock DRAM_Prefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions>)
     {
@@ -74,7 +76,7 @@ namespace db0
         }
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
-            it = m_pages.emplace(page_num, MemoryPage(m_dev_null, address - offset, m_page_size)).first;
+            it = m_pages.emplace(page_num, MemoryPage(m_context, address - offset, m_page_size)).first;
         }
         return { (std::byte*)it->second.m_buffer + offset, it->second.m_lock };
     }
@@ -86,25 +88,20 @@ namespace db0
     std::uint64_t DRAM_Prefix::commit() {
         return getStateNum();
     }
-        
+    
     std::size_t DRAM_Prefix::getPageSize() const {
         return m_page_size;
     }
 
-    void DRAM_Prefix::flushDirty(SinkFunction sink) const
-    {
-        for (auto &page : m_pages) {
-            if (page.second.m_lock->resetDirtyFlag()) {
-                sink(page.first, page.second.m_buffer);
-            }
-        }
+    void DRAM_Prefix::flushDirty(SinkFunction sink) const {
+        m_dirty_cache.flushDirty(sink);
     }
     
     void DRAM_Prefix::update(std::size_t page_num, const void *bytes, bool mark_dirty)
     {
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
-            it = m_pages.emplace(page_num, MemoryPage(m_dev_null, page_num * m_page_size, m_page_size)).first;
+            it = m_pages.emplace(page_num, MemoryPage(m_context, page_num * m_page_size, m_page_size)).first;
         }
         std::memcpy(it->second.m_buffer, bytes, m_page_size);
         if (mark_dirty) {
