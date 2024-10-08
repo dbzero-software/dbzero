@@ -2,7 +2,10 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/core/utils/InterProcessLock.hpp>
+#include <dbzero/workspace/LockFlags.hpp>
 
 namespace db0
 
@@ -16,14 +19,14 @@ namespace db0
          * Open existing binary file for read/write
          */
         CFile(const std::string &file_name, AccessType access_type);
+        CFile(const std::string &file_name, AccessType access_type, LockFlags lock_flags);
         ~CFile();
 
         /**
          * Create a new file
          * throws if file already exists
         */
-        static void create(const std::string &file_name, const std::vector<char> &data, 
-            bool create_directories = true);
+        static void create(const std::string &file_name, const std::vector<char> &data, bool create_directories = true);
         
         /**
          * Check if specific file exists
@@ -74,7 +77,8 @@ namespace db0
         const AccessType m_access_type;
         FILE *m_file = nullptr;
         mutable std::uint64_t m_file_pos = 0;
-        mutable std::uint64_t m_file_size = 0;        
+        mutable std::uint64_t m_file_size = 0;
+        std::unique_ptr<InterProcessLock> m_lock;
     };
 
     std::uint64_t getLastModifiedTime(const char *file_name);

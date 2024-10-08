@@ -29,9 +29,9 @@ namespace db0
     {
     }
     
-    BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type)
+    BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags)
         : BaseStorage(access_type)
-        , m_file(file_name, access_type)
+        , m_file(file_name, access_type, lock_flags)
         , m_config(readConfig())
         , m_dram_changelog_io(getChangeLogIOStream(m_config.m_dram_changelog_io_offset, access_type))
         , m_dp_changelog_io(init(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type)))

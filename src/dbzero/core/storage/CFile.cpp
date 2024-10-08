@@ -44,11 +44,17 @@ namespace db0
     }
 
     CFile::CFile(const std::string &file_name, AccessType access_type)
-        : m_path(file_name)
-        , m_access_type(access_type)
-        , m_file(openFile(m_path.c_str(), access_type))
-        , m_file_size(getFileSize(m_file, m_file_pos))
+        : CFile(file_name, access_type, LockFlags(true))
     {
+    }
+
+    CFile::CFile(const std::string &file_name, AccessType access_type, LockFlags lock_flags)
+        : m_path(file_name), m_access_type(access_type), m_file(openFile(m_path.c_str(), access_type)), m_file_size(getFileSize(m_file, m_file_pos))
+    {
+        if (access_type == AccessType::READ_WRITE && lock_flags.m_no_lock == false) {
+            std::string lock_path = m_path + ".lock";
+            m_lock = std::make_unique<InterProcessLock>(lock_path.c_str(), lock_flags);
+        }
     }
 
     CFile::~CFile() 
