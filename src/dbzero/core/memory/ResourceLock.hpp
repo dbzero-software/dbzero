@@ -45,7 +45,7 @@ namespace db0
         inline void *getBuffer() const {
             return m_data.data();
         }
-        
+
         inline void *getBuffer(std::uint64_t address) const
         {
             assert(address >= m_address && address < m_address + m_data.size());
@@ -76,6 +76,11 @@ namespace db0
         inline bool isRecycled() const {
             return m_resource_flags & db0::RESOURCE_RECYCLED;
         }
+        
+        // Finalize lock initialization by checking dirty flag
+        // and appending to dirty cache if necessary
+        // this method cannot be called from the constructor because shared_ptr of the lock is required
+        void initDirty();
         
         void setDirty();
 

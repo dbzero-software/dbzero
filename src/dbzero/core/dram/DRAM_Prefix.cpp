@@ -32,6 +32,7 @@ namespace db0
         // pull from Storage0 temp instance
         , m_buffer(m_lock->getBuffer(address))
     {
+        m_lock->initDirty();
 #ifndef NDEBUG
         dp_size += m_lock->size();
         ++dp_count;
@@ -92,7 +93,7 @@ namespace db0
     std::size_t DRAM_Prefix::getPageSize() const {
         return m_page_size;
     }
-
+    
     void DRAM_Prefix::flushDirty(SinkFunction sink) const {
         m_dirty_cache.flushDirty(sink);
     }

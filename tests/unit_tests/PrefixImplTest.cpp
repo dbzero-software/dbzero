@@ -77,7 +77,7 @@ namespace tests
         memcpy(r0.modify(), str_data.data(), str_data.size());
         cut.commit();
         ASSERT_EQ(cut.getStateNum(), 2);
-
+        
         // read-lock obtains version from state 1
         auto r1 = cut.mapRange(0, 100, { AccessOptions::read });
         // write-lock obtains version from state 2
@@ -86,7 +86,7 @@ namespace tests
             std::vector<char> data(str_data.size() + 1);
             memcpy(data.data(), r2.m_buffer, str_data.size());
             data[str_data.size()] = 0;
-            ASSERT_EQ(std::string(data.data()), str_data);            
+            ASSERT_EQ(std::string(data.data()), str_data);
             memcpy(r2.modify(), str_data_2.data(), str_data_2.size());
         }
         cut.commit();

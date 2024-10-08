@@ -23,7 +23,7 @@ namespace db0
         , m_resource_flags(
             (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) | 
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
-        , m_access_mode(access_mode)            
+        , m_access_mode(access_mode)
         , m_data(size)
     {
         if (create_new) {
@@ -79,6 +79,13 @@ namespace db0
         assert(!isDirty() || m_access_mode[AccessOptions::no_flush]);
     }
     
+    void ResourceLock::initDirty()
+    {
+        if (isDirty() && !m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
+            m_context.m_cache_ref.get().append(shared_from_this());
+        }
+    }
+
     bool ResourceLock::addrPageAligned(BaseStorage &storage) const {
         return m_address % storage.getPageSize() == 0;
     }
@@ -110,9 +117,14 @@ namespace db0
 
         return false;
     }
-
-    void ResourceLock::resetNoFlush() {
+    
+    void ResourceLock::resetNoFlush()
+    {
         m_access_mode.set(AccessOptions::no_flush, false);
+        // if dirty we need to register the with the dirty cache
+        if (isDirty() && !m_access_mode[AccessOptions::no_cache]) {
+            m_context.m_cache_ref.get().append(shared_from_this());            
+        }
     }
     
     void ResourceLock::copyFrom(const ResourceLock &other)
@@ -124,7 +136,10 @@ namespace db0
     
     void ResourceLock::setDirty()
     {
-        if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
+        // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache
+        if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY) && 
+            !m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) 
+        {
             m_context.m_cache_ref.get().append(shared_from_this());
         }
     }

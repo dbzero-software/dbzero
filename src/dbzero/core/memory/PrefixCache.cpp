@@ -20,25 +20,29 @@ namespace db0
         , m_shift(getPageShift(m_page_size)) 
         , m_mask(getPageMask(m_page_size))
         , m_storage(storage)
-        , m_dirty_cache(m_page_size)
-        , m_context { m_dirty_cache, storage }
+        , m_dirty_dp_cache(m_page_size)        
+        , m_dirty_wide_cache(m_page_size)
+        , m_dp_context { m_dirty_dp_cache, storage }
+        , m_wide_context { m_dirty_wide_cache, storage }
         , m_dp_map(m_page_size)
         , m_boundary_map(m_page_size)
         , m_wide_map(m_page_size)
         , m_cache_recycler_ptr(cache_recycler_ptr)
-        , m_missing_dp_lock_ptr(std::make_shared<DP_Lock>(m_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, true))
-        , m_missing_wide_lock_ptr(std::make_shared<WideLock>(m_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, nullptr, true))
+        , m_missing_dp_lock_ptr(std::make_shared<DP_Lock>(m_dp_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, true))
+        , m_missing_wide_lock_ptr(std::make_shared<WideLock>(m_wide_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, nullptr, true))
     {
     }
     
     std::shared_ptr<DP_Lock> PrefixCache::createPage(std::uint64_t page_num, std::uint64_t read_state_num,
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
     {
-        auto lock = std::make_shared<DP_Lock>(m_context, page_num << m_shift, m_page_size,
+        auto lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
             access_mode, read_state_num, state_num, isCreateNew(access_mode));
+        // initially dirty lock must be registered with the dirty cache            
+        lock->initDirty();            
         // register under the lock's evaluated state number
         m_dp_map.insert(lock->getStateNum(), lock);
-        
+                
         // register with the volatile locks
         assert(lock);
         if (access_mode[AccessOptions::no_flush]) {
@@ -102,11 +106,13 @@ namespace db0
         std::uint64_t read_state_num, std::uint64_t state_num, FlagSet<AccessOptions> access_mode, 
         std::shared_ptr<DP_Lock> res_dp)
     {
-        auto lock = std::make_shared<WideLock>(m_context, page_num << m_shift, size,
+        auto lock = std::make_shared<WideLock>(m_wide_context, page_num << m_shift, size,
             access_mode, read_state_num, state_num, res_dp, isCreateNew(access_mode));
+        // initially dirty lock must be registered with the dirty cache
+        lock->initDirty();
         // register under the lock's evaluated state number
         m_wide_map.insert(lock->getStateNum(), lock);
-        
+                
         assert(lock);
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {
@@ -178,7 +184,7 @@ namespace db0
 
         return lock;
     }
-
+    
     std::shared_ptr<BoundaryLock> PrefixCache::findBoundaryRange(std::uint64_t first_page, std::uint64_t address, std::size_t size,
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num) const
     {
@@ -196,9 +202,11 @@ namespace db0
             // pick the minimum of the underlying states as the read state number
             read_state_num = std::min(lhs_state_num, rhs_state_num);
             auto lhs_size = ((first_page + 1) << m_shift) - address;
-            result = std::make_shared<BoundaryLock>(m_context, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
+            // NOTE: boundary locks are not registered with the dirty-cache
+            // we use dp_context as a placeholder for the dirty-cache
+            result = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
             // register with the read state number
-            m_boundary_map.insert(read_state_num, result);
+            m_boundary_map.insert(read_state_num, result);            
             // the new lock may need to be registered as volatile
             if (access_mode[AccessOptions::no_flush]) {
                 m_volatile_boundary_locks.push_back(result);
@@ -230,6 +238,7 @@ namespace db0
         FlagSet<AccessOptions> access_mode)
     {
         auto result = std::make_shared<DP_Lock>(lock, write_state_num, access_mode);
+        result->initDirty();
         m_dp_map.insert(result->getStateNum(), result);
 
         // register with the volatile locks
@@ -249,6 +258,7 @@ namespace db0
         FlagSet<AccessOptions> access_mode, std::shared_ptr<DP_Lock> res_lock)
     {
         auto result = std::make_shared<WideLock>(lock, write_state_num, access_mode, res_lock);
+        result->initDirty();
         m_wide_map.insert(result->getStateNum(), result);
 
         // register with the volatile locks
@@ -271,7 +281,9 @@ namespace db0
         auto lhs_size = ((lhs->getAddress() + lhs->size()) - address);
         auto rhs_size = size - lhs_size;
         assert(!isCreateNew(access_mode) && "Cannot use create mode for BoundaryLocks");
-        auto result = std::make_shared<BoundaryLock>(m_context, address, lock, lhs, lhs_size, rhs, rhs_size, access_mode);
+        // NOTE: boundary locks are not registered with the dirty-cache
+        // we use dp_context as a placeholder for the dirty-cache
+        auto result = std::make_shared<BoundaryLock>(m_dp_context, address, lock, lhs, lhs_size, rhs, rhs_size, access_mode);        
         m_boundary_map.insert(state_num, result);
         
         // note that BoundaryLocks are not recycled
@@ -342,7 +354,14 @@ namespace db0
     }
     
     void PrefixCache::flush() {
-        m_dirty_cache.flush();
+        // boundary locks need to be flushed first (from the map since they're not cached)        
+        m_boundary_map.forEach([&](BoundaryLock &lock) {
+            lock.flush();
+        });
+        // flush wide locks next
+        m_dirty_wide_cache.flush();
+        // finally flush DP_Locks using the DirtyCache
+        m_dirty_dp_cache.flush();
     }
 
     void PrefixCache::markAsMissing(std::uint64_t page_num, std::uint64_t state_num)

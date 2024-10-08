@@ -23,7 +23,7 @@ namespace db0
         }
     }
 
-    DP_Lock::DP_Lock(tag_derived, StorageContext context, std::uint64_t address, std::size_t size, 
+    DP_Lock::DP_Lock(tag_derived, StorageContext context, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new)
         : ResourceLock(context, address, size, access_mode, create_new)
         , m_state_num(std::max(read_state_num, write_state_num))

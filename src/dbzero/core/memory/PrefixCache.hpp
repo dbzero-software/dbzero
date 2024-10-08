@@ -135,9 +135,11 @@ namespace db0
         const unsigned int m_shift;
         const std::uint64_t m_mask;
         BaseStorage &m_storage;
-        // the collection for tracking dirty locks (cleared on flush)
-        mutable DirtyCache m_dirty_cache;
-        StorageContext m_context;        
+        // the collection for tracking dirty locks of each type (cleared on flush)
+        mutable DirtyCache m_dirty_dp_cache;
+        mutable DirtyCache m_dirty_wide_cache;
+        StorageContext m_dp_context;        
+        StorageContext m_wide_context;
         // single data-page resource locks
         mutable PageMap<DP_Lock> m_dp_map;
         // boundary locks
