@@ -16,10 +16,10 @@ namespace tests
     class PrefixCacheTest: public testing::Test
     {
     public:
-        virtual void SetUp() override {            
+        void SetUp() override {            
         }
 
-        virtual void TearDown() override {            
+        void TearDown() override {            
         }    
     };
     
@@ -66,7 +66,8 @@ namespace tests
     TEST_F( PrefixCacheTest , testPrefixCacheUpdateStateNumToAvoidCoW )
     {
         db0::Storage0 dev_null;
-        db0::CacheRecycler cache_recycler(1 << 20u);
+        std::atomic<std::size_t> null_meter = 0;
+        db0::CacheRecycler cache_recycler(1 << 20u, null_meter);
         PrefixCache cut(dev_null, &cache_recycler);
 
         // first page, end page, read state num, state num

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdexcept>
+#include <atomic>
 #include <dbzero/core/memory/Prefix.hpp>
 #include <dbzero/core/memory/PrefixCache.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
@@ -30,15 +31,16 @@ namespace db0
         /**
          * Opens an existing prefix from a specific storage
         */
-        template <typename... StorageArgs> 
-        PrefixImpl(std::string name, CacheRecycler *cache_recycler_ptr, StorageArgs&&... storage_args)
+        template <typename... StorageArgs>
+        PrefixImpl(std::string name, std::atomic<std::size_t> &dirty_meter, CacheRecycler *cache_recycler_ptr, 
+            StorageArgs&&... storage_args)
             : Prefix(name)
             , m_storage(std::make_shared<StorageT>(std::forward<StorageArgs>(storage_args)...))
             , m_storage_ptr(m_storage.get())
             , m_page_size(m_storage_ptr->getPageSize())
             , m_shift(getPageShift(m_page_size))
-            , m_head_state_num(m_storage_ptr->getMaxStateNum())           
-            , m_cache(*m_storage_ptr, cache_recycler_ptr)
+            , m_head_state_num(m_storage_ptr->getMaxStateNum())
+            , m_cache(*m_storage_ptr, cache_recycler_ptr, &dirty_meter)
         {
             assert(m_storage_ptr);
             if (m_storage_ptr->getAccessType() == AccessType::READ_WRITE) {
@@ -48,8 +50,9 @@ namespace db0
         }
         
         template <typename... StorageArgs>
-        PrefixImpl(std::string name, CacheRecycler &cache_recycler, StorageArgs&&... storage_args)
-            : PrefixImpl(name, &cache_recycler, std::forward<StorageArgs>(storage_args)...)
+        PrefixImpl(std::string name, std::atomic<std::size_t> &dirty_meter, CacheRecycler &cache_recycler, 
+            StorageArgs&&... storage_args)
+            : PrefixImpl(name, dirty_meter, &cache_recycler, std::forward<StorageArgs>(storage_args)...)
         {
         }
         
@@ -66,6 +69,8 @@ namespace db0
         std::uint64_t getLastUpdated() const override;
 
         BaseStorage &getStorage() const override;
+
+        std::size_t getDirtySize() const override;
 
         PrefixCache &getCache() const;
 
@@ -95,6 +100,8 @@ namespace db0
 
         void cleanup() const override;
         
+        std::size_t flushDirty(std::size_t limit) override;
+
     protected:
         template <typename T> friend class PrefixImpl;
 
@@ -426,5 +433,13 @@ namespace db0
     template <typename StorageT> void PrefixImpl<StorageT>::cleanup() const {
         m_cache.clearExpired();
     }      
+
+    template <typename StorageT> std::size_t PrefixImpl<StorageT>::getDirtySize() const {    
+        return m_cache.getDirtySize();
+    }
+    
+    template <typename StorageT> std::size_t PrefixImpl<StorageT>::flushDirty(std::size_t limit) {
+        return m_cache.flushDirty(limit);
+    }
 
 } 

@@ -38,6 +38,7 @@ namespace db0
     protected:
         static constexpr auto TEST_MEMSPACE_UUID = 0x12345678;
         const std::size_t m_page_size;
+        std::atomic<std::size_t> m_dirty_meter = 0;
         CacheRecycler m_cache_recycler;
         std::shared_ptr<db0::tests::PrefixProxy> m_prefix;
     };

@@ -71,6 +71,14 @@ namespace db0::tests
             return m_prefix->getStorage();
         }
         
+        std::size_t getDirtySize() const override {
+            return m_prefix->getDirtySize();
+        }
+
+        std::size_t flushDirty(std::size_t limit) override {
+            return m_prefix->flushDirty(limit);
+        }
+        
     private:        
         std::shared_ptr<Prefix> m_prefix;
         std::function<void(std::uint64_t, std::size_t, FlagSet<AccessOptions>)> m_map_range_callback;

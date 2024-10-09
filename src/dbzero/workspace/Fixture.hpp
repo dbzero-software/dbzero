@@ -219,7 +219,7 @@ namespace db0
         const MetaAllocator &getMetaAllocator() const {
             return m_meta_allocator;
         }
-
+        
         // Called by the CacheRecycler when cache limit has been reached
         void onCacheFlushed(bool threshold_reached) const;
 

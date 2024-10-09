@@ -90,7 +90,7 @@ namespace db0
             return m_context.m_storage_ref.get();
         }
 
-        bool isDirty() const {
+        inline bool isDirty() const {
             return m_resource_flags & db0::RESOURCE_DIRTY;
         }
         

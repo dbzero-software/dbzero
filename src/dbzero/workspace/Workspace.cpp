@@ -19,9 +19,14 @@ namespace db0
     BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size,
         std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> flush_size)
         : m_prefix_catalog(root_path)
-        , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE, flush_size, [this](bool threshold_reached) {
-            this->onCacheFlushed(threshold_reached);
-        })
+        , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE, m_dirty_meter, flush_size,
+            [this](std::size_t limit) {
+                this->onFlushDirty(limit);
+            },
+            [this](bool threshold_reached) {
+                this->onCacheFlushed(threshold_reached);
+            }
+        )
         , m_slab_recycler(slab_cache_size ? *slab_cache_size : DEFAULT_SLAB_CACHE_SIZE)
     {
     }
@@ -51,7 +56,8 @@ namespace db0
             StorageT::create(file_name, *page_size, *sparse_index_node_size);
             new_file_created = true;
         }
-        auto prefix = std::make_shared<PrefixImpl<StorageT> >(prefix_name, m_cache_recycler, file_name, access_type);
+        auto prefix = std::make_shared<PrefixImpl<StorageT> >(
+            prefix_name, m_dirty_meter, m_cache_recycler, file_name, access_type);
         try {
             if (new_file_created) {
                 // prepare meta allocator for the 1st use
@@ -133,9 +139,28 @@ namespace db0
     void BaseWorkspace::clearCache() const {
         m_cache_recycler.clear();
     }
-    
+
     void BaseWorkspace::onCacheFlushed(bool) const
     {
+    }
+    
+    void BaseWorkspace::onFlushDirty(std::size_t limit)
+    {
+        // from each fixture try releasing limit proportional to its dirty size
+        auto total_dirty_size = m_dirty_meter.load();
+        for (auto &[uuid, memspace] : m_memspaces) {
+            auto dirty_size = memspace.getPrefix().getDirtySize();
+            if (dirty_size > 0) {
+                auto p = (double)dirty_size / (double)total_dirty_size;
+                auto size_flushed = memspace.getPrefix().flushDirty((std::size_t)(p * limit));
+                // finish when limit is reached
+                if (size_flushed > limit) {
+                    break;
+                }
+                total_dirty_size -= size_flushed;
+                limit -= size_flushed;                
+            }
+        }
     }
     
     class WorkspaceThreads

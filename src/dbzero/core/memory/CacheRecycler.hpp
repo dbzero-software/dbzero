@@ -6,6 +6,7 @@
 #include <deque>
 #include <functional>
 #include <optional>
+#include <atomic>
 #include <dbzero/core/memory/ResourceLock.hpp>
 #include <dbzero/core/utils/FixedList.hpp>
 
@@ -23,9 +24,11 @@ namespace db0
          * 
 		 * @param size as the number of bytes
 		 * @param flush_size recommended number of bytes to be released in single operation
+		 * @param flush_dirty function to request releasing specific number of bytes from dirty locks (i.e. converting to non-dirty)
 		 * @param flush_callback to be notified on each flush operation (with indication if sufficient space was released)
 		 */
-		CacheRecycler(std::size_t size, std::optional<std::size_t> flush_size = {},
+		CacheRecycler(std::size_t size, const std::atomic<std::size_t> &dirty_meter, std::optional<std::size_t> flush_size = {},
+			std::function<void(std::size_t limit)> flush_dirty = {},
 			std::function<void(bool threshold_reached)> flush_callback = {});
 
 		void update(std::shared_ptr<ResourceLock> res_lock);
@@ -76,9 +79,11 @@ namespace db0
 		std::size_t m_current_size = 0;
 		// cache capacity as number of bytes
 		std::size_t m_capacity;
+		const std::atomic<std::size_t> &m_dirty_meter;
 		// number of locks to be flushed at once
 		std::size_t m_flush_size;
 		mutable std::mutex m_mutex;
+		std::function<void(std::size_t limit)> m_flush_dirty;
 		std::function<void(bool)> m_flush_callback;
 
         /**
@@ -86,9 +91,7 @@ namespace db0
          * @param released_locks locks to be released
 		 * @param release_size total number of bytes to be released
          */
-        void adjustSize(std::unique_lock<std::mutex> &, std::vector<std::shared_ptr<ResourceLock> > &released_locks, 
-			std::size_t release_size);
-		
+        void adjustSize(std::unique_lock<std::mutex> &, std::size_t release_size);		
 		void updateSize(std::unique_lock<std::mutex> &, std::size_t expected_size);
 	};
 

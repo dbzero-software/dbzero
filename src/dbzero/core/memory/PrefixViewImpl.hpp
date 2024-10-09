@@ -22,7 +22,7 @@ namespace db0
             std::uint64_t state_num)
             : Prefix(name)
             , m_storage(storage)
-            , m_storage_ptr(storage.get())            
+            , m_storage_ptr(storage.get())
             , m_head_cache(head_cache)
             , m_cache(*m_storage_ptr, head_cache.getCacheRecycler())
             , m_state_num(state_num)
@@ -50,6 +50,10 @@ namespace db0
         std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
 
         BaseStorage &getStorage() const override;
+
+        std::size_t getDirtySize() const override;
+
+        std::size_t flushDirty(std::size_t limit) override;
 
     private:
         std::shared_ptr<StorageT> m_storage;
@@ -226,6 +230,20 @@ namespace db0
 
         assert(lock);
         return lock;
+    }
+
+    template <typename StorageT>
+    std::size_t PrefixViewImpl<StorageT>::getDirtySize() const
+    {
+        // snapshot is read-only
+        return 0;
+    }
+    
+    template <typename StorageT>
+    std::size_t PrefixViewImpl<StorageT>::flushDirty(std::size_t limit)
+    {
+        // snapshot is read-only
+        return 0;
     }
 
 }

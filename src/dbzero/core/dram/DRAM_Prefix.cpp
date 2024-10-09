@@ -172,4 +172,16 @@ namespace db0
     }
 #endif
 
+    std::size_t DRAM_Prefix::getDirtySize() const
+    {
+        assert(false);
+        throw std::runtime_error("DRAM_Prefix::getDirtySize operation not supported");
+    }
+
+    std::size_t DRAM_Prefix::flushDirty(std::size_t) 
+    {
+        assert(false);
+        throw std::runtime_error("DRAM_Prefix::flushDirty operation not supported");
+    }
+    
 }

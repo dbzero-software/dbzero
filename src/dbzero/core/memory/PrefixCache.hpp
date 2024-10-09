@@ -32,8 +32,8 @@ namespace db0
         /**
          * @param storage prefix related storage reference
         */
-        PrefixCache(BaseStorage &, CacheRecycler *);
-
+        PrefixCache(BaseStorage &, CacheRecycler *, std::atomic<std::size_t> *dirty_meter_ptr = nullptr);
+        
         /**
          * Attempt retrieving the page / range associated existing resource lock for read or write
          * 
@@ -130,7 +130,11 @@ namespace db0
         
         void clearExpired() const;
 
-    protected:
+        std::size_t getDirtySize() const;
+
+        std::size_t flushDirty(std::size_t limit);
+        
+    protected:        
         const std::size_t m_page_size;
         const unsigned int m_shift;
         const std::uint64_t m_mask;

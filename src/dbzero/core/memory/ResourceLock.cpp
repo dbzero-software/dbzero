@@ -120,10 +120,12 @@ namespace db0
     
     void ResourceLock::resetNoFlush()
     {
-        m_access_mode.set(AccessOptions::no_flush, false);
-        // if dirty we need to register the with the dirty cache
-        if (isDirty() && !m_access_mode[AccessOptions::no_cache]) {
-            m_context.m_cache_ref.get().append(shared_from_this());            
+        if (m_access_mode[AccessOptions::no_flush]) {
+            m_access_mode.set(AccessOptions::no_flush, false);
+            // if dirty we need to register the with the dirty cache
+            if (isDirty() && !m_access_mode[AccessOptions::no_cache]) {
+                m_context.m_cache_ref.get().append(shared_from_this());
+            }
         }
     }
     
@@ -136,12 +138,12 @@ namespace db0
     
     void ResourceLock::setDirty()
     {
-        // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache
+        // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
         if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY) && 
             !m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) 
         {
             m_context.m_cache_ref.get().append(shared_from_this());
-        }
+        }        
     }
 
 #ifndef NDEBUG

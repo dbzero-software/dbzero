@@ -37,6 +37,10 @@ namespace db0
         
         std::uint64_t refresh() override;
 
+        std::size_t getDirtySize() const override;
+
+        std::size_t flushDirty(std::size_t) override;
+
         std::size_t getPageSize() const;
         
         /**
@@ -77,7 +81,7 @@ namespace db0
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
 #endif
 
-    private:
+    private:        
         const std::size_t m_page_size;
         mutable Storage0 m_dev_null;
         mutable DirtyCache m_dirty_cache;

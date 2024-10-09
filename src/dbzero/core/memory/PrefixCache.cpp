@@ -15,13 +15,14 @@ namespace db0
         return access_mode[AccessOptions::create] && !access_mode[AccessOptions::read];
     }
 
-    PrefixCache::PrefixCache(BaseStorage &storage, CacheRecycler *cache_recycler_ptr)
+    PrefixCache::PrefixCache(BaseStorage &storage, CacheRecycler *cache_recycler_ptr,
+        std::atomic<std::size_t> *dirty_meter_ptr)
         : m_page_size(storage.getPageSize())
         , m_shift(getPageShift(m_page_size)) 
         , m_mask(getPageMask(m_page_size))
         , m_storage(storage)
-        , m_dirty_dp_cache(m_page_size)        
-        , m_dirty_wide_cache(m_page_size)
+        , m_dirty_dp_cache(m_page_size, dirty_meter_ptr)
+        , m_dirty_wide_cache(m_page_size, dirty_meter_ptr)
         , m_dp_context { m_dirty_dp_cache, storage }
         , m_wide_context { m_dirty_wide_cache, storage }
         , m_dp_map(m_page_size)
@@ -494,5 +495,20 @@ namespace db0
         m_boundary_map.clearExpired();  
         m_wide_map.clearExpired();
     }
+
+    std::size_t PrefixCache::getDirtySize() const {
+        return m_dirty_dp_cache.size() + m_dirty_wide_cache.size();
+    }
     
+    std::size_t PrefixCache::flushDirty(std::size_t limit)
+    {
+        std::size_t result = 0;
+        result += m_dirty_wide_cache.flush(limit);
+        if (result >= limit) {
+            return result;
+        }
+        result += m_dirty_dp_cache.flush(limit - result);
+        return result;
+    }
+
 }

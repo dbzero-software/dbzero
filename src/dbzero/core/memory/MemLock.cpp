@@ -22,12 +22,9 @@ namespace db0
         m_lock->setDirty();
         return m_buffer;
     }
-        
+    
     void MemLock::release()
     {
-        if (m_lock) {
-            m_lock->flush();
-        }
         m_lock = nullptr;
         m_buffer = nullptr;
     }    
