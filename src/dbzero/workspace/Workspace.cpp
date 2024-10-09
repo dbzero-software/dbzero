@@ -144,25 +144,36 @@ namespace db0
     {
     }
     
+    void BaseWorkspace::forAllMemspaces(std::function<bool(Memspace &)> callback)
+    {
+        for (auto &[uuid, memspace] : m_memspaces) {
+            if (!callback(memspace)) {
+                break;
+            }
+        }
+    }
+    
     void BaseWorkspace::onFlushDirty(std::size_t limit)
     {
         // from each fixture try releasing limit proportional to its dirty size
         auto total_dirty_size = m_dirty_meter.load();
-        for (auto &[uuid, memspace] : m_memspaces) {
+        // the implementation works for BaseWorkspace and its subclasses
+        forAllMemspaces([&](Memspace &memspace) -> bool {
             auto dirty_size = memspace.getPrefix().getDirtySize();
             if (dirty_size > 0) {
                 auto p = (double)dirty_size / (double)total_dirty_size;
                 auto size_flushed = memspace.getPrefix().flushDirty((std::size_t)(p * limit));
                 // finish when limit is reached
                 if (size_flushed > limit) {
-                    break;
+                    return false;
                 }
                 total_dirty_size -= size_flushed;
-                limit -= size_flushed;                
+                limit -= size_flushed;
             }
-        }
+            return true;
+        });
     }
-    
+
     class WorkspaceThreads
     {
     public:
@@ -605,6 +616,15 @@ namespace db0
             new WorkspaceView(const_cast<Workspace&>(*this), state_num, prefix_state_nums));
         m_views.push_back(workspace_view);
         return workspace_view;
+    }
+
+    void Workspace::forAllMemspaces(std::function<bool(Memspace &)> callback)
+    {
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (!callback(*fixture)) {
+                break;
+            }
+        }
     }
 
 }

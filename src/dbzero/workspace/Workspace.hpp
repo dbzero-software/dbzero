@@ -116,6 +116,8 @@ namespace db0
 
         virtual void onCacheFlushed(bool threshold_reached) const;
 
+        virtual void forAllMemspaces(std::function<bool(Memspace &)> callback);
+
     private:
         mutable CacheRecycler m_cache_recycler;
         SlabRecycler m_slab_recycler;
@@ -274,7 +276,9 @@ namespace db0
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;
         
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
-        
+
+        void forAllMemspaces(std::function<bool(Memspace &)> callback) override;
+
         void onCacheFlushed(bool threshold_reached) const override;
     };
     

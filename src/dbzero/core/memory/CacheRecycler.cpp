@@ -22,7 +22,7 @@ namespace db0
     }
 
     void CacheRecycler::adjustSize(std::unique_lock<std::mutex> &, std::size_t requested_release_size)
-    {        
+    {
         // calculate size to be released from the dirty locks
         // so that they occupy <50% of the cache
         // NOTE: this has to be done before actual size adjustment
@@ -92,9 +92,10 @@ namespace db0
                 m_current_size += lock_size;
                 if (m_current_size > m_capacity) {
                     // try reducing cache utilization to capacity minus flush size
-                    updateSize(lock, m_capacity - m_flush_size);
+                    auto flush_size = std::min(m_capacity >> 1, m_flush_size);
+                    updateSize(lock, m_capacity - flush_size);
                     flushed = true;
-                    flush_result = m_current_size <= (m_capacity - m_flush_size);
+                    flush_result = m_current_size <= (m_capacity - flush_size);
                 }
                 // resize is a costly operation but cannot be avoided if the number of locked
                 // resources exceeds the assumed limit

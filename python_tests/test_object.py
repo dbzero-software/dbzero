@@ -256,8 +256,7 @@ def test_create_random_objects_stress_test(db0_no_autocommit):
         actual_len = random.randint(1, max_len)
         return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
     
-    # append_count = 100000
-    append_count = 2000
+    append_count = 100000    
     buf = []
     total_bytes = 0
     count = 0

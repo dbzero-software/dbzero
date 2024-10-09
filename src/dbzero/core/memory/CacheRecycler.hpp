@@ -17,8 +17,8 @@ namespace db0
 	class CacheRecycler
     {
 	public :
-		static constexpr std::size_t DEFAULT_FLUSH_SIZE = 512 << 10u;
-
+		static constexpr std::size_t DEFAULT_FLUSH_SIZE = 128 << 20u;
+		
 		/**
 		 * Holds resource locks and recycles based on LRU policy
          * 
