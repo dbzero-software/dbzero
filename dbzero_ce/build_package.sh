@@ -24,8 +24,14 @@ cp README.md .build/README.md
 cd .build
 python3 setup.py sdist
 
+# Get the current Python3 version
+PYTHON3_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.minor}")')
 if [ "${INSTALL}" ] ; then
-    pip3 install ./dist/dbzero_ce-0.0.1.tar.gz
+    if [ "$PYTHON3_VERSION" -ge 11 ]; then
+        pip3 install ./dist/dbzero_ce-0.0.1.tar.gz --break-system-packages
+    else
+        pip3 install ./dist/dbzero_ce-0.0.1.tar.gz
+    fi
 fi
 
 cd ..
