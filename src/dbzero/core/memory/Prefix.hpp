@@ -10,6 +10,7 @@ namespace db0
 
     class Allocator;
     class BaseStorage;
+    class ProcessTimer;
     
     /**
      * The Prefix interface represents a single DB0 Prefix space
@@ -47,7 +48,7 @@ namespace db0
          * 
          * @return the state ID after commit
         */
-        virtual std::uint64_t commit() = 0;
+        virtual std::uint64_t commit(ProcessTimer * = nullptr) = 0;
         
         virtual void close() = 0;
         

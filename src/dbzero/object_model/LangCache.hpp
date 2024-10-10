@@ -32,7 +32,7 @@ namespace db0
         
         // Erase an instance from cache
         // @param expired_only if true, only expired instances will be removed
-        void erase(const Fixture &, std::uint64_t address, bool expired_only = false);
+        bool erase(const Fixture &, std::uint64_t address, bool expired_only = false);
         
         // Try retrieving an existing instance from cache
         // nullptr will be returned if the instance has not been found in cache
@@ -59,7 +59,7 @@ namespace db0
 
         void add(std::uint16_t fixture_id, std::uint64_t address, ObjectPtr);
         
-        void erase(std::uint16_t fixture_id, std::uint64_t address, bool expired_only = false);
+        bool erase(std::uint16_t fixture_id, std::uint64_t address, bool expired_only = false);
 
     private:
         using CacheItem = std::pair<std::uint64_t, ObjectSharedPtr>;
@@ -119,7 +119,7 @@ namespace db0
         const Fixture &m_fixture;
         std::shared_ptr<LangCache> m_cache_ptr;
         LangCache &m_cache;
-        const std::uint16_t m_fixture_id;     
+        const std::uint16_t m_fixture_id;
         std::unordered_set<std::uint64_t> m_objects;
     };
     

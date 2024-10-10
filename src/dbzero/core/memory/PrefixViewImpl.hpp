@@ -37,7 +37,7 @@ namespace db0
         
         std::size_t getPageSize() const override;
 
-        std::uint64_t commit() override;
+        std::uint64_t commit(ProcessTimer * = nullptr) override;
 
         std::uint64_t getLastUpdated() const override;
 
@@ -119,11 +119,12 @@ namespace db0
         return m_state_num;
     }
 
-    template <typename StorageT> std::uint64_t PrefixViewImpl<StorageT>::commit() {
+    template <typename StorageT> std::uint64_t PrefixViewImpl<StorageT>::commit(ProcessTimer *) 
+    {
         THROWF(db0::InternalException)
             << "PrefixViewImpl::commit: cannot commit snapshot" << THROWF_END;        
     }
-
+    
     template <typename StorageT>
     std::uint64_t PrefixViewImpl<StorageT>::getLastUpdated() const 
     {

@@ -31,7 +31,7 @@ namespace db0
         
         std::uint64_t getStateNum() const override;
         
-        std::uint64_t commit() override;
+        std::uint64_t commit(ProcessTimer * = nullptr) override;
 
         void close() override;
         

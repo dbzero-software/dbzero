@@ -18,6 +18,7 @@
 #include <dbzero/object_model/LangCache.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
 #include <dbzero/core/memory/SlotAllocator.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 
 namespace db0
 
@@ -266,7 +267,7 @@ namespace db0
         std::uint64_t getUUID(MetaAllocator &);
         
         // try commit if not closed yet
-        void tryCommit(std::unique_lock<std::shared_mutex> &);
+        void tryCommit(std::unique_lock<std::shared_mutex> &, ProcessTimer * = nullptr);
 
         static std::shared_ptr<SlabAllocator> openSlot(MetaAllocator &, const v_object<o_fixture> &, std::uint32_t slot_id);
         

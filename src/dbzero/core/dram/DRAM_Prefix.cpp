@@ -86,7 +86,7 @@ namespace db0
         return 0;
     }
     
-    std::uint64_t DRAM_Prefix::commit() {
+    std::uint64_t DRAM_Prefix::commit(ProcessTimer *) {
         return getStateNum();
     }
     

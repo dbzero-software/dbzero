@@ -75,7 +75,7 @@ namespace db0
         */
         std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {});
         
-        bool flush() override;
+        bool flush(ProcessTimer * = nullptr) override;
 
         void close() override;
         

@@ -18,6 +18,7 @@ namespace db0
 {   
     
     class CacheRecycler;
+    class ProcessTimer;
     
     inline bool isBoundaryRange(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t addr_offset) {
         return (end_page == first_page + 2) && (addr_offset != 0);
@@ -105,7 +106,7 @@ namespace db0
         /**
          * Flush all managed locks
         */
-        void flush();
+        void flush(ProcessTimer * = nullptr);
 
         // Flush managed boundary locks only
         void flushBoundary();

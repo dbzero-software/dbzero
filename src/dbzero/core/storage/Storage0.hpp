@@ -38,8 +38,7 @@ namespace db0
             return 0;
         }
         
-        bool flush() override
-        {
+        bool flush(ProcessTimer * = nullptr) override {
             return false;
         }
 

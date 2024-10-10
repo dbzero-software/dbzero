@@ -70,11 +70,11 @@ namespace tests
         db0::CacheRecycler cache_recycler(1 << 20u, null_meter);
         PrefixCache cut(dev_null, &cache_recycler);
 
-        // first page, end page, read state num, state num
+        // page num, read state num, state num
         // create page in state #1
         {
             auto lock = cut.createPage(0, 0, 1, { AccessOptions::write });
-            lock->flush();
+            cut.flush();            
         }
         // request state #2 for read-write (note that lock has been released)
         std::uint64_t read_state_num;

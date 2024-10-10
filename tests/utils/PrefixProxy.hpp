@@ -35,8 +35,8 @@ namespace db0::tests
             return m_prefix->getPageSize();
         }
                 
-        std::uint64_t commit() override {
-            return m_prefix->commit();
+        std::uint64_t commit(ProcessTimer *timer = nullptr) override {
+            return m_prefix->commit(timer);
         }
 
         void close() override {

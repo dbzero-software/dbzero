@@ -9,6 +9,7 @@
 #include <dbzero/core/vspace/v_ptr.hpp>
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 #include "utils.hpp"
 #include "PrefixViewImpl.hpp"
 #include "PrefixCache.hpp"
@@ -64,7 +65,7 @@ namespace db0
             return m_page_size;
         }
 
-        std::uint64_t commit() override;
+        std::uint64_t commit(ProcessTimer * = nullptr) override;
 
         std::uint64_t getLastUpdated() const override;
 
@@ -343,16 +344,20 @@ namespace db0
 
         assert(lock);
         return lock;
-    }    
+    }
 
     template <typename StorageT> std::uint64_t PrefixImpl<StorageT>::getStateNum() const {
         return m_head_state_num;
     }
     
-    template <typename StorageT> std::uint64_t PrefixImpl<StorageT>::commit()
+    template <typename StorageT> std::uint64_t PrefixImpl<StorageT>::commit(ProcessTimer *parent_timer)
     {
-        m_cache.flush();
-        if (m_storage_ptr->flush()) {
+        std::unique_ptr<ProcessTimer> timer;
+        if (parent_timer) {
+            timer = std::make_unique<ProcessTimer>("Prefix::commit", parent_timer);
+        }
+        m_cache.flush(timer.get());
+        if (m_storage_ptr->flush(timer.get())) {
             // increment state number only if there were any changes
             ++m_head_state_num;
         }

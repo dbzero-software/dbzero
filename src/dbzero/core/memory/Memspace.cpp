@@ -43,12 +43,12 @@ namespace db0
         return m_page_size;
     }
     
-    void Memspace::commit()
-    {
+    void Memspace::commit(ProcessTimer *timer)
+    {       
         assert(m_prefix);
         // prepare the allocator for the next transaction
         getAllocatorForUpdate().commit();
-        m_prefix->commit();
+        m_prefix->commit(timer);
     }
     
     void Memspace::close()

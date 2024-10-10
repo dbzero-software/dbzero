@@ -5,6 +5,7 @@
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 
 namespace db0
 
@@ -203,13 +204,17 @@ namespace db0
         return m_config.m_page_size;
     }
 
-    bool BDevStorage::flush()
+    bool BDevStorage::flush(ProcessTimer *parent_timer)
     {
+        std::unique_ptr<ProcessTimer> timer;
+        if (parent_timer) {
+            timer = std::make_unique<ProcessTimer>("BDevStorage::flush", parent_timer);
+        }
         if (m_access_type == AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "BDevStorage::flush error: read-only stream";
         }
-
-        // no modifications to be flushed                
+        
+        // no modifications to be flushed
         if (m_sparse_index.getChangeLogSize() == 0) {
             return false;
         }

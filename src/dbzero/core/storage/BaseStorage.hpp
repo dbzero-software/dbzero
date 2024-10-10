@@ -8,6 +8,8 @@ namespace db0
 
 {
 
+    class ProcessTimer;
+
     /**
      * Defines the file-oriented storage interface
     */
@@ -66,7 +68,7 @@ namespace db0
          * Flush all in-memory changes to disk
          * @return true if any changes were flushed (false if there were no modifications to be flushed)
         */
-        virtual bool flush() = 0;
+        virtual bool flush(ProcessTimer * = nullptr) = 0;
 
         /**
          * Flush all changes to disk and close

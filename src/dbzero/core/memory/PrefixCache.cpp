@@ -2,6 +2,7 @@
 #include <dbzero/core/memory/utils.hpp>
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
 #include <dbzero/core/storage/BaseStorage.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 #include <iostream>
 #include "BoundaryLock.hpp"
 #include "CacheRecycler.hpp"
@@ -354,7 +355,12 @@ namespace db0
         });
     }
     
-    void PrefixCache::flush() {
+    void PrefixCache::flush(ProcessTimer *parent_timer)
+    {
+        std::unique_ptr<ProcessTimer> timer;
+        if (parent_timer) {
+            timer = std::make_unique<ProcessTimer>("PrefixCache::flush", parent_timer);
+        }
         // boundary locks need to be flushed first (from the map since they're not cached)        
         m_boundary_map.forEach([&](BoundaryLock &lock) {
             lock.flush();
@@ -364,7 +370,7 @@ namespace db0
         // finally flush DP_Locks using the DirtyCache
         m_dirty_dp_cache.flush();
     }
-
+    
     void PrefixCache::markAsMissing(std::uint64_t page_num, std::uint64_t state_num)
     {
         // only mark already existing ranges
