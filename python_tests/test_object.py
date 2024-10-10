@@ -410,25 +410,25 @@ def test_memo_classes_ref_counting(db0_fixture):
 #     assert not obj1 >= obj2
 
 
-# def test_equality_operator_on_instances_created_in_line(db0_fixture):
-#     # Test __eq__ and __ne__
-#     assert DataClassWithComparators(10) == DataClassWithComparators(10)
-#     assert DataClassWithComparators(5) != DataClassWithComparators(10)
+def test_equality_operator_on_instances_created_in_line(db0_fixture):
+    # Test __eq__ and __ne__
+    assert DataClassWithComparators(10) == DataClassWithComparators(10)
+    assert DataClassWithComparators(5) != DataClassWithComparators(10)
 
-#     # Test __lt__
-#     assert DataClassWithComparators(5) < DataClassWithComparators(10)
-#     assert not DataClassWithComparators(10) < DataClassWithComparators(5)
+    # Test __lt__
+    assert DataClassWithComparators(5) < DataClassWithComparators(10)
+    assert not DataClassWithComparators(10) < DataClassWithComparators(5)
 
-#     # Test __le__
-#     assert DataClassWithComparators(5) <= DataClassWithComparators(5)
-#     assert DataClassWithComparators(5) <= DataClassWithComparators(10)
-#     assert not DataClassWithComparators(10) <= DataClassWithComparators(5)
+    # Test __le__
+    assert DataClassWithComparators(5) <= DataClassWithComparators(5)
+    assert DataClassWithComparators(5) <= DataClassWithComparators(10)
+    assert not DataClassWithComparators(10) <= DataClassWithComparators(5)
 
-#     # Test __gt__
-#     assert DataClassWithComparators(10) > DataClassWithComparators(5)
-#     assert not DataClassWithComparators(5) > DataClassWithComparators(10)
+    # Test __gt__
+    assert DataClassWithComparators(10) > DataClassWithComparators(5)
+    assert not DataClassWithComparators(5) > DataClassWithComparators(10)
 
-#     # Test __ge__
-#     assert DataClassWithComparators(10) >= DataClassWithComparators(10)
-#     assert DataClassWithComparators(10) >= DataClassWithComparators(5)
-#     assert not DataClassWithComparators(5) >= DataClassWithComparators(10)
+    # Test __ge__
+    assert DataClassWithComparators(10) >= DataClassWithComparators(10)
+    assert DataClassWithComparators(10) >= DataClassWithComparators(5)
+    assert not DataClassWithComparators(5) >= DataClassWithComparators(10)

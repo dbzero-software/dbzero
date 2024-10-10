@@ -23,6 +23,12 @@ namespace db0
             return db0::get<T>(m_py_config.get(), key);
         }
 
+        template <typename T> T get(const std::string &key, T default_value) const {
+            auto value = get<T>(key);
+            return value ? *value : default_value;
+        }
+
+
     private:
         ObjectSharedPtr m_py_config;
     };

@@ -17,6 +17,7 @@
 #include <filesystem>
 #include "PrefixCatalog.hpp"
 #include "Snapshot.hpp"
+#include "LockFlags.hpp"
     
 namespace db0
 
@@ -49,7 +50,8 @@ namespace db0
          * @param root_path default search path for existing prefixes and storage for new ones (pass "" for current directory)
          **/        
         BaseWorkspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
-            std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {});
+            std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {},
+            std::optional<LockFlags> default_lock_flags = {});
         virtual ~BaseWorkspace()= default;
         
         /**
@@ -102,6 +104,7 @@ namespace db0
         PrefixCatalog m_prefix_catalog;
         // the variable to hold total size of all "dirty" locks in the entire workspace
         std::atomic<std::size_t> m_dirty_meter = 0;
+        LockFlags m_default_lock_flags;
 
         /**
          * Open existing or create new memspace
@@ -109,7 +112,8 @@ namespace db0
         std::pair<std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator> > openMemspace(const std::string &prefix_name, 
             bool &new_file_created, AccessType = AccessType::READ_WRITE, std::optional<std::size_t> page_size = {}, 
             std::optional<std::size_t> slab_size = {},
-            std::optional<std::size_t> sparse_index_node_size = {});
+            std::optional<std::size_t> sparse_index_node_size = {},
+            std::optional<LockFlags> lock_flags = {});
         
         // Clear all internal in-memory caches
         void clearCache() const;
@@ -143,7 +147,8 @@ namespace db0
             std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {},
             std::optional<std::size_t> vobject_cache_size = {},
             std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer = {}, 
-            std::shared_ptr<Config> config = nullptr);
+            std::shared_ptr<Config> config = nullptr,
+            std::optional<LockFlags> default_lock_flags = {});
         virtual ~Workspace();
         
         // Set or change the autocommit interval in milliseconds
@@ -163,7 +168,7 @@ namespace db0
         swine_ptr<Fixture> getFixtureEx(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE,
             std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {}, 
             std::optional<std::size_t> sparse_index_node_size = {},
-            std::optional<bool> autocommit = {});
+            std::optional<bool> autocommit = {}, std::optional<LockFlags> lock_flags = {});
         
         /**
          * Get existing fixture by UUID
@@ -201,7 +206,7 @@ namespace db0
          * @param autocommit flag indicating if the prefix should be auto-committed
         */
         void open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit = {},
-            std::optional<std::size_t> slab_size = {});
+            std::optional<std::size_t> slab_size = {}, std::optional<LockFlags> default_lock_flags = {});
         
         bool drop(const std::string &prefix_name, bool if_exists = true);
 

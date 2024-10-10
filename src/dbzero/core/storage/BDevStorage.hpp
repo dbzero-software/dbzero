@@ -11,6 +11,7 @@
 #include "BaseStorage.hpp"
 #include "DRAM_IOStream.hpp"
 #include "ChangeLogIOStream.hpp"
+#include <dbzero/workspace/LockFlags.hpp>
 
 namespace db0
 
@@ -49,7 +50,7 @@ namespace db0
         /**
          * Opens BDevStorage over an existing file
         */
-        BDevStorage(const std::string &file_name, AccessType = AccessType::READ_WRITE);
+        BDevStorage(const std::string &file_name, AccessType = AccessType::READ_WRITE, LockFlags lock_flags = {});
         ~BDevStorage();
 
         /**

@@ -16,24 +16,30 @@ namespace db0::python
     }
     
     void PyWorkspace::open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit,
-        std::optional<std::size_t> slab_size)
+        std::optional<std::size_t> slab_size, ObjectPtr py_lock_flags)
     {
         if (!m_workspace) {
             // initialize DBZero with current working directory
             initWorkspace("");
         }
-        m_workspace->open(prefix_name, access_type, autocommit, slab_size);
+        if(py_lock_flags) {
+            db0::Config lock_flags_config(py_lock_flags);
+            m_workspace->open(prefix_name, access_type, autocommit, slab_size, lock_flags_config);
+        } else {
+            m_workspace->open(prefix_name, access_type, autocommit, slab_size);
+        }
     }
     
-    void PyWorkspace::initWorkspace(const std::string &root_path, ObjectPtr py_config)
+    void PyWorkspace::initWorkspace(const std::string &root_path, ObjectPtr py_config, ObjectPtr py_lock_flags)
     {
         if (m_workspace) {
             THROWF(db0::InternalException) << "DBZero already initialized";
         }
         
         m_config = std::make_shared<db0::Config>(py_config);
+        db0::Config default_lock_flags(py_lock_flags);
         m_workspace = std::shared_ptr<db0::Workspace>(
-            new Workspace(root_path, {}, {}, {}, {}, db0::object_model::initializer(), m_config));
+            new Workspace(root_path, {}, {}, {}, {}, db0::object_model::initializer(), m_config, default_lock_flags));
 
         // register a callback to register bindings between known memo types (language specific objects)
         // and the corresponding Class instances. Note that types may be prefix agnostic therefore bindings may or
