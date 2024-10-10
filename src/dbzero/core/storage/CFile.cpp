@@ -47,9 +47,12 @@ namespace db0
         : CFile(file_name, access_type, LockFlags(true))
     {
     }
-
+    
     CFile::CFile(const std::string &file_name, AccessType access_type, LockFlags lock_flags)
-        : m_path(file_name), m_access_type(access_type), m_file(openFile(m_path.c_str(), access_type)), m_file_size(getFileSize(m_file, m_file_pos))
+        : m_path(file_name)
+        , m_access_type(access_type)
+        , m_file(openFile(m_path.c_str(), access_type))
+        , m_file_size(getFileSize(m_file, m_file_pos))
     {
         if (access_type == AccessType::READ_WRITE && lock_flags.m_no_lock == false) {
             std::string lock_path = m_path + ".lock";
@@ -57,7 +60,7 @@ namespace db0
         }
     }
 
-    CFile::~CFile() 
+    CFile::~CFile()
     {
         if (m_file) {
             fclose(m_file);
@@ -131,12 +134,14 @@ namespace db0
                 THROWF(db0::IOException) << "CFile::write: fseek failed";
             }
             m_file_pos = address;
+            ++m_rand_write_ops;
         }
         if (fwrite(buffer, size, 1, m_file) != 1) {
             THROWF(db0::IOException) << "CFile::write: fwrite failed";
         }
         m_file_pos += size;
         m_file_size = std::max(m_file_size, m_file_pos);
+        m_bytes_written += size;
     }
     
     void CFile::read(std::uint64_t address, std::size_t size, void *buffer) const 
@@ -146,15 +151,16 @@ namespace db0
                 THROWF(db0::IOException) << "CFile::read: fseek failed";
             }
             m_file_pos = address;
+            ++m_rand_read_ops;
         }
         if (fread(buffer, size, 1, m_file) != 1) {
             THROWF(db0::IOException) << "CFile::read: fread failed";
         }
         m_file_pos += size;
+        m_bytes_read += size;
     }
 
-    std::uint64_t CFile::getLastModifiedTime() const
-    {
+    std::uint64_t CFile::getLastModifiedTime() const {
         return db0::getLastModifiedTime(m_path.c_str());
     }
     
@@ -162,6 +168,14 @@ namespace db0
     {
         struct stat st;
         return stat(file_name.c_str(), &st) == 0;
+    }
+
+    std::pair<std::uint64_t, std::uint64_t> CFile::getRandOps() const {
+        return { m_rand_read_ops, m_rand_write_ops };
+    }
+
+    std::pair<std::uint64_t, std::uint64_t> CFile::getIOBytes() const {
+        return { m_bytes_read, m_bytes_written };
     }
     
 }

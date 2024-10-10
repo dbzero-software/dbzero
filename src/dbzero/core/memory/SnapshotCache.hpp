@@ -5,10 +5,11 @@
 namespace db0
 
 {
-
+    
     class SnapshotCache: public PrefixCache
     {
     public:
+        // SnapshotCache is read-only, no dirty meter required
         SnapshotCache(BaseStorage &, CacheRecycler *);
 
         // adds the read-only range to this instance

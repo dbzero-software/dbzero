@@ -6,10 +6,10 @@
 namespace db0
 
 {
-    
+
     template <typename T> void atomicSetFlags(std::atomic<T> &value, std::uint32_t flags)
     {
-        auto old_val = value.load();
+        auto old_val = value.load();        
         while (!value.compare_exchange_weak(old_val, old_val | flags));
     }
     
@@ -19,4 +19,20 @@ namespace db0
         while (!value.compare_exchange_weak(old_val, old_val & ~flags));
     }
     
+    // Check flags and only set if not already set
+    // @return false if all flags were already set
+    template <typename T> bool atomicCheckAndSetFlags(std::atomic<T> &value, std::uint32_t flags)
+    {
+        auto old_val = value.load();
+        for (;;) {
+            // already set by another thread
+            if ((old_val & flags) == flags) {
+                return false;
+            }
+            if (value.compare_exchange_strong(old_val, old_val | flags)) {
+                return true;
+            }            
+        }
+    }
+
 }

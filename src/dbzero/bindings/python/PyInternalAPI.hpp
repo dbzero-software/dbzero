@@ -100,6 +100,8 @@ namespace db0::python
     PyObject *tryGetRefCount(PyObject *);
     
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs);
+
+    PyObject *tryGetStorageStats(PyObject *args, PyObject *kwargs);
     
     // Retrieve prefix (its Fixture objects) from the optional argument "prefix"
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name);

@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <atomic>
 #include <memory>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/utils/InterProcessLock.hpp>
@@ -72,12 +73,24 @@ namespace db0
         */
         std::uint64_t getLastModifiedTime() const;
 
+        // Get the number of random read / write operations
+        // NOTE: that sequential reads / writes are not counted
+        std::pair<std::uint64_t, std::uint64_t> getRandOps() const;
+        
+        // Get the total number of bytes read / written
+        std::pair<std::uint64_t, std::uint64_t> getIOBytes() const;
+
     private:
         const std::string m_path;
         const AccessType m_access_type;
         FILE *m_file = nullptr;
         mutable std::uint64_t m_file_pos = 0;
         mutable std::uint64_t m_file_size = 0;
+        mutable std::uint64_t m_rand_read_ops = 0;
+        mutable std::uint64_t m_rand_write_ops = 0;
+        // total bytes read / written
+        mutable std::uint64_t m_bytes_read = 0;
+        mutable std::uint64_t m_bytes_written = 0;
         std::unique_ptr<InterProcessLock> m_lock;
     };
 

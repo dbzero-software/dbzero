@@ -71,6 +71,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"set_cache_size", (PyCFunction)&py::setCacheSize, METH_VARARGS, "Update DBZero cache size with immediate effect"},
     {"get_cache_stats", &py::getCacheStats, METH_NOARGS, "Retrieve DBZero cache statistics"},
     {"get_lang_cache_stats", &py::getLangCacheStats, METH_NOARGS, "Retrieve DBZero language cache statistics"},
+    {"get_storage_stats", (PyCFunction)&py::getStorageStats, METH_VARARGS | METH_KEYWORDS, "Retrieve DBZero storage utilization statistics for a specific prefix"},
     // the Reflection API functions
     {"get_raw_prefixes", &py::getPrefixes, METH_NOARGS, "Get the list of prefixes accessible from the current context"},
     {"get_raw_memo_classes", (PyCFunction)&py::getMemoClasses, METH_VARARGS | METH_KEYWORDS, "Get the list of memo classes from a specific prefix"},    

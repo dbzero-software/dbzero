@@ -12,6 +12,8 @@ namespace db0
 
 {
     
+    class ProcessTimer;
+
     /**
      * Combines application requisites, prefix related 
      * typically the Prefix instance with the corresponding Allocator
@@ -61,7 +63,7 @@ namespace db0
         /**
          * Commit data with backend and immediately initiate a new transaction
         */
-        void commit();
+        void commit(ProcessTimer * = nullptr);
 
         /**
          * Close this memspace, drop uncommited data

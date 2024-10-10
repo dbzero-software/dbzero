@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <list>
 #include <functional>
+#include <atomic>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
@@ -16,6 +17,7 @@
 #include <filesystem>
 #include "PrefixCatalog.hpp"
 #include "Snapshot.hpp"
+#include "LockFlags.hpp"
     
 namespace db0
 
@@ -100,7 +102,10 @@ namespace db0
 
     protected:
         PrefixCatalog m_prefix_catalog;
+        // the variable to hold total size of all "dirty" locks in the entire workspace
+        std::atomic<std::size_t> m_dirty_meter = 0;
         LockFlags m_default_lock_flags;
+
         /**
          * Open existing or create new memspace
         */
@@ -114,12 +119,17 @@ namespace db0
         void clearCache() const;
 
         virtual void onCacheFlushed(bool threshold_reached) const;
-        
-    private:        
+
+        virtual void forAllMemspaces(std::function<bool(Memspace &)> callback);
+
+    private:
         mutable CacheRecycler m_cache_recycler;
         SlabRecycler m_slab_recycler;
         // memspace by name
         std::unordered_map<std::string, Memspace> m_memspaces;
+
+        // try releasing a specific volume of dirty locks
+        void onFlushDirty(std::size_t limit);
     };
 
     class WorkspaceThreads;
@@ -271,7 +281,9 @@ namespace db0
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;
         
         std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
-        
+
+        void forAllMemspaces(std::function<bool(Memspace &)> callback) override;
+
         void onCacheFlushed(bool threshold_reached) const override;
     };
     

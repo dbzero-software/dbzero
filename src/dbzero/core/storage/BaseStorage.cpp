@@ -12,4 +12,8 @@ namespace db0
         return m_access_type;
     }
     
+    void BaseStorage::getStats(std::function<void(const std::string &, std::uint64_t)>) const
+    {
+    }
+
 }

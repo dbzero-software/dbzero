@@ -5,6 +5,7 @@
 #include <dbzero/core/memory/Prefix.hpp>
 #include <dbzero/core/memory/DP_Lock.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
+#include <dbzero/core/memory/DirtyCache.hpp>
 #include <optional>
 
 namespace db0
@@ -20,9 +21,8 @@ namespace db0
     class DRAM_Prefix: public Prefix, public std::enable_shared_from_this<Prefix>
     {
     public:        
-        // A function to consume a single memory page (for serialization)
-        // is_last=true is set for the last flushed page
-        using SinkFunction = std::function<void(std::uint64_t page_num, const void *)>;
+        // A function to consume a single resource (for serialization)
+        using SinkFunction = DirtyCache::SinkFunction;
 
         DRAM_Prefix(std::size_t page_size);
         virtual ~DRAM_Prefix();
@@ -31,11 +31,15 @@ namespace db0
         
         std::uint64_t getStateNum() const override;
         
-        std::uint64_t commit() override;
+        std::uint64_t commit(ProcessTimer * = nullptr) override;
 
         void close() override;
         
         std::uint64_t refresh() override;
+
+        std::size_t getDirtySize() const override;
+
+        std::size_t flushDirty(std::size_t) override;
 
         std::size_t getPageSize() const;
         
@@ -77,9 +81,11 @@ namespace db0
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
 #endif
 
-    private:
+    private:        
         const std::size_t m_page_size;
         mutable Storage0 m_dev_null;
+        mutable DirtyCache m_dirty_cache;
+        StorageContext m_context;
 #ifndef NDEBUG
         // cummulated size (in bytes) of all DRAM_Prefix instances
         static std::size_t dp_size;
@@ -94,7 +100,7 @@ namespace db0
             
             MemoryPage(const MemoryPage &);
             MemoryPage(MemoryPage &&);
-            MemoryPage(BaseStorage &, std::uint64_t address, std::size_t size);
+            MemoryPage(StorageContext, std::uint64_t address, std::size_t size);
 #ifndef NDEBUG
             ~MemoryPage();
 #endif                        

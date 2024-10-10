@@ -19,10 +19,15 @@ namespace db0
     BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size,
         std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> flush_size, std::optional<LockFlags> default_lock_flags)
         : m_prefix_catalog(root_path)
-        , m_default_lock_flags(default_lock_flags ? *default_lock_flags : LockFlags())
-        , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE, flush_size, [this](bool threshold_reached) {
-            this->onCacheFlushed(threshold_reached);
-        })
+        , m_default_lock_flags(default_lock_flags ? *default_lock_flags : LockFlags())        
+        , m_cache_recycler(cache_size ? *cache_size : DEFAULT_CACHE_SIZE, m_dirty_meter, flush_size,
+            [this](std::size_t limit) {
+                this->onFlushDirty(limit);
+            },
+            [this](bool threshold_reached) {
+                this->onCacheFlushed(threshold_reached);
+            }
+        )
         , m_slab_recycler(slab_cache_size ? *slab_cache_size : DEFAULT_SLAB_CACHE_SIZE)
     {
     }
@@ -52,8 +57,9 @@ namespace db0
             StorageT::create(file_name, *page_size, *sparse_index_node_size);
             new_file_created = true;
         }
-        auto prefix = std::make_shared<PrefixImpl<StorageT> >(prefix_name, m_cache_recycler, file_name, access_type,
-                                                              lock_flags ? *lock_flags : m_default_lock_flags);
+        auto prefix = std::make_shared<PrefixImpl<StorageT> >(
+            prefix_name, m_dirty_meter, m_cache_recycler, file_name, access_type, lock_flags ? *lock_flags : m_default_lock_flags
+        );
         try {
             if (new_file_created) {
                 // prepare meta allocator for the 1st use
@@ -135,11 +141,41 @@ namespace db0
     void BaseWorkspace::clearCache() const {
         m_cache_recycler.clear();
     }
-    
+
     void BaseWorkspace::onCacheFlushed(bool) const
     {
     }
     
+    void BaseWorkspace::forAllMemspaces(std::function<bool(Memspace &)> callback)
+    {
+        for (auto &[uuid, memspace] : m_memspaces) {
+            if (!callback(memspace)) {
+                break;
+            }
+        }
+    }
+    
+    void BaseWorkspace::onFlushDirty(std::size_t limit)
+    {
+        // from each fixture try releasing limit proportional to its dirty size
+        auto total_dirty_size = m_dirty_meter.load();
+        // the implementation works for BaseWorkspace and its subclasses
+        forAllMemspaces([&](Memspace &memspace) -> bool {
+            auto dirty_size = memspace.getPrefix().getDirtySize();
+            if (dirty_size > 0) {
+                auto p = (double)dirty_size / (double)total_dirty_size;
+                auto size_flushed = memspace.getPrefix().flushDirty((std::size_t)(p * limit));
+                // finish when limit is reached
+                if (size_flushed > limit) {
+                    return false;
+                }
+                total_dirty_size -= size_flushed;
+                limit -= size_flushed;
+            }
+            return true;
+        });
+    }
+
     class WorkspaceThreads
     {
     public:
@@ -582,6 +618,15 @@ namespace db0
             new WorkspaceView(const_cast<Workspace&>(*this), state_num, prefix_state_nums));
         m_views.push_back(workspace_view);
         return workspace_view;
+    }
+
+    void Workspace::forAllMemspaces(std::function<bool(Memspace &)> callback)
+    {
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (!callback(*fixture)) {
+                break;
+            }
+        }
     }
 
 }

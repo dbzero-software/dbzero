@@ -99,28 +99,29 @@ namespace db0
         ++m_size;
     }
 
-    void LangCache::erase(const Fixture &fixture, std::uint64_t address, bool expired_only) {
+    bool LangCache::erase(const Fixture &fixture, std::uint64_t address, bool expired_only) {
         return erase(getFixtureId(fixture), address, expired_only);
     }
     
-    void LangCache::erase(std::uint16_t fixture_id, std::uint64_t address, bool expired_only)
+    bool LangCache::erase(std::uint16_t fixture_id, std::uint64_t address, bool expired_only)
     {
         auto uid = makeUID(fixture_id, address);
         auto it = m_uid_to_index.find(uid);
         // instance not found
         if (it == m_uid_to_index.end()) {
-            return;
+            return true;
         }
 
         auto slot_id = it->second;
         if (expired_only && LangToolkit::getRefCount(m_cache[slot_id].second.get()) > 1) {
-            return;
+            return false;
         }
 
         // need to remove from the map first because destroy may trigger erase from GC0        
         m_uid_to_index.erase(it);
         m_cache[slot_id] = {};
         --m_size;
+        return true;
     }
     
     void LangCache::clear(bool expired_only)
@@ -251,8 +252,20 @@ namespace db0
     void LangCacheView::clear(bool expired_only)
     {
         // erase expired objects only
-        for (auto addr: m_objects) {
-            m_cache.erase(m_fixture_id, addr, expired_only);
+        if (expired_only) {
+            auto it = m_objects.begin();
+            while (it != m_objects.end()) {
+                if (m_cache.erase(m_fixture_id, *it, true)) {
+                    it = m_objects.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        } else {        
+            for (auto addr: m_objects) {
+                m_cache.erase(m_fixture_id, addr, false);
+            }
+            m_objects.clear();
         }
     }
 

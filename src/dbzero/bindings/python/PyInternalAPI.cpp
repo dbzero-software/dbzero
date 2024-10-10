@@ -469,4 +469,18 @@ namespace db0::python
         return stats_dict;
     }
     
+    PyObject *tryGetStorageStats(PyObject *args, PyObject *kwargs)
+    {
+        auto fixture = getPrefixFromArgs(args, kwargs, "prefix");
+        auto stats_dict = PyDict_New();
+        if (!stats_dict) {
+            THROWF(db0::MemoryException) << "Out of memory";
+        }
+        auto stats_callback = [&stats_dict](const std::string &name, std::uint64_t value) {
+            PyDict_SetItemString(stats_dict, name.c_str(), PyLong_FromUnsignedLongLong(value));
+        };
+        fixture->getPrefix().getStorage().getStats(stats_callback);
+        return stats_dict;
+    }
+    
 }

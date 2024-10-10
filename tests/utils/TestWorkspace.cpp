@@ -11,7 +11,7 @@ namespace db0
     
     TestWorkspaceBase::TestWorkspaceBase(std::size_t page_size, std::size_t cache_size)
         : m_page_size(page_size)
-        , m_cache_recycler(cache_size)
+        , m_cache_recycler(cache_size, m_dirty_meter)
     {
     }
     
@@ -26,7 +26,7 @@ namespace db0
     {
         using PrefixT = PrefixImpl<db0::Storage0>;
         if (!m_prefix) {
-            auto prefix = std::shared_ptr<Prefix>(new PrefixT(name, m_cache_recycler, m_page_size));
+            auto prefix = std::shared_ptr<Prefix>(new PrefixT(name, m_dirty_meter, m_cache_recycler, m_page_size));
             m_prefix = std::make_shared<db0::tests::PrefixProxy>(prefix);
         }
         auto allocator = std::make_shared<EmbeddedAllocator>();
@@ -90,7 +90,7 @@ namespace db0
             return getFixture(it->second, access_type);
         }
         using PrefixT = PrefixImpl<db0::Storage0>;
-        auto prefix = std::shared_ptr<Prefix>(new PrefixT(prefix_name, m_cache_recycler, m_page_size));
+        auto prefix = std::shared_ptr<Prefix>(new PrefixT(prefix_name, m_dirty_meter, m_cache_recycler, m_page_size));
         auto proxy = std::make_shared<db0::tests::PrefixProxy>(prefix);
         // prepare meta allocator for the 1st use
         MetaAllocator::formatPrefix(prefix, m_page_size, m_slab_size);

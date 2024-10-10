@@ -10,6 +10,7 @@ namespace db0
 
     class Allocator;
     class BaseStorage;
+    class ProcessTimer;
     
     /**
      * The Prefix interface represents a single DB0 Prefix space
@@ -47,7 +48,7 @@ namespace db0
          * 
          * @return the state ID after commit
         */
-        virtual std::uint64_t commit() = 0;
+        virtual std::uint64_t commit(ProcessTimer * = nullptr) = 0;
         
         virtual void close() = 0;
         
@@ -73,6 +74,9 @@ namespace db0
          */
         virtual std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const = 0;
 
+        // Get approximate (may not be threading precise) volume of the underlying dirty locks
+        virtual std::size_t getDirtySize() const = 0;
+        
         // Begin atomic operation with this prefix
         virtual void beginAtomic();
 
@@ -85,6 +89,10 @@ namespace db0
         // Perform memory cleanups, e.g. by removing expired weak pointers
         // the default empty implementation is provided
         virtual void cleanup() const;
+
+        // Try releasing a specific volume of dirty locks
+        // @return number of bytes actually released
+        virtual std::size_t flushDirty(std::size_t limit) = 0;
 
     private:
         const std::string m_name;

@@ -5,6 +5,7 @@
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 
 namespace db0
 
@@ -47,7 +48,8 @@ namespace db0
         }
     }
     
-    BDevStorage::~BDevStorage() {
+    BDevStorage::~BDevStorage() 
+    {
     }
 
     DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, ChangeLogIOStream &change_log)
@@ -202,13 +204,17 @@ namespace db0
         return m_config.m_page_size;
     }
 
-    bool BDevStorage::flush()
+    bool BDevStorage::flush(ProcessTimer *parent_timer)
     {
+        std::unique_ptr<ProcessTimer> timer;
+        if (parent_timer) {
+            timer = std::make_unique<ProcessTimer>("BDevStorage::flush", parent_timer);
+        }
         if (m_access_type == AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "BDevStorage::flush error: read-only stream";
         }
-
-        // no modifications to be flushed                
+        
+        // no modifications to be flushed
         if (m_sparse_index.getChangeLogSize() == 0) {
             return false;
         }
@@ -236,18 +242,15 @@ namespace db0
         m_file.close();
     }
     
-    BlockIOStream BDevStorage::getBlockIOStream(std::uint64_t first_block_pos, AccessType access_type)
-    {
+    BlockIOStream BDevStorage::getBlockIOStream(std::uint64_t first_block_pos, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
     }
     
-    DRAM_IOStream BDevStorage::getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType access_type)
-    {
+    DRAM_IOStream BDevStorage::getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type, dram_page_size };
     }
 
-    ChangeLogIOStream BDevStorage::getChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type)
-    {
+    ChangeLogIOStream BDevStorage::getChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
     }
     
@@ -362,14 +365,23 @@ namespace db0
         return result;
     }
     
-    bool BDevStorage::empty() const
-    {
+    bool BDevStorage::empty() const {
         return m_empty;
     }
 
-    std::uint64_t BDevStorage::getLastUpdated() const
-    {
+    std::uint64_t BDevStorage::getLastUpdated() const {
         return m_file.getLastModifiedTime();
     }
     
+    void BDevStorage::getStats(std::function<void(const std::string &, std::uint64_t)> callback) const
+    {
+        callback("dram_io_rand_ops", m_dram_io.getRandOpsCount());
+        auto file_rand_ops = m_file.getRandOps();
+        callback("file_rand_read_ops", file_rand_ops.first);
+        callback("file_rand_write_ops", file_rand_ops.second);
+        auto file_io_bytes = m_file.getIOBytes();
+        callback("file_bytes_read", file_io_bytes.first);
+        callback("file_bytes_written", file_io_bytes.second);
+    }
+
 }

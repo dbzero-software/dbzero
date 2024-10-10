@@ -83,7 +83,7 @@ namespace db0
             bool maintain_checksums = false);
 
         BlockIOStream(BlockIOStream &&);
-
+        
         BlockIOStream(const BlockIOStream &) = delete;
         
         ~BlockIOStream();
@@ -156,18 +156,15 @@ namespace db0
             }
         }
 
-        static constexpr std::size_t sizeOfChunkHeader()
-        {
+        static constexpr std::size_t sizeOfChunkHeader() {
             return o_block_io_chunk_header::sizeOf();
         }
 
-        static constexpr std::size_t sizeOfHeaders(bool checksums_enabled)
-        {
+        static constexpr std::size_t sizeOfHeaders(bool checksums_enabled) {
             return sizeOfBlockHeader(checksums_enabled) + sizeOfChunkHeader();
         }
 
-        AccessType getAccessType() const
-        {
+        AccessType getAccessType() const {
             return m_access_type;
         }
 

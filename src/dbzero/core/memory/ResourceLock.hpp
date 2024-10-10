@@ -4,6 +4,7 @@
 #include <memory>
 #include <atomic>
 #include <cassert>
+#include <functional>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
 #include <dbzero/core/threading/Flags.hpp>
@@ -13,8 +14,15 @@ namespace db0
 
 {
 
+    class DirtyCache;
     class BaseStorage;
-
+    
+    struct StorageContext
+    {
+        std::reference_wrapper<DirtyCache> m_cache_ref;
+        std::reference_wrapper<BaseStorage> m_storage_ref;
+    };
+    
     /**
      * A ResourceLock is the foundation class for DP_Lock and BoundaryLock implementations    
      * it supposed to hold a single or multiple data pages in a specific state (read)
@@ -22,10 +30,10 @@ namespace db0
      * If a DP_Lock has no owner object, it can be dragged on to the next transaction (to avoid CoWs)
      * and improve cache performance
      */
-    class ResourceLock
+    class ResourceLock: public std::enable_shared_from_this<ResourceLock>
     {
     public:
-        ResourceLock(BaseStorage &storage, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
+        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
             bool create_new);
         ResourceLock(const ResourceLock &, FlagSet<AccessOptions>);        
         
@@ -69,17 +77,20 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_RECYCLED;
         }
         
-        inline void setDirty() {
-            atomicSetFlags(m_resource_flags, db0::RESOURCE_DIRTY);
-        }
+        // Finalize lock initialization by checking dirty flag
+        // and appending to dirty cache if necessary
+        // this method cannot be called from the constructor because shared_ptr of the lock is required
+        void initDirty();
         
+        void setDirty();
+
         bool isCached() const;
         
         BaseStorage &getStorage() const {
-            return m_storage;
+            return m_context.m_storage_ref.get();
         }
 
-        bool isDirty() const {
+        inline bool isDirty() const {
             return m_resource_flags & db0::RESOURCE_DIRTY;
         }
         
@@ -106,8 +117,7 @@ namespace db0
             db0::RESOURCE_DIRTY,
             db0::RESOURCE_LOCK >;
         
-        // the updated state number or read-only state number
-        BaseStorage &m_storage;
+        StorageContext m_context;
         const std::uint64_t m_address;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         FlagSet<AccessOptions> m_access_mode;

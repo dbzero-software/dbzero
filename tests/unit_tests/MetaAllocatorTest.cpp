@@ -19,20 +19,24 @@ namespace tests
     {
     public:
         MetaAllocatorTests()
-            : m_recycler(2u << 30)
+            : m_recycler(2u << 30, m_dirty_meter)
         {
         }
         
-        virtual void SetUp() override 
+        void SetUp() override
         {
             using PrefixT = PrefixImpl<db0::Storage0>;
-            m_prefix = std::shared_ptr<PrefixT>(new PrefixT("", m_recycler, PAGE_SIZE));
+            m_prefix = std::shared_ptr<PrefixT>(new PrefixT("", m_dirty_meter, m_recycler, PAGE_SIZE));
+            m_dirty_meter = 0;
+            m_recycler.clear();
         }
         
-        virtual void TearDown() override 
+        void TearDown() override 
         {
             m_prefix->close();
             m_prefix = nullptr;
+            m_dirty_meter = 0;
+            m_recycler.clear();
         }
         
     protected:
@@ -41,6 +45,7 @@ namespace tests
         static constexpr std::size_t SLAB_SIZE = 4 * 1024 * 1024;
         static constexpr std::size_t SMALL_SLAB_SIZE = 16 * 4096;
 
+        std::atomic<std::size_t> m_dirty_meter = 0;
         CacheRecycler m_recycler;
         std::shared_ptr<Prefix> m_prefix;
     };

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <dbzero/core/storage/BaseStorage.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
+#include "PrefixCache.hpp"
 
 namespace db0
 
@@ -15,14 +16,14 @@ namespace db0
     std::atomic<std::size_t> ResourceLock::rl_op_count = 0;
 #endif
 
-    ResourceLock::ResourceLock(BaseStorage &storage, std::uint64_t address, std::size_t size,
+    ResourceLock::ResourceLock(StorageContext storage_context, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, bool create_new)
-        : m_storage(storage)
+        : m_context(storage_context)
         , m_address(address)
         , m_resource_flags(
             (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) | 
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
-        , m_access_mode(access_mode)            
+        , m_access_mode(access_mode)
         , m_data(size)
     {
         if (create_new) {
@@ -36,7 +37,7 @@ namespace db0
     }
 
     ResourceLock::ResourceLock(const ResourceLock &lock, FlagSet<AccessOptions> access_mode)
-        : m_storage(lock.m_storage)
+        : m_context(lock.m_context)
         , m_address(lock.m_address)
         // copy-on-write, assume dirty, the recycled flag must be erased
         , m_resource_flags(
@@ -53,7 +54,7 @@ namespace db0
     }
     
     ResourceLock::ResourceLock(ResourceLock &&other, std::vector<std::byte> &&data)
-        : m_storage(other.m_storage)
+        : m_context(other.m_context)
         , m_address(other.m_address)
         , m_resource_flags(other.m_resource_flags.load())
         , m_access_mode(other.m_access_mode)
@@ -78,6 +79,13 @@ namespace db0
         assert(!isDirty() || m_access_mode[AccessOptions::no_flush]);
     }
     
+    void ResourceLock::initDirty()
+    {
+        if (isDirty() && !m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
+            m_context.m_cache_ref.get().append(shared_from_this());
+        }
+    }
+
     bool ResourceLock::addrPageAligned(BaseStorage &storage) const {
         return m_address % storage.getPageSize() == 0;
     }
@@ -109,9 +117,16 @@ namespace db0
 
         return false;
     }
-
-    void ResourceLock::resetNoFlush() {
-        m_access_mode.set(AccessOptions::no_flush, false);
+    
+    void ResourceLock::resetNoFlush()
+    {
+        if (m_access_mode[AccessOptions::no_flush]) {
+            m_access_mode.set(AccessOptions::no_flush, false);
+            // if dirty we need to register the with the dirty cache
+            if (isDirty() && !m_access_mode[AccessOptions::no_cache]) {
+                m_context.m_cache_ref.get().append(shared_from_this());
+            }
+        }
     }
     
     void ResourceLock::copyFrom(const ResourceLock &other)
@@ -121,6 +136,16 @@ namespace db0
         std::memcpy(m_data.data(), other.m_data.data(), m_data.size());
     }
     
+    void ResourceLock::setDirty()
+    {
+        // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
+        if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY) && 
+            !m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) 
+        {
+            m_context.m_cache_ref.get().append(shared_from_this());
+        }        
+    }
+
 #ifndef NDEBUG
     std::pair<std::size_t, std::size_t> ResourceLock::getTotalMemoryUsage() 
     {
@@ -128,7 +153,7 @@ namespace db0
         auto dp_usage = DRAM_Prefix::getTotalMemoryUsage();
         return { rl_usage - dp_usage.first, rl_count - dp_usage.second };
     }
-#endif    
+#endif
 
     std::ostream &showBytes(std::ostream &os, const std::byte *data, std::size_t size)
     {

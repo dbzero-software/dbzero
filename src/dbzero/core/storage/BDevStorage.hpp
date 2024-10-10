@@ -76,13 +76,15 @@ namespace db0
         */
         std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {});
         
-        bool flush() override;
+        bool flush(ProcessTimer * = nullptr) override;
 
         void close() override;
         
         std::size_t getPageSize() const override;
 
         std::uint32_t getMaxStateNum() const override;
+        
+        void getStats(std::function<void(const std::string &, std::uint64_t)>) const override;
 
         const DRAM_IOStream &getDramIO() const {
             return m_dram_io;

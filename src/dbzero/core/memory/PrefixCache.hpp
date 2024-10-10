@@ -11,17 +11,19 @@
 #include <dbzero/core/memory/WideLock.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include "PageMap.hpp"
+#include "DirtyCache.hpp"
 
 namespace db0
 
 {   
     
     class CacheRecycler;
+    class ProcessTimer;
     
     inline bool isBoundaryRange(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t addr_offset) {
         return (end_page == first_page + 2) && (addr_offset != 0);
     }
-
+    
     /**
      * Prefix deficated cache
     */
@@ -31,8 +33,8 @@ namespace db0
         /**
          * @param storage prefix related storage reference
         */
-        PrefixCache(BaseStorage &, CacheRecycler *);
-
+        PrefixCache(BaseStorage &, CacheRecycler *, std::atomic<std::size_t> *dirty_meter_ptr = nullptr);
+        
         /**
          * Attempt retrieving the page / range associated existing resource lock for read or write
          * 
@@ -104,7 +106,7 @@ namespace db0
         /**
          * Flush all managed locks
         */
-        void flush();
+        void flush(ProcessTimer * = nullptr);
 
         // Flush managed boundary locks only
         void flushBoundary();
@@ -128,12 +130,21 @@ namespace db0
         CacheRecycler *getCacheRecycler() const;
         
         void clearExpired() const;
+
+        std::size_t getDirtySize() const;
+
+        std::size_t flushDirty(std::size_t limit);
         
-    protected:
-        BaseStorage &m_storage;
+    protected:        
         const std::size_t m_page_size;
         const unsigned int m_shift;
         const std::uint64_t m_mask;
+        BaseStorage &m_storage;
+        // the collection for tracking dirty locks of each type (cleared on flush)
+        mutable DirtyCache m_dirty_dp_cache;
+        mutable DirtyCache m_dirty_wide_cache;
+        StorageContext m_dp_context;        
+        StorageContext m_wide_context;
         // single data-page resource locks
         mutable PageMap<DP_Lock> m_dp_map;
         // boundary locks
@@ -148,7 +159,7 @@ namespace db0
         // locks (DP_Lock or WideLock) with no_flush flag (e.g. from an atomic update)
         mutable std::vector<std::shared_ptr<DP_Lock> > m_volatile_locks;
         mutable std::vector<std::shared_ptr<BoundaryLock> > m_volatile_boundary_locks;
-        
+
         /**
          * Execute specific function for each stored resource lock, boundary locks processed first
         */

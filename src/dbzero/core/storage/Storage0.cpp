@@ -35,13 +35,11 @@ namespace db0
         return m_page_size;
     }
 
-    bool Storage0::refresh(std::function<void(std::uint64_t, std::uint64_t)>)
-    {
+    bool Storage0::refresh(std::function<void(std::uint64_t, std::uint64_t)>) {
         return false;
     }
 
-    std::uint64_t Storage0::getLastUpdated() const
-    {
+    std::uint64_t Storage0::getLastUpdated() const {
         return 0;
     }
     

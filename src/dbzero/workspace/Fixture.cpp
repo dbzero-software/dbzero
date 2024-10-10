@@ -218,7 +218,7 @@ namespace db0
     }
     
     void Fixture::commit()
-    {
+    {        
         assert(getPrefixPtr());                
         // pre-commit to prepare objects which require it (e.g. Index) for commit
         // NOTE: pre-commit must NOT lock the fixture's shared mutex
@@ -227,16 +227,20 @@ namespace db0
             getGC0().preCommit();
         }
         
-        // Clear expired instances from cache so that they're not persisted
-        m_lang_cache.clear(true);
-        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
+        // Clear expired instances from cache so that they're not persisted        
+        m_lang_cache.clear(true);        
+        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);        
         tryCommit(lock);
         m_pre_commit = false;
-        m_updated = false;
+        m_updated = false;        
     }
     
-    void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock)
+    void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock, ProcessTimer *parent_timer)
     {
+        std::unique_ptr<ProcessTimer> timer;
+        if (parent_timer) {
+            timer = std::make_unique<ProcessTimer>("Fixture::tryCommit", parent_timer);
+        }
         auto prefix_ptr = getPrefixPtr();
         // prefix may not exist if fixture has already been closed
         if (!prefix_ptr) {
@@ -247,11 +251,11 @@ namespace db0
         if (m_gc0_ptr) {
             getGC0().commitAll();
         }
-        
+
         for (auto &commit: m_close_handlers) {
             commit(true);
         }
-        
+                
         // commit garbage collector's state
         // we check if gc0 exists because the unit-tests set up may not have it
         if (gc0_ctx) {
@@ -260,7 +264,7 @@ namespace db0
         m_string_pool.commit();
         m_object_catalogue.commit();
         m_v_object_cache.commit();
-        Memspace::commit();
+        Memspace::commit(timer.get());
     }
     
     void Fixture::onAutoCommit()
@@ -400,5 +404,5 @@ namespace db0
             m_prefix->cleanup();
         }
     }
-
+    
 }
