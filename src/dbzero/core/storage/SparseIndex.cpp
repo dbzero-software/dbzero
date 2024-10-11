@@ -230,7 +230,7 @@ namespace db0
         std::string str_page_type = getPageType() == PageType::FIXED ? "FIXED" : "MUTABLE";
         ss << "CompressedItem(" << getPageNum() << ", " << getStateNum() << ", " << getStoragePageNum() << ", " << str_page_type << ")";
         return ss.str();
-    } 
+    }
 
     std::string SparseIndex::BlockHeader::toString(const CompressedItem &item) const {
         return item.toString();

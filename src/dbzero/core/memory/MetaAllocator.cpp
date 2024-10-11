@@ -603,7 +603,7 @@ namespace db0
     
     o_meta_header MetaAllocator::getMetaHeader(std::shared_ptr<Prefix> prefix)
     {
-        // meta-header has fixed address 0x00
+        // meta-header is located at the fixed address 0x0
         OneShotAllocator one_shot(0, o_meta_header::sizeOf());
         Memspace memspace(Memspace::tag_from_reference(), prefix, one_shot);
         v_object<o_meta_header> meta_header(memspace.myPtr(0));

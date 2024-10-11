@@ -2,6 +2,7 @@ import pytest
 import dbzero_ce as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR
+import multiprocessing
 
 
 def test_persisting_single_transaction_data(db0_fixture):
@@ -67,3 +68,37 @@ def test_persisting_data_in_multiple_independent_transactions(db0_fixture):
     for obj in root.value:
         assert obj.value == num
         num += 1
+
+
+def test_opening_prefix_of_crashed_process(db0_no_default_fixture):
+    def open_prefix_then_crash():
+        db0.open("new-prefix-1")
+        db0.tags(MemoTestClass(123)).add("tag1", "tag2")
+        # end process with exception before commit / close
+        raise Exception("Crash!")
+
+    p = multiprocessing.Process(target=open_prefix_then_crash)
+    p.start()
+    p.join()
+    
+    # try opeining the crashed prefix for read
+    db0.open("new-prefix-1", "r")
+    assert len(list(db0.find("tag1"))) == 0
+    
+
+def test_modify_prefix_of_crashed_process(db0_no_default_fixture):
+    def open_prefix_then_crash():
+        db0.open("new-prefix-1")
+        db0.tags(MemoTestClass(123)).add("tag1", "tag2")
+        # end process with exception before commit / close
+        raise Exception("Crash!")
+    
+    p = multiprocessing.Process(target=open_prefix_then_crash)
+    p.start()
+    p.join()
+    
+    # try opeining the crashed prefix for read/write and append some objects
+    db0.open("new-prefix-1", "rw")
+    db0.tags(MemoTestClass(123)).add("tag1", "tag2")    
+    db0.commit()
+    
