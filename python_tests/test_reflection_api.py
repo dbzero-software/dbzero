@@ -6,10 +6,18 @@ from .memo_test_types import MemoTestClass, MemoTestSingleton
 
 
 def test_get_prefixes(db0_fixture):
-    assert len(list(db0.get_prefixes())) == 1    
+    assert len(list(db0.get_prefixes())) == 1
     db0.open("my-new_prefix")
     assert len(list(db0.get_prefixes())) == 2
     
+
+def test_get_prefixes_with_nested_dirs(db0_fixture):
+    assert len(list(db0.get_prefixes())) == 1    
+    db0.open("dir_1/my-new_prefix")
+    db0.open("dir_1/subdir/my-new_prefix")
+    db0.open("dir_2/subdir1/subdir2/my-new_prefix")
+    assert len(list(db0.get_prefixes())) == 4
+
     
 def test_get_memo_classes_from_default_prefix(db0_fixture):
     _ = MemoTestClass(123)

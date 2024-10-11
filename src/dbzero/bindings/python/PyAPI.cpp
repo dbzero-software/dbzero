@@ -145,17 +145,26 @@ namespace db0::python
     }
     
     PyObject *tryInit(PyObject *self, PyObject *args, PyObject *kwargs)
-    {
-        const char *path = "";
+    {        
+        PyObject *py_path = nullptr;
         PyObject *py_config = nullptr;
         PyObject *py_flags= nullptr;
         // extract optional "path" string argument and "autcommit_interval" keyword argument
         static const char *kwlist[] = {"path", "config", "lock_flags", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sOO", const_cast<char**>(kwlist), &path, &py_config, &py_flags)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOO", const_cast<char**>(kwlist), &py_path, &py_config, &py_flags)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid arguments");
             return NULL;
         }
-        
+
+        const char *str_path = "";
+        if (py_path && py_path != Py_None) {
+            if (!PyUnicode_Check(py_path)) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type: path");
+                return NULL;
+            }
+            str_path = PyUnicode_AsUTF8(py_path);
+        }
+
         // py_config must be a dict
         if (py_config && !PyDict_Check(py_config)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type: config");
@@ -168,7 +177,7 @@ namespace db0::python
             return NULL;
         }
 
-        PyToolkit::getPyWorkspace().initWorkspace(path, py_config, py_flags);
+        PyToolkit::getPyWorkspace().initWorkspace(str_path, py_config, py_flags);
         Py_RETURN_NONE;
     }
     

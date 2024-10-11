@@ -71,8 +71,7 @@ namespace db0
     }
     
     void PrefixCatalog::refresh(
-        const std::string &path, 
-        std::function<void(const std::string &)> callback) const
+        const std::string &path, std::function<void(const std::string &)> callback) const
     {
         // combine root path with the provided path
         fs::path full_path = m_root_path / path;
@@ -165,7 +164,7 @@ namespace db0
             m_name_uuids[maybe_prefix_name] = uuid;
             m_uuid_names[uuid] = maybe_prefix_name;
         } catch (const std::exception &) {
-            // likely not a fixture file        
+            // likely not a fixture file or a file is corrupted
         }
     }
     

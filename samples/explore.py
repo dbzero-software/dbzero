@@ -1,4 +1,5 @@
 import dbzero_ce as db0
+import argparse
 
 """
 This script demonstrates techniques of exploring the DBZero prefixes without 
@@ -10,8 +11,11 @@ def values_of(obj, attr_names):
 
     
 def __main__():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--path', default=None, type=str, help="Location of dbzero files")
+    args = parser.parse_args()
     try:
-        db0.init()
+        db0.init(path=args.path)
         for prefix in db0.get_prefixes():
             # open prefix to make it the default one
             db0.open(prefix.name, "r")
