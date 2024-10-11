@@ -516,7 +516,7 @@ namespace db0
 			}
 
 			bool join(const item_t &key, int direction = - 1) {
-				return m_iterator.join(key, direction > 0);
+				return m_iterator.join(key, direction);
         	}
             
 			void joinBound(const item_t &key) {
