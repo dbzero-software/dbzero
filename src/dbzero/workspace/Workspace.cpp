@@ -320,13 +320,18 @@ namespace db0
                     prefix_name, file_created, *access_type, page_size, slab_size, sparse_index_node_size, lock_flags
                 );
                 if (file_created) {
-                    // initialize new fixture
+                    // initialize new fixture                    
                     Fixture::formatFixture(Memspace(prefix, allocator), *allocator);
                 }
                 auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator);
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
                     m_fixture_initializer(fixture, file_created, read_only);
+                }
+                
+                if (file_created) {
+                    // finalize fixture initialization and end the first transaction
+                    fixture->commit();                                    
                 }
                 
                 if (m_atomic_context_ptr && *access_type == AccessType::READ_WRITE) {

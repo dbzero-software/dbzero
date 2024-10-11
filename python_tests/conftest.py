@@ -27,6 +27,20 @@ def db0_fixture():
         shutil.rmtree(DB0_DIR)
 
 
+@pytest.fixture()
+def db0_no_default_fixture():
+    if os.path.exists(DB0_DIR):
+        shutil.rmtree(DB0_DIR)
+    # create empty directory
+    os.mkdir(DB0_DIR)
+    db0.init(DB0_DIR)    
+    yield db0
+    gc.collect()
+    db0.close()
+    if os.path.exists(DB0_DIR):
+        shutil.rmtree(DB0_DIR)
+
+
 @pytest.fixture
 def db0_slab_size(request):
     """

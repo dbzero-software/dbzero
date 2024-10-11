@@ -104,8 +104,7 @@ namespace db0
         }
     }
     
-    bool o_change_log::isRLECompressed() const
-    {
+    bool o_change_log::isRLECompressed() const {
         return m_rle_compressed;
     }
 
@@ -148,8 +147,7 @@ namespace db0
         }
     }
 
-    const o_change_log *ChangeLogIOStream::getLastChangeLogChunk() const
-    {
+    const o_change_log *ChangeLogIOStream::getLastChangeLogChunk() const {
         return m_last_change_log_ptr;
     }
 

@@ -221,7 +221,7 @@ namespace db0
             }
             change_log_ptr = changelog_io.readChangeLogChunk();
         }
-        
+
         return result;
     }
     
