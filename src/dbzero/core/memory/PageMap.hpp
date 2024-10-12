@@ -133,7 +133,7 @@ namespace db0
             }
         }
     }
-
+    
     template <typename ResourceLockT>
     bool PageMap<ResourceLockT>::exists(std::uint64_t state_num, std::uint64_t page_num) const
     {
@@ -165,8 +165,12 @@ namespace db0
     typename PageMap<ResourceLockT>::CacheIterator PageMap<ResourceLockT>::find(
         std::uint64_t page_num, std::uint64_t state_num) const
     {
+        if (m_cache.empty()) {
+            return m_cache.end();
+        }
         auto it = m_cache.lower_bound({page_num, state_num});
-        if (it == m_cache.end() && !m_cache.empty()) {
+        if (it == m_cache.end()) {
+            assert(!m_cache.empty());
             --it;
         }
         if (it != m_cache.begin() && (it->first.second > state_num || it->first.first != page_num)) {
@@ -181,8 +185,12 @@ namespace db0
     template <typename ResourceLockT> void PageMap<ResourceLockT>::eraseAll(
         std::uint64_t page_num, std::uint64_t state_num) const
     {
+        if (m_cache.empty()) {
+            return;
+        }
         auto it = m_cache.lower_bound({page_num, state_num});
         if (it == m_cache.end() && !m_cache.empty()) {
+            assert(!m_cache.empty());
             --it;
         }
         if (it != m_cache.begin() && (it->first.second > state_num || it->first.first != page_num)) {

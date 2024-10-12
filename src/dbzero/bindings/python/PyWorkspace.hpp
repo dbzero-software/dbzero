@@ -42,7 +42,7 @@ namespace db0::python
         using ObjectSharedPtr = typename PyTypes::ObjectSharedPtr;
         using TypeObjectPtr = typename PyTypes::TypeObjectPtr;
         
-        PyWorkspace() = default;
+        PyWorkspace();
         ~PyWorkspace();
         
         bool hasWorkspace() const;

@@ -59,7 +59,7 @@ namespace db0::python
 #endif        
         return dict;
     }
-        
+    
     PyObject *getLangCacheStats(PyObject *, PyObject *)
     {
         std::lock_guard api_lock(py_api_mutex);
@@ -139,7 +139,8 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs) {
+    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs) 
+    {
         std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryOpen, self, args, kwargs);
     }

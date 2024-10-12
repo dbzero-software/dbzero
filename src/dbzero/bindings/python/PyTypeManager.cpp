@@ -35,11 +35,13 @@ namespace db0::python
     
     PyTypeManager::PyTypeManager()
     {
-        Py_Initialize();
+        if (!Py_IsInitialized()) {
+            Py_InitializeEx(0);
+        }
 
         // date time initialize
         PyDateTime_IMPORT;
-
+        
         // register well known static types, including DB0 extension types
         addStaticType(&PyLong_Type, TypeId::INTEGER);
         addStaticType(&PyFloat_Type, TypeId::FLOAT);

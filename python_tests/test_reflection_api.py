@@ -3,6 +3,7 @@ import dbzero_ce as db0
 import multiprocessing
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton
+from datetime import datetime
 
 
 def test_get_prefixes(db0_fixture):
@@ -105,4 +106,14 @@ def test_get_instance_count_for_class(db0_fixture):
     _ = MemoTestClass(123)
     memo_info = [obj for obj in db0.get_memo_classes() if not obj.is_singleton][0]
     assert memo_info.get_instance_count() > 0
+
+
+def test_memo_class_get_attribute_values(db0_fixture):
+    def values_of(obj, attr_names):
+        return [getattr(obj, attr_name) for attr_name in attr_names]
     
+    db0.tags(MemoTestClass(datetime.now()), MemoTestClass(123)).add("tag1")
+    memo_info = [obj for obj in db0.get_memo_classes() if not obj.is_singleton][0]
+    attr_names = [attr.name for attr in memo_info.get_attributes()]
+    for obj in db0.find(MemoTestClass):
+        assert len(values_of(obj, attr_names)) == len(attr_names)

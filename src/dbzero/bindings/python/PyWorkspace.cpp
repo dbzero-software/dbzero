@@ -11,6 +11,13 @@ namespace db0::python
 
 {
     
+    PyWorkspace::PyWorkspace()
+    {
+        if (!Py_IsInitialized()) {
+            Py_InitializeEx(0);
+        }
+    }
+    
     PyWorkspace::~PyWorkspace()
     {
     }
