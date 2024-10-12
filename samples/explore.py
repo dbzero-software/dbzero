@@ -11,7 +11,6 @@ def values_of(obj, attr_names):
 
     
 def __main__():
-    print("in main")
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default=None, type=str, help="Location of dbzero files")
     args = parser.parse_args()
