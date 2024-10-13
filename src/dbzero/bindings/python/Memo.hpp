@@ -69,5 +69,7 @@ namespace db0::python
     void PyMemoType_close(PyTypeObject *type);
     
     PyObject *PyMemo_set_prefix(MemoObject *, const char *prefix_name);
+        
+    PyObject *tryGetAttributes(PyTypeObject *type);
     
 }

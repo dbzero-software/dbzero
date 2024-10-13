@@ -1,6 +1,7 @@
 from collections import namedtuple
 import dbzero_ce as db0
 import inspect
+import importlib
 from .storage_api import PrefixMetaData
 from .dbzero_ce import get_raw_memo_classes
 
@@ -92,3 +93,44 @@ class MemoMetaClass:
 def get_memo_classes(prefix: PrefixMetaData = None):
     for memo_class in (get_raw_memo_classes(prefix.name, prefix.uuid) if prefix is not None else get_raw_memo_classes()):
         yield MemoMetaClass(*memo_class)
+
+
+class Query:
+    def __init__(self, function_obj, name, params, has_kwargs):
+        self.__function_obj = function_obj
+        self.__name = name
+        self.__params = params
+        self.__has_kwargs = has_kwargs
+
+    @property
+    def name(self):
+        return self.__name
+    
+    @property
+    def params(self):
+        return self.__params
+    
+    @property
+    def has_kwargs(self):
+        return self.__has_kwargs
+    
+    def run(self, *args, **kwargs):
+        return self.__function_obj(*args, **kwargs)
+    
+    
+def get_queries(module_names):
+    # Dynamically import modules    
+    for module_name in module_names:
+        module = importlib.import_module(module_name)
+
+        # Get all the functions from the module
+        functions = inspect.getmembers(module, inspect.isfunction)
+        
+        # Iterate through each function and print its name with parameters
+        for function_name, function_obj in functions:
+            signature = inspect.signature(function_obj)
+            has_kwargs = any(
+                param.kind == inspect.Parameter.VAR_KEYWORD
+                for param in signature.parameters.values())
+            params = [param.name for param in signature.parameters.values() if param.kind != inspect.Parameter.VAR_KEYWORD]
+            yield Query(function_obj, function_name, params, has_kwargs)

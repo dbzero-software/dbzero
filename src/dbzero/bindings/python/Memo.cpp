@@ -14,6 +14,7 @@
 #include "PyClassFields.hpp"
 #include "Utils.hpp"
 #include "Types.hpp"
+#include "PyClass.hpp"
 
 namespace db0::python
 
@@ -559,4 +560,12 @@ namespace db0::python
         return Py_None;
     }
 
+    PyObject *tryGetAttributes(PyTypeObject *type)
+    {
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
+        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();        
+        return tryGetClassAttributes(*class_factory.getExistingType(type));
+    }
+    
 }

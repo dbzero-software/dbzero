@@ -790,6 +790,23 @@ namespace db0::python
         return runSafe(tryGetStorageStats, args, kwargs);
     }
     
+    PyObject *getAttributes(PyObject *self, PyObject *args)
+    {
+        std::lock_guard api_lock(py_api_mutex);
+        PyTypeObject *py_type;
+        if (!PyArg_ParseTuple(args, "O", &py_type)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        if (!PyMemoType_Check(py_type)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        return runSafe(tryGetAttributes, py_type);
+    }
+    
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {

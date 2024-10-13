@@ -35,9 +35,9 @@ namespace db0::python
         Py_TYPE(class_obj)->tp_free((PyObject*)class_obj);
     }
     
-    PyObject *tryGetAttributes(PyObject *self)
-    {        
-        auto members = reinterpret_cast<ClassObject*>(self)->ext().getMembers();
+    PyObject *tryGetClassAttributes(const db0::object_model::Class &type)
+    {
+        auto members = type.getMembers();
         PyObject *py_list = PyList_New(0);
         for (auto [name, index]: members) {
             // name, index
@@ -46,13 +46,17 @@ namespace db0::python
         }
         return py_list;
     }
+
+    PyObject *tryGetAttributes(PyObject *self) {
+        return tryGetClassAttributes(reinterpret_cast<ClassObject*>(self)->ext());
+    }
     
     PyObject *PyClass_get_attributes(PyObject *self, PyObject *)
     {
         std::lock_guard api_lock(py_api_mutex);
         return runSafe(tryGetAttributes, self);
     }
-
+    
     PyTypeObject ClassObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.Class",

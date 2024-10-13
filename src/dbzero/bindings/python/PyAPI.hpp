@@ -143,6 +143,8 @@ namespace db0::python
     PyObject *getPrefixStats(PyObject *self, PyObject *args, PyObject *kwargs);
     
     PyObject *getStorageStats(PyObject *, PyObject *args, PyObject *kwargs);
+
+    PyObject *getAttributes(PyObject *self, PyObject *args);
     
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *self, PyObject *);

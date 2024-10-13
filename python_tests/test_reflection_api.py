@@ -117,3 +117,8 @@ def test_memo_class_get_attribute_values(db0_fixture):
     attr_names = [attr.name for attr in memo_info.get_attributes()]
     for obj in db0.find(MemoTestClass):
         assert len(values_of(obj, attr_names)) == len(attr_names)
+        
+    
+def test_get_attributes_by_type(db0_fixture):
+    obj = MemoTestClass(123)    
+    assert len(list(db0.get_attributes(type(obj)))) > 0

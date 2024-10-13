@@ -1,5 +1,5 @@
 import dbzero_ce as db0
-from generate import *
+from model import *
 
 """
 This script demonstrates techniques of exploring the DBZero prefixes
