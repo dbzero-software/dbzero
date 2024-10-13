@@ -114,11 +114,11 @@ class Query:
     def has_kwargs(self):
         return self.__has_kwargs
     
-    def run(self, *args, **kwargs):
+    def execute(self, *args, **kwargs):
         return self.__function_obj(*args, **kwargs)
     
     
-def get_queries(module_names):
+def get_queries(*module_names):
     # Dynamically import modules    
     for module_name in module_names:
         module = importlib.import_module(module_name)

@@ -4,31 +4,16 @@ import importlib
 import inspect
 
 
-def list_queries(module_name):
-    pass
+def values_of(obj, attr_names):
+    return [getattr(obj, attr_name) for attr_name in attr_names]
 
-    
-def list_functions_from_module(module_name):
-    # Dynamically import the module
-    try:
-        module = importlib.import_module(module_name)
-    except ModuleNotFoundError:
-        print(f"Module '{module_name}' not found.")
-        return
-    
-    # Get all the functions from the module
-    functions = inspect.getmembers(module, inspect.isfunction)
-    
-    # Iterate through each function and print its name with parameters
-    for function_name, function_obj in functions:
-        signature = inspect.signature(function_obj)
-        print(f"Function: {function_name}")
-        print(f"Parameters: {[param.name for param in signature.parameters.values() if param.kind != inspect.Parameter.VAR_KEYWORD]}")
-        has_kwargs = any(
-            param.kind == inspect.Parameter.VAR_KEYWORD
-            for param in signature.parameters.values())
-        print(f"**kwargs: {has_kwargs}")
-        print()
+
+def print_query_results(query):
+    columns = None
+    for row in query.execute():
+        if not columns:
+            columns = [attr[0] for attr in db0.get_attributes(type(row))]
+        print(values_of(row, columns))
     
     
 def __main__():
@@ -38,7 +23,12 @@ def __main__():
     args = parser.parse_args()
     try:
         db0.init(path=args.path)
-        list_functions_from_module(args.queries)        
+        # open all available prefixes first
+        for prefix in db0.get_prefixes():
+            db0.open(prefix.name, "r")
+        for query in db0.get_queries(args.queries):
+            print(f"--- Query {query.name} ---")
+            print_query_results(query)
     except Exception as e:
         print(e)
     db0.close()
