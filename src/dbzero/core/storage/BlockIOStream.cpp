@@ -73,13 +73,12 @@ namespace db0
         other.m_closed = true;
     }
 
-    BlockIOStream::~BlockIOStream()
-    {
+    BlockIOStream::~BlockIOStream() {
         assert((m_closed || m_access_type == AccessType::READ_ONLY) && "Read/Write BlockIOStream not closed");
     }
     
     bool BlockIOStream::getNextBlock(bool write)
-    {        
+    {
         assert(!m_modified || write);
         // take next block from end of file
         bool create_next_block = false;
@@ -381,12 +380,11 @@ namespace db0
         m_closed = true;
     }
     
-    std::uint64_t BlockIOStream::tell() const
-    {
+    std::uint64_t BlockIOStream::tell() const {
         return m_block_num * m_block_size + (m_block_pos - m_block_begin);
     }
 
-    std::pair<std::size_t, std::size_t> BlockIOStream::tellBlock()
+    std::pair<std::size_t, std::size_t> BlockIOStream::tellBlock() const
     {
         // report begin of next block in case of end-of-block reached
         if (m_block_pos == m_block_end) {
@@ -394,7 +392,7 @@ namespace db0
         }
         return { m_block_num, m_block_pos - m_block_begin };
     }
-
+    
     std::size_t BlockIOStream::getBlockSize() const {
         return m_block_size;
     }

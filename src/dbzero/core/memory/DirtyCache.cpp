@@ -12,7 +12,8 @@ namespace db0
 
     DirtyCache::DirtyCache(std::size_t page_size, std::atomic<std::size_t> *dirty_meter_ptr)
         : m_dirty_meter_ptr(dirty_meter_ptr)
-        , m_shift(getPageShift(page_size))
+        , m_page_size(page_size)
+        , m_shift(getPageShift(page_size, false))
     {
     }
     
@@ -56,13 +57,17 @@ namespace db0
         m_size -= flushed;
         return flushed;
     }
-
+    
     void DirtyCache::flushDirty(SinkFunction sink)
     {
         std::unique_lock<std::mutex> _lock(m_mutex);
         for (auto &lock : m_locks) {
             if (lock->resetDirtyFlag()) {
-                sink(lock->getAddress() >> m_shift, lock->getBuffer());
+                if (m_shift) {
+                    sink(lock->getAddress() >> m_shift, lock->getBuffer());
+                } else {
+                    sink(lock->getAddress() / m_page_size, lock->getBuffer());
+                }
             }
         }
         m_locks.clear();

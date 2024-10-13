@@ -8,12 +8,13 @@
 namespace db0
 
 {
-
+    
     /**
      * Compute bitewise shift corresponding to a page size
+     * @param validate_pow_2 if false and page size is not a power of 2, the function will return 0
     */
-    unsigned int getPageShift(std::size_t page_size);
-
+    unsigned int getPageShift(std::size_t page_size, bool validate_pow_2 = true);
+    
     std::uint64_t getPageMask(std::size_t page_size);
 
     void printBuffer(unsigned char *data, std::size_t len);

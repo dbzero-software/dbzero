@@ -68,7 +68,7 @@ namespace db0
     }
 #endif
     
-    MemLock DRAM_Prefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions>)
+    MemLock DRAM_Prefix::mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode)
     {
         auto page_num = address / m_page_size;
         auto offset = address % m_page_size;
@@ -81,7 +81,7 @@ namespace db0
         }
         return { (std::byte*)it->second.m_buffer + offset, it->second.m_lock };
     }
-
+    
     std::uint64_t DRAM_Prefix::getStateNum() const {
         return 0;
     }
@@ -98,16 +98,16 @@ namespace db0
         m_dirty_cache.flushDirty(sink);
     }
     
-    void DRAM_Prefix::update(std::size_t page_num, const void *bytes, bool mark_dirty)
+    void *DRAM_Prefix::update(std::size_t page_num, bool mark_dirty)
     {
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
             it = m_pages.emplace(page_num, MemoryPage(m_context, page_num * m_page_size, m_page_size)).first;
-        }
-        std::memcpy(it->second.m_buffer, bytes, m_page_size);
+        }        
         if (mark_dirty) {
             it->second.m_lock->setDirty();
         }
+        return it->second.m_buffer;
     }
     
     bool DRAM_Prefix::empty() const {
@@ -133,7 +133,8 @@ namespace db0
         }
         // update binary contents
         for (auto &page: other.m_pages) {
-            update(page.first, page.second.m_buffer, false);
+            auto buf = update(page.first, false);
+            std::memcpy(buf, page.second.m_buffer, m_page_size);
         }
         
         // remove pages not existing in the other prefix

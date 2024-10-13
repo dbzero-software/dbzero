@@ -2,13 +2,20 @@
     
 namespace db0
 
-{
+{   
 
-    unsigned int getPageShift(std::size_t page_size)
+    unsigned int getPageShift(std::size_t page_size, bool validate_pow_2)
     {
+        auto initial_size = page_size;
         unsigned int shift = 0;
-        while (page_size > 1)
-        {
+        while (page_size > 1) {
+            if (page_size & 0x01) {
+                // page size is not a power of 2
+                if (validate_pow_2) {
+                    THROWF(db0::InternalException) << "Page size is not a power of 2: " << initial_size << THROWF_END;
+                }
+                return 0;                
+            }
             page_size >>= 1;
             ++shift;
         }

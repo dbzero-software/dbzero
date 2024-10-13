@@ -43,11 +43,11 @@ namespace db0
         // page address in the underlying stream
         std::uint64_t m_address = 0;
     };
-
+    
     /**
      * BlockIOStream wrapper with specialization for reading/writing DRAMSpace contents
     */
-    class DRAM_IOStream: public BlockIOStream
+    class DRAM_IOStream: protected BlockIOStream
     {
     public:
         // checksums disabled in this type of stream
@@ -82,11 +82,23 @@ namespace db0
             return o_dram_chunk_header::sizeOf();
         }
         
+        std::uint64_t tail() const;
+
+        AccessType getAccessType() const {
+            return BlockIOStream::getAccessType();
+        }
+
+        std::size_t getBlockSize() const {
+            return BlockIOStream::getBlockSize();
+        }
+        
         /**
          * Flush not allowed on DRAM_IOStream, use flushUpdates instead
         */
         void flush();
 
+        void close();
+        
         bool empty() const;
         
         /**
@@ -96,11 +108,11 @@ namespace db0
         std::size_t getAllocatedSize() const;
 
         const DRAM_Prefix &getDRAMPrefix() const;
-
+        
         // get the number of random write operations performed while flushing updates
         std::size_t getRandOpsCount() const;
 
-    private:        
+    private:
         const std::uint32_t m_dram_page_size;
         const std::size_t m_chunk_size;
         // addresses of blocks/chunks which can be overwritten as they contain outdated data
@@ -114,6 +126,8 @@ namespace db0
          * Load entire contents from stream into the DRAM Storage
         */
         void load();
+        void *updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
+            const o_dram_chunk_header &header);
         void updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
             const o_dram_chunk_header &header, void *bytes);
 

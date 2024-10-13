@@ -43,6 +43,7 @@ namespace db0
         std::atomic<std::size_t> *m_dirty_meter_ptr = nullptr;
         mutable std::mutex m_mutex;
         std::deque<std::shared_ptr<ResourceLock> > m_locks;
+        const std::size_t m_page_size;
         const unsigned int m_shift;
         // total bytes supported by this cache
         std::atomic<std::size_t> m_size = 0;

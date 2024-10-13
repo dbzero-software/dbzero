@@ -138,7 +138,7 @@ namespace db0
         /**
          * Get block number and offset in the block
         */
-        std::pair<std::size_t, std::size_t> tellBlock();
+        std::pair<std::size_t, std::size_t> tellBlock() const;
 
         std::size_t getBlockSize() const;
 
@@ -155,7 +155,7 @@ namespace db0
                 return o_block_io_block_header::sizeOf();
             }
         }
-
+        
         static constexpr std::size_t sizeOfChunkHeader() {
             return o_block_io_chunk_header::sizeOf();
         }

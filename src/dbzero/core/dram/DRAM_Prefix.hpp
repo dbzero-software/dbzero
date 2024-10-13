@@ -23,7 +23,8 @@ namespace db0
     public:        
         // A function to consume a single resource (for serialization)
         using SinkFunction = DirtyCache::SinkFunction;
-
+        
+        // NOTE: page size for DRAM_Prefix may not be the power of 2
         DRAM_Prefix(std::size_t page_size);
         virtual ~DRAM_Prefix();
 
@@ -53,8 +54,8 @@ namespace db0
         /**
          * Set or upddate a single page
         */
-        void update(std::size_t page_num, const void *bytes, bool mark_dirty = true);
-
+        void *update(std::size_t page_num, bool mark_dirty = true);
+        
         bool empty() const;
         
         /**
