@@ -25,7 +25,7 @@ namespace db0
     DRAM_Prefix::~DRAM_Prefix() {
         close();
     }
-
+    
     DRAM_Prefix::MemoryPage::MemoryPage(StorageContext context, std::uint64_t address, std::size_t size)
         : m_lock(std::make_shared<DP_Lock>(context, address, size,
             FlagSet<AccessOptions> { AccessOptions::write, AccessOptions::create }, 0, 0, true))
@@ -78,6 +78,8 @@ namespace db0
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
             it = m_pages.emplace(page_num, MemoryPage(m_context, address - offset, m_page_size)).first;
+        } else if (access_mode[AccessOptions::write]) {
+            it->second.m_lock->setDirty();
         }
         return { (std::byte*)it->second.m_buffer + offset, it->second.m_lock };
     }
