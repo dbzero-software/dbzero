@@ -2,6 +2,9 @@ from collections import namedtuple
 import dbzero_ce as db0
 import inspect
 import importlib
+import importlib.util
+import os
+import sys
 from .storage_api import PrefixMetaData
 from .dbzero_ce import get_raw_memo_classes
 
@@ -127,15 +130,44 @@ class Query:
     def execute(self, *args, **kwargs):
         return self.__function_obj(*args, **kwargs)
 
+
+def __import_from_file(file_path):    
+    if not os.path.isfile(file_path) and os.path.isfile(file_path + ".py"):
+        file_path = file_path + ".py"
+    
+    # register parent modules
+    path = file_path
+    has_module = []
+    while path != "":
+        path, tail = os.path.split(path)
+        has_module.append(os.path.isfile(os.path.join(path, "__init__.py")))
+        if path not in sys.path and len(has_module) > 1 and has_module[-2]:
+            sys.path.append(path)
+        if not tail:
+            break
+    
+    file_name = os.path.basename(file_path)
+    module_name, _ = os.path.splitext(file_name)
+    # Load the module from the file path
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+    
+    
+def __import_module(module_or_file_name):
+    try:
+        return importlib.import_module(module_or_file_name)
+    except Exception:
+        return __import_from_file(module_or_file_name)
+    
     
 def get_queries(*module_names):
-    # Dynamically import modules    
-    for module_name in module_names:
-        module = importlib.import_module(module_name)
-
+    # Dynamically import modules
+    for name in module_names:
+        module = __import_module(name)
         # Get all the functions from the module
         functions = inspect.getmembers(module, inspect.isfunction)
-        
         # Iterate through each function and print its name with parameters
         for function_name, function_obj in functions:
             signature = inspect.signature(function_obj)

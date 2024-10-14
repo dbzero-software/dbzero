@@ -1,19 +1,25 @@
 import dbzero_ce as db0
 import argparse
-import importlib
 import inspect
-
+import sys
 
 def values_of(obj, attr_names):
     return [getattr(obj, attr_name) for attr_name in attr_names]
 
 
-def print_query_results(rows):
+def print_query_rows(rows):
     columns = None
     for row in rows:
         if not columns:
             columns = [attr[0] for attr in db0.get_attributes(type(row))]
-        print(values_of(row, columns))
+        print(values_of(row, columns))        
+    
+    
+def print_query_results(rows):
+    if type(rows) is dict:
+        print(rows)
+    else:
+        print_query_rows(rows)
     
 
 def parse_unknown_args(args):
@@ -39,10 +45,11 @@ def parse_unknown_args(args):
 
 def __main__():
     """
-    Example usage:
+    Usage examples:
     python -m generate
     python -m explore_queries --query queries.all_books
     python -m explore_queries --path /path/to/dbzero/files --query queries.all_books_of --author "Salinger"
+    python -m explore_queries --path="/src/zorch/app-data" --query="/src/zorch/zorch/queries.pipeline_progress"
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default=None, type=str, help="Location of dbzero files")
