@@ -16,6 +16,7 @@
 #include <dbzero/object_model/tags/QueryObserver.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/memory/MetaAllocator.hpp>

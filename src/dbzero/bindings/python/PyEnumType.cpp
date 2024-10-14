@@ -1,6 +1,7 @@
 #include "PyEnumType.hpp"
 #include "PyEnum.hpp"
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
 
 namespace db0::python

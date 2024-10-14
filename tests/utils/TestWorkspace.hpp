@@ -8,6 +8,7 @@
 #include <dbzero/object_model/LangCache.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 #include "PrefixProxy.hpp"
 #include "EmbeddedAllocator.hpp"
 
@@ -25,7 +26,7 @@ namespace db0
         /**
          * Opens a prefix associated memspace
         */
-        Memspace getMemspace(const std::string &prefix, AllocCallbackT = {});
+        Memspace getMemspace(const PrefixName &, AllocCallbackT = {});
         
         CacheRecycler &getCacheRecycler() {
             return m_cache_recycler;
@@ -49,16 +50,16 @@ namespace db0
         TestWorkspace(std::size_t page_size = 4096, std::size_t slab_size = 1u << 20,
             std::size_t cache_size = 2u << 30);
 
-        bool hasFixture(const std::string &prefix_name) const override;
+        bool hasFixture(const PrefixName &) const override;
         
-        db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, 
+        db0::swine_ptr<Fixture> getFixture(const PrefixName &prefix_name, 
             std::optional<AccessType> = AccessType::READ_WRITE) override;
         
         db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
         
         db0::swine_ptr<Fixture> getCurrentFixture() override;
         
-        bool close(const std::string &prefix_name) override;
+        bool close(const PrefixName &) override;
         
         void close() override;
 
@@ -75,5 +76,5 @@ namespace db0
         std::unordered_map<std::string, std::uint64_t> m_uuids;
         mutable std::shared_ptr<db0::LangCache> m_lang_cache;
     };
-
+    
 }

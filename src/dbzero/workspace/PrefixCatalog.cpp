@@ -1,6 +1,7 @@
 #include "PrefixCatalog.hpp"
 #include <algorithm>
 #include "Fixture.hpp"
+#include "PrefixName.hpp"
 #include <dbzero/core/storage/CFile.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include <dbzero/core/memory/PrefixImpl.hpp>
@@ -116,7 +117,7 @@ namespace db0
         });
     } 
 
-    bool FixtureCatalog::drop(const std::string &prefix_name, bool if_exists)
+    bool FixtureCatalog::drop(const PrefixName &prefix_name, bool if_exists)
     {
         auto uuid = getFixtureUUID(prefix_name);                
         if (m_name_uuids.find(prefix_name) != m_name_uuids.end()) {
@@ -128,7 +129,7 @@ namespace db0
         return m_prefix_catalog.drop(prefix_name, if_exists);
     }
 
-    std::optional<std::uint64_t> FixtureCatalog::getFixtureUUID(const std::string &prefix_name) const
+    std::optional<std::uint64_t> FixtureCatalog::getFixtureUUID(const PrefixName &prefix_name) const
     {
         auto it = m_name_uuids.find(prefix_name);
         if (it != m_name_uuids.end()) {
@@ -137,10 +138,10 @@ namespace db0
         return std::nullopt;
     }
     
-    void FixtureCatalog::add(const std::string &prefix_name, const Fixture &fixture)
+    void FixtureCatalog::add(const PrefixName &prefix_name, const Fixture &fixture)
     {
         m_name_uuids[prefix_name] = fixture.getUUID();
-        m_uuid_names[fixture.getUUID()] = prefix_name;
+        m_uuid_names[fixture.getUUID()] = prefix_name.get();
     }
     
     void FixtureCatalog::tryAdd(const std::string &maybe_prefix_name) const

@@ -11,6 +11,7 @@ namespace db0
 
     class Fixture;
     class LangCache;
+    class PrefixName;
 
     /**
      * Snapshot is a common interface for Workspace and WorkspaceView
@@ -21,16 +22,16 @@ namespace db0
         virtual ~Snapshot()= default;
         
         // Check if a prefix with the given name exists
-        virtual bool hasFixture(const std::string &prefix_name) const = 0;
+        virtual bool hasFixture(const PrefixName &prefix_name) const = 0;
 
         virtual db0::swine_ptr<Fixture> getFixture(
-            const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) = 0;
+            const PrefixName &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) = 0;
         
         virtual db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) = 0;
         
         virtual db0::swine_ptr<Fixture> getCurrentFixture() = 0;
         
-        virtual bool close(const std::string &prefix_name) = 0;
+        virtual bool close(const PrefixName &prefix_name) = 0;
         
         virtual void close() = 0;
 

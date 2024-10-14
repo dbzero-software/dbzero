@@ -3,6 +3,7 @@
 #include "FixtureThreads.hpp"
 #include "Config.hpp"
 #include "WorkspaceView.hpp"
+#include "PrefixName.hpp"
 #include <thread>
 
 namespace db0
@@ -32,8 +33,9 @@ namespace db0
     {
     }
     
-    std::pair<std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator> > BaseWorkspace::openMemspace(const std::string &prefix_name,
-        bool &new_file_created, AccessType access_type, std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
+    std::pair<std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator> > BaseWorkspace::openMemspace(
+        const PrefixName &prefix_name, bool &new_file_created, AccessType access_type, 
+        std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size, std::optional<LockFlags> lock_flags)
     {
         if (!page_size) {
@@ -73,11 +75,11 @@ namespace db0
         }
     }
     
-    bool BaseWorkspace::hasMemspace(const std::string &prefix_name) const {
+    bool BaseWorkspace::hasMemspace(const PrefixName &prefix_name) const {
         return m_prefix_catalog.exists(m_prefix_catalog.getFileName(prefix_name).string());
     }
 
-    Memspace &BaseWorkspace::getMemspace(const std::string &prefix_name, AccessType access_type, 
+    Memspace &BaseWorkspace::getMemspace(const PrefixName &prefix_name, AccessType access_type, 
         std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size)
     {
@@ -108,7 +110,7 @@ namespace db0
         }    
     }
 
-    bool BaseWorkspace::close(const std::string &prefix_name)
+    bool BaseWorkspace::close(const PrefixName &prefix_name)
     {
         auto it = m_memspaces.find(prefix_name);
         if (it != m_memspaces.end()) {
@@ -128,7 +130,7 @@ namespace db0
         }
     }
     
-    bool BaseWorkspace::drop(const std::string &prefix_name, bool if_exists)
+    bool BaseWorkspace::drop(const PrefixName &prefix_name, bool if_exists)
     {
         close(prefix_name);
         return m_prefix_catalog.drop(prefix_name, if_exists);
@@ -242,7 +244,7 @@ namespace db0
     {    
     }
 
-    bool Workspace::close(const std::string &prefix_name)
+    bool Workspace::close(const PrefixName &prefix_name)
     {
         BaseWorkspace::close(prefix_name);
         auto uuid = getUUID(prefix_name);
@@ -300,9 +302,10 @@ namespace db0
         return BaseWorkspace::getCacheRecycler();
     }
     
-    db0::swine_ptr<Fixture> Workspace::getFixtureEx(const std::string &prefix_name, std::optional<AccessType> access_type,
-        std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
-        std::optional<std::size_t> sparse_index_node_size, std::optional<bool> autocommit, std::optional<LockFlags> lock_flags)
+    db0::swine_ptr<Fixture> Workspace::getFixtureEx(const PrefixName &prefix_name, 
+        std::optional<AccessType> access_type, std::optional<std::size_t> page_size, 
+        std::optional<std::size_t> slab_size, std::optional<std::size_t> sparse_index_node_size, 
+        std::optional<bool> autocommit, std::optional<LockFlags> lock_flags)
     {
         bool file_created = false;
         auto uuid = getUUID(prefix_name);
@@ -373,7 +376,7 @@ namespace db0
         return it->second;
     }
     
-    bool Workspace::hasFixture(const std::string &prefix_name) const
+    bool Workspace::hasFixture(const PrefixName &prefix_name) const
     {        
         auto uuid = getUUID(prefix_name);
         auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();
@@ -384,7 +387,7 @@ namespace db0
         return hasMemspace(prefix_name);
     }
     
-    db0::swine_ptr<Fixture> Workspace::tryFindFixture(const std::string &prefix_name) const
+    db0::swine_ptr<Fixture> Workspace::tryFindFixture(const PrefixName &prefix_name) const
     {
         auto uuid = getUUID(prefix_name);
         auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();        
@@ -394,7 +397,7 @@ namespace db0
         return it->second;
     }
     
-    db0::swine_ptr<Fixture> Workspace::findFixture(const std::string &prefix_name) const
+    db0::swine_ptr<Fixture> Workspace::findFixture(const PrefixName &prefix_name) const
     {
         auto result = tryFindFixture(prefix_name);
         if (!result) {
@@ -431,7 +434,7 @@ namespace db0
         return result;
     }
     
-    std::optional<std::uint64_t> Workspace::getUUID(const std::string &prefix_name) const {
+    std::optional<std::uint64_t> Workspace::getUUID(const PrefixName &prefix_name) const {
         return m_fixture_catalog.getFixtureUUID(prefix_name);
     }
     
@@ -467,11 +470,11 @@ namespace db0
         return m_fixture_initializer;
     }
 
-    bool Workspace::drop(const std::string &prefix_name, bool if_exists) {
+    bool Workspace::drop(const PrefixName &prefix_name, bool if_exists) {
         return BaseWorkspace::drop(prefix_name, if_exists);
     }
     
-    void Workspace::commit(const std::string &prefix_name)
+    void Workspace::commit(const PrefixName &prefix_name)
     {
         auto fixture = findFixture(prefix_name);
         if (!fixture) {
@@ -491,7 +494,7 @@ namespace db0
         return m_default_fixture;
     }
     
-    void Workspace::open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit,
+    void Workspace::open(const PrefixName &prefix_name, AccessType access_type, std::optional<bool> autocommit,
         std::optional<std::size_t> slab_size, std::optional<LockFlags> lock_flags)
     {
         auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit, lock_flags);
@@ -514,7 +517,7 @@ namespace db0
         return m_default_fixture->getUUID();
     }
     
-    db0::swine_ptr<Fixture> Workspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type) {
+    db0::swine_ptr<Fixture> Workspace::getFixture(const PrefixName &prefix_name, std::optional<AccessType> access_type) {
         return getFixtureEx(prefix_name, access_type);
     }
     
@@ -624,7 +627,7 @@ namespace db0
         m_views.push_back(workspace_view);
         return workspace_view;
     }
-
+    
     void Workspace::forAllMemspaces(std::function<bool(Memspace &)> callback)
     {
         for (auto &[uuid, fixture] : m_fixtures) {

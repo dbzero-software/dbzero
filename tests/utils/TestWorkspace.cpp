@@ -22,7 +22,7 @@ namespace db0
         }
     }
     
-    Memspace TestWorkspaceBase::getMemspace(const std::string &name, AllocCallbackT callback)
+    Memspace TestWorkspaceBase::getMemspace(const PrefixName &name, AllocCallbackT callback)
     {
         using PrefixT = PrefixImpl<db0::Storage0>;
         if (!m_prefix) {
@@ -50,7 +50,7 @@ namespace db0
         }
     }
     
-    bool TestWorkspace::close(const std::string &name)
+    bool TestWorkspace::close(const PrefixName &name)
     {
         auto it_uuid = m_uuids.find(name);
         if (it_uuid == m_uuids.end()) {
@@ -83,7 +83,7 @@ namespace db0
     {
     }
 
-    db0::swine_ptr<Fixture> TestWorkspace::getFixture(const std::string &prefix_name, std::optional<AccessType> access_type)
+    db0::swine_ptr<Fixture> TestWorkspace::getFixture(const PrefixName &prefix_name, std::optional<AccessType> access_type)
     {
         auto it = m_uuids.find(prefix_name);
         if (it != m_uuids.end()) {
@@ -134,7 +134,7 @@ namespace db0
         m_slab_recycler.clear();
     }
 
-    bool TestWorkspace::hasFixture(const std::string &prefix_name) const
+    bool TestWorkspace::hasFixture(const PrefixName &prefix_name) const
     {
         auto it = m_uuids.find(prefix_name);
         if (it == m_uuids.end()) {

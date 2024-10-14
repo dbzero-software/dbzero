@@ -9,6 +9,7 @@
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
 #include "PyClassFields.hpp"

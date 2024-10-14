@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
 

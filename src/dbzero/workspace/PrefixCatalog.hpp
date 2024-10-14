@@ -14,7 +14,8 @@ namespace db0
 
     namespace fs = std::filesystem;
     class Fixture;
-    
+    class PrefixName;
+        
     class PrefixCatalog
     {
     public:
@@ -44,7 +45,7 @@ namespace db0
 
     protected:
         fs::path m_root_path;
-        // cached prefix names
+        // cached canonical prefix names
         mutable std::unordered_set<std::string> m_prefix_names;
 
         void refresh(const std::string &path, std::function<void(const std::string &)>) const;
@@ -53,26 +54,26 @@ namespace db0
     class FixtureCatalog
     {
     public:
-        FixtureCatalog(PrefixCatalog &prefix_catalog);
+        FixtureCatalog(PrefixCatalog &);
 
         /**
          * Refresh contents to locate newly created fixtures
         */
         void refresh() const;
 
-        bool drop(const std::string &prefix_name, bool if_exists = true);
+        bool drop(const PrefixName &, bool if_exists = true);
         
         /**
          * Add fixture to catalog
         */
-        void add(const std::string &prefix_name, const Fixture &);
+        void add(const PrefixName &, const Fixture &);
         
         /**
          * Try identifying prefix name by fixture UUID
         */
         std::optional<std::string> getPrefixName(std::uint64_t fixture_UUID) const;
         
-        std::optional<std::uint64_t> getFixtureUUID(const std::string &prefix_name) const;
+        std::optional<std::uint64_t> getFixtureUUID(const PrefixName &) const;
         
         // Get all known prefix names and their UUIDs
         std::unordered_map<std::string, std::uint64_t> getData() const;
@@ -86,5 +87,5 @@ namespace db0
 
         void tryAdd(const std::string &maybe_prefix_name) const;
     };
-
+    
 }

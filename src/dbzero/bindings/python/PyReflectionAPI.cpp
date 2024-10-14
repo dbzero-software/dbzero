@@ -2,6 +2,7 @@
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include "PyToolkit.hpp"

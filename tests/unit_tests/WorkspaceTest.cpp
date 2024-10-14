@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/workspace/WorkspaceView.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>

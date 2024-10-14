@@ -1,4 +1,5 @@
 #include "WorkspaceView.hpp"
+#include "PrefixName.hpp"
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/LangCache.hpp>
 
@@ -9,7 +10,8 @@ namespace db0
     /**
      * Fixture view initializer
     */
-    void initSnapshot(db0::swine_ptr<Fixture> &head, db0::swine_ptr<Fixture> &view) {
+    void initSnapshot(db0::swine_ptr<Fixture> &head, db0::swine_ptr<Fixture> &view) 
+    {
         auto &class_factory = head->get<db0::object_model::ClassFactory>();
         // copy all known type mappings from the head fixture
         view->get<db0::object_model::ClassFactory>().initWith(class_factory);
@@ -78,7 +80,7 @@ namespace db0
     }
     
     db0::swine_ptr<Fixture> WorkspaceView::getFixture(
-        const std::string &prefix_name, std::optional<AccessType> access_type)
+        const PrefixName &prefix_name, std::optional<AccessType> access_type)
     {
         if (m_closed) {
             THROWF(db0::InternalException) << "WorkspaceView is closed";
@@ -110,7 +112,7 @@ namespace db0
         return result;
     }
     
-    bool WorkspaceView::hasFixture(const std::string &prefix_name) const {
+    bool WorkspaceView::hasFixture(const PrefixName &prefix_name) const {
         return m_workspace->hasFixture(prefix_name);
     }
     
@@ -150,7 +152,7 @@ namespace db0
         return result;
     }
     
-    bool WorkspaceView::close(const std::string &prefix_name)
+    bool WorkspaceView::close(const PrefixName &prefix_name)
     {
         if (m_closed) {
             return false;

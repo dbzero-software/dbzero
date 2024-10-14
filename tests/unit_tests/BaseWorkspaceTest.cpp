@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
 

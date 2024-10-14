@@ -5,6 +5,7 @@
 #include "GC0.hpp"
 #include "Workspace.hpp"
 #include "WorkspaceView.hpp"
+#include "PrefixName.hpp"
 
 namespace db0
 

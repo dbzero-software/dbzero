@@ -9,6 +9,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/workspace/WorkspaceView.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/workspace/Utils.hpp>
@@ -426,7 +427,7 @@ namespace db0::python
         THROWF(db0::InputException) << "Unable to retrieve ref count for type: "
             << Py_TYPE(py_object)->tp_name << THROWF_END;
     }
-
+    
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name)
     {
         const char *prefix_name = nullptr;

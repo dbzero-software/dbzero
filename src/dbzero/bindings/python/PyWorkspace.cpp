@@ -1,5 +1,6 @@
 #include "PyWorkspace.hpp"
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/workspace/Config.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object.hpp>
@@ -29,7 +30,7 @@ namespace db0::python
             // initialize DBZero with current working directory
             initWorkspace("");
         }
-        if(py_lock_flags) {
+        if (py_lock_flags) {
             db0::Config lock_flags_config(py_lock_flags);
             m_workspace->open(prefix_name, access_type, autocommit, slab_size, lock_flags_config);
         } else {

@@ -60,10 +60,10 @@ namespace db0
          * if state number if specified, the memspace will be opened in read-only mode to access a specific historical state (time-travel)
          * @param page_size required only when creating a new prefix
         */
-        Memspace &getMemspace(const std::string &prefix_name, AccessType = AccessType::READ_WRITE, std::optional<std::size_t> page_size = {}, 
+        Memspace &getMemspace(const PrefixName &, AccessType = AccessType::READ_WRITE, std::optional<std::size_t> page_size = {},
             std::optional<std::size_t> slab_size = {}, std::optional<std::size_t> sparse_index_node_size = {});
         
-        bool hasMemspace(const std::string &prefix_name) const;
+        bool hasMemspace(const PrefixName &) const;
         
         /**
          * Commit all underlying read/write prefixes
@@ -73,13 +73,13 @@ namespace db0
         /**
          * Flush any changes done to and close the memspace
         */
-        bool close(const std::string &prefix_name);
+        bool close(const PrefixName &);
         
         /**
          * Close & drop specific prefix
          * @return true if prefix was dropped
         */
-        bool drop(const std::string &prefix_name, bool if_exists = true);
+        bool drop(const PrefixName &, bool if_exists = true);
 
         /**
          * Close all prefixes, drop all uncommited data
@@ -109,7 +109,7 @@ namespace db0
         /**
          * Open existing or create new memspace
         */
-        std::pair<std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator> > openMemspace(const std::string &prefix_name, 
+        std::pair<std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator> > openMemspace(const PrefixName &,
             bool &new_file_created, AccessType = AccessType::READ_WRITE, std::optional<std::size_t> page_size = {}, 
             std::optional<std::size_t> slab_size = {},
             std::optional<std::size_t> sparse_index_node_size = {},
@@ -154,7 +154,7 @@ namespace db0
         // Set or change the autocommit interval in milliseconds
         void setAutocommitInterval(std::uint64_t interval_ms);
 
-        bool hasFixture(const std::string &prefix_name) const override;
+        bool hasFixture(const PrefixName &prefix_name) const override;
 
         /**
          * Get current fixture for either read-only or read-write access
@@ -165,7 +165,7 @@ namespace db0
          * Create new or open/get existing prefix associated fixture
          * access type must be provided when the prefix is accessed for the 1st time
          */
-        swine_ptr<Fixture> getFixtureEx(const std::string &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE,
+        swine_ptr<Fixture> getFixtureEx(const PrefixName &, std::optional<AccessType> = AccessType::READ_WRITE,
             std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {}, 
             std::optional<std::size_t> sparse_index_node_size = {},
             std::optional<bool> autocommit = {}, std::optional<LockFlags> lock_flags = {});
@@ -176,18 +176,18 @@ namespace db0
         */
         db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
         
-        db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name,
+        db0::swine_ptr<Fixture> getFixture(const PrefixName &prefix_name,
             std::optional<AccessType> = AccessType::READ_WRITE) override;
         
         /**
          * Find existing (opened) fixture or return nullptr
         */
-        db0::swine_ptr<Fixture> tryFindFixture(const std::string &prefix_name) const;
+        db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const;
         
         /**
          * Find existing (opened) fixture or throw
         */
-        db0::swine_ptr<Fixture> findFixture(const std::string &prefix_name) const;
+        db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
 
         /**
          * Commit all underlying read/write prefixes
@@ -197,7 +197,7 @@ namespace db0
         /**
          * Commit specific prefix (must be opened as read/write)
         */
-        void commit(const std::string &prefix_name);
+        void commit(const PrefixName &);
 
         /**
          * Open specific prefix and make it the default one
@@ -205,12 +205,12 @@ namespace db0
          * @param access_type
          * @param autocommit flag indicating if the prefix should be auto-committed
         */
-        void open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit = {},
+        void open(const PrefixName &, AccessType access_type, std::optional<bool> autocommit = {},
             std::optional<std::size_t> slab_size = {}, std::optional<LockFlags> default_lock_flags = {});
         
-        bool drop(const std::string &prefix_name, bool if_exists = true);
+        bool drop(const PrefixName &, bool if_exists = true);
 
-        bool close(const std::string &prefix_name) override;
+        bool close(const PrefixName &) override;
 
         /**
          * Close all prefixes, drop all uncommited data
@@ -280,7 +280,7 @@ namespace db0
         mutable std::list<std::weak_ptr<WorkspaceView> > m_views;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;
         
-        std::optional<std::uint64_t> getUUID(const std::string &prefix_name) const;
+        std::optional<std::uint64_t> getUUID(const PrefixName &) const;
 
         void forAllMemspaces(std::function<bool(Memspace &)> callback) override;
 

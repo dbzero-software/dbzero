@@ -106,6 +106,8 @@ namespace db0::python
     // Retrieve prefix (its Fixture objects) from the optional argument "prefix"
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name);
     
+    std::string normalizedPrefixName(const char *prefix_name);
+    
 #ifndef NDEBUG
 
     /**

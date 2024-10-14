@@ -13,6 +13,7 @@ namespace db0
 {
 
     class LangCache;
+    class PrefixName;
     
     // A WorkspaceView exposes a limited read-only Workspace interface bound to a specific state number
     class WorkspaceView: public Snapshot
@@ -20,15 +21,15 @@ namespace db0
     public:
         virtual ~WorkspaceView();
 
-        bool hasFixture(const std::string &prefix_name) const override;
+        bool hasFixture(const PrefixName &) const override;
 
-        db0::swine_ptr<Fixture> getFixture(const std::string &prefix_name, std::optional<AccessType> = {}) override;
+        db0::swine_ptr<Fixture> getFixture(const PrefixName &, std::optional<AccessType> = {}) override;
         
         db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
 
         db0::swine_ptr<Fixture> getCurrentFixture() override;
         
-        bool close(const std::string &prefix_name) override;
+        bool close(const PrefixName &) override;
         
         void close() override;
 
