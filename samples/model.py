@@ -10,7 +10,7 @@ class Book:
         self.title = title
         self.author = author
         self.year = year
-        db0.tags(self).add(author)
+        db0.tags(self).add([token.lower().rstrip(".") for token in author.split(" ") if len(token) > 2])
     
     def full_desc(self):
         return f"{self.title} by {self.author} ({self.year})"

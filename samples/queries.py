@@ -6,7 +6,7 @@ def all_books():
     return db0.find(Book)
 
 def all_books_of(author):
-    return db0.find(Book, author)
+    return db0.find(Book, author.lower())
 
 def books_by_params(author, **kwargs):
-    return db0.find(Book, author)
+    return db0.find(Book, author.lower(), **kwargs)

@@ -8,27 +8,63 @@ def values_of(obj, attr_names):
     return [getattr(obj, attr_name) for attr_name in attr_names]
 
 
-def print_query_results(query):
+def print_query_results(rows):
     columns = None
-    for row in query.execute():
+    for row in rows:
         if not columns:
             columns = [attr[0] for attr in db0.get_attributes(type(row))]
         print(values_of(row, columns))
     
-    
+
+def parse_unknown_args(args):
+    result = {}
+    for arg in args:
+        if arg.startswith('--'):
+            if '=' in arg:
+                # Split the argument at the '=' for --arg=value format
+                key, value = arg.lstrip('--').split('=', 1)
+                result[key] = value
+            else:
+                # For --arg value format, handle the next element as the value
+                key = arg.lstrip('--')
+                # Check if there is a next argument and if it doesn't start with '--'
+                value = None
+                if args.index(arg) + 1 < len(args):
+                    next_arg = args[args.index(arg) + 1]
+                    if not next_arg.startswith('--'):
+                        value = next_arg
+                result[key] = value        
+    return result
+
+
 def __main__():
+    """
+    Example usage:
+    python -m generate
+    python -m explore_queries --query queries.all_books
+    python -m explore_queries --path /path/to/dbzero/files --query queries.all_books_of --author "Salinger"
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default=None, type=str, help="Location of dbzero files")
-    parser.add_argument('--queries', type=str, help="Module containing queries")
-    args = parser.parse_args()
+    parser.add_argument('--query', type=str, help="Dot delimited module containing queries and query name (e.g. my_module.my_query)")
+    args, extra_args = parser.parse_known_args()
+    
+    # parse unknown (query) args
+    query_args = parse_unknown_args(extra_args)
+    if len(query_args) > 0:
+        print(f"Query args: {query_args}")
     try:
         db0.init(path=args.path)
         # open all available prefixes first
         for prefix in db0.get_prefixes():
             db0.open(prefix.name, "r")
-        for query in db0.get_queries(args.queries):
-            print(f"--- Query {query.name} ---")
-            print_query_results(query)
+        query_module, query_name = args.query.split(".")
+        queries = { query.name: query for query in db0.get_queries(query_module) }
+        if query_name not in queries:
+            raise ValueError(f"Query {query_name} not found in module {query_module}")        
+        query = queries[query_name]
+        print(f"--- Query {query.name} ---")
+        print_query_results(query.execute(**query_args))
     except Exception as e:
         print(e)
     db0.close()

@@ -114,6 +114,9 @@ class Query:
     def has_kwargs(self):
         return self.__has_kwargs
     
+    def has_params(self):
+        return len(self.__params) > 0 or self.__has_kwargs
+    
     def execute(self, *args, **kwargs):
         return self.__function_obj(*args, **kwargs)
     
