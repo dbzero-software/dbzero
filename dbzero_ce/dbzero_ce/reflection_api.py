@@ -89,12 +89,19 @@ class MemoMetaClass:
     def __repr__(self):
         return f"{self.__module}.{self.__name} ({self.__class_uuid})"
     
+    def __eq__(self, value):
+        return self.__class_uuid == value.__class_uuid
+    
 
 def get_memo_classes(prefix: PrefixMetaData = None):
     for memo_class in (get_raw_memo_classes(prefix.name, prefix.uuid) if prefix is not None else get_raw_memo_classes()):
         yield MemoMetaClass(*memo_class)
 
 
+def get_memo_class(class_uuid):
+    return MemoMetaClass(*db0.fetch(class_uuid).type_info())
+
+    
 class Query:
     def __init__(self, function_obj, name, params, has_kwargs):
         self.__function_obj = function_obj
@@ -119,7 +126,7 @@ class Query:
     
     def execute(self, *args, **kwargs):
         return self.__function_obj(*args, **kwargs)
-    
+
     
 def get_queries(*module_names):
     # Dynamically import modules    

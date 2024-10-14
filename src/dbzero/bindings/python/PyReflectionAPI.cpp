@@ -5,6 +5,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include "PyToolkit.hpp"
+#include "PyClass.hpp"
 
 namespace db0::python
 
@@ -43,27 +44,8 @@ namespace db0::python
             // do not report MemoBase type
             if (type->isMemoBase()) {
                 return;
-            }
-            
-            PyObject *py_tuple = nullptr;
-            if (type->isSingleton()) {
-                // name, module, memo_uuid, is_singleton, singleton_uuid
-                py_tuple = PyTuple_Pack(5,
-                    PyUnicode_FromString(type->getTypeName().c_str()),
-                    PyUnicode_FromString(type->getModuleName().c_str()),
-                    PyUnicode_FromString(type->getClassId().toUUIDString().c_str()),
-                    type->isSingleton() ? Py_True : Py_False,
-                    getSingletonUUID(*type)
-                );
-            } else {
-                // name, module, memo_uuid
-                py_tuple = PyTuple_Pack(3,
-                    PyUnicode_FromString(type->getTypeName().c_str()), 
-                    PyUnicode_FromString(type->getModuleName().c_str()),
-                    PyUnicode_FromString(type->getClassId().toUUIDString().c_str())
-                );
-            }
-            PyList_Append(py_list, py_tuple);
+            }            
+            PyList_Append(py_list, tryGetTypeInfo(*type));
         });
         return py_list;
     }

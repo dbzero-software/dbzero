@@ -16,7 +16,8 @@ namespace db0::python
     void ClassObject_del(ClassObject *);
     PyObject *PyClass_type(PyObject *, PyObject *);
     PyObject *PyClass_get_attributes(PyObject *, PyObject *);
-    
+    PyObject *PyClass_type_info(PyObject *, PyObject *);
+
     extern PyTypeObject ClassObjectType;
 
     ClassObject *makeClass(std::shared_ptr<const db0::object_model::Class>);
@@ -24,5 +25,6 @@ namespace db0::python
     
     PyObject *tryGetAttributes(PyObject *);
     PyObject *tryGetClassAttributes(const db0::object_model::Class &);
+    PyObject *tryGetTypeInfo(const db0::object_model::Class &);
     
 }

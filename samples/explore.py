@@ -15,7 +15,7 @@ def __main__():
     parser.add_argument('--path', default=None, type=str, help="Location of dbzero files")
     args = parser.parse_args()
     try:
-        db0.init(path=args.path)    
+        db0.init(path=args.path)
         for prefix in db0.get_prefixes():
             # open prefix to make it the default one
             db0.open(prefix.name, "r")

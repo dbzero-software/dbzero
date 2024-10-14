@@ -1,5 +1,6 @@
 #include "PyClass.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyReflectionAPI.hpp"
 
 namespace db0::python
 
@@ -17,6 +18,7 @@ namespace db0::python
     {
         {"type", (PyCFunction)&PyClass_type, METH_NOARGS, "Retrieve associated Python type"},
         {"get_attributes", (PyCFunction)&PyClass_get_attributes, METH_NOARGS, "Get memo class attributes"},
+        {"type_info", (PyCFunction)&PyClass_type_info, METH_NOARGS, "Get memo class type information"},
         {NULL}
     };
     
@@ -57,6 +59,12 @@ namespace db0::python
         return runSafe(tryGetAttributes, self);
     }
     
+    PyObject *PyClass_type_info(PyObject *self, PyObject *)
+    {
+        std::lock_guard api_lock(py_api_mutex);
+        return runSafe(tryGetTypeInfo, reinterpret_cast<ClassObject*>(self)->ext());
+    }
+    
     PyTypeObject ClassObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.Class",
@@ -81,4 +89,27 @@ namespace db0::python
         return Py_TYPE(self) == &ClassObjectType;
     }
 
+    PyObject *tryGetTypeInfo(const db0::object_model::Class &type)
+    {
+        PyObject *py_tuple = nullptr;
+        if (type.isSingleton()) {
+            // name, module, memo_uuid, is_singleton, singleton_uuid
+            py_tuple = PyTuple_Pack(5,
+                PyUnicode_FromString(type.getTypeName().c_str()),
+                PyUnicode_FromString(type.getModuleName().c_str()),
+                PyUnicode_FromString(type.getClassId().toUUIDString().c_str()),
+                type.isSingleton() ? Py_True : Py_False,
+                getSingletonUUID(type)
+            );
+        } else {
+            // name, module, memo_uuid
+            py_tuple = PyTuple_Pack(3,
+                PyUnicode_FromString(type.getTypeName().c_str()), 
+                PyUnicode_FromString(type.getModuleName().c_str()),
+                PyUnicode_FromString(type.getClassId().toUUIDString().c_str())
+            );
+        }
+        return py_tuple;
+    }
+    
 }

@@ -122,3 +122,11 @@ def test_memo_class_get_attribute_values(db0_fixture):
 def test_get_attributes_by_type(db0_fixture):
     obj = MemoTestClass(123)    
     assert len(list(db0.get_attributes(type(obj)))) > 0
+
+
+def test_get_memo_class_by_uuid(db0_fixture):
+    _ = MemoTestClass(123)
+    meta_1 = list(db0.get_memo_classes())[0]
+    meta_2 = db0.get_memo_class(meta_1.class_uuid)
+    assert meta_1 == meta_2
+    
