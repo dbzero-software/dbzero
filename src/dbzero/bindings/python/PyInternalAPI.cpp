@@ -415,11 +415,12 @@ namespace db0::python
                 auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
                 // sum over all prefixes
                 std::uint64_t ref_count = 0;                
-                workspace.forAll([&ref_count, py_type](const db0::Fixture &fixture) {
+                workspace.forEachFixture([&ref_count, py_type](const db0::Fixture &fixture) {
                     auto type = fixture.get<db0::object_model::ClassFactory>().tryGetExistingType(py_type);
                     if (type) {
                         ref_count += type->getRefCount();                        
                     }
+                    return true;
                 });
                 return PyLong_FromLong(ref_count);
             }

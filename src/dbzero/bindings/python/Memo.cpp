@@ -67,18 +67,16 @@ namespace db0::python
         return reinterpret_cast<MemoObject*>(runSafe(tryMemoObject_new, py_type, args, kwargs));
     }
     
-    PyObject *tryMemoObject_open_singleton(PyTypeObject *py_type)
+    PyObject *tryMemoObject_open_singleton(PyTypeObject *py_type, const Fixture &fixture)
     {
-        MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
-        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+        auto &class_factory = fixture.get<db0::object_model::ClassFactory>();
         // find py type associated DBZero class with the ClassFactory
         auto type = class_factory.tryGetExistingType(py_type);
-
+        
         if (!type) {
             return nullptr;
         }
-        
+
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
         // try unloading associated singleton if such exists
         if (!type->unloadSingleton(&memo_obj->modifyExt())) {
@@ -88,6 +86,25 @@ namespace db0::python
         return memo_obj;
     }
     
+    PyObject *tryMemoObject_open_singleton(PyTypeObject *py_type)
+    {
+        MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+        // try opening from a known prefix
+        if (decor.getFixtureUUID()) {
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
+            return tryMemoObject_open_singleton(py_type, *fixture);
+        }
+
+        // if prefix not known then scan all fixtures
+        PyObject *py_singleton = nullptr;
+        PyToolkit::getPyWorkspace().getWorkspace().forEachFixture([&](const Fixture &fixture) {
+            py_singleton = tryMemoObject_open_singleton(py_type, fixture);
+            return py_singleton == nullptr;
+        });
+
+        return py_singleton;
+    }
+
     PyObject *tryMemoObject_new_singleton(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         auto result = tryMemoObject_open_singleton(py_type);
@@ -566,7 +583,7 @@ namespace db0::python
         }
         return Py_None;
     }
-    
+
     PyObject *tryGetAttributes(PyTypeObject *type)
     {
         auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));

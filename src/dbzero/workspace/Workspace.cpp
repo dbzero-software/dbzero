@@ -9,7 +9,7 @@
 namespace db0
 
 {
-    
+
     void validateAccessType(const Fixture &fixture, AccessType requested)
     {
         if (requested == AccessType::READ_WRITE && fixture.getAccessType() != AccessType::READ_WRITE) {
@@ -148,7 +148,7 @@ namespace db0
     {
     }
     
-    void BaseWorkspace::forAllMemspaces(std::function<bool(Memspace &)> callback)
+    void BaseWorkspace::forEachMemspace(std::function<bool(Memspace &)> callback)
     {
         for (auto &[uuid, memspace] : m_memspaces) {
             if (!callback(memspace)) {
@@ -162,7 +162,7 @@ namespace db0
         // from each fixture try releasing limit proportional to its dirty size
         auto total_dirty_size = m_dirty_meter.load();
         // the implementation works for BaseWorkspace and its subclasses
-        forAllMemspaces([&](Memspace &memspace) -> bool {
+        forEachMemspace([&](Memspace &memspace) -> bool {
             auto dirty_size = memspace.getPrefix().getDirtySize();
             if (dirty_size > 0) {
                 auto p = (double)dirty_size / (double)total_dirty_size;
@@ -456,13 +456,15 @@ namespace db0
         return refreshed;
     }
     
-    void Workspace::forAll(std::function<void(const Fixture &)> callback) const
+    void Workspace::forEachFixture(std::function<bool(const Fixture &)> callback) const
     {
         for (auto &[uuid, fixture] : m_fixtures) {
-            callback(*fixture);
+            if (!callback(*fixture)) {
+                return;
+            }
         }
     }
-
+    
     std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool is_read_only)>
     Workspace::getFixtureInitializer() const {
         return m_fixture_initializer;
@@ -626,7 +628,7 @@ namespace db0
         return workspace_view;
     }
     
-    void Workspace::forAllMemspaces(std::function<bool(Memspace &)> callback)
+    void Workspace::forEachMemspace(std::function<bool(Memspace &)> callback)
     {
         for (auto &[uuid, fixture] : m_fixtures) {
             if (!callback(*fixture)) {

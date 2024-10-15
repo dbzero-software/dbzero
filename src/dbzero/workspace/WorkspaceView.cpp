@@ -61,9 +61,9 @@ namespace db0
             }
             m_state_nums[*m_default_uuid] = *state_num;
         }
-    
+        
         // freeze state numbers of the remaining open fixtures
-        m_workspace_ptr->forAll([this](const Fixture &fixture) {
+        m_workspace_ptr->forEachFixture([this](const Fixture &fixture) {
             if (!m_default_uuid || *m_default_uuid != fixture.getUUID()) {
                 auto it = m_prefix_state_nums.find(fixture.getPrefix().getName());
                 if (it != m_prefix_state_nums.end()) {
@@ -72,6 +72,7 @@ namespace db0
                     m_state_nums[fixture.getUUID()] = fixture.getPrefix().getStateNum();
                 }
             }
+            return true;
         });
     }
     

@@ -56,6 +56,7 @@ namespace db0::object_model
          * @param type_id optional user assigned type ID
         */
         std::shared_ptr<Enum> getOrCreateEnum(const EnumDef &, const char *type_id);
+        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumDef &, const char *type_id);
         
         // reference the DBZero object model's enum by its pointer
         std::shared_ptr<Enum> getEnumByPtr(EnumPtr) const;

@@ -21,6 +21,14 @@ namespace db0::object_model
         std::uint64_t asULong() const;
     };
     
+    // EnumValue placeholder when EnumValue could not be created
+    // e.g. due to read-only access
+    struct EnumValueRepr
+    {
+        // the string representation
+        std::string m_str_repr;
+    };
+    
     struct EnumValue
     {
         // associated fixture UUID (for context validation purposes)

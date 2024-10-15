@@ -132,6 +132,12 @@ class GroupByBucket:
     def count(self):
         return self.__count
     
+    def __str__(self):
+        return f"Group of {self.__count} rows"
+    
+    def __repr__(self):
+        return f"Group of {self.__count} rows"
+    
     
 class GroupByEval:
     def __init__(self, group_defs, data=None, prefix=None):

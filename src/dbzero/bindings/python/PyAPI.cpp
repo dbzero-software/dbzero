@@ -37,8 +37,9 @@ namespace db0::python
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         auto &cache_recycler = workspace.getCacheRecycler();
         std::size_t deferred_free_count = 0;
-        workspace.forAll([&deferred_free_count](auto &fixture) {
+        workspace.forEachFixture([&deferred_free_count](auto &fixture) {
             deferred_free_count += fixture.getMetaAllocator().getDeferredFreeCount();
+            return true;
         });
         auto lang_cache_size = workspace.getLangCache()->size();
 #ifndef NDEBUG

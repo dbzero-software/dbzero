@@ -63,6 +63,7 @@ namespace db0::python
         addStaticType(&PyBytes_Type, TypeId::BYTES);
         addStaticType(&PyEnumType, TypeId::DB0_ENUM);
         addStaticType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
+        addStaticType(&PyEnumValueReprType, TypeId::DB0_ENUM_VALUE_REPR);
         addStaticType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
         addStaticType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
         addStaticType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);

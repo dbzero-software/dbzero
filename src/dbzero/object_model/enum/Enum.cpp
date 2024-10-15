@@ -18,7 +18,7 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_string_pool(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
-    {        
+    {
         for (auto &value: values) {
             m_values.insert(m_string_pool.addRef(value));
         }

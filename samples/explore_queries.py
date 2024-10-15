@@ -1,7 +1,6 @@
 import dbzero_ce as db0
 import argparse
-import inspect
-import sys
+
 
 def values_of(obj, attr_names):
     return [getattr(obj, attr_name) for attr_name in attr_names]
@@ -10,16 +9,22 @@ def values_of(obj, attr_names):
 def print_query_rows(rows):
     columns = None
     for row in rows:
-        if not columns:
-            columns = [attr[0] for attr in db0.get_attributes(type(row))]
-        print(values_of(row, columns))        
+        if type(row) is tuple:
+            print(list(row))
+        else:
+            if not columns:
+                columns = [attr[0] for attr in db0.get_attributes(type(row))]
+            print(values_of(row, columns))
     
     
-def print_query_results(rows):
-    if type(rows) is dict:
-        print(rows)
+def print_query_results(query_result):
+    if type(query_result) is dict:
+        def as_rows():
+            for key, value in query_result.items():
+                yield (key, value)
+        print_query_rows(as_rows())
     else:
-        print_query_rows(rows)
+        print_query_rows(query_result)
     
 
 def parse_unknown_args(args):
@@ -60,12 +65,18 @@ def __main__():
     query_args = parse_unknown_args(extra_args)
     if len(query_args) > 0:
         print(f"Query args: {query_args}")
+    
     try:
         db0.init(path=args.path)
         db0.init_fast_query(prefix="fq_cache")
-        # open all available prefixes first
+        # open fq_cache as the initially default prefix
+        db0.open("fq_cache")
+        # open/create the FastQueryCache singleton to be able to run fq-based queries
+        _ = db0.FastQueryCache()
+        # open all available prefixes next
         for prefix in db0.get_prefixes():
             db0.open(prefix.name, "r")
+        
         query_module, query_name = args.query.split(".")
         queries = { query.name: query for query in db0.get_queries(query_module) }
         if query_name not in queries:
@@ -73,10 +84,9 @@ def __main__():
         query = queries[query_name]
         print(f"--- Query {query.name} ---")
         print_query_results(query.execute(**query_args))
-    except Exception as e:
-        print(e)
-    db0.close()
-
+    finally:
+        db0.close()
+    
     
 if __name__ == "__main__":
     __main__()

@@ -62,7 +62,7 @@ namespace db0::python
         return *m_enum_ptr;
     }
     
-    Enum &PyEnumData::create()
+    Enum *PyEnumData::tryCreate()
     {
         using EnumFactory = db0::object_model::EnumFactory;
         if (!m_enum_ptr) {
@@ -74,15 +74,25 @@ namespace db0::python
             auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
             auto &enum_factory = fixture->get<EnumFactory>();
             // use empty module name since it's unknown
-            m_enum_ptr = enum_factory.getOrCreateEnum(m_enum_def, m_type_id ? m_type_id->c_str() : nullptr);
-            // popluate enum's value cache
-            for (auto &value: m_enum_ptr->getValues()) {
-                m_enum_ptr->getLangValue(value);
+            m_enum_ptr = enum_factory.tryGetOrCreateEnum(m_enum_def, m_type_id ? m_type_id->c_str() : nullptr);
+            if (m_enum_ptr) {
+                // popluate enum's value cache
+                for (auto &value: m_enum_ptr->getValues()) {
+                    m_enum_ptr->getLangValue(value);
+                }
             }
+        }        
+        return m_enum_ptr.get();
+    }
+    
+    Enum &PyEnumData::create()
+    {
+        auto enum_ptr = tryCreate();
+        if (!enum_ptr) {
+            THROWF(db0::InputException) << "Unable to create enum: " << m_enum_def.m_name;
         }
-        assert(m_enum_ptr);
-        return *m_enum_ptr;
-    }    
+        return *enum_ptr;
+    }
     
     void PyEnumData::close() {
         m_enum_ptr = nullptr;
@@ -90,6 +100,13 @@ namespace db0::python
 
     void PyEnumData::makeNew(void *at_ptr, const EnumDef &enum_def, const char *type_id, const char *prefix_name) {
         new(at_ptr) PyEnumData(enum_def, type_id, prefix_name);
+    }
+    
+    bool PyEnumData::hasValue(const char *value) const
+    {
+        assert(value);
+        // check if enum value exists in the definition
+        return (std::find(m_enum_def.m_values.begin(), m_enum_def.m_values.end(), value) != m_enum_def.m_values.end());
     }
     
 }

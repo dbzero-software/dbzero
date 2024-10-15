@@ -14,13 +14,21 @@ namespace db0::python
     PyEnumValue *PyEnumValue_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyEnumValue*>(type->tp_alloc(type, 0));
     }
-    
+
+    PyEnumValueRepr *PyEnumValueRepr_new(PyTypeObject *type, PyObject *, PyObject *) {
+        return reinterpret_cast<PyEnumValueRepr*>(type->tp_alloc(type, 0));
+    }
+
     PyEnum *PyEnumDefault_new() {
         return PyEnum_new(&PyEnumType, NULL, NULL);
     }
 
     shared_py_object<PyEnumValue*> PyEnumValueDefault_new() {
         return { PyEnumValue_new(&PyEnumValueType, NULL, NULL), false };
+    }
+
+    shared_py_object<PyEnumValueRepr*> PyEnumValueReprDefault_new() {
+        return { PyEnumValueRepr_new(&PyEnumValueReprType, NULL, NULL), false };
     }
 
     void PyEnum_del(PyEnum* self)
@@ -41,7 +49,16 @@ namespace db0::python
                 return NULL;
             }
             // note that enum is created on demand
-            return self->modifyExt().create().getLangValue(PyUnicode_AsUTF8(attr)).steal();
+            auto enum_ptr = self->modifyExt().tryCreate();
+            if (enum_ptr) {
+                return enum_ptr->getLangValue(PyUnicode_AsUTF8(attr)).steal();
+            }
+            // if unable to create (e.g. prefix not accessible for read/write) then
+            // return a value placeholder
+            if (!self->ext().hasValue(PyUnicode_AsUTF8(attr))) {
+                THROWF(db0::InputException) << "Enum value not found: " << PyUnicode_AsUTF8(attr);                
+            }
+            return makePyEnumValueRepr(PyUnicode_AsUTF8(attr)).steal();
         }
     }
     
@@ -60,7 +77,14 @@ namespace db0::python
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
-    
+
+    void PyEnumValueRepr_del(PyEnumValueRepr* self)
+    {
+        // destroy associated DB0 instance
+        self->destroy();
+        Py_TYPE(self)->tp_free((PyObject*)self);
+    }
+
     PyObject *getEnumValues(PyEnum *self)
     {        
         const Enum *enum_ = nullptr;        
@@ -122,7 +146,22 @@ namespace db0::python
         .tp_new = (newfunc)PyEnumValue_new,
         .tp_free = PyObject_Free,
     };
-    
+
+    PyTypeObject PyEnumValueReprType = {
+        PyVarObject_HEAD_INIT(NULL, 0)
+        .tp_name = "dbzero_ce.EnumValue",
+        .tp_basicsize = PyEnumValue::sizeOf(),
+        .tp_itemsize = 0,
+        .tp_dealloc = (destructor)PyEnumValue_del,
+        .tp_repr = reinterpret_cast<reprfunc>(PyEnumValueRepr_repr),
+        .tp_str = reinterpret_cast<reprfunc>(PyEnumValueRepr_str),        
+        .tp_flags = Py_TPFLAGS_DEFAULT,
+        .tp_doc = "Enum value object",        
+        .tp_alloc = PyType_GenericAlloc,
+        .tp_new = (newfunc)PyEnumValue_new,
+        .tp_free = PyObject_Free,
+    };
+
     bool PyEnum_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyEnumType;        
     }
@@ -130,7 +169,11 @@ namespace db0::python
     bool PyEnumValue_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyEnumValueType;        
     }
-    
+
+    bool PyEnumValueRepr_Check(PyObject *py_object) {
+        return Py_TYPE(py_object) == &PyEnumValueReprType;        
+    }
+
     PyObject *tryMakeEnum(PyObject *, const std::string &enum_name,
         const std::vector<std::string> &user_enum_values, const char *type_id, const char *prefix_name)
     {
@@ -166,5 +209,20 @@ namespace db0::python
         return PyUnicode_FromFormat("<EnumValue %s.%s>", enum_->getName().c_str(), self->ext().m_str_repr.c_str());
     }
 
+    PyObject *PyEnumValueRepr_str(PyEnumValueRepr *self) {
+        return PyUnicode_FromString(self->ext().m_str_repr.c_str());
+    }
+    
+    PyObject *PyEnumValueRepr_repr(PyEnumValueRepr *self) {
+        return PyUnicode_FromFormat("<EnumValue ???.%s>", self->ext().m_str_repr.c_str());
+    }
+
+    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(const char *value)
+    {
+        auto py_enum_value = PyEnumValueReprDefault_new();
+        py_enum_value.get()->modifyExt().m_str_repr = value;
+        return py_enum_value;
+    }
+    
 }
 

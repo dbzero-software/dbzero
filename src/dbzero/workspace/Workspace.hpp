@@ -120,7 +120,7 @@ namespace db0
 
         virtual void onCacheFlushed(bool threshold_reached) const;
 
-        virtual void forAllMemspaces(std::function<bool(Memspace &)> callback);
+        virtual void forEachMemspace(std::function<bool(Memspace &)> callback);
 
     private:
         mutable CacheRecycler m_cache_recycler;
@@ -229,7 +229,7 @@ namespace db0
         */
         bool refresh();
         
-        void forAll(std::function<void(const Fixture &)>) const;
+        void forEachFixture(std::function<bool(const Fixture &)>) const;
         
         // Register a callback function to be invoked each time when a fixture is opened or created
         // this is used to register known Class and language specific type bindings within the fixture
@@ -282,9 +282,11 @@ namespace db0
         
         std::optional<std::uint64_t> getUUID(const PrefixName &) const;
 
-        void forAllMemspaces(std::function<bool(Memspace &)> callback) override;
+        void forEachMemspace(std::function<bool(Memspace &)> callback) override;
 
         void onCacheFlushed(bool threshold_reached) const override;
     };
+    
+    void validateAccessType(const Fixture &fixture, AccessType requested);
     
 }

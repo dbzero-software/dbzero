@@ -3,6 +3,7 @@
 #include "EnumValue.hpp"
 #include <dbzero/core/utils/conversions.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/workspace/Workspace.hpp>
 
 namespace db0::object_model
 
@@ -102,15 +103,19 @@ namespace db0::object_model
         return result;
     }
 
-    std::shared_ptr<Enum> EnumFactory::getOrCreateEnum(const EnumDef &enum_def, const char *type_id)
+    std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumDef &enum_def, const char *type_id)
     {
         auto ptr = tryFindEnumPtr(enum_def, type_id);
         if (ptr) {
             return getEnumByPtr(ptr);
         }
         
-        // create new Enum instance
+        // create new Enum instance (fixture must be accessible for write)
         auto fixture = getFixture();
+        if (fixture->getAccessType() != AccessType::READ_WRITE) {
+            // unable to create enum due to insufficient access rights
+            return nullptr;
+        }        
         auto enum_ = std::shared_ptr<Enum>(
             new Enum(fixture, enum_def.m_name, enum_def.m_module_name, enum_def.m_values, type_id));
         auto enum_ptr = EnumPtr(*enum_);
@@ -128,6 +133,15 @@ namespace db0::object_model
         return this->getEnum(enum_ptr, enum_);
     }
 
+    std::shared_ptr<Enum> EnumFactory::getOrCreateEnum(const EnumDef &enum_def, const char *type_id)
+    {
+        auto enum_ = tryGetOrCreateEnum(enum_def, type_id);
+        if (!enum_) {
+            THROWF(db0::InputException) << "Unable to create Enum: " << enum_def.m_name;
+        }
+        return enum_;
+    }
+    
     std::shared_ptr<Enum> EnumFactory::getExistingEnum(const EnumDef &enum_def, const char *type_id) const
     {
         auto enum_ = tryGetExistingEnum(enum_def, type_id);

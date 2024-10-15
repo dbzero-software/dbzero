@@ -512,13 +512,16 @@ namespace db0::object_model
     }
     
     TagIndex::ShortTagT TagIndex::getShortTag(TypeId type_id, ObjectPtr py_arg) const
-    {       
+    {
         if (type_id == TypeId::STRING) {
             return getShortTagFromString(py_arg);
         } else if (type_id == TypeId::MEMO_OBJECT) {
             return getShortTagFromMemo(py_arg);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return getShortTagFromEnumValue(py_arg);
+        } else if (type_id == TypeId::DB0_ENUM_VALUE_REPR) {
+            // enum value-repr associated tags don't exist
+            return {};
         } else if (type_id == TypeId::DB0_FIELD_DEF) {
             return getShortTagFromFieldDef(py_arg);
         } else if (type_id == TypeId::DB0_CLASS) {
