@@ -9,11 +9,11 @@
 namespace db0
 
 {
-
-    void validateAccessType(AccessType requested, AccessType actual)
+    
+    void validateAccessType(const Fixture &fixture, AccessType requested)
     {
-        if (requested == AccessType::READ_WRITE && actual != AccessType::READ_WRITE) {
-            THROWF(db0::InputException) << "Unable to update the read-only prefix";
+        if (requested == AccessType::READ_WRITE && fixture.getAccessType() != AccessType::READ_WRITE) {
+            THROWF(db0::InputException) << "Unable to update the read-only prefix: " << fixture.getPrefix().getName();
         }
     }
     
@@ -427,10 +427,8 @@ namespace db0
         } else {
             result = getCurrentFixture();
         }
-        
-        if (access_type) {
-            validateAccessType(*access_type, result->getAccessType());
-        }
+
+        validateAccessType(*result, *access_type);        
         return result;
     }
     

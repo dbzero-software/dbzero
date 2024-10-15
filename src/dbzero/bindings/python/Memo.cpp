@@ -559,14 +559,14 @@ namespace db0::python
     PyObject *PyMemo_set_prefix(MemoObject *py_obj, const char *prefix_name)
     {
         if (prefix_name) {
-            auto &obj = py_obj->modifyExt();
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix_name, AccessType::READ_WRITE);
-            db0::FixtureLock lock(fixture);
-            obj.setFixture(*lock);
+            // can use "ext" since setFixtue is a non-mutating operation
+            auto &obj = const_cast<db0::object_model::Object&>(py_obj->ext());
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix_name, AccessType::READ_WRITE);            
+            obj.setFixture(fixture);
         }
         return Py_None;
     }
-
+    
     PyObject *tryGetAttributes(PyTypeObject *type)
     {
         auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
@@ -574,5 +574,5 @@ namespace db0::python
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();        
         return tryGetClassAttributes(*class_factory.getExistingType(type));
     }
-    
+
 }

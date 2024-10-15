@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedSingleton
 from .conftest import DB0_DIR
 
 
@@ -36,3 +36,15 @@ def test_singleton_can_be_fetched_by_id(db0_fixture):
     db0.open(prefix.name, "r")
     assert db0.is_singleton(db0.fetch(id1))
     assert not db0.is_singleton(db0.fetch(id2))
+    
+    
+def test_create_then_open_dynamically_scoped_singleton(db0_fixture):
+    obj = MemoScopedSingleton(123, prefix="my-temp-prefix-1")
+    uuid = db0.uuid(obj)
+    db0.close("my-temp-prefix-1")
+    # open prefix as read-only
+    db0.open("my-temp-prefix-1", "r")
+    # open existing singleton
+    obj = MemoScopedSingleton(prefix="my-temp-prefix-1")
+    assert db0.uuid(obj) == uuid
+    assert obj.value == 123

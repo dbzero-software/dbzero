@@ -62,6 +62,7 @@ def __main__():
         print(f"Query args: {query_args}")
     try:
         db0.init(path=args.path)
+        db0.init_fast_query(prefix="fq_cache")
         # open all available prefixes first
         for prefix in db0.get_prefixes():
             db0.open(prefix.name, "r")
