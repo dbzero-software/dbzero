@@ -68,8 +68,7 @@ namespace db0::python
             enum_ = &self->ext().get();
         } else {
             enum_ = &self->modifyExt().create();
-            // note that enum is created on demand
-            
+            // note that enum is created on demand            
         }
         
         auto enum_values = enum_->getValues();

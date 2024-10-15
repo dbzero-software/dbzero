@@ -432,3 +432,10 @@ def test_equality_operator_on_instances_created_in_line(db0_fixture):
     assert DataClassWithComparators(10) >= DataClassWithComparators(10)
     assert DataClassWithComparators(10) >= DataClassWithComparators(5)
     assert not DataClassWithComparators(5) >= DataClassWithComparators(10)
+    
+    
+def test_hasattr_on_memo_objects(db0_fixture):
+    obj = MemoTestClass(0)
+    assert hasattr(obj, "value")
+    assert not hasattr(obj, "__ft__")
+    

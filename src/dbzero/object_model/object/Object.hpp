@@ -153,6 +153,7 @@ namespace db0::object_model
         // Assign field of an uninitialized instance (assumed as a non-mutating operation)
         void setPreInit(const char *field_name, ObjectPtr lang_value) const;
         
+        ObjectSharedPtr tryGet(const char *field_name) const;
         ObjectSharedPtr get(const char *field_name) const;
         
         // bp::object get(const char *field_name) const;

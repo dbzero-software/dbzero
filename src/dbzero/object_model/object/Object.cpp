@@ -260,8 +260,8 @@ namespace db0::object_model
         }
     }
     
-    Object::ObjectSharedPtr Object::get(const char *field_name) const
-    {        
+    Object::ObjectSharedPtr Object::tryGet(const char *field_name) const
+    {
         /* FIXME:
         if (strcmp(field_name, "__cache__") == 0) {
             if (!initialized()) {
@@ -279,7 +279,7 @@ namespace db0::object_model
         if (m_is_dropped) {
             THROWF(db0::InputException) << "Object does not exist";
         }
-                
+        
         auto class_ptr = m_type.get();
         if (!class_ptr) {
             // retrieve class from the initializer
@@ -293,16 +293,25 @@ namespace db0::object_model
             // try pulling from cached members if not found
             return getMemberCacheReference().get(field_name);
             */
-           THROWF(db0::InputException) << "Unknown attribute name: " << field_name;           
+           return nullptr;
         }
         
         std::pair<StorageClass, Value> member;
         if (!tryGetMemberAt(field_index, member)) {
-            THROWF(db0::InputException) << "Attribute not found: " << field_name;
+            return nullptr;
         }
         
         auto fixture = this->getFixture();
         return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
+    }
+
+    Object::ObjectSharedPtr Object::get(const char *field_name) const
+    {        
+        auto obj = tryGet(field_name);
+        if (!obj) {
+            THROWF(db0::InputException) << "Attribute not found: " << field_name;
+        }
+        return obj;
     }
     
     bool Object::tryGetMemberAt(unsigned int index, std::pair<StorageClass, Value> &result) const

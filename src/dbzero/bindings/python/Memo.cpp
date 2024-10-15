@@ -212,7 +212,13 @@ namespace db0::python
         }
 
         self->ext().getFixture()->refreshIfUpdated();
-        return self->ext().get(PyUnicode_AsUTF8(attr)).steal();
+        auto member = self->ext().tryGet(PyUnicode_AsUTF8(attr));
+        // raise AttributeError
+        if (!member) {
+            PyErr_SetString(PyExc_AttributeError, PyUnicode_AsUTF8(attr));
+            return nullptr;
+        }
+        return member.steal();
     }
     
     PyObject *MemoObject_getattro(MemoObject *self, PyObject *attr) {
