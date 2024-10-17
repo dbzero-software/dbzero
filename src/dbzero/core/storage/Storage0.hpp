@@ -35,7 +35,7 @@ namespace db0
         std::size_t getPageSize() const override;
 
         std::uint32_t getMaxStateNum() const override {
-            return 0;
+            return 1;
         }
         
         bool flush(ProcessTimer * = nullptr) override {

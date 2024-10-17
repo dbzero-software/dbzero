@@ -160,6 +160,10 @@ namespace db0
             auto prefix = std::make_shared<PrefixImpl<BDevStorage> >(
                 maybe_prefix_name, null_meter, nullptr, file_name, AccessType::READ_ONLY
             );
+            // state_num < 1 suggest invalid / corrupted prefix file
+            if (!prefix->getStateNum()) {
+                return;
+            }
             auto allocator = std::make_shared<MetaAllocator>(prefix);
             auto uuid = Fixture::getUUID(prefix, *allocator);
             m_name_uuids[maybe_prefix_name] = uuid;
