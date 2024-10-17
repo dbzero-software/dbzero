@@ -813,8 +813,9 @@ namespace db0::object_model
                     THROWF(db0::InputException) << "Multiple type objects not allowed in the find query" << THROWF_END;
                 }
                 // NOTE: we only override lang class if its present
-                if (const_type->hasLangClass()) {
-                    lang_type = const_type->getLangClass().get();
+                auto existing_lang_type = const_type->tryGetLangClass();
+                if (existing_lang_type) {
+                    lang_type = existing_lang_type.get();
                 }
                 type = std::const_pointer_cast<Class>(const_type);
             }

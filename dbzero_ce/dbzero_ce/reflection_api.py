@@ -76,12 +76,11 @@ class MemoMetaClass:
                 yield MethodInfo(attr_name, inspect.signature(attr))
     
     def all(self):
-        try:
-            py_type = self.get_class().type()
-        except:
-            # fall back to the base class if the actual model class is not imported
-            return db0.find(db0.MemoBase, self.get_class())
-        return db0.find(py_type)
+        if self.get_class().is_known_type():        
+            return db0.find(self.get_class().type())
+                
+        # fall back to the base class if the actual model class is not imported
+        return db0.find(db0.MemoBase, self.get_class())        
     
     def get_instance_count(self):
         return db0.getrefcount(self.get_class())

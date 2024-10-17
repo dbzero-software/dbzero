@@ -264,7 +264,8 @@ namespace db0::object_model
     {
         auto it_cached = m_ptr_cache.find(ptr);
         if (it_cached == m_ptr_cache.end()) {
-            THROWF(db0::InputException) << "Class not found: " << ptr.getAddress();
+            THROWF(db0::InputException) << "Class not found: " << ptr.getAddress() << ", prefix = " 
+                << getFixture()->getPrefix().getName();
         }
         return it_cached->second;
     }

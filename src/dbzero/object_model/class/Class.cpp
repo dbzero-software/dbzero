@@ -204,16 +204,12 @@ namespace db0::object_model
         }
         return *module_name;
     }   
-
-    bool Class::hasLangClass() const {
-        return m_lang_type_ptr;
-    }
-    
+        
     Class::TypeObjectSharedPtr Class::tryGetLangClass() const
     {
         if (!m_lang_type_ptr) {
             auto &type_manager = LangToolkit::getTypeManager();
-            // try finding lang class by one of 4 type name variants
+            // try finding (already registered) lang class by one of 4 type name variants
             for (unsigned int i = 0; i < 4; ++i) {
                 auto variant_name = getNameVariant(*this, i);
                 if (variant_name) {

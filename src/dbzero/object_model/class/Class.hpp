@@ -92,10 +92,7 @@ namespace db0::object_model
         // Pull existing type & assign associated language specific type object
         Class(db0::swine_ptr<Fixture> &, std::uint64_t address, TypeObjectPtr lang_type_ptr);
         ~Class();
-        
-        // Check if the associated language specific type is known
-        bool hasLangClass() const;
-
+                
         // Try retrieving associated language specific class if such exists in the current context
         // @return nullptr if the class is not found
         TypeObjectSharedPtr tryGetLangClass() const;

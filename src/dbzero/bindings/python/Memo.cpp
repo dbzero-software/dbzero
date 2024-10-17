@@ -448,7 +448,7 @@ namespace db0::python
     }
     
     PyObject *wrapPyClass(PyObject *, PyObject *args, PyObject *kwargs)
-    {   
+    {
         std::lock_guard api_lock(py_api_mutex);
         PyObject* class_obj;
         PyObject *singleton = Py_False;

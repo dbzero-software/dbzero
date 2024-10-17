@@ -13,19 +13,26 @@ namespace db0::python
     shared_py_object<ClassObject*> ClassDefaultObject_new() {
         return { ClassObject_new(&ClassObjectType, NULL, NULL), false };
     }
-
+    
     static PyMethodDef ClassObject_methods[] = 
     {
+        {"is_known_type", (PyCFunction)&PyClass_has_type, METH_NOARGS, "Check if the corresponding Python type exists"},
         {"type", (PyCFunction)&PyClass_type, METH_NOARGS, "Retrieve associated Python type"},
         {"get_attributes", (PyCFunction)&PyClass_get_attributes, METH_NOARGS, "Get memo class attributes"},
         {"type_info", (PyCFunction)&PyClass_type_info, METH_NOARGS, "Get memo class type information"},
         {NULL}
     };
     
+    PyObject *PyClass_has_type(PyObject *self, PyObject *)
+    {
+        auto lang_class = reinterpret_cast<ClassObject*>(self)->ext().tryGetLangClass();
+        return lang_class ? Py_True : Py_False;
+    }
+    
     PyTypeObject *tryPyClassType(PyObject *self) {
         return reinterpret_cast<ClassObject*>(self)->ext().getLangClass().steal();
     }
-
+    
     PyObject *PyClass_type(PyObject *self, PyObject *) {
         return reinterpret_cast<PyObject*>(runSafe(tryPyClassType, self));
     }

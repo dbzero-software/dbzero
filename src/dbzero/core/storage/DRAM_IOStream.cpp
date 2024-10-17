@@ -92,7 +92,7 @@ namespace db0
         std::vector<char> buffer(m_chunk_size);
         const auto &header = o_dram_chunk_header::__ref(buffer.data());
         auto bytes = buffer.data() + header.sizeOf();
-
+        
         // maximum known state number by page
         // this is required to only select the maximum state per page (discard older mutations)        
         std::unordered_set<std::size_t> allocs;
