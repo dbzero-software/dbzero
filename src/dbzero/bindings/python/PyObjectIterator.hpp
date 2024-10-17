@@ -43,7 +43,7 @@ namespace db0::python
     
     PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<PyObjectIterator*> PyObjectIteratorDefault_new();
-    void PyObjectIterator_del(PyObjectIterator* self);
+    void PyObjectIterator_del(PyObjectIterator *);
     
     extern PyTypeObject PyObjectIteratorType;
         

@@ -809,6 +809,29 @@ namespace db0::python
         return runSafe(tryGetAttributes, py_type);
     }
     
+    PyObject *getAttrAs(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        std::lock_guard api_lock(py_api_mutex);
+        // memo object, attribute name, type
+        if (nargs != 3) {
+            PyErr_SetString(PyExc_TypeError, "getattr_as requires exactly 2 arguments");
+            return NULL;
+        }
+
+        if (!PyMemo_Check(args[0])) {
+            // fall back to regular getattr if not a memo object
+            return PyObject_GetAttr(args[0], args[1]);
+        }
+                
+        if (!PyType_Check(args[2])) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(args[2]);
+        return runSafe(tryGetAttrAs, reinterpret_cast<MemoObject*>(args[0]), args[1], py_type);
+    }
+    
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {

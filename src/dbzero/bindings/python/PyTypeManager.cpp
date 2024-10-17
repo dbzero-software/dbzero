@@ -70,6 +70,7 @@ namespace db0::python
         // Python datetime type
         addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
+        m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
     }
     
     PyTypeManager::~PyTypeManager()
@@ -364,6 +365,10 @@ namespace db0::python
         return m_py_bad_prefix_error.get();
     }
 
+    PyTypeManager::ObjectPtr PyTypeManager::getClassNotFoundError() const {
+        return m_py_class_not_found_error.get();
+    }
+    
     std::shared_ptr<const db0::object_model::Class> PyTypeManager::extractConstClass(ObjectPtr py_class) const
     {
         if (!PyClassObject_Check(py_class)) {

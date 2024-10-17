@@ -43,5 +43,10 @@ namespace db0
         : CriticalException(exception_id)
     {        
     }
+
+    ClassNotFoundException::ClassNotFoundException()
+        : CriticalException(exception_id)
+    {        
+    }
     
 }

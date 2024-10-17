@@ -146,6 +146,8 @@ namespace db0::python
 
     PyObject *getAttributes(PyObject *self, PyObject *args);
     
+    PyObject *getAttrAs(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *self, PyObject *);
     PyObject *testCreateThenFree(PyObject *self, PyObject *args);

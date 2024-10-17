@@ -264,12 +264,15 @@ namespace db0::object_model
     {
         auto it_cached = m_ptr_cache.find(ptr);
         if (it_cached == m_ptr_cache.end()) {
-            THROWF(db0::InputException) << "Class not found: " << ptr.getAddress() << ", prefix = " 
-                << getFixture()->getPrefix().getName();
+            // pull class object only to retrieve its name
+            auto fixture = getFixture();
+            auto _class = std::shared_ptr<Class>(new Class(fixture, ptr.getAddress()));
+            THROWF(db0::ClassNotFoundException) << "Class not found: " << _class->getName() 
+                << ", prefix = " << fixture->getPrefix().getName();
         }
         return it_cached->second;
     }
-
+    
     bool ClassFactory::exists(const Class &class_obj) const {
         return m_class_ptr_index.find(ClassPtr(class_obj)) != m_class_ptr_index.end();
     }

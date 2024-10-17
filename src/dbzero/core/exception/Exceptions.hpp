@@ -77,5 +77,14 @@ namespace db0
 
         MemoryException();
     };
+
+    // Language specific class / type was not found
+    class ClassNotFoundException : public CriticalException
+    {
+    public:
+        static constexpr int exception_id = EXCEPTION_ID_PREFIX::BASIC | 0x0b;
+
+        ClassNotFoundException();
+    };
     
 }

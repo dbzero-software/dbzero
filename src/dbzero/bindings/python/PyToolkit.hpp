@@ -87,7 +87,7 @@ namespace db0::python
         
         // Unload with type resolution
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, const ClassFactory &);
-
+        
         // Unload with known type / lang class
         // note that lang_class may be a base of the actual type (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,

@@ -260,7 +260,7 @@ namespace db0::object_model
         }
     }
     
-    Object::ObjectSharedPtr Object::tryGet(const char *field_name) const
+    bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
     {
         /* FIXME:
         if (strcmp(field_name, "__cache__") == 0) {
@@ -275,7 +275,7 @@ namespace db0::object_model
             return bp::object(tags());
         }
         */
-        
+
         if (m_is_dropped) {
             THROWF(db0::InputException) << "Object does not exist";
         }
@@ -293,18 +293,38 @@ namespace db0::object_model
             // try pulling from cached members if not found
             return getMemberCacheReference().get(field_name);
             */
-           return nullptr;
+           return false;
         }
-        
+                
+        return tryGetMemberAt(field_index, member);
+    }
+    
+    Object::ObjectSharedPtr Object::tryGet(const char *field_name) const
+    {
         std::pair<StorageClass, Value> member;
-        if (!tryGetMemberAt(field_index, member)) {
+        if (!tryGetMember(field_name, member)) {
             return nullptr;
         }
         
         auto fixture = this->getFixture();
         return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
     }
-
+    
+    Object::ObjectSharedPtr Object::tryGetAs(const char *field_name, TypeObjectPtr lang_type) const
+    {
+        std::pair<StorageClass, Value> member;
+        if (!tryGetMember(field_name, member)) {
+            return nullptr;
+        }
+        auto fixture = this->getFixture();
+        if (member.first == StorageClass::OBJECT_REF) {
+            auto &class_factory = fixture->get<ClassFactory>();
+            auto type = class_factory.getExistingType(lang_type);
+            return PyToolkit::unloadObject(fixture, member.second.cast<std::uint64_t>(), type, lang_type);
+        }
+        return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
+    }
+    
     Object::ObjectSharedPtr Object::get(const char *field_name) const
     {        
         auto obj = tryGet(field_name);

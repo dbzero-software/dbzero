@@ -71,5 +71,8 @@ namespace db0::python
     PyObject *PyMemo_set_prefix(MemoObject *, const char *prefix_name);
         
     PyObject *tryGetAttributes(PyTypeObject *type);
+    // Try retrieving a memo member cast to a specific type
+    // type ignored for non-memo members
+    PyObject *tryGetAttrAs(MemoObject *, PyObject *attr, PyTypeObject *);
     
 }

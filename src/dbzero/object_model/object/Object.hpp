@@ -97,6 +97,7 @@ namespace db0::object_model
         using super_t = db0::ObjectBase<Object, db0::v_object<o_object>, StorageClass::OBJECT_REF>;
         using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
+        using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeManager = typename LangToolkit::TypeManager;
         using ObjectStem = db0::v_object<o_object>;
@@ -154,6 +155,7 @@ namespace db0::object_model
         void setPreInit(const char *field_name, ObjectPtr lang_value) const;
         
         ObjectSharedPtr tryGet(const char *field_name) const;
+        ObjectSharedPtr tryGetAs(const char *field_name, TypeObjectPtr) const;
         ObjectSharedPtr get(const char *field_name) const;
         
         // bp::object get(const char *field_name) const;
@@ -253,7 +255,7 @@ namespace db0::object_model
         static thread_local ObjectInitializerManager m_init_manager;
         // flag indicating that the underlying db0 instance has been dropped
         const bool m_is_dropped = true;
-
+        
         Object() = default;
         Object(std::shared_ptr<Class>);
         Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::uint32_t ref_count ,const PosVT::Data &);
@@ -269,7 +271,8 @@ namespace db0::object_model
         
         // Try retrieving member either from DB0 values (initialized) or from the initialization buffer (not initialized yet)        
         bool tryGetMemberAt(unsigned int index, std::pair<StorageClass, Value> &) const;
-        
+        bool tryGetMember(const char *field_name, std::pair<StorageClass, Value> &) const;
+
         inline ObjectInitializer *tryGetInitializer() const {
             return m_type ? static_cast<ObjectInitializer*>(nullptr) : &m_init_manager.getInitializer(*this);
         }

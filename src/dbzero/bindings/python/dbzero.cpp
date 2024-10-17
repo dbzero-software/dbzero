@@ -76,6 +76,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"get_raw_prefixes", &py::getPrefixes, METH_NOARGS, "Get the list of prefixes accessible from the current context"},
     {"get_raw_memo_classes", (PyCFunction)&py::getMemoClasses, METH_VARARGS | METH_KEYWORDS, "Get the list of memo classes from a specific prefix"},
     {"get_attributes", (PyCFunction)&py::getAttributes, METH_VARARGS, "Get attributes of a memo type"},
+    {"getattr_as", (PyCFunction)&py::getAttrAs, METH_FASTCALL, "Get memo member cast to a user defined type - e.g. MemoBase"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
@@ -104,10 +105,20 @@ void initPyType(PyObject *mod, PyTypeObject *py_type)
     }
     
     Py_INCREF(py_type);
-    if (PyModule_AddObject(mod, /*py_type->tp_name*/ "xxx", (PyObject *)py_type) < 0) {
+    if (PyModule_AddObject(mod, py_type->tp_name, (PyObject *)py_type) < 0) {
         Py_DECREF(py_type);
         Py_DECREF(mod);    
         throw std::runtime_error(_str.str());    
+    }
+}
+
+void initPyError(PyObject *mod, PyObject *py_error, const char *error_name)
+{
+    if (PyModule_AddObject(mod, error_name, py_error) < 0) {        
+        Py_DECREF(mod);
+        std::stringstream _str;
+        _str << "Initialization of error " << error_name << " failed";
+        throw std::runtime_error(_str.str()); 
     }
 }
 
@@ -140,11 +151,13 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         for (auto py_type: types) {
             initPyType(mod, py_type);
         }
+        initPyError(mod, py::PyToolkit::getTypeManager().getBadPrefixError(), "BadPrefixError");
+        initPyError(mod, py::PyToolkit::getTypeManager().getClassNotFoundError(), "ClassNotFoundError");
     } catch (const std::exception &e) {
         // set python error
         PyErr_SetString(PyExc_RuntimeError, e.what());        
         return NULL;
     }
-  
+    
     return mod;
 }

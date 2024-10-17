@@ -8,6 +8,7 @@
 #include <dbzero/core/serialization/Serializable.hpp>
 #include "shared_py_object.hpp"
 #include <type_traits>
+#include "PyToolkit.hpp"
 
 namespace db0
 
@@ -54,6 +55,9 @@ namespace db0::python
                 return NULL;
             }
             return result;
+        } catch (const db0::ClassNotFoundException &e) {
+            PyErr_SetString(PyToolkit::getTypeManager().getClassNotFoundError(), e.what());
+            return NULL;
         } catch (const db0::AbstractException &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
             return NULL;
@@ -102,7 +106,7 @@ namespace db0::python
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs);
 
     PyObject *tryGetStorageStats(PyObject *args, PyObject *kwargs);
-    
+        
     // Retrieve prefix (its Fixture objects) from the optional argument "prefix"
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name);
     

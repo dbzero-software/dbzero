@@ -7,9 +7,15 @@ any prior knowledge of the underlying class model.
 """
 
 def values_of(obj, attr_names):
-    return [getattr(obj, attr_name) for attr_name in attr_names]
-
+    def safe_attr(obj, attr_name):
+        try:
+            return getattr(obj, attr_name)
+        except db0.ClassNotFoundError:
+            # cast to MemoBase if a specific model type is not known (e.g. missing import)
+            return db0.getattr_as(obj, attr_name, db0.MemoBase)    
+    return [safe_attr(obj, attr_name) for attr_name in attr_names]
     
+        
 def __main__():
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default=None, type=str, help="Location of dbzero files")

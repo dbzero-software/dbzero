@@ -216,20 +216,20 @@ namespace db0::python
         lang_cache.erase(memo_obj->ext().getAddress());
     }
     
-    PyObject *tryMemoObject_getattro(MemoObject *self, PyObject *attr)
+    PyObject *tryMemoObject_getattro(MemoObject *memo_obj, PyObject *attr)
     {
         // The method resolution order for Memo types is following:
         // 1. User type members (class members such as methods)
         // 2. DB0 object extension methods
         // 3. DB0 object members (attributes)
         // 4. User instance members (e.g. attributes set during __postinit__)
-        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(self), attr);
+        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(memo_obj), attr);
         if (res) {
             return res;
         }
 
-        self->ext().getFixture()->refreshIfUpdated();
-        auto member = self->ext().tryGet(PyUnicode_AsUTF8(attr));
+        memo_obj->ext().getFixture()->refreshIfUpdated();
+        auto member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr));
         // raise AttributeError
         if (!member) {
             PyErr_SetString(PyExc_AttributeError, PyUnicode_AsUTF8(attr));
@@ -592,4 +592,21 @@ namespace db0::python
         return tryGetClassAttributes(*class_factory.getExistingType(type));
     }
 
+    PyObject *tryGetAttrAs(MemoObject *memo_obj, PyObject *attr, PyTypeObject *py_type)
+    {
+        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(memo_obj), attr);
+        if (res) {
+            return res;
+        }
+
+        memo_obj->ext().getFixture()->refreshIfUpdated();
+        auto member = memo_obj->ext().tryGetAs(PyUnicode_AsUTF8(attr), py_type);
+        // raise AttributeError
+        if (!member) {
+            PyErr_SetString(PyExc_AttributeError, PyUnicode_AsUTF8(attr));
+            return nullptr;
+        }
+        return member.steal();
+    }
+    
 }

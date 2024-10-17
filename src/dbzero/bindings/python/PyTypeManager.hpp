@@ -100,6 +100,7 @@ namespace db0::python
         std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;
         
         ObjectPtr getBadPrefixError() const;
+        ObjectPtr getClassNotFoundError() const;
         
         /**
          * Extracts reference to DB0 Block
@@ -142,6 +143,8 @@ namespace db0::python
         std::unordered_map<std::string, TypeObjectSharedPtr> m_type_cache;
         std::vector<ObjectSharedPtr> m_enum_cache;
         mutable ObjectSharedPtr m_py_bad_prefix_error;
+        // error associated with missing / invalid type accessed (e.g. missing import)
+        mutable ObjectSharedPtr m_py_class_not_found_error;
         // identified reference to a MemoBase type
         TypeObjectPtr m_memo_base_type = nullptr;
         
