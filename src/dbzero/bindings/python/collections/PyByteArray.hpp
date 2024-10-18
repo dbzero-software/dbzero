@@ -13,11 +13,11 @@ namespace db0::python
     
     ByteArrayObject *ByteArrayObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<ByteArrayObject*> ByteArrayDefaultObject_new();
-    void ByteArrayObject_del(ByteArrayObject* self);
+    void PyAPI_ByteArrayObject_del(ByteArrayObject* self);
     
     extern PyTypeObject ByteArrayObjectType;
     
-    ByteArrayObject *makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    ByteArrayObject *PyAPI_makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     bool ByteArrayObject_Check(PyObject *);
-       
+    
 }

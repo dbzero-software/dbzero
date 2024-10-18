@@ -273,4 +273,13 @@ namespace db0
         BlockIOStream::close();
     }
     
+#ifndef NDEBUG 
+    void DRAM_IOStream::getDRAM_IOMap(std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t> > &io_map) const
+    {
+        for (auto &entry: m_page_map) {
+            io_map[entry.first] = { entry.second.m_state_num, entry.second.m_address };
+        }
+    }
+#endif        
+
 }

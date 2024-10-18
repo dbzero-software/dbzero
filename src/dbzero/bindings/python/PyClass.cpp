@@ -5,11 +5,11 @@
 namespace db0::python
 
 {
-    
+
     ClassObject *ClassObject_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<ClassObject*>(type->tp_alloc(type, 0));
     }
-
+    
     shared_py_object<ClassObject*> ClassDefaultObject_new() {
         return { ClassObject_new(&ClassObjectType, NULL, NULL), false };
     }
@@ -25,6 +25,7 @@ namespace db0::python
     
     PyObject *PyClass_has_type(PyObject *self, PyObject *)
     {
+        PY_API_FUNC
         auto lang_class = reinterpret_cast<ClassObject*>(self)->ext().tryGetLangClass();
         return lang_class ? Py_True : Py_False;
     }
@@ -33,12 +34,15 @@ namespace db0::python
         return reinterpret_cast<ClassObject*>(self)->ext().getLangClass().steal();
     }
     
-    PyObject *PyClass_type(PyObject *self, PyObject *) {
+    PyObject *PyClass_type(PyObject *self, PyObject *) 
+    {
+        PY_API_FUNC
         return reinterpret_cast<PyObject*>(runSafe(tryPyClassType, self));
     }
 
     void ClassObject_del(ClassObject* class_obj)
     {
+        PY_API_FUNC
         // release associated shared_ptr
         class_obj->destroy();
         Py_TYPE(class_obj)->tp_free((PyObject*)class_obj);
@@ -62,13 +66,13 @@ namespace db0::python
     
     PyObject *PyClass_get_attributes(PyObject *self, PyObject *)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC        
         return runSafe(tryGetAttributes, self);
     }
     
     PyObject *PyClass_type_info(PyObject *self, PyObject *)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC        
         return runSafe(tryGetTypeInfo, reinterpret_cast<ClassObject*>(self)->ext());
     }
     

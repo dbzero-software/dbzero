@@ -7,6 +7,7 @@
 #include <cstring>
 #include <dbzero/core/serialization/Types.hpp>
 #include <unordered_set>
+#include <unordered_map>
 #include <atomic>
 
 namespace db0
@@ -111,6 +112,10 @@ namespace db0
         
         // get the number of random write operations performed while flushing updates
         std::size_t getRandOpsCount() const;
+
+#ifndef NDEBUG 
+        void getDRAM_IOMap(std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t> > &) const;
+#endif        
 
     private:
         const std::uint32_t m_dram_page_size;

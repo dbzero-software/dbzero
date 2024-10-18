@@ -138,3 +138,11 @@ def test_durability_of_random_objects_issue1(db0_no_default_fixture):
     db0.open("new-prefix-1", "r")
     root = MemoTestSingleton()
     assert len(root.value) == append_count
+
+
+def test_dump_dram_io_map(db0_fixture):
+    if 'D' in db0.build_flags():
+        io_map = db0.get_dram_io_map()
+        print(io_map)
+        assert len(io_map) > 0
+        

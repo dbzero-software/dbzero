@@ -7,6 +7,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/Utils.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 
 namespace db0::python
 {
@@ -15,21 +16,21 @@ namespace db0::python
 
     PyTypeObject ListIteratorObjectType = GetIteratorType<ListIteratorObject>("dbzero_ce.ListIterator",
                                                                               "DBZero list iterator");
-
-    ListIteratorObject *ListObject_iter(ListObject *self)
+    
+    ListIteratorObject *PyAPI_ListObject_iter(ListObject *self)
     {
+        PY_API_FUNC
         return makeIterator<ListIteratorObject,db0::object_model::ListIterator>(ListIteratorObjectType, 
             self->ext().begin(), &self->ext());        
     }
-
+    
     PyObject *ListObject_GetItem(ListObject *list_obj, Py_ssize_t i)
-    {
-        std::lock_guard api_lock(py_api_mutex);
+    {        
         list_obj->ext().getFixture()->refreshIfUpdated();
         return list_obj->ext().getItem(i).steal();
     }
-
-    PyObject *ListObject_copyInternal(ListObject *py_src_list)
+    
+    PyObject *ListObject_copy(ListObject *py_src_list)
     {
         // make actual DBZero instance, use default fixture
         auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
@@ -39,17 +40,17 @@ namespace db0::python
         return py_list;
     }
 
-    PyObject *ListObject_copy(ListObject *py_src_list)
+    PyObject *PyAPI_ListObject_copy(ListObject *py_src_list)
     {
-        std::lock_guard api_lock(py_api_mutex);      
-        return ListObject_copyInternal(py_src_list);
+        PY_API_FUNC
+        return ListObject_copy(py_src_list);
     }
 
-    PyObject *ListObject_multiply(ListObject *list_obj, PyObject *elem)
+    PyObject *PyAPI_ListObject_multiply(ListObject *list_obj, PyObject *elem)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         auto elems = PyLong_AsLong(elem);
-        auto list_obj_copy = (ListObject *)ListObject_copyInternal(list_obj);
+        auto list_obj_copy = (ListObject *)ListObject_copy(list_obj);
         PyObject * obj_list = (PyObject *)list_obj;
         PyObject** args = &obj_list;
         for(int i = 1; i< elems; ++i){
@@ -58,7 +59,7 @@ namespace db0::python
 
         return list_obj_copy;
     }
-
+    
     shared_py_object<ListObject*> makeDB0ListInternal(db0::swine_ptr<Fixture> &fixture,
         PyObject *const *args, Py_ssize_t nargs)
     {
@@ -85,10 +86,10 @@ namespace db0::python
         return makeDB0ListInternal(fixture, args, nargs).steal();
     }
     
-    PyObject *ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
+    PyObject *PyAPI_ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
     {
-        // FIXME: this operation should be immutable
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
+        // FIXME: this operation should be immutable        
         db0::FixtureLock lock(py_src_list->ext().getFixture());
         // Check if the key is a slice object
         if (PySlice_Check(elem)) {
@@ -117,17 +118,17 @@ namespace db0::python
         return py_src_list->ext().getItem(index).steal();
     }
     
-    PyObject *ListObject_clear(ListObject *py_list)
+    PyObject *PyAPI_ListObject_clear(ListObject *py_list)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         db0::FixtureLock lock(py_list->ext().getFixture());
         py_list->modifyExt().clear(lock);
         Py_RETURN_NONE;
     }
     
-    PyObject *ListObject_count(ListObject *py_list, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_ListObject_count(ListObject *py_list, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);       
+        PY_API_FUNC    
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "count() takes one argument.");
             return NULL;
@@ -135,44 +136,44 @@ namespace db0::python
         return PyLong_FromLong(py_list->ext().count(args[0]));        
     }
     
-    PyObject *ListObject_add(ListObject *list_obj_lh, ListObject *list_obj_rh)
+    PyObject *PyAPI_ListObject_add(ListObject *list_obj_lh, ListObject *list_obj_rh)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         //make copy of first list
         PyObject * obj_list = (PyObject *)list_obj_rh;
         PyObject** args = &obj_list;
-        ListObject * lh_copy = (ListObject *)ListObject_copyInternal(list_obj_lh);
+        ListObject *lh_copy = (ListObject *)ListObject_copy(list_obj_lh);
         ObjectT_extend<ListObject>(lh_copy, args, 1);
         return lh_copy;
     }
     
     static PySequenceMethods ListObject_sq = getPySequenceMehods<ListObject>();
-
+    
     static PyMappingMethods ListObject_mp = {
-        .mp_length = (lenfunc)ObjectT_len<ListObject>,
-        .mp_subscript = (binaryfunc)ListObject_GetItemSlice
+        .mp_length = (lenfunc)PyAPI_ObjectT_len<ListObject>,
+        .mp_subscript = (binaryfunc)PyAPI_ListObject_GetItemSlice
     };
-
+    
     static PyNumberMethods ListObject_as_num = {
-        .nb_add = (binaryfunc)ListObject_add,
-        .nb_multiply = (binaryfunc)ListObject_multiply
+        .nb_add = (binaryfunc)PyAPI_ListObject_add,
+        .nb_multiply = (binaryfunc)PyAPI_ListObject_multiply
     };
     
     static PyMethodDef ListObject_methods[] = {
-        {"append", (PyCFunction)ObjectT_append<ListObject>, METH_FASTCALL, "Append an item to the container."},
-        {"pop", (PyCFunction)ObjectT_pop<ListObject>, METH_FASTCALL, "Removes the element at the specified position."},
-        {"clear", (PyCFunction)ListObject_clear, METH_FASTCALL, "Clears all items from the container."},
-        {"copy", (PyCFunction)ListObject_copy, METH_FASTCALL, "Returns a copy of the list."},
-        {"count", (PyCFunction)ListObject_count, METH_FASTCALL, "Returns the number of elements with the specified value."},
-        {"extend", (PyCFunction)ObjectT_extend<ListObject>, METH_FASTCALL, "Add the elements of a list (or any iterable), to the end of the current list."},
-        {"index", (PyCFunction)ObjectT_index<ListObject>, METH_FASTCALL, "Returns the index of the first element with the specified value."},
-        {"remove", (PyCFunction)ObjectT_remove<ListObject>, METH_FASTCALL, "Removes first element with the specified value."},
+        {"append", (PyCFunction)PyAPI_ObjectT_append<ListObject>, METH_FASTCALL, "Append an item to the container."},
+        {"pop", (PyCFunction)PyAPI_ObjectT_pop<ListObject>, METH_FASTCALL, "Removes the element at the specified position."},
+        {"clear", (PyCFunction)PyAPI_ListObject_clear, METH_FASTCALL, "Clears all items from the container."},
+        {"copy", (PyCFunction)PyAPI_ListObject_copy, METH_FASTCALL, "Returns a copy of the list."},
+        {"count", (PyCFunction)PyAPI_ListObject_count, METH_FASTCALL, "Returns the number of elements with the specified value."},
+        {"extend", (PyCFunction)PyAPI_ObjectT_extend<ListObject>, METH_FASTCALL, "Add the elements of a list (or any iterable), to the end of the current list."},
+        {"index", (PyCFunction)PyAPI_ObjectT_index<ListObject>, METH_FASTCALL, "Returns the index of the first element with the specified value."},
+        {"remove", (PyCFunction)PyAPI_ObjectT_remove<ListObject>, METH_FASTCALL, "Removes first element with the specified value."},
         {NULL}
     };
 
-    static PyObject *ListObject_rq(ListObject *list_obj, PyObject *other, int op) 
+    static PyObject *PyAPI_ListObject_rq(ListObject *list_obj, PyObject *other, int op) 
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         if (ListObject_Check(other)) {
             ListObject * other_list = (ListObject*) other;
             switch (op)
@@ -185,7 +186,7 @@ namespace db0::python
                 return Py_NotImplemented;
             }
         } else {
-            PyObject *iterator = PyObject_GetIter(other);
+            PyObject *iterator = AnyObject_GetIter(other);
             switch (op)
             {
             case Py_EQ:
@@ -206,20 +207,20 @@ namespace db0::python
         .tp_name = "dbzero_ce.List",
         .tp_basicsize = ListObject::sizeOf(),
         .tp_itemsize = 0,
-        .tp_dealloc = (destructor)ListObject_del,
+        .tp_dealloc = (destructor)PyAPI_ListObject_del,
         .tp_as_number = &ListObject_as_num,
         .tp_as_sequence = &ListObject_sq,
         .tp_as_mapping = &ListObject_mp,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
         .tp_doc = "DBZero indexed collection object",
-        .tp_richcompare = (richcmpfunc)ListObject_rq,
-        .tp_iter = (getiterfunc)ListObject_iter,
+        .tp_richcompare = (richcmpfunc)PyAPI_ListObject_rq,
+        .tp_iter = (getiterfunc)PyAPI_ListObject_iter,
         .tp_methods = ListObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)ListObject_new,
-        .tp_free = PyObject_Free,        
+        .tp_free = PyObject_Free, 
     };
-
+    
     ListObject *ListObject_new(PyTypeObject *type, PyObject *, PyObject *) {
         // not API method, lock not needed (otherwise may cause deadlock)     
         return reinterpret_cast<ListObject*>(type->tp_alloc(type, 0));
@@ -230,27 +231,24 @@ namespace db0::python
         return { ListObject_new(&ListObjectType, NULL, NULL), false };
     }
     
-    void ListObject_del(ListObject* list_obj)
+    void PyAPI_ListObject_del(ListObject* list_obj)
     {
-        // std::lock_guard api_lock(py_api_mutex);
-        // destroy associated DB0 List instance
+        PY_API_FUNC        // destroy associated DB0 List instance
         list_obj->destroy();
         Py_TYPE(list_obj)->tp_free((PyObject*)list_obj);
     }
     
     bool ListObject_Check(PyObject *object) {
-        return Py_TYPE(object) == &ListObjectType;        
+        return Py_TYPE(object) == &ListObjectType;
     }
 
-    shared_py_object<ListObject*> makeDB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
-    {
-        std::lock_guard api_lock(py_api_mutex);
+    shared_py_object<ListObject*> makeDB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs) {
         return makeDB0ListInternal(fixture, args, nargs);
     }
-
-    PyObject *makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    
+    PyObject *PyAPI_makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         return makeListInternal(self, args, nargs);        
     }
 

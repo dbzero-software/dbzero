@@ -12,7 +12,7 @@ namespace db0::python
     SetObject *SetObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<SetObject*> SetDefaultObject_new();
     void SetObject_del(SetObject* self);
-    Py_ssize_t SetObject_len(SetObject *);
+    Py_ssize_t PyAPI_SetObject_len(SetObject *);
     PyObject *SetObject_add(SetObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs);
     PyObject *SetObject_discard(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs);
@@ -40,8 +40,8 @@ namespace db0::python
     PyObject * SetObject_intersection_in_place(SetObject *self, PyObject * ob);
 
     shared_py_object<SetObject*> makeDB0Set(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
-    SetObject *makeSet(PyObject *, PyObject *const *args, Py_ssize_t nargs);
-
+    SetObject *PyAPI_makeSet(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    
     bool SetObject_Check(PyObject *);
     
 }

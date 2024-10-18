@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
+#include <mutex>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
@@ -31,7 +32,7 @@ namespace tests
     };
     
     TEST_F( ObjectModelTest , testFixtureCanBeInitializedForTheObjectModel )
-    {
+    {        
         Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
@@ -39,5 +40,5 @@ namespace tests
         ASSERT_NO_THROW ( fixture->get<ClassFactory>() );
         workspace.close();
     }
-
+    
 } 

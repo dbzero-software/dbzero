@@ -72,9 +72,9 @@ namespace db0
         for (auto &fixture: m_fixtures) {
             fixture.second->close();
         }
-        m_fixtures.clear();        
+        m_fixtures.clear();
     }
-
+    
     TestWorkspace::TestWorkspace(std::size_t page_size, std::size_t slab_size, std::size_t cache_size)
         : TestWorkspaceBase(page_size, cache_size)
         , m_slab_size(slab_size)
@@ -125,15 +125,15 @@ namespace db0
         }
         return m_current_fixture;
     }
-
+    
     void TestWorkspace::tearDown()
-    {
+    {        
         TestWorkspaceBase::tearDown();
         close();
         m_shared_object_list.clear();
         m_slab_recycler.clear();
     }
-
+    
     bool TestWorkspace::hasFixture(const PrefixName &prefix_name) const
     {
         auto it = m_uuids.find(prefix_name);

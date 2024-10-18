@@ -100,6 +100,7 @@ namespace db0::object_model
                 m_iterator_ptr->next(&addr);
                 auto obj_ptr = unload(addr);
                 // check filters if any
+                WITH_PY_API_UNLOCKED
                 for (auto &filter: m_filters) {
                     if (!filter(obj_ptr.get())) {
                         obj_ptr = nullptr;

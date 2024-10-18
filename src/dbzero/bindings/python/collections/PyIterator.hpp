@@ -1,6 +1,7 @@
 #pragma once
 #include <Python.h>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python 
 
@@ -14,6 +15,7 @@ namespace db0::python
     template <typename IteratorObjectT> 
     void IteratorObject_del(IteratorObjectT* self)
     {
+        PY_API_FUNC
         // destroy associated DB0 instance
         // calls destructor of ext object
         self->destroy();
@@ -38,6 +40,7 @@ namespace db0::python
     template <typename IteratorObjectT> 
     PyObject *IteratorObject_iternext(IteratorObjectT *iter_obj)
     {
+        PY_API_FUNC
         if (iter_obj->ext() != iter_obj->ext().end()) {
             return iter_obj->modifyExt().next().steal();
         } else {

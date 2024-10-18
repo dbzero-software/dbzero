@@ -96,7 +96,11 @@ namespace db0
          * Get last update timestamp
         */
         std::uint64_t getLastUpdated() const;
-        
+
+#ifndef NDEBUG
+        void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
+#endif
+
     private:
         // all prefix configuration must fit into this block
         static constexpr unsigned int CONFIG_BLOCK_SIZE = 4096;

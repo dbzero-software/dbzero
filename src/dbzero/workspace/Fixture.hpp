@@ -140,9 +140,8 @@ namespace db0
 
         // Rollback uncommited contents from internal buffers
         void rollback();
-
-        void commit();
         
+        void commit();
         void close();
         
         inline GC0 &getGC0()

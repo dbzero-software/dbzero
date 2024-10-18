@@ -11,27 +11,27 @@ namespace db0::python
     DictObject *DictObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<DictObject*> DictDefaultObject_new();
     
-    void DictObject_del(DictObject* self);
-    Py_ssize_t DictObject_len(DictObject *);
-    PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key);
+    void PyAPI_DictObject_del(DictObject* self);
+    Py_ssize_t PyAPI_DictObject_len(DictObject *);
+    PyObject *PyAPI_DictObject_GetItem(DictObject *dict_obj, PyObject *key);
     int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value);
-    PyObject *DictObject_clear(DictObject *set_obj);
-    PyObject *DictObject_copy(DictObject *set_obj);
-    PyObject *DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *DictObject_get(DictObject *, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *DictObject_update(DictObject *, PyObject* args, PyObject* kwargs);
-    PyObject *DictObject_keys(DictObject *dict_obj);
-    PyObject *DictObject_values(DictObject *dict_obj);
-    PyObject *DictObject_items(DictObject *dict_obj);
+    PyObject *PyAPI_DictObject_clear(DictObject *set_obj);
+    PyObject *PyAPI_DictObject_copy(DictObject *set_obj);
+    PyObject *PyAPI_DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_DictObject_get(DictObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_DictObject_update(DictObject *, PyObject* args, PyObject* kwargs);
+    PyObject *PyAPI_DictObject_keys(DictObject *dict_obj);
+    PyObject *PyAPI_DictObject_values(DictObject *dict_obj);
+    PyObject *PyAPI_DictObject_items(DictObject *dict_obj);
+    void PyAPI_DictObject_del(DictObject* dict_obj);
     extern PyTypeObject DictObjectType;
     
     shared_py_object<DictObject*> makeDB0Dict(db0::swine_ptr<Fixture> &, PyObject *args, PyObject *kwargs);
-    DictObject *makeDict(PyObject *, PyObject*, PyObject*);
+    DictObject *PyAPI_makeDict(PyObject *, PyObject*, PyObject*);
     bool DictObject_Check(PyObject *);
-    
-    void DictObject_del(DictObject* dict_obj);
+        
     extern PyTypeObject DictIteratorObjectType;
     
 }

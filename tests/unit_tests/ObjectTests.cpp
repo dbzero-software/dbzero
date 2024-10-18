@@ -50,7 +50,7 @@ namespace tests
     }
     
     TEST_F( ObjectTest , testObjectCanBeInstantiatedOnBaseWorkspace )
-    {
+    {        
         BaseWorkspace workspace;
         auto memspace = workspace.getMemspace(prefix_name);
         PosVT::Data data(8);
@@ -61,7 +61,7 @@ namespace tests
     }
 
     TEST_F( ObjectTest , testNewObjectSpeed )
-    {
+    {        
         BaseWorkspace workspace;
         auto memspace = workspace.getMemspace(prefix_name);
         using Object = v_object<db0::object_model::o_object>;
@@ -82,11 +82,11 @@ namespace tests
         std::cout << "Total bytes: " << total_bytes << std::endl;
         std::cout << "MB / sec : " << (total_bytes / 1024.0 / 1024.0) * 1000.0 / elapsed.count() << std::endl;
         std::cout << "Allocs / sec : " << alloc_count * 1000.0 / elapsed.count() << std::endl;
-        workspace.close();   
+        workspace.close();
     }
     
     TEST_F( ObjectTest , testNewObjectWithValues )
-    {
+    {        
         BaseWorkspace workspace;
         auto memspace = workspace.getMemspace(prefix_name);
         using Object = v_object<db0::object_model::o_object>;
@@ -121,5 +121,5 @@ namespace tests
         }
         workspace.close();
     }
-
+    
 }

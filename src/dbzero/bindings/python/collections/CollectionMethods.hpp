@@ -1,14 +1,16 @@
 #include <Python.h>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 
 namespace db0::python
 
 {
 
     template<typename ObjectT>
-    PyObject *ObjectT_append(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_ObjectT_append(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "append() takes exactly one argument");
             return NULL;
@@ -18,7 +20,7 @@ namespace db0::python
         py_obj->modifyExt().append(lock, args[0]);
         Py_RETURN_NONE;
     }
-
+    
     template<typename ObjectT>
     PyObject *ObjectT_extend(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
@@ -26,30 +28,41 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "extend() takes one argument.");
             return NULL;
         }
-        PyObject *iterator = PyObject_GetIter(args[0]);
+        PyObject *iterator = AnyObject_GetIter(args[0]);
         PyObject *item;
         db0::FixtureLock lock(py_obj->ext().getFixture());
         auto &obj = py_obj->modifyExt();
-        while ((item = PyIter_Next(iterator))) {
+        while ((item = AnyIter_Next(iterator))) {
             obj.append(lock, item);
+            WITH_PY_API_UNLOCKED
             Py_DECREF(item);
         }
 
+        WITH_PY_API_UNLOCKED
         Py_DECREF(iterator);
         Py_RETURN_NONE;
     }
-
-    template <typename ObjectT>
-    int ObjectT_SetItem(ObjectT *py_obj, Py_ssize_t i, PyObject *value)
+    
+    template<typename ObjectT>
+    PyObject *PyAPI_ObjectT_extend(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        PY_API_FUNC
+        return ObjectT_extend(py_obj, args, nargs);
+    }
+    
+    template <typename ObjectT>
+    int PyAPI_ObjectT_SetItem(ObjectT *py_obj, Py_ssize_t i, PyObject *value)
+    {
+        PY_API_FUNC
         db0::FixtureLock lock(py_obj->ext().getFixture());
         py_obj->modifyExt().setItem(lock, i, value);
         return 0;
     }
     
     template <typename ObjectT>
-    PyObject* ObjectT_Insert(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    PyObject* PyAPI_ObjectT_Insert(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {        
+        PY_API_FUNC
         if (nargs != 2) {
             PyErr_SetString(PyExc_TypeError, "insert() takes exactly two argument");
             return NULL;
@@ -62,17 +75,19 @@ namespace db0::python
         py_obj->modifyExt().setItem(lock, PyLong_AsLong(args[0]), args[1]);
         Py_RETURN_NONE;
     }
-
+    
     template <typename ObjectT>
-    PyObject *ObjectT_GetItem(ObjectT *py_obj, Py_ssize_t i)
+    PyObject *PyAPI_ObjectT_GetItem(ObjectT *py_obj, Py_ssize_t i)
     {
+        PY_API_FUNC
         py_obj->ext().getFixture()->refreshIfUpdated();
         return py_obj->ext().getItem(i).steal();
     }
     
     template<typename ObjectT>
-    Py_ssize_t ObjectT_len(ObjectT *py_obj)
+    Py_ssize_t PyAPI_ObjectT_len(ObjectT *py_obj)
     {
+        PY_API_FUNC
         py_obj->ext().getFixture()->refreshIfUpdated();
         return py_obj->ext().size();
     }
@@ -80,15 +95,16 @@ namespace db0::python
     template<typename ObjectT>
     constexpr PySequenceMethods getPySequenceMehods() {
     return {
-            .sq_length = (lenfunc)ObjectT_len<ObjectT>,
-            .sq_item = (ssizeargfunc)ObjectT_GetItem<ObjectT>,
-            .sq_ass_item = (ssizeobjargproc)ObjectT_SetItem<ObjectT>
+        .sq_length = (lenfunc)PyAPI_ObjectT_len<ObjectT>,
+        .sq_item = (ssizeargfunc)PyAPI_ObjectT_GetItem<ObjectT>,
+        .sq_ass_item = (ssizeobjargproc)PyAPI_ObjectT_SetItem<ObjectT>
         };
     }
 
     template<typename ObjectT>
-    PyObject *ObjectT_pop(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
-    {        
+    PyObject *PyAPI_ObjectT_pop(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC
         std::size_t index;
         if (nargs == 0) {
             index = py_obj->ext().size() -1;
@@ -103,8 +119,9 @@ namespace db0::python
     }
 
     template <typename ObjectT>
-    PyObject *ObjectT_remove(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_ObjectT_remove(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "remove() takes one argument.");
             return NULL;
@@ -116,8 +133,9 @@ namespace db0::python
     }
     
     template <typename ObjectT>
-    PyObject *ObjectT_index(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_ObjectT_index(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "index() takes one argument.");
             return NULL;

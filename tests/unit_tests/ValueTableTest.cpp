@@ -47,7 +47,7 @@ namespace tests
     }
     
     TEST_F( ValueTableTest , testMicroArrayCanBeCreatedWithValues )
-    {
+    {        
         Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
@@ -61,7 +61,7 @@ namespace tests
     }
     
     TEST_F( ValueTableTest , testPosVTCanBeCreatedWithValues )
-    {
+    {        
         Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
@@ -78,7 +78,7 @@ namespace tests
     }
 
     TEST_F( ValueTableTest , testPosVTItemsCanBeUpdatesPostCreate )
-    {
+    {        
         Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
@@ -97,7 +97,7 @@ namespace tests
     }
 
     TEST_F( ValueTableTest , testPosVTMemberOffsets )
-    {
+    {        
         Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
         auto fixture = workspace.getFixture(prefix_name);
 
@@ -117,5 +117,5 @@ namespace tests
         
         workspace.close();
     }
-
+    
 } 

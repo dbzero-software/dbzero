@@ -36,6 +36,7 @@ namespace db0::python
     
     void PyObjectIterator_del(PyObjectIterator* self)
     {
+        PY_API_FUNC
         // destroy associated DB0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
@@ -66,6 +67,7 @@ namespace db0::python
     
     PyObject *PyObjectIterator_iternext(PyObjectIterator *iter_obj)
     {
+        PY_API_FUNC
         auto &iter = *iter_obj->modifyExt();
         auto py_item = iter.next();
         if (py_item) {
@@ -83,6 +85,7 @@ namespace db0::python
     
     PyObject *PyObjectIterator_compare(PyObject *self, PyObject* const *args, Py_ssize_t nargs) 
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "Expected exactly one argument");
             return NULL;
@@ -100,6 +103,7 @@ namespace db0::python
     
     PyObject *PyObjectIterator_signature(PyObject *self, PyObject*)
     {
+        PY_API_FUNC
         const auto &iter = *reinterpret_cast<const PyObjectIterator*>(self)->ext();
         auto signature = iter.getSignature();
         // encode as base32
@@ -133,7 +137,7 @@ namespace db0::python
     
     PyObject *find(PyObject *, PyObject* const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         return findIn(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }
     

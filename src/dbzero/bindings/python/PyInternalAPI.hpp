@@ -9,6 +9,10 @@
 #include "shared_py_object.hpp"
 #include <type_traits>
 #include "PyToolkit.hpp"
+    
+#define PY_API_FUNC db0::python::PyAPI_Lock api_lock;
+#define PY_API_UNLOCK bool py_api_unlocked = PyToolkit::tryUnlockApi();
+#define PY_API_LOCK if (py_api_unlocked) PyToolkit::lockApi();
 
 namespace db0
 
@@ -21,9 +25,18 @@ namespace db0
 namespace db0::python
 
 {   
-
+    
+    // the scoped API lock utility
+    struct PyAPI_Lock
+    {
+        PyAPI_Lock();
+        ~PyAPI_Lock();
+        
+        void lock();
+        void unlock();
+    };
+    
     using ObjectId = db0::object_model::ObjectId;
-    extern std::mutex py_api_mutex;
     
     /**
      * Extarct full object UUID from python args compatible with db0.open()
@@ -100,7 +113,7 @@ namespace db0::python
     PyObject *trySetCacheSize(db0::Workspace *, std::size_t new_cache_size);
     
     PyObject *_PyObject_GetDescrOptional(PyObject *obj, PyObject *name);
-
+    
     PyObject *tryGetRefCount(PyObject *);
     
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs);
@@ -110,17 +123,13 @@ namespace db0::python
     // Retrieve prefix (its Fixture objects) from the optional argument "prefix"
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name);
     
-    std::string normalizedPrefixName(const char *prefix_name);
-    
 #ifndef NDEBUG
-
     /**
      * A test function to make an allocation and write random bytes into the current prefix
     */
     PyObject *writeBytes(PyObject *, PyObject *args);
     PyObject *freeBytes(PyObject *, PyObject *args);
     PyObject *readBytes(PyObject *, PyObject *args);
-
 #endif
     
     bool isBase(PyTypeObject *py_type, PyTypeObject *base_type);
@@ -130,6 +139,13 @@ namespace db0::python
     // register TypeId specializations
     void registerDropInstanceFunctions(std::vector<void (*)(PyObject *)> &functions);
     void dropInstance(db0::bindings::TypeId type_id, PyObject *);
+    bool hasKWArg(PyObject *kwargs, const char *name);
     
+#ifndef NDEBUG
+    PyObject *tryGetDRAM_IOMap(const Fixture &);
+    // opens BDevStorage and reads DRAM_IO map directly, without opening the prefix
+    PyObject *tryGetDRAM_IOMapFromFile(const char *file_name);
+#endif    
+
 }
 

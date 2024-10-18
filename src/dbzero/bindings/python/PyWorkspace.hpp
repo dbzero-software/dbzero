@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <mutex>
 #include "PyTypes.hpp"
 #include "PyWrapper.hpp"
 #include <dbzero/core/memory/AccessOptions.hpp>

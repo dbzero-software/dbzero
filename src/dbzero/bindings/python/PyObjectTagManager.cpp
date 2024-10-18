@@ -25,29 +25,34 @@ namespace db0::python
 
     void PyObjectTagManager_del(PyObjectTagManager* tags_obj)
     {
+        PY_API_FUNC
         // destroy associated DB0 instance
         tags_obj->destroy();
         Py_TYPE(tags_obj)->tp_free((PyObject*)tags_obj);
     }
     
     PyObject *tryPyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object)
-    {
+    {    
         tag_manager->modifyExt().add(&object, 1);
         Py_INCREF(tag_manager);
         return tag_manager;
     }
 
-    PyObject *PyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object) {
+    PyObject *PyObjectTagManager_add_binary(PyObjectTagManager *tag_manager, PyObject *object) 
+    {
+        PY_API_FUNC
         return runSafe(tryPyObjectTagManager_add_binary, tag_manager, object);
     }
 
     PyObject *tryPyObjectTagManager_add(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) 
-    {
+    {        
         tag_manager->modifyExt().add(args, nargs);
         Py_RETURN_NONE;
     }
 
-    PyObject *PyObjectTagManager_add(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) {        
+    PyObject *PyObjectTagManager_add(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) 
+    {
+        PY_API_FUNC
         return runSafe(tryPyObjectTagManager_add, tag_manager, args, nargs);
     }
     
@@ -58,7 +63,9 @@ namespace db0::python
         return tag_manager;
     }
 
-    PyObject *PyObjectTagManager_remove_binary(PyObjectTagManager *tag_manager, PyObject *object) {
+    PyObject *PyObjectTagManager_remove_binary(PyObjectTagManager *tag_manager, PyObject *object) 
+    {
+        PY_API_FUNC
         return runSafe(tryPyObjectTagManager_remove_binary, tag_manager, object);
     }
 
@@ -68,7 +75,9 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *PyObjectTagManager_remove(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) {
+    PyObject *PyObjectTagManager_remove(PyObjectTagManager *tag_manager, PyObject *const *args, Py_ssize_t nargs) 
+    {
+        PY_API_FUNC
         return runSafe(tryPyObjectTagManager_remove, tag_manager, args, nargs);
     }
     
@@ -86,10 +95,9 @@ namespace db0::python
         .tp_new = (newfunc)PyObjectTagManager_new,
         .tp_free = PyObject_Free,
     };
-
+    
     PyObjectTagManager *tryMakeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        std::lock_guard api_lock(py_api_mutex);
+    {        
         // all arguments must be Memo objects        
         for (Py_ssize_t i = 0; i < nargs; ++i) {
             if (!PyMemo_Check(args[i])) {
@@ -107,8 +115,10 @@ namespace db0::python
         return tags_obj;
     }
 
-    PyObjectTagManager *makeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs) {
+    PyObjectTagManager *makeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC
         return runSafe(tryMakeObjectTagManager, nullptr, args, nargs);
     }
-
+    
 }

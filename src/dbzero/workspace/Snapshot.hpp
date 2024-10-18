@@ -4,6 +4,7 @@
 #include <optional>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <mutex>
 
 namespace db0
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/VObjectCache.hpp>
@@ -66,7 +67,7 @@ namespace db0
         std::shared_ptr<LangCache> getLangCache() const override;
 
         void tearDown();
-        
+
     private:
         const std::size_t m_slab_size;
         FixedObjectList m_shared_object_list;

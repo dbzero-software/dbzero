@@ -3,6 +3,7 @@
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <functional>
+#include <unordered_map>
 
 namespace db0
 
@@ -78,6 +79,11 @@ namespace db0
         // Collect storage statistics where applicable (default implementation is empty)
         virtual void getStats(std::function<void(const std::string &, std::uint64_t)>) const;
 
+#ifndef NDEBUG
+        // state number, file offset
+        using DRAM_PageInfo = std::pair<std::uint64_t, std::uint64_t>;
+        virtual void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const;
+#endif        
     protected:
         AccessType m_access_type;
     };

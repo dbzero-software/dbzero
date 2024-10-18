@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
+#include <mutex>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/object_model/class.hpp>
@@ -19,22 +20,23 @@ namespace tests
         static constexpr const char *prefix_name = "my-test-prefix_1";
         static constexpr const char *file_name = "my-test-prefix_1.db0";
 
-        virtual void SetUp() override {
+        void SetUp() override {
             drop(file_name);
         }
 
-        virtual void TearDown() override {            
+        void TearDown() override
+        {            
             m_workspace.close();
             drop(file_name);
         }
-
+        
     protected:
-        Workspace m_workspace;
+        Workspace m_workspace;        
     };
     
     TEST_F( ClassFactoryTest , testClassFactoryCanBeCreated )
-    {
-        auto fixture = m_workspace.getFixture("my-test-prefix_1");        
+    {        
+        auto fixture = m_workspace.getFixture("my-test-prefix_1");
         ASSERT_NO_THROW( { auto cut = ClassFactory(fixture); } );
         m_workspace.close();
     }

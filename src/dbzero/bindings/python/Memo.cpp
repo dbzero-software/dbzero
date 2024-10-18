@@ -63,7 +63,9 @@ namespace db0::python
         return memo_obj;
     }
     
-    MemoObject *MemoObject_new(PyTypeObject *py_type, PyObject *args, PyObject *kwargs) {
+    MemoObject *MemoObject_new(PyTypeObject *py_type, PyObject *args, PyObject *kwargs) 
+    {
+        PY_API_FUNC
         return reinterpret_cast<MemoObject*>(runSafe(tryMemoObject_new, py_type, args, kwargs));
     }
     
@@ -137,6 +139,7 @@ namespace db0::python
     
     void MemoObject_del(MemoObject* memo_obj)
     {
+        PY_API_FUNC
         // destroy associated DB0 Object instance
         memo_obj->destroy();        
         Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
@@ -144,15 +147,19 @@ namespace db0::python
     
     int MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds)
     {
+        PY_API_FUNC
         // the instance may already exist (e.g. if this is a singleton)
         if (!self->ext().hasInstance()) {
             auto py_type = Py_TYPE(self);
             auto base_type = py_type->tp_base;
             
             // invoke tp_init from base type (wrapped pyhon class)
+            // tp_init must be unlocked since it's calling back into DB0 API
+            PY_API_UNLOCK
             if (base_type->tp_init((PyObject*)self, args, kwds) < 0) {
                 PyObject *ptype, *pvalue, *ptraceback;
                 PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+                PY_API_LOCK
                 if (ptype == PyToolkit::getTypeManager().getBadPrefixError()) {
                     // from pvalue
                     std::uint64_t fixture_uuid = PyLong_AsUnsignedLong(pvalue);
@@ -173,7 +180,8 @@ namespace db0::python
                 PyErr_Restore(ptype, pvalue, ptraceback);
                 return -1;
             }
-
+            
+            PY_API_LOCK
             // invoke post-init on associated DBZero object
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());
@@ -223,11 +231,14 @@ namespace db0::python
         // 2. DB0 object extension methods
         // 3. DB0 object members (attributes)
         // 4. User instance members (e.g. attributes set during __postinit__)
-        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(memo_obj), attr);
-        if (res) {
-            return res;
+        {
+            WITH_PY_API_UNLOCKED
+            auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(memo_obj), attr);
+            if (res) {
+                return res;
+            }
         }
-
+        
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr));
         // raise AttributeError
@@ -238,12 +249,15 @@ namespace db0::python
         return member.steal();
     }
     
-    PyObject *MemoObject_getattro(MemoObject *self, PyObject *attr) {
+    PyObject *MemoObject_getattro(MemoObject *self, PyObject *attr)
+    {
+        PY_API_FUNC
         return runSafe(tryMemoObject_getattro, self, attr);
     }
     
     int MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value)
     {
+        PY_API_FUNC
         // assign value to a DB0 attribute
         Py_XINCREF(value);
         try {
@@ -277,12 +291,13 @@ namespace db0::python
         return lhs->ext() == rhs->ext();
     }
     
-    PyObject *MemoObject_rq(MemoObject *memo_obj, PyObject *other, int op)
+    PyObject *PyAPI_MemoObject_rq(MemoObject *memo_obj, PyObject *other, int op)
     {
-
+        PY_API_FUNC
         PyObject * obj_memo = reinterpret_cast<PyObject*>(memo_obj);
         // if richcompare is overriden by the python class, call the python class implementation
-        if(obj_memo->ob_type->tp_base->tp_richcompare != PyType_Type.tp_richcompare) {
+        if (obj_memo->ob_type->tp_base->tp_richcompare != PyType_Type.tp_richcompare) {
+            WITH_PY_API_UNLOCKED
             return obj_memo->ob_type->tp_base->tp_richcompare(reinterpret_cast<PyObject*>(memo_obj), other, op);
         }
         bool eq_result = false;
@@ -412,7 +427,7 @@ namespace db0::python
         new_type->tp_setattro = reinterpret_cast<setattrofunc>(MemoObject_setattro);
         // set original class (copy) as a base class
         new_type->tp_base = base_type;
-        new_type->tp_richcompare = (richcmpfunc)MemoObject_rq;
+        new_type->tp_richcompare = (richcmpfunc)PyAPI_MemoObject_rq;
         // method resolution order, tp_mro and tp_bases are filled in by PyType_Ready
         new_type->tp_mro = 0;
         new_type->tp_bases = 0;
@@ -449,7 +464,7 @@ namespace db0::python
     
     PyObject *wrapPyClass(PyObject *, PyObject *args, PyObject *kwargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         PyObject* class_obj;
         PyObject *singleton = Py_False;
         PyObject *py_prefix_name = nullptr;
@@ -485,7 +500,7 @@ namespace db0::python
     }
     
     PyObject *MemoObject_GetFieldLayout(MemoObject *self)
-    {
+    {        
         auto field_layout = self->ext().getFieldLayout();        
         auto &pos_vt = field_layout.m_pos_vt_fields;
         auto &index_vt = field_layout.m_index_vt_fields;
@@ -528,10 +543,10 @@ namespace db0::python
         PyDict_SetItemString(py_result, "size_of", PyLong_FromLong(self->ext()->sizeOf()));
         return py_result;
     }
-
-    PyObject *MemoObject_IsTag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    
+    PyObject *PyAPI_MemoObject_IsTag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
             return NULL;
@@ -548,6 +563,7 @@ namespace db0::python
     
     PyObject *MemoObject_str(MemoObject *pythis)
     {
+        PY_API_FUNC
         std::stringstream str;
         auto &memo = pythis->ext();
         str << "<" << Py_TYPE(pythis)->tp_name;

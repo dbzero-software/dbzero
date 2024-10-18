@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
 #include <utils/TestBase.hpp>
+#include <mutex>
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/workspace/Workspace.hpp>
@@ -20,11 +21,11 @@ namespace tests
         static constexpr const char *prefix_name = "my-test-prefix_1";
         static constexpr const char *file_name = "my-test-prefix_1.db0";
 
-        virtual void SetUp() override {
+        void SetUp() override {
             drop(file_name);
         }
         
-        virtual void TearDown() override {
+        void TearDown() override {
             drop(file_name);
         }
     };
@@ -44,5 +45,5 @@ namespace tests
         ASSERT_NE(addr, db0::getPhysicalAddress(addr));
         workspace.close();
     }
-
+    
 }

@@ -133,7 +133,7 @@ namespace db0
     bool BaseWorkspace::drop(const PrefixName &prefix_name, bool if_exists)
     {
         close(prefix_name);
-        return m_prefix_catalog.drop(prefix_name, if_exists);
+        return m_prefix_catalog.drop(prefix_name);
     }
     
     void BaseWorkspace::setCacheSize(std::size_t new_cache_size) {
@@ -243,7 +243,7 @@ namespace db0
     Workspace::~Workspace()
     {    
     }
-
+    
     bool Workspace::close(const PrefixName &prefix_name)
     {
         BaseWorkspace::close(prefix_name);
@@ -334,14 +334,14 @@ namespace db0
                 
                 if (file_created) {
                     // finalize fixture initialization and end the first transaction
-                    fixture->commit();                                    
+                    fixture->commit();
                 }
                 
                 if (m_atomic_context_ptr && *access_type == AccessType::READ_WRITE) {
                     // begin atomic with the new read/write fixture
                     fixture->beginAtomic(m_atomic_context_ptr);
                 }
-
+                
                 it = m_fixtures.emplace(fixture->getUUID(), fixture).first;
                 m_fixture_catalog.add(prefix_name, *fixture);
                 if (*access_type == AccessType::READ_ONLY) {
@@ -591,8 +591,8 @@ namespace db0
     void Workspace::clearCache() const
     {
         BaseWorkspace::clearCache();
-        // remove expired only objects
-        m_lang_cache->clear(true);
+        // remove expired only objects        
+        m_lang_cache->clear(true);        
     }
     
     void Workspace::onCacheFlushed(bool threshold_reached) const
@@ -600,7 +600,8 @@ namespace db0
         BaseWorkspace::onCacheFlushed(threshold_reached);
         if (!threshold_reached) {
             // additionally erase the entire LangCache to attempt reaching the flush objective
-            m_lang_cache->clear(true);
+            // FIXME: this would cause deadlock
+            // m_lang_cache->clear(true);
         }
         for (auto &[uuid, fixture] : m_fixtures) {
             fixture->onCacheFlushed(threshold_reached);
@@ -614,7 +615,7 @@ namespace db0
     void Workspace::setOnOpenCallback(std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> callback) {
         m_on_open_callback = callback;
     }
-
+    
     std::shared_ptr<WorkspaceView> Workspace::getWorkspaceView(std::optional<std::uint64_t> state_num,
         const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums) const
     {

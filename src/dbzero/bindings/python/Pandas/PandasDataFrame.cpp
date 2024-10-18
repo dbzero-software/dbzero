@@ -1,5 +1,6 @@
 #include "PandasDataFrame.hpp"
 #include <dbzero/bindings/python/PyToolkit.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/object_model/pandas/Dataframe.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
@@ -7,9 +8,10 @@
 namespace db0::python
 
 {
-
+    
     PyObject *PandasDataFrameObject_GetItem(PandasDataFrameObject *DataFrame_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "get_block() takes exactly one argument");
             return NULL;
@@ -25,6 +27,7 @@ namespace db0::python
 
     PyObject *PandasDataFrameObject_append(PandasDataFrameObject *dataframe_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "append() takes exactly one argument");
             return NULL;
@@ -36,6 +39,7 @@ namespace db0::python
 
     PyObject *PandasDataFrameObject_append_index(PandasDataFrameObject *dataframe_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "append() takes exactly one argument");
             return NULL;
@@ -72,13 +76,15 @@ namespace db0::python
     
     void PandasDataFrameObject_del(PandasDataFrameObject* dataframe_obj)
     {
+        PY_API_FUNC
         // destroy associated DB0 DataFrame instance
         dataframe_obj->destroy();
         Py_TYPE(dataframe_obj)->tp_free((PyObject*)dataframe_obj);
     }
-
+    
     PandasDataFrameObject *makeDataFrame(PyObject *, PyObject *, PyObject *)
     {
+        PY_API_FUNC
         // make actual DBZero instance, use default fixture
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
         db0::FixtureLock lock(fixture);

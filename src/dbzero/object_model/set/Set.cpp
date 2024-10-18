@@ -1,5 +1,7 @@
 #include "Set.hpp"
 #include <dbzero/bindings/python/PyToolkit.hpp>
+// FIXME: Python API should not be invoked directly
+#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 #include <dbzero/object_model/value.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/object.hpp>
@@ -11,8 +13,9 @@ namespace db0::object_model
 
 {
 
+    namespace py = db0::python;
     GC0_Define(Set)
-
+    
     template <typename LangToolkit> o_typed_item createTypedItem(db0::swine_ptr<Fixture> &fixture,
         db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
@@ -86,7 +89,7 @@ namespace db0::object_model
     void Set::append(db0::FixtureLock &lock, std::size_t key, ObjectPtr lang_value) {
         append(*lock, key, lang_value);
     }
-
+    
     void Set::append(db0::swine_ptr<Fixture> &fixture, std::size_t key, ObjectPtr lang_value)
     {
         using TypeId = db0::bindings::TypeId;
@@ -204,10 +207,11 @@ namespace db0::object_model
         --modify().m_size;
         return member;
     }
-
+    
     bool Set::has_item(ObjectPtr obj) const
     {
-        auto hash = PyObject_Hash(obj);
+        // FIXME: this API should NOT be used directly here
+        auto hash = py::AnyObject_Hash(obj);
         auto item = getItem(hash, obj);
         return item != nullptr;
     }

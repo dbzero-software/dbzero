@@ -140,9 +140,9 @@ namespace db0::python
         {#NAME, (PyCFunction)ByteArray_##NAME, METH_VARARGS | METH_KEYWORDS, DESCRIPTION}
 
     static PyMethodDef ByteArrayObject_methods[] = {
-        {"append", (PyCFunction)ObjectT_append<ByteArrayObject>, METH_FASTCALL, "Append an item to the container."},
-        {"extend", (PyCFunction)ObjectT_extend<ByteArrayObject>, METH_FASTCALL, "Add the elements of a any iterable, to the end of the current BytesArray."},
-        {"insert", (PyCFunction)ObjectT_Insert<ByteArrayObject>, METH_FASTCALL, "Insert the elements to position in ByteArray"},
+        {"append", (PyCFunction)PyAPI_ObjectT_append<ByteArrayObject>, METH_FASTCALL, "Append an item to the container."},
+        {"extend", (PyCFunction)PyAPI_ObjectT_extend<ByteArrayObject>, METH_FASTCALL, "Add the elements of a any iterable, to the end of the current BytesArray."},
+        {"insert", (PyCFunction)PyAPI_ObjectT_Insert<ByteArrayObject>, METH_FASTCALL, "Insert the elements to position in ByteArray"},
         CREATE_METHOD_DEF(capitalize, "Capitalize ByteArray"),
         CREATE_METHOD_DEF(removeprefix, "Remove prefix from ByteArray"),
         CREATE_METHOD_DEF(removesuffix, "Remove suffix from ByteArray"),
@@ -207,9 +207,10 @@ namespace db0::python
         {"count", (PyCFunction)ByteArray_Count, METH_FASTCALL, "Count occurences of byte in ByteArray"},
         {NULL}
     };
-
-    static PyObject *ByteArrayObject_rq(ByteArrayObject *list_obj, PyObject *other, int op) 
+    
+    static PyObject *PyAPI_ByteArrayObject_rq(ByteArrayObject *list_obj, PyObject *other, int op) 
     {
+        PY_API_FUNC
         if (ByteArrayObject_Check(other)) {
             ByteArrayObject * other_list = (ByteArrayObject*) other;
             switch (op)
@@ -231,11 +232,11 @@ namespace db0::python
         .tp_name = "dbzero_ce.ByteArray",
         .tp_basicsize = ByteArrayObject::sizeOf(),
         .tp_itemsize = 0,
-        .tp_dealloc = (destructor)ByteArrayObject_del,
+        .tp_dealloc = (destructor)PyAPI_ByteArrayObject_del,
         .tp_as_sequence = &ByteArrayObject_sq,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
         .tp_doc = "DBZero bytearray",
-        .tp_richcompare = (richcmpfunc)ByteArrayObject_rq,
+        .tp_richcompare = (richcmpfunc)PyAPI_ByteArrayObject_rq,
         .tp_methods = ByteArrayObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)ByteArrayObject_new,
@@ -252,16 +253,17 @@ namespace db0::python
         return { ByteArrayObject_new(&ByteArrayObjectType, NULL, NULL), false };
     }
     
-    void ByteArrayObject_del(ByteArrayObject* bytearray_obj)
+    void PyAPI_ByteArrayObject_del(ByteArrayObject* bytearray_obj)
     {
+        PY_API_FUNC
         // destroy associated DB0 ByteArray instance
         bytearray_obj->destroy();
         Py_TYPE(bytearray_obj)->tp_free((PyObject*)bytearray_obj);
     }
     
-    ByteArrayObject *makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    ByteArrayObject *PyAPI_makeByteArray(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "make_bytearray() takes exacly 1 arguments");
             return NULL;

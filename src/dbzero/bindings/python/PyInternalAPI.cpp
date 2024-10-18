@@ -19,6 +19,7 @@
 #include <dbzero/object_model/tags/QueryObserver.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/memory/SlabAllocator.hpp>
+#include <dbzero/core/storage/BDevStorage.hpp>
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
@@ -28,8 +29,22 @@ namespace db0::python
 
 {
     
-    std::mutex py_api_mutex;
+    PyAPI_Lock::PyAPI_Lock() {
+        PyToolkit::lockApi();
+    }
 
+    PyAPI_Lock::~PyAPI_Lock() {
+        PyToolkit::unlockApi();
+    }
+
+    void PyAPI_Lock::lock() {
+        PyToolkit::lockApi();
+    }
+    
+    void PyAPI_Lock::unlock() {
+        PyToolkit::unlockApi();
+    }
+    
     ObjectId extractObjectId(PyObject *args)
     {
         // extact ObjectId from args
@@ -155,8 +170,7 @@ namespace db0::python
     }
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name)
-    {
-        std::lock_guard api_lock(py_api_mutex);
+    {        
         using ClassFactory = db0::object_model::ClassFactory;
         auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));        
 
@@ -341,8 +355,7 @@ namespace db0::python
     }
     
     PyObject *getSlabMetrics(const db0::SlabAllocator &slab)
-    {
-        std::lock_guard api_lock(py_api_mutex);
+    {        
         PyObject *py_dict = PyDict_New();
         PyDict_SetItemString(py_dict, "size", PyLong_FromUnsignedLong(slab.getSlabSize()));
         PyDict_SetItemString(py_dict, "admin_space_size", PyLong_FromUnsignedLong(slab.getAdminSpaceSize(true)));
@@ -483,6 +496,47 @@ namespace db0::python
         };
         fixture->getPrefix().getStorage().getStats(stats_callback);
         return stats_dict;
+    }
+    
+#ifndef NDEBUG    
+    PyObject *formatDRAM_IOMap(const std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t> > &dram_io_map)
+    {        
+        PyObject *py_dict = PyDict_New();
+        if (!py_dict) {
+            THROWF(db0::MemoryException) << "Out of memory";
+        }
+        // page_info = std::pair<std::uint64_t, std::uint64_t>
+        for (const auto &[page_num, page_info] : dram_io_map) {
+            PyObject *py_page_info = PyTuple_New(2);
+            PyTuple_SetItem(py_page_info, 0, PyLong_FromUnsignedLongLong(page_info.first));
+            PyTuple_SetItem(py_page_info, 1, PyLong_FromUnsignedLongLong(page_info.second));
+            PyDict_SetItem(py_dict, PyLong_FromUnsignedLongLong(page_num), py_page_info);
+        }
+        return py_dict;
+    }
+
+    PyObject *tryGetDRAM_IOMap(const Fixture &fixture)
+    {
+        using DRAM_PageInfo = typename db0::BaseStorage::DRAM_PageInfo;
+
+        std::unordered_map<std::uint64_t, DRAM_PageInfo> dram_io_map;
+        fixture.getPrefix().getStorage().getDRAM_IOMap(dram_io_map);
+        return formatDRAM_IOMap(dram_io_map);
+    }
+    
+    PyObject *tryGetDRAM_IOMapFromFile(const char *file_name)
+    {
+        using DRAM_PageInfo = typename db0::BaseStorage::DRAM_PageInfo;
+
+        db0::BDevStorage storage(file_name, db0::AccessType::READ_ONLY);
+        std::unordered_map<std::uint64_t, DRAM_PageInfo> dram_io_map;
+        storage.getDRAM_IOMap(dram_io_map);
+        return formatDRAM_IOMap(dram_io_map);
+    }    
+#endif
+    
+    bool hasKWArg(PyObject *kwargs, const char *name) {
+        return kwargs && PyDict_Contains(kwargs, PyUnicode_FromString(name));
     }
     
 }

@@ -33,6 +33,7 @@ namespace db0::python
 
     void PyEnum_del(PyEnum* self)
     {
+        PY_API_FUNC
         // destroy associated DB0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
@@ -64,6 +65,7 @@ namespace db0::python
     
     PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr)
     {
+        PY_API_FUNC
         auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(self), attr);
         if (res) {
             return res;
@@ -86,7 +88,8 @@ namespace db0::python
     }
 
     PyObject *getEnumValues(PyEnum *self)
-    {        
+    {
+        PY_API_FUNC
         const Enum *enum_ = nullptr;        
         if (self->ext().exists()) {
             enum_ = &self->ext().get();
@@ -130,7 +133,7 @@ namespace db0::python
     {
         {NULL}
     };
-
+    
     PyTypeObject PyEnumValueType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.EnumValue",

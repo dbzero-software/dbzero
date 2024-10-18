@@ -26,23 +26,23 @@ static PyMethodDef DBZeroCE_Methods[] =
 {
     {"init", (PyCFunction)&py::init, METH_VARARGS | METH_KEYWORDS, "Initialize DBZero CE workspace at a specific root path"},
     {"open", (PyCFunction)&py::open, METH_VARARGS | METH_KEYWORDS, "Open or create a prefix for read or read/write"},
-    {"close", &py::close, METH_VARARGS, ""},
+    {"close", &py::PyAPI_close, METH_VARARGS, ""},
     {"drop", &py::drop, METH_VARARGS, "Drop prefix (if exists)"},
     {"commit", &py::commit, METH_VARARGS, ""},
     {"fetch", (PyCFunction)&py::fetch, METH_FASTCALL, "Retrieve DBZero object instance by its UUID or type (in case of a singleton)"},
     {"delete", &py::del, METH_VARARGS, "Delete DBZero object and the corresponding Python instance"},
     {"wrap_memo_type", (PyCFunction)&py::wrapPyClass, METH_VARARGS | METH_KEYWORDS, "Wraps a memo type for use with DBZero"},
     {"get_type_info", &py::getTypeInfo, METH_VARARGS, "Get DBZero type information"},
-    {"uuid", (PyCFunction)&py::getUUID, METH_FASTCALL, "Get unique object ID"},
-    {"clear_cache", &py::clearCache, METH_NOARGS, "Clear DBZero cache"},
-    {"list", (PyCFunction)&py::makeList, METH_FASTCALL, "Create a new DBZero list instance"},
+    {"uuid", (PyCFunction)&py::PyAPI_getUUID, METH_FASTCALL, "Get unique object ID"},
+    {"clear_cache", &py::PyAPI_clearCache, METH_NOARGS, "Clear DBZero cache"},
+    {"list", (PyCFunction)&py::PyAPI_makeList, METH_FASTCALL, "Create a new DBZero list instance"},
     {"index", (PyCFunction)&py::makeIndex, METH_FASTCALL, "Create a new DBZero index instance"},
     {"tuple", (PyCFunction)&py::makeTuple, METH_FASTCALL, "Create a new DBZero tuple instance"},
-    {"set", (PyCFunction)&py::makeSet, METH_FASTCALL, "Create a new DBZero set instance"},
-    {"dict", (PyCFunction)&py::makeDict, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero dict instance"},
+    {"set", (PyCFunction)&py::PyAPI_makeSet, METH_FASTCALL, "Create a new DBZero set instance"},
+    {"dict", (PyCFunction)&py::PyAPI_makeDict, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero dict instance"},
     {"block", (PyCFunction)&py::makeBlock, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero pandas block instance"},
     {"dataframe", (PyCFunction)&py::makeDataFrame, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero pandas dataframe instance"},
-    {"bytearray", (PyCFunction)&py::makeByteArray, METH_FASTCALL, "Create a new DBZero bytearray instance"},
+    {"bytearray", (PyCFunction)&py::PyAPI_makeByteArray, METH_FASTCALL, "Create a new DBZero bytearray instance"},
     {"get_raw_prefix_of", (PyCFunction)&py::getPrefixOf, METH_VARARGS, "Get prefix name of a specific DBZero object instance"},
     {"get_raw_current_prefix", &py::getCurrentPrefix, METH_VARARGS, "Get current prefix name & UUID as tuple"},
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
@@ -57,7 +57,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"is_singleton", &py::isSingleton, METH_VARARGS, "Check if a specific instance is a DBZero singleton"},
     {"getrefcount", &py::getRefCount, METH_VARARGS, "Get DBZero ref counts"},
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},
-    {"is_tag", (PyCFunction)&py::MemoObject_IsTag, METH_FASTCALL, "Checks if a specific Memo instance is a tag"},
+    {"is_tag", (PyCFunction)&py::PyAPI_MemoObject_IsTag, METH_FASTCALL, "Checks if a specific Memo instance is a tag"},
     {"to_dict", (PyCFunction)&py::toDict, METH_FASTCALL, "Serialize DBZero object as a Python dict"},
     {"build_flags", &py::getBuildFlags, METH_NOARGS, "Retrieve DBZero library build flags"},
     {"serialize", (PyCFunction)&py::pySerialize, METH_FASTCALL, "Serialize DBZero serializable instance"},
@@ -82,7 +82,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
     {"dbg_read_bytes", &py::readBytes, METH_VARARGS, "Debug function"},
     {"get_base_lock_usage", &py::getResourceLockUsage, METH_VARARGS, "Debug function, retrieves total memory occupied by ResourceLocks"},
-    {"test_create_then_free", &py::testCreateThenFree, METH_VARARGS, "Debug function, creates v_object instances"},
+    {"get_dram_io_map", (PyCFunction)&py::getDRAM_IOMap, METH_VARARGS | METH_KEYWORDS, "Get page_num -> state_num mapping related with a specific DRAM_Prefix"},
 #endif
     {NULL} // Sentinel
 };
@@ -155,7 +155,7 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         initPyError(mod, py::PyToolkit::getTypeManager().getClassNotFoundError(), "ClassNotFoundError");
     } catch (const std::exception &e) {
         // set python error
-        PyErr_SetString(PyExc_RuntimeError, e.what());        
+        PyErr_SetString(PyExc_RuntimeError, e.what());
         return NULL;
     }
     

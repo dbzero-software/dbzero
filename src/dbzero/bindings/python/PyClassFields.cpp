@@ -29,12 +29,12 @@ namespace db0::python
     }
 
     void PyClassFields_del(PyClassFields* self)
-    {
+    {        
         // destroy associated DB0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
-
+    
     void PyFieldDef_del(PyFieldDef *self) 
     {
         // destroy associated DB0 instance

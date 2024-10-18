@@ -20,10 +20,9 @@ namespace db0::python
     bool TagSet_Check(PyObject *obj) {
         return PyObject_TypeCheck(obj, &TagSetType);
     }
-
+    
     PyObject *negTagSet(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {  
-        std::lock_guard api_lock(py_api_mutex);      
+    {
         auto py_tag_set = PyObject_New(PyTagSet, &TagSetType);
         // construct actual instance via placement new
         new (&py_tag_set->m_tag_set) TagSet(args, nargs, true);

@@ -176,7 +176,7 @@ namespace db0
         if (m_closed) {
             return;
         }
-
+        
         auto it = m_fixtures.begin(), end = m_fixtures.end();
         while (it != end) {
             it->second->close();

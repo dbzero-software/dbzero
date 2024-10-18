@@ -62,7 +62,7 @@ namespace db0::python
     PyObject *MemoObject_GetFieldLayout(MemoObject *);
     
     PyObject *MemoObject_DescribeObject(MemoObject *);
-    PyObject *MemoObject_IsTag(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_MemoObject_IsTag(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     PyObject *MemoObject_str(MemoObject *);
     
     void PyMemoType_get_info(PyTypeObject *type, PyObject *dict);

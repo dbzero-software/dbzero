@@ -31,12 +31,11 @@ namespace db0::python
     /**
      * Forwards to CacheRecycler::clear(expired_only)
     */
-    PyObject *clearCache(PyObject *, PyObject *);
-
+    PyObject *PyAPI_clearCache(PyObject *, PyObject *);
+    
     /**    
      * Fetch DBZero object instance by its ID or type (in case of a singleton)
      */
-
     PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     /**
@@ -53,7 +52,7 @@ namespace db0::python
 
     PyObject *commit(PyObject *self, PyObject *args);
 
-    PyObject *close(PyObject *self, PyObject *args);
+    PyObject *PyAPI_close(PyObject *self, PyObject *args);
         
     /**
      * Constructs a DBZero list instance
@@ -147,10 +146,14 @@ namespace db0::python
     PyObject *getAttributes(PyObject *self, PyObject *args);
     
     PyObject *getAttrAs(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
-    
+
 #ifndef NDEBUG
-    PyObject *getResourceLockUsage(PyObject *self, PyObject *);
-    PyObject *testCreateThenFree(PyObject *self, PyObject *args);
+    PyObject *getResourceLockUsage(PyObject *, PyObject *);
+#endif
+
+#ifndef NDEBUG
+    // For a specific prefix, extract page num -> state num mapping related with its DRAM_Prefix
+    PyObject *getDRAM_IOMap(PyObject *, PyObject *args, PyObject *kwargs);
 #endif
 
     template <typename T> db0::object_model::StorageClass getStorageClass();

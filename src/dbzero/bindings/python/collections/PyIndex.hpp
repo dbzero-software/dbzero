@@ -20,7 +20,7 @@ namespace db0::python
     PyObject *IndexObject_sort(IndexObject *, PyObject *args, PyObject *kwargs);
     PyObject *IndexObject_range(IndexObject *, PyObject *args, PyObject *kwargs);
     PyObject *IndexObject_flush(IndexObject *);
-       
+    
     extern PyTypeObject IndexObjectType;
     
     IndexObject *makeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs);

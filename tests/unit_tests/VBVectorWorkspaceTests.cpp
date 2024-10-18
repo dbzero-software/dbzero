@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <cstdlib>
 #include <cstring>
+#include <mutex>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
 #include <utils/TestBase.hpp>
 #include <utils/utils.hpp>
@@ -23,19 +24,18 @@ namespace tests
         static constexpr const char *prefix_name = "my-test-prefix_1";
         static constexpr const char *file_name = "my-test-prefix_1.db0";
         
-        virtual void SetUp() override
-        {
+        void SetUp() override {
             drop(file_name);
         }
-
-        virtual void TearDown() override
-        {
+        
+        void TearDown() override
+        {            
             m_workspace.close();
             drop(file_name);
         }
 
     protected:
-        Workspace m_workspace;
+        Workspace m_workspace;        
     };
 
     TEST_F( VBVectorWorkspaceTests, testVBVectorInstanceCanBeAppendedBetweenTransactions )
@@ -46,7 +46,7 @@ namespace tests
         cut.push_back(0);
         fixture->commit();
         cut.push_back(1);
-        fixture->commit();        
+        fixture->commit();
         ASSERT_EQ(cut.size(), 2);
     }
     

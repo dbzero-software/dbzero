@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
+#include <mutex>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/workspace/WorkspaceView.hpp>
@@ -20,17 +21,18 @@ namespace tests
         static constexpr const char *prefix_name = "my-test-prefix_1";
         static constexpr const char *file_name = "my-test-prefix_1.db0";
         
-        virtual void SetUp() override {
+        void SetUp() override {
             drop(file_name);
         }
 
-        virtual void TearDown() override {
+        void TearDown() override 
+        {            
             m_workspace.close();
             drop(file_name);
         }
 
     protected:
-        Workspace m_workspace;
+        Workspace m_workspace;        
     };
     
     TEST_F( WorkspaceTest , testWorkspaceCanCreateNewFixture )
@@ -62,14 +64,14 @@ namespace tests
     };
     
     TEST_F( WorkspaceTest , testFixtureSnapshotCanBeTaken )
-    {        
+    {
         std::uint64_t address = 0;
         // first transaction to create object
         {
             auto fixture = m_workspace.getFixture(prefix_name);
             v_object<o_TT> obj(*fixture);
             address = obj.getAddress();
-            fixture->commit();            
+            fixture->commit();
         }
 
         // perform 10 object modifications in 10 transactions, take snapshot at 7th transaction
@@ -93,25 +95,25 @@ namespace tests
         v_object<o_TT> obj(snap->myPtr(address));
         ASSERT_EQ(obj->a, 7);
     }
-
+    
     TEST_F( WorkspaceTest , testFreeCanBePerformedBetweenTransactions )
-    {
+    {        
         std::uint64_t address = 0;
         auto fixture = m_workspace.getFixture(prefix_name);
         // first transaction to create object
         {
             v_object<o_TT> obj(*fixture);
             address = obj.getAddress();
-            fixture->commit();            
+            fixture->commit();
         }
         
         fixture->free(address);
-        fixture->commit();                
+        fixture->commit();
         ASSERT_ANY_THROW(fixture->getAllocator().getAllocSize(address));        
     }
 
     TEST_F( WorkspaceTest , testObjectInstanceCanBeModifiedBetweenTransactions )
-    {
+    {        
         auto fixture = m_workspace.getFixture(prefix_name);
         // create object and keep instance across multiple transactions
         v_object<o_TT> obj(*fixture);
@@ -123,7 +125,7 @@ namespace tests
     }
 
     TEST_F( WorkspaceTest , testAllocFreeBetweenTransactionsIssue )
-    {
+    {        
         auto fixture = m_workspace.getFixture(prefix_name);
         std::vector<std::uint64_t> addresses;
         std::vector<std::size_t> allocs = {
@@ -138,7 +140,7 @@ namespace tests
     }
     
     TEST_F( WorkspaceTest , testAllocFromTypeSlotThenFree )
-    {
+    {        
         auto fixture = m_workspace.getFixture(prefix_name);
         auto addr = fixture->alloc(100, Fixture::TYPE_SLOT_NUM);
         ASSERT_TRUE(addr);
@@ -154,7 +156,7 @@ namespace tests
     }
 
     TEST_F( WorkspaceTest , testTimeTravelQueries )
-    {
+    {        
         std::uint64_t address = 0;
         // First transaction to create a new object
         {
@@ -177,7 +179,7 @@ namespace tests
             (*memspace).commit();
             m_workspace.close(prefix_name);
         }
-
+        
         // now go back to specific transactions and validate object state
         for (auto &log: state_log)
         {
@@ -187,9 +189,9 @@ namespace tests
             m_workspace.close(prefix_name);
         }
     }
-
+    
     TEST_F( WorkspaceTest , testTimeTravelWithPartialObjectModification )
-    {
+    {        
         using PrefixT = BaseWorkspace::PrefixT;        
         std::uint64_t address = 0;
         // first transaction to create object

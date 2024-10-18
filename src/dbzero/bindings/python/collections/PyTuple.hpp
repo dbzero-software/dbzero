@@ -13,7 +13,7 @@ namespace db0::python
     
     TupleObject *TupleObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<TupleObject*> TupleDefaultObject_new();
-
+    
     void TupleObject_del(TupleObject* self);
     Py_ssize_t TupleObject_len(TupleObject *);
     // python array methods methods

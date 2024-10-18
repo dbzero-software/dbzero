@@ -15,14 +15,15 @@ namespace db0::python
 
     DictIteratorObject *DictViewObject_iter(DictViewObject *self)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         auto dict_iterator_object = IteratorObject_new<DictIteratorObject>(&DictIteratorObjectType, NULL, NULL);        
         self->ext().begin(&dict_iterator_object->modifyExt());
         return dict_iterator_object;
     }
     
-    Py_ssize_t DictViewObject_len(DictViewObject *dict_obj) {
-        std::lock_guard api_lock(py_api_mutex);
+    Py_ssize_t DictViewObject_len(DictViewObject *dict_obj) 
+    {
+        PY_API_FUNC        
         return dict_obj->ext().size();
     }
 
@@ -57,14 +58,14 @@ namespace db0::python
     DictViewObject *DictViewObject_new(PyTypeObject *type, PyObject *, PyObject *) {
         return DictViewObject_newInternal(type, NULL, NULL);
     }
-
+    
     DictViewObject *DictViewDefaultObject_new() {
         return DictViewObject_new(&DictViewObjectType, NULL, NULL);
     }
     
     void DictViewObject_del(DictViewObject* dict_obj)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         // destroy associated DB0 Dict instance
         dict_obj->ext().~DictView();
         Py_TYPE(dict_obj)->tp_free((PyObject*)dict_obj);

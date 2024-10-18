@@ -33,7 +33,7 @@ namespace db0::python
 
     PyObject *getCacheStats(PyObject *, PyObject *)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
         auto &cache_recycler = workspace.getCacheRecycler();
         std::size_t deferred_free_count = 0;
@@ -64,7 +64,7 @@ namespace db0::python
     
     PyObject *getLangCacheStats(PyObject *, PyObject *)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         auto lang_cache = PyToolkit::getPyWorkspace().getWorkspace().getLangCache();
         
         PyObject* dict = PyDict_New();
@@ -78,9 +78,9 @@ namespace db0::python
         return dict;
     }
     
-    PyObject *clearCache(PyObject *, PyObject *)
+    PyObject *PyAPI_clearCache(PyObject *, PyObject *)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         PyToolkit::getPyWorkspace().getWorkspace().clearCache();
         Py_RETURN_NONE;
     }
@@ -89,7 +89,9 @@ namespace db0::python
         return tryFetchFrom(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }
 
-    PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs) {
+    PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs) 
+    {
+        PY_API_FUNC
         return runSafe(tryFetch, args, nargs).steal();
     }
 
@@ -143,7 +145,7 @@ namespace db0::python
 
     PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs) 
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         return runSafe(tryOpen, self, args, kwargs);
     }
     
@@ -184,8 +186,9 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *init(PyObject *self, PyObject *args, PyObject *kwargs) {
-        std::lock_guard api_lock(py_api_mutex);
+    PyObject *init(PyObject *self, PyObject *args, PyObject *kwargs) 
+    {
+        PY_API_FUNC        
         return runSafe(tryInit, self, args, kwargs);
     }
     
@@ -203,8 +206,9 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *drop(PyObject *self, PyObject *args) {
-        std::lock_guard api_lock(py_api_mutex);
+    PyObject *drop(PyObject *self, PyObject *args) 
+    {
+        PY_API_FUNC
         return runSafe(tryDrop, self, args);
     }
     
@@ -225,8 +229,9 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *commit(PyObject *self, PyObject *args) {
-        std::lock_guard api_lock(py_api_mutex);
+    PyObject *commit(PyObject *self, PyObject *args)
+    {
+        PY_API_FUNC        
         return runSafe(tryCommit, self, args);
     }
 
@@ -247,15 +252,15 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *close(PyObject *self, PyObject *args) 
+    PyObject *PyAPI_close(PyObject *self, PyObject *args)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC        
         return runSafe(tryClose, self, args);
     }
     
     PyObject *getPrefixOf(PyObject *self, PyObject *args)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -289,7 +294,7 @@ namespace db0::python
     
     PyObject *getCurrentPrefix(PyObject *, PyObject *)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
         // name & UUID as tuple
         return Py_BuildValue("sK", fixture->getPrefix().getName().c_str(), fixture->getUUID());        
@@ -308,7 +313,9 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *del(PyObject *self, PyObject *args) {
+    PyObject *del(PyObject *self, PyObject *args) 
+    {
+        PY_API_FUNC        
         return runSafe(tryDel, self, args);
     }
     
@@ -320,7 +327,7 @@ namespace db0::python
     
     PyObject *refresh(PyObject *self, PyObject *args)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         return runSafe(tryRefresh, self, args);
     }
 
@@ -331,19 +338,21 @@ namespace db0::python
         return PyLong_FromLong(fixture->getPrefix().getStateNum());
     }
 
-    PyObject *getStateNum(PyObject *, PyObject *args, PyObject *kwargs) {
+    PyObject *getStateNum(PyObject *, PyObject *args, PyObject *kwargs) 
+    {
+        PY_API_FUNC        
         return runSafe(tryGetStateNum, args, kwargs);
     }
     
     PyObject *getPrefixStats(PyObject *self, PyObject *args, PyObject *kwargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         return runSafe(tryGetPrefixStats, args, kwargs);
     }
 
     PyObject *beginAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         if (nargs != 0) {
             PyErr_SetString(PyExc_TypeError, "beginAtomic requires no arguments");
             return NULL;
@@ -354,7 +363,7 @@ namespace db0::python
     
     PyObject *getSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         // requested state number of the default fixture
         std::optional<std::uint64_t> state_num;
         // state numbers by prefix name
@@ -410,8 +419,9 @@ namespace db0::python
         return MemoObject_DescribeObject(reinterpret_cast<MemoObject*>(py_object));
     }
     
-    PyObject *describeObject(PyObject *self, PyObject *args) {
-        std::lock_guard api_lock(py_api_mutex);
+    PyObject *describeObject(PyObject *self, PyObject *args) 
+    {
+        PY_API_FUNC        
         return runSafe(tryDescribeObject, self, args);
     }
     
@@ -436,13 +446,15 @@ namespace db0::python
         Py_RETURN_NONE;       
     }
     
-    PyObject *renameField(PyObject *, PyObject *args) {
+    PyObject *renameField(PyObject *, PyObject *args) 
+    {
+        PY_API_FUNC        
         return runSafe(tryRenameField, args);
     }
     
     PyObject *isSingleton(PyObject *, PyObject *args)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -459,7 +471,7 @@ namespace db0::python
 
     PyObject *getRefCount(PyObject *, PyObject *args)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC        
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -471,7 +483,7 @@ namespace db0::python
     
     PyObject *getTypeInfo(PyObject *self, PyObject *args)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -501,7 +513,7 @@ namespace db0::python
 
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "toDict requires exactly 1 argument");
@@ -523,16 +535,17 @@ namespace db0::python
     
     PyObject *getBuildFlags(PyObject *, PyObject *)
     {
+        PY_API_FUNC
         std::stringstream str_flags;
 #ifndef NDEBUG
         str_flags << "D";
 #endif  
         return PyUnicode_FromString(str_flags.str().c_str());
     }
-
+    
     PyObject *pySerialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "serialize requires exactly 1 argument");
             return NULL;
@@ -542,7 +555,7 @@ namespace db0::python
     
     PyObject *pyDeserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "deserialize requires exactly 1 argument");
             return NULL;
@@ -565,7 +578,7 @@ namespace db0::python
     
     PyObject *makeEnum(PyObject *self, PyObject *args, PyObject *kwargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         // extract string and list
         PyObject* py_first_arg = nullptr;
         PyObject *py_enum_values = nullptr;
@@ -629,8 +642,7 @@ namespace db0::python
     
     std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
     splitBy(PyObject *py_tag_list, ObjectIterator &iterator)
-    {
-        std::lock_guard api_lock(py_api_mutex);
+    {        
         std::vector<std::unique_ptr<QueryObserver> > query_observers;
         auto query = iterator.releaseQuery(query_observers);
         auto &tag_index = iterator.getFixture()->get<db0::object_model::TagIndex>();
@@ -668,13 +680,15 @@ namespace db0::python
         return py_iter.steal();
     }
     
-    PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) {
+    PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) 
+    {
+        PY_API_FUNC
         return runSafe(trySplitBy, args, kwargs);
     }
     
     PyObject *isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "isEnumValue requires exactly 1 argument");
             return NULL;
@@ -727,14 +741,15 @@ namespace db0::python
         return py_iter.steal();
     }
     
-    PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs) {
-        std::lock_guard api_lock(py_api_mutex);
+    PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs) 
+    {
+        PY_API_FUNC
         return runSafe(tryFilterBy, args, kwargs);
     }
     
     PyObject *setPrefix(PyObject *, PyObject *args, PyObject *kwargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         // extract object / prefix name (can be None)
         PyObject *py_object = nullptr;
         const char *prefix_name = nullptr;
@@ -751,13 +766,15 @@ namespace db0::python
         return runSafe(PyMemo_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);
     }
 
-    PyObject *getSlabMetrics(PyObject *, PyObject *) {
+    PyObject *getSlabMetrics(PyObject *, PyObject *)
+    {
+        PY_API_FUNC
         return runSafe(tryGetSlabMetrics, &PyToolkit::getPyWorkspace().getWorkspace());
     }
     
     PyObject *setCacheSize(PyObject *, PyObject *args)
-    {        
-        std::lock_guard api_lock(py_api_mutex);
+    {
+        PY_API_FUNC
         Py_ssize_t cache_size;
         if (!PyArg_ParseTuple(args, "n", &cache_size)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -769,13 +786,13 @@ namespace db0::python
     
     PyObject *getPrefixes(PyObject *, PyObject *) 
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         return runSafe(tryGetPrefixes);
     }
     
     PyObject *getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         // extract optional prefix_name or prefix_uuid
         const char *prefix_name = nullptr;
         std::uint64_t prefix_uuid = 0;
@@ -788,13 +805,15 @@ namespace db0::python
         return runSafe(tryGetMemoClasses, prefix_name, prefix_uuid);
     }
     
-    PyObject *getStorageStats(PyObject *, PyObject *args, PyObject *kwargs) {
+    PyObject *getStorageStats(PyObject *, PyObject *args, PyObject *kwargs) 
+    {
+        PY_API_FUNC
         return runSafe(tryGetStorageStats, args, kwargs);
     }
     
     PyObject *getAttributes(PyObject *self, PyObject *args)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         PyTypeObject *py_type;
         if (!PyArg_ParseTuple(args, "O", &py_type)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -811,7 +830,7 @@ namespace db0::python
     
     PyObject *getAttrAs(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        std::lock_guard api_lock(py_api_mutex);
+        PY_API_FUNC
         // memo object, attribute name, type
         if (nargs != 3) {
             PyErr_SetString(PyExc_TypeError, "getattr_as requires exactly 2 arguments");
@@ -835,23 +854,29 @@ namespace db0::python
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {
+        PY_API_FUNC
         std::pair<std::size_t, std::size_t> rl_usage = db0::ResourceLock::getTotalMemoryUsage();        
         return Py_BuildValue("KK", rl_usage.first, rl_usage.second);
     }
+#endif
     
-    PyObject *testCreateThenFree(PyObject *self, PyObject *args)
+#ifndef NDEBUG
+    PyObject *getDRAM_IOMap(PyObject *, PyObject *args, PyObject *kwargs)
     {
-        std::vector<db0::v_object<db0::o_binary> > objects;
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        for (int i = 0; i < 100; ++i) {
-            objects.emplace_back(*fixture, 1024);
+        PY_API_FUNC
+        if (hasKWArg(kwargs, "path")) {
+            const char *path = nullptr;            
+            static const char *kwlist[] = {"path", NULL};
+            if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|s", const_cast<char**>(kwlist), &path)) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+                return NULL;
+            }
+            return runSafe(tryGetDRAM_IOMapFromFile, path);
         }
-        // destroy the objects        
-        for (auto &obj: objects) {
-            obj.destroy();
-        }        
-        Py_RETURN_NONE;
-    }
+        
+        auto fixture = getPrefixFromArgs(args, kwargs, "prefix");
+        return runSafe(tryGetDRAM_IOMap, *fixture);
+    } 
 #endif
     
 }

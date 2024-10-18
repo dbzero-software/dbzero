@@ -1,6 +1,7 @@
 
 #include "Dict.hpp"
 #include <dbzero/bindings/python/PyToolkit.hpp>
+#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 #include <dbzero/object_model/value.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/object.hpp>
@@ -12,6 +13,7 @@ namespace db0::object_model
 
 {
 
+    namespace py = db0::python;
     GC0_Define(Dict)
     
     template <typename LangToolkit> o_typed_item createTypedItem(db0::swine_ptr<Fixture> &fixture,
@@ -150,17 +152,18 @@ namespace db0::object_model
     
     bool Dict::has_item(ObjectPtr obj) const
     {   
-        auto item = getItem(PyObject_Hash(obj), obj);
+        // FIXME: this API should NOT be used directly here
+        auto item = getItem(py::AnyObject_Hash(obj), obj);
         return item != nullptr;
     }
 
     Dict *Dict::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const {
         return new (at_ptr) Dict(fixture, *this);
     }
-
+    
     Dict::ObjectSharedPtr Dict::pop(ObjectPtr obj)
     {
-        auto hash = PyObject_Hash(obj);
+        auto hash = py::AnyObject_Hash(obj);
         auto iter = m_index.find(hash);
         if (iter == m_index.end()) {
             return nullptr;

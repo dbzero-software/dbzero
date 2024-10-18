@@ -11,7 +11,6 @@ namespace db0::python
         {"__enter__", &PyAtomic_enter, METH_NOARGS, "Enter DBZero atomic context"},
         {"__exit__", &PyAtomic_exit, METH_VARARGS, "Exit DBZero atomic context"},
         {"cancel", (PyCFunction)&PyAtomic_cancel, METH_NOARGS, "Cancel atomic operation"},
-        {"commit", (PyCFunction)&PyAtomic_commit, METH_NOARGS, "Commit atomic operation"},
         {NULL}
     };
     
@@ -25,7 +24,6 @@ namespace db0::python
     
     void PyAtomic_del(PyAtomic* self)
     {
-        // destroy associated DB0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
@@ -51,7 +49,7 @@ namespace db0::python
         db0::AtomicContext::makeNew(&py_object->modifyExt(), workspace_ptr);
         return py_object;
     }
-
+    
     bool PyAtomic_Check(PyObject *object) {
         return Py_TYPE(object) == &PyAtomicType;
     }
@@ -64,6 +62,7 @@ namespace db0::python
 
     PyObject *PyAtomic_exit(PyObject *self, PyObject *args)
     {
+        PY_API_FUNC
         // extract exception info from args
         PyObject *exc_type, *exc_value, *traceback;
         if (!PyArg_UnpackTuple(args, "exit", 3, 3, &exc_type, &exc_value, &traceback)) {
@@ -83,23 +82,20 @@ namespace db0::python
     }
     
     PyObject *tryPyAtomic_cancel(PyObject *self) 
-    {
+    {        
         reinterpret_cast<PyAtomic*>(self)->modifyExt().cancel();
         return Py_None;
     }
     
     PyObject *PyAtomic_cancel(PyObject *self, PyObject *) 
     {
+        PY_API_FUNC
         if (!PyAtomic_Check(self)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
 
         return runSafe(tryPyAtomic_cancel, self);
-    }
-    
-    PyObject *PyAtomic_commit(PyObject *, PyObject *) {
-        Py_RETURN_NONE;
     }
 
 }

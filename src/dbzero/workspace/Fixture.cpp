@@ -230,7 +230,7 @@ namespace db0
         
         // Clear expired instances from cache so that they're not persisted        
         m_lang_cache.clear(true);        
-        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);        
+        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
         tryCommit(lock);
         m_pre_commit = false;
         m_updated = false;        

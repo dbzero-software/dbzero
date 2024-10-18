@@ -82,7 +82,9 @@ namespace db0::python
     {
         if (m_workspace) {
             getWorkspace().close();
-            m_workspace = nullptr;
+            // NOTE: must unlock API because workspace destroy may trigger db0 object deletions
+            WITH_PY_API_UNLOCKED
+            m_workspace = nullptr;            
         }
         PyToolkit::getTypeManager().close();
         m_config = nullptr;

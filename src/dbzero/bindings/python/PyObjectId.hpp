@@ -38,8 +38,8 @@ namespace db0::python
     extern PyTypeObject ObjectIdType;
     
     // retrieve UUID of a DBZero object
-    PyObject *getUUIDInternal(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *getUUID(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_getUUID(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     bool ObjectId_Check(PyObject *obj);
     
     // Method to pickle the object

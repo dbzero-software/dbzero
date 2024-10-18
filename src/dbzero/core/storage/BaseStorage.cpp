@@ -16,4 +16,10 @@ namespace db0
     {
     }
 
+#ifndef NDEBUG
+    void BaseStorage::getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const
+    {
+    }
+#endif        
+
 }

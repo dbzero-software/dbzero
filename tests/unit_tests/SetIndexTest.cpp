@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <set>
+#include <mutex>
 #include <utils/TestBase.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/set/Set.hpp>
@@ -18,20 +19,22 @@ namespace tests
         static constexpr const char *prefix_name = "my-test-prefix_1";
         static constexpr const char *file_name = "my-test-prefix_1.db0";
 
-        virtual void SetUp() override {
+        void SetUp() override
+        {
             db0::tests::drop(file_name);
             m_workspace.open(prefix_name,  AccessType::READ_WRITE, false);
         }
 
-        virtual void TearDown() override {            
+        void TearDown() override 
+        {            
             m_workspace.close();
             db0::tests::drop(file_name);
         }
 
     protected:
-        Workspace m_workspace;
+        Workspace m_workspace;        
     };
-
+    
     TEST_F( SetIndexTest , testMorphing_example )
     {
         auto memspace = getMemspace();
@@ -47,5 +50,5 @@ namespace tests
         auto it2 = index2.beginJoin(1);
         ASSERT_TRUE((*it2).m_value == 1);
     }
-
+    
 } 

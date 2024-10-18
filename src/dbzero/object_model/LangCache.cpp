@@ -14,9 +14,13 @@ namespace db0
     {        
         assert(DEFAULT_INITIAL_SIZE > 0);
     }
-
+    
     LangCache::~LangCache()
     {
+        {
+            WITH_PY_API_UNLOCKED
+            m_cache.clear();
+        }
     }
     
     void LangCache::moveFrom(LangCache &other, const Fixture &src_fixture, std::uint64_t src_address,
@@ -48,7 +52,7 @@ namespace db0
     std::uint16_t LangCache::getFixtureId(const Fixture &fixture) const {
         return m_fixture_to_id.addUnique(&fixture);
     }
-
+    
     void LangCache::add(const db0::Fixture &fixture, std::uint64_t address, ObjectPtr obj) {
         add(getFixtureId(fixture), address, obj);
     }
@@ -126,6 +130,7 @@ namespace db0
     
     void LangCache::clear(bool expired_only)
     {
+        WITH_PY_API_UNLOCKED
         for (auto &item: m_cache) {
             if (item.second && (!expired_only || LangToolkit::getRefCount(item.second.get()) == 1)) {
                 m_uid_to_index.erase(item.first);
@@ -138,7 +143,7 @@ namespace db0
     LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, std::uint64_t address) const {
         return get(getFixtureId(fixture), address);
     }
-
+    
     LangCache::ObjectSharedPtr LangCache::get(std::uint16_t fixture_id, std::uint64_t address) const 
     {
         auto uid = makeUID(fixture_id, address);
@@ -182,7 +187,10 @@ namespace db0
                     if (LangToolkit::getRefCount(m_evict_hand->second.get()) == 1) {
                         // evict the object
                         m_uid_to_index.erase(m_evict_hand->first);
-                        *m_evict_hand = {};
+                        {
+                            WITH_PY_API_UNLOCKED
+                            *m_evict_hand = {};
+                        }
                         --m_size;
                         return m_evict_hand - m_cache.begin();
                     }
@@ -251,6 +259,7 @@ namespace db0
     
     void LangCacheView::clear(bool expired_only)
     {
+        WITH_PY_API_UNLOCKED
         // erase expired objects only
         if (expired_only) {
             auto it = m_objects.begin();
@@ -261,7 +270,7 @@ namespace db0
                     ++it;
                 }
             }
-        } else {        
+        } else {
             for (auto addr: m_objects) {
                 m_cache.erase(m_fixture_id, addr, false);
             }

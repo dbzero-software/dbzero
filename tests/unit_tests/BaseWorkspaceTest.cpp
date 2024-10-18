@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
+#include <mutex>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
@@ -19,19 +20,18 @@ namespace tests
         static constexpr const char *prefix_name = "my-test-prefix_1";
         static constexpr const char *file_name = "my-test-prefix_1.db0";
 
-        virtual void SetUp() override 
-        {
+        void SetUp() override {
             drop(file_name);
         }
 
-        virtual void TearDown() override 
-        {
+        virtual void TearDown() override
+        {            
             m_workspace.close();
             drop(file_name);
         }
 
     protected:
-        BaseWorkspace m_workspace;
+        BaseWorkspace m_workspace;        
     };
 
     TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanCreateMemspace )
@@ -48,7 +48,7 @@ namespace tests
     }
 
     TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanPersistVObjects )
-    {        
+    {                
         std::uint64_t address = 0;
         {
             auto memspace = m_workspace.getMemspace(prefix_name);
@@ -66,7 +66,7 @@ namespace tests
     }
 
     TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanStoreMultipleTransactions )
-    {        
+    {                
         std::set<std::uint64_t> addresses;
         // perform 2 transactions
         for (int i = 0; i < 2; ++i)
@@ -90,7 +90,7 @@ namespace tests
     }
     
     TEST_F( BaseWorkspaceTest , testSparseIndexCanReuseExpiredDataBlocks )
-    {
+    {        
         std::set<std::uint64_t> addresses;
         // perform 100 small transactions with disk commit of each        
         for (int i = 0; i < 100; ++i)
@@ -112,7 +112,7 @@ namespace tests
     }
     
     TEST_F( BaseWorkspaceTest , testDB0FileCanBeOpenedInReadOnlyMode )
-    {
+    {        
         std::set<std::uint64_t> addresses;
         // perform a few small transactions with disk commit of each
         for (int i = 0; i < 10; ++i)
@@ -136,7 +136,7 @@ namespace tests
     };
     
     TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanPersistVBVector )
-    {
+    {        
         std::uint64_t address = 0;
         {
             auto memspace = m_workspace.getMemspace(prefix_name);
@@ -162,7 +162,7 @@ namespace tests
     }
     
     TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanPersistDeallocation )
-    {
+    {        
         std::uint64_t address = 0;
         std::size_t alloc_size = 0;
 
@@ -177,7 +177,7 @@ namespace tests
             memspace.commit();
             m_workspace.close(prefix_name);
         }
-
+        
         // Second transaction to destroy the instance
         {
             auto memspace = m_workspace.getMemspace(prefix_name);
@@ -193,5 +193,5 @@ namespace tests
         ASSERT_ANY_THROW(memspace.getAllocator().getAllocSize(address));
         m_workspace.close(prefix_name);
     }
-
+    
 }
