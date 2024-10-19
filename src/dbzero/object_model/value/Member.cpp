@@ -147,7 +147,7 @@ namespace db0::object_model
     template <> Value createMember<TypeId::TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr)
     {
-        auto tuple = db0::python::makeDB0TupleInternal(fixture, &obj_ptr, 1);
+        auto tuple = db0::python::makeDB0Tuple(fixture, &obj_ptr, 1);
         tuple.get()->modifyExt().incRef();
         return tuple.get()->ext().getAddress();
     }

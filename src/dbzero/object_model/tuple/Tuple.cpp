@@ -62,7 +62,7 @@ namespace db0::object_model
         // unregister needs to be called before destruction of members
         unregister();
     }
-
+    
     Tuple::ObjectSharedPtr Tuple::getItem(std::size_t i) const
     {
         if (i >= getData()->size()) {

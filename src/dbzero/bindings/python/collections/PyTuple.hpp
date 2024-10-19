@@ -14,18 +14,17 @@ namespace db0::python
     TupleObject *TupleObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<TupleObject*> TupleDefaultObject_new();
     
-    void TupleObject_del(TupleObject* self);
-    Py_ssize_t TupleObject_len(TupleObject *);
+    void PyAPI_TupleObject_del(TupleObject* self);
+    Py_ssize_t PyAPI_TupleObject_len(TupleObject *);
     // python array methods methods
-    PyObject *TupleObject_count(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *TupleObject_index(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *TupleObject_GetItem(TupleObject *tuple_obj, Py_ssize_t i);
+    PyObject *PyAPI_TupleObject_count(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_TupleObject_index(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_TupleObject_GetItem(TupleObject *tuple_obj, Py_ssize_t i);
     
     extern PyTypeObject TupleObjectType;
-    
-    PyObject *makeDB0Tuple(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
-    shared_py_object<TupleObject*> makeDB0TupleInternal(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *makeTuple(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+        
+    shared_py_object<TupleObject*> makeDB0Tuple(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_makeTuple(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
     bool TupleObject_Check(PyObject *);
     

@@ -583,7 +583,7 @@ namespace db0
     void Workspace::setCacheSize(std::size_t cache_size) {
         BaseWorkspace::setCacheSize(cache_size);
     }
-
+    
     std::shared_ptr<LangCache> Workspace::getLangCache() const {
         return m_lang_cache;
     }
@@ -592,16 +592,15 @@ namespace db0
     {
         BaseWorkspace::clearCache();
         // remove expired only objects        
-        m_lang_cache->clear(true);        
+        m_lang_cache->clear(true);
     }
     
     void Workspace::onCacheFlushed(bool threshold_reached) const
     {
         BaseWorkspace::onCacheFlushed(threshold_reached);
         if (!threshold_reached) {
-            // additionally erase the entire LangCache to attempt reaching the flush objective
-            // FIXME: this would cause deadlock
-            // m_lang_cache->clear(true);
+            // additionally erase the entire LangCache to attempt reaching the flush objective            
+            m_lang_cache->clear(true);
         }
         for (auto &[uuid, fixture] : m_fixtures) {
             fixture->onCacheFlushed(threshold_reached);

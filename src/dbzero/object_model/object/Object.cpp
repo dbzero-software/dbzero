@@ -295,7 +295,7 @@ namespace db0::object_model
             */
            return false;
         }
-                
+        
         return tryGetMemberAt(field_index, member);
     }
     
@@ -397,7 +397,7 @@ namespace db0::object_model
     }
     
     void Object::dropMembers() const
-    {        
+    {
         auto fixture = this->getFixture();
         assert(fixture);
         // drop pos-vt members first
