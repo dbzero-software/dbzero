@@ -53,15 +53,23 @@ namespace db0
         // Try moving instance from a different AtomicContext
         void moveFrom(AtomicContext &, std::uint64_t src_address, std::uint64_t dst_address);
         
+        void approve();
         void cancel();
-        void exit();
-                
+        void close();
+        
         static void makeNew(void *, std::shared_ptr<Workspace> &);
+
+        static void lock();
+        static void unlock();
         
     private:
         std::shared_ptr<Workspace> m_workspace;
         std::unordered_map<std::uint64_t, ObjectSharedPtr> m_objects;
         bool m_active = true;
+        
+        // mutex / lock to prevent mutliple concurrent atomic operations
+        static std::mutex m_atomic_mutex;
+        static std::unique_lock<std::mutex> m_atomic_lock;
     };
 
 }

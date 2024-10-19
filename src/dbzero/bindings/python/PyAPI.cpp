@@ -349,18 +349,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryGetPrefixStats, args, kwargs);
     }
-
-    PyObject *beginAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
-        if (nargs != 0) {
-            PyErr_SetString(PyExc_TypeError, "beginAtomic requires no arguments");
-            return NULL;
-        }
-
-        return runSafe(tryBeginAtomic, self);
-    }
-    
+        
     PyObject *getSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC

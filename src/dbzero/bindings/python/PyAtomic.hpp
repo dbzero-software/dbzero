@@ -10,17 +10,14 @@ namespace db0::python
     
     PyAtomic *PyAtomic_new(PyTypeObject *type, PyObject *, PyObject *);
     PyAtomic *PyAtomicDefault_new();
-    void PyAtomic_del(PyAtomic *);
+    void PyAPI_PyAtomic_del(PyAtomic *);
     
     extern PyTypeObject PyAtomicType;
     
     bool PyAtomic_Check(PyObject *);
+        
+    PyObject *PyAPI_PyAtomic_cancel(PyObject *, PyObject *);
+    PyObject *PyAPI_PyAtomic_close(PyObject *, PyObject *);
+    PyObject *PyAPI_beginAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs);    
     
-    PyAtomic *tryBeginAtomic(PyObject *self);
-    
-    PyObject *PyAtomic_enter(PyObject *, PyObject *);
-    PyObject *PyAtomic_exit(PyObject *, PyObject *);
-    PyObject *PyAtomic_cancel(PyObject *, PyObject *);
-    PyObject *PyAtomic_commit(PyObject *, PyObject *);
-
 }

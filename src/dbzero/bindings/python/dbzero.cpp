@@ -19,6 +19,7 @@
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
 #include "PyClassFields.hpp"
 #include "PyClass.hpp"
+#include "PyAtomic.hpp"
 
 namespace py = db0::python;
     
@@ -51,7 +52,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"get_state_num", (PyCFunction)&py::getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
     {"get_prefix_stats", (PyCFunction)&py::getPrefixStats, METH_VARARGS | METH_KEYWORDS, "Retrieve prefix specific statistics"},
     {"snapshot", (PyCFunction)&py::getSnapshot, METH_FASTCALL, "Get snapshot of DBZero state"},
-    {"atomic", (PyCFunction)&py::beginAtomic, METH_FASTCALL, "Opens a new atomic operation's context"},
+    {"begin_atomic", (PyCFunction)&py::PyAPI_beginAtomic, METH_FASTCALL, "Opens a new atomic operation's context"},
     {"describe", &py::describeObject, METH_VARARGS, "Get snapshot of DBZero state"},
     {"rename_field", &py::renameField, METH_VARARGS, "Get snapshot of DBZero state"},
     {"is_singleton", &py::isSingleton, METH_VARARGS, "Check if a specific instance is a DBZero singleton"},

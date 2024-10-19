@@ -12,6 +12,9 @@ namespace db0
 
 {
     
+    std::mutex AtomicContext::m_atomic_mutex;
+    std::unique_lock<std::mutex> AtomicContext::m_atomic_lock(m_atomic_mutex, std::defer_lock);
+
     // MEMO_OBJECT specialization
     template <> void detachObject<TypeId::MEMO_OBJECT, PyToolkit>(PyObjectPtr obj_ptr) {
         PyToolkit::getTypeManager().extractObject(obj_ptr).detach();
@@ -87,12 +90,19 @@ namespace db0
         m_active = false;
     }
     
-    void AtomicContext::exit()
+    void AtomicContext::close()
+    {
+        if (m_active) {
+            approve();
+        }
+    }
+
+    void AtomicContext::approve()
     {
         if (!m_active) {
-            return;
+            THROWF(db0::InternalException) << "atomic 'approve' failed: operation already completed" << THROWF_END;
         }
-        
+
         // detach / flush all workspace objects
         m_workspace->detach();
         // all objects from context need to be detached
@@ -121,4 +131,15 @@ namespace db0
         }
     }
 
+    void AtomicContext::lock() {
+        m_atomic_lock.lock();
+    }
+
+    void AtomicContext::unlock() 
+    {
+        if (m_atomic_lock.owns_lock()) {
+            m_atomic_lock.unlock();
+        }
+    }
+    
 }
