@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdint>
 #include <dbzero/core/dram/DRAMSpace.hpp>
+#include "BaseStorage.hpp"
 #include "BlockIOStream.hpp"
 #include <cstring>
 #include <dbzero/core/serialization/Types.hpp>
@@ -112,9 +113,13 @@ namespace db0
         
         // get the number of random write operations performed while flushing updates
         std::size_t getRandOpsCount() const;
+        
+#ifndef NDEBUG
+        using DRAM_CheckResult = BaseStorage::DRAM_CheckResult;
 
-#ifndef NDEBUG 
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t> > &) const;
+        // Read physical data block from file and detect discrepancies        
+        void dramIOCheck(std::vector<DRAM_CheckResult> &) const;
 #endif        
 
     private:

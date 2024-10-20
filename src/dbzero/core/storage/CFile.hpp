@@ -79,7 +79,7 @@ namespace db0
         
         // Get the total number of bytes read / written
         std::pair<std::uint64_t, std::uint64_t> getIOBytes() const;
-
+        
     private:
         const std::string m_path;
         const AccessType m_access_type;
@@ -91,9 +91,10 @@ namespace db0
         // total bytes read / written
         mutable std::uint64_t m_bytes_read = 0;
         mutable std::uint64_t m_bytes_written = 0;
-        std::unique_ptr<InterProcessLock> m_lock;
+        std::unique_ptr<InterProcessLock> m_lock;        
+        mutable std::mutex m_mutex;
     };
-
+    
     std::uint64_t getLastModifiedTime(const char *file_name);
 
 }

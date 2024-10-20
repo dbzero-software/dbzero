@@ -388,6 +388,10 @@ namespace db0
     void BDevStorage::getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &io_map) const {
         m_dram_io.getDRAM_IOMap(io_map);
     }
-#endif
 
+    void BDevStorage::dramIOCheck(std::vector<DRAM_CheckResult> &check_result) const {
+        m_dram_io.dramIOCheck(check_result);
+    }
+#endif
+    
 }

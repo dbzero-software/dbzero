@@ -200,6 +200,23 @@ namespace db0
         dram_changelog_io.appendChangeLog(std::move(cl_data));
     }
     
+#ifndef NDEBUG
+    void DRAM_IOStream::dramIOCheck(std::vector<DRAM_CheckResult> &check_result) const
+    {
+        std::vector<char> raw_block;
+        auto buffer = prepareChunk(m_chunk_size, raw_block);
+        auto &header = o_dram_chunk_header::__new(buffer, 0);
+        buffer += header.sizeOf();
+                
+        for (auto &entry: m_page_map) {
+            BlockIOStream::readFromChunk(entry.second.m_address, raw_block.data(), raw_block.size());
+            if (header.m_page_num != entry.first) {
+                check_result.push_back({ entry.second.m_address, header.m_page_num, entry.first });
+            }
+        }
+    }
+#endif
+    
     DRAM_Pair DRAM_IOStream::getDRAMPair() const {
         return { m_prefix, m_allocator };
     }

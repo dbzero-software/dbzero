@@ -95,7 +95,7 @@ namespace db0
         }
         return false;
     }
-
+    
     void CFile::create(const std::string &file_name, const std::vector<char> &data, bool create_directories)
     {
         if (create_directories) {
@@ -125,9 +125,10 @@ namespace db0
             throw;
         }
     }
-
+    
     void CFile::write(std::uint64_t address, std::size_t size, const void *buffer)
-    {
+    {        
+        std::unique_lock<std::mutex> lock(m_mutex);
         assert(m_access_type != AccessType::READ_ONLY);
         if (address != m_file_pos) {
             if (fseek(m_file, address, SEEK_SET)) {
@@ -144,8 +145,9 @@ namespace db0
         m_bytes_written += size;
     }
     
-    void CFile::read(std::uint64_t address, std::size_t size, void *buffer) const 
-    {
+    void CFile::read(std::uint64_t address, std::size_t size, void *buffer) const
+    {        
+        std::unique_lock<std::mutex> lock(m_mutex);
         if (address != m_file_pos) {
             if (fseek(m_file, address, SEEK_SET)) {
                 THROWF(db0::IOException) << "CFile::read: fseek failed";

@@ -20,6 +20,10 @@ namespace db0
     void BaseStorage::getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const
     {
     }
+    
+    void BaseStorage::dramIOCheck(std::vector<DRAM_CheckResult> &) const
+    {        
+    }
 #endif        
 
 }

@@ -514,14 +514,34 @@ namespace db0::python
         }
         return py_dict;
     }
-
+    
     PyObject *tryGetDRAM_IOMap(const Fixture &fixture)
     {
         using DRAM_PageInfo = typename db0::BaseStorage::DRAM_PageInfo;
 
         std::unordered_map<std::uint64_t, DRAM_PageInfo> dram_io_map;
         fixture.getPrefix().getStorage().getDRAM_IOMap(dram_io_map);
-        return formatDRAM_IOMap(dram_io_map);
+        auto py_dict = formatDRAM_IOMap(dram_io_map);
+        std::vector<db0::BaseStorage::DRAM_CheckResult> dram_check_results;
+        fixture.getPrefix().getStorage().dramIOCheck(dram_check_results);
+        PyObject *py_check_results = PyList_New(dram_check_results.size());
+        if (!py_check_results) {
+            THROWF(db0::MemoryException) << "Out of memory";
+        }
+        for (std::size_t i = 0; i < dram_check_results.size(); ++i) {
+            PyObject *py_check_result = PyDict_New();
+            if (!py_check_result) {
+                THROWF(db0::MemoryException) << "Out of memory";
+            }
+            auto &check_result = dram_check_results[i];
+            PyDict_SetItemString(py_check_result, "addr", PyLong_FromUnsignedLongLong(check_result.m_address));
+            PyDict_SetItemString(py_check_result, "page_num", PyLong_FromUnsignedLongLong(check_result.m_page_num));
+            PyDict_SetItemString(py_check_result, "exp_page_num", PyLong_FromUnsignedLongLong(check_result.m_expected_page_num));
+            PyList_SetItem(py_check_results, i, py_check_result);
+        }
+
+        PyDict_SetItemString(py_dict, "dram_io_discrepancies", py_check_results);
+        return py_dict;
     }
     
     PyObject *tryGetDRAM_IOMapFromFile(const char *file_name)

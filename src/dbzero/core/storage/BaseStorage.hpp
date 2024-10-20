@@ -82,7 +82,16 @@ namespace db0
 #ifndef NDEBUG
         // state number, file offset
         using DRAM_PageInfo = std::pair<std::uint64_t, std::uint64_t>;
+
+        struct DRAM_CheckResult
+        {
+            std::uint64_t m_address;
+            std::uint64_t m_page_num;
+            std::uint64_t m_expected_page_num;
+        };
+        
         virtual void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const;
+        virtual void dramIOCheck(std::vector<DRAM_CheckResult> &) const;
 #endif        
     protected:
         AccessType m_access_type;

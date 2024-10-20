@@ -420,8 +420,15 @@ namespace db0
         if (m_checksums_enabled) {
             THROWF(db0::InternalException) << "BlockIOStream::writeToChunk not allowed with checksums enabled";
         }
-        // overwrite block, except the next block address
-        m_file.write(address, size, buffer);
+        // if write requested to current block then update it
+        if (address == m_address) {
+            assert(size == m_block_end - m_block_begin);
+            std::memcpy(m_block_begin, buffer, size);
+            m_modified = true;
+        } else {
+            // overwrite existing block, except the next block address
+            m_file.write(address, size, buffer);
+        }
     }
     
     void BlockIOStream::readFromChunk(std::uint64_t address, void *buffer, std::size_t size) const

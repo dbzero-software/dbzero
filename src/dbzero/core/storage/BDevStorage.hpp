@@ -99,6 +99,7 @@ namespace db0
 
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
+        void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
 #endif
 
     private:
@@ -122,9 +123,7 @@ namespace db0
         PageIO m_page_io;
         // empty flag maintained in read-only mode
         bool m_empty = false;
-        // page numbers modified in current transaction (to prevent duplicates in SparseIndex)
-        std::unordered_set<std::uint64_t> m_updated_pages;
-
+        
         static DRAM_IOStream init(DRAM_IOStream &&, ChangeLogIOStream &);
 
         static ChangeLogIOStream init(ChangeLogIOStream &&);
