@@ -10,10 +10,6 @@
 #include <type_traits>
 #include "PyToolkit.hpp"
     
-#define PY_API_FUNC db0::python::PyAPI_Lock api_lock;
-#define PY_API_UNLOCK bool py_api_unlocked = PyToolkit::tryUnlockApi();
-#define PY_API_LOCK if (py_api_unlocked) PyToolkit::lockApi();
-
 namespace db0
 
 {
@@ -25,17 +21,7 @@ namespace db0
 namespace db0::python
 
 {   
-    
-    // the scoped API lock utility
-    struct PyAPI_Lock
-    {
-        PyAPI_Lock();
-        ~PyAPI_Lock();
         
-        void lock();
-        void unlock();
-    };
-    
     using ObjectId = db0::object_model::ObjectId;
     
     /**

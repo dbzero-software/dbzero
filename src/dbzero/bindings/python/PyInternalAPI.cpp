@@ -28,23 +28,7 @@
 namespace db0::python
 
 {
-    
-    PyAPI_Lock::PyAPI_Lock() {
-        PyToolkit::lockApi();
-    }
-
-    PyAPI_Lock::~PyAPI_Lock() {
-        PyToolkit::unlockApi();
-    }
-
-    void PyAPI_Lock::lock() {
-        PyToolkit::lockApi();
-    }
-    
-    void PyAPI_Lock::unlock() {
-        PyToolkit::unlockApi();
-    }
-    
+        
     ObjectId extractObjectId(PyObject *args)
     {
         // extact ObjectId from args

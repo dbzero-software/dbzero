@@ -2,6 +2,7 @@
 
 #include <Python.h>
 #include <iostream>
+#include "PyAPI_Lock.hpp"
 
 namespace db0::python
 
@@ -27,8 +28,10 @@ namespace db0::python
             }
         }
         
-        inline ~shared_py_object() {
+        inline ~shared_py_object()
+        {
             if (m_py_object) {
+                WITH_PY_API_UNLOCKED
                 Py_DECREF(m_py_object);
             }
         }

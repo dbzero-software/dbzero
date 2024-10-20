@@ -31,18 +31,6 @@ namespace db0::python
     std::mutex PyToolkit::m_api_mutex;
     std::unique_lock<std::mutex> PyToolkit::m_api_lock(PyToolkit::m_api_mutex, std::defer_lock);
     
-    PyAPI_Unlock::PyAPI_Unlock()
-        : m_unlocked(PyToolkit::tryUnlockApi())
-    {
-    }
-
-    PyAPI_Unlock::~PyAPI_Unlock() 
-    {
-        if (m_unlocked) {
-            PyToolkit::lockApi();
-        }
-    }
-
     std::string PyToolkit::getTypeName(ObjectPtr py_object) {
         return getTypeName(Py_TYPE(py_object));
     }

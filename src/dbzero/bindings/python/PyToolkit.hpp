@@ -9,8 +9,6 @@
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <optional>
 
-#define WITH_PY_API_UNLOCKED db0::python::PyAPI_Unlock api_unlock;
-
 namespace db0
 
 {
@@ -33,17 +31,7 @@ namespace db0::object_model
 namespace db0::python 
 
 {
-    
-    // the scoped Python API unlock utility
-    class PyAPI_Unlock
-    {
-    public:
-        PyAPI_Unlock();
-        ~PyAPI_Unlock();
-    private:
-        const bool m_unlocked;
-    };
-    
+        
     /**
      * Python specialized standard language toolkit
      * all of the implemented methods and types must be exposed for each new language integration

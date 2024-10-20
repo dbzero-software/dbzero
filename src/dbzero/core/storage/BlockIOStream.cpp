@@ -422,7 +422,7 @@ namespace db0
         }
         // if write requested to current block then update it
         if (address == m_address) {
-            assert(size == m_block_end - m_block_begin);
+            assert(size == static_cast<std::size_t>(m_block_end - m_block_begin));
             std::memcpy(m_block_begin, buffer, size);
             m_modified = true;
         } else {
