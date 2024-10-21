@@ -43,7 +43,7 @@ namespace tests
         // in bytes
         static constexpr std::size_t PAGE_SIZE = 4096;
         static constexpr std::size_t SLAB_SIZE = 4 * 1024 * 1024;
-        static constexpr std::size_t SMALL_SLAB_SIZE = 16 * 4096;
+        static constexpr std::size_t SMALL_SLAB_SIZE = 32 * 4096;
 
         std::atomic<std::size_t> m_dirty_meter = 0;
         CacheRecycler m_recycler;

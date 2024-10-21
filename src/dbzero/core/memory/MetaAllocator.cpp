@@ -625,12 +625,14 @@ namespace db0
                     auto addr = slab.m_slab->tryAlloc(size, 0, aligned, false);
                     if (!addr) {
                         break;
-                    }
+                    }                    
                     if (!unique || slab.m_slab->makeAddressUnique(*addr)) {
                         // NOTE: the returned address is logical
                         return addr;
                     }
+                    
                     // unable to make the address unique, schedule for deferred free and try again
+                    // NOTE: the allocation is lost
                     deferredFree(*addr);
                 }
                 if (size > slab.m_slab->getMaxAllocSize()) {

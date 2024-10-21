@@ -31,12 +31,12 @@ namespace db0
     {
         // For aligned allocations the begin address must be also aligned
         assert(m_begin_addr % m_page_size == 0);
-        
+            
         // apply dynamic bound on the CRDT allocator to not assign addresses overlapping with the admin space
         // include ADMIN_SPAN bitspace allocations to allow margin for the admin space to grow
         // NOTE: CRDT allocator's dynamic bounds are specified as relative to the allocator's base address
         std::uint64_t bounds_base = makeRelative(m_bitspace.getBaseAddress());
-        auto admin_span_bytes = ADMIN_SPAN << m_page_shift;
+        auto admin_span_bytes = ADMIN_SPAN() << m_page_shift;
         // returns recommended & hard bound
         m_allocator.setDynamicBound([this, bounds_base, admin_span_bytes]() {
             auto hard_bound = bounds_base - (m_bitspace.span() << m_page_shift);
@@ -91,7 +91,7 @@ namespace db0
     std::size_t SlabAllocator::formatSlab(std::shared_ptr<Prefix> prefix, std::uint64_t begin_addr, std::uint32_t size, std::size_t page_size)
     {   
         auto admin_size = calculateAdminSpaceSize(page_size);
-        if (admin_size + ADMIN_SPAN * page_size >= size) {
+        if (admin_size + ADMIN_SPAN() * page_size >= size) {
             THROWF(db0::InternalException) << "Slab size too small: " << size;
         }
 
@@ -111,8 +111,9 @@ namespace db0
         AlignedBlankSetT aligned_blanks(bitspace, page_size, CompT(page_size), page_size);
         StripeSetT stripes(bitspace, page_size);
         LimitedVector<std::uint16_t> alloc_counter(bitspace, page_size);
+        alloc_counter.reserve(SLAB_BITSPACE_SIZE());        
         // calculate size initially available to CRTD allocator
-        std::uint32_t crdt_size = static_cast<std::uint32_t>(size - admin_size - ADMIN_SPAN * page_size);
+        std::uint32_t crdt_size = static_cast<std::uint32_t>(size - admin_size - ADMIN_SPAN() * page_size);
         assert(crdt_size > 0);
         
         // register the initial blank - associated with the relative address = 0
@@ -141,34 +142,36 @@ namespace db0
     
     const std::size_t SlabAllocator::getAdminSpaceSize(bool include_margin) const
     {        
-        auto result = m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + m_bitspace.span() * m_page_size;
+        auto result = m_begin_addr + m_slab_size - m_bitspace.getBaseAddress() + m_bitspace.span() * m_page_size;        
         // add +ADMIN_SPAN bitspace allocations to allow growth of the CRDT collections
         if (include_margin) {
-            result += ADMIN_SPAN * m_page_size;
+            result += ADMIN_SPAN() * m_page_size;
         }
         return result;
     }
-
+    
     std::size_t SlabAllocator::calculateAdminSpaceSize(std::size_t page_size)
     {
         auto result = BitSpace<SLAB_BITSPACE_SIZE()>::sizeOf() + o_slab_header::sizeOf();
         // round to full page size
         result = (result + page_size - 1) / page_size * page_size;
         // add ADMIN_SPAN pages for CRDT types
-        result += page_size * ADMIN_SPAN;
+        result += page_size * ADMIN_SPAN();
+        // include limited vector's reserved capacity
+        result += LimitedVectorT::DP_REQ(SLAB_BITSPACE_SIZE(), page_size) * page_size;
         return result;
     }
-
+    
     std::size_t SlabAllocator::getMaxAllocSize() const {
-        return m_slab_size - calculateAdminSpaceSize(m_page_size) - ADMIN_SPAN * m_page_size;
+        return m_slab_size - calculateAdminSpaceSize(m_page_size) - ADMIN_SPAN() * m_page_size;
     }
     
-    std::size_t SlabAllocator::getRemainingCapacity() const 
+    std::size_t SlabAllocator::getRemainingCapacity() const
     {
         if (!m_initial_remaining_capacity) {
             THROWF(db0::InternalException) << "SlabAllocator::getRemainingCapacity() called on a slab without initial capacity";
         } 
-        std::int64_t result = *m_initial_remaining_capacity - m_allocator.getAllocDelta() - (getAdminSpaceSize(true) - m_initial_admin_size);
+        std::int64_t result = *m_initial_remaining_capacity - m_allocator.getAllocDelta() - (getAdminSpaceSize(true) - m_initial_admin_size);            
         return result > 0 ? result : 0;
     }
     
@@ -219,7 +222,7 @@ namespace db0
         m_alloc_counter.detach();
         m_allocator.detach();
     }
-
+    
     bool SlabAllocator::makeAddressUnique(std::uint64_t &address)
     {
         // make sure high 14 bits are 0
@@ -234,7 +237,7 @@ namespace db0
         }
         assert(instance_id > 0);
         assert((instance_id >> 14) == 0);
-
+        
         address |= static_cast<std::uint64_t>(instance_id) << 50;
         return true;
     }

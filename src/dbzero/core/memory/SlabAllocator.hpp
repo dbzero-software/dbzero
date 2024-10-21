@@ -43,6 +43,7 @@ namespace db0
     
     static constexpr unsigned int SLAB_BITSPACE_SIZE() {
         // typical configuration, sufficient for a 64MB slab
+        // FIXME: page_size hardcoded
         return 64 * 1024 * 1024 / 4096;
     }
 
@@ -139,21 +140,25 @@ namespace db0
         inline std::uint32_t makeRelative(std::uint64_t absolute) const {
             return absolute - m_begin_addr;
         }
-
-        // Try adjusting the address to make it unique
+        
+        // Try adjusting the address to make it unique        
         // @return false if SlabAllocator was unable to make the address unique (counter overflow)
         bool makeAddressUnique(std::uint64_t &address);
         
     private:
-        // the number of administrative area pages
-        // we determined this number to reflect the number of underlying collections
-        // and based on the assumption that each of them needs at least 1 page for expansion
-        static constexpr std::uint32_t ADMIN_SPAN = 5;
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
         using BlankSetT = db0::CRDT_Allocator::BlankSetT;
         using AlignedBlankSetT = db0::CRDT_Allocator::AlignedBlankSetT;
         using StripeSetT = db0::CRDT_Allocator::StripeSetT;
         using CompT = typename AlignedBlankSetT::CompT;
+        using LimitedVectorT = LimitedVector<std::uint16_t>;
+        
+        // the number of administrative area pages
+        // we determined this number to reflect the number of underlying extensible collections
+        // and based on the assumption that each of them needs at least 1 page for expansion
+        static constexpr std::uint32_t ADMIN_SPAN() {            
+            return 5;
+        }
         
         std::shared_ptr<Prefix> m_prefix;
         const std::uint64_t m_begin_addr;
@@ -168,7 +173,7 @@ namespace db0
         AlignedBlankSetT m_aligned_blanks;
         StripeSetT m_stripes;
         // a dedicated storage for page-level instance ID counters
-        LimitedVector<std::uint16_t> m_alloc_counter;
+        LimitedVectorT m_alloc_counter;
         CRDT_Allocator m_allocator;
         const std::optional<std::size_t> m_initial_remaining_capacity;
         std::size_t m_initial_admin_size;

@@ -48,7 +48,7 @@ namespace tests
             ASSERT_EQ(cut.get(pos), pos);
         }
     }
-
+    
     TEST_F( LimitedVectorTests , testLimitedVectorCanAtomicIncrement )
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");        
@@ -59,6 +59,40 @@ namespace tests
             std::uint16_t value = 0;
             cut.atomicInc(index[i], value);
             ASSERT_EQ(value, expected[i]);
+        }
+    }
+
+    TEST_F( LimitedVectorTests , testLimitedVectorPersistenceAfterDetach )
+    {
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");        
+        LimitedVector<std::uint16_t> cut(memspace, memspace.getPageSize());
+        std::vector<std::uint32_t> index { 16 * 1024 + 3, 18, 16 * 1024 + 3, 16, 5 * 1024 +17 };
+        for (std::size_t i = 0; i < index.size(); ++i) {
+            std::uint16_t value = 0;
+            cut.atomicInc(index[i], value);            
+        }
+
+        cut.detach();
+        // continue after detach
+        std::vector<std::uint32_t> expected { 3, 2, 4, 2, 2 };
+        for (std::size_t i = 0; i < index.size(); ++i) {
+            std::uint16_t value = 0;
+            cut.atomicInc(index[i], value);
+            ASSERT_EQ(value, expected[i]);
+        }
+    }
+    
+    TEST_F( LimitedVectorTests , testLimitedVectorDataSizeCalculation )
+    {
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");        
+        LimitedVector<std::uint16_t> cut(memspace, memspace.getPageSize());
+        auto page_size = memspace.getPageSize();
+        std::vector<std::uint32_t> index { 16 * 1024 + 3, 18, 16 * 1024 + 3, 16, 5 * 1024 +17 };
+        std::vector<std::uint32_t> expected_size { 2 * page_size, 3 * page_size, 3 * page_size, 3 * page_size, 4 * page_size };
+        for (std::size_t i = 0; i < index.size(); ++i) {
+            std::uint16_t value = 0;
+            cut.atomicInc(index[i], value);
+            assert(cut.getDataSize() == expected_size[i]);
         }
     }
 

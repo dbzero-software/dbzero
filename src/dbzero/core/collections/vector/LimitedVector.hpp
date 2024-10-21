@@ -13,7 +13,8 @@ namespace db0
      * - performs full-page allocations only
      * - stores only a single indexing block (one data page) with references to data blocks
      * - can store a limited number of elements
-     * - size of the structure is only knonw up to a whole block     
+     * - size of the structure is only knonw up to a whole block
+     * - first element in the root block stores the total number of allocated blocks
      * 
      * The main use case of the LimitedVector in dbzero is holding instance IDs on a per slab basis
      */
@@ -36,6 +37,17 @@ namespace db0
 
         void commit() const;
 
+        // reserve space for a given number of elements
+        void reserve(std::size_t size);
+
+        // Get total storage space occupied by the structure
+        std::size_t getDataSize() const;
+        
+        // calculate the number of required data pages to hold specific capacity (i.e. elements)
+        static constexpr std::uint32_t DP_REQ(std::size_t capacity, std::size_t page_size) {
+            return (capacity * sizeof(ValueT) - 1) / page_size + 2;
+        }
+        
     private:
         Memspace &m_memspace;
         const std::size_t m_page_size;
@@ -57,7 +69,7 @@ namespace db0
         // retrieve existing or create new block
         db0::v_object<o_unbound_array<ValueT> > &getBlock(std::uint32_t block_num);
     };
-
+    
     template <typename ValueT> LimitedVector<ValueT>::LimitedVector(Memspace &memspace, std::size_t page_size, ValueT value_limit)
         : m_memspace(memspace)
         , m_page_size(page_size)
@@ -113,7 +125,7 @@ namespace db0
         assert(block_num < getMaxBlockCount());
         // return from cache if block is already loaded
         if (block_num >= m_cache.size() || !m_cache[block_num]) {
-            auto block_addr = m_root->get(block_num);
+            auto block_addr = m_root->get(block_num + 1);
             if (!block_addr) {
                 THROWF(db0::InternalException) << "LimitedVector: block " << block_num << " not allocated";
             }
@@ -136,10 +148,16 @@ namespace db0
                 m_cache.resize(block_num + 1);
             }
             // data block is expected to occupy a full page
-            assert(o_unbound_array<ValueT>::measure(getBlockSize()) == m_page_size);
-            // allocate new data block
-            m_cache[block_num] = db0::v_object<o_unbound_array<ValueT> >(m_memspace, getBlockSize(), ValueT());
-            m_root.modify()[block_num] = m_cache[block_num].getAddress();
+            assert(o_unbound_array<ValueT>::measure(getBlockSize()) == m_page_size);            
+            // allocate new data block or pull existing
+            auto block_addr = m_root->get(block_num + 1);
+            if (block_addr) {
+                m_cache[block_num] = db0::v_object<o_unbound_array<ValueT> >(m_memspace.myPtr(block_addr));
+            } else {                
+                m_cache[block_num] = db0::v_object<o_unbound_array<ValueT> >(m_memspace, getBlockSize(), ValueT());
+                m_root.modify()[block_num + 1] = m_cache[block_num].getAddress();
+                ++m_root.modify()[0];
+            }
         }
         return m_cache[block_num];
     }
@@ -168,7 +186,7 @@ namespace db0
     
     template <typename ValueT> bool LimitedVector<ValueT>::atomicInc(std::size_t index, ValueT &value)
     {
-        auto [block_num, block_pos] = getBlockPosition(index);    
+        auto [block_num, block_pos] = getBlockPosition(index);
         auto &block = getBlock(block_num);
         if (block->get(block_pos) == m_value_limit) {
             // unable to increment, limit reached
@@ -178,4 +196,23 @@ namespace db0
         return true;
     }
 
+    template <typename ValueT> void LimitedVector<ValueT>::reserve(std::size_t size)
+    {
+        auto [block_num, block_pos] = getBlockPosition(size);
+        // create missing blocks from the range
+        // blocks are not added to cache
+        for (std::size_t i = 0; i <= block_num; ++i) {
+            if (!m_root->get(block_num + 1)) {
+                auto new_block = db0::v_object<o_unbound_array<ValueT> >(m_memspace, getBlockSize(), ValueT());
+                m_root.modify()[block_num] = new_block.getAddress();
+                ++m_root.modify()[0];
+            }
+        }
+    }
+    
+    template <typename ValueT> std::size_t LimitedVector<ValueT>::getDataSize() const {
+        // root block + data blocks
+        return ((*m_root.getData())[0] + 1) * m_page_size;
+    }
+    
 }

@@ -146,8 +146,8 @@ namespace tests
     
     TEST_F( SlabAllocatorTests , testSlabAllocatorCanFillAvailableCapacity )
     {
-        // 64kb slab
-        auto size_ = 16 * 4096;
+        // 128kb slab
+        auto size_ = 128 * 1024;
         auto init_capacity = db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), 0, size_, page_size);        
         db0::SlabAllocator cut(m_memspace.getPrefixPtr(), 0, size_, page_size, init_capacity);
                 
@@ -207,7 +207,7 @@ namespace tests
         std::cout << "Total bytes: " << total_bytes << std::endl;
         std::cout << "MB / sec : " << (total_bytes / 1024.0 / 1024.0) * 1000.0 / elapsed.count() << std::endl;
     }
-
+    
     TEST_F( SlabAllocatorTests , testSlabAllocatorCanMakeAddressUnique )
     {        
         auto size_ = 64 * 1024 * 1024;
