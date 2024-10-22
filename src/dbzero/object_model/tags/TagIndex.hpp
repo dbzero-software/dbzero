@@ -97,8 +97,7 @@ namespace db0::object_model
     private:
         using TypeId = db0::bindings::TypeId;
         using ActiveValueT = typename db0::FT_BaseIndex<ShortTagT>::ActiveValueT;
-
-        const ClassFactory &m_class_factory;
+                
         RC_LimitedStringPool &m_string_pool;
         db0::FT_BaseIndex<ShortTagT> m_base_index_short;
         db0::FT_BaseIndex<LongTagT> m_base_index_long;

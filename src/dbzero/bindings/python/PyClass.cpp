@@ -1,6 +1,7 @@
 #include "PyClass.hpp"
 #include "PyInternalAPI.hpp"
 #include "PyReflectionAPI.hpp"
+#include <dbzero/object_model/class/ClassFactory.hpp>
 
 namespace db0::python
 
@@ -26,15 +27,19 @@ namespace db0::python
     PyObject *PyClass_has_type(PyObject *self, PyObject *)
     {
         PY_API_FUNC
-        auto lang_class = reinterpret_cast<ClassObject*>(self)->ext().tryGetLangClass();
-        return lang_class ? Py_True : Py_False;
+        auto fixture = reinterpret_cast<ClassObject*>(self)->ext().getFixture();
+        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+        return class_factory.hasLangType(reinterpret_cast<ClassObject*>(self)->ext()) ? Py_True : Py_False;
     }
     
-    PyTypeObject *tryPyClassType(PyObject *self) {
-        return reinterpret_cast<ClassObject*>(self)->ext().getLangClass().steal();
+    PyTypeObject *tryPyClassType(PyObject *self) 
+    {
+        auto fixture = reinterpret_cast<ClassObject*>(self)->ext().getFixture();
+        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+        return class_factory.getLangType(reinterpret_cast<ClassObject*>(self)->ext()).steal();        
     }
     
-    PyObject *PyClass_type(PyObject *self, PyObject *) 
+    PyObject *PyClass_type(PyObject *self, PyObject *)
     {
         PY_API_FUNC
         return reinterpret_cast<PyObject*>(runSafe(tryPyClassType, self));
@@ -89,13 +94,13 @@ namespace db0::python
         .tp_free = PyObject_Free,
     };
     
-    ClassObject *makeClass(std::shared_ptr<const db0::object_model::Class> class_ptr)
+    ClassObject *makeClass(std::shared_ptr<db0::object_model::Class> class_ptr)
     {
         auto class_obj = ClassDefaultObject_new();
-        class_obj.get()->makeNew(class_ptr);
+        class_obj.get()->makeNew(std::dynamic_pointer_cast<const db0::object_model::Class>(class_ptr));
         return class_obj.steal();
     }
-
+    
     bool PyClassObject_Check(PyObject *self) {
         return Py_TYPE(self) == &ClassObjectType;
     }

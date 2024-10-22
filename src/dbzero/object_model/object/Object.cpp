@@ -25,21 +25,7 @@ namespace db0::object_model
         }
         return static_cast<std::uint32_t>(address);
     }
-    
-    std::shared_ptr<Class> getCachedClass(std::uint32_t class_ref, const ClassFactory &class_factory)
-    {
-        // unload class object from class factory  
-        auto class_ptr = db0::db0_ptr_reinterpret_cast<Class>()(class_ref);
-        // retrieve class object from cache
-        return class_factory[class_ptr];        
-    }
-    
-    std::shared_ptr<const Class> getConstClass(std::uint32_t class_ref, const ClassFactory &class_factory)
-    {
-        auto class_ptr = db0::db0_ptr_reinterpret_cast<Class>()(class_ref);
-        return class_factory.getConstTypeByPtr(class_ptr);
-    }
-    
+
     o_object::o_object(std::uint32_t class_ref, std::uint32_t ref_count, const PosVT::Data &pos_vt_data,
         const XValue *index_vt_begin, const XValue *index_vt_end)
         : m_header(ref_count)
@@ -261,7 +247,7 @@ namespace db0::object_model
     }
     
     bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
-    {
+    {        
         /* FIXME:
         if (strcmp(field_name, "__cache__") == 0) {
             if (!initialized()) {
@@ -295,7 +281,7 @@ namespace db0::object_model
             */
            return false;
         }
-        
+                
         return tryGetMemberAt(field_index, member);
     }
     
@@ -335,7 +321,7 @@ namespace db0::object_model
     }
     
     bool Object::tryGetMemberAt(unsigned int index, std::pair<StorageClass, Value> &result) const
-    {        
+    {
         if (!hasInstance()) {
             // try retrieving from initializer
             return m_init_manager.getInitializer(*this).tryGetAt(index, result);
@@ -596,9 +582,10 @@ namespace db0::object_model
         throw std::runtime_error("Not implemented");
     }
     
-    void Object::setFixture(db0::swine_ptr<Fixture> &fixture)
+    void Object::setFixture(db0::swine_ptr<Fixture> &other_fixture)
     {        
-        if (*getFixture() == *fixture) {
+        auto fixture = this->getFixture();
+        if (*fixture == *other_fixture) {
             // already in the same fixture
             return;
         }
@@ -609,8 +596,10 @@ namespace db0::object_model
             THROWF(db0::InputException) << "set_prefix failed: object must not define any members";
         }
         
+        // migrate type to other factory
         auto &class_factory = fixture->get<ClassFactory>();
-        auto new_type = class_factory.getOrCreateType(this->getType().getLangClass().get());
+        auto &other_factory = other_fixture->get<ClassFactory>();
+        auto new_type = other_factory.getOrCreateType(class_factory.getLangType(this->getType()).get());
         if (new_type->isExistingSingleton()) {
             // cannot initialize existing singleton, signal problem with PyErr_BadPrefix
             LangToolkit::setError(LangToolkit::getTypeManager().getBadPrefixError(), fixture->getUUID());
@@ -645,11 +634,11 @@ namespace db0::object_model
     void Object::unrefMember(db0::swine_ptr<Fixture> &fixture, XValue value) const {
         db0::object_model::unrefMember<LangToolkit>(fixture, value.m_type, value.m_value);
     }
-
-    std::shared_ptr<const Class> Object::unloadType() const
+    
+    std::shared_ptr<Class> Object::unloadType() const
     {
         auto fixture = this->getFixture();
-        return db0::object_model::getConstClass((*this)->m_class_ref, fixture->get<ClassFactory>());
+        return fixture->get<ClassFactory>().getTypeByClassRef((*this)->m_class_ref).m_class;
     }
-
+    
 }

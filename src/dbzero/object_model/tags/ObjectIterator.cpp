@@ -29,7 +29,7 @@ namespace db0::object_model
     }
 
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator,
-        std::vector<std::unique_ptr<QueryObserver> > &&query_observers, 
+        TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
@@ -37,11 +37,12 @@ namespace db0::object_model
         , m_iterator_ptr(m_query_iterator.get())        
         , m_decoration(std::move(query_observers))
         , m_filters(filters)
+        , m_lang_type(lang_type)
     {
     }
 
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator,
-        std::vector<std::unique_ptr<QueryObserver> > &&query_observers, 
+        TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers, 
         const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
@@ -49,24 +50,26 @@ namespace db0::object_model
         , m_iterator_ptr(m_sorted_iterator.get())
         , m_decoration(std::move(query_observers))
         , m_filters(filters)
+        , m_lang_type(lang_type)
     {
     }
 
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::shared_ptr<IteratorFactory> factory,
-        std::vector<std::unique_ptr<QueryObserver> > &&query_observers, 
+        TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
         , m_class_factory(fixture->get<ClassFactory>())
         , m_factory(factory)
         , m_decoration(std::move(query_observers))
         , m_filters(filters)
+        , m_lang_type(lang_type)
     {
     }
-
+    
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, const ClassFactory &class_factory,
         std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator, 
         std::shared_ptr<IteratorFactory> factory, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
-        std::vector<FilterFunc> &&filters)
+        std::vector<FilterFunc> &&filters,  TypeObjectPtr lang_type)
         : m_fixture(fixture)
         , m_class_factory(class_factory)
         , m_query_iterator(std::move(ft_query_iterator))
@@ -74,6 +77,7 @@ namespace db0::object_model
         , m_factory(factory)
         , m_decoration(std::move(query_observers))
         , m_filters(std::move(filters))
+        , m_lang_type(lang_type)
     {
     }
     
@@ -117,7 +121,7 @@ namespace db0::object_model
     }
     
     ObjectIterator::ObjectSharedPtr ObjectIterator::unload(std::uint64_t address) const {
-        return LangToolkit::unloadObject(m_fixture, address, m_class_factory);
+        return LangToolkit::unloadObject(m_fixture, address, m_class_factory, m_lang_type.get());
     }
     
     bool ObjectIterator::isNull() const {
@@ -287,7 +291,11 @@ namespace db0::object_model
             std::unique_ptr<QueryIterator>(static_cast<QueryIterator*>(m_query_iterator->begin().release())) : nullptr;
         std::unique_ptr<SortedIterator> sorted_iterator = m_sorted_iterator ? m_sorted_iterator->beginSorted() : nullptr;
         return std::unique_ptr<ObjectIterator>(new ObjectIterator(m_fixture, m_class_factory, std::move(query_iterator), 
-            std::move(sorted_iterator), m_factory, {}, std::move(new_filters)));
+            std::move(sorted_iterator), m_factory, {}, std::move(new_filters), m_lang_type.get()));
     }
-
+    
+    ObjectIterator::TypeObjectPtr ObjectIterator::getLangType() const {
+        return m_lang_type.get();
+    }
+    
 }

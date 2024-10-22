@@ -41,12 +41,8 @@ namespace db0::python
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // collect class info as tuples
         PyObject *py_list = PyList_New(0);
-        class_factory.forAll([&](std::shared_ptr<const db0::object_model::Class> type) {
-            // do not report MemoBase type
-            if (type->isMemoBase()) {
-                return;
-            }            
-            PyList_Append(py_list, tryGetTypeInfo(*type));
+        class_factory.forAll([&](const db0::object_model::Class &type) {
+            PyList_Append(py_list, tryGetTypeInfo(type));
         });
         return py_list;
     }

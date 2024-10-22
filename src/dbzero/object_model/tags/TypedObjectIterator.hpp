@@ -11,12 +11,12 @@ namespace db0::object_model
     using Object = db0::object_model::Object;
 
     /**
-     * ObjectIterator for a well-known type objects
+     * ObjectIterator for a well-known type objects     
     */
     class TypedObjectIterator: public ObjectIterator
     {
     public:
-        using LangToolkit = Object::LangToolkit;        
+        using LangToolkit = Object::LangToolkit;
         using TypeObjectPtr = LangToolkit::TypeObjectPtr;
         using TypeObjectSharedPtr = LangToolkit::TypeObjectSharedPtr;
         
@@ -53,10 +53,9 @@ namespace db0::object_model
             std::vector<std::unique_ptr<QueryObserver> > &&, std::vector<FilterFunc> &&filters);
 
         ObjectSharedPtr unload(std::uint64_t address) const override;
-
+        
     private:
-        std::shared_ptr<Class> m_type;
-        TypeObjectSharedPtr m_lang_type;
+        std::shared_ptr<Class> m_type;        
     };
 
 }

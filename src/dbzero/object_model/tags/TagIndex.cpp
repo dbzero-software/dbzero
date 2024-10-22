@@ -122,8 +122,7 @@ namespace db0::object_model
     };
 
     TagIndex::TagIndex(Memspace &memspace, const ClassFactory &class_factory, RC_LimitedStringPool &string_pool, VObjectCache &cache)
-        : db0::v_object<o_tag_index>(memspace)
-        , m_class_factory(class_factory)
+        : db0::v_object<o_tag_index>(memspace)        
         , m_string_pool(string_pool)
         , m_base_index_short(memspace, cache)
         , m_base_index_long(memspace, cache)
@@ -133,8 +132,7 @@ namespace db0::object_model
     }
     
     TagIndex::TagIndex(mptr ptr, const ClassFactory &class_factory, RC_LimitedStringPool &string_pool, VObjectCache &cache)
-        : db0::v_object<o_tag_index>(ptr)
-        , m_class_factory(class_factory)
+        : db0::v_object<o_tag_index>(ptr)        
         , m_string_pool(string_pool)
         , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
         , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)
@@ -781,23 +779,22 @@ namespace db0::object_model
         }
         
         auto fixture = workspace.getFixture(fixture_uuid);
+        auto &class_factory = fixture->get<ClassFactory>();
         no_result = false;
         lang_type = nullptr;
         auto &type_manager = LangToolkit::getTypeManager();
         // locate and process type objects first 
         std::size_t args_offset = 0;
+        bool is_memo_base = false;
         while (args_offset < nargs) {
             // Python Memo type
             if (LangToolkit::isType(args[args_offset])) {
                 lang_type = type_manager.getTypeObject(args[args_offset++]);
                 if (LangToolkit::isMemoType(lang_type)) {
-                    if (type_manager.isMemoBase(lang_type)) {
-                        // MemoBase type must be available in each prefix
-                        type = fixture->get<ClassFactory>().getExistingType(lang_type);
-                        // continue with type find specialization
-                        continue;
-                    } else {
-                        type = fixture->get<ClassFactory>().tryGetExistingType(lang_type);
+                    // MemoBase type does not correspond to any find criteria
+                    // but we may use its corresponding lang type
+                    if (!type_manager.isMemoBase(lang_type)) {
+                        type = class_factory.tryGetExistingType(lang_type);
                         if (!type) {
                             // indicate non-existing type
                             lang_type = nullptr;
@@ -808,16 +805,20 @@ namespace db0::object_model
             } else if (LangToolkit::isClassObject(args[args_offset])) {
                 // extract type from the Class object provided as argument
                 auto const_type = type_manager.extractConstClass(args[args_offset++]);
+                if (*const_type->getFixture() != *fixture) {
+                    THROWF(db0::InputException) << "Inconsistent prefixes in find query";
+                }
                 // can override MemoBase but not other types
-                if (type && !type->isMemoBase()) {
+                if (type && !is_memo_base) {
                     THROWF(db0::InputException) << "Multiple type objects not allowed in the find query" << THROWF_END;
                 }
                 // NOTE: we only override lang class if its present
-                auto existing_lang_type = const_type->tryGetLangClass();
-                if (existing_lang_type) {
-                    lang_type = existing_lang_type.get();
+                if (class_factory.hasLangType(*const_type)) {
+                    lang_type = class_factory.getLangType(*const_type).get();
                 }
                 type = std::const_pointer_cast<Class>(const_type);
+                // NOTE: no Class object associated with MemoBase, it's safe to assume false
+                is_memo_base = false;
             }
             break;
         }

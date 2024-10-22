@@ -53,7 +53,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"get_prefix_stats", (PyCFunction)&py::getPrefixStats, METH_VARARGS | METH_KEYWORDS, "Retrieve prefix specific statistics"},
     {"snapshot", (PyCFunction)&py::getSnapshot, METH_FASTCALL, "Get snapshot of DBZero state"},
     {"begin_atomic", (PyCFunction)&py::PyAPI_beginAtomic, METH_FASTCALL, "Opens a new atomic operation's context"},
-    {"describe", &py::describeObject, METH_VARARGS, "Get snapshot of DBZero state"},
+    {"describe", &py::describeObject, METH_VARARGS, "Get DBZero object's description"},
     {"rename_field", &py::renameField, METH_VARARGS, "Get snapshot of DBZero state"},
     {"is_singleton", &py::isSingleton, METH_VARARGS, "Check if a specific instance is a DBZero singleton"},
     {"getrefcount", &py::getRefCount, METH_VARARGS, "Get DBZero ref counts"},
@@ -78,6 +78,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"get_raw_memo_classes", (PyCFunction)&py::getMemoClasses, METH_VARARGS | METH_KEYWORDS, "Get the list of memo classes from a specific prefix"},
     {"get_attributes", (PyCFunction)&py::getAttributes, METH_VARARGS, "Get attributes of a memo type"},
     {"getattr_as", (PyCFunction)&py::getAttrAs, METH_FASTCALL, "Get memo member cast to a user defined type - e.g. MemoBase"},
+    {"get_address", (PyCFunction)&py::PyAPI_getAddress, METH_FASTCALL, "Get DBZero object's address"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

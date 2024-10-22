@@ -20,8 +20,8 @@ namespace db0::python
     PyObject *PyClass_type_info(PyObject *, PyObject *);
 
     extern PyTypeObject ClassObjectType;
-
-    ClassObject *makeClass(std::shared_ptr<const db0::object_model::Class>);
+    
+    ClassObject *makeClass(std::shared_ptr<db0::object_model::Class>);
     bool PyClassObject_Check(PyObject *);
     
     PyObject *tryGetAttributes(PyObject *);

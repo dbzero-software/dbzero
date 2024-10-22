@@ -101,17 +101,24 @@ namespace db0::python
         }
         
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
-            auto &class_factory = fixture->get<ClassFactory>();         
-            auto result = PyToolkit::unloadObject(fixture, addr, class_factory);
+            auto &class_factory = fixture->get<ClassFactory>();
             // validate type if requested
             if (py_expected_type) {
-                auto expected_type = class_factory.getExistingType(py_expected_type);
-                if (reinterpret_cast<MemoObject*>(result.get())->ext().getType() != *expected_type) {
+                // unload as MemoBase
+                if (PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
+                    return PyToolkit::unloadObject(fixture, addr, class_factory, py_expected_type);
+                }
+
+                // in other cases the type must match the actual object type
+                auto expected_class = class_factory.getExistingType(py_expected_type);
+                auto result = PyToolkit::unloadObject(fixture, addr, class_factory);
+                if (reinterpret_cast<MemoObject*>(result.get())->ext().getType() != *expected_class) {
                     THROWF(db0::InputException) << "Object type mismatch";
                 }
+                return result;
+            } else {
+                return PyToolkit::unloadObject(fixture, addr, class_factory);
             }
-
-            return result;
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             // unload by logical address
             return PyToolkit::unloadList(fixture, addr);
@@ -120,11 +127,11 @@ namespace db0::python
             return PyToolkit::unloadIndex(fixture, addr);
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = fixture->get<ClassFactory>();            
-            auto class_ptr = class_factory.getConstTypeByPtr(db0_ptr_reinterpret_cast<Class>()(addr));
+            auto class_ptr = class_factory.getTypeByClassRef(addr).m_class;
             // return as a DBZero class instance
             return makeClass(class_ptr);
         }
-                
+        
         THROWF(db0::InputException) << "Invalid object ID" << THROWF_END;
     }
     
@@ -236,15 +243,13 @@ namespace db0::python
         using Class = db0::object_model::Class;        
         
         std::vector<PyObject*> find_args;
-        bool no_result = false;        
+        bool no_result = false;
         std::shared_ptr<Class> type;
-        PyTypeObject *lang_type = nullptr;        
+        PyTypeObject *lang_type = nullptr;
         auto fixture = db0::object_model::getFindParams(snapshot, args, nargs, find_args, type, lang_type, no_result);
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
-        // NOTE: filtering disabled for MemoBase type
-        auto query_iterator = tag_index.find(find_args.data(), find_args.size(), (type && !type->isMemoBase()) ? type : nullptr,
-            query_observers, no_result);
+        auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);
         auto iter_obj = PyObjectIteratorDefault_new();
         if (type) {
             // construct as typed iterator when a type was specified
@@ -252,13 +257,13 @@ namespace db0::python
                 lang_type, std::move(query_observers));
             Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(typed_iter));
         } else {
-            auto _iter = std::make_unique<ObjectIterator>(fixture, std::move(query_iterator), 
+            auto _iter = std::make_unique<ObjectIterator>(fixture, std::move(query_iterator), lang_type,
                 std::move(query_observers));
             Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(_iter));
         }
         return iter_obj.steal();
     }
-
+    
     PyObject *trySerialize(PyObject *py_serializable)
     {
         using TypeId = db0::bindings::TypeId;
@@ -538,9 +543,20 @@ namespace db0::python
         return formatDRAM_IOMap(dram_io_map);
     }    
 #endif
-    
+
     bool hasKWArg(PyObject *kwargs, const char *name) {
         return kwargs && PyDict_Contains(kwargs, PyUnicode_FromString(name));
     }
     
+    PyObject *tryGetAddress(PyObject *py_obj)
+    {
+        if (PyMemo_Check(py_obj)) {
+            return PyLong_FromUnsignedLongLong(reinterpret_cast<MemoObject*>(py_obj)->ext().getAddress());
+        }
+        
+        // FIXME: implement for other dbzero types
+        THROWF(db0::InputException) << "Unable to retrieve address for type: "
+            << Py_TYPE(py_obj)->tp_name << THROWF_END;
+    }
+
 }

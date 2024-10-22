@@ -45,10 +45,9 @@ namespace db0::object_model
     }
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
-        TypeObjectPtr lang_type_ptr, const char *type_id, const char *prefix_name, ClassFlags flags)
+        const char *type_id, const char *prefix_name, ClassFlags flags)
         : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, prefix_name, flags)
-        , m_members(myPtr((*this)->m_members_ptr.getAddress()))
-        , m_lang_type_ptr(lang_type_ptr)
+        , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
         , m_uid(this->fetchUID())
     {
     }
@@ -61,13 +60,7 @@ namespace db0::object_model
         // fetch all members into cache
         refreshMemberCache();
     }
-    
-    Class::Class(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, TypeObjectPtr lang_type_ptr)
-        : Class(fixture, address)            
-    {
-        m_lang_type_ptr = lang_type_ptr;
-    }
-    
+        
     Class::~Class()
     {
         // unregister needs to be called before the destruction of members
@@ -145,7 +138,7 @@ namespace db0::object_model
         auto fixture = getFixture();
         auto &class_factory = fixture->get<ClassFactory>();
         auto stem = Object::unloadStem(fixture, (*this)->m_singleton_address);
-        auto type = db0::object_model::getCachedClass(stem->m_class_ref, class_factory);
+        auto type = class_factory.getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(stem->m_class_ref)).m_class;
         // unload from stem
         Object::unload(at, std::move(stem), type);
         return true;
@@ -205,33 +198,6 @@ namespace db0::object_model
         return *module_name;
     }   
         
-    Class::TypeObjectSharedPtr Class::tryGetLangClass() const
-    {
-        if (!m_lang_type_ptr) {
-            auto &type_manager = LangToolkit::getTypeManager();
-            // try finding (already registered) lang class by one of 4 type name variants
-            for (unsigned int i = 0; i < 4; ++i) {
-                auto variant_name = getNameVariant(*this, i);
-                if (variant_name) {
-                    m_lang_type_ptr = type_manager.findType(*variant_name);
-                    if (m_lang_type_ptr) {
-                        break;
-                    }
-                }
-            }
-        }
-        return m_lang_type_ptr;
-    }
-
-    Class::TypeObjectSharedPtr Class::getLangClass() const
-    {
-        auto lang_type_ptr = tryGetLangClass();
-        if (!lang_type_ptr) {
-            THROWF(db0::InternalException) << "Language class not found for DBZero class " << getTypeName();
-        }        
-        return lang_type_ptr;
-    }
-    
     std::optional<std::string> getNameVariant(std::optional<std::string> type_id, std::optional<std::string> type_name,
         std::optional<std::string> module_name, std::optional<std::string> type_fields_str, int variant_id)
     {
@@ -351,23 +317,29 @@ namespace db0::object_model
         assert(result < std::numeric_limits<std::uint32_t>::max());
         return result;
     }
-
+    
     bool Class::isExistingSingleton(std::uint64_t fixture_uuid) const
     {
         if (!isSingleton()) {
             return false;
         }
+
+        auto &class_factory = getFixture()->get<ClassFactory>();
+        auto lang_class = class_factory.getLangType(*this);
         auto other_fixture = getFixture()->getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
-        auto &class_factory = other_fixture->get<ClassFactory>();
-        auto other_type = class_factory.tryGetExistingType(getLangClass().get());
+        auto &other_factory = other_fixture->get<ClassFactory>();
+        auto other_type = other_factory.tryGetExistingType(lang_class.get());
         return other_type && other_type->isExistingSingleton();
     }
     
     bool Class::unloadSingleton(void *at, std::uint64_t fixture_uuid) const
-    {
+    {    
+        auto &class_factory = getFixture()->get<ClassFactory>();
+        auto lang_class = class_factory.getLangType(*this);
         auto other_fixture = getFixture()->getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
-        auto &class_factory = other_fixture->get<ClassFactory>();
-        auto other_type = class_factory.tryGetExistingType(getLangClass().get());
+        auto &other_factory = other_fixture->get<ClassFactory>();
+        // locate corresponding type in the other fixture
+        auto other_type = other_factory.tryGetExistingType(lang_class.get());
         if (!other_type) {
             return false;
         }
@@ -400,10 +372,6 @@ namespace db0::object_model
     {
         refreshMemberCache();
         return m_index;
-    }
-    
-    bool Class::isMemoBase() const {
-        return m_lang_type_ptr && LangToolkit::getTypeManager().isMemoBase(m_lang_type_ptr.get());
     }
     
 }

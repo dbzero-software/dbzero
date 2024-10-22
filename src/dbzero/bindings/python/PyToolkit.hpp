@@ -86,12 +86,14 @@ namespace db0::python
         static std::string getModuleName(TypeObjectPtr py_type);
         
         // Unload with type resolution
-        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, const ClassFactory &);
+        // optionally may use specific lang class (e.g. MemoBase)
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, const ClassFactory &,
+            TypeObjectPtr lang_class = nullptr);
         
-        // Unload with known type / lang class
+        // Unload with known type & lang class
         // note that lang_class may be a base of the actual type (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,
-            std::shared_ptr<Class>, TypeObjectPtr lang_class = nullptr);
+            std::shared_ptr<Class>, TypeObjectPtr lang_class);
         
         static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture> &, std::uint64_t address);
 
@@ -174,7 +176,7 @@ namespace db0::python
         static void unlockApi();
         // unlock if locked, otherwise return false
         static bool tryUnlockApi();
-
+        
     private:
         static PyWorkspace m_py_workspace;
         static TypeManager m_type_manager;

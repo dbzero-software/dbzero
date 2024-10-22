@@ -28,6 +28,8 @@ namespace db0::object_model
         using LangToolkit = Object::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
         using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
+        using TypeObjectPtr = LangToolkit::TypeObjectPtr;
+        using TypeObjectSharedPtr = LangToolkit::TypeObjectSharedPtr;
 
         // full-text query iterator (KeyT must be std::uint64_t)
         using QueryIterator = FT_Iterator<std::uint64_t>;
@@ -38,17 +40,17 @@ namespace db0::object_model
         using FilterFunc = std::function<bool(ObjectPtr)>;
 
         // Construct from a full-text query iterator
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&,
-            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, TypeObjectPtr lang_type = nullptr,
+            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});            
 
         // Construct from a sorted iterator
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&,
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&, TypeObjectPtr lang_type = nullptr,
             std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});
-
+        
         // Construct from IteratorFactory (specialized on first use)
-        ObjectIterator(db0::swine_ptr<Fixture>, std::shared_ptr<IteratorFactory> factory,
+        ObjectIterator(db0::swine_ptr<Fixture>, std::shared_ptr<IteratorFactory> factory, TypeObjectPtr lang_type = nullptr,
             std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});
-
+        
         virtual ~ObjectIterator() = default;
 
         /**
@@ -105,6 +107,9 @@ namespace db0::object_model
             return m_filters;
         }
         
+        // Get associated language specific type of the results if it was specified
+        TypeObjectPtr getLangType() const;
+        
     protected:
         mutable db0::swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;
@@ -113,7 +118,7 @@ namespace db0::object_model
         std::shared_ptr<IteratorFactory> m_factory;
         std::unique_ptr<BaseIterator> m_base_iterator;
         // iterator_ptr valid both in case of m_query_iterator and m_sorted_iterator
-        BaseIterator *m_iterator_ptr = nullptr;
+        BaseIterator *m_iterator_ptr = nullptr;        
         bool m_initialized = false;
 
         struct Decoration
@@ -135,11 +140,12 @@ namespace db0::object_model
 
         Decoration m_decoration;
         const std::vector<FilterFunc> m_filters;
+        TypeObjectSharedPtr m_lang_type;
 
         // iter constructor
         ObjectIterator(db0::swine_ptr<Fixture>, const ClassFactory &, std::unique_ptr<QueryIterator> &&,
             std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>, std::vector<std::unique_ptr<QueryObserver> > &&,
-            std::vector<FilterFunc> &&filters);
+            std::vector<FilterFunc> &&filters, TypeObjectPtr lang_type);
 
         void assureInitialized();
         void assureInitialized() const;

@@ -139,7 +139,7 @@ namespace db0::python
             Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::unique_ptr<ObjectIterator>(new ObjectIterator(
-                iter->getFixture(), std::move(iter_sorted), {}, iter->getFilters())
+                iter->getFixture(), std::move(iter_sorted), iter->getLangType(), {}, iter->getFilters())
             );
             Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(_iter));
         }

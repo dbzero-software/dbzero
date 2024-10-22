@@ -663,7 +663,7 @@ namespace db0::python
             Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(typed_iter));
         } else {
             auto _iter = std::make_unique<ObjectIterator>(iter->getFixture(), std::move(split_query.first), 
-                std::move(split_query.second), iter->getFilters());
+                iter->getLangType(), std::move(split_query.second), iter->getFilters());
             Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(_iter));
         }
         return py_iter.steal();
@@ -838,6 +838,17 @@ namespace db0::python
 
         PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(args[2]);
         return runSafe(tryGetAttrAs, reinterpret_cast<MemoObject*>(args[0]), args[1], py_type);
+    }
+    
+    PyObject *PyAPI_getAddress(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "getAddress requires exactly 1 argument");
+            return NULL;
+        }
+        
+        return runSafe(tryGetAddress, args[0]);
     }
     
 #ifndef NDEBUG

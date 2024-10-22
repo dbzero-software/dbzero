@@ -242,8 +242,10 @@ namespace db0::python
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr));
         // raise AttributeError
-        if (!member) {
-            PyErr_SetString(PyExc_AttributeError, PyUnicode_AsUTF8(attr));
+        if (!member) {            
+            std::stringstream _str;
+            _str << "AttributeError: " << PyUnicode_AsUTF8(attr) << " not found";
+            PyErr_SetString(PyExc_AttributeError, _str.str().c_str());
             return nullptr;
         }
         return member.steal();
@@ -614,14 +616,17 @@ namespace db0::python
         if (res) {
             return res;
         }
-
+        
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGetAs(PyUnicode_AsUTF8(attr), py_type);
         // raise AttributeError
         if (!member) {
-            PyErr_SetString(PyExc_AttributeError, PyUnicode_AsUTF8(attr));
+            std::stringstream _str;
+            _str << "AttributeError: " << PyUnicode_AsUTF8(attr) << " not found";
+            PyErr_SetString(PyExc_AttributeError, _str.str().c_str());
             return nullptr;
         }
+
         return member.steal();
     }
     

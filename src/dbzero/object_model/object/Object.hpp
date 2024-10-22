@@ -25,11 +25,7 @@ namespace db0::object_model
 
     class Class;
     using Fixture = db0::Fixture;
-    
-    std::shared_ptr<Class> getCachedClass(std::uint32_t class_ref, const ClassFactory &);
-    // Get class (either cached or unloaded from DBZero) possibly without associated lang type
-    std::shared_ptr<const Class> getConstClass(std::uint32_t class_ref, const ClassFactory &);
-    
+        
     enum class ObjectOptions: std::uint8_t
     {
         // the flag indicating that the instance has been used as a tag
@@ -294,7 +290,7 @@ namespace db0::object_model
         std::pair<TypeId, StorageClass> recognizeType(Fixture &, ObjectPtr lang_value) const;
         
         // Unload associated type
-        std::shared_ptr<const Class> unloadType() const;
+        std::shared_ptr<Class> unloadType() const;
     };
     
 }

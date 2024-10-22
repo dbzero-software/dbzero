@@ -71,35 +71,40 @@ namespace db0::object_model
         */
         std::shared_ptr<Class> getOrCreateType(TypeObjectPtr lang_type);
         
+        struct ClassItem
+        {
+            std::shared_ptr<Class> m_class;    
+            TypeObjectSharedPtr m_lang_type;
+        };
+
         // reference the DBZero object model's class by its pointer
-        std::shared_ptr<Class> getTypeByPtr(ClassPtr, TypeObjectPtr lang_type) const;
-
-        // retrieve type, possibly without a binding to any existing language specific type
-        // the result is not cached and can only be used for read-only operations
-        std::shared_ptr<const Class> getConstTypeByPtr(ClassPtr) const;
+        // @param optional language specific type object if known
+        ClassItem getTypeByPtr(ClassPtr, TypeObjectPtr lang_type = nullptr) const;
+        ClassItem getTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type = nullptr) const;
         
-        // the index operator can only be used for pulling existing Class objects from the cache
-        std::shared_ptr<Class> operator[](ClassPtr) const;
-
         void commit() const;
         
         void detach() const;
 
         // Iterate over all classes (whether having language specific type assigned or not)
-        void forAll(std::function<void(std::shared_ptr<const Class>)>) const;
+        void forAll(std::function<void(const Class &)>) const;
+        
+        // Get lang type associated with a specific class (if known) or throw
+        TypeObjectSharedPtr getLangType(const Class &) const;
+        bool hasLangType(const Class &) const;
         
     private:
         // Language specific type to DBZero class mapping
         mutable std::unordered_map<TypeObjectPtr, std::shared_ptr<Class> > m_type_cache;
         // DBZero Class objects by pointer (may not have language specific type assigned yet)
         // Class instance may exist in ptr_cache but not in class_cache
-        mutable std::unordered_map<ClassPtr, std::shared_ptr<Class> > m_ptr_cache;
+        mutable std::unordered_map<ClassPtr, ClassItem> m_ptr_cache;
         // class maps in 4 variants: 0: type ID, 1: name + module, 2: name + fields: 3: module + fields
         std::array<VClassMap, 4> m_class_maps;
         VClassPtrIndex m_class_ptr_index;
 
         // Pull through by-pointer cache
-        std::shared_ptr<Class> getType(ClassPtr, std::shared_ptr<Class>);
+        std::shared_ptr<Class> getType(ClassPtr, std::shared_ptr<Class>, TypeObjectPtr lang_type) const;
         
         ClassPtr tryFindClassPtr(TypeObjectPtr lang_type, const char *type_id) const;
 
@@ -109,9 +114,5 @@ namespace db0::object_model
 
     std::optional<std::string> getNameVariant(ClassFactory::TypeObjectPtr lang_type,
         const char *type_id, int variant_id);
-    
-    // fetch immuatable Class object by UUID or throw
-    // the result may not be linked to any language specific type and can only be used for read-only operations
-    std::shared_ptr<const Class> fetchConstClass(db0::Snapshot &, const ObjectId &class_uuid);
-    
+        
 }

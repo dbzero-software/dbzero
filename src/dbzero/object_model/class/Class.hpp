@@ -77,8 +77,6 @@ namespace db0::object_model
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
-        using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
-        using TypeObjectSharedPtr = typename LangToolkit::TypeObjectSharedPtr;
         
         struct Member
         {
@@ -89,18 +87,9 @@ namespace db0::object_model
             Member(std::uint32_t, const std::string &);
         };
         
-        // Pull existing type & assign associated language specific type object
-        Class(db0::swine_ptr<Fixture> &, std::uint64_t address, TypeObjectPtr lang_type_ptr);
+        // Pull existing type
+        Class(db0::swine_ptr<Fixture> &, std::uint64_t address);
         ~Class();
-                
-        // Try retrieving associated language specific class if such exists in the current context
-        // @return nullptr if the class is not found
-        TypeObjectSharedPtr tryGetLangClass() const;
-        
-        /**
-         * Retrieves associated language specific class or throws
-        */
-        TypeObjectSharedPtr getLangClass() const;
 
         // Get class name in the underlying language object model
         std::string getName() const;
@@ -176,23 +165,17 @@ namespace db0::object_model
 
         // @return field name & index
         std::unordered_map<std::string, std::uint32_t> getMembers() const;
-
-        // Check if the Class instance represents a MemoBase type
-        bool isMemoBase() const;
-
+        
     protected:
         friend class ClassFactory;
         friend ClassPtr;
         friend class Object;
         friend super_t;
-        
-        // A protected constructor for temporary instances (without a binding to a language specific type)
-        Class(db0::swine_ptr<Fixture> &, std::uint64_t address);
-        
+                
         // DBZero class instances should only be created by the ClassFactory
         // construct a new DBZero class
         // NOTE: module name may not be available in some contexts (e.g. classes defined in notebooks)
-        Class(db0::swine_ptr<Fixture> &, const std::string &name, std::optional<std::string> module_name, TypeObjectPtr lang_type_ptr, 
+        Class(db0::swine_ptr<Fixture> &, const std::string &name, std::optional<std::string> module_name,
             const char *type_id, const char *prefix_name, ClassFlags);
         
         void unlinkSingleton();
@@ -205,8 +188,7 @@ namespace db0::object_model
 
     private:
         // member field definitions
-        VFieldVector m_members;
-        mutable TypeObjectSharedPtr m_lang_type_ptr = 0;
+        VFieldVector m_members;        
         mutable std::vector<Member> m_member_cache;
         // field by-name index (cache)
         mutable std::unordered_map<std::string, std::uint32_t> m_index;

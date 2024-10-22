@@ -104,7 +104,7 @@ namespace db0::python
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
-        const ClassFactory &class_factory)
+        const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr)
     {
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();        
@@ -116,11 +116,19 @@ namespace db0::python
 
         // Unload from backend otherwise
         auto stem = db0::object_model::Object::unloadStem(fixture, address);
-        auto type = db0::object_model::getCachedClass(stem->m_class_ref, class_factory);
+        auto [type, lang_type] = class_factory.getTypeByClassRef(stem->m_class_ref);
+        
+        if (!lang_type_ptr) {
+            lang_type_ptr = lang_type.get();
+        }
+        
+        if (!lang_type_ptr) {
+            THROWF(db0::InputException) << "Could not find type: " << type->getName();
+        }
         
         // construct Python's memo object (placeholder for actual DBZero instance)
         // the associated lang class must be available
-        auto memo_object = MemoObjectStub_new(type->getLangClass().get());
+        auto memo_object = MemoObjectStub_new(lang_type_ptr);
         // unload from stem
         db0::object_model::Object::unload(&(memo_object.get())->modifyExt(), std::move(stem), type);
         obj_ptr = shared_py_cast<PyObject*>(std::move(memo_object));
@@ -131,6 +139,7 @@ namespace db0::python
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
         std::shared_ptr<Class> type, TypeObjectPtr lang_class)
     {
+        assert(lang_class);
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
@@ -138,9 +147,9 @@ namespace db0::python
         if (obj_ptr) {
             return obj_ptr;
         }
-
-        // NOTE: lang_class may be of a base type (e.g. MemoBase)    
-        auto memo_object = MemoObjectStub_new(lang_class ? lang_class : type->getLangClass().get());
+        
+        // NOTE: lang_class may be of a base type (e.g. MemoBase)
+        auto memo_object = MemoObjectStub_new(lang_class);
         db0::object_model::Object::unload(&(memo_object.get())->modifyExt(), address, type);
         obj_ptr = shared_py_cast<PyObject*>(std::move(memo_object));
         lang_cache.add(address, obj_ptr.get());
