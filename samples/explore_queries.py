@@ -19,9 +19,14 @@ def print_query_rows(rows):
     
 def print_query_results(query_result):
     if type(query_result) is dict:
+        def to_list(element):
+            if isinstance(element, (list, tuple)):
+                return list(element)
+            return [element]
+
         def as_rows():
             for key, value in query_result.items():
-                yield (key, value)
+                yield (*to_list(key), value)
         print_query_rows(as_rows())
     else:
         print_query_rows(query_result)
