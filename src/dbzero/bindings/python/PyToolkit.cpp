@@ -123,7 +123,7 @@ namespace db0::python
         }
         
         if (!lang_type_ptr) {
-            THROWF(db0::InputException) << "Could not find type: " << type->getName();
+            THROWF(db0::ClassNotFoundException) << "Could not find type: " << type->getName();
         }
         
         // construct Python's memo object (placeholder for actual DBZero instance)
