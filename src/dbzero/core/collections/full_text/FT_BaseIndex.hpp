@@ -6,7 +6,7 @@
 #include "FT_ANDIterator.hpp"
 #include "FT_ORXIterator.hpp"
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
-#include <dbzero/core/utils/num_pack.hpp>
+#include "LongTag.hpp"
 
 namespace db0
 
@@ -99,19 +99,32 @@ namespace db0
         // (may point to a placeholder where the actual value will be populated on flush)
         struct TagValueBuffer
         {
-            using value_type = std::pair<IndexKeyT, std::uint64_t>;
+            using ValueT = std::pair<IndexKeyT, std::uint64_t>;
+            using ValueRefT = std::pair<IndexKeyT, const std::uint64_t *>;
 
-            std::vector<std::pair<IndexKeyT, std::uint64_t> > m_values;
-            std::vector<std::pair<IndexKeyT, const std::uint64_t *> > m_value_refs;
+            // hash specializations
+            template <typename T> struct ValueHash
+            {
+                std::size_t operator()(const std::pair<IndexKeyT, T> &value) const {
+                    return std::hash<IndexKeyT>()(value.first) ^ std::hash<T>()(value.second);
+                }
+            };
+
+            std::unordered_set<std::pair<IndexKeyT, std::uint64_t>, ValueHash<std::uint64_t> > m_values;
+            std::unordered_set<std::pair<IndexKeyT, const std::uint64_t *>, ValueHash<const std::uint64_t *> > m_value_refs;
 
             void append(IndexKeyT key, ActiveValueT value);
+
+            // @return false if not removed
+            bool remove(IndexKeyT key, ActiveValueT value);
+
             bool empty() const;
             
             struct const_iterator
             {
-                typename std::vector<std::pair<IndexKeyT, std::uint64_t> >::const_iterator m_values_it;
-                typename std::vector<std::pair<IndexKeyT, std::uint64_t> >::const_iterator m_values_end;
-                typename std::vector<std::pair<IndexKeyT, const std::uint64_t *> >::const_iterator m_value_refs_it;                
+                typename std::unordered_set<std::pair<IndexKeyT, std::uint64_t> >::const_iterator m_values_it;
+                typename std::unordered_set<std::pair<IndexKeyT, std::uint64_t> >::const_iterator m_values_end;
+                typename std::unordered_set<std::pair<IndexKeyT, const std::uint64_t *> >::const_iterator m_value_refs_it;                
                 
                 struct tag_begin {};
                 const_iterator(const TagValueBuffer &, tag_begin);
@@ -168,7 +181,7 @@ namespace db0
                 std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
                 for (auto key: tags_or_types) {
-                    m_add_set.append(key, value);
+                    _addTag(value, key);
                 }
             }
             
@@ -177,7 +190,14 @@ namespace db0
             {
                 std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
-                m_add_set.append(tag, value);
+                _addTag(value, tag);                
+            }
+
+            void removeTag(ActiveValueT value, IndexKeyT tag)
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                m_commit_called = false;
+                _removeTag(value, tag);                
             }
 
             template <typename SequenceT>
@@ -186,15 +206,8 @@ namespace db0
                 std::lock_guard<std::mutex> lock(m_mutex);
                 m_commit_called = false;
                 for (auto key: tags_or_types) {
-                    m_remove_set.append(key, value);
+                    _removeTag(value, key);
                 }
-            }
-
-            void removeTag(ActiveValueT value, IndexKeyT tag)
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                m_commit_called = false;
-                m_remove_set.append(tag, value);
             }
 
             /**
@@ -221,6 +234,22 @@ namespace db0
              * @return
              */
             bool empty () const;
+
+        private:
+            void _addTag(ActiveValueT value, IndexKeyT tag)
+            {
+                // try un-removing the tag first
+                if (!m_remove_set.remove(tag, value)) {
+                    m_add_set.append(tag, value);
+                }
+            }
+
+            void _removeTag(ActiveValueT value, IndexKeyT tag) {
+                // try un-adding the tag first
+                if (!m_add_set.remove(tag, value)) {
+                    m_remove_set.append(tag, value);
+                }
+            }         
         };
 
         class BatchOperationBuilder
@@ -265,6 +294,6 @@ namespace db0
     };
 
     extern template class FT_BaseIndex<std::uint64_t>;
-    extern template class FT_BaseIndex<db0::num_pack<std::uint64_t, 2u>>;
+    extern template class FT_BaseIndex<db0::LongTagT>;
 
 } 

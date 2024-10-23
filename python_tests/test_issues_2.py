@@ -1,6 +1,7 @@
 import pytest
 import dbzero_ce as db0
 from datetime import datetime
+from .memo_test_types import MemoTestClass
 
 
 @db0.memo
@@ -18,7 +19,7 @@ class Attribute:
             if tag not in self.tags:
                 self.tags.add(tag)
                 db0.tags(self).add(tag)
-            self.update_time()
+        self.update_time()
 
     def untag_object(self, tags):
         for tag in tags:
@@ -52,3 +53,4 @@ def test_multiple_commits_rollback_object_issue1(db0_fixture):
     db0.commit()
     assert obj1.name == "2"
     assert obj1.value == "2"
+

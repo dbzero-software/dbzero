@@ -322,10 +322,31 @@ namespace db0
         assert((value.first || value.second) && "Either a value or value reference must be provided");
         assert(!(value.first && value.second) && "Both value and value reference cannot be provided");
         if (value.first) {
-            m_values.emplace_back(tag, value.first);
+            m_values.emplace(tag, value.first);
         } else {
-            m_value_refs.emplace_back(tag, value.second);
+            m_value_refs.emplace(tag, value.second);
         }
+    }
+
+    template <typename IndexKeyT>
+    bool FT_BaseIndex<IndexKeyT>::TagValueBuffer::remove(IndexKeyT tag, ActiveValueT value)
+    {    
+        assert((value.first || value.second) && "Either a value or value reference must be provided");
+        assert(!(value.first && value.second) && "Both value and value reference cannot be provided");
+        if (value.first) {
+            auto it = m_values.find({tag, value.first});
+            if (it != m_values.end()) {
+                m_values.erase(it);
+                return true;
+            }
+        } else {
+            auto it = m_value_refs.find({tag, value.second});
+            if (it != m_value_refs.end()) {
+                m_value_refs.erase(it);
+                return true;
+            }
+        }
+        return false;
     }
 
     template <typename IndexKeyT>
@@ -398,18 +419,19 @@ namespace db0
             return { m_value_refs_it->first, *m_value_refs_it->second };
         }
     }
-
+    
     template <typename IndexKeyT>
     FT_BaseIndex<IndexKeyT>::TagValueList::TagValueList(TagValueBuffer &&buf)
-        : std::vector<std::pair<IndexKeyT, std::uint64_t> >(std::move(buf.m_values))
+        : std::vector<std::pair<IndexKeyT, std::uint64_t> >(buf.m_values.begin(), buf.m_values.end())
     {
         for (auto &item : buf.m_value_refs) {
             this->emplace_back(item.first, *item.second);
         }
+        buf.m_values.clear();
         buf.m_value_refs.clear();
     }
-
+    
     template class FT_BaseIndex<std::uint64_t>;
-    template class FT_BaseIndex<db0::num_pack<std::uint64_t, 2u> >;
+    template class FT_BaseIndex<db0::LongTagT>;
 
 }
