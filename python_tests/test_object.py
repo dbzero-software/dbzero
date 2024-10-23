@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, DynamicDataClass
+from .memo_test_types import MemoTestClass, DynamicDataClass, MemoTestSingleton
 
 
 @db0.memo()
@@ -439,3 +439,13 @@ def test_hasattr_on_memo_objects(db0_fixture):
     assert hasattr(obj, "value")
     assert not hasattr(obj, "__ft__")
     
+    
+def test_object_fetch_as_memo_base(db0_fixture):
+    obj_1 = MemoTestClass(123)
+    _ = MemoTestSingleton(obj_1)
+    uuid_1 = db0.uuid(obj_1)
+    del obj_1
+    db0.clear_cache()
+    db0.commit()    
+    obj_2 = db0.fetch(db0.MemoBase, uuid_1)
+    assert obj_2.value == 123
