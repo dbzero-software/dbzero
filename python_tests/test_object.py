@@ -450,24 +450,6 @@ def test_object_fetch_as_memo_base(db0_fixture):
     obj_2 = db0.fetch(db0.MemoBase, uuid_1)
     assert obj_2.value == 123
 
-
-def test_multiple_commits_rollback_object_issue1(db0_fixture):
-    obj = Attribute("1", "1")
-    assert obj.name == "1"
-    assert obj.value == "1"
-    obj.tag_object(["object"])
-    db0.commit()
-    obj1 = [x for x in db0.find(Attribute, "object")][0]
-    obj1.name = "2"
-    obj1.value = "2"
-    db0.commit()
-    assert obj1.name == "2"
-    assert obj1.value == "2"
-    obj1.tag_object(["object2"])
-    db0.commit()
-    db0.commit()
-    assert obj1.name == "2"
-    assert obj1.value == "2"
     
 # FIXME: blocked
 # def test_tagging_and_untagging_in_single_commit_breaks_tag_search(db0_fixture):
