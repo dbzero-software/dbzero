@@ -54,3 +54,22 @@ def test_multiple_commits_rollback_object_issue1(db0_fixture):
     assert obj1.name == "2"
     assert obj1.value == "2"
 
+
+def test_tagging_and_untagging_in_single_commit_breaks_tag_search(db0_fixture):
+    obj = Attribute("1", "1")
+    assert obj.name == "1"
+    assert obj.value == "1"
+    obj.tag_object(["object", "tag1", "tag1_1"])
+    old_tag_list = set(obj.tags)
+    db0.commit()
+    obj = [x for x in db0.find(Attribute, "object")][0]
+    db0.commit()
+    obj.untag_object(["object", "tag1", "tag1_1"])
+    empty_tag_list = set(obj.tags)
+    assert len(empty_tag_list) == 0
+    obj.tag_object(["object", "tag1", "tag1_1"])
+    db0.commit()
+    new_tag_list = set(obj.tags)
+    assert old_tag_list == new_tag_list
+    objs = [x for x in db0.find(Attribute, "object")]
+    assert len(objs) != 0
