@@ -54,5 +54,5 @@ namespace db0
     template <typename T, unsigned int N> bool num_pack<T, N>::operator!=(const num_pack &other) const {
         return !(*this == other);
     }
-    
+        
 }

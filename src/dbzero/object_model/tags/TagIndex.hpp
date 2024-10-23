@@ -16,6 +16,7 @@ namespace db0::object_model
     
     using Object = db0::object_model::Object;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
+    using LongTagT = db0::LongTagT;
     
     struct [[gnu::packed]] o_tag_index: public o_fixed<o_tag_index>
     {
@@ -39,8 +40,6 @@ namespace db0::object_model
         using QueryIterator = FT_Iterator<std::uint64_t>;
         // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
-        // field-level tags are represented as long tags
-        using LongTagT = db0::num_pack<std::uint64_t, 2u>;
         
         TagIndex(Memspace &memspace, const ClassFactory &, RC_LimitedStringPool &, VObjectCache &);
         TagIndex(mptr, const ClassFactory &, RC_LimitedStringPool &, VObjectCache &);
@@ -228,7 +227,7 @@ namespace db0::object_model
     }
     
     template <typename SequenceT>
-    TagIndex::LongTagT TagIndex::makeLongTagFromSequence(const SequenceT &sequence) const
+    LongTagT TagIndex::makeLongTagFromSequence(const SequenceT &sequence) const
     {
         auto it = sequence.begin();
         auto first = *it;
@@ -253,5 +252,5 @@ namespace db0::object_model
     db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &, TagIndex::ObjectPtr const *args, std::size_t nargs,
         std::vector<TagIndex::ObjectPtr> &find_args, std::shared_ptr<Class> &type, TagIndex::TypeObjectPtr &lang_type,
         bool &no_result);
-    
+
 }

@@ -449,24 +449,4 @@ def test_object_fetch_as_memo_base(db0_fixture):
     db0.commit()    
     obj_2 = db0.fetch(db0.MemoBase, uuid_1)
     assert obj_2.value == 123
-
     
-# FIXME: blocked
-# def test_tagging_and_untagging_in_single_commit_breaks_tag_search(db0_fixture):
-#     obj = Attribute("1", "1")
-#     assert obj.name == "1"
-#     assert obj.value == "1"
-#     obj.tag_object(["object", "tag1", "tag1_1"])
-#     old_tag_list = set(obj.tags)
-#     db0.commit()
-#     obj = [x for x in db0.find(Attribute, "object")][0]
-#     db0.commit()
-#     obj.untag_object(["object", "tag1", "tag1_1"])
-#     empty_tag_list = set(obj.tags)
-#     assert len(empty_tag_list) == 0
-#     obj.tag_object(["object", "tag1", "tag1_1"])
-#     db0.commit()
-#     new_tag_list = set(obj.tags)
-#     assert old_tag_list == new_tag_list
-#     objs = [x for x in db0.find(Attribute, "object")]
-#     assert len(objs) != 0

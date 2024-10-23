@@ -153,7 +153,7 @@ namespace db0::object_model
         return getBatchOperation(memo_ptr, m_base_index_short, m_batch_operation_short, result);
     }
 
-    db0::FT_BaseIndex<TagIndex::LongTagT>::BatchOperationBuilder &
+    db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &
     TagIndex::getBatchOperationLong(ObjectPtr memo_ptr, ActiveValueT &result)
     {
         return getBatchOperation(memo_ptr, m_base_index_long, m_batch_operation_long, result);
@@ -671,11 +671,11 @@ namespace db0::object_model
         return { factory.release(), std::move(split_result.second) };
     }
         
-    TagIndex::LongTagT TagIndex::getLongTag(ObjectSharedPtr py_arg) const {
+    LongTagT TagIndex::getLongTag(ObjectSharedPtr py_arg) const {
         return getLongTag(py_arg.get());
     }
 
-    TagIndex::LongTagT TagIndex::getLongTag(ObjectPtr py_arg) const
+    LongTagT TagIndex::getLongTag(ObjectPtr py_arg) const
     {
         auto &type_manager = LangToolkit::getTypeManager();
         auto type_id = type_manager.getTypeId(py_arg);
@@ -730,7 +730,7 @@ namespace db0::object_model
         return m_base_index_short;
     }
 
-    const db0::FT_BaseIndex<TagIndex::LongTagT> &TagIndex::getBaseIndexLong() const {
+    const db0::FT_BaseIndex<LongTagT> &TagIndex::getBaseIndexLong() const {
         return m_base_index_long;
     }
 

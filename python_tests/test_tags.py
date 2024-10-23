@@ -325,3 +325,15 @@ def test_unused_tags_removed_from_string_pool(db0_fixture):
     sp_size_2 = db0.get_prefix_stats()["string_pool"]["size"]
     # make sure tag was removed from string pool
     assert sp_size_2 < sp_size_1
+
+
+def test_tag_remove_then_add_in_single_transaction(db0_fixture):
+    obj = MemoTestClass(0)
+    db0.tags(obj).add("object")
+    db0.commit()
+    db0.tags(obj).remove("object")
+    db0.tags(obj).add("object")
+    db0.commit()
+    objs = [x for x in db0.find(MemoTestClass, "object")]
+    assert len(objs) > 0
+    
