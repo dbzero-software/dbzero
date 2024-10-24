@@ -49,7 +49,8 @@ namespace db0
     }
     
     bool GC0::tryRemove(void *vptr, bool is_volatile)
-    {    
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
         auto it = m_vptr_map.find(vptr);
         if (it == m_vptr_map.end()) {
             return false;
@@ -71,7 +72,8 @@ namespace db0
             drop_op = ops.drop;
         }
         m_vptr_map.erase(it);
-        
+        lock.unlock();
+
         // drop object after erasing from map due to possible recursion
         if (drop_op) {
             auto fixture = this->getFixture();
@@ -87,6 +89,7 @@ namespace db0
     
     void GC0::detachAll()
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
         for (auto &vptr_item : m_vptr_map) {
             m_ops[vptr_item.second].detach(vptr_item.first);
         }
@@ -94,17 +97,21 @@ namespace db0
     
     void GC0::commitAll()
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
         for (auto &vptr_item : m_vptr_map) {
             m_ops[vptr_item.second].commit(vptr_item.first);
         }
     }
-    
-    std::size_t GC0::size() const {
+
+    std::size_t GC0::size() const 
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
         return m_vptr_map.size();
     }
-    
+
     void GC0::preCommit()
-    {   
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
         // collect ops first (this is necessary because preCommit can trigger "remove" calls)
         std::vector<std::pair<void*, unsigned int>> pre_commit_ops;
         std::copy(m_pre_commit_map.begin(), m_pre_commit_map.end(), std::back_inserter(pre_commit_ops));
@@ -119,12 +126,14 @@ namespace db0
     {        
         // Important ! Collect instance addresses first because push_back can trigger "remove" calls
         std::vector<TypedAddress> addresses;
+        std::unique_lock<std::mutex> lock(m_mutex);
         for (auto &vptr_item : m_vptr_map) {
             auto &ops = m_ops[vptr_item.second];
             if (ops.hasRefs && !ops.hasRefs(vptr_item.first)) {
                 addresses.push_back(ops.address(vptr_item.first));
             }
         }
+        lock.unlock();
         
         super_t::clear();
         for (auto addr: addresses) {
@@ -134,7 +143,7 @@ namespace db0
     }
     
     void GC0::collect()
-    {
+    {        
         if (!m_vptr_map.empty()) {
             THROWF(db0::InternalException) << "GC0::collect: cannot collect while there are still live instances";
         }
@@ -145,7 +154,7 @@ namespace db0
         if (m_read_only) {
             THROWF(db0::InternalException) << "GC0::collect: cannot collect in read-only mode";
         }
-
+        
         for (auto addr: *this) {
             auto ops_id = m_ops_map[addr.getType()];
             assert(ops_id < m_ops.size());

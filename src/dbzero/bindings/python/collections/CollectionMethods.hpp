@@ -1,7 +1,6 @@
 #include <Python.h>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 
 namespace db0::python
 
@@ -28,17 +27,15 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "extend() takes one argument.");
             return NULL;
         }
-        PyObject *iterator = AnyObject_GetIter(args[0]);
+        PyObject *iterator = PyObject_GetIter(args[0]);
         PyObject *item;
         db0::FixtureLock lock(py_obj->ext().getFixture());
         auto &obj = py_obj->modifyExt();
-        while ((item = AnyIter_Next(iterator))) {
-            obj.append(lock, item);
-            WITH_PY_API_UNLOCKED
+        while ((item = PyIter_Next(iterator))) {
+            obj.append(lock, item);            
             Py_DECREF(item);
         }
 
-        WITH_PY_API_UNLOCKED
         Py_DECREF(iterator);
         Py_RETURN_NONE;
     }

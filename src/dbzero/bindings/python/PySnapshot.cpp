@@ -1,5 +1,6 @@
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyToolkit.hpp"
 
 namespace db0::python
 

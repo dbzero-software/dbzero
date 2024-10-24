@@ -6,7 +6,6 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
-#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 
 namespace db0::python
 
@@ -80,7 +79,7 @@ namespace db0::python
         if (SetObject_Check(obj)) {
             return SetObject_len((SetObject*)obj);
         }
-        return AnyObject_Length(obj);
+        return PyObject_Length(obj);
     }
     
     PyObject *SetObject_issubsetInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -111,20 +110,17 @@ namespace db0::python
             }
         } else {
             PyObject *other = args[0];
-            if (SetObject_len(self) == 0 || AnyObject_Length(other) == 0) return Py_True;
-            PyObject *iterator = AnyObject_GetIter(self);
+            if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
+            PyObject *iterator = PyObject_GetIter(self);
             PyObject *elem;
-            while ((elem = AnyIter_Next(iterator))) {
-                if (!PySequence_Contains(other, elem)) {
-                    WITH_PY_API_UNLOCKED
+            while ((elem = PyIter_Next(iterator))) {
+                if (!PySequence_Contains(other, elem)) {                    
                     Py_DECREF(iterator);
                     Py_DECREF(elem);
                     return Py_False;
-                }
-                WITH_PY_API_UNLOCKED
+                }                
                 Py_DECREF(elem);
-            }
-            WITH_PY_API_UNLOCKED
+            }            
             Py_DECREF(iterator);
         }
         return Py_True;
@@ -148,20 +144,17 @@ namespace db0::python
             return SetObject_issubsetInternal(other, &py_self,1);
         } else {
             PyObject *other = args[0];
-            if (SetObject_len(self) == 0 || AnyObject_Length(other) == 0) return Py_True;
-            PyObject *iterator = AnyObject_GetIter(other);
+            if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
+            PyObject *iterator = PyObject_GetIter(other);
             PyObject *elem;
-            while ((elem = AnyIter_Next(iterator))) {
-                if (!self->ext().has_item(elem)) {
-                    WITH_PY_API_UNLOCKED
+            while ((elem = PyIter_Next(iterator))) {
+                if (!self->ext().has_item(elem)) {                    
                     Py_DECREF(iterator);
                     Py_DECREF(elem);
                     return Py_False;
-                }
-                WITH_PY_API_UNLOCKED
+                }                
                 Py_DECREF(elem);
-            }
-            WITH_PY_API_UNLOCKED
+            }            
             Py_DECREF(iterator);
         }
         return Py_True;
@@ -252,7 +245,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "add() takes exactly one argument");
             return NULL;
         }
-        auto hash = AnyObject_Hash(args[0]);
+        auto hash = PyObject_Hash(args[0]);
         db0::FixtureLock lock(set_obj->ext().getFixture());
         set_obj->modifyExt().append(lock, hash, args[0]);
         Py_RETURN_NONE;
@@ -267,12 +260,11 @@ namespace db0::python
         auto &set = py_set.get()->modifyExt();
         db0::object_model::Set::makeNew(&set, *lock);
         if (nargs == 1) {
-            PyObject *iterator = AnyObject_GetIter(args[0]);
+            PyObject *iterator = PyObject_GetIter(args[0]);
             PyObject *item;
-            while ((item = AnyIter_Next(iterator))) {
-                auto hash = AnyObject_Hash(item);
-                set.append(lock, hash, item);
-                WITH_PY_API_UNLOCKED
+            while ((item = PyIter_Next(iterator))) {
+                auto hash = PyObject_Hash(item);
+                set.append(lock, hash, item);                
                 Py_DECREF(item);
             }
         }
@@ -322,10 +314,10 @@ namespace db0::python
             }
         } else {
             PyObject *other = args[0];
-            if (SetObject_len(self) == 0 || AnyObject_Length(other) == 0) return Py_True;
-            PyObject *iterator = AnyObject_GetIter(other);
+            if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
+            PyObject *iterator = PyObject_GetIter(other);
             PyObject *elem;
-            while ((elem = AnyIter_Next(iterator))) {
+            while ((elem = PyIter_Next(iterator))) {
                 if (self->ext().has_item(elem)) {
                     Py_DECREF(iterator);
                     Py_DECREF(elem);
@@ -374,15 +366,13 @@ namespace db0::python
                 copy->modifyExt().insert(other->ext());
             } else {
                 PyObject * elem;
-                PyObject *iterator = AnyObject_GetIter(args[i]);
+                PyObject *iterator = PyObject_GetIter(args[i]);
                 auto &set_impl = copy->modifyExt();
-                while ((elem = AnyIter_Next(iterator))) {
-                    auto hash = AnyObject_Hash(elem);
-                    set_impl.append(lock, hash, elem);
-                    WITH_PY_API_UNLOCKED
+                while ((elem = PyIter_Next(iterator))) {
+                    auto hash = PyObject_Hash(elem);
+                    set_impl.append(lock, hash, elem);                    
                     Py_DECREF(elem);
-                }
-                WITH_PY_API_UNLOCKED
+                }                
                 Py_DECREF(iterator);
             }
         }
@@ -395,22 +385,19 @@ namespace db0::python
         if (elem1 == nullptr || elem2 == nullptr) {
             return;
         }
-        if (elem1 < elem2) {
-            WITH_PY_API_UNLOCKED
+        if (elem1 < elem2) {            
             Py_DECREF(elem1);
-            elem1 = AnyIter_Next(it1);
-        } else if (elem1 > elem2) {
-            WITH_PY_API_UNLOCKED
+            elem1 = PyIter_Next(it1);
+        } else if (elem1 > elem2) {            
             Py_DECREF(elem2);
-            elem2 = AnyIter_Next(it2);
+            elem2 = PyIter_Next(it2);
         } else if (elem1 == elem2) {
-            auto hash = AnyObject_Hash(elem1);
-            set_obj->modifyExt().append(fixture, hash, elem1);
-            WITH_PY_API_UNLOCKED
+            auto hash = PyObject_Hash(elem1);
+            set_obj->modifyExt().append(fixture, hash, elem1);            
             Py_DECREF(elem1);
             Py_DECREF(elem2);
-            elem1 = AnyIter_Next(it1);
-            elem2 = AnyIter_Next(it2);
+            elem1 = PyIter_Next(it1);
+            elem2 = PyIter_Next(it2);
         }
         return SetObject_intersectionInternal(fixture, set_obj, it1 ,elem1, it2, elem2);
     }
@@ -436,18 +423,17 @@ namespace db0::python
         
         SetObject *set_obj = makeSet(nullptr, nullptr, 0);
         PyObject *elem1, *elem2, *it2;
-        PyObject *it1 = AnyObject_GetIter((PyObject*)self);
+        PyObject *it1 = PyObject_GetIter((PyObject*)self);
         db0::FixtureLock lock(self->ext().getFixture());
         for (Py_ssize_t i = 0; i < nargs; ++i) {
-            it2 = AnyObject_GetIter(args[i]);
-            elem1 = AnyIter_Next(it1);
-            elem2 = AnyIter_Next(it2);
+            it2 = PyObject_GetIter(args[i]);
+            elem1 = PyIter_Next(it1);
+            elem2 = PyIter_Next(it2);
             set_obj = makeSet(nullptr, nullptr, 0);
-            SetObject_intersectionInternal(lock, set_obj, it1, elem1, it2, elem2);            
-            WITH_PY_API_UNLOCKED
+            SetObject_intersectionInternal(lock, set_obj, it1, elem1, it2, elem2);
             Py_DECREF(it1);
             Py_DECREF(it2);
-            it1 = AnyObject_GetIter((PyObject*)set_obj);
+            it1 = PyObject_GetIter((PyObject*)set_obj);
         }
         return set_obj;
     }
@@ -461,43 +447,38 @@ namespace db0::python
         if (elem1 == nullptr) {
             do {
                 if (symmetric) {
-                    auto hash = AnyObject_Hash(elem2);
+                    auto hash = PyObject_Hash(elem2);
                     set_obj->modifyExt().append(fixture, hash, elem2);
-                }
-                WITH_PY_API_UNLOCKED
+                }                
                 Py_DECREF(elem2);
-            } while((elem2 = AnyIter_Next(it2)));
+            } while((elem2 = PyIter_Next(it2)));
             return;
         }
         if (elem2 == nullptr) {
             do {
-                auto hash = AnyObject_Hash(elem1);
-                set_obj->modifyExt().append(fixture, hash, elem1);
-                WITH_PY_API_UNLOCKED
+                auto hash = PyObject_Hash(elem1);
+                set_obj->modifyExt().append(fixture, hash, elem1);                
                 Py_DECREF(elem1);
-            } while((elem1 = AnyIter_Next(it1)));
+            } while((elem1 = PyIter_Next(it1)));
             return;
         }
         if (elem1 < elem2) {
-            auto hash = AnyObject_Hash(elem1);
-            set_obj->modifyExt().append(fixture, hash, elem1);
-            WITH_PY_API_UNLOCKED
+            auto hash = PyObject_Hash(elem1);
+            set_obj->modifyExt().append(fixture, hash, elem1);            
             Py_DECREF(elem1);
-            elem1 = AnyIter_Next(it1);
+            elem1 = PyIter_Next(it1);
         } else if (elem1 > elem2) {
             if (symmetric) {
-                auto hash = AnyObject_Hash(elem2);
+                auto hash = PyObject_Hash(elem2);
                 set_obj->modifyExt().append(fixture, hash, elem1);
-            }
-            WITH_PY_API_UNLOCKED
+            }            
             Py_DECREF(elem2);
-            elem2 = AnyIter_Next(it2);
-        } else if (elem1 == elem2) {
-            WITH_PY_API_UNLOCKED
+            elem2 = PyIter_Next(it2);
+        } else if (elem1 == elem2) {            
             Py_DECREF(elem1);
             Py_DECREF(elem2);
-            elem1 = AnyIter_Next(it1);
-            elem2 = AnyIter_Next(it2);
+            elem1 = PyIter_Next(it1);
+            elem2 = PyIter_Next(it2);
         }
         return SetObject_differenceInternal(fixture, set_obj, it1 ,elem1, it2, elem2, symmetric);
     }
@@ -517,18 +498,17 @@ namespace db0::python
         }
         SetObject *set_obj = makeSet(nullptr, nullptr, 0);
         PyObject *elem1, *elem2, *it2;
-        PyObject *it1 = AnyObject_GetIter((PyObject*)self);
+        PyObject *it1 = PyObject_GetIter((PyObject*)self);
         db0::FixtureLock lock(self->ext().getFixture());
         for (Py_ssize_t i = 0; i < nargs; ++i) {
-            it2 = AnyObject_GetIter(args[i]);
-            elem1 = AnyIter_Next(it1);
-            elem2 = AnyIter_Next(it2);
+            it2 = PyObject_GetIter(args[i]);
+            elem1 = PyIter_Next(it1);
+            elem2 = PyIter_Next(it2);
             set_obj = makeSet(nullptr, nullptr, 0);
-            SetObject_differenceInternal(lock, set_obj, it1, elem1, it2, elem2, symmetric);
-            WITH_PY_API_UNLOCKED
+            SetObject_differenceInternal(lock, set_obj, it1, elem1, it2, elem2, symmetric);            
             Py_DECREF(it1);
             Py_DECREF(it2);
-            it1 = AnyObject_GetIter((PyObject*)set_obj);
+            it1 = PyObject_GetIter((PyObject*)set_obj);
         }
         return set_obj;
     }
@@ -569,7 +549,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "remove() takes exactly one argument");
             return NULL;
         }
-        auto hash = AnyObject_Hash(args[0]);
+        auto hash = PyObject_Hash(args[0]);
         db0::FixtureLock lock(set_obj->ext().getFixture());
         if (set_obj->modifyExt().remove(lock, hash, args[0]) == false && throw_ex) {
             PyErr_SetString(PyExc_KeyError, "Element not found");
@@ -607,17 +587,15 @@ namespace db0::python
     PyObject *SetObject_update(SetObject *self, PyObject * ob)
     {
         PY_API_FUNC
-        PyObject* it = AnyObject_GetIter(ob);
+        PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
-        while ((item = AnyIter_Next(it))) {
-            auto hash = AnyObject_Hash(item);
-            set_impl.append(lock, hash, item);
-            WITH_PY_API_UNLOCKED
+        while ((item = PyIter_Next(it))) {
+            auto hash = PyObject_Hash(item);
+            set_impl.append(lock, hash, item);            
             Py_DECREF(item);
-        }
-        WITH_PY_API_UNLOCKED
+        }        
         Py_DECREF(it);
         Py_INCREF(self);
         return self;
@@ -635,15 +613,14 @@ namespace db0::python
     PyObject *SetObject_intersection_in_place(SetObject *self, PyObject * ob)
     {
         PY_API_FUNC
-        PyObject* it = AnyObject_GetIter(self);
+        PyObject* it = PyObject_GetIter(self);
         PyObject* item;
         std::list<std::pair<size_t, PyObject*>> hashes_and_items;
-        while ((item = AnyIter_Next(it))) {
+        while ((item = PyIter_Next(it))) {
             if (!sequenceContainsItem(ob, item)){
-                auto hash = AnyObject_Hash(item);
+                auto hash = PyObject_Hash(item);
                 hashes_and_items.push_back({hash,item});
-            }
-            WITH_PY_API_UNLOCKED
+            }            
             Py_DECREF(item);
         }
         auto &set_impl = self->modifyExt();
@@ -651,8 +628,7 @@ namespace db0::python
         for (auto hash_and_item: hashes_and_items) {
             set_impl.remove(lock, hash_and_item.first, hash_and_item.second);
         }
-        Py_INCREF(self);
-        WITH_PY_API_UNLOCKED
+        Py_INCREF(self);        
         Py_DECREF(it);        
         return self;
     }
@@ -660,19 +636,17 @@ namespace db0::python
     PyObject *SetObject_difference_in_place(SetObject *self, PyObject * ob)
     {
         PY_API_FUNC
-        PyObject* it = AnyObject_GetIter(ob);
+        PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
         std::list<size_t> hashes;
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
-        while ((item = AnyIter_Next(it))) {
-            auto hash = AnyObject_Hash(item);
-            set_impl.remove(lock, hash, item);
-            WITH_PY_API_UNLOCKED
+        while ((item = PyIter_Next(it))) {
+            auto hash = PyObject_Hash(item);
+            set_impl.remove(lock, hash, item);        
             Py_DECREF(item);
         }
-        Py_INCREF(self);
-        WITH_PY_API_UNLOCKED
+        Py_INCREF(self);        
         Py_DECREF(it);        
         return self;
     }
@@ -682,13 +656,13 @@ namespace db0::python
         PY_API_FUNC
         std::list<std::pair<size_t, PyObject*>> hashes_and_items_to_remove;
         std::list<PyObject *> items_to_add;
-        PyObject* it = AnyObject_GetIter(ob);
+        PyObject* it = PyObject_GetIter(ob);
         PyObject* item;
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
-        while ((item = AnyIter_Next(it))) {
+        while ((item = PyIter_Next(it))) {
             if (set_impl.has_item(item)) {
-                auto hash = AnyObject_Hash(item);
+                auto hash = PyObject_Hash(item);
                 hashes_and_items_to_remove.push_back({hash, item});
             } else {
                 items_to_add.push_back(item);
@@ -698,13 +672,11 @@ namespace db0::python
             set_impl.remove(lock, hash_and_item.first, hash_and_item.second);
         }
         for (auto item: items_to_add) {
-            auto hash = AnyObject_Hash(item);
-            set_impl.append(lock, hash, item);
-            WITH_PY_API_UNLOCKED
+            auto hash = PyObject_Hash(item);
+            set_impl.append(lock, hash, item);            
             Py_DECREF(item);
         }
-        Py_INCREF(self);
-        WITH_PY_API_UNLOCKED
+        Py_INCREF(self);        
         Py_DECREF(it);        
         return self;
     }

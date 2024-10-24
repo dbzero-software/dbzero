@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <mutex>
 #include <dbzero/core/vspace/v_ptr.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
 #include <dbzero/object_model/value/TypedAddress.hpp>
@@ -143,6 +144,7 @@ namespace db0
         bool m_atomic = false;        
         // the list of volatile instances - i.e. created during atomic operation
         std::vector<void*> m_volatile;
+        mutable std::mutex m_mutex;
         
         template <typename T> static void registerSingleType()
         {
@@ -155,6 +157,7 @@ namespace db0
     
     template <typename T> void GC0::add(void *vptr)
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
         // detach function must always be provided
         assert(m_ops[T::m_gc_ops_id].detach);
         assert(m_ops[T::m_gc_ops_id].address);
@@ -170,6 +173,7 @@ namespace db0
     
     template <typename T> void GC0::moveFrom(GC0 &other, void *vptr)
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
         assert(other.m_vptr_map.find(vptr) != other.m_vptr_map.end());
         other.m_vptr_map.erase(vptr);
         m_vptr_map[vptr] = T::m_gc_ops_id;
@@ -189,9 +193,9 @@ namespace db0
             }
         }
     }
-
+    
     template <typename... T> void GC0::registerTypes()
-    {
+    {        
         if (m_initialized) {
             return;
         }

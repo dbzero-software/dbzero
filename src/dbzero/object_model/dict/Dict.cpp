@@ -1,7 +1,6 @@
 
 #include "Dict.hpp"
 #include <dbzero/bindings/python/PyToolkit.hpp>
-#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 #include <dbzero/object_model/value.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/object.hpp>
@@ -153,7 +152,7 @@ namespace db0::object_model
     bool Dict::has_item(ObjectPtr obj) const
     {   
         // FIXME: this API should NOT be used directly here
-        auto item = getItem(py::AnyObject_Hash(obj), obj);
+        auto item = getItem(PyObject_Hash(obj), obj);
         return item != nullptr;
     }
 
@@ -163,7 +162,7 @@ namespace db0::object_model
     
     Dict::ObjectSharedPtr Dict::pop(ObjectPtr obj)
     {
-        auto hash = py::AnyObject_Hash(obj);
+        auto hash = PyObject_Hash(obj);
         auto iter = m_index.find(hash);
         if (iter == m_index.end()) {
             return nullptr;

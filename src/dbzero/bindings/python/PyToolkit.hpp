@@ -8,6 +8,9 @@
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <optional>
+#include <mutex>
+
+#define PY_API_FUNC auto __api_lock = db0::python::PyToolkit::lockApi();
 
 namespace db0
 
@@ -170,18 +173,14 @@ namespace db0::python
         static std::optional<long> getLong(ObjectPtr py_object, const std::string &key);
         static std::optional<bool> getBool(ObjectPtr py_object, const std::string &key);
         static std::optional<std::string> getString(ObjectPtr py_object, const std::string &key);
-        
+
         // block until lock acquired
-        static void lockApi();
-        static void unlockApi();
-        // unlock if locked, otherwise return false
-        static bool tryUnlockApi();
-        
+        static std::unique_lock<std::recursive_mutex> lockApi();
+
     private:
         static PyWorkspace m_py_workspace;
         static TypeManager m_type_manager;
-        static std::mutex m_api_mutex;
-        static std::unique_lock<std::mutex> m_api_lock;
+        static std::recursive_mutex m_api_mutex;        
     };
     
 }

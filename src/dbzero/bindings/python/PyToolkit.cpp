@@ -20,7 +20,6 @@
 #include "PyEnum.hpp"
 #include "PyClassFields.hpp"
 #include "PyClass.hpp"
-#include "AnyObjectAPI.hpp"
 
 namespace db0::python
 
@@ -28,8 +27,7 @@ namespace db0::python
     
     PyToolkit::TypeManager PyToolkit::m_type_manager;
     PyToolkit::PyWorkspace PyToolkit::m_py_workspace;
-    std::mutex PyToolkit::m_api_mutex;
-    std::unique_lock<std::mutex> PyToolkit::m_api_lock(PyToolkit::m_api_mutex, std::defer_lock);
+    std::recursive_mutex PyToolkit::m_api_mutex;
     
     std::string PyToolkit::getTypeName(ObjectPtr py_object) {
         return getTypeName(Py_TYPE(py_object));
@@ -307,7 +305,7 @@ namespace db0::python
     
     PyToolkit::ObjectSharedPtr PyToolkit::getIterator(ObjectPtr py_object)
     {
-        auto py_iterator = AnyObject_GetIter(py_object);
+        auto py_iterator = PyObject_GetIter(py_object);
         if (!py_iterator) {
             THROWF(db0::InputException) << "Unable to get iterator for object" << THROWF_END;
         }
@@ -316,7 +314,7 @@ namespace db0::python
     
     PyToolkit::ObjectSharedPtr PyToolkit::next(ObjectPtr py_object)
     {
-        auto py_next = AnyIter_Next(py_object);
+        auto py_next = PyIter_Next(py_object);
         if (!py_next) {
             // StopIteration exception raised
             PyErr_Clear();
@@ -467,31 +465,16 @@ namespace db0::python
         return result;
     }
     
-    bool PyToolkit::compare(ObjectPtr py_object1, ObjectPtr py_object2) 
-    {
-        WITH_PY_API_UNLOCKED
+    bool PyToolkit::compare(ObjectPtr py_object1, ObjectPtr py_object2) {
         return PyObject_RichCompareBool(py_object1, py_object2, Py_EQ);
     }
     
     bool PyToolkit::isClassObject(ObjectPtr py_object) {
         return PyClassObject_Check(py_object);
     }
-
-    void PyToolkit::lockApi() {
-        m_api_lock.lock();
-    }
-
-    void PyToolkit::unlockApi() {
-        m_api_lock.unlock();
+    
+    std::unique_lock<std::recursive_mutex> PyToolkit::lockApi() {
+        return std::unique_lock<std::recursive_mutex>(m_api_mutex);
     }
     
-    bool PyToolkit::tryUnlockApi()
-    {
-        if (m_api_lock.owns_lock()) {
-            m_api_lock.unlock();
-            return true;
-        }
-        return false;
-    }
-
 }

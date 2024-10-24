@@ -153,13 +153,10 @@ namespace db0::python
             auto py_type = Py_TYPE(self);
             auto base_type = py_type->tp_base;
             
-            // invoke tp_init from base type (wrapped pyhon class)
-            // tp_init must be unlocked since it's calling back into DB0 API
-            PY_API_UNLOCK
+            // invoke tp_init from base type (wrapped pyhon class)            
             if (base_type->tp_init((PyObject*)self, args, kwds) < 0) {
                 PyObject *ptype, *pvalue, *ptraceback;
-                PyErr_Fetch(&ptype, &pvalue, &ptraceback);
-                PY_API_LOCK
+                PyErr_Fetch(&ptype, &pvalue, &ptraceback);                
                 if (ptype == PyToolkit::getTypeManager().getBadPrefixError()) {
                     // from pvalue
                     std::uint64_t fixture_uuid = PyLong_AsUnsignedLong(pvalue);
@@ -175,13 +172,12 @@ namespace db0::python
                         return 0;
                     }
                 }
-
+                
                 // Unrecognized error
                 PyErr_Restore(ptype, pvalue, ptraceback);
                 return -1;
             }
-            
-            PY_API_LOCK
+                        
             // invoke post-init on associated DBZero object
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());
@@ -230,15 +226,12 @@ namespace db0::python
         // 1. User type members (class members such as methods)
         // 2. DB0 object extension methods
         // 3. DB0 object members (attributes)
-        // 4. User instance members (e.g. attributes set during __postinit__)
-        {
-            WITH_PY_API_UNLOCKED
-            auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(memo_obj), attr);
-            if (res) {
-                return res;
-            }
+        // 4. User instance members (e.g. attributes set during __postinit__)                
+        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(memo_obj), attr);
+        if (res) {
+            return res;
         }
-        
+            
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr));
         // raise AttributeError
@@ -298,8 +291,7 @@ namespace db0::python
         PY_API_FUNC
         PyObject * obj_memo = reinterpret_cast<PyObject*>(memo_obj);
         // if richcompare is overriden by the python class, call the python class implementation
-        if (obj_memo->ob_type->tp_base->tp_richcompare != PyType_Type.tp_richcompare) {
-            WITH_PY_API_UNLOCKED
+        if (obj_memo->ob_type->tp_base->tp_richcompare != PyType_Type.tp_richcompare) {            
             return obj_memo->ob_type->tp_base->tp_richcompare(reinterpret_cast<PyObject*>(memo_obj), other, op);
         }
         bool eq_result = false;

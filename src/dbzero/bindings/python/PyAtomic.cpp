@@ -50,8 +50,7 @@ namespace db0::python
             auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
             db0::AtomicContext::makeNew(&py_object->modifyExt(), workspace_ptr, std::move(lock));
             return py_object;
-        } catch (...) {
-            WITH_PY_API_UNLOCKED
+        } catch (...) {        
             Py_DECREF(py_object);
             throw;
         }

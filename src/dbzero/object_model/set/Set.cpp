@@ -1,7 +1,5 @@
 #include "Set.hpp"
 #include <dbzero/bindings/python/PyToolkit.hpp>
-// FIXME: Python API should not be invoked directly
-#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 #include <dbzero/object_model/value.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/object.hpp>
@@ -211,7 +209,7 @@ namespace db0::object_model
     bool Set::has_item(ObjectPtr obj) const
     {
         // FIXME: this API should NOT be used directly here
-        auto hash = py::AnyObject_Hash(obj);
+        auto hash = PyObject_Hash(obj);
         auto item = getItem(hash, obj);
         return item != nullptr;
     }

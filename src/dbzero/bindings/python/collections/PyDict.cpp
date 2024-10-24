@@ -6,7 +6,6 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
-#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 
 namespace db0::python
 
@@ -26,7 +25,7 @@ namespace db0::python
     PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)
     {        
         dict_obj->ext().getFixture()->refreshIfUpdated();
-        auto hash = AnyObject_Hash(key);
+        auto hash = PyObject_Hash(key);
         if (hash == -1) {
             return NULL;
         }
@@ -41,7 +40,7 @@ namespace db0::python
     
     int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
-        auto hash = AnyObject_Hash(key);
+        auto hash = PyObject_Hash(key);
         if (hash == -1) {
             return -1;
         }
@@ -137,9 +136,9 @@ namespace db0::python
         }
         if (PyObject_Length(args) == 1) {
             PyObject * arg1 = PyTuple_GetItem(args, 0);
-            PyObject *iterator = AnyObject_GetIter(arg1);
+            PyObject *iterator = PyObject_GetIter(arg1);
             PyObject *elem;
-            while ((elem = AnyIter_Next(iterator))) {
+            while ((elem = PyIter_Next(iterator))) {
                 if (PyDict_Check(arg1)) {
                     DictObject_SetItem(dict_object, elem, PyDict_GetItem(arg1, elem));
                 } else if (DictObject_Check(arg1)) {
@@ -150,11 +149,9 @@ namespace db0::python
                         return NULL;
                     }
                     DictObject_SetItem(dict_object, PyTuple_GetItem(elem,0), PyTuple_GetItem(elem,1));
-                }
-                WITH_PY_API_UNLOCKED
+                }                
                 Py_DECREF(elem);
-            }
-            WITH_PY_API_UNLOCKED
+            }            
             Py_DECREF(iterator);
         }
         if (kwargs != NULL && PyObject_Length(kwargs) > 0) {
@@ -231,13 +228,13 @@ namespace db0::python
         auto py_dict = DictDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         db0::object_model::Dict::makeNew(&py_dict.get()->modifyExt(), *lock);
-        PyObject *iterator = AnyObject_GetIter(args[0]);
+        PyObject *iterator = PyObject_GetIter(args[0]);
         PyObject *elem;
         PyObject *value = Py_None;
         if (nargs == 2) {
             value = args[1];
         }
-        while ((elem = AnyIter_Next(iterator))) {
+        while ((elem = PyIter_Next(iterator))) {
             DictObject_SetItem(py_dict.get(), elem, value);
         }
 

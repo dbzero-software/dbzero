@@ -17,10 +17,6 @@ namespace db0
     
     LangCache::~LangCache()
     {
-        {
-            WITH_PY_API_UNLOCKED
-            m_cache.clear();
-        }
     }
     
     void LangCache::moveFrom(LangCache &other, const Fixture &src_fixture, std::uint64_t src_address,
@@ -129,8 +125,7 @@ namespace db0
     }
     
     void LangCache::clear(bool expired_only)
-    {
-        WITH_PY_API_UNLOCKED
+    {        
         for (auto &item: m_cache) {
             if (item.second && (!expired_only || LangToolkit::getRefCount(item.second.get()) == 1)) {
                 m_uid_to_index.erase(item.first);
@@ -186,11 +181,8 @@ namespace db0
                 } else {
                     if (LangToolkit::getRefCount(m_evict_hand->second.get()) == 1) {
                         // evict the object
-                        m_uid_to_index.erase(m_evict_hand->first);
-                        {
-                            WITH_PY_API_UNLOCKED
-                            *m_evict_hand = {};
-                        }
+                        m_uid_to_index.erase(m_evict_hand->first);                                                
+                        *m_evict_hand = {};                        
                         --m_size;
                         return m_evict_hand - m_cache.begin();
                     }
@@ -258,8 +250,7 @@ namespace db0
     }
     
     void LangCacheView::clear(bool expired_only)
-    {
-        WITH_PY_API_UNLOCKED
+    {        
         // erase expired objects only
         if (expired_only) {
             auto it = m_objects.begin();

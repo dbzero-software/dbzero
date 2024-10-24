@@ -10,8 +10,7 @@ namespace db0::python
     
     template <typename PyCollection>
     bool has_all_elements_same(PyCollection *collection, PyObject *iterator)
-    {
-        WITH_PY_API_UNLOCKED
+    {        
         PyObject *lh, *rh;
         PyObject *py_collection_iter = PyObject_GetIter(collection);
         while ((rh = PyIter_Next(iterator))) {
@@ -34,8 +33,7 @@ namespace db0::python
     
     template <typename PyCollection>
     bool has_all_elements_in_collection(PyCollection *collection, PyObject *object)
-    {
-        WITH_PY_API_UNLOCKED
+    {        
         PyObject* elem;
         PyObject* iterator = PyObject_GetIter(object);
         while ((elem = PyIter_Next(iterator))) {

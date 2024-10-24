@@ -5,7 +5,6 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/Utils.hpp>
-#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 
 namespace db0::python
 
@@ -83,7 +82,7 @@ namespace db0::python
                 return Py_NotImplemented;
             }
         } else {
-            PyObject *iterator = AnyObject_GetIter(other);
+            PyObject *iterator = PyObject_GetIter(other);
             switch (op)
             {
             case Py_EQ:
@@ -92,8 +91,7 @@ namespace db0::python
                 return PyBool_fromBool(!has_all_elements_same(tuple_obj, iterator));
             default:
                 return Py_NotImplemented;
-            }
-            WITH_PY_API_UNLOCKED
+            }            
             Py_DECREF(iterator);
             return Py_True;
         }
@@ -151,20 +149,18 @@ namespace db0::python
         auto py_tuple = TupleDefaultObject_new();
         db0::FixtureLock lock(fixture);
         auto &tuple = py_tuple.get()->modifyExt();
-        db0::object_model::Tuple::makeNew(&tuple, *lock, AnyObject_Length(args[0]));
-        PyObject *iterator = AnyObject_GetIter(args[0]);
+        db0::object_model::Tuple::makeNew(&tuple, *lock, PyObject_Length(args[0]));
+        PyObject *iterator = PyObject_GetIter(args[0]);
         PyObject *item;
         int index = 0;
-        while ((item = AnyIter_Next(iterator))) {
-            tuple.setItem(lock, index, item);
-            WITH_PY_API_UNLOCKED
+        while ((item = PyIter_Next(iterator))) {
+            tuple.setItem(lock, index, item);            
             Py_DECREF(item);
             ++index;
         }
 
         // register newly created tuple with py-object cache
-        fixture->getLangCache().add(tuple.getAddress(), py_tuple.get());
-        WITH_PY_API_UNLOCKED
+        fixture->getLangCache().add(tuple.getAddress(), py_tuple.get());        
         Py_DECREF(iterator);
         return py_tuple;
     }

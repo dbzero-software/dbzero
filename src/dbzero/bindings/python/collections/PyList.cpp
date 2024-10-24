@@ -7,7 +7,6 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/Utils.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
-#include <dbzero/bindings/python/AnyObjectAPI.hpp>
 
 namespace db0::python
 {
@@ -186,7 +185,7 @@ namespace db0::python
                 return Py_NotImplemented;
             }
         } else {
-            PyObject *iterator = AnyObject_GetIter(other);
+            PyObject *iterator = PyObject_GetIter(other);
             switch (op)
             {
             case Py_EQ:
