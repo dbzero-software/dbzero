@@ -30,6 +30,8 @@ jobs:
         with:
           architecture: x86
         if: runner.os == 'Windows' && matrix.architecture == 'x86'
+      - run: python3 scripts/generate_meson.py ./src/dbzero/ core
+      - run: python3 scripts/generate_meson_tests.py tests/
       - run: pip3 install pipx
       - run: pipx run cibuildwheel==2.11.2
         env:
