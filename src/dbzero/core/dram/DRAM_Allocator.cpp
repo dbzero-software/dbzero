@@ -54,7 +54,7 @@ namespace db0
             return m_next_page_id++ * m_page_size;
         }
         auto it = m_free_pages.begin();
-        auto result = *it;;
+        auto result = *it * m_page_size;
         m_free_pages.erase(it);
         return result;
     }

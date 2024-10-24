@@ -73,7 +73,8 @@ namespace db0
         auto page_num = address / m_page_size;
         auto offset = address % m_page_size;
         if (size + offset > m_page_size) {
-            THROWF(db0::InternalException) << "DRAM_Prefix: invalid range requested" << THROWF_END;
+            THROWF(db0::InternalException) << "DRAM_Prefix: invalid range requested (@" << address 
+                << ", size = " << size << ")" << THROWF_END;
         }
         auto it = m_pages.find(page_num);
         if (it == m_pages.end()) {
