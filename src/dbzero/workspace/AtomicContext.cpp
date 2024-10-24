@@ -13,7 +13,6 @@ namespace db0
 {
     
     std::mutex AtomicContext::m_atomic_mutex;
-    std::unique_lock<std::mutex> AtomicContext::m_atomic_lock(m_atomic_mutex, std::defer_lock);
 
     // MEMO_OBJECT specialization
     template <> void detachObject<TypeId::MEMO_OBJECT, PyToolkit>(PyObjectPtr obj_ptr) {
@@ -62,57 +61,74 @@ namespace db0
         functions[static_cast<int>(TypeId::DB0_DICT)] = detachObject<TypeId::DB0_DICT, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = detachObject<TypeId::DB0_TUPLE, PyToolkit>;
     }
-
-    AtomicContext::AtomicContext(std::shared_ptr<Workspace> &workspace)
+    
+    AtomicContext::AtomicContext(std::shared_ptr<Workspace> &workspace, std::unique_lock<std::mutex> &&lock)
         : m_workspace(workspace)
+        , m_atomic_lock(std::move(lock))
     {
+        assert(isActive());
         m_workspace->preAtomic();
         m_workspace->beginAtomic(this);
     }
     
-    void AtomicContext::makeNew(void *ptr, std::shared_ptr<Workspace> &workspace) {
-        new (ptr) AtomicContext(workspace);
+    void AtomicContext::makeNew(void *ptr, std::shared_ptr<Workspace> &workspace,
+        std::unique_lock<std::mutex> &&lock) 
+    {
+        new (ptr) AtomicContext(workspace, std::move(lock));
     }
     
     void AtomicContext::cancel()
     {
-        if (!m_active) {
+        if (!isActive()) {
             THROWF(db0::InternalException) << "atomic 'cancel' failed: operation already completed" << THROWF_END;
         }
 
-        // all objects from context need to be detached
-        auto &type_manager = LangToolkit::getTypeManager();
-        for (auto &pair : m_objects) {            
-            detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
+        try {
+            // all objects from context need to be detached
+            auto &type_manager = LangToolkit::getTypeManager();
+            for (auto &pair : m_objects) {            
+                detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
+            }
+            m_workspace->cancelAtomic();
+            m_objects.clear();
+        } catch (...) {
+            m_atomic_lock.unlock();
+            throw;
         }
-        m_workspace->cancelAtomic();
-        m_objects.clear();
-        m_active = false;
+        // unlock the atomic mutex
+        m_atomic_lock.unlock();
     }
     
     void AtomicContext::close()
     {
-        if (m_active) {
+        if (isActive()) {
             approve();
         }
     }
 
     void AtomicContext::approve()
     {
-        if (!m_active) {
+        if (!isActive()) {
             THROWF(db0::InternalException) << "atomic 'approve' failed: operation already completed" << THROWF_END;
         }
 
-        // detach / flush all workspace objects
-        m_workspace->detach();
-        // all objects from context need to be detached
-        auto &type_manager = LangToolkit::getTypeManager();        
-        for (auto &pair : m_objects) {
-            detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
-        }        
-        
-        m_workspace->endAtomic();
-        m_objects.clear();
+        try {
+            // detach / flush all workspace objects
+            m_workspace->detach();
+            // all objects from context need to be detached
+            auto &type_manager = LangToolkit::getTypeManager();        
+            for (auto &pair : m_objects) {
+                detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
+            }        
+            
+            m_workspace->endAtomic();
+            m_objects.clear();
+        } catch (...) {
+            m_atomic_lock.unlock();
+            throw;
+        }
+        // unlock the atomic mutext
+        m_atomic_lock.unlock();
     }
     
     void AtomicContext::add(std::uint64_t address, ObjectPtr lang_object)
@@ -131,15 +147,12 @@ namespace db0
         }
     }
 
-    void AtomicContext::lock() {
-        m_atomic_lock.lock();
-    }
-
-    void AtomicContext::unlock() 
-    {
-        if (m_atomic_lock.owns_lock()) {
-            m_atomic_lock.unlock();
-        }
+    std::unique_lock<std::mutex> AtomicContext::lock() {
+        return std::unique_lock<std::mutex>(m_atomic_mutex);
     }
     
+    bool AtomicContext::isActive() const {
+        return m_atomic_lock.owns_lock();
+    }
+
 }

@@ -42,16 +42,17 @@ namespace db0::python
         .tp_free = PyObject_Free,
     };
 
-    PyAtomic *PyAPI_tryBeginAtomic(PyObject *self)
-    {        
+    PyAtomic *PyAPI_tryBeginAtomic(PyObject *self, std::unique_lock<std::mutex> &&lock)
+    {
         PY_API_FUNC
-        try {
-            auto py_object = PyAtomic_new(&PyAtomicType, NULL, NULL);
+        auto py_object = PyAtomic_new(&PyAtomicType, NULL, NULL);
+        try {            
             auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
-            db0::AtomicContext::makeNew(&py_object->modifyExt(), workspace_ptr);
+            db0::AtomicContext::makeNew(&py_object->modifyExt(), workspace_ptr, std::move(lock));
             return py_object;
         } catch (...) {
-            db0::AtomicContext::unlock();
+            WITH_PY_API_UNLOCKED
+            Py_DECREF(py_object);
             throw;
         }
     }
@@ -63,8 +64,8 @@ namespace db0::python
             return NULL;
         }
         // need to acquire atomic lock first
-        db0::AtomicContext::lock();
-        return runSafe(PyAPI_tryBeginAtomic, self);
+        auto atomic_lock = db0::AtomicContext::lock();
+        return runSafe(PyAPI_tryBeginAtomic, self, std::move(atomic_lock));
     }
 
     bool PyAtomic_Check(PyObject *object) {
@@ -72,14 +73,8 @@ namespace db0::python
     }
     
     PyObject *tryPyAtomic_close(PyAtomic *self)
-    {
-        try {
-            self->modifyExt().close();
-        } catch (...) {
-            db0::AtomicContext::unlock();
-            throw;
-        }
-        db0::AtomicContext::unlock();
+    {        
+        self->modifyExt().close();
         return Py_None;
     }
 
@@ -90,14 +85,8 @@ namespace db0::python
     }
     
     PyObject *tryPyAtomic_cancel(PyAtomic *self)
-    {
-        try {
-            self->modifyExt().cancel();            
-        } catch (...) {
-            db0::AtomicContext::unlock();
-            throw;
-        }        
-        db0::AtomicContext::unlock();
+    {    
+        self->modifyExt().cancel();
         return Py_None;
     }
     

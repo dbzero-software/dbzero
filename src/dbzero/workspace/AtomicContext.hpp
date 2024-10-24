@@ -45,7 +45,7 @@ namespace db0
         using ObjectPtr = LangToolkit::ObjectPtr;
         using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
 
-        AtomicContext(std::shared_ptr<Workspace> &);
+        AtomicContext(std::shared_ptr<Workspace> &, std::unique_lock<std::mutex> &&);
 
         // Register specific instance with the current transaction (for rollback/detach)
         void add(std::uint64_t address, ObjectPtr);
@@ -57,19 +57,19 @@ namespace db0
         void cancel();
         void close();
         
-        static void makeNew(void *, std::shared_ptr<Workspace> &);
+        static void makeNew(void *, std::shared_ptr<Workspace> &, std::unique_lock<std::mutex> &&);
 
-        static void lock();
-        static void unlock();
+        static std::unique_lock<std::mutex> lock();
         
     private:
         std::shared_ptr<Workspace> m_workspace;
-        std::unordered_map<std::uint64_t, ObjectSharedPtr> m_objects;
-        bool m_active = true;
+        std::unordered_map<std::uint64_t, ObjectSharedPtr> m_objects;        
         
         // mutex / lock to prevent mutliple concurrent atomic operations
         static std::mutex m_atomic_mutex;
-        static std::unique_lock<std::mutex> m_atomic_lock;
+        std::unique_lock<std::mutex> m_atomic_lock;
+
+        bool isActive() const;
     };
 
 }

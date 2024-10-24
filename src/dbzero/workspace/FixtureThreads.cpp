@@ -1,14 +1,17 @@
 #include "FixtureThreads.hpp"
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/core/memory/Prefix.hpp>
+#include "AtomicContext.hpp"
 
 namespace db0
 
 {
 
-    FixtureThread::FixtureThread(std::function<void(Fixture &, std::uint64_t &)> fx_function, std::uint64_t interval_ms)
+    FixtureThread::FixtureThread(std::function<void(Fixture &, std::uint64_t &)> fx_function, std::uint64_t interval_ms,
+        std::function<std::shared_ptr<void>()> ctx_function)
         : m_fx_function(fx_function)
-        , m_interval_ms(interval_ms)
+        , m_ctx_function(ctx_function)
+        , m_interval_ms(interval_ms)        
     {
     } 
     
@@ -40,6 +43,11 @@ namespace db0
             if (m_stopped) {
                 break;
             }
+            // prepare commit context if configured
+            std::shared_ptr<void> context;
+            if (m_ctx_function) {
+                context = m_ctx_function();
+            }
             for (auto it = m_fixtures.begin(); it != m_fixtures.end(); ) {
                 auto fixture = it->first.lock();
                 if (!fixture) {
@@ -49,7 +57,7 @@ namespace db0
                 m_fx_function(*fixture, it->second);
                 ++it;
             }
-        }        
+        }
     }
     
     RefreshThread::RefreshThread()
@@ -73,12 +81,30 @@ namespace db0
     }
     
     AutoCommitThread::AutoCommitThread(std::uint64_t commit_interval_ms)
-        : FixtureThread([this](Fixture &fx, std::uint64_t &status) { tryCommit(fx, status); }, commit_interval_ms / 2)
+        : FixtureThread(
+            [this](Fixture &fx, std::uint64_t &status) { tryCommit(fx, status); },
+            commit_interval_ms / 2,
+            // NOTE: context function locks AtomicContext to make commit / atomic operations are mutually exclusive
+            [this]() { return lockAtomicContext(); }
+        )
     {
     }
     
     void AutoCommitThread::tryCommit(Fixture &fixture, std::uint64_t &) const {
         fixture.onAutoCommit();
+    }
+    
+    struct AC_Lock
+    {
+        std::unique_lock<std::mutex> m_lock;
+        AC_Lock(std::unique_lock<std::mutex> &&lock)
+            : m_lock(std::move(lock))
+        {            
+        }
+    };
+
+    std::shared_ptr<void> AutoCommitThread::lockAtomicContext() const {
+        return db0::make_shared_void<AC_Lock>(db0::AtomicContext::lock());
     }
 
 }
