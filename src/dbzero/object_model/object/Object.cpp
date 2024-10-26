@@ -116,7 +116,7 @@ namespace db0::object_model
         }
         return stem;
     }
-
+    
     Object *Object::unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type)
     {
         auto fixture = type->getFixture();

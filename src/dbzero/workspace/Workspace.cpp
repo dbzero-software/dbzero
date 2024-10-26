@@ -56,12 +56,13 @@ namespace db0
                 THROWF(db0::InputException) << "Prefix does not exist: " << prefix_name;
             }
             
-            StorageT::create(file_name, *page_size, *sparse_index_node_size);
+            BDevStorage::create(file_name, *page_size, *sparse_index_node_size);
             new_file_created = true;
         }
-        auto prefix = std::make_shared<PrefixImpl<StorageT> >(
-            prefix_name, m_dirty_meter, m_cache_recycler, file_name, access_type, lock_flags ? *lock_flags : m_default_lock_flags
-        );
+        auto prefix = std::make_shared<PrefixImpl>(
+            prefix_name, m_dirty_meter, m_cache_recycler, 
+            std::make_shared<BDevStorage>(file_name, access_type, lock_flags ? *lock_flags : m_default_lock_flags)
+        );        
         try {
             if (new_file_created) {
                 // prepare meta allocator for the 1st use

@@ -191,8 +191,7 @@ namespace tests
     }
     
     TEST_F( WorkspaceTest , testTimeTravelWithPartialObjectModification )
-    {        
-        using PrefixT = BaseWorkspace::PrefixT;        
+    {                
         std::uint64_t address = 0;
         // first transaction to create object
         {

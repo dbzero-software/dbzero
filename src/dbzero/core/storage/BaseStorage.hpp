@@ -78,7 +78,11 @@ namespace db0
 
         // Collect storage statistics where applicable (default implementation is empty)
         virtual void getStats(std::function<void(const std::string &, std::uint64_t)>) const;
+        
+        virtual std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {});
 
+        virtual std::uint64_t getLastUpdated() const;
+        
 #ifndef NDEBUG
         // state number, file offset
         using DRAM_PageInfo = std::pair<std::uint64_t, std::uint64_t>;

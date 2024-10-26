@@ -24,9 +24,10 @@ namespace db0
     
     Memspace TestWorkspaceBase::getMemspace(const PrefixName &name, AllocCallbackT callback)
     {
-        using PrefixT = PrefixImpl<db0::Storage0>;
+        using StorageT = db0::Storage0;
         if (!m_prefix) {
-            auto prefix = std::shared_ptr<Prefix>(new PrefixT(name, m_dirty_meter, m_cache_recycler, m_page_size));
+            auto prefix = std::shared_ptr<Prefix>(new PrefixImpl(
+                name, m_dirty_meter, m_cache_recycler, std::make_shared<StorageT>(m_page_size)));
             m_prefix = std::make_shared<db0::tests::PrefixProxy>(prefix);
         }
         auto allocator = std::make_shared<EmbeddedAllocator>();
@@ -89,8 +90,9 @@ namespace db0
         if (it != m_uuids.end()) {
             return getFixture(it->second, access_type);
         }
-        using PrefixT = PrefixImpl<db0::Storage0>;
-        auto prefix = std::shared_ptr<Prefix>(new PrefixT(prefix_name, m_dirty_meter, m_cache_recycler, m_page_size));
+        using StorageT = db0::Storage0;
+        auto prefix = std::shared_ptr<Prefix>(new PrefixImpl(
+            prefix_name, m_dirty_meter, m_cache_recycler, std::make_shared<StorageT>(m_page_size)));
         auto proxy = std::make_shared<db0::tests::PrefixProxy>(prefix);
         // prepare meta allocator for the 1st use
         MetaAllocator::formatPrefix(prefix, m_page_size, m_slab_size);

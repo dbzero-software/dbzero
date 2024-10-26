@@ -74,7 +74,7 @@ namespace db0
          * @param f optional function to be notified on updated data pages (DP)
          * @return 0 if no changes were applied, last modified timestamp otherwise
         */
-        std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {});
+        std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {}) override;
         
         bool flush(ProcessTimer * = nullptr) override;
 
@@ -86,17 +86,17 @@ namespace db0
         
         void getStats(std::function<void(const std::string &, std::uint64_t)>) const override;
 
+        /**
+         * Get last update timestamp
+        */
+        std::uint64_t getLastUpdated() const override;
+        
         const DRAM_IOStream &getDramIO() const {
             return m_dram_io;
         }
         
         bool empty() const;
         
-        /**
-         * Get last update timestamp
-        */
-        std::uint64_t getLastUpdated() const;
-
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;

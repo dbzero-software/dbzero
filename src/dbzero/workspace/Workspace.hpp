@@ -41,11 +41,7 @@ namespace db0
         static constexpr std::size_t DEFAULT_SLAB_SIZE = 64 * 1024 * 1024;
         static constexpr std::size_t DEFAULT_CACHE_SIZE = 2u << 30;
         static constexpr std::size_t DEFAULT_SLAB_CACHE_SIZE = 256;
-        
-        // use block device storage
-        using StorageT = BDevStorage;
-        using PrefixT = PrefixImpl<StorageT>;
-        
+                
         /**
          * @param root_path default search path for existing prefixes and storage for new ones (pass "" for current directory)
          **/        

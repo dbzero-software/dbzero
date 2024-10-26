@@ -165,6 +165,31 @@ def test_transactions_issue1(db0_no_autocommit):
         assert buf[index] == 0
         index += 1
 
+# FIXME: failing test blocked
+# def test_low_cache_transactions_issue1(db0_no_autocommit):
+#     """
+#     Test was failing with: element mismatch (when running with very small cache size)
+#     Resolution: ???
+#     """
+#     def rand_string(str_len):
+#         return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+    
+#     db0.set_cache_size(64 << 10)
+#     buf = db0.list()
+#     py_buf = []
+#     for _ in range(2):
+#         for _ in range(34):
+#             str = rand_string(64)            
+#             buf.append(str)
+#             py_buf.append(str)
+#         db0.commit()
+    
+#     index = 0
+#     for index in range(len(buf)):
+#         # assert buf[index].value == py_buf[index]        
+#         assert buf[index] == py_buf[index]
+#         index += 1
+    
     
 # def test_low_cache_transactions_issue2(db0_no_autocommit):
 #     """
@@ -172,28 +197,22 @@ def test_transactions_issue1(db0_no_autocommit):
 #     NOTE: due to random nature may need to run 5 - 7x times to reproduce
 #     Resolution: ???
 #     """
-#     def rand_string(max_len):
-#         import random
-#         import string
-#         actual_len = random.randint(1, max_len)
-#         return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
+#     def rand_string(str_len):
+#         return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
     
-#     db0.set_cache_size(512 << 10)
+#     db0.set_cache_size(100 << 10)
 #     buf = db0.list()
 #     py_buf = []
-#     for _ in range(20):
+#     for _ in range(2):
 #         for _ in range(25):
-#             str = rand_string(16)
-#             # buf.append(MemoTestClass(str))
-#             buf.append(str)
+#             str = rand_string(64)
+#             buf.append(MemoTestClass(str))
 #             py_buf.append(str)
 #         db0.commit()
+#         # FIXME: log
+#         print("^^^ commit ^^^")
     
 #     index = 0
 #     for index in range(len(buf)):
-#         # assert buf[index].value == py_buf[index]
-#         assert buf[index] == py_buf[index]
+#         assert buf[index].value == py_buf[index]        
 #         index += 1
-
-#     # FIXME: log
-#     print("Test completed")
