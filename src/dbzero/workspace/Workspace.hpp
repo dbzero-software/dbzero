@@ -219,6 +219,8 @@ namespace db0
         
         std::shared_ptr<LangCache> getLangCache() const override;
 
+        bool isMutable() const override;
+        
         CacheRecycler &getCacheRecycler();
 
         const CacheRecycler &getCacheRecycler() const;

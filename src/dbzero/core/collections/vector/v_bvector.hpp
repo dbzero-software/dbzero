@@ -488,6 +488,18 @@ namespace db0
             m_last_block = nullptr;
             super_t::detach();
         }
+        
+        void commit() const
+        {
+            progressive_mutex::scoped_unique_lock rw_lock(this->m_mutex);
+            for (auto &it: m_pb_cache) {
+                it.second->commit();
+            }
+            if (m_last_block) {
+                m_last_block->commit();
+            }
+            super_t::commit();
+        }
 
     private :
         

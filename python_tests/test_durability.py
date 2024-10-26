@@ -3,6 +3,8 @@ import dbzero_ce as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR
 import multiprocessing
+import random
+import string    
 
 
 def test_persisting_single_transaction_data(db0_fixture):
@@ -145,4 +147,53 @@ def test_dump_dram_io_map(db0_fixture):
         io_map = db0.get_dram_io_map()
         print(io_map)
         assert len(io_map) > 0
-        
+    
+
+def test_transactions_issue1(db0_no_autocommit):
+    """
+    Test was failing with:  Assertion `unload_member_functions[static_cast<int>(storage_class)]' failed
+    Resolution: missing implementation of v_bvector::commit
+    """
+    buf = db0.list()
+    for _ in range(6):
+        for _ in range(50):
+            buf.append(0)            
+        db0.commit()
+    
+    index = 0
+    for index in range(len(buf)):        
+        assert buf[index] == 0
+        index += 1
+
+    
+# def test_low_cache_transactions_issue2(db0_no_autocommit):
+#     """
+#     Test was failing with: CRDT_Allocator.cpp, line 157: Invalid address: NNN
+#     NOTE: due to random nature may need to run 5 - 7x times to reproduce
+#     Resolution: ???
+#     """
+#     def rand_string(max_len):
+#         import random
+#         import string
+#         actual_len = random.randint(1, max_len)
+#         return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
+    
+#     db0.set_cache_size(512 << 10)
+#     buf = db0.list()
+#     py_buf = []
+#     for _ in range(20):
+#         for _ in range(25):
+#             str = rand_string(16)
+#             # buf.append(MemoTestClass(str))
+#             buf.append(str)
+#             py_buf.append(str)
+#         db0.commit()
+    
+#     index = 0
+#     for index in range(len(buf)):
+#         # assert buf[index].value == py_buf[index]
+#         assert buf[index] == py_buf[index]
+#         index += 1
+
+#     # FIXME: log
+#     print("Test completed")

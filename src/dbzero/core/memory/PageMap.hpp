@@ -45,8 +45,9 @@ namespace db0
 
         void forEach(std::function<void(ResourceLockT &)>);
 
-        // @return true if the lock was reused (inserted into the existing range)
-        bool replace(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num);
+        // @return existing lock updated with the new lock's contents
+        std::shared_ptr<ResourceLockT> replace(std::uint64_t state_num, std::shared_ptr<ResourceLockT> new_lock, 
+            std::uint64_t page_num);
 
         void clear();
 
@@ -233,27 +234,27 @@ namespace db0
     }
 
     template <typename ResourceLockT>
-    bool PageMap<ResourceLockT>::replace(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
-        std::uint64_t page_num)
+    std::shared_ptr<ResourceLockT> PageMap<ResourceLockT>::replace(
+        std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num)
     {
         // find exact match of the page / state
         auto it = m_cache.find({page_num, state_num});
         if (it == m_cache.end()) {
             insert(state_num, lock);
-            return false;
+            return {};
         }
         auto existing_lock = it->second.lock();
         if (!existing_lock) {
             // remove expired weak_ptr
             m_cache.erase(it);
             insert(state_num, lock);
-            return false;
+            return {};
         }
-
+        
         assert(existing_lock->size() == lock->size());
-        // apply changes from the lock being merged
-        existing_lock->copyFrom(*lock);
-        return true;
+        // apply changes from the lock being merged (discarding changes in this lock)
+        existing_lock->moveFrom(*lock);
+        return existing_lock;
     }
 
     template <typename ResourceLockT>

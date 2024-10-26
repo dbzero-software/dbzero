@@ -65,11 +65,11 @@ namespace db0
     {
         assert(state_num > m_state_num);
         assert(!isDirty());        
-        m_state_num = state_num;
-        setDirty();
+        m_state_num = state_num;        
         if (no_flush) {
             m_access_mode.set(AccessOptions::no_flush);
         }
+        setDirty();
     }
     
     void DP_Lock::merge(std::uint64_t final_state_num)

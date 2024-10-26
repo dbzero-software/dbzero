@@ -161,7 +161,7 @@ namespace db0
         if (m_atomic) {
             access_mode.set(AccessOptions::no_flush, true);
         }
-
+        
         auto first_page = address >> m_shift;
         auto end_page = ((address + size - 1) >> m_shift) + 1;
         

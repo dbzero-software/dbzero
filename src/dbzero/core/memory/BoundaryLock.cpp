@@ -46,7 +46,7 @@ namespace db0
     }
     
     void BoundaryLock::_flush()
-    {
+    {        
         // note that boundary locks are flushed even with no_flush flag
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {
@@ -70,8 +70,23 @@ namespace db0
     {
         _flush();
         // flush both parent locks
-        m_lhs->flush();                
-        m_rhs->flush();        
+        m_lhs->flush();
+        m_rhs->flush();
+    }
+
+    void __rebase(std::shared_ptr<DP_Lock> &lock,
+        const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map) 
+    {
+        auto it = rebase_map.find(lock.get());
+        if (it != rebase_map.end()) {
+            lock = it->second;
+        }
+    }
+    
+    void BoundaryLock::rebase(const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map)
+    {    
+        __rebase(m_lhs, rebase_map);
+        __rebase(m_rhs, rebase_map);
     }
 
 }

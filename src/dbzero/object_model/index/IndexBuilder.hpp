@@ -79,7 +79,7 @@ namespace db0::object_model
     template <typename KeyT> void IndexBuilder<KeyT>::removeNull(ObjectPtr obj_ptr) {        
         super_t::removeNull(addToCache(obj_ptr));
     }
-       
+    
     template <typename KeyT> void IndexBuilder<KeyT>::flush(RangeTreeT &index)
     {
         std::function<void(std::uint64_t)> add_callback = [&](std::uint64_t address) {
@@ -94,8 +94,8 @@ namespace db0::object_model
             m_type_manager.extractMutableObject(it->second.get()).decRef();
         };
 
-        super_t::flush(index, &add_callback, &erase_callback);
-        m_object_cache.clear();        
+        super_t::flush(index, &add_callback, &erase_callback);        
+        m_object_cache.clear();
     }
     
     template <typename KeyT> std::uint64_t IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)

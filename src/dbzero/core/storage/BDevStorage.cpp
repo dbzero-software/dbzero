@@ -133,11 +133,12 @@ namespace db0
         mutation_id = item.m_state_num;
         return true;
     }
-
+    
     std::uint64_t BDevStorage::findMutation(std::uint64_t page_num, std::uint64_t state_num) const
     {
         std::uint64_t result;
         if (!tryFindMutationImpl(page_num, state_num, result)) {
+            assert(false && "BDevStorage::findMutation: page not found");
             THROWF(db0::IOException) 
                 << "BDevStorage::findMutation: page_num " << page_num << " not found, state: " << state_num;
         }

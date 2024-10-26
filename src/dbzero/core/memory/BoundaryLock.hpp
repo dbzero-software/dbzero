@@ -2,6 +2,7 @@
 
 #include "ResourceLock.hpp"
 #include "DP_Lock.hpp"
+#include <unordered_map>
 
 namespace db0
 
@@ -22,6 +23,9 @@ namespace db0
         virtual ~BoundaryLock();
         
         void flush() override;
+
+        // rebase parent locks if needed
+        void rebase(const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map);
 
     private:
         std::shared_ptr<DP_Lock> m_lhs;

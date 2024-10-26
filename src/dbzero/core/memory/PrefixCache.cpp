@@ -83,7 +83,7 @@ namespace db0
             if (!lock->isDirty() && lock.use_count() == (lock->isRecycled() ? 1 : 0) + 1) {
                 m_dp_map.erase(state_num, lock);
                 // note that this operation may also assign the no_flush flag if it was requested
-                lock->updateStateNum(state_num, access_mode[AccessOptions::no_flush]);
+                lock->updateStateNum(state_num, is_volatile);
                 // re-register the upgraded lock under a new state
                 // note that the actual lock may span a wider range, avoid passing first_page / end_page here !!
                 m_dp_map.insert(state_num, lock);
@@ -114,7 +114,7 @@ namespace db0
         lock->initDirty();
         // register under the lock's evaluated state number
         m_wide_map.insert(lock->getStateNum(), lock);
-                
+        
         assert(lock);
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {
@@ -208,8 +208,8 @@ namespace db0
             // we use dp_context as a placeholder for the dirty-cache
             result = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
             // register with the read state number
-            m_boundary_map.insert(read_state_num, result);            
-            // the new lock may need to be registered as volatile
+            m_boundary_map.insert(read_state_num, result);
+            // the new lock may need to be registered as "potentially" volatile because parent locks may already be volatile
             if (access_mode[AccessOptions::no_flush]) {
                 m_volatile_boundary_locks.push_back(result);
             }
@@ -313,11 +313,17 @@ namespace db0
     
     void PrefixCache::release()
     {
-        m_volatile_locks.clear();
+        for (auto &lock: m_volatile_boundary_locks) {
+            lock->discard();
+        }
         m_volatile_boundary_locks.clear();
+        for (auto &lock: m_volatile_locks) {
+            lock->discard();
+        }
+        m_volatile_locks.clear();
         // undo write / remove dirty flag from all owned locks
         forEach([&](ResourceLock &lock) {
-            lock.resetDirtyFlag();            
+            lock.discard();
         });
         
         // ... and this prefix's locks owned by the recycler
@@ -326,7 +332,7 @@ namespace db0
             m_cache_recycler_ptr->forEach([&](std::shared_ptr<ResourceLock> lock) {
                 // process only locks associated with this prefix
                 if (&lock->getStorage() == &m_storage) {
-                    lock->resetDirtyFlag();
+                    lock->discard();
                     locks.push_back(std::move(lock));
                 }
             });
@@ -391,11 +397,13 @@ namespace db0
         for (auto &lock: m_volatile_boundary_locks) {
             // erase range
             eraseBoundaryRange(lock->getAddress(), lock->size(), state_num);
+            lock->discard();
         }
         m_volatile_boundary_locks.clear();
         for (auto &lock: m_volatile_locks) {
             // erase range
             eraseRange(lock->getAddress(), lock->size(), state_num);
+            lock->discard();
         }
         m_volatile_locks.clear();
     }
@@ -420,7 +428,7 @@ namespace db0
         m_boundary_map.erase(state_num, first_page);
     }
     
-    void PrefixCache::replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+    std::shared_ptr<DP_Lock> PrefixCache::replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
         std::shared_ptr<DP_Lock> new_lock)
     {
         auto first_page = address >> m_shift;
@@ -428,63 +436,83 @@ namespace db0
         // operation not allowed for the boundary range
         assert(!isBoundaryRange(first_page, end_page, address & m_mask));
         if (end_page == first_page + 1) {
-            if (!m_dp_map.replace(state_num, new_lock, first_page)) {
+            auto existing_lock = m_dp_map.replace(state_num, new_lock, first_page);
+            if (existing_lock) {
+                return existing_lock;
+            } else {
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
                 // add to / update with cache recycler
                 if (m_cache_recycler_ptr) {
                     m_cache_recycler_ptr->update(new_lock);
                 }
+                return {};
             }
         } else {
-            if (!m_wide_map.replace(state_num, std::dynamic_pointer_cast<WideLock>(new_lock), first_page)) {
+            auto existing_lock = m_wide_map.replace(state_num, std::dynamic_pointer_cast<WideLock>(new_lock), first_page);
+            if (existing_lock) {
+                return existing_lock;
+            } else {            
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
                 // add to / update with cache recycler
                 if (m_cache_recycler_ptr) {
                     m_cache_recycler_ptr->update(new_lock);
                 }
+                return {};
             }
         }
     }
-    
-    void PrefixCache::replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+
+    bool PrefixCache::replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
         std::shared_ptr<BoundaryLock> new_lock)
     {
         auto first_page = address >> m_shift;
         assert(isBoundaryRange(first_page, ((address + size - 1) >> m_shift) + 1, address & m_mask));
-        if (!m_boundary_map.replace(state_num, new_lock, first_page)) {
-            // must clear the no_flush flag if lock was reused
+        if (m_boundary_map.replace(state_num, new_lock, first_page)) {
+            return true;
+        } else {
+            // must clear the no_flush flag if lock was reused (i.e. added to cache under a different state)
             new_lock->resetNoFlush();
-            // add add to / update with cache recycler
+            // add to / update with cache recycler
             if (m_cache_recycler_ptr) {
                 m_cache_recycler_ptr->update(new_lock);
             }
+            return false;
         }
     }
     
     void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num)
     {
-        // merge boundary locks first
+        std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > rebase_map;
+        // merge DP-locks first
+        for (auto &lock: m_volatile_locks) {
+            assert(lock->isDirty());
+            // erase volatile range related lock
+            eraseRange(lock->getAddress(), lock->size(), from_state_num);
+            // need to update to final state number (head) before merging with active transaction
+            lock->merge(to_state_num);
+            auto existing_lock = replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);
+            // register the mapping to existing locks
+            if (existing_lock) {
+                rebase_map[lock.get()] = existing_lock;
+            }            
+        }
+        m_volatile_locks.clear();
+        
+        // merge boundary locks next & rebase parent locks if needed
         for (auto &lock: m_volatile_boundary_locks) {
+            // erase volatile range related lock
+            eraseBoundaryRange(lock->getAddress(), lock->size(), from_state_num);
+            // NOTE: boundary volatile locks may be non-dirty and such get simply discarded
             if (lock->isDirty()) {
-                // erase volatile range related lock
-                eraseBoundaryRange(lock->getAddress(), lock->size(), from_state_num);
-                replaceBoundaryRange(lock->getAddress(), lock->size(), to_state_num, lock);
+                if (!replaceBoundaryRange(lock->getAddress(), lock->size(), to_state_num, lock)) {
+                    // need to rebase parent locks if the boundary lock was reused
+                    lock->rebase(rebase_map);
+                }
             }
         }
         m_volatile_boundary_locks.clear();
-
-        for (auto &lock: m_volatile_locks) {
-            if (lock->isDirty()) {
-                // erase volatile range related lock
-                eraseRange(lock->getAddress(), lock->size(), from_state_num);
-                // need to update to final state number (head) before merging with active transaction
-                lock->merge(to_state_num);
-                replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);
-            }
-        }
-        m_volatile_locks.clear();
     }
     
     std::size_t PrefixCache::getPageSize() const {

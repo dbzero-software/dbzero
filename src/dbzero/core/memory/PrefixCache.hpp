@@ -169,9 +169,9 @@ namespace db0
         void eraseBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num);
 
         // insert new or replace existing range
-        void replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+        std::shared_ptr<DP_Lock> replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
             std::shared_ptr<DP_Lock> new_lock);
-        void replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+        bool replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
             std::shared_ptr<BoundaryLock> new_lock);
     };
 

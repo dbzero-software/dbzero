@@ -241,7 +241,7 @@ namespace db0::python
         using TypedObjectIterator = db0::object_model::TypedObjectIterator;
         using TagIndex = db0::object_model::TagIndex;
         using Class = db0::object_model::Class;        
-        
+                
         std::vector<PyObject*> find_args;
         bool no_result = false;
         std::shared_ptr<Class> type;

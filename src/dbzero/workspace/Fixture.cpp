@@ -237,7 +237,7 @@ namespace db0
     }
     
     void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock, ProcessTimer *parent_timer)
-    {
+    {        
         std::unique_ptr<ProcessTimer> timer;
         if (parent_timer) {
             timer = std::make_unique<ProcessTimer>("Fixture::tryCommit", parent_timer);
@@ -248,15 +248,15 @@ namespace db0
             return;
         }
         
-        std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;        
+        std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
         if (m_gc0_ptr) {
             getGC0().commitAll();
         }
-
+        
         for (auto &commit: m_close_handlers) {
             commit(true);
         }
-                
+        
         // commit garbage collector's state
         // we check if gc0 exists because the unit-tests set up may not have it
         if (gc0_ctx) {

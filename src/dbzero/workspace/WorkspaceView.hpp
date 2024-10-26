@@ -34,7 +34,9 @@ namespace db0
         void close() override;
 
         std::shared_ptr<LangCache> getLangCache() const override;
-                
+        
+        bool isMutable() const override;
+        
     protected:
         friend class Workspace;
 

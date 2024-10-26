@@ -75,8 +75,9 @@ namespace db0
         --rl_count;
         ++rl_op_count;
 #endif
-        // make sure the dirty flag is not set (unless no-flush lock)
-        assert(!isDirty() || m_access_mode[AccessOptions::no_flush]);
+        // make sure the dirty flag is not set
+        // NOTE: to avoid triggering this assert for unused volatile locks, call "resetDirtyFlag" without flushing        
+        assert(!isDirty());
     }
     
     void ResourceLock::initDirty()
@@ -118,22 +119,27 @@ namespace db0
         return false;
     }
     
+    void ResourceLock::discard() {
+        resetDirtyFlag();
+    }
+
     void ResourceLock::resetNoFlush()
     {
         if (m_access_mode[AccessOptions::no_flush]) {
             m_access_mode.set(AccessOptions::no_flush, false);
-            // if dirty we need to register the with the dirty cache
+            // if dirty, we need to register with the dirty cache
             if (isDirty() && !m_access_mode[AccessOptions::no_cache]) {
                 m_context.m_cache_ref.get().append(shared_from_this());
             }
         }
     }
     
-    void ResourceLock::copyFrom(const ResourceLock &other)
+    void ResourceLock::moveFrom(ResourceLock &other)
     {
         assert(other.size() == size());
         setDirty();
-        std::memcpy(m_data.data(), other.m_data.data(), m_data.size());
+        std::memcpy(m_data.data(), other.m_data.data(), m_data.size());        
+        other.discard();
     }
     
     void ResourceLock::setDirty()
@@ -145,7 +151,7 @@ namespace db0
             m_context.m_cache_ref.get().append(shared_from_this());
         }        
     }
-
+    
 #ifndef NDEBUG
     std::pair<std::size_t, std::size_t> ResourceLock::getTotalMemoryUsage() 
     {

@@ -66,6 +66,8 @@ namespace db0
 
         std::shared_ptr<LangCache> getLangCache() const override;
 
+        bool isMutable() const override;
+
         void tearDown();
 
     private:

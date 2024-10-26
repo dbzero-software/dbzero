@@ -636,5 +636,9 @@ namespace db0
             }
         }
     }
+    
+    bool Workspace::isMutable() const {
+        return true;
+    }
 
 }

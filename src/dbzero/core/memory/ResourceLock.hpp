@@ -94,11 +94,13 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_DIRTY;
         }
         
-        void copyFrom(const ResourceLock &);
+        void moveFrom(ResourceLock &);
 
         // clears the no_flush flag if it was set
         void resetNoFlush();
-
+        // discard any changes done to this lock (to be called e.g. on rollback)
+        void discard();
+        
 #ifndef NDEBUG
         // get total memory usage of all ResourceLock instances
         // @return total size in bytes / total count

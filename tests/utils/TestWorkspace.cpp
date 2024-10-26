@@ -147,4 +147,8 @@ namespace db0
         return m_lang_cache;
     }
     
+    bool TestWorkspace::isMutable() const {
+        return true;
+    }
+    
 }

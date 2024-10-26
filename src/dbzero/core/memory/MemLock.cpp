@@ -28,6 +28,14 @@ namespace db0
         m_lock = nullptr;
         m_buffer = nullptr;
     }    
+    
+    void MemLock::discard()
+    {
+        if (m_lock) {
+            m_lock->discard();
+        }
+        release();
+    }
 
     MemLock MemLock::getSubrange(std::size_t offset) const {
         return { const_cast<std::byte*>(static_cast<const std::byte*>(m_buffer)) + offset, m_lock };

@@ -181,8 +181,7 @@ namespace tests
     
     TEST_F( PrefixImplTest , testBoundaryReadIssue1 )
     {
-        BDevStorage::create(file_name);
-        // initialize without cache
+        BDevStorage::create(file_name);    
         PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
         auto page_size = cut.getPageSize();
         ASSERT_EQ(cut.getStateNum(), 1);
@@ -400,6 +399,8 @@ namespace tests
         w2.release();
 
         cut.endAtomic();
+        
+        // validate boundary lock
         {
             auto lock = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read });
             auto str_value = std::string((char *)lock.m_buffer, 8);

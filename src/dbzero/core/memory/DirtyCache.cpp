@@ -9,7 +9,7 @@ namespace db0
         : DirtyCache(page_size, &dirty_meter)
     {
     }
-
+    
     DirtyCache::DirtyCache(std::size_t page_size, std::atomic<std::size_t> *dirty_meter_ptr)
         : m_dirty_meter_ptr(dirty_meter_ptr)
         , m_page_size(page_size)
@@ -17,12 +17,12 @@ namespace db0
     {
     }
     
-    void DirtyCache::append(std::shared_ptr<ResourceLock> lock)
+    void DirtyCache::append(std::shared_ptr<ResourceLock> res_lock)
     {
-        std::unique_lock<std::mutex> _lock(m_mutex);
-        m_locks.push_back(lock);
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_locks.push_back(res_lock);
         if (m_dirty_meter_ptr) {
-            auto lock_size = lock->size();
+            auto lock_size = res_lock->size();
             m_size += lock_size;
             *m_dirty_meter_ptr += lock_size;
         }
@@ -30,9 +30,9 @@ namespace db0
 
     void DirtyCache::flush()
     {        
-        std::unique_lock<std::mutex> _lock(m_mutex);
-        for (auto &lock_ptr: m_locks) {
-            lock_ptr->flush();
+        std::unique_lock<std::mutex> lock(m_mutex);
+        for (auto &res_lock: m_locks) {
+            res_lock->flush();
         }
         m_locks.clear();
         if (m_dirty_meter_ptr) {
@@ -44,7 +44,7 @@ namespace db0
     std::size_t DirtyCache::flush(std::size_t limit)
     {
         assert(m_dirty_meter_ptr);        
-        std::unique_lock<std::mutex> _lock(m_mutex);
+        std::unique_lock<std::mutex> lock(m_mutex);
         std::size_t flushed = 0;
         auto it = m_locks.begin();
         while (flushed < limit && it != m_locks.end()) {

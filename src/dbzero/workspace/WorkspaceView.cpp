@@ -215,5 +215,9 @@ namespace db0
     std::shared_ptr<LangCache> WorkspaceView::getLangCache() const {
         return m_lang_cache;
     }
+    
+    bool WorkspaceView::isMutable() const {
+        return false;
+    }
 
 }

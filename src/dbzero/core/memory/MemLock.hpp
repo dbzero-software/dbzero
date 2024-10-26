@@ -46,6 +46,9 @@ namespace db0
         */
         void release();
 
+        // Release lock, discard any changes (e.g. on rollback)
+        void discard();
+        
         MemLock getSubrange(std::size_t offset) const;
 
         MemLock &operator=(const MemLock &other) = default;

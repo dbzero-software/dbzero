@@ -38,7 +38,7 @@ namespace db0
         while (it != end && released_size < requested_release_size) {
             // only release locks with no active external references (other than the CacheRecycler itself)
             // NOTE: dirty locks are relased by m_flush_dirty callback
-            if ((*it).use_count() == 1 && !(*it)->isDirty()) {                
+            if ((*it).use_count() == 1 && !(*it)->isDirty()) {
                 released_size += (*it)->size();
                 it = m_res_buf.erase(it);
             } else {
@@ -49,7 +49,7 @@ namespace db0
         // update current size
         m_current_size -= released_size;
     }
-
+    
     void CacheRecycler::updateSize(std::unique_lock<std::mutex> &lock, std::size_t expected_size)
     {        
         // we make 2 iterations because dependent locks (i.e. owned by the boundary lock)

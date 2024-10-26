@@ -163,7 +163,8 @@ namespace tests
         }
         ASSERT_EQ(cut.findMutation(0, 1 + 3), 1);
         // unable to read page #1 (not yet available in state = 1)
-        ASSERT_ANY_THROW(cut.findMutation(1, 1));        
+        std::uint64_t mutation_id;
+        ASSERT_FALSE(cut.tryFindMutation(1, 1, mutation_id));
         cut.close();
     }
     
