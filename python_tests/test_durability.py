@@ -4,7 +4,7 @@ from .memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR
 import multiprocessing
 import random
-import string    
+import string 
 
 
 def test_persisting_single_transaction_data(db0_fixture):
@@ -165,30 +165,29 @@ def test_transactions_issue1(db0_no_autocommit):
         assert buf[index] == 0
         index += 1
 
-# FIXME: failing test blocked
-# def test_low_cache_transactions_issue1(db0_no_autocommit):
-#     """
-#     Test was failing with: element mismatch (when running with very small cache size)
-#     Resolution: ???
-#     """
-#     def rand_string(str_len):
-#         return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+
+def test_low_cache_transactions_issue1(db0_no_autocommit):
+    """
+    Test was failing with: element mismatch (when running with very small cache size)
+    Resolution: PrefixCache::findBoundaryRange must NOT create r/w boundary lock when lhs/rhs states don't match
+    """
+    def rand_string(str_len):
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
     
-#     db0.set_cache_size(64 << 10)
-#     buf = db0.list()
-#     py_buf = []
-#     for _ in range(2):
-#         for _ in range(34):
-#             str = rand_string(64)            
-#             buf.append(str)
-#             py_buf.append(str)
-#         db0.commit()
+    db0.set_cache_size(64 << 10)
+    buf = db0.list()
+    py_buf = []
+    for _ in range(2):
+        for _ in range(34):
+            str = rand_string(64)            
+            buf.append(str)
+            py_buf.append(str)
+        db0.commit()
     
-#     index = 0
-#     for index in range(len(buf)):
-#         # assert buf[index].value == py_buf[index]        
-#         assert buf[index] == py_buf[index]
-#         index += 1
+    index = 0
+    for index in range(len(buf)):
+        assert buf[index] == py_buf[index]
+        index += 1
     
     
 # def test_low_cache_transactions_issue2(db0_no_autocommit):

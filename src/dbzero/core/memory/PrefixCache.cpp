@@ -203,6 +203,11 @@ namespace db0
             
             // pick the minimum of the underlying states as the read state number
             read_state_num = std::min(lhs_state_num, rhs_state_num);
+            // write lock cannot be created due to inconsistent lhs / rhs state numbers
+            if (read_state_num != state_num && access_mode[AccessOptions::write]) {
+                return {};
+            }
+
             auto lhs_size = ((first_page + 1) << m_shift) - address;
             // NOTE: boundary locks are not registered with the dirty-cache
             // we use dp_context as a placeholder for the dirty-cache
