@@ -32,6 +32,8 @@ jobs:
         if: runner.os == 'Windows' && matrix.architecture == 'x86'
       - run: python3 scripts/generate_meson.py ./src/dbzero/ core
       - run: python3 scripts/generate_meson_tests.py tests/
+      - run: git config --global user.email "you@example.com"
+      - run: git config --global user.name "Your Name"
       - run: git add . && git commit -m "Update meson files"
       - run: pip install build
       - run: python3 -m build 
