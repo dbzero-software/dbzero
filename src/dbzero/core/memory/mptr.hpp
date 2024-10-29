@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include "AccessOptions.hpp"
 
 namespace db0
