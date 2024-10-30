@@ -15,7 +15,8 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-
+          - os: windows-2019
+            architecture: x86
     steps:
       - uses: actions/checkout@v3
       - uses: docker/setup-qemu-action@v2
