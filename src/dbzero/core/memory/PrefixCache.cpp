@@ -63,45 +63,59 @@ namespace db0
     std::shared_ptr<DP_Lock> PrefixCache::findPage(std::uint64_t page_num, std::uint64_t state_num,
         FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num) const
     {
-        auto lock = m_dp_map.find(state_num, page_num, read_state_num);
-        if (lock.get() == m_missing_dp_lock_ptr.get()) {
-            // invalidate result, this range is marked as missing
-            lock = nullptr;
-        }
-        
-        if (!lock) {
-            // not found
+        std::shared_ptr<DP_Lock> dp_lock;
+        auto weak_ref = m_dp_map.find(state_num, page_num, read_state_num);
+        if (!weak_ref) {
+            // not found in cache
             return nullptr;
         }
-
+        
+        dp_lock = weak_ref->lock();
+        // must restore cache-expired lock
+        if (!dp_lock) {
+            // volatile locks must not expire
+            assert(!access_mode[AccessOptions::no_flush]);
+            // the restored lock is created as "read" since it's brought back from the storage
+            dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size, 
+                FlagSet<AccessOptions> { AccessOptions::read }, read_state_num, read_state_num, false);
+            // feed the lock back into the cache
+            *weak_ref = dp_lock;
+        }
+        
+        if (dp_lock.get() == m_missing_dp_lock_ptr.get()) {
+            // invalidate result, this range is marked as missing
+            return nullptr;
+        }
+        
+        assert(dp_lock);
         bool is_volatile = access_mode[AccessOptions::no_flush];
         // Try upgrading the unused lock to the write state
         // this is to avoid CoW in a writer process
         if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::create] && read_state_num != state_num) {
             // unused lock condition (i.e. might only be used by the CacheRecycler)
             // note that dirty locks cannot be upgraded (otherwise data would be lost)
-            if (!lock->isDirty() && lock.use_count() == (lock->isRecycled() ? 1 : 0) + 1) {
-                m_dp_map.erase(state_num, lock);
+            if (!dp_lock->isDirty() && dp_lock.use_count() == (dp_lock->isRecycled() ? 1 : 0) + 1) {
+                m_dp_map.erase(state_num, dp_lock);
                 // note that this operation may also assign the no_flush flag if it was requested
-                lock->updateStateNum(state_num, is_volatile);
+                dp_lock->updateStateNum(state_num, is_volatile);
                 // re-register the upgraded lock under a new state
                 // note that the actual lock may span a wider range, avoid passing first_page / end_page here !!
-                m_dp_map.insert(state_num, lock);
+                m_dp_map.insert(state_num, dp_lock);
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
                 if (is_volatile) {
-                    m_volatile_locks.push_back(lock);
+                    m_volatile_locks.push_back(dp_lock);
                 }
             }
         }
 
         // register / update lock with the recycler (mark as accessed for LRU policy evaluation)
-        assert(lock);
+        assert(dp_lock);
         if (m_cache_recycler_ptr && !is_volatile) {
-            m_cache_recycler_ptr->update(lock);
+            m_cache_recycler_ptr->update(dp_lock);
         }
 
-        return lock;
+        return dp_lock;
     }
     
     std::shared_ptr<WideLock> PrefixCache::createRange(std::uint64_t page_num, std::size_t size,
@@ -129,28 +143,46 @@ namespace db0
         return lock;
     }
     
-    std::shared_ptr<WideLock> PrefixCache::findRange(std::uint64_t first_page, std::uint64_t end_page, 
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num) const
+    std::pair<bool, std::shared_ptr<WideLock> > PrefixCache::findRange(std::uint64_t first_page, std::uint64_t end_page, 
+        std::uint64_t address, std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions> access_mode, 
+        std::uint64_t &read_state_num, std::shared_ptr<DP_Lock> res_lock) const
     {
         // wide range must span at least 2 pages
         assert(end_page > first_page + 1);
-        auto lock = m_wide_map.find(state_num, first_page, read_state_num);
-        if (lock.get() == m_missing_wide_lock_ptr.get()) {
+        auto weak_ref = m_wide_map.find(state_num, first_page, read_state_num);
+        if (!weak_ref) {
+            return { false, nullptr };
+        }
+
+        auto wide_lock = weak_ref->lock();
+        // must restore cache-expired lock
+        if (!wide_lock) {
+            // volatile locks must not expire
+            assert(!access_mode[AccessOptions::no_flush]);
+            // NOTE: residual lock not required if the wide lock is page-aligned
+            if (!res_lock && !isPageAligned(size)) {
+                // operation needs to be repeated with residual lock
+                return { true, nullptr };
+            }
+            // the restored lock is created as "read" since it's brought back from the storage
+            wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, FlagSet<AccessOptions> { AccessOptions::read },
+                read_state_num, read_state_num, res_lock, isCreateNew(access_mode));
+            // feed the lock back into the cache
+            *weak_ref = wide_lock;
+        }
+        
+        if (wide_lock.get() == m_missing_wide_lock_ptr.get()) {
             // invalidate result, this range is marked as missing
-            lock = nullptr;
+            return { false, nullptr };
         }
         
-        if (!lock) {
-            // not found
-            return nullptr;
-        }
-        
-        assert(lock->size() > 0);
+        assert(wide_lock);
+        assert(wide_lock->size() > 0);
         // Conflicting lock exists in the same transaction
-        if ((((lock->size() - 1) >> m_shift) + 1) != end_page - first_page) {            
+        if ((((wide_lock->size() - 1) >> m_shift) + 1) != end_page - first_page) {
             // Report conflicting lock as missing
             if (read_state_num < state_num && !access_mode[AccessOptions::read]) {
-                return nullptr;
+                return { false, nullptr };
             }
 
             assert(false && "Conflicting wide lock found");
@@ -163,36 +195,37 @@ namespace db0
         if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::create] && read_state_num != state_num) {
             // unused lock condition (i.e. might only be used by the CacheRecycler)
             // note that dirty locks cannot be upgraded (otherwise data would be lost)
-            if (!lock->isDirty() && lock.use_count() == (lock->isRecycled() ? 1 : 0) + 1) {
-                m_wide_map.erase(state_num, lock);
+            if (!wide_lock->isDirty() && wide_lock.use_count() == (wide_lock->isRecycled() ? 1 : 0) + 1) {
+                m_wide_map.erase(state_num, wide_lock);
                 // note that this operation may also assign the no_flush flag if it was requested
-                lock->updateStateNum(state_num, access_mode[AccessOptions::no_flush]);
+                wide_lock->updateStateNum(state_num, access_mode[AccessOptions::no_flush]);
                 // re-register the upgraded lock under a new state
                 // note that the actual lock may span a wider range, avoid passing first_page / end_page here !!
-                m_wide_map.insert(state_num, lock);
+                m_wide_map.insert(state_num, wide_lock);
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
                 if (is_volatile) {
-                    m_volatile_locks.push_back(lock);
+                    m_volatile_locks.push_back(wide_lock);
                 }
             }
         }
         
         // register / update lock with the recycler (mark as accessed for LRU policy evaluation)
-        assert(lock);
+        assert(wide_lock);
         if (m_cache_recycler_ptr && !is_volatile) {
-            m_cache_recycler_ptr->update(lock);
+            m_cache_recycler_ptr->update(wide_lock);
         }
 
-        return lock;
+        return { true, wide_lock };
     }
     
     std::shared_ptr<BoundaryLock> PrefixCache::findBoundaryRange(std::uint64_t first_page, std::uint64_t address, std::size_t size,
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num) const
     {
-        auto result = m_boundary_map.find(state_num, first_page, read_state_num);
+        auto result = m_boundary_map.findNonExpired(state_num, first_page, read_state_num);
         if (!result) {
             // if both lhs & rhs parents are available and from the same state, we may create the boundary lock
+            // and feed it back into the cache
             std::uint64_t lhs_state_num, rhs_state_num;
             auto lhs = findPage(first_page, state_num, access_mode, lhs_state_num);
             auto rhs = findPage(first_page + 1, state_num, access_mode, rhs_state_num);            
@@ -528,13 +561,13 @@ namespace db0
         return m_cache_recycler_ptr;
     }
     
-    void PrefixCache::clearExpired() const
+    void PrefixCache::clearExpired(std::uint64_t head_state_num) const
     {
-        m_dp_map.clearExpired();
-        m_boundary_map.clearExpired();  
-        m_wide_map.clearExpired();
+        m_dp_map.clearExpired(head_state_num);
+        m_boundary_map.clearExpired(head_state_num);
+        m_wide_map.clearExpired(head_state_num);
     }
-
+    
     std::size_t PrefixCache::getDirtySize() const {
         return m_dirty_dp_cache.size() + m_dirty_wide_cache.size();
     }

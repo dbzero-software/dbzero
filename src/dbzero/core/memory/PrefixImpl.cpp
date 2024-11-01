@@ -77,7 +77,7 @@ namespace db0
                 lock = mapBoundaryRange(first_page, address, size, state_num, access_mode);
             } else {
                 assert(!addr_offset && "Wide range must be page aligned");
-                lock = mapWideRange(first_page, end_page, size, state_num, access_mode);
+                lock = mapWideRange(first_page, end_page, address, size, state_num, access_mode);
             }
         }
         
@@ -177,11 +177,19 @@ namespace db0
     }
     
     std::shared_ptr<WideLock> PrefixImpl::mapWideRange(
-        std::uint64_t first_page, std::uint64_t end_page, std::size_t size, std::uint64_t state_num, 
-        FlagSet<AccessOptions> access_mode)
+        std::uint64_t first_page, std::uint64_t end_page, std::uint64_t address, std::size_t size, 
+        std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
     {
         std::uint64_t read_state_num = 0;
-        auto lock = m_cache.findRange(first_page, end_page, state_num, access_mode, read_state_num);
+        auto lock_info = m_cache.findRange(first_page, end_page, address, size, state_num, access_mode, read_state_num);
+        if (!lock_info.second && lock_info.first) {
+            // retrieve the residual lock and repeat the operation
+            auto res_lock = mapPage(end_page - 1, state_num, access_mode | AccessOptions::read);
+            lock_info = m_cache.findRange(first_page, end_page, address, size, state_num, access_mode, read_state_num, res_lock);
+        }
+
+        assert(!lock_info.first || lock_info.second);
+        auto lock = lock_info.second;
         // flag indicating if the residual part of the wide lock is present
         bool has_res = !isPageAligned(size);
         assert(!lock || read_state_num > 0);
@@ -333,7 +341,7 @@ namespace db0
     }
     
     void PrefixImpl::cleanup() const {
-        m_cache.clearExpired();
+        m_cache.clearExpired(m_head_state_num);
     }      
     
     std::size_t PrefixImpl::getDirtySize() const {

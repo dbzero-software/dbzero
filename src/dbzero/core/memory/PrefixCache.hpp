@@ -48,8 +48,13 @@ namespace db0
         std::shared_ptr<DP_Lock> findPage(std::uint64_t page_num, std::uint64_t state_num,
             FlagSet<AccessOptions>, std::uint64_t &read_state_num) const;
         
-        std::shared_ptr<WideLock> findRange(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num,
-            FlagSet<AccessOptions>, std::uint64_t &read_state_num) const;
+        // NOTE: address & size are required to restore lock if required
+        // @param res_lock - optional residual lock required to restore the wide lock
+        // @return lock exists flag / the actual lock (if lock exists but could not be retrieved then the operation needs 
+        // to be repeated with passing the residual lock)
+        std::pair<bool, std::shared_ptr<WideLock> > findRange(std::uint64_t first_page, std::uint64_t end_page,
+            std::uint64_t address, std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>, 
+            std::uint64_t &read_state_num, std::shared_ptr<DP_Lock> res_lock = {}) const;
         
         std::shared_ptr<BoundaryLock> findBoundaryRange(std::uint64_t first_page_num, std::uint64_t address, std::size_t size,
             std::uint64_t state_num, FlagSet<AccessOptions>, std::uint64_t &read_state_num) const;
@@ -129,7 +134,7 @@ namespace db0
         
         CacheRecycler *getCacheRecycler() const;
         
-        void clearExpired() const;
+        void clearExpired(std::uint64_t head_state_num) const;
 
         std::size_t getDirtySize() const;
 
@@ -173,6 +178,10 @@ namespace db0
             std::shared_ptr<DP_Lock> new_lock);
         bool replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
             std::shared_ptr<BoundaryLock> new_lock);
+        
+        inline bool isPageAligned(std::uint64_t addr_or_size) const {
+            return (addr_or_size & (m_page_size - 1)) == 0;
+        }
     };
 
 }

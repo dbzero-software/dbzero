@@ -94,8 +94,8 @@ namespace db0
         std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num, std::uint64_t state_num, FlagSet<AccessOptions>);
         std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address,
             std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>);
-        std::shared_ptr<WideLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page, std::size_t size,
-            std::uint64_t state_num, FlagSet<AccessOptions>);
+        std::shared_ptr<WideLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t address, 
+            std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>);
 
         inline bool isPageAligned(std::uint64_t addr_or_size) const {
             return (addr_or_size & (m_page_size - 1)) == 0;

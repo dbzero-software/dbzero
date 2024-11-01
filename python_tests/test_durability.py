@@ -190,28 +190,26 @@ def test_low_cache_transactions_issue1(db0_no_autocommit):
         index += 1
     
     
-# def test_low_cache_transactions_issue2(db0_no_autocommit):
-#     """
-#     Test was failing with: CRDT_Allocator.cpp, line 157: Invalid address: NNN
-#     NOTE: due to random nature may need to run 5 - 7x times to reproduce
-#     Resolution: ???
-#     """
-#     def rand_string(str_len):
-#         return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+def test_low_cache_transactions_issue2(db0_no_autocommit):
+    """
+    Test was failing with: CRDT_Allocator.cpp, line 157: Invalid address: NNN
+    NOTE: due to random nature may need to run 5 - 7x times to reproduce
+    Resolution: ???
+    """
+    def rand_string(str_len):
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
     
-#     db0.set_cache_size(100 << 10)
-#     buf = db0.list()
-#     py_buf = []
-#     for _ in range(2):
-#         for _ in range(25):
-#             str = rand_string(64)
-#             buf.append(MemoTestClass(str))
-#             py_buf.append(str)
-#         db0.commit()
-#         # FIXME: log
-#         print("^^^ commit ^^^")
-    
-#     index = 0
-#     for index in range(len(buf)):
-#         assert buf[index].value == py_buf[index]        
-#         index += 1
+    db0.set_cache_size(100 << 10)
+    buf = db0.list()
+    py_buf = []
+    for _ in range(2):
+        for _ in range(17):
+            str = rand_string(33)
+            buf.append(MemoTestClass(str))
+            py_buf.append(str)
+        db0.commit()
+
+    index = 0
+    for index in range(len(buf)):
+        assert buf[index].value == py_buf[index]        
+        index += 1

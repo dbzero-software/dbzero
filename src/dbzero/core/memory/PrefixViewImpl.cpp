@@ -37,7 +37,7 @@ namespace db0
             } else {
                 // wide ranges must be page aligned / no need to adjust access mode
                 assert(!addr_offset && "Wide range must be page aligned");                
-                lock = mapWideRange(first_page, end_page, size);
+                lock = mapWideRange(first_page, end_page, address, size);
             }
         }
 
@@ -118,22 +118,29 @@ namespace db0
     }
     
     std::shared_ptr<WideLock> PrefixViewImpl::mapWideRange(
-        std::uint64_t first_page, std::uint64_t end_page, std::size_t size)
+        std::uint64_t first_page, std::uint64_t end_page, std::uint64_t address, std::size_t size)
     {
         std::uint64_t read_state_num = 0;
-        auto lock = m_cache.findRange(first_page, end_page, m_state_num, { AccessOptions::read }, read_state_num);
+        auto lock_info = m_cache.findRange(first_page, end_page, address, size, m_state_num, { AccessOptions::read }, read_state_num);
+        if (!lock_info.second && lock_info.first) {
+            // repeat the operation with residual lock
+            auto res_lock = mapPage(end_page - 1);
+            lock_info = m_cache.findRange(first_page, end_page, address, size, m_state_num, { AccessOptions::read }, read_state_num, res_lock);
+        }
         
+        assert(!lock_info.first || lock_info.second);
+        auto lock = lock_info.second;
         if (!lock) {
             bool has_res = !isPageAligned(size);
-            std::uint64_t mutation_id;            
+            std::uint64_t mutation_id;
             if (!tryFindUniqueMutation(*m_storage_ptr, first_page, end_page - (has_res ? 1: 0), m_state_num, mutation_id)) {
                 mutation_id = m_state_num;
             }
 
             // try looking up the head transaction's cache next (using the actual mutation ID)
-            lock = m_head_cache.findRange(first_page, size, mutation_id, { AccessOptions::read }, read_state_num);
+            lock = m_head_cache.findRange(first_page, end_page, address, size, mutation_id, { AccessOptions::read }, read_state_num).second;
             if (lock && read_state_num == mutation_id) {
-                // insert under the actual mutation ID
+                // feed into the local cache under the actual mutation ID
                 m_cache.insertWide(lock, mutation_id);
             } else {
                 std::shared_ptr<DP_Lock> res_dp;
@@ -143,11 +150,11 @@ namespace db0
                 lock = m_cache.createRange(first_page, size, mutation_id, 0, { AccessOptions::read }, res_dp);
             }
         }
-
+        
         assert(lock);
         return lock;
     }
-
+    
     std::shared_ptr<BoundaryLock> PrefixViewImpl::mapBoundaryRange(std::uint64_t first_page_num,
         std::uint64_t address, std::size_t size)
     {

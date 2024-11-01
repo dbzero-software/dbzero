@@ -160,12 +160,13 @@ namespace db0
         return { rl_usage - dp_usage.first, rl_count - dp_usage.second };
     }
 #endif
-
+    
     std::ostream &showBytes(std::ostream &os, const std::byte *data, std::size_t size)
     {
         for (std::size_t i = 0; i < size; ++i) {
             os << std::hex << static_cast<int>(data[i]) << " ";
         }
+        os << std::dec;
         return os;
     }
 

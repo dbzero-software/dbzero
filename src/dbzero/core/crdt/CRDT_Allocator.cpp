@@ -146,8 +146,8 @@ namespace db0
     std::uint32_t CRDT_Allocator::Alloc::span() const {
         return m_fill_map.span() * m_stride;
     }
-
-    std::uint32_t CRDT_Allocator::Alloc::getAllocSize(std::uint32_t address) const 
+    
+    std::uint32_t CRDT_Allocator::Alloc::getAllocSize(std::uint32_t address) const
     {
         // Get allocation size under a specific address or throw exception
         if ((address >= m_address) && ((address - m_address) % m_stride == 0) && (address < m_address + m_stride * m_fill_map.size()) &&
@@ -156,7 +156,7 @@ namespace db0
         }
         THROWF(db0::InternalException) << "Invalid address: " << address << THROWF_END;
     }
-
+    
     bool CRDT_Allocator::Alloc::deallocUnit(std::uint32_t address)
     {
         if ((address >= m_address) && ((address - m_address) % m_stride == 0) && (address < m_address + m_stride * m_fill_map.size())) {

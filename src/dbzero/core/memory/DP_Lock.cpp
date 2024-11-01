@@ -22,20 +22,20 @@ namespace db0
                 m_address, read_state_num, m_data.size(), m_data.data(), access_mode);
         }
     }
-
+    
     DP_Lock::DP_Lock(tag_derived, StorageContext context, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new)
         : ResourceLock(context, address, size, access_mode, create_new)
         , m_state_num(std::max(read_state_num, write_state_num))
     {
     }
-    
+
     DP_Lock::DP_Lock(const DP_Lock &other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
         : ResourceLock(other, access_mode)
         , m_state_num(write_state_num)
     {
         assert(addrPageAligned(m_context.m_storage_ref.get()));
-        assert(m_state_num > 0);
+        assert(m_state_num > 0);        
     }
     
     void DP_Lock::flush()
