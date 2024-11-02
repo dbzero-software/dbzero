@@ -269,8 +269,7 @@ namespace db0
         if (m_cache.empty()) {
             return 0;
         }
-        
-        /* FIXME:
+                
         auto it = m_cache.begin();
         while (it != m_cache.end()) {
             auto page_num = it->first.first;
@@ -296,9 +295,8 @@ namespace db0
             while (it != m_cache.end() && it->first.first == page_num) {
                 ++it;
             }
-        }
-        */
-
+        }        
+        
         return count;
     }
     
