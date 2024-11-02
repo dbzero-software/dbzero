@@ -73,8 +73,6 @@ namespace db0
         dp_lock = weak_ref->lock();
         // must restore cache-expired lock
         if (!dp_lock) {
-            // volatile locks must not expire
-            assert(!access_mode[AccessOptions::no_flush]);
             // the restored lock is created as "read" since it's brought back from the storage
             dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size, 
                 FlagSet<AccessOptions> { AccessOptions::read }, read_state_num, read_state_num, false);
@@ -219,46 +217,71 @@ namespace db0
         return { true, wide_lock };
     }
     
-    std::shared_ptr<BoundaryLock> PrefixCache::findBoundaryRange(std::uint64_t first_page, std::uint64_t address, std::size_t size,
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num) const
+    std::shared_ptr<BoundaryLock> PrefixCache::findBoundaryRange(std::uint64_t first_page,
+        std::uint64_t address, std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions> access_mode, 
+        std::uint64_t &read_state_num, std::shared_ptr<DP_Lock> lhs, std::shared_ptr<DP_Lock> rhs) const
     {
-        auto result = m_boundary_map.findNonExpired(state_num, first_page, read_state_num);
-        if (!result) {
-            // if both lhs & rhs parents are available and from the same state, we may create the boundary lock
-            // and feed it back into the cache
-            std::uint64_t lhs_state_num, rhs_state_num;
-            auto lhs = findPage(first_page, state_num, access_mode, lhs_state_num);
-            auto rhs = findPage(first_page + 1, state_num, access_mode, rhs_state_num);            
-            if (!lhs || !rhs) {
-                // inconsitent locks
-                return nullptr;
+        assert((lhs && rhs) || (!lhs && !rhs));
+        auto weak_ref = m_boundary_map.find(state_num, first_page, read_state_num);
+        std::shared_ptr<BoundaryLock> br_lock;
+        if (weak_ref) {
+            assert(read_state_num > 0);
+            br_lock = weak_ref->lock();
+            if (!br_lock) {
+                // operation must be repeated with lhs & rhs
+                if (!lhs || !rhs) {
+                    return {};
+                }
+                auto lhs_size = ((first_page + 1) << m_shift) - address;
+                // restore the lock and feed it back into the cache
+                // create the lock as for "read" since it's brought back from the storage
+                br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, 
+                    FlagSet<AccessOptions> { AccessOptions::read });
+                *weak_ref = br_lock;
             }
-            
-            // pick the minimum of the underlying states as the read state number
-            read_state_num = std::min(lhs_state_num, rhs_state_num);
-            // write lock cannot be created due to inconsistent lhs / rhs state numbers
-            if (read_state_num != state_num && access_mode[AccessOptions::write]) {
-                return {};
+        }
+        
+        if (!br_lock) {
+            if (lhs && rhs) {
+                read_state_num = state_num;
+            } else {
+                // if both lhs & rhs parents are available and from the same state, we may create the boundary lock
+                // and feed it back into the cache
+                std::uint64_t lhs_state_num, rhs_state_num;
+                lhs = findPage(first_page, state_num, access_mode, lhs_state_num);
+                rhs = findPage(first_page + 1, state_num, access_mode, rhs_state_num);
+                if (!lhs || !rhs) {
+                    // inconsitent locks
+                    return {};
+                }
+                
+                // pick the minimum of the underlying states as the read state number
+                read_state_num = std::min(lhs_state_num, rhs_state_num);
+                // write lock cannot be created due to inconsistent lhs / rhs state numbers
+                if (read_state_num != state_num && access_mode[AccessOptions::write]) {
+                    return {};
+                }
             }
 
+            assert(lhs && rhs);
             auto lhs_size = ((first_page + 1) << m_shift) - address;
             // NOTE: boundary locks are not registered with the dirty-cache
             // we use dp_context as a placeholder for the dirty-cache
-            result = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
+            br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
             // register with the read state number
-            m_boundary_map.insert(read_state_num, result);
+            m_boundary_map.insert(read_state_num, br_lock);
             // the new lock may need to be registered as "potentially" volatile because parent locks may already be volatile
             if (access_mode[AccessOptions::no_flush]) {
-                m_volatile_boundary_locks.push_back(result);
+                m_volatile_boundary_locks.push_back(br_lock);
             }
         }
 
         // in case of a boundary lock the address must be precisely matched
         // since boundary lock contains only the single allocation's data            
-        assert(result->getAddress() == address);
+        assert(br_lock->getAddress() == address);
 
-        // note that boundary locks are not cached
-        return result;
+        // note that boundary locks are not cached (i.e. no CacheRecycler registration)
+        return br_lock;
     }
     
     std::size_t PrefixCache::getSizeOfResources() const

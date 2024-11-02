@@ -57,7 +57,8 @@ namespace db0
             std::uint64_t &read_state_num, std::shared_ptr<DP_Lock> res_lock = {}) const;
         
         std::shared_ptr<BoundaryLock> findBoundaryRange(std::uint64_t first_page_num, std::uint64_t address, std::size_t size,
-            std::uint64_t state_num, FlagSet<AccessOptions>, std::uint64_t &read_state_num) const;
+            std::uint64_t state_num, FlagSet<AccessOptions>, std::uint64_t &read_state_num, std::shared_ptr<DP_Lock> lhs = {},
+            std::shared_ptr<DP_Lock> rhs = {}) const;
         
         /**
          * Create a new page associated resource lock

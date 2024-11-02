@@ -38,9 +38,6 @@ namespace db0
         // @return nullptr if lock not found
         std::weak_ptr<ResourceLockT> *find(std::uint64_t state_num, std::uint64_t page_num,
             std::uint64_t &read_state_num) const;
-        // NOTE: this version of "find" removes expired locks from cache (which can be done safely for derived locks - e.g. BounradyLock)
-        std::shared_ptr<ResourceLockT> findNonExpired(std::uint64_t state_num, std::uint64_t page_num,
-            std::uint64_t &read_state_num) const;
 
         void insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT>);
 
@@ -161,29 +158,7 @@ namespace db0
         read_state_num = it->first.second;
         return &it->second;
     }
-
-    template <typename ResourceLockT>
-    std::shared_ptr<ResourceLockT> PageMap<ResourceLockT>::findNonExpired(std::uint64_t state_num, std::uint64_t page_num,
-        std::uint64_t &read_state_num) const
-    {
-        // needs to be unique locked due to potential m_cache::erase operation
-        std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
-        auto it = find(page_num, state_num);
-        if (it == m_cache.end()) {
-            return {};
-        }
-
-        auto res_lock = it->second.lock();
-        // remove expired lock from cache
-        if (!res_lock) {
-            m_cache.erase(it);
-            return {};
-        }
-
-        read_state_num = it->first.second;
-        return res_lock;
-    }
-
+    
     template <typename ResourceLockT>
     typename PageMap<ResourceLockT>::CacheIterator PageMap<ResourceLockT>::find(
         std::uint64_t page_num, std::uint64_t state_num) const
@@ -282,7 +257,7 @@ namespace db0
     template <typename ResourceLockT>
     std::size_t PageMap<ResourceLockT>::size() const 
     {
-        std::shared_lock<std::shared_mutex> _lock(m_rw_mutex);
+        std::shared_lock<std::shared_mutex> lock(m_rw_mutex);
         return m_cache.size();
     }
     
@@ -295,6 +270,7 @@ namespace db0
             return 0;
         }
         
+        /* FIXME:
         auto it = m_cache.begin();
         while (it != m_cache.end()) {
             auto page_num = it->first.first;
@@ -320,7 +296,8 @@ namespace db0
             while (it != m_cache.end() && it->first.first == page_num) {
                 ++it;
             }
-        }        
+        }
+        */
 
         return count;
     }

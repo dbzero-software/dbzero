@@ -94,14 +94,16 @@ namespace db0
         std::shared_ptr<BoundaryLock> lock;
         std::shared_ptr<DP_Lock> lhs, rhs;
         while (!lock) {
-            lock = m_cache.findBoundaryRange(first_page_num, address, size, state_num, access_mode, read_state_num);
+            lock = m_cache.findBoundaryRange(
+                first_page_num, address, size, state_num, access_mode, read_state_num, lhs, rhs
+            );
             if (!lock) {
                 // fetch lhs & rhs so that findBoundaryRange works for the next iteration
                 lhs = mapPage(first_page_num, state_num, access_mode | AccessOptions::read);
                 rhs = mapPage(first_page_num + 1, state_num, access_mode | AccessOptions::read);
             }
         }
-
+        
         assert(read_state_num > 0);
         assert(!access_mode[AccessOptions::create] && "Unable to create boundary range");
         if (access_mode[AccessOptions::write]) {
@@ -115,11 +117,11 @@ namespace db0
                 if (!rhs) {
                     rhs = mapPage(first_page_num + 1, state_num, access_mode | AccessOptions::read);
                 }
-                // ... and finally the BoundaryLock on top of existing lhs / rhs locks
+                // ... and finally the BoundaryLock on top of the existing lhs / rhs locks
                 lock = m_cache.insertCopy(address, size, *lock, lhs, rhs, state_num, access_mode);
             }
         }
-                      
+        
         return lock;
     }
     
