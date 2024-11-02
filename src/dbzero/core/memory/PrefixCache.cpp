@@ -234,7 +234,8 @@ namespace db0
                 }
                 auto lhs_size = ((first_page + 1) << m_shift) - address;
                 // restore the lock and feed it back into the cache
-                // create the lock as for "read" since it's brought back from the storage
+                // create the lock as for "read" since it's being brought back from the storage
+                // NOTE: it's important to use no_cache flag with BoundaryLock
                 br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, 
                     FlagSet<AccessOptions> { AccessOptions::read });
                 *weak_ref = br_lock;
@@ -279,7 +280,7 @@ namespace db0
         // in case of a boundary lock the address must be precisely matched
         // since boundary lock contains only the single allocation's data            
         assert(br_lock->getAddress() == address);
-
+        
         // note that boundary locks are not cached (i.e. no CacheRecycler registration)
         return br_lock;
     }

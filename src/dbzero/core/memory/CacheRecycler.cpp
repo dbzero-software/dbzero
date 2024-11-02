@@ -31,7 +31,7 @@ namespace db0
             // request flushing (and releasing) specific volume of dirty locks
             m_flush_dirty(limit);
         }
-
+        
         std::size_t released_size = 0;
         // try flushing 'requested_release_size' number of excess elements
         auto it = m_res_buf.begin(), end = m_res_buf.end();
@@ -43,7 +43,7 @@ namespace db0
                 it = m_res_buf.erase(it);
             } else {
                 ++it;
-            }       
+            }
         }
         
         // update current size
