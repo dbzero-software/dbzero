@@ -36,7 +36,7 @@ namespace db0
          * Create a copied-on-write lock from an existing lock         
         */
         DP_Lock(const DP_Lock &, std::uint64_t write_state_num, FlagSet<AccessOptions>);
-                
+        
         /**
          * Flush data from local buffer and clear the 'dirty' flag
          * data is not flushed if not dirty.

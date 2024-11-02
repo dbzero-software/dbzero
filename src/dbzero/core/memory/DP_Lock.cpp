@@ -19,7 +19,8 @@ namespace db0
             assert(read_state_num > 0);
             // read into the local buffer
             m_context.m_storage_ref.get().read(
-                m_address, read_state_num, m_data.size(), m_data.data(), access_mode);
+                m_address, read_state_num, m_data.size(), m_data.data(), access_mode
+            );
         }
     }
     
@@ -29,7 +30,7 @@ namespace db0
         , m_state_num(std::max(read_state_num, write_state_num))
     {
     }
-
+    
     DP_Lock::DP_Lock(const DP_Lock &other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
         : ResourceLock(other, access_mode)
         , m_state_num(write_state_num)
