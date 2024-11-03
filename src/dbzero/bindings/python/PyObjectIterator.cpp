@@ -135,7 +135,7 @@ namespace db0::python
         .tp_free = PyObject_Free,
     };
     
-    PyObject *find(PyObject *, PyObject* const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_find(PyObject *, PyObject* const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         return findIn(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);

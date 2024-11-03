@@ -357,7 +357,7 @@ namespace db0::python
             py_enum->modifyExt().close();
         }
         for (auto &memo_type: m_type_cache) {
-            PyMemoType_close(memo_type.second.get());
+            MemoType_close(memo_type.second.get());
         }
     }
     

@@ -2,6 +2,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/core/memory/Prefix.hpp>
 #include <dbzero/object_model/LangConfig.hpp>
+#include <dbzero/core/threading/ThreadTracker.hpp>
 #include "AtomicContext.hpp"
 
 namespace db0
@@ -99,7 +100,13 @@ namespace db0
         // otherwise it may deadlock on trying to invoke API calls from auto-commit 
         // (e.g. instance destruction triggered by LangCache::clear)
         auto __api_lock = LangToolkit::lockApi();
+#ifndef NDEBUG
+        ThreadTracker::beginUnique();
+#endif        
         fixture.onAutoCommit();
+#ifndef NDEBUG
+        ThreadTracker::end();
+#endif        
     }
     
     struct AC_Lock

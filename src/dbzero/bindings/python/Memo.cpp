@@ -63,7 +63,7 @@ namespace db0::python
         return memo_obj;
     }
     
-    MemoObject *MemoObject_new(PyTypeObject *py_type, PyObject *args, PyObject *kwargs) 
+    MemoObject *PyAPI_MemoObject_new(PyTypeObject *py_type, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         return reinterpret_cast<MemoObject*>(runSafe(tryMemoObject_new, py_type, args, kwargs));
@@ -125,7 +125,9 @@ namespace db0::python
         return memo_obj;
     }
     
-    PyObject *MemoObject_new_singleton(PyTypeObject *py_type, PyObject *args, PyObject *kwargs) {
+    PyObject *PyAPI_MemoObject_new_singleton(PyTypeObject *py_type, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
         return runSafe(tryMemoObject_new_singleton, py_type, args, kwargs);
     }
     
@@ -145,7 +147,7 @@ namespace db0::python
         Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
     }
     
-    int MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds)
+    int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds)
     {
         PY_API_FUNC
         // the instance may already exist (e.g. if this is a singleton)
@@ -407,10 +409,10 @@ namespace db0::python
         // extend basic size with pointer to a DBZero object instance
         new_type->tp_basicsize = py_class->tp_basicsize + sizeof(db0::object_model::Object);
         // distinguish between singleton and non-singleton types
-        new_type->tp_new = is_singleton ? reinterpret_cast<newfunc>(MemoObject_new_singleton) : reinterpret_cast<newfunc>(MemoObject_new);
+        new_type->tp_new = is_singleton ? reinterpret_cast<newfunc>(PyAPI_MemoObject_new_singleton) : reinterpret_cast<newfunc>(PyAPI_MemoObject_new);
         new_type->tp_dealloc = reinterpret_cast<destructor>(MemoObject_del);
         // override the init function
-        new_type->tp_init = reinterpret_cast<initproc>(MemoObject_init);
+        new_type->tp_init = reinterpret_cast<initproc>(PyAPI_MemoObject_init);
         // make copy of the types dict
         new_type->tp_dict = copyDict(py_class->tp_dict);
         // getattr / setattr are obsolete
@@ -482,15 +484,15 @@ namespace db0::python
     }
     
     bool PyMemoType_Check(PyTypeObject *type) {
-        return type->tp_init == reinterpret_cast<initproc>(MemoObject_init);
+        return type->tp_init == reinterpret_cast<initproc>(PyAPI_MemoObject_init);
     }
     
     bool PyMemo_Check(PyObject *obj) {
         return PyMemoType_Check(Py_TYPE(obj));
     }
-
+    
     bool PyMemoType_IsSingleton(PyTypeObject *type) {
-        return type->tp_new == reinterpret_cast<newfunc>(MemoObject_new_singleton);
+        return type->tp_new == reinterpret_cast<newfunc>(PyAPI_MemoObject_new_singleton);
     }
     
     PyObject *MemoObject_GetFieldLayout(MemoObject *self)
@@ -528,7 +530,7 @@ namespace db0::python
     }
     
     PyObject *MemoObject_DescribeObject(MemoObject *self)
-    {
+    {        
         auto py_field_layout = MemoObject_GetFieldLayout(self);
         PyObject *py_result = PyDict_New();
         PyDict_SetItemString(py_result, "field_layout", py_field_layout);
@@ -570,21 +572,21 @@ namespace db0::python
         return PyUnicode_FromString(str.str().c_str());
     }
     
-    void PyMemoType_get_info(PyTypeObject *type, PyObject *dict)
-    {                
+    void MemoType_get_info(PyTypeObject *type, PyObject *dict)
+    {                      
         auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
         PyDict_SetItemString(dict, "singleton", PyBool_FromLong(PyMemoType_IsSingleton(type)));
         PyDict_SetItemString(dict, "prefix", PyUnicode_FromString(decor.m_prefix_name_ptr));
     }
 
-    void PyMemoType_close(PyTypeObject *type)
-    {
+    void MemoType_close(PyTypeObject *type)
+    {        
         auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
         decor.close();
     }
     
-    PyObject *PyMemo_set_prefix(MemoObject *py_obj, const char *prefix_name)
-    {
+    PyObject *MemoObject_set_prefix(MemoObject *py_obj, const char *prefix_name)
+    {        
         if (prefix_name) {
             // can use "ext" since setFixtue is a non-mutating operation
             auto &obj = const_cast<db0::object_model::Object&>(py_obj->ext());
@@ -601,7 +603,7 @@ namespace db0::python
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();        
         return tryGetClassAttributes(*class_factory.getExistingType(type));
     }
-
+    
     PyObject *tryGetAttrAs(MemoObject *memo_obj, PyObject *attr, PyTypeObject *py_type)
     {
         auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(memo_obj), attr);

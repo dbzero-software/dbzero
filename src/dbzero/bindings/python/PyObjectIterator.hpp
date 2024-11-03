@@ -46,13 +46,13 @@ namespace db0::python
     void PyObjectIterator_del(PyObjectIterator *);
     
     extern PyTypeObject PyObjectIteratorType;
-        
+    
     bool PyObjectIterator_Check(PyObject *);
     
     /**
      * db0.find implementation
      * returns either ObjectIterator or TypedObjectIterator wrapper
     */
-    PyObject *find(PyObject *, PyObject* const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_find(PyObject *, PyObject* const *args, Py_ssize_t nargs);
     
 }

@@ -47,7 +47,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"get_raw_prefix_of", (PyCFunction)&py::getPrefixOf, METH_VARARGS, "Get prefix name of a specific DBZero object instance"},
     {"get_raw_current_prefix", &py::getCurrentPrefix, METH_VARARGS, "Get current prefix name & UUID as tuple"},
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
-    {"find", (PyCFunction)&py::find, METH_FASTCALL, ""},
+    {"find", (PyCFunction)&py::PyAPI_find, METH_FASTCALL, ""},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
     {"get_state_num", (PyCFunction)&py::getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
     {"get_prefix_stats", (PyCFunction)&py::getPrefixStats, METH_VARARGS | METH_KEYWORDS, "Retrieve prefix specific statistics"},

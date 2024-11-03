@@ -22,7 +22,7 @@ namespace db0
     struct [[gnu::packed]] vso_null_t
     {
     };
-
+    
     class vtypeless
     {
     protected :        
@@ -257,7 +257,7 @@ namespace db0
             modify();
             return this->m_mem_lock;
         }
-
+        
     private:
         
         void assureInitialized() const

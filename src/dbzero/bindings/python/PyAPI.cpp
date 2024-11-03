@@ -487,7 +487,7 @@ namespace db0::python
         PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
         PyObject *py_dict = PyDict_New();
         if (PyMemoType_Check(py_type)) {
-            PyMemoType_get_info(py_type, py_dict);
+            MemoType_get_info(py_type, py_dict);
             return py_dict;
         }
 
@@ -499,7 +499,7 @@ namespace db0::python
     PyObject *negTags(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         return NULL;
     }
-
+    
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
@@ -752,7 +752,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid object type");
             return NULL;
         }
-        return runSafe(PyMemo_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);
+        return runSafe(MemoObject_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);
     }
 
     PyObject *getSlabMetrics(PyObject *, PyObject *)

@@ -21,7 +21,7 @@ namespace db0
     vtypeless::vtypeless(const vtypeless &other)
         : m_memspace_ptr(other.m_memspace_ptr)
     {
-        *this = other;        
+        *this = other;
     }
 
     vtypeless::vtypeless(Memspace &memspace, std::uint64_t address, MemLock &&mem_lock, FlagSet<AccessOptions> access_mode)
