@@ -174,7 +174,8 @@ namespace db0::python
     PyObject *IndexObject_flush(IndexObject *self)
     {
         PY_API_FUNC        
-        self->modifyExt().flush();
+        FixtureLock lock(self->ext().getFixture());
+        self->modifyExt().flush(lock);
         Py_RETURN_NONE;
     }
 

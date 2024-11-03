@@ -46,6 +46,7 @@ def __main__():
             # open prefix to make it the default one
             db0.open(prefix.name, "r")
             for memo_class in db0.get_memo_classes(prefix):
+                print(f"--- Prefix: {prefix.name} / # {db0.get_state_num(prefix.name)} ---")
                 print(f"Class: {prefix.name}/{memo_class.name}")
                 # methods not available in the context-free model
                 attr_names = [attr.name for attr in memo_class.get_attributes()]
