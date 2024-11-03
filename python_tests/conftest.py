@@ -68,7 +68,7 @@ def db0_autocommit_fixture(request):
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR, config = {"autocommit_interval": request.param})
+    db0.init(DB0_DIR, config = {"autocommit": True, "autocommit_interval": request.param})
     db0.open("my-test-prefix")
     yield db0
     gc.collect()

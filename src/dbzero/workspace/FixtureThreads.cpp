@@ -1,6 +1,7 @@
 #include "FixtureThreads.hpp"
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/core/memory/Prefix.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 #include "AtomicContext.hpp"
 
 namespace db0
@@ -90,7 +91,14 @@ namespace db0
     {
     }
     
-    void AutoCommitThread::tryCommit(Fixture &fixture, std::uint64_t &) const {
+    void AutoCommitThread::tryCommit(Fixture &fixture, std::uint64_t &) const
+    {
+        using LangToolkit = db0::object_model::LangConfig::LangToolkit;
+
+        // need to lock the language API first
+        // otherwise it may deadlock on trying to invoke API calls from auto-commit 
+        // (e.g. instance destruction triggered by LangCache::clear)
+        auto __api_lock = LangToolkit::lockApi();
         fixture.onAutoCommit();
     }
     

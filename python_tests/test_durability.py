@@ -260,3 +260,27 @@ def test_low_cache_transactions_issue4(db0_no_autocommit):
     for index in range(len(buf)):
         assert buf[index].value == py_buf[index]        
         index += 1
+
+
+@pytest.mark.parametrize("db0_autocommit_fixture", [1], indirect=True)
+def test_low_cache_mt_issue1(db0_autocommit_fixture):
+    """
+    Test was failing with: deadlock, also possibly with BDevStorage::findMutation: page_num not found (when autocommit is on)
+    Resolution: added PyAPI lock before calling Fixture::onAutoCommit
+    """
+    def rand_string(str_len):
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+    
+    db0.set_cache_size(100 << 10)
+    buf = db0.list()
+    py_buf = []
+    for _ in range(20):
+        for _ in range(100):
+            str = rand_string(32)
+            buf.append(MemoTestClass(str))
+            py_buf.append(str)        
+    
+    index = 0
+    for index in range(len(buf)):
+        assert buf[index].value == py_buf[index]        
+        index += 1

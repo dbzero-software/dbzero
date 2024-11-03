@@ -88,7 +88,7 @@ namespace db0::python
     PyObject *PyAPI_ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
     {
         PY_API_FUNC
-        // FIXME: this operation should be immutable        
+        // FIXME: this operation should be immutable
         db0::FixtureLock lock(py_src_list->ext().getFixture());
         // Check if the key is a slice object
         if (PySlice_Check(elem)) {
