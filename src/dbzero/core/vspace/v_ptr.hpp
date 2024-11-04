@@ -67,7 +67,8 @@ namespace db0
         /**
          * Create mem-locked with specific flags (e.g. read/ write)
         */
-        vtypeless(Memspace &, std::uint64_t address, MemLock &&, FlagSet<AccessOptions> access_mode);
+        vtypeless(Memspace &, std::uint64_t address, MemLock &&, std::uint16_t resource_flags,
+            FlagSet<AccessOptions>);
 
         vtypeless(const vtypeless& other);
         
@@ -77,10 +78,11 @@ namespace db0
         inline vtypeless(mptr ptr, FlagSet<AccessOptions> access_mode = {})
             : m_address(ptr.m_address)
             , m_memspace_ptr(&ptr.m_memspace.get())
-            , m_access_mode(ptr.m_access_mode | access_mode | AccessOptions::read)
+            , m_access_mode(ptr.m_access_mode | access_mode)
         {
+            assertFlags();
         }
-                
+        
         FlagSet<AccessOptions> getAccessMode() const;
         
         vtypeless &operator=(const vtypeless &other);
@@ -146,6 +148,15 @@ namespace db0
         template <typename T> const T *castTo() const {
             return reinterpret_cast<const T*>(m_mem_lock.m_buffer);
         }
+
+    private:
+        inline void assertFlags() 
+        {
+            // read / write / create flags are disallowed since they're assigned dynamically
+            assert(!m_access_mode[AccessOptions::read]);
+            assert(!m_access_mode[AccessOptions::write]);
+            assert(!m_access_mode[AccessOptions::create]);
+        }
     };
     
     /**
@@ -164,11 +175,12 @@ namespace db0
         {
         }
 
-        inline v_ptr(Memspace &memspace, std::uint64_t address, MemLock &&lock, FlagSet<AccessOptions> access_mode)
-            : vtypeless(memspace, address, std::move(lock), access_mode)
+        inline v_ptr(Memspace &memspace, std::uint64_t address, MemLock &&lock, std::uint16_t resource_flags,
+            FlagSet<AccessOptions> access_mode = {})
+            : vtypeless(memspace, address, std::move(lock), resource_flags, access_mode)
         {
         }
-
+        
         v_ptr(mptr ptr)
             : vtypeless(ptr)
         {
@@ -231,7 +243,7 @@ namespace db0
             return get();
         }
         
-        static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode)
+        static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode = {})
         {
             auto address = memspace.alloc(size, SLOT_NUM, access_mode[AccessOptions::unique]);
             // lock for create & write
@@ -241,14 +253,20 @@ namespace db0
             );
             // mark as available for both write & read
             return v_ptr<ContainerT>(
-                memspace, address, std::move(mem_lock), access_mode | AccessOptions::read | AccessOptions::write
+                memspace, address, std::move(mem_lock),
+                db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE, access_mode
             );
         }
         
-        static v_ptr<ContainerT> makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode) {
-            return v_ptr<ContainerT>(memspace, mapped_addr.m_address, std::move(mapped_addr.m_mem_lock), access_mode);
+        static v_ptr<ContainerT> makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode = {}) 
+        {
+            // mark as available for both write & read
+            return v_ptr<ContainerT>(memspace, mapped_addr.m_address, 
+                std::move(mapped_addr.m_mem_lock), 
+                db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE,
+                access_mode);
         }
-
+        
         /**
          * Get the underlying mapped range (for mutation)
         */
@@ -288,7 +306,7 @@ namespace db0
                 return ContainerT::measure();
             }
             else if constexpr(metaprog::has_fixed_header<ContainerT>::value) {
-                v_object<typename ContainerT::fixed_header_type, SLOT_NUM> header(mptr{*m_memspace_ptr, m_address, AccessOptions::read});
+                v_object<typename ContainerT::fixed_header_type, SLOT_NUM> header(mptr{*m_memspace_ptr, m_address});
                 return header.getData()->getOBaseSize();
             }
 

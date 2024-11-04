@@ -27,6 +27,9 @@ namespace db0
         // Flush the residual part only of the wide lock
         void flushResidual();
         
+        // rebase dependent residual lock if needed
+        void rebase(const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map);
+        
     private:
         std::shared_ptr<DP_Lock> m_res_lock;
     };

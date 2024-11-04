@@ -83,7 +83,7 @@ namespace db0
         
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {
-            MutexT::WriteOnlyLock lock(m_resource_flags);        
+            MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
                 auto &storage = m_context.m_storage_ref.get();
                 auto dp_size = static_cast<std::size_t>(m_data.size() / storage.getPageSize()) * storage.getPageSize();
@@ -95,6 +95,14 @@ namespace db0
                 // note the dirty flag is not reset here
                 break;
             }
+        }
+    }
+    
+    void WideLock::rebase(const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map)
+    {
+        auto it = rebase_map.find(m_res_lock.get());
+        if (it != rebase_map.end()) {
+            m_res_lock = it->second;
         }
     }
 

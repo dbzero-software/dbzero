@@ -48,17 +48,30 @@ namespace db0
             // prepare commit context if configured
             std::shared_ptr<void> context;
             if (m_ctx_function) {
+                lock.unlock();
                 context = m_ctx_function();
+                lock.lock();
             }
+            // collect fixtures first
+            std::vector<std::pair<weak_swine_ptr<Fixture>, std::uint64_t> > fixtures;
             for (auto it = m_fixtures.begin(); it != m_fixtures.end(); ) {
                 auto fixture = it->first.lock();
                 if (!fixture) {
                     it = m_fixtures.erase(it);
                     continue;
                 }
-                m_fx_function(*fixture, it->second);
+                fixtures.push_back(*it);                
                 ++it;
             }
+
+            // then process as unlocked
+            lock.unlock();
+            for (auto it = fixtures.begin(); it != fixtures.end(); ++it) {
+                auto fixture = it->first.lock();
+                if (fixture) {
+                    m_fx_function(*fixture, it->second);
+                }                
+            }            
         }
     }
     

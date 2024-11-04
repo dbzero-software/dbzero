@@ -143,7 +143,7 @@ namespace db0
     }
     
     void ResourceLock::setDirty()
-    {
+    {        
         // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
         if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY) && 
             !m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) 

@@ -149,7 +149,7 @@ namespace db0
         // the collection for tracking dirty locks of each type (cleared on flush)
         mutable DirtyCache m_dirty_dp_cache;
         mutable DirtyCache m_dirty_wide_cache;
-        StorageContext m_dp_context;        
+        StorageContext m_dp_context;
         StorageContext m_wide_context;
         // single data-page resource locks
         mutable PageMap<DP_Lock> m_dp_map;
@@ -164,6 +164,7 @@ namespace db0
         const std::shared_ptr<WideLock> m_missing_wide_lock_ptr;
         // locks (DP_Lock or WideLock) with no_flush flag (e.g. from an atomic update)
         mutable std::vector<std::shared_ptr<DP_Lock> > m_volatile_locks;
+        mutable std::vector<std::shared_ptr<WideLock> > m_volatile_wide_locks;
         mutable std::vector<std::shared_ptr<BoundaryLock> > m_volatile_boundary_locks;
 
         /**
@@ -184,5 +185,13 @@ namespace db0
             return (addr_or_size & (m_page_size - 1)) == 0;
         }
     };
+    
+    template <typename T> void discardAll(T &volatile_locks)
+    {
+        for (auto &lock: volatile_locks) {
+            lock->discard();
+        }
+        volatile_locks.clear();
+    }
 
 }

@@ -40,7 +40,7 @@ namespace db0
     {
         auto lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
             access_mode, read_state_num, state_num, isCreateNew(access_mode));
-        // initially dirty lock must be registered with the dirty cache            
+        // initially dirty lock must be registered with the dirty cache
         lock->initDirty();            
         // register under the lock's evaluated state number
         m_dp_map.insert(lock->getStateNum(), lock);
@@ -101,7 +101,7 @@ namespace db0
                 m_dp_map.insert(state_num, dp_lock);
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
-                if (is_volatile) {
+                if (is_volatile) {                    
                     m_volatile_locks.push_back(dp_lock);
                 }
             }
@@ -129,8 +129,8 @@ namespace db0
         
         assert(lock);
         // register with the volatile locks
-        if (access_mode[AccessOptions::no_flush]) {
-            m_volatile_locks.push_back(lock);
+        if (access_mode[AccessOptions::no_flush]) {            
+            m_volatile_wide_locks.push_back(lock);
         } else {
             // register or update lock with the recycler
             if (m_cache_recycler_ptr) {
@@ -202,8 +202,8 @@ namespace db0
                 m_wide_map.insert(state_num, wide_lock);
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
-                if (is_volatile) {
-                    m_volatile_locks.push_back(wide_lock);
+                if (is_volatile) {                    
+                    m_volatile_wide_locks.push_back(wide_lock);
                 }
             }
         }
@@ -306,7 +306,7 @@ namespace db0
         m_dp_map.insert(result->getStateNum(), result);
 
         // register with the volatile locks
-        if (access_mode[AccessOptions::no_flush]) {
+        if (access_mode[AccessOptions::no_flush]) {            
             m_volatile_locks.push_back(result);
         } else {
             // register with the recycler
@@ -326,8 +326,8 @@ namespace db0
         m_wide_map.insert(result->getStateNum(), result);
 
         // register with the volatile locks
-        if (access_mode[AccessOptions::no_flush]) {
-            m_volatile_locks.push_back(result);
+        if (access_mode[AccessOptions::no_flush]) {            
+            m_volatile_wide_locks.push_back(result);
         } else {
             // register with the recycler
             if (m_cache_recycler_ptr) {
@@ -337,7 +337,7 @@ namespace db0
 
         return result;
     }
-
+    
     std::shared_ptr<BoundaryLock> PrefixCache::insertCopy(std::uint64_t address, std::size_t size,
         const BoundaryLock &lock, std::shared_ptr<DP_Lock> lhs, std::shared_ptr<DP_Lock> rhs, 
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
@@ -372,17 +372,12 @@ namespace db0
         m_wide_map.clear();
         m_dp_map.clear();    
     }
-    
+
     void PrefixCache::release()
     {
-        for (auto &lock: m_volatile_boundary_locks) {
-            lock->discard();
-        }
-        m_volatile_boundary_locks.clear();
-        for (auto &lock: m_volatile_locks) {
-            lock->discard();
-        }
-        m_volatile_locks.clear();
+        discardAll(m_volatile_boundary_locks);
+        discardAll(m_volatile_wide_locks);
+        discardAll(m_volatile_locks);
         // undo write / remove dirty flag from all owned locks
         forEach([&](ResourceLock &lock) {
             lock.discard();
@@ -462,6 +457,12 @@ namespace db0
             lock->discard();
         }
         m_volatile_boundary_locks.clear();
+        for (auto &lock: m_volatile_wide_locks) {
+            // erase range
+            eraseRange(lock->getAddress(), lock->size(), state_num);
+            lock->discard();
+        }
+        m_volatile_wide_locks.clear();
         for (auto &lock: m_volatile_locks) {
             // erase range
             eraseRange(lock->getAddress(), lock->size(), state_num);
@@ -549,18 +550,39 @@ namespace db0
         std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > rebase_map;
         // merge DP-locks first
         for (auto &lock: m_volatile_locks) {
-            assert(lock->isDirty());
             // erase volatile range related lock
             eraseRange(lock->getAddress(), lock->size(), from_state_num);
-            // need to update to final state number (head) before merging with active transaction
-            lock->merge(to_state_num);
-            auto existing_lock = replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);
-            // register the mapping to existing locks
-            if (existing_lock) {
-                rebase_map[lock.get()] = existing_lock;
-            }            
+            // NOTE: volatile locks may not be dirty if first accessed as read-only from the atomic context
+            if (lock->isDirty()) {
+                // need to update to final state number (head) before merging with active transaction
+                lock->merge(to_state_num);
+                auto existing_lock = replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);
+                // register the mapping to existing locks
+                if (existing_lock) {
+                    rebase_map[lock.get()] = existing_lock;
+                }
+            }
         }
         m_volatile_locks.clear();
+        
+        // merge wide locks next & rebase residual locks if needed
+        for (auto &lock: m_volatile_wide_locks) {
+            // erase volatile range related lock
+            eraseRange(lock->getAddress(), lock->size(), from_state_num);
+            // NOTE: volatile locks may not be dirty if first accessed as read-only from the atomic context
+            if (lock->isDirty()) {
+                // need to update to final state number (head) before merging with active transaction
+                lock->merge(to_state_num);
+                auto existing_lock = replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);
+                if (existing_lock) {
+                    rebase_map[lock.get()] = existing_lock;
+                } else {
+                    // need to rebase parent locks if the boundary lock was reused
+                    lock->rebase(rebase_map);
+                }
+            }
+        }
+        m_volatile_wide_locks.clear();
         
         // merge boundary locks next & rebase parent locks if needed
         for (auto &lock: m_volatile_boundary_locks) {

@@ -195,5 +195,27 @@ namespace db0::object_model
         // resolve by text representation (since UIDs are not compatible across fixtures)
         return enum_->get(other.m_str_repr.c_str());
     }
+    
+    void EnumFactory::commit() const
+    {
+        for (auto &enum_map: m_enum_maps) {
+            enum_map.commit();
+        }
+        for (auto &item: m_ptr_cache) {
+            item.second->commit();
+        }
+        super_t::commit();
+    }
+
+    void EnumFactory::detach() const
+    {
+        for (auto &enum_map: m_enum_maps) {
+            enum_map.detach();
+        }
+        for (auto &item: m_ptr_cache) {
+            item.second->detach();
+        }
+        super_t::detach();
+    }
 
 }

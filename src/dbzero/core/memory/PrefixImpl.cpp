@@ -308,7 +308,7 @@ namespace db0
     }
     
     void PrefixImpl::beginAtomic()
-    {
+    {        
         assert(!m_atomic);
         // Flush all boundary locks before the start of a new atomic operation
         // this is to avoid flushing (which in case of the boundary locks - mutates the underlying DPs)
@@ -322,7 +322,7 @@ namespace db0
     }
     
     void PrefixImpl::endAtomic()
-    {
+    {        
         assert(m_atomic);
         // merge all results into the current transaction
         m_cache.merge(m_head_state_num, m_head_state_num - 1);
