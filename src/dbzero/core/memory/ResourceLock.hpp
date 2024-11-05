@@ -85,6 +85,10 @@ namespace db0
         void setDirty();
 
         bool isCached() const;
+
+#ifndef NDEBUG
+        bool isVolatile() const;
+#endif        
         
         BaseStorage &getStorage() const {
             return m_context.m_storage_ref.get();

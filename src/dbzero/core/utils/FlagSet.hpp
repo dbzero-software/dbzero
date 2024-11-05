@@ -82,13 +82,25 @@ namespace db0
             m_flags = ~store_t(0);
             return *this;
         }
+        
+        FlagSet &set(enum_t flag)
+        {
+            m_flags |= static_cast<store_t>(flag);
+            return *this;
+        }
 
-        FlagSet &set(enum_t flag, bool val = true)
+        FlagSet &clear(enum_t flag)
+        {
+            m_flags &= ~static_cast<store_t>(flag);
+            return *this;
+        }
+
+        FlagSet &set(enum_t flag, bool val)
         {
             m_flags = val ? (m_flags|static_cast<store_t>(flag)) : (m_flags&~static_cast<store_t>(flag));
             return *this;
         }
-
+        
         std::size_t count() const
         {
             store_t bits = m_flags;

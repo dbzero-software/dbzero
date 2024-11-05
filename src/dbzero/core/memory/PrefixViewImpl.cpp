@@ -90,7 +90,7 @@ namespace db0
     BaseStorage &PrefixViewImpl::getStorage() const {
         return *m_storage_ptr;
     }
-        
+    
     std::shared_ptr<DP_Lock> PrefixViewImpl::mapPage(std::uint64_t page_num)
     {
         // read-only access

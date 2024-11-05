@@ -170,4 +170,10 @@ namespace db0
         return os;
     }
 
+#ifndef NDEBUG
+    bool ResourceLock::isVolatile() const {
+        return m_access_mode[AccessOptions::no_flush];
+    }
+#endif        
+    
 }

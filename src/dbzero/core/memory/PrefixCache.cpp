@@ -41,10 +41,10 @@ namespace db0
         auto lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
             access_mode, read_state_num, state_num, isCreateNew(access_mode));
         // initially dirty lock must be registered with the dirty cache
-        lock->initDirty();            
+        lock->initDirty();
         // register under the lock's evaluated state number
         m_dp_map.insert(lock->getStateNum(), lock);
-                
+        
         // register with the volatile locks
         assert(lock);
         if (access_mode[AccessOptions::no_flush]) {
@@ -93,7 +93,8 @@ namespace db0
             // unused lock condition (i.e. might only be used by the CacheRecycler)
             // note that dirty locks cannot be upgraded (otherwise data would be lost)
             if (!dp_lock->isDirty() && dp_lock.use_count() == (dp_lock->isRecycled() ? 1 : 0) + 1) {
-                m_dp_map.erase(state_num, dp_lock);
+                assert(read_state_num == dp_lock->getStateNum());
+                m_dp_map.erase(read_state_num, dp_lock);
                 // note that this operation may also assign the no_flush flag if it was requested
                 dp_lock->updateStateNum(state_num, is_volatile);
                 // re-register the upgraded lock under a new state
@@ -101,12 +102,12 @@ namespace db0
                 m_dp_map.insert(state_num, dp_lock);
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
-                if (is_volatile) {                    
+                if (is_volatile) {
                     m_volatile_locks.push_back(dp_lock);
                 }
             }
         }
-
+        
         // register / update lock with the recycler (mark as accessed for LRU policy evaluation)
         assert(dp_lock);
         if (m_cache_recycler_ptr && !is_volatile) {
@@ -194,7 +195,8 @@ namespace db0
             // unused lock condition (i.e. might only be used by the CacheRecycler)
             // note that dirty locks cannot be upgraded (otherwise data would be lost)
             if (!wide_lock->isDirty() && wide_lock.use_count() == (wide_lock->isRecycled() ? 1 : 0) + 1) {
-                m_wide_map.erase(state_num, wide_lock);
+                assert(read_state_num == wide_lock->getStateNum());
+                m_wide_map.erase(read_state_num, wide_lock);
                 // note that this operation may also assign the no_flush flag if it was requested
                 wide_lock->updateStateNum(state_num, access_mode[AccessOptions::no_flush]);
                 // re-register the upgraded lock under a new state
@@ -266,6 +268,10 @@ namespace db0
 
             assert(lhs && rhs);
             auto lhs_size = ((first_page + 1) << m_shift) - address;
+            // remove the no_flush flag if accessing from a historical transaction (as lock is non-volatile)
+            if (read_state_num < state_num) {
+                access_mode.clear(AccessOptions::no_flush);
+            }
             // NOTE: boundary locks are not registered with the dirty-cache
             // we use dp_context as a placeholder for the dirty-cache
             br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
@@ -501,51 +507,44 @@ namespace db0
         if (end_page == first_page + 1) {
             auto existing_lock = m_dp_map.replace(state_num, new_lock, first_page);
             if (existing_lock) {
+                assert(!existing_lock->isVolatile());
                 return existing_lock;
             } else {
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
-                // add to / update with cache recycler
-                if (m_cache_recycler_ptr) {
-                    m_cache_recycler_ptr->update(new_lock);
-                }
                 return {};
             }
         } else {
             auto existing_lock = m_wide_map.replace(state_num, std::dynamic_pointer_cast<WideLock>(new_lock), first_page);
             if (existing_lock) {
+                assert(!existing_lock->isVolatile());
                 return existing_lock;
             } else {            
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
-                // add to / update with cache recycler
-                if (m_cache_recycler_ptr) {
-                    m_cache_recycler_ptr->update(new_lock);
-                }
                 return {};
             }
         }
     }
-
+    
     bool PrefixCache::replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
         std::shared_ptr<BoundaryLock> new_lock)
     {
         auto first_page = address >> m_shift;
         assert(isBoundaryRange(first_page, ((address + size - 1) >> m_shift) + 1, address & m_mask));
-        if (m_boundary_map.replace(state_num, new_lock, first_page)) {
+        auto existing_lock = m_boundary_map.replace(state_num, new_lock, first_page);
+        if (existing_lock) {
+            assert(!existing_lock->isVolatile());
             return true;
         } else {
             // must clear the no_flush flag if lock was reused (i.e. added to cache under a different state)
             new_lock->resetNoFlush();
-            // add to / update with cache recycler
-            if (m_cache_recycler_ptr) {
-                m_cache_recycler_ptr->update(new_lock);
-            }
             return false;
         }
     }
     
-    void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num)
+    void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num,
+        std::vector<std::shared_ptr<ResourceLock> > &reused_locks)
     {
         std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > rebase_map;
         // merge DP-locks first
@@ -560,6 +559,8 @@ namespace db0
                 // register the mapping to existing locks
                 if (existing_lock) {
                     rebase_map[lock.get()] = existing_lock;
+                } else {
+                    reused_locks.push_back(lock);
                 }
             }
         }
@@ -579,6 +580,7 @@ namespace db0
                 } else {
                     // need to rebase parent locks if the boundary lock was reused
                     lock->rebase(rebase_map);
+                    reused_locks.push_back(lock);
                 }
             }
         }
@@ -591,6 +593,7 @@ namespace db0
             // NOTE: boundary volatile locks may be non-dirty and such get simply discarded
             if (lock->isDirty()) {
                 if (!replaceBoundaryRange(lock->getAddress(), lock->size(), to_state_num, lock)) {
+                    // we don't collect BoundarLock as reused because they're not cached
                     // need to rebase parent locks if the boundary lock was reused
                     lock->rebase(rebase_map);
                 }

@@ -129,8 +129,11 @@ namespace db0
         // Merge atomic operation's data (volatile locks) into an active transaction
         // @param from_state_num must be the atomic operation's assigned (temporary) state number
         // @param to_state_num the actual transaction number
-        void merge(std::uint64_t from_state_num, std::uint64_t to_state_num);
-        
+        // @param reused_locks buffer to hold reused volatile locks (this is because we need to update the locks with the CacheRecycler
+        // which can only be done AFTER completing the atomic operation since it may trigger the unwanted updates - e.g. via PY_DECREF)
+        void merge(std::uint64_t from_state_num, std::uint64_t to_state_num, 
+            std::vector<std::shared_ptr<ResourceLock> > &reused_locks);
+         
         std::size_t getPageSize() const;
         
         CacheRecycler *getCacheRecycler() const;

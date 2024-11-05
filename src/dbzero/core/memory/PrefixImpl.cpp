@@ -1,4 +1,5 @@
 #include "PrefixImpl.hpp"
+#include "CacheRecycler.hpp"
 
 namespace db0
 
@@ -148,6 +149,12 @@ namespace db0
                 auto mutation_id = m_storage_ptr->findMutation(page_num, state_num);
                 // create range under the mutation ID
                 // since access is read-only we pass write_state_num = 0
+                // clear the no_flush (volatile) flag since lock is from past transaction
+                if (access_mode[AccessOptions::no_flush]) {
+                    access_mode.set(AccessOptions::no_flush, false);
+                    // assert lock is from past transaction
+                    assert(mutation_id < state_num);
+                }
                 lock = m_cache.createPage(page_num, mutation_id, 0, access_mode);
             }
         } else {
@@ -219,6 +226,12 @@ namespace db0
                     res_dp = mapPage(end_page - 1, state_num, access_mode | AccessOptions::read);                    
                 } else {
                     mutation_id = db0::findUniqueMutation(*m_storage_ptr, first_page, end_page, state_num);
+                }
+                // clear the no_flush (volatile) flag since lock is from past transaction
+                if (access_mode[AccessOptions::no_flush]) {
+                    access_mode.set(AccessOptions::no_flush, false);
+                    // assert lock is from past transaction
+                    assert(mutation_id < state_num);
                 }
                 lock = m_cache.createRange(first_page, size, mutation_id, 0, access_mode, res_dp);
             }
@@ -322,12 +335,22 @@ namespace db0
     }
     
     void PrefixImpl::endAtomic()
-    {        
+    {                
         assert(m_atomic);
+        std::vector<std::shared_ptr<ResourceLock> > reused_locks;
         // merge all results into the current transaction
-        m_cache.merge(m_head_state_num, m_head_state_num - 1);
+        m_cache.merge(m_head_state_num, m_head_state_num - 1, reused_locks);
         --m_head_state_num;
         m_atomic = false;
+
+        // update reused locks with CacheRecycler
+        // this can only be done AFTER completing the atomic operation (as it's a potentially mutable operation)
+        if (m_cache.getCacheRecycler()) {
+            auto cache_recycler_ptr = m_cache.getCacheRecycler();
+            for (auto &lock: reused_locks) {
+                cache_recycler_ptr->update(lock);
+            }
+        }
     }
     
     void PrefixImpl::cancelAtomic()

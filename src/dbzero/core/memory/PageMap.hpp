@@ -100,10 +100,10 @@ namespace db0
     }
     
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock)
+    void PageMap<ResourceLockT>::insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT> res_lock)
     {
-        std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
-        m_cache[{lock->getAddress() >> m_shift, state_num}] = lock;
+        std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
+        m_cache[{res_lock->getAddress() >> m_shift, state_num}] = res_lock;
     }
     
     template <typename ResourceLockT>
@@ -213,23 +213,28 @@ namespace db0
     
     template <typename ResourceLockT> void PageMap<ResourceLockT>::clear() 
     {
-        std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
+        std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
         m_cache.clear();
     }
 
     template <typename ResourceLockT> bool PageMap<ResourceLockT>::empty() const 
     {
-        std::shared_lock<std::shared_mutex> _lock(m_rw_mutex);
+        std::shared_lock<std::shared_mutex> lock(m_rw_mutex);
         return m_cache.empty();
     }
     
     template <typename ResourceLockT>
     void PageMap<ResourceLockT>::erase(std::uint64_t state_num, std::uint64_t page_num)
     {
-        std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
+        std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
+#ifndef NDEBUG        
+        auto result = m_cache.erase({page_num, state_num});
+        assert(result);
+#else
         m_cache.erase({page_num, state_num});
+#endif                
     }
-
+    
     template <typename ResourceLockT>
     std::shared_ptr<ResourceLockT> PageMap<ResourceLockT>::replace(
         std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num)
@@ -243,6 +248,8 @@ namespace db0
         auto existing_lock = it->second.lock();
         if (!existing_lock) {
             // remove expired weak_ptr
+            // this is fine because we're inserting under updated more recent state
+            assert(state_num >= it->first.second);
             m_cache.erase(it);
             insert(state_num, lock);
             return {};
