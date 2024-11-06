@@ -1,0 +1,46 @@
+import pytest
+import dbzero_ce as db0
+from datetime import datetime
+from .memo_test_types import MemoTestClass
+
+
+@db0.memo
+class Basket:
+    def __init__(self, client):
+        self.client = client
+        self.items = []
+
+
+@db0.memo
+class Client:
+    def __init__(self, first_name, last_name, email, phone):
+        self.first_name = first_name
+        self.last_name = last_name
+        self.email = email
+        self.phone = phone
+        self.calendar = None
+        # self.basket = Basket(self)
+        self.addresses = []
+        self.primary_address = None
+        # order history
+        self.orders = []
+        # orders pending payment
+        self.unpaid_orders = db0.set()
+        self.canceled_orders = db0.set()
+        self.plan_history = []
+        self.active_diet_plans = db0.set()
+        self.basket = Basket(self)
+
+# FIXME: failing test blocked
+# def test_create_memo_with_back_reference_issue_1(db0_fixture):
+#     """
+#     Issue: the test was causing a segmentation fault with exception:
+#     0x00007fd71d978db7 in db0::v_sorted_vector<db0::object_model::XValue, db0::object_model::KV_Address, std::less<db0::object_model::XValue> >
+#     ::updateExisting (this=0x2702e70, data=..., old_data=0x7fff5a870f20)
+#     at ../../src/dbzero/core/collections/vector/v_sorted_vector.hpp:901
+#         901 *old_data = *it;
+#     when assigning KV-member (required to register reference to self)
+#     Resolution: ???
+#     """
+#     client = Client("John", "Doe", "john.doe@gmail.com", "1234567890")    
+#     assert client.first_name == "John"
