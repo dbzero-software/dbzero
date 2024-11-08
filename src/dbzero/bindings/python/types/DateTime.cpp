@@ -3,7 +3,6 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <structmember.h>
 #include <dbzero/bindings/python/Utils.hpp>
-#include <dbzero/bindings/python/PyAPI.hpp>
 #include <datetime.h>
 namespace db0::python
 
