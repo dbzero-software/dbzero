@@ -206,6 +206,8 @@ namespace db0::object_model
         
         // FIXME: value should be destroyed on exception
         auto value = createMember<LangToolkit>(*fixture, type_id, lang_value);
+        // make sure object address is not null
+        assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
         if (field_id < (*this)->pos_vt().size()) {
             auto &pos_vt = modify().pos_vt();
             unrefMember(*fixture, pos_vt.types()[field_id], pos_vt.values()[field_id]);

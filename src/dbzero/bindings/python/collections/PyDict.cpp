@@ -1,5 +1,5 @@
 #include <dbzero/bindings/python/collections/PyDict.hpp>
-#include "DictView.hpp"
+#include "PyDictView.hpp"
 #include <dbzero/bindings/python/Utils.hpp>
 #include "PyIterator.hpp"
 #include <dbzero/object_model/dict/Dict.hpp>
@@ -13,13 +13,15 @@ namespace db0::python
 
     using DictIteratorObject = PyWrapper<db0::object_model::DictIterator, false>;
 
-    PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "DBZero dict iterator");    
+    PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "DBZero dict iterator");
+    
     DictIteratorObject *PyAPI_DictObject_iter(DictObject *self)
     {
         PY_API_FUNC
         self->ext().getFixture()->refreshIfUpdated();
-        return makeIterator<DictIteratorObject,db0::object_model::DictIterator>(DictIteratorObjectType, 
-            self->ext().begin(), &self->ext());
+        return makeIterator<DictIteratorObject, db0::object_model::DictIterator>(
+            DictIteratorObjectType, self->ext().begin(), &self->ext(), self
+        );
     }
     
     PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)
@@ -324,7 +326,7 @@ namespace db0::python
     {
         PY_API_FUNC
         // make actual DBZero instance, use default fixture
-        auto dict_view_object = makeDictView(&dict_obj->ext(), db0::object_model::IteratorType::KEYS);
+        auto dict_view_object = makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::KEYS);
         return dict_view_object;
     }
 
@@ -332,7 +334,7 @@ namespace db0::python
     {
         PY_API_FUNC
         // make actual DBZero instance, use default fixture
-        auto dict_view_object = makeDictView(&dict_obj->ext(), db0::object_model::IteratorType::VALUES);
+        auto dict_view_object = makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::VALUES);
         return dict_view_object;
     }
     
@@ -340,7 +342,7 @@ namespace db0::python
     {
         PY_API_FUNC
         // make actual DBZero instance, use default fixture
-        auto dict_view_object = makeDictView(&dict_obj->ext(), db0::object_model::IteratorType::ITEMS);
+        auto dict_view_object = makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::ITEMS);
         return dict_view_object;
     }
     

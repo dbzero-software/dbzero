@@ -19,8 +19,9 @@ namespace db0::python
     ListIteratorObject *PyAPI_ListObject_iter(ListObject *self)
     {
         PY_API_FUNC
-        return makeIterator<ListIteratorObject,db0::object_model::ListIterator>(ListIteratorObjectType, 
-            self->ext().begin(), &self->ext());        
+        return makeIterator<ListIteratorObject, db0::object_model::ListIterator>(
+            ListIteratorObjectType, self->ext().begin(), &self->ext(), self
+        );
     }
     
     PyObject *ListObject_GetItem(ListObject *list_obj, Py_ssize_t i)

@@ -18,10 +18,11 @@ namespace db0::python
     TupleIteratorObject *PyAPI_TupleObject_iter(TupleObject *self)
     {
         PY_API_FUNC
-        return makeIterator<TupleIteratorObject,db0::object_model::TupleIterator>(TupleIteratorObjectType, 
-            self->ext().begin(), &self->ext());        
+        return makeIterator<TupleIteratorObject,db0::object_model::TupleIterator>(
+            TupleIteratorObjectType, self->ext().begin(), &self->ext(), self
+        );
     }
-
+    
     PyObject *PyAPI_TupleObject_GetItem(TupleObject *tuple_obj, Py_ssize_t i)
     {
         PY_API_FUNC        

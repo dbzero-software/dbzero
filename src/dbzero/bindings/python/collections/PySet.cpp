@@ -19,10 +19,11 @@ namespace db0::python
     SetIteratorObject *SetObject_iter(SetObject *self)
     {
         PY_API_FUNC
-        return makeIterator<SetIteratorObject,db0::object_model::SetIterator>(SetIteratorObjectType, 
-            self->ext().begin(), &self->ext());        
+        return makeIterator<SetIteratorObject,db0::object_model::SetIterator>(
+            SetIteratorObjectType, self->ext().begin(), &self->ext(), self
+        );
     }
-
+    
     int SetObject_HasItem(SetObject *set_obj, PyObject *key)
     {
         PY_API_FUNC        

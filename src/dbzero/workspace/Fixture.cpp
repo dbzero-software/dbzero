@@ -237,7 +237,7 @@ namespace db0
     }
     
     void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock, ProcessTimer *parent_timer)
-    {        
+    {
         std::unique_ptr<ProcessTimer> timer;
         if (parent_timer) {
             timer = std::make_unique<ProcessTimer>("Fixture::tryCommit", parent_timer);

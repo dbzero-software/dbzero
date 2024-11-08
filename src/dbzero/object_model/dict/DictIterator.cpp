@@ -18,9 +18,10 @@ namespace db0::object_model
             m_join_iterator = m_index.beginJoin(1);
         }
     }
-
-    DictIterator::DictIterator(Dict::const_iterator iterator, const Dict * ptr, IteratorType type) 
-        : PyObjectIterator<DictIterator, Dict>(iterator, ptr)
+    
+    DictIterator::DictIterator(
+        Dict::const_iterator iterator, const Dict * ptr, ObjectPtr lang_dict, IteratorType type)
+        : PyObjectIterator<DictIterator, Dict>(iterator, ptr, lang_dict)
         , m_type(type) 
     {
         setJoinIterator();
@@ -86,22 +87,4 @@ namespace db0::object_model
         }
     }
     
-    DictView::DictView(const Dict *dict, IteratorType type)
-        : m_collection(dict) 
-        , m_type(type)
-    {
-    }
-    
-    DictIterator *DictView::begin(void *at_ptr) const {
-        return new (at_ptr) DictIterator(m_collection->begin(), m_collection, m_type);
-    }
-
-    std::size_t DictView::size() const {
-        return m_collection->size();
-    }
-    
-    DictView *DictView::makeNew(void *at_ptr, const Dict *dict_ptr, IteratorType type) {
-        return new (at_ptr) DictView(dict_ptr, type);
-    }
-
 }

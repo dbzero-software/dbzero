@@ -18,7 +18,7 @@ namespace db0::object_model
             void setJoinIterator();
         public:
             ObjectSharedPtr next() override;
-            SetIterator(Set::const_iterator iterator, const Set * ptr);
+            SetIterator(Set::const_iterator iterator, const Set * ptr, ObjectPtr lang_set_ptr);
     };
-
+    
 }

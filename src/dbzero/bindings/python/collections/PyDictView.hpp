@@ -1,5 +1,7 @@
 #pragma once
-#include <dbzero/object_model/dict/DictIterator.hpp>
+
+#include <Python.h>
+#include <dbzero/object_model/dict/DictView.hpp>
 
 namespace db0::python 
 {
@@ -17,6 +19,7 @@ namespace db0::python
 
     void DictViewObject_del(DictViewObject* dict_obj);
     
-    DictViewObject *makeDictView(const db0::object_model::Dict *, db0::object_model::IteratorType iterator_type);
+    DictViewObject *makeDictView(PyObject *py_dict, const db0::object_model::Dict *, 
+        db0::object_model::IteratorType);
 
 }

@@ -2,6 +2,7 @@ import pytest
 import dbzero_ce as db0
 from datetime import datetime
 from .memo_test_types import MemoTestClass
+import random
 
 
 @db0.memo
@@ -31,6 +32,7 @@ class Client:
         self.active_diet_plans = db0.set()
         self.basket = Basket(self)
 
+
 # FIXME: failing test blocked
 # def test_create_memo_with_back_reference_issue_1(db0_fixture):
 #     """
@@ -44,3 +46,21 @@ class Client:
 #     """
 #     client = Client("John", "Doe", "john.doe@gmail.com", "1234567890")    
 #     assert client.first_name == "John"
+
+
+def test_list_iterator_issue_1(db0_fixture):    
+    buf = db0.list([1,2,3])
+    for item in buf:
+        assert item > 0
+    
+
+# def test_list_iterator_issue_1(db0_fixture):
+#     lists = []
+#     buf = db0.list()
+#     for _ in range(100):
+#         lists.append(db0.list([MemoTestClass(random.randint(1, 100)) for _ in range(1024)]))    
+#         list = random.choice(lists)
+#         # iterate over list items
+#         for item in list:
+#             buf.append(MemoTestClass(item.value))
+#             assert item.value > 0

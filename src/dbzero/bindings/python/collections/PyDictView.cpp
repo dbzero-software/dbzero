@@ -1,4 +1,4 @@
-#include "DictView.hpp"
+#include "PyDictView.hpp"
 #include "PyDict.hpp"
 #include "PyIterator.hpp"
 #include <dbzero/bindings/python/Utils.hpp>
@@ -75,12 +75,13 @@ namespace db0::python
         return Py_TYPE(object) == &DictViewObjectType;        
     }
     
-    DictViewObject *makeDictView(const db0::object_model::Dict *ptr, db0::object_model::IteratorType iterator_type)
+    DictViewObject *makeDictView(PyObject *py_dict, const db0::object_model::Dict *ptr,
+        db0::object_model::IteratorType iterator_type)
     {
         // make actual DBZero instance, use default fixture
         auto dict_view_object = DictViewObject_newInternal(&DictViewObjectType, NULL, NULL);
-        db0::object_model::DictView::makeNew(&dict_view_object->modifyExt(), ptr, iterator_type);
+        db0::object_model::DictView::makeNew(&dict_view_object->modifyExt(), ptr, py_dict, iterator_type);
         return dict_view_object;
     }
-
+    
 }

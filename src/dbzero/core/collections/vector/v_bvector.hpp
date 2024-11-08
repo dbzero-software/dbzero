@@ -732,7 +732,7 @@ namespace db0
             // scale by b_class value
             index >>= (m_db_shift - m_b_class);
             return std::make_pair(
-                    index << (m_db_shift - m_b_class), (index + 1) << (m_db_shift - m_b_class)
+                index << (m_db_shift - m_b_class), (index + 1) << (m_db_shift - m_b_class)
             );
         }
 
@@ -743,7 +743,7 @@ namespace db0
         {
             assert(key.first == 0);
             return std::make_pair(
-                    key.second << (m_db_shift - m_b_class),(key.second + 1) << (m_db_shift - m_b_class)
+                key.second << (m_db_shift - m_b_class),(key.second + 1) << (m_db_shift - m_b_class)
             );
         }
 
@@ -772,7 +772,7 @@ namespace db0
                 return !(getKey(key.first,size() - 1).second < key.second);
             }
         }
-
+        
         /**
          * Get existing or create new block of pointers, use cache
          */
@@ -1299,10 +1299,11 @@ namespace db0
 
             const_iterator() = default;
 
-            const_iterator(const v_bvector &ref, uint64_t index)
-                    : m_collection_ptr(&ref)
-                    , m_index(index)
+            const_iterator(const v_bvector &ref, std::uint64_t index)
+                : m_collection_ptr(&ref)
+                , m_index(index)
             {
+                assert(m_index <= m_collection_ptr->size());
                 // avoid unnecessary initializing end iterator
                 if (!is_end()) {
                     initDataBlock();
@@ -1310,7 +1311,7 @@ namespace db0
             }
             
             const_iterator(const const_iterator& other) = default;
-
+            
             const ItemT *operator->() const {
                 return this->m_item_ptr;
             }
@@ -1322,21 +1323,19 @@ namespace db0
             /**
              * Allows to modify selected items in iterated sequence
              */
-            ItemT &modifyItem() {
+            ItemT &modifyItem() 
+            {
                 m_current_block.modify();
                 return *const_cast<ItemT*>(m_item_ptr);
             }
 
-            const ItemT &operator[](uint64_t p_index) const 
+            const ItemT &operator[](std::uint64_t p_index) const
             {
-                if (isInVectorRange(p_index))
-                {
-                    if (isInCurrentBlock(p_index))
-                    {
+                if (isInVectorRange(p_index)) {
+                    if (isInCurrentBlock(p_index)) {
                         auto diff = p_index - m_index;
                         return *(this->m_item_ptr + diff);
-                    } else
-                    {
+                    } else {
                         const auto &block = m_collection_ptr->getDataBlock(m_index);
                         return *(&block->getItem((m_index & m_collection_ptr->m_db_mask)));
                     }
@@ -1350,7 +1349,7 @@ namespace db0
              * @param p_index New index
              * @return true if move was successfull
              */
-            bool moveTo(uint64_t p_index)
+            bool moveTo(std::uint64_t p_index)
             {
                 m_index = p_index;
                 if (!isInVectorRange(m_index)) {
@@ -1365,15 +1364,17 @@ namespace db0
                 return true;
             }
 
-            bool isInCurrentBlock(uint64_t index) const {
+            bool isInCurrentBlock(std::uint64_t index) const {
                 return (index < m_range.second && index >= m_range.first);
             }
 
-            bool isInVectorRange(uint64_t index) const {
+            bool isInVectorRange(std::uint64_t index) const {
                 return index < m_collection_ptr->size();
             }
 
-            const_iterator& operator++() {
+            const_iterator& operator++()
+            {
+                assert(!is_end());
                 ++m_index;
                 ++m_item_ptr;
                 if (!isInCurrentBlock(m_index) && isInVectorRange(m_index)) {
@@ -1382,7 +1383,8 @@ namespace db0
                 return *this;
             }
 
-            const_iterator& operator--() {
+            const_iterator& operator--()
+            {
                 --m_index;
                 --m_item_ptr;
                 if (!isInCurrentBlock(m_index) && isInVectorRange(m_index)) {
@@ -1390,9 +1392,11 @@ namespace db0
                 }
                 return *this;
             }
-
-            bool is_end() const {
-                return (m_index==m_collection_ptr->size());
+            
+            bool is_end() const 
+            {
+                assert(m_index <= m_collection_ptr->size());
+                return (m_index == m_collection_ptr->size());
             }
 
             /**
@@ -1402,17 +1406,19 @@ namespace db0
                 return (this->m_index - it.m_index);
             }
 
-            const_iterator& operator+=(std::ptrdiff_t offset) {
-                m_index+=offset;
+            const_iterator& operator+=(std::ptrdiff_t offset)
+            {
+                m_index += offset;
+                assert(m_index <= m_collection_ptr->size());
                 m_item_ptr += (size_t)offset;
-
                 if (!isInCurrentBlock(m_index) && isInVectorRange(m_index)) {
                     initDataBlock();
                 }
                 return *this;
             }
 
-            const_iterator& operator-=(std::ptrdiff_t offset) {
+            const_iterator& operator-=(std::ptrdiff_t offset) 
+            {
                 m_index -= offset;
                 m_item_ptr -= (size_t) offset;
 
@@ -1422,13 +1428,15 @@ namespace db0
                 return *this;
             }
 
-            const_iterator operator+(uint64_t offset) const {
+            const_iterator operator+(std::uint64_t offset) const
+            {
                 const_iterator it = (*this);
                 it += offset;
                 return it;
             }
 
-            const_iterator operator-(ptrdiff_t offset) const {
+            const_iterator operator-(ptrdiff_t offset) const
+            {
                 const_iterator it = (*this);
                 it -= offset;
                 return it;
@@ -1458,11 +1466,11 @@ namespace db0
                 return (m_index>=it.m_index);
             }
 
-            uint64_t getIndex() const {
+            std::uint64_t getIndex() const {
                 return this->m_index;
             }
 
-        protected :
+        protected:
             const v_bvector *m_collection_ptr = nullptr;
             // data block reference (block to contain current item)
             DataBlockType m_current_block;
@@ -1473,17 +1481,17 @@ namespace db0
             // current item
             const ItemT *m_item_ptr = nullptr;
 
-            void initDataBlock() 
+            void initDataBlock()
             {
                 m_range = m_collection_ptr->getDataBlockRange(m_index);
-                m_range.second = std::min(m_range.second, m_collection_ptr->size() - 1);
+                m_range.second = std::min(m_range.second, m_collection_ptr->size());
                 // request block containing specific item / index
                 m_current_block = *m_collection_ptr->fetchDataBlock(m_index);
                 m_item_ptr = &m_current_block->getItem((m_index & m_collection_ptr->m_db_mask));
             }
         };
 
-    private :
+    private:
 
         /**
          * Fetch data block containing specific item from backend
@@ -1505,8 +1513,8 @@ namespace db0
         class iterator : public const_iterator 
         {
         public :
-            iterator(const v_bvector &ref, uint64_t index)
-                    : const_iterator(ref,index)
+            iterator(const v_bvector &ref, std::uint64_t index)
+                : const_iterator(ref,index)
             {
             }
                     
@@ -1518,14 +1526,15 @@ namespace db0
              * Modify existing item
              * @return reference to item which can written to
              */
-            ItemT &operator*() {
+            ItemT &operator*() 
+            {
                 // this is to assure "dirty" flag is set
                 this->m_current_block.modify();
                 return *((ItemT*)(this->m_item_ptr));
             }
         };
 
-        iterator begin(uint64_t index = 0) {
+        iterator begin(std::uint64_t index = 0) {
             return iterator(*this,index);
         }
 
@@ -1533,7 +1542,7 @@ namespace db0
             return iterator(*this, size());
         }
         
-        const_iterator cbegin(uint64_t index = 0) const {
+        const_iterator cbegin(std::uint64_t index = 0) const {
             return const_iterator(*this, index);
         }
 
@@ -1565,4 +1574,4 @@ namespace db0
     template <typename ItemT, typename PtrT>
     const DataBlockInterfaceArray<ItemT, 13u> v_bvector<ItemT, PtrT>::m_interface_array;
 
-} 
+}
