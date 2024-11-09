@@ -5,7 +5,6 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
-#include <dbzero/bindings/python/types/DateTime.hpp>
 #include <Python.h>
 #include <datetime.h>
 #include "PyObjectIterator.hpp"
