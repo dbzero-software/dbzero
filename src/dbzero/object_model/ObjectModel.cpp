@@ -40,7 +40,6 @@ namespace db0::object_model
             // static GC0 bindings initialization
             GC0::registerTypes<Class, Object, List, Set, Dict, Tuple, Block, DataFrame, Index, Enum, ByteArray>();
             auto &oc = fixture->getObjectCatalogue();
-            auto &type_manager = LangToolkit::getTypeManager();
             if (is_new) {
                 if (read_only) {
                     THROWF(db0::InternalException) << "Cannot create a new fixture in read-only mode";

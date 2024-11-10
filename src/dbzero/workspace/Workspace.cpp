@@ -273,6 +273,10 @@ namespace db0
         return false;
     }
     
+    void Workspace::stopThreads() {
+        m_workspace_threads = nullptr;
+    }
+    
     void Workspace::close()
     {        
         // close associated workspace views
@@ -283,7 +287,7 @@ namespace db0
         }
         m_views.clear();
         // stop all workspace threads first
-        m_workspace_threads = nullptr;
+        stopThreads();
         m_shared_object_list.clear();
         auto it = m_fixtures.begin();
         while (it != m_fixtures.end()) {

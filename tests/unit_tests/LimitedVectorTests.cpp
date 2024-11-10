@@ -88,7 +88,7 @@ namespace tests
         LimitedVector<std::uint16_t> cut(memspace, memspace.getPageSize());
         auto page_size = memspace.getPageSize();
         std::vector<std::uint32_t> index { 16 * 1024 + 3, 18, 16 * 1024 + 3, 16, 5 * 1024 +17 };
-        std::vector<std::uint32_t> expected_size { 2 * page_size, 3 * page_size, 3 * page_size, 3 * page_size, 4 * page_size };
+        std::vector<std::uint64_t> expected_size { 2 * page_size, 3 * page_size, 3 * page_size, 3 * page_size, 4 * page_size };
         for (std::size_t i = 0; i < index.size(); ++i) {
             std::uint16_t value = 0;
             cut.atomicInc(index[i], value);

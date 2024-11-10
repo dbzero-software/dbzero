@@ -236,15 +236,14 @@ namespace db0::python
         return runSafe(tryCommit, self, args);
     }
 
-    PyObject *tryClose(PyObject *, PyObject *args)
+    PyObject *tryStopWorkspaceThreads()
     {
-        // extract optional prefix name
-        const char *prefix_name = nullptr;
-        if (!PyArg_ParseTuple(args, "|s", &prefix_name)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
-        }
-        
+        PyToolkit::getPyWorkspace().stopThreads();
+        Py_RETURN_NONE;
+    }
+
+    PyObject *tryClose(const char *prefix_name)
+    {
         if (prefix_name) {
             PyToolkit::getPyWorkspace().getWorkspace().close(prefix_name);
         } else {
@@ -255,8 +254,20 @@ namespace db0::python
     
     PyObject *PyAPI_close(PyObject *self, PyObject *args)
     {
-        PY_API_FUNC        
-        return runSafe(tryClose, self, args);
+        // extract optional prefix name
+        const char *prefix_name = nullptr;
+        if (!PyArg_ParseTuple(args, "|s", &prefix_name)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+        
+        if (!prefix_name) {
+            // note we need to stop workspace threads before API lock
+            runSafe(tryStopWorkspaceThreads);
+        }
+        
+        PY_API_FUNC
+        return runSafe(tryClose, prefix_name);        
     }
     
     PyObject *getPrefixOf(PyObject *self, PyObject *args)

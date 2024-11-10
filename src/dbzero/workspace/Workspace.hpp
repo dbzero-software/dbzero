@@ -260,6 +260,9 @@ namespace db0
             std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {}) const;
         
+        // stop all fixture threads - i.e. refresh and autocommit
+        void stopThreads();
+
     private:
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> m_fixture_initializer;
