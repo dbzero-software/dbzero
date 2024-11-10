@@ -5,6 +5,8 @@
 #include <dbzero/core/memory/BitSpace.hpp>
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
+#include <dbzero/core/dram/DRAM_Prefix.hpp>
+#include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <thread>
 
@@ -26,6 +28,27 @@ namespace tests
 
         virtual void TearDown() override {            
             drop(file_name);
+        }
+    };
+    
+    // Wrapper class for testing
+    class BDevStorageWrapper: public BDevStorage
+    {
+    public:
+        /**
+         * Opens BDevStorage over an existing file
+        */
+        BDevStorageWrapper(const std::string &file_name, AccessType = AccessType::READ_WRITE)
+            : BDevStorage(file_name, AccessType::READ_WRITE)
+        {
+        }
+        
+        SparseIndex &getSparseIndex() {
+            return m_sparse_index;
+        }
+
+        const DRAM_IOStream &getDRAM_IOStream() const {
+            return m_dram_io;
         }
     };
     
@@ -404,6 +427,35 @@ namespace tests
 
         cut.close();
         reader.join();
+    }
+    
+    TEST_F( BDevStorageTest , testSparseIndexDurability )
+    {   
+        // In this test scenario we perform sequence of write/flush
+        // and try reading before closing the output stream        
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);
+        auto count = 10;
+        std::optional<int> last_state_num;
+        for (int i = 0; i < count; ++i) {
+            BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
+                        
+            if (last_state_num) {
+                ASSERT_EQ(cut.getMaxStateNum(), *last_state_num);
+            }
+            auto &sparse_index = cut.getSparseIndex();
+            for (unsigned int page_num = 0; page_num < 1000; ++page_num) {
+                sparse_index.emplace(page_num, i, 999, SparseIndex::PageType::FIXED);
+
+                cut.getSparseIndex().refresh();
+                ASSERT_EQ(cut.getMaxStateNum(), (std::uint32_t)i);
+            }
+            
+            cut.getSparseIndex().refresh();
+            ASSERT_EQ(cut.getMaxStateNum(), (std::uint32_t)i);
+            cut.close();
+            last_state_num = i;
+        }
     }
 
 }

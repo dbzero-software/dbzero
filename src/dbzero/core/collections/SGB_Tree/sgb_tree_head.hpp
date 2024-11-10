@@ -17,18 +17,15 @@ namespace db0
 
         sgb_tree_ptr_set() = default;
 
-        inline PtrT getLeft() const 
-        {
+        inline PtrT getLeft() const {
             return left;
         }
 
-        inline PtrT getRight() const 
-        {
+        inline PtrT getRight() const {
             return right;
         }
 
-        inline PtrT getParent() const 
-        {
+        inline PtrT getParent() const {
             return parent;
         }
     };
@@ -52,7 +49,7 @@ namespace db0
         AddressT max_tree_size = 0;
         // number of elements in the SGB-Tree
         AddressT m_sgb_size = 0;
-        
+
         o_sgb_tree_head(CapacityT capacity)
             : m_capacity(capacity)
         {
@@ -70,13 +67,11 @@ namespace db0
             return this->getDynFirst(TreeHeaderT::type());
         }
 
-        static std::size_t measure(CapacityT capacity)
-        {
+        static std::size_t measure(CapacityT capacity) {
             return capacity;
         }
 
-        std::size_t sizeOf() const
-        {
+        std::size_t sizeOf() const {
             // size of the object equals the capacity
             return m_capacity;
         }
@@ -89,9 +84,8 @@ namespace db0
         }
         
         /// The actual useful space occupied by the object
-        std::size_t trueSizeOf() const
-        {
-            return sizeof(o_sgb_tree_head) + this->treeHeader().sizeOf();
+        std::size_t trueSizeOf() const {
+            return sizeof(o_sgb_tree_head) + TreeHeaderT::sizeOf();
         }
     };
     

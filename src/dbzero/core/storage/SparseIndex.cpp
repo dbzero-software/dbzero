@@ -40,7 +40,7 @@ namespace db0
             return IndexT(m_dram_space, m_dram_prefix->getPageSize(), access_type);
         } else {
             // open existing under first addres assigned to the DRAMSpace
-            auto address = m_dram_allocator->firstAlloc();
+            auto address = m_dram_allocator->firstAlloc();            
             return IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), access_type);
         }
     }

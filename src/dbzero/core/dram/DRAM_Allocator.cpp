@@ -35,7 +35,7 @@ namespace db0
             }
             auto page_id = addr / m_page_size;
             for (;max_page_id <= page_id; ++max_page_id) {
-                if ((max_page_id != page_id) && allocs.find(max_page_id) == allocs.end()) {
+                if ((max_page_id != page_id) && allocs.find(max_page_id * m_page_size) == allocs.end()) {
                     m_free_pages.insert(max_page_id);
                 }                
             }
@@ -43,14 +43,14 @@ namespace db0
         m_next_page_id = max_page_id;
     }
     
-    std::optional<std::uint64_t> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+    std::optional<std::uint64_t> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
         bool aligned, bool unique)
     {
         assert(slot_num == 0);
         assert(!aligned && "DRAM_Allocator: aligned allocation not supported");
         assert(!unique && "DRAM_Allocator: unique allocation not supported");
         assert(size == m_page_size && "DRAM_Allocator: invalid alloc size requested");
-        if (m_free_pages.empty()) {
+        if (m_free_pages.empty()) {            
             return m_next_page_id++ * m_page_size;
         }
         auto it = m_free_pages.begin();

@@ -4,6 +4,7 @@
 #include <utils/TestWorkspace.hpp>
 #include <dbzero/core/storage/SparseIndex.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
+#include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/storage/ChangeLogIOStream.hpp>
 #include <utils/utils.hpp>
 
@@ -21,7 +22,8 @@ namespace tests
         static constexpr const char *file_name = "my-test-prefix_1.db0";
         SparseIndexTest() = default;
 
-        void SetUp() override {        
+        void SetUp() override {
+            drop(file_name);
         }
 
         void TearDown() override {        
@@ -29,8 +31,7 @@ namespace tests
         }
     };
     
-    TEST_F( SparseIndexTest , testSparseIndexCanBeInstantiated )
-    {
+    TEST_F( SparseIndexTest , testSparseIndexCanBeInstantiated ) {
         SparseIndex cut(16 * 1024);
     }
 
@@ -319,6 +320,38 @@ namespace tests
         }
 
         ASSERT_TRUE(cut.lookup(0, 1));
+    }
+    
+    TEST_F( SparseIndexTest , testSparseIndexBadWriteIssue )
+    {
+        // note non-standard page size (used in production)
+        std::size_t dp_size = 16356;
+        auto prefix = std::make_shared<db0::DRAM_Prefix>(dp_size);
+        auto allocator = std::make_shared<db0::DRAM_Allocator>(dp_size);
+        
+        CFile::create(file_name, {});
+        db0::CFile file(file_name, AccessType::READ_WRITE);
+        auto tail_function = [&]() {
+            return file.size();
+        };     
+
+        int count = 10;
+        for (int i = 0; i < count; ++i) {
+            SparseIndex cut({ prefix, allocator}, AccessType::READ_WRITE);
+            for (unsigned int page_num = 0; page_num < 1000; ++page_num) {
+                cut.emplace(page_num, i, 999, SparseIndex::PageType::FIXED);
+            }
+            
+            // simulate change log extraction
+            db0::ChangeLogIOStream io(file, 0, 16 << 10, tail_function, AccessType::READ_WRITE);
+            while (io.readChangeLogChunk());
+            cut.extractChangeLog(io);
+            io.close();
+
+            // refresh updates local cached variables with DRAM prefix
+            cut.refresh();
+            ASSERT_EQ(cut.getMaxStateNum(), i);
+        }
     }
     
 }
