@@ -65,6 +65,9 @@ namespace db0
         */
         void commit(ProcessTimer * = nullptr);
 
+        // Detach memspace associated / owned resources (e.g. Allocator)
+        void detach() const;
+
         /**
          * Close this memspace, drop uncommited data
         */
