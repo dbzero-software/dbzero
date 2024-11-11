@@ -162,7 +162,8 @@ namespace db0
         std::shared_ptr<BoundaryLock> lock;
         std::shared_ptr<DP_Lock> lhs, rhs;
         while (!lock) {
-            lock = m_cache.findBoundaryRange(first_page_num, address, size, m_state_num, { AccessOptions::read }, read_state_num);
+            lock = m_cache.findBoundaryRange(first_page_num, address, size, m_state_num, { AccessOptions::read },
+                read_state_num, lhs, rhs);
             if (!lock) {
                 // fetch lhs & rhs so that findBoundaryRange works for the next iteration
                 lhs = mapPage(first_page_num);
@@ -173,15 +174,13 @@ namespace db0
         assert(lock);
         return lock;
     }
-
-    std::size_t PrefixViewImpl::getDirtySize() const
-    {
+    
+    std::size_t PrefixViewImpl::getDirtySize() const {
         // snapshot is read-only
         return 0;
     }
     
-    std::size_t PrefixViewImpl::flushDirty(std::size_t limit)
-    {
+    std::size_t PrefixViewImpl::flushDirty(std::size_t limit) {
         // snapshot is read-only
         return 0;
     }

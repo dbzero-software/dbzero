@@ -183,15 +183,14 @@ class MaxScanExceeded(Exception):
     pass
     
     
-def group_by(group_defs, query, max_scan=1000) -> Dict:
-    global px_fast_query
-    px_name = db0.get_prefix_of(query).name
+def group_by(group_defs, query, max_scan=1000) -> Dict:    
     """
     Group query results by the given key
     """
     def delta(start, end):
         return db0.find(end.rows, db0.no(start.rows))
     
+    px_name = db0.get_prefix_of(query).name
     # a simple group definition is either: a string, a lambda or iterable of strings/enum values
     def is_simple_group_def(group_defs):
         if isinstance(group_defs, str) or callable(group_defs):

@@ -504,7 +504,7 @@ namespace db0
     {
         auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit, lock_flags);
         // update default fixture
-        if (!m_default_fixture || (m_default_fixture->getAccessType() <= access_type)) {
+        if (!m_default_fixture || (*m_default_fixture != *fixture)) {
             m_default_fixture = fixture;
             m_current_prefix_history.push_back(prefix_name);
         }
