@@ -316,8 +316,35 @@ namespace db0
     
     std::shared_ptr<Prefix> PrefixImpl::getSnapshot(std::optional<std::uint64_t> state_num_req) const
     {
-        auto snapshot_state_num = state_num_req.value_or(m_head_state_num);
-        return std::shared_ptr<Prefix>(new PrefixViewImpl(this->getName(), m_storage, m_cache, snapshot_state_num));
+        auto is_valid_snapshot = [this](std::uint64_t state_num) {
+            if (getAccessType() == AccessType::READ_WRITE) {
+                return state_num >= 1 && state_num < m_head_state_num;
+            } else {
+                // when access is read-only we also allow the head state number
+                return state_num >= 1 && state_num <= m_head_state_num;
+            }
+        };
+        
+        std::uint64_t snapshot_state_num = m_head_state_num;
+        if (state_num_req && !is_valid_snapshot(*state_num_req)) {
+            THROWF(db0::InputException) << "Requested state number is not available (" << getName() << "): " << *state_num_req;
+        }
+        
+        if (state_num_req) {
+            snapshot_state_num = *state_num_req;
+        } else {
+            if (getAccessType() == AccessType::READ_WRITE) {
+                // For read/write prefix use state_num - 1 to read last fully consistent state            
+                if (snapshot_state_num <= 1) {
+                    THROWF(db0::InputException) << "Unable to create snapshot, no data transaction yet";
+                }
+                --snapshot_state_num;       
+            }
+        }
+        
+        return std::shared_ptr<Prefix>(
+            new PrefixViewImpl(this->getName(), m_storage, m_cache, snapshot_state_num)
+        );
     }
     
     void PrefixImpl::beginAtomic()

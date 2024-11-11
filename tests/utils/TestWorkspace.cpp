@@ -153,4 +153,17 @@ namespace db0
         return true;
     }
     
+    db0::swine_ptr<Fixture> TestWorkspace::tryFindFixture(const PrefixName &prefix_name) const
+    {
+        auto it = m_uuids.find(prefix_name);
+        if (it == m_uuids.end()) {
+            return {};
+        }
+        auto it_fixture = m_fixtures.find(it->second);
+        if (it_fixture == m_fixtures.end()) {
+            return {};
+        }
+        return it_fixture->second;        
+    }
+
 }

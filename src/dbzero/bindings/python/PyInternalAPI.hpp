@@ -105,11 +105,13 @@ namespace db0::python
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs);
 
     PyObject *tryGetStorageStats(PyObject *args, PyObject *kwargs);
-
+    
     PyObject *tryGetAddress(PyObject *py_obj);
     
     // Retrieve prefix (its Fixture objects) from the optional argument "prefix"
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name);
+    db0::swine_ptr<Fixture> getPrefixFromArgs(db0::Snapshot &, PyObject *args, PyObject *kwargs, 
+        const char *param_name);
     
 #ifndef NDEBUG
     /**

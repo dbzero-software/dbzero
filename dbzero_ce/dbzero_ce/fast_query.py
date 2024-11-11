@@ -164,13 +164,14 @@ class GroupByEval:
         return max_scan
     
     def remove(self, rows, max_scan=None):
-        for row in rows:
-            if max_scan is not None:
-                if max_scan == 0:
-                    raise MaxScanExceeded()
-                max_scan -= 1         
-            key = self.__group_builder(row)
-            self.__data.get(key).remove(row)
+        # FIXME: log
+        # for row in rows:
+        #     if max_scan is not None:
+        #         if max_scan == 0:
+        #             raise MaxScanExceeded()
+        #         max_scan -= 1         
+        #     key = self.__group_builder(row)
+        #     self.__data.get(key).remove(row)
         return max_scan
 
     def release(self):

@@ -178,13 +178,8 @@ namespace db0
         /**
          * Find existing (opened) fixture or return nullptr
         */
-        db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const;
+        db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const override;
         
-        /**
-         * Find existing (opened) fixture or throw
-        */
-        db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
-
         /**
          * Commit all underlying read/write prefixes
         */
@@ -263,6 +258,11 @@ namespace db0
         // stop all fixture threads - i.e. refresh and autocommit
         void stopThreads();
 
+    protected:
+        friend class WorkspaceView;
+
+        std::optional<std::uint64_t> getUUID(const PrefixName &) const;
+
     private:
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> m_fixture_initializer;
@@ -281,8 +281,6 @@ namespace db0
         mutable std::list<std::weak_ptr<WorkspaceView> > m_views;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;
         
-        std::optional<std::uint64_t> getUUID(const PrefixName &) const;
-
         void forEachMemspace(std::function<bool(Memspace &)> callback) override;
 
         void onCacheFlushed(bool threshold_reached) const override;

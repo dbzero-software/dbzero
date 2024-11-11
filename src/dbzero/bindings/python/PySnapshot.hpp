@@ -29,6 +29,7 @@ namespace db0::python
     
     PyObject *PySnapshot_enter(PyObject *, PyObject *);
     PyObject *PyAPI_PySnapshot_exit(PyObject *, PyObject *);
+    PyObject *PyAPI_PySnapshot_GetStateNum(PyObject *, PyObject *args, PyObject *kwargs);
     
     db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject);
 

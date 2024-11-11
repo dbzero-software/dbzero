@@ -342,7 +342,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryRefresh, self, args);
     }
-
+    
     PyObject *tryGetStateNum(PyObject *args, PyObject *kwargs)
     {
         auto fixture = getPrefixFromArgs(args, kwargs, "prefix");

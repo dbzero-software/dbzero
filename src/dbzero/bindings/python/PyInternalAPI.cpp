@@ -431,7 +431,8 @@ namespace db0::python
             << Py_TYPE(py_object)->tp_name << THROWF_END;
     }
     
-    db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name)
+    db0::swine_ptr<Fixture> getPrefixFromArgs(db0::Snapshot &workspace, PyObject *args,
+        PyObject *kwargs, const char *param_name)
     {
         const char *prefix_name = nullptr;
         // optional prefix parameter
@@ -439,13 +440,16 @@ namespace db0::python
         if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|s", const_cast<char**>(kwlist), &prefix_name)) {
             THROWF(db0::InputException) << "Invalid argument type";
         }
-
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        
         if (prefix_name) {
             return workspace.findFixture(prefix_name);
         } else {
             return workspace.getCurrentFixture();
         }
+    }
+    
+    db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name) {
+        return getPrefixFromArgs(PyToolkit::getPyWorkspace().getWorkspace(), args, kwargs, param_name); 
     }
     
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs)

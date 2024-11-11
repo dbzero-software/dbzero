@@ -401,16 +401,7 @@ namespace db0
         }
         return it->second;
     }
-    
-    db0::swine_ptr<Fixture> Workspace::findFixture(const PrefixName &prefix_name) const
-    {
-        auto result = tryFindFixture(prefix_name);
-        if (!result) {
-            THROWF(db0::InputException) << "Fixture with name " << prefix_name << " not found";
-        }
-        return result;
-    }
-    
+        
     db0::swine_ptr<Fixture> Workspace::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
     {
         db0::swine_ptr<Fixture> result;
