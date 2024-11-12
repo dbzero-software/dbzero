@@ -402,8 +402,7 @@ def test_make_dict_issue_1(db0_no_autocommit):
     _ = [make_db0_dict() for _ in range(6)]
 
 
-# FIXME: failing test blocked
-# def test_dict_in_dict_issue1(db0_no_autocommit):
-#     d1 = db0.dict()
-#     d1["value"] = {}
-#     assert d1.keys() == ["value"]
+def test_dict_in_dict_issue1(db0_no_autocommit):
+    d1 = db0.dict()
+    d1["value"] = {}
+    assert list(d1.keys()) == ["value"]
