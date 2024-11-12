@@ -1,11 +1,17 @@
 import dbzero_ce as db0
 
+DATA_PX = "scoped-data-px"
 
 @db0.memo
 class MemoTestClass:
     def __init__(self, value):
         self.value = value        
 
+
+@db0.memo(prefix=DATA_PX)
+class MemoDataPxClass:
+    def __init__(self, value):
+        self.value = value        
 
 @db0.memo
 class MemoScopedClass:
@@ -31,6 +37,14 @@ class KVTestClass:
 
 @db0.memo(singleton=True)
 class MemoTestSingleton:
+    def __init__(self, value, value_2 = None):
+        self.value = value
+        if value_2 is not None:
+            self.value_2 = value_2        
+
+
+@db0.memo(singleton=True, prefix=DATA_PX)
+class MemoDataPxSingleton:
     def __init__(self, value, value_2 = None):
         self.value = value
         if value_2 is not None:

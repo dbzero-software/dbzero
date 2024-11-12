@@ -5,7 +5,8 @@ import pytest
 import gc
 import dbzero_ce as db0
 import shutil
-from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoDataPxClass, \
+        MemoDataPxSingleton, DATA_PX
 
 
 TEST_FILES_DIR_ROOT = os.path.join(os.getcwd(), "python_tests", "files")
@@ -131,6 +132,18 @@ def memo_enum_tags():
     colors = [Colors.RED, Colors.GREEN, Colors.BLUE]
     for i in range(10):
         object = MemoTestClass(i)
+        root.value.append(object)
+        db0.tags(object).add(colors[i % 3])
+    return { "Colors": Colors }
+
+
+@pytest.fixture()
+def memo_scoped_enum_tags():
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"], prefix=DATA_PX)
+    root = MemoDataPxSingleton([])
+    colors = [Colors.RED, Colors.GREEN, Colors.BLUE]
+    for i in range(10):
+        object = MemoDataPxClass(i)
         root.value.append(object)
         db0.tags(object).add(colors[i % 3])
     return { "Colors": Colors }

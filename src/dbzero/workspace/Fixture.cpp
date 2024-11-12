@@ -213,10 +213,10 @@ namespace db0
     
     void Fixture::refreshIfUpdated()
     {
-        // only refresh read-only fixtures
+        // only refresh read-only fixtures        
         if (getAccessType() == AccessType::READ_ONLY && m_updated) {
             refresh();
-        }
+        }        
     }
     
     db0::swine_ptr<Fixture> Fixture::getSnapshot(Snapshot &workspace_view, std::optional<std::uint64_t> state_num) const

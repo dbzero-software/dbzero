@@ -3,7 +3,7 @@ import random
 import datetime
 import dbzero_ce as db0
 from .conftest import DB0_DIR
-from .memo_test_types import MemoTestSingleton, MemoTestClass
+from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedSingleton
 
 
 def test_can_create_dict(db0_fixture):
@@ -406,3 +406,27 @@ def test_dict_in_dict_issue1(db0_no_autocommit):
     d1 = db0.dict()
     d1["value"] = {}
     assert list(d1.keys()) == ["value"]
+
+
+def test_dict_duplicate_keys_issue1(db0_no_autocommit):
+    current_prefix = db0.get_current_prefix()
+    db0.open("my-new-prefix")
+    # go back to current prefix but use the other prefix as a scope
+    db0.open(current_prefix.name)
+    mtc = MemoScopedSingleton({}, prefix="my-new-prefix")
+    key = "5HZSGQCE767XN6YXYO626RTY2EDLDWGHQ6ILXVAB7QMRO4S4E3ZA"
+    index = 0
+    for _ in range(10):
+        if key not in mtc.value:
+            mtc.value[key] = {}
+        mtc.value[key][f"index_{index}"] = (1, 2, "abc")
+        index += 1
+    
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-new-prefix", "r")
+    mtc = MemoScopedSingleton({}, prefix="my-new-prefix")
+    assert mtc.value.get(key, None) is not None
+    assert len(mtc.value) == 1
+    assert len(mtc.value[key]) == 10

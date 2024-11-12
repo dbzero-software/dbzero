@@ -445,8 +445,11 @@ namespace db0
     {
         bool refreshed = false;
         for (auto &[uuid, fixture] : m_fixtures) {
-            if (fixture->refresh()) {
-                refreshed = true;
+            // only makes sense to refresh read-only fixtures
+            if (fixture->getAccessType() == AccessType::READ_ONLY) {
+                if (fixture->refresh()) {
+                    refreshed = true;
+                }
             }
         }
         return refreshed;
