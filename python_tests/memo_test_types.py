@@ -8,6 +8,21 @@ class MemoTestClass:
         self.value = value        
 
 
+@db0.memo
+class MemoTestClassWithMethods:
+    def __init__(self, value):
+        self.value = value
+    
+    def get_value(self):
+        return self.value
+
+    def get_value_as_upper(self):
+        return str(self.value).upper()
+
+    def get_value_plus(self, other):
+        return self.value + other
+        
+    
 @db0.memo(prefix=DATA_PX)
 class MemoDataPxClass:
     def __init__(self, value):

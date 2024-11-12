@@ -562,5 +562,19 @@ namespace db0::python
         THROWF(db0::InputException) << "Unable to retrieve address for type: "
             << Py_TYPE(py_obj)->tp_name << THROWF_END;
     }
-
+    
+    PyTypeObject *tryGetType(PyObject *py_obj)
+    {
+        if (PyMemo_Check(py_obj)) {
+            auto &memo = reinterpret_cast<MemoObject*>(py_obj)->ext();
+            auto fixture = memo.getFixture();
+            auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+            if (!class_factory.hasLangType(memo.getType())) {
+                THROWF(db0::ClassNotFoundException) << "Could not find type: " <<memo.getType().getName();
+            }
+            return class_factory.getLangType(memo.getType()).steal();
+        }
+        return Py_TYPE(py_obj);
+    }
+    
 }
