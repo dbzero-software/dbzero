@@ -36,8 +36,6 @@ namespace db0
 
         void close() override;
         
-        std::uint64_t refresh() override;
-
         std::size_t getDirtySize() const override;
 
         std::size_t flushDirty(std::size_t) override;

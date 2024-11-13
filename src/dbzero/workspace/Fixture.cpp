@@ -186,7 +186,7 @@ namespace db0
     {
         assert(getAccessType() == AccessType::READ_ONLY && "Refresh only makes sense for read-only fixtures");
         m_updated = false;
-        if (!Memspace::refresh()) {
+        if (!Memspace::beginRefresh()) {
             return false;
         }
         // detach all active v_object instances so that they can be refreshed
@@ -201,9 +201,10 @@ namespace db0
         m_object_catalogue.detach();
         m_v_object_cache.detach();
         Memspace::detach();
+        Memspace::completeRefresh();
         return true;
     }
-    
+
     void Fixture::onUpdated()
     {    
         m_updated = true;

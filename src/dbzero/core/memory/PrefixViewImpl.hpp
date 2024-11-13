@@ -31,10 +31,8 @@ namespace db0
 
         std::uint64_t getLastUpdated() const override;
 
-        void close() override;
+        void close() override;        
         
-        std::uint64_t refresh() override;
-
         AccessType getAccessType() const override;
 
         std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;

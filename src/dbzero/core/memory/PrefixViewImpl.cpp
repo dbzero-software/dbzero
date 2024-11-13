@@ -69,16 +69,10 @@ namespace db0
     {
         THROWF(db0::InternalException)
             << "PrefixViewImpl::getLastUpdated: cannot get last updated timestamp from snapshot" << THROWF_END;
-    } 
-
-    void PrefixViewImpl::close()
-    {
-        // close does nothing
     }
-
-    std::uint64_t PrefixViewImpl::refresh() {
-        // refresh does nothing
-        return 0;
+    
+    void PrefixViewImpl::close() {
+        // close does nothing
     }
     
     std::shared_ptr<Prefix> PrefixViewImpl::getSnapshot(std::optional<std::uint64_t>) const
@@ -121,11 +115,13 @@ namespace db0
         std::uint64_t first_page, std::uint64_t end_page, std::uint64_t address, std::size_t size)
     {
         std::uint64_t read_state_num = 0;
-        auto lock_info = m_cache.findRange(first_page, end_page, address, size, m_state_num, { AccessOptions::read }, read_state_num);
+        auto lock_info = m_cache.findRange(first_page, end_page, address, size, m_state_num, 
+            { AccessOptions::read }, read_state_num);
         if (!lock_info.second && lock_info.first) {
             // repeat the operation with residual lock
             auto res_lock = mapPage(end_page - 1);
-            lock_info = m_cache.findRange(first_page, end_page, address, size, m_state_num, { AccessOptions::read }, read_state_num, res_lock);
+            lock_info = m_cache.findRange(first_page, end_page, address, size, m_state_num, { AccessOptions::read }, 
+                read_state_num, res_lock);
         }
         
         assert(!lock_info.first || lock_info.second);

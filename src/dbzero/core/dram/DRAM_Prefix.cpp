@@ -150,10 +150,6 @@ namespace db0
         }        
     }
     
-    std::uint64_t DRAM_Prefix::refresh() {
-        return 0;
-    }
-    
     std::uint64_t DRAM_Prefix::getLastUpdated() const {
         return 0;
     }

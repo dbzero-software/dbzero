@@ -73,10 +73,14 @@ namespace db0
         return m_prefix->getAccessType();
     }
     
-    bool Memspace::refresh()
+    bool Memspace::beginRefresh()
     {
         assert(getAccessType() == AccessType::READ_ONLY);
-        return m_prefix->refresh();
+        return m_prefix->beginRefresh();
+    }
+    
+    void Memspace::completeRefresh() {
+        m_prefix->completeRefresh();
     }
     
     std::uint64_t Memspace::getStateNum() const

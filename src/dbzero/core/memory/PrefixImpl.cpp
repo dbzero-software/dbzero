@@ -290,23 +290,28 @@ namespace db0
         m_cache.release();
         m_storage_ptr->close();
     }
-
+    
     PrefixCache &PrefixImpl::getCache() const {
         return m_cache;
     }
     
-    std::uint64_t PrefixImpl::refresh()
+    bool PrefixImpl::beginRefresh() {
+        return m_storage_ptr->beginRefresh();
+    }
+    
+    std::uint64_t PrefixImpl::completeRefresh()
     {
+        // boundary map should be empty on refresh
+        assert(m_cache.getBoundaryMap().empty());
         // remove updated pages from the cache
         // so that the new version can be fetched when needed
-        auto result = m_storage_ptr->refresh([this](std::uint64_t updated_page_num, std::uint64_t state_num) {
+        auto result = m_storage_ptr->completeRefresh([this](std::uint64_t updated_page_num, std::uint64_t state_num) {
             m_cache.markAsMissing(updated_page_num, state_num);
         });
         
-        if (result) {
-            // retrieve the refreshed state number
-            m_head_state_num = m_storage_ptr->getMaxStateNum();
-        }
+        assert(result);        
+        // retrieve & sync to the refreshed state number
+        m_head_state_num = m_storage_ptr->getMaxStateNum();        
         return result;
     }
 

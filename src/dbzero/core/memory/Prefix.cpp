@@ -29,4 +29,23 @@ namespace db0
     {
     }
     
+    bool Prefix::beginRefresh()
+    {
+        // refresh not supported by default
+        assert(false);
+        return false;
+    }
+    
+    std::uint64_t Prefix::completeRefresh() {
+        return 0;
+    }
+
+    std::uint64_t Prefix::refresh() 
+    {
+        if (beginRefresh()) {
+            return completeRefresh();
+        }
+        return 0;
+    }
+
 }

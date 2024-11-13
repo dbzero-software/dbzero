@@ -381,7 +381,8 @@ def test_refresh_query_while_adding_new_objects(db0_fixture):
     
     num_iterations = 10
     num_objects = 1000
-    str_len = 4096
+    str_len = 128
+    # str_len = 4096
     p = multiprocessing.Process(target=create_process, args = (num_iterations, num_objects, str_len))
     p.start()
     

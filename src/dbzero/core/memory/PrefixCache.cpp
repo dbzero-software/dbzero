@@ -631,5 +631,17 @@ namespace db0
         result += m_dirty_dp_cache.flush(limit - result);
         return result;
     }
+    
+    const PageMap<DP_Lock> &PrefixCache::getDPMap() const {
+        return m_dp_map;
+    }
+    
+    const PageMap<BoundaryLock> &PrefixCache::getBoundaryMap() const {
+        return m_boundary_map;
+    }
+    
+    const PageMap<WideLock> &PrefixCache::getWideMap() const {
+        return m_wide_map;
+    }
 
 }
