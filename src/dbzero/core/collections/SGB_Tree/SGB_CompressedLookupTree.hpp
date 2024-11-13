@@ -294,7 +294,7 @@ namespace db0
         const TreeHeaderT &treeHeader() const {
             return base_t::getData()->treeHeader();
         }
-
+        
         TreeHeaderT &modifyTreeHeader() {
             return base_t::modify().treeHeader();
         }

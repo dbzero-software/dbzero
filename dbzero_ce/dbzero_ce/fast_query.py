@@ -20,7 +20,7 @@ class FastQuery:
                 self.__query = db0.split_by(group_def.groups, self.__query)
         self.__group_defs = group_defs
         self.__uuid= uuid
-        self.__sig = sig        
+        self.__sig = sig
         self.__bytes = bytes
     
     # rebase to a different snapshot
@@ -86,7 +86,7 @@ class FastQueryCache:
         results = self.__cache.get(query.signature, None)
         if results is None:
             return None
-        
+
         # if the result with an identical uuid is found, return it
         if query.uuid in results:
             return results[query.uuid]
@@ -100,7 +100,7 @@ class FastQueryCache:
                 min_diff = diff
                 min_result = cached_result
         
-        # return result of the closest query on condition it's sufficiently close
+        # return result of the closest query on condition it's sufficiently close        
         return min_result if min_diff < 0.33 else None
     
     def update(self, state_num, query: FastQuery, result):
@@ -110,13 +110,15 @@ class FastQueryCache:
         """
         if query.signature not in self.__cache:
             self.__cache[query.signature] = {}
-        
-        results = self.__cache[query.signature]
+
         # key = a tuple of: state number, serialized query bytes, full query result
-        results[query.uuid] = (state_num, query.bytes, result)
+        self.__cache[query.signature][query.uuid] = (state_num, query.bytes, result)                
         return (state_num, query.bytes, result)
     
+    def get_cache_keys(self):
+        return list(self.__cache.keys())
 
+    
 @db0.memo
 class GroupByBucket:
     def __init__(self, prefix=None):
@@ -163,7 +165,7 @@ class GroupByEval:
             bucket.add(row)
         return max_scan
     
-    def remove(self, rows, max_scan=None):
+    def remove(self, rows, max_scan=None):        
         for row in rows:
             if max_scan is not None:
                 if max_scan == 0:
@@ -183,15 +185,14 @@ class MaxScanExceeded(Exception):
     pass
     
     
-def group_by(group_defs, query, max_scan=1000) -> Dict:
-    global px_fast_query
-    px_name = db0.get_prefix_of(query).name
+def group_by(group_defs, query, max_scan=1000) -> Dict:    
     """
     Group query results by the given key
     """
     def delta(start, end):
         return db0.find(end.rows, db0.no(start.rows))
     
+    px_name = db0.get_prefix_of(query).name
     # a simple group definition is either: a string, a lambda or iterable of strings/enum values
     def is_simple_group_def(group_defs):
         if isinstance(group_defs, str) or callable(group_defs):
@@ -231,18 +232,24 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
         return query_eval.release()
     
     cache = FastQueryCache(prefix=__px_fast_query)
-    last_result = cache.find_result(query)
-    fast_query = FastQuery(query, group_defs)
-    # do not limit max_scan when on a first transaction
-    state_num = db0.get_state_num(prefix=px_name)
-    max_scan = max_scan if state_num > 1 else None
-    while True:
+    # take snapshot of the latest known state and rebase input query
+    # otherwise refresh might invalidate query results (InvalidStateError)
+    with db0.snapshot() as snapshot:
+        query = snapshot.deserialize(db0.serialize(query))
+        fast_query = FastQuery(query, group_defs)
+        last_result = cache.find_result(fast_query)
+                
+        # do not limit max_scan when on a first transaction
+        state_num = snapshot.get_state_num(prefix=px_name)
+        if state_num <= 1:
+            max_scan = None
+                
         try:
             return try_query_eval(fast_query, last_result, max_scan)
         except MaxScanExceeded:
             max_scan = None
-            # go back to the last finalized transaction and compute the result (possibly using deltas)
-            # FIXME: change to db0.get_state_num(finalized = True) when feature available
-            result = try_query_eval(fast_query.rebase(db0.snapshot({px_name: state_num - 1})), last_result, max_scan)
+            # go back to the last finalized transaction and compute the result (possibly using deltas)                
+            result = try_query_eval(fast_query, last_result, max_scan)
             # update the cache with the result
-            last_result = cache.update(state_num - 1, fast_query, result)
+            last_result = cache.update(state_num, fast_query, result)
+            return result

@@ -273,6 +273,10 @@ namespace db0
         return false;
     }
     
+    void Workspace::stopThreads() {
+        m_workspace_threads = nullptr;
+    }
+    
     void Workspace::close()
     {        
         // close associated workspace views
@@ -283,7 +287,7 @@ namespace db0
         }
         m_views.clear();
         // stop all workspace threads first
-        m_workspace_threads = nullptr;
+        stopThreads();
         m_shared_object_list.clear();
         auto it = m_fixtures.begin();
         while (it != m_fixtures.end()) {
@@ -397,16 +401,7 @@ namespace db0
         }
         return it->second;
     }
-    
-    db0::swine_ptr<Fixture> Workspace::findFixture(const PrefixName &prefix_name) const
-    {
-        auto result = tryFindFixture(prefix_name);
-        if (!result) {
-            THROWF(db0::InputException) << "Fixture with name " << prefix_name << " not found";
-        }
-        return result;
-    }
-    
+        
     db0::swine_ptr<Fixture> Workspace::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
     {
         db0::swine_ptr<Fixture> result;
@@ -450,8 +445,11 @@ namespace db0
     {
         bool refreshed = false;
         for (auto &[uuid, fixture] : m_fixtures) {
-            if (fixture->refresh()) {
-                refreshed = true;
+            // only makes sense to refresh read-only fixtures
+            if (fixture->getAccessType() == AccessType::READ_ONLY) {
+                if (fixture->refresh()) {
+                    refreshed = true;
+                }
             }
         }
         return refreshed;
@@ -500,7 +498,7 @@ namespace db0
     {
         auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit, lock_flags);
         // update default fixture
-        if (!m_default_fixture || (m_default_fixture->getAccessType() <= access_type)) {
+        if (!m_default_fixture || (*m_default_fixture != *fixture)) {
             m_default_fixture = fixture;
             m_current_prefix_history.push_back(prefix_name);
         }

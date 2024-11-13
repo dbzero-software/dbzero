@@ -149,6 +149,8 @@ namespace db0::python
     
     PyObject *PyAPI_getAddress(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 
+    PyTypeObject *PyAPI_getType(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *);
 #endif

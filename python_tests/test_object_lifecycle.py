@@ -116,8 +116,8 @@ def test_unreferenced_snapshot_objects_issue_1(db0_fixture):
     This test was failing due to an attempt to drop unreferenced objects from read-only snapshot.
     """
     obj_1 = MemoTestClass(9123)
-    snap_1 = db0.snapshot()
     db0.commit()
+    snap_1 = db0.snapshot()
     # retrieve unreferenced object from snapshot
     obj = snap_1.fetch(db0.uuid(obj_1))
     del obj

@@ -175,3 +175,19 @@ def get_queries(*module_names):
                 for param in signature.parameters.values())
             params = [param.name for param in signature.parameters.values() if param.kind != inspect.Parameter.VAR_KEYWORD]
             yield Query(function_obj, function_name, params, has_kwargs)
+
+
+def get_methods(obj):
+    """
+    get_methods of a given memo object
+    """
+    def is_private(name):
+        return name.startswith("_")
+    
+    _type = db0.get_type(obj)
+    for attr_name in dir(_type):
+        attr = getattr(_type, attr_name)
+        if callable(attr) and not isinstance(attr, staticmethod) and not isinstance(attr, classmethod) \
+            and not is_private(attr_name):                
+            yield MethodInfo(attr_name, inspect.signature(attr))
+    

@@ -71,6 +71,9 @@ namespace db0::python
         void close();
 
         bool refresh();
+        
+        // stop threads as a separate function because it's not an API function
+        void stopThreads();
 
     private:
         std::shared_ptr<db0::Workspace> m_workspace;

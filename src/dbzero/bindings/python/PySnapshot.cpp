@@ -12,6 +12,7 @@ namespace db0::python
         {"find", (PyCFunction)&PySnapshot_find, METH_FASTCALL, ""},
         {"deserialize", (PyCFunction)&PySnapshot_deserialize, METH_FASTCALL, "Deserialize from bytes within the snapshot's context"},
         {"close", &PyAPI_PySnapshot_close, METH_NOARGS, "Close DBZero snapshot"},
+        {"get_state_num", (PyCFunction)&PyAPI_PySnapshot_GetStateNum, METH_VARARGS | METH_KEYWORDS, "Get state number of the snapshot"},
         {"__enter__", &PySnapshot_enter, METH_NOARGS, "Enter DBZero snapshot context"},
         {"__exit__", &PyAPI_PySnapshot_exit, METH_VARARGS, "Exit DBZero snapshot context"},
         {NULL}
@@ -81,7 +82,25 @@ namespace db0::python
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         return findIn(snapshot, args, nargs);
     }
+
+    PyObject *tryGetStateNum(db0::Snapshot &snapshot, PyObject *args, PyObject *kwargs)
+    {
+        auto fixture = getPrefixFromArgs(snapshot, args, kwargs, "prefix");
+        return PyLong_FromLong(fixture->getPrefix().getStateNum());
+    }
     
+    PyObject *PyAPI_PySnapshot_GetStateNum(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
+        if (!PySnapshot_Check(self)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
+        PY_API_FUNC
+        return runSafe(tryGetStateNum, snapshot, args, kwargs);
+    }
+
     PyObject* PySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs) 
     {
         PY_API_FUNC

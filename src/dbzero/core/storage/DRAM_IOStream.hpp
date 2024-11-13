@@ -110,6 +110,8 @@ namespace db0
         std::size_t getAllocatedSize() const;
 
         const DRAM_Prefix &getDRAMPrefix() const;
+
+        const DRAM_Allocator &getDRAMAllocator() const;
         
         // get the number of random write operations performed while flushing updates
         std::size_t getRandOpsCount() const;

@@ -5,6 +5,7 @@
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <mutex>
+#include <memory>
 
 namespace db0
 
@@ -32,6 +33,11 @@ namespace db0
         
         virtual db0::swine_ptr<Fixture> getCurrentFixture() = 0;
         
+        /**
+         * Find existing (opened) fixture or throw
+        */
+        virtual db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const = 0;
+
         virtual bool close(const PrefixName &prefix_name) = 0;
         
         virtual void close() = 0;
@@ -39,6 +45,8 @@ namespace db0
         virtual std::shared_ptr<LangCache> getLangCache() const = 0;
         
         virtual bool isMutable() const = 0;
+        
+        db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
     };
     
 }

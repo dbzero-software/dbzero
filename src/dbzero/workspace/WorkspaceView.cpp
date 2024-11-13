@@ -46,9 +46,13 @@ namespace db0
                 state_num = it->second;
             } else {
                 state_num = fixture->getPrefix().getStateNum();
+                // take the last fully consistent state for read/write fixtures
+                if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                    --(*state_num);
+                }
             }
         }
-
+        
         // check for conflicting requests
         if (m_default_uuid) {
             assert(state_num);
@@ -218,6 +222,21 @@ namespace db0
     
     bool WorkspaceView::isMutable() const {
         return false;
+    }
+    
+    db0::swine_ptr<Fixture> WorkspaceView::tryFindFixture(const PrefixName &prefix_name) const
+    {
+        auto uuid = m_workspace_ptr->getUUID(prefix_name);
+        if (!uuid) {
+            // unknown or invalid prefix
+            return {};
+        }
+        // try resolving from cached fixtures
+        auto it = m_fixtures.find(*uuid);
+        if (it != m_fixtures.end()) {
+            return it->second;            
+        }
+        return const_cast<WorkspaceView *>(this)->getFixture(*uuid);
     }
 
 }

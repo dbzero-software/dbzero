@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Python.h>
-#include <datetime.h>
 #include <dbzero/bindings/python/PyWrapper.hpp>
 
 namespace db0::python 

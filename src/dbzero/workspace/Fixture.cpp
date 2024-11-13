@@ -189,8 +189,18 @@ namespace db0
         if (!Memspace::refresh()) {
             return false;
         }
-        // detach all active v_object instances so that they can be refreshed        
+        // detach all active v_object instances so that they can be refreshed
         getGC0().detachAll();
+        // detach owned resources
+        for (auto &detach: m_detach_handlers) {
+            detach();
+        }
+
+        m_v_object_cache.detach();
+        m_string_pool.detach();
+        m_object_catalogue.detach();
+        m_v_object_cache.detach();
+        Memspace::detach();
         return true;
     }
     
@@ -203,10 +213,10 @@ namespace db0
     
     void Fixture::refreshIfUpdated()
     {
-        // only refresh read-only fixtures
+        // only refresh read-only fixtures        
         if (getAccessType() == AccessType::READ_ONLY && m_updated) {
             refresh();
-        }
+        }        
     }
     
     db0::swine_ptr<Fixture> Fixture::getSnapshot(Snapshot &workspace_view, std::optional<std::uint64_t> state_num) const

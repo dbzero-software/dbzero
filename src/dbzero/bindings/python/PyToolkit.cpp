@@ -413,7 +413,7 @@ namespace db0::python
     unsigned int PyToolkit::getRefCount(ObjectPtr obj) {
         return Py_REFCNT(obj);
     }
-
+    
     PyObject *getValue(PyObject *py_dict, const std::string &key)
     {
         if (!PyDict_Check(py_dict)) {
@@ -422,17 +422,17 @@ namespace db0::python
         return PyDict_GetItemString(py_dict, key.c_str());
     }
 
-    std::optional<long> PyToolkit::getLong(ObjectPtr py_object, const std::string &key) 
+    std::optional<long> PyToolkit::getLong(ObjectPtr py_object, const std::string &key)
     {
         auto py_value = getValue(py_object, key);
         if (!py_value) {
             return std::nullopt;
         }
-        if (!PyLong_Check(py_value)) {
-            Py_DECREF(py_value);
-            THROWF(db0::InputException) << "Invalid type of: " << key << ". Integer expected" << THROWF_END;
-        }
-        Py_DECREF(py_value);
+        // NOTE: no Py_DECREF due to borrowed reference
+        if (!PyLong_Check(py_value)) {                        
+            THROWF(db0::InputException) << "Invalid type of: " << key << ". Integer expected but got: " 
+                << Py_TYPE(py_value)->tp_name << THROWF_END;
+        }        
         return PyLong_AsLong(py_value);
     }
 
@@ -442,27 +442,24 @@ namespace db0::python
         if (!py_value) {
             return std::nullopt;
         }
-        if (!PyBool_Check(py_value)) {
-            Py_DECREF(py_value);
+        // NOTE: no Py_DECREF due to borrowed reference
+        if (!PyBool_Check(py_value)) {            
             THROWF(db0::InputException) << "Invalid type of: " << key << ". Boolean expected" << THROWF_END;
         }
-        Py_DECREF(py_value);
         return PyObject_IsTrue(py_value);
     }
-
+    
     std::optional<std::string> PyToolkit::getString(ObjectPtr py_object, const std::string &key)
     {
         auto py_value = getValue(py_object, key);
         if (!py_value) {
             return std::nullopt;
         }
-        if (!PyUnicode_Check(py_value)) {
-            Py_DECREF(py_value);
+        // NOTE: no Py_DECREF due to borrowed reference
+        if (!PyUnicode_Check(py_value)) {            
             THROWF(db0::InputException) << "Invalid type of: " << key << ". String expected" << THROWF_END;
         }
-        auto result = std::string(PyUnicode_AsUTF8(py_value));
-        Py_DECREF(py_value);
-        return result;
+        return std::string(PyUnicode_AsUTF8(py_value));
     }
     
     bool PyToolkit::compare(ObjectPtr py_object1, ObjectPtr py_object2) {

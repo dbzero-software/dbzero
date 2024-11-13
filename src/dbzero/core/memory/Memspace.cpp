@@ -51,6 +51,10 @@ namespace db0
         m_prefix->commit(timer);
     }
     
+    void Memspace::detach() const {
+        getAllocator().detach();
+    }
+    
     void Memspace::close()
     {
         m_allocator_ptr = nullptr;

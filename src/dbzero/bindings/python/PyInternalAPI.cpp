@@ -431,7 +431,8 @@ namespace db0::python
             << Py_TYPE(py_object)->tp_name << THROWF_END;
     }
     
-    db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name)
+    db0::swine_ptr<Fixture> getPrefixFromArgs(db0::Snapshot &workspace, PyObject *args,
+        PyObject *kwargs, const char *param_name)
     {
         const char *prefix_name = nullptr;
         // optional prefix parameter
@@ -439,13 +440,16 @@ namespace db0::python
         if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|s", const_cast<char**>(kwlist), &prefix_name)) {
             THROWF(db0::InputException) << "Invalid argument type";
         }
-
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        
         if (prefix_name) {
             return workspace.findFixture(prefix_name);
         } else {
             return workspace.getCurrentFixture();
         }
+    }
+    
+    db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name) {
+        return getPrefixFromArgs(PyToolkit::getPyWorkspace().getWorkspace(), args, kwargs, param_name); 
     }
     
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs)
@@ -558,5 +562,19 @@ namespace db0::python
         THROWF(db0::InputException) << "Unable to retrieve address for type: "
             << Py_TYPE(py_obj)->tp_name << THROWF_END;
     }
-
+    
+    PyTypeObject *tryGetType(PyObject *py_obj)
+    {
+        if (PyMemo_Check(py_obj)) {
+            auto &memo = reinterpret_cast<MemoObject*>(py_obj)->ext();
+            auto fixture = memo.getFixture();
+            auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+            if (!class_factory.hasLangType(memo.getType())) {
+                THROWF(db0::ClassNotFoundException) << "Could not find type: " <<memo.getType().getName();
+            }
+            return class_factory.getLangType(memo.getType()).steal();
+        }
+        return Py_TYPE(py_obj);
+    }
+    
 }

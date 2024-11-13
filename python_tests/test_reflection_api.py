@@ -2,7 +2,7 @@ import pytest
 import dbzero_ce as db0
 import multiprocessing
 from .conftest import DB0_DIR
-from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoTestClassWithMethods
 from datetime import datetime
 
 
@@ -129,4 +129,10 @@ def test_get_memo_class_by_uuid(db0_fixture):
     meta_1 = list(db0.get_memo_classes())[0]
     meta_2 = db0.get_memo_class(meta_1.class_uuid)
     assert meta_1 == meta_2
+    
+    
+def test_get_methods(db0_fixture):
+    obj = MemoTestClassWithMethods(123)    
+    methods = list(db0.get_methods(obj))
+    assert len(methods) == 3    
     

@@ -79,6 +79,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"get_attributes", (PyCFunction)&py::getAttributes, METH_VARARGS, "Get attributes of a memo type"},
     {"getattr_as", (PyCFunction)&py::getAttrAs, METH_FASTCALL, "Get memo member cast to a user defined type - e.g. MemoBase"},
     {"get_address", (PyCFunction)&py::PyAPI_getAddress, METH_FASTCALL, "Get DBZero object's address"},
+    {"get_type", (PyCFunction)&py::PyAPI_getType, METH_FASTCALL, "For a given DBZero instance, get associated Python type"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

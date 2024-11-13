@@ -38,7 +38,7 @@ namespace db0
         , m_dp_changelog_io(init(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type)))
         , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))
         , m_sparse_index(m_dram_io.getDRAMPair(), access_type)
-        , m_wal_io(readAll(getBlockIOStream(m_config.m_wal_offset, AccessType::READ_ONLY)))        
+        , m_wal_io(readAll(getBlockIOStream(m_config.m_wal_offset, AccessType::READ_ONLY)))
         , m_page_io(getPageIO(m_sparse_index.getNextStoragePageNum(), access_type))
         // mark empty until retrieving actual data
         , m_empty(m_dram_io.empty())
@@ -48,7 +48,7 @@ namespace db0
         }
     }
     
-    BDevStorage::~BDevStorage() 
+    BDevStorage::~BDevStorage()
     {
     }
 
@@ -204,7 +204,7 @@ namespace db0
     std::size_t BDevStorage::getPageSize() const {
         return m_config.m_page_size;
     }
-
+    
     bool BDevStorage::flush(ProcessTimer *parent_timer)
     {
         std::unique_ptr<ProcessTimer> timer;
@@ -219,7 +219,7 @@ namespace db0
         if (m_sparse_index.getChangeLogSize() == 0) {
             return false;
         }
-
+        
         // Extract & flush sparse index change log first (on condition of any updates)
         m_sparse_index.extractChangeLog(m_dp_changelog_io);
         m_dram_io.flushUpdates(m_sparse_index.getMaxStateNum(), m_dram_changelog_io);
@@ -232,7 +232,7 @@ namespace db0
     }
     
     void BDevStorage::close()
-    {
+    {        
         if (m_access_type == AccessType::READ_WRITE) {
             flush();
         }
