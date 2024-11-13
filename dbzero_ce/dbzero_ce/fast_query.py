@@ -25,8 +25,8 @@ class FastQuery:
     
     # rebase to a different snapshot
     def rebase(self, snapshot):
-        return FastQuery(snapshot.deserialize(db0.serialize(self.__query)), self.__group_defs,
-                         self.__uuid, self.__sig, self.__bytes)
+        return FastQuery(snapshot.deserialize(self.bytes), self.__group_defs, self.__uuid, 
+            self.__sig, self.bytes)
     
     @property
     def uuid(self):
@@ -238,18 +238,21 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
         query = snapshot.deserialize(db0.serialize(query))
         fast_query = FastQuery(query, group_defs)
         last_result = cache.find_result(fast_query)
-                
+        
         # do not limit max_scan when on a first transaction
         state_num = snapshot.get_state_num(prefix=px_name)
         if state_num <= 1:
             max_scan = None
-                
-        try:
-            return try_query_eval(fast_query, last_result, max_scan)
-        except MaxScanExceeded:
-            max_scan = None
-            # go back to the last finalized transaction and compute the result (possibly using deltas)                
-            result = try_query_eval(fast_query, last_result, max_scan)
+
+        # return the cached result if from the same state number
+        if last_result is None or last_result[0] != state_num:
+            try:
+                result = try_query_eval(fast_query, last_result, max_scan)
+            except MaxScanExceeded:            
+                # go back to the last finalized transaction and compute the result (possibly using deltas)                
+                result = try_query_eval(fast_query, last_result, max_scan=None)        
             # update the cache with the result
             last_result = cache.update(state_num, fast_query, result)
-            return result
+        
+        # return result from cache
+        return last_result[2]
