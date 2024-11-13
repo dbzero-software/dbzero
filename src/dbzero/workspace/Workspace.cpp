@@ -307,14 +307,14 @@ namespace db0
         return BaseWorkspace::getCacheRecycler();
     }
     
-    db0::swine_ptr<Fixture> Workspace::getFixtureEx(const PrefixName &prefix_name, 
+    db0::swine_ptr<Fixture> Workspace::getFixtureEx(const PrefixName &prefix_name,
         std::optional<AccessType> access_type, std::optional<std::size_t> page_size, 
         std::optional<std::size_t> slab_size, std::optional<std::size_t> sparse_index_node_size, 
         std::optional<bool> autocommit, std::optional<LockFlags> lock_flags)
     {
         bool file_created = false;
         auto uuid = getUUID(prefix_name);
-        auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();        
+        auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();
         if (!autocommit && m_config) {
             autocommit = m_config->get<bool>("autocommit");
         }

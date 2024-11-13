@@ -6,9 +6,13 @@ from typing import Any, Dict
 
 __px_fast_query = None
 
-def init_fast_query(prefix):
+def init_fast_query(prefix=None):
     global __px_fast_query
-    __px_fast_query = prefix
+    if prefix:
+        __px_fast_query = prefix
+    # FQ prefix must be available for read/write
+    if __px_fast_query:
+        db0.open(__px_fast_query, "rw")
     
 
 class FastQuery:

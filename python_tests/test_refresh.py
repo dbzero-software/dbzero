@@ -391,8 +391,7 @@ def test_refresh_query_while_adding_new_objects(db0_fixture):
     while True:
         db0.refresh()
         time.sleep(0.1)
-        query_len = len(list(db0.find(MemoTestClass, "tag1")))
-        # FIXME: log
+        query_len = len(list(db0.find(MemoTestClass, "tag1")))        
         print(f"Query length: {query_len}")
         if query_len == num_iterations * num_objects:
             break        
