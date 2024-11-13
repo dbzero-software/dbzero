@@ -52,7 +52,7 @@ namespace db0
         Memspace *m_memspace_ptr = nullptr;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         // initial access flags (e.g. read / write / create)
-        mutable FlagSet<AccessOptions> m_access_mode;
+        FlagSet<AccessOptions> m_access_mode;
         
         /**
          * Memory mapped range corresponding to this object
@@ -134,7 +134,7 @@ namespace db0
          * Detach underlying resource lock (i.e. mark resource as not available in local memory)
         */
         void detach();
-
+        
         /**
          * Commit by marking the write as final.
          * The subsequent modify() will need to refresh the underlying lock
@@ -226,7 +226,7 @@ namespace db0
             }
             return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());
         }
-        
+
         const ContainerT& safeRef() const
         {
             assureInitialized();
