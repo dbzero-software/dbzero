@@ -290,7 +290,7 @@ namespace db0
         m_cache.release();
         m_storage_ptr->close();
     }
-    
+
     PrefixCache &PrefixImpl::getCache() const {
         return m_cache;
     }
@@ -301,8 +301,7 @@ namespace db0
     
     std::uint64_t PrefixImpl::completeRefresh()
     {
-        // boundary map should be empty on refresh
-        assert(m_cache.getBoundaryMap().empty());
+        m_cache.beginRefresh();
         // remove updated pages from the cache
         // so that the new version can be fetched when needed
         auto result = m_storage_ptr->completeRefresh([this](std::uint64_t updated_page_num, std::uint64_t state_num) {

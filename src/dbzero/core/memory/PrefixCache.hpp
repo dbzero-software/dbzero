@@ -149,6 +149,9 @@ namespace db0
         const PageMap<BoundaryLock> &getBoundaryMap() const;
         
         const PageMap<WideLock> &getWideMap() const;
+        
+        // prepare cache for the refresh operation
+        void beginRefresh();
 
     protected:        
         const std::size_t m_page_size;

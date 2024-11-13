@@ -643,5 +643,17 @@ namespace db0
     const PageMap<WideLock> &PrefixCache::getWideMap() const {
         return m_wide_map;
     }
+    
+    void PrefixCache::beginRefresh()
+    {
+        // boundary map should be empty or contain only expired locks
+        assert(!m_boundary_map.hasLocks());
+        // there must be no volatile locks
+        assert(m_volatile_locks.empty());
+        assert(m_volatile_wide_locks.empty());
+        assert(m_volatile_boundary_locks.empty());
+        // clear all expired locks from the boundary map
+        m_boundary_map.clear();
+    }
 
 }

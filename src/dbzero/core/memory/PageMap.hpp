@@ -56,6 +56,9 @@ namespace db0
         bool empty() const;
 
         std::size_t size() const;
+        
+        // check if the map contains any non-expired locks
+        bool hasLocks() const;
                 
     protected:
         // NOTE: since erase operations may potentially lead to inconsistencies 
@@ -305,6 +308,18 @@ namespace db0
         }        
         
         return count;
+    }
+    
+    template <typename ResourceLockT>
+    bool PageMap<ResourceLockT>::hasLocks() const
+    {
+        std::shared_lock<std::shared_mutex> lock(m_rw_mutex);
+        for (const auto &p: m_cache) {
+            if (!p.second.expired()) {
+                return true;
+            }
+        }
+        return false;
     }
     
 }
