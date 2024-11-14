@@ -3,6 +3,11 @@ import dbzero_ce as db0
 from .memo_test_types import MemoTestClass
 
 
+# def test_can_create_empty_tuple(db0_fixture):
+#     tuple_1 = db0.tuple()
+#     assert len(tuple_1) == 0
+
+
 def test_can_create_tuple(db0_fixture):
     tuple_1 = db0.tuple([1, 2, 3, 4])
     assert len(tuple_1) == 4
