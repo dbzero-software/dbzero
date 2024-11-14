@@ -22,7 +22,7 @@ namespace db0::python
         auto &iter = *(new (at_ptr) Iterator());
         iter.m_iterator = std::move(obj_iter);
     }
-
+    
     void Iterator::makeNew(void *at_ptr, std::unique_ptr<db0::object_model::TypedObjectIterator> &&typed_obj_iter)
     {
         auto &iter = *(new (at_ptr) Iterator());
@@ -138,7 +138,7 @@ namespace db0::python
     PyObject *PyAPI_find(PyObject *, PyObject* const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
-        return findIn(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
+        return runSafe(findIn, PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }
     
     bool PyObjectIterator_Check(PyObject *py_object) {

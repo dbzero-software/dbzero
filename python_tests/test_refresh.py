@@ -367,7 +367,7 @@ def test_refresh_query_while_adding_new_objects(db0_fixture):
     def create_process(num_iterations, num_objects, str_len):
         db0.init(DB0_DIR)
         db0.open(px_name, "rw")
-        for _ in range(num_iterations):            
+        for _ in range(num_iterations):          
             for index in range(num_objects):
                 obj = MemoTestClass(rand_string(str_len))
                 db0.tags(obj).add("tag1")
@@ -379,22 +379,24 @@ def test_refresh_query_while_adding_new_objects(db0_fixture):
     db0.commit()
     db0.close()
     
-    num_iterations = 10
+    num_iterations = 1
     num_objects = 1000
-    str_len = 128
-    # str_len = 4096
+    str_len = 4096
     p = multiprocessing.Process(target=create_process, args = (num_iterations, num_objects, str_len))
     p.start()
     
-    db0.init(DB0_DIR)
-    db0.open(px_name, "r")    
-    while True:
-        db0.refresh()
-        time.sleep(0.1)
-        query_len = len(list(db0.find(MemoTestClass, "tag1")))        
-        print(f"Query length: {query_len}")
-        if query_len == num_iterations * num_objects:
-            break        
-    db0.close()
-    p.join()
+    try:
+        db0.init(DB0_DIR)
+        db0.open(px_name, "r")
+        while True:
+            db0.refresh()
+            time.sleep(0.1)
+            query_len = len(list(db0.find(MemoTestClass, "tag1")))        
+            print(f"Query length: {query_len}")
+            if query_len == num_iterations * num_objects:
+                break
+    finally:
+        p.terminate()
+        p.join()
+        db0.close()
     

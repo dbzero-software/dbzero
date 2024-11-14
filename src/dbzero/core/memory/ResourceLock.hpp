@@ -109,6 +109,7 @@ namespace db0
         // get total memory usage of all ResourceLock instances
         // @return total size in bytes / total count
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
+        virtual bool isBoundaryLock() const = 0;
 #endif
 
     protected:

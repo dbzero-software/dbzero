@@ -308,7 +308,7 @@ namespace db0
             m_cache.markAsMissing(updated_page_num, state_num);
         });
         
-        assert(result);        
+        assert(result);
         // retrieve & sync to the refreshed state number
         m_head_state_num = m_storage_ptr->getMaxStateNum();        
         return result;

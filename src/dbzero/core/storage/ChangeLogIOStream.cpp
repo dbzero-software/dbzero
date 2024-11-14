@@ -15,7 +15,6 @@ namespace db0
             for (auto value: m_change_log) {
                 m_rle_builder.append(value, add_duplicates);
             }
-            m_change_log.clear();
         }
     }
     
@@ -30,7 +29,7 @@ namespace db0
                 (o_list<o_simple<std::uint64_t> >::type(), data.m_change_log);
         }
     }
-
+    
     std::size_t o_change_log::measure(const ChangeLogData &data)
     {
         bool rle_compressed = !data.m_rle_builder.empty();

@@ -442,7 +442,7 @@ namespace db0
     }
 
     bool Workspace::refresh()
-    {
+    {        
         bool refreshed = false;
         for (auto &[uuid, fixture] : m_fixtures) {
             // only makes sense to refresh read-only fixtures

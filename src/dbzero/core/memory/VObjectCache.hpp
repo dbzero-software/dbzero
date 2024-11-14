@@ -85,9 +85,9 @@ namespace db0
         void erase(std::uint64_t address);
 
         // Detach all managed instances
-        void detach();
+        void detach() const;
 
-        void commit();
+        void commit() const;
         
         FixedObjectList &getSharedObjectList() const;
 

@@ -189,22 +189,26 @@ namespace db0
         if (!Memspace::beginRefresh()) {
             return false;
         }
-        // detach all active v_object instances so that they can be refreshed
+                
+        // detach all active ObjectBase instances so that they can be refreshed
         getGC0().detachAll();
+        // detach GC0 instance itself    
+        if (m_gc0_ptr) {
+            getGC0().detach();
+        }
         // detach owned resources
         for (auto &detach: m_detach_handlers) {
             detach();
         }
-
+        
         m_v_object_cache.detach();
         m_string_pool.detach();
-        m_object_catalogue.detach();
-        m_v_object_cache.detach();
+        m_object_catalogue.detach();        
         Memspace::detach();
         Memspace::completeRefresh();
         return true;
     }
-
+    
     void Fixture::onUpdated()
     {    
         m_updated = true;
@@ -239,8 +243,8 @@ namespace db0
             getGC0().preCommit();
         }
         
-        // Clear expired instances from cache so that they're not persisted        
-        m_lang_cache.clear(true);        
+        // Clear expired instances from cache so that they're not persisted
+        m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
         tryCommit(lock);
         m_pre_commit = false;
@@ -366,9 +370,17 @@ namespace db0
         for (auto &detach: m_detach_handlers) {
             detach();
         }
-                
+        
+        // detach GC0 instance itself
+        if (m_gc0_ptr) {
+            getGC0().detach();
+        }
+        
+        m_object_catalogue.detach();
+        m_v_object_cache.detach();
         m_string_pool.detach();
         m_object_catalogue.detach();
+        Memspace::detach();
     }
     
     void Fixture::endAtomic()

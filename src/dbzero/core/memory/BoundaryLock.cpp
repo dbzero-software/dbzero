@@ -87,5 +87,11 @@ namespace db0
         __rebase(m_lhs, rebase_map);
         __rebase(m_rhs, rebase_map);
     }
+    
+#ifndef NDEBUG
+    bool BoundaryLock::isBoundaryLock() const {
+        return true;
+    }
+#endif
 
 }

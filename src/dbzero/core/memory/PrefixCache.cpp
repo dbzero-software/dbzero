@@ -215,7 +215,7 @@ namespace db0
         if (m_cache_recycler_ptr && !is_volatile) {
             m_cache_recycler_ptr->update(wide_lock);
         }
-
+        
         return { true, wide_lock };
     }
     
@@ -646,8 +646,7 @@ namespace db0
     
     void PrefixCache::beginRefresh()
     {
-        // boundary map should be empty or contain only expired locks
-        assert(!m_boundary_map.hasLocks());
+        // NOTE boundary map may contain non-expired locks - e.g. ones supported by Snapshot (e.g. PrefixViewImpl)
         // there must be no volatile locks
         assert(m_volatile_locks.empty());
         assert(m_volatile_wide_locks.empty());
@@ -655,5 +654,5 @@ namespace db0
         // clear all expired locks from the boundary map
         m_boundary_map.clear();
     }
-
+    
 }

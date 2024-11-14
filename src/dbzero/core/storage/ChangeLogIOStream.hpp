@@ -14,7 +14,7 @@ namespace db0
         std::vector<std::uint64_t> m_change_log;
         
         ChangeLogData() = default;
-
+        
         /**
          * @param change_log the list of modified addresses
          * @param rle_compress flag indicating if RLE encoding/compression should be applied
@@ -40,8 +40,7 @@ namespace db0
         }
         
         // uncompressed change log
-        const o_list<o_simple<std::uint64_t> > &changle_log() const 
-        {
+        const o_list<o_simple<std::uint64_t> > &changle_log() const {
             return this->getDynFirst(o_list<o_simple<std::uint64_t> >::type());
         }
 

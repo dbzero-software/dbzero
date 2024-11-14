@@ -328,7 +328,7 @@ namespace db0
         }        
         return m_dram_changelog_io.refresh();
     }
-
+    
     std::uint64_t BDevStorage::completeRefresh(
         std::function<void(std::uint64_t page_num, std::uint64_t state_num)> on_page_updated)
     {
@@ -348,6 +348,7 @@ namespace db0
             m_dp_changelog_io.refresh();
             // send all page-update notifications to the provided handler
             if (on_page_updated) {
+                std::uint64_t updated_state_num = 0;
                 for (;;) {
                     auto dp_change_log_ptr = m_dp_changelog_io.readChangeLogChunk();
                     if (!dp_change_log_ptr) {
@@ -357,18 +358,20 @@ namespace db0
                     // First element from the chunk is the updated state number
                     auto it = dp_change_log_ptr->begin(), end = dp_change_log_ptr->end();
                     assert(it != end);
-                    auto updated_state_num = *it;
-                    ++it;
+                    // First element in the log is the updated state number
+                    assert(*it != updated_state_num);
+                    updated_state_num = *it;
                     // All other elements are page numbers
+                    ++it;
                     for (; it != end; ++it) {
                         on_page_updated(*it, updated_state_num);
                     }
                 }
             }
             
-            m_wal_io.refresh();            
+            m_wal_io.refresh();
         }
-        while (m_dram_changelog_io.refresh());
+        while (m_dram_changelog_io.refresh());        
         return result;
     }
     

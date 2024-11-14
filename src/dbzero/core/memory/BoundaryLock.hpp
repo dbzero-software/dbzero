@@ -27,6 +27,10 @@ namespace db0
         // rebase parent locks if needed
         void rebase(const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map);
 
+#ifndef NDEBUG
+        bool isBoundaryLock() const override;
+#endif
+
     private:
         std::shared_ptr<DP_Lock> m_lhs;
         const std::size_t m_lhs_size;

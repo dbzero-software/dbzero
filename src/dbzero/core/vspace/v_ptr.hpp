@@ -287,7 +287,7 @@ namespace db0
                 if (lock.isLocked()) {
                     // NOTE: must extract physical address for mapRange
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::read);
+                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::read);                        
                     lock.commit_set();
                     break;
                 }
@@ -312,12 +312,7 @@ namespace db0
 
             // retrieve from allocator (slowest)            
             return m_memspace_ptr->getAllocator().getAllocSize(m_address);
-        }
-
-        static void printTypeName() {
-            std::cout << typeid(ContainerT).name() << "locks:" << std::endl;
-        }
-
+        }        
     };
 
 }

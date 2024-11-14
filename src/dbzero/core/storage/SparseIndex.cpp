@@ -190,15 +190,16 @@ namespace db0
     std::uint32_t SparseIndex::getMaxStateNum() const {
         return m_max_state_num;
     }
-
+    
     void SparseIndex::refresh()
     {
         m_next_page_num = m_index.treeHeader().m_next_page_num;
         m_max_state_num = m_index.treeHeader().m_max_state_num;
+        m_index.detach();
     }
     
     const o_change_log &SparseIndex::extractChangeLog(ChangeLogIOStream &changelog_io)
-    {
+    {        
         assert(!m_change_log.empty());
         // sort change log but keep the 1st item (the state number) at its place
         if (!m_change_log.empty()) {
