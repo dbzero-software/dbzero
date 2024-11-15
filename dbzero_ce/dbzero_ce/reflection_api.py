@@ -75,12 +75,18 @@ class MemoMetaClass:
                 and not is_private(attr_name):                
                 yield MethodInfo(attr_name, inspect.signature(attr))
     
-    def all(self):
-        if self.get_class().is_known_type():        
-            return db0.find(self.get_class().type())
-                
+    def all(self, snapshot=None, as_memo_base=False):
+        if not as_memo_base and self.get_class().is_known_type():
+            if snapshot is not None:
+                return snapshot.find(self.get_class().type())
+            else:
+                return db0.find(self.get_class().type())
+        
         # fall back to the base class if the actual model class is not imported
-        return db0.find(db0.MemoBase, self.get_class())        
+        if snapshot is not None:
+            return snapshot.find(db0.MemoBase, self.get_class())
+        else:
+            return db0.find(db0.MemoBase, self.get_class())
     
     def get_instance_count(self):
         return db0.getrefcount(self.get_class())

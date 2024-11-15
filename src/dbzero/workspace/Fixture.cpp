@@ -2,6 +2,7 @@
 #include <dbzero/core/memory/MetaAllocator.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/utils/uuid.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 #include "GC0.hpp"
 #include "Workspace.hpp"
 #include "WorkspaceView.hpp"
@@ -182,8 +183,13 @@ namespace db0
         Memspace::close();
     }
     
-    bool Fixture::refresh()
+    bool Fixture::refresh(ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<ProcessTimer> timer;        
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Fixture::refresh", timer_ptr);
+        }
+        
         assert(getAccessType() == AccessType::READ_ONLY && "Refresh only makes sense for read-only fixtures");
         m_updated = false;
         if (!Memspace::beginRefresh()) {
@@ -206,6 +212,7 @@ namespace db0
         m_object_catalogue.detach();        
         Memspace::detach();
         Memspace::completeRefresh();
+
         return true;
     }
     
@@ -225,9 +232,9 @@ namespace db0
     }
     
     db0::swine_ptr<Fixture> Fixture::getSnapshot(Snapshot &workspace_view, std::optional<std::uint64_t> state_num) const
-    {        
+    {
         auto px_snapshot = m_prefix->getSnapshot(state_num);
-        auto allocator_snapshot = std::make_shared<MetaAllocator>(px_snapshot, m_meta_allocator.getSlabRecyclerPtr());
+        auto allocator_snapshot = std::make_shared<MetaAllocator>(px_snapshot, m_meta_allocator.getSlabRecyclerPtr());        
         return db0::make_swine<Fixture>(
             workspace_view, m_v_object_cache.getSharedObjectList(), px_snapshot, allocator_snapshot
         );

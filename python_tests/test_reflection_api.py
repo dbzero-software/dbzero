@@ -136,3 +136,23 @@ def test_get_methods(db0_fixture):
     methods = list(db0.get_methods(obj))
     assert len(methods) == 3    
     
+    
+def test_get_all_instances_of_known_type_from_snapshot(db0_fixture, memo_tags):
+    # commit to make data available to snapshot
+    db0.commit()
+    with db0.snapshot() as snap:
+        total_len = 0
+        for memo_class in db0.get_memo_classes():
+            uuids = [db0.uuid(obj) for obj in memo_class.all(snap)]
+            total_len += len(uuids)
+        assert total_len > 0
+
+
+def test_get_all_instances_of_unknown_type_from_snapshot(db0_fixture, memo_tags):
+    db0.commit()
+    with db0.snapshot() as snap:
+        total_len = 0
+        for memo_class in db0.get_memo_classes():
+            uuids = [db0.uuid(obj) for obj in memo_class.all(snapshot=snap, as_memo_base=True)]
+            total_len += len(uuids)
+        assert total_len > 0

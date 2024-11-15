@@ -29,7 +29,7 @@ namespace db0::python
         iter.m_typed_iterator_ptr = typed_obj_iter.get();
         iter.m_iterator = std::move(typed_obj_iter);       
     }
-
+    
     PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyObjectIterator*>(type->tp_alloc(type, 0));
     }
@@ -65,9 +65,8 @@ namespace db0::python
         return tuple;
     }
     
-    PyObject *PyObjectIterator_iternext(PyObjectIterator *iter_obj)
+    PyObject *tryPyObjectIterator_iternext(PyObjectIterator *iter_obj)
     {
-        PY_API_FUNC
         auto &iter = *iter_obj->modifyExt();
         auto py_item = iter.next();
         if (py_item) {
@@ -80,12 +79,17 @@ namespace db0::python
         
         // raise stop iteration
         PyErr_SetNone(PyExc_StopIteration);
-        return NULL;        
+        return NULL;
     }
-    
-    PyObject *PyObjectIterator_compare(PyObject *self, PyObject* const *args, Py_ssize_t nargs) 
+
+    PyObject *PyObjectIterator_iternext(PyObjectIterator *iter_obj)
     {
         PY_API_FUNC
+        return runSafe(tryPyObjectIterator_iternext, iter_obj);
+    }
+    
+    PyObject *tryPyObjectIterator_compare(PyObject *self, PyObject* const *args, Py_ssize_t nargs) 
+    {
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "Expected exactly one argument");
             return NULL;
@@ -100,16 +104,27 @@ namespace db0::python
         double diff = iter.compareTo(*reinterpret_cast<const PyObjectIterator*>(args[0])->ext());
         return PyFloat_FromDouble(diff);
     }
-    
-    PyObject *PyObjectIterator_signature(PyObject *self, PyObject*)
+
+    PyObject *PyObjectIterator_compare(PyObject *self, PyObject* const *args, Py_ssize_t nargs) 
     {
         PY_API_FUNC
+        return runSafe(tryPyObjectIterator_compare, self, args, nargs);
+    }
+    
+    PyObject *tryPyObjectIterator_signature(PyObject *self)
+    {
         const auto &iter = *reinterpret_cast<const PyObjectIterator*>(self)->ext();
         auto signature = iter.getSignature();
         // encode as base32
         std::vector<char> result_buf(signature.size() * 2 + 1);
         auto size = db0::base32_encode(reinterpret_cast<std::uint8_t*>(signature.data()), signature.size(), result_buf.data());
         return PyUnicode_FromStringAndSize(result_buf.data(), size);        
+    }
+
+    PyObject *PyObjectIterator_signature(PyObject *self, PyObject*)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyObjectIterator_signature, self);
     }
     
     static PyMethodDef PyObjectIterator_methods[] = 

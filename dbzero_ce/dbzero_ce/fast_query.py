@@ -16,7 +16,7 @@ def init_fast_query(prefix=None):
     
 
 class FastQuery:
-    def __init__(self, query, group_defs=None, uuid=None, sig=None, bytes=None):
+    def __init__(self, query, group_defs=None, uuid=None, sig=None, bytes=None, snapshot=None):
         self.__query = query
         # split query by all available group definitions
         for group_def in group_defs:
@@ -26,11 +26,18 @@ class FastQuery:
         self.__uuid= uuid
         self.__sig = sig
         self.__bytes = bytes
+        self.__snapshot = snapshot
     
-    # rebase to a different snapshot
+    # rebase to a (different) snapshot
     def rebase(self, snapshot):
         return FastQuery(snapshot.deserialize(self.bytes), self.__group_defs, self.__uuid, 
-            self.__sig, self.bytes)
+            self.__sig, self.bytes, snapshot)
+    
+    @property
+    def snapshot(self):
+        if self.__snapshot is None:
+            raise ValueError("FastQuery snapshot not set")
+        return self.__snapshot
     
     @property
     def uuid(self):
@@ -194,7 +201,10 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
     Group query results by the given key
     """
     def delta(start, end):
-        return db0.find(end.rows, db0.no(start.rows))
+        # compute delta between the 2 snapshots                
+        snap = end.snapshot
+        # use the "end" snapshot for rows retrieval
+        return snap.find(end.rows, db0.no(start.rows))
     
     px_name = db0.get_prefix_of(query).name
     # a simple group definition is either: a string, a lambda or iterable of strings/enum values
@@ -239,8 +249,7 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
     # take snapshot of the latest known state and rebase input query
     # otherwise refresh might invalidate query results (InvalidStateError)
     with db0.snapshot() as snapshot:
-        query = snapshot.deserialize(db0.serialize(query))
-        fast_query = FastQuery(query, group_defs)
+        fast_query = FastQuery(query, group_defs).rebase(snapshot)
         last_result = cache.find_result(fast_query)
         
         # do not limit max_scan when on a first transaction
