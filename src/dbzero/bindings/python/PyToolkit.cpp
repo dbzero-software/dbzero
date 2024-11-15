@@ -373,7 +373,9 @@ namespace db0::python
             return reinterpret_cast<PyEnumValue*>(py_object)->ext().m_fixture_uuid;
         } else if (PyMemo_Check(py_object)) {
             return reinterpret_cast<MemoObject*>(py_object)->ext().getFixture()->getUUID();
-        } else {
+        } else if (PyObjectIterator_Check(py_object)) {
+            return reinterpret_cast<PyObjectIterator*>(py_object)->ext()->getFixture()->getUUID();
+        } else {            
             return 0;
         }
     }

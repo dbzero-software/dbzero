@@ -147,7 +147,7 @@ namespace db0::object_model
                 index_vt_data.first, index_vt_data.second);
             // reference associated class
             m_type->incRef();
-
+            
             // bind singleton address (now that instance exists)
             if (m_type->isSingleton()) {
                 m_type->setSingletonAddress(*this);

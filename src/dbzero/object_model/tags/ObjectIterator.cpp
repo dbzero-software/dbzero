@@ -27,7 +27,7 @@ namespace db0::object_model
         }
         return std::move(query_iterator);
     }
-
+    
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator,
         TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         const std::vector<FilterFunc> &filters)

@@ -783,7 +783,7 @@ namespace db0::object_model
         no_result = false;
         lang_type = nullptr;
         auto &type_manager = LangToolkit::getTypeManager();
-        // locate and process type objects first 
+        // locate and process type objects first
         std::size_t args_offset = 0;
         bool is_memo_base = false;
         while (args_offset < nargs) {
