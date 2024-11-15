@@ -311,6 +311,10 @@ namespace db0
             }
         }
 
+        void detach() const {
+            super_t::detach();
+        }
+
     private:
         ItemCompT m_raw_item_comp;
 

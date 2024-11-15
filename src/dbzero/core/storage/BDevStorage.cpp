@@ -321,15 +321,21 @@ namespace db0
         };
     }
     
-    std::uint64_t BDevStorage::refresh(std::function<void(std::uint64_t page_num, std::uint64_t state_num)> on_page_updated)
+    bool BDevStorage::beginRefresh()
     {
         if (m_access_type != AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "BDevStorage::refresh allowed only in read-only mode";
-        }
-        
+        }        
+        return m_dram_changelog_io.refresh();
+    }
+    
+    std::uint64_t BDevStorage::completeRefresh(
+        std::function<void(std::uint64_t page_num, std::uint64_t state_num)> on_page_updated)
+    {
+        assert(m_access_type == AccessType::READ_ONLY);
         std::uint64_t result = 0;
         // continue refreshing until all updates retrieved to guarantee a consistent state
-        while (m_dram_changelog_io.refresh()) {
+        do {
             if (!result) {
                 result = m_file.getLastModifiedTime();
             }
@@ -340,8 +346,9 @@ namespace db0
                 m_empty = false;
             }
             m_dp_changelog_io.refresh();
-            // send all notifications to the provided handler
-            if (on_page_updated) {                
+            // send all page-update notifications to the provided handler
+            if (on_page_updated) {
+                std::uint64_t updated_state_num = 0;
                 for (;;) {
                     auto dp_change_log_ptr = m_dp_changelog_io.readChangeLogChunk();
                     if (!dp_change_log_ptr) {
@@ -351,18 +358,20 @@ namespace db0
                     // First element from the chunk is the updated state number
                     auto it = dp_change_log_ptr->begin(), end = dp_change_log_ptr->end();
                     assert(it != end);
-                    auto updated_state_num = *it;
-                    ++it;
+                    // First element in the log is the updated state number
+                    assert(*it != updated_state_num);
+                    updated_state_num = *it;
                     // All other elements are page numbers
+                    ++it;
                     for (; it != end; ++it) {
                         on_page_updated(*it, updated_state_num);
                     }
                 }
             }
             
-            m_wal_io.refresh();            
+            m_wal_io.refresh();
         }
-
+        while (m_dram_changelog_io.refresh());        
         return result;
     }
     

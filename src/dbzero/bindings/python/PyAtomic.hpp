@@ -19,5 +19,5 @@ namespace db0::python
     PyObject *PyAPI_PyAtomic_cancel(PyObject *, PyObject *);
     PyObject *PyAPI_PyAtomic_close(PyObject *, PyObject *);
     PyObject *PyAPI_beginAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs);    
-    
+       
 }

@@ -45,9 +45,7 @@ namespace db0
         void close() override 
         {
         }
-
-        std::uint64_t refresh(std::function<void(std::uint64_t, std::uint64_t)> f = {}) override;
-
+        
         std::uint64_t getLastUpdated() const;
                 
     private:

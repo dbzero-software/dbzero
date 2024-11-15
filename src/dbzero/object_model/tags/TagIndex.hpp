@@ -32,6 +32,7 @@ namespace db0::object_model
     class TagIndex: public db0::v_object<o_tag_index>
     {
     public:
+        using super_t = db0::v_object<o_tag_index>;
         using LangToolkit = typename Object::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;

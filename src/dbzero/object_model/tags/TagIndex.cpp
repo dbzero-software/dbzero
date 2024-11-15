@@ -125,7 +125,7 @@ namespace db0::object_model
         : db0::v_object<o_tag_index>(memspace)        
         , m_string_pool(string_pool)
         , m_base_index_short(memspace, cache)
-        , m_base_index_long(memspace, cache)
+        , m_base_index_long(memspace, cache)        
     {
         modify().m_base_index_short_ptr = m_base_index_short.getAddress();
         modify().m_base_index_long_ptr = m_base_index_long.getAddress();
@@ -135,7 +135,7 @@ namespace db0::object_model
         : db0::v_object<o_tag_index>(ptr)        
         , m_string_pool(string_pool)
         , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
-        , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)
+        , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)        
     {
     }
 
@@ -706,20 +706,20 @@ namespace db0::object_model
         
         return isLongTag<ForwardIterator>(LangToolkit::getIterator(py_arg), ForwardIterator::end());
     }
-        
+    
     void TagIndex::commit() const
     {
         flush();
         m_base_index_short.commit();
         m_base_index_long.commit();
-        db0::v_object<o_tag_index>::commit();
+        super_t::commit();
     }
     
     void TagIndex::detach() const
     {
         m_base_index_short.detach();
         m_base_index_long.detach();
-        db0::v_object<o_tag_index>::detach();
+        super_t::detach();
     }
 
     db0::FT_BaseIndex<TagIndex::ShortTagT> &TagIndex::getBaseIndexShort() {
@@ -783,7 +783,7 @@ namespace db0::object_model
         no_result = false;
         lang_type = nullptr;
         auto &type_manager = LangToolkit::getTypeManager();
-        // locate and process type objects first 
+        // locate and process type objects first
         std::size_t args_offset = 0;
         bool is_memo_base = false;
         while (args_offset < nargs) {

@@ -30,7 +30,7 @@ namespace db0
         , m_state_num(std::max(read_state_num, write_state_num))
     {
     }
-    
+        
     DP_Lock::DP_Lock(const DP_Lock &other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
         : ResourceLock(other, access_mode)
         , m_state_num(write_state_num)
@@ -79,5 +79,11 @@ namespace db0
         assert(m_state_num == final_state_num + 1);
         m_state_num = final_state_num;
     }
+
+#ifndef NDEBUG
+    bool DP_Lock::isBoundaryLock() const {
+        return false;
+    }
+#endif
     
 }

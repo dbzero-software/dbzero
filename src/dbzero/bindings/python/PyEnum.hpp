@@ -54,6 +54,8 @@ namespace db0::python
     shared_py_object<PyEnumValue*> makePyEnumValue(const EnumValue &);
     shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(const char *value);
     
+    PyObject *tryLoadEnumValue(PyEnumValue *);
+    
 }
 
 

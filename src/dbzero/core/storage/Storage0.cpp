@@ -30,15 +30,11 @@ namespace db0
         mutation_id = state_num;
         return true;
     }
-
+    
     std::size_t Storage0::getPageSize() const {
         return m_page_size;
     }
     
-    std::uint64_t Storage0::refresh(std::function<void(std::uint64_t, std::uint64_t)>) {
-        return 0;
-    }
-
     std::uint64_t Storage0::getLastUpdated() const {
         return 0;
     }

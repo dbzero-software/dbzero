@@ -900,5 +900,15 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryGetType, args[0]);
     }
-
+    
+    PyObject *PyAPI_load(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "unload requires exactly 1 argument");
+            return NULL;
+        }
+        PY_API_FUNC
+        return runSafe(tryLoad, args[0]);
+    }
+    
 }

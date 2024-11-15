@@ -215,7 +215,7 @@ namespace db0
         if (m_cache_recycler_ptr && !is_volatile) {
             m_cache_recycler_ptr->update(wide_lock);
         }
-
+        
         return { true, wide_lock };
     }
     
@@ -631,5 +631,28 @@ namespace db0
         result += m_dirty_dp_cache.flush(limit - result);
         return result;
     }
-
+    
+    const PageMap<DP_Lock> &PrefixCache::getDPMap() const {
+        return m_dp_map;
+    }
+    
+    const PageMap<BoundaryLock> &PrefixCache::getBoundaryMap() const {
+        return m_boundary_map;
+    }
+    
+    const PageMap<WideLock> &PrefixCache::getWideMap() const {
+        return m_wide_map;
+    }
+    
+    void PrefixCache::beginRefresh()
+    {
+        // NOTE boundary map may contain non-expired locks - e.g. ones supported by Snapshot (e.g. PrefixViewImpl)
+        // there must be no volatile locks
+        assert(m_volatile_locks.empty());
+        assert(m_volatile_wide_locks.empty());
+        assert(m_volatile_boundary_locks.empty());
+        // clear all expired locks from the boundary map
+        m_boundary_map.clear();
+    }
+    
 }

@@ -143,7 +143,16 @@ namespace db0
         std::size_t getDirtySize() const;
 
         std::size_t flushDirty(std::size_t limit);
+
+        const PageMap<DP_Lock> &getDPMap() const;
         
+        const PageMap<BoundaryLock> &getBoundaryMap() const;
+        
+        const PageMap<WideLock> &getWideMap() const;
+        
+        // prepare cache for the refresh operation
+        void beginRefresh();
+
     protected:        
         const std::size_t m_page_size;
         const unsigned int m_shift;

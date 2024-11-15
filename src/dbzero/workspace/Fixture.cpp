@@ -2,6 +2,7 @@
 #include <dbzero/core/memory/MetaAllocator.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/utils/uuid.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 #include "GC0.hpp"
 #include "Workspace.hpp"
 #include "WorkspaceView.hpp"
@@ -182,25 +183,36 @@ namespace db0
         Memspace::close();
     }
     
-    bool Fixture::refresh()
+    bool Fixture::refresh(ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<ProcessTimer> timer;        
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Fixture::refresh", timer_ptr);
+        }
+        
         assert(getAccessType() == AccessType::READ_ONLY && "Refresh only makes sense for read-only fixtures");
         m_updated = false;
-        if (!Memspace::refresh()) {
+        if (!Memspace::beginRefresh()) {
             return false;
         }
-        // detach all active v_object instances so that they can be refreshed
+                
+        // detach all active ObjectBase instances so that they can be refreshed
         getGC0().detachAll();
+        // detach GC0 instance itself    
+        if (m_gc0_ptr) {
+            getGC0().detach();
+        }
         // detach owned resources
         for (auto &detach: m_detach_handlers) {
             detach();
         }
-
+        
         m_v_object_cache.detach();
         m_string_pool.detach();
-        m_object_catalogue.detach();
-        m_v_object_cache.detach();
+        m_object_catalogue.detach();        
         Memspace::detach();
+        Memspace::completeRefresh();
+
         return true;
     }
     
@@ -220,9 +232,9 @@ namespace db0
     }
     
     db0::swine_ptr<Fixture> Fixture::getSnapshot(Snapshot &workspace_view, std::optional<std::uint64_t> state_num) const
-    {        
+    {
         auto px_snapshot = m_prefix->getSnapshot(state_num);
-        auto allocator_snapshot = std::make_shared<MetaAllocator>(px_snapshot, m_meta_allocator.getSlabRecyclerPtr());
+        auto allocator_snapshot = std::make_shared<MetaAllocator>(px_snapshot, m_meta_allocator.getSlabRecyclerPtr());        
         return db0::make_swine<Fixture>(
             workspace_view, m_v_object_cache.getSharedObjectList(), px_snapshot, allocator_snapshot
         );
@@ -238,8 +250,8 @@ namespace db0
             getGC0().preCommit();
         }
         
-        // Clear expired instances from cache so that they're not persisted        
-        m_lang_cache.clear(true);        
+        // Clear expired instances from cache so that they're not persisted
+        m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
         tryCommit(lock);
         m_pre_commit = false;
@@ -365,9 +377,17 @@ namespace db0
         for (auto &detach: m_detach_handlers) {
             detach();
         }
-                
+        
+        // detach GC0 instance itself
+        if (m_gc0_ptr) {
+            getGC0().detach();
+        }
+        
+        m_object_catalogue.detach();
+        m_v_object_cache.detach();
         m_string_pool.detach();
         m_object_catalogue.detach();
+        Memspace::detach();
     }
     
     void Fixture::endAtomic()

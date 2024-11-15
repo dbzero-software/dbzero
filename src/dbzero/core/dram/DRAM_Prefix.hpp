@@ -36,8 +36,6 @@ namespace db0
 
         void close() override;
         
-        std::uint64_t refresh() override;
-
         std::size_t getDirtySize() const override;
 
         std::size_t flushDirty(std::size_t) override;
@@ -76,7 +74,7 @@ namespace db0
         
         // Total number of bytes occupied by all pages        
         std::size_t size() const;
-        
+
     private:        
         const std::size_t m_page_size;
         mutable Storage0 m_dev_null;
@@ -114,6 +112,9 @@ namespace db0
         const std::unordered_map<std::size_t, MemoryPage> &getPages() const {
             return m_pages;
         }
+        
+        // Calculate hash from the underlying pages
+        std::size_t getContentHash() const;
 #endif
     };
     

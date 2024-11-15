@@ -11,7 +11,7 @@ namespace db0
         , m_insert_iterator(m_data.begin())
     {
     }
-
+    
     bool FixedObjectList::full() const {
         return m_size == m_capacity;
     }
@@ -95,27 +95,31 @@ namespace db0
         }
     }
     
-    void VObjectCache::commit()
+    void VObjectCache::commit() const
     {
         // commit all cached instances
-        for (auto &item : m_cache) {
-            if (!std::get<0>(item.second).expired()) {
+        auto it = m_cache.begin();
+        while (it != m_cache.end()) {
+            if (std::get<0>(it->second).expired()) {
+                it = m_cache.erase(it);                
+            } else {
                 // commit
-                std::get<2>(item.second)();
+                std::get<2>(it->second)();
+                ++it;
             }
         }
     }
     
-    void VObjectCache::detach()
+    void VObjectCache::detach() const
     {
         // detach all cached instance
         auto it = m_cache.begin();
         while (it != m_cache.end()) {
             if (std::get<0>(it->second).expired()) {
-                ++it;
+                it = m_cache.erase(it);
                 continue;
             }
-
+            
             // detach or erase (if detach operator not provided)
             if (std::get<3>(it->second)) {
                 // detach
@@ -126,7 +130,7 @@ namespace db0
                 m_shared_object_list.eraseAt(std::get<1>(it->second));
                 it = m_cache.erase(it);
             }
-        }
+        }        
     }
     
     void VObjectCache::beginAtomic()

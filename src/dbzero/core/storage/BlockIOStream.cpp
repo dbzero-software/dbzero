@@ -320,7 +320,7 @@ namespace db0
 
         return true;
     }
-
+    
     bool BlockIOStream::refresh()
     {
         if (m_access_type != AccessType::READ_ONLY) {
@@ -332,7 +332,7 @@ namespace db0
         }
         
         // contents might've changed without file size change
-        m_file.refresh();                
+        m_file.refresh();
         if (m_address + m_block_size <= m_file.size()) {
             std::vector<char> buffer(m_block_size);
 

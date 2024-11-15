@@ -1,6 +1,8 @@
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <iostream>
 #include <cstring>
+#include <algorithm>
+#include <string_view>
 
 namespace db0
 
@@ -150,10 +152,6 @@ namespace db0
         }        
     }
     
-    std::uint64_t DRAM_Prefix::refresh() {
-        return 0;
-    }
-    
     std::uint64_t DRAM_Prefix::getLastUpdated() const {
         return 0;
     }
@@ -174,6 +172,21 @@ namespace db0
     std::pair<std::size_t, std::size_t> DRAM_Prefix::getTotalMemoryUsage() {
         return { DRAM_Prefix::dp_size, DRAM_Prefix::dp_count };
     }
+
+    std::size_t DRAM_Prefix::getContentHash() const
+    {
+        std::vector<std::size_t> page_nums;
+        for (auto &page: m_pages) {
+            page_nums.push_back(page.first);
+        }
+        std::sort(page_nums.begin(), page_nums.end());
+        std::size_t hash = 0;
+        for (auto page_num: page_nums) {
+            auto &page = m_pages.at(page_num);
+            hash += std::hash<std::string_view>()(std::string_view((char*)page.m_buffer, m_page_size));
+        }
+        return hash;
+    }    
 #endif
 
     std::size_t DRAM_Prefix::getDirtySize() const

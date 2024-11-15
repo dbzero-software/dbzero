@@ -6,3 +6,4 @@ from .fast_query import *
 from .reflection_api import *
 from .storage_api import *
 from .atomic import *
+from .connection import *

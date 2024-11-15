@@ -111,7 +111,7 @@ namespace db0
             fx_initializer(result, false, true);
             initSnapshot(head_fixture, result);
         }
-
+        
         m_fixtures[head_fixture->getUUID()] = result;
         m_name_uuids[prefix_name] = head_fixture->getUUID();
         return result;

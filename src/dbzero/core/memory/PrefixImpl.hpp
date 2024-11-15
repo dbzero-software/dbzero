@@ -60,8 +60,10 @@ namespace db0
         */
         void close() override;
         
-        std::uint64_t refresh() override;
-
+        bool beginRefresh() override;
+        
+        std::uint64_t completeRefresh() override;
+        
         AccessType getAccessType() const override {
             return m_storage_ptr->getAccessType();
         }

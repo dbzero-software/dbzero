@@ -557,19 +557,24 @@ namespace db0::python
         return PyBool_FromLong(memo_obj.ext().isTag());
     }
     
-    PyObject *MemoObject_str(MemoObject *pythis)
+    PyObject *tryMemoObject_str(MemoObject *self)
     {
-        PY_API_FUNC
         std::stringstream str;
-        auto &memo = pythis->ext();
-        str << "<" << Py_TYPE(pythis)->tp_name;
+        auto &memo = self->ext();
+        str << "<" << Py_TYPE(self)->tp_name;
         if (memo.hasInstance()) {
-            str << " instance uuid=" << PyUnicode_AsUTF8(tryGetUUID(pythis));
+            str << " instance uuid=" << PyUnicode_AsUTF8(tryGetUUID(self));
         } else {
             str << " (uninitialized)";
         }
         str << ">";
         return PyUnicode_FromString(str.str().c_str());
+    }
+
+    PyObject *MemoObject_str(MemoObject *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryMemoObject_str, self);
     }
     
     void MemoType_get_info(PyTypeObject *type, PyObject *dict)
@@ -595,7 +600,7 @@ namespace db0::python
         }
         return Py_None;
     }
-
+    
     PyObject *tryGetAttributes(PyTypeObject *type)
     {
         auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));

@@ -68,13 +68,10 @@ namespace db0
         
         bool tryFindMutation(std::uint64_t page_num, std::uint64_t state_num, std::uint64_t &mutation_id) const override;
 
-        /**
-         * Allowed in read-only mode only
-         * Fetch the most recent changes from the underlying storage
-         * @param f optional function to be notified on updated data pages (DP)
-         * @return 0 if no changes were applied, last modified timestamp otherwise
-        */
-        std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {}) override;
+        bool beginRefresh() override;
+
+        std::uint64_t completeRefresh(
+            std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {}) override;
         
         bool flush(ProcessTimer * = nullptr) override;
 

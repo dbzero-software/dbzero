@@ -28,4 +28,7 @@ namespace db0::python
     
     bool TupleObject_Check(PyObject *);
     
+    // Unload db0.Tuple instance to memory
+    PyObject *tryLoadTuple(TupleObject *);
+    
 }

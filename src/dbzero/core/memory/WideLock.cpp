@@ -105,5 +105,11 @@ namespace db0
             m_res_lock = it->second;
         }
     }
+    
+#ifndef NDEBUG
+    bool WideLock::isBoundaryLock() const {
+        return false;
+    }
+#endif
 
 }

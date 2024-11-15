@@ -6,13 +6,17 @@ from typing import Any, Dict
 
 __px_fast_query = None
 
-def init_fast_query(prefix):
+def init_fast_query(prefix=None):
     global __px_fast_query
-    __px_fast_query = prefix
+    if prefix:
+        __px_fast_query = prefix
+    # FQ prefix must be available for read/write
+    if __px_fast_query:
+        db0.open(__px_fast_query, "rw")
     
 
 class FastQuery:
-    def __init__(self, query, group_defs=None, uuid=None, sig=None, bytes=None):
+    def __init__(self, query, group_defs=None, uuid=None, sig=None, bytes=None, snapshot=None):
         self.__query = query
         # split query by all available group definitions
         for group_def in group_defs:
@@ -22,11 +26,18 @@ class FastQuery:
         self.__uuid= uuid
         self.__sig = sig
         self.__bytes = bytes
+        self.__snapshot = snapshot
     
-    # rebase to a different snapshot
+    # rebase to a (different) snapshot
     def rebase(self, snapshot):
-        return FastQuery(snapshot.deserialize(db0.serialize(self.__query)), self.__group_defs,
-                         self.__uuid, self.__sig, self.__bytes)
+        return FastQuery(snapshot.deserialize(self.bytes), self.__group_defs, self.__uuid, 
+            self.__sig, self.bytes, snapshot)
+    
+    @property
+    def snapshot(self):
+        if self.__snapshot is None:
+            raise ValueError("FastQuery snapshot not set")
+        return self.__snapshot
     
     @property
     def uuid(self):
@@ -117,28 +128,42 @@ class FastQueryCache:
     
     def get_cache_keys(self):
         return list(self.__cache.keys())
-
+    
+    
+def count_op(status, row_groups=None):
+    """
+    Update (or initialize status) with rows to remove (0) or rows to add (1)
+    """
+    if row_groups is None:
+        return 0
+    else:
+        status -= len(row_groups[0]) if row_groups[0] is not None else 0
+        status += len(row_groups[1]) if row_groups[1] is not None else 0
+    return status
+    
     
 @db0.memo
 class GroupByBucket:
-    def __init__(self, prefix=None):
+    def __init__(self, ops=(count_op,), prefix=None):
+        # FIXME: ops should be cached in Python when this feature is available
         db0.set_prefix(self, prefix)
-        self.__count = 0
+        self.__status = tuple([op(None) for op in ops])
     
-    def add(self, row):
-        self.__count += 1
+    def update(self, row_groups, ops=(count_op,)):
+        self.__status = tuple([op(status, row_groups) for op, status in zip(ops, self.__status)])
     
-    def remove(self, row):
-        self.__count -= 1
-    
-    def count(self):
-        return self.__count
+    @property
+    def result(self):
+        if len(self.__status) == 1:
+            return self.__status[0]
+        # return as a Python native type
+        return db0.load(self.__status)
     
     def __str__(self):
-        return f"Group of {self.__count} rows"
+        return f"Group of {self.__status[0]} rows"
     
     def __repr__(self):
-        return f"Group of {self.__count} rows"
+        return f"Group of {self.__status[0]} rows"
     
     
 class GroupByEval:
@@ -151,30 +176,31 @@ class GroupByEval:
         else:
             self.__group_builder = lambda row: tuple(group_def(row) for group_def in group_defs)
 
-    def add(self, rows, max_scan=None):
-        for row in rows:
-            if max_scan is not None:
-                if max_scan == 0:
-                    raise MaxScanExceeded()
-                max_scan -= 1
-            key = self.__group_builder(row)
+    def update(self, row_groups, max_scan=None):
+        __groups = {}
+        for side_num in range(2):
+            if row_groups[side_num] is None:
+                continue
+            for row in row_groups[side_num]:
+                if max_scan is not None:
+                    if max_scan == 0:
+                        raise MaxScanExceeded()
+                    max_scan -= 1
+                key = self.__group_builder(row)
+                row_lists = __groups.get(key, None)
+                if row_lists is None:
+                    row_lists = ([], [])
+                    __groups[key] = row_lists
+                row_lists[side_num].append(row)
+        
+        # now feed groups into buckets
+        for key, row_lists in __groups.items():
             bucket = self.__data.get(key, None)
             if bucket is None:
                 bucket = GroupByBucket(prefix=self.__prefix)
                 self.__data[key] = bucket
-            bucket.add(row)
-        return max_scan
+            bucket.update(row_lists)
     
-    def remove(self, rows, max_scan=None):        
-        for row in rows:
-            if max_scan is not None:
-                if max_scan == 0:
-                    raise MaxScanExceeded()
-                max_scan -= 1         
-            key = self.__group_builder(row)
-            self.__data.get(key).remove(row)
-        return max_scan
-
     def release(self):
         result = self.__data
         self.__data = {}
@@ -185,12 +211,15 @@ class MaxScanExceeded(Exception):
     pass
     
     
-def group_by(group_defs, query, max_scan=1000) -> Dict:    
+def group_by(group_defs, query, max_scan=1000) -> Dict:
     """
     Group query results by the given key
     """
     def delta(start, end):
-        return db0.find(end.rows, db0.no(start.rows))
+        # compute delta between the 2 snapshots                
+        snap = end.snapshot
+        # use the "end" snapshot for rows retrieval
+        return snap.find(end.rows, db0.no(start.rows))
     
     px_name = db0.get_prefix_of(query).name
     # a simple group definition is either: a string, a lambda or iterable of strings/enum values
@@ -222,34 +251,39 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
         query_eval = GroupByEval(group_defs, last_result[2] if last_result is not None else None, prefix=__px_fast_query)
         if last_result is None:
             # no cached result, evaluate full query
-            query_eval.add(fast_query.rows, max_scan)
+            query_eval.update((None, fast_query.rows), max_scan)
         else:
             # evaluate from deltas
             old_query = fast_query.rebase(db0.snapshot({px_name: last_result[0]}))
-            # insertions since last result
-            limit = query_eval.add(delta(old_query, fast_query), max_scan)
-            query_eval.remove(delta(fast_query, old_query), limit)
+            # row groups = (rows removed since last update, rows added since last update) as delta iterators
+            query_eval.update((delta(old_query, fast_query), delta(fast_query, old_query)), max_scan)
         return query_eval.release()
+    
+    def format_result(result):
+        return {db0.load(key): value.result for key, value in result.items()}
     
     cache = FastQueryCache(prefix=__px_fast_query)
     # take snapshot of the latest known state and rebase input query
     # otherwise refresh might invalidate query results (InvalidStateError)
     with db0.snapshot() as snapshot:
-        query = snapshot.deserialize(db0.serialize(query))
-        fast_query = FastQuery(query, group_defs)
+        fast_query = FastQuery(query, group_defs).rebase(snapshot)
         last_result = cache.find_result(fast_query)
-                
+        
         # do not limit max_scan when on a first transaction
         state_num = snapshot.get_state_num(prefix=px_name)
         if state_num <= 1:
             max_scan = None
-                
-        try:
-            return try_query_eval(fast_query, last_result, max_scan)
-        except MaxScanExceeded:
-            max_scan = None
-            # go back to the last finalized transaction and compute the result (possibly using deltas)                
-            result = try_query_eval(fast_query, last_result, max_scan)
+
+        # return the cached result if from the same state number
+        if last_result is None or last_result[0] != state_num:
+            try:
+                result = try_query_eval(fast_query, last_result, max_scan)
+            except MaxScanExceeded:
+                # go back to the last finalized transaction and compute the result (possibly using deltas)                
+                result = try_query_eval(fast_query, last_result, max_scan=None)        
             # update the cache with the result
             last_result = cache.update(state_num, fast_query, result)
-            return result
+        
+        # return result from cache (formatted)
+        return format_result(last_result[2])
+    

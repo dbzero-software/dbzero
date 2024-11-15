@@ -77,12 +77,14 @@ namespace db0
         
         AccessType getAccessType() const;
 
+        bool beginRefresh();
+        
         /**
          * Refresh the memspace to the latest state (e.g. after updates done by other processes)
          * Operation only allowed for read-only memspaces
          * @return true if the memspace was updated
         */
-        bool refresh();
+        void completeRefresh();
 
         std::uint64_t getStateNum() const;
         

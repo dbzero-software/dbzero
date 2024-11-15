@@ -20,6 +20,8 @@
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/memory/SlabAllocator.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
+#include <dbzero/bindings/python/collections/PyTuple.hpp>
+#include <dbzero/bindings/python/PyEnum.hpp>
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
@@ -575,6 +577,28 @@ namespace db0::python
             return class_factory.getLangType(memo.getType()).steal();
         }
         return Py_TYPE(py_obj);
+    }
+    
+    PyObject *tryLoad(PyObject *py_obj)
+    {
+        using TypeId = db0::bindings::TypeId;
+
+        auto &type_manager = PyToolkit::getTypeManager();
+        auto type_id = type_manager.getTypeId(py_obj);
+        if (!type_manager.isDBZeroTypeId(type_id)) {
+            // no conversion needed
+            Py_INCREF(py_obj);
+            return py_obj;
+        }
+        // FIXME: implement for other types
+        if (type_id == TypeId::DB0_TUPLE) {
+            return tryLoadTuple(reinterpret_cast<TupleObject*>(py_obj));
+        } else if (type_id == TypeId::DB0_ENUM_VALUE) {
+            return tryLoadEnumValue(reinterpret_cast<PyEnumValue*>(py_obj));
+        } else {
+            THROWF(db0::InputException) << "Unload not implemented for type: " 
+                << Py_TYPE(py_obj)->tp_name << THROWF_END;
+        }
     }
     
 }
