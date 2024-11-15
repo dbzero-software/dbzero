@@ -110,6 +110,9 @@ namespace db0::python
     
     PyTypeObject *tryGetType(PyObject *py_obj);
     
+    // Load dbzero object to memory
+    PyObject *tryLoad(PyObject *);
+    
     // Retrieve prefix (its Fixture objects) from the optional argument "prefix"
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name);
     db0::swine_ptr<Fixture> getPrefixFromArgs(db0::Snapshot &, PyObject *args, PyObject *kwargs, 

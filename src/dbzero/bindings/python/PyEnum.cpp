@@ -226,6 +226,11 @@ namespace db0::python
         py_enum_value.get()->modifyExt().m_str_repr = value;
         return py_enum_value;
     }
+
+    PyObject *tryLoadEnumValue(PyEnumValue *py_enum_value) {
+        // load as string
+        return PyEnumValue_str(py_enum_value);        
+    }
     
 }
 

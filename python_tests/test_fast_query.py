@@ -15,9 +15,9 @@ def test_simple_group_by_query(db0_fixture):
     db0.commit()
     groups = db0.group_by(lambda row: row.key, db0.find("tag1"))
     assert len(groups) == 3
-    assert groups["one"].count() == 4
-    assert groups["two"].count() == 3
-    assert groups["three"].count() == 3
+    assert groups["one"] == 4
+    assert groups["two"] == 3
+    assert groups["three"] == 3
     
 
 # FIXME: failing test blocked
@@ -106,9 +106,9 @@ def test_group_by_enum_values(db0_fixture, memo_enum_tags):
     db0.commit()
     groups = db0.group_by(Colors.values(), db0.find(MemoTestClass))
     assert len(groups) == 3
-    assert groups[Colors.RED].count() == 4
-    assert groups[Colors.GREEN].count() == 3
-    assert groups[Colors.BLUE].count() == 3
+    assert groups['RED'] == 4
+    assert groups['GREEN'] == 3
+    assert groups['BLUE'] == 3
 
 
 # FIXME: failing test blocked
@@ -133,8 +133,8 @@ def test_group_by_multiple_criteria(db0_fixture, memo_enum_tags):
     # group by all colors and then by even/odd values
     groups = db0.group_by((Colors.values(), lambda x: x.value % 2), db0.find(MemoTestClass))
     assert len(groups) == 6
-    assert groups[(Colors.RED, 0)].count() == 2
-    assert groups[(Colors.RED, 1)].count() == 2
+    assert groups[(Colors.RED, 0)] == 2
+    assert groups[(Colors.RED, 1)] == 2
     
     
 def test_fast_query_with_separate_prefix_for_cache(db0_fixture, memo_scoped_enum_tags):
@@ -146,7 +146,7 @@ def test_fast_query_with_separate_prefix_for_cache(db0_fixture, memo_scoped_enum
     db0.init_fast_query(fq_prefix)
     Colors = memo_scoped_enum_tags["Colors"]
     # first run to feed cache
-    db0.group_by((Colors.values(), lambda x: "test"), db0.find(MemoDataPxClass), max_scan=1)    
+    db0.group_by((Colors.values(), lambda x: "test"), db0.find(MemoDataPxClass), max_scan=1)
     db0.close()
     
     db0.init(DB0_DIR)
@@ -154,6 +154,5 @@ def test_fast_query_with_separate_prefix_for_cache(db0_fixture, memo_scoped_enum
     db0.open(fq_prefix, "rw")
     
     # run again to use cache
-    groups = db0.group_by((Colors.values(), lambda x: "test"), db0.find(MemoDataPxClass), max_scan=1)
-    # make sure result retured from cache
-    assert type(groups) == type(db0.dict())    
+    groups = db0.group_by((Colors.values(), lambda x: "test"), db0.find(MemoDataPxClass), max_scan=1)        
+    assert type(groups) == dict

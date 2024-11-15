@@ -68,11 +68,10 @@ namespace db0::python
         {NULL}
     };
 
-    static PyObject *PyAPI_TupleObject_rq(TupleObject *tuple_obj, TupleObject *other, int op) 
+    PyObject *tryPyAPI_TupleObject_rq(TupleObject *tuple_obj, TupleObject *other, int op)
     {
-        PY_API_FUNC
         if (TupleObject_Check(other)) {
-            TupleObject * other_tuple = (TupleObject*) other;
+            TupleObject * other_tuple = (TupleObject*)other;
             switch (op)
             {
             case Py_EQ:
@@ -84,6 +83,10 @@ namespace db0::python
             }
         } else {
             PyObject *iterator = PyObject_GetIter(other);
+            if (iterator == NULL) {
+                PyErr_SetString(PyExc_TypeError, "argument must be an iterable");
+                return NULL;
+            }
             switch (op)
             {
             case Py_EQ:
@@ -96,6 +99,12 @@ namespace db0::python
             Py_DECREF(iterator);
             return Py_True;
         }
+    }
+    
+    PyObject *PyAPI_TupleObject_rq(TupleObject *tuple_obj, TupleObject *other, int op)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyAPI_TupleObject_rq, tuple_obj, other, op);
     }
     
     PyTypeObject TupleObjectType = {
@@ -177,4 +186,14 @@ namespace db0::python
         return Py_TYPE(object) == &TupleObjectType;        
     }
     
+    PyObject *tryLoadTuple(TupleObject *py_tuple)
+    {
+        auto &tuple_obj = py_tuple->ext();
+        PyObject *result = PyTuple_New(tuple_obj.size());
+        for (std::size_t i = 0; i < tuple_obj.size(); ++i) {
+            PyTuple_SetItem(result, i, tryLoad(tuple_obj.getItem(i).get()));
+        }
+        return result;
+    }
+
 }

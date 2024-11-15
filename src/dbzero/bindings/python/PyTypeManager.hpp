@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <unordered_set>
 #include <list>
 #include <vector>
 #include <functional>
@@ -133,6 +134,10 @@ namespace db0::python
         
         bool isMemoBase(TypeObjectPtr) const;
 
+        bool isDBZeroType(ObjectPtr) const;
+
+        bool isDBZeroTypeId(TypeId type_id) const;
+
         void close();
         
     private:
@@ -147,15 +152,24 @@ namespace db0::python
         mutable ObjectSharedPtr m_py_class_not_found_error;
         // identified reference to a MemoBase type
         TypeObjectPtr m_memo_base_type = nullptr;
-        
+        std::unordered_set<TypeId> m_dbzero_type_ids;
+
         // Register a mapping from static type
-        template <typename T> void addStaticType(T py_type, TypeId py_type_id);
+        template <typename T> void addStaticType(T py_type, TypeId py_type_id, bool is_dbzero_type = false);
+        template <typename T> void addStaticDBZeroType(T py_type, TypeId py_type_id);
     };
     
-    template <typename T> void PyTypeManager::addStaticType(T py_type, TypeId py_type_id)
+    template <typename T> void PyTypeManager::addStaticType(T py_type, TypeId py_type_id, bool is_dbzero_type)
     {  
         m_py_type_map[py_type_id] = reinterpret_cast<ObjectPtr>(py_type);
         m_id_map[reinterpret_cast<ObjectPtr>(py_type)] = py_type_id;
+        if (is_dbzero_type) {
+            m_dbzero_type_ids.insert(py_type_id);
+        }
     }
-       
+
+    template <typename T> void PyTypeManager::addStaticDBZeroType(T py_type, TypeId py_type_id) {
+        addStaticType(py_type, py_type_id, true);
+    }
+    
 }

@@ -8,12 +8,13 @@ namespace db0::python
 
 {
 
-    void init_datetime() {
-        if(!PyDateTimeAPI){
+    void init_datetime() 
+    {
+        if (!PyDateTimeAPI) {
             PyDateTime_IMPORT;
         }
     }
-
+    
     std::uint64_t dateTimeComponentsToUInt64(std::uint16_t year, std::uint8_t month, std::uint8_t day, std::uint8_t hour,
         std::uint8_t minute, std::uint8_t second, std::uint8_t millisecond)
     {

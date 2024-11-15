@@ -51,23 +51,27 @@ namespace db0::python
         addStaticType(&PySet_Type, TypeId::SET);
         addStaticType(&PyDict_Type, TypeId::DICT);
         addStaticType(&PyTuple_Type, TypeId::TUPLE);
-        addStaticType(&TagSetType, TypeId::DB0_TAG_SET);
-        addStaticType(&IndexObjectType, TypeId::DB0_INDEX);
-        addStaticType(&ListObjectType, TypeId::DB0_LIST);
-        addStaticType(&SetObjectType, TypeId::DB0_SET);
-        addStaticType(&DictObjectType, TypeId::DB0_DICT);
-        addStaticType(&TupleObjectType, TypeId::DB0_TUPLE);
-        addStaticType(&ClassObjectType, TypeId::DB0_CLASS);
-        addStaticType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
         addStaticType(&PyBytes_Type, TypeId::BYTES);
-        addStaticType(&PyEnumType, TypeId::DB0_ENUM);
-        addStaticType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
-        addStaticType(&PyEnumValueReprType, TypeId::DB0_ENUM_VALUE_REPR);
-        addStaticType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
-        addStaticType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
-        addStaticType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
         // Python datetime type
         addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
+
+        // DBZero extension types
+        addStaticDBZeroType(&TagSetType, TypeId::DB0_TAG_SET);
+        addStaticDBZeroType(&IndexObjectType, TypeId::DB0_INDEX);
+        addStaticDBZeroType(&ListObjectType, TypeId::DB0_LIST);
+        addStaticDBZeroType(&SetObjectType, TypeId::DB0_SET);
+        addStaticDBZeroType(&DictObjectType, TypeId::DB0_DICT);
+        addStaticDBZeroType(&TupleObjectType, TypeId::DB0_TUPLE);
+        addStaticDBZeroType(&ClassObjectType, TypeId::DB0_CLASS);
+        addStaticDBZeroType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
+        
+        addStaticDBZeroType(&PyEnumType, TypeId::DB0_ENUM);
+        addStaticDBZeroType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
+        addStaticDBZeroType(&PyEnumValueReprType, TypeId::DB0_ENUM_VALUE_REPR);
+        addStaticDBZeroType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
+        addStaticDBZeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
+        addStaticDBZeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
+
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
         m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
     }
@@ -399,6 +403,14 @@ namespace db0::python
     {
         assert(m_memo_base_type);
         return py_type == m_memo_base_type;
+    }
+
+    bool PyTypeManager::isDBZeroTypeId(TypeId type_id) const {
+        return m_dbzero_type_ids.find(type_id) != m_dbzero_type_ids.end();
+    }
+
+    bool PyTypeManager::isDBZeroType(ObjectPtr obj_ptr) const {
+        return isDBZeroTypeId(getTypeId(obj_ptr));
     }
     
 }
