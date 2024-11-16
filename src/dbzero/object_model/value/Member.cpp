@@ -209,7 +209,7 @@ namespace db0::object_model
     template <> Value createMember<TypeId::BOOLEAN, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr)
     {
-        return db0::python::pyDateTimeToToUint64(obj_ptr);
+        return obj_ptr == Py_True ? 1 : 0;
     }
     
 
