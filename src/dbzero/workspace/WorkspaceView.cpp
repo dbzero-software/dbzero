@@ -39,7 +39,7 @@ namespace db0
     {
         if (!state_num && m_default_uuid) {
             // freeze state number of the default fixture
-            auto fixture = m_workspace_ptr->getFixture(*m_default_uuid);
+            auto fixture = m_workspace_ptr->getFixture(*m_default_uuid, AccessType::READ_ONLY);
             auto it = m_prefix_state_nums.find(fixture->getPrefix().getName());
             // state number for the default fixture defined by name
             if (it != m_prefix_state_nums.end()) {
@@ -56,7 +56,7 @@ namespace db0
         // check for conflicting requests
         if (m_default_uuid) {
             assert(state_num);
-            auto fixture = m_workspace_ptr->getFixture(*m_default_uuid);
+            auto fixture = m_workspace_ptr->getFixture(*m_default_uuid, AccessType::READ_ONLY);
             auto it = m_prefix_state_nums.find(fixture->getPrefix().getName());
             if (it != m_prefix_state_nums.end() && it->second != *state_num) {
                 THROWF(db0::InternalException) 
@@ -101,7 +101,7 @@ namespace db0
             return getFixture(it->second);
         }
 
-        auto head_fixture = m_workspace_ptr->getFixture(prefix_name);
+        auto head_fixture = m_workspace_ptr->getFixture(prefix_name, AccessType::READ_ONLY);
         // get snapshot of the latest state
         auto result = head_fixture->getSnapshot(*this, getSnapshotStateNum(*head_fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
@@ -143,7 +143,7 @@ namespace db0
             return it->second;
         }
         
-        auto head_fixture = m_workspace_ptr->getFixture(uuid);
+        auto head_fixture = m_workspace_ptr->getFixture(uuid, AccessType::READ_ONLY);
         auto result = head_fixture->getSnapshot(*this, getSnapshotStateNum(*head_fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
