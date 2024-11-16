@@ -192,7 +192,7 @@ namespace db0::python
     {
         PY_API_FUNC
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return makeDB0Dict(fixture, args, kwargs).steal();
+        return runSafe(makeDB0Dict, fixture, args, kwargs).steal();
     }
     
     PyObject *PyAPI_DictObject_clear(DictObject *dict_obj)
@@ -202,30 +202,24 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *PyAPI_DictObject_copy(DictObject *py_src_dict)
+    PyObject *tryDictObject_copy(DictObject *py_src_dict)
     {
-        // make actual DBZero instance, use default fixture
-        PY_API_FUNC
         auto py_dict = DictDefaultObject_new();
         auto lock = db0::FixtureLock(py_src_dict->ext().getFixture());
         py_src_dict->ext().copy(&py_dict.get()->modifyExt(), *lock);
         lock->getLangCache().add(py_dict.get()->ext().getAddress(), py_dict.get());
         return py_dict.steal();
     }
-    
-    PyObject *PyAPI_DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs)
+
+    PyObject *PyAPI_DictObject_copy(DictObject *py_src_dict)
     {
+        // make actual DBZero instance, use default fixture
         PY_API_FUNC
-        if (nargs < 1) {
-            PyErr_SetString(PyExc_TypeError, " fromkeys expected at least 1 argument");
-            return NULL;
-            
-        }
-        if (nargs > 2) {
-            PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
-            return NULL;
-            
-        }
+        return runSafe(tryDictObject_copy, py_src_dict);
+    }
+    
+    PyObject *tryDictObject_fromKeys(PyObject *const *args, Py_ssize_t nargs)
+    {
         // make actual DBZero instance, use default fixture
         auto py_dict = DictDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
@@ -244,19 +238,23 @@ namespace db0::python
         return py_dict.steal();
     }
 
-    PyObject *PyAPI_DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC        
+        PY_API_FUNC
         if (nargs < 1) {
-            PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
+            PyErr_SetString(PyExc_TypeError, " fromkeys expected at least 1 argument");
             return NULL;
             
         }
         if (nargs > 2) {
             PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
-            return NULL;
-            
+            return NULL;            
         }
+        return runSafe(tryDictObject_fromKeys, args, nargs);
+    }
+
+    PyObject *tryDictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
+    {
         PyObject *elem = args[0];
         PyObject *value = Py_None;
         if (nargs == 2) {
@@ -268,49 +266,56 @@ namespace db0::python
         return value;
     }
 
-    PyObject *PyAPI_DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
+    PyObject *PyAPI_DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC        
-        if(nargs < 1 ){
+        if (nargs < 1) {
             PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
             return NULL;
             
         }
-        if(nargs > 2){
+        if (nargs > 2) {
             PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
-            return NULL;
-            
+            return NULL;            
         }
+        return runSafe(tryDictObject_get, dict_object, args, nargs);
+    }
+
+    PyObject *tryDictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
+    {
         PyObject *elem = args[0];
         PyObject *value = nullptr;
-        if(nargs == 2){
+        if (nargs == 2) {
             value = args[1];
         }
-        if(dict_object->ext().has_item(elem)) {
+        if (dict_object->ext().has_item(elem)) {
             auto obj = dict_object->modifyExt().pop(elem);
             return obj.steal();
         }
-        if(value == nullptr){
+        if (value == nullptr) {
             PyErr_SetString(PyExc_KeyError, "item");
             return NULL;
         }
         
         return value;
     }
-
-    PyObject *PyAPI_DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
+    
+    PyObject *PyAPI_DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
     {
         PY_API_FUNC        
-        if(nargs < 1 ){
-            PyErr_SetString(PyExc_TypeError, "setdefault expected at least 1 argument");
-            return NULL;
-            
+        if (nargs < 1) {
+            PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
+            return NULL;            
         }
-        if(nargs > 2){
-            PyErr_SetString(PyExc_TypeError, "setdefault expected at most 2 arguments");
-            return NULL;
-            
+        if (nargs > 2) {
+            PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
+            return NULL;            
         }
+        return runSafe(tryDictObject_pop, dict_object, args, nargs);
+    }
+
+    PyObject *tryDictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
+    {
         PyObject *elem = args[0];
         PyObject *value = Py_None;
         if(nargs == 2){
@@ -319,31 +324,51 @@ namespace db0::python
         if (!dict_object->ext().has_item(elem)) {
             DictObject_SetItem(dict_object, elem, value);
         }
-        return DictObject_GetItem(dict_object, elem);
+        return DictObject_GetItem(dict_object, elem);        
+    }
+
+    PyObject *PyAPI_DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
+    {
+        PY_API_FUNC        
+        if (nargs < 1 ) {
+            PyErr_SetString(PyExc_TypeError, "setdefault expected at least 1 argument");
+            return NULL;            
+        }
+        if (nargs > 2) {
+            PyErr_SetString(PyExc_TypeError, "setdefault expected at most 2 arguments");
+            return NULL;            
+        }
+        return runSafe(tryDictObject_setDefault, dict_object, args, nargs);
     }
     
+    PyObject *tryDictObject_keys(DictObject *dict_obj) {
+        return makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::KEYS);        
+    }
+
     PyObject *PyAPI_DictObject_keys(DictObject *dict_obj)
     {
-        PY_API_FUNC
-        // make actual DBZero instance, use default fixture
-        auto dict_view_object = makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::KEYS);
-        return dict_view_object;
+        PY_API_FUNC        
+        return runSafe(tryDictObject_keys, dict_obj);    
+    }
+
+    PyObject *tryDictObject_values(DictObject *dict_obj) {
+        return makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::VALUES);        
     }
 
     PyObject *PyAPI_DictObject_values(DictObject *dict_obj)
     {
         PY_API_FUNC
-        // make actual DBZero instance, use default fixture
-        auto dict_view_object = makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::VALUES);
-        return dict_view_object;
+        return runSafe(tryDictObject_values, dict_obj);    
     }
-    
+
+    PyObject *tryDictObject_items(DictObject *dict_obj) {
+        return makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::ITEMS);        
+    }
+
     PyObject *PyAPI_DictObject_items(DictObject *dict_obj)
     {
         PY_API_FUNC
-        // make actual DBZero instance, use default fixture
-        auto dict_view_object = makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::ITEMS);
-        return dict_view_object;
+        return runSafe(tryDictObject_items, dict_obj);    
     }
     
     bool DictObject_Check(PyObject *object) {

@@ -171,7 +171,16 @@ def test_group_by_with_multiple_ops(db0_fixture, memo_enum_tags):
     db0.commit()
     # group by all colors and then by even/odd values
     query_ops = (db0.count_op, db0.make_sum(lambda x: x.value))
-    groups = db0.group_by((Colors.values(), lambda x: x.value % 2), db0.find(MemoTestClass), ops = query_ops)
-    print(groups)
+    groups = db0.group_by((Colors.values(), lambda x: x.value % 2), db0.find(MemoTestClass), ops = query_ops)    
     assert sum(v[0] for _, v in groups.items()) == 10
     assert sum(v[1] for _, v in groups.items()) == 45
+    
+    
+def test_group_by_with_multiple_ops_and_constant(db0_fixture, memo_enum_tags):
+    Colors = memo_enum_tags["Colors"]
+    db0.commit()
+    # group by all colors and then by even/odd values
+    query_ops = (db0.count_op, db0.make_sum(lambda x: x.value))
+    groups = db0.group_by((Colors.values(), lambda x: "2024", lambda x: x.value % 2), db0.find(MemoTestClass), ops = query_ops)    
+    for k in groups.keys():
+        assert len(k) == 3
