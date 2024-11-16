@@ -637,7 +637,7 @@ namespace db0::object_model
     bool TagIndex::isShortTag(ObjectSharedPtr ptr) const {
         return isShortTag(ptr.get());
     }
-
+    
     std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::unique_ptr<QueryObserver> >
     TagIndex::splitBy(ObjectPtr py_arg, std::unique_ptr<QueryIterator> &&query) const
     {
@@ -645,7 +645,8 @@ namespace db0::object_model
         auto type_id = type_manager.getTypeId(py_arg);
         // must check for string since it's is an iterable as well
         if (type_id == TypeId::STRING || !LangToolkit::isIterable(py_arg)) {
-            THROWF(db0::InputException) << "Invalid argument (iterable expected)" << THROWF_END;
+            THROWF(db0::InputException) << "Invalid argument type: " << LangToolkit::getTypeName(py_arg) 
+                << " (iterable expected)" << THROWF_END;
         }
         
         OR_QueryObserverBuilder split_factory;        

@@ -89,3 +89,10 @@ def test_enum_value_str_conversion(db0_fixture):
 def test_enum_value_repr(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     assert repr(Colors.RED) == "<EnumValue Colors.RED>"
+
+
+def test_enum_values_order_is_preserved(db0_fixture):
+    Colors = db0.enum("Colors", ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"])
+    assert list(Colors.values()) == [Colors.ONE, Colors.TWO, Colors.THREE, Colors.FOUR, Colors.FIVE, Colors.SIX,
+        Colors.SEVEN, Colors.EIGHT, Colors.NINE, Colors.TEN]
+    

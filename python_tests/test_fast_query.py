@@ -20,84 +20,80 @@ def test_simple_group_by_query(db0_fixture):
     assert groups["three"] == 3
     
 
-# FIXME: failing test blocked
-# def test_delta_group_by_query(db0_fixture):
-#     keys = ["one", "two", "three"]
-#     objects = []
-#     for i in range(10):
-#         objects.append(KVTestClass(keys[i % 3], i))
+def test_delta_group_by_query(db0_fixture):
+    keys = ["one", "two", "three"]
+    objects = []
+    for i in range(10):
+        objects.append(KVTestClass(keys[i % 3], i))
     
-#     db0.tags(*objects).add("tag1")
-#     db0.commit()
-#     # first group by to feed the internal cache
-#     # we pass max_scan = 1 to force the internal cache to be populated
-#     db0.group_by(lambda row: row.key, db0.find("tag1"), max_scan = 1)
-#     db0.commit()
+    db0.tags(*objects).add("tag1")
+    db0.commit()
+    # first group by to feed the internal cache    
+    groups = db0.group_by(lambda row: row.key, db0.find("tag1"))
+    assert groups["one"] == 4
+    db0.commit()
     
-#     # assign tags to 2 more objects
-#     db0.tags(KVTestClass("one", 11)).add("tag1")
-#     db0.tags(KVTestClass("three", 12)).add("tag1")
-#     db0.commit()
+    # assign tags to 2 more objects
+    db0.tags(KVTestClass("one", 11)).add("tag1")
+    db0.tags(KVTestClass("three", 12)).add("tag1")
+    db0.commit()
     
-#     # run as delta query
-#     groups = db0.group_by(lambda row: row.key, db0.find("tag1"))
-#     assert len(groups) == 3
-#     assert groups["one"].count() == 5
-#     assert groups["two"].count() == 3
-#     assert groups["three"].count() == 4
+    # run as delta query
+    groups = db0.group_by(lambda row: row.key, db0.find("tag1"))
+    assert len(groups) == 3
+    assert groups["one"] == 5
+    assert groups["two"] == 3
+    assert groups["three"] == 4
 
 
-# FIXME: failing test blocked
-# def test_delta_query_with_removals(db0_fixture):
-#     keys = ["one", "two", "three"]
-#     objects = []
-#     for i in range(10):
-#         objects.append(KVTestClass(keys[i % 3], i))
+def test_delta_query_with_removals(db0_fixture):
+    keys = ["one", "two", "three"]
+    objects = []
+    for i in range(10):
+        objects.append(KVTestClass(keys[i % 3], i))
     
-#     db0.tags(*objects).add("tag1")
-#     db0.commit()
-#     # first group by to feed the internal cache
-#     db0.group_by(lambda row: row.key, db0.find("tag1"), max_scan = 1)
+    db0.tags(*objects).add("tag1")
+    db0.commit()
+    # first group by to feed the internal cache
+    db0.group_by(lambda row: row.key, db0.find("tag1"))
     
-#     # remove tags from 2 objects
-#     db0.tags(objects[1], objects[6]).remove("tag1")
-#     db0.commit()
+    # remove tags from 2 objects
+    db0.tags(objects[1], objects[6]).remove("tag1")
+    db0.commit()
     
-#     # run as delta query
-#     groups = db0.group_by(lambda row: row.key, db0.find("tag1"), max_scan = 1)
-#     print(dict(groups))
-#     assert len(groups) == 3
-#     assert groups["one"].count() == 3
-#     assert groups["two"].count() == 2
-#     assert groups["three"].count() == 3
+    # run as delta query
+    groups = db0.group_by(lambda row: row.key, db0.find("tag1"))    
+    assert len(groups) == 3
+    assert groups["one"] == 3
+    assert groups["two"] == 2
+    assert groups["three"] == 3
 
 
-# FIXME: failing test blocked
-# def test_delta_from_non_identical_queries(db0_fixture):
-#     keys = ["one", "two", "three"]
-#     objects = []
-#     for i in range(10):
-#         objects.append(KVTestClass(keys[i % 3], i))
+def test_delta_from_non_identical_queries(db0_fixture):
+    keys = ["one", "two", "three"]
+    objects = []
+    for i in range(10):
+        objects.append(KVTestClass(keys[i % 3], i))
     
-#     db0.tags(*objects).add("tag1")
-#     db0.tags(*objects).add("tag2")
-#     db0.tags(*objects).add("tag3")
-#     db0.commit()
+    db0.tags(*objects).add("tag1")
+    db0.tags(*objects).add("tag2")
+    db0.tags(*objects).add("tag3")
+    db0.commit()
     
-#     # first group by to feed the internal cache
-#     db0.group_by(lambda row: row.key, db0.find(["tag1", "tag2", "tag3"]), max_scan = 1)
+    # first group by to feed the internal cache
+    db0.group_by(lambda row: row.key, db0.find(["tag1", "tag2", "tag3"]))
     
-#     # assign tag3 to 2 more objects
-#     db0.tags(KVTestClass("one", 11)).add("tag4")
-#     db0.tags(KVTestClass("three", 12)).add("tag4")
-#     db0.commit()
+    # assign tag3 to 2 more objects
+    db0.tags(KVTestClass("one", 11)).add("tag4")
+    db0.tags(KVTestClass("three", 12)).add("tag4")
+    db0.commit()
     
-#     # run as delta query (but adding the additional optional tag)
-#     groups = db0.group_by(lambda row: row.key, db0.find(["tag1", "tag2", "tag3", "tag4"]), max_scan = 1)
-#     assert len(groups) == 3
-#     assert groups["one"].count() == 5
-#     assert groups["two"].count() == 3
-#     assert groups["three"].count() == 4
+    # run as delta query (but adding the additional optional tag)
+    groups = db0.group_by(lambda row: row.key, db0.find(["tag1", "tag2", "tag3", "tag4"]))
+    assert len(groups) == 3
+    assert groups["one"] == 5
+    assert groups["two"] == 3
+    assert groups["three"] == 4
 
 
 def test_group_by_enum_values(db0_fixture, memo_enum_tags):
@@ -111,20 +107,18 @@ def test_group_by_enum_values(db0_fixture, memo_enum_tags):
     assert groups['BLUE'] == 3
 
 
-# FIXME: failing test blocked
-# def test_group_by_enum_values_with_tag_removals(db0_fixture, memo_enum_tags):
-#     # use max_scan = 1 to force the internal cache to be updated
-#     Colors = memo_enum_tags["Colors"]
-#     db0.commit()    
-#     assert db0.group_by(Colors.values(), db0.find(MemoTestClass), max_scan = 1)[Colors.RED].count() == 4    
-#     i = 0
-#     for _ in range(4):
-#         db0.tags(next(db0.find(MemoTestClass, Colors.RED))).remove(Colors.RED)
-#         i += 1
-#         db0.commit()
-#         result = db0.group_by(Colors.values(), db0.find(MemoTestClass), max_scan = 1).get(Colors.RED, None)        
-#         count = result.count() if result else 0
-#         assert count == 4 - i
+def test_group_by_enum_values_with_tag_removals(db0_fixture, memo_enum_tags):
+    Colors = memo_enum_tags["Colors"]
+    db0.commit()    
+    assert db0.group_by(Colors.values(), db0.find(MemoTestClass))["RED"] == 4
+    i = 0
+    for _ in range(4):
+        db0.tags(next(db0.find(MemoTestClass, Colors.RED))).remove(Colors.RED)
+        i += 1
+        db0.commit()
+        result = db0.group_by(Colors.values(), db0.find(MemoTestClass)).get("RED", None)
+        count = result if result else 0
+        assert count == 4 - i
     
     
 def test_group_by_multiple_criteria(db0_fixture, memo_enum_tags):
@@ -146,7 +140,7 @@ def test_fast_query_with_separate_prefix_for_cache(db0_fixture, memo_scoped_enum
     db0.init_fast_query(fq_prefix)
     Colors = memo_scoped_enum_tags["Colors"]
     # first run to feed cache
-    db0.group_by((Colors.values(), lambda x: "test"), db0.find(MemoDataPxClass), max_scan=1)
+    db0.group_by((Colors.values(), lambda x: "test"), db0.find(MemoDataPxClass))
     db0.close()
     
     db0.init(DB0_DIR)
@@ -154,5 +148,33 @@ def test_fast_query_with_separate_prefix_for_cache(db0_fixture, memo_scoped_enum
     db0.open(fq_prefix, "rw")
     
     # run again to use cache
-    groups = db0.group_by((Colors.values(), lambda x: "test"), db0.find(MemoDataPxClass), max_scan=1)        
+    groups = db0.group_by((Colors.values(), lambda x: "test"), db0.find(MemoDataPxClass))
     assert type(groups) == dict
+
+
+def test_group_by_with_custom_op(db0_fixture, memo_enum_tags):
+    Colors = memo_enum_tags["Colors"]
+    db0.commit()
+    # group by all colors and then by even/odd values
+    groups = db0.group_by((Colors.values(), lambda x: x.value % 2), db0.find(MemoTestClass), ops = (db0.make_sum(lambda x: x.value),))    
+    assert sum(v for _, v in groups.items()) == 45
+    
+    
+def test_group_by_with_multiple_ops(db0_fixture, memo_enum_tags):
+    Colors = memo_enum_tags["Colors"]
+    db0.commit()
+    # group by all colors and then by even/odd values
+    query_ops = (db0.count_op, db0.make_sum(lambda x: x.value))
+    groups = db0.group_by((Colors.values(), lambda x: x.value % 2), db0.find(MemoTestClass), ops = query_ops)    
+    assert sum(v[0] for _, v in groups.items()) == 10
+    assert sum(v[1] for _, v in groups.items()) == 45
+    
+    
+def test_group_by_with_multiple_ops_and_constant(db0_fixture, memo_enum_tags):
+    Colors = memo_enum_tags["Colors"]
+    db0.commit()
+    # group by all colors and then by even/odd values
+    query_ops = (db0.count_op, db0.make_sum(lambda x: x.value))
+    groups = db0.group_by((Colors.values(), lambda x: "2024", lambda x: x.value % 2), db0.find(MemoTestClass), ops = query_ops)    
+    for k in groups.keys():
+        assert len(k) == 3

@@ -87,10 +87,9 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
-    PyObject *getEnumValues(PyEnum *self)
+    PyObject *tryGetEnumValues(PyEnum *self)
     {
-        PY_API_FUNC
-        const Enum *enum_ = nullptr;        
+        const Enum *enum_ = nullptr;
         if (self->ext().exists()) {
             enum_ = &self->ext().get();
         } else {
@@ -108,12 +107,18 @@ namespace db0::python
         return py_tuple;
     }
 
+    PyObject *PyAPI_getEnumValues(PyEnum *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryGetEnumValues, self);
+    }
+
     static PyMethodDef PyEnum_methods[] = 
     {
-        {"values", (PyCFunction)getEnumValues, METH_NOARGS, "Get enum values"},
+        {"values", (PyCFunction)PyAPI_getEnumValues, METH_NOARGS, "Get enum values"},
         {NULL}
     };
-
+    
     PyTypeObject PyEnumType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.Enum",
