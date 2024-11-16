@@ -142,6 +142,24 @@ def count_op(status, row_groups=None):
     return status
     
     
+def make_sum(value_func):
+    """
+    Generates sum-op with a specific value function
+    """
+    def sum_op(status, row_groups=None):
+        """
+        Update (or initialize status) with rows to remove (0) or rows to add (1)
+        """
+        if row_groups is None:
+            return 0
+        else:
+            status -= sum(value_func(row[0]) for row in row_groups[0]) if row_groups[0] is not None else 0
+            status += sum(value_func(row[0]) for row in row_groups[1]) if row_groups[1] is not None else 0
+        return status
+    
+    return sum_op
+
+    
 @db0.memo
 class GroupByBucket:
     def __init__(self, ops=(count_op,), prefix=None):
@@ -158,13 +176,7 @@ class GroupByBucket:
             return self.__status[0]
         # return as a Python native type
         return db0.load(self.__status)
-    
-    def __str__(self):
-        return f"Group of {self.__status[0]} rows"
-    
-    def __repr__(self):
-        return f"Group of {self.__status[0]} rows"
-    
+        
     
 class GroupByEval:
     def __init__(self, group_defs, data=None, prefix=None):
@@ -176,7 +188,7 @@ class GroupByEval:
         else:
             self.__group_builder = lambda row: tuple(group_def(row) for group_def in group_defs)
 
-    def update(self, row_groups, max_scan=None):
+    def update(self, row_groups, ops, max_scan=None):
         __groups = {}
         for side_num in range(2):
             if row_groups[side_num] is None:
@@ -197,9 +209,9 @@ class GroupByEval:
         for key, row_lists in __groups.items():
             bucket = self.__data.get(key, None)
             if bucket is None:
-                bucket = GroupByBucket(prefix=self.__prefix)
+                bucket = GroupByBucket(ops, prefix=self.__prefix)
                 self.__data[key] = bucket
-            bucket.update(row_lists)
+            bucket.update(row_lists, ops)
     
     def release(self):
         result = self.__data
@@ -211,7 +223,7 @@ class MaxScanExceeded(Exception):
     pass
     
     
-def group_by(group_defs, query, max_scan=1000) -> Dict:
+def group_by(group_defs, query, ops=(count_op,), max_scan=1000) -> Dict:
     """
     Group query results by the given key
     """
@@ -247,16 +259,16 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
         for grop_def in group_defs:
             grop_def.split()
     
-    def try_query_eval(fast_query, last_result, max_scan):
+    def try_query_eval(fast_query, last_result, ops, max_scan):
         query_eval = GroupByEval(group_defs, last_result[2] if last_result is not None else None, prefix=__px_fast_query)
         if last_result is None:
             # no cached result, evaluate full query
-            query_eval.update((None, fast_query.rows), max_scan)
+            query_eval.update((None, fast_query.rows), ops, max_scan)
         else:
             # evaluate from deltas
             old_query = fast_query.rebase(db0.snapshot({px_name: last_result[0]}))
             # row groups = (rows removed since last update, rows added since last update) as delta iterators
-            query_eval.update((delta(old_query, fast_query), delta(fast_query, old_query)), max_scan)
+            query_eval.update((delta(old_query, fast_query), delta(fast_query, old_query)), ops, max_scan)
         return query_eval.release()
     
     def format_result(result):
@@ -277,10 +289,10 @@ def group_by(group_defs, query, max_scan=1000) -> Dict:
         # return the cached result if from the same state number
         if last_result is None or last_result[0] != state_num:
             try:
-                result = try_query_eval(fast_query, last_result, max_scan)
+                result = try_query_eval(fast_query, last_result, ops, max_scan)
             except MaxScanExceeded:
                 # go back to the last finalized transaction and compute the result (possibly using deltas)                
-                result = try_query_eval(fast_query, last_result, max_scan=None)        
+                result = try_query_eval(fast_query, last_result, ops, max_scan=None)
             # update the cache with the result
             last_result = cache.update(state_num, fast_query, result)
         
