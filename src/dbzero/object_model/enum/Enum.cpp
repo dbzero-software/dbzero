@@ -8,6 +8,7 @@ namespace db0::object_model
 
     o_enum::o_enum(Memspace &memspace)
         : m_values(memspace)
+        , m_ordered_values(memspace)
     {
     }
     
@@ -18,9 +19,12 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_string_pool(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
+        , m_ordered_values((*this)->m_ordered_values(*fixture))
     {
         for (auto &value: values) {
-            m_values.insert(m_string_pool.addRef(value));
+            auto value_ref = m_string_pool.addRef(value);
+            m_values.insert(value_ref);
+            m_ordered_values.push_back(value_ref);
         }
         modify().m_name = m_string_pool.addRef(name);
         modify().m_module_name = m_string_pool.addRef(module_name);
@@ -28,6 +32,7 @@ namespace db0::object_model
             modify().m_type_id = m_string_pool.addRef(type_id);
         }
         modify().m_values = m_values;
+        modify().m_ordered_values = m_ordered_values;
     }
     
     Enum::Enum(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
@@ -36,12 +41,13 @@ namespace db0::object_model
         , m_uid(this->fetchUID())
         , m_string_pool(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
+        , m_ordered_values((*this)->m_ordered_values(*fixture))
     {
     }
-
+    
     Enum *Enum::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, const std::string &name, const std::string &module_name,
         const std::vector<std::string> &values, const char *type_id)
-    {
+    {        
         return new (at_ptr) Enum(fixture, name, module_name, values, type_id);
     }
 
@@ -92,7 +98,7 @@ namespace db0::object_model
     std::vector<EnumValue> Enum::getValues() const
     {
         std::vector<EnumValue> values;
-        for (auto value: m_values) {
+        for (auto value: m_ordered_values) {
             values.push_back({ m_fixture_uuid, m_uid, value, m_string_pool.fetch(value) });
         }
         return values;
@@ -181,10 +187,24 @@ namespace db0::object_model
     EnumDef Enum::getEnumDef() const
     {
         std::vector<std::string> values;
-        for (auto value: m_values) {
+        for (auto value: m_ordered_values) {
             values.push_back(m_string_pool.fetch(value));
         }
         return { getName(), getModuleName(), values };
     }
 
+    void Enum::detach() const 
+    {
+        m_values.detach();
+        m_ordered_values.detach();
+        super_t::detach();
+    }
+
+    void Enum::commit() const
+    {
+        m_values.commit();
+        m_ordered_values.commit();
+        super_t::commit();
+    }
+    
 }
