@@ -26,7 +26,6 @@
 #include "Types.hpp"
 #include "PyAtomic.hpp"
 #include "PyReflectionAPI.hpp"
-#include <datetime.h>
 
 namespace db0::python
 

@@ -1,12 +1,4 @@
-
-import dbzero_ce as db0
-from datetime import datetime
-
-@db0.memo
-class MemoScopedClass:
-    def __init__(self, value, prefix=None):
-        db0.set_prefix(self, prefix)        
-        self.value = value   
+from .memo_test_types import MemoScopedClass
 
 def test_assing_bool_to_memo(db0_fixture):
     m = MemoScopedClass(True)
