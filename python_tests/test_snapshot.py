@@ -116,14 +116,16 @@ def test_find_in_snapshot(db0_fixture):
 def test_tag_query_from_two_snapshots(db0_fixture):
     for i in range(3):
         object_1 = MemoTestClass(i)
-        db0.tags(object_1).add("some-tag")    
+        db0.tags(object_1).add("some-tag")
+    state_num_1 = db0.get_state_num()
     db0.commit()
-    snap1 = db0.snapshot()
+    snap1 = db0.snapshot(state_num_1)
     for i in range(3):
         object_1 = MemoTestClass(i + 3)
-        db0.tags(object_1).add("some-tag")    
+        db0.tags(object_1).add("some-tag")
+    state_num_2 = db0.get_state_num()
     db0.commit()
-    snap2 = db0.snapshot()
+    snap2 = db0.snapshot(state_num_2)
     for i in range(5):
         object_1 = MemoTestClass(i + 6)
         db0.tags(object_1).add("some-tag")
@@ -163,15 +165,17 @@ def test_snapshot_delta_queries(db0_fixture):
     for i in range(3):
         object_1 = MemoTestClass(i)
         objects.append(object_1)
-        db0.tags(object_1).add("some-tag")    
+        db0.tags(object_1).add("some-tag")
+    state_num_1 = db0.get_state_num()
     db0.commit()
-    snap1 = db0.snapshot()
+    snap1 = db0.snapshot(state_num_1)
     for i in range(3):
         object_1 = MemoTestClass(i + 3)
         db0.tags(object_1).add("some-tag")
     db0.tags(objects[1]).remove("some-tag")    
+    state_num_2 = db0.get_state_num()
     db0.commit()
-    snap2 = db0.snapshot()
+    snap2 = db0.snapshot(state_num_2)
     for i in range(5):
         object_1 = MemoTestClass(i + 6)
         db0.tags(object_1).add("some-tag")
@@ -214,13 +218,15 @@ def test_tag_query_over_snapshot(db0_fixture, memo_tags):
 
 def test_retrieving_object_dependencies_from_snapshot(db0_fixture):
     obj_1 = MemoTestClass(9123)
-    obj_2 = MemoTestClass(obj_1)    
+    obj_2 = MemoTestClass(obj_1)
+    state_num_1 = db0.get_state_num()
     db0.commit()
-    snap_1 = db0.snapshot()
+    snap_1 = db0.snapshot(state_num_1)
     obj_3 = MemoTestClass(91237123)
-    obj_2.value = obj_3    
-    db0.commit()
-    snap_2 = db0.snapshot()
+    obj_2.value = obj_3
+    state_num_2 = db0.get_state_num()
+    db0.commit()    
+    snap_2 = db0.snapshot(state_num_2)
     # retrieve related object from snapshot
     obj = snap_1.fetch(db0.uuid(obj_2))
     assert obj.value.value == 9123
@@ -244,8 +250,9 @@ def test_snapshot_find_query(db0_fixture):
     for i in range(10):        
         db0.tags(MemoTestClass(i)).add(["tag1", "tag2"])
     db0.commit()
-    query = db0.snapshot().find(("tag1", "tag2"))
-    assert len(list(query)) == 10
+    with db0.snapshot() as snap:
+        query = snap.find(("tag1", "tag2"))
+        assert len(list(query)) == 10
 
 
 def test_snapshot_mutation_attempt_should_raise_exception(db0_fixture):
@@ -255,10 +262,11 @@ def test_snapshot_mutation_attempt_should_raise_exception(db0_fixture):
     db0.commit()
     # run query over a snapshot and try updating it
     count = 0
-    for obj in db0.snapshot().find(("tag1", "tag2")):
-        with pytest.raises (Exception):
-            db0.tags(obj).remove("tag1")
-        count += 1
+    with db0.snapshot() as snap:
+        for obj in snap.find(("tag1", "tag2")):
+            with pytest.raises (Exception):
+                db0.tags(obj).remove("tag1")
+            count += 1
     
     assert count == 10
 
@@ -270,3 +278,18 @@ def test_snapshot_get_state_num_of_prefix(db0_fixture, memo_tags):
     with db0.snapshot() as snap:
         # must be same as the last fully commited state
         assert snap.get_state_num(prefix) == state_num
+
+
+def test_get_frozen_head_snapshot(db0_fixture):
+    with db0.snapshot() as head_1:
+        with db0.snapshot(frozen=True) as head_2:
+            assert head_1.get_state_num() == head_2.get_state_num()            
+    
+    
+def test_exception_when_attempting_to_access_frozen_head_snapshot(db0_fixture):
+    """
+    The "frozen" snapshot cannot be taken because it's not initialized
+    """
+    with pytest.raises(Exception):
+        with db0.snapshot(frozen=True) as head:
+            pass

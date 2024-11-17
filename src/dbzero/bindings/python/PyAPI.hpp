@@ -92,7 +92,7 @@ namespace db0::python
     /**
      * Get DBZero state snapshot
     */
-    PyObject *getSnapshot(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *getSnapshot(PyObject *self, PyObject *args, PyObject *kwargs);
 
     PyObject *beginAtomic(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     

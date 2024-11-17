@@ -35,8 +35,8 @@ namespace db0::object_model
     {
     }
     
-    TypedObjectIterator::ObjectSharedPtr TypedObjectIterator::unload(std::uint64_t address) const {        
-        return LangToolkit::unloadObject(m_fixture, address, m_type, m_lang_type.get());
+    TypedObjectIterator::ObjectSharedPtr TypedObjectIterator::unload(std::uint64_t address) const {
+        return LangToolkit::unloadObject(getFixture(), address, m_type, m_lang_type.get());
     }
     
     std::unique_ptr<ObjectIterator> TypedObjectIterator::iter(const std::vector<FilterFunc> &filters) const {
@@ -45,29 +45,32 @@ namespace db0::object_model
 
     std::unique_ptr<TypedObjectIterator> TypedObjectIterator::iterTyped(const std::vector<FilterFunc> &filters) const
     {
+        auto fixture = getFixture();
         std::vector<FilterFunc> new_filters(this->m_filters);
         new_filters.insert(new_filters.end(), filters.begin(), filters.end());
 
         std::unique_ptr<QueryIterator> query_iterator = m_query_iterator ? 
             std::unique_ptr<QueryIterator>(static_cast<QueryIterator*>(m_query_iterator->begin().release())) : nullptr;
         std::unique_ptr<SortedIterator> sorted_iterator = m_sorted_iterator ? m_sorted_iterator->beginSorted() : nullptr;
-        return std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(m_fixture, m_class_factory, m_type, m_lang_type.get(),
+        return std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(fixture, m_class_factory, m_type, m_lang_type.get(),
             std::move(query_iterator), std::move(sorted_iterator), m_factory, {}, std::move(new_filters)));
     }
     
     std::unique_ptr<TypedObjectIterator> TypedObjectIterator::makeTypedIter(std::unique_ptr<QueryIterator> &&ft_query_iterator,
         std::vector<std::unique_ptr<QueryObserver> > &&observers, const std::vector<FilterFunc> &filters) const
     {
+        auto fixture = getFixture();
         std::vector<FilterFunc> _filters(filters);
-        return std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(m_fixture, m_class_factory, m_type, m_lang_type.get(),
+        return std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(fixture, m_class_factory, m_type, m_lang_type.get(),
             std::move(ft_query_iterator), {}, m_factory, std::move(observers), std::move(_filters)));
     }
     
     std::unique_ptr<TypedObjectIterator> TypedObjectIterator::makeTypedIter(std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::vector<std::unique_ptr<QueryObserver> > &&observers, const std::vector<FilterFunc> &filters) const
     {
+        auto fixture = getFixture();
         std::vector<FilterFunc> _filters(filters);
-        return std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(m_fixture, m_class_factory, m_type, m_lang_type.get(),
+        return std::unique_ptr<TypedObjectIterator>(new TypedObjectIterator(fixture, m_class_factory, m_type, m_lang_type.get(),
             {}, std::move(sorted_iterator), m_factory, std::move(observers), std::move(_filters)));
     }
     
