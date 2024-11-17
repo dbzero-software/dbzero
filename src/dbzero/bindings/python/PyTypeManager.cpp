@@ -72,6 +72,7 @@ namespace db0::python
         addStaticDBZeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
         addStaticDBZeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
 
+        addStaticType(&PyBool_Type, TypeId::BOOLEAN);
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
         m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
     }

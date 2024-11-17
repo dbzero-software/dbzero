@@ -27,6 +27,7 @@ namespace db0::object_model
         addMapping(TypeId::DB0_PANDAS_DATAFRAME, StorageClass::DB0_PANDAS_DATAFRAME);
         addMapping(TypeId::OBJECT_ITERATOR, StorageClass::DB0_SERIALIZED);
         addMapping(TypeId::DB0_ENUM_VALUE, StorageClass::DB0_ENUM_VALUE);
+        addMapping(TypeId::BOOLEAN, StorageClass::BOOLEAN);
     }
     
     StorageClass StorageClassMapper::getStorageClass(TypeId type_id) const
@@ -96,6 +97,7 @@ namespace std
             case StorageClass::DB0_TUPLE: return os << "DB0_TUPLE";
             case StorageClass::STR64: return os << "STR64";
             case StorageClass::DB0_BYTES: return os << "BYTES";
+            case StorageClass::BOOLEAN: return os << "BOOLEAN";
             case StorageClass::INVALID: return os << "INVALID";
             default: return os << "ERROR!";
         }
