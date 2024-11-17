@@ -270,13 +270,14 @@ def test_mutating_tags_while_running_query_from_snapshot(db0_fixture):
     db0.commit()
     # run query over a snapshot while updating tags
     count = 0
-    for snaphot_obj in db0.snapshot().find(("tag1", "tag2")):
-        # NOTE: since snapshot objects are immutable we need to fetch the object from
-        # the head transaction to mutate it
-        if count % 2 == 0:
-            obj = db0.fetch(db0.uuid(snaphot_obj))        
-            db0.tags(obj).remove("tag1")
-        count += 1
+    with db0.snapshot() as snap:
+        for snaphot_obj in snap.find(("tag1", "tag2")):
+            # NOTE: since snapshot objects are immutable we need to fetch the object from
+            # the head transaction to mutate it
+            if count % 2 == 0:
+                obj = db0.fetch(db0.uuid(snaphot_obj))        
+                db0.tags(obj).remove("tag1")
+            count += 1
     
     assert count == 10
     assert len(list(db0.find("tag1"))) == 5

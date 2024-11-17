@@ -53,11 +53,20 @@ namespace db0::python
     }
     
     PySnapshotObject *tryGetSnapshot(std::optional<std::uint64_t> state_num,
-        const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums)
-    {    
+        const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums, bool frozen)
+    {  
+        if (frozen && (state_num || !prefix_state_nums.empty())) {
+            THROWF(db0::InputException) << "Frozen snapshot can only be taken for the head state (i.e. no state numbers can be requested)";
+        }
         auto py_snapshot = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        py_snapshot->makeNew(workspace.getWorkspaceView(state_num, prefix_state_nums));
+        std::shared_ptr<db0::WorkspaceView> workspace_view;
+        if (frozen) {
+            workspace_view = workspace.getFrozenWorkspaceHeadView();
+        } else {
+            workspace_view = workspace.getWorkspaceView(state_num, prefix_state_nums);
+        }
+        py_snapshot->makeNew(workspace_view);
         return py_snapshot;
     }
     

@@ -620,6 +620,11 @@ namespace db0
     std::shared_ptr<WorkspaceView> Workspace::getWorkspaceView(std::optional<std::uint64_t> state_num,
         const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums) const
     {
+        // the head view has a special handling and prolonged scope
+        if (!state_num && prefix_state_nums.empty()) {
+            return getWorkspaceHeadView();
+        }
+
         // clean-up expired views
         m_views.remove_if([](const std::weak_ptr<WorkspaceView> &view) {
             return view.expired();
@@ -628,6 +633,30 @@ namespace db0
             new WorkspaceView(const_cast<Workspace&>(*this), state_num, prefix_state_nums));
         m_views.push_back(workspace_view);
         return workspace_view;
+    }
+    
+    std::shared_ptr<WorkspaceView> Workspace::getFrozenWorkspaceHeadView() const
+    {
+        auto result = m_head_view.lock();
+        if (!result) {
+            THROWF(db0::InputException) << "Frozen head snapshot not available";
+        }
+        return result;
+    }
+    
+    std::shared_ptr<WorkspaceView> Workspace::getWorkspaceHeadView() const
+    {
+        auto result = m_head_view.lock();
+        if (!result) {
+            result = std::shared_ptr<WorkspaceView>(new WorkspaceView(const_cast<Workspace&>(*this)));
+            m_head_view = result;
+            // clean-up expired views
+            m_views.remove_if([](const std::weak_ptr<WorkspaceView> &view) {
+                return view.expired();
+            });
+            m_views.push_back(result);
+        }
+        return result;
     }
     
     void Workspace::forEachMemspace(std::function<bool(Memspace &)> callback)
