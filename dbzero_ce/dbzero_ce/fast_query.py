@@ -205,7 +205,7 @@ class GroupByEval:
 
     def update(self, row_groups, ops):
         __groups = {}
-        for side_num in range(2):
+        for side_num in range(2):            
             if row_groups[side_num] is None:
                 continue
             for row in row_groups[side_num]:
