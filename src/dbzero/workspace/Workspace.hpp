@@ -220,7 +220,7 @@ namespace db0
          * Try refreshing all underlying fixtures
          * @return true if any fixture was refreshed
         */
-        bool refresh();
+        bool refresh(bool if_updated = false);
         
         void forEachFixture(std::function<bool(const Fixture &)>) const;
         

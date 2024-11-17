@@ -443,16 +443,14 @@ namespace db0
             }
         }
     }
-
-    bool Workspace::refresh()
+    
+    bool Workspace::refresh(bool if_updated)
     {        
         bool refreshed = false;
         for (auto &[uuid, fixture] : m_fixtures) {
             // only makes sense to refresh read-only fixtures
             if (fixture->getAccessType() == AccessType::READ_ONLY) {
-                if (fixture->refresh()) {
-                    refreshed = true;
-                }
+                refreshed |= if_updated ? fixture->refreshIfUpdated() : fixture->refresh();
             }
         }
         return refreshed;
