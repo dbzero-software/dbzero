@@ -37,7 +37,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"uuid", (PyCFunction)&py::PyAPI_getUUID, METH_FASTCALL, "Get unique object ID"},
     {"clear_cache", &py::PyAPI_clearCache, METH_NOARGS, "Clear DBZero cache"},
     {"list", (PyCFunction)&py::PyAPI_makeList, METH_FASTCALL, "Create a new DBZero list instance"},
-    {"index", (PyCFunction)&py::makeIndex, METH_FASTCALL, "Create a new DBZero index instance"},
+    {"index", (PyCFunction)&py::PyAPI_makeIndex, METH_FASTCALL, "Create a new DBZero index instance"},
     {"tuple", (PyCFunction)&py::PyAPI_makeTuple, METH_FASTCALL, "Create a new DBZero tuple instance"},
     {"set", (PyCFunction)&py::PyAPI_makeSet, METH_FASTCALL, "Create a new DBZero set instance"},
     {"dict", (PyCFunction)&py::PyAPI_makeDict, METH_VARARGS | METH_KEYWORDS, "Create a new DBZero dict instance"},

@@ -14,7 +14,7 @@ namespace db0::python
     
     PySnapshotObject *PySnapshot_new(PyTypeObject *type, PyObject *, PyObject *);
     PySnapshotObject *PySnapshotDefault_new();
-    void PySnapshot_del(PySnapshotObject* self);
+    void PyAPI_PySnapshot_del(PySnapshotObject* self);
     
     extern PyTypeObject PySnapshotObjectType;
     
@@ -22,12 +22,12 @@ namespace db0::python
         const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums, bool frozen);
     bool PySnapshot_Check(PyObject *);
     
-    PyObject* PySnapshot_fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *PySnapshot_find(PyObject *, PyObject *const *args, Py_ssize_t nargs);
-    PyObject *PySnapshot_deserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_PySnapshot_fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_PySnapshot_find(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_PySnapshot_deserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PyAPI_PySnapshot_close(PyObject *, PyObject *);
     
-    PyObject *PySnapshot_enter(PyObject *, PyObject *);
+    PyObject *PyAPI_PySnapshot_enter(PyObject *, PyObject *);
     PyObject *PyAPI_PySnapshot_exit(PyObject *, PyObject *);
     PyObject *PyAPI_PySnapshot_GetStateNum(PyObject *, PyObject *args, PyObject *kwargs);
     

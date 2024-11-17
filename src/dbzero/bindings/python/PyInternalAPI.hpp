@@ -51,21 +51,21 @@ namespace db0::python
         try {
             auto result = func(std::forward<Args>(args)...);
             if (PyErr_Occurred()) {
-                return NULL;
+                return 0;
             }
             return result;
         } catch (const db0::ClassNotFoundException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getClassNotFoundError(), e.what());
-            return NULL;
+            return 0;
         } catch (const db0::AbstractException &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
-            return NULL;
+            return 0;
         } catch (const std::exception &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
-            return NULL;
+            return 0;
         } catch (...) {
             PyErr_SetString(PyExc_RuntimeError, "Unknown exception");
-            return NULL;
+            return 0;
         }
     }
     
