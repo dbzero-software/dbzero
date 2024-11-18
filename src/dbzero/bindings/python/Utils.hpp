@@ -37,7 +37,7 @@ namespace db0::python
         PyObject* elem;
         PyObject* iterator = PyObject_GetIter(object);
         while ((elem = PyIter_Next(iterator))) {
-            if (!collection->ext().has_item(elem)) {
+            if (!sequenceContainsItem(collection, elem)) {
                 Py_DECREF(elem);                
                 return false;
             }
