@@ -120,7 +120,7 @@ namespace db0::object_model
     }
     
     ObjectIterator::ObjectSharedPtr ObjectIterator::unload(std::uint64_t address) const {
-        return LangToolkit::unloadObject(m_fixture, address, m_class_factory, m_lang_type.get());
+        return LangToolkit::unloadObject(getFixture(), address, m_class_factory, m_lang_type.get());
     }
     
     bool ObjectIterator::isNull() const {
@@ -201,9 +201,10 @@ namespace db0::object_model
     }
     
     void ObjectIterator::serialize(std::vector<std::byte> &buf) const
-    {        
+    {
+        auto fixture = getFixture();
         // FIXTURE uuid
-        db0::serial::write(buf, m_fixture->getUUID());
+        db0::serial::write(buf, fixture->getUUID());
         db0::serial::write<bool>(buf, this->isNull());
         if (this->isNull()) {
             return;
@@ -283,18 +284,28 @@ namespace db0::object_model
     
     std::unique_ptr<ObjectIterator> ObjectIterator::iter(const std::vector<FilterFunc> &filters) const
     {
+        auto fixture = getFixture();
         std::vector<FilterFunc> new_filters(this->m_filters);
         new_filters.insert(new_filters.end(), filters.begin(), filters.end());
 
         std::unique_ptr<QueryIterator> query_iterator = m_query_iterator ? 
             std::unique_ptr<QueryIterator>(static_cast<QueryIterator*>(m_query_iterator->begin().release())) : nullptr;
         std::unique_ptr<SortedIterator> sorted_iterator = m_sorted_iterator ? m_sorted_iterator->beginSorted() : nullptr;
-        return std::unique_ptr<ObjectIterator>(new ObjectIterator(m_fixture, m_class_factory, std::move(query_iterator), 
+        return std::unique_ptr<ObjectIterator>(new ObjectIterator(fixture, m_class_factory, std::move(query_iterator),
             std::move(sorted_iterator), m_factory, {}, std::move(new_filters), m_lang_type.get()));
     }
     
     ObjectIterator::TypeObjectPtr ObjectIterator::getLangType() const {
         return m_lang_type.get();
     }
-    
+
+    db0::swine_ptr<Fixture> ObjectIterator::getFixture() const
+    {
+        auto fixture = m_fixture.lock();
+        if (!fixture) {
+            THROWF(db0::InputException) << "ObjectIterator is no longer accessible (prefix or snapshot closed)" << THROWF_END;
+        }
+        return fixture;
+    }
+
 }

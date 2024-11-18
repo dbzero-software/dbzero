@@ -25,6 +25,8 @@ namespace db0
                 return IndexDataType::Int64;
             case TypeId::DATETIME:
                 return IndexDataType::UInt64;
+            case TypeId::BOOLEAN:
+                return IndexDataType::UInt64;
             default:
                 THROWF(db0::InputException) << "Unsupported index key type: " 
                     << static_cast<std::uint16_t>(type_id) << THROWF_END;

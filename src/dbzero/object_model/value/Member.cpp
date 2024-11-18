@@ -206,6 +206,13 @@ namespace db0::object_model
         return enum_value.getUID().asULong();
     }
     
+    template <> Value createMember<TypeId::BOOLEAN, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr)
+    {
+        return obj_ptr == Py_True ? 1 : 0;
+    }
+    
+
     template <> void registerCreateMemberFunctions<PyToolkit>(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr)> &functions)
     {
@@ -230,6 +237,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::BYTES)] = createMember<TypeId::BYTES, PyToolkit>;   
         functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = createMember<TypeId::OBJECT_ITERATOR, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
+        functions[static_cast<int>(TypeId::BOOLEAN)] = createMember<TypeId::BOOLEAN, PyToolkit>;
     }
     
     // STRING_REF specialization
@@ -355,6 +363,13 @@ namespace db0::object_model
         return enum_factory.getEnumByUID(enum_value_uid.m_enum_uid)->getLangValue(enum_value_uid).steal();
     }
     
+    // ENUM value specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::BOOLEAN, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+         return value.cast<std::uint64_t>() ? Py_True : Py_False;
+    }   
+
     template <> void registerUnloadMemberFunctions<PyToolkit>(
         std::vector<typename PyToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *)> &functions)
     {
@@ -375,6 +390,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DATE)] = unloadMember<StorageClass::DATE, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
+        functions[static_cast<int>(StorageClass::BOOLEAN)] = unloadMember<StorageClass::BOOLEAN, PyToolkit>;
     }
 
     template <typename T, typename LangToolkit>

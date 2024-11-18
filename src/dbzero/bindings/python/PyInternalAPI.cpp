@@ -243,12 +243,13 @@ namespace db0::python
         using TypedObjectIterator = db0::object_model::TypedObjectIterator;
         using TagIndex = db0::object_model::TagIndex;
         using Class = db0::object_model::Class;        
-                
+        
         std::vector<PyObject*> find_args;
         bool no_result = false;
         std::shared_ptr<Class> type;
         PyTypeObject *lang_type = nullptr;
         auto fixture = db0::object_model::getFindParams(snapshot, args, nargs, find_args, type, lang_type, no_result);
+        fixture->refreshIfUpdated();
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
         auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);

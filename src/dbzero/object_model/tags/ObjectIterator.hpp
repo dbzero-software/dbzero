@@ -76,10 +76,8 @@ namespace db0::object_model
         
         bool isSorted() const;
                 
-        db0::swine_ptr<Fixture> getFixture() const {
-            return m_fixture;
-        }
-
+        db0::swine_ptr<Fixture> getFixture() const;
+        
         bool isNull() const;
         
         void serialize(std::vector<std::byte> &) const override;
@@ -111,7 +109,7 @@ namespace db0::object_model
         TypeObjectPtr getLangType() const;
         
     protected:
-        mutable db0::swine_ptr<Fixture> m_fixture;
+        mutable db0::weak_swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;
         std::unique_ptr<QueryIterator> m_query_iterator;
         std::unique_ptr<SortedIterator> m_sorted_iterator;

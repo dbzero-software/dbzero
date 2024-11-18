@@ -171,7 +171,7 @@ namespace db0
         /**
          * This member checks m_updated flag before calling refresh
         */
-        void refreshIfUpdated();
+        bool refreshIfUpdated();
         
         /**
          * Get read-only snapshot of the fixture's state within a specific WorkspaceView
