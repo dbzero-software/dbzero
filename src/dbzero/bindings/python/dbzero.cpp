@@ -81,6 +81,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"get_address", (PyCFunction)&py::PyAPI_getAddress, METH_FASTCALL, "Get DBZero object's address"},
     {"get_type", (PyCFunction)&py::PyAPI_getType, METH_FASTCALL, "For a given DBZero instance, get associated Python type"},
     {"load", (PyCFunction)&py::PyAPI_load, METH_FASTCALL, "Load the entire instance from DBZero to memory and return as the closest native Python type"},
+    {"hash", (PyCFunction)&py::PyAPI_hash, METH_FASTCALL, "Returns hash of python or db0 object"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

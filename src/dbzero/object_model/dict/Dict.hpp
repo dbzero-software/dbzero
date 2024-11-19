@@ -58,11 +58,11 @@ namespace db0::object_model
         static Dict *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Dict *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
         
-        bool has_item(PyObject *obj) const;
+        bool has_item(int64_t hash, ObjectPtr obj) const;
         
         Dict *copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const;
 
-        ObjectSharedPtr pop(ObjectPtr obj);
+        ObjectSharedPtr pop(int64_t hash, ObjectPtr obj);
 
         void moveTo(db0::swine_ptr<Fixture> &);
 

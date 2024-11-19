@@ -149,10 +149,10 @@ namespace db0::object_model
         return new (at_ptr) Dict(fixture, address);
     }
     
-    bool Dict::has_item(ObjectPtr obj) const
+    bool Dict::has_item(int64_t hash, ObjectPtr obj) const
     {   
         // FIXME: this API should NOT be used directly here
-        auto item = getItem(PyObject_Hash(obj), obj);
+        auto item = getItem(hash, obj);
         return item != nullptr;
     }
 
@@ -160,9 +160,8 @@ namespace db0::object_model
         return new (at_ptr) Dict(fixture, *this);
     }
     
-    Dict::ObjectSharedPtr Dict::pop(ObjectPtr obj)
+    Dict::ObjectSharedPtr Dict::pop(int64_t hash, ObjectPtr obj)
     {
-        auto hash = PyObject_Hash(obj);
         auto iter = m_index.find(hash);
         if (iter == m_index.end()) {
             return nullptr;

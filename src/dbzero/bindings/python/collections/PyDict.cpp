@@ -6,6 +6,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/PyHash.hpp>
 
 namespace db0::python
 
@@ -27,7 +28,7 @@ namespace db0::python
     PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)
     {        
         dict_obj->ext().getFixture()->refreshIfUpdated();
-        auto hash = PyObject_Hash(key);
+        auto hash = get_py_hash(key);
         if (hash == -1) {
             return NULL;
         }
@@ -42,7 +43,7 @@ namespace db0::python
     
     int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
-        auto hash = PyObject_Hash(key);
+        auto hash = get_py_hash(key);
         if (hash == -1) {
             return -1;
         }
@@ -69,7 +70,8 @@ namespace db0::python
     {
         PY_API_FUNC
         dict_obj->ext().getFixture()->refreshIfUpdated();
-        return dict_obj->ext().has_item(key);
+        auto hash = get_py_hash(key);  
+        return dict_obj->ext().has_item(hash, key);
     }
     
     void PyAPI_DictObject_del(DictObject* dict_obj)
@@ -260,7 +262,8 @@ namespace db0::python
         if (nargs == 2) {
             value = args[1];
         }
-        if (dict_object->ext().has_item(elem)) {
+        auto hash = get_py_hash(elem);  
+        if (dict_object->ext().has_item(hash, elem)) {
             return DictObject_GetItem(dict_object, elem);
         }
         return value;
@@ -288,8 +291,9 @@ namespace db0::python
         if (nargs == 2) {
             value = args[1];
         }
-        if (dict_object->ext().has_item(elem)) {
-            auto obj = dict_object->modifyExt().pop(elem);
+        auto hash = get_py_hash(elem);  
+        if (dict_object->ext().has_item(hash, elem)) {
+            auto obj = dict_object->modifyExt().pop(hash, elem);
             return obj.steal();
         }
         if (value == nullptr) {
@@ -321,7 +325,8 @@ namespace db0::python
         if(nargs == 2){
             value = args[1];
         }
-        if (!dict_object->ext().has_item(elem)) {
+        auto hash = get_py_hash(elem);  
+        if (!dict_object->ext().has_item(hash, elem)) {
             DictObject_SetItem(dict_object, elem, value);
         }
         return DictObject_GetItem(dict_object, elem);        

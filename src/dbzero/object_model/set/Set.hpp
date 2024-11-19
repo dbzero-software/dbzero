@@ -57,7 +57,7 @@ namespace db0::object_model
         static Set *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
 
         Set::ObjectSharedPtr pop();
-        bool has_item(PyObject * obj) const;
+        bool has_item(int64_t hash, PyObject * obj) const;
         
         void clear();
         void insert(const Set &set);
