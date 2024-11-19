@@ -8,35 +8,30 @@ def test_hash_py_string():
     assert db0.hash("abc") == db0.hash("abc")
 
 def test_hash_enum(db0_fixture):
-    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
-    print(db0.hash(Colors.RED))
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
     assert db0.hash(Colors.RED) == db0.hash(Colors.RED)
 
 
 def test_hash_py_tuple(db0_fixture):
     t1 = (1, "string", 999)
-    t2 = (1, "string", 999)
-    print(db0.hash(t1))
+    t2 = (1, "string", 999)    
     assert db0.hash(t1) == db0.hash(t2)
 
 def test_hash_py_tuple_with_enum(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     t1 = (1, Colors.RED, 999)
-    t2 = (1, Colors.RED, 999)
-    print(db0.hash(t1))
+    t2 = (1, Colors.RED, 999)    
     assert db0.hash(t1) == db0.hash(t2)
 
 def test_hash_with_db0_tuple(db0_fixture):
     t1 = db0.tuple([1, "string", 999])
-    t2 = db0.tuple([1, "string", 999])
-    print(db0.hash(t1))
+    t2 = db0.tuple([1, "string", 999])    
     assert db0.hash(t1) == db0.hash(t2)
 
 def test_hash_with_db0_tuple_with_enum(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     t1 = db0.tuple([1, Colors.RED, 999])
-    t2 = db0.tuple([1, Colors.RED, 999])
-    print(db0.hash(t1))
+    t2 = db0.tuple([1, Colors.RED, 999])    
     assert db0.hash(t1) == db0.hash(t2)
 
 def get_test_for_subprocess(value_to_hash, setup_script=""):
@@ -63,8 +58,7 @@ if os.path.exists(DB0_DIR):
 
 def run_subprocess_script(script):
     result = subprocess.run(["python3", "-c", script], capture_output=True)
-    if result.returncode != 0:
-        print(result.stderr)
+    if result.returncode != 0:        
         raise Exception("Error in subprocess")
     return result.stdout
 
