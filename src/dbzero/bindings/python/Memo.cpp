@@ -155,10 +155,10 @@ namespace db0::python
             auto py_type = Py_TYPE(self);
             auto base_type = py_type->tp_base;
             
-            // invoke tp_init from base type (wrapped pyhon class)            
+            // invoke tp_init from base type (wrapped pyhon class)
             if (base_type->tp_init((PyObject*)self, args, kwds) < 0) {
                 PyObject *ptype, *pvalue, *ptraceback;
-                PyErr_Fetch(&ptype, &pvalue, &ptraceback);                
+                PyErr_Fetch(&ptype, &pvalue, &ptraceback);
                 if (ptype == PyToolkit::getTypeManager().getBadPrefixError()) {
                     // from pvalue
                     std::uint64_t fixture_uuid = PyLong_AsUnsignedLong(pvalue);

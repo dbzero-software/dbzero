@@ -140,7 +140,7 @@ namespace db0::python
     PyObject *fetchSingletonObject(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
     {
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
-        // find class associated class with the ClassFactory
+        // find type associated class with the ClassFactory
         auto type = class_factory.getExistingType(py_type);
         if (!type->isSingleton()) {
             THROWF(db0::InputException) << "Not a DBZero singleton type";
@@ -154,20 +154,25 @@ namespace db0::python
         type->unloadSingleton(&memo_obj->modifyExt());
         return memo_obj;
     }
-    
+
     PyObject *fetchSingletonObject(db0::Snapshot &snapshot, PyTypeObject *py_type)
     {
-        auto uuid = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture()->getUUID();
-        auto fixture = snapshot.getFixture(uuid, AccessType::READ_ONLY);
+        if (!PyMemoType_Check(py_type)) {
+            THROWF(db0::InternalException) << "Memo type expected for: " << py_type->tp_name << THROWF_END;
+        }
+
+        // get either curren fixture or a scope-related fixture
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+        auto fixture = snapshot.getFixture(decor.m_fixture_uuid);
         return fetchSingletonObject(fixture, py_type);
     }
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name)
     {        
         using ClassFactory = db0::object_model::ClassFactory;
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));        
+        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
 
-        assert(PyMemoType_Check(py_type));        
+        assert(PyMemoType_Check(py_type));
         assert(from_name);
         assert(to_name);
         
