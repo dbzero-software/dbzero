@@ -50,3 +50,37 @@ def test_query_uuid_is_same_between_transactions(db0_fixture):
     db0.tags(MemoTestClass(11)).add("tag1")
     uuid2 = db0.uuid(db0.find("tag1"))
     assert uuid1 == uuid2
+
+
+def test_uuid_of_dict(db0_fixture):
+    object_1 = db0.dict({"abd": 1})
+    assert db0.uuid(object_1) is not None
+
+
+def test_fetch_dict_by_uuid(db0_fixture):
+    object_1 = db0.dict({"abd": 1})    
+    object_2 = db0.fetch(db0.uuid(object_1))
+    assert object_1 == object_2
+
+
+def test_uuid_of_set(db0_fixture):
+    object_1 = db0.set([1, 2, 3])
+    assert db0.uuid(object_1) is not None
+
+
+def test_fetch_set_by_uuid(db0_fixture):
+    object_1 = db0.set([1, 2, 3])
+    object_2 = db0.fetch(db0.uuid(object_1))
+    assert object_1 == object_2
+
+
+def test_uuid_of_tuple(db0_fixture):
+    object_1 = db0.tuple([1, 2, 3])
+    assert db0.uuid(object_1) is not None
+
+
+def test_fetch_tuple_by_uuid(db0_fixture):
+    object_1 = db0.tuple([1, 2, 3])
+    object_2 = db0.fetch(db0.uuid(object_1))
+    assert object_1 == object_2
+    

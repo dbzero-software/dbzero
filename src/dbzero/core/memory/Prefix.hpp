@@ -59,6 +59,9 @@ namespace db0
 
         virtual bool beginRefresh();
 
+        /**
+         * @return timestamp of the last update (or 0 if not updated)
+         */
         virtual std::uint64_t completeRefresh();
 
         /**

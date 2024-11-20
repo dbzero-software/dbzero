@@ -11,6 +11,9 @@
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
+#include <dbzero/bindings/python/collections/PyDict.hpp>
+#include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
@@ -594,7 +597,19 @@ namespace db0::python
     template <> db0::object_model::StorageClass getStorageClass<ListObject>() {
         return db0::object_model::StorageClass::DB0_LIST;
     }
-    
+
+    template <> db0::object_model::StorageClass getStorageClass<DictObject>() {
+        return db0::object_model::StorageClass::DB0_DICT;
+    }
+
+    template <> db0::object_model::StorageClass getStorageClass<SetObject>() {
+        return db0::object_model::StorageClass::DB0_SET;
+    }
+
+    template <> db0::object_model::StorageClass getStorageClass<TupleObject>() {
+        return db0::object_model::StorageClass::DB0_TUPLE;
+    }
+
     template <> db0::object_model::StorageClass getStorageClass<IndexObject>() {
         return db0::object_model::StorageClass::DB0_INDEX;
     }

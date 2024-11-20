@@ -124,6 +124,15 @@ namespace db0::python
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             // unload by logical address
             return PyToolkit::unloadList(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {
+            // unload by logical address
+            return PyToolkit::unloadDict(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_SET) {
+            // unload by logical address
+            return PyToolkit::unloadSet(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {
+            // unload by logical address
+            return PyToolkit::unloadTuple(fixture, addr);
         } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {
             // unload by logical address
             return PyToolkit::unloadIndex(fixture, addr);
