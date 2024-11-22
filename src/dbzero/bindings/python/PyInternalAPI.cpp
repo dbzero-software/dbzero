@@ -147,10 +147,7 @@ namespace db0::python
     }
     
     PyObject *fetchSingletonObject(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
-    {
-        // FIXME: log
-        std::cout << "Fetch singleton object: " << py_type->tp_name << " prefix = " << fixture->getPrefix().getName() << std::endl;
-        
+    {        
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find type associated class with the ClassFactory
         auto type = class_factory.getExistingType(py_type);
