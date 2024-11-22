@@ -148,7 +148,8 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::PyEnumValueType,
         &py::PyClassFieldsType,
         &py::PyFieldDefType,
-        &py::ClassObjectType
+        &py::ClassObjectType,
+        &py::PyAtomicType
     };
     
     // register all types
