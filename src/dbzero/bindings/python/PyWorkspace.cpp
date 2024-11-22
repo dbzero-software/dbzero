@@ -98,7 +98,7 @@ namespace db0::python
         return getWorkspace().refresh();
     }
     
-    void PyWorkspace::stopThreads() 
+    void PyWorkspace::stopThreads()
     {
         if (hasWorkspace()) {
             getWorkspace().stopThreads();

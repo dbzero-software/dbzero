@@ -41,6 +41,10 @@ class Connection:
         cls.db0_dir = init_dir
         db0.init(init_dir, cls.__config)
         init_prefix = prefix or cls.db0_default_prefix
+        # set cache size if configured
+        if cls.__config["cache_size"] is not None:
+            db0.set_cache_size(cls.__config["cache_size"])
+        
         if init_prefix is not None:
             db0.open(init_prefix, "rw" if cls.read_write else "r")
         

@@ -71,7 +71,7 @@ namespace db0
         /**
          * Close this memspace, drop uncommited data
         */
-        void close();        
+        void close(ProcessTimer * = nullptr);
 
         bool isClosed() const;
         

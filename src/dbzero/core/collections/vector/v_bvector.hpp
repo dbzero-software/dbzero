@@ -371,8 +371,7 @@ namespace db0
             --dest_end;
             --dest_begin;
 
-            for(; source_begin != source_end && dest_begin != dest_end; --source_end, --dest_end)
-            {
+            for(; source_begin != source_end && dest_begin != dest_end; --source_end, --dest_end) {
                 *dest_end = *source_end;
             }
         }
@@ -382,21 +381,19 @@ namespace db0
         {
             // xxxxx - old elements
             // * - new elements
-            uint64_t insert_length = to_insert_end - to_insert_begin;
-            uint64_t orig_length = size();
+            std::uint64_t insert_length = to_insert_end - to_insert_begin;
+            std::uint64_t orig_length = size();
 
-            if (start_index > orig_length)
-            {
+            if (start_index > orig_length) {
                 THROWF(db0::InputException) << "start_index = " << start_index << ", vector_length = " << orig_length;
             } else if (start_index == orig_length) // xxxxx***
             {
                 // just push back elements one by one at end
                 push_back(to_insert_begin, to_insert_end);
-            } else
-            {
+            } else {
                 auto source_begin_index = orig_length - start_index;
 
-                if(start_index + insert_length > orig_length) // xxx***xx
+                if (start_index + insert_length > orig_length) // xxx***xx
                 {
                     // push back right part of collection that is inserted on the end
                     push_back(to_insert_begin + source_begin_index, to_insert_end);
@@ -575,8 +572,8 @@ namespace db0
         using ptr_block = v_object<ptr_container>;
         // B-CLASS 0 container
         using data_container = o_block_data<ItemT, 0>;
-
-    private :
+    
+    protected:
         mutable progressive_mutex m_mutex;
         const std::uint32_t m_db_shift;
         const std::uint32_t m_db_mask;

@@ -176,8 +176,7 @@ namespace db0
         LimitedVectorT m_alloc_counter;
         CRDT_Allocator m_allocator;
         const std::optional<std::size_t> m_initial_remaining_capacity;
-        std::size_t m_initial_admin_size;
-        std::int64_t m_alloc_delta = 0;
+        std::size_t m_initial_admin_size;        
         std::function<void(const SlabAllocator &)> m_on_close_handler;
                 
         static std::uint64_t headerAddr(std::uint64_t begin_addr, std::uint32_t size);

@@ -42,12 +42,8 @@ namespace db0::python
         m_fixture_uuid = 0;
     }
     
-    MemoTypeDecoration &MemoTypeDecoration::get(PyTypeObject *type) 
-    {
-        if (!PyMemoType_Check(type)) {
-            THROWF(db0::InternalException) << "Memo type expected for: " << type->tp_name << THROWF_END;
-        }
-        return *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
+    const char *MemoTypeDecoration::getPrefixName() const {
+        return m_prefix_name_ptr ? m_prefix_name_ptr : "";
     }
     
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
@@ -155,10 +151,10 @@ namespace db0::python
             auto py_type = Py_TYPE(self);
             auto base_type = py_type->tp_base;
             
-            // invoke tp_init from base type (wrapped pyhon class)            
+            // invoke tp_init from base type (wrapped pyhon class)
             if (base_type->tp_init((PyObject*)self, args, kwds) < 0) {
                 PyObject *ptype, *pvalue, *ptraceback;
-                PyErr_Fetch(&ptype, &pvalue, &ptraceback);                
+                PyErr_Fetch(&ptype, &pvalue, &ptraceback);
                 if (ptype == PyToolkit::getTypeManager().getBadPrefixError()) {
                     // from pvalue
                     std::uint64_t fixture_uuid = PyLong_AsUnsignedLong(pvalue);
@@ -579,11 +575,11 @@ namespace db0::python
     
     void MemoType_get_info(PyTypeObject *type, PyObject *dict)
     {                      
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
+        auto &decor = MemoTypeDecoration::get(type);
         PyDict_SetItemString(dict, "singleton", PyBool_FromLong(PyMemoType_IsSingleton(type)));
-        PyDict_SetItemString(dict, "prefix", PyUnicode_FromString(decor.m_prefix_name_ptr));
+        PyDict_SetItemString(dict, "prefix", PyUnicode_FromString(decor.getPrefixName()));
     }
-
+    
     void MemoType_close(PyTypeObject *type)
     {        
         auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));

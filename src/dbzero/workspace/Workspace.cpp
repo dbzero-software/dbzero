@@ -125,8 +125,12 @@ namespace db0
         return false;
     }
     
-    void BaseWorkspace::close()
+    void BaseWorkspace::close(ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("BaseWorkspace::close", timer_ptr);
+        }
         auto it = m_memspaces.begin();
         while (it != m_memspaces.end()) {
             it->second.close();
@@ -280,8 +284,13 @@ namespace db0
         m_workspace_threads = nullptr;
     }
     
-    void Workspace::close()
-    {        
+    void Workspace::close(ProcessTimer *timer_ptr)
+    {    
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Workspace::close", timer_ptr);
+        }
+
         // close associated workspace views
         for (auto &view_ptr : m_views) {
             if (auto ptr = view_ptr.lock()) {
@@ -294,12 +303,12 @@ namespace db0
         m_shared_object_list.clear();
         auto it = m_fixtures.begin();
         while (it != m_fixtures.end()) {
-            it->second->close();
+            it->second->close(timer.get());
             it = m_fixtures.erase(it);
         }
         m_default_fixture = {};
         m_current_prefix_history.clear();
-        BaseWorkspace::close();
+        BaseWorkspace::close(timer.get());
     }
     
     CacheRecycler &Workspace::getCacheRecycler() {
@@ -443,16 +452,14 @@ namespace db0
             }
         }
     }
-
-    bool Workspace::refresh()
+    
+    bool Workspace::refresh(bool if_updated)
     {        
         bool refreshed = false;
         for (auto &[uuid, fixture] : m_fixtures) {
             // only makes sense to refresh read-only fixtures
             if (fixture->getAccessType() == AccessType::READ_ONLY) {
-                if (fixture->refresh()) {
-                    refreshed = true;
-                }
+                refreshed |= if_updated ? fixture->refreshIfUpdated() : fixture->refresh();
             }
         }
         return refreshed;
@@ -620,6 +627,11 @@ namespace db0
     std::shared_ptr<WorkspaceView> Workspace::getWorkspaceView(std::optional<std::uint64_t> state_num,
         const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums) const
     {
+        // the head view has a special handling and prolonged scope
+        if (!state_num && prefix_state_nums.empty()) {
+            return getWorkspaceHeadView();
+        }
+
         // clean-up expired views
         m_views.remove_if([](const std::weak_ptr<WorkspaceView> &view) {
             return view.expired();
@@ -628,6 +640,30 @@ namespace db0
             new WorkspaceView(const_cast<Workspace&>(*this), state_num, prefix_state_nums));
         m_views.push_back(workspace_view);
         return workspace_view;
+    }
+    
+    std::shared_ptr<WorkspaceView> Workspace::getFrozenWorkspaceHeadView() const
+    {
+        auto result = m_head_view.lock();
+        if (!result) {
+            THROWF(db0::InputException) << "Frozen head snapshot not available";
+        }
+        return result;
+    }
+    
+    std::shared_ptr<WorkspaceView> Workspace::getWorkspaceHeadView() const
+    {
+        auto result = m_head_view.lock();
+        if (!result) {
+            result = std::shared_ptr<WorkspaceView>(new WorkspaceView(const_cast<Workspace&>(*this)));
+            m_head_view = result;
+            // clean-up expired views
+            m_views.remove_if([](const std::weak_ptr<WorkspaceView> &view) {
+                return view.expired();
+            });
+            m_views.push_back(result);
+        }
+        return result;
     }
     
     void Workspace::forEachMemspace(std::function<bool(Memspace &)> callback)

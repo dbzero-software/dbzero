@@ -77,7 +77,8 @@ namespace db0
 		return m_task.m_meter.getSeconds();
 	}
 
-	ProcessTimer::~ProcessTimer() {
+	ProcessTimer::~ProcessTimer() 
+	{
 		if (m_parent_task) {
 			(*m_parent_task).onSubTaskFinished(*this);
 		}
@@ -153,13 +154,14 @@ namespace db0
 		m_parent_task = other.m_parent_task;
 	}
 
-	ProcessTimer *ProcessTimer::getRootTaskTimer() {
+	ProcessTimer *ProcessTimer::getRootTaskTimer() 
+	{
 		if (m_parent_task) {
 			return m_parent_task->getRootTaskTimer();
 		}
 		return this;
 	}
-
+	
     void ProcessTimer::showLogs(std::ostream &logs)
 	{
         if (m_parent_task) {

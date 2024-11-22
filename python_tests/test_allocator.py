@@ -1,7 +1,9 @@
 import pytest
 import dbzero_ce as db0
 from random import randint
-from .memo_test_types import MemoTestClass
+from .memo_test_types import MemoTestClass, MemoTestSingleton
+import random
+import string
     
 
 def get_string(str_len):
@@ -88,3 +90,27 @@ def test_slab_space_utilization_with_large_allocs(db0_slab_size):
 def test_allocation_larger_than_slab_size_fails(db0_slab_size):    
     with pytest.raises(Exception):
         obj = MemoTestClass(get_string(int(1.2 * 1024 * 1024)))
+
+
+@pytest.mark.stress_test
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
+def test_allocator_out_of_space_when_small_slab_size(db0_slab_size):
+    """
+    Test was failing with: Allocator out of space    
+    Resolution: 
+    """
+    def rand_string(max_len):
+        str_len = random.randint(1, max_len)
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+    
+    root = MemoTestSingleton([])
+    buf = root.value
+    for _ in range(10000):
+        buf.append([])
+    
+    # append to random lists
+    count = 0
+    for _ in range(50000):
+        str = rand_string(256)
+        buf[random.randint(0, len(buf) - 1)].append(MemoTestClass(str))
+        count += 1

@@ -66,7 +66,6 @@ namespace db0
         // auto-align when requested size > page_size
         auto relative = m_allocator.tryAlloc(size, (size > m_page_size) || aligned);
         if (relative) {
-            m_alloc_delta += size;
             return makeAbsolute(*relative);
         }
         return std::nullopt;
@@ -208,7 +207,7 @@ namespace db0
         m_aligned_blanks.commit();
         m_stripes.commit();
         m_alloc_counter.commit();
-        m_allocator.commit();
+        m_allocator.commit();        
     }
     
     void SlabAllocator::detach() const

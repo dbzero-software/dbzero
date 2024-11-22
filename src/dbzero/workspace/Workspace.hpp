@@ -78,9 +78,9 @@ namespace db0
         bool drop(const PrefixName &, bool if_exists = true);
 
         /**
-         * Close all prefixes, drop all uncommited data
+         * Close all prefixes, commit all data from read/write prefixes
         */
-        void close();
+        void close(ProcessTimer * = nullptr);
 
         CacheRecycler &getCacheRecycler() {
             return m_cache_recycler;
@@ -204,9 +204,9 @@ namespace db0
         bool close(const PrefixName &) override;
 
         /**
-         * Close all prefixes, drop all uncommited data
+         * Close all prefixes, commit all data from read/write prefixes
         */
-        void close() override;
+        void close(ProcessTimer * = nullptr) override;
         
         std::shared_ptr<LangCache> getLangCache() const override;
 
@@ -220,7 +220,7 @@ namespace db0
          * Try refreshing all underlying fixtures
          * @return true if any fixture was refreshed
         */
-        bool refresh();
+        bool refresh(bool if_updated = false);
         
         void forEachFixture(std::function<bool(const Fixture &)>) const;
         
@@ -255,6 +255,9 @@ namespace db0
             std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {}) const;
         
+        // either get frozen head view or throw
+        std::shared_ptr<WorkspaceView> getFrozenWorkspaceHeadView() const;
+
         // stop all fixture threads - i.e. refresh and autocommit
         void stopThreads();
 
@@ -277,13 +280,17 @@ namespace db0
         mutable std::shared_ptr<LangCache> m_lang_cache;
         std::unique_ptr<WorkspaceThreads> m_workspace_threads;
         std::shared_ptr<Config> m_config;
-        // associated workspace view (some of which may already be deleted)
+        // associated workspace views (some of which may already be deleted)
         mutable std::list<std::weak_ptr<WorkspaceView> > m_views;
+        // the designated "head" view with the prolonged lifetime
+        mutable std::weak_ptr<WorkspaceView> m_head_view;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;
         
         void forEachMemspace(std::function<bool(Memspace &)> callback) override;
 
         void onCacheFlushed(bool threshold_reached) const override;
+
+        std::shared_ptr<WorkspaceView> getWorkspaceHeadView() const;
     };
     
     void validateAccessType(const Fixture &fixture, AccessType requested);

@@ -33,7 +33,7 @@ namespace db0
         
         bool close(const PrefixName &) override;
         
-        void close() override;
+        void close(ProcessTimer * = nullptr) override;
 
         std::shared_ptr<LangCache> getLangCache() const override;
         

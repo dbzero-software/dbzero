@@ -124,6 +124,15 @@ namespace db0::python
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             // unload by logical address
             return PyToolkit::unloadList(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {
+            // unload by logical address
+            return PyToolkit::unloadDict(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_SET) {
+            // unload by logical address
+            return PyToolkit::unloadSet(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {
+            // unload by logical address
+            return PyToolkit::unloadTuple(fixture, addr);
         } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {
             // unload by logical address
             return PyToolkit::unloadIndex(fixture, addr);
@@ -138,9 +147,9 @@ namespace db0::python
     }
     
     PyObject *fetchSingletonObject(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
-    {
+    {        
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
-        // find class associated class with the ClassFactory
+        // find type associated class with the ClassFactory
         auto type = class_factory.getExistingType(py_type);
         if (!type->isSingleton()) {
             THROWF(db0::InputException) << "Not a DBZero singleton type";
@@ -154,24 +163,28 @@ namespace db0::python
         type->unloadSingleton(&memo_obj->modifyExt());
         return memo_obj;
     }
-    
+
     PyObject *fetchSingletonObject(db0::Snapshot &snapshot, PyTypeObject *py_type)
     {
-        auto uuid = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture()->getUUID();
-        auto fixture = snapshot.getFixture(uuid, AccessType::READ_ONLY);
+        if (!PyMemoType_Check(py_type)) {
+            THROWF(db0::InternalException) << "Memo type expected for: " << py_type->tp_name << THROWF_END;
+        }
+
+        // get either curren fixture or a scope-related fixture
+        auto fixture = snapshot.getFixture(MemoTypeDecoration::get(py_type).getFixtureUUID());
         return fetchSingletonObject(fixture, py_type);
     }
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name)
     {        
         using ClassFactory = db0::object_model::ClassFactory;
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));        
+        auto fixture_uuid = MemoTypeDecoration::get(py_type).getFixtureUUID();
 
-        assert(PyMemoType_Check(py_type));        
+        assert(PyMemoType_Check(py_type));
         assert(from_name);
         assert(to_name);
         
-        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.m_fixture_uuid, AccessType::READ_WRITE));
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE));
         auto &class_factory = lock->get<ClassFactory>();
         // resolve existing DB0 type from python type
         auto type = class_factory.getExistingType(py_type);
@@ -179,7 +192,7 @@ namespace db0::python
     }
     
 #ifndef NDEBUG    
-
+    
     PyObject *writeBytes(PyObject *self, PyObject *args)
     {
         // extract string from args
@@ -243,12 +256,13 @@ namespace db0::python
         using TypedObjectIterator = db0::object_model::TypedObjectIterator;
         using TagIndex = db0::object_model::TagIndex;
         using Class = db0::object_model::Class;        
-                
+        
         std::vector<PyObject*> find_args;
         bool no_result = false;
         std::shared_ptr<Class> type;
         PyTypeObject *lang_type = nullptr;
         auto fixture = db0::object_model::getFindParams(snapshot, args, nargs, find_args, type, lang_type, no_result);
+        fixture->refreshIfUpdated();
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
         auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);

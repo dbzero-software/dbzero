@@ -100,8 +100,9 @@ namespace db0
             // resolve by UUID
             return getFixture(it->second);
         }
-
+        
         auto head_fixture = m_workspace_ptr->getFixture(prefix_name, AccessType::READ_ONLY);
+        auto fixture_uuid = head_fixture->getUUID();
         // get snapshot of the latest state
         auto result = head_fixture->getSnapshot(*this, getSnapshotStateNum(*head_fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
@@ -112,8 +113,8 @@ namespace db0
             initSnapshot(head_fixture, result);
         }
         
-        m_fixtures[head_fixture->getUUID()] = result;
-        m_name_uuids[prefix_name] = head_fixture->getUUID();
+        m_fixtures[fixture_uuid] = result;
+        m_name_uuids[prefix_name] = fixture_uuid;
         return result;
     }
     
@@ -144,6 +145,7 @@ namespace db0
         }
         
         auto head_fixture = m_workspace_ptr->getFixture(uuid, AccessType::READ_ONLY);
+        assert(head_fixture->getUUID() == uuid);
         auto result = head_fixture->getSnapshot(*this, getSnapshotStateNum(*head_fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
@@ -152,11 +154,11 @@ namespace db0
             fx_initializer(result, false, true);
             initSnapshot(head_fixture, result);
         }
-        m_fixtures[head_fixture->getUUID()] = result;
-        m_name_uuids[head_fixture->getPrefix().getName()] = head_fixture->getUUID();
+        m_fixtures[uuid] = result;
+        m_name_uuids[head_fixture->getPrefix().getName()] = uuid;
         return result;
     }
-    
+
     bool WorkspaceView::close(const PrefixName &prefix_name)
     {
         if (m_closed) {
@@ -175,10 +177,15 @@ namespace db0
         return false;
     }
     
-    void WorkspaceView::close()
+    void WorkspaceView::close(ProcessTimer *timer_ptr)
     {
         if (m_closed) {
             return;
+        }
+        
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("WorkspaceView::close", timer_ptr);
         }
         
         auto it = m_fixtures.begin(), end = m_fixtures.end();
@@ -234,7 +241,7 @@ namespace db0
         // try resolving from cached fixtures
         auto it = m_fixtures.find(*uuid);
         if (it != m_fixtures.end()) {
-            return it->second;            
+            return it->second;
         }
         return const_cast<WorkspaceView *>(this)->getFixture(*uuid);
     }

@@ -137,15 +137,7 @@ namespace db0
          * Get the maximum used state number
         */
         std::uint32_t getMaxStateNum() const;
-        
-        struct DeltaItem
-        {
-            // the state number
-            std::uint32_t m_state_num = 0;
-            // logical data page number
-            std::uint32_t m_page_num = 0;
-        };
-        
+                
         /**
          * Refresh cache after underlying DRAM has been updated
         */

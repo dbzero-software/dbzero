@@ -11,6 +11,9 @@
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
+#include <dbzero/bindings/python/collections/PyDict.hpp>
+#include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
@@ -283,12 +286,12 @@ namespace db0::python
         if (PyType_Check(py_object)) {
             if (PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
                 PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
-                auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-                if (decor.m_prefix_name_ptr) {
-                    return PyUnicode_FromString(decor.m_prefix_name_ptr);
+                auto prefix_name = MemoTypeDecoration::get(py_type).tryGetPrefixName();
+                if (prefix_name) {
+                    return PyUnicode_FromString(prefix_name);
                 }
             }
-            return Py_None;            
+            return Py_None;
         } else if (PyObjectIterator_Check(py_object)) {
             auto &iter = reinterpret_cast<PyObjectIterator*>(py_object)->ext();
             fixture = iter->getFixture();
@@ -361,30 +364,44 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryGetPrefixStats, args, kwargs);
     }
-        
-    PyObject *getSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    
+    PyObject *getSnapshot(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
+        PyObject *py_object_1 = nullptr, *py_object_2 = nullptr;
+        bool frozen = false;
+        static const char *kwlist[] = {"state_num", "prefix_state_nums", "frozen", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOp", const_cast<char**>(kwlist), &py_object_1, &py_object_2, &frozen)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+            return NULL;
+        }
+
         // requested state number of the default fixture
         std::optional<std::uint64_t> state_num;
         // state numbers by prefix name
         std::unordered_map<std::string, std::uint64_t> prefix_state_nums;
-        for (unsigned int i = 0; i < nargs; ++i) {
+
+        auto try_parse_arg = [&](PyObject *py_object) -> bool {
+            if (!py_object) {
+                return true;
+            }
+
             // can be either a number of a dict
-            if (PyLong_Check(args[i])) {
+            if (PyLong_Check(py_object)) {
                 if (state_num) {
                     PyErr_SetString(PyExc_TypeError, "Duplicate state_num argument");
-                    return NULL;
+                    return false;
                 }
-                state_num = PyLong_AsUnsignedLong(args[i]);                
-            } else if (PyDict_Check(args[i])) {
-                PyObject *py_dict = args[i];
+                state_num = PyLong_AsUnsignedLong(py_object);
+                return true;
+            } else if (PyDict_Check(py_object)) {
+                PyObject *py_dict = py_object;
                 PyObject *py_key, *py_value;
                 Py_ssize_t pos = 0;
                 while (PyDict_Next(py_dict, &pos, &py_key, &py_value)) {
                     if (!PyUnicode_Check(py_key) || !PyLong_Check(py_value)) {
                         PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-                        return NULL;
+                        return false;
                     }
                     const char *prefix_name = PyUnicode_AsUTF8(py_key);
                     std::uint64_t state_num = PyLong_AsUnsignedLong(py_value);
@@ -394,16 +411,24 @@ namespace db0::python
                         std::stringstream _str;
                         _str << "Conflicting state numbers requested for the same prefix: " << prefix_name;
                         PyErr_SetString(PyExc_TypeError, _str.str().c_str());
-                        return NULL;
+                        return false;
                     }
                     prefix_state_nums[prefix_name] = state_num;
                 }
             }
-        }
-        
-        return runSafe(tryGetSnapshot, state_num, prefix_state_nums);
-    }
+            return true;
+        };
 
+        if (!try_parse_arg(py_object_1)) {
+            return NULL;
+        }
+        if (!try_parse_arg(py_object_2)) {
+            return NULL;
+        }
+
+        return runSafe(tryGetSnapshot, state_num, prefix_state_nums, frozen);
+    }
+    
     PyObject *tryDescribeObject(PyObject *self, PyObject *args)
     {
         PyObject *py_object;
@@ -572,7 +597,19 @@ namespace db0::python
     template <> db0::object_model::StorageClass getStorageClass<ListObject>() {
         return db0::object_model::StorageClass::DB0_LIST;
     }
-    
+
+    template <> db0::object_model::StorageClass getStorageClass<DictObject>() {
+        return db0::object_model::StorageClass::DB0_DICT;
+    }
+
+    template <> db0::object_model::StorageClass getStorageClass<SetObject>() {
+        return db0::object_model::StorageClass::DB0_SET;
+    }
+
+    template <> db0::object_model::StorageClass getStorageClass<TupleObject>() {
+        return db0::object_model::StorageClass::DB0_TUPLE;
+    }
+
     template <> db0::object_model::StorageClass getStorageClass<IndexObject>() {
         return db0::object_model::StorageClass::DB0_INDEX;
     }

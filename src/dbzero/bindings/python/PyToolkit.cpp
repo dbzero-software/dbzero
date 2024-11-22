@@ -65,7 +65,7 @@ namespace db0::python
             // (if stored with the type decoration)
             if (PyMemoType_Check(py_type)) {
                 // file name may not be available in the type decoration
-                auto file_name = MemoTypeDecoration::get(py_type).m_file_name;
+                auto file_name = MemoTypeDecoration::get(py_type).tryGetFileName();
                 if (file_name) {
                     return getModuleNameFromFileName(file_name);
                 }
@@ -101,7 +101,7 @@ namespace db0::python
         return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> fixture, std::uint64_t address,
         const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr)
     {
         // try unloading from cache first
@@ -134,7 +134,7 @@ namespace db0::python
         return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> fixture, std::uint64_t address,
         std::shared_ptr<Class> type, TypeObjectPtr lang_class)
     {
         assert(lang_class);
@@ -154,7 +154,7 @@ namespace db0::python
         return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadBlock(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadBlock(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -171,7 +171,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(block_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -190,7 +190,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(list_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadIndex(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadIndex(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {        
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -209,7 +209,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(index_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -228,7 +228,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(set_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadDict(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadDict(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -247,7 +247,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(dict_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -266,7 +266,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(tuple_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObjectIterator(db0::swine_ptr<Fixture> &fixture,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObjectIterator(db0::swine_ptr<Fixture> fixture,
         std::vector<std::byte>::const_iterator &iter, 
         std::vector<std::byte>::const_iterator end)
     {
@@ -389,21 +389,19 @@ namespace db0::python
             return 0;
         }
     }
-
+    
     const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
     {
         assert(isMemoType(memo_type));
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
-        return decor.m_prefix_name_ptr;
+        return MemoTypeDecoration::get(memo_type).tryGetPrefixName();
     }
     
     const char *PyToolkit::getMemoTypeID(TypeObjectPtr memo_type)
     {
         assert(isMemoType(memo_type));
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
-        return decor.m_type_id;
+        return MemoTypeDecoration::get(memo_type).tryGetTypeId();        
     }
-
+    
     bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
         return PyMemoType_Check(py_type);
     }

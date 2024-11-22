@@ -41,7 +41,7 @@ namespace db0::python
         .tp_new = (newfunc)PyAtomic_new,
         .tp_free = PyObject_Free,
     };
-
+    
     PyAtomic *PyAPI_tryBeginAtomic(PyObject *self, std::unique_lock<std::mutex> &&lock)
     {
         PY_API_FUNC
