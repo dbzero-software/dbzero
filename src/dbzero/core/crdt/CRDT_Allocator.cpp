@@ -549,6 +549,12 @@ namespace db0
     
     std::optional<std::uint32_t> CRDT_Allocator::tryAlignedAllocFromBlanks(std::uint32_t size)
     {
+        // do not perform allocations from blanks if max_addr crossed dynamic bounds
+        // - i.e. the allocator is in the red zone
+        if (redZone()) {
+            return std::nullopt;
+        }
+        
         assert(size >= m_min_aligned_alloc_size);
         std::optional<Blank> blank;
         // for small allocations (1 < DP) try retrieving from the aligned blanks first
@@ -569,11 +575,15 @@ namespace db0
         m_cache->clear();
         assert(blank->getAlignedSize(m_mask, m_page_size) >= size);
         auto addr = blank->getAlignedAddress(m_mask, m_page_size);
+        
+        // max_addr must be updated before any updates to allocator's metadata
+        m_max_addr = std::max(m_max_addr, addr + size);
+        
         assert(addr >= blank->m_address);
         assert(addr + size <= blank->m_address + blank->m_size);
         auto alloc = m_allocs.emplace(addr, size, 1u);
         auto result = alloc.first->allocUnit();
-        m_max_addr = std::max(m_max_addr, alloc.first->endAddr());
+        assert(alloc.first->endAddr() <= m_max_addr);
         assert(!m_bounds_fn || m_max_addr <= m_bounds_fn().second);
         m_stripes.insert(alloc.first->toStripe());
         
@@ -593,7 +603,11 @@ namespace db0
 
     std::optional<std::uint32_t> CRDT_Allocator::tryAllocFromBlanks(std::uint32_t stride, std::uint32_t count)
     {
-        // Find the 1st blank of sufficient size (i.e. >= stride * count)        
+        // do not perform allocations if max_addr crossed dynamic bounds - i.e. the allocator is in the red zone
+        if (redZone()) {
+            return std::nullopt;
+        }
+        // Find the 1st blank of sufficient size (i.e. >= stride * count)
         auto min_size = stride * count;
         auto blank = tryPullBlank(m_blanks, min_size);
         if (!blank) {
@@ -602,9 +616,12 @@ namespace db0
         
         // L0 cache must be invalidated
         m_cache->clear();
-        auto alloc = m_allocs.emplace(blank->m_address, stride, count);        
+
+        // max_addr must be updated before any updates to allocator's metadata
+        m_max_addr = std::max(m_max_addr, blank->m_address + min_size);
+        auto alloc = m_allocs.emplace(blank->m_address, stride, count);
         auto result = alloc.first->allocUnit();
-        m_max_addr = std::max(m_max_addr, alloc.first->endAddr());
+        assert(alloc.first->endAddr() <= m_max_addr);
         assert(!m_bounds_fn || m_max_addr <= m_bounds_fn().second);
         if (count > 1) {
             // register with L0 cache
@@ -758,6 +775,12 @@ namespace db0
     {
         auto aligned_size = blank.getAlignedSize(getPageMask(page_size), page_size);
         return aligned_size > getMinAlignedAllocSize(min_aligned_alloc_size, page_size) && aligned_size < page_size * ALIGNED_INDEX_THRESHOLD;
+    }
+    
+    bool CRDT_Allocator::redZone() const
+    {
+        assert(!m_bounds_fn || m_max_addr <= m_bounds_fn().second);
+        return m_bounds_fn && m_max_addr >= m_bounds_fn().first;
     }
 
 }

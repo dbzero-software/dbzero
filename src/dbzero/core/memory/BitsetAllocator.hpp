@@ -125,6 +125,9 @@ namespace db0
             }
         } else {
             if (m_bounds_fn && addressOf(index) < m_bounds_fn()) {
+                // FIXME: log
+                std::cout << "BitsetAllocator direction = " << m_direction << std::endl;
+                std::cout << "BitsetAllocator: address: " << addressOf(index) << " exceeds bounds: " << m_bounds_fn() << std::endl;
                 // address would exceed the bounds
                 return std::nullopt;
             }

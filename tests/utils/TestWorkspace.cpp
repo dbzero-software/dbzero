@@ -67,7 +67,7 @@ namespace db0
         return false;
     }
     
-    void TestWorkspace::close()
+    void TestWorkspace::close(ProcessTimer *)
     {
         m_current_fixture = nullptr;
         for (auto &fixture: m_fixtures) {

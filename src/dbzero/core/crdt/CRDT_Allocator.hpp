@@ -477,6 +477,9 @@ namespace db0
         
         // Checks if the aligned size is in the range 0 < aligned size < 1DP
         bool isAligned(const Blank &) const;
+        
+        // check if max_addr crossed the dynamic bounds (first watermark)
+        bool redZone() const;
     };
     
     template <typename IndexT> bool CRDT_Allocator::inBounds(const IndexT &index, const Blank &blank, std::uint32_t size,

@@ -143,7 +143,7 @@ namespace db0
         void rollback();
         
         void commit();
-        void close();
+        void close(ProcessTimer * = nullptr);
         
         inline GC0 &getGC0()
         {

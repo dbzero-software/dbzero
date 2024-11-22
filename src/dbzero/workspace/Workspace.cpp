@@ -125,8 +125,12 @@ namespace db0
         return false;
     }
     
-    void BaseWorkspace::close()
+    void BaseWorkspace::close(ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("BaseWorkspace::close", timer_ptr);
+        }
         auto it = m_memspaces.begin();
         while (it != m_memspaces.end()) {
             it->second.close();
@@ -280,8 +284,13 @@ namespace db0
         m_workspace_threads = nullptr;
     }
     
-    void Workspace::close()
-    {        
+    void Workspace::close(ProcessTimer *timer_ptr)
+    {    
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Workspace::close", timer_ptr);
+        }
+
         // close associated workspace views
         for (auto &view_ptr : m_views) {
             if (auto ptr = view_ptr.lock()) {
@@ -294,12 +303,12 @@ namespace db0
         m_shared_object_list.clear();
         auto it = m_fixtures.begin();
         while (it != m_fixtures.end()) {
-            it->second->close();
+            it->second->close(timer.get());
             it = m_fixtures.erase(it);
         }
         m_default_fixture = {};
         m_current_prefix_history.clear();
-        BaseWorkspace::close();
+        BaseWorkspace::close(timer.get());
     }
     
     CacheRecycler &Workspace::getCacheRecycler() {

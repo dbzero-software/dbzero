@@ -14,6 +14,7 @@ namespace db0
     class Fixture;
     class LangCache;
     class PrefixName;
+    class ProcessTimer;
 
     /**
      * Snapshot is a common interface for Workspace and WorkspaceView
@@ -40,7 +41,7 @@ namespace db0
 
         virtual bool close(const PrefixName &prefix_name) = 0;
         
-        virtual void close() = 0;
+        virtual void close(ProcessTimer * = nullptr) = 0;
 
         virtual std::shared_ptr<LangCache> getLangCache() const = 0;
         

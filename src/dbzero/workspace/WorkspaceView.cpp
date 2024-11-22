@@ -177,10 +177,15 @@ namespace db0
         return false;
     }
     
-    void WorkspaceView::close()
+    void WorkspaceView::close(ProcessTimer *timer_ptr)
     {
         if (m_closed) {
             return;
+        }
+        
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("WorkspaceView::close", timer_ptr);
         }
         
         auto it = m_fixtures.begin(), end = m_fixtures.end();

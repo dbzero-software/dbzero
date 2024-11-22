@@ -3,6 +3,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 
 namespace db0::object_model
 
@@ -36,7 +37,7 @@ namespace db0::object_model
     }
     
     List::~List()
-    {
+    {        
         // unregister needs to be called before destruction of members
         unregister();
     }

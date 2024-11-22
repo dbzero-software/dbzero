@@ -150,11 +150,17 @@ namespace db0
         }
     }
     
-    void Fixture::close()
+    void Fixture::close(ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Fixture::close", timer_ptr);
+        }
+        
         // clear cache to destroy object instances supported by the cache
         // this has to be done before commit (to not commit unrefereced objects)        
         m_lang_cache.clear(true);
+        
         // auto-commit before closing
         if (m_access_type == AccessType::READ_WRITE) {
             // prevents commit on a closed fixture
@@ -165,22 +171,21 @@ namespace db0
                 if (m_gc0_ptr) {
                     getGC0().preCommit();
                 }
-                                
+
                 // clear lang cache again since pre-commit might've released some Python instances
                 m_lang_cache.clear(true);
 
                 // lock for exclusive access
                 std::unique_lock<std::shared_mutex> lock(m_shared_mutex);            
-                tryCommit(lock);
+                tryCommit(lock, timer.get());
             }
         }
         
-        std::unique_lock<std::mutex> lock(m_close_mutex);
         for (auto &close: m_close_handlers) {
             close(false);
-        }
+        }        
         m_string_pool.close();
-        Memspace::close();
+        Memspace::close(timer.get());
     }
     
     bool Fixture::refresh(ProcessTimer *timer_ptr)

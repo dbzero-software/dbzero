@@ -125,7 +125,7 @@ namespace db0
     }
     
     void LangCache::clear(bool expired_only)
-    {        
+    {
         for (auto &item: m_cache) {
             if (item.second && (!expired_only || LangToolkit::getRefCount(item.second.get()) == 1)) {
                 m_uid_to_index.erase(item.first);
@@ -250,15 +250,26 @@ namespace db0
     }
     
     void LangCacheView::clear(bool expired_only)
-    {        
+    {
         // erase expired objects only
         if (expired_only) {
-            auto it = m_objects.begin();
-            while (it != m_objects.end()) {
-                if (m_cache.erase(m_fixture_id, *it, true)) {
-                    it = m_objects.erase(it);
-                } else {
-                    ++it;
+            // optimized clear when lang cache view size >> cache size
+            if (m_objects.size() > m_cache.size() * 4) {                
+                std::unordered_set<std::uint64_t> non_expired_objects;
+                for (auto addr: m_objects) {
+                    if (!m_cache.erase(m_fixture_id, addr, true)) {
+                        non_expired_objects.insert(addr);
+                    }
+                }
+                m_objects = std::move(non_expired_objects);
+            } else {
+                auto it = m_objects.begin();
+                while (it != m_objects.end()) {
+                    if (m_cache.erase(m_fixture_id, *it, true)) {
+                        it = m_objects.erase(it);
+                    } else {
+                        ++it;
+                    }                    
                 }
             }
         } else {

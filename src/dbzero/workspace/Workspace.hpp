@@ -78,9 +78,9 @@ namespace db0
         bool drop(const PrefixName &, bool if_exists = true);
 
         /**
-         * Close all prefixes, drop all uncommited data
+         * Close all prefixes, commit all data from read/write prefixes
         */
-        void close();
+        void close(ProcessTimer * = nullptr);
 
         CacheRecycler &getCacheRecycler() {
             return m_cache_recycler;
@@ -204,9 +204,9 @@ namespace db0
         bool close(const PrefixName &) override;
 
         /**
-         * Close all prefixes, drop all uncommited data
+         * Close all prefixes, commit all data from read/write prefixes
         */
-        void close() override;
+        void close(ProcessTimer * = nullptr) override;
         
         std::shared_ptr<LangCache> getLangCache() const override;
 

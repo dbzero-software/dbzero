@@ -1,4 +1,5 @@
 #include "Memspace.hpp"
+#include <dbzero/core/utils/ProcessTimer.hpp>
 
 namespace db0
 
@@ -55,8 +56,13 @@ namespace db0
         getAllocator().detach();
     }
     
-    void Memspace::close()
+    void Memspace::close(ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Memspace::close", timer_ptr);
+        }
+        
         m_allocator_ptr = nullptr;
         m_allocator = nullptr;
         m_prefix->close();

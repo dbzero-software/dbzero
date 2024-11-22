@@ -90,9 +90,8 @@ def db0_no_autocommit():
     # disable autocommit on all prefixes
     db0.init(DB0_DIR, config = {"autocommit": False})
     db0.open("my-test-prefix")
-    yield db0
-    gc.collect()
-    db0.close()
+    yield db0    
+    db0.close()    
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
 

@@ -225,7 +225,7 @@ namespace db0
             return m_active_slab;
         }
 
-        std::uint32_t getRemainingCapacity(std::uint32_t slab_id) const 
+        std::uint32_t getRemainingCapacity(std::uint32_t slab_id) const
         {
             // look up with the cache first
             auto address = m_slab_address_func(slab_id);
@@ -495,7 +495,7 @@ namespace db0
             return { slab, cap_item };
         }
 
-        void erase(const FindResult &slab, bool cleanup) 
+        void erase(const FindResult &slab, bool cleanup)
         {
             if (slab.m_cap_item.m_slab_id != nextSlabId() - 1) {
                 return;
@@ -648,7 +648,8 @@ namespace db0
                     auto addr = slab.m_slab->tryAlloc(size, 0, aligned, false);
                     if (!addr) {
                         break;
-                    }                    
+                    }
+
                     if (!unique || slab.m_slab->makeAddressUnique(*addr)) {
                         // NOTE: the returned address is logical
                         return addr;
@@ -670,7 +671,7 @@ namespace db0
                 slab = m_slab_manager->findFirst(size);
                 is_first = false;
             } else {
-                slab = m_slab_manager->findNext(slab, size);                
+                slab = m_slab_manager->findNext(slab, size); 
             }
             if (!slab.m_slab) {
                 slab = m_slab_manager->addNewSlab();
