@@ -174,21 +174,20 @@ namespace db0::python
         }
 
         // get either curren fixture or a scope-related fixture
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-        auto fixture = snapshot.getFixture(decor.m_fixture_uuid);
+        auto fixture = snapshot.getFixture(MemoTypeDecoration::get(py_type).getFixtureUUID());
         return fetchSingletonObject(fixture, py_type);
     }
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name)
     {        
         using ClassFactory = db0::object_model::ClassFactory;
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+        auto fixture_uuid = MemoTypeDecoration::get(py_type).getFixtureUUID();
 
         assert(PyMemoType_Check(py_type));
         assert(from_name);
         assert(to_name);
         
-        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.m_fixture_uuid, AccessType::READ_WRITE));
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE));
         auto &class_factory = lock->get<ClassFactory>();
         // resolve existing DB0 type from python type
         auto type = class_factory.getExistingType(py_type);
@@ -196,7 +195,7 @@ namespace db0::python
     }
     
 #ifndef NDEBUG    
-
+    
     PyObject *writeBytes(PyObject *self, PyObject *args)
     {
         // extract string from args

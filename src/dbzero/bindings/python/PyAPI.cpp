@@ -286,12 +286,12 @@ namespace db0::python
         if (PyType_Check(py_object)) {
             if (PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
                 PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
-                auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-                if (decor.m_prefix_name_ptr) {
-                    return PyUnicode_FromString(decor.m_prefix_name_ptr);
+                auto prefix_name = MemoTypeDecoration::get(py_type).tryGetPrefixName();
+                if (prefix_name) {
+                    return PyUnicode_FromString(prefix_name);
                 }
             }
-            return Py_None;            
+            return Py_None;
         } else if (PyObjectIterator_Check(py_object)) {
             auto &iter = reinterpret_cast<PyObjectIterator*>(py_object)->ext();
             fixture = iter->getFixture();

@@ -54,6 +54,7 @@ def test_query_uuid_is_same_between_transactions(db0_fixture):
 
 def test_uuid_of_dict(db0_fixture):
     object_1 = db0.dict({"abd": 1})
+    print(db0.uuid(object_1))
     assert db0.uuid(object_1) is not None
 
 

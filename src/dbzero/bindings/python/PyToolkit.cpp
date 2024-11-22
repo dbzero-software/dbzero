@@ -65,7 +65,7 @@ namespace db0::python
             // (if stored with the type decoration)
             if (PyMemoType_Check(py_type)) {
                 // file name may not be available in the type decoration
-                auto file_name = MemoTypeDecoration::get(py_type).m_file_name;
+                auto file_name = MemoTypeDecoration::get(py_type).tryGetFileName();
                 if (file_name) {
                     return getModuleNameFromFileName(file_name);
                 }
@@ -389,21 +389,19 @@ namespace db0::python
             return 0;
         }
     }
-
+    
     const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
     {
         assert(isMemoType(memo_type));
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
-        return decor.m_prefix_name_ptr;
+        return MemoTypeDecoration::get(memo_type).tryGetPrefixName();
     }
     
     const char *PyToolkit::getMemoTypeID(TypeObjectPtr memo_type)
     {
         assert(isMemoType(memo_type));
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
-        return decor.m_type_id;
+        return MemoTypeDecoration::get(memo_type).tryGetTypeId();        
     }
-
+    
     bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
         return PyMemoType_Check(py_type);
     }
