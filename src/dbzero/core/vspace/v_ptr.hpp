@@ -215,6 +215,9 @@ namespace db0
             while (!ResourceReadWriteMutexT::__ref(m_resource_flags).get()) {
                 ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
+                    // release the MemLock first to avoid or reduce CoWs
+                    // otherwise mapRange might need to manage multiple lock versions
+                    m_mem_lock.release();
                     // lock for +write
                     // note that lock is getting updated, possibly copy-on-write is being performed
                     // NOTE: must extract physical address for mapRange

@@ -286,32 +286,33 @@ def test_low_cache_mt_issue1(db0_autocommit_fixture):
         index += 1
 
 
-# @pytest.mark.stress_test
-# @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
-# def test_low_cache_bad_address_issue1(db0_slab_size):
-#     """
-#     Test was failing with: CRDT_Allocator internal error: blank not found after ~2.5k operations
-#     Update: fails faster depending on slab size
-#     Resolution: 
-#     """
-#     def rand_string(max_len):
-#         str_len = random.randint(1, max_len)
-#         return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
-    
-#     root = MemoTestSingleton([])
-#     db0.set_cache_size(100 << 30)
-#     buf = root.value
-#     for _ in range(10000):
-#         buf.append([])
-    
-#     # append to random lists
-#     count = 0
-#     for _ in range(50000):
-#         str = rand_string(256)
-#         buf[random.randint(0, len(buf) - 1)].append(MemoTestClass(str))
-#         count += 1
-#         # commit every 1000 appends
-#         if count % 500 == 0:
-#             db0.commit()
-#             print(f"Transactions so far: {count}")
+@pytest.mark.stress_test
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 2 << 20}], indirect=True)
+def test_low_cache_bad_address_issue1(db0_slab_size):
+    """
+    Test was failing with: CRDT_Allocator internal error: blank not found after ~6k operations
+    Update: Fails faster depending on slab size but works fine with 1MB slab size    
+    Update: disabling commits solves the issue (probably due to lack of deferred free-s)
+    Resolution: 
+    """
+    def rand_string(max_len):
+        str_len = random.randint(1, max_len)
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+
+    root = MemoTestSingleton([])
+    db0.set_cache_size(100 << 10)
+    buf = root.value
+    for _ in range(10000):
+        buf.append([])
+
+    # append to random lists
+    count = 0
+    for _ in range(50000):
+        str = rand_string(256)
+        buf[random.randint(0, len(buf) - 1)].append(MemoTestClass(str))
+        count += 1
+        # commit every 1000 appends
+        if count % 500 == 0:
+            db0.commit()
+            print(f"Transactions so far: {count}")
     

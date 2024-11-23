@@ -7,11 +7,11 @@
 namespace db0
 
 {
-    
+        
     DP_Lock::DP_Lock(StorageContext context, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num, bool create_new)
         : ResourceLock(context, address, size, access_mode, create_new)
-        , m_state_num(std::max(read_state_num, write_state_num))
+        , m_state_num(std::max(read_state_num, write_state_num))        
     {
         assert(addrPageAligned(m_context.m_storage_ref.get()));
         // initialzie the local buffer
@@ -23,22 +23,22 @@ namespace db0
             );
         }
     }
-    
+
     DP_Lock::DP_Lock(tag_derived, StorageContext context, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new)
         : ResourceLock(context, address, size, access_mode, create_new)
         , m_state_num(std::max(read_state_num, write_state_num))
     {
     }
-        
+
     DP_Lock::DP_Lock(const DP_Lock &other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
         : ResourceLock(other, access_mode)
         , m_state_num(write_state_num)
-    {         
+    {
         assert(addrPageAligned(m_context.m_storage_ref.get()));
         assert(m_state_num > 0);
     }
-    
+
     void DP_Lock::flush()
     {
         // no-flush flag is important for volatile locks (atomic operations)
@@ -57,11 +57,11 @@ namespace db0
             }
         }
     }
-    
+
     std::uint64_t DP_Lock::getStateNum() const {
         return m_state_num;
     }
-    
+
     void DP_Lock::updateStateNum(std::uint64_t state_num, bool no_flush)
     {
         assert(state_num > m_state_num);

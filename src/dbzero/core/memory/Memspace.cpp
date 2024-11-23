@@ -48,7 +48,7 @@ namespace db0
     {       
         assert(m_prefix);
         // prepare the allocator for the next transaction
-        getAllocatorForUpdate().commit();
+        getAllocatorForUpdate().commit();        
         m_prefix->commit(timer);
     }
     

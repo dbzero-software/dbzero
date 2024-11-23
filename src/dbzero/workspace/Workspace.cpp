@@ -181,7 +181,7 @@ namespace db0
                 }
                 total_dirty_size -= size_flushed;
                 limit -= size_flushed;
-            }
+            }            
             return true;
         });
     }

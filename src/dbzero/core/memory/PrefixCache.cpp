@@ -71,7 +71,7 @@ namespace db0
         }
         
         dp_lock = weak_ref->lock();
-        // must restore cache-expired lock
+        // must restore cache-expired lock        
         if (!dp_lock) {
             // the restored lock is created as "read" since it's brought back from the storage
             dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size, 
@@ -228,7 +228,7 @@ namespace db0
         std::shared_ptr<BoundaryLock> br_lock;
         if (weak_ref) {
             assert(read_state_num > 0);
-            br_lock = weak_ref->lock();
+            br_lock = weak_ref->lock();            
             if (!br_lock) {
                 // operation must be repeated with lhs & rhs
                 if (!lhs || !rhs) {
@@ -245,33 +245,35 @@ namespace db0
         }
         
         if (!br_lock) {
+            // if both lhs & rhs parents are available and from the same state, we may create the boundary lock
+            // and feed it back into the cache
+            std::uint64_t lhs_state_num, rhs_state_num;
             if (lhs && rhs) {
-                read_state_num = state_num;
+                lhs_state_num = lhs->getStateNum();
+                rhs_state_num = rhs->getStateNum();                
             } else {
-                // if both lhs & rhs parents are available and from the same state, we may create the boundary lock
-                // and feed it back into the cache
-                std::uint64_t lhs_state_num, rhs_state_num;
                 lhs = findPage(first_page, state_num, access_mode, lhs_state_num);
                 rhs = findPage(first_page + 1, state_num, access_mode, rhs_state_num);
                 if (!lhs || !rhs) {
                     // inconsitent locks
                     return {};
                 }
-                
-                // pick the minimum of the underlying states as the read state number
-                read_state_num = std::min(lhs_state_num, rhs_state_num);
-                // write lock cannot be created due to inconsistent lhs / rhs state numbers
-                if (read_state_num != state_num && access_mode[AccessOptions::write]) {
-                    return {};
-                }
             }
-
+            
+            // pick the minimum of the underlying states as the read state number
+            read_state_num = std::min(lhs_state_num, rhs_state_num);
+            // write lock cannot be created due to inconsistent lhs / rhs state numbers
+            if (read_state_num != state_num && access_mode[AccessOptions::write]) {
+                return {};
+            }            
+            
             assert(lhs && rhs);
             auto lhs_size = ((first_page + 1) << m_shift) - address;
             // remove the no_flush flag if accessing from a historical transaction (as lock is non-volatile)
             if (read_state_num < state_num) {
                 access_mode.clear(AccessOptions::no_flush);
             }
+
             // NOTE: boundary locks are not registered with the dirty-cache
             // we use dp_context as a placeholder for the dirty-cache
             br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
@@ -282,7 +284,7 @@ namespace db0
                 m_volatile_boundary_locks.push_back(br_lock);
             }
         }
-
+        
         // in case of a boundary lock the address must be precisely matched
         // since boundary lock contains only the single allocation's data            
         assert(br_lock->getAddress() == address);
@@ -354,6 +356,7 @@ namespace db0
         // NOTE: boundary locks are not registered with the dirty-cache
         // we use dp_context as a placeholder for the dirty-cache
         auto result = std::make_shared<BoundaryLock>(m_dp_context, address, lock, lhs, lhs_size, rhs, rhs_size, access_mode);        
+        assert(state_num == std::min(lhs->getStateNum(), rhs->getStateNum()));
         m_boundary_map.insert(state_num, result);
         
         // note that BoundaryLocks are not recycled

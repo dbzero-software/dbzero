@@ -11,7 +11,7 @@
 namespace db0
 
 {
-
+        
     /**
      * A DP_Lock holds a single or multiple data pages in a specific state (read)
      * mutable locks can process updates from the current transaction only and cannot be later mutated

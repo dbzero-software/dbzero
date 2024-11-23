@@ -152,7 +152,7 @@ namespace db0
         
         // prepare cache for the refresh operation
         void beginRefresh();
-
+        
     protected:        
         const std::size_t m_page_size;
         const unsigned int m_shift;

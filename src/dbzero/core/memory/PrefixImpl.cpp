@@ -111,7 +111,7 @@ namespace db0
             assert(getAccessType() == AccessType::READ_WRITE);
             // read / write access
             if (read_state_num != state_num) {
-                // possibly create CowS of lhs / rhs
+                // possibly create CoWs of lhs / rhs
                 if (!lhs) {
                     lhs = mapPage(first_page_num, state_num, access_mode | AccessOptions::read);
                 }
@@ -147,7 +147,7 @@ namespace db0
             if (!lock) {
                 // find the relevant mutation ID (aka state number) if this is read-only access
                 auto mutation_id = m_storage_ptr->findMutation(page_num, state_num);
-                // create range under the mutation ID
+                // create page under the mutation ID
                 // since access is read-only we pass write_state_num = 0
                 // clear the no_flush (volatile) flag since lock is from past transaction
                 if (access_mode[AccessOptions::no_flush]) {
@@ -266,7 +266,7 @@ namespace db0
         assert(lock);
         return lock;
     }
-
+    
     std::uint64_t PrefixImpl::getStateNum() const {
         return m_head_state_num;
     }

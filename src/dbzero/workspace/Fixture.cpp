@@ -248,7 +248,7 @@ namespace db0
     
     void Fixture::commit()
     {        
-        assert(getPrefixPtr());                
+        assert(getPrefixPtr());
         // pre-commit to prepare objects which require it (e.g. Index) for commit
         // NOTE: pre-commit must NOT lock the fixture's shared mutex
         // NOTE: pre-commit may release some of the Python instances
