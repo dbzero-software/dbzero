@@ -38,11 +38,6 @@ namespace db0
         std::uint64_t address, std::size_t size) const
     {
         if (!isPageAligned(address) || !isPageAligned(size)) {
-            // use create logic only in case of page-aligned address ranges (address & size)
-            // otherwise data outside of the range but within the page may not be retrieved
-            if (access_mode[AccessOptions::create]) {
-                access_mode.set(AccessOptions::create, false);
-            }
             // apply read flag to fetch contents from outside of the range
             if (!access_mode[AccessOptions::read]) {
                 access_mode.set(AccessOptions::read, true);
@@ -55,8 +50,6 @@ namespace db0
     {
         assert(state_num > 0);
         assert(size > 0);
-        // create flag must be accompanied by write flag
-        assert(!access_mode[AccessOptions::create] || access_mode[AccessOptions::write]);
         // for atomic operations use no_flush flag to allow reverting changes
         if (m_atomic) {
             access_mode.set(AccessOptions::no_flush, true);
@@ -73,9 +66,8 @@ namespace db0
         } else {
             auto addr_offset = address & (m_page_size - 1);
             if (isBoundaryRange(first_page, end_page, addr_offset)) {
-                // create mode not allowed for boundary range
-                access_mode.set(AccessOptions::create, false);
-                lock = mapBoundaryRange(first_page, address, size, state_num, access_mode);
+                // create mode not allowed for boundary range                
+                lock = mapBoundaryRange(first_page, address, size, state_num, access_mode | AccessOptions::read);
             } else {
                 assert(!addr_offset && "Wide range must be page aligned");
                 lock = mapWideRange(first_page, end_page, address, size, state_num, access_mode);
@@ -106,7 +98,7 @@ namespace db0
         }
         
         assert(read_state_num > 0);
-        assert(!access_mode[AccessOptions::create] && "Unable to create boundary range");
+        assert(access_mode[AccessOptions::read] && "Unable to create boundary range");
         if (access_mode[AccessOptions::write]) {
             assert(getAccessType() == AccessType::READ_WRITE);
             // read / write access
@@ -121,6 +113,7 @@ namespace db0
                 // ... and finally the BoundaryLock on top of the existing lhs / rhs locks
                 lock = m_cache.insertCopy(address, size, *lock, lhs, rhs, state_num, access_mode);
             }
+            lock->setDirty();
         }
         
         return lock;
@@ -132,15 +125,14 @@ namespace db0
         std::uint64_t read_state_num = 0;
         auto lock = m_cache.findPage(page_num, state_num, access_mode, read_state_num);
         assert(!lock || read_state_num > 0);
-        if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read]) {
+        if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::read]) {
             assert(getAccessType() == AccessType::READ_WRITE);
             // create/write-only access
             if (!lock || read_state_num != state_num) {
                 // we don't need reading thus passing read_state_num = 0
-                // create / write page
-                assert(access_mode[AccessOptions::create]);
                 lock = m_cache.createPage(page_num, 0, state_num, access_mode);
             }
+            lock->setDirty();
             assert(lock);
         } else if (!access_mode[AccessOptions::write]) {
             // read-only access
@@ -159,7 +151,7 @@ namespace db0
             }
         } else {
             assert(getAccessType() == AccessType::READ_WRITE);
-            // read / write access            
+            // read / write access
             if (lock) {
                 if (read_state_num != state_num) {
                     // create a new lock as a copy of existing read_lock (CoW)
@@ -176,9 +168,10 @@ namespace db0
                 } else {
                     // create / write page
                     access_mode.set(AccessOptions::read, false);
-                    lock = m_cache.createPage(page_num, 0, state_num, access_mode | AccessOptions::create);
+                    lock = m_cache.createPage(page_num, 0, state_num, access_mode);
                 }
             }
+            lock->setDirty();
         }
         
         assert(lock);
@@ -203,7 +196,7 @@ namespace db0
         bool has_res = !isPageAligned(size);
         assert(!lock || read_state_num > 0);
         
-        if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read]) {
+        if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::read]) {
             assert(getAccessType() == AccessType::READ_WRITE);
             // create/write-only access
             if (!lock || read_state_num != state_num) {
@@ -213,8 +206,9 @@ namespace db0
                     res_lock = mapPage(end_page - 1, state_num, access_mode | AccessOptions::read);
                 }
                 lock = m_cache.createRange(first_page, size, 0, state_num, access_mode, res_lock);
-            }
+            }            
             assert(lock);
+            lock->setDirty();
         } else if (!access_mode[AccessOptions::write]) {
             // read-only access
             if (!lock) {
@@ -261,6 +255,7 @@ namespace db0
                 // we pass both read & write state numbers here
                 lock = m_cache.createRange(first_page, size, mutation_id, state_num, access_mode, res_dp);
             }
+            lock->setDirty();
         }
 
         assert(lock);

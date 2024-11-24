@@ -17,16 +17,17 @@ namespace db0
 #endif
 
     ResourceLock::ResourceLock(StorageContext storage_context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode, bool create_new)
+        FlagSet<AccessOptions> access_mode)
         : m_context(storage_context)
         , m_address(address)
         , m_resource_flags(
-            (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) | 
+            (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) |
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
         , m_access_mode(access_mode)
         , m_data(size)
     {
-        if (create_new) {
+        // intialize buffer for write-only access (create)
+        if (!access_mode[AccessOptions::read]) {
             std::memset(m_data.data(), 0, m_data.size());
         }        
 #ifndef NDEBUG        
@@ -35,7 +36,7 @@ namespace db0
         ++rl_op_count;
 #endif
     }
-
+    
     ResourceLock::ResourceLock(const ResourceLock &lock, FlagSet<AccessOptions> access_mode)
         : m_context(lock.m_context)
         , m_address(lock.m_address)

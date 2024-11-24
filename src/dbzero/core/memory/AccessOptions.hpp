@@ -6,17 +6,16 @@
 namespace db0
 
 {
-
+    
     enum class AccessOptions : std::uint16_t
     {
         read        = 0x0001,
-        write       = 0x0002,
-        create      = 0x0004,
-        no_cache    = 0x0008,
+        write       = 0x0002,        
+        no_cache    = 0x0004,
         // resource which should be kept in-memory
-        no_flush    = 0x0010,
+        no_flush    = 0x0008,
         // request to allocate a unique address
-        unique      = 0x0020
+        unique      = 0x0010
     };
     
     /**

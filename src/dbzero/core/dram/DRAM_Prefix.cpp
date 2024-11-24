@@ -29,8 +29,7 @@ namespace db0
     }
     
     DRAM_Prefix::MemoryPage::MemoryPage(StorageContext context, std::uint64_t address, std::size_t size)
-        : m_lock(std::make_shared<DP_Lock>(context, address, size,
-            FlagSet<AccessOptions> { AccessOptions::write, AccessOptions::create }, 0, 0, true))
+        : m_lock(std::make_shared<DP_Lock>(context, address, size, FlagSet<AccessOptions> {}, 0, 0))
         // pull from Storage0 temp instance
         , m_buffer(m_lock->getBuffer(address))
     {

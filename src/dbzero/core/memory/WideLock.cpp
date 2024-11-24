@@ -9,9 +9,8 @@ namespace db0
 {
     
     WideLock::WideLock(StorageContext context, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-        std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<DP_Lock> res_lock, 
-        bool create_new)
-        : DP_Lock(tag_derived{}, context, address, size, access_mode, read_state_num, write_state_num, create_new)
+        std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<DP_Lock> res_lock)
+        : DP_Lock(tag_derived{}, context, address, size, access_mode, read_state_num, write_state_num)
         , m_res_lock(res_lock)
     {
         // initialzie the local buffer
@@ -31,7 +30,7 @@ namespace db0
             }
         }
     }
-
+    
     WideLock::WideLock(const WideLock &lock, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode,
         std::shared_ptr<DP_Lock> res_lock)
         : DP_Lock(lock, write_state_num, access_mode)

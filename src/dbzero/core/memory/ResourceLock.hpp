@@ -33,8 +33,7 @@ namespace db0
     class ResourceLock: public std::enable_shared_from_this<ResourceLock>
     {
     public:
-        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
-            bool create_new);
+        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>);
         ResourceLock(const ResourceLock &, FlagSet<AccessOptions>);        
         
         virtual ~ResourceLock();

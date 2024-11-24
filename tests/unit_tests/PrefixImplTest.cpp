@@ -117,13 +117,13 @@ namespace tests
         ASSERT_EQ(cut.getStateNum(), 1);
         // create a new range (use current state num)
         {
-            auto r0 = cut.mapRange(12288, 4, { AccessOptions::create, AccessOptions::write });
+            auto r0 = cut.mapRange(12288, 4, { AccessOptions::write });
             memcpy(r0.modify(), "1234", 4);
         }
         
         // create another range in the same page, use state_num = 2
         cut.commit();
-        auto r1 = cut.mapRange(12292, 4, { AccessOptions::create, AccessOptions::write });
+        auto r1 = cut.mapRange(12292, 4, { AccessOptions::write });
         // make sure the contents from previous write has been preserved
         ASSERT_EQ(std::string((char *)r1.m_buffer - 4, 4), "1234");
 
@@ -138,14 +138,14 @@ namespace tests
         ASSERT_EQ(cut.getStateNum(), 1);
         // create a new range (use current state num)
         {
-            auto r0 = cut.mapRange(12288, 4, { AccessOptions::create, AccessOptions::write });
+            auto r0 = cut.mapRange(12288, 4, { AccessOptions::write });
             memcpy(r0.modify(), "1234", 4);
             r0.release();
         }
         
         cut.commit();
         // create another range in the same page, use state_num = 2
-        auto r1 = cut.mapRange(12292, 4, { AccessOptions::create, AccessOptions::write });
+        auto r1 = cut.mapRange(12292, 4, { AccessOptions::write });
         // make sure the contents from previous write has been preserved
         ASSERT_EQ(std::string((char *)r1.m_buffer - 4, 4), "1234");
         r1.release();
@@ -161,14 +161,14 @@ namespace tests
         ASSERT_EQ(cut.getStateNum(), 1);
         
         // create boundary range 1
-        auto r0 = cut.mapRange(page_size * 2 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto r0 = cut.mapRange(page_size * 2 - 4, 8, { AccessOptions::write });
         memcpy(r0.modify(), "12345678", 8);
         r0.release();
         
         // create single-page range
         cut.mapRange(page_size * 3 - 1080, 120, { AccessOptions::write });
         // create boundary range 2
-        auto r1 = cut.mapRange(page_size * 3 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto r1 = cut.mapRange(page_size * 3 - 4, 8, { AccessOptions::write });
         memcpy(r1.modify(), "12345678", 8);
         
         // open boundary range for read (same transaction)
@@ -188,11 +188,11 @@ namespace tests
         
         {
             // write lhs range 1
-            auto w1 = cut.mapRange(page_size * 0 + 16, 8, { AccessOptions::create, AccessOptions::write });
+            auto w1 = cut.mapRange(page_size * 0 + 16, 8, { AccessOptions::write });
             memcpy(w1.modify(), "12345678", 8);
 
             // write boundary range (without write to rhs)
-            auto b1 = cut.mapRange(page_size * 1 - 16, 32, { AccessOptions::create, AccessOptions::write });
+            auto b1 = cut.mapRange(page_size * 1 - 16, 32, { AccessOptions::write });
             memcpy(b1.modify(), "12345678ABCDABCD", 16);
         }
         
@@ -215,7 +215,7 @@ namespace tests
         ASSERT_EQ(cut.getStateNum(), 1);
         
         // write boundary range in state = 1
-        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });
         memcpy(w1.modify(), "12345678", 8);
         w1.release();
         
@@ -271,7 +271,7 @@ namespace tests
         };
 
         for (int i = 0; i < range; ++i) {
-            cut.mapRange(page_size * i, page_size, { AccessOptions::create, AccessOptions::write });
+            cut.mapRange(page_size * i, page_size, { AccessOptions::write });
         }
         // op_codes: 0 = read, 1 = write, 2 = create
         for (int i = 0; i < transaction_count; i++) {
@@ -296,7 +296,7 @@ namespace tests
                         break;
                     }
                     case 2: {
-                        auto lock = cut.mapRange(addr, size, { AccessOptions::create, AccessOptions::write });
+                        auto lock = cut.mapRange(addr, size, { AccessOptions::write });
                         std::memset(lock.modify(), 0, size);
                         std::memset(data.data() + addr, 0, size);
                         break;
@@ -320,7 +320,7 @@ namespace tests
         
         // create page versions in transactions 1, 2, 3
         for (int i = 0; i < 3; i++) {
-            auto r0 = prefix->mapRange(0, page_size, { AccessOptions::create, AccessOptions::write });
+            auto r0 = prefix->mapRange(0, page_size, { AccessOptions::write });
             std::memset(r0.modify(), i + 1, page_size);
             r0.release();
             prefix->commit();
@@ -351,7 +351,7 @@ namespace tests
         ASSERT_EQ(cut.getStateNum(), 1);
         
         // write boundary range in state = 1
-        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });
         memcpy(w1.modify(), "12345678", 8);
         w1.release();
 
@@ -388,7 +388,7 @@ namespace tests
         ASSERT_EQ(cut.getStateNum(), 1);
         
         // write boundary range in state = 1
-        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });
         memcpy(w1.modify(), "12345678", 8);
         w1.release();
 
@@ -416,7 +416,7 @@ namespace tests
         PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         
         // initial update, keep the lock active
-        auto w1 = cut.mapRange(0, 8, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(0, 8, { AccessOptions::write });
         memcpy(w1.modify(), "12345678", 8);
 
         // atomic update the same page, release lock
@@ -447,7 +447,7 @@ namespace tests
         
         // create boundary range inside atomic
         cut.beginAtomic();
-        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });
         memcpy(w1.modify(), "12345678", 8);
         w1.release();        
         cut.endAtomic();
@@ -470,7 +470,7 @@ namespace tests
         auto page_size = cut.getPageSize();
 
         // create boundary range in state = 1 but don't flush it
-        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });        
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });        
         memcpy(w1.modify(), "12345678", 8);
         
         // update the pre-existing boundary lock as atomic
@@ -496,9 +496,9 @@ namespace tests
         auto page_size = cut.getPageSize();
 
         // map short unaligned range at the end of 2nd page
-        auto w1 = cut.mapRange(page_size * 2 - 32, 16, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(page_size * 2 - 32, 16, { AccessOptions::write });
         // map wide range spanning page 1 & 2
-        auto w2 = cut.mapRange(0, page_size + 128, { AccessOptions::create, AccessOptions::write });
+        auto w2 = cut.mapRange(0, page_size + 128, { AccessOptions::write });
         ASSERT_TRUE(w1);
         ASSERT_TRUE(w2);
         cut.close();
@@ -511,16 +511,16 @@ namespace tests
         auto page_size = cut.getPageSize();
 
         // lock page #1 from transaction #1
-        auto w1 = cut.mapRange(0, 32, { AccessOptions::create, AccessOptions::write });        
+        auto w1 = cut.mapRange(0, 32, { AccessOptions::write });        
         w1.release();
         cut.commit();
 
         // lock page #2 from transaction #2
-        auto w2 = cut.mapRange(page_size + 16, 16, { AccessOptions::create, AccessOptions::write });        
+        auto w2 = cut.mapRange(page_size + 16, 16, { AccessOptions::write });        
         w2.release();
 
         // lock page #1 + #2 from transaction #3 (as a wide lock)
-        auto w3 = cut.mapRange(0, page_size + 128, { AccessOptions::create, AccessOptions::write });    
+        auto w3 = cut.mapRange(0, page_size + 128, { AccessOptions::write });    
         w3.release();
         cut.close();
     }
@@ -531,18 +531,18 @@ namespace tests
         PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
 
-        auto w1 = cut.mapRange(0, 32, { AccessOptions::create, AccessOptions::write });        
+        auto w1 = cut.mapRange(0, 32, { AccessOptions::write });        
         memcpy(w1.modify(), "88888888", 8);
         w1.release();
         cut.commit();
         
         // lock page #2 from transaction #2 & update it
-        auto w2 = cut.mapRange(page_size + 1024, 16, { AccessOptions::create, AccessOptions::write });
+        auto w2 = cut.mapRange(page_size + 1024, 16, { AccessOptions::write });
         memcpy(w2.modify(), "12345678abcdefgh", 16);
         w2.release();
 
         // lock page #1 + #2 (as incomplete wide range) from transaction #3 & update it
-        auto w3 = cut.mapRange(0, page_size + 16, { AccessOptions::create, AccessOptions::write });
+        auto w3 = cut.mapRange(0, page_size + 16, { AccessOptions::write });
         memcpy((char*)w3.modify() + page_size, "99999999", 8);
         w3.release();
         cut.commit();
@@ -564,12 +564,12 @@ namespace tests
         PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
         
-        auto w1 = cut.mapRange(0, page_size * 2, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(0, page_size * 2, { AccessOptions::write });
         w1.release();
         cut.commit();
         
         // non-conflicting operations, independent locks should be created
-        auto w2 = cut.mapRange(0, page_size * 3, { AccessOptions::create, AccessOptions::write });
+        auto w2 = cut.mapRange(0, page_size * 3, { AccessOptions::write });
         memcpy(w2.modify(), "12345678abcdefgh", 16);
         w2.release();
         cut.commit();

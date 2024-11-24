@@ -155,7 +155,6 @@ namespace db0
             // read / write / create flags are disallowed since they're assigned dynamically
             assert(!m_access_mode[AccessOptions::read]);
             assert(!m_access_mode[AccessOptions::write]);
-            assert(!m_access_mode[AccessOptions::create]);
         }
     };
     
@@ -248,11 +247,13 @@ namespace db0
         
         static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode = {})
         {
+            // read not allowed for instance creation
+            assert(!access_mode[AccessOptions::read]);
             auto address = memspace.alloc(size, SLOT_NUM, access_mode[AccessOptions::unique]);
             // lock for create & write
             // NOTE: must extract physical address for mapRange
             auto mem_lock = memspace.getPrefix().mapRange(
-                getPhysicalAddress(address), size, access_mode | AccessOptions::write | AccessOptions::create
+                getPhysicalAddress(address), size, access_mode | AccessOptions::write
             );
             // mark as available for both write & read
             return v_ptr<ContainerT>(
