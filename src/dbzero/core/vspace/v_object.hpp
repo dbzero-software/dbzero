@@ -229,7 +229,12 @@ namespace db0
         }
         
         void commit() const {
-            v_this.commit();
+            // FIXME: optimization
+            // potentially we could call v_this.commit() here BUT
+            // if there exist 2 instances of v_object and onc of them gets modified
+            // then the "read-only" instance will not see the updates
+
+            v_this.detach();
         }
 
     protected :

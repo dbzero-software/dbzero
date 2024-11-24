@@ -130,7 +130,7 @@ namespace db0
         FlagSet<AccessOptions> access_mode)
     {
         std::uint64_t read_state_num = 0;
-        auto lock = m_cache.findPage(page_num, state_num, access_mode, read_state_num);        
+        auto lock = m_cache.findPage(page_num, state_num, access_mode, read_state_num);
         assert(!lock || read_state_num > 0);
         if (access_mode[AccessOptions::create] && !access_mode[AccessOptions::read]) {
             assert(getAccessType() == AccessType::READ_WRITE);
@@ -159,7 +159,7 @@ namespace db0
             }
         } else {
             assert(getAccessType() == AccessType::READ_WRITE);
-            // read / write access
+            // read / write access            
             if (lock) {
                 if (read_state_num != state_num) {
                     // create a new lock as a copy of existing read_lock (CoW)

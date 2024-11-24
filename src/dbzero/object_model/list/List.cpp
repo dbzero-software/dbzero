@@ -148,7 +148,8 @@ namespace db0::object_model
         return !(*this == list);
     }
 
-    void List::clear(FixtureLock &) {
+    void List::clear(FixtureLock &) 
+    {
         clearMembers();
         v_bvector<o_typed_item>::clear();
     }
@@ -157,7 +158,7 @@ namespace db0::object_model
         // FIXME: drop items
         v_bvector<o_typed_item>::swapAndPop(element_numbers);
     }
-
+    
     void List::moveTo(db0::swine_ptr<Fixture> &fixture) 
     {
         assert(hasInstance());
@@ -167,12 +168,15 @@ namespace db0::object_model
         super_t::moveTo(fixture);
     }
     
-    void List::destroy() const {
+    void List::destroy() const
+    {
         clearMembers();
-        super_t::destroy();        
+        super_t::destroy();
     }
 
-    void List::clearMembers() const {
+    void List::clearMembers() const
+    {
+        // FIXME: optimization possible
         auto fixture = this->getFixture();
         for (auto &elem: (*this)) {
             auto [storage_class, value] = elem;
