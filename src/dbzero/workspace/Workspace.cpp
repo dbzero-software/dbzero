@@ -10,16 +10,6 @@ namespace db0
 
 {
     
-    void validateAccessType(const Fixture &fixture, std::optional<AccessType> requested)
-    {
-        if (!requested) {
-            return;
-        }
-        if (*requested == AccessType::READ_WRITE && fixture.getAccessType() != AccessType::READ_WRITE) {
-            THROWF(db0::InputException) << "Unable to update the read-only prefix: " << fixture.getPrefix().getName();
-        }
-    }
-
     BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size,
         std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> flush_size, std::optional<LockFlags> default_lock_flags)
         : m_prefix_catalog(root_path)
@@ -435,8 +425,8 @@ namespace db0
         } else {
             result = getCurrentFixture();
         }
-
-        validateAccessType(*result, access_type);        
+        
+        assureAccessType(*result, access_type);
         return result;
     }
     

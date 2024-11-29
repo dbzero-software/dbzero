@@ -97,7 +97,8 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeManager = typename LangToolkit::TypeManager;
         using ObjectStem = db0::v_object<o_object>;
-                
+        using TypeInitializer = ObjectInitializer::TypeInitializer;
+
         Object(const Object &) = delete;
         Object(Object &&) = delete;
         Object(db0::swine_ptr<Fixture> &, std::uint64_t address);
@@ -130,6 +131,8 @@ namespace db0::object_model
          * at a specific memory location
         */
         static Object *makeNew(void *at_ptr, std::shared_ptr<Class>);
+        static Object *makeNew(void *at_ptr, TypeInitializer &&);
+
         // make null instance (e.g. after destroying the original one)
         static Object *makeNull(void *at_ptr);
         
@@ -254,6 +257,7 @@ namespace db0::object_model
         
         Object() = default;
         Object(std::shared_ptr<Class>);
+        Object(TypeInitializer &&);
         Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::uint32_t ref_count ,const PosVT::Data &);
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
         

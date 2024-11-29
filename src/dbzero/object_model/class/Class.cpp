@@ -374,4 +374,8 @@ namespace db0::object_model
         return m_index;
     }
     
+    std::shared_ptr<Class> Class::getNullClass() {
+        return std::shared_ptr<Class>(new Class());
+    }
+
 }

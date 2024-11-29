@@ -66,6 +66,13 @@ namespace db0::object_model
         // prepare for initialization
         m_init_manager.addInitializer(*this, db0_class);
     }
+
+    Object::Object(TypeInitializer &&type_initializer)
+        : m_is_dropped(false)
+    {
+        // prepare for initialization
+        m_init_manager.addInitializer(*this, std::move(type_initializer));
+    }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
         : super_t(fixture, classRef(*type), ref_count, pos_vt_data)
@@ -102,6 +109,11 @@ namespace db0::object_model
         return new (at_ptr) Object(type);
     }
     
+    Object *Object::makeNew(void *at_ptr, TypeInitializer &&type_initializer) {
+        // placement new
+        return new (at_ptr) Object(std::move(type_initializer));
+    }
+
     Object *Object::makeNull(void *at_ptr) {
         return new (at_ptr) Object();
     }
@@ -585,20 +597,13 @@ namespace db0::object_model
     
     void Object::setFixture(db0::swine_ptr<Fixture> &new_fixture)
     {        
-        auto fixture = this->getFixture();
-        if (*fixture == *new_fixture) {
-            // already in the same fixture
-            return;
-        }
         if (hasInstance()) {
             THROWF(db0::InputException) << "set_prefix failed: object already initialized";
-        }
-        if (!m_init_manager.getInitializer(*this).empty()) {
-            THROWF(db0::InputException) << "set_prefix failed: must be called before initializing any object members";
         }
         
         if (!m_init_manager.getInitializer(*this).trySetFixture(new_fixture)) {
             // signal problem with PyErr_BadPrefix
+            auto fixture = this->getFixture();
             LangToolkit::setError(LangToolkit::getTypeManager().getBadPrefixError(), fixture->getUUID());
         }
     }

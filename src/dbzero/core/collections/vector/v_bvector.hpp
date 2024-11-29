@@ -558,13 +558,13 @@ namespace db0
     
     protected:
         mutable progressive_mutex m_mutex;
-        const std::uint32_t m_db_shift;
-        const std::uint32_t m_db_mask;
-        const std::uint32_t m_pb_shift;
-        const std::uint32_t m_pb_mask;
+        const std::uint32_t m_db_shift = 0;
+        const std::uint32_t m_db_mask = 0;
+        const std::uint32_t m_pb_shift = 0;
+        const std::uint32_t m_pb_mask = 0;
         // size class of the data block (0 = full size)        
         mutable std::optional<std::size_t> m_b_class;
-
+        
         // universal block key (height / index)
         using b_key = std::pair<int, int>;
 

@@ -5,6 +5,7 @@
 #include <vector>
 #include <cassert>
 #include <optional>
+#include <functional>
 #include "ValueTable.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
@@ -35,11 +36,15 @@ namespace db0::object_model
     {
     public:
         using XValue = db0::object_model::XValue;
-                
+        using TypeInitializer = std::function<std::shared_ptr<Class>(db0::swine_ptr<Fixture> &)>;
+        
         // loc - position in the initializer manager's array
-        ObjectInitializer(ObjectInitializerManager &, std::uint32_t loc, Object &object, std::shared_ptr<Class> db0_class);
-
-        void init(Object &object, std::shared_ptr<Class> db0_class);
+        ObjectInitializer(ObjectInitializerManager &, std::uint32_t loc, Object &, std::shared_ptr<Class>);
+        // alternative constructor for lazy type initialization
+        ObjectInitializer(ObjectInitializerManager &, std::uint32_t loc, Object &, TypeInitializer &&);
+        
+        void init(Object &object, std::shared_ptr<Class>);
+        void init(Object &object, TypeInitializer &&);
 
         void set(unsigned int at, StorageClass storage_class, Value value);
         
@@ -71,13 +76,9 @@ namespace db0::object_model
             return m_object_ptr == &other;
         }
         
-        inline Class &getClass() {
-            return *m_class;
-        }
-
-        std::shared_ptr<Class> getClassPtr() const {
-            return m_class;
-        }
+        Class &getClass() const;
+        
+        std::shared_ptr<Class> getClassPtr() const;
 
         inline std::uint32_t getRefCount() const {
             return m_ref_count;
@@ -90,10 +91,7 @@ namespace db0::object_model
         void incRef();
         
         bool empty() const;
-        
-        // Can only be executed on an empty initializer
-        void setClass(std::shared_ptr<Class>);
-        
+                
     protected:
         friend class ObjectInitializerManager;
         void reset();
@@ -107,7 +105,7 @@ namespace db0::object_model
         std::uint32_t m_loc = std::numeric_limits<std::uint32_t>::max();
         bool m_closed = true;
         Object *m_object_ptr = nullptr;
-        std::shared_ptr<Class> m_class;
+        mutable std::shared_ptr<Class> m_class;
         // indexed initialization values
         mutable std::vector<XValue> m_values;
         // number of m_values already sorted
@@ -115,8 +113,10 @@ namespace db0::object_model
         // key to be assigned to instance post-initialization
         std::optional<std::string> m_instance_key;
         std::uint32_t m_ref_count = 0;
+        mutable db0::swine_ptr<Fixture> m_fixture;
+        mutable TypeInitializer m_type_initializer;
 
-        // returns the number of unique elements extracted        
+        // returns the number of unique elements extracted
         std::uint32_t finalizeValues();
     };
     
@@ -130,8 +130,8 @@ namespace db0::object_model
     public:
         ObjectInitializerManager() = default;
 
-        void addInitializer(Object &object, std::shared_ptr<Class> db0_class);
-        
+        template <typename... Args> void addInitializer(Object &object, Args&& ...args);
+
         /**
          * Close the initializer and retrieve object's class
         */
@@ -164,5 +164,26 @@ namespace db0::object_model
         // number of non-null initializer instances
         std::size_t m_total_count = 0;
     };
+
+    template <typename... Args>
+    void ObjectInitializerManager::addInitializer(Object &object, Args&& ...args)
+    {
+        if (m_active_count < m_total_count) {
+            auto loc = m_active_count++;
+            m_initializers[loc]->init(object, std::forward<Args>(args)...);
+            return;
+        }
+        
+        for (;;) {
+            if (m_total_count < m_initializers.size()) {
+                auto loc = m_total_count++;
+                m_initializers[loc].reset(new ObjectInitializer(*this, loc, object, std::forward<Args>(args)...));
+                ++m_active_count;
+                return;
+            }
+            // double the number of slots
+            m_initializers.resize(std::max(1u, static_cast<unsigned int>(m_initializers.size())) << 1);
+        }
+    }
     
 }

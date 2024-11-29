@@ -24,12 +24,12 @@ namespace db0
     {
     }
 
-    CriticalException::CriticalException (int err_id)
+    CriticalException::CriticalException(int err_id)
         : AbstractException(err_id)
     {
     }
 
-    RecoverableException::RecoverableException (int err_id)
+    RecoverableException::RecoverableException(int err_id)
         : AbstractException(err_id)
     {
     }
@@ -43,10 +43,15 @@ namespace db0
         : CriticalException(exception_id)
     {        
     }
-
+    
     ClassNotFoundException::ClassNotFoundException()
         : CriticalException(exception_id)
     {        
     }
-    
+
+    AccessTypeException::AccessTypeException()
+        : CriticalException(exception_id)
+    {        
+    }
+
 }

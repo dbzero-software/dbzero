@@ -17,12 +17,32 @@ namespace db0::object_model
         m_values.reserve(128);
     }
     
+    ObjectInitializer::ObjectInitializer(ObjectInitializerManager &manager, std::uint32_t loc, Object &object,
+        TypeInitializer &&type_initializer)
+        : m_manager(manager)
+        , m_loc(loc)
+        , m_closed(false)
+        , m_object_ptr(&object)
+        , m_type_initializer(std::move(type_initializer))
+    {
+        m_values.reserve(128);
+    }
+    
     void ObjectInitializer::init(Object &object, std::shared_ptr<Class> db0_class)
     {
         assert(m_closed);        
         m_closed = false;
         m_object_ptr = &object;
         m_class = db0_class;
+    }
+    
+    void ObjectInitializer::init(Object &object, TypeInitializer &&type_initializer)
+    {
+        assert(m_closed);
+        assert(!m_class);
+        m_closed = false;
+        m_object_ptr = &object;
+        m_type_initializer = std::move(type_initializer);
     }
 
     void ObjectInitializer::close() {
@@ -38,6 +58,30 @@ namespace db0::object_model
         m_values.clear();
         m_sorted_size = 0;
         m_ref_count = 0;
+        m_type_initializer = {};
+        m_fixture = {};
+    }
+    
+    Class &ObjectInitializer::getClass() const {
+        return *getClassPtr();
+    }
+    
+    std::shared_ptr<Class> ObjectInitializer::getClassPtr() const
+    {
+        if (!m_class) {
+            assert(m_type_initializer);
+            assert(m_fixture);
+
+            if (!m_fixture) {
+                THROWF(db0::InternalException)
+                    << "ObjectInitializer: Unable to initialize type because Fixture not set" << THROWF_END;
+            }
+            m_class = m_type_initializer(m_fixture);
+            m_type_initializer = {};
+            m_fixture = {};
+        }
+        assert(m_class);
+        return m_class;
     }
     
     void ObjectInitializer::operator=(std::uint32_t loc) {
@@ -87,13 +131,13 @@ namespace db0::object_model
         result.second = it->m_value;        
         return true;
     }
-     
+    
     db0::swine_ptr<Fixture> ObjectInitializer::getFixture() const {
-        return m_class->getFixture();
+        return getClass().getFixture();
     }
 
     db0::swine_ptr<Fixture> ObjectInitializer::tryGetFixture() const {
-        return m_class->tryGetFixture();
+        return getClass().tryGetFixture();
     }
     
     std::uint32_t ObjectInitializer::finalizeValues()
@@ -164,19 +208,19 @@ namespace db0::object_model
         return m_values.empty();
     }
 
-    void ObjectInitializer::setClass(std::shared_ptr<Class> new_class)
-    {
-        assert(empty());
-        m_class = new_class;
-    }
-
     bool ObjectInitializer::trySetFixture(db0::swine_ptr<Fixture> &new_fixture)
     {
         assert(new_fixture);
         if (!empty()) {
             THROWF(db0::InputException) << "set_prefix failed: must be called before initializing any object members";
         }
-        // migrate type to other factory
+
+        if (m_fixture && *m_fixture == *new_fixture) {
+            // already set to the same fixture
+            return true;
+        }
+
+        // migrate type to other fixture/ class factory
         if (m_class) {
             auto fixture = m_class->getFixture();
             if (*fixture != *new_fixture) {
@@ -191,27 +235,8 @@ namespace db0::object_model
             }
         }
         
+        m_fixture = new_fixture;
         return true;
-    }
-
-    void ObjectInitializerManager::addInitializer(Object &object, std::shared_ptr<Class> db0_class)
-    {
-        if (m_active_count < m_total_count) {
-            auto loc = m_active_count++;
-            m_initializers[loc]->init(object, db0_class);
-            return;
-        }
-        
-        for (;;) {
-            if (m_total_count < m_initializers.size()) {
-                auto loc = m_total_count++;
-                m_initializers[loc].reset(new ObjectInitializer(*this, loc, object, db0_class));
-                ++m_active_count;
-                return;
-            }
-            // double the number of slots
-            m_initializers.resize(std::max(1u, static_cast<unsigned int>(m_initializers.size())) << 1);
-        }
     }
     
     std::shared_ptr<Class> ObjectInitializerManager::tryCloseInitializer(const Object &object)
