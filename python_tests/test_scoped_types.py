@@ -200,3 +200,18 @@ def test_scoped_list_issue(db0_fixture):
     list.append(MemoScopedClass(100, prefix=prefix))
     assert len(list) == 1
     assert list[0].value == 100
+
+
+# FIXME: pending implementation
+# def test_create_dynamically_scoped_instance_with_read_only_default_prefix(db0_fixture):
+#     px_name = db0.get_current_prefix()
+#     db0.close()
+
+#     db0.init(DB0_DIR)
+#     db0.open("test-data", "rw")
+#     # default prefix opened as read-only
+#     db0.open(px_name.name, "r")
+#     # create on a non-default prefix
+#     obj = MemoScopedClass(0, prefix = "test-data")
+#     assert db0.get_prefix_of(obj) == "test-data"
+    

@@ -42,8 +42,12 @@ namespace db0::object_model
         void init(Object &object, std::shared_ptr<Class> db0_class);
 
         void set(unsigned int at, StorageClass storage_class, Value value);
-
+        
         void setInstanceKey(const char *str_key);
+
+        // Allows migrating initialization to other fixture (only for empty ObjectInitializer)
+        // @return false if operation failed (exception not thrown)
+        bool trySetFixture(db0::swine_ptr<Fixture> &fixture);
         
         /**
          * Collect and retrieve pos-vt / index-vt data

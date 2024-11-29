@@ -170,6 +170,30 @@ namespace db0::object_model
         m_class = new_class;
     }
 
+    bool ObjectInitializer::trySetFixture(db0::swine_ptr<Fixture> &new_fixture)
+    {
+        assert(new_fixture);
+        if (!empty()) {
+            THROWF(db0::InputException) << "set_prefix failed: must be called before initializing any object members";
+        }
+        // migrate type to other factory
+        if (m_class) {
+            auto fixture = m_class->getFixture();
+            if (*fixture != *new_fixture) {
+                auto &class_factory = fixture->get<ClassFactory>();
+                auto &new_factory = new_fixture->get<ClassFactory>();
+                auto new_class = new_factory.getOrCreateType(class_factory.getLangType(*m_class).get());
+                if (new_class->isExistingSingleton()) {
+                    // cannot initialize existing singleton, report failure
+                    return false;
+                }
+                m_class = new_class;
+            }
+        }
+        
+        return true;
+    }
+
     void ObjectInitializerManager::addInitializer(Object &object, std::shared_ptr<Class> db0_class)
     {
         if (m_active_count < m_total_count) {

@@ -44,10 +44,16 @@ namespace db0::python
     int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
         auto hash = get_py_hash(key);
-        if (hash == -1) {
+        if (hash == -1) {            
+            // set PyError
+            std::stringstream _str;
+            _str << "Unable to find hash function for key of type: " << Py_TYPE(key)->tp_name;
+            PyErr_SetString(PyExc_TypeError, _str.str().c_str());
+            // FIXME: log
+            std::cout << _str.str() << std::endl;
             return -1;
         }
-
+        
         db0::FixtureLock lock(dict_obj->ext().getFixture());
         dict_obj->modifyExt().setItem(lock, hash, key, value);
         return 0;
@@ -56,22 +62,32 @@ namespace db0::python
     int PyAPI_DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
         PY_API_FUNC
-        return DictObject_SetItem(dict_obj, key, value);
+        return runSafe<-1>(DictObject_SetItem, dict_obj, key, value);
+    }
+
+    Py_ssize_t DictObject_len(DictObject *dict_obj)
+    {        
+        dict_obj->ext().getFixture()->refreshIfUpdated();
+        return dict_obj->ext().size();
     }
 
     Py_ssize_t PyAPI_DictObject_len(DictObject *dict_obj)
     {
         PY_API_FUNC
-        dict_obj->ext().getFixture()->refreshIfUpdated();
-        return dict_obj->ext().size();
+        return runSafe(DictObject_len, dict_obj);
     }
-    
-    int PyAPI_DictObject_HasItem(DictObject *dict_obj, PyObject *key)
-    {
-        PY_API_FUNC
+
+    int DictObject_HasItem(DictObject *dict_obj, PyObject *key)
+    {        
         dict_obj->ext().getFixture()->refreshIfUpdated();
         auto hash = get_py_hash(key);  
         return dict_obj->ext().has_item(hash, key);
+    }
+
+    int PyAPI_DictObject_HasItem(DictObject *dict_obj, PyObject *key)
+    {
+        PY_API_FUNC
+        return runSafe(DictObject_HasItem, dict_obj, key);
     }
     
     void PyAPI_DictObject_del(DictObject* dict_obj)
@@ -173,7 +189,7 @@ namespace db0::python
     PyObject *PyAPI_DictObject_update(DictObject *dict_object, PyObject* args, PyObject* kwargs)
     {
         PY_API_FUNC
-        return DictObject_update(dict_object, args, kwargs);
+        return runSafe(DictObject_update, dict_object, args, kwargs);
     }
     
     shared_py_object<DictObject*> makeDB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args, PyObject *kwargs)
@@ -197,11 +213,16 @@ namespace db0::python
         return runSafe(makeDB0Dict, fixture, args, kwargs).steal();
     }
     
+    PyObject *DictObject_clear(DictObject *dict_obj)
+    {
+        dict_obj->modifyExt().clear();
+        Py_RETURN_NONE;
+    }
+
     PyObject *PyAPI_DictObject_clear(DictObject *dict_obj)
     {
         PY_API_FUNC
-        dict_obj->modifyExt().clear();
-        Py_RETURN_NONE;
+        return runSafe(DictObject_clear, dict_obj);
     }
 
     PyObject *tryDictObject_copy(DictObject *py_src_dict)
@@ -283,7 +304,7 @@ namespace db0::python
         }
         return runSafe(tryDictObject_get, dict_object, args, nargs);
     }
-
+    
     PyObject *tryDictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
         PyObject *elem = args[0];

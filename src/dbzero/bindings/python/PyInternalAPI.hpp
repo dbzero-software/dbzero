@@ -44,28 +44,29 @@ namespace db0::python
     
     /**
      * Runs a function, catch exeptions and translate into Python errors
+     * @tparam ERR_RESULT integer value representing an error (default is 0 / NULL but some APIs may use -1)
     */
-    template <typename... Args, typename T>
+    template <int ERR_RESULT = 0, typename... Args, typename T>
     typename std::invoke_result_t<T, Args...> runSafe(T func, Args&&... args)
     {
         try {
             auto result = func(std::forward<Args>(args)...);
             if (PyErr_Occurred()) {
-                return 0;
+                return ERR_RESULT;
             }
             return result;
         } catch (const db0::ClassNotFoundException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getClassNotFoundError(), e.what());
-            return 0;
+            return ERR_RESULT;
         } catch (const db0::AbstractException &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
-            return 0;
+            return ERR_RESULT;
         } catch (const std::exception &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
-            return 0;
+            return ERR_RESULT;
         } catch (...) {
             PyErr_SetString(PyExc_RuntimeError, "Unknown exception");
-            return 0;
+            return ERR_RESULT;
         }
     }
     

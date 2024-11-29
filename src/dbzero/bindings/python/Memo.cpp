@@ -49,8 +49,11 @@ namespace db0::python
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_WRITE));
-        auto &class_factory = lock->get<db0::object_model::ClassFactory>();
+        // NOTE: read-only fixture access is sufficient here since objects are lazy-initialized
+        // i.e. the actual DBZero instance is created on postInit
+        // this is also important for dynamically scoped clases (where read/write access may not be possible on default fixture)
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
+        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated DBZero class with the ClassFactory
         auto type = class_factory.getOrCreateType(py_type);
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
@@ -102,7 +105,7 @@ namespace db0::python
 
         return py_singleton;
     }
-
+    
     PyObject *tryMemoObject_new_singleton(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         auto result = tryMemoObject_open_singleton(py_type);

@@ -281,6 +281,8 @@ def group_by(group_defs, query, ops=(count_op,)) -> Dict:
     def format_result(result):
         return {db0.load(key): value.result for key, value in result.items()}
     
+    # FIXME: log
+    print(f"Fast query prefix: {__px_fast_query}")
     cache = FastQueryCache(prefix=__px_fast_query)
     # take snapshot of the latest known state and rebase input query
     # otherwise refresh might invalidate query results (InvalidStateError)

@@ -239,12 +239,12 @@ def test_dict_with_unhashable_types_as_keys(db0_fixture):
     with pytest.raises(Exception) as ex:
         my_dict[["first", 1]] = MemoTestClass("abc")
 
-    assert "unhashable type" in str(ex.value)
+    assert "hash" in str(ex.value)
 
     with pytest.raises(Exception) as ex:
         my_dict[{"key":"value"}] = MemoTestClass("abc")
 
-    assert "unhashable type" in str(ex.value)
+    assert "hash" in str(ex.value)
 
 
 def test_dict_items_in(db0_no_autocommit):

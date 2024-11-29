@@ -138,8 +138,8 @@ namespace db0::object_model
             auto &initializer = m_init_manager.getInitializer(*this);
             PosVT::Data pos_vt_data;
             auto index_vt_data = initializer.getData(pos_vt_data);
-
-            // place object in the same fixture as class
+            
+            // place object in the same fixture as its class
             // construct the DBZero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
@@ -583,10 +583,10 @@ namespace db0::object_model
         throw std::runtime_error("Not implemented");
     }
     
-    void Object::setFixture(db0::swine_ptr<Fixture> &other_fixture)
+    void Object::setFixture(db0::swine_ptr<Fixture> &new_fixture)
     {        
         auto fixture = this->getFixture();
-        if (*fixture == *other_fixture) {
+        if (*fixture == *new_fixture) {
             // already in the same fixture
             return;
         }
@@ -594,21 +594,13 @@ namespace db0::object_model
             THROWF(db0::InputException) << "set_prefix failed: object already initialized";
         }
         if (!m_init_manager.getInitializer(*this).empty()) {
-            THROWF(db0::InputException) << "set_prefix failed: object must not define any members";
+            THROWF(db0::InputException) << "set_prefix failed: must be called before initializing any object members";
         }
         
-        // migrate type to other factory
-        auto &class_factory = fixture->get<ClassFactory>();
-        auto &other_factory = other_fixture->get<ClassFactory>();
-        auto new_type = other_factory.getOrCreateType(class_factory.getLangType(this->getType()).get());
-        if (new_type->isExistingSingleton()) {
-            // cannot initialize existing singleton, signal problem with PyErr_BadPrefix
+        if (!m_init_manager.getInitializer(*this).trySetFixture(new_fixture)) {
+            // signal problem with PyErr_BadPrefix
             LangToolkit::setError(LangToolkit::getTypeManager().getBadPrefixError(), fixture->getUUID());
-            return;
         }
-        
-        // switch to a type located on a different fixture (translated)
-        m_init_manager.getInitializer(*this).setClass(new_type);        
     }
     
     void Object::detach() const
