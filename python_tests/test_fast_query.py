@@ -207,7 +207,7 @@ def test_group_by_with_multiple_ops_and_constant(db0_fixture, memo_enum_tags):
 #     p = multiprocessing.Process(target=create_process, args = (num_objects,))
 #     p.start()
     
-#     # start the reader process            
+#     # start the reader process
 #     try:
 #         db0.init(DB0_DIR)
 #         db0.init_fast_query("__fq_cache/data")
