@@ -137,7 +137,7 @@ class FastQueryCache:
         if query.signature not in self.__cache:
             self.__cache[query.signature] = {}
 
-        # key = a tuple of: state number, serialized query bytes, full query result
+        # value = a tuple of: state number, serialized query bytes, full query result
         self.__cache[query.signature][query.uuid] = (state_num, query.bytes, result)                
         return (state_num, query.bytes, result)
     
@@ -145,52 +145,56 @@ class FastQueryCache:
         return list(self.__cache.keys())
     
     
-def count_op(status, row_groups=None):
+def count_op(state, row_groups=None):
     """
-    Update (or initialize status) with rows to remove (0) or rows to add (1)
+    Update (or initialize state) with rows to remove (0) or rows to add (1)
     """
     if row_groups is None:
         return 0
     else:
-        status -= len(row_groups[0]) if row_groups[0] is not None else 0
-        status += len(row_groups[1]) if row_groups[1] is not None else 0
-    return status
+        state -= len(row_groups[0]) if row_groups[0] is not None else 0
+        state += len(row_groups[1]) if row_groups[1] is not None else 0
+    return state
     
     
 def make_sum(value_func):
     """
     Generates sum-op with a specific value function
     """
-    def sum_op(status, row_groups=None):
+    def sum_op(state, row_groups=None):
         """
-        Update (or initialize status) with rows to remove (0) or rows to add (1)
+        Update (or initialize state) with rows to remove (0) or rows to add (1)
         """
         if row_groups is None:
             return 0
         else:
-            status -= sum(value_func(row[0]) for row in row_groups[0]) if row_groups[0] is not None else 0
-            status += sum(value_func(row[0]) for row in row_groups[1]) if row_groups[1] is not None else 0
-        return status
+            state -= sum(value_func(row[0]) for row in row_groups[0]) if row_groups[0] is not None else 0
+            state += sum(value_func(row[0]) for row in row_groups[1]) if row_groups[1] is not None else 0
+        return state
     
     return sum_op
 
     
 @db0.memo
 class GroupByBucket:
+    """
+    Bucket associated with a single group key
+    """
     def __init__(self, ops=(count_op,), prefix=None):
         # FIXME: ops should be cached in Python when this feature is available
         db0.set_prefix(self, prefix)
-        self.__status = tuple([op(None) for op in ops])
+        # initialize ops (passing None to generate the initial state)
+        self.__state = tuple([op(None) for op in ops])
     
     def update(self, row_groups, ops=(count_op,)):
-        self.__status = tuple([op(status, row_groups) for op, status in zip(ops, self.__status)])
+        self.__state = tuple([op(state, row_groups) for op, state in zip(ops, self.__state)])
     
     @property
     def result(self):
-        if len(self.__status) == 1:
-            return self.__status[0]
-        # return as a Python native type
-        return db0.load(self.__status)
+        if len(self.__state) == 1:
+            return self.__state[0]
+        # return as a Python native type (i.e. load from DBZero)
+        return db0.load(self.__state)
     
     
 class GroupByEval:
@@ -214,9 +218,9 @@ class GroupByEval:
                 if row_lists is None:
                     row_lists = ([], [])
                     __groups[key] = row_lists
-                row_lists[side_num].append(row)
-        
-        # now feed groups into buckets
+                row_lists[side_num].append(row)                
+
+        # now, feed groups into buckets
         for key, row_lists in __groups.items():
             bucket = self.__data.get(key, None)
             if bucket is None:
@@ -286,7 +290,7 @@ def group_by(group_defs, query, ops=(count_op,)) -> Dict:
     # otherwise refresh might invalidate query results (InvalidStateError)
     with db0.snapshot() as snapshot:
         fast_query = FastQuery(query, group_defs).rebase(snapshot)
-        last_result = cache.find_result(fast_query)    
+        last_result = cache.find_result(fast_query)
         state_num = snapshot.get_state_num(prefix=px_name)
         # return the cached result if from the same state number
         if last_result is None or last_result[0] != state_num:

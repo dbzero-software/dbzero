@@ -42,10 +42,11 @@ namespace db0::python
         PyDateTime_IMPORT;
         
         // register well known static types, including DB0 extension types
-        addStaticType(&PyLong_Type, TypeId::INTEGER);
-        addStaticType(&PyFloat_Type, TypeId::FLOAT);
-        addStaticType(&_PyNone_Type, TypeId::NONE);
-        addStaticType(&PyUnicode_Type, TypeId::STRING);
+        addStaticSimpleType(&PyLong_Type, TypeId::INTEGER);
+        addStaticSimpleType(&PyFloat_Type, TypeId::FLOAT);
+        addStaticSimpleType(&PyBool_Type, TypeId::BOOLEAN);
+        addStaticSimpleType(&_PyNone_Type, TypeId::NONE);
+        addStaticSimpleType(&PyUnicode_Type, TypeId::STRING);
         // add python list type
         addStaticType(&PyList_Type, TypeId::LIST);
         addStaticType(&PySet_Type, TypeId::SET);
@@ -53,7 +54,7 @@ namespace db0::python
         addStaticType(&PyTuple_Type, TypeId::TUPLE);
         addStaticType(&PyBytes_Type, TypeId::BYTES);
         // Python datetime type
-        addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
+        addStaticSimpleType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
 
         // DBZero extension types
         addStaticDBZeroType(&TagSetType, TypeId::DB0_TAG_SET);
@@ -72,7 +73,6 @@ namespace db0::python
         addStaticDBZeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
         addStaticDBZeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
 
-        addStaticType(&PyBool_Type, TypeId::BOOLEAN);
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
         m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
     }
@@ -413,5 +413,13 @@ namespace db0::python
     bool PyTypeManager::isDBZeroType(ObjectPtr obj_ptr) const {
         return isDBZeroTypeId(getTypeId(obj_ptr));
     }
+
+    bool PyTypeManager::isSimplePyType(ObjectPtr obj_ptr) const {
+        return isSimplePyTypeId(getTypeId(obj_ptr));
+    }
     
+    bool PyTypeManager::isSimplePyTypeId(TypeId type_id) const {
+        return m_simple_py_type_ids.find(type_id) != m_simple_py_type_ids.end();
+    }
+
 }

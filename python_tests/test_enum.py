@@ -96,3 +96,9 @@ def test_enum_values_order_is_preserved(db0_fixture):
     assert list(Colors.values()) == [Colors.ONE, Colors.TWO, Colors.THREE, Colors.FOUR, Colors.FIVE, Colors.SIX,
         Colors.SEVEN, Colors.EIGHT, Colors.NINE, Colors.TEN]
     
+
+def test_load_enum_value(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    str_repr = ["RED", "GREEN", "BLUE"]
+    for index, val in enumerate(Colors.values()):
+        assert db0.load(val) == str_repr[index]

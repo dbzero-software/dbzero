@@ -49,8 +49,6 @@ namespace db0::python
             std::stringstream _str;
             _str << "Unable to find hash function for key of type: " << Py_TYPE(key)->tp_name;
             PyErr_SetString(PyExc_TypeError, _str.str().c_str());
-            // FIXME: log
-            std::cout << _str.str() << std::endl;
             return -1;
         }
         

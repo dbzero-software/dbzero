@@ -130,8 +130,8 @@ def test_group_by_multiple_criteria(db0_fixture, memo_enum_tags):
     # group by all colors and then by even/odd values
     groups = db0.group_by((Colors.values(), lambda x: x.value % 2), db0.find(MemoTestClass))
     assert len(groups) == 6
-    assert groups[(Colors.RED, 0)] == 2
-    assert groups[(Colors.RED, 1)] == 2
+    assert groups[("RED", 0)] == 2
+    assert groups[("RED", 1)] == 2
     
     
 def test_fast_query_with_separate_prefix_for_cache(db0_fixture, memo_scoped_enum_tags):
@@ -188,7 +188,7 @@ def test_refreshing_group_by_results(db0_fixture, memo_enum_tags):
     In this test, one process is generating data while the other - running group_by queries.
     """
     px_name = db0.get_current_prefix()
-    
+
     def create_process(num_objects: List):
         db0.init(DB0_DIR)
         db0.open(px_name.name, "rw")
@@ -201,8 +201,8 @@ def test_refreshing_group_by_results(db0_fixture, memo_enum_tags):
         db0.close()
     
     db0.close()
-
-    num_objects = [5, 10, 11, 6, 22,8, 11, 6]
+    
+    num_objects = [5, 10, 11, 6, 22,8, 11, 6]    
     p = multiprocessing.Process(target=create_process, args = (num_objects,))
     p.start()
     
@@ -214,8 +214,8 @@ def test_refreshing_group_by_results(db0_fixture, memo_enum_tags):
         
         result = {0:0}
         while result[0] < sum(num_objects):
-            result = db0.group_by(lambda x: x.value, db0.find(MemoTestClass, "tag1"))            
-            db0.refresh()
+            if db0.refresh():
+                result = db0.group_by(lambda x: x.value, db0.find(MemoTestClass, "tag1"))                
             time.sleep(0.05)
     finally:
         p.terminate()
