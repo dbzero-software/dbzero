@@ -222,3 +222,10 @@ def test_refreshing_group_by_results(db0_fixture, memo_enum_tags):
         p.join()
         db0.close()
     
+    
+def test_group_by_issue_1(db0_fixture, memo_enum_tags):
+    db0.commit()    
+    query_ops = (db0.count_op, db0.make_sum(lambda x: x.value))
+    groups = db0.group_by(lambda x: "A" if (x.value % 2 == 0) else "B", db0.find(MemoTestClass), ops = query_ops)
+    assert sum(v[1] for _, v in groups.items()) == 45
+    

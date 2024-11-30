@@ -4,7 +4,7 @@ from .memo_test_types import MemoTestClass
 
 
 def test_query_can_be_split_by_list_of_tags(db0_fixture, memo_tags):
-    # split_by returns a tuple of a quey and the associated observer
+    # split_by returns a tuple of a query and the associated observer
     query = db0.split_by(["tag1", "tag2", "tag3", "tag4"], db0.find(MemoTestClass))
     assert len(list(query)) == 10
 
@@ -50,3 +50,4 @@ def test_split_query_can_be_used_as_subquery(db0_fixture, memo_tags):
     # since split_by is exclusive #0 may yield non-deterministic result since its tagged with both tag3 and tag4
     assert counts == {'tag3': 2, 'tag4': 2} or counts == {'tag3': 1, 'tag4': 3}
     assert set(values) == set([0, 4, 6, 8])
+    
