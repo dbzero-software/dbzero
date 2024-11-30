@@ -2,6 +2,9 @@ import pytest
 import dbzero_ce as db0
 from .memo_test_types import KVTestClass, MemoTestClass, MemoDataPxClass
 from .conftest import DB0_DIR, DATA_PX
+import time
+from typing import List
+import multiprocessing
 
 
 def test_simple_group_by_query(db0_fixture):
@@ -127,8 +130,8 @@ def test_group_by_multiple_criteria(db0_fixture, memo_enum_tags):
     # group by all colors and then by even/odd values
     groups = db0.group_by((Colors.values(), lambda x: x.value % 2), db0.find(MemoTestClass))
     assert len(groups) == 6
-    assert groups[(Colors.RED, 0)] == 2
-    assert groups[(Colors.RED, 1)] == 2
+    assert groups[("RED", 0)] == 2
+    assert groups[("RED", 1)] == 2
     
     
 def test_fast_query_with_separate_prefix_for_cache(db0_fixture, memo_scoped_enum_tags):
@@ -178,3 +181,51 @@ def test_group_by_with_multiple_ops_and_constant(db0_fixture, memo_enum_tags):
     groups = db0.group_by((Colors.values(), lambda x: "2024", lambda x: x.value % 2), db0.find(MemoTestClass), ops = query_ops)    
     for k in groups.keys():
         assert len(k) == 3
+
+
+def test_refreshing_group_by_results(db0_fixture, memo_enum_tags):
+    """
+    In this test, one process is generating data while the other - running group_by queries.
+    """
+    px_name = db0.get_current_prefix()
+
+    def create_process(num_objects: List):
+        db0.init(DB0_DIR)
+        db0.open(px_name.name, "rw")
+        for count in num_objects:
+            for _ in range(count):
+                obj = MemoTestClass(0)
+                db0.tags(obj).add("tag1")
+            db0.commit()
+            time.sleep(0.05)
+        db0.close()
+    
+    db0.close()
+    
+    num_objects = [5, 10, 11, 6, 22,8, 11, 6]    
+    p = multiprocessing.Process(target=create_process, args = (num_objects,))
+    p.start()
+    
+    # start the reader process
+    try:
+        db0.init(DB0_DIR)
+        db0.init_fast_query("__fq_cache/data")
+        db0.open(px_name.name, "r")
+        
+        result = {0:0}
+        while result[0] < sum(num_objects):
+            if db0.refresh():
+                result = db0.group_by(lambda x: x.value, db0.find(MemoTestClass, "tag1"))                
+            time.sleep(0.05)
+    finally:
+        p.terminate()
+        p.join()
+        db0.close()
+    
+    
+def test_group_by_issue_1(db0_fixture, memo_enum_tags):
+    db0.commit()    
+    query_ops = (db0.count_op, db0.make_sum(lambda x: x.value))
+    groups = db0.group_by(lambda x: "A" if (x.value % 2 == 0) else "B", db0.find(MemoTestClass), ops = query_ops)
+    assert sum(v[1] for _, v in groups.items()) == 45
+    

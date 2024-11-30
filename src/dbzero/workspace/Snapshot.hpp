@@ -50,4 +50,9 @@ namespace db0
         db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
     };
     
+    bool checkAccessType(const Fixture &fixture, AccessType);
+    bool checkAccessType(const Fixture &fixture, std::optional<AccessType> requested);
+    // throws if the requested access type is not allowed
+    void assureAccessType(const Fixture &fixture, std::optional<AccessType> requested);
+    
 }

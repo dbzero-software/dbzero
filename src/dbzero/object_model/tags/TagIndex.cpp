@@ -649,7 +649,7 @@ namespace db0::object_model
                 << " (iterable expected)" << THROWF_END;
         }
         
-        OR_QueryObserverBuilder split_factory;        
+        OR_QueryObserverBuilder split_factory;
         // include ALL provided values first (OR-joined)
         for (auto it = ForwardIterator(LangToolkit::getIterator(py_arg)), end = ForwardIterator::end(); it != end; ++it) {
             if (isShortTag(*it)) {

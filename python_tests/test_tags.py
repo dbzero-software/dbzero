@@ -338,3 +338,8 @@ def test_tag_remove_then_add_in_single_transaction(db0_fixture):
     objs = [x for x in db0.find(MemoTestClass, "object")]
     assert len(objs) > 0
     
+    
+def test_tag_query_with_subquery(db0_no_autocommit, memo_tags):
+    # combine the 2 queries
+    query = db0.find(MemoTestClass, db0.find("tag1"))
+    assert len(list(query)) == 10

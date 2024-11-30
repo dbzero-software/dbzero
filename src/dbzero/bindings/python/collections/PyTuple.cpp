@@ -195,5 +195,15 @@ namespace db0::python
         }
         return result;
     }
-
+    
+    PyObject *tryLoadPyTuple(PyObject *py_tuple)
+    {
+        Py_ssize_t size = PyTuple_Size(py_tuple);        
+        PyObject *result = PyTuple_New(size);
+        for (int i = 0; i < size; ++i) {
+            PyTuple_SetItem(result, i, tryLoad(PyTuple_GetItem(py_tuple, i)));
+        }
+        return result;
+    }
+    
 }

@@ -95,3 +95,8 @@ class DynamicDataSingleton:
         else:
             for i in range(count):
                 setattr(self, f'field_{i}', i)
+
+
+@db0.enum(values=["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], prefix=DATA_PX)
+class MonthTag:
+    pass

@@ -15,3 +15,9 @@ def test_load_tuple(db0_fixture):
     t1 = db0.tuple([1, "string", 999])
     assert db0.load(t1) == (1, "string", 999)
     
+    
+def test_load_py_tuple_of_db0_enums(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    t1 = (Colors.RED, Colors.GREEN)
+    assert db0.load(t1) == ("RED", "GREEN")
+    

@@ -336,8 +336,10 @@ namespace db0::python
     
     PyObject *tryRefresh(PyObject *self, PyObject *args)
     {
-        PyToolkit::getPyWorkspace().refresh();
-        Py_RETURN_NONE;
+        if (PyToolkit::getPyWorkspace().refresh()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
     }
     
     PyObject *refresh(PyObject *self, PyObject *args)

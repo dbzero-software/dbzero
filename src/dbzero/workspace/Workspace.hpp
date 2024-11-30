@@ -292,7 +292,5 @@ namespace db0
 
         std::shared_ptr<WorkspaceView> getWorkspaceHeadView() const;
     };
-    
-    void validateAccessType(const Fixture &fixture, AccessType requested);
-    
+        
 }

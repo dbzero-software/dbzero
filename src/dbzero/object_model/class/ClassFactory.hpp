@@ -70,6 +70,9 @@ namespace db0::object_model
          * @param prefix_name name of the associated prefix, for scoped classes        
         */
         std::shared_ptr<Class> getOrCreateType(TypeObjectPtr lang_type);
+
+        // non-throwing version of getOrCreateType
+        std::shared_ptr<Class> tryGetOrCreateType(TypeObjectPtr lang_type);
         
         struct ClassItem
         {

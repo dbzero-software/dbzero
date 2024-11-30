@@ -30,5 +30,7 @@ namespace db0::python
     
     // Unload db0.Tuple instance to memory
     PyObject *tryLoadTuple(TupleObject *);
+    // Unload Python tuple instance to memory (in case it contains db0 objects)
+    PyObject *tryLoadPyTuple(PyObject *);
     
 }

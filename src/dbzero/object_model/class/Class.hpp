@@ -166,6 +166,9 @@ namespace db0::object_model
         // @return field name & index
         std::unordered_map<std::string, std::uint32_t> getMembers() const;
         
+        // Get null class instance (e.g. for testing)
+        static std::shared_ptr<Class> getNullClass();
+
     protected:
         friend class ClassFactory;
         friend ClassPtr;
@@ -192,8 +195,11 @@ namespace db0::object_model
         mutable std::vector<Member> m_member_cache;
         // field by-name index (cache)
         mutable std::unordered_map<std::string, std::uint32_t> m_index;
-        const std::uint32_t m_uid;
+        const std::uint32_t m_uid = 0;
         
+        // null-class constructor (for testing only)
+        Class() = default;
+
         /**
          * Load changes to the internal cache
         */

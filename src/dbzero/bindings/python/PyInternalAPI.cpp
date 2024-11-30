@@ -599,14 +599,18 @@ namespace db0::python
 
         auto &type_manager = PyToolkit::getTypeManager();
         auto type_id = type_manager.getTypeId(py_obj);
-        if (!type_manager.isDBZeroTypeId(type_id)) {
-            // no conversion needed
+        if (type_manager.isSimplePyTypeId(type_id)) {
+            // no conversion needed for simple python types
             Py_INCREF(py_obj);
             return py_obj;
         }
+        
         // FIXME: implement for other types
         if (type_id == TypeId::DB0_TUPLE) {
             return tryLoadTuple(reinterpret_cast<TupleObject*>(py_obj));
+        } else if (type_id == TypeId::TUPLE) {
+            // regular Python tuple
+            return tryLoadPyTuple(py_obj);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return tryLoadEnumValue(reinterpret_cast<PyEnumValue*>(py_obj));
         } else {
