@@ -59,7 +59,7 @@ namespace db0::python
             if (!self->ext().hasValue(PyUnicode_AsUTF8(attr))) {
                 THROWF(db0::InputException) << "Enum value not found: " << PyUnicode_AsUTF8(attr);                
             }
-            return makePyEnumValueRepr(PyUnicode_AsUTF8(attr)).steal();
+            return makePyEnumValueRepr(enum_.m_enum_type_def, PyUnicode_AsUTF8(attr)).steal();
         }
     }
     
@@ -87,14 +87,31 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
+    PyObject *getEnumValuesRepr(PyEnum *self)
+    {
+        auto &values = self->ext().getValueDefs();
+        auto py_tuple = PyTuple_New(values.size());
+        unsigned int index = 0;
+        auto enum_type_def = self->ext().m_enum_type_def;
+        for (auto &value: values) {
+            PyTuple_SET_ITEM(py_tuple, index, makePyEnumValueRepr(enum_type_def, value.c_str()).steal());
+            ++index;
+        }
+        return py_tuple;
+    }
+
     PyObject *tryGetEnumValues(PyEnum *self)
     {
         const Enum *enum_ = nullptr;
         if (self->ext().exists()) {
             enum_ = &self->ext().get();
         } else {
-            enum_ = &self->modifyExt().create();
-            // note that enum is created on demand            
+            // note that enum is created on demand
+            enum_ = self->modifyExt().tryCreate();
+            // return value repr instead of materialized enum values
+            if (!enum_) {
+                return getEnumValuesRepr(self);
+            }
         }
         
         auto enum_values = enum_->getValues();
@@ -224,11 +241,11 @@ namespace db0::python
     PyObject *PyEnumValueRepr_repr(PyEnumValueRepr *self) {
         return PyUnicode_FromFormat("<EnumValue ???.%s>", self->ext().m_str_repr.c_str());
     }
-
-    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(const char *value)
+    
+    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(std::shared_ptr<EnumTypeDef> enum_type_def, const char *value)
     {
         auto py_enum_value = PyEnumValueReprDefault_new();
-        py_enum_value.get()->modifyExt().m_str_repr = value;
+        EnumValueRepr::makeNew(&py_enum_value.get()->modifyExt(), enum_type_def, value);
         return py_enum_value;
     }
 

@@ -1,6 +1,7 @@
 import pytest
 import dbzero_ce as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .conftest import DB0_DIR
 
 
 def test_create_enum_type(db0_fixture):
@@ -102,3 +103,18 @@ def test_load_enum_value(db0_fixture):
     str_repr = ["RED", "GREEN", "BLUE"]
     for index, val in enumerate(Colors.values()):
         assert db0.load(val) == str_repr[index]
+
+
+def test_enum_value_repr_returned_if_unable_to_create_enum(db0_fixture):
+    # colors created on current / default prefix
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    db0.open("other-prefix", "rw")
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open("other-prefix", "r")
+    # attempt retrieving colors from "other_prefix" (read-only)
+    values = Colors.values()
+    assert "???" in f"{values}"
+    # FIXME: segfault when trying to access type
+    # print(type(value))

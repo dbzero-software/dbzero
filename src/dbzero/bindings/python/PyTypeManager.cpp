@@ -339,6 +339,14 @@ namespace db0::python
         }
         return reinterpret_cast<PyEnumValue*>(enum_value_ptr)->ext();
     }
+    
+    const db0::object_model::EnumValueRepr &PyTypeManager::extractEnumValueRepr(ObjectPtr enum_value_repr_ptr) const
+    {
+        if (!PyEnumValueRepr_Check(enum_value_repr_ptr)) {
+            THROWF(db0::InputException) << "Expected an EnumValueRepr object" << THROWF_END;
+        }
+        return reinterpret_cast<PyEnumValueRepr*>(enum_value_repr_ptr)->ext();
+    }
 
     db0::object_model::FieldDef &PyTypeManager::extractFieldDef(ObjectPtr py_object) const
     {

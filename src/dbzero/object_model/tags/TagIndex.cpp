@@ -10,6 +10,7 @@
 #include <dbzero/object_model/tags/TagSet.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
+#include <dbzero/object_model/enum/EnumFactory.hpp>
 #include "ObjectIterator.hpp"
 #include "OR_QueryObserver.hpp"
 
@@ -121,9 +122,11 @@ namespace db0::object_model
         std::vector<std::unique_ptr<QueryIterator> > &m_neg_iterators;
     };
 
-    TagIndex::TagIndex(Memspace &memspace, const ClassFactory &class_factory, RC_LimitedStringPool &string_pool, VObjectCache &cache)
+    TagIndex::TagIndex(Memspace &memspace, const ClassFactory &class_factory, EnumFactory &enum_factory,
+        RC_LimitedStringPool &string_pool, VObjectCache &cache)
         : db0::v_object<o_tag_index>(memspace)        
         , m_string_pool(string_pool)
+        , m_enum_factory(enum_factory)
         , m_base_index_short(memspace, cache)
         , m_base_index_long(memspace, cache)        
     {
@@ -131,9 +134,11 @@ namespace db0::object_model
         modify().m_base_index_long_ptr = m_base_index_long.getAddress();
     }
     
-    TagIndex::TagIndex(mptr ptr, const ClassFactory &class_factory, RC_LimitedStringPool &string_pool, VObjectCache &cache)
+    TagIndex::TagIndex(mptr ptr, const ClassFactory &class_factory, EnumFactory &enum_factory,
+        RC_LimitedStringPool &string_pool, VObjectCache &cache)
         : db0::v_object<o_tag_index>(ptr)        
         , m_string_pool(string_pool)
+        , m_enum_factory(enum_factory)
         , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
         , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)        
     {
@@ -518,8 +523,15 @@ namespace db0::object_model
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return getShortTagFromEnumValue(py_arg);
         } else if (type_id == TypeId::DB0_ENUM_VALUE_REPR) {
+            // try translating enum value-repr to enum value
+            auto &enum_value_repr = LangToolkit::getTypeManager().extractEnumValueRepr(py_arg);
+            auto enum_value = m_enum_factory.tryGetByValueRepr(enum_value_repr);
             // enum value-repr associated tags don't exist
-            return {};
+            if (!enum_value) {
+                return {};
+            }
+            // and so get the tag from the enum value
+            return getShortTagFromEnumValue(*enum_value);
         } else if (type_id == TypeId::DB0_FIELD_DEF) {
             return getShortTagFromFieldDef(py_arg);
         } else if (type_id == TypeId::DB0_CLASS) {
@@ -528,7 +540,7 @@ namespace db0::object_model
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
             << " as a tag" << THROWF_END;
     }
-
+    
     TagIndex::ShortTagT TagIndex::getShortTag(ObjectPtr py_arg) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
@@ -553,10 +565,14 @@ namespace db0::object_model
         return object.getAddress();
     }
 
+    TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value) const {
+        return enum_value.getUID().asULong();
+    }
+    
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isEnumValue(py_arg));
-        return LangToolkit::getTypeManager().extractEnumValue(py_arg).getUID().asULong();
+        return getShortTagFromEnumValue(LangToolkit::getTypeManager().extractEnumValue(py_arg));
     }
 
     TagIndex::ShortTagT TagIndex::getShortTagFromClass(ObjectPtr py_arg) const
@@ -631,7 +647,8 @@ namespace db0::object_model
     bool TagIndex::isShortTag(ObjectPtr py_arg) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
-        return type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE || type_id == TypeId::DB0_FIELD_DEF;
+        return type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE || 
+            type_id == TypeId::DB0_FIELD_DEF || type_id == TypeId::DB0_ENUM_VALUE_REPR;
     }
 
     bool TagIndex::isShortTag(ObjectSharedPtr ptr) const {
@@ -691,7 +708,7 @@ namespace db0::object_model
         });
         return makeLongTagFromSequence(sequence);
     }
-
+    
     bool TagIndex::isLongTag(ObjectSharedPtr py_arg) const {
         return isLongTag(py_arg.get());
     }

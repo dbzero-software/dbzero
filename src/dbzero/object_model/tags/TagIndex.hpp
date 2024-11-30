@@ -17,7 +17,8 @@ namespace db0::object_model
     using Object = db0::object_model::Object;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     using LongTagT = db0::LongTagT;
-    
+    class EnumFactory;
+
     struct [[gnu::packed]] o_tag_index: public o_fixed<o_tag_index>
     {
         std::uint64_t m_base_index_short_ptr = 0;
@@ -42,8 +43,8 @@ namespace db0::object_model
         // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
         
-        TagIndex(Memspace &memspace, const ClassFactory &, RC_LimitedStringPool &, VObjectCache &);
-        TagIndex(mptr, const ClassFactory &, RC_LimitedStringPool &, VObjectCache &);
+        TagIndex(Memspace &memspace, const ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &);
+        TagIndex(mptr, const ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &);
         
         virtual ~TagIndex();
         
@@ -97,8 +98,9 @@ namespace db0::object_model
     private:
         using TypeId = db0::bindings::TypeId;
         using ActiveValueT = typename db0::FT_BaseIndex<ShortTagT>::ActiveValueT;
-                
+        
         RC_LimitedStringPool &m_string_pool;
+        EnumFactory &m_enum_factory;
         db0::FT_BaseIndex<ShortTagT> m_base_index_short;
         db0::FT_BaseIndex<LongTagT> m_base_index_long;
         // Current batch-operation buffer (may not be initialized)
@@ -131,7 +133,8 @@ namespace db0::object_model
         ShortTagT getShortTag(TypeId, ObjectPtr) const;
         ShortTagT getShortTagFromString(ObjectPtr) const;
         ShortTagT getShortTagFromMemo(ObjectPtr) const;
-        ShortTagT getShortTagFromEnumValue(ObjectPtr) const;
+        ShortTagT getShortTagFromEnumValue(const EnumValue &) const;
+        ShortTagT getShortTagFromEnumValue(ObjectPtr) const;        
         ShortTagT getShortTagFromFieldDef(ObjectPtr) const;
         ShortTagT getShortTagFromClass(ObjectPtr) const;
 

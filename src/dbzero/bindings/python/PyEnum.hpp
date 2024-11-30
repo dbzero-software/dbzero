@@ -14,6 +14,7 @@ namespace db0::python
     using EnumValue = db0::object_model::EnumValue;
     using EnumValueRepr = db0::object_model::EnumValueRepr;
     using EnumDef = db0::object_model::EnumDef;
+    using EnumTypeDef = db0::object_model::EnumTypeDef;
     using Enum = db0::object_model::Enum;
     using PyEnumValue = PyWrapper<EnumValue, false>;
     using PyEnumValueRepr = PyWrapper<EnumValueRepr, false>;
@@ -52,7 +53,7 @@ namespace db0::python
         const char *type_id, const char *prefix_name);
     
     shared_py_object<PyEnumValue*> makePyEnumValue(const EnumValue &);
-    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(const char *value);
+    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(std::shared_ptr<EnumTypeDef>, const char *value);
     
     PyObject *tryLoadEnumValue(PyEnumValue *);
     

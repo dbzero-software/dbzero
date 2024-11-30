@@ -50,7 +50,8 @@ namespace db0::object_model
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture);
                 auto &enum_factory = fixture->addResource<EnumFactory>(fixture);
                 auto &tag_index = fixture->addResource<TagIndex>(
-                    *fixture, class_factory, fixture->getLimitedStringPool(), fixture->getVObjectCache());
+                    *fixture, class_factory, enum_factory, fixture->getLimitedStringPool(), fixture->getVObjectCache()
+                );
                 
                 // flush from tag index on fixture commit (or close on close)
                 fixture->addCloseHandler([&](bool commit) {
@@ -86,6 +87,7 @@ namespace db0::object_model
                 auto &tag_index = fixture->addResource<TagIndex>(
                     fixture->myPtr(oc.findUnique<TagIndex>()->second()), 
                     class_factory,
+                    enum_factory,
                     fixture->getLimitedStringPool(), 
                     fixture->getVObjectCache()
                 );

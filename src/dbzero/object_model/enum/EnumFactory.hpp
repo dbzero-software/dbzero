@@ -42,21 +42,24 @@ namespace db0::object_model
          * @param lang_type the language specific type object (e.g. Python class)
          * @param typeid the user assigned type ID (optional)
         */
-        std::shared_ptr<Enum> getExistingEnum(const EnumDef &, const char *type_id = nullptr) const;
+        std::shared_ptr<Enum> getExistingEnum(const EnumTypeDef &) const;
         
         /**
          * A non-throwing version of getExistingType
          * @return nullptr if the class is not found
         */
-        std::shared_ptr<Enum> tryGetExistingEnum(const EnumDef &, const char *type_id = nullptr) const;
+        std::shared_ptr<Enum> tryGetExistingEnum(const EnumTypeDef &) const;
         
         /**
          * Get existing or create a new DBZero enum instance
          * @param enum_def enum definition
          * @param type_id optional user assigned type ID
         */
-        std::shared_ptr<Enum> getOrCreateEnum(const EnumDef &, const char *type_id);
-        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumDef &, const char *type_id);
+        std::shared_ptr<Enum> getOrCreateEnum(const EnumDef &, const char *type_id = nullptr);
+        std::shared_ptr<Enum> getOrCreateEnum(const EnumTypeDef &);
+        
+        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumDef &, const char *type_id = nullptr);
+        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumTypeDef &);
         
         // reference the DBZero object model's enum by its pointer
         std::shared_ptr<Enum> getEnumByPtr(EnumPtr) const;
@@ -68,7 +71,10 @@ namespace db0::object_model
          * Translates enum value to the one managed by this fixture/factory
          * @param other enum value from a different fixture
          */
-        EnumValue translateEnumValue(const EnumValue &other);
+        EnumValue translateEnumValue(const EnumValue &);
+        
+        // Try converting EnumValueRepr to this EnumFactory's associated EnumValue
+        std::optional<EnumValue> tryGetByValueRepr(const EnumValueRepr &);
         
         void commit() const;
         
@@ -84,7 +90,7 @@ namespace db0::object_model
         std::shared_ptr<Enum> getEnum(EnumPtr, std::shared_ptr<Enum>);
         
         // Locate enum by definition
-        EnumPtr tryFindEnumPtr(const EnumDef &, const char *type_id) const;
+        EnumPtr tryFindEnumPtr(const EnumDef &, const char *type_id = nullptr) const;
     };
     
     std::optional<std::string> getEnumKeyVariant(const EnumDef &, const char *type_id, int variant_id);

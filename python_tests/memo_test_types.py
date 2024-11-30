@@ -97,6 +97,10 @@ class DynamicDataSingleton:
                 setattr(self, f'field_{i}', i)
 
 
+@db0.enum(values=["RED", "GREEN", "BLUE"])
+class TriColor:
+    pass
+
 @db0.enum(values=["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], prefix=DATA_PX)
 class MonthTag:
     pass

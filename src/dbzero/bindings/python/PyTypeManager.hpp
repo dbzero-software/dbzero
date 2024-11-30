@@ -21,6 +21,7 @@ namespace db0::object_model {
     class Index;
     class ObjectIterator;
     struct EnumValue;
+    struct EnumValueRepr;
     struct FieldDef;
     
 }
@@ -54,6 +55,7 @@ namespace db0::python
         using Index = db0::object_model::Index;
         using ObjectIterator = db0::object_model::ObjectIterator;
         using EnumValue = db0::object_model::EnumValue;
+        using EnumValueRepr = db0::object_model::EnumValueRepr;
         using FieldDef = db0::object_model::FieldDef;
         using Class = db0::object_model::Class;
 
@@ -94,6 +96,7 @@ namespace db0::python
         const Index &extractIndex(ObjectPtr index_ptr) const;
         Index &extractMutableIndex(ObjectPtr index_ptr) const;
         EnumValue extractEnumValue(ObjectPtr enum_value_ptr) const;
+        const EnumValueRepr &extractEnumValueRepr(ObjectPtr enum_value_repr_ptr) const;
         ObjectIterator &extractObjectIterator(ObjectPtr) const;
         FieldDef &extractFieldDef(ObjectPtr) const;
         std::string extractString(ObjectPtr) const;
