@@ -150,7 +150,7 @@ namespace db0::python
         .tp_new = (newfunc)PyEnum_new,        
         .tp_free = PyObject_Free,
     };
-
+    
     static PyMethodDef PyEnumValue_methods[] = 
     {
         {NULL}

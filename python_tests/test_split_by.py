@@ -71,6 +71,13 @@ def test_split_by_enum_values_repr(db0_fixture):
     db0.open(px_name, "r")
     
     # split by enum values-repr
+    # which should be converted to materialized enum values
     query = db0.split_by(TriColor.values(), db0.find(MemoDataPxClass))
-    assert len(list(query)) == 10
+    count = 0
+    for _, v in query:
+        # this is to distinguish enumvalue repr
+        assert "?" not in repr(v)
+        count += 1
+    
+    assert count == 10
     

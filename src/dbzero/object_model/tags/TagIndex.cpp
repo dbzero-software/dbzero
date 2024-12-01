@@ -514,7 +514,7 @@ namespace db0::object_model
             << " as a query" << THROWF_END;
     }
     
-    TagIndex::ShortTagT TagIndex::getShortTag(TypeId type_id, ObjectPtr py_arg) const
+    TagIndex::ShortTagT TagIndex::getShortTag(TypeId type_id, ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
     {
         if (type_id == TypeId::STRING) {
             return getShortTagFromString(py_arg);
@@ -523,15 +523,7 @@ namespace db0::object_model
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return getShortTagFromEnumValue(py_arg);
         } else if (type_id == TypeId::DB0_ENUM_VALUE_REPR) {
-            // try translating enum value-repr to enum value
-            auto &enum_value_repr = LangToolkit::getTypeManager().extractEnumValueRepr(py_arg);
-            auto enum_value = m_enum_factory.tryGetByValueRepr(enum_value_repr);
-            // enum value-repr associated tags don't exist
-            if (!enum_value) {
-                return {};
-            }
-            // and so get the tag from the enum value
-            return getShortTagFromEnumValue(*enum_value);
+            return getShortTagFromEnumValueRepr(py_arg, alt_repr);
         } else if (type_id == TypeId::DB0_FIELD_DEF) {
             return getShortTagFromFieldDef(py_arg);
         } else if (type_id == TypeId::DB0_CLASS) {
@@ -540,13 +532,30 @@ namespace db0::object_model
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
             << " as a tag" << THROWF_END;
     }
-    
-    TagIndex::ShortTagT TagIndex::getShortTag(ObjectPtr py_arg) const
+
+    TagIndex::ShortTagT TagIndex::getShortTagFromEnumValueRepr(ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
     {
-        auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
-        return getShortTag(type_id, py_arg);
+        // try translating enum value-repr to enum value
+        auto &enum_value_repr = LangToolkit::getTypeManager().extractEnumValueRepr(py_arg);
+        auto enum_value = m_enum_factory.tryGetByValueRepr(enum_value_repr);
+        // enum value-repr associated tags don't exist
+        if (!enum_value) {
+            return {};
+        }
+        // feed the alternative representation
+        if (alt_repr) {
+            *alt_repr = LangToolkit::unloadEnumValue(*enum_value);
+        }
+        // and so get the tag from the enum value
+        return getShortTagFromEnumValue(*enum_value);
     }
 
+    TagIndex::ShortTagT TagIndex::getShortTag(ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
+    {
+        auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
+        return getShortTag(type_id, py_arg, alt_repr);
+    }
+    
     TagIndex::ShortTagT TagIndex::getShortTagFromString(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isString(py_arg));
@@ -588,8 +597,8 @@ namespace db0::object_model
         return (static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.m_field_id;
     }
 
-    TagIndex::ShortTagT TagIndex::getShortTag(ObjectSharedPtr py_arg) const {
-        return getShortTag(py_arg.get());
+    TagIndex::ShortTagT TagIndex::getShortTag(ObjectSharedPtr py_arg, ObjectSharedPtr *alt_repr) const {
+        return getShortTag(py_arg.get(), alt_repr);
     }
 
     TagIndex::ShortTagT TagIndex::addShortTag(ObjectPtr py_arg, bool &inc_ref) const
@@ -670,8 +679,10 @@ namespace db0::object_model
         // include ALL provided values first (OR-joined)
         for (auto it = ForwardIterator(LangToolkit::getIterator(py_arg)), end = ForwardIterator::end(); it != end; ++it) {
             if (isShortTag(*it)) {
-                auto tag_iterator = m_base_index_short.makeIterator(getShortTag(*it));
-                split_factory.add(std::move(tag_iterator), *it);
+                ObjectSharedPtr alt_repr = *it;
+                auto tag_iterator = m_base_index_short.makeIterator(getShortTag(*it, &alt_repr));
+                // use the alternative representation if such exists
+                split_factory.add(std::move(tag_iterator), alt_repr);
             } else if (isLongTag(*it)) {
                 auto tag_iterator = m_base_index_long.makeIterator(getLongTag(*it));
                 split_factory.add(std::move(tag_iterator), *it);

@@ -126,15 +126,18 @@ namespace db0::object_model
         
         /**
          * Make a tag from the provided argument (can be a string, type or a memo instance)
+         * @param alt_repr optional buffer to hold the alternative tag representation if such exists
+         * this is useful for capturing the conversion result of EnumValueRepr -> EnumValue
          * @return 0x0 if the tag does not exist
         */        
-        ShortTagT getShortTag(ObjectPtr) const;
-        ShortTagT getShortTag(ObjectSharedPtr) const;
-        ShortTagT getShortTag(TypeId, ObjectPtr) const;
+        ShortTagT getShortTag(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
+        ShortTagT getShortTag(ObjectSharedPtr, ObjectSharedPtr *alt_repr = nullptr) const;
+        ShortTagT getShortTag(TypeId, ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromString(ObjectPtr) const;
         ShortTagT getShortTagFromMemo(ObjectPtr) const;
         ShortTagT getShortTagFromEnumValue(const EnumValue &) const;
-        ShortTagT getShortTagFromEnumValue(ObjectPtr) const;        
+        ShortTagT getShortTagFromEnumValue(ObjectPtr) const;
+        ShortTagT getShortTagFromEnumValueRepr(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromFieldDef(ObjectPtr) const;
         ShortTagT getShortTagFromClass(ObjectPtr) const;
 

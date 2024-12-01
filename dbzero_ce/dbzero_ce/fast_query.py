@@ -254,13 +254,13 @@ def group_by(group_defs, query, ops=(count_op,)) -> Dict:
     
     px_name = db0.get_prefix_of(query).name
     # a simple group definition is either: a string, a lambda or iterable of strings/enum values
-    def is_simple_group_def(group_defs):
+    def is_simple_group_def(group_defs):        
         if isinstance(group_defs, str) or callable(group_defs):
             return True
-        if hasattr(group_defs, "__iter__"):
+        if hasattr(group_defs, "__iter__"):            
             return all(isinstance(item, str) or db0.is_enum_value(item) for item in group_defs)
         return False
-
+    
     # extract groups and key function from a simple group definition
     def prepare_group_defs(group_defs, inner_def = False):
         if is_simple_group_def(group_defs):

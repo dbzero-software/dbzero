@@ -351,7 +351,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(makePyEnumValue(value));
     }
 
-    std::string PyToolkit::getLastError() 
+    std::string PyToolkit::getLastError()
     {
         PyObject *ptype, *pvalue, *ptraceback;
         PyErr_Fetch(&ptype, &pvalue, &ptraceback);

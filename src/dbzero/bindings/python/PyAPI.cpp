@@ -733,10 +733,11 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "isEnumValue requires exactly 1 argument");
             return NULL;
         }
-
-        return PyEnumValue_Check(args[0]) ? Py_True : Py_False;
+        
+        // NOTE: to Python programs EnumValue / EnuValueRepr should not be differentiable
+        return (PyEnumValue_Check(args[0]) || PyEnumValueRepr_Check(args[0])) ? Py_True : Py_False;
     }
-
+    
     PyObject *tryFilterBy(PyObject *args, PyObject *kwargs)
     {
         using ObjectIterator = db0::object_model::ObjectIterator;

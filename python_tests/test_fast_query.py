@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import KVTestClass, MemoTestClass, MemoDataPxClass
+from .memo_test_types import KVTestClass, MemoTestClass, MemoDataPxClass, TriColor
 from .conftest import DB0_DIR, DATA_PX
 import time
 from typing import List
@@ -228,4 +228,28 @@ def test_group_by_issue_1(db0_fixture, memo_enum_tags):
     query_ops = (db0.count_op, db0.make_sum(lambda x: x.value))
     groups = db0.group_by(lambda x: "A" if (x.value % 2 == 0) else "B", db0.find(MemoTestClass), ops = query_ops)
     assert sum(v[1] for _, v in groups.items()) == 45
+    
+    
+def test_group_by_enum_value_repr(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    db0.open(DATA_PX, "rw")
+    # enum if created on the data prefix
+    colors = TriColor.values()
+    # create scoped classes on data prefix
+    for i in range(10):
+        obj = MemoDataPxClass(i)
+        db0.tags(obj).add(colors[i % 3])        
+    del colors
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.init_fast_query("__fq_cache")
+    db0.open("__fq_cache", "rw")
+    db0.open(DATA_PX, "r")
+    # change default prefix (where enum does not exist)
+    db0.open(px_name, "r")
+    
+    # group by enum values-repr    
+    result = db0.group_by(TriColor.values(), db0.find(MemoDataPxClass))
+    assert len(result) == 3
     
