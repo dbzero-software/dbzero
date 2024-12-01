@@ -7,6 +7,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/PyHash.hpp>
+#include "CollectionMethods.hpp"
 
 namespace db0::python
 
@@ -25,14 +26,16 @@ namespace db0::python
         );
     }
     
-    PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)
-    {        
-        dict_obj->ext().getFixture()->refreshIfUpdated();
-        auto hash = get_py_hash(key);
+    PyObject *DictObject_GetItem(DictObject *py_dict, PyObject *py_key)
+    {
+        const auto &dict_obj = py_dict->ext();
+        dict_obj.getFixture()->refreshIfUpdated();
+        auto key = translatedKey(dict_obj, py_key);
+        auto hash = get_py_hash(key.get());
         if (hash == -1) {
             return NULL;
         }
-        return dict_obj->ext().getItem(hash, key).steal();
+        return dict_obj.getItem(hash, key.get()).steal();
     }
     
     PyObject *PyAPI_DictObject_GetItem(DictObject *dict_obj, PyObject *key)
@@ -41,19 +44,20 @@ namespace db0::python
         return DictObject_GetItem(dict_obj, key);
     }
     
-    int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
+    int DictObject_SetItem(DictObject *py_dict, PyObject *py_key, PyObject *value)
     {
-        auto hash = get_py_hash(key);
+        auto key = translatedKey(py_dict->ext(), py_key);
+        auto hash = get_py_hash(key.get());
         if (hash == -1) {            
             // set PyError
             std::stringstream _str;
-            _str << "Unable to find hash function for key of type: " << Py_TYPE(key)->tp_name;
+            _str << "Unable to find hash function for key of type: " << Py_TYPE(key.get())->tp_name;
             PyErr_SetString(PyExc_TypeError, _str.str().c_str());
             return -1;
         }
         
-        db0::FixtureLock lock(dict_obj->ext().getFixture());
-        dict_obj->modifyExt().setItem(lock, hash, key, value);
+        db0::FixtureLock lock(py_dict->ext().getFixture());
+        py_dict->modifyExt().setItem(lock, hash, key.get(), value);
         return 0;
     }
     
@@ -74,12 +78,13 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(DictObject_len, dict_obj);
     }
-
-    int DictObject_HasItem(DictObject *dict_obj, PyObject *key)
+    
+    int DictObject_HasItem(DictObject *py_dict, PyObject *py_key)
     {        
-        dict_obj->ext().getFixture()->refreshIfUpdated();
-        auto hash = get_py_hash(key);  
-        return dict_obj->ext().has_item(hash, key);
+        auto key = translatedKey(py_dict->ext(), py_key);
+        py_dict->ext().getFixture()->refreshIfUpdated();
+        auto hash = get_py_hash(key.get());
+        return py_dict->ext().has_item(hash, key.get());
     }
 
     int PyAPI_DictObject_HasItem(DictObject *dict_obj, PyObject *key)
@@ -152,6 +157,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "dict expected at most 1 argument");
             return NULL;
         }
+        
         if (PyObject_Length(args) == 1) {
             PyObject * arg1 = PyTuple_GetItem(args, 0);
             PyObject *iterator = PyObject_GetIter(arg1);
@@ -276,18 +282,19 @@ namespace db0::python
 
     PyObject *tryDictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
-        PyObject *elem = args[0];
+        PyObject *py_elem = args[0];
         PyObject *value = Py_None;
         if (nargs == 2) {
             value = args[1];
         }
-        auto hash = get_py_hash(elem);  
-        if (dict_object->ext().has_item(hash, elem)) {
-            return DictObject_GetItem(dict_object, elem);
+        auto elem = translatedKey(dict_object->ext(), py_elem);
+        auto hash = get_py_hash(elem.get());
+        if (dict_object->ext().has_item(hash, elem.get())) {
+            return DictObject_GetItem(dict_object, elem.get());
         }
         return value;
     }
-
+    
     PyObject *PyAPI_DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC        
@@ -305,14 +312,15 @@ namespace db0::python
     
     PyObject *tryDictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
-        PyObject *elem = args[0];
+        PyObject *py_elem = args[0];
         PyObject *value = nullptr;
         if (nargs == 2) {
             value = args[1];
         }
-        auto hash = get_py_hash(elem);  
-        if (dict_object->ext().has_item(hash, elem)) {
-            auto obj = dict_object->modifyExt().pop(hash, elem);
+        auto elem = translatedKey(dict_object->ext(), py_elem);
+        auto hash = get_py_hash(elem.get());
+        if (dict_object->ext().has_item(hash, elem.get())) {
+            auto obj = dict_object->modifyExt().pop(hash, elem.get());
             return obj.steal();
         }
         if (value == nullptr) {
@@ -339,16 +347,17 @@ namespace db0::python
 
     PyObject *tryDictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
-        PyObject *elem = args[0];
+        PyObject *py_elem = args[0];
         PyObject *value = Py_None;
         if(nargs == 2){
             value = args[1];
         }
-        auto hash = get_py_hash(elem);  
-        if (!dict_object->ext().has_item(hash, elem)) {
-            DictObject_SetItem(dict_object, elem, value);
+        auto elem = translatedKey(dict_object->ext(), py_elem);
+        auto hash = get_py_hash(elem.get());
+        if (!dict_object->ext().has_item(hash, elem.get())) {
+            DictObject_SetItem(dict_object, elem.get(), value);
         }
-        return DictObject_GetItem(dict_object, elem);        
+        return DictObject_GetItem(dict_object, elem.get());
     }
 
     PyObject *PyAPI_DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
@@ -388,7 +397,7 @@ namespace db0::python
     PyObject *tryDictObject_items(DictObject *dict_obj) {
         return makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::ITEMS);        
     }
-
+    
     PyObject *PyAPI_DictObject_items(DictObject *dict_obj)
     {
         PY_API_FUNC

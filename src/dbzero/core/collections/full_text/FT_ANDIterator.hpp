@@ -152,8 +152,9 @@ namespace db0
 		std::size_t size() const;
 
 		bool empty() const;
-
-	private :
+        
+	private:
+        bool m_invalidated = false;
 		std::list<std::unique_ptr<FT_Iterator<key_t> > > m_joinable;
 	};
 

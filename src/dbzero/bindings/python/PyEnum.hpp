@@ -54,9 +54,13 @@ namespace db0::python
     
     shared_py_object<PyEnumValue*> makePyEnumValue(const EnumValue &);
     shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(std::shared_ptr<EnumTypeDef>, const char *value);
+    // check if enum value translation is required
+    bool hasTranslatedEnumValue(db0::swine_ptr<Fixture> &, PyEnumValue *);
+    // translate enum value between prefixes if needed
+    shared_py_object<PyObject*> translatedEnumValue(db0::swine_ptr<Fixture> &, PyEnumValue *);
     
     PyObject *tryLoadEnumValue(PyEnumValue *);
-    
+
 }
 
 

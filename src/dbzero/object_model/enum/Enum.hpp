@@ -102,3 +102,11 @@ namespace db0::object_model
         std::optional<std::string> module_name, const std::vector<std::string> &values, int variant_id);
 
 }
+
+namespace std
+
+{
+
+    ostream &operator<<(ostream &os, const db0::object_model::Enum &);
+
+}

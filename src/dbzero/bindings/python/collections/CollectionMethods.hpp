@@ -1,6 +1,7 @@
 #include <Python.h>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
+#include <dbzero/bindings/python/PyEnum.hpp>
 
 namespace db0::python
 
@@ -139,6 +140,54 @@ namespace db0::python
         }
         auto index = PyLong_FromLong(py_obj->ext().index(args[0]));
         return index;
+    }
+    
+    // Checks if the key conversion is required
+    template <typename CollectionT>
+    bool hasTranslatedKey(const CollectionT &collection, PyObject *key)
+    {
+        if (PyEnumValue_Check(key)) {
+            auto fixture = collection.getFixture();
+            return hasTranslatedEnumValue(fixture, reinterpret_cast<PyEnumValue*>(key));
+        } else if (PyTuple_Check(key)) {
+            // check each element of the tuple
+            auto size = PyTuple_Size(key);
+            for (int i = 0; i < size; ++i) {
+                auto item = PyTuple_GetItem(key, i);
+                bool result = hasTranslatedKey(collection, item);
+                if (result) {
+                    return true;
+                }
+            }
+        }
+
+        // no translation needed
+        return false;
+    }
+    
+    // Performs key translaction where necessary
+    // this is required for translating non-scoped EnumValues between prefixes
+    template <typename CollectionT>
+    shared_py_object<PyObject*> translatedKey(const CollectionT &collection, PyObject *key)
+    {
+        if (PyEnumValue_Check(key)) {
+            auto fixture = collection.getFixture();
+            return translatedEnumValue(fixture, reinterpret_cast<PyEnumValue*>(key));
+        } else if (PyTuple_Check(key)) {
+            // only perform tuple translation if needed
+            if (hasTranslatedKey(collection, key)) {
+                auto size = PyTuple_Size(key);
+                auto py_tuple = PyTuple_New(size);
+                for (int i = 0; i < size; ++i) {
+                    auto item = PyTuple_GetItem(key, i);
+                    auto translated = translatedKey(collection, item);                    
+                    PyTuple_SET_ITEM(py_tuple, i, translated.steal());
+                }
+                return shared_py_object<PyObject*>(py_tuple);
+            }
+        }
+        // no translation needed
+        return key;
     }
 
 }

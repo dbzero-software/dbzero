@@ -251,5 +251,6 @@ def test_group_by_enum_value_repr(db0_fixture):
     
     # group by enum values-repr    
     result = db0.group_by(TriColor.values(), db0.find(MemoDataPxClass))
+    print(result)
     assert len(result) == 3
     

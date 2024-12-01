@@ -129,6 +129,7 @@ namespace db0::object_model
         , m_enum_factory(enum_factory)
         , m_base_index_short(memspace, cache)
         , m_base_index_long(memspace, cache)        
+        , m_fixture_uuid(enum_factory.getFixture()->getUUID())
     {
         modify().m_base_index_short_ptr = m_base_index_short.getAddress();
         modify().m_base_index_long_ptr = m_base_index_long.getAddress();
@@ -140,7 +141,8 @@ namespace db0::object_model
         , m_string_pool(string_pool)
         , m_enum_factory(enum_factory)
         , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
-        , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)        
+        , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)
+        , m_fixture_uuid(enum_factory.getFixture()->getUUID())
     {
     }
 
@@ -521,7 +523,7 @@ namespace db0::object_model
         } else if (type_id == TypeId::MEMO_OBJECT) {
             return getShortTagFromMemo(py_arg);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
-            return getShortTagFromEnumValue(py_arg);
+            return getShortTagFromEnumValue(py_arg, alt_repr);
         } else if (type_id == TypeId::DB0_ENUM_VALUE_REPR) {
             return getShortTagFromEnumValueRepr(py_arg, alt_repr);
         } else if (type_id == TypeId::DB0_FIELD_DEF) {
@@ -574,14 +576,24 @@ namespace db0::object_model
         return object.getAddress();
     }
 
-    TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value) const {
+    TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
+    {
+        if (enum_value.m_fixture_uuid != m_fixture_uuid) {
+            // translate prefix
+            auto value = m_enum_factory.translateEnumValue(enum_value);
+            // unload the alternative representation
+            if (alt_repr) {
+                *alt_repr = LangToolkit::unloadEnumValue(value);
+            }
+            return value.getUID().asULong();
+        }
         return enum_value.getUID().asULong();
     }
     
-    TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(ObjectPtr py_arg) const
+    TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
     {
         assert(LangToolkit::isEnumValue(py_arg));
-        return getShortTagFromEnumValue(LangToolkit::getTypeManager().extractEnumValue(py_arg));
+        return getShortTagFromEnumValue(LangToolkit::getTypeManager().extractEnumValue(py_arg), alt_repr);
     }
 
     TagIndex::ShortTagT TagIndex::getShortTagFromClass(ObjectPtr py_arg) const

@@ -52,7 +52,7 @@ namespace db0::python
         auto enum_value = PyToolkit::getTypeManager().extractEnumValue(key);
         return enum_value.getUID().asULong();
     }
-
+    
     std::int64_t get_py_hash_impl_default(PyObject *key) {
         return PyObject_Hash(key);
     }

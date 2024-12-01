@@ -9,7 +9,7 @@ namespace db0::object_model
         : m_factory(is_exclusive)
     {
     }
-     
+    
     void OR_QueryObserverBuilder::add(std::unique_ptr<db0::FT_Iterator<std::uint64_t> > &&query, ObjectSharedPtr decoration)
     {
         if (query) {
@@ -26,28 +26,27 @@ namespace db0::object_model
         auto query_observer = std::unique_ptr<OR_QueryObserver>(new OR_QueryObserver(or_iterator_ptr, std::move(m_decorations)));
         return std::make_pair(std::move(iterator), std::move(query_observer));
     }
-
+    
     OR_QueryObserver::OR_QueryObserver(const FT_JoinORXIterator<std::uint64_t> *iterator_ptr,
         std::unordered_map<std::uint64_t, ObjectSharedPtr> &&decorations)
         : m_iterator_ptr(iterator_ptr)
         , m_decorations(std::move(decorations))
-    {
+    {        
     }
-
+    
     OR_QueryObserver::OR_QueryObserver(const FT_JoinORXIterator<std::uint64_t> *iterator_ptr,
         const std::unordered_map<std::uint64_t, ObjectSharedPtr> &decorations)
         : m_iterator_ptr(iterator_ptr)
         , m_decorations(decorations)
-    {
+    {    
     }
-
+    
     OR_QueryObserver::ObjectPtr OR_QueryObserver::getDecoration() const
-    {
-        if (!m_iterator_ptr) {
-            THROWF(db0::InternalException) << "Split query iterator not set";
-        }
+    {        
+        assert(m_iterator_ptr && "Split query iterator not set");
         auto it = m_decorations.find(m_iterator_ptr->getInnerUID());
         if (it == m_decorations.end()) {
+            assert(false);
             THROWF(db0::InternalException) << "Split query decoration not found";            
         }
         return it->second.get();

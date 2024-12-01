@@ -208,3 +208,15 @@ namespace db0::object_model
     }
     
 }
+
+namespace std 
+
+{
+
+    ostream &operator<<(ostream &os, const db0::object_model::Enum &enum_)
+    {
+        os << "Enum: " << enum_.getName() << " (" << enum_.getModuleName() << ")";
+        return os;
+    }
+
+}
