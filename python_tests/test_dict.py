@@ -466,3 +466,9 @@ def test_dict_no_duplicate_keys_when_mixed_python_db0_types(db0_no_autocommit):
 #     obj[MonthTag.NOV] = 3
 #     obj[(MonthTag.NOV, 1, "Szczecin")] = 2
 #     assert len(obj) == 3
+
+@pytest.mark.parametrize("make_dict", dict_test_params)
+def test_dict_raises_key_error(db0_fixture, make_dict):
+    dict_1 = make_dict([("item", 2), ("item_2", 3)])
+    with pytest.raises(KeyError):
+        dict_1['item_3']
