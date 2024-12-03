@@ -33,11 +33,16 @@ namespace db0::python
         auto key = translatedKey(dict_obj, py_key);
         auto hash = get_py_hash(key.get());
         if (hash == -1) {
+            auto py_str = PyObject_Str(py_key);
+            auto str_name =  PyUnicode_AsUTF8(py_str);
+            Py_DECREF(py_str);
+            auto error_message = "Cannot get hash for key: " + std::string(str_name);
+            PyErr_SetString(PyExc_KeyError, error_message.c_str());
             return NULL;
         }
         auto item_ptr = dict_obj.getItem(hash, key.get());
         if(item_ptr == nullptr) {   
-        auto py_str = PyObject_Str(py_key);
+            auto py_str = PyObject_Str(py_key);
             auto str_name =  PyUnicode_AsUTF8(py_str);
             Py_DECREF(py_str);
             PyErr_SetString(PyExc_KeyError,str_name);
@@ -49,7 +54,7 @@ namespace db0::python
     PyObject *PyAPI_DictObject_GetItem(DictObject *dict_obj, PyObject *key)
     {
         PY_API_FUNC
-        return DictObject_GetItem(dict_obj, key);
+        return runSafe(DictObject_GetItem, dict_obj, key);
     }
     
     int DictObject_SetItem(DictObject *py_dict, PyObject *py_key, PyObject *value)
