@@ -35,7 +35,15 @@ namespace db0::python
         if (hash == -1) {
             return NULL;
         }
-        return dict_obj.getItem(hash, key.get()).steal();
+        auto item_ptr = dict_obj.getItem(hash, key.get());
+        if(item_ptr == nullptr) {   
+        auto py_str = PyObject_Str(py_key);
+            auto str_name =  PyUnicode_AsUTF8(py_str);
+            Py_DECREF(py_str);
+            PyErr_SetString(PyExc_KeyError,str_name);
+            return NULL;
+        }
+        return item_ptr.steal();
     }
     
     PyObject *PyAPI_DictObject_GetItem(DictObject *dict_obj, PyObject *key)
