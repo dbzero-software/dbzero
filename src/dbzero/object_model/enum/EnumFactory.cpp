@@ -195,22 +195,42 @@ namespace db0::object_model
         return getEnumByPtr(enum_ptr);
     }
     
-    EnumValue EnumFactory::translateEnumValue(const EnumValue &other)
+    bool EnumFactory::hasTranslatedEnumValue(const EnumValue &other) const {
+        return (other.m_fixture_uuid != getFixture()->getUUID());
+    }
+    
+    std::shared_ptr<Enum> EnumFactory::getTranslatedEnum(const EnumValue &other)
     {
-        if (other.m_fixture_uuid == getFixture()->getUUID()) {
-            // no translation needed
-            return other;
-        }
-        
+        assert(other.m_fixture_uuid != getFixture()->getUUID());
         auto &other_factory = this->getFixture()->getWorkspace().
             getFixture(other.m_fixture_uuid, AccessType::READ_ONLY)->get<EnumFactory>();
         auto other_enum = other_factory.getEnumByUID(other.m_enum_uid);
         auto type_id = other_enum->getTypeID();
         // FIXME: optimization
         // getEnumDef can be avoided if definition already exists in the destination fixture
-        auto enum_ = this->getOrCreateEnum(other_enum->getEnumDef(), type_id ? type_id->c_str() : nullptr);
-        // resolve by text representation (since UIDs are not compatible across fixtures)
-        return enum_->get(other.m_str_repr.c_str());
+        return this->getOrCreateEnum(other_enum->getEnumDef(), type_id ? type_id->c_str() : nullptr);
+    }
+    
+    EnumValue EnumFactory::translateEnumValue(const EnumValue &other)
+    {
+        if (other.m_fixture_uuid == getFixture()->getUUID()) {
+            // no translation required
+            return other;
+        }
+
+        // must resolve enum value by name since UIDs dont match across prefixes
+        return getTranslatedEnum(other)->get(other.m_str_repr.c_str());
+    }
+    
+    EnumFactory::ObjectSharedPtr EnumFactory::translateEnumLangValue(const EnumValue &other)
+    {
+        if (other.m_fixture_uuid == getFixture()->getUUID()) {
+            // retrieve from this factory
+            return getEnumByUID(other.m_enum_uid)->getLangValue(other);
+        }
+        
+        // must resolve enum value by name since UIDs dont match across prefixes
+        return getTranslatedEnum(other)->getLangValue(other.m_str_repr.c_str());
     }
     
     void EnumFactory::commit() const

@@ -30,6 +30,7 @@ namespace db0::object_model
         using super_t = db0::has_fixture<v_object<o_enum_factory> >;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
+        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         using TypeObjectSharedPtr = typename LangToolkit::TypeObjectSharedPtr;
 
@@ -69,9 +70,14 @@ namespace db0::object_model
         
         /**
          * Translates enum value to the one managed by this fixture/factory
-         * @param other enum value from a different fixture
+         * @param enum_value enum value from a different fixture
+         * @return enum value as a language specific object
          */
-        EnumValue translateEnumValue(const EnumValue &);
+        ObjectSharedPtr translateEnumLangValue(const EnumValue &enum_value);
+        EnumValue translateEnumValue(const EnumValue &enum_value);
+        
+        // Checks if specific enum value requires translation
+        bool hasTranslatedEnumValue(const EnumValue &) const;
         
         // Try converting EnumValueRepr to this EnumFactory's associated EnumValue
         std::optional<EnumValue> tryGetByValueRepr(const EnumValueRepr &);
@@ -91,6 +97,8 @@ namespace db0::object_model
         
         // Locate enum by definition
         EnumPtr tryFindEnumPtr(const EnumDef &, const char *type_id = nullptr) const;
+        // get translated enum corresponding to enum_value
+        std::shared_ptr<Enum> getTranslatedEnum(const EnumValue &enum_value);
     };
     
     std::optional<std::string> getEnumKeyVariant(const EnumDef &, const char *type_id, int variant_id);
