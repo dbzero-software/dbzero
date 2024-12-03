@@ -104,3 +104,10 @@ class TriColor:
 @db0.enum(values=["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], prefix=DATA_PX)
 class MonthTag:
     pass
+
+@db0.memo
+class MemoTestThreeParamsClass:
+    def __init__(self, value_1, value_2, value_3):  
+        self.value_1 = value_1
+        self.value_2 = value_2
+        self.value_3 = value_3     

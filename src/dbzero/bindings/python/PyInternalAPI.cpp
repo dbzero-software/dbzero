@@ -21,6 +21,9 @@
 #include <dbzero/core/memory/SlabAllocator.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
+#include <dbzero/bindings/python/collections/PyList.hpp>
+#include <dbzero/bindings/python/collections/PyDict.hpp>
+#include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/PyEnum.hpp>
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
@@ -611,8 +614,19 @@ namespace db0::python
         } else if (type_id == TypeId::TUPLE) {
             // regular Python tuple
             return tryLoadPyTuple(py_obj);
+        } else if (type_id == TypeId::DB0_LIST) {
+            return tryLoadList(reinterpret_cast<ListObject*>(py_obj));
+        } else if (type_id == TypeId::LIST) {
+            // regular Python list
+            return tryLoadPyList(py_obj);
+        } else if (type_id == TypeId::DB0_DICT || type_id == TypeId::DICT) {
+            return tryLoadDict(py_obj);
+        } else if (type_id == TypeId::DB0_SET || type_id == TypeId::SET) {
+            return tryLoadSet(py_obj);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return tryLoadEnumValue(reinterpret_cast<PyEnumValue*>(py_obj));
+        } else if (type_id == TypeId::MEMO_OBJECT) {
+            return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj));
         } else {
             THROWF(db0::InputException) << "Unload not implemented for type: " 
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;

@@ -651,4 +651,14 @@ namespace db0::python
         return member.steal();
     }
     
+    PyObject *tryLoadMemo(MemoObject *memo_obj)
+    {
+        PyObject *py_result = PyDict_New();
+        memo_obj->ext().forAll([py_result, memo_obj](const std::string &key, PyTypes::ObjectSharedPtr) {
+            auto attr = MemoObject_getattro(memo_obj, PyUnicode_FromString(key.c_str()));
+            PyDict_SetItemString(py_result, key.c_str(), tryLoad(attr));
+        });
+        return py_result;
+    }
+
 }

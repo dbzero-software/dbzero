@@ -658,5 +658,18 @@ namespace db0::python
         Py_DECREF(it);        
         return self;
     }
+
+    PyObject *tryLoadSet(PyObject *set) {
+    
+        PyObject *iterator = PyObject_GetIter(set);
+        PyObject *elem;
+        PyObject *py_result = PySet_New(nullptr);
+        while ((elem = PyIter_Next(iterator))) {
+            PySet_Add(py_result, tryLoad(elem));
+            Py_DECREF(elem);
+        }            
+        Py_DECREF(iterator);
+        return py_result;
+    }
     
 }
