@@ -129,6 +129,16 @@ def test_set_isdisjoint(db0_no_autocommit, make_set):
     assert set_1.isdisjoint([5,6,7,8])
     assert not set_1.isdisjoint([3,4,5,6])
 
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_isdisjoint_str(db0_no_autocommit, make_set):
+    set_1 = make_set(["1", "2", "3", "4"])
+    set_2 = make_set(["5", "6", "7", "8"])
+    set_3 = make_set(["3", "4", "5", "6"])
+    assert set_1.isdisjoint(set_2)
+    assert not set_1.isdisjoint(set_3)
+    assert set_1.isdisjoint(["5", "6", "7", "8"])
+    assert not set_1.isdisjoint(["3", "4", "5", "6"])
+
 
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_issubset(db0_no_autocommit, make_set):
@@ -141,6 +151,17 @@ def test_set_issubset(db0_no_autocommit, make_set):
     assert set_1.issubset([2,3,1,2,4])
     assert not set_1.issubset([2,3,5,6,7])
 
+
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_issubset_str(db0_no_autocommit, make_set):
+    set_1 = make_set(["1", "3", "2"])
+    set_2 = make_set(["2", "3", "1", "2", "4"])
+    set_3 = make_set(["2", "3", "5", "6", "7"])
+    assert set_1.issubset(set_2)
+    assert not set_1.issubset(set_3)
+    assert set_1.issubset(set_1)
+    assert set_1.issubset(["2", "3", "1", "2", "4"])
+    assert not set_1.issubset(["2", "3", "5", "6", "7"])
 
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_issubset_le(db0_no_autocommit, make_set):
@@ -178,6 +199,17 @@ def test_set_issuperset(db0_no_autocommit, make_set):
     assert set_1.issuperset(set_1)
     assert set_1.issuperset([2,3,1,2,4])
     assert not set_1.issuperset([2,3,5,6,7])
+
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_issuperset_str(db0_no_autocommit, make_set):
+    set_1 = make_set(["1", "2", "3", "4", "5", "6"])
+    set_2 = make_set(["2", "3", "1", "2", "4"])
+    set_3 = make_set(["2", "3", "5", "6", "7"])
+    assert set_1.issuperset(set_2)
+    assert not set_1.issuperset(set_3)
+    assert set_1.issuperset(set_1)
+    assert set_1.issuperset(["2", "3", "1", "2", "4"])
+    assert not set_1.issuperset(["2", "3", "5", "6", "7"])
 
 
 @pytest.mark.parametrize("make_set", set_test_params)
@@ -232,6 +264,13 @@ def test_set_can_union(db0_fixture, make_set):
     set_union = set_1.union(set_2, set_3)    
     assert set(set_union) == set([1, 2, 3, 4, 5, 6, 7])
 
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_can_union_str(db0_fixture, make_set):
+    set_1 = db0.set(["1", "3", "2"])    
+    set_2 = db0.set(["3", "4", "5"])    
+    set_3 = db0.set(["5", "6", "7"])
+    set_union = set_1.union(set_2, set_3)    
+    assert set(set_union) == set(["1", "2", "3", "4", "5", "6", "7"])
 
 def test_set_can_union_db0_set_with_python_sets(db0_fixture):
     set_1 = db0.set([1, 3, 2])
@@ -379,6 +418,14 @@ def test_set_can_intersect_in_place(db0_fixture, make_set):
     set_1 &= set([5, 6, 7, 8])
     assert set_1 == set([5])
 
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_can_intersect_in_place(db0_fixture, make_set):
+    set_1 = make_set([1, 2, 3, 4, 5])
+    set_2 = make_set([3, 4, 5, 6])
+    set_1 &= set_2
+    assert set_1 == set([3, 4, 5])
+    set_1 &= set([5, 6, 7, 8])
+    assert set_1 == set([5])
 
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_difference_in_place(db0_fixture, make_set):
@@ -506,3 +553,35 @@ def test_set_destroy_removes_reference(db0_fixture):
     with pytest.raises(Exception):
         db0.fetch(value_uuid)
 
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_difference_str_values_in_one_method(db0_fixture, make_set):
+    set_1 = make_set(["1", "2", "3", "4", "5", "6", "7", "8", "9"])
+    set_2 = make_set(["3", "4", "5"])
+    set_3 = make_set(["6", "7", "8", "10", "11"])
+    set_diff= set_1.difference(set_2, set_3)
+    assert len(set_diff) == 3
+    assert set_diff== set(["1", "2", "9"])
+
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_difference_str_values(db0_fixture, make_set):
+    set_1 = make_set(["1", "2", "3", "4", "5", "6", "7", "8", "9"])
+    set_2 = make_set(["3", "4", "5"])
+    set_3 = make_set(["6", "7", "8", "10", "11"])
+    set_diff= set_1.difference(set_2)
+    assert len(set_diff) == 6
+    assert set_diff== set(["1", "2", "6", "7", "8", "9"])
+    set_diff = set_diff.difference(set_3)
+    assert len(set_diff) == 3
+    assert set_diff== set(["1", "2", "9"])
+
+@pytest.mark.parametrize("make_set", set_test_params)
+def test_set_difference_str_values_symmetric(db0_fixture, make_set):
+    set_1 = make_set(["1", "2", "3", "4", "5", "6", "7", "8", "9"])
+    set_2 = make_set(["3", "4", "5"])
+    set_3 = make_set(["6", "7", "8", "10", "11"])
+    set_diff= set_1.symmetric_difference(set_2)
+    assert len(set_diff) == 6
+    assert set_diff== set(["1", "2", "6", "7", "8", "9"])
+    set_diff = set_diff.symmetric_difference(set_3)
+    assert len(set_diff) == 5
+    assert set_diff== set(["1", "2", "9", "10", "11"])
