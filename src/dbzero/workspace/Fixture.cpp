@@ -2,6 +2,7 @@
 #include <dbzero/core/memory/MetaAllocator.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/utils/uuid.hpp>
+#include <dbzero/core/utils/ProcessTimer.hpp>
 #include "GC0.hpp"
 #include "Workspace.hpp"
 #include "WorkspaceView.hpp"
@@ -149,11 +150,17 @@ namespace db0
         }
     }
     
-    void Fixture::close()
+    void Fixture::close(ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Fixture::close", timer_ptr);
+        }
+        
         // clear cache to destroy object instances supported by the cache
         // this has to be done before commit (to not commit unrefereced objects)        
         m_lang_cache.clear(true);
+        
         // auto-commit before closing
         if (m_access_type == AccessType::READ_WRITE) {
             // prevents commit on a closed fixture
@@ -164,33 +171,53 @@ namespace db0
                 if (m_gc0_ptr) {
                     getGC0().preCommit();
                 }
-                                
+
                 // clear lang cache again since pre-commit might've released some Python instances
                 m_lang_cache.clear(true);
 
                 // lock for exclusive access
                 std::unique_lock<std::shared_mutex> lock(m_shared_mutex);            
-                tryCommit(lock);
+                tryCommit(lock, timer.get());
             }
         }
         
-        std::unique_lock<std::mutex> lock(m_close_mutex);
         for (auto &close: m_close_handlers) {
             close(false);
-        }
+        }        
         m_string_pool.close();
-        Memspace::close();
+        Memspace::close(timer.get());
     }
     
-    bool Fixture::refresh()
+    bool Fixture::refresh(ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<ProcessTimer> timer;        
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Fixture::refresh", timer_ptr);
+        }
+        
         assert(getAccessType() == AccessType::READ_ONLY && "Refresh only makes sense for read-only fixtures");
         m_updated = false;
-        if (!Memspace::refresh()) {
+        if (!Memspace::beginRefresh()) {
             return false;
         }
-        // detach all active v_object instances so that they can be refreshed        
+                
+        // detach all active ObjectBase instances so that they can be refreshed
         getGC0().detachAll();
+        // detach GC0 instance itself    
+        if (m_gc0_ptr) {
+            getGC0().detach();
+        }
+        // detach owned resources
+        for (auto &detach: m_detach_handlers) {
+            detach();
+        }
+        
+        m_v_object_cache.detach();
+        m_string_pool.detach();
+        m_object_catalogue.detach();        
+        Memspace::detach();
+        Memspace::completeRefresh();
+
         return true;
     }
     
@@ -201,18 +228,19 @@ namespace db0
         m_pre_commit = false;
     }
     
-    void Fixture::refreshIfUpdated()
+    bool Fixture::refreshIfUpdated()
     {
-        // only refresh read-only fixtures
+        // only refresh read-only fixtures        
         if (getAccessType() == AccessType::READ_ONLY && m_updated) {
-            refresh();
+            return refresh();
         }
+        return false;
     }
     
     db0::swine_ptr<Fixture> Fixture::getSnapshot(Snapshot &workspace_view, std::optional<std::uint64_t> state_num) const
-    {        
+    {
         auto px_snapshot = m_prefix->getSnapshot(state_num);
-        auto allocator_snapshot = std::make_shared<MetaAllocator>(px_snapshot, m_meta_allocator.getSlabRecyclerPtr());
+        auto allocator_snapshot = std::make_shared<MetaAllocator>(px_snapshot, m_meta_allocator.getSlabRecyclerPtr());        
         return db0::make_swine<Fixture>(
             workspace_view, m_v_object_cache.getSharedObjectList(), px_snapshot, allocator_snapshot
         );
@@ -220,7 +248,7 @@ namespace db0
     
     void Fixture::commit()
     {        
-        assert(getPrefixPtr());                
+        assert(getPrefixPtr());
         // pre-commit to prepare objects which require it (e.g. Index) for commit
         // NOTE: pre-commit must NOT lock the fixture's shared mutex
         // NOTE: pre-commit may release some of the Python instances
@@ -228,8 +256,8 @@ namespace db0
             getGC0().preCommit();
         }
         
-        // Clear expired instances from cache so that they're not persisted        
-        m_lang_cache.clear(true);        
+        // Clear expired instances from cache so that they're not persisted
+        m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
         tryCommit(lock);
         m_pre_commit = false;
@@ -248,15 +276,15 @@ namespace db0
             return;
         }
         
-        std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;        
+        std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
         if (m_gc0_ptr) {
             getGC0().commitAll();
         }
-
+        
         for (auto &commit: m_close_handlers) {
             commit(true);
         }
-                
+        
         // commit garbage collector's state
         // we check if gc0 exists because the unit-tests set up may not have it
         if (gc0_ctx) {
@@ -355,9 +383,17 @@ namespace db0
         for (auto &detach: m_detach_handlers) {
             detach();
         }
-                
+        
+        // detach GC0 instance itself
+        if (m_gc0_ptr) {
+            getGC0().detach();
+        }
+        
+        m_object_catalogue.detach();
+        m_v_object_cache.detach();
         m_string_pool.detach();
         m_object_catalogue.detach();
+        Memspace::detach();
     }
     
     void Fixture::endAtomic()

@@ -106,7 +106,7 @@ namespace db0
 		/**
 		 * Instruct root ProcessTimer to generate logs with specific logstream
 		 */
-		void showLogs (std::ostream &);
+		void showLogs(std::ostream &);
 
 	protected :
 		std::ostream *m_logs = nullptr;

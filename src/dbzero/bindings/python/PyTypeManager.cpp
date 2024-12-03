@@ -5,7 +5,6 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
-#include <dbzero/bindings/python/types/DateTime.hpp>
 #include <Python.h>
 #include <datetime.h>
 #include "PyObjectIterator.hpp"
@@ -43,32 +42,37 @@ namespace db0::python
         PyDateTime_IMPORT;
         
         // register well known static types, including DB0 extension types
-        addStaticType(&PyLong_Type, TypeId::INTEGER);
-        addStaticType(&PyFloat_Type, TypeId::FLOAT);
-        addStaticType(&_PyNone_Type, TypeId::NONE);
-        addStaticType(&PyUnicode_Type, TypeId::STRING);
+        addStaticSimpleType(&PyLong_Type, TypeId::INTEGER);
+        addStaticSimpleType(&PyFloat_Type, TypeId::FLOAT);
+        addStaticSimpleType(&PyBool_Type, TypeId::BOOLEAN);
+        addStaticSimpleType(&_PyNone_Type, TypeId::NONE);
+        addStaticSimpleType(&PyUnicode_Type, TypeId::STRING);
         // add python list type
         addStaticType(&PyList_Type, TypeId::LIST);
         addStaticType(&PySet_Type, TypeId::SET);
         addStaticType(&PyDict_Type, TypeId::DICT);
         addStaticType(&PyTuple_Type, TypeId::TUPLE);
-        addStaticType(&TagSetType, TypeId::DB0_TAG_SET);
-        addStaticType(&IndexObjectType, TypeId::DB0_INDEX);
-        addStaticType(&ListObjectType, TypeId::DB0_LIST);
-        addStaticType(&SetObjectType, TypeId::DB0_SET);
-        addStaticType(&DictObjectType, TypeId::DB0_DICT);
-        addStaticType(&TupleObjectType, TypeId::DB0_TUPLE);
-        addStaticType(&ClassObjectType, TypeId::DB0_CLASS);
-        addStaticType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
         addStaticType(&PyBytes_Type, TypeId::BYTES);
-        addStaticType(&PyEnumType, TypeId::DB0_ENUM);
-        addStaticType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
-        addStaticType(&PyEnumValueReprType, TypeId::DB0_ENUM_VALUE_REPR);
-        addStaticType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
-        addStaticType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
-        addStaticType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
         // Python datetime type
-        addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
+        addStaticSimpleType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
+
+        // DBZero extension types
+        addStaticDBZeroType(&TagSetType, TypeId::DB0_TAG_SET);
+        addStaticDBZeroType(&IndexObjectType, TypeId::DB0_INDEX);
+        addStaticDBZeroType(&ListObjectType, TypeId::DB0_LIST);
+        addStaticDBZeroType(&SetObjectType, TypeId::DB0_SET);
+        addStaticDBZeroType(&DictObjectType, TypeId::DB0_DICT);
+        addStaticDBZeroType(&TupleObjectType, TypeId::DB0_TUPLE);
+        addStaticDBZeroType(&ClassObjectType, TypeId::DB0_CLASS);
+        addStaticDBZeroType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
+        
+        addStaticDBZeroType(&PyEnumType, TypeId::DB0_ENUM);
+        addStaticDBZeroType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
+        addStaticDBZeroType(&PyEnumValueReprType, TypeId::DB0_ENUM_VALUE_REPR);
+        addStaticDBZeroType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
+        addStaticDBZeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
+        addStaticDBZeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
+
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
         m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
     }
@@ -335,6 +339,14 @@ namespace db0::python
         }
         return reinterpret_cast<PyEnumValue*>(enum_value_ptr)->ext();
     }
+    
+    const db0::object_model::EnumValueRepr &PyTypeManager::extractEnumValueRepr(ObjectPtr enum_value_repr_ptr) const
+    {
+        if (!PyEnumValueRepr_Check(enum_value_repr_ptr)) {
+            THROWF(db0::InputException) << "Expected an EnumValueRepr object" << THROWF_END;
+        }
+        return reinterpret_cast<PyEnumValueRepr*>(enum_value_repr_ptr)->ext();
+    }
 
     db0::object_model::FieldDef &PyTypeManager::extractFieldDef(ObjectPtr py_object) const
     {
@@ -357,7 +369,7 @@ namespace db0::python
             py_enum->modifyExt().close();
         }
         for (auto &memo_type: m_type_cache) {
-            PyMemoType_close(memo_type.second.get());
+            MemoType_close(memo_type.second.get());
         }
     }
     
@@ -401,5 +413,21 @@ namespace db0::python
         assert(m_memo_base_type);
         return py_type == m_memo_base_type;
     }
+
+    bool PyTypeManager::isDBZeroTypeId(TypeId type_id) const {
+        return m_dbzero_type_ids.find(type_id) != m_dbzero_type_ids.end();
+    }
+
+    bool PyTypeManager::isDBZeroType(ObjectPtr obj_ptr) const {
+        return isDBZeroTypeId(getTypeId(obj_ptr));
+    }
+
+    bool PyTypeManager::isSimplePyType(ObjectPtr obj_ptr) const {
+        return isSimplePyTypeId(getTypeId(obj_ptr));
+    }
     
+    bool PyTypeManager::isSimplePyTypeId(TypeId type_id) const {
+        return m_simple_py_type_ids.find(type_id) != m_simple_py_type_ids.end();
+    }
+
 }

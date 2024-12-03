@@ -110,6 +110,9 @@ namespace db0
             */
             unsigned int tryDownsize(unsigned int min_units);
 
+            // Check if downsize by a specific number of units is possible
+            bool canDownsize(unsigned int min_units) const;
+
             /**
              * Get the number of unused units (high order bits)
             */
@@ -220,6 +223,9 @@ namespace db0
              * @return the blank corresponding to reclaimed space or an empty blank if no space was reclaimed 
             */
             Blank reclaimSpace(std::uint32_t min_size);
+            
+            // Check if the alloc can be downsized by at least min_size
+            bool canReclaimSpace(std::uint32_t min_size) const;
             
             /**
              * Calculate the address past the last allocated unit
@@ -477,6 +483,9 @@ namespace db0
         
         // Checks if the aligned size is in the range 0 < aligned size < 1DP
         bool isAligned(const Blank &) const;
+        
+        // check if max_addr crossed the dynamic bounds (first watermark)
+        bool redZone() const;
     };
     
     template <typename IndexT> bool CRDT_Allocator::inBounds(const IndexT &index, const Blank &blank, std::uint32_t size,

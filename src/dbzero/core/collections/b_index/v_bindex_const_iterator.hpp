@@ -10,6 +10,7 @@ namespace db0
     template <typename item_t, typename AddrT, typename item_comp_t = std::less<item_t> >
         class v_bindex_const_iterator : protected v_bindex_iterator<item_t, AddrT, item_comp_t>
     {
+        using super_t = v_bindex_iterator<item_t, AddrT, item_comp_t>;
         using iterator = v_bindex_iterator<item_t, AddrT, item_comp_t>;
         using types_t = bindex_types<item_t, AddrT, item_comp_t>;
         using node_iterator = typename types_t::node_iterator;
@@ -58,6 +59,10 @@ namespace db0
 
         bool operator==(const v_bindex_const_iterator &it) const {
             return (this->m_node_iterator == it.m_node_iterator);
+        }
+
+        bool is_end() const {
+            return super_t::is_end();
         }
     };
 

@@ -102,9 +102,13 @@ namespace db0::object_model
         }
         return result;
     }
+    
+    std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumTypeDef &enum_type_def) {
+        return tryGetOrCreateEnum(enum_type_def.m_enum_def, enum_type_def.tryGetTypeId());
+    }
 
     std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumDef &enum_def, const char *type_id)
-    {
+    {        
         auto ptr = tryFindEnumPtr(enum_def, type_id);
         if (ptr) {
             return getEnumByPtr(ptr);
@@ -115,7 +119,8 @@ namespace db0::object_model
         if (fixture->getAccessType() != AccessType::READ_WRITE) {
             // unable to create enum due to insufficient access rights
             return nullptr;
-        }        
+        }
+        
         auto enum_ = std::shared_ptr<Enum>(
             new Enum(fixture, enum_def.m_name, enum_def.m_module_name, enum_def.m_values, type_id));
         auto enum_ptr = EnumPtr(*enum_);
@@ -137,23 +142,34 @@ namespace db0::object_model
     {
         auto enum_ = tryGetOrCreateEnum(enum_def, type_id);
         if (!enum_) {
-            THROWF(db0::InputException) << "Unable to create Enum: " << enum_def.m_name;
-        }
-        return enum_;
-    }
-    
-    std::shared_ptr<Enum> EnumFactory::getExistingEnum(const EnumDef &enum_def, const char *type_id) const
-    {
-        auto enum_ = tryGetExistingEnum(enum_def, type_id);
-        if (!enum_) {
-            THROWF(db0::InputException) << "Enum not found: " << enum_def.m_name;
+            THROWF(db0::InputException) << "Unable to create Enum: " << enum_def << ", type_id: " 
+                << (type_id != nullptr ? type_id : "null");
         }
         return enum_;
     }
 
-    std::shared_ptr<Enum> EnumFactory::tryGetExistingEnum(const EnumDef &enum_def, const char *type_id) const
-    {
-        auto ptr = tryFindEnumPtr(enum_def, type_id);
+    std::shared_ptr<Enum> EnumFactory::getOrCreateEnum(const EnumTypeDef &enum_type_def)
+    {        
+        auto enum_ = tryGetOrCreateEnum(enum_type_def);
+        if (!enum_) {
+            THROWF(db0::InputException) << "Unable to create Enum: " << enum_type_def;
+        }
+        return enum_;
+    }
+    
+    std::shared_ptr<Enum> EnumFactory::getExistingEnum(const EnumTypeDef &enum_type_def) const
+    {        
+        auto enum_ = tryGetExistingEnum(enum_type_def);
+        if (!enum_) {
+            THROWF(db0::InputException) << "Enum not found: " << enum_type_def;
+        }
+        return enum_;
+    }
+    
+    std::shared_ptr<Enum> EnumFactory::tryGetExistingEnum(const EnumTypeDef &enum_type_def) const
+    {        
+        auto type_id = enum_type_def.tryGetTypeId();
+        auto ptr = tryFindEnumPtr(enum_type_def.m_enum_def, type_id);
         if (!ptr) {
             return nullptr;
         }
@@ -185,15 +201,50 @@ namespace db0::object_model
             // no translation needed
             return other;
         }
+        
         auto &other_factory = this->getFixture()->getWorkspace().
             getFixture(other.m_fixture_uuid, AccessType::READ_ONLY)->get<EnumFactory>();
         auto other_enum = other_factory.getEnumByUID(other.m_enum_uid);
         auto type_id = other_enum->getTypeID();
-        // FIXME: opt
+        // FIXME: optimization
         // getEnumDef can be avoided if definition already exists in the destination fixture
         auto enum_ = this->getOrCreateEnum(other_enum->getEnumDef(), type_id ? type_id->c_str() : nullptr);
         // resolve by text representation (since UIDs are not compatible across fixtures)
         return enum_->get(other.m_str_repr.c_str());
+    }
+    
+    void EnumFactory::commit() const
+    {
+        for (auto &enum_map: m_enum_maps) {
+            enum_map.commit();
+        }
+        for (auto &item: m_ptr_cache) {
+            item.second->commit();
+        }
+        super_t::commit();
+    }
+
+    void EnumFactory::detach() const
+    {
+        for (auto &enum_map: m_enum_maps) {
+            enum_map.detach();
+        }
+        for (auto &item: m_ptr_cache) {
+            item.second->detach();
+        }
+        super_t::detach();
+    }
+    
+    std::optional<EnumValue> EnumFactory::tryGetByValueRepr(const EnumValueRepr &enum_value_repr)
+    {
+        const auto &enum_type_def = enum_value_repr.getEnumTypeDef();
+        auto enum_ = this->tryGetOrCreateEnum(enum_type_def);
+        if (!enum_) {
+            return std::nullopt;
+        }
+        
+        // resolve by text representation (since UIDs are not compatible across fixtures)
+        return enum_->get(enum_value_repr.m_str_repr.c_str());
     }
 
 }

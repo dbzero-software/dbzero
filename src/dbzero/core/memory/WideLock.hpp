@@ -14,8 +14,7 @@ namespace db0
     {
     public:
         WideLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
-            std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<DP_Lock> res_lock, 
-            bool create_new = false);
+            std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<DP_Lock> res_lock);
         
         /**
          * Create a copied-on-write lock from an existing lock
@@ -26,6 +25,13 @@ namespace db0
         void flush() override;
         // Flush the residual part only of the wide lock
         void flushResidual();
+        
+        // rebase dependent residual lock if needed
+        void rebase(const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map);
+        
+#ifndef NDEBUG
+        bool isBoundaryLock() const override;
+#endif
         
     private:
         std::shared_ptr<DP_Lock> m_res_lock;

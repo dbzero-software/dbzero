@@ -21,12 +21,12 @@ namespace db0::python
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }   
-
+    
     template <typename IteratorObjectT, typename IteratorModelT, typename IteratorT, typename ObjectT>
-    IteratorObjectT *makeIterator(PyTypeObject& typeObject, IteratorT iterator, const ObjectT * ptr)
+    IteratorObjectT *makeIterator(PyTypeObject& typeObject, IteratorT iterator, const ObjectT *ptr, PyObject *collection_ptr)
     {        
         auto iterator_object = IteratorObject_new<IteratorObjectT>(&typeObject, NULL, NULL);
-        IteratorModelT::makeNew(&iterator_object->modifyExt(), iterator, ptr);
+        IteratorModelT::makeNew(&iterator_object->modifyExt(), iterator, ptr, collection_ptr);
         return iterator_object;
     }
     
@@ -37,11 +37,11 @@ namespace db0::python
         return self;        
     }
     
-    template <typename IteratorObjectT> 
+    template <typename IteratorObjectT>
     PyObject *IteratorObject_iternext(IteratorObjectT *iter_obj)
     {
         PY_API_FUNC
-        if (iter_obj->ext() != iter_obj->ext().end()) {
+        if (!iter_obj->ext().is_end()) {
             return iter_obj->modifyExt().next().steal();
         } else {
             // raise stop iteration

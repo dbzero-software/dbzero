@@ -1,11 +1,13 @@
 #include <dbzero/bindings/python/collections/PyDict.hpp>
-#include "DictView.hpp"
+#include "PyDictView.hpp"
 #include <dbzero/bindings/python/Utils.hpp>
 #include "PyIterator.hpp"
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/PyHash.hpp>
+#include "CollectionMethods.hpp"
 
 namespace db0::python
 
@@ -13,23 +15,27 @@ namespace db0::python
 
     using DictIteratorObject = PyWrapper<db0::object_model::DictIterator, false>;
 
-    PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "DBZero dict iterator");    
+    PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "DBZero dict iterator");
+    
     DictIteratorObject *PyAPI_DictObject_iter(DictObject *self)
     {
         PY_API_FUNC
         self->ext().getFixture()->refreshIfUpdated();
-        return makeIterator<DictIteratorObject,db0::object_model::DictIterator>(DictIteratorObjectType, 
-            self->ext().begin(), &self->ext());
+        return makeIterator<DictIteratorObject, db0::object_model::DictIterator>(
+            DictIteratorObjectType, self->ext().begin(), &self->ext(), self
+        );
     }
     
-    PyObject *DictObject_GetItem(DictObject *dict_obj, PyObject *key)
-    {        
-        dict_obj->ext().getFixture()->refreshIfUpdated();
-        auto hash = PyObject_Hash(key);
+    PyObject *DictObject_GetItem(DictObject *py_dict, PyObject *py_key)
+    {
+        const auto &dict_obj = py_dict->ext();
+        dict_obj.getFixture()->refreshIfUpdated();
+        auto key = translatedKey(dict_obj, py_key);
+        auto hash = get_py_hash(key.get());
         if (hash == -1) {
             return NULL;
         }
-        return dict_obj->ext().getItem(hash, key).steal();
+        return dict_obj.getItem(hash, key.get()).steal();
     }
     
     PyObject *PyAPI_DictObject_GetItem(DictObject *dict_obj, PyObject *key)
@@ -38,36 +44,53 @@ namespace db0::python
         return DictObject_GetItem(dict_obj, key);
     }
     
-    int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
+    int DictObject_SetItem(DictObject *py_dict, PyObject *py_key, PyObject *value)
     {
-        auto hash = PyObject_Hash(key);
-        if (hash == -1) {
+        auto key = translatedKey(py_dict->ext(), py_key);
+        auto hash = get_py_hash(key.get());
+        if (hash == -1) {            
+            // set PyError
+            std::stringstream _str;
+            _str << "Unable to find hash function for key of type: " << Py_TYPE(key.get())->tp_name;
+            PyErr_SetString(PyExc_TypeError, _str.str().c_str());
             return -1;
         }
-
-        db0::FixtureLock lock(dict_obj->ext().getFixture());
-        dict_obj->modifyExt().setItem(lock, hash, key, value);
+        
+        db0::FixtureLock lock(py_dict->ext().getFixture());
+        py_dict->modifyExt().setItem(lock, hash, key.get(), value);
         return 0;
     }
     
     int PyAPI_DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
         PY_API_FUNC
-        return DictObject_SetItem(dict_obj, key, value);
+        return runSafe<-1>(DictObject_SetItem, dict_obj, key, value);
+    }
+
+    Py_ssize_t DictObject_len(DictObject *dict_obj)
+    {        
+        dict_obj->ext().getFixture()->refreshIfUpdated();
+        return dict_obj->ext().size();
     }
 
     Py_ssize_t PyAPI_DictObject_len(DictObject *dict_obj)
     {
         PY_API_FUNC
-        dict_obj->ext().getFixture()->refreshIfUpdated();
-        return dict_obj->ext().size();
+        return runSafe(DictObject_len, dict_obj);
     }
     
+    int DictObject_HasItem(DictObject *py_dict, PyObject *py_key)
+    {        
+        auto key = translatedKey(py_dict->ext(), py_key);
+        py_dict->ext().getFixture()->refreshIfUpdated();
+        auto hash = get_py_hash(key.get());
+        return py_dict->ext().has_item(hash, key.get());
+    }
+
     int PyAPI_DictObject_HasItem(DictObject *dict_obj, PyObject *key)
     {
         PY_API_FUNC
-        dict_obj->ext().getFixture()->refreshIfUpdated();
-        return dict_obj->ext().has_item(key);
+        return runSafe(DictObject_HasItem, dict_obj, key);
     }
     
     void PyAPI_DictObject_del(DictObject* dict_obj)
@@ -134,6 +157,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "dict expected at most 1 argument");
             return NULL;
         }
+        
         if (PyObject_Length(args) == 1) {
             PyObject * arg1 = PyTuple_GetItem(args, 0);
             PyObject *iterator = PyObject_GetIter(arg1);
@@ -169,7 +193,7 @@ namespace db0::python
     PyObject *PyAPI_DictObject_update(DictObject *dict_object, PyObject* args, PyObject* kwargs)
     {
         PY_API_FUNC
-        return DictObject_update(dict_object, args, kwargs);
+        return runSafe(DictObject_update, dict_object, args, kwargs);
     }
     
     shared_py_object<DictObject*> makeDB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args, PyObject *kwargs)
@@ -190,40 +214,39 @@ namespace db0::python
     {
         PY_API_FUNC
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return makeDB0Dict(fixture, args, kwargs).steal();
+        return runSafe(makeDB0Dict, fixture, args, kwargs).steal();
     }
     
-    PyObject *PyAPI_DictObject_clear(DictObject *dict_obj)
+    PyObject *DictObject_clear(DictObject *dict_obj)
     {
-        PY_API_FUNC
         dict_obj->modifyExt().clear();
         Py_RETURN_NONE;
     }
 
-    PyObject *PyAPI_DictObject_copy(DictObject *py_src_dict)
+    PyObject *PyAPI_DictObject_clear(DictObject *dict_obj)
     {
-        // make actual DBZero instance, use default fixture
         PY_API_FUNC
+        return runSafe(DictObject_clear, dict_obj);
+    }
+
+    PyObject *tryDictObject_copy(DictObject *py_src_dict)
+    {
         auto py_dict = DictDefaultObject_new();
         auto lock = db0::FixtureLock(py_src_dict->ext().getFixture());
         py_src_dict->ext().copy(&py_dict.get()->modifyExt(), *lock);
         lock->getLangCache().add(py_dict.get()->ext().getAddress(), py_dict.get());
         return py_dict.steal();
     }
-    
-    PyObject *PyAPI_DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs)
+
+    PyObject *PyAPI_DictObject_copy(DictObject *py_src_dict)
     {
+        // make actual DBZero instance, use default fixture
         PY_API_FUNC
-        if (nargs < 1) {
-            PyErr_SetString(PyExc_TypeError, " fromkeys expected at least 1 argument");
-            return NULL;
-            
-        }
-        if (nargs > 2) {
-            PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
-            return NULL;
-            
-        }
+        return runSafe(tryDictObject_copy, py_src_dict);
+    }
+    
+    PyObject *tryDictObject_fromKeys(PyObject *const *args, Py_ssize_t nargs)
+    {
         // make actual DBZero instance, use default fixture
         auto py_dict = DictDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
@@ -242,6 +265,36 @@ namespace db0::python
         return py_dict.steal();
     }
 
+    PyObject *PyAPI_DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC
+        if (nargs < 1) {
+            PyErr_SetString(PyExc_TypeError, " fromkeys expected at least 1 argument");
+            return NULL;
+            
+        }
+        if (nargs > 2) {
+            PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
+            return NULL;            
+        }
+        return runSafe(tryDictObject_fromKeys, args, nargs);
+    }
+
+    PyObject *tryDictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PyObject *py_elem = args[0];
+        PyObject *value = Py_None;
+        if (nargs == 2) {
+            value = args[1];
+        }
+        auto elem = translatedKey(dict_object->ext(), py_elem);
+        auto hash = get_py_hash(elem.get());
+        if (dict_object->ext().has_item(hash, elem.get())) {
+            return DictObject_GetItem(dict_object, elem.get());
+        }
+        return value;
+    }
+    
     PyObject *PyAPI_DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC        
@@ -252,96 +305,103 @@ namespace db0::python
         }
         if (nargs > 2) {
             PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
-            return NULL;
-            
+            return NULL;            
         }
-        PyObject *elem = args[0];
-        PyObject *value = Py_None;
+        return runSafe(tryDictObject_get, dict_object, args, nargs);
+    }
+    
+    PyObject *tryDictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PyObject *py_elem = args[0];
+        PyObject *value = nullptr;
         if (nargs == 2) {
             value = args[1];
         }
-        if (dict_object->ext().has_item(elem)) {
-            return DictObject_GetItem(dict_object, elem);
-        }
-        return value;
-    }
-
-    PyObject *PyAPI_DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
-    {
-        PY_API_FUNC        
-        if(nargs < 1 ){
-            PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
-            return NULL;
-            
-        }
-        if(nargs > 2){
-            PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
-            return NULL;
-            
-        }
-        PyObject *elem = args[0];
-        PyObject *value = nullptr;
-        if(nargs == 2){
-            value = args[1];
-        }
-        if(dict_object->ext().has_item(elem)) {
-            auto obj = dict_object->modifyExt().pop(elem);
+        auto elem = translatedKey(dict_object->ext(), py_elem);
+        auto hash = get_py_hash(elem.get());
+        if (dict_object->ext().has_item(hash, elem.get())) {
+            auto obj = dict_object->modifyExt().pop(hash, elem.get());
             return obj.steal();
         }
-        if(value == nullptr){
+        if (value == nullptr) {
             PyErr_SetString(PyExc_KeyError, "item");
             return NULL;
         }
         
         return value;
     }
-
-    PyObject *PyAPI_DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
+    
+    PyObject *PyAPI_DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
     {
         PY_API_FUNC        
-        if(nargs < 1 ){
-            PyErr_SetString(PyExc_TypeError, "setdefault expected at least 1 argument");
-            return NULL;
-            
+        if (nargs < 1) {
+            PyErr_SetString(PyExc_TypeError, " get expected at least 1 argument");
+            return NULL;            
         }
-        if(nargs > 2){
-            PyErr_SetString(PyExc_TypeError, "setdefault expected at most 2 arguments");
-            return NULL;
-            
+        if (nargs > 2) {
+            PyErr_SetString(PyExc_TypeError, "fromkeys expected at most 2 arguments");
+            return NULL;            
         }
-        PyObject *elem = args[0];
+        return runSafe(tryDictObject_pop, dict_object, args, nargs);
+    }
+
+    PyObject *tryDictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PyObject *py_elem = args[0];
         PyObject *value = Py_None;
         if(nargs == 2){
             value = args[1];
         }
-        if (!dict_object->ext().has_item(elem)) {
-            DictObject_SetItem(dict_object, elem, value);
+        auto elem = translatedKey(dict_object->ext(), py_elem);
+        auto hash = get_py_hash(elem.get());
+        if (!dict_object->ext().has_item(hash, elem.get())) {
+            DictObject_SetItem(dict_object, elem.get(), value);
         }
-        return DictObject_GetItem(dict_object, elem);
+        return DictObject_GetItem(dict_object, elem.get());
+    }
+
+    PyObject *PyAPI_DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
+    {
+        PY_API_FUNC        
+        if (nargs < 1 ) {
+            PyErr_SetString(PyExc_TypeError, "setdefault expected at least 1 argument");
+            return NULL;            
+        }
+        if (nargs > 2) {
+            PyErr_SetString(PyExc_TypeError, "setdefault expected at most 2 arguments");
+            return NULL;            
+        }
+        return runSafe(tryDictObject_setDefault, dict_object, args, nargs);
     }
     
+    PyObject *tryDictObject_keys(DictObject *dict_obj) {
+        return makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::KEYS);        
+    }
+
     PyObject *PyAPI_DictObject_keys(DictObject *dict_obj)
     {
-        PY_API_FUNC
-        // make actual DBZero instance, use default fixture
-        auto dict_view_object = makeDictView(&dict_obj->ext(), db0::object_model::IteratorType::KEYS);
-        return dict_view_object;
+        PY_API_FUNC        
+        return runSafe(tryDictObject_keys, dict_obj);    
+    }
+
+    PyObject *tryDictObject_values(DictObject *dict_obj) {
+        return makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::VALUES);        
     }
 
     PyObject *PyAPI_DictObject_values(DictObject *dict_obj)
     {
         PY_API_FUNC
-        // make actual DBZero instance, use default fixture
-        auto dict_view_object = makeDictView(&dict_obj->ext(), db0::object_model::IteratorType::VALUES);
-        return dict_view_object;
+        return runSafe(tryDictObject_values, dict_obj);    
+    }
+
+    PyObject *tryDictObject_items(DictObject *dict_obj) {
+        return makeDictView(dict_obj, &dict_obj->ext(), db0::object_model::IteratorType::ITEMS);        
     }
     
     PyObject *PyAPI_DictObject_items(DictObject *dict_obj)
     {
         PY_API_FUNC
-        // make actual DBZero instance, use default fixture
-        auto dict_view_object = makeDictView(&dict_obj->ext(), db0::object_model::IteratorType::ITEMS);
-        return dict_view_object;
+        return runSafe(tryDictObject_items, dict_obj);    
     }
     
     bool DictObject_Check(PyObject *object) {

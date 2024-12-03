@@ -720,7 +720,7 @@ namespace db0
             assert((*this)->m_capacity > 0);
             bulkPushBack(begin, std::distance(begin, end));
         }
-
+        
         /**
          * V-Space referencing constructor
          */

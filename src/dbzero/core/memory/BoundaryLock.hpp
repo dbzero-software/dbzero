@@ -2,6 +2,7 @@
 
 #include "ResourceLock.hpp"
 #include "DP_Lock.hpp"
+#include <unordered_map>
 
 namespace db0
 
@@ -14,7 +15,7 @@ namespace db0
     {
     public:
         BoundaryLock(StorageContext, std::uint64_t address, std::shared_ptr<DP_Lock> lhs, std::size_t lhs_size,
-            std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, FlagSet<AccessOptions>, bool create_new = false);
+            std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, FlagSet<AccessOptions>);
         // Create copy of an existing BoundaryLock (for CoW)
         BoundaryLock(StorageContext, std::uint64_t address, const BoundaryLock &lock, std::shared_ptr<DP_Lock> lhs, std::size_t lhs_size,
             std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, FlagSet<AccessOptions>);
@@ -22,6 +23,13 @@ namespace db0
         virtual ~BoundaryLock();
         
         void flush() override;
+
+        // rebase parent locks if needed
+        void rebase(const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map);
+
+#ifndef NDEBUG
+        bool isBoundaryLock() const override;
+#endif
 
     private:
         std::shared_ptr<DP_Lock> m_lhs;

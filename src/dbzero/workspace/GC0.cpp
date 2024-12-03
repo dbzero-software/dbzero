@@ -108,14 +108,15 @@ namespace db0
         std::unique_lock<std::mutex> lock(m_mutex);
         return m_vptr_map.size();
     }
-
+     
     void GC0::preCommit()
     {
         std::unique_lock<std::mutex> lock(m_mutex);
         // collect ops first (this is necessary because preCommit can trigger "remove" calls)
         std::vector<std::pair<void*, unsigned int>> pre_commit_ops;
         std::copy(m_pre_commit_map.begin(), m_pre_commit_map.end(), std::back_inserter(pre_commit_ops));
-        
+        lock.unlock();
+
         // call pre-commit where it's provided
         for (auto &item : pre_commit_ops) {
             m_ops[item.second].preCommit(item.first, false);

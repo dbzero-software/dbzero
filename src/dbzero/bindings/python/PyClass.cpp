@@ -32,11 +32,15 @@ namespace db0::python
         return class_factory.hasLangType(reinterpret_cast<ClassObject*>(self)->ext()) ? Py_True : Py_False;
     }
     
-    PyTypeObject *tryPyClassType(PyObject *self) 
+    PyTypeObject *tryPyClassType(PyObject *self)
     {
         auto fixture = reinterpret_cast<ClassObject*>(self)->ext().getFixture();
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
-        return class_factory.getLangType(reinterpret_cast<ClassObject*>(self)->ext()).steal();        
+        auto &model_class = reinterpret_cast<ClassObject*>(self)->ext();
+        if (!class_factory.hasLangType(model_class)) {
+            THROWF(db0::ClassNotFoundException) << "Class not found: " << model_class.getTypeName() << THROWF_END;
+        }
+        return class_factory.getLangType(model_class).steal();
     }
     
     PyObject *PyClass_type(PyObject *self, PyObject *)

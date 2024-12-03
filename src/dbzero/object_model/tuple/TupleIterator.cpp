@@ -4,8 +4,8 @@ namespace db0::object_model
 
 {
 
-    TupleIterator::TupleIterator(Tuple::const_iterator iterator, const Tuple *ptr)
-        : PyObjectIterator<TupleIterator, Tuple>(iterator, ptr) 
+    TupleIterator::TupleIterator(Tuple::const_iterator iterator, const Tuple *ptr, ObjectPtr lang_tuple_ptr)
+        : PyObjectIterator<TupleIterator, Tuple>(iterator, ptr, lang_tuple_ptr)
     {
     }
     

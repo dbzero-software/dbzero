@@ -19,8 +19,9 @@ namespace db0::python
     ListIteratorObject *PyAPI_ListObject_iter(ListObject *self)
     {
         PY_API_FUNC
-        return makeIterator<ListIteratorObject,db0::object_model::ListIterator>(ListIteratorObjectType, 
-            self->ext().begin(), &self->ext());        
+        return makeIterator<ListIteratorObject, db0::object_model::ListIterator>(
+            ListIteratorObjectType, self->ext().begin(), &self->ext(), self
+        );
     }
     
     PyObject *ListObject_GetItem(ListObject *list_obj, Py_ssize_t i)
@@ -88,7 +89,7 @@ namespace db0::python
     PyObject *PyAPI_ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
     {
         PY_API_FUNC
-        // FIXME: this operation should be immutable        
+        // FIXME: this operation should be immutable
         db0::FixtureLock lock(py_src_list->ext().getFixture());
         // Check if the key is a slice object
         if (PySlice_Check(elem)) {
@@ -232,7 +233,8 @@ namespace db0::python
     
     void PyAPI_ListObject_del(ListObject* list_obj)
     {
-        PY_API_FUNC        // destroy associated DB0 List instance
+        PY_API_FUNC
+        // destroy associated DB0 List instance
         list_obj->destroy();
         Py_TYPE(list_obj)->tp_free((PyObject*)list_obj);
     }

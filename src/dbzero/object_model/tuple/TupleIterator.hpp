@@ -14,7 +14,7 @@ namespace db0::object_model
     {
     public:
         ObjectSharedPtr next() override;
-        TupleIterator(Tuple::const_iterator iterator, const Tuple *ptr);
+        TupleIterator(Tuple::const_iterator iterator, const Tuple *ptr, ObjectPtr lang_tuple_ptr);
 
         bool is_end() const;
     };

@@ -92,7 +92,7 @@ namespace db0::python
     /**
      * Get DBZero state snapshot
     */
-    PyObject *getSnapshot(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *getSnapshot(PyObject *self, PyObject *args, PyObject *kwargs);
 
     PyObject *beginAtomic(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
@@ -148,6 +148,12 @@ namespace db0::python
     PyObject *getAttrAs(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
     PyObject *PyAPI_getAddress(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+
+    PyTypeObject *PyAPI_getType(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    
+    PyObject *PyAPI_load(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+
+    PyObject *PyAPI_hash(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *);

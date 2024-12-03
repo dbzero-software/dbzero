@@ -66,6 +66,13 @@ namespace db0::object_model
         // prepare for initialization
         m_init_manager.addInitializer(*this, db0_class);
     }
+
+    Object::Object(TypeInitializer &&type_initializer)
+        : m_is_dropped(false)
+    {
+        // prepare for initialization
+        m_init_manager.addInitializer(*this, std::move(type_initializer));
+    }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
         : super_t(fixture, classRef(*type), ref_count, pos_vt_data)
@@ -102,6 +109,11 @@ namespace db0::object_model
         return new (at_ptr) Object(type);
     }
     
+    Object *Object::makeNew(void *at_ptr, TypeInitializer &&type_initializer) {
+        // placement new
+        return new (at_ptr) Object(std::move(type_initializer));
+    }
+
     Object *Object::makeNull(void *at_ptr) {
         return new (at_ptr) Object();
     }
@@ -116,7 +128,7 @@ namespace db0::object_model
         }
         return stem;
     }
-
+    
     Object *Object::unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type)
     {
         auto fixture = type->getFixture();
@@ -138,8 +150,8 @@ namespace db0::object_model
             auto &initializer = m_init_manager.getInitializer(*this);
             PosVT::Data pos_vt_data;
             auto index_vt_data = initializer.getData(pos_vt_data);
-
-            // place object in the same fixture as class
+            
+            // place object in the same fixture as its class
             // construct the DBZero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
@@ -147,7 +159,7 @@ namespace db0::object_model
                 index_vt_data.first, index_vt_data.second);
             // reference associated class
             m_type->incRef();
-
+            
             // bind singleton address (now that instance exists)
             if (m_type->isSingleton()) {
                 m_type->setSingletonAddress(*this);
@@ -206,6 +218,8 @@ namespace db0::object_model
         
         // FIXME: value should be destroyed on exception
         auto value = createMember<LangToolkit>(*fixture, type_id, lang_value);
+        // make sure object address is not null
+        assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
         if (field_id < (*this)->pos_vt().size()) {
             auto &pos_vt = modify().pos_vt();
             unrefMember(*fixture, pos_vt.types()[field_id], pos_vt.values()[field_id]);
@@ -581,32 +595,17 @@ namespace db0::object_model
         throw std::runtime_error("Not implemented");
     }
     
-    void Object::setFixture(db0::swine_ptr<Fixture> &other_fixture)
+    void Object::setFixture(db0::swine_ptr<Fixture> &new_fixture)
     {        
-        auto fixture = this->getFixture();
-        if (*fixture == *other_fixture) {
-            // already in the same fixture
-            return;
-        }
         if (hasInstance()) {
             THROWF(db0::InputException) << "set_prefix failed: object already initialized";
         }
-        if (!m_init_manager.getInitializer(*this).empty()) {
-            THROWF(db0::InputException) << "set_prefix failed: object must not define any members";
-        }
         
-        // migrate type to other factory
-        auto &class_factory = fixture->get<ClassFactory>();
-        auto &other_factory = other_fixture->get<ClassFactory>();
-        auto new_type = other_factory.getOrCreateType(class_factory.getLangType(this->getType()).get());
-        if (new_type->isExistingSingleton()) {
-            // cannot initialize existing singleton, signal problem with PyErr_BadPrefix
+        if (!m_init_manager.getInitializer(*this).trySetFixture(new_fixture)) {
+            // signal problem with PyErr_BadPrefix
+            auto fixture = this->getFixture();
             LangToolkit::setError(LangToolkit::getTypeManager().getBadPrefixError(), fixture->getUUID());
-            return;
         }
-        
-        // switch to a type located on a different fixture (translated)
-        m_init_manager.getInitializer(*this).setClass(new_type);        
     }
     
     void Object::detach() const

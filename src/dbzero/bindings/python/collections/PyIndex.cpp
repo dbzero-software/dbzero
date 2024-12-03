@@ -8,16 +8,16 @@ namespace db0::python
 {
 
     static PyMethodDef IndexObject_methods[] = {
-        {"add", (PyCFunction)IndexObject_add, METH_FASTCALL, "Add item to index."},
-        {"remove", (PyCFunction)IndexObject_remove, METH_FASTCALL, "Remove item from index if it exists."},
-        {"sort", (PyCFunction)IndexObject_sort, METH_VARARGS | METH_KEYWORDS, "Sort results of other iterator."},
-        {"range", (PyCFunction)IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Extract values from a specific range"},
-        {"flush", (PyCFunction)IndexObject_flush, METH_NOARGS, "Flush buffered changes"},
+        {"add", (PyCFunction)PyAPI_IndexObject_add, METH_FASTCALL, "Add item to index."},
+        {"remove", (PyCFunction)PyAPI_IndexObject_remove, METH_FASTCALL, "Remove item from index if it exists."},
+        {"sort", (PyCFunction)PyAPI_IndexObject_sort, METH_VARARGS | METH_KEYWORDS, "Sort results of other iterator."},
+        {"range", (PyCFunction)PyAPI_IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Extract values from a specific range"},
+        {"flush", (PyCFunction)PyAPI_IndexObject_flush, METH_NOARGS, "Flush buffered changes"},
         {NULL}
     };
 
     static PySequenceMethods IndexObject_sq = {
-        .sq_length = (lenfunc)IndexObject_len
+        .sq_length = (lenfunc)PyAPI_IndexObject_len
     };
 
     PyTypeObject IndexObjectType = {
@@ -25,14 +25,14 @@ namespace db0::python
         .tp_name = "dbzero_ce.Index",
         .tp_basicsize = IndexObject::sizeOf(),
         .tp_itemsize = 0,
-        .tp_dealloc = (destructor)IndexObject_del,
+        .tp_dealloc = (destructor)PyAPI_IndexObject_del,
         .tp_as_sequence = &IndexObject_sq,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
         .tp_doc = "DBZero indexing object",
         .tp_methods = IndexObject_methods,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)IndexObject_new,
-        .tp_free = PyObject_Free,   
+        .tp_free = PyObject_Free,
     };
     
     IndexObject *IndexObject_new(PyTypeObject *type, PyObject *, PyObject *) {
@@ -43,7 +43,7 @@ namespace db0::python
         return { IndexObject_new(&IndexObjectType, NULL, NULL), false };
     }
     
-    void IndexObject_del(IndexObject* index_obj)
+    void PyAPI_IndexObject_del(IndexObject* index_obj)
     {
         PY_API_FUNC
         // destroy associated DB0 Index instance
@@ -51,21 +51,20 @@ namespace db0::python
         Py_TYPE(index_obj)->tp_free((PyObject*)index_obj);
     }
     
-    Py_ssize_t IndexObject_len(IndexObject *index_obj)
+    Py_ssize_t tryIndexObject_len(IndexObject *index_obj)
     {
-        PY_API_FUNC        
         index_obj->ext().getFixture()->refreshIfUpdated();
         return index_obj->ext().size();
     }
-    
-    IndexObject *makeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+
+    Py_ssize_t PyAPI_IndexObject_len(IndexObject *index_obj)
     {
         PY_API_FUNC
-        if (nargs != 0) {
-            PyErr_SetString(PyExc_TypeError, "Index object does not accept arguments");
-            return NULL;
-        }
-        
+        return runSafe(tryIndexObject_len, index_obj);
+    }
+    
+    IndexObject *tryMakeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
         // make actual DBZero instance, use default fixture
         auto index_object = IndexDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
@@ -75,41 +74,53 @@ namespace db0::python
         return index_object.steal();
     }
     
-    PyObject *IndexObject_add(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
+    IndexObject *PyAPI_makeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)    
     {
+        if (nargs != 0) {
+            PyErr_SetString(PyExc_TypeError, "Index object does not accept arguments");
+            return NULL;
+        }        
         PY_API_FUNC
+        return runSafe(tryMakeIndex, self, args, nargs);        
+    }
+    
+    PyObject *tryIndexObject_add(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
+    {
+        index_obj->modifyExt().add(args[0], args[1]);
+        Py_RETURN_NONE;
+    }
+
+    PyObject *PyAPI_IndexObject_add(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
+    {
         if (nargs != 2) {
             PyErr_SetString(PyExc_TypeError, "add() takes exactly two arguments");
             return NULL;
         }
 
-        index_obj->modifyExt().add(args[0], args[1]);
-        Py_RETURN_NONE;
+        PY_API_FUNC
+        return runSafe(tryIndexObject_add, index_obj, args, nargs);
     }
 
-    PyObject *IndexObject_remove(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *tryIndexObject_remove(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC        
-        if (nargs != 2) {
-            PyErr_SetString(PyExc_TypeError, "remove() takes exactly two arguments");
-            return NULL;
-        }
-
         index_obj->modifyExt().remove(args[0], args[1]);
         Py_RETURN_NONE;
     }
 
-    PyObject *IndexObject_sort(IndexObject *py_index, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_IndexObject_remove(IndexObject *index_obj, PyObject *const *args, Py_ssize_t nargs)
     {
+        if (nargs != 2) {
+            PyErr_SetString(PyExc_TypeError, "remove() takes exactly two arguments");
+            return NULL;
+        }    
         PY_API_FUNC
+        return runSafe(tryIndexObject_remove, index_obj, args, nargs);
+    }
+    
+    PyObject *tryIndexObject_sort(IndexObject *py_index, PyObject *args, PyObject *kwargs)
+    {
         using ObjectIterator = db0::object_model::ObjectIterator;
         using TypedObjectIterator = db0::object_model::TypedObjectIterator;
-
-        // extract 1 positional argument
-        if (PyTuple_Size(args) != 1) {
-            PyErr_SetString(PyExc_TypeError, "sort() takes exactly one positional argument");
-            return NULL;
-        }
 
         PyObject *py_desc = nullptr;
         PyObject *py_null_first = nullptr;
@@ -147,9 +158,20 @@ namespace db0::python
         return iter_obj.steal();
     }
 
-    PyObject *IndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_IndexObject_sort(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
-        PY_API_FUNC        
+        // extract 1 positional argument
+        if (PyTuple_Size(args) != 1) {
+            PyErr_SetString(PyExc_TypeError, "sort() takes exactly one positional argument");
+            return NULL;
+        }
+
+        PY_API_FUNC
+        return runSafe(tryIndexObject_sort, py_index, args, kwargs);
+    }
+
+    PyObject *tryIndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
+    {
         // optional low, optional high, optional null_first (boolean)
         static const char *kwlist[] = {"low", "high", "null_first", NULL};
         PyObject *low = NULL, *high = NULL;
@@ -166,16 +188,28 @@ namespace db0::python
         Iterator::makeNew(&(py_iter_obj.get())->modifyExt(), std::move(iter));
         return py_iter_obj.steal();
     }
+
+    PyObject *PyAPI_IndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return runSafe(tryIndexObject_range, py_index, args, kwargs);
+    }
     
     bool IndexObject_Check(PyObject *py_object) {
         return PyObject_TypeCheck(py_object, &IndexObjectType);
     }
     
-    PyObject *IndexObject_flush(IndexObject *self)
+    PyObject *tryIndexObject_flush(IndexObject *self)
     {
-        PY_API_FUNC        
-        self->modifyExt().flush();
+        FixtureLock lock(self->ext().getFixture());
+        self->modifyExt().flush(lock);
         Py_RETURN_NONE;
+    }
+
+    PyObject *PyAPI_IndexObject_flush(IndexObject *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryIndexObject_flush, self);
     }
 
 }

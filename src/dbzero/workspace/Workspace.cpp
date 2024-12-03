@@ -9,13 +9,6 @@
 namespace db0
 
 {
-
-    void validateAccessType(const Fixture &fixture, AccessType requested)
-    {
-        if (requested == AccessType::READ_WRITE && fixture.getAccessType() != AccessType::READ_WRITE) {
-            THROWF(db0::InputException) << "Unable to update the read-only prefix: " << fixture.getPrefix().getName();
-        }
-    }
     
     BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size,
         std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> flush_size, std::optional<LockFlags> default_lock_flags)
@@ -56,12 +49,13 @@ namespace db0
                 THROWF(db0::InputException) << "Prefix does not exist: " << prefix_name;
             }
             
-            StorageT::create(file_name, *page_size, *sparse_index_node_size);
+            BDevStorage::create(file_name, *page_size, *sparse_index_node_size);
             new_file_created = true;
         }
-        auto prefix = std::make_shared<PrefixImpl<StorageT> >(
-            prefix_name, m_dirty_meter, m_cache_recycler, file_name, access_type, lock_flags ? *lock_flags : m_default_lock_flags
-        );
+        auto prefix = std::make_shared<PrefixImpl>(
+            prefix_name, m_dirty_meter, m_cache_recycler, 
+            std::make_shared<BDevStorage>(file_name, access_type, lock_flags ? *lock_flags : m_default_lock_flags)
+        );        
         try {
             if (new_file_created) {
                 // prepare meta allocator for the 1st use
@@ -121,8 +115,12 @@ namespace db0
         return false;
     }
     
-    void BaseWorkspace::close()
+    void BaseWorkspace::close(ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("BaseWorkspace::close", timer_ptr);
+        }
         auto it = m_memspaces.begin();
         while (it != m_memspaces.end()) {
             it->second.close();
@@ -173,7 +171,7 @@ namespace db0
                 }
                 total_dirty_size -= size_flushed;
                 limit -= size_flushed;
-            }
+            }            
             return true;
         });
     }
@@ -272,8 +270,17 @@ namespace db0
         return false;
     }
     
-    void Workspace::close()
-    {        
+    void Workspace::stopThreads() {
+        m_workspace_threads = nullptr;
+    }
+    
+    void Workspace::close(ProcessTimer *timer_ptr)
+    {    
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Workspace::close", timer_ptr);
+        }
+
         // close associated workspace views
         for (auto &view_ptr : m_views) {
             if (auto ptr = view_ptr.lock()) {
@@ -282,16 +289,16 @@ namespace db0
         }
         m_views.clear();
         // stop all workspace threads first
-        m_workspace_threads = nullptr;
+        stopThreads();
         m_shared_object_list.clear();
         auto it = m_fixtures.begin();
         while (it != m_fixtures.end()) {
-            it->second->close();
+            it->second->close(timer.get());
             it = m_fixtures.erase(it);
         }
         m_default_fixture = {};
         m_current_prefix_history.clear();
-        BaseWorkspace::close();
+        BaseWorkspace::close(timer.get());
     }
     
     CacheRecycler &Workspace::getCacheRecycler() {
@@ -302,14 +309,14 @@ namespace db0
         return BaseWorkspace::getCacheRecycler();
     }
     
-    db0::swine_ptr<Fixture> Workspace::getFixtureEx(const PrefixName &prefix_name, 
+    db0::swine_ptr<Fixture> Workspace::getFixtureEx(const PrefixName &prefix_name,
         std::optional<AccessType> access_type, std::optional<std::size_t> page_size, 
         std::optional<std::size_t> slab_size, std::optional<std::size_t> sparse_index_node_size, 
         std::optional<bool> autocommit, std::optional<LockFlags> lock_flags)
     {
         bool file_created = false;
         auto uuid = getUUID(prefix_name);
-        auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();        
+        auto it = uuid ? m_fixtures.find(*uuid) : m_fixtures.end();
         if (!autocommit && m_config) {
             autocommit = m_config->get<bool>("autocommit");
         }
@@ -396,16 +403,7 @@ namespace db0
         }
         return it->second;
     }
-    
-    db0::swine_ptr<Fixture> Workspace::findFixture(const PrefixName &prefix_name) const
-    {
-        auto result = tryFindFixture(prefix_name);
-        if (!result) {
-            THROWF(db0::InputException) << "Fixture with name " << prefix_name << " not found";
-        }
-        return result;
-    }
-    
+        
     db0::swine_ptr<Fixture> Workspace::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
     {
         db0::swine_ptr<Fixture> result;
@@ -420,15 +418,15 @@ namespace db0
                 if (!maybe_prefix_name) {
                     THROWF(db0::InputException) << "Fixture with UUID " << uuid << " not found";
                 }
-                // try opening fixture by name                
+                // try opening fixture by name
                 return getFixtureEx(*maybe_prefix_name, *access_type);
             }
             result = it->second;
         } else {
             result = getCurrentFixture();
         }
-
-        validateAccessType(*result, *access_type);        
+        
+        assureAccessType(*result, access_type);
         return result;
     }
     
@@ -444,13 +442,14 @@ namespace db0
             }
         }
     }
-
-    bool Workspace::refresh()
-    {
+    
+    bool Workspace::refresh(bool if_updated)
+    {        
         bool refreshed = false;
         for (auto &[uuid, fixture] : m_fixtures) {
-            if (fixture->refresh()) {
-                refreshed = true;
+            // only makes sense to refresh read-only fixtures
+            if (fixture->getAccessType() == AccessType::READ_ONLY) {
+                refreshed |= if_updated ? fixture->refreshIfUpdated() : fixture->refresh();
             }
         }
         return refreshed;
@@ -499,7 +498,7 @@ namespace db0
     {
         auto fixture = getFixtureEx(prefix_name, access_type, {}, slab_size, {}, autocommit, lock_flags);
         // update default fixture
-        if (!m_default_fixture || (m_default_fixture->getAccessType() <= access_type)) {
+        if (!m_default_fixture || (*m_default_fixture != *fixture)) {
             m_default_fixture = fixture;
             m_current_prefix_history.push_back(prefix_name);
         }
@@ -618,6 +617,11 @@ namespace db0
     std::shared_ptr<WorkspaceView> Workspace::getWorkspaceView(std::optional<std::uint64_t> state_num,
         const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums) const
     {
+        // the head view has a special handling and prolonged scope
+        if (!state_num && prefix_state_nums.empty()) {
+            return getWorkspaceHeadView();
+        }
+
         // clean-up expired views
         m_views.remove_if([](const std::weak_ptr<WorkspaceView> &view) {
             return view.expired();
@@ -628,6 +632,30 @@ namespace db0
         return workspace_view;
     }
     
+    std::shared_ptr<WorkspaceView> Workspace::getFrozenWorkspaceHeadView() const
+    {
+        auto result = m_head_view.lock();
+        if (!result) {
+            THROWF(db0::InputException) << "Frozen head snapshot not available";
+        }
+        return result;
+    }
+    
+    std::shared_ptr<WorkspaceView> Workspace::getWorkspaceHeadView() const
+    {
+        auto result = m_head_view.lock();
+        if (!result) {
+            result = std::shared_ptr<WorkspaceView>(new WorkspaceView(const_cast<Workspace&>(*this)));
+            m_head_view = result;
+            // clean-up expired views
+            m_views.remove_if([](const std::weak_ptr<WorkspaceView> &view) {
+                return view.expired();
+            });
+            m_views.push_back(result);
+        }
+        return result;
+    }
+    
     void Workspace::forEachMemspace(std::function<bool(Memspace &)> callback)
     {
         for (auto &[uuid, fixture] : m_fixtures) {
@@ -635,6 +663,10 @@ namespace db0
                 break;
             }
         }
+    }
+    
+    bool Workspace::isMutable() const {
+        return true;
     }
 
 }

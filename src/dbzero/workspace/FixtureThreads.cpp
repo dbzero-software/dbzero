@@ -1,6 +1,8 @@
 #include "FixtureThreads.hpp"
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/core/memory/Prefix.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
+#include <dbzero/core/threading/ThreadTracker.hpp>
 #include "AtomicContext.hpp"
 
 namespace db0
@@ -46,17 +48,30 @@ namespace db0
             // prepare commit context if configured
             std::shared_ptr<void> context;
             if (m_ctx_function) {
+                lock.unlock();
                 context = m_ctx_function();
+                lock.lock();
             }
+            // collect fixtures first
+            std::vector<std::pair<weak_swine_ptr<Fixture>, std::uint64_t> > fixtures;
             for (auto it = m_fixtures.begin(); it != m_fixtures.end(); ) {
                 auto fixture = it->first.lock();
                 if (!fixture) {
                     it = m_fixtures.erase(it);
                     continue;
                 }
-                m_fx_function(*fixture, it->second);
+                fixtures.push_back(*it);                
                 ++it;
             }
+
+            // then process as unlocked
+            lock.unlock();
+            for (auto it = fixtures.begin(); it != fixtures.end(); ++it) {
+                auto fixture = it->first.lock();
+                if (fixture) {
+                    m_fx_function(*fixture, it->second);
+                }                
+            }            
         }
     }
     
@@ -90,8 +105,21 @@ namespace db0
     {
     }
     
-    void AutoCommitThread::tryCommit(Fixture &fixture, std::uint64_t &) const {
+    void AutoCommitThread::tryCommit(Fixture &fixture, std::uint64_t &) const
+    {
+        using LangToolkit = db0::object_model::LangConfig::LangToolkit;
+
+        // need to lock the language API first
+        // otherwise it may deadlock on trying to invoke API calls from auto-commit 
+        // (e.g. instance destruction triggered by LangCache::clear)
+        auto __api_lock = LangToolkit::lockApi();
+#ifndef NDEBUG
+        ThreadTracker::beginUnique();
+#endif        
         fixture.onAutoCommit();
+#ifndef NDEBUG
+        ThreadTracker::end();
+#endif        
     }
     
     struct AC_Lock

@@ -31,25 +31,25 @@ namespace db0
             // request flushing (and releasing) specific volume of dirty locks
             m_flush_dirty(limit);
         }
-
+        
         std::size_t released_size = 0;
         // try flushing 'requested_release_size' number of excess elements
         auto it = m_res_buf.begin(), end = m_res_buf.end();
         while (it != end && released_size < requested_release_size) {
             // only release locks with no active external references (other than the CacheRecycler itself)
             // NOTE: dirty locks are relased by m_flush_dirty callback
-            if ((*it).use_count() == 1 && !(*it)->isDirty()) {                
+            if ((*it).use_count() == 1 && !(*it)->isDirty()) {
                 released_size += (*it)->size();
                 it = m_res_buf.erase(it);
             } else {
                 ++it;
-            }       
+            }
         }
         
         // update current size
         m_current_size -= released_size;
     }
-
+    
     void CacheRecycler::updateSize(std::unique_lock<std::mutex> &lock, std::size_t expected_size)
     {        
         // we make 2 iterations because dependent locks (i.e. owned by the boundary lock)

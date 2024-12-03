@@ -4,6 +4,7 @@
 #include "EnumDef.hpp"
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/core/collections/b_index/v_bindex.hpp>
+#include <dbzero/core/collections/vector/v_bvector.hpp>
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
@@ -26,6 +27,7 @@ namespace db0::object_model
         LP_String m_type_id;
         // enum values
         db0::db0_ptr<db0::v_bindex<LP_String> > m_values;
+        db0::db0_ptr<db0::v_bvector<LP_String> > m_ordered_values;
         
         o_enum(Memspace &);
     };
@@ -78,12 +80,18 @@ namespace db0::object_model
 
         EnumDef getEnumDef() const;
         std::optional<std::string> getTypeID() const;
+
+        void detach() const;
+
+        void commit() const;
         
     private:
         const std::uint64_t m_fixture_uuid;
         const std::uint32_t m_uid;
         RC_LimitedStringPool &m_string_pool;
         db0::v_bindex<LP_String> m_values;
+        // values in order defined by the user
+        db0::v_bvector<LP_String> m_ordered_values;
         // enum-values cache (lang objects)
         mutable std::unordered_map<std::string, ObjectSharedPtr> m_cache;
 
@@ -92,5 +100,13 @@ namespace db0::object_model
     
     std::optional<std::string> getEnumKeyVariant(std::optional<std::string> type_id, std::optional<std::string> enum_name,
         std::optional<std::string> module_name, const std::vector<std::string> &values, int variant_id);
+
+}
+
+namespace std
+
+{
+
+    ostream &operator<<(ostream &os, const db0::object_model::Enum &);
 
 }

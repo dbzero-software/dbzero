@@ -65,7 +65,7 @@ namespace db0::python
             // (if stored with the type decoration)
             if (PyMemoType_Check(py_type)) {
                 // file name may not be available in the type decoration
-                auto file_name = MemoTypeDecoration::get(py_type).m_file_name;
+                auto file_name = MemoTypeDecoration::get(py_type).tryGetFileName();
                 if (file_name) {
                     return getModuleNameFromFileName(file_name);
                 }
@@ -101,7 +101,7 @@ namespace db0::python
         return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> fixture, std::uint64_t address,
         const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr)
     {
         // try unloading from cache first
@@ -134,7 +134,7 @@ namespace db0::python
         return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> fixture, std::uint64_t address,
         std::shared_ptr<Class> type, TypeObjectPtr lang_class)
     {
         assert(lang_class);
@@ -154,7 +154,7 @@ namespace db0::python
         return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadBlock(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadBlock(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -171,7 +171,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(block_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -190,7 +190,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(list_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadIndex(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadIndex(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {        
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -209,7 +209,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(index_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -228,7 +228,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(set_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadDict(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadDict(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -247,7 +247,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(dict_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -266,7 +266,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(tuple_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObjectIterator(db0::swine_ptr<Fixture> &fixture,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObjectIterator(db0::swine_ptr<Fixture> fixture,
         std::vector<std::byte>::const_iterator &iter, 
         std::vector<std::byte>::const_iterator end)
     {
@@ -351,7 +351,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(makePyEnumValue(value));
     }
 
-    std::string PyToolkit::getLastError() 
+    std::string PyToolkit::getLastError()
     {
         PyObject *ptype, *pvalue, *ptraceback;
         PyErr_Fetch(&ptype, &pvalue, &ptraceback);
@@ -373,7 +373,9 @@ namespace db0::python
             return reinterpret_cast<PyEnumValue*>(py_object)->ext().m_fixture_uuid;
         } else if (PyMemo_Check(py_object)) {
             return reinterpret_cast<MemoObject*>(py_object)->ext().getFixture()->getUUID();
-        } else {
+        } else if (PyObjectIterator_Check(py_object)) {
+            return reinterpret_cast<PyObjectIterator*>(py_object)->ext()->getFixture()->getUUID();
+        } else {            
             return 0;
         }
     }
@@ -387,21 +389,19 @@ namespace db0::python
             return 0;
         }
     }
-
+    
     const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
     {
         assert(isMemoType(memo_type));
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
-        return decor.m_prefix_name_ptr;
+        return MemoTypeDecoration::get(memo_type).tryGetPrefixName();
     }
     
     const char *PyToolkit::getMemoTypeID(TypeObjectPtr memo_type)
     {
         assert(isMemoType(memo_type));
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)memo_type + sizeof(PyHeapTypeObject));
-        return decor.m_type_id;
+        return MemoTypeDecoration::get(memo_type).tryGetTypeId();        
     }
-
+    
     bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
         return PyMemoType_Check(py_type);
     }
@@ -413,7 +413,7 @@ namespace db0::python
     unsigned int PyToolkit::getRefCount(ObjectPtr obj) {
         return Py_REFCNT(obj);
     }
-
+    
     PyObject *getValue(PyObject *py_dict, const std::string &key)
     {
         if (!PyDict_Check(py_dict)) {
@@ -422,17 +422,17 @@ namespace db0::python
         return PyDict_GetItemString(py_dict, key.c_str());
     }
 
-    std::optional<long> PyToolkit::getLong(ObjectPtr py_object, const std::string &key) 
+    std::optional<long> PyToolkit::getLong(ObjectPtr py_object, const std::string &key)
     {
         auto py_value = getValue(py_object, key);
         if (!py_value) {
             return std::nullopt;
         }
-        if (!PyLong_Check(py_value)) {
-            Py_DECREF(py_value);
-            THROWF(db0::InputException) << "Invalid type of: " << key << ". Integer expected" << THROWF_END;
-        }
-        Py_DECREF(py_value);
+        // NOTE: no Py_DECREF due to borrowed reference
+        if (!PyLong_Check(py_value)) {                        
+            THROWF(db0::InputException) << "Invalid type of: " << key << ". Integer expected but got: " 
+                << Py_TYPE(py_value)->tp_name << THROWF_END;
+        }        
         return PyLong_AsLong(py_value);
     }
 
@@ -442,27 +442,24 @@ namespace db0::python
         if (!py_value) {
             return std::nullopt;
         }
-        if (!PyBool_Check(py_value)) {
-            Py_DECREF(py_value);
+        // NOTE: no Py_DECREF due to borrowed reference
+        if (!PyBool_Check(py_value)) {            
             THROWF(db0::InputException) << "Invalid type of: " << key << ". Boolean expected" << THROWF_END;
         }
-        Py_DECREF(py_value);
         return PyObject_IsTrue(py_value);
     }
-
+    
     std::optional<std::string> PyToolkit::getString(ObjectPtr py_object, const std::string &key)
     {
         auto py_value = getValue(py_object, key);
         if (!py_value) {
             return std::nullopt;
         }
-        if (!PyUnicode_Check(py_value)) {
-            Py_DECREF(py_value);
+        // NOTE: no Py_DECREF due to borrowed reference
+        if (!PyUnicode_Check(py_value)) {            
             THROWF(db0::InputException) << "Invalid type of: " << key << ". String expected" << THROWF_END;
         }
-        auto result = std::string(PyUnicode_AsUTF8(py_value));
-        Py_DECREF(py_value);
-        return result;
+        return std::string(PyUnicode_AsUTF8(py_value));
     }
     
     bool PyToolkit::compare(ObjectPtr py_object1, ObjectPtr py_object2) {

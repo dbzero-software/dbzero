@@ -3,6 +3,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 
 using namespace std;
@@ -41,10 +42,11 @@ namespace tests
     TEST_F( ObjectTest , testObjectInitializerCanBeFoundIfAdded )
     {
         std::vector<char> data(sizeof(Object));
-        auto object_1 = Object::makeNew(data.data(), nullptr);
+        std::shared_ptr<Class> null_class = Class::getNullClass();
+        auto object_1 = Object::makeNew(data.data(), null_class);
         ObjectInitializerManager cut;
         ASSERT_EQ(cut.findInitializer(*object_1), nullptr);
-        cut.addInitializer(*object_1, nullptr);
+        cut.addInitializer(*object_1, null_class);
         ASSERT_NE(cut.findInitializer(*object_1), nullptr);
         object_1->~Object();
     }
@@ -59,7 +61,7 @@ namespace tests
         ASSERT_NO_THROW( Object(memspace, 0, 0, data) );
         workspace.close();
     }
-
+    
     TEST_F( ObjectTest , testNewObjectSpeed )
     {        
         BaseWorkspace workspace;

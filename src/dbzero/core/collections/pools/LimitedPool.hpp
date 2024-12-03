@@ -59,11 +59,11 @@ namespace db0::pools
         auto size_of = T::measure(std::forward<Args>(args)...);
         auto address = m_memspace.alloc(size_of);
         assert(address <= std::numeric_limits<AddressT>::max());
-        auto ptr = m_memspace.getPrefix().mapRange(address, size_of, { AccessOptions::create, AccessOptions::write });
+        auto ptr = m_memspace.getPrefix().mapRange(address, size_of, { AccessOptions::write });
         T::__new(ptr.modify(), std::forward<Args>(args)...);        
         return static_cast<AddressT>(address);
     }
-
+    
     template <typename T, typename AddressT> template <typename ResultT> ResultT LimitedPool<T, AddressT>::fetch(AddressT address) const
     {
         // FIXME: mapRangeWeak optimization should be implemented

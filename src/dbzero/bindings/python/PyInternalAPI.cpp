@@ -20,6 +20,8 @@
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/memory/SlabAllocator.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
+#include <dbzero/bindings/python/collections/PyTuple.hpp>
+#include <dbzero/bindings/python/PyEnum.hpp>
 #include "PyToolkit.hpp"
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
@@ -122,6 +124,15 @@ namespace db0::python
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             // unload by logical address
             return PyToolkit::unloadList(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {
+            // unload by logical address
+            return PyToolkit::unloadDict(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_SET) {
+            // unload by logical address
+            return PyToolkit::unloadSet(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {
+            // unload by logical address
+            return PyToolkit::unloadTuple(fixture, addr);
         } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {
             // unload by logical address
             return PyToolkit::unloadIndex(fixture, addr);
@@ -136,9 +147,9 @@ namespace db0::python
     }
     
     PyObject *fetchSingletonObject(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
-    {
+    {        
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
-        // find class associated class with the ClassFactory
+        // find type associated class with the ClassFactory
         auto type = class_factory.getExistingType(py_type);
         if (!type->isSingleton()) {
             THROWF(db0::InputException) << "Not a DBZero singleton type";
@@ -152,24 +163,28 @@ namespace db0::python
         type->unloadSingleton(&memo_obj->modifyExt());
         return memo_obj;
     }
-    
+
     PyObject *fetchSingletonObject(db0::Snapshot &snapshot, PyTypeObject *py_type)
     {
-        auto uuid = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture()->getUUID();
-        auto fixture = snapshot.getFixture(uuid, AccessType::READ_ONLY);
+        if (!PyMemoType_Check(py_type)) {
+            THROWF(db0::InternalException) << "Memo type expected for: " << py_type->tp_name << THROWF_END;
+        }
+
+        // get either curren fixture or a scope-related fixture
+        auto fixture = snapshot.getFixture(MemoTypeDecoration::get(py_type).getFixtureUUID());
         return fetchSingletonObject(fixture, py_type);
     }
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name)
     {        
         using ClassFactory = db0::object_model::ClassFactory;
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));        
+        auto fixture_uuid = MemoTypeDecoration::get(py_type).getFixtureUUID();
 
-        assert(PyMemoType_Check(py_type));        
+        assert(PyMemoType_Check(py_type));
         assert(from_name);
         assert(to_name);
         
-        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.m_fixture_uuid, AccessType::READ_WRITE));
+        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_WRITE));
         auto &class_factory = lock->get<ClassFactory>();
         // resolve existing DB0 type from python type
         auto type = class_factory.getExistingType(py_type);
@@ -177,7 +192,7 @@ namespace db0::python
     }
     
 #ifndef NDEBUG    
-
+    
     PyObject *writeBytes(PyObject *self, PyObject *args)
     {
         // extract string from args
@@ -247,6 +262,7 @@ namespace db0::python
         std::shared_ptr<Class> type;
         PyTypeObject *lang_type = nullptr;
         auto fixture = db0::object_model::getFindParams(snapshot, args, nargs, find_args, type, lang_type, no_result);
+        fixture->refreshIfUpdated();
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
         auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);
@@ -431,7 +447,8 @@ namespace db0::python
             << Py_TYPE(py_object)->tp_name << THROWF_END;
     }
     
-    db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name)
+    db0::swine_ptr<Fixture> getPrefixFromArgs(db0::Snapshot &workspace, PyObject *args,
+        PyObject *kwargs, const char *param_name)
     {
         const char *prefix_name = nullptr;
         // optional prefix parameter
@@ -439,13 +456,16 @@ namespace db0::python
         if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|s", const_cast<char**>(kwlist), &prefix_name)) {
             THROWF(db0::InputException) << "Invalid argument type";
         }
-
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        
         if (prefix_name) {
             return workspace.findFixture(prefix_name);
         } else {
             return workspace.getCurrentFixture();
         }
+    }
+    
+    db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name) {
+        return getPrefixFromArgs(PyToolkit::getPyWorkspace().getWorkspace(), args, kwargs, param_name); 
     }
     
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs)
@@ -558,5 +578,45 @@ namespace db0::python
         THROWF(db0::InputException) << "Unable to retrieve address for type: "
             << Py_TYPE(py_obj)->tp_name << THROWF_END;
     }
+    
+    PyTypeObject *tryGetType(PyObject *py_obj)
+    {
+        if (PyMemo_Check(py_obj)) {
+            auto &memo = reinterpret_cast<MemoObject*>(py_obj)->ext();
+            auto fixture = memo.getFixture();
+            auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+            if (!class_factory.hasLangType(memo.getType())) {
+                THROWF(db0::ClassNotFoundException) << "Could not find type: " <<memo.getType().getName();
+            }
+            return class_factory.getLangType(memo.getType()).steal();
+        }
+        return Py_TYPE(py_obj);
+    }
+    
+    PyObject *tryLoad(PyObject *py_obj)
+    {
+        using TypeId = db0::bindings::TypeId;
 
+        auto &type_manager = PyToolkit::getTypeManager();
+        auto type_id = type_manager.getTypeId(py_obj);
+        if (type_manager.isSimplePyTypeId(type_id)) {
+            // no conversion needed for simple python types
+            Py_INCREF(py_obj);
+            return py_obj;
+        }
+        
+        // FIXME: implement for other types
+        if (type_id == TypeId::DB0_TUPLE) {
+            return tryLoadTuple(reinterpret_cast<TupleObject*>(py_obj));
+        } else if (type_id == TypeId::TUPLE) {
+            // regular Python tuple
+            return tryLoadPyTuple(py_obj);
+        } else if (type_id == TypeId::DB0_ENUM_VALUE) {
+            return tryLoadEnumValue(reinterpret_cast<PyEnumValue*>(py_obj));
+        } else {
+            THROWF(db0::InputException) << "Unload not implemented for type: " 
+                << Py_TYPE(py_obj)->tp_name << THROWF_END;
+        }
+    }
+    
 }

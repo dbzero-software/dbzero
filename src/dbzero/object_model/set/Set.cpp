@@ -206,10 +206,8 @@ namespace db0::object_model
         return member;
     }
     
-    bool Set::has_item(ObjectPtr obj) const
+    bool Set::has_item(int64_t hash, ObjectPtr obj) const
     {
-        // FIXME: this API should NOT be used directly here
-        auto hash = PyObject_Hash(obj);
         auto item = getItem(hash, obj);
         return item != nullptr;
     }

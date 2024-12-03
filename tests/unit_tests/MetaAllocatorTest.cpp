@@ -25,8 +25,9 @@ namespace tests
         
         void SetUp() override
         {
-            using PrefixT = PrefixImpl<db0::Storage0>;
-            m_prefix = std::shared_ptr<PrefixT>(new PrefixT("", m_dirty_meter, m_recycler, PAGE_SIZE));
+            using StorageT = db0::Storage0;
+            m_prefix = std::shared_ptr<PrefixImpl>(new PrefixImpl(
+                "", m_dirty_meter, m_recycler, std::make_shared<StorageT>(PAGE_SIZE)));
             m_dirty_meter = 0;
             m_recycler.clear();
         }

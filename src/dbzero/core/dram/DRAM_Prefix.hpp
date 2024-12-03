@@ -36,8 +36,6 @@ namespace db0
 
         void close() override;
         
-        std::uint64_t refresh() override;
-
         std::size_t getDirtySize() const override;
 
         std::size_t flushDirty(std::size_t) override;
@@ -52,7 +50,7 @@ namespace db0
         void flushDirty(SinkFunction) const;
         
         /**
-         * Set or upddate a single page
+         * Set or update a single page
         */
         void *update(std::size_t page_num, bool mark_dirty = true);
         
@@ -76,11 +74,6 @@ namespace db0
         
         // Total number of bytes occupied by all pages        
         std::size_t size() const;
-
-#ifndef NDEBUG
-        // get total memory usage across all instances of DRAM_Prefix
-        static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
-#endif
 
     private:        
         const std::size_t m_page_size;
@@ -110,6 +103,19 @@ namespace db0
         };
 
         mutable std::unordered_map<std::size_t, MemoryPage> m_pages;
+
+    public:
+#ifndef NDEBUG
+        // get total memory usage across all instances of DRAM_Prefix
+        static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
+
+        const std::unordered_map<std::size_t, MemoryPage> &getPages() const {
+            return m_pages;
+        }
+        
+        // Calculate hash from the underlying pages
+        std::size_t getContentHash() const;
+#endif
     };
     
 }

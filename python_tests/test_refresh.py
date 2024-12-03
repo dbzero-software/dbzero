@@ -354,3 +354,49 @@ def test_objects_created_by_different_process_are_not_dropped(db0_fixture):
     object_1 = db0.fetch(id)
     assert object_1.value == 123123
     
+    
+@pytest.mark.stress_test
+def test_refresh_query_while_adding_new_objects(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    
+    def rand_string(str_len):
+        import random
+        import string    
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+        
+    def create_process(num_iterations, num_objects, str_len):
+        db0.init(DB0_DIR)
+        db0.open(px_name, "rw")
+        for _ in range(num_iterations):          
+            for index in range(num_objects):
+                obj = MemoTestClass(rand_string(str_len))
+                db0.tags(obj).add("tag1")
+                if index % 3 == 0:
+                    db0.tags(obj).add("tag2")            
+            db0.commit()
+        db0.close()
+    
+    db0.commit()
+    db0.close()
+    
+    num_iterations = 1
+    num_objects = 1000
+    str_len = 4096
+    p = multiprocessing.Process(target=create_process, args = (num_iterations, num_objects, str_len))
+    p.start()
+    
+    try:
+        db0.init(DB0_DIR)
+        db0.open(px_name, "r")
+        while True:
+            db0.refresh()
+            time.sleep(0.1)
+            query_len = len(list(db0.find(MemoTestClass, "tag1")))        
+            print(f"Query length: {query_len}")
+            if query_len == num_iterations * num_objects:
+                break
+    finally:
+        p.terminate()
+        p.join()
+        db0.close()
+    

@@ -1,9 +1,9 @@
 #include "CFile.hpp"
-#include <dbzero/core/exception/Exceptions.hpp>
 #include <cassert>
 #include <sys/stat.h>
 #include <chrono>
 #include <filesystem>
+#include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
 
@@ -63,15 +63,26 @@ namespace db0
     CFile::~CFile()
     {
         if (m_file) {
+            if (m_dirty) {                
+                flush();
+            }         
             fclose(m_file);
-        }        
+        }
+        assert(!m_dirty);
     }
     
-    void CFile::flush()
+    void CFile::flush(std::unique_lock<std::mutex> &) const
     {
         if (fflush(m_file)) {
             THROWF(db0::IOException) << "CFile::flush: failed to flush file " << m_path;
         }
+        m_dirty = false;
+    }
+
+    void CFile::flush() const
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        flush(lock);
     }
     
     void CFile::close()
@@ -86,6 +97,7 @@ namespace db0
     
     bool CFile::refresh()
     {
+        std::unique_lock<std::mutex> lock(m_mutex);
         if (m_access_type == AccessType::READ_ONLY && m_file) {
             auto file_size = getFileSize(m_file, m_file_pos);
             if (file_size != m_file_size) {
@@ -127,7 +139,7 @@ namespace db0
     }
     
     void CFile::write(std::uint64_t address, std::size_t size, const void *buffer)
-    {        
+    {
         std::unique_lock<std::mutex> lock(m_mutex);
         assert(m_access_type != AccessType::READ_ONLY);
         if (address != m_file_pos) {
@@ -137,17 +149,25 @@ namespace db0
             m_file_pos = address;
             ++m_rand_write_ops;
         }
+        assert(m_file_pos == ftell(m_file));
         if (fwrite(buffer, size, 1, m_file) != 1) {
             THROWF(db0::IOException) << "CFile::write: fwrite failed";
         }
         m_file_pos += size;
         m_file_size = std::max(m_file_size, m_file_pos);
         m_bytes_written += size;
+        if (!m_dirty) {
+            m_dirty = true;
+        }
     }
     
     void CFile::read(std::uint64_t address, std::size_t size, void *buffer) const
-    {        
+    {
         std::unique_lock<std::mutex> lock(m_mutex);
+        // need to flush data from buffer before reading
+        if (m_dirty) {
+            flush(lock);
+        }
         if (address != m_file_pos) {
             if (fseek(m_file, address, SEEK_SET)) {
                 THROWF(db0::IOException) << "CFile::read: fseek failed";
@@ -155,13 +175,14 @@ namespace db0
             m_file_pos = address;
             ++m_rand_read_ops;
         }
+        assert(m_file_pos == ftell(m_file));
         if (fread(buffer, size, 1, m_file) != 1) {
             THROWF(db0::IOException) << "CFile::read: fread failed";
         }
         m_file_pos += size;
         m_bytes_read += size;
     }
-
+    
     std::uint64_t CFile::getLastModifiedTime() const {
         return db0::getLastModifiedTime(m_path.c_str());
     }

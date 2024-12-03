@@ -32,6 +32,7 @@ namespace db0
     class SlabAllocator;
     class AtomicContext;
     class LangCache;
+    class ProcessTimer;
     using StringPoolT = db0::pools::RC_LimitedStringPool;
     using ObjectCatalogue = db0::object_model::ObjectCatalogue;
 
@@ -142,7 +143,7 @@ namespace db0
         void rollback();
         
         void commit();
-        void close();
+        void close(ProcessTimer * = nullptr);
         
         inline GC0 &getGC0()
         {
@@ -165,12 +166,12 @@ namespace db0
          * member only allowed for read-only fixtures
          * @return true if the fixture was updated
         */
-        bool refresh();
+        bool refresh(ProcessTimer * = nullptr);
         
         /**
          * This member checks m_updated flag before calling refresh
         */
-        void refreshIfUpdated();
+        bool refreshIfUpdated();
         
         /**
          * Get read-only snapshot of the fixture's state within a specific WorkspaceView

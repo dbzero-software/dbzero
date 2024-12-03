@@ -3,6 +3,7 @@
 #include <Python.h>
 #include <cstdint>
 #include <memory>
+#include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0::python 
 
@@ -67,17 +68,28 @@ namespace db0::python
             new (at_ptr) Shared(ptr);
         }
     };
-
+    
     template <typename T, bool is_object_base=true>
     struct PySharedWrapper: public PyWrapper<Shared<T>, is_object_base>
     {
         using super_t = PyWrapper<Shared<T>, is_object_base>;
-        inline T &modifyExt() {
-            return *super_t::modifyExt();
+
+        inline T &modifyExt()
+        {
+            auto &_ptr = super_t::modifyExt().m_ptr;
+            if (!_ptr) {
+                THROWF(db0::InternalException) << "Instance of type: " << typeid(T).name() << " is no longer accessible";
+            }
+            return *_ptr;            
         }
 
-        inline const T &ext() const {
-            return *super_t::ext();
+        inline const T &ext() const
+        {
+            auto &_ptr = super_t::ext().m_ptr;
+            if (!_ptr) {
+                THROWF(db0::InternalException) << "Instance of type: " << typeid(T).name() << " is no longer accessible";
+            }
+            return *_ptr;
         }
         
         template <typename... Args> void makeNew(Args &&...args) {
@@ -91,6 +103,10 @@ namespace db0::python
         
         std::shared_ptr<T> getSharedPtr() const {
             return super_t::ext().m_ptr;
+        }
+        
+        void reset() {
+            super_t::modifyExt().m_ptr.reset();
         }
     };
     

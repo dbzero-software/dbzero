@@ -99,14 +99,10 @@ namespace db0
             , m_page_size(page_size)
             , m_slab_address_func(address_func)
             , m_slab_id_func(slab_id_func)
+            , m_next_slab_id(fetchNextSlabId())
         {
-            // determine the max slab id
-            auto it = m_slab_defs.find_max();
-            if (it.first) {
-                m_next_slab_id = it.first->m_slab_id + 1;
-            }
         }
-
+        
         using CapacityItem = MetaAllocator::CapacityItem;        
         using SlabDef = MetaAllocator::SlabDef;
         
@@ -180,7 +176,7 @@ namespace db0
         }
         
         unsigned int getSlabCount() const {
-            return m_next_slab_id;
+            return nextSlabId();
         }
         
         /**
@@ -188,7 +184,10 @@ namespace db0
         */
         std::pair<std::shared_ptr<SlabAllocator>, std::uint32_t> createNewSlab()
         {
-            auto slab_id = m_next_slab_id++;
+            if (!m_next_slab_id) {
+                m_next_slab_id = fetchNextSlabId();
+            }
+            auto slab_id = (*m_next_slab_id)++;
             auto address = m_slab_address_func(slab_id);
             // create the new slab
             auto capacity = SlabAllocator::formatSlab(m_prefix, address, m_slab_size, m_page_size);
@@ -226,7 +225,7 @@ namespace db0
             return m_active_slab;
         }
 
-        std::uint32_t getRemainingCapacity(std::uint32_t slab_id) const 
+        std::uint32_t getRemainingCapacity(std::uint32_t slab_id) const
         {
             // look up with the cache first
             auto address = m_slab_address_func(slab_id);
@@ -260,7 +259,7 @@ namespace db0
         */
         FindResult find(std::uint32_t slab_id) 
         {
-            if (slab_id >= m_next_slab_id) {
+            if (slab_id >= nextSlabId()) {
                 THROWF(db0::InputException) << "Slab " << slab_id << " does not exist";
             }
             if (m_active_slab == slab_id) {
@@ -287,7 +286,7 @@ namespace db0
         }
         
         bool empty() const {
-            return m_next_slab_id == 0;
+            return nextSlabId() == 0;
         }
 
         std::shared_ptr<SlabAllocator> reserveNewSlab()
@@ -304,7 +303,7 @@ namespace db0
         
         std::shared_ptr<SlabAllocator> openExistingSlab(const SlabDef &slab_def)
         {
-            if (slab_def.m_slab_id >= m_next_slab_id) {
+            if (slab_def.m_slab_id >= nextSlabId()) {
                 THROWF(db0::InputException) << "Slab " << slab_def.m_slab_id << " does not exist";
             }            
             auto address = m_slab_address_func(slab_def.m_slab_id);
@@ -326,7 +325,7 @@ namespace db0
         std::shared_ptr<SlabAllocator> openReservedSlab(std::uint64_t address)
         {
             auto slab_id = m_slab_id_func(address);
-            if (slab_id >= m_next_slab_id) {
+            if (slab_id >= nextSlabId()) {
                 THROWF(db0::InputException) << "Slab " << slab_id << " does not exist";
             }            
 
@@ -356,23 +355,33 @@ namespace db0
             return m_slab_address_func(0) + SlabAllocator::getFirstAddress();
         }
 
-        void commit()
+        void commit() const 
         {
             for (auto &it : m_slabs) {
                 it.second->commit();
             }
         }
-
-        void detach()
+        
+        void detach() const
         {
+            // invalidate cached variable
+            m_next_slab_id = {};
             for (auto &it : m_slabs) {
                 it.second->detach();
             }
         }
+        
+        std::uint32_t nextSlabId() const 
+        {
+            if (!m_next_slab_id) {
+                m_next_slab_id = fetchNextSlabId();
+            }
+            return *m_next_slab_id;
+        }
 
     private:
 
-        struct CacheItem 
+        struct CacheItem
         {
             std::weak_ptr<SlabAllocator> m_slab;
             CapacityItem m_cap_item;
@@ -385,14 +394,14 @@ namespace db0
             {
             }
 
-            void commit()
+            void commit() const 
             {
                 if (auto slab = m_slab.lock()) {
                     slab->commit();
                 }
             }
 
-            void detach()
+            void detach() const 
             {
                 if (auto slab = m_slab.lock()) {
                     slab->detach();
@@ -415,7 +424,7 @@ namespace db0
         // address by allocation ID (from the algo-allocator)
         std::function<std::uint64_t(unsigned int)> m_slab_address_func;
         std::function<std::uint32_t(std::uint64_t)> m_slab_id_func;
-        std::uint32_t m_next_slab_id = 0;
+        mutable std::optional<std::uint32_t> m_next_slab_id;
         
         CacheIterator unregisterSlab(CacheIterator it)
         {
@@ -486,9 +495,9 @@ namespace db0
             return { slab, cap_item };
         }
 
-        void erase(const FindResult &slab, bool cleanup) 
+        void erase(const FindResult &slab, bool cleanup)
         {
-            if (slab.m_cap_item.m_slab_id != m_next_slab_id - 1) {
+            if (slab.m_cap_item.m_slab_id != nextSlabId() - 1) {
                 return;
             }
 
@@ -516,11 +525,14 @@ namespace db0
             if (!m_capacity_items.erase_equal(slab.m_cap_item).first) {
                 THROWF(db0::InternalException) << "Capacity item not found.";
             }
-            --m_next_slab_id;
+            if (!m_next_slab_id) {
+                m_next_slab_id = fetchNextSlabId();
+            }
+            --(*m_next_slab_id);
             // try removing other empty slabs if such exist
             if (cleanup) {
                 while (!empty()) {
-                    auto slab = openSlab(m_slab_address_func(m_next_slab_id - 1));
+                    auto slab = openSlab(m_slab_address_func(nextSlabId() - 1));
                     if (!slab.m_slab->empty()) {
                         break;
                     }
@@ -528,7 +540,18 @@ namespace db0
                 }
             }            
         }
-    
+
+        std::uint32_t fetchNextSlabId() const
+        {
+            // determine the max slab id
+            auto it = m_slab_defs.find_max();
+            if (it.first) {
+                return it.first->m_slab_id + 1;
+            } else {
+                return 0;
+            }
+        }
+
     };
     
     MetaAllocator::MetaAllocator(std::shared_ptr<Prefix> prefix, SlabRecycler *recycler, bool deferred_free)
@@ -625,7 +648,8 @@ namespace db0
                     auto addr = slab.m_slab->tryAlloc(size, 0, aligned, false);
                     if (!addr) {
                         break;
-                    }                    
+                    }
+
                     if (!unique || slab.m_slab->makeAddressUnique(*addr)) {
                         // NOTE: the returned address is logical
                         return addr;
@@ -647,7 +671,7 @@ namespace db0
                 slab = m_slab_manager->findFirst(size);
                 is_first = false;
             } else {
-                slab = m_slab_manager->findNext(slab, size);                
+                slab = m_slab_manager->findNext(slab, size); 
             }
             if (!slab.m_slab) {
                 slab = m_slab_manager->addNewSlab();

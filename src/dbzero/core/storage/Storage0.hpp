@@ -45,9 +45,7 @@ namespace db0
         void close() override 
         {
         }
-
-        bool refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {});
-
+        
         std::uint64_t getLastUpdated() const;
                 
     private:

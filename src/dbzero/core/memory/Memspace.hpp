@@ -65,21 +65,26 @@ namespace db0
         */
         void commit(ProcessTimer * = nullptr);
 
+        // Detach memspace associated / owned resources (e.g. Allocator)
+        void detach() const;
+
         /**
          * Close this memspace, drop uncommited data
         */
-        void close();        
+        void close(ProcessTimer * = nullptr);
 
         bool isClosed() const;
         
         AccessType getAccessType() const;
 
+        bool beginRefresh();
+        
         /**
          * Refresh the memspace to the latest state (e.g. after updates done by other processes)
          * Operation only allowed for read-only memspaces
          * @return true if the memspace was updated
         */
-        bool refresh();
+        void completeRefresh();
 
         std::uint64_t getStateNum() const;
         

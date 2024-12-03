@@ -66,9 +66,9 @@ namespace db0::object_model
         // it may trigger discard of unflushed data (which has to be performed before destruction of 'builder')
         unregister();
         // after unregister object might still have unflushed data, we need to flush them
-        if (hasInstance()) {
-            flush();
-        }        
+        if (hasInstance() && isDirty()) {
+            _flush();
+        }
     }
     
     Index *Index::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
@@ -84,6 +84,35 @@ namespace db0::object_model
         , m_initial_type(index->m_data_type)
         , m_new_type(m_initial_type)
     {
+    }
+    
+    bool Index::Builder::empty() const
+    {
+        if (!m_index_builder) {
+            return true;
+        }
+
+        switch (m_new_type) {
+            case IndexDataType::Int64: {
+                return getExisting<std::int64_t>().empty();
+                break;
+            }
+
+            case IndexDataType::UInt64: {
+                return getExisting<std::uint64_t>().empty();
+                break;
+            }
+
+            case IndexDataType::Auto: {
+                return getExisting<DefaultT>().empty();
+                break;
+            }
+
+            default:
+                THROWF(db0::InputException) 
+                    << "Unsupported index data type: " 
+                    << static_cast<std::uint16_t>(m_new_type) << THROWF_END;
+        }
     }
 
     void Index::Builder::flush()
@@ -156,13 +185,20 @@ namespace db0::object_model
         m_new_type = new_type;
     }
     
-    void Index::flush()
+    void Index::flush(FixtureLock &) {
+        _flush();
+    }
+
+    bool Index::isDirty() const {
+        return !m_builder.empty();
+    }
+    
+    void Index::_flush()
     {
         // no instance due to move
         if (!hasInstance()) {
             return;
-        }
-        
+        }    
         m_builder.flush();
     }
 
@@ -202,7 +238,10 @@ namespace db0::object_model
     
     std::size_t Index::size() const
     {
-        const_cast<Index*>(this)->flush();
+        if (isDirty()) {
+            FixtureLock lock(this->getFixture());
+            const_cast<Index*>(this)->flush(lock);
+        }
         if (!hasRangeTree()) {
             return 0;
         }
@@ -301,7 +340,11 @@ namespace db0::object_model
     std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool null_first) const
     {
         assert(hasInstance());
-        const_cast<Index*>(this)->flush();        
+        if (isDirty()) {
+            FixtureLock lock(this->getFixture());
+            const_cast<Index*>(this)->flush(lock);
+        }
+        
         switch ((*this)->m_data_type) {
             case IndexDataType::Int64: {
                 return rangeQuery<std::int64_t>(min, true, max, true, null_first);
@@ -329,7 +372,11 @@ namespace db0::object_model
     Index::sort(const ObjectIterator &iter, bool asc, bool null_first) const
     {
         assert(hasInstance());
-        const_cast<Index*>(this)->flush();
+        if (isDirty()) {
+            FixtureLock lock(this->getFixture());
+            const_cast<Index*>(this)->flush(lock);
+        }
+
         std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort_iter;
         if (iter.isSorted()) {
             // sort by additional criteria
@@ -433,7 +480,7 @@ namespace db0::object_model
         if (revert) {
             rollback();
         } else {
-            flush();
+            _flush();
         }        
     }
 
@@ -470,13 +517,13 @@ namespace db0::object_model
     void Index::moveTo(db0::swine_ptr<Fixture> &fixture)
     {
         assert(hasInstance());
-        this->flush();
+        this->_flush();
         super_t::moveTo(fixture);
     }
     
     void Index::operator=(Index &&other)
     {
-        other.flush();
+        other._flush();
         super_t::operator=(std::move(other));
         m_index = std::move(other.m_index);
         other.m_index = nullptr;
@@ -489,7 +536,7 @@ namespace db0::object_model
     {
         // if m_index exists then also must have a range tree
         assert(!m_index || hasRangeTree());
-        const_cast<Index*>(this)->flush();
+        const_cast<Index*>(this)->_flush();
         // commit the underlying range tree if it exists
         if (m_index) {
             switch ((*this)->m_data_type) {

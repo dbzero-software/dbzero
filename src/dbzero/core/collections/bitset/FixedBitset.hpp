@@ -62,7 +62,7 @@ namespace db0
         {
             // create at a specific v-space address
             auto at = MappedAddress {
-                address, memspace.getPrefix().mapRange(address, sizeOf(), { AccessOptions::create, AccessOptions::write }) 
+                address, memspace.getPrefix().mapRange(address, sizeOf(), { AccessOptions::write })
             };            
             db0::v_object<o_fixed_bitset<BitN> > new_instance(memspace, at);
             new_instance.modify().reset();

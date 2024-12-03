@@ -3,15 +3,22 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <structmember.h>
 #include <dbzero/bindings/python/Utils.hpp>
-
+#include <datetime.h>
 namespace db0::python
 
 {
 
+    void init_datetime() 
+    {
+        if (!PyDateTimeAPI) {
+            PyDateTime_IMPORT;
+        }
+    }
+    
     std::uint64_t dateTimeComponentsToUInt64(std::uint16_t year, std::uint8_t month, std::uint8_t day, std::uint8_t hour,
         std::uint8_t minute, std::uint8_t second, std::uint8_t millisecond)
     {
-        PyDateTime_IMPORT;
+        init_datetime();
         std::uint64_t datetime = 0;
         datetime = datetime | (millisecond & 0x00FF);
         datetime = datetime | ((uint64_t)(second & 0x00FF) << 8);
@@ -25,7 +32,7 @@ namespace db0::python
     
     std::uint64_t pyDateTimeToToUint64(PyObject *py_datetime) 
     {
-        PyDateTime_IMPORT;
+        init_datetime();
         auto year = PyDateTime_GET_YEAR(py_datetime);
         auto month = PyDateTime_GET_MONTH(py_datetime);
         auto day = PyDateTime_GET_DAY(py_datetime);
@@ -38,7 +45,7 @@ namespace db0::python
     
     PyObject *uint64ToPyDatetime(std::uint64_t datetime)
     {
-        PyDateTime_IMPORT;
+        init_datetime();
         auto year = (datetime >> 48) & 0xFFFF;
         auto month = (datetime >> 40) & 0x00FF;
         auto day = (datetime >> 32) & 0x00FF;

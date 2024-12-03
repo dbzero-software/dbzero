@@ -28,9 +28,9 @@ namespace db0
         // try flushing up to 'size' bytes
         // @return number of bytes actually flushed
         std::size_t flush(std::size_t limit);
-
+        
         /**
-         * Output all modified pages in to a user provided sink function
+         * Output all modified pages into a user provided sink function
          * and mark pages as non-dirty
          * The flush order is undefined
         */

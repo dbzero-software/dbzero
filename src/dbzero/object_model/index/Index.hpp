@@ -68,7 +68,7 @@ namespace db0::object_model
         
         void moveTo(db0::swine_ptr<Fixture> &);
 
-        void flush();
+        void flush(FixtureLock &);
         
         void commit() const;
 
@@ -111,7 +111,10 @@ namespace db0::object_model
             Builder(Index &);
             
             void flush();
+
             void rollback();
+
+            bool empty() const;
 
             inline IndexDataType getDataType() const {
                 return m_new_type;
@@ -135,7 +138,7 @@ namespace db0::object_model
                 return *static_cast<IndexBuilder<T>*>(m_index_builder.get());                
             }
             
-            template <typename T> IndexBuilder<T> &getExisting()
+            template <typename T> IndexBuilder<T> &getExisting() const
             {
                 assert(m_index_builder);
                 return *static_cast<IndexBuilder<T>*>(m_index_builder.get());                
@@ -164,6 +167,11 @@ namespace db0::object_model
         };
         
         Builder m_builder;
+
+        // check if there's any unflushed data in the internal buffers
+        bool isDirty() const;
+        
+        void _flush();
 
     private: 
         // actual index instance (must be cast to a specific type)

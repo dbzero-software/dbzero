@@ -46,7 +46,7 @@ namespace tests
     TEST_F( PrefixImplTest , testPrefixImplCanMapRangeFromIndividualPages )
     {
         BDevStorage::create(file_name);
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         // within page = 0 (access must be write only since this is a new page)
         auto r0 = cut.mapRange(0, 100, { AccessOptions::write });
         // within page = 0 (access can be read / write)
@@ -62,7 +62,7 @@ namespace tests
     TEST_F( PrefixImplTest , testPrefixImplCanHandleCrossBoundaryLock )
     {
         BDevStorage::create(file_name);
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         // page #0 lock        
         auto r0 = cut.mapRange(0, 100, { AccessOptions::write });
         // page #1 lock
@@ -75,7 +75,7 @@ namespace tests
     TEST_F( PrefixImplTest , testPrefixImpLockAdvanceFromReadToWrite )
     {
         BDevStorage::create(file_name);
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         ASSERT_EQ(cut.getStateNum(), 1);
         // within page = 0 (access must be write only since this is a new page)
         auto r0 = cut.mapRange(0, 100, { AccessOptions::write });
@@ -113,17 +113,17 @@ namespace tests
     TEST_F( PrefixImplTest , testMapRangeCanReuseDP_Locks )
     {
         BDevStorage::create(file_name);
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         ASSERT_EQ(cut.getStateNum(), 1);
         // create a new range (use current state num)
         {
-            auto r0 = cut.mapRange(12288, 4, { AccessOptions::create, AccessOptions::write });
+            auto r0 = cut.mapRange(12288, 4, { AccessOptions::write });
             memcpy(r0.modify(), "1234", 4);
         }
         
         // create another range in the same page, use state_num = 2
         cut.commit();
-        auto r1 = cut.mapRange(12292, 4, { AccessOptions::create, AccessOptions::write });
+        auto r1 = cut.mapRange(12292, 4, { AccessOptions::write });
         // make sure the contents from previous write has been preserved
         ASSERT_EQ(std::string((char *)r1.m_buffer - 4, 4), "1234");
 
@@ -134,18 +134,18 @@ namespace tests
     {
         BDevStorage::create(file_name);
         // initialize without cache
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, nullptr, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, nullptr, std::make_shared<BDevStorage>(file_name));
         ASSERT_EQ(cut.getStateNum(), 1);
         // create a new range (use current state num)
         {
-            auto r0 = cut.mapRange(12288, 4, { AccessOptions::create, AccessOptions::write });
+            auto r0 = cut.mapRange(12288, 4, { AccessOptions::write });
             memcpy(r0.modify(), "1234", 4);
             r0.release();
         }
         
         cut.commit();
         // create another range in the same page, use state_num = 2
-        auto r1 = cut.mapRange(12292, 4, { AccessOptions::create, AccessOptions::write });
+        auto r1 = cut.mapRange(12292, 4, { AccessOptions::write });
         // make sure the contents from previous write has been preserved
         ASSERT_EQ(std::string((char *)r1.m_buffer - 4, 4), "1234");
         r1.release();
@@ -156,19 +156,19 @@ namespace tests
     {
         BDevStorage::create(file_name);
         // initialize without cache
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
         ASSERT_EQ(cut.getStateNum(), 1);
         
         // create boundary range 1
-        auto r0 = cut.mapRange(page_size * 2 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto r0 = cut.mapRange(page_size * 2 - 4, 8, { AccessOptions::write });
         memcpy(r0.modify(), "12345678", 8);
         r0.release();
         
         // create single-page range
         cut.mapRange(page_size * 3 - 1080, 120, { AccessOptions::write });
         // create boundary range 2
-        auto r1 = cut.mapRange(page_size * 3 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto r1 = cut.mapRange(page_size * 3 - 4, 8, { AccessOptions::write });
         memcpy(r1.modify(), "12345678", 8);
         
         // open boundary range for read (same transaction)
@@ -181,19 +181,18 @@ namespace tests
     
     TEST_F( PrefixImplTest , testBoundaryReadIssue1 )
     {
-        BDevStorage::create(file_name);
-        // initialize without cache
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        BDevStorage::create(file_name);    
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
         ASSERT_EQ(cut.getStateNum(), 1);
         
         {
             // write lhs range 1
-            auto w1 = cut.mapRange(page_size * 0 + 16, 8, { AccessOptions::create, AccessOptions::write });
+            auto w1 = cut.mapRange(page_size * 0 + 16, 8, { AccessOptions::write });
             memcpy(w1.modify(), "12345678", 8);
 
             // write boundary range (without write to rhs)
-            auto b1 = cut.mapRange(page_size * 1 - 16, 32, { AccessOptions::create, AccessOptions::write });
+            auto b1 = cut.mapRange(page_size * 1 - 16, 32, { AccessOptions::write });
             memcpy(b1.modify(), "12345678ABCDABCD", 16);
         }
         
@@ -211,12 +210,12 @@ namespace tests
     {
         BDevStorage::create(file_name);
         // initialize without cache
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
         ASSERT_EQ(cut.getStateNum(), 1);
         
         // write boundary range in state = 1
-        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });
         memcpy(w1.modify(), "12345678", 8);
         w1.release();
         
@@ -253,7 +252,7 @@ namespace tests
         srand(time(nullptr));
         BDevStorage::create(file_name);
         // initialize without cache
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
         // number of pages to write to
         auto range = 5;
@@ -272,7 +271,7 @@ namespace tests
         };
 
         for (int i = 0; i < range; ++i) {
-            cut.mapRange(page_size * i, page_size, { AccessOptions::create, AccessOptions::write });
+            cut.mapRange(page_size * i, page_size, { AccessOptions::write });
         }
         // op_codes: 0 = read, 1 = write, 2 = create
         for (int i = 0; i < transaction_count; i++) {
@@ -297,7 +296,7 @@ namespace tests
                         break;
                     }
                     case 2: {
-                        auto lock = cut.mapRange(addr, size, { AccessOptions::create, AccessOptions::write });
+                        auto lock = cut.mapRange(addr, size, { AccessOptions::write });
                         std::memset(lock.modify(), 0, size);
                         std::memset(data.data() + addr, 0, size);
                         break;
@@ -314,19 +313,19 @@ namespace tests
     {
         BDevStorage::create(file_name);
         // initialize without cache
-        PrefixImpl<BDevStorage> *cut = nullptr;
-        auto prefix = std::shared_ptr<Prefix>(
-            cut = new PrefixImpl<BDevStorage>(file_name, m_dirty_meter, &m_cache_recycler, file_name));
+        PrefixImpl *cut = nullptr;
+        auto prefix = std::shared_ptr<Prefix>(cut = new PrefixImpl(
+            file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name)));
         auto page_size = prefix->getPageSize();
         
         // create page versions in transactions 1, 2, 3
         for (int i = 0; i < 3; i++) {
-            auto r0 = prefix->mapRange(0, page_size, { AccessOptions::create, AccessOptions::write });
+            auto r0 = prefix->mapRange(0, page_size, { AccessOptions::write });
             std::memset(r0.modify(), i + 1, page_size);
             r0.release();
             prefix->commit();
         }
-
+        
         // remove all locks from cache
         cut->getCache().clear();
         // read page in state #1 (snapshot)
@@ -346,13 +345,13 @@ namespace tests
 
     TEST_F( PrefixImplTest , testRevertAtomicBoundaryUpdate )
     {
-        BDevStorage::create(file_name);        
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        BDevStorage::create(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
         ASSERT_EQ(cut.getStateNum(), 1);
         
         // write boundary range in state = 1
-        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });
         memcpy(w1.modify(), "12345678", 8);
         w1.release();
 
@@ -383,13 +382,13 @@ namespace tests
 
     TEST_F( PrefixImplTest , testCommitAtomicBoundaryUpdate )
     {
-        BDevStorage::create(file_name);        
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        BDevStorage::create(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
         ASSERT_EQ(cut.getStateNum(), 1);
         
         // write boundary range in state = 1
-        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });
         memcpy(w1.modify(), "12345678", 8);
         w1.release();
 
@@ -400,6 +399,8 @@ namespace tests
         w2.release();
 
         cut.endAtomic();
+        
+        // validate boundary lock
         {
             auto lock = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::read });
             auto str_value = std::string((char *)lock.m_buffer, 8);
@@ -411,11 +412,11 @@ namespace tests
 
     TEST_F( PrefixImplTest , testMergingAtomicAndNonAtomicUpdates )
     {
-        BDevStorage::create(file_name);        
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);        
+        BDevStorage::create(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         
         // initial update, keep the lock active
-        auto w1 = cut.mapRange(0, 8, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(0, 8, { AccessOptions::write });
         memcpy(w1.modify(), "12345678", 8);
 
         // atomic update the same page, release lock
@@ -440,13 +441,13 @@ namespace tests
     TEST_F( PrefixImplTest , testMultipleAtomicBoundaryUpdates )
     {
         BDevStorage::create(file_name);        
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
         ASSERT_EQ(cut.getStateNum(), 1);
         
         // create boundary range inside atomic
         cut.beginAtomic();
-        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });
         memcpy(w1.modify(), "12345678", 8);
         w1.release();        
         cut.endAtomic();
@@ -465,11 +466,11 @@ namespace tests
     TEST_F( PrefixImplTest , testAtomicBoundaryUpdatesWithPreExistingLocks )
     {
         BDevStorage::create(file_name);
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
 
         // create boundary range in state = 1 but don't flush it
-        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::create, AccessOptions::write });        
+        auto w1 = cut.mapRange(page_size * 1 - 4, 8, { AccessOptions::write });        
         memcpy(w1.modify(), "12345678", 8);
         
         // update the pre-existing boundary lock as atomic
@@ -491,13 +492,13 @@ namespace tests
     TEST_F( PrefixImplTest , testWideAllocInconsistentLockIssue )
     {
         BDevStorage::create(file_name);
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
 
         // map short unaligned range at the end of 2nd page
-        auto w1 = cut.mapRange(page_size * 2 - 32, 16, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(page_size * 2 - 32, 16, { AccessOptions::write });
         // map wide range spanning page 1 & 2
-        auto w2 = cut.mapRange(0, page_size + 128, { AccessOptions::create, AccessOptions::write });
+        auto w2 = cut.mapRange(0, page_size + 128, { AccessOptions::write });
         ASSERT_TRUE(w1);
         ASSERT_TRUE(w2);
         cut.close();
@@ -506,20 +507,20 @@ namespace tests
     TEST_F( PrefixImplTest , testInconsistentLocksFromMultipleTransactionsIssue_1 )
     {
         BDevStorage::create(file_name);
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
 
         // lock page #1 from transaction #1
-        auto w1 = cut.mapRange(0, 32, { AccessOptions::create, AccessOptions::write });        
+        auto w1 = cut.mapRange(0, 32, { AccessOptions::write });        
         w1.release();
         cut.commit();
 
         // lock page #2 from transaction #2
-        auto w2 = cut.mapRange(page_size + 16, 16, { AccessOptions::create, AccessOptions::write });        
+        auto w2 = cut.mapRange(page_size + 16, 16, { AccessOptions::write });        
         w2.release();
 
         // lock page #1 + #2 from transaction #3 (as a wide lock)
-        auto w3 = cut.mapRange(0, page_size + 128, { AccessOptions::create, AccessOptions::write });    
+        auto w3 = cut.mapRange(0, page_size + 128, { AccessOptions::write });    
         w3.release();
         cut.close();
     }
@@ -527,21 +528,21 @@ namespace tests
     TEST_F( PrefixImplTest , testInconsistentLocksFromMultipleTransactionsIssue_2 )
     {
         BDevStorage::create(file_name);
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
 
-        auto w1 = cut.mapRange(0, 32, { AccessOptions::create, AccessOptions::write });        
+        auto w1 = cut.mapRange(0, 32, { AccessOptions::write });        
         memcpy(w1.modify(), "88888888", 8);
         w1.release();
         cut.commit();
         
         // lock page #2 from transaction #2 & update it
-        auto w2 = cut.mapRange(page_size + 1024, 16, { AccessOptions::create, AccessOptions::write });
+        auto w2 = cut.mapRange(page_size + 1024, 16, { AccessOptions::write });
         memcpy(w2.modify(), "12345678abcdefgh", 16);
         w2.release();
 
         // lock page #1 + #2 (as incomplete wide range) from transaction #3 & update it
-        auto w3 = cut.mapRange(0, page_size + 16, { AccessOptions::create, AccessOptions::write });
+        auto w3 = cut.mapRange(0, page_size + 16, { AccessOptions::write });
         memcpy((char*)w3.modify() + page_size, "99999999", 8);
         w3.release();
         cut.commit();
@@ -560,15 +561,15 @@ namespace tests
         // it with a larger object at the same address (in 2 distinct transactions)
         // such a situation cannot happen during a single transaction due to deferred free-s in MetaAllocator.
         BDevStorage::create(file_name);
-        PrefixImpl<BDevStorage> cut(file_name, m_dirty_meter, &m_cache_recycler, file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
         auto page_size = cut.getPageSize();
         
-        auto w1 = cut.mapRange(0, page_size * 2, { AccessOptions::create, AccessOptions::write });
+        auto w1 = cut.mapRange(0, page_size * 2, { AccessOptions::write });
         w1.release();
         cut.commit();
         
         // non-conflicting operations, independent locks should be created
-        auto w2 = cut.mapRange(0, page_size * 3, { AccessOptions::create, AccessOptions::write });
+        auto w2 = cut.mapRange(0, page_size * 3, { AccessOptions::write });
         memcpy(w2.modify(), "12345678abcdefgh", 16);
         w2.release();
         cut.commit();

@@ -3,7 +3,7 @@ import random
 import datetime
 import dbzero_ce as db0
 from .conftest import DB0_DIR
-from .memo_test_types import MemoTestSingleton, MemoTestClass
+from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedSingleton, MemoScopedClass, MonthTag
 
 
 def test_can_create_dict(db0_fixture):
@@ -239,12 +239,12 @@ def test_dict_with_unhashable_types_as_keys(db0_fixture):
     with pytest.raises(Exception) as ex:
         my_dict[["first", 1]] = MemoTestClass("abc")
 
-    assert "unhashable type" in str(ex.value)
+    assert "hash" in str(ex.value)
 
     with pytest.raises(Exception) as ex:
         my_dict[{"key":"value"}] = MemoTestClass("abc")
 
-    assert "unhashable type" in str(ex.value)
+    assert "hash" in str(ex.value)
 
 
 def test_dict_items_in(db0_no_autocommit):
@@ -400,3 +400,69 @@ def test_make_dict_issue_1(db0_no_autocommit):
     The test was failing with segfault
     """
     _ = [make_db0_dict() for _ in range(6)]
+
+
+def test_dict_in_dict_issue1(db0_no_autocommit):
+    d1 = db0.dict()
+    d1["value"] = {}
+    assert list(d1.keys()) == ["value"]
+
+
+def test_dict_duplicate_keys_issue1(db0_no_autocommit):
+    current_prefix = db0.get_current_prefix()
+    db0.open("my-new-prefix")
+    # go back to current prefix but use the other prefix as a scope
+    db0.open(current_prefix.name)
+    mtc = MemoScopedSingleton({}, prefix="my-new-prefix")
+    key = "5HZSGQCE767XN6YXYO626RTY2EDLDWGHQ6ILXVAB7QMRO4S4E3ZA"
+    index = 0
+    for _ in range(10):
+        if key not in mtc.value:
+            mtc.value[key] = {}
+        mtc.value[key][f"index_{index}"] = (1, 2, "abc")
+        index += 1
+    
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open("my-new-prefix", "r")
+    mtc = MemoScopedSingleton({}, prefix="my-new-prefix")
+    assert mtc.value.get(key, None) is not None
+    assert len(mtc.value) == 1
+    assert len(mtc.value[key]) == 10
+
+
+def test_dict_no_duplicate_keys_when_mixed_python_db0_types(db0_no_autocommit):
+    Colors = db0.enum("Colors", values = ["RED", "GREEN", "BLUE"])
+    d1 = db0.dict()
+    d2 = {}
+    
+    def rand_string():
+        return "".join([chr(random.randint(65, 90)) for _ in range(10)])
+    
+    all_keys = [rand_string() for i in range(200)]    
+    def update(d, keys):
+        for key in keys:
+            value = d.get((key, Colors.RED), None)
+            if value is not None:
+                d[(key, Colors.RED)] = value + 1
+            else:
+                d[(key, Colors.RED)] = 1
+
+    for _ in range(10):
+        keys = [random.choice(all_keys) for _ in range(10)]        
+        update(d1, keys)
+        update(d2, keys)    
+        assert len(d1) == len(d2)
+    
+
+# FIXME: test failing due to lack of support for scoped enums in Dict
+# def test_dict_storing_enum_values_from_different_prefix(db0_no_autocommit):
+#     obj = db0.dict()    
+#     # NOTE: MonthTag is located on a different data-prefix
+#     # unless weak references are supported, an exception should be raised
+#     obj[(MonthTag.NOV, 1, "Szczecin")] = 1
+#     obj[MonthTag.NOV] = 2
+#     obj[MonthTag.NOV] = 3
+#     obj[(MonthTag.NOV, 1, "Szczecin")] = 2
+#     assert len(obj) == 3

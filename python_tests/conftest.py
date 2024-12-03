@@ -5,7 +5,8 @@ import pytest
 import gc
 import dbzero_ce as db0
 import shutil
-from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoDataPxClass, \
+        MemoDataPxSingleton, DATA_PX
 
 
 TEST_FILES_DIR_ROOT = os.path.join(os.getcwd(), "python_tests", "files")
@@ -68,7 +69,7 @@ def db0_autocommit_fixture(request):
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR, config = {"autocommit_interval": request.param})
+    db0.init(DB0_DIR, config = {"autocommit": True, "autocommit_interval": request.param})
     db0.open("my-test-prefix")
     yield db0
     gc.collect()
@@ -89,9 +90,8 @@ def db0_no_autocommit():
     # disable autocommit on all prefixes
     db0.init(DB0_DIR, config = {"autocommit": False})
     db0.open("my-test-prefix")
-    yield db0
-    gc.collect()
-    db0.close()
+    yield db0    
+    db0.close()    
     if os.path.exists(DB0_DIR):
         shutil.rmtree(DB0_DIR)
 
@@ -131,6 +131,18 @@ def memo_enum_tags():
     colors = [Colors.RED, Colors.GREEN, Colors.BLUE]
     for i in range(10):
         object = MemoTestClass(i)
+        root.value.append(object)
+        db0.tags(object).add(colors[i % 3])
+    return { "Colors": Colors }
+
+
+@pytest.fixture()
+def memo_scoped_enum_tags():
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"], prefix=DATA_PX)
+    root = MemoDataPxSingleton([])
+    colors = [Colors.RED, Colors.GREEN, Colors.BLUE]
+    for i in range(10):
+        object = MemoDataPxClass(i)
         root.value.append(object)
         db0.tags(object).add(colors[i % 3])
     return { "Colors": Colors }

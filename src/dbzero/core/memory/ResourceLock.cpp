@@ -17,16 +17,17 @@ namespace db0
 #endif
 
     ResourceLock::ResourceLock(StorageContext storage_context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode, bool create_new)
+        FlagSet<AccessOptions> access_mode)
         : m_context(storage_context)
         , m_address(address)
         , m_resource_flags(
-            (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) | 
+            (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) |
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
         , m_access_mode(access_mode)
         , m_data(size)
     {
-        if (create_new) {
+        // intialize buffer for write-only access (create)
+        if (!access_mode[AccessOptions::read]) {
             std::memset(m_data.data(), 0, m_data.size());
         }        
 #ifndef NDEBUG        
@@ -35,7 +36,7 @@ namespace db0
         ++rl_op_count;
 #endif
     }
-
+    
     ResourceLock::ResourceLock(const ResourceLock &lock, FlagSet<AccessOptions> access_mode)
         : m_context(lock.m_context)
         , m_address(lock.m_address)
@@ -75,8 +76,9 @@ namespace db0
         --rl_count;
         ++rl_op_count;
 #endif
-        // make sure the dirty flag is not set (unless no-flush lock)
-        assert(!isDirty() || m_access_mode[AccessOptions::no_flush]);
+        // make sure the dirty flag is not set
+        // NOTE: to avoid triggering this assert for unused volatile locks, call "resetDirtyFlag" without flushing        
+        assert(!isDirty());
     }
     
     void ResourceLock::initDirty()
@@ -118,22 +120,27 @@ namespace db0
         return false;
     }
     
+    void ResourceLock::discard() {
+        resetDirtyFlag();
+    }
+
     void ResourceLock::resetNoFlush()
     {
         if (m_access_mode[AccessOptions::no_flush]) {
             m_access_mode.set(AccessOptions::no_flush, false);
-            // if dirty we need to register the with the dirty cache
+            // if dirty, we need to register with the dirty cache
             if (isDirty() && !m_access_mode[AccessOptions::no_cache]) {
                 m_context.m_cache_ref.get().append(shared_from_this());
             }
         }
     }
     
-    void ResourceLock::copyFrom(const ResourceLock &other)
+    void ResourceLock::moveFrom(ResourceLock &other)
     {
         assert(other.size() == size());
         setDirty();
-        std::memcpy(m_data.data(), other.m_data.data(), m_data.size());
+        std::memcpy(m_data.data(), other.m_data.data(), m_data.size());        
+        other.discard();
     }
     
     void ResourceLock::setDirty()
@@ -145,7 +152,7 @@ namespace db0
             m_context.m_cache_ref.get().append(shared_from_this());
         }        
     }
-
+    
 #ifndef NDEBUG
     std::pair<std::size_t, std::size_t> ResourceLock::getTotalMemoryUsage() 
     {
@@ -154,13 +161,20 @@ namespace db0
         return { rl_usage - dp_usage.first, rl_count - dp_usage.second };
     }
 #endif
-
+    
     std::ostream &showBytes(std::ostream &os, const std::byte *data, std::size_t size)
     {
         for (std::size_t i = 0; i < size; ++i) {
             os << std::hex << static_cast<int>(data[i]) << " ";
         }
+        os << std::dec;
         return os;
     }
 
+#ifndef NDEBUG
+    bool ResourceLock::isVolatile() const {
+        return m_access_mode[AccessOptions::no_flush];
+    }
+#endif        
+    
 }

@@ -48,11 +48,17 @@ namespace db0
         std::shared_ptr<DP_Lock> findPage(std::uint64_t page_num, std::uint64_t state_num,
             FlagSet<AccessOptions>, std::uint64_t &read_state_num) const;
         
-        std::shared_ptr<WideLock> findRange(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t state_num,
-            FlagSet<AccessOptions>, std::uint64_t &read_state_num) const;
+        // NOTE: address & size are required to restore lock if required
+        // @param res_lock - optional residual lock required to restore the wide lock
+        // @return lock exists flag / the actual lock (if lock exists but could not be retrieved then the operation needs 
+        // to be repeated with passing the residual lock)
+        std::pair<bool, std::shared_ptr<WideLock> > findRange(std::uint64_t first_page, std::uint64_t end_page,
+            std::uint64_t address, std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>, 
+            std::uint64_t &read_state_num, std::shared_ptr<DP_Lock> res_lock = {}) const;
         
         std::shared_ptr<BoundaryLock> findBoundaryRange(std::uint64_t first_page_num, std::uint64_t address, std::size_t size,
-            std::uint64_t state_num, FlagSet<AccessOptions>, std::uint64_t &read_state_num) const;
+            std::uint64_t state_num, FlagSet<AccessOptions>, std::uint64_t &read_state_num, std::shared_ptr<DP_Lock> lhs = {},
+            std::shared_ptr<DP_Lock> rhs = {}) const;
         
         /**
          * Create a new page associated resource lock
@@ -123,17 +129,29 @@ namespace db0
         // Merge atomic operation's data (volatile locks) into an active transaction
         // @param from_state_num must be the atomic operation's assigned (temporary) state number
         // @param to_state_num the actual transaction number
-        void merge(std::uint64_t from_state_num, std::uint64_t to_state_num);
-        
+        // @param reused_locks buffer to hold reused volatile locks (this is because we need to update the locks with the CacheRecycler
+        // which can only be done AFTER completing the atomic operation since it may trigger the unwanted updates - e.g. via PY_DECREF)
+        void merge(std::uint64_t from_state_num, std::uint64_t to_state_num, 
+            std::vector<std::shared_ptr<ResourceLock> > &reused_locks);
+         
         std::size_t getPageSize() const;
         
         CacheRecycler *getCacheRecycler() const;
         
-        void clearExpired() const;
+        void clearExpired(std::uint64_t head_state_num) const;
 
         std::size_t getDirtySize() const;
 
         std::size_t flushDirty(std::size_t limit);
+
+        const PageMap<DP_Lock> &getDPMap() const;
+        
+        const PageMap<BoundaryLock> &getBoundaryMap() const;
+        
+        const PageMap<WideLock> &getWideMap() const;
+        
+        // prepare cache for the refresh operation
+        void beginRefresh();
         
     protected:        
         const std::size_t m_page_size;
@@ -143,7 +161,7 @@ namespace db0
         // the collection for tracking dirty locks of each type (cleared on flush)
         mutable DirtyCache m_dirty_dp_cache;
         mutable DirtyCache m_dirty_wide_cache;
-        StorageContext m_dp_context;        
+        StorageContext m_dp_context;
         StorageContext m_wide_context;
         // single data-page resource locks
         mutable PageMap<DP_Lock> m_dp_map;
@@ -158,6 +176,7 @@ namespace db0
         const std::shared_ptr<WideLock> m_missing_wide_lock_ptr;
         // locks (DP_Lock or WideLock) with no_flush flag (e.g. from an atomic update)
         mutable std::vector<std::shared_ptr<DP_Lock> > m_volatile_locks;
+        mutable std::vector<std::shared_ptr<WideLock> > m_volatile_wide_locks;
         mutable std::vector<std::shared_ptr<BoundaryLock> > m_volatile_boundary_locks;
 
         /**
@@ -169,10 +188,22 @@ namespace db0
         void eraseBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num);
 
         // insert new or replace existing range
-        void replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+        std::shared_ptr<DP_Lock> replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
             std::shared_ptr<DP_Lock> new_lock);
-        void replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+        bool replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
             std::shared_ptr<BoundaryLock> new_lock);
+        
+        inline bool isPageAligned(std::uint64_t addr_or_size) const {
+            return (addr_or_size & (m_page_size - 1)) == 0;
+        }
     };
+    
+    template <typename T> void discardAll(T &volatile_locks)
+    {
+        for (auto &lock: volatile_locks) {
+            lock->discard();
+        }
+        volatile_locks.clear();
+    }
 
 }

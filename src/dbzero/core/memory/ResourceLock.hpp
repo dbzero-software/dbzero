@@ -33,8 +33,7 @@ namespace db0
     class ResourceLock: public std::enable_shared_from_this<ResourceLock>
     {
     public:
-        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
-            bool create_new);
+        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>);
         ResourceLock(const ResourceLock &, FlagSet<AccessOptions>);        
         
         virtual ~ResourceLock();
@@ -85,6 +84,10 @@ namespace db0
         void setDirty();
 
         bool isCached() const;
+
+#ifndef NDEBUG
+        bool isVolatile() const;
+#endif        
         
         BaseStorage &getStorage() const {
             return m_context.m_storage_ref.get();
@@ -94,15 +97,18 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_DIRTY;
         }
         
-        void copyFrom(const ResourceLock &);
+        void moveFrom(ResourceLock &);
 
         // clears the no_flush flag if it was set
         void resetNoFlush();
-
+        // discard any changes done to this lock (to be called e.g. on rollback)
+        void discard();
+        
 #ifndef NDEBUG
         // get total memory usage of all ResourceLock instances
         // @return total size in bytes / total count
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
+        virtual bool isBoundaryLock() const = 0;
 #endif
 
     protected:

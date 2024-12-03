@@ -57,11 +57,18 @@ namespace db0
         */
         virtual std::uint64_t getLastUpdated() const = 0;
 
+        virtual bool beginRefresh();
+
+        /**
+         * @return timestamp of the last update (or 0 if not updated)
+         */
+        virtual std::uint64_t completeRefresh();
+
         /**
          * Update read-only prefix data to the latest changes done by other processes
          * @return 0 if no changes have been applied, otherwise last update timestamp
         */
-        virtual std::uint64_t refresh() = 0;
+        virtual std::uint64_t refresh();
 
         virtual AccessType getAccessType() const = 0;
 

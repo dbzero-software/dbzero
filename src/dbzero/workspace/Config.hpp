@@ -27,8 +27,7 @@ namespace db0
             auto value = get<T>(key);
             return value ? *value : default_value;
         }
-
-
+    
     private:
         ObjectSharedPtr m_py_config;
     };

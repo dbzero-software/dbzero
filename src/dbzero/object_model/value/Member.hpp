@@ -78,7 +78,7 @@ namespace db0::object_model
             registerUnloadMemberFunctions<LangToolkit>(unload_member_functions);
         }
 
-        assert(static_cast<int>(storage_class) < unload_member_functions.size());      
+        assert(static_cast<int>(storage_class) < unload_member_functions.size());
         assert(unload_member_functions[static_cast<int>(storage_class)]);
         return unload_member_functions[static_cast<int>(storage_class)](fixture, value, name);
     }

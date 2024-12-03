@@ -95,6 +95,11 @@ namespace db0
 
             return *this;
         }
+        
+        // FIXME: would be nice to unify is_end / isEnd
+        bool is_end() const {
+            return m_node_iterator == m_node_end;            
+        }
 
         bool isEnd() const {
             return m_node_iterator == m_node_end;

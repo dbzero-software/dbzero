@@ -1,4 +1,5 @@
 #include "Memspace.hpp"
+#include <dbzero/core/utils/ProcessTimer.hpp>
 
 namespace db0
 
@@ -47,12 +48,21 @@ namespace db0
     {       
         assert(m_prefix);
         // prepare the allocator for the next transaction
-        getAllocatorForUpdate().commit();
+        getAllocatorForUpdate().commit();        
         m_prefix->commit(timer);
     }
     
-    void Memspace::close()
+    void Memspace::detach() const {
+        getAllocator().detach();
+    }
+    
+    void Memspace::close(ProcessTimer *timer_ptr)
     {
+        std::unique_ptr<ProcessTimer> timer;
+        if (timer_ptr) {
+            timer = std::make_unique<ProcessTimer>("Memspace::close", timer_ptr);
+        }
+        
         m_allocator_ptr = nullptr;
         m_allocator = nullptr;
         m_prefix->close();
@@ -69,10 +79,14 @@ namespace db0
         return m_prefix->getAccessType();
     }
     
-    bool Memspace::refresh()
+    bool Memspace::beginRefresh()
     {
         assert(getAccessType() == AccessType::READ_ONLY);
-        return m_prefix->refresh();
+        return m_prefix->beginRefresh();
+    }
+    
+    void Memspace::completeRefresh() {
+        m_prefix->completeRefresh();
     }
     
     std::uint64_t Memspace::getStateNum() const

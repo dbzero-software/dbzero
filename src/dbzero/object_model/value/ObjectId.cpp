@@ -9,13 +9,13 @@ namespace db0::object_model
     ObjectId ObjectId::fromBase32(const char *buf)
     {
         if (strlen(buf) != encodedSize()) {
-            THROWF(db0::InputException) << "Invalid UUID";
+            THROWF(db0::InputException) << "UUID string is not valid: " << buf;
         }
 
         // allocate +1 byte since decoded content might be up to 1 byte larger
         std::array<std::uint8_t, rawSize() + 1> bytes;
         if (db0::base32_decode(buf, bytes.data()) < rawSize()) {
-            THROWF(db0::InputException) << "Invalid UUID";
+            THROWF(db0::InputException) << "UUID string is not valid (failed to decode): " << buf;
         }
         
         std::uint8_t *ptr = bytes.data();

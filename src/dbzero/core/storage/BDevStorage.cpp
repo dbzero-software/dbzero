@@ -38,7 +38,7 @@ namespace db0
         , m_dp_changelog_io(init(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type)))
         , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))
         , m_sparse_index(m_dram_io.getDRAMPair(), access_type)
-        , m_wal_io(readAll(getBlockIOStream(m_config.m_wal_offset, AccessType::READ_ONLY)))        
+        , m_wal_io(readAll(getBlockIOStream(m_config.m_wal_offset, AccessType::READ_ONLY)))
         , m_page_io(getPageIO(m_sparse_index.getNextStoragePageNum(), access_type))
         // mark empty until retrieving actual data
         , m_empty(m_dram_io.empty())
@@ -48,7 +48,7 @@ namespace db0
         }
     }
     
-    BDevStorage::~BDevStorage() 
+    BDevStorage::~BDevStorage()
     {
     }
 
@@ -133,11 +133,12 @@ namespace db0
         mutation_id = item.m_state_num;
         return true;
     }
-
+    
     std::uint64_t BDevStorage::findMutation(std::uint64_t page_num, std::uint64_t state_num) const
     {
         std::uint64_t result;
         if (!tryFindMutationImpl(page_num, state_num, result)) {
+            assert(false && "BDevStorage::findMutation: page not found");
             THROWF(db0::IOException) 
                 << "BDevStorage::findMutation: page_num " << page_num << " not found, state: " << state_num;
         }
@@ -146,7 +147,7 @@ namespace db0
     
     void BDevStorage::read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags) const
-    {        
+    {
         assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::read: size must be page-aligned");
@@ -175,7 +176,7 @@ namespace db0
     }
     
     void BDevStorage::write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer)
-    {
+    {    
         assert(state_num > 0 && "BDevStorage::write: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::write: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::write: size must be page-aligned");
@@ -203,7 +204,7 @@ namespace db0
     std::size_t BDevStorage::getPageSize() const {
         return m_config.m_page_size;
     }
-
+    
     bool BDevStorage::flush(ProcessTimer *parent_timer)
     {
         std::unique_ptr<ProcessTimer> timer;
@@ -218,7 +219,7 @@ namespace db0
         if (m_sparse_index.getChangeLogSize() == 0) {
             return false;
         }
-
+        
         // Extract & flush sparse index change log first (on condition of any updates)
         m_sparse_index.extractChangeLog(m_dp_changelog_io);
         m_dram_io.flushUpdates(m_sparse_index.getMaxStateNum(), m_dram_changelog_io);
@@ -231,7 +232,7 @@ namespace db0
     }
     
     void BDevStorage::close()
-    {
+    {        
         if (m_access_type == AccessType::READ_WRITE) {
             flush();
         }
@@ -320,15 +321,21 @@ namespace db0
         };
     }
     
-    std::uint64_t BDevStorage::refresh(std::function<void(std::uint64_t page_num, std::uint64_t state_num)> on_page_updated)
+    bool BDevStorage::beginRefresh()
     {
         if (m_access_type != AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "BDevStorage::refresh allowed only in read-only mode";
-        }
-        
+        }        
+        return m_dram_changelog_io.refresh();
+    }
+    
+    std::uint64_t BDevStorage::completeRefresh(
+        std::function<void(std::uint64_t page_num, std::uint64_t state_num)> on_page_updated)
+    {
+        assert(m_access_type == AccessType::READ_ONLY);
         std::uint64_t result = 0;
         // continue refreshing until all updates retrieved to guarantee a consistent state
-        while (m_dram_changelog_io.refresh()) {
+        do {
             if (!result) {
                 result = m_file.getLastModifiedTime();
             }
@@ -339,8 +346,9 @@ namespace db0
                 m_empty = false;
             }
             m_dp_changelog_io.refresh();
-            // send all notifications to the provided handler
-            if (on_page_updated) {                
+            // send all page-update notifications to the provided handler
+            if (on_page_updated) {
+                std::uint64_t updated_state_num = 0;
                 for (;;) {
                     auto dp_change_log_ptr = m_dp_changelog_io.readChangeLogChunk();
                     if (!dp_change_log_ptr) {
@@ -350,18 +358,20 @@ namespace db0
                     // First element from the chunk is the updated state number
                     auto it = dp_change_log_ptr->begin(), end = dp_change_log_ptr->end();
                     assert(it != end);
-                    auto updated_state_num = *it;
-                    ++it;
+                    // First element in the log is the updated state number
+                    assert(*it != updated_state_num);
+                    updated_state_num = *it;
                     // All other elements are page numbers
+                    ++it;
                     for (; it != end; ++it) {
                         on_page_updated(*it, updated_state_num);
                     }
                 }
             }
             
-            m_wal_io.refresh();            
+            m_wal_io.refresh();
         }
-
+        while (m_dram_changelog_io.refresh());        
         return result;
     }
     

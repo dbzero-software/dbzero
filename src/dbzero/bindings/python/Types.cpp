@@ -130,7 +130,22 @@ namespace db0::python
     template <> PyObject *tryGetUUID<TypeId::DB0_LIST>(PyObject *py_value) {
         return tryGetUUIDOf(reinterpret_cast<ListObject*>(py_value));
     }
-    
+
+    // DICT specialization
+    template <> PyObject *tryGetUUID<TypeId::DB0_DICT>(PyObject *py_value) {
+        return tryGetUUIDOf(reinterpret_cast<DictObject*>(py_value));
+    }
+
+    // DICT specialization
+    template <> PyObject *tryGetUUID<TypeId::DB0_SET>(PyObject *py_value) {
+        return tryGetUUIDOf(reinterpret_cast<SetObject*>(py_value));
+    }
+
+    // TUPLE specialization
+    template <> PyObject *tryGetUUID<TypeId::DB0_TUPLE>(PyObject *py_value) {
+        return tryGetUUIDOf(reinterpret_cast<TupleObject*>(py_value));
+    }
+
     // INDEX specialization
     template <> PyObject *tryGetUUID<TypeId::DB0_INDEX>(PyObject *py_value) {
         return tryGetUUIDOf(reinterpret_cast<IndexObject*>(py_value));
@@ -146,13 +161,13 @@ namespace db0::python
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = tryGetUUID<TypeId::MEMO_OBJECT>;
-        functions[static_cast<int>(TypeId::DB0_LIST)] = tryGetUUID<TypeId::DB0_LIST>;        
-        functions[static_cast<int>(TypeId::DB0_INDEX)] = tryGetUUID<TypeId::DB0_INDEX>;        
-        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = tryGetUUID<TypeId::OBJECT_ITERATOR>;        
-        /**
+        functions[static_cast<int>(TypeId::DB0_LIST)] = tryGetUUID<TypeId::DB0_LIST>;
         functions[static_cast<int>(TypeId::DB0_DICT)] = tryGetUUID<TypeId::DB0_DICT>;
         functions[static_cast<int>(TypeId::DB0_SET)] = tryGetUUID<TypeId::DB0_SET>;        
-        functions[static_cast<int>(TypeId::DB0_TUPLE)] = createMember<TypeId::DB0_TUPLE>;
+        functions[static_cast<int>(TypeId::DB0_TUPLE)] = tryGetUUID<TypeId::DB0_TUPLE>;
+        functions[static_cast<int>(TypeId::DB0_INDEX)] = tryGetUUID<TypeId::DB0_INDEX>;        
+        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = tryGetUUID<TypeId::OBJECT_ITERATOR>;                
+        /*
         functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
         */

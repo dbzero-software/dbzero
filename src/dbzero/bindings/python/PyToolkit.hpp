@@ -90,29 +90,29 @@ namespace db0::python
         
         // Unload with type resolution
         // optionally may use specific lang class (e.g. MemoBase)
-        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, const ClassFactory &,
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture>, std::uint64_t address, const ClassFactory &,
             TypeObjectPtr lang_class = nullptr);
         
         // Unload with known type & lang class
         // note that lang_class may be a base of the actual type (e.g. MemoBase)
-        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture>, std::uint64_t address,
             std::shared_ptr<Class>, TypeObjectPtr lang_class);
         
-        static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture>, std::uint64_t address);
 
-        static ObjectSharedPtr unloadIndex(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static ObjectSharedPtr unloadIndex(db0::swine_ptr<Fixture>, std::uint64_t address);
 
-        static ObjectSharedPtr unloadSet(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static ObjectSharedPtr unloadSet(db0::swine_ptr<Fixture>, std::uint64_t address);
         
-        static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture>, std::uint64_t address);
 
-        static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture>, std::uint64_t address);
 
         // Unload dbzero block instance
-        static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture> &fixture, std::uint64_t address);
+        static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, std::uint64_t address);
         
         // Unload from serialized bytes
-        static ObjectSharedPtr unloadObjectIterator(db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
+        static ObjectSharedPtr unloadObjectIterator(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
         
         static ObjectSharedPtr unloadEnumValue(const EnumValue &);
@@ -150,7 +150,7 @@ namespace db0::python
         static const char *getPrefixName(TypeObjectPtr memo_type);
         // Get memo type associated type_id or nullptr if not defined
         static const char *getMemoTypeID(TypeObjectPtr memo_type);
-
+        
         static bool isSingleton(TypeObjectPtr py_type);
 
         inline static void incRef(ObjectPtr py_object) {

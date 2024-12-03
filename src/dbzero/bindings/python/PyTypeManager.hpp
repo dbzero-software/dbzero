@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <unordered_set>
 #include <list>
 #include <vector>
 #include <functional>
@@ -20,6 +21,7 @@ namespace db0::object_model {
     class Index;
     class ObjectIterator;
     struct EnumValue;
+    struct EnumValueRepr;
     struct FieldDef;
     
 }
@@ -53,6 +55,7 @@ namespace db0::python
         using Index = db0::object_model::Index;
         using ObjectIterator = db0::object_model::ObjectIterator;
         using EnumValue = db0::object_model::EnumValue;
+        using EnumValueRepr = db0::object_model::EnumValueRepr;
         using FieldDef = db0::object_model::FieldDef;
         using Class = db0::object_model::Class;
 
@@ -93,6 +96,7 @@ namespace db0::python
         const Index &extractIndex(ObjectPtr index_ptr) const;
         Index &extractMutableIndex(ObjectPtr index_ptr) const;
         EnumValue extractEnumValue(ObjectPtr enum_value_ptr) const;
+        const EnumValueRepr &extractEnumValueRepr(ObjectPtr enum_value_repr_ptr) const;
         ObjectIterator &extractObjectIterator(ObjectPtr) const;
         FieldDef &extractFieldDef(ObjectPtr) const;
         std::string extractString(ObjectPtr) const;
@@ -133,6 +137,14 @@ namespace db0::python
         
         bool isMemoBase(TypeObjectPtr) const;
 
+        bool isDBZeroType(ObjectPtr) const;
+
+        bool isDBZeroTypeId(TypeId type_id) const;
+
+        bool isSimplePyType(ObjectPtr) const;
+
+        bool isSimplePyTypeId(TypeId type_id) const;
+
         void close();
         
     private:
@@ -147,9 +159,13 @@ namespace db0::python
         mutable ObjectSharedPtr m_py_class_not_found_error;
         // identified reference to a MemoBase type
         TypeObjectPtr m_memo_base_type = nullptr;
-        
+        std::unordered_set<TypeId> m_dbzero_type_ids;
+        std::unordered_set<TypeId> m_simple_py_type_ids;
+
         // Register a mapping from static type
         template <typename T> void addStaticType(T py_type, TypeId py_type_id);
+        template <typename T> void addStaticDBZeroType(T py_type, TypeId py_type_id);
+        template <typename T> void addStaticSimpleType(T py_type, TypeId py_type_id);
     };
     
     template <typename T> void PyTypeManager::addStaticType(T py_type, TypeId py_type_id)
@@ -157,5 +173,17 @@ namespace db0::python
         m_py_type_map[py_type_id] = reinterpret_cast<ObjectPtr>(py_type);
         m_id_map[reinterpret_cast<ObjectPtr>(py_type)] = py_type_id;
     }
-       
+
+    template <typename T> void PyTypeManager::addStaticDBZeroType(T py_type, TypeId py_type_id)
+    {
+        addStaticType(py_type, py_type_id);
+        m_dbzero_type_ids.insert(py_type_id);        
+    }
+    
+    template <typename T> void PyTypeManager::addStaticSimpleType(T py_type, TypeId py_type_id)
+    {
+        addStaticType(py_type, py_type_id);
+        m_simple_py_type_ids.insert(py_type_id);
+    }
+
 }

@@ -274,13 +274,13 @@ def test_atomic_operation_results_accessible_from_snapshot(db0_fixture):
     with db0.atomic():
         for _ in range(5):
             object = MemoTestClass(999)
-            db0.tags(object).add("tag1")
-    snap = db0.snapshot()
+            db0.tags(object).add("tag1")    
     db0.commit()
+    snap = db0.snapshot()
     for _ in range(3):
         object = MemoTestClass(999)
         db0.tags(object).add("tag1")
-
+    
     # results of the atomic update should be available in the transaction
     assert len(list(snap.find("tag1"))) == 5
 

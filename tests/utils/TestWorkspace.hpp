@@ -58,13 +58,17 @@ namespace db0
         
         db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
         
+        db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const override;
+
         db0::swine_ptr<Fixture> getCurrentFixture() override;
         
         bool close(const PrefixName &) override;
         
-        void close() override;
+        void close(ProcessTimer * = nullptr) override;
 
         std::shared_ptr<LangCache> getLangCache() const override;
+
+        bool isMutable() const override;
 
         void tearDown();
 

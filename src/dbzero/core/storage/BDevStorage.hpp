@@ -68,13 +68,10 @@ namespace db0
         
         bool tryFindMutation(std::uint64_t page_num, std::uint64_t state_num, std::uint64_t &mutation_id) const override;
 
-        /**
-         * Allowed in read-only mode only
-         * Fetch the most recent changes from the underlying storage
-         * @param f optional function to be notified on updated data pages (DP)
-         * @return 0 if no changes were applied, last modified timestamp otherwise
-        */
-        std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {});
+        bool beginRefresh() override;
+
+        std::uint64_t completeRefresh(
+            std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {}) override;
         
         bool flush(ProcessTimer * = nullptr) override;
 
@@ -86,23 +83,23 @@ namespace db0
         
         void getStats(std::function<void(const std::string &, std::uint64_t)>) const override;
 
+        /**
+         * Get last update timestamp
+        */
+        std::uint64_t getLastUpdated() const override;
+        
         const DRAM_IOStream &getDramIO() const {
             return m_dram_io;
         }
         
         bool empty() const;
         
-        /**
-         * Get last update timestamp
-        */
-        std::uint64_t getLastUpdated() const;
-
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
 #endif
-
-    private:
+    
+    protected:
         // all prefix configuration must fit into this block
         static constexpr unsigned int CONFIG_BLOCK_SIZE = 4096;
         CFile m_file;

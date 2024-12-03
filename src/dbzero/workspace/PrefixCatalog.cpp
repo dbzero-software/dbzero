@@ -156,9 +156,9 @@ namespace db0
 
         try {
             // try opening as fixture file (for validation)
-            std::atomic<std::size_t> null_meter;
-            auto prefix = std::make_shared<PrefixImpl<BDevStorage> >(
-                maybe_prefix_name, null_meter, nullptr, file_name, AccessType::READ_ONLY
+            std::atomic<std::size_t> null_meter;            
+            auto prefix = std::make_shared<PrefixImpl>(
+                maybe_prefix_name, null_meter, nullptr, std::make_shared<BDevStorage>(file_name, AccessType::READ_ONLY)
             );
             // state_num < 1 suggest invalid / corrupted prefix file
             if (!prefix->getStateNum()) {

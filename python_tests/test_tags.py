@@ -1,6 +1,7 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass
+from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoDataPxClass
+from .conftest import DB0_DIR, DATA_PX
 
 
 @db0.memo()
@@ -270,13 +271,14 @@ def test_mutating_tags_while_running_query_from_snapshot(db0_fixture):
     db0.commit()
     # run query over a snapshot while updating tags
     count = 0
-    for snaphot_obj in db0.snapshot().find(("tag1", "tag2")):
-        # NOTE: since snapshot objects are immutable we need to fetch the object from
-        # the head transaction to mutate it
-        if count % 2 == 0:
-            obj = db0.fetch(db0.uuid(snaphot_obj))        
-            db0.tags(obj).remove("tag1")
-        count += 1
+    with db0.snapshot() as snap:
+        for snaphot_obj in snap.find(("tag1", "tag2")):
+            # NOTE: since snapshot objects are immutable we need to fetch the object from
+            # the head transaction to mutate it
+            if count % 2 == 0:
+                obj = db0.fetch(db0.uuid(snaphot_obj))        
+                db0.tags(obj).remove("tag1")
+            count += 1
     
     assert count == 10
     assert len(list(db0.find("tag1"))) == 5
@@ -336,4 +338,28 @@ def test_tag_remove_then_add_in_single_transaction(db0_fixture):
     db0.commit()
     objs = [x for x in db0.find(MemoTestClass, "object")]
     assert len(objs) > 0
+    
+    
+def test_tag_query_with_subquery(db0_no_autocommit, memo_tags):
+    # combine the 2 queries
+    query = db0.find(MemoTestClass, db0.find("tag1"))
+    assert len(list(query)) == 10
+    
+    
+def test_find_static_scoped_type(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    db0.open(DATA_PX, "rw")
+    # create scoped classes on data prefix
+    for i in range(10):
+        obj = MemoDataPxClass(i)
+        db0.tags(obj).add("tag1")    
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open(DATA_PX, "r")
+    # change the default prefix
+    db0.open(px_name, "r")
+    # find class from a non-default prefix
+    query = db0.find(MemoDataPxClass)
+    assert len(list(query)) == 10
     

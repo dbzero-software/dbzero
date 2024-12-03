@@ -3,35 +3,32 @@
 namespace db0
 
 {
-    
-    inline std::uint32_t getResourceFlags(FlagSet<AccessOptions> access_mode)
-    {
-        return (access_mode[AccessOptions::read] ? db0::RESOURCE_AVAILABLE_FOR_READ : 0)
-            | (access_mode[AccessOptions::write] ? db0::RESOURCE_AVAILABLE_FOR_WRITE : 0);
-    }
-    
+        
     vtypeless::vtypeless(Memspace &memspace, std::uint64_t address, FlagSet<AccessOptions> access_mode)
         : m_address(address)        
         , m_memspace_ptr(&memspace)
         , m_access_mode(access_mode)
     {
+        assertFlags();
         assert(!(m_resource_flags.load() & RESOURCE_LOCK));
     }
     
     vtypeless::vtypeless(const vtypeless &other)
         : m_memspace_ptr(other.m_memspace_ptr)
     {
-        *this = other;        
+        *this = other;
     }
-
-    vtypeless::vtypeless(Memspace &memspace, std::uint64_t address, MemLock &&mem_lock, FlagSet<AccessOptions> access_mode)
+    
+    vtypeless::vtypeless(Memspace &memspace, std::uint64_t address, MemLock &&mem_lock, std::uint16_t resource_flags,
+        FlagSet<AccessOptions> access_mode)
         : m_address(address)
         , m_memspace_ptr(&memspace)
         // mark the resource as available
-        , m_resource_flags(getResourceFlags(access_mode))
+        , m_resource_flags(resource_flags)
         , m_access_mode(access_mode)
         , m_mem_lock(std::move(mem_lock))
     {
+        assertFlags();
         // resource must be available
         assert(m_mem_lock.m_buffer);
     }
@@ -111,9 +108,6 @@ namespace db0
         // commit clears the reasource available for write flag
         // it might still be available for read
         atomicResetFlags(m_resource_flags, db0::RESOURCE_AVAILABLE_FOR_WRITE);
-        // clear write / create flags since the following access may not be for update
-        m_access_mode.set(AccessOptions::write, false);
-        m_access_mode.set(AccessOptions::create, false);
     }
     
 }

@@ -22,7 +22,7 @@ namespace db0
     struct [[gnu::packed]] vso_null_t
     {
     };
-
+    
     class vtypeless
     {
     protected :        
@@ -52,7 +52,7 @@ namespace db0
         Memspace *m_memspace_ptr = nullptr;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         // initial access flags (e.g. read / write / create)
-        mutable FlagSet<AccessOptions> m_access_mode;
+        FlagSet<AccessOptions> m_access_mode;
         
         /**
          * Memory mapped range corresponding to this object
@@ -67,7 +67,8 @@ namespace db0
         /**
          * Create mem-locked with specific flags (e.g. read/ write)
         */
-        vtypeless(Memspace &, std::uint64_t address, MemLock &&, FlagSet<AccessOptions> access_mode);
+        vtypeless(Memspace &, std::uint64_t address, MemLock &&, std::uint16_t resource_flags,
+            FlagSet<AccessOptions>);
 
         vtypeless(const vtypeless& other);
         
@@ -77,10 +78,11 @@ namespace db0
         inline vtypeless(mptr ptr, FlagSet<AccessOptions> access_mode = {})
             : m_address(ptr.m_address)
             , m_memspace_ptr(&ptr.m_memspace.get())
-            , m_access_mode(ptr.m_access_mode | access_mode | AccessOptions::read)
+            , m_access_mode(ptr.m_access_mode | access_mode)
         {
+            assertFlags();
         }
-                
+        
         FlagSet<AccessOptions> getAccessMode() const;
         
         vtypeless &operator=(const vtypeless &other);
@@ -132,7 +134,7 @@ namespace db0
          * Detach underlying resource lock (i.e. mark resource as not available in local memory)
         */
         void detach();
-
+        
         /**
          * Commit by marking the write as final.
          * The subsequent modify() will need to refresh the underlying lock
@@ -145,6 +147,14 @@ namespace db0
         */
         template <typename T> const T *castTo() const {
             return reinterpret_cast<const T*>(m_mem_lock.m_buffer);
+        }
+
+    private:
+        inline void assertFlags() 
+        {
+            // read / write / create flags are disallowed since they're assigned dynamically
+            assert(!m_access_mode[AccessOptions::read]);
+            assert(!m_access_mode[AccessOptions::write]);
         }
     };
     
@@ -164,11 +174,12 @@ namespace db0
         {
         }
 
-        inline v_ptr(Memspace &memspace, std::uint64_t address, MemLock &&lock, FlagSet<AccessOptions> access_mode)
-            : vtypeless(memspace, address, std::move(lock), access_mode)
+        inline v_ptr(Memspace &memspace, std::uint64_t address, MemLock &&lock, std::uint16_t resource_flags,
+            FlagSet<AccessOptions> access_mode = {})
+            : vtypeless(memspace, address, std::move(lock), resource_flags, access_mode)
         {
         }
-
+        
         v_ptr(mptr ptr)
             : vtypeless(ptr)
         {
@@ -203,6 +214,9 @@ namespace db0
             while (!ResourceReadWriteMutexT::__ref(m_resource_flags).get()) {
                 ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
+                    // release the MemLock first to avoid or reduce CoWs
+                    // otherwise mapRange might need to manage multiple lock versions                    
+                    m_mem_lock.release();
                     // lock for +write
                     // note that lock is getting updated, possibly copy-on-write is being performed
                     // NOTE: must extract physical address for mapRange
@@ -214,7 +228,7 @@ namespace db0
             }
             return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());
         }
-        
+
         const ContainerT& safeRef() const
         {
             assureInitialized();
@@ -231,24 +245,32 @@ namespace db0
             return get();
         }
         
-        static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode)
+        static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode = {})
         {
+            // read not allowed for instance creation
+            assert(!access_mode[AccessOptions::read]);
             auto address = memspace.alloc(size, SLOT_NUM, access_mode[AccessOptions::unique]);
             // lock for create & write
             // NOTE: must extract physical address for mapRange
             auto mem_lock = memspace.getPrefix().mapRange(
-                getPhysicalAddress(address), size, access_mode | AccessOptions::write | AccessOptions::create
+                getPhysicalAddress(address), size, access_mode | AccessOptions::write
             );
             // mark as available for both write & read
             return v_ptr<ContainerT>(
-                memspace, address, std::move(mem_lock), access_mode | AccessOptions::read | AccessOptions::write
+                memspace, address, std::move(mem_lock),
+                db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE, access_mode
             );
         }
         
-        static v_ptr<ContainerT> makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode) {
-            return v_ptr<ContainerT>(memspace, mapped_addr.m_address, std::move(mapped_addr.m_mem_lock), access_mode);
+        static v_ptr<ContainerT> makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode = {}) 
+        {
+            // mark as available for both write & read
+            return v_ptr<ContainerT>(memspace, mapped_addr.m_address, 
+                std::move(mapped_addr.m_mem_lock), 
+                db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE,
+                access_mode);
         }
-
+        
         /**
          * Get the underlying mapped range (for mutation)
         */
@@ -257,7 +279,7 @@ namespace db0
             modify();
             return this->m_mem_lock;
         }
-
+        
     private:
         
         void assureInitialized() const
@@ -269,7 +291,7 @@ namespace db0
                 if (lock.isLocked()) {
                     // NOTE: must extract physical address for mapRange
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::read);
+                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::read);                        
                     lock.commit_set();
                     break;
                 }
@@ -288,18 +310,13 @@ namespace db0
                 return ContainerT::measure();
             }
             else if constexpr(metaprog::has_fixed_header<ContainerT>::value) {
-                v_object<typename ContainerT::fixed_header_type, SLOT_NUM> header(mptr{*m_memspace_ptr, m_address, AccessOptions::read});
+                v_object<typename ContainerT::fixed_header_type, SLOT_NUM> header(mptr{*m_memspace_ptr, m_address});
                 return header.getData()->getOBaseSize();
             }
 
             // retrieve from allocator (slowest)            
             return m_memspace_ptr->getAllocator().getAllocSize(m_address);
-        }
-
-        static void printTypeName() {
-            std::cout << typeid(ContainerT).name() << "locks:" << std::endl;
-        }
-
+        }        
     };
 
 }

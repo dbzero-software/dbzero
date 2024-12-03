@@ -562,20 +562,24 @@ namespace db0
 	FT_ANDIteratorFactory<key_t, UniqueKeys>::~FT_ANDIteratorFactory() = default;
 
 	template<typename key_t, bool UniqueKeys>
-	void FT_ANDIteratorFactory<key_t, UniqueKeys>::add(std::unique_ptr<FT_Iterator<key_t> > &&it_joinable) {
+	void FT_ANDIteratorFactory<key_t, UniqueKeys>::add(std::unique_ptr<FT_Iterator<key_t> > &&it_joinable) 
+    {
 		if (it_joinable.get()) {
             m_joinable.push_back(std::move(it_joinable));
+        } else {
+            // query yields no results
+            m_invalidated = true;
         }
 	}
-
+    
 	template<typename key_t, bool UniqueKeys>
 	std::unique_ptr<FT_Iterator<key_t> > FT_ANDIteratorFactory<key_t, UniqueKeys>::release(int direction, bool lazy_init) 
     {
-		if (m_joinable.empty()) {
+		if (m_invalidated || m_joinable.empty()) {
 			// no iterators to join
 			return nullptr;
 		}
-		if (m_joinable.size()==1u) {
+		if (m_joinable.size() == 1u) {
 			// single iterator - no use joining
 			return std::move(m_joinable.front());
 		}

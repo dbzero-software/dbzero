@@ -49,10 +49,7 @@ namespace db0
         */
         bool refresh();
 
-        /**
-         * @param update_last_modified if true, the last modified timestamp is updated
-        */
-        void flush();
+        void flush() const;
 
         void close();
         
@@ -93,6 +90,9 @@ namespace db0
         mutable std::uint64_t m_bytes_written = 0;
         std::unique_ptr<InterProcessLock> m_lock;        
         mutable std::mutex m_mutex;
+        mutable bool m_dirty = false;
+        
+        void flush(std::unique_lock<std::mutex> &) const;
     };
     
     std::uint64_t getLastModifiedTime(const char *file_name);

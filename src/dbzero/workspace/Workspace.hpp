@@ -41,11 +41,7 @@ namespace db0
         static constexpr std::size_t DEFAULT_SLAB_SIZE = 64 * 1024 * 1024;
         static constexpr std::size_t DEFAULT_CACHE_SIZE = 2u << 30;
         static constexpr std::size_t DEFAULT_SLAB_CACHE_SIZE = 256;
-        
-        // use block device storage
-        using StorageT = BDevStorage;
-        using PrefixT = PrefixImpl<StorageT>;
-        
+                
         /**
          * @param root_path default search path for existing prefixes and storage for new ones (pass "" for current directory)
          **/        
@@ -82,9 +78,9 @@ namespace db0
         bool drop(const PrefixName &, bool if_exists = true);
 
         /**
-         * Close all prefixes, drop all uncommited data
+         * Close all prefixes, commit all data from read/write prefixes
         */
-        void close();
+        void close(ProcessTimer * = nullptr);
 
         CacheRecycler &getCacheRecycler() {
             return m_cache_recycler;
@@ -182,13 +178,8 @@ namespace db0
         /**
          * Find existing (opened) fixture or return nullptr
         */
-        db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const;
+        db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const override;
         
-        /**
-         * Find existing (opened) fixture or throw
-        */
-        db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
-
         /**
          * Commit all underlying read/write prefixes
         */
@@ -213,12 +204,14 @@ namespace db0
         bool close(const PrefixName &) override;
 
         /**
-         * Close all prefixes, drop all uncommited data
+         * Close all prefixes, commit all data from read/write prefixes
         */
-        void close() override;
+        void close(ProcessTimer * = nullptr) override;
         
         std::shared_ptr<LangCache> getLangCache() const override;
 
+        bool isMutable() const override;
+        
         CacheRecycler &getCacheRecycler();
 
         const CacheRecycler &getCacheRecycler() const;
@@ -227,7 +220,7 @@ namespace db0
          * Try refreshing all underlying fixtures
          * @return true if any fixture was refreshed
         */
-        bool refresh();
+        bool refresh(bool if_updated = false);
         
         void forEachFixture(std::function<bool(const Fixture &)>) const;
         
@@ -262,6 +255,17 @@ namespace db0
             std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {}) const;
         
+        // either get frozen head view or throw
+        std::shared_ptr<WorkspaceView> getFrozenWorkspaceHeadView() const;
+
+        // stop all fixture threads - i.e. refresh and autocommit
+        void stopThreads();
+
+    protected:
+        friend class WorkspaceView;
+
+        std::optional<std::uint64_t> getUUID(const PrefixName &) const;
+
     private:
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> m_fixture_initializer;
@@ -276,17 +280,17 @@ namespace db0
         mutable std::shared_ptr<LangCache> m_lang_cache;
         std::unique_ptr<WorkspaceThreads> m_workspace_threads;
         std::shared_ptr<Config> m_config;
-        // associated workspace view (some of which may already be deleted)
+        // associated workspace views (some of which may already be deleted)
         mutable std::list<std::weak_ptr<WorkspaceView> > m_views;
+        // the designated "head" view with the prolonged lifetime
+        mutable std::weak_ptr<WorkspaceView> m_head_view;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;
         
-        std::optional<std::uint64_t> getUUID(const PrefixName &) const;
-
         void forEachMemspace(std::function<bool(Memspace &)> callback) override;
 
         void onCacheFlushed(bool threshold_reached) const override;
+
+        std::shared_ptr<WorkspaceView> getWorkspaceHeadView() const;
     };
-    
-    void validateAccessType(const Fixture &fixture, AccessType requested);
-    
+        
 }

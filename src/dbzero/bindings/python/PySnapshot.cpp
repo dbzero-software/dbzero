@@ -8,12 +8,13 @@ namespace db0::python
     
     static PyMethodDef PySnapshot_methods[] = 
     {
-        {"fetch", (PyCFunction)&PySnapshot_fetch, METH_FASTCALL, "Fetch DBZero object instance by its ID or type (in case of a singleton)"},
-        {"find", (PyCFunction)&PySnapshot_find, METH_FASTCALL, ""},
-        {"deserialize", (PyCFunction)&PySnapshot_deserialize, METH_FASTCALL, "Deserialize from bytes within the snapshot's context"},
+        {"fetch", (PyCFunction)&PyAPI_PySnapshot_fetch, METH_FASTCALL, "Fetch DBZero object instance by its ID or type (in case of a singleton)"},
+        {"find", (PyCFunction)&PyAPI_PySnapshot_find, METH_FASTCALL, ""},
+        {"deserialize", (PyCFunction)&PyAPI_PySnapshot_deserialize, METH_FASTCALL, "Deserialize from bytes within the snapshot's context"},
         {"close", &PyAPI_PySnapshot_close, METH_NOARGS, "Close DBZero snapshot"},
-        {"__enter__", &PySnapshot_enter, METH_NOARGS, "Enter DBZero snapshot context"},
-        {"__exit__", &PyAPI_PySnapshot_exit, METH_VARARGS, "Exit DBZero snapshot context"},
+        {"get_state_num", (PyCFunction)&PyAPI_PySnapshot_GetStateNum, METH_VARARGS | METH_KEYWORDS, "Get state number of the snapshot"},
+        {"__enter__", &PyAPI_PySnapshot_enter, METH_NOARGS, "Enter DBZero snapshot context"},
+        {"__exit__", &PyAPI_PySnapshot_exit, METH_VARARGS, "Exit DBZero snapshot's context"},
         {NULL}
     };
     
@@ -25,7 +26,7 @@ namespace db0::python
         return PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
     }
     
-    void PySnapshot_del(PySnapshotObject* snapshot_obj)
+    void PyAPI_PySnapshot_del(PySnapshotObject* snapshot_obj)
     {
         // NOTE: it's safe to destroy without API lock (not a v_object)
         // also API lock here would result in a deadlock
@@ -38,7 +39,7 @@ namespace db0::python
         .tp_name = "dbzero_ce.Snapshot",
         .tp_basicsize = PySnapshotObject::sizeOf(),
         .tp_itemsize = 0,
-        .tp_dealloc = (destructor)PySnapshot_del, 
+        .tp_dealloc = (destructor)PyAPI_PySnapshot_del,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "DBZero state snapshot object",
         .tp_methods = PySnapshot_methods,
@@ -52,11 +53,24 @@ namespace db0::python
     }
     
     PySnapshotObject *tryGetSnapshot(std::optional<std::uint64_t> state_num,
-        const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums)
-    {    
+        const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums, bool frozen)
+    {  
+        if (frozen && (state_num || !prefix_state_nums.empty())) {
+            THROWF(db0::InputException) << "Frozen snapshot can only be taken for the head state (i.e. no state numbers can be requested)";
+        }
         auto py_snapshot = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        py_snapshot->makeNew(workspace.getWorkspaceView(state_num, prefix_state_nums));
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();        
+        std::shared_ptr<db0::WorkspaceView> workspace_view;
+        if (frozen) {
+            workspace_view = workspace.getFrozenWorkspaceHeadView();
+        } else {
+            if (!state_num && prefix_state_nums.empty()) {
+                // refresh if updated
+                workspace.refresh(true);
+            }
+            workspace_view = workspace.getWorkspaceView(state_num, prefix_state_nums);
+        }
+        py_snapshot->makeNew(workspace_view);
         return py_snapshot;
     }
     
@@ -81,27 +95,54 @@ namespace db0::python
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         return findIn(snapshot, args, nargs);
     }
+
+    PyObject *tryGetStateNum(db0::Snapshot &snapshot, PyObject *args, PyObject *kwargs)
+    {
+        auto fixture = getPrefixFromArgs(snapshot, args, kwargs, "prefix");
+        return PyLong_FromLong(fixture->getPrefix().getStateNum());
+    }
     
-    PyObject* PySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs) 
+    PyObject *PyAPI_PySnapshot_GetStateNum(PyObject *self, PyObject *args, PyObject *kwargs)
+    {
+        if (!PySnapshot_Check(self)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
+        PY_API_FUNC
+        return runSafe(tryGetStateNum, snapshot, args, kwargs);
+    }
+
+    PyObject *PyAPI_PySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs) 
     {
         PY_API_FUNC
         return runSafe(tryPySnapshot_fetch, self, args, nargs);
     }
 
-    PyObject *PySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs) 
+    PyObject *PyAPI_PySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs) 
     {
         PY_API_FUNC
         return runSafe(tryPySnapshot_find, self, args, nargs);
     }
 
-    PyObject *PySnapshot_enter(PyObject *self, PyObject *)
+    PyObject *PyAPI_PySnapshot_enter(PyObject *self, PyObject *)
     {
         Py_IncRef(self);
         return self;
     }
+    
+    PyObject *tryPySnapshot_exit(PyObject *self, PyObject *) 
+    {
+        // release the underlying WorkspaceView shared_ptr (may result in destroying the instance)
+        reinterpret_cast<PySnapshotObject*>(self)->reset();
+        Py_RETURN_NONE;
+    }
 
-    PyObject *PyAPI_PySnapshot_exit(PyObject *self, PyObject *) {
-        return PyAPI_PySnapshot_close(self, NULL);
+    PyObject *PyAPI_PySnapshot_exit(PyObject *self, PyObject *) 
+    {
+        PY_API_FUNC
+        return runSafe(tryPySnapshot_exit, self, nullptr);
     }
 
     db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject *snapshot)
@@ -127,9 +168,8 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *PySnapshot_deserialize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_PySnapshot_deserialize(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "deserialize requires exactly 1 argument");
             return NULL;
@@ -138,8 +178,8 @@ namespace db0::python
         if (!PySnapshot_Check(self)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
-        }
-        
+        }    
+        PY_API_FUNC
         auto &workspace = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
         return runSafe(tryDeserialize, &workspace, args[0]);
     }

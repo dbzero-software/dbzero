@@ -3,6 +3,8 @@ import dbzero_ce as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 from .conftest import DB0_DIR
 import multiprocessing
+import random
+import string 
 
 
 def test_persisting_single_transaction_data(db0_fixture):
@@ -142,7 +144,174 @@ def test_durability_of_random_objects_issue1(db0_no_default_fixture):
 
 def test_dump_dram_io_map(db0_fixture):
     if 'D' in db0.build_flags():
-        io_map = db0.get_dram_io_map()
-        print(io_map)
+        io_map = db0.get_dram_io_map()        
         assert len(io_map) > 0
-        
+    
+
+def test_transactions_issue1(db0_no_autocommit):
+    """
+    Test was failing with:  Assertion `unload_member_functions[static_cast<int>(storage_class)]' failed
+    Resolution: missing implementation of v_bvector::commit
+    """
+    buf = db0.list()
+    for _ in range(6):
+        for _ in range(50):
+            buf.append(0)            
+        db0.commit()
+    
+    index = 0
+    for index in range(len(buf)):        
+        assert buf[index] == 0
+        index += 1
+
+
+def test_low_cache_transactions_issue1(db0_no_autocommit):
+    """
+    Test was failing with: element mismatch (when running with very small cache size)
+    Resolution: PrefixCache::findBoundaryRange must NOT create r/w boundary lock when lhs/rhs states don't match
+    """
+    def rand_string(str_len):
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+    
+    db0.set_cache_size(64 << 10)
+    buf = db0.list()
+    py_buf = []
+    for _ in range(2):
+        for _ in range(34):
+            str = rand_string(64)            
+            buf.append(str)
+            py_buf.append(str)
+        db0.commit()
+    
+    index = 0
+    for index in range(len(buf)):
+        assert buf[index] == py_buf[index]
+        index += 1
+    
+    
+def test_low_cache_transactions_issue2(db0_no_autocommit):
+    """
+    Test was failing with: CRDT_Allocator.cpp, line 157: Invalid address: NNN    
+    Resolution: expired lock eviction policy fixed (higher state number must be retained in the Page Map)    
+    """
+    def rand_string(str_len):
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+    
+    db0.set_cache_size(100 << 10)
+    buf = db0.list()
+    py_buf = []
+    for _ in range(2):
+        for _ in range(17):
+            str = rand_string(33)
+            buf.append(MemoTestClass(str))
+            py_buf.append(str)
+        db0.commit()
+
+    index = 0
+    for index in range(len(buf)):
+        assert buf[index].value == py_buf[index]        
+        index += 1
+
+
+def test_low_cache_transactions_issue3(db0_no_autocommit):
+    """
+    Test was failing with: CRDT_Allocator.cpp, line 157: Invalid address: NNN
+    Resolution: DirtyCache::flush operation was flushing locks owned by language types causing multiple flush with no reads
+    """
+    def rand_string(str_len):
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+    
+    db0.set_cache_size(100 << 10)
+    buf = db0.list()
+    py_buf = []
+    for _ in range(8):
+        for _ in range(28):
+            str = rand_string(64)
+            buf.append(MemoTestClass(str))
+            py_buf.append(str)
+        db0.commit()
+    
+    index = 0
+    for index in range(len(buf)):
+        assert buf[index].value == py_buf[index]        
+        index += 1
+
+
+def test_low_cache_transactions_issue4(db0_no_autocommit):
+    """
+    Test was failing with: failed asserd on sgb_tree_node.hpp:109: (index < m_size)
+    Resolution: added missing fflush between fwrite / fread operations
+    """
+    def rand_string(str_len):
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+    
+    db0.set_cache_size(100 << 10)
+    buf = db0.list()
+    py_buf = []
+    for _ in range(83):
+        for _ in range(200):
+            str = rand_string(64)
+            buf.append(MemoTestClass(str))
+            py_buf.append(str)
+        db0.commit()
+    
+    index = 0
+    for index in range(len(buf)):
+        assert buf[index].value == py_buf[index]        
+        index += 1
+
+
+@pytest.mark.parametrize("db0_autocommit_fixture", [1], indirect=True)
+def test_low_cache_mt_issue1(db0_autocommit_fixture):
+    """
+    Test was failing with: deadlock, also possibly with BDevStorage::findMutation: page_num not found (when autocommit is on)
+    Resolution: added PyAPI lock before calling Fixture::onAutoCommit
+    """
+    def rand_string(str_len):
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+    
+    db0.set_cache_size(100 << 10)
+    buf = db0.list()
+    py_buf = []
+    for _ in range(20):
+        for _ in range(100):
+            str = rand_string(32)
+            buf.append(MemoTestClass(str))
+            py_buf.append(str)        
+    
+    index = 0
+    for index in range(len(buf)):
+        assert buf[index].value == py_buf[index]        
+        index += 1
+
+
+@pytest.mark.stress_test
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 2 << 20}], indirect=True)
+def test_low_cache_bad_address_issue1(db0_slab_size):
+    """
+    Test was failing with: CRDT_Allocator internal error: blank not found after ~6k operations
+    Update: Fails faster depending on slab size but works fine with 1MB slab size    
+    Update: disabling commits solves the issue (probably due to lack of deferred free-s)
+    Resolution: 
+    """
+    def rand_string(max_len):
+        str_len = random.randint(1, max_len)
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+
+    root = MemoTestSingleton([])
+    db0.set_cache_size(100 << 10)
+    buf = root.value
+    for _ in range(10000):
+        buf.append([])
+
+    # append to random lists
+    count = 0
+    for _ in range(50000):
+        str = rand_string(256)
+        buf[random.randint(0, len(buf) - 1)].append(MemoTestClass(str))
+        count += 1
+        # commit every 1000 appends
+        if count % 500 == 0:
+            db0.commit()
+            print(f"Transactions so far: {count}")
+    

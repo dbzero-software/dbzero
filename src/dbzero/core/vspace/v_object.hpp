@@ -8,7 +8,7 @@ namespace db0
     
 {
 
-    struct tag_verified {}; 
+    struct tag_verified {};
 
     /**
      * Base class for vspace-mapped objects
@@ -28,13 +28,13 @@ namespace db0
         }
 
         v_object(mptr ptr, FlagSet<AccessOptions> access_mode = {})
-            : v_this(ptr, access_mode | AccessOptions::read)
+            : v_this(ptr, access_mode)
         {
         }
         
         // construct a verified instance - i.e. backed by a valid db0 address        
         v_object(db0::tag_verified, mptr ptr, FlagSet<AccessOptions> access_mode = {})
-            : v_this(ptr, access_mode | AccessOptions::read)
+            : v_this(ptr, access_mode)
         {
             v_this.get();    
         }
@@ -60,7 +60,7 @@ namespace db0
         struct tag_prelocked {};
         template<typename Tuple, std::size_t...I, std::size_t N=std::tuple_size<Tuple>::value-1>
         v_object(Memspace &memspace, tag_prelocked, Tuple&& t, int_seq<std::size_t, I...>)
-            : v_this(ptr_t::makeNew(memspace, std::move(std::get<N>(std::forward<Tuple>(t))), FlagSet<AccessOptions> { AccessOptions::read , AccessOptions::write }))
+            : v_this(ptr_t::makeNew(memspace, std::move(std::get<N>(std::forward<Tuple>(t)))))
         {
             // placement new syntax
             c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::get<I>(std::forward<Tuple>(t))...);
@@ -91,17 +91,17 @@ namespace db0
          */
         template<typename... Args, last_type_is_not_t<FlagSet<AccessOptions>, Args...>* = nullptr, last_type_is_not_t<MappedAddress, Args...>* = nullptr>
         v_object(Memspace &memspace, Args&&... args)
-            : v_object(memspace, std::forward<Args>(args)..., FlagSet<AccessOptions> { AccessOptions::write })
+            : v_object(memspace, std::forward<Args>(args)..., FlagSet<AccessOptions> {})
         {
         }
-                
+        
         /**
          * Create a new DBZero instance in the given memory space
         */       
         template <typename... Args>
         void init(Memspace &memspace, FlagSet<AccessOptions> access_mode, Args&&... args)
         {
-            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...), access_mode | AccessOptions::write);
+            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...), access_mode);
             // placement new syntax
             c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::forward<Args>(args)...);
         }
@@ -229,7 +229,12 @@ namespace db0
         }
         
         void commit() const {
-            v_this.commit();
+            // FIXME: optimization
+            // potentially we could call v_this.commit() here BUT
+            // if there exist 2 instances of v_object and onc of them gets modified
+            // then the "read-only" instance will not see the updates
+
+            v_this.detach();
         }
 
     protected :

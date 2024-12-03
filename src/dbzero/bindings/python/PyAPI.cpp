@@ -11,6 +11,9 @@
 #include "PyObjectIterator.hpp"
 #include "Memo.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
+#include <dbzero/bindings/python/collections/PyDict.hpp>
+#include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
@@ -26,6 +29,7 @@
 #include "Types.hpp"
 #include "PyAtomic.hpp"
 #include "PyReflectionAPI.hpp"
+#include "PyHash.hpp"
 
 namespace db0::python
 
@@ -235,15 +239,14 @@ namespace db0::python
         return runSafe(tryCommit, self, args);
     }
 
-    PyObject *tryClose(PyObject *, PyObject *args)
+    PyObject *tryStopWorkspaceThreads()
     {
-        // extract optional prefix name
-        const char *prefix_name = nullptr;
-        if (!PyArg_ParseTuple(args, "|s", &prefix_name)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
-        }
-        
+        PyToolkit::getPyWorkspace().stopThreads();
+        Py_RETURN_NONE;
+    }
+
+    PyObject *tryClose(const char *prefix_name)
+    {
         if (prefix_name) {
             PyToolkit::getPyWorkspace().getWorkspace().close(prefix_name);
         } else {
@@ -254,8 +257,20 @@ namespace db0::python
     
     PyObject *PyAPI_close(PyObject *self, PyObject *args)
     {
-        PY_API_FUNC        
-        return runSafe(tryClose, self, args);
+        // extract optional prefix name
+        const char *prefix_name = nullptr;
+        if (!PyArg_ParseTuple(args, "|s", &prefix_name)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+        
+        if (!prefix_name) {
+            // note we need to stop workspace threads before API lock
+            runSafe(tryStopWorkspaceThreads);
+        }
+        
+        PY_API_FUNC
+        return runSafe(tryClose, prefix_name);        
     }
     
     PyObject *getPrefixOf(PyObject *self, PyObject *args)
@@ -271,12 +286,12 @@ namespace db0::python
         if (PyType_Check(py_object)) {
             if (PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
                 PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
-                auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-                if (decor.m_prefix_name_ptr) {
-                    return PyUnicode_FromString(decor.m_prefix_name_ptr);
+                auto prefix_name = MemoTypeDecoration::get(py_type).tryGetPrefixName();
+                if (prefix_name) {
+                    return PyUnicode_FromString(prefix_name);
                 }
             }
-            return Py_None;            
+            return Py_None;
         } else if (PyObjectIterator_Check(py_object)) {
             auto &iter = reinterpret_cast<PyObjectIterator*>(py_object)->ext();
             fixture = iter->getFixture();
@@ -321,8 +336,10 @@ namespace db0::python
     
     PyObject *tryRefresh(PyObject *self, PyObject *args)
     {
-        PyToolkit::getPyWorkspace().refresh();
-        Py_RETURN_NONE;
+        if (PyToolkit::getPyWorkspace().refresh()) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
     }
     
     PyObject *refresh(PyObject *self, PyObject *args)
@@ -330,7 +347,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryRefresh, self, args);
     }
-
+    
     PyObject *tryGetStateNum(PyObject *args, PyObject *kwargs)
     {
         auto fixture = getPrefixFromArgs(args, kwargs, "prefix");
@@ -349,30 +366,44 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryGetPrefixStats, args, kwargs);
     }
-        
-    PyObject *getSnapshot(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    
+    PyObject *getSnapshot(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
+        PyObject *py_object_1 = nullptr, *py_object_2 = nullptr;
+        bool frozen = false;
+        static const char *kwlist[] = {"state_num", "prefix_state_nums", "frozen", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOp", const_cast<char**>(kwlist), &py_object_1, &py_object_2, &frozen)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+            return NULL;
+        }
+
         // requested state number of the default fixture
         std::optional<std::uint64_t> state_num;
         // state numbers by prefix name
         std::unordered_map<std::string, std::uint64_t> prefix_state_nums;
-        for (unsigned int i = 0; i < nargs; ++i) {
+
+        auto try_parse_arg = [&](PyObject *py_object) -> bool {
+            if (!py_object) {
+                return true;
+            }
+
             // can be either a number of a dict
-            if (PyLong_Check(args[i])) {
+            if (PyLong_Check(py_object)) {
                 if (state_num) {
                     PyErr_SetString(PyExc_TypeError, "Duplicate state_num argument");
-                    return NULL;
+                    return false;
                 }
-                state_num = PyLong_AsUnsignedLong(args[i]);                
-            } else if (PyDict_Check(args[i])) {
-                PyObject *py_dict = args[i];
+                state_num = PyLong_AsUnsignedLong(py_object);
+                return true;
+            } else if (PyDict_Check(py_object)) {
+                PyObject *py_dict = py_object;
                 PyObject *py_key, *py_value;
                 Py_ssize_t pos = 0;
                 while (PyDict_Next(py_dict, &pos, &py_key, &py_value)) {
                     if (!PyUnicode_Check(py_key) || !PyLong_Check(py_value)) {
                         PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-                        return NULL;
+                        return false;
                     }
                     const char *prefix_name = PyUnicode_AsUTF8(py_key);
                     std::uint64_t state_num = PyLong_AsUnsignedLong(py_value);
@@ -382,16 +413,24 @@ namespace db0::python
                         std::stringstream _str;
                         _str << "Conflicting state numbers requested for the same prefix: " << prefix_name;
                         PyErr_SetString(PyExc_TypeError, _str.str().c_str());
-                        return NULL;
+                        return false;
                     }
                     prefix_state_nums[prefix_name] = state_num;
                 }
             }
-        }
-        
-        return runSafe(tryGetSnapshot, state_num, prefix_state_nums);
-    }
+            return true;
+        };
 
+        if (!try_parse_arg(py_object_1)) {
+            return NULL;
+        }
+        if (!try_parse_arg(py_object_2)) {
+            return NULL;
+        }
+
+        return runSafe(tryGetSnapshot, state_num, prefix_state_nums, frozen);
+    }
+    
     PyObject *tryDescribeObject(PyObject *self, PyObject *args)
     {
         PyObject *py_object;
@@ -487,7 +526,7 @@ namespace db0::python
         PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
         PyObject *py_dict = PyDict_New();
         if (PyMemoType_Check(py_type)) {
-            PyMemoType_get_info(py_type, py_dict);
+            MemoType_get_info(py_type, py_dict);
             return py_dict;
         }
 
@@ -499,7 +538,7 @@ namespace db0::python
     PyObject *negTags(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         return NULL;
     }
-
+    
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
@@ -560,7 +599,19 @@ namespace db0::python
     template <> db0::object_model::StorageClass getStorageClass<ListObject>() {
         return db0::object_model::StorageClass::DB0_LIST;
     }
-    
+
+    template <> db0::object_model::StorageClass getStorageClass<DictObject>() {
+        return db0::object_model::StorageClass::DB0_DICT;
+    }
+
+    template <> db0::object_model::StorageClass getStorageClass<SetObject>() {
+        return db0::object_model::StorageClass::DB0_SET;
+    }
+
+    template <> db0::object_model::StorageClass getStorageClass<TupleObject>() {
+        return db0::object_model::StorageClass::DB0_TUPLE;
+    }
+
     template <> db0::object_model::StorageClass getStorageClass<IndexObject>() {
         return db0::object_model::StorageClass::DB0_INDEX;
     }
@@ -682,10 +733,11 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "isEnumValue requires exactly 1 argument");
             return NULL;
         }
-
-        return PyEnumValue_Check(args[0]) ? Py_True : Py_False;
+        
+        // NOTE: to Python programs EnumValue / EnuValueRepr should not be differentiable
+        return (PyEnumValue_Check(args[0]) || PyEnumValueRepr_Check(args[0])) ? Py_True : Py_False;
     }
-
+    
     PyObject *tryFilterBy(PyObject *args, PyObject *kwargs)
     {
         using ObjectIterator = db0::object_model::ObjectIterator;
@@ -752,7 +804,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid object type");
             return NULL;
         }
-        return runSafe(PyMemo_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);
+        return runSafe(MemoObject_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);
     }
 
     PyObject *getSlabMetrics(PyObject *, PyObject *)
@@ -878,5 +930,35 @@ namespace db0::python
         return runSafe(tryGetDRAM_IOMap, *fixture);
     } 
 #endif
+    
+    PyTypeObject *PyAPI_getType(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "getType requires exactly 1 argument");
+            return NULL;
+        }
+        PY_API_FUNC
+        return runSafe(tryGetType, args[0]);
+    }
+    
+    PyObject *PyAPI_load(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "unload requires exactly 1 argument");
+            return NULL;
+        }
+        PY_API_FUNC
+        return runSafe(tryLoad, args[0]);
+    }
+
+    PyObject *PyAPI_hash(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "hash requires exactly 1 argument");
+            return NULL;
+        }
+        PY_API_FUNC
+        return runSafe(get_py_hash_as_py_object, args[0]);
+    }
     
 }

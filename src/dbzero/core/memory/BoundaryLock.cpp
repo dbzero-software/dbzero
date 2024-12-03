@@ -7,15 +7,15 @@ namespace db0
 {
     
     BoundaryLock::BoundaryLock(StorageContext context, std::uint64_t address, std::shared_ptr<DP_Lock> lhs, std::size_t lhs_size,
-        std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, FlagSet<AccessOptions> access_mode, bool create_new)
+        std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, FlagSet<AccessOptions> access_mode)
         // important to use no_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
-        : ResourceLock(context, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache, create_new)
+        : ResourceLock(context, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache)
         , m_lhs(lhs)
         , m_lhs_size(lhs_size)
         , m_rhs(rhs)
         , m_rhs_size(rhs_size)
     {
-        if (!create_new) {
+        if (access_mode[AccessOptions::read]) {
             // copy from parent locks into the local buffer
             auto lhs_buffer = lhs->getBuffer(m_address);
             std::memcpy(m_data.data(), lhs_buffer, lhs_size);
@@ -29,7 +29,7 @@ namespace db0
         std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, 
         FlagSet<AccessOptions> access_mode)
         // important to use no_cache for BoundaryLock (this is to allow release/creation of a new boundary lock without collisions)
-        : ResourceLock(context, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache, false)
+        : ResourceLock(context, address, lhs_size + rhs_size, access_mode | AccessOptions::no_cache)
         , m_lhs(lhs)
         , m_lhs_size(lhs_size)
         , m_rhs(rhs)
@@ -46,7 +46,7 @@ namespace db0
     }
     
     void BoundaryLock::_flush()
-    {
+    {        
         // note that boundary locks are flushed even with no_flush flag
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {
@@ -58,8 +58,7 @@ namespace db0
                 std::memcpy(lhs_buffer, m_data.data(), m_lhs_size);
                 m_rhs->setDirty();
                 auto rhs_buffer = m_rhs->getBuffer(m_address + m_lhs_size);
-                std::memcpy(rhs_buffer, m_data.data() + m_lhs_size, m_rhs_size);
-                
+                std::memcpy(rhs_buffer, m_data.data() + m_lhs_size, m_rhs_size);                
                 // reset the dirty flag
                 lock.commit_reset();
             }
@@ -70,8 +69,29 @@ namespace db0
     {
         _flush();
         // flush both parent locks
-        m_lhs->flush();                
-        m_rhs->flush();        
+        m_lhs->flush();
+        m_rhs->flush();
     }
+
+    void __rebase(std::shared_ptr<DP_Lock> &lock,
+        const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map) 
+    {
+        auto it = rebase_map.find(lock.get());
+        if (it != rebase_map.end()) {
+            lock = it->second;
+        }
+    }
+    
+    void BoundaryLock::rebase(const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map)
+    {    
+        __rebase(m_lhs, rebase_map);
+        __rebase(m_rhs, rebase_map);
+    }
+    
+#ifndef NDEBUG
+    bool BoundaryLock::isBoundaryLock() const {
+        return true;
+    }
+#endif
 
 }
