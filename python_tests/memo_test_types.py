@@ -111,3 +111,17 @@ class MemoTestThreeParamsClass:
         self.value_1 = value_1
         self.value_2 = value_2
         self.value_3 = value_3     
+
+
+@db0.memo
+class MemoTestCustomLoadClass:
+    def __init__(self, value_1, value_2, value_3):  
+        self.value_1 = value_1
+        self.value_2 = value_2
+        self.value_3 = value_3    
+
+    def __load__(self):
+        return {
+            "v1": self.value_1,
+            "v2_v3": {self.value_2: self.value_3}
+        }

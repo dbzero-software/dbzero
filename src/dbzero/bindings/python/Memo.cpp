@@ -654,6 +654,13 @@ namespace db0::python
     PyObject *tryLoadMemo(MemoObject *memo_obj)
     {
         PyObject *py_result = PyDict_New();
+        auto load_method = tryMemoObject_getattro(memo_obj, PyUnicode_FromString("__load__"));
+        if (load_method) {
+            auto result = PyObject_CallObject(load_method, nullptr);
+            Py_DECREF(load_method);
+            return tryLoad(result);
+        } 
+        
         memo_obj->ext().forAll([py_result, memo_obj](const std::string &key, PyTypes::ObjectSharedPtr) {
             auto attr = MemoObject_getattro(memo_obj, PyUnicode_FromString(key.c_str()));
             PyDict_SetItemString(py_result, key.c_str(), tryLoad(attr));
