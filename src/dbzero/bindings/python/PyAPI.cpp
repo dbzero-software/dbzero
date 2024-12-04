@@ -952,8 +952,8 @@ namespace db0::python
             return NULL;
         }
         if(py_exclude != nullptr) {
-            if (!PyList_Check(py_exclude)) {
-                PyErr_SetString(PyExc_TypeError, "Invalid argument type. Exclude shoud be a list");
+            if (!PySequence_Check(py_exclude) || PyUnicode_Check(py_exclude)) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type. Exclude shoud be a sequence");
                 return NULL;
             }
             if(!PyMemo_Check(py_object)) {

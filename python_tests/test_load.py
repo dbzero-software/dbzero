@@ -139,9 +139,12 @@ def test_load_exlude_only_supports_list(db0_fixture):
     memo = MemoTestThreeParamsClass("value_1", "value_2", "value_3")
 
     assert db0.load(memo, exclude = ["value_1"]) == {"value_2": "value_2", "value_3": "value_3"}
+    assert db0.load(memo, exclude = ("value_1",)) == {"value_2": "value_2", "value_3": "value_3"}
+    assert db0.load(memo, exclude = db0.list(["value_1"])) == {"value_2": "value_2", "value_3": "value_3"}
+    assert db0.load(memo, exclude = db0.tuple(["value_1"])) == {"value_2": "value_2", "value_3": "value_3"}
     with pytest.raises(TypeError) as ex:
          db0.load(memo, exclude = "value_1")
-    assert "Invalid argument type. Exclude shoud be a list" in str(ex.value)
+    assert "Invalid argument type. Exclude shoud be a sequence" in str(ex.value)
     with pytest.raises(TypeError) as ex:
         db0.load(memo, exclude = {"value_1":"value2"})
-    assert "Invalid argument type. Exclude shoud be a list" in str(ex.value)
+    assert "Invalid argument type. Exclude shoud be a sequence" in str(ex.value)
