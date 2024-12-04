@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoTestThreeParamsClass
+from .memo_test_types import MemoTestClass, MemoTestThreeParamsClass, MemoTestCustomLoadClass
 
 
 def test_load_py_string():  
@@ -68,3 +68,15 @@ def test_load_set(db0_fixture):
 def test_load_py_set(db0_fixture):
     t1 = {1, "string", 999}
     assert db0.load(t1) == {1, "string", 999}
+
+def test_load_returns_none_not_as_string(db0_fixture):
+    assert db0.load(None) == None
+    t1 = db0.set([1, "string", None])
+    assert db0.load(t1) == {1, "string", None}
+
+def test_load_with_default_load_method(db0_fixture):
+    memo = MemoTestCustomLoadClass("value_1", "value_2", "value_3")
+    assert db0.load(memo) == {
+            "v1": "value_1",
+            "v2_v3": {"value_2": "value_3"}
+        }
