@@ -43,5 +43,6 @@ namespace db0::python
     SetObject *PyAPI_makeSet(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
     bool SetObject_Check(PyObject *);
+    PyObject *tryLoadSet(PyObject *set);
 
 }

@@ -421,4 +421,24 @@ namespace db0::python
         return Py_TYPE(object) == &DictObjectType;        
     }
     
+    
+    PyObject *tryLoadDict(PyObject *py_dict)
+    {   
+        PyObject *iterator = PyObject_GetIter(py_dict);
+        PyObject *elem;
+        PyObject *py_result = PyDict_New();
+        while ((elem = PyIter_Next(iterator))) {
+            if (PyDict_Check(py_dict)) {
+                PyDict_SetItem(py_result, elem, tryLoad(PyDict_GetItem(py_dict, elem)));
+            } else if (DictObject_Check(py_dict)) {
+                PyDict_SetItem(py_result, elem, tryLoad(DictObject_GetItem((DictObject*)py_dict, elem)));
+            } else {
+                throw std::runtime_error("Unknown type");
+            }     
+            Py_DECREF(elem);
+        }            
+        Py_DECREF(iterator);
+        return py_result;
+    }
+
 }
