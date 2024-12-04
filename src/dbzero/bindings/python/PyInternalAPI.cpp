@@ -596,7 +596,7 @@ namespace db0::python
         return Py_TYPE(py_obj);
     }
     
-    PyObject *tryLoad(PyObject *py_obj)
+    PyObject *tryLoad(PyObject *py_obj, PyObject *py_exclude)
     {
         using TypeId = db0::bindings::TypeId;
 
@@ -626,7 +626,7 @@ namespace db0::python
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return tryLoadEnumValue(reinterpret_cast<PyEnumValue*>(py_obj));
         } else if (type_id == TypeId::MEMO_OBJECT) {
-            return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj));
+            return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), py_exclude);
         } else {
             THROWF(db0::InputException) << "Unload not implemented for type: " 
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;

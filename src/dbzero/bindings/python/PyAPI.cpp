@@ -941,14 +941,29 @@ namespace db0::python
         return runSafe(tryGetType, args[0]);
     }
     
-    PyObject *PyAPI_load(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_load(PyObject *self, PyObject *args, PyObject *kwargs)
     {
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "unload requires exactly 1 argument");
+        // extract object / prefix name (can be None)
+        PyObject *py_object = nullptr;
+        PyObject *py_exclude = nullptr;
+        static const char *kwlist[] = {"object", "exclude", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|O", const_cast<char**>(kwlist), &py_object, &py_exclude)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
+        if(py_exclude != nullptr) {
+            if (!PySequence_Check(py_exclude) || PyUnicode_Check(py_exclude)) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type. Exclude shoud be a sequence");
+                return NULL;
+            }
+            if(!PyMemo_Check(py_object)) {
+                PyErr_SetString(PyExc_TypeError, "Exclude is only supported for memo objects");
+                return NULL;
+            }
+        }
+
         PY_API_FUNC
-        return runSafe(tryLoad, args[0]);
+        return runSafe(tryLoad, py_object, py_exclude);
     }
 
     PyObject *PyAPI_hash(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
