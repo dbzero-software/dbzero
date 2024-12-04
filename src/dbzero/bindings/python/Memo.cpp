@@ -656,7 +656,6 @@ namespace db0::python
         PyObject *py_result = PyDict_New();
         auto load_method = tryMemoObject_getattro(memo_obj, PyUnicode_FromString("__load__"));
         if (load_method) {
-            std::cerr << "HAS LOAD DEFINED" << std::endl;
             auto result = PyObject_CallObject(load_method, nullptr);
             Py_DECREF(load_method);
             return result;
