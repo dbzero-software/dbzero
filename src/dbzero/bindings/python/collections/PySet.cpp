@@ -133,7 +133,7 @@ namespace db0::python
     PyObject *SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC        
-        return SetObject_issubsetInternal(self, args, nargs);
+        return runSafe(SetObject_issubsetInternal, self, args, nargs);
     }
 
     PyObject * SetObject_issupersetInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -168,7 +168,7 @@ namespace db0::python
     PyObject * SetObject_issuperset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC        
-        return SetObject_issupersetInternal(self, args, nargs);
+        return runSafe(SetObject_issupersetInternal, self, args, nargs);
     }
 
     static PyObject *SetObject_rq(SetObject *set_obj, PyObject *other, int op) 
@@ -444,56 +444,32 @@ namespace db0::python
         return set_obj;
     }
 
-    void SetObject_differenceInternal(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1,
-        PyObject *it2, PyObject *elem2, bool symmetric)
-    {        
-        if (elem1 == nullptr && elem2 == nullptr) {
-            return;
-        }
-        if (elem1 == nullptr) {
-            do {
-                if (symmetric) {
-                    auto hash = get_py_hash(elem2);
-                    set_obj->modifyExt().append(fixture, hash, elem2);
-                }                
-                Py_DECREF(elem2);
-            } while((elem2 = PyIter_Next(it2)));
-            return;
-        }
-        if (elem2 == nullptr) {
-            do {
-                auto hash = get_py_hash(elem1);
-                set_obj->modifyExt().append(fixture, hash, elem1);                
-                Py_DECREF(elem1);
-            } while((elem1 = PyIter_Next(it1)));
-            return;
-        }
-        if (elem1 < elem2) {
-            auto hash = get_py_hash(elem1);
-            set_obj->modifyExt().append(fixture, hash, elem1);            
-            Py_DECREF(elem1);
-            elem1 = PyIter_Next(it1);
-        } else if (elem1 > elem2) {
-            if (symmetric) {
-                auto hash = get_py_hash(elem2);
-                set_obj->modifyExt().append(fixture, hash, elem1);
-            }            
-            Py_DECREF(elem2);
-            elem2 = PyIter_Next(it2);
-        } else if (elem1 == elem2) {            
-            Py_DECREF(elem1);
-            Py_DECREF(elem2);
-            elem1 = PyIter_Next(it1);
-            elem2 = PyIter_Next(it2);
-        }
-        return SetObject_differenceInternal(fixture, set_obj, it1 ,elem1, it2, elem2, symmetric);
-    }
-
-    void SetObject_difference(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1,
-        PyObject *it2, PyObject *elem2, bool symmetric)
+    void SetObject_differenceInternal(FixtureLock &fixture, SetObject * set_result, SetObject *set_input, 
+    PyObject * ob, bool symmetric)
     {
-        PY_API_FUNC
-        return SetObject_differenceInternal(fixture, set_obj, it1, elem1, it2, elem2, symmetric);
+        PyObject *it = PyObject_GetIter((PyObject*)set_input);
+        PyObject *item;
+        std::list<size_t> hashes;
+        auto &set_impl = set_result->modifyExt();
+        while ((item = PyIter_Next(it))) {
+            if (!PySequence_Contains(ob, item)) {
+                auto hash = get_py_hash(item);
+                set_impl.append(fixture, hash, item);
+            }
+
+            Py_DECREF(item);
+        }
+        if(symmetric){
+            it = PyObject_GetIter(ob);
+            while ((item = PyIter_Next(it))) {
+                if (!PySequence_Contains((PyObject*)set_input, item)) {
+                    auto hash = get_py_hash(item);
+                    set_impl.append(fixture, hash, item);
+                }
+                Py_DECREF(item);
+            }
+        }
+        Py_DECREF(it);
     }
 
     PyObject * SetObject_differenceInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric)
@@ -503,18 +479,11 @@ namespace db0::python
             return NULL;
         }
         SetObject *set_obj = makeSet(nullptr, nullptr, 0);
-        PyObject *elem1, *elem2, *it2;
-        PyObject *it1 = PyObject_GetIter((PyObject*)self);
         db0::FixtureLock lock(self->ext().getFixture());
         for (Py_ssize_t i = 0; i < nargs; ++i) {
-            it2 = PyObject_GetIter(args[i]);
-            elem1 = PyIter_Next(it1);
-            elem2 = PyIter_Next(it2);
             set_obj = makeSet(nullptr, nullptr, 0);
-            SetObject_differenceInternal(lock, set_obj, it1, elem1, it2, elem2, symmetric);            
-            Py_DECREF(it1);
-            Py_DECREF(it2);
-            it1 = PyObject_GetIter((PyObject*)set_obj);
+            SetObject_differenceInternal(lock, set_obj, self, args[i], symmetric);            
+            self = set_obj;
         }
         return set_obj;
     }
@@ -524,7 +493,8 @@ namespace db0::python
     }
 
     PyObject *SetObject_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs) {
-        return SetObject_difference(self, args, nargs, false);
+        PY_API_FUNC
+        return runSafe(SetObject_difference, self, args, nargs, false);
     }
 
     PyObject *SetObject_symmetric_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs) 
