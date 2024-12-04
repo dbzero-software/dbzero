@@ -15,7 +15,8 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-
+          - os: windows-2019
+            architecture: x86
     steps:
       - uses: actions/checkout@v3
       - uses: docker/setup-qemu-action@v2
@@ -30,8 +31,16 @@ jobs:
         with:
           architecture: x86
         if: runner.os == 'Windows' && matrix.architecture == 'x86'
-      - run: pip3 install pipx
-      - run: pipx run cibuildwheel==2.11.2
+      - run: python3 scripts/generate_meson.py ./src/dbzero/ core
+      - run: python3 scripts/generate_meson_tests.py tests/
+      - run: git config --global user.email "you@example.com"
+      - run: git config --global user.name "Your Name"
+      - run: python3 --version
+      - run: g++ --version
+      - run: rm .gitignore
+      - run: git add . && git commit -m "Update meson files"
+      - run: pip install build
+      - run: python3 -m build 
         env:
           CIBW_SKIP: pp* cp36-* *-musllinux*
           CIBW_ARCHS_MACOS: x86_64 arm64
@@ -45,6 +54,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - run: python3 scripts/generate_meson.py ./src/dbzero/ core
+      - run: python3 scripts/generate_meson_tests.py tests/
       - run: python -m pip install build meson
       - run: python -m build --sdist
       - uses: actions/upload-artifact@v3
