@@ -10,17 +10,17 @@ def test_load_py_string():
 def test_load_py_int():
     assert db0.load(123) == 123
 
-    
+
 def test_load_tuple(db0_fixture):
     t1 = db0.tuple([1, "string", 999])
     assert db0.load(t1) == (1, "string", 999)
-    
-    
+
+
 def test_load_py_tuple_of_db0_enums(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     t1 = (Colors.RED, Colors.GREEN)
     assert db0.load(t1) == ("RED", "GREEN")
-    
+
 
 def test_load_list(db0_fixture):
     t1 = db0.list([1, "string", 999])
@@ -39,7 +39,7 @@ def test_load_py_tuple_of_db0_classes(db0_fixture):
 def test_load_memo_types(db0_fixture):
     memo = MemoTestClass("string")
     assert db0.load(memo) == {"value": "string"}
-    
+
 
 def test_load_memo_db0_types(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
@@ -80,3 +80,24 @@ def test_load_with_default_load_method(db0_fixture):
             "v1": "value_1",
             "v2_v3": {"value_2": "value_3"}
         }
+
+
+def test_load_with_default_load_as_subclas(db0_fixture):
+
+    memo = MemoTestCustomLoadClass("value_1", "value_2", "value_3")
+    t1 = db0.dict({"key1": 1, "key2": "string", "key3": memo})
+    assert db0.load(t1) == {
+        "key1": 1,
+        "key2": "string",
+        "key3": {"v1": "value_1", "v2_v3": {"value_2": "value_3"}},
+    }
+
+
+def test_load_with_default_load_as_subclas(db0_fixture):
+
+    memo = MemoTestCustomLoadClass("value_1", "value_2", "value_3")
+    memo2 = MemoTestCustomLoadClass("value_1", "value_2", memo)
+    assert db0.load(memo2) == {
+        "v1": "value_1",
+        "v2_v3": {"value_2": {"v1": "value_1", "v2_v3": {"value_2": "value_3"}}},
+    }

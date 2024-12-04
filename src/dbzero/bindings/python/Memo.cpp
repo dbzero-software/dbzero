@@ -658,7 +658,7 @@ namespace db0::python
         if (load_method) {
             auto result = PyObject_CallObject(load_method, nullptr);
             Py_DECREF(load_method);
-            return result;
+            return tryLoad(result);
         } 
         
         memo_obj->ext().forAll([py_result, memo_obj](const std::string &key, PyTypes::ObjectSharedPtr) {
