@@ -46,7 +46,7 @@ namespace db0::python
      * Runs a function, catch exeptions and translate into Python errors
      * @tparam ERR_RESULT integer value representing an error (default is 0 / NULL but some APIs may use -1)
     */
-    template <int ERR_RESULT = 0, typename... Args, typename T>
+    template <int ERR_RESULT = 0, typename T, typename... Args>
     typename std::invoke_result_t<T, Args...> runSafe(T func, Args&&... args)
     {
         try {
