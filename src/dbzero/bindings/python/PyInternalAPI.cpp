@@ -478,7 +478,7 @@ namespace db0::python
         if (!stats_dict) {
             THROWF(db0::MemoryException) << "Out of memory";
         }
-
+        
         PyDict_SetItemString(stats_dict, "name", PyUnicode_FromString(fixture->getPrefix().getName().c_str()));
         PyDict_SetItemString(stats_dict, "uuid", PyLong_FromLong(fixture->getUUID()));
         auto gc0_dict = PyDict_New();

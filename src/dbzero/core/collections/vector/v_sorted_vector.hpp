@@ -34,11 +34,11 @@ namespace db0
 
     /**
      * Sorted vector state types
-     * only transition from sv_growing to sv_dying is allowed
+     * only transition from sv_growing to sv_shrinking is allowed
      */
     enum class sv_state: std::uint32_t {        
         growing = 0x00 ,
-        dying = 0x01
+        shrinking = 0x01
     };
     
     /**
@@ -538,15 +538,15 @@ namespace db0
             return (m_state == sv_state::growing);
         }
 
-        bool isDying() const {
-            return (m_state == sv_state::dying);
+        bool isshrinking() const {
+            return (m_state == sv_state::shrinking);
         }
 
         /**
-         * modify state to "sv_dying"
+         * modify state to "sv_shrinking"
          */
-        void setDying() {
-            m_state = sv_state::dying;
+        void setshrinking() {
+            m_state = sv_state::shrinking;
         }
 
         iterator begin() {
@@ -641,12 +641,12 @@ namespace db0
             return item - getData();
         }
 
-    public :
+    public:
         // maximum size (capacity)
         std::uint32_t m_capacity;
         // actual size
         std::uint32_t m_size = 0;
-        // vector state (0 = growing, 1 = dying)
+        // vector state (0 = growing, 1 = shrinking)
         sv_state m_state;
 
         inline data_t *getData() {
@@ -766,8 +766,8 @@ namespace db0
         {
             // erase element
             this->modify().eraseAt(index, m_item_destroy_func);
-            // compact vector if necessary ( dying state only )
-            addr_changed = compactDying();
+            // compact vector if necessary (shrinking state only)
+            addr_changed = compactShrinking();
         }
 
         /**
@@ -785,11 +785,11 @@ namespace db0
         /**
          * Erase specified element
          */
-        void eraseItem(const_iterator it_item, bool &was_addr_changed) 
+        void eraseItem(const_iterator it_item, bool &was_addr_changed)
         {
             eraseItem(it_item);
-            // compact vector if necessary (dying state only)
-            was_addr_changed = compactDying();
+            // compact vector if necessary (shrinking state only)
+            was_addr_changed = compactShrinking();
         }
 
         /**
@@ -807,11 +807,11 @@ namespace db0
         {
             // erase multiple elements
             auto erase_count = this->modify().bulkEraseSorted(data.begin(), data.end(), m_item_destroy_func, callback_ptr);
-            // compact vector if necessary ( dying state only )
-            was_addr_changed = compactDying();
+            // compact vector if necessary ( shrinking state only )
+            was_addr_changed = compactShrinking();
             return erase_count;
         }
-
+        
         /**
          * erase element by key, throws
          * NOTE : this address may change as an effect of erase
@@ -833,15 +833,15 @@ namespace db0
         void pop_front(int count, bool &addr_changed) 
         {
             this->modify().pop_front(count, m_item_destroy_func);
-            // compact vector if necessary ( dying state only )
-            addr_changed = compactDying();
+            // compact vector if necessary ( shrinking state only )
+            addr_changed = compactShrinking();
         }
 
         void pop_back(int count, bool &addr_changed) 
         {
             this->modify().pop_back(count, m_item_destroy_func);
-            // compact vector if necessary ( dying state only )
-            addr_changed = compactDying();
+            // compact vector if necessary ( shrinking state only )
+            addr_changed = compactShrinking();
         }
         
         bool empty() const {
@@ -1001,7 +1001,7 @@ namespace db0
         std::size_t bulkEraseSorted(InputIterator it, InputIterator it_end, bool &was_addr_changed, CallbackT *callback_ptr = nullptr)
         {
             auto erase_count = this->modify().bulkEraseSorted(it, it_end, m_item_destroy_func, callback_ptr);
-            was_addr_changed = compactDying();
+            was_addr_changed = compactShrinking();
             return erase_count;
         }
 
@@ -1009,7 +1009,7 @@ namespace db0
         std::size_t bulkErase(std::function<bool(KeyT)> f, bool &was_addr_changed, CallbackT *callback_ptr = nullptr)
         {
             auto erase_count = this->modify().bulkErase(f, m_item_destroy_func, callback_ptr);
-            was_addr_changed = compactDying();
+            was_addr_changed = compactShrinking();
             return erase_count;
         }
 
@@ -1075,7 +1075,7 @@ namespace db0
                 new_capacity <<= 1;
             }
             if (new_capacity > 4 && new_capacity < (*this)->m_capacity) {
-                // VSPACE copy resized ( preserve sv_dying state of the new object )
+                // VSPACE copy resized ( preserve sv_shrinking state of the new object )
                 v_sorted_vector new_vector(this->getMemspace(), (*this)->begin(), (*this)->end(), new_capacity, 
                     (*this)->m_state, this->m_item_destroy_func);
                 // delete VSPACE "this"
@@ -1091,9 +1091,9 @@ namespace db0
         /**
          * @return true on object relocated
          */
-        bool compactDying() 
+        bool compactShrinking() 
         {
-            if ((*this)->isDying()) {
+            if ((*this)->isshrinking()) {
                 return compact();
             } else {
                 return false;
