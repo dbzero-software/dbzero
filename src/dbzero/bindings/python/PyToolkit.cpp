@@ -347,7 +347,7 @@ namespace db0::python
         return PyFieldDef_Check(py_object);
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadEnumValue(const EnumValue &value) {
+    PyToolkit::ObjectSharedPtr PyToolkit::makeEnumValue(const EnumValue &value) {
         return shared_py_cast<PyObject*>(makePyEnumValue(value));
     }
 

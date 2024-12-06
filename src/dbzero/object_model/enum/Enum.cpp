@@ -106,9 +106,11 @@ namespace db0::object_model
     
     Enum::ObjectSharedPtr Enum::getLangValue(const char *value) const
     {
+        // NOTE: m_cache must NOT be cleared during the lifetime of the process
+        // there's a strong assumption that each enum value is represented by the same native object
         auto it_cache = m_cache.find(value);
         if (it_cache == m_cache.end()) {
-            auto lang_value = LangToolkit::unloadEnumValue(get(value));
+            auto lang_value = LangToolkit::makeEnumValue(get(value));
             it_cache = m_cache.insert({value, lang_value}).first;
         }
         return it_cache->second.get();
