@@ -589,11 +589,8 @@ namespace db0
             return getData()[m_size - 1];
         }
 
-        data_t &modifyItem(const data_t *item) {
-            return *(const_cast<data_t*>(item));
-        }
-
-        data_t &modifyItem(int index) {
+        // NOTE: buffer's address may be affected by modify therefore items should only be modified by index
+        data_t &modifyItem(unsigned int index) {
             return getData()[index];
         }
 
