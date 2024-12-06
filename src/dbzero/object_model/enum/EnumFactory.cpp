@@ -195,11 +195,11 @@ namespace db0::object_model
         return getEnumByPtr(enum_ptr);
     }
     
-    bool EnumFactory::hasTranslatedEnumValue(const EnumValue &other) const {
+    bool EnumFactory::isMigrateRequired(const EnumValue &other) const {
         return (other.m_fixture_uuid != getFixture()->getUUID());
     }
     
-    std::shared_ptr<Enum> EnumFactory::getTranslatedEnum(const EnumValue &other)
+    std::shared_ptr<Enum> EnumFactory::getMigratedEnum(const EnumValue &other)
     {
         assert(other.m_fixture_uuid != getFixture()->getUUID());
         auto &other_factory = this->getFixture()->getWorkspace().
@@ -211,7 +211,7 @@ namespace db0::object_model
         return this->getOrCreateEnum(other_enum->getEnumDef(), type_id ? type_id->c_str() : nullptr);
     }
     
-    EnumValue EnumFactory::translateEnumValue(const EnumValue &other)
+    EnumValue EnumFactory::migrateEnumValue(const EnumValue &other)
     {
         if (other.m_fixture_uuid == getFixture()->getUUID()) {
             // no translation required
@@ -219,10 +219,10 @@ namespace db0::object_model
         }
 
         // must resolve enum value by name since UIDs dont match across prefixes
-        return getTranslatedEnum(other)->get(other.m_str_repr.c_str());
+        return getMigratedEnum(other)->get(other.m_str_repr.c_str());
     }
     
-    EnumFactory::ObjectSharedPtr EnumFactory::translateEnumLangValue(const EnumValue &other)
+    EnumFactory::ObjectSharedPtr EnumFactory::migrateEnumLangValue(const EnumValue &other)
     {
         if (other.m_fixture_uuid == getFixture()->getUUID()) {
             // retrieve from this factory
@@ -230,7 +230,7 @@ namespace db0::object_model
         }
         
         // must resolve enum value by name since UIDs dont match across prefixes
-        return getTranslatedEnum(other)->getLangValue(other.m_str_repr.c_str());
+        return getMigratedEnum(other)->getLangValue(other.m_str_repr.c_str());
     }
     
     void EnumFactory::commit() const
@@ -255,7 +255,7 @@ namespace db0::object_model
         super_t::detach();
     }
     
-    std::optional<EnumValue> EnumFactory::tryGetByValueRepr(const EnumValueRepr &enum_value_repr)
+    std::optional<EnumValue> EnumFactory::tryGetEnumValue(const EnumValueRepr &enum_value_repr)
     {
         const auto &enum_type_def = enum_value_repr.getEnumTypeDef();
         auto enum_ = this->tryGetOrCreateEnum(enum_type_def);
@@ -265,6 +265,18 @@ namespace db0::object_model
         
         // resolve by text representation (since UIDs are not compatible across fixtures)
         return enum_->get(enum_value_repr.m_str_repr.c_str());
+    }
+    
+    EnumFactory::ObjectSharedPtr EnumFactory::tryGetEnumLangValue(const EnumValueRepr &enum_value_repr)
+    {
+        const auto &enum_type_def = enum_value_repr.getEnumTypeDef();
+        auto enum_ = this->tryGetOrCreateEnum(enum_type_def);
+        if (!enum_) {
+            return nullptr;
+        }
+        
+        // resolve by text representation (since UIDs are not compatible across fixtures)
+        return enum_->getLangValue(enum_value_repr.m_str_repr.c_str());
     }
 
 }

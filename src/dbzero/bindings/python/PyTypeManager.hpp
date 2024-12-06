@@ -95,13 +95,13 @@ namespace db0::python
         TagSet &extractTagSet(ObjectPtr tag_set_ptr) const;
         const Index &extractIndex(ObjectPtr index_ptr) const;
         Index &extractMutableIndex(ObjectPtr index_ptr) const;
-        EnumValue extractEnumValue(ObjectPtr enum_value_ptr) const;
+        const EnumValue &extractEnumValue(ObjectPtr enum_value_ptr) const;
         const EnumValueRepr &extractEnumValueRepr(ObjectPtr enum_value_repr_ptr) const;
         ObjectIterator &extractObjectIterator(ObjectPtr) const;
         FieldDef &extractFieldDef(ObjectPtr) const;
         std::string extractString(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
-        std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;
+        std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;        
         
         ObjectPtr getBadPrefixError() const;
         ObjectPtr getClassNotFoundError() const;

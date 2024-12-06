@@ -30,7 +30,7 @@ namespace db0::python
     {
         const auto &dict_obj = py_dict->ext();
         dict_obj.getFixture()->refreshIfUpdated();
-        auto key = translatedKey(dict_obj, py_key);
+        auto key = migratedKey(dict_obj, py_key);
         auto hash = get_py_hash(key.get());
         if (hash == -1) {
             auto py_str = PyObject_Str(py_key);
@@ -59,7 +59,7 @@ namespace db0::python
     
     int DictObject_SetItem(DictObject *py_dict, PyObject *py_key, PyObject *value)
     {
-        auto key = translatedKey(py_dict->ext(), py_key);
+        auto key = migratedKey(py_dict->ext(), py_key);
         auto hash = get_py_hash(key.get());
         if (hash == -1) {            
             // set PyError
@@ -94,7 +94,7 @@ namespace db0::python
     
     int DictObject_HasItem(DictObject *py_dict, PyObject *py_key)
     {        
-        auto key = translatedKey(py_dict->ext(), py_key);
+        auto key = migratedKey(py_dict->ext(), py_key);
         py_dict->ext().getFixture()->refreshIfUpdated();
         auto hash = get_py_hash(key.get());
         return py_dict->ext().has_item(hash, key.get());
@@ -300,7 +300,7 @@ namespace db0::python
         if (nargs == 2) {
             value = args[1];
         }
-        auto elem = translatedKey(dict_object->ext(), py_elem);
+        auto elem = migratedKey(dict_object->ext(), py_elem);
         auto hash = get_py_hash(elem.get());
         if (dict_object->ext().has_item(hash, elem.get())) {
             return DictObject_GetItem(dict_object, elem.get());
@@ -330,7 +330,7 @@ namespace db0::python
         if (nargs == 2) {
             value = args[1];
         }
-        auto elem = translatedKey(dict_object->ext(), py_elem);
+        auto elem = migratedKey(dict_object->ext(), py_elem);
         auto hash = get_py_hash(elem.get());
         if (dict_object->ext().has_item(hash, elem.get())) {
             auto obj = dict_object->modifyExt().pop(hash, elem.get());
@@ -365,7 +365,7 @@ namespace db0::python
         if(nargs == 2){
             value = args[1];
         }
-        auto elem = translatedKey(dict_object->ext(), py_elem);
+        auto elem = migratedKey(dict_object->ext(), py_elem);
         auto hash = get_py_hash(elem.get());
         if (!dict_object->ext().has_item(hash, elem.get())) {
             DictObject_SetItem(dict_object, elem.get(), value);

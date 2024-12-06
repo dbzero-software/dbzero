@@ -254,23 +254,23 @@ namespace db0::python
         return PyEnumValue_str(py_enum_value);        
     }
 
-    bool hasTranslatedEnumValue(db0::swine_ptr<Fixture> &fixture, PyEnumValue *py_enum_value)
+    bool isMigrateRequired(db0::swine_ptr<Fixture> &fixture, PyEnumValue *py_enum_value)
     {
         auto &enum_value = py_enum_value->ext();
         // translation is needed if prefixes differ
         return (enum_value.m_fixture_uuid != fixture->getUUID());
     }
     
-    shared_py_object<PyObject*> translatedEnumValue(db0::swine_ptr<Fixture> &fixture, PyEnumValue *py_enum_value)
+    shared_py_object<PyObject*> migratedEnumValue(db0::swine_ptr<Fixture> &fixture, PyEnumValue *py_enum_value)
     {
         auto &enum_value = py_enum_value->ext();
         if (enum_value.m_fixture_uuid == fixture->getUUID()) {
             // no translation needed
             return py_enum_value;
         }
+
         // migrate enum value to the destination fixture
-        auto value = fixture->get<db0::object_model::EnumFactory>().translateEnumValue(enum_value);
-        return shared_py_cast<PyObject*>(makePyEnumValue(value));        
+        return fixture->get<db0::object_model::EnumFactory>().migrateEnumLangValue(enum_value);        
     }
     
 }

@@ -201,7 +201,7 @@ namespace db0::object_model
         // make sure value from the same Fixture is assigned
         if (enum_value.m_fixture_uuid != fixture->getUUID()) {
             // migrate enum value to the destination fixture
-            enum_value = fixture->get<EnumFactory>().translateEnumValue(enum_value);
+            enum_value = fixture->get<EnumFactory>().migrateEnumValue(enum_value);
         }
         return enum_value.getUID().asULong();
     }

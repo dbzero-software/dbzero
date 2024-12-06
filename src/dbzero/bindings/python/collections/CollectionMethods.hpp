@@ -142,19 +142,19 @@ namespace db0::python
         return index;
     }
     
-    // Checks if the key conversion is required
+    // Checks if the key migration (to a different prefix) is required
     template <typename CollectionT>
-    bool hasTranslatedKey(const CollectionT &collection, PyObject *key)
+    bool isMigrateRrequired(const CollectionT &collection, PyObject *key)
     {
         if (PyEnumValue_Check(key)) {
             auto fixture = collection.getFixture();
-            return hasTranslatedEnumValue(fixture, reinterpret_cast<PyEnumValue*>(key));
+            return isMigrateRequired(fixture, reinterpret_cast<PyEnumValue*>(key));
         } else if (PyTuple_Check(key)) {
             // check each element of the tuple
             auto size = PyTuple_Size(key);
             for (int i = 0; i < size; ++i) {
                 auto item = PyTuple_GetItem(key, i);
-                bool result = hasTranslatedKey(collection, item);
+                bool result = isMigrateRrequired(collection, item);
                 if (result) {
                     return true;
                 }
@@ -165,23 +165,22 @@ namespace db0::python
         return false;
     }
     
-    // Performs key translaction where necessary
+    // Performs key migration (to a colleciton's prefix) where necessary
     // this is required for translating non-scoped EnumValues between prefixes
     template <typename CollectionT>
-    shared_py_object<PyObject*> translatedKey(const CollectionT &collection, PyObject *key)
+    shared_py_object<PyObject*> migratedKey(const CollectionT &collection, PyObject *key)
     {
         if (PyEnumValue_Check(key)) {
             auto fixture = collection.getFixture();
-            return translatedEnumValue(fixture, reinterpret_cast<PyEnumValue*>(key));
+            return migratedEnumValue(fixture, reinterpret_cast<PyEnumValue*>(key));
         } else if (PyTuple_Check(key)) {
             // only perform tuple translation if needed
-            if (hasTranslatedKey(collection, key)) {
+            if (isMigrateRrequired(collection, key)) {
                 auto size = PyTuple_Size(key);
                 auto py_tuple = PyTuple_New(size);
                 for (int i = 0; i < size; ++i) {
-                    auto item = PyTuple_GetItem(key, i);
-                    auto translated = translatedKey(collection, item);                    
-                    PyTuple_SET_ITEM(py_tuple, i, translated.steal());
+                    auto item = PyTuple_GetItem(key, i);                    
+                    PyTuple_SET_ITEM(py_tuple, i, migratedKey(collection, item).steal());
                 }
                 return shared_py_object<PyObject*>(py_tuple);
             }
@@ -189,5 +188,5 @@ namespace db0::python
         // no translation needed
         return key;
     }
-
+    
 }

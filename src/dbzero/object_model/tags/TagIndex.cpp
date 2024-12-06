@@ -539,17 +539,22 @@ namespace db0::object_model
     {
         // try translating enum value-repr to enum value
         auto &enum_value_repr = LangToolkit::getTypeManager().extractEnumValueRepr(py_arg);
-        auto enum_value = m_enum_factory.tryGetByValueRepr(enum_value_repr);
-        // enum value-repr associated tags don't exist
-        if (!enum_value) {
-            return {};
-        }
-        // feed the alternative representation
         if (alt_repr) {
-            *alt_repr = LangToolkit::unloadEnumValue(*enum_value);
+            *alt_repr = m_enum_factory.tryGetEnumLangValue(enum_value_repr);
+            // value-repr associated tags don't exist
+            if (!*alt_repr) {
+                return {};
+            }
+            return getShortTagFromEnumValue(LangToolkit::getTypeManager().extractEnumValue(alt_repr->get()));
+        } else {
+            auto enum_value = m_enum_factory.tryGetEnumValue(enum_value_repr);
+            // enum value-repr associated tags don't exist
+            if (!enum_value) {
+                return {};
+            }
+            // and so get the tag from the enum value
+            return getShortTagFromEnumValue(*enum_value);
         }
-        // and so get the tag from the enum value
-        return getShortTagFromEnumValue(*enum_value);
     }
 
     TagIndex::ShortTagT TagIndex::getShortTag(ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
@@ -579,13 +584,14 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
     {
         if (enum_value.m_fixture_uuid != m_fixture_uuid) {
-            // translate prefix
-            auto value = m_enum_factory.translateEnumValue(enum_value);
-            // unload the alternative representation
+            // migrate to a different prefix if needed
             if (alt_repr) {
-                *alt_repr = LangToolkit::unloadEnumValue(value);
+                *alt_repr = m_enum_factory.migrateEnumLangValue(enum_value);
+                return LangToolkit::getTypeManager().extractEnumValue(alt_repr->get()).getUID().asULong();
+            } else {
+                auto value = m_enum_factory.migrateEnumValue(enum_value);
+                return value.getUID().asULong();
             }
-            return value.getUID().asULong();
         }
         return enum_value.getUID().asULong();
     }

@@ -69,19 +69,21 @@ namespace db0::object_model
         std::shared_ptr<Enum> getEnumByUID(std::uint32_t enum_uid) const;
         
         /**
-         * Translates enum value to the one managed by this fixture/factory
+         * Migrate / translate enum value to the one managed by this fixture/factory
          * @param enum_value enum value from a different fixture
          * @return enum value as a language specific object
          */
-        ObjectSharedPtr translateEnumLangValue(const EnumValue &enum_value);
-        EnumValue translateEnumValue(const EnumValue &enum_value);
+        ObjectSharedPtr migrateEnumLangValue(const EnumValue &enum_value);
+        EnumValue migrateEnumValue(const EnumValue &enum_value);
         
-        // Checks if specific enum value requires translation
-        bool hasTranslatedEnumValue(const EnumValue &) const;
+        // Checks if specific enum value requires migration / translation to a different prefix
+        bool isMigrateRequired(const EnumValue &) const;
         
         // Try converting EnumValueRepr to this EnumFactory's associated EnumValue
-        std::optional<EnumValue> tryGetByValueRepr(const EnumValueRepr &);
-        
+        std::optional<EnumValue> tryGetEnumValue(const EnumValueRepr &);
+        // try converting to enum's related language specific object
+        ObjectSharedPtr tryGetEnumLangValue(const EnumValueRepr &);
+
         void commit() const;
         
         void detach() const;
@@ -98,7 +100,7 @@ namespace db0::object_model
         // Locate enum by definition
         EnumPtr tryFindEnumPtr(const EnumDef &, const char *type_id = nullptr) const;
         // get translated enum corresponding to enum_value
-        std::shared_ptr<Enum> getTranslatedEnum(const EnumValue &enum_value);
+        std::shared_ptr<Enum> getMigratedEnum(const EnumValue &enum_value);
     };
     
     std::optional<std::string> getEnumKeyVariant(const EnumDef &, const char *type_id, int variant_id);
