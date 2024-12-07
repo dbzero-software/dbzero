@@ -209,7 +209,8 @@ namespace db0
 
         auto null_block = m_tree_ptr->getNullBlock();
         if (null_block) {
-            FT_ANDIteratorFactory<ValueT> and_factory;
+            // NOTE: use UniqueKeys=false to allow multiple null keys
+            FT_ANDIteratorFactory<ValueT, false> and_factory;
             if (m_has_query) {
                 and_factory.add(m_query_it->beginTyped());
             }
@@ -238,6 +239,7 @@ namespace db0
         if (m_is_end) {
             return;
         }
+
         if (m_inner_it) {
             for (;;) {
                 // pull from inner sorted iterator if available
@@ -392,7 +394,8 @@ namespace db0
             }
 
             // ingest another range (block of data) by joining with the query iterator
-            FT_ANDIteratorFactory<ValueT> and_factory;
+            // NOTE: use UniqueKey = false to retrieve object multiple times if added under different keys
+            FT_ANDIteratorFactory<ValueT, false> and_factory;
             if (m_has_query) {
                 and_factory.add(m_query_it->beginTyped(-1));
             }

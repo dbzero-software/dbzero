@@ -17,7 +17,8 @@ namespace db0
         using node_stack = typename types_t::node_stack;
         using data_vector = typename types_t::data_vector;
         using v_object_t = v_object<typename bindex_types<item_t, AddrT, item_comp_t>::bindex_container>;
-    public :
+
+    public:
 
         v_bindex_joinable_const_iterator(bindex_tree_t &index, std::uint32_t max_size, int direction)
             : m_index_ptr(&index)
@@ -199,7 +200,7 @@ namespace db0
             }
             typename types_t::template cast_then_compare<KeyT> cast_comp;
             // check with the index
-            if (m_comp(key, static_cast<KeyT>(m_node->m_data.lo_bound)) && m_node!=m_index_ptr->begin()) {
+            if (m_comp(key, static_cast<KeyT>(m_node->m_data.lo_bound)) && m_node != m_index_ptr->begin()) {
                 m_index_ptr->joinBound(m_stack, key, cast_comp);
                 if (m_node!=*m_stack) {
                     m_node = *m_stack;
@@ -321,7 +322,7 @@ namespace db0
         /**
          * Step to next item forwards
          */
-        void operator++() 
+        void operator++()
         {
             ++m_it_data;
             if (m_it_data==m_data_buf->end()) {
@@ -330,8 +331,7 @@ namespace db0
                     // invalidate, set end
                     m_it_data.reset();
                     return;
-                }
-                else {
+                } else {
                     // open bucket / bucket iterator
                     m_data_buf = data_vector(m_index_ptr->myPtr(m_node->m_data.ptr_b_data));
                     m_it_data = m_data_buf->beginJoin(1);
@@ -386,10 +386,10 @@ namespace db0
         /**
          * @return 0 based block position (block number) for valid iterator
          */
-        std::uint64_t getBlockPosition() const 
+        std::uint64_t getBlockPosition() const
         {
             assert(!is_end());
-            uint64_t block_num = 0;
+            std::uint64_t block_num = 0;
             if (m_direction > 0) {
                 auto it = m_index_ptr->begin();
                 while (it!=m_node) {
@@ -437,8 +437,45 @@ namespace db0
             m_data_buf.detach();
             m_it_data.reset();
         }
+        
+        bool isNextKeyDuplicated() const
+        {
+            assert(!is_end());
+            auto it_data_next = m_it_data;
+            bool has_next = false;
+            if (m_direction > 0) {
+                ++it_data_next;
+                has_next = it_data_next != m_data_buf->end();
+            } else {
+                if (m_it_data != m_data_buf->begin()) {
+                    --it_data_next;
+                    has_next = true;
+                }
+            }
 
-    protected :
+            if (!has_next) {
+                auto it_node_next = m_node;
+                if (m_direction > 0) {
+                    ++it_node_next;
+                    if (it_node_next == m_index_ptr->end()) {
+                        return false;
+                    }
+                } else {
+                    if (it_node_next == m_index_ptr->begin()) {
+                        return false;
+                    }
+                    --it_node_next;
+                }
+                
+                data_vector data_buf_next(m_index_ptr->myPtr(it_node_next->m_data.ptr_b_data));
+                auto it_data_next = data_buf_next->beginJoin(m_direction);
+                return !m_comp(*m_it_data, *it_data_next) && !m_comp(*it_data_next, *m_it_data);
+            }
+
+            return !m_comp(*m_it_data, *it_data_next) && !m_comp(*it_data_next, *m_it_data);
+        }
+        
+    protected:
         friend class vso_b_index;
         item_comp_t m_comp;
         bindex_tree_t *m_index_ptr;

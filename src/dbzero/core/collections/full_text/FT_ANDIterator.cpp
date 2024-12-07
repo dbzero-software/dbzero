@@ -18,18 +18,20 @@ namespace db0
 	FT_JoinANDIterator<key_t, UniqueKeys>::FT_JoinANDIterator(std::unique_ptr<FT_Iterator<key_t> > &&it0, 
         std::unique_ptr<FT_Iterator<key_t> > &&it1, int direction, bool lazy_init)
         : m_direction(direction)
-        , m_end(false)        
+        , m_joinable(std::move(it0), std::move(it1))
+        , m_end(false)
 	{        
-		m_joinable.emplace_back(std::move(it0));
-		m_joinable.emplace_back(std::move(it1));
         // skip initialization if the lazy init was requested
 		if (!lazy_init) {
-            // test end iterator(s) condition
-            if ((it0->isEnd()) || (it1->isEnd())) {
-                setEnd();
-            } else {                
-                joinAll();
+            // test end iterator condition
+            for (auto &it : m_joinable) {
+                if ((*it).isEnd()) {
+                    setEnd();
+                    return;
+                }
             }
+            m_join_key = (*m_joinable.front()).getKey();
+            joinAll();
         }
 	}
 
@@ -38,9 +40,9 @@ namespace db0
         std::list<std::unique_ptr<FT_Iterator<key_t> > > &&inner_iterators, int direction, bool lazy_init)
         : super_t(uid)
         , m_direction(direction)
+        , m_joinable(std::move(inner_iterators))
         , m_end(false)
-    {        
-        m_joinable.splice(m_joinable.end(), inner_iterators);
+    {
         // skip initialization if the lazy init was requested
         if (!lazy_init) {
             // test end iterator condition
@@ -49,7 +51,8 @@ namespace db0
                     setEnd();
                     return;
                 }
-            }            
+            }
+            m_join_key = (*m_joinable.front()).getKey();
             joinAll();
         }
     }
@@ -69,7 +72,7 @@ namespace db0
 	void FT_JoinANDIterator<key_t, UniqueKeys>::operator++() 
     {
         assert(m_direction > 0);
-        assert(!isEnd());        
+        assert(!isEnd());
         if constexpr (UniqueKeys) {
             _nextUnique();
         } else {
@@ -81,7 +84,7 @@ namespace db0
 	void FT_JoinANDIterator<key_t, UniqueKeys>::operator--() {
         this->_next(nullptr);
 	}
-
+    
 	template <typename key_t, bool UniqueKeys>
 	void FT_JoinANDIterator<key_t, UniqueKeys>::_next(void *buf) 
     {
@@ -108,15 +111,16 @@ namespace db0
 	}
 
     template <typename key_t, bool UniqueKeys>
-    const db0::FT_Iterator<key_t>& FT_JoinANDIterator<key_t, UniqueKeys>::getSimple() const {
+    const db0::FT_Iterator<key_t> &FT_JoinANDIterator<key_t, UniqueKeys>::getSimple() const {
         assert(!m_joinable.empty());
         return *m_joinable.front();
     }
 
 	template <typename key_t, bool UniqueKeys>
 	bool FT_JoinANDIterator<key_t, UniqueKeys>::join(key_t join_key, int direction)
-    {		
-		if ((*m_joinable.front()).join(join_key, direction)) {
+    {
+		if (m_joinable.front()->join(join_key, direction)) {
+            m_join_key = m_joinable.front()->getKey();
 			joinAll();
 			return !isEnd();
 		} else {
@@ -128,33 +132,32 @@ namespace db0
 	template <typename key_t, bool UniqueKeys>
 	void FT_JoinANDIterator<key_t, UniqueKeys>::joinBound(key_t key) 
     {
-		for (auto it = m_joinable.begin(), itend = m_joinable.end(); it!=itend; ++it) {
-			assert((*it).get());
+		for (auto it = m_joinable.begin(), end = m_joinable.end(); it != end; ++it) {
 			// try join leading iterator
 			assert(!(**it).isEnd());
 			(**it).joinBound(key);
 			m_join_key = (**it).getKey();
-			if (m_join_key!=key) {
+			if (m_join_key != key) {
 				break;
 			}
-		}		
+        }
 	}
 
 	template <typename key_t, bool UniqueKeys>
 	std::pair<key_t, bool> FT_JoinANDIterator<key_t, UniqueKeys>::peek(key_t join_key) const 
     {
 		key_t lead_key = join_key;
-		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it!=itend; ++it) {
-			std::pair<key_t, bool> peek_result = (*it)->peek(lead_key);
+		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it != itend; ++it) {
+			std::pair<key_t, bool> peek_result = (**it).peek(lead_key);
 			if (!peek_result.second) {
-				return std::pair<key_t, bool>(key_t(), false);
+				return { key_t(), false };
 			}
 			// join condition
 			assert(peek_result.first <= lead_key);
 			if (peek_result.first < lead_key) {
 				lead_key = peek_result.first;
-				// this is the new leader ( push front using splice operation )
-				m_joinable.splice(m_joinable.begin(), m_joinable,it);
+                // move to front and start over
+				it = m_joinable.swapFront(it);
 			}
 		}
 		return std::make_pair(lead_key, true);
@@ -165,8 +168,8 @@ namespace db0
     {
 		// collect joinable (must sync)
 		std::list<std::unique_ptr<FT_Iterator<key_t> > > temp;
-        for (auto it = m_joinable.begin(),itend = m_joinable.end();it!=itend;++it) {
-            temp.emplace_back((*it)->beginTyped(direction));
+        for (auto it = m_joinable.begin(),itend = m_joinable.end();it != itend;++it) {
+            temp.emplace_back((**it).beginTyped(direction));
         }
 		return std::unique_ptr<FT_JoinANDIterator<key_t, UniqueKeys> >(
             new FT_JoinANDIterator<key_t, UniqueKeys>(this->m_uid, std::move(temp), direction, false)
@@ -176,7 +179,7 @@ namespace db0
 	template <typename key_t, bool UniqueKeys>
 	bool FT_JoinANDIterator<key_t, UniqueKeys>::limitBy(key_t key) 
     {
-		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it!=itend; ++it) {
+		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it != itend; ++it) {
 			if (!(**it).limitBy(key)) {
 				setEnd();
 				return false;
@@ -190,11 +193,11 @@ namespace db0
     {
 		os << "AND@" << this << "[";
 		bool is_first = true;
-		for (auto it = m_joinable.begin(),itend = m_joinable.end();it!=itend;++it) {
+		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it != itend; ++it) {
 			if (!is_first) {
 				os << ",";
 			}
-			(*it)->dump(os);
+			(**it).dump(os);
 			is_first = false;
 		}
 		return os << "]";
@@ -208,8 +211,8 @@ namespace db0
 			return this;
 		}
 		// find in joinables
-		for (auto it_sub = m_joinable.begin(), itend = m_joinable.end();it_sub!=itend;++it_sub) {
-			const FT_IteratorBase *it_filter = (*it_sub)->find(uid);
+		for (auto it_sub = m_joinable.begin(), itend = m_joinable.end(); it_sub != itend; ++it_sub) {
+			const FT_IteratorBase *it_filter = (**it_sub).find(uid);
 			if (it_filter) {
 				return it_filter;
 			}
@@ -222,135 +225,57 @@ namespace db0
 	void FT_JoinANDIterator<key_t, UniqueKeys>::setEnd() {
 		m_end = true;
 	}
-
+    
     template <typename key_t, bool UniqueKeys> void FT_JoinANDIterator<key_t, UniqueKeys>::_next()
     {
-        if (m_direction > 0) {
-            FT_Iterator<key_t> *lead_it = m_joinable.front().get();
-            ++(*lead_it);
-            if (lead_it->isEnd() || lead_it->getKey() != m_join_key) {
-                m_joinable.splice(m_joinable.end(), m_joinable, m_joinable.begin());
-                lead_it = m_joinable.front().get();
-                if (lead_it->isEnd()) {
-                    setEnd();
-                    return;
-                }
-                if (lead_it->getKey() != m_join_key) {
-                    joinAll();
-                }
-            }
-        } else {
-            FT_Iterator<key_t> *lead_it = m_joinable.front().get();
-            --(*lead_it);
-            if (lead_it->isEnd() || lead_it->getKey() != m_join_key) {
-                m_joinable.splice(m_joinable.end(), m_joinable, m_joinable.begin());
-                lead_it = m_joinable.front().get();
-                if (lead_it->isEnd()) {
-                    setEnd();
-                    return;
-                }
-                if (lead_it->getKey() != m_join_key) {
-                    joinAll();
-                }
+        // Try advancing one of the iterators which holds a duplicate key
+        for (auto &joinable: m_joinable) {
+            if ((*joinable).isNextKeyDuplicated()) {
+                joinable.nextKey(m_direction);
+                return;
             }
         }
+            
+        // advance the head iterator otherwise
+        if (!m_joinable.front().nextKey(m_direction, &m_join_key)) {
+            setEnd();
+            return;
+        }
+        joinAll();
     }
     
     template <typename key_t, bool UniqueKeys> void FT_JoinANDIterator<key_t, UniqueKeys>::_nextUnique()
     {
-        if (m_direction > 0) {
-            FT_Iterator<key_t> &lead_it = *m_joinable.front();
-            do {
-                ++lead_it;
-                if(lead_it.isEnd()) {
-                    setEnd();
-                    return;
-                }
-            } while(lead_it.getKey() == m_join_key);
-            joinAll();
-        } else {
-            FT_Iterator<key_t> &lead_it = *m_joinable.front();
-            do {
-                --lead_it;
-                if(lead_it.isEnd()) {
-                    setEnd();
-                    return;
-                }
-            } while(lead_it.getKey() == m_join_key);
-            joinAll();
+        if (!m_joinable.front().nextUniqueKey(m_direction, &m_join_key)) {
+            setEnd();
+            return;
         }
+        joinAll();
     }
 
-	template <typename key_t, bool UniqueKeys> void FT_JoinANDIterator<key_t, UniqueKeys>::joinAll() 
+	template <typename key_t, bool UniqueKeys> void FT_JoinANDIterator<key_t, UniqueKeys>::joinAll()
     {
-        if (m_direction > 0) {
-            auto it = m_joinable.begin();
-            assert (it!=m_joinable.end());
-            assert ((*it).get());
-            if ((**it).isEnd()) {
-                setEnd();
-                return; // end of input
-            }
-            m_join_key = (**it).getKey();
+        auto it = m_joinable.begin(), end = m_joinable.end();
+        assert(it != end);
+        assert(!(**it).isEnd());
+        assert((**it).getKey() == m_join_key);
+        for (;;) {
             ++it;
-            while (it!=m_joinable.end()) {
-                assert ((*it).get());
-                if ((**it).isEnd()) {
-                    setEnd();
-                    return; // end of input
-                }
-                // try join leading iterator
-                if ((**it).join(m_join_key, m_direction)) {
-                    // compare not equal
-                    key_t key = (**it).getKey();
-                    if (key != m_join_key) {
-                        m_join_key = key;
-                        // this is the new leader ( push front using splice operation )
-                        m_joinable.splice(m_joinable.begin(), m_joinable,it);
-                        ++it;
-                        continue;
-                    }
-                } else {
-                    setEnd();
-                    return; // end of input
-                }
-                ++it;
+            if (it == end) {
+                break;
             }
-        } else {
-            auto it = m_joinable.begin();
-            assert (it!=m_joinable.end());
-            assert ((*it).get());
-            if ((**it).isEnd()) {
+            if (!(**it).join(m_join_key, m_direction)) {
                 setEnd();
-                return; // end of input
+                return;
             }
-            m_join_key = (**it).getKey();
-            ++it;
-            while (it!=m_joinable.end()) {
-                assert((*it).get());
-                if ((**it).isEnd()) {
-                    setEnd();
-                    return; // end of input
-                }
-                // try join leading iterator
-                if ((**it).join(m_join_key, m_direction)) {
-                    // compare not equal
-                    key_t key = (**it).getKey();
-                    if (key != m_join_key) {
-                        m_join_key = key;
-                        // this is the new leader ( push front using splice operation )
-                        m_joinable.splice(m_joinable.begin(),m_joinable,it);
-                        ++it;
-                        continue;
-                    }
-                } else {
-                    setEnd();
-                    return; // end of input
-                }
-                ++it;
+            auto next_join_key = (**it).getKey();
+            if (next_join_key != m_join_key) {
+                m_join_key = next_join_key;
+                // continue with this iterator as the head
+                it = m_joinable.swapFront(it);
             }
         }
-	}
+    }
     
 	template <typename key_t, bool UniqueKeys>
 	void db0::FT_JoinANDIterator<key_t, UniqueKeys>
@@ -362,7 +287,7 @@ namespace db0
 			(*it).scanQueryTree(scan_function, depth + 1);
 		}
 	}
-
+    
     template <typename key_t, bool UniqueKeys> void db0::FT_JoinANDIterator<key_t, UniqueKeys>
         ::forAll(std::function<bool(const db0::FT_Iterator<key_t> &)> f) const
     {
@@ -374,10 +299,11 @@ namespace db0
     }
 
     template <typename key_t, bool UniqueKeys>
-    std::size_t db0::FT_JoinANDIterator<key_t, UniqueKeys>::getDepth() const {
+    std::size_t db0::FT_JoinANDIterator<key_t, UniqueKeys>::getDepth() const 
+    {
         std::size_t max_inner = 0;
         for (auto &joinable: m_joinable) {
-            max_inner = std::max(max_inner, joinable->getDepth());
+            max_inner = std::max(max_inner, (*joinable).getDepth());
         }
         return max_inner + 1u;
     }
@@ -395,7 +321,7 @@ namespace db0
             return false;
         }
         for (const auto &joinable: m_joinable) {
-            if (!joinable->findBy(f)) {
+            if (!(*joinable).findBy(f)) {
                 return false;
             }
         }
@@ -421,12 +347,13 @@ namespace db0
         }
         if (was_end) {
             this->setEnd();
-        } else {            
+        } else {
+            m_join_key = (*m_joinable.front()).getKey();       
             joinAll();
         }
         return { was_mutated, !was_end };
     }
-
+    
     template <typename key_t, bool UniqueKeys>
     void db0::FT_JoinANDIterator<key_t, UniqueKeys>::detach() {
         /* FIXME: implement
@@ -456,7 +383,7 @@ namespace db0
         db0::serial::write<std::int8_t>(v, m_direction);
         db0::serial::write<std::uint32_t>(v, m_joinable.size());
         for (const auto &it: m_joinable) {
-            it->serialize(v);
+            (*it).serialize(v);
         }
     }
     
@@ -505,7 +432,7 @@ namespace db0
         }
         
         if (m_joinable.size() == 1u) {
-            return m_joinable.front()->compareTo(it);
+            return (*m_joinable.front()).compareTo(it);
         }
         // different iterators
         return 1.0;
@@ -518,10 +445,10 @@ namespace db0
             return 1.0;
         }
         std::list<const FT_Iterator<key_t>*> refs;
-        for (auto ref = other.m_joinable.begin(),itend = other.m_joinable.end();ref!=itend;++ref) {
-            refs.push_back((*ref).get());
+        for (auto ref = other.m_joinable.begin(), itend = other.m_joinable.end();ref != itend;++ref) {
+            refs.push_back(ref->m_iterator);
         }
-
+        
         // for each iterator from refs_1 pull the closest matching one from refs_2
         double result = 1.0;
         double p_diff = 1.0 / (double)m_joinable.size();
@@ -529,7 +456,7 @@ namespace db0
             double m_diff = std::numeric_limits<double>::max();
             auto it_min = refs.end();
             for (auto it2 = refs.begin(),itend = refs.end(); it2 != itend; ++it2) {
-                double d = it->compareTo(**it2);
+                double d = (*it).compareTo(**it2);
                 if (d < m_diff) {
                     m_diff = d;
                     it_min = it2;
@@ -555,12 +482,27 @@ namespace db0
         db0::serial::sha256(buf, v);
     }
     
+    template <typename key_t, bool UniqueKeys>
+    bool db0::FT_JoinANDIterator<key_t, UniqueKeys>::isNextKeyDuplicated() const
+    {
+        if constexpr (UniqueKeys) {        
+            return false;
+        } else {
+            for (auto &joinable: m_joinable) {
+                if ((*joinable).isNextKeyDuplicated()) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+    
 	template<typename key_t, bool UniqueKeys>
     FT_ANDIteratorFactory<key_t, UniqueKeys>::FT_ANDIteratorFactory() = default;
 
 	template<typename key_t, bool UniqueKeys>
 	FT_ANDIteratorFactory<key_t, UniqueKeys>::~FT_ANDIteratorFactory() = default;
-
+    
 	template<typename key_t, bool UniqueKeys>
 	void FT_ANDIteratorFactory<key_t, UniqueKeys>::add(std::unique_ptr<FT_Iterator<key_t> > &&it_joinable) 
     {
@@ -605,7 +547,7 @@ namespace db0
 	void FT_ANDIteratorFactory<key_t, UniqueKeys>::clear() {
 		m_joinable.clear();
 	}
-        
+
     template class FT_JoinANDIterator<std::uint64_t, false>;
     template class FT_JoinANDIterator<std::uint64_t, true>;
     
@@ -613,5 +555,3 @@ namespace db0
     template class FT_ANDIteratorFactory<std::uint64_t, true>;
 
 }
-
-

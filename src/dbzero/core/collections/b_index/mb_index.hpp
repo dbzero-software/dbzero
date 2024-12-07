@@ -458,7 +458,6 @@ namespace db0
 		class joinable_const_iterator
         {
 		public:
-
             joinable_const_iterator() =default;
 
 			/**
@@ -550,6 +549,10 @@ namespace db0
 			    m_iterator.reset();
 			}
 
+			bool isNextKeyDuplicated() const {
+				return m_iterator.isNextKeyDuplicated();
+			}
+
         private:
             // morphology specific iterator interface
             iterator_t m_iterator;
@@ -599,7 +602,7 @@ namespace db0
 			}
 			THROWF(db0::InternalException) << "invalid index type" << THROWF_END;
 		}
-
+		
 		/**
          * Member provided for v_object interface compatibility
          */

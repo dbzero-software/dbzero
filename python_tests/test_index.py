@@ -503,3 +503,15 @@ def test_index_destroys_its_dependencies_when_removed(db0_fixture):
     # make sure dependent instance has been unreferenced
     with pytest.raises(Exception):
         db0.fetch(dep_uuid)
+
+
+def test_index_same_object_under_multiple_keys(db0_fixture):
+    index = db0.index()
+    for x in range(5):
+        obj = MemoTestClass(x)
+        # NOTE: obj is inserted 10 times under different keys
+        for key in range(10):
+            index.add(key, obj)
+    
+    assert len(list(index.sort(index.range(None, 3), desc=True))) == len(list(index.range(None, 3)))
+    

@@ -198,6 +198,18 @@ namespace db0
 			return false;
 		}
 		
+		// Check if identical element as the front is present in the heap
+		bool isFrontElementDuplicated () const
+		{			
+			if (m_size > 1 && m_heap[0]==m_heap[1]) {
+				return true;
+			}
+			if (m_size > 2 && m_heap[0]==m_heap[2]) {
+				return true;
+			}			
+			return false;
+		}
+		
 	protected :
 		/// actual size (number of items)
 		std::size_t m_size;

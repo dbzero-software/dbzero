@@ -74,7 +74,11 @@ namespace db0
          * @return key that would have been returned by join(direction=-1) and the result of the operation
         */
 		virtual std::pair<KeyT, bool> peek(KeyT join_key) const = 0;
-
+        
+        // Look-up the next element without advancing the iterator
+        // @return true if the next key exists & is identical as the current one
+        virtual bool isNextKeyDuplicated() const = 0;
+        
 		/**
 		 * Begin iteration as a typed FT_Iterator in a given direction,
          * the direction must be further preserved

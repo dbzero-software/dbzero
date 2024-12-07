@@ -51,6 +51,8 @@ namespace db0
 
 		std::pair<key_t, bool> peek(key_t join_key) const override;
 
+		bool isNextKeyDuplicated() const override;
+
         std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction = -1) const override;
 
 		bool limitBy(key_t key) override;
@@ -328,5 +330,10 @@ namespace db0
 		// get the serializable's signature
 		db0::serial::getSignature(*this, v);
 	}
-
+	
+	template <typename bindex_t, typename key_t, typename IndexKeyT>
+	bool FT_IndexIterator<bindex_t, key_t, IndexKeyT>::isNextKeyDuplicated() const {
+		return getIterator().isNextKeyDuplicated();
+	}
+	
 } 

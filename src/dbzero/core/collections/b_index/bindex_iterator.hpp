@@ -51,6 +51,7 @@ namespace db0::bindex::iterator
     template <typename item_t> using hasLimitPtr = bool (*)(const void *this_ptr);
     template <typename item_t> using getLimitPtr = const item_t& (*)(const void *this_ptr);
     template <typename item_t> using clonePtr = std::shared_ptr<void> (*)(const void *this_ptr);
+    template <typename item_t> using isNextKeyDuplicatedPtr = bool (*)(const void *this_ptr);
 
     template <typename item_t, typename T> struct IncrementFunctor {
     };
@@ -86,6 +87,9 @@ namespace db0::bindex::iterator
     };
 
     template <typename item_t, typename T> struct CloneFunctor {
+    };
+
+    template <typename item_t, typename T> struct IsNextKeyDuplicatedFunctor {
     };
 
     /**
@@ -163,6 +167,12 @@ namespace db0::bindex::iterator
     template <typename item_t, typename... T> struct CloneFunctor<item_t, empty_joinable_const<T...> > {
         static std::shared_ptr<void> execute(const void*) {
             return db0::make_shared_void<empty_joinable_const<T...> >();
+        }
+    };
+
+    template <typename item_t, typename... T> struct IsNextKeyDuplicatedFunctor<item_t, empty_joinable_const<T...> > {
+        static bool execute(const void *) {
+            return false;
         }
     };
 
@@ -246,6 +256,13 @@ namespace db0::bindex::iterator
             using self_t = itty_joinable_const<item_t, T...>;
             const self_t &it = *reinterpret_cast<const self_t*>(this_ptr);
             return db0::make_shared_void<self_t>(it);
+        }
+    };
+
+    template <typename item_t, typename... T>
+    struct IsNextKeyDuplicatedFunctor<item_t, itty_joinable_const<item_t, T...> > {
+        static bool execute(const void *) {
+            return false;
         }
     };
 
@@ -336,6 +353,15 @@ namespace db0::bindex::iterator
         }
     };
 
+    template <typename item_t, int N, typename... T>
+    struct IsNextKeyDuplicatedFunctor<item_t, array_joinable_const<item_t, N, T...> > {
+        static bool execute(const void * this_ptr) {
+            using self_t = array_joinable_const<item_t, N, T...>;
+            const self_t &it = *static_cast<const self_t*>(this_ptr);
+            return it.isNextKeyDuplicated();
+        }
+    };
+    
     /**
      * v_sorted_vector::joinable_const_iterator specializations
      */
@@ -420,6 +446,15 @@ namespace db0::bindex::iterator
             using self_t = sorted_vector_joinable_const<item_t, T...>;
             const self_t &it = *reinterpret_cast<const self_t*>(this_ptr);
             return db0::make_shared_void<self_t>(it);
+        }
+    };
+
+    template <typename item_t, typename... T>
+    struct IsNextKeyDuplicatedFunctor<item_t, sorted_vector_joinable_const<item_t, T...> > {
+        static bool execute(const void * this_ptr) {
+            using self_t = sorted_vector_joinable_const<item_t, T...>;
+            const self_t &it = *static_cast<const self_t*>(this_ptr);
+            return it.isNextKeyDuplicated();
         }
     };
 
@@ -510,6 +545,15 @@ namespace db0::bindex::iterator
         }
     };
 
+    template <typename item_t, typename... T>
+    struct IsNextKeyDuplicatedFunctor<item_t, bindex_joinable_const<item_t, T...> > {
+        static bool execute(const void * this_ptr) {
+            using self_t = bindex_joinable_const<item_t, T...>;
+            const self_t &it = *static_cast<const self_t*>(this_ptr);
+            return it.isNextKeyDuplicated();
+        }
+    };
+
     template <typename item_t> struct ImplFunctions {
         incrementPtr<item_t> m_increment_ptr;
         decrementPtr<item_t> m_decrement_ptr;
@@ -523,6 +567,7 @@ namespace db0::bindex::iterator
         hasLimitPtr<item_t> m_has_limit_ptr;
         getLimitPtr<item_t> m_get_limit_ptr;
         clonePtr<item_t> m_clone_ptr;
+        isNextKeyDuplicatedPtr<item_t> m_is_next_key_duplicated_ptr;
     };
 
     /**
@@ -556,7 +601,8 @@ namespace db0::bindex::iterator
                 LimitByFunctor<item_t, T>::execute,
                 HasLimitFunctor<item_t, T>::execute,
                 GetLimitFunctor<item_t, T>::execute,
-                CloneFunctor<item_t, T>::execute 
+                CloneFunctor<item_t, T>::execute,
+                IsNextKeyDuplicatedFunctor<item_t, T>::execute
             }
         {
         }
@@ -659,9 +705,14 @@ namespace db0::bindex::iterator
             m_functions.m_stop(m_ptr);
         }
 
-        void reset() {
+        void reset() 
+        {
             m_ref = nullptr;
             m_ptr = nullptr;
+        }
+        
+        bool isNextKeyDuplicated() const {
+            return m_functions.m_is_next_key_duplicated_ptr(m_ptr);
         }
 
     private:

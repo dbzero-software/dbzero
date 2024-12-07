@@ -49,8 +49,10 @@ namespace db0
         bool join(key_t join_key, int direction) override;
         
         void joinBound(key_t join_key) override;
-
+        
         std::pair<key_t, bool> peek(key_t join_key) const override;
+        
+        bool isNextKeyDuplicated() const override;
                 
         std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction = -1) const override;
 

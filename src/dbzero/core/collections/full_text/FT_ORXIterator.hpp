@@ -51,6 +51,8 @@ namespace db0
 		void joinBound(key_t key) override;
 
 		std::pair<key_t, bool> peek(key_t key) const override;
+		
+		bool isNextKeyDuplicated() const override;
 
 		bool limitBy(key_t key) override;
 		
