@@ -456,16 +456,15 @@ def test_dict_no_duplicate_keys_when_mixed_python_db0_types(db0_no_autocommit):
         assert len(d1) == len(d2)
     
 
-# FIXME: test failing due to lack of support for scoped enums in Dict
-# def test_dict_storing_enum_values_from_different_prefix(db0_no_autocommit):
-#     obj = db0.dict()    
-#     # NOTE: MonthTag is located on a different data-prefix
-#     # unless weak references are supported, an exception should be raised
-#     obj[(MonthTag.NOV, 1, "Szczecin")] = 1
-#     obj[MonthTag.NOV] = 2
-#     obj[MonthTag.NOV] = 3
-#     obj[(MonthTag.NOV, 1, "Szczecin")] = 2
-#     assert len(obj) == 3
+def test_dict_storing_enum_values_from_different_prefix(db0_no_autocommit):
+    obj = db0.dict()
+    # NOTE: MonthTag is located on a different data-prefix    
+    obj[(MonthTag.NOV, 1, "Szczecin")] = 1
+    obj[MonthTag.NOV] = 2
+    obj[MonthTag.NOV] = 3
+    obj[(MonthTag.NOV, 1, "Szczecin")] = 2
+    assert len(obj) == 2
+
 
 @pytest.mark.parametrize("make_dict", dict_test_params)
 def test_dict_raises_key_error(db0_fixture, make_dict):
