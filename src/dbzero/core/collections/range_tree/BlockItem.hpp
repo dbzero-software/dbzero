@@ -63,28 +63,24 @@ namespace db0
 
         struct CompT
         {
-            inline bool operator()(const BlockItemT& a, const BlockItemT& b) const
-            {
+            inline bool operator()(const BlockItemT& a, const BlockItemT& b) const {
                 return a < b;
             }
 
-            inline bool operator()(ValueT a, const BlockItemT& b) const
-            {
+            inline bool operator()(ValueT a, const BlockItemT& b) const {
                 return a < b.m_value;
             }
 
-            inline bool operator()(const BlockItemT& a, ValueT b) const
-            {
+            inline bool operator()(const BlockItemT& a, ValueT b) const {
                 return a.m_value < b;
             }
 
             // value-only comparator, required by the FT_Iterator implementations
-            inline bool operator()(ValueT a, ValueT b) const
-            {
+            inline bool operator()(ValueT a, ValueT b) const {
                 return a < b;
             }
         };
-
+        
         // comparator for building min-heap
         struct HeapCompT
         {

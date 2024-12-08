@@ -143,16 +143,20 @@ namespace db0
         }
 
         /**
-         * move items from other vector, no item destroyed
+         * Append sorted items from other vector, no item destroyed
          * NOTICE : sort order must be preserved
          */
-        void move(o_sv_container &src_buf, const_iterator it_begin, const_iterator it_end)
+        void appendSorted(const_iterator it_begin, const_iterator it_end)
         {
             assert(this->m_size + std::distance(it_begin, it_end) <= m_capacity);
             std::memcpy(this->end(), it_begin, std::distance(it_begin, it_end) * sizeof(data_t));
             this->m_size += std::distance(it_begin, it_end);
-            // crop source vector ( no items destroyed )
-            src_buf.m_size -= std::distance(it_begin, it_end);
+        }
+
+        void popBack(std::size_t count)
+        {
+            assert (count <= this->m_size);
+            this->m_size -= count;            
         }
 
         template <class ItemIterator> void bulkPushBack(ItemIterator it, std::size_t count)
@@ -317,7 +321,7 @@ namespace db0
             heap<data_t,comp_t> s_heap((int)data.size());
             {
                 auto it = data.begin(), end = data.end();
-                while (it!=end) {
+                while (it != end) {
                     s_heap.insert(*it);
                     ++it;
                 }
@@ -326,7 +330,7 @@ namespace db0
             data_t *item = reinterpret_cast<data_t*>(data_buf.m_begin);
             while (!s_heap.empty() && (item!=data_buf.m_end)) {
                 item = (data_t*)data_buf.join(item, s_heap.front(), 1);
-                if (item!=data_buf.m_end) {
+                if (item != data_buf.m_end) {
                     // erase item
                     if (!data_buf.m_comp(s_heap.front(),*item)) {
                         if (item_destroy_func) item_destroy_func(*item);
@@ -349,11 +353,11 @@ namespace db0
             assert(!is_full());
             SortedArray<data_t,comp_t> data_buf(begin(), end());
             iterator item = const_cast<data_t*>(data_buf.join(data_buf.m_begin, data, 1));
-            if (item!=data_buf.m_end) {
+            if (item != data_buf.m_end) {
                 iterator it_dest = (iterator)data_buf.m_end;
                 iterator it_src = it_dest;
                 --it_src;
-                while (it_src!=item) {
+                while (it_src != item) {
                     *it_dest = *it_src;
                     --it_dest;
                     --it_src;
@@ -375,11 +379,11 @@ namespace db0
             SortedArray<data_t,comp_t> data_buf(begin(),end());
             data_t *item = reinterpret_cast<data_t*>(data_buf.join(data_buf.m_begin, data, 1));
             if ((item==data_buf.m_end) || (data_buf.m_comp(data,*item))) {
-                if (item!=data_buf.m_end) {
+                if (item != data_buf.m_end) {
                     data_t *it_dest = reinterpret_cast<data_t*>(data_buf.m_end);
                     data_t *it_src = it_dest;
                     --it_src;
-                    while (it_src!=item) {
+                    while (it_src != item) {
                         *it_dest = *it_src;
                         --it_dest;
                         --it_src;
@@ -417,6 +421,7 @@ namespace db0
         /**
          * Erase multiple elements in a single call
          * InputIterator - points to "const iterator" of this vector, must contain ascending sorted iterators
+         * it / it_end - may contain excess elements (which will be ignored)
          */
         template<typename InputIterator> std::size_t bulkEraseSorted(InputIterator it, InputIterator it_end,
             DestroyF item_destroy_func = {}, CallbackT *callback_ptr = nullptr)
@@ -430,6 +435,7 @@ namespace db0
                 if (data_found_it == data_end) {
                     break;
                 }
+
                 if (*it == *data_found_it) {
                     if (item_destroy_func) {
                         item_destroy_func(*data_found_it);
@@ -491,8 +497,7 @@ namespace db0
             // check equal value
             if (data_buf.m_comp(*it,key) || data_buf.m_comp(key,*it)) {
                 return 0;
-            }
-            else {
+            } else {
                 return it;
             }
         }
@@ -515,10 +520,10 @@ namespace db0
             SortedArray<data_t,comp_t> data_buf(begin(),end());
             const data_t *item = data_buf.m_begin;
             auto it_key = keys.begin();
-            while (it_key!=keys.end() && item!=data_buf.m_end) {
+            while (it_key != keys.end() && item != data_buf.m_end) {
                 // search within the remaining subset
                 item = data_buf.join(item, *it_key, 1);
-                if (item==data_buf.m_end) {
+                if (item == data_buf.m_end) {
                     // key not found
                     find_result.push_back(0);
                 } else {
@@ -538,14 +543,14 @@ namespace db0
             return (m_state == sv_state::growing);
         }
 
-        bool isshrinking() const {
+        bool isShrinking() const {
             return (m_state == sv_state::shrinking);
         }
 
         /**
          * modify state to "sv_shrinking"
          */
-        void setshrinking() {
+        void setShrinking() {
             m_state = sv_state::shrinking;
         }
 
@@ -790,26 +795,6 @@ namespace db0
         }
 
         /**
-         * Erase items without changing address of this collection
-         * @param data
-         * @return number of erased elements
-         */
-        std::size_t bulkEraseSorted(const std::list<const data_t*> &data, CallbackT *callback_ptr = nullptr) 
-        {
-            // erase multiple elements
-            return this->modify().bulkEraseSorted(data.begin(), data.end(), m_item_destroy_func, callback_ptr);
-        }
-
-        std::size_t bulkEraseSorted(const std::list<const data_t*> &data, bool &was_addr_changed, CallbackT *callback_ptr = nullptr) 
-        {
-            // erase multiple elements
-            auto erase_count = this->modify().bulkEraseSorted(data.begin(), data.end(), m_item_destroy_func, callback_ptr);
-            // compact vector if necessary ( shrinking state only )
-            was_addr_changed = compactShrinking();
-            return erase_count;
-        }
-        
-        /**
          * erase element by key, throws
          * NOTE : this address may change as an effect of erase
          * addr_changed = flag set to true on address changed
@@ -842,7 +827,7 @@ namespace db0
         }
         
         bool empty() const {
-            return ((*this)->m_size==0);
+            return ((*this)->m_size == 0);
         }
         
         void destroy() const
@@ -861,7 +846,7 @@ namespace db0
             was_addr_changed = growVector((*this)->m_size + 1);
             return this->modify().insert(data);
         }
-
+        
         /**
          * Insert, resize if necessary
          * @param data element to insert
@@ -871,17 +856,6 @@ namespace db0
         {
             growVector((*this)->m_size + 1);
             return this->modify().insert(data);
-        }
-
-        /**
-         * modify single item
-         * erase & insert with the new key
-         */
-        void update(const_iterator it, const data_t &data)
-        {
-            // erase element
-            this->modify().eraseItem(it, m_item_destroy_func);
-            this->modify().insert(data);
         }
 
         /**
@@ -1028,7 +1002,7 @@ namespace db0
         /**
          * Erase existing items only, ignore other
          */
-        void bulkEraseUnique (const std::vector<data_t> &data) {
+        void bulkEraseUnique(const std::vector<data_t> &data) {
             this->modify().bulkEraseUnique(data, m_item_destroy_func);
         }
 
@@ -1065,7 +1039,7 @@ namespace db0
          */
         bool compact()
         {
-            std::uint32_t _size = (*this)->m_size;            
+            std::uint32_t _size = (*this)->m_size;
             // align to pow-2
             std::uint32_t new_capacity = 1;
             while (new_capacity < _size) {
@@ -1082,15 +1056,15 @@ namespace db0
                 return true;
             } else {
                 return false;
-            }
+            }            
         }
-
+        
         /**
          * @return true on object relocated
          */
         bool compactShrinking() 
         {
-            if ((*this)->isshrinking()) {
+            if ((*this)->isShrinking()) {
                 return compact();
             } else {
                 return false;
@@ -1123,12 +1097,10 @@ namespace db0
          * Append other sorted vector (move all items)
          * all data from "other_vector" must be >= from this vector's data
          */
-        void moveSorted(v_sorted_vector &&other_vector) 
-        {
-            assert ((*this)->m_size + other_vector->m_size <= (*this)->m_capacity);
-            this->modify().move(other_vector.modify(), other_vector->begin(), other_vector->end());
+        void moveSorted(v_sorted_vector &&other_vector) {
+            this->modify().appendSorted(other_vector->begin(), other_vector->end());
         }
-
+        
         const_iterator begin() const {
             return (*this)->begin();
         }

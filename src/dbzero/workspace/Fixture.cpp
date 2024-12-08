@@ -292,7 +292,7 @@ namespace db0
         }
         m_string_pool.commit();
         m_object_catalogue.commit();
-        m_v_object_cache.commit();
+        m_v_object_cache.commit();        
         Memspace::commit(timer.get());
     }
     

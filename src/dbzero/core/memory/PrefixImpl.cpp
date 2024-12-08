@@ -181,7 +181,7 @@ namespace db0
     std::shared_ptr<WideLock> PrefixImpl::mapWideRange(
         std::uint64_t first_page, std::uint64_t end_page, std::uint64_t address, std::size_t size, 
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
-    {
+    {        
         std::uint64_t read_state_num = 0;
         auto lock_info = m_cache.findRange(first_page, end_page, address, size, state_num, access_mode, read_state_num);
         if (!lock_info.second && lock_info.first) {

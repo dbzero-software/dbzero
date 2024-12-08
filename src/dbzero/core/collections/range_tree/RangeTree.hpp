@@ -595,7 +595,7 @@ namespace db0
             */
             void flush(RangeTree &range_tree, CallbackT *add_callback_ptr = nullptr,
                 CallbackT *erase_callback_ptr = nullptr)
-            {                
+            {
                 // erase items first
                 if (!m_remove_items.empty()) {                    
                     std::vector<ItemT> items;
@@ -630,14 +630,16 @@ namespace db0
             }
             
             // releaseNullItems is only allowed when no other items are present
-            std::unordered_set<ValueT> &&releaseAddNullItems() {
+            std::unordered_set<ValueT> &&releaseAddNullItems() 
+            {
                 assert(m_add_items.empty());
                 assert(m_remove_items.empty());
 
                 return std::move(m_add_null_items);
             }
 
-            std::unordered_set<ValueT> &&releaseRemoveNullItems() {
+            std::unordered_set<ValueT> &&releaseRemoveNullItems()
+            {
                 assert(m_add_items.empty());
                 assert(m_remove_items.empty());
 
@@ -683,6 +685,35 @@ namespace db0
 
         // perform operation "f" on all elements, e.g. to drop all references
         void forAll(std::function<void(ValueT)> f) const;
+        
+#ifndef NDEBUG
+        void show()
+        {
+            auto it = m_index.begin();
+            while (it != m_index.end()) {                
+                auto block = (*it).m_block_ptr(this->getMemspace());                
+                std::cout << "--- NEXT BLOCK --" << std::endl;                
+                std::cout << "block size: " << block.size() << std::endl;
+                std::cout << "max block size: " << (*this)->m_max_block_size << std::endl;
+                for (auto block_it = block.begin(), block_end = block.end(); block_it != block_end; ++block_it) {
+                    std::cout << "key: " << (*block_it).m_key << ", value: " << (*block_it).m_value << std::endl;
+                }
+                ++it;
+            }
+        }
+#endif
+
+        void detach() const
+        {
+            m_index.detach();
+            super_t::detach();
+        }
+        
+        void commit() const
+        {
+            m_index.commit();
+            super_t::commit();
+        }
 
     private:
         RT_Index m_index;
