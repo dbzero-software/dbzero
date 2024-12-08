@@ -105,7 +105,7 @@ namespace db0::python
         const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr)
     {
         // try unloading from cache first
-        auto &lang_cache = fixture->getLangCache();        
+        auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
         
         if (obj_ptr) {
@@ -117,6 +117,9 @@ namespace db0::python
         auto [type, lang_type] = class_factory.getTypeByClassRef(stem->m_class_ref);
         
         if (!lang_type_ptr) {
+            if (!lang_type) {                
+                lang_type = class_factory.getLangType(*type);
+            }
             lang_type_ptr = lang_type.get();
         }
         

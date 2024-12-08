@@ -185,6 +185,10 @@ namespace db0::object_model
     {
         auto it_cached = m_ptr_cache.find(ptr);
         if (it_cached == m_ptr_cache.end()) {
+            // try looking-up language specific type with the TypeManager
+            if (!lang_type) {
+                lang_type = tryFindLangType(*type);
+            }
             // add to by-pointer cache
             it_cached = m_ptr_cache.insert({ptr, ClassItem{ type, lang_type }}).first;
         }
@@ -224,6 +228,10 @@ namespace db0::object_model
             // note that Class has no associated language specific type object yet
             auto fixture = getFixture();
             auto type = std::shared_ptr<Class>(new Class(fixture, ptr.getAddress()));
+            // try looking-up language specific type with the TypeManager
+            if (!lang_type) {
+                lang_type = tryFindLangType(*type);
+            }
             // register the mapping to language specific type object
             it_cached = m_ptr_cache.insert({ptr, ClassItem { type, lang_type }}).first;
         }
@@ -283,6 +291,23 @@ namespace db0::object_model
     {
         auto it_cached = m_ptr_cache.find(ClassPtr(type));
         return it_cached != m_ptr_cache.end() && it_cached->second.m_lang_type;
+    }
+    
+    ClassFactory::TypeObjectPtr ClassFactory::tryFindLangType(const Class &_class) const
+    {
+        auto &type_manager = LangToolkit::getTypeManager();
+        // look-up all name variants
+        for (unsigned int i = 0; i < 4; ++i) {
+            auto variant_key = getNameVariant(_class, i);
+            if (variant_key) {
+                auto lang_type = type_manager.findType(*variant_key);
+                if (lang_type) {
+                    return lang_type;
+                }
+            }
+        }
+        // type not found
+        return nullptr;
     }
 
 }

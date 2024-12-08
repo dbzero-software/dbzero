@@ -319,7 +319,7 @@ namespace db0::python
         assert(PyType_Check(py_type));
         return reinterpret_cast<TypeObjectPtr>(py_type);
     }
-
+    
     PyTypeManager::ObjectIterator &PyTypeManager::extractObjectIterator(ObjectPtr obj_ptr) const
     {
         if (!PyObjectIterator_Check(obj_ptr)) {
