@@ -596,10 +596,9 @@ namespace db0::python
         return Py_TYPE(py_obj);
     }
     
-    PyObject *tryLoad(PyObject *py_obj, PyObject *py_exclude)
+    PyObject *tryLoad(PyObject *py_obj, PyObject* kwargs, PyObject *py_exclude)
     {
         using TypeId = db0::bindings::TypeId;
-
         auto &type_manager = PyToolkit::getTypeManager();
         auto type_id = type_manager.getTypeId(py_obj);
         if (type_manager.isSimplePyTypeId(type_id)) {
@@ -607,26 +606,25 @@ namespace db0::python
             Py_INCREF(py_obj);
             return py_obj;
         }
-        
         // FIXME: implement for other types
         if (type_id == TypeId::DB0_TUPLE) {
-            return tryLoadTuple(reinterpret_cast<TupleObject*>(py_obj));
+            return tryLoadTuple(reinterpret_cast<TupleObject*>(py_obj), kwargs);
         } else if (type_id == TypeId::TUPLE) {
             // regular Python tuple
-            return tryLoadPyTuple(py_obj);
+            return tryLoadPyTuple(py_obj, kwargs);
         } else if (type_id == TypeId::DB0_LIST) {
-            return tryLoadList(reinterpret_cast<ListObject*>(py_obj));
+            return tryLoadList(reinterpret_cast<ListObject*>(py_obj), kwargs);
         } else if (type_id == TypeId::LIST) {
             // regular Python list
-            return tryLoadPyList(py_obj);
+            return tryLoadPyList(py_obj, kwargs);
         } else if (type_id == TypeId::DB0_DICT || type_id == TypeId::DICT) {
-            return tryLoadDict(py_obj);
+            return tryLoadDict(py_obj, kwargs);
         } else if (type_id == TypeId::DB0_SET || type_id == TypeId::SET) {
-            return tryLoadSet(py_obj);
+            return tryLoadSet(py_obj, kwargs);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return tryLoadEnumValue(reinterpret_cast<PyEnumValue*>(py_obj));
         } else if (type_id == TypeId::MEMO_OBJECT) {
-            return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), py_exclude);
+            return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), kwargs, py_exclude);
         } else {
             THROWF(db0::InputException) << "Unload not implemented for type: " 
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;

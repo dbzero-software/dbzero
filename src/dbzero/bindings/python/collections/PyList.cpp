@@ -253,22 +253,30 @@ namespace db0::python
         return makeListInternal(self, args, nargs);        
     }
 
-    PyObject *tryLoadList(ListObject *list) {
+    PyObject *tryLoadList(ListObject *list, PyObject *kwargs) {
     
         auto &list_obj = list->ext();
         PyObject *result = PyList_New(list_obj.size());
         for (std::size_t i = 0; i < list_obj.size(); ++i) {
-            PyList_SetItem(result, i, tryLoad(list_obj.getItem(i).get()));
+            auto res = runSafe(tryLoad, list_obj.getItem(i).get(), kwargs, nullptr);
+            if (res == nullptr) {
+                return nullptr;
+            }
+            PyList_SetItem(result, i, res);
         }
         return result;
     }
     
-    PyObject *tryLoadPyList(PyObject *py_list)
+    PyObject *tryLoadPyList(PyObject *py_list, PyObject *kwargs)
     {
         Py_ssize_t size = PyList_Size(py_list);        
         PyObject *result = PyList_New(size);
         for (int i = 0; i < size; ++i) {
-            PyList_SetItem(result, i, tryLoad(PyList_GetItem(py_list, i)));
+            auto res = runSafe(tryLoad, PyList_GetItem(py_list, i), kwargs, nullptr);
+            if (res == nullptr) {
+                return nullptr;
+            }
+            PyList_SetItem(result, i, res);
         }
         return result;
     }
