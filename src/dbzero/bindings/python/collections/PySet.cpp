@@ -15,9 +15,9 @@ namespace db0::python
 
     using SetIteratorObject = PyWrapper<db0::object_model::SetIterator, false>;
 
-    PyTypeObject SetIteratorObjectType = GetIteratorType<SetIteratorObject>("dbzero_ce.TypedObjectIterator",
-                                                                              "DBZero typed query object iterator");
-
+    PyTypeObject SetIteratorObjectType = GetIteratorType<SetIteratorObject>("dbzero_ce.SetObjectIterator",
+        "DBZero typed query object iterator");
+    
     SetIteratorObject *SetObject_iter(SetObject *self)
     {
         PY_API_FUNC

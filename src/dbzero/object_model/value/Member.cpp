@@ -180,19 +180,19 @@ namespace db0::object_model
     {
         return 0;
     }
-
-    // OBJECT_ITERATOR specialization (serialized member)
-    template <> Value createMember<TypeId::OBJECT_ITERATOR, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+    
+    // OBJECT_ITERABLE specialization (serialized member)
+    template <> Value createMember<TypeId::OBJECT_ITERABLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr)
     {
-        auto &obj_iter = PyToolkit::getTypeManager().extractObjectIterator(obj_ptr);
+        auto &obj_iter = PyToolkit::getTypeManager().extractObjectIterable(obj_ptr);
         std::vector<std::byte> bytes;
         // put TypeId as a header
-        db0::serial::write(bytes, TypeId::OBJECT_ITERATOR);
+        db0::serial::write(bytes, TypeId::OBJECT_ITERABLE);
         obj_iter.serialize(bytes);
         return createBytesMember(fixture, bytes.data(), bytes.size());
     }
-
+    
     // ENUM value specialization (serialized member)
     template <> Value createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr)
@@ -234,8 +234,8 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::DICT)] = createMember<TypeId::DICT, PyToolkit>;
         functions[static_cast<int>(TypeId::TUPLE)] = createMember<TypeId::TUPLE, PyToolkit>;
         functions[static_cast<int>(TypeId::DATETIME)] = createMember<TypeId::DATETIME, PyToolkit>;
-        functions[static_cast<int>(TypeId::BYTES)] = createMember<TypeId::BYTES, PyToolkit>;   
-        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = createMember<TypeId::OBJECT_ITERATOR, PyToolkit>;
+        functions[static_cast<int>(TypeId::BYTES)] = createMember<TypeId::BYTES, PyToolkit>; 
+        functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = createMember<TypeId::OBJECT_ITERABLE, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
         functions[static_cast<int>(TypeId::BOOLEAN)] = createMember<TypeId::BOOLEAN, PyToolkit>;
     }
@@ -346,8 +346,8 @@ namespace db0::object_model
         std::copy(bytes->getBuffer(), bytes->getBuffer() + bytes->size(), buffer.begin());
         auto iter = buffer.cbegin(), end = buffer.cend();
         auto type_id = db0::serial::read<TypeId>(iter, end);
-        if (type_id == TypeId::OBJECT_ITERATOR) {
-            return PyToolkit::unloadObjectIterator(fixture, iter, end);            
+        if (type_id == TypeId::OBJECT_ITERABLE) {
+            return PyToolkit::unloadObjectIterable(fixture, iter, end);
         } else {
             THROWF(db0::InputException) << "Unsupported serialized type id: " 
                 << static_cast<int>(type_id) << THROWF_END;

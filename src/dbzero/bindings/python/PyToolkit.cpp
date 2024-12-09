@@ -13,10 +13,11 @@
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
 #include "PyObjectId.hpp"
-#include "PyObjectIterator.hpp"
 #include "PyEnum.hpp"
 #include "PyClassFields.hpp"
 #include "PyClass.hpp"
@@ -269,13 +270,13 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(tuple_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObjectIterator(db0::swine_ptr<Fixture> fixture,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObjectIterable(db0::swine_ptr<Fixture> fixture,
         std::vector<std::byte>::const_iterator &iter, 
         std::vector<std::byte>::const_iterator end)
     {
         auto obj_iter = db0::object_model::ObjectIterator::deserialize(fixture, iter, end);
-        auto py_iter = PyObjectIteratorDefault_new();
-        Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(obj_iter));
+        auto py_iter = PyObjectIterableDefault_new();
+        ObjectIterable::makeNew(&(py_iter.get())->modifyExt(), std::move(*obj_iter));
         return shared_py_cast<PyObject*>(std::move(py_iter));
     }
     
@@ -376,8 +377,10 @@ namespace db0::python
             return reinterpret_cast<PyEnumValue*>(py_object)->ext().m_fixture_uuid;
         } else if (PyMemo_Check(py_object)) {
             return reinterpret_cast<MemoObject*>(py_object)->ext().getFixture()->getUUID();
+        } else if (PyObjectIterable_Check(py_object)) {
+            return reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyObjectIterator_Check(py_object)) {
-            return reinterpret_cast<PyObjectIterator*>(py_object)->ext()->getFixture()->getUUID();
+            return reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture()->getUUID();
         } else {            
             return 0;
         }

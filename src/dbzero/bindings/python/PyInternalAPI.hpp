@@ -86,6 +86,7 @@ namespace db0::python
 
     /**
      * Universal find implementation (works on Workspace or WorkspaceView)
+     * @return PyObjectIterable
     */
     PyObject *findIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs);
     

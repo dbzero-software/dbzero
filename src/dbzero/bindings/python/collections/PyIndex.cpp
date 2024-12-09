@@ -1,5 +1,5 @@
 #include "PyIndex.hpp"
-#include <dbzero/bindings/python/PyObjectIterator.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 
@@ -119,8 +119,8 @@ namespace db0::python
     
     PyObject *tryIndexObject_sort(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
+        using ObjectIterable = db0::object_model::ObjectIterable;
         using ObjectIterator = db0::object_model::ObjectIterator;
-        using TypedObjectIterator = db0::object_model::TypedObjectIterator;
 
         PyObject *py_desc = nullptr;
         PyObject *py_null_first = nullptr;
@@ -134,30 +134,20 @@ namespace db0::python
         bool null_first = py_null_first ? PyObject_IsTrue(py_null_first) : false;
         PyObject *py_iter = PyTuple_GetItem(args, 0);
         // sort results of a full-text iterator        
-        if (!PyObjectIterator_Check(py_iter)) {
-            PyErr_SetString(PyExc_TypeError, "sort() takes ObjectIterator as an argument");
+        if (!PyObjectIterable_Check(py_iter)) {
+            PyErr_SetString(PyExc_TypeError, "sort() takes ObjectIterable as an argument");
             return NULL;
         }
-
-        auto &index = py_index->ext();
-        auto &iter = reinterpret_cast<PyObjectIterator*>(py_iter)->ext();
-        auto iter_obj = PyObjectIteratorDefault_new();
         
-        auto iter_sorted = index.sort(*iter, asc, null_first);
-        if (iter.isTyped()) {
-            // FIXME: do we need to move observers ?
-            auto typed_iter = iter.m_typed_iterator_ptr->makeTypedIter(std::move(iter_sorted), {}, iter->getFilters());
-            Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(typed_iter));
-        } else {
-            auto _iter = std::unique_ptr<ObjectIterator>(new ObjectIterator(
-                iter->getFixture(), std::move(iter_sorted), iter->getLangType(), {}, iter->getFilters())
-            );
-            Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(_iter));
-        }
-
+        auto &index = py_index->ext();
+        auto &iter = reinterpret_cast<PyObjectIterable*>(py_iter)->ext();
+        auto iter_obj = PyObjectIterableDefault_new();
+        
+        auto iter_sorted = index.sort(iter, asc, null_first);
+        iter.makeNew(&(iter_obj.get())->modifyExt(), std::move(iter_sorted), {}, iter.getFilters());
         return iter_obj.steal();
     }
-
+    
     PyObject *PyAPI_IndexObject_sort(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
         // extract 1 positional argument
@@ -182,10 +172,9 @@ namespace db0::python
         
         auto &index = py_index->ext();
         // construct range iterator        
-        auto iter_factory = index.range(low, high, null_first);
-        auto iter = std::make_unique<db0::object_model::ObjectIterator>(index.getFixture(), std::move(iter_factory));
-        auto py_iter_obj = PyObjectIteratorDefault_new();
-        Iterator::makeNew(&(py_iter_obj.get())->modifyExt(), std::move(iter));
+        auto iter_factory = index.range(low, high, null_first);        
+        auto py_iter_obj = PyObjectIterableDefault_new();
+        ObjectIterable::makeNew(&(py_iter_obj.get())->modifyExt(), index.getFixture(), std::move(iter_factory));
         return py_iter_obj.steal();
     }
 
