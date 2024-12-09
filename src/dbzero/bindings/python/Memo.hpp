@@ -101,5 +101,5 @@ namespace db0::python
     // type ignored for non-memo members
     PyObject *tryGetAttrAs(MemoObject *, PyObject *attr, PyTypeObject *);
     
-    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject* exclude);
+    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject* kwargs,  PyObject* exclude);
 }

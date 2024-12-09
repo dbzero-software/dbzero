@@ -650,8 +650,28 @@ namespace db0::python
         
         return member.steal();
     }
+
+    PyObject *getKwargsForMethod(PyObject* method, PyObject* kwargs){
+        PyObject *inspec_module = PyImport_ImportModule("inspect");
+        PyObject *signatue = PyObject_CallMethod(inspec_module, "signature", "O", method);
+        PyObject *parameters = PyObject_GetAttrString(signatue, "parameters");
+        PyObject *iterator = PyObject_GetIter(parameters);
+        PyObject *elem;
+        PyObject *py_result = PyDict_New();
+        while ((elem = PyIter_Next(iterator))) {
+            if(PyDict_Contains(kwargs, elem) == 1) {
+                PyDict_SetItem(py_result, elem, PyDict_GetItem(kwargs, elem));
+            }
+            Py_DECREF(elem);
+        }
+        Py_DECREF(iterator);
+        Py_DECREF(parameters);
+        Py_DECREF(signatue);
+        Py_DECREF(inspec_module);
+        return py_result;
+    }
     
-    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *py_exclude)
+    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude)
     {
         PyObject *py_result = PyDict_New();
         auto load_method = tryMemoObject_getattro(memo_obj, PyUnicode_FromString("__load__"));
@@ -660,18 +680,42 @@ namespace db0::python
                 PyErr_SetString(PyExc_AttributeError, "Cannot exlude values when __load__ is implemented");
                 return nullptr;
             }
-            auto result = PyObject_CallObject(load_method, nullptr);
+            
+            PyObject * result;
+            if (kwargs != nullptr) {
+                PyObject *args = PyTuple_New(0);
+                PyObject * method_kwargs = getKwargsForMethod(load_method, kwargs);
+                result = PyObject_Call(load_method, args, method_kwargs);
+
+                Py_DECREF(args);
+            } else {
+                result = PyObject_CallObject(load_method, nullptr);
+            }
+            if(result == nullptr) {
+                return result;
+            }
             Py_DECREF(load_method);
-            return tryLoad(result);
-        } 
-        memo_obj->ext().forAll([py_result, memo_obj, py_exclude](const std::string &key, PyTypes::ObjectSharedPtr) {
-            auto key_obj =  PyUnicode_FromString(key.c_str());
-            auto attr = MemoObject_getattro(memo_obj, key_obj);
-            if(py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, key_obj) == 0) {
-                PyDict_SetItemString(py_result, key.c_str(), tryLoad(attr));
-            } 
-            Py_DECREF(key_obj);
+            return runSafe(tryLoad, result, kwargs, nullptr);
+        }
+        bool has_error=false;
+        memo_obj->ext().forAll([py_result, memo_obj, py_exclude, kwargs, &has_error](const std::string &key, PyTypes::ObjectSharedPtr) {
+            if(!has_error){
+                auto key_obj =  PyUnicode_FromString(key.c_str());
+                auto attr = MemoObject_getattro(memo_obj, key_obj);
+                if(py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, key_obj) == 0) {
+                    PyObject * res = runSafe(tryLoad, attr, kwargs, nullptr);
+                    if (res == nullptr) {
+                        has_error = true;
+                    } else {
+                        PyDict_SetItemString(py_result, key.c_str(), res);
+                    }
+                } 
+                Py_DECREF(key_obj);
+            }
         });
+        if (has_error) {
+            return nullptr;
+        }
         return py_result;
     }
 

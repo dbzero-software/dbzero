@@ -34,6 +34,6 @@ namespace db0::python
         
     extern PyTypeObject DictIteratorObjectType;
 
-    PyObject *tryLoadDict(PyObject *py_dict);
+    PyObject *tryLoadDict(PyObject *py_dict, PyObject *kwargs);
     
 }

@@ -659,13 +659,17 @@ namespace db0::python
         return self;
     }
 
-    PyObject *tryLoadSet(PyObject *set) {
+    PyObject *tryLoadSet(PyObject *set, PyObject *kwargs) {
     
         PyObject *iterator = PyObject_GetIter(set);
         PyObject *elem;
         PyObject *py_result = PySet_New(nullptr);
         while ((elem = PyIter_Next(iterator))) {
-            PySet_Add(py_result, tryLoad(elem));
+            auto result = runSafe(tryLoad, elem, kwargs, nullptr);
+            if(result == nullptr) {
+                return nullptr;
+            }
+            PySet_Add(py_result, result);
             Py_DECREF(elem);
         }            
         Py_DECREF(iterator);

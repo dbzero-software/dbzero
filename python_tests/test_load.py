@@ -1,6 +1,7 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, MemoTestThreeParamsClass, MemoTestCustomLoadClass
+from .memo_test_types import (MemoTestClass, MemoTestThreeParamsClass, MemoTestCustomLoadClass, 
+                              MemoTestCustomLoadClassWithParams)
 
 
 def test_load_py_string():  
@@ -148,3 +149,19 @@ def test_load_exlude_only_supports_list(db0_fixture):
     with pytest.raises(TypeError) as ex:
         db0.load(memo, exclude = {"value_1":"value2"})
     assert "Invalid argument type. Exclude shoud be a sequence" in str(ex.value)
+
+
+def test_load_can_get_kwargs(db0_fixture):
+    memo = MemoTestCustomLoadClassWithParams("value_1", "value_2", "value_3")
+
+    loaded = db0.load(memo, param="some param")
+    assert "param" in loaded
+    assert loaded["param"] == "some param"
+
+
+def test_load_can_run_with_custom_load_without_kwargs(db0_fixture):
+    memo = MemoTestCustomLoadClassWithParams("value_1", "value_2", "value_3")
+
+    loaded = db0.load(memo, param="some param", other_non_used="other")
+    assert "param" in loaded
+    assert loaded["param"] == "some param"

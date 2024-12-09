@@ -31,6 +31,6 @@ namespace db0::python
     
     bool ListObject_Check(PyObject *);
     
-    PyObject *tryLoadPyList(PyObject *py_list);
-    PyObject *tryLoadList(ListObject *list);
+    PyObject *tryLoadPyList(PyObject *py_list, PyObject *kwargs);
+    PyObject *tryLoadList(ListObject *list, PyObject *kwargs);
 }

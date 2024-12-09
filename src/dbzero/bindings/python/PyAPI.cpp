@@ -946,10 +946,14 @@ namespace db0::python
         // extract object / prefix name (can be None)
         PyObject *py_object = nullptr;
         PyObject *py_exclude = nullptr;
-        static const char *kwlist[] = {"object", "exclude", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|O", const_cast<char**>(kwlist), &py_object, &py_exclude)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+        if (!PyArg_ParseTuple(args,  "O", &py_object)) {
             return NULL;
+        }
+        if(kwargs != nullptr){
+            if(!PyArg_ValidateKeywordArguments(kwargs)){
+                return NULL;
+            }
+            py_exclude = PyDict_GetItemString(kwargs, "exclude");
         }
         if(py_exclude != nullptr) {
             if (!PySequence_Check(py_exclude) || PyUnicode_Check(py_exclude)) {
@@ -963,7 +967,7 @@ namespace db0::python
         }
 
         PY_API_FUNC
-        return runSafe(tryLoad, py_object, py_exclude);
+        return runSafe(tryLoad, py_object, kwargs, py_exclude);
     }
 
     PyObject *PyAPI_hash(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
