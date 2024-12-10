@@ -370,8 +370,8 @@ def test_tag_query_results_can_be_iterated_multiple_times(db0_no_autocommit, mem
     l2 = len(list(query))
     assert l1 == l2
     
-    
+
 def test_using_len_to_determine_query_result_size(db0_no_autocommit, memo_tags):
     query = db0.find("tag1")
-    assert len(query)
+    assert len(query) == 10
     

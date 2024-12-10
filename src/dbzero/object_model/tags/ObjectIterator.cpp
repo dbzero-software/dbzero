@@ -14,23 +14,26 @@ namespace db0::object_model
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<QueryIterator> &&ft_query_iterator,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         const std::vector<FilterFunc> &filters)
-        : ObjectIterable(fixture, std::move(ft_query_iterator), type, lang_type, std::move(query_observers), filters)
+        : ObjectIterable(fixture, std::move(ft_query_iterator), type, lang_type, {}, filters)
         , m_iterator_ptr(m_query_iterator.get())
+        , m_decoration(std::move(query_observers))
     {
     }
-
+    
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers, 
         const std::vector<FilterFunc> &filters)
-        : ObjectIterable(fixture, std::move(sorted_iterator), type, lang_type, std::move(query_observers), filters)
+        : ObjectIterable(fixture, std::move(sorted_iterator), type, lang_type, {}, filters)
         , m_iterator_ptr(m_sorted_iterator.get())
+        , m_decoration(std::move(query_observers))
     {
     }
 
     ObjectIterator::ObjectIterator(db0::swine_ptr<Fixture> fixture, std::shared_ptr<IteratorFactory> factory,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         const std::vector<FilterFunc> &filters)
-        : ObjectIterable(fixture, factory, type, lang_type, std::move(query_observers), filters)
+        : ObjectIterable(fixture, factory, type, lang_type, {}, filters)
+        , m_decoration(std::move(query_observers))
     {
     }
     
@@ -38,8 +41,15 @@ namespace db0::object_model
         std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator, 
         std::shared_ptr<IteratorFactory> factory, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         std::vector<FilterFunc> &&filters, std::shared_ptr<Class> type, TypeObjectPtr lang_type)
-        : ObjectIterable(fixture, class_factory, std::move(ft_query_iterator), std::move(sorted_iterator), factory,
-            std::move(query_observers), std::move(filters), type, lang_type)
+        : ObjectIterable(fixture, class_factory, std::move(ft_query_iterator), std::move(sorted_iterator), 
+            factory, {}, std::move(filters), type, lang_type)
+        , m_decoration(std::move(query_observers))
+    {
+    }
+    
+    ObjectIterator::Decoration::Decoration(std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
+        : m_query_observers(std::move(query_observers))
+        , m_decorators(m_query_observers.size())
     {
     }
     
@@ -81,8 +91,9 @@ namespace db0::object_model
             // unload as typed if class is known
             return LangToolkit::unloadObject(getFixture(), address, m_type, m_lang_type.get());
         } else {
-            return LangToolkit::unloadObject(getFixture(), address, m_type, m_lang_type.get());
-        }        
+            // NOTE: lang type may be available even without the corresponding Class (e.g. MemoBase)
+            return LangToolkit::unloadObject(getFixture(), address, m_class_factory, m_lang_type.get());
+        }
     }
     
     void ObjectIterator::assureInitialized()

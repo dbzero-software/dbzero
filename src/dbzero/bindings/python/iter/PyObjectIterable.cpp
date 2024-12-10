@@ -30,9 +30,9 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Expected exactly one argument");
             return NULL;
         }
-
+        
         if (!PyObjectIterable_Check(args[0])) {
-            PyErr_SetString(PyExc_TypeError, "Expected an ObjectIterator");
+            PyErr_SetString(PyExc_TypeError, "Expected an ObjectIterable");
             return NULL;
         }
 
@@ -65,9 +65,8 @@ namespace db0::python
     
     PyObject *tryPyAPI_PyObjectIterable_iter(PyObjectIterable *py_iterable)
     {
-        auto &iterable = py_iterable->ext();
         auto py_iter = PyObjectIteratorDefault_new();
-        iterable.makeIter(&py_iter.get()->modifyExt());
+        py_iterable->ext().makeIter(&(py_iter.get()->modifyExt()));
         return py_iter.steal();
     }
     
@@ -76,10 +75,24 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryPyAPI_PyObjectIterable_iter, py_iterable);
     }
+    
+    Py_ssize_t tryPyObjectIterable_len(PyObjectIterable *py_iterable) {
+        return py_iterable->ext().getSize();
+    }
+
+    Py_ssize_t PyAPI_PyObjectIterable_len(PyObjectIterable *py_iterable)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyObjectIterable_len, py_iterable);
+    } 
+
+    static PySequenceMethods PyObjectIterable_as_sequence = {
+        .sq_length = (lenfunc)PyAPI_PyObjectIterable_len    
+    };
 
     static PyMethodDef PyObjectIterable_methods[] = 
     {
-        {"compare", (PyCFunction)PyAPI_PyObjectIterable_compare, METH_FASTCALL, "Compare two iterators"},
+        {"compare", (PyCFunction)PyAPI_PyObjectIterable_compare, METH_FASTCALL, "Compare two iterables"},
         {"signature", (PyCFunction)PyAPI_PyObjectIterable_signature, METH_NOARGS, "Get the signature of the query"},
         {NULL}
     };
@@ -90,13 +103,14 @@ namespace db0::python
         .tp_basicsize = PyObjectIterable::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObjectIterable_del,
+        .tp_as_sequence = &PyObjectIterable_as_sequence,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "DBZero object iterable",
         .tp_iter = (getiterfunc)PyAPI_PyObjectIterable_iter,        
         .tp_methods = PyObjectIterable_methods,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PyObjectIterable_new,
-        .tp_free = PyObject_Free,
+        .tp_free = PyObject_Free,        
     };
     
     bool PyObjectIterable_Check(PyObject *py_object) {

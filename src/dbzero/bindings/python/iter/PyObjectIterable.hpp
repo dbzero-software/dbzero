@@ -15,6 +15,7 @@ namespace db0::python
     shared_py_object<PyObjectIterable*> PyObjectIterableDefault_new();
     void PyObjectIterable_del(PyObjectIterable *);
     PyObject *PyAPI_PyObjectIterable_iter(PyObjectIterable *);
+    Py_ssize_t PyAPI_PyObjectIterable_len(PyObjectIterable *);
     
     extern PyTypeObject PyObjectIterableType;
     

@@ -683,10 +683,10 @@ namespace db0::python
     using QueryObserver = db0::object_model::QueryObserver;
     
     std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
-    splitBy(PyObject *py_tag_list, ObjectIterable &iterable)
+    splitBy(PyObject *py_tag_list, const ObjectIterable &iterable)
     {        
         std::vector<std::unique_ptr<QueryObserver> > query_observers;
-        auto query = iterable.releaseQuery(query_observers);
+        auto query = iterable.beginFTQuery(query_observers, -1);
         auto &tag_index = iterable.getFixture()->get<db0::object_model::TagIndex>();
         auto result = tag_index.splitBy(py_tag_list, std::move(query));
         query_observers.push_back(std::move(result.second));
@@ -710,7 +710,7 @@ namespace db0::python
         auto split_query = splitBy(py_tag_list, iter);
         auto py_iter = PyObjectIterableDefault_new();
         iter.makeNew(&(py_iter.get())->modifyExt(), std::move(split_query.first), std::move(split_query.second),
-            iter.getFilters());        
+            iter.getFilters());
         return py_iter.steal();
     }
     

@@ -45,17 +45,17 @@ namespace db0::object_model
 
         // Construct from a full-text query iterator
         ObjectIterable(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, std::shared_ptr<Class> = nullptr, 
-            TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
+            TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {});
 
         // Construct from a sorted iterator
         ObjectIterable(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&, std::shared_ptr<Class> = nullptr,
-            TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
+            TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {});
         
         // Construct from IteratorFactory (specialized on first use)
         ObjectIterable(db0::swine_ptr<Fixture>, std::shared_ptr<IteratorFactory> factory, std::shared_ptr<Class> = nullptr,
-            TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
+            TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {});
         
         virtual ~ObjectIterable() = default;
@@ -66,15 +66,16 @@ namespace db0::object_model
         ObjectIterator &makeIter(void *at_ptr, const std::vector<FilterFunc> & = {}) const;
         
         // Begin from the underlying full-text iterator (or fail if initialized from a sorted iterator)
-        // collect query observers (make copy)
+        // collect "rebased" query observers
         std::unique_ptr<QueryIterator> beginFTQuery(std::vector<std::unique_ptr<QueryObserver> > &,
             int direction = -1) const;
         
         std::unique_ptr<SortedIterator> beginSorted() const;
         
-        // Release the underlying query iterator + append all observers into the provided output buffer
-        // render this instance invalid
-        std::unique_ptr<QueryIterator> releaseQuery(std::vector<std::unique_ptr<QueryObserver> > &);
+        // Retrieve the number of elements in the iterable
+        // this operation requires query scan but is considerably faster than iteration on the Python side
+        // especially in the case of a sorted iterable
+        std::size_t getSize() const;
         
         bool isSorted() const;
         
@@ -95,14 +96,6 @@ namespace db0::object_model
 
         std::vector<std::byte> getSignature() const;
         
-        inline unsigned int numDecorators() const {
-            return m_decoration.size();
-        }
-        
-        const std::vector<ObjectPtr> &getDecorators() const {
-            return m_decoration.m_decorators;
-        }
-
         const std::vector<FilterFunc> &getFilters() const {
             return m_filters;
         }
@@ -138,26 +131,8 @@ namespace db0::object_model
         std::unique_ptr<QueryIterator> m_query_iterator;
         std::unique_ptr<SortedIterator> m_sorted_iterator;
         std::shared_ptr<IteratorFactory> m_factory;
-        
-        struct Decoration
-        {
-            std::vector<std::unique_ptr<QueryObserver> > m_query_observers;
-            // decorators collected from observers for the last item
-            std::vector<ObjectPtr> m_decorators;
-
-            Decoration(std::vector<std::unique_ptr<QueryObserver> > &&query_observers);
-
-            inline unsigned int size() const {
-                return m_query_observers.size();
-            }
-
-            bool empty() const {
-                return m_query_observers.empty();
-            }
-        };
-        
-        Decoration m_decoration;
-        const std::vector<FilterFunc> m_filters;
+        std::vector<std::unique_ptr<QueryObserver> > m_query_observers;
+        const std::vector<FilterFunc> m_filters;        
         std::shared_ptr<Class> m_type = nullptr;
         TypeObjectSharedPtr m_lang_type = nullptr;
 
@@ -165,7 +140,7 @@ namespace db0::object_model
         ObjectIterable(db0::swine_ptr<Fixture>, const ClassFactory &, std::unique_ptr<QueryIterator> &&,
             std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>, std::vector<std::unique_ptr<QueryObserver> > &&,
             std::vector<FilterFunc> &&filters, std::shared_ptr<Class>, TypeObjectPtr lang_type);
-
+        
         // get the base iterator, possibly initialized from the factory
         const BaseIterator &getBaseIterator(std::unique_ptr<BaseIterator> &) const;
     };
