@@ -763,9 +763,9 @@ namespace db0::python
             return PyObject_IsTrue(py_result);
         });
         
-        auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->ext();
+        auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->modifyExt();
         auto py_iter = PyObjectIterableDefault_new();
-        iter.makeNew(&(py_iter.get())->modifyExt(), filters);
+        iter.makeNewAppendFilters(&(py_iter.get())->modifyExt(), filters);
         return py_iter.steal();
     }
     

@@ -41,6 +41,8 @@ namespace db0::object_model
         using BaseIterator = db0::FT_IteratorBase;
         using FilterFunc = std::function<bool(ObjectPtr)>;
 
+        ObjectIterable(ObjectIterable &&) = default;
+
         // Construct from a full-text query iterator
         ObjectIterable(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, std::shared_ptr<Class> = nullptr, 
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
@@ -59,10 +61,10 @@ namespace db0::object_model
         virtual ~ObjectIterable() = default;
 
         /**
-         * Start the iteration over, possibly with the additional application of provided filters
+         * Start the iteration over, possibly with the application of additional provided filters
          */
-        virtual std::unique_ptr<ObjectIterator> iter(const std::vector<FilterFunc> & = {}) const;
-
+        ObjectIterator &makeIter(void *at_ptr, const std::vector<FilterFunc> & = {}) const;
+        
         // Begin from the underlying full-text iterator (or fail if initialized from a sorted iterator)
         // collect query observers (make copy)
         std::unique_ptr<QueryIterator> beginFTQuery(std::vector<std::unique_ptr<QueryObserver> > &,
@@ -121,14 +123,14 @@ namespace db0::object_model
         static ObjectIterable &makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::shared_ptr<IteratorFactory> factory, 
             std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
             const std::vector<FilterFunc> & = {});
-
+        
         // construct with additional filters
-        ObjectIterable &makeNew(void *at_ptr, const std::vector<FilterFunc> &) const;
+        ObjectIterable &makeNewAppendFilters(void *at_ptr, const std::vector<FilterFunc> &) const;
         // construct sorted
         ObjectIterable &makeNew(void *at_ptr, std::unique_ptr<SortedIterator> &&, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {}) const;
         ObjectIterable &makeNew(void *at_ptr, std::unique_ptr<QueryIterator> &&, std::vector<std::unique_ptr<QueryObserver> > && = {},
-            const std::vector<FilterFunc> & = {});
+            const std::vector<FilterFunc> & = {}) const;
         
     protected:
         mutable db0::weak_swine_ptr<Fixture> m_fixture;

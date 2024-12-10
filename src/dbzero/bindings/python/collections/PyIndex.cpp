@@ -140,7 +140,7 @@ namespace db0::python
         }
         
         auto &index = py_index->ext();
-        auto &iter = reinterpret_cast<PyObjectIterable*>(py_iter)->ext();
+        auto &iter = reinterpret_cast<PyObjectIterable*>(py_iter)->modifyExt();
         auto iter_obj = PyObjectIterableDefault_new();
         
         auto iter_sorted = index.sort(iter, asc, null_first);

@@ -60,6 +60,16 @@ namespace db0::python
         return PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid);
     }
     
+    // OBJECT_ITERABLE value specialization
+    template <> db0::swine_ptr<Fixture> getFixtureOf<TypeId::OBJECT_ITERABLE>(PyObject *py_value) {
+        return reinterpret_cast<PyObjectIterable*>(py_value)->ext().getFixture();
+    }
+
+    // OBJECT_ITERATOR value specialization
+    template <> db0::swine_ptr<Fixture> getFixtureOf<TypeId::OBJECT_ITERATOR>(PyObject *py_value) {
+        return reinterpret_cast<PyObjectIterator*>(py_value)->ext().getFixture();
+    }
+    
     void registerGetFixtureOfFunctions(std::vector<db0::swine_ptr<Fixture> (*)(PyObject*)> &functions)
     {
         functions.resize(static_cast<int>(TypeId::COUNT));
@@ -72,9 +82,9 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_INDEX)] = getFixtureOf<TypeId::DB0_INDEX>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = getFixtureOf<TypeId::DB0_ENUM_VALUE>;
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = getFixtureOf<TypeId::OBJECT_ITERABLE>;
+        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = getFixtureOf<TypeId::OBJECT_ITERATOR>;
         /**
-        functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;                                        
-           
+        functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;
         */
     }
     

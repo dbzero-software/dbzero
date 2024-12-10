@@ -42,14 +42,7 @@ namespace db0::object_model
         ObjectIterator(db0::swine_ptr<Fixture>, std::shared_ptr<IteratorFactory> factory, std::shared_ptr<Class> = nullptr, 
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
             const std::vector<FilterFunc> & = {});
-        
-        virtual ~ObjectIterator() = default;
-        
-        /**
-         * Start the iteration over, possibly with additional application of provided filters
-         */
-        virtual std::unique_ptr<ObjectIterator> iter(const std::vector<FilterFunc> & = {}) const;
-
+                
         /**
          * Retrieve next object from the iterator         
          * @return nullptr if end of iteration reached

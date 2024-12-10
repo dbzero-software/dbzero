@@ -1,4 +1,5 @@
 #include "ObjectIterator.hpp"
+#include "ObjectIterable.hpp"
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
