@@ -84,10 +84,69 @@ namespace db0::python
     {
         PY_API_FUNC
         return runSafe(tryPyObjectIterable_len, py_iterable);
-    } 
+    }
 
-    static PySequenceMethods PyObjectIterable_as_sequence = {
-        .sq_length = (lenfunc)PyAPI_PyObjectIterable_len    
+    void PySlice_GetUnboundIndices(PyObject *py_slice, std::function<std::size_t(std::optional<std::size_t> &)> size_func, 
+        Py_ssize_t &start, Py_ssize_t &stop, Py_ssize_t &step)
+    {
+        if (!PySlice_Check(py_slice)) {
+            THROWF(db0::InputException) << "Expected a slice object";
+        }
+        if (PySlice_Unpack(py_slice, &start, &stop, &step) < 0) {
+            THROWF(db0::InputException) << "Invalid slice object";
+        }
+        if (step == 0) {
+            THROWF(db0::InputException) << "Slice step cannot be zero";
+        }    
+
+        // only calculate size if negative indices are present
+        std::optional<std::size_t> size;
+        if (start < 0) start += size_func(size);
+        if (stop < 0) stop += size_func(size);
+        
+        if (start < 0) start = 0;
+        if (stop < 0) stop = 0;
+
+        if (step < 0) {
+            // FIXME: implement reversed order iteration
+            THROWF(db0::InternalException) << "Reversed order iteration over db0 query results is not supported";
+            /*
+            if (start < stop) {
+                std::swap(start, stop);
+            }
+            */
+        } else {
+            if (start > stop) {
+                std::swap(start, stop);
+            }
+        }    
+    }
+    
+    PyObject *tryPyObjectIterable_GetItemSlice(PyObjectIterable *py_iterable, PyObject *py_slice)
+    {        
+        Py_ssize_t start, stop, step;    
+        auto size_func = [&](std::optional<std::size_t> &size) {
+            if (!size) {
+                size = py_iterable->ext().getSize();
+            }
+            return *size;
+        };
+        
+        PySlice_GetUnboundIndices(py_slice, size_func, start, stop, step);
+        auto py_result = PyObjectIterableDefault_new();
+        py_iterable->ext().makeSlice(&(py_result.get()->modifyExt()), { (std::size_t)start, (std::size_t)stop, (int)step });
+        return py_result.steal();
+    }
+    
+    PyObject *PyAPI_PyObjectIterable_GetItemSlice(PyObjectIterable *py_iterable, PyObject *py_elem)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyObjectIterable_GetItemSlice, py_iterable, py_elem);
+    }
+
+    static PyMappingMethods PyObjectIterable_as_mapping = {
+        .mp_length = (lenfunc)PyAPI_PyObjectIterable_len,
+        .mp_subscript = (binaryfunc)PyAPI_PyObjectIterable_GetItemSlice
     };
 
     static PyMethodDef PyObjectIterable_methods[] = 
@@ -103,7 +162,7 @@ namespace db0::python
         .tp_basicsize = PyObjectIterable::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObjectIterable_del,
-        .tp_as_sequence = &PyObjectIterable_as_sequence,
+        .tp_as_mapping = &PyObjectIterable_as_mapping,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "DBZero object iterable",
         .tp_iter = (getiterfunc)PyAPI_PyObjectIterable_iter,        

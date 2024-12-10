@@ -86,9 +86,8 @@ namespace db0::python
         return makeDB0ListInternal(fixture, args, nargs).steal();
     }
     
-    PyObject *PyAPI_ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
+    PyObject *tryListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
     {
-        PY_API_FUNC
         // FIXME: this operation should be immutable
         db0::FixtureLock lock(py_src_list->ext().getFixture());
         // Check if the key is a slice object
@@ -116,6 +115,12 @@ namespace db0::python
             index += py_src_list->ext().size();
         }
         return py_src_list->ext().getItem(index).steal();
+    }
+    
+    PyObject *PyAPI_ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
+    {
+        PY_API_FUNC
+        return runSafe(tryListObject_GetItemSlice, py_src_list, elem);
     }
     
     PyObject *PyAPI_ListObject_clear(ListObject *py_list)

@@ -54,7 +54,7 @@ namespace db0::object_model
         , m_lang_type(lang_type)    
     {
     }
-
+    
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, std::shared_ptr<IteratorFactory> factory,
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         const std::vector<FilterFunc> &filters)
@@ -71,7 +71,7 @@ namespace db0::object_model
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, const ClassFactory &class_factory,
         std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator, 
         std::shared_ptr<IteratorFactory> factory, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
-        std::vector<FilterFunc> &&filters, std::shared_ptr<Class> type, TypeObjectPtr lang_type)
+        std::vector<FilterFunc> &&filters, std::shared_ptr<Class> type, TypeObjectPtr lang_type, const SliceDef &slice_def)
         : m_fixture(fixture)
         , m_class_factory(class_factory)
         , m_query_iterator(std::move(ft_query_iterator))
@@ -81,6 +81,7 @@ namespace db0::object_model
         , m_filters(std::move(filters))
         , m_type(type)
         , m_lang_type(lang_type)
+        , m_slice_def(slice_def)
     {
     }
     
@@ -217,18 +218,21 @@ namespace db0::object_model
         std::vector<FilterFunc> new_filters(this->m_filters);
         new_filters.insert(new_filters.end(), filters.begin(), filters.end());
         
+        if (m_sorted_iterator) {
+            auto sorted_iterator = beginSorted();
+            return *new (at_ptr) ObjectIterator(fixture, std::move(sorted_iterator), m_type, 
+                m_lang_type.get(), {}, new_filters);
+        }
+        
         std::unique_ptr<QueryIterator> query_iterator;
-        std::unique_ptr<SortedIterator> sorted_iterator;
         // note that query observers are not collected for the sorted iterator
         std::vector<std::unique_ptr<QueryObserver> > query_observers;
         if (m_query_iterator || m_factory) {
             query_iterator = beginFTQuery(query_observers, -1);
-        } else if (m_sorted_iterator) {
-            sorted_iterator = beginSorted();
         }
-
-        return *new (at_ptr) ObjectIterator(fixture, m_class_factory, std::move(query_iterator), std::move(sorted_iterator),
-            m_factory, std::move(query_observers), std::move(new_filters), m_type, m_lang_type.get());
+        
+        return *new (at_ptr) ObjectIterator(fixture, std::move(query_iterator), m_type, m_lang_type.get(),
+            std::move(query_observers), new_filters);
     }
     
     db0::swine_ptr<Fixture> ObjectIterable::getFixture() const
@@ -300,7 +304,25 @@ namespace db0::object_model
         return *new(at_ptr) ObjectIterable(fixture, m_class_factory, std::move(query_iterator), std::move(sorted_iterator),
             m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get());
     }
-    
+
+    ObjectIterable &ObjectIterable::makeSlice(void *at_ptr, const SliceDef &slice_def) const
+    {
+        auto fixture = getFixture();
+        std::vector<FilterFunc> _filters(this->m_filters);
+        
+        std::vector<std::unique_ptr<QueryObserver> > query_observers;
+        std::unique_ptr<QueryIterator> query_iterator;
+        std::unique_ptr<SortedIterator> sorted_iterator;
+        if (m_query_iterator || m_factory) {
+            query_iterator = beginFTQuery(query_observers, -1);
+        } else if (m_sorted_iterator) {
+            sorted_iterator = m_sorted_iterator->beginSorted();
+        }
+
+        return *new(at_ptr) ObjectIterable(fixture, m_class_factory, std::move(query_iterator), std::move(sorted_iterator),
+            m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), slice_def);  
+    }
+
     ObjectIterable &ObjectIterable::makeNew(void *at_ptr, std::unique_ptr<SortedIterator> &&sorted_iterator, 
         std::vector<std::unique_ptr<QueryObserver> > &&query_observers, const std::vector<FilterFunc> &filters) const
     {
