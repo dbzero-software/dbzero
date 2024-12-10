@@ -332,9 +332,10 @@ namespace db0::object_model
             iter = m_factory->createFTIterator();
         } else if (m_query_iterator) {
             iter = m_query_iterator->beginTyped(-1);
+        } else if (m_sorted_iterator) {
+            iter = m_sorted_iterator->beginFTQuery();
         }
-
-        // FIXME: implement support for sorted iterators
+                
         std::size_t result = 0;
         if (iter) {
             while (!iter->isEnd()) {

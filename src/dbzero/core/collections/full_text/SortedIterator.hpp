@@ -29,7 +29,7 @@ namespace db0
         virtual bool hasFTQuery() const = 0;
 
         /**
-         * Retrieve the underlying full-text query
+         * Retrieve the underlying full-text query (unsorted)
         */
         virtual std::unique_ptr<QueryIterator> beginFTQuery() const = 0;
 
