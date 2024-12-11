@@ -123,7 +123,21 @@ namespace db0::object_model
     Enum::ObjectSharedPtr Enum::getLangValue(const EnumValue &enum_value) const {
         return getLangValue(enum_value.m_str_repr.c_str());
     }
-
+    
+    Enum::ObjectSharedPtr Enum::getLangValue(unsigned int at) const
+    {        
+        // NOTE: m_ord_cache must NOT be cleared during the lifetime of the process
+        // there's a strong assumption that each enum value is represented by the same native object
+        assert(at < m_ordered_values.size());
+        auto it_cache = m_ord_cache.find(at);
+        if (it_cache == m_ord_cache.end()) {
+            // retieve by name
+            auto lang_value = getLangValue(m_string_pool.fetch(m_ordered_values[at]).c_str());
+            it_cache = m_ord_cache.insert({at, lang_value}).first;
+        }
+        return it_cache->second.get();
+    }
+    
     std::optional<std::string> getEnumKeyVariant(std::optional<std::string> type_id, std::optional<std::string> enum_name,
         std::optional<std::string> module_name, const std::vector<std::string> &values, int variant_id)
     {
@@ -208,7 +222,11 @@ namespace db0::object_model
         m_ordered_values.commit();
         super_t::commit();
     }
-    
+
+    std::size_t Enum::size() const {
+        return m_values.size();
+    }
+
 }
 
 namespace std 

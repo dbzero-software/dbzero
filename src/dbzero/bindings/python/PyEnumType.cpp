@@ -118,5 +118,9 @@ namespace db0::python
     const std::vector<std::string> &PyEnumData::getValueDefs() const {
         return m_enum_type_def->m_enum_def.m_values;
     }
+
+    std::size_t PyEnumData::size() const {
+        return m_enum_type_def->m_enum_def.m_values.size();
+    }
     
 }

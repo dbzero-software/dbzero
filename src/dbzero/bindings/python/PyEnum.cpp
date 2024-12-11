@@ -86,6 +86,34 @@ namespace db0::python
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
+    
+    PyObject *getEnumValueRepr(PyEnum *self, PyObject *py_key)
+    {        
+        // check if enum value exists in the definition
+        auto type_def = self->ext().m_enum_type_def;
+        const auto &enum_def = type_def->m_enum_def;
+        if (PyUnicode_Check(py_key)) {
+            auto key = PyUnicode_AsUTF8(py_key);
+            if (std::find(enum_def.m_values.begin(), enum_def.m_values.end(), key) == enum_def.m_values.end()) {
+                PyErr_SetString(PyExc_KeyError, "Key not found");
+                return NULL;
+            }
+            return makePyEnumValueRepr(type_def, key).steal();
+        } else if (PyLong_Check(py_key)) {
+            auto index = PyLong_AsLong(py_key);
+            if (index < 0) {
+                index += enum_def.m_values.size();
+            }
+            if (index < 0 || index > (long)enum_def.m_values.size()) {
+                PyErr_SetString(PyExc_IndexError, "Index out of range");
+                return NULL;
+            }
+            return makePyEnumValueRepr(type_def, enum_def.m_values[index].c_str()).steal();
+        } else {
+            PyErr_SetString(PyExc_TypeError, "Key must be a string or an integer");
+            return NULL;
+        }
+    }
 
     PyObject *getEnumValuesRepr(PyEnum *self)
     {
@@ -99,7 +127,7 @@ namespace db0::python
         }
         return py_tuple;
     }
-
+    
     PyObject *tryGetEnumValues(PyEnum *self)
     {
         const Enum *enum_ = nullptr;
@@ -130,6 +158,67 @@ namespace db0::python
         return runSafe(tryGetEnumValues, self);
     }
 
+    Py_ssize_t tryPyEnum_len(PyEnum *py_enum) {
+        return py_enum->ext().size();
+    }
+
+    Py_ssize_t PyAPI_PyEnum_len(PyEnum *py_enum)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyEnum_len, py_enum);
+    }
+
+    PyObject *tryPyEnum_GetItem(PyEnum *self, PyObject *py_key)
+    {
+        // note that only string and integer keys are supported
+        if (!PyUnicode_Check(py_key) && !PyLong_Check(py_key)) {
+            PyErr_SetString(PyExc_TypeError, "Key must be a string or an integer");
+            return NULL;
+        }
+
+        const Enum *enum_ = nullptr;
+        if (self->ext().exists()) {
+            enum_ = &self->ext().get();
+        } else {
+            // note that enum is created on demand
+            enum_ = self->modifyExt().tryCreate();
+            // return value repr instead of materialized enum values
+            if (!enum_) {
+                return getEnumValueRepr(self, py_key);
+            }
+        }
+
+        if (PyUnicode_Check(py_key)) {
+            auto key = PyUnicode_AsUTF8(py_key);
+            return enum_->getLangValue(key).steal();
+        } else if (PyLong_Check(py_key)) {
+            auto index = PyLong_AsLong(py_key);
+            if (index < 0) {
+                index += enum_->size();
+            }
+            if (index < 0 || index > (long)enum_->size()) {
+                PyErr_SetString(PyExc_IndexError, "Index out of range");
+                return NULL;
+            }
+            return enum_->getLangValue(index).steal();
+        }
+
+        assert(false);
+        PyErr_SetString(PyExc_TypeError, "Key must be a string or an integer");
+        return NULL;        
+    }
+    
+    PyObject *PyAPI_PyEnum_GetItem(PyEnum *py_enum, PyObject *py_key)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyEnum_GetItem, py_enum, py_key);
+    }
+
+    static PyMappingMethods PyEnum_mp = {
+        .mp_length = (lenfunc)PyAPI_PyEnum_len,
+        .mp_subscript = (binaryfunc)PyAPI_PyEnum_GetItem
+    };
+
     static PyMethodDef PyEnum_methods[] = 
     {
         {"values", (PyCFunction)PyAPI_getEnumValues, METH_NOARGS, "Get enum values"},
@@ -142,6 +231,7 @@ namespace db0::python
         .tp_basicsize = PyEnum::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyEnum_del,
+        .tp_as_mapping = &PyEnum_mp,
         .tp_getattro = reinterpret_cast<getattrofunc>(PyEnum_getattro),
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "Enum object",

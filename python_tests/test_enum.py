@@ -119,6 +119,14 @@ def test_enum_value_repr_returned_if_unable_to_create_enum(db0_fixture):
 
 
 def test_enum_value_created_from_string(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
+    Colors['RED'] is Colors.RED    
+    Colors['GREEN'] is Colors.GREEN
+
+
+def test_enum_value_created_from_int(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
-    assert getattr(Colors, "RED") is Colors.RED
-    assert getattr(Colors, "GREEN") is Colors.GREEN
+    assert Colors[0] is Colors.RED
+    assert Colors[1] is Colors.GREEN
+    assert Colors[2] is Colors.BLUE
+    

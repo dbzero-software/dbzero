@@ -45,6 +45,8 @@ namespace db0::python
         // get values from their definitions
         const std::vector<std::string> &getValueDefs() const;
         
+        std::size_t size() const;
+        
         static void makeNew(void *at_ptr, const EnumDef &enum_def, const char *type_id, 
             const char *prefix_name);
     };
