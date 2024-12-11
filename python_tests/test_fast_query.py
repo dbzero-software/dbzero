@@ -116,7 +116,7 @@ def test_group_by_enum_values_with_tag_removals(db0_fixture, memo_enum_tags):
     assert db0.group_by(Colors.values(), db0.find(MemoTestClass))["RED"] == 4
     i = 0
     for _ in range(4):
-        db0.tags(next(db0.find(MemoTestClass, Colors.RED))).remove(Colors.RED)
+        db0.tags(next(iter(db0.find(MemoTestClass, Colors.RED)))).remove(Colors.RED)
         i += 1
         db0.commit()
         result = db0.group_by(Colors.values(), db0.find(MemoTestClass)).get("RED", None)

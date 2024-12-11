@@ -19,7 +19,7 @@ namespace db0::object_model {
     class Dict;
     class TagSet;
     class Index;
-    class ObjectIterator;
+    class ObjectIterable;
     struct EnumValue;
     struct EnumValueRepr;
     struct FieldDef;
@@ -53,7 +53,7 @@ namespace db0::python
         using TagSet = db0::object_model::TagSet;
         using PandasBlock = db0::object_model::pandas::Block;
         using Index = db0::object_model::Index;
-        using ObjectIterator = db0::object_model::ObjectIterator;
+        using ObjectIterable = db0::object_model::ObjectIterable;
         using EnumValue = db0::object_model::EnumValue;
         using EnumValueRepr = db0::object_model::EnumValueRepr;
         using FieldDef = db0::object_model::FieldDef;
@@ -97,7 +97,7 @@ namespace db0::python
         Index &extractMutableIndex(ObjectPtr index_ptr) const;
         const EnumValue &extractEnumValue(ObjectPtr enum_value_ptr) const;
         const EnumValueRepr &extractEnumValueRepr(ObjectPtr enum_value_repr_ptr) const;
-        ObjectIterator &extractObjectIterator(ObjectPtr) const;
+        ObjectIterable &extractObjectIterable(ObjectPtr) const;
         FieldDef &extractFieldDef(ObjectPtr) const;
         std::string extractString(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;

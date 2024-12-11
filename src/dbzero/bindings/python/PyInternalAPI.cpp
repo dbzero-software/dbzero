@@ -14,7 +14,6 @@
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/workspace/Utils.hpp>
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
-#include <dbzero/object_model/tags/TypedObjectIterator.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
@@ -25,8 +24,9 @@
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/PyEnum.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include "PyToolkit.hpp"
-#include "PyObjectIterator.hpp"
 #include "Memo.hpp"
 #include "PyClass.hpp"
 
@@ -255,8 +255,7 @@ namespace db0::python
     
     PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs)
     {
-        using ObjectIterator = db0::object_model::ObjectIterator;
-        using TypedObjectIterator = db0::object_model::TypedObjectIterator;
+        using ObjectIterable = db0::object_model::ObjectIterable;         
         using TagIndex = db0::object_model::TagIndex;
         using Class = db0::object_model::Class;        
         
@@ -269,17 +268,9 @@ namespace db0::python
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
         auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);
-        auto iter_obj = PyObjectIteratorDefault_new();
-        if (type) {
-            // construct as typed iterator when a type was specified
-            auto typed_iter = std::make_unique<TypedObjectIterator>(fixture, std::move(query_iterator), type, 
-                lang_type, std::move(query_observers));
-            Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(typed_iter));
-        } else {
-            auto _iter = std::make_unique<ObjectIterator>(fixture, std::move(query_iterator), lang_type,
-                std::move(query_observers));
-            Iterator::makeNew(&(iter_obj.get())->modifyExt(), std::move(_iter));
-        }
+        auto iter_obj = PyObjectIterableDefault_new();
+        ObjectIterable::makeNew(&(iter_obj.get())->modifyExt(), fixture, std::move(query_iterator), type,
+            lang_type, std::move(query_observers));
         return iter_obj.steal();
     }
     
@@ -290,8 +281,8 @@ namespace db0::python
         auto type_id = PyToolkit::getTypeManager().getTypeId(py_serializable);
         db0::serial::write(bytes, type_id);
         
-        if (type_id == TypeId::OBJECT_ITERATOR) {
-            reinterpret_cast<PyObjectIterator*>(py_serializable)->ext()->serialize(bytes);
+        if (type_id == TypeId::OBJECT_ITERABLE) {
+            reinterpret_cast<PyObjectIterable*>(py_serializable)->ext().serialize(bytes);
         } else {
             THROWF(db0::InputException) << "Unsupported or non-serializable type: " 
                 << static_cast<int>(type_id) << THROWF_END;
@@ -319,8 +310,8 @@ namespace db0::python
         auto fixture = workspace->getCurrentFixture();
         auto iter = bytes.cbegin(), end = bytes.cend();
         auto type_id = db0::serial::read<TypeId>(iter, end);
-        if (type_id == TypeId::OBJECT_ITERATOR) {
-            return PyToolkit::unloadObjectIterator(fixture, iter, end).steal();
+        if (type_id == TypeId::OBJECT_ITERABLE) {
+            return PyToolkit::unloadObjectIterable(fixture, iter, end).steal();
         } else {
             THROWF(db0::InputException) << "Unsupported serialized type id: " 
                 << static_cast<int>(type_id) << THROWF_END;

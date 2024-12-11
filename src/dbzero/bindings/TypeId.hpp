@@ -7,7 +7,7 @@
 namespace db0::bindings
 
 {
-
+    
     /**
      * Superset of common language types (common to all supported languages)
     */
@@ -24,10 +24,11 @@ namespace db0::bindings
         DATETIME = 7,
         DATE = 8,
         TUPLE = 9,
-        OBJECT_ITERATOR = 10,
-        BYTES = 11,
-        BYTES_ARRAY = 12,
-        BOOLEAN = 13, 
+        OBJECT_ITERABLE = 10,
+        OBJECT_ITERATOR = 11,
+        BYTES = 12,
+        BYTES_ARRAY = 13,
+        BOOLEAN = 14,
         // DBZero wrappers of common language types
         MEMO_OBJECT = 100,
         DB0_LIST = 101,

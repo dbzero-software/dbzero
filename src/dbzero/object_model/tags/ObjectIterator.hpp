@@ -8,6 +8,8 @@
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include "QueryObserver.hpp"
+#include "ObjectIterable.hpp"
+#include "Slice.hpp"
 
 namespace db0::object_model
 
@@ -22,77 +24,27 @@ namespace db0::object_model
      * Full-text query result iterator over unspecified type objects
      * all objects must be from the same prefix
     */
-    class ObjectIterator: public Serializable
+    class ObjectIterator: public ObjectIterable
     {
     public:
-        using LangToolkit = Object::LangToolkit;
-        using ObjectPtr = LangToolkit::ObjectPtr;
-        using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
-        using TypeObjectPtr = LangToolkit::TypeObjectPtr;
-        using TypeObjectSharedPtr = LangToolkit::TypeObjectSharedPtr;
-
-        // full-text query iterator (KeyT must be std::uint64_t)
-        using QueryIterator = FT_Iterator<std::uint64_t>;
-        using SortedIterator = db0::SortedIterator<std::uint64_t>;
-        using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
-        // a common base for full-text and sorted iterators
-        using BaseIterator = db0::FT_IteratorBase;
-        using FilterFunc = std::function<bool(ObjectPtr)>;
-
         // Construct from a full-text query iterator
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, TypeObjectPtr lang_type = nullptr,
-            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});            
-
+        // NOTE: lang_type is required here because results may need to be accessed as MemoBase
+        // even if their exact type is unknown (this is for the model-less access to data)
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, std::shared_ptr<Class> = nullptr,
+            TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
+            const std::vector<FilterFunc> & = {}, const SliceDef & = {});
+        
         // Construct from a sorted iterator
-        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&, TypeObjectPtr lang_type = nullptr,
-            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});
-        
-        // Construct from IteratorFactory (specialized on first use)
-        ObjectIterator(db0::swine_ptr<Fixture>, std::shared_ptr<IteratorFactory> factory, TypeObjectPtr lang_type = nullptr,
-            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});
-        
-        virtual ~ObjectIterator() = default;
-
-        /**
-         * Start the iteration over, possibly with additional application of provided filters
-         */
-        virtual std::unique_ptr<ObjectIterator> iter(const std::vector<FilterFunc> & = {}) const;
-
+        ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&, std::shared_ptr<Class> = nullptr,
+            TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
+            const std::vector<FilterFunc> & = {}, const SliceDef & = {});
+                
         /**
          * Retrieve next object from the iterator         
          * @return nullptr if end of iteration reached
         */
         ObjectSharedPtr next();
-                
-        // Begin from the underlying full-text iterator (or fail if initialized from a sorted iterator)
-        // collect query observers (make copy)
-        std::unique_ptr<QueryIterator> beginFTQuery(std::vector<std::unique_ptr<QueryObserver> > &,
-            int direction = -1) const;
-        
-        std::unique_ptr<SortedIterator> beginSorted() const;
-        
-        // Release the underlying query iterator + append all observers into provided output buffer, render this instance invalid
-        std::unique_ptr<QueryIterator> releaseQuery(std::vector<std::unique_ptr<QueryObserver> > &);
-        
-        bool isSorted() const;
-                
-        db0::swine_ptr<Fixture> getFixture() const;
-        
-        bool isNull() const;
-        
-        void serialize(std::vector<std::byte> &) const override;
-        
-        static std::unique_ptr<ObjectIterator> deserialize(db0::swine_ptr<Fixture> &, std::vector<std::byte>::const_iterator &,
-            std::vector<std::byte>::const_iterator);
-        
-        /**
-         * Measure the similarity between the 2 query iterators
-         * @return value from the range [0 - 1], where 0 = identical and 1 = completely different
-        */
-        double compareTo(const ObjectIterator &other) const;
 
-        std::vector<std::byte> getSignature() const;
-        
         inline unsigned int numDecorators() const {
             return m_decoration.size();
         }
@@ -101,23 +53,11 @@ namespace db0::object_model
             return m_decoration.m_decorators;
         }
 
-        const std::vector<FilterFunc> &getFilters() const {
-            return m_filters;
-        }
-        
-        // Get associated language specific type of the results if it was specified
-        TypeObjectPtr getLangType() const;
-        
     protected:
-        mutable db0::weak_swine_ptr<Fixture> m_fixture;
-        const ClassFactory &m_class_factory;
-        std::unique_ptr<QueryIterator> m_query_iterator;
-        std::unique_ptr<SortedIterator> m_sorted_iterator;
-        std::shared_ptr<IteratorFactory> m_factory;
+        friend class ObjectIterable;
         std::unique_ptr<BaseIterator> m_base_iterator;
         // iterator_ptr valid both in case of m_query_iterator and m_sorted_iterator
-        BaseIterator *m_iterator_ptr = nullptr;        
-        bool m_initialized = false;
+        BaseIterator *m_iterator_ptr = nullptr;
 
         struct Decoration
         {
@@ -135,19 +75,10 @@ namespace db0::object_model
                 return m_query_observers.empty();
             }
         };
-
+        
         Decoration m_decoration;
-        const std::vector<FilterFunc> m_filters;
-        TypeObjectSharedPtr m_lang_type;
-
-        // iter constructor
-        ObjectIterator(db0::swine_ptr<Fixture>, const ClassFactory &, std::unique_ptr<QueryIterator> &&,
-            std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>, std::vector<std::unique_ptr<QueryObserver> > &&,
-            std::vector<FilterFunc> &&filters, TypeObjectPtr lang_type);
-
-        void assureInitialized();
-        void assureInitialized() const;
-
+        Slice m_slice;
+        
         /**
          * Unload object by address (must be from this iterator)
         */

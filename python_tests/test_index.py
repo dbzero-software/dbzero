@@ -561,3 +561,16 @@ def test_index_add_remove_sequence_issue_1(db0_fixture):
     # validate index with sort query
     assert len(list(index.sort(index.range(None, 500), desc=True))) == len(list(index.range(None, 500)))
     del obj_arr
+    
+    
+def test_len_of_sorted_range_query(db0_fixture):
+    index = db0.index()
+    objects = [MemoTestClass(i) for i in range(5)]
+    priority = [999, 666, 555, 888, 777]
+    for i in range(5):
+        db0.tags(objects[i]).add(["tag1", "tag2"])
+        # key, value
+        index.add(priority[i], objects[i])
+    
+    query = index.sort(find("tag1"))
+    assert len(query) == 5

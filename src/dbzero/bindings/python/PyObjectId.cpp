@@ -2,10 +2,10 @@
 #include "Memo.hpp"
 #include <iostream>
 #include <dbzero/object_model/object.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include "PyInternalAPI.hpp"
 #include "PyAPI.hpp"
-#include "PyObjectIterator.hpp"
 #include "Types.hpp"
 
 namespace db0::python

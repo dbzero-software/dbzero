@@ -363,3 +363,16 @@ def test_find_static_scoped_type(db0_fixture):
     query = db0.find(MemoDataPxClass)
     assert len(list(query)) == 10
     
+    
+def test_tag_query_results_can_be_iterated_multiple_times(db0_no_autocommit, memo_tags):
+    query = db0.find("tag1")
+    l1 = len(list(query))
+    l2 = len(list(query))
+    assert l1 == l2
+    
+
+def test_using_len_to_determine_query_result_size(db0_no_autocommit, memo_tags):
+    query = db0.find("tag1")
+    assert len(query) == 10
+        
+    

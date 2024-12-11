@@ -10,8 +10,9 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/PyWorkspace.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include "PyObjectTagManager.hpp"
-#include "PyObjectIterator.hpp"
 #include "PySnapshot.hpp"
 #include "PyTagSet.hpp"
 #include "PyEnum.hpp"
@@ -141,8 +142,9 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::PyObjectTagManagerType, 
         &py::PySnapshotObjectType, 
         &py::PandasBlockObjectType, 
-        &py::PandasDataFrameObjectType,         
-        &py::PyObjectIteratorType,        
+        &py::PandasDataFrameObjectType,
+        &py::PyObjectIterableType,
+        &py::PyObjectIteratorType,
         &py::ByteArrayObjectType,
         &py::PyEnumType, 
         &py::PyEnumValueType,

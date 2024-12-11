@@ -5,9 +5,10 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <Python.h>
 #include <datetime.h>
-#include "PyObjectIterator.hpp"
 #include <chrono>
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
@@ -64,6 +65,7 @@ namespace db0::python
         addStaticDBZeroType(&DictObjectType, TypeId::DB0_DICT);
         addStaticDBZeroType(&TupleObjectType, TypeId::DB0_TUPLE);
         addStaticDBZeroType(&ClassObjectType, TypeId::DB0_CLASS);
+        addStaticDBZeroType(&PyObjectIterableType, TypeId::OBJECT_ITERABLE);
         addStaticDBZeroType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
         
         addStaticDBZeroType(&PyEnumType, TypeId::DB0_ENUM);
@@ -319,13 +321,13 @@ namespace db0::python
         assert(PyType_Check(py_type));
         return reinterpret_cast<TypeObjectPtr>(py_type);
     }
-    
-    PyTypeManager::ObjectIterator &PyTypeManager::extractObjectIterator(ObjectPtr obj_ptr) const
+
+    PyTypeManager::ObjectIterable &PyTypeManager::extractObjectIterable(ObjectPtr obj_ptr) const
     {
-        if (!PyObjectIterator_Check(obj_ptr)) {
-            THROWF(db0::InputException) << "Expected an ObjectIterator object" << THROWF_END;
+        if (!PyObjectIterable_Check(obj_ptr)) {
+            THROWF(db0::InputException) << "Expected an ObjectIterable object" << THROWF_END;
         }
-        return *reinterpret_cast<PyObjectIterator*>(obj_ptr)->modifyExt();
+        return reinterpret_cast<PyObjectIterable*>(obj_ptr)->modifyExt();
     }
     
     bool PyTypeManager::isNull(ObjectPtr obj_ptr) const {

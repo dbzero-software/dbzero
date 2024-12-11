@@ -112,7 +112,7 @@ namespace db0::python
         static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, std::uint64_t address);
         
         // Unload from serialized bytes
-        static ObjectSharedPtr unloadObjectIterator(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
+        static ObjectSharedPtr unloadObjectIterable(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
         
         // Creates a new Python instance of EnumValue

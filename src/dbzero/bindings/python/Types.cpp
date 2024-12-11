@@ -7,7 +7,8 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
-#include <dbzero/bindings/python/PyObjectIterator.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include "PyAPI.hpp"
@@ -59,6 +60,16 @@ namespace db0::python
         return PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid);
     }
     
+    // OBJECT_ITERABLE value specialization
+    template <> db0::swine_ptr<Fixture> getFixtureOf<TypeId::OBJECT_ITERABLE>(PyObject *py_value) {
+        return reinterpret_cast<PyObjectIterable*>(py_value)->ext().getFixture();
+    }
+
+    // OBJECT_ITERATOR value specialization
+    template <> db0::swine_ptr<Fixture> getFixtureOf<TypeId::OBJECT_ITERATOR>(PyObject *py_value) {
+        return reinterpret_cast<PyObjectIterator*>(py_value)->ext().getFixture();
+    }
+    
     void registerGetFixtureOfFunctions(std::vector<db0::swine_ptr<Fixture> (*)(PyObject*)> &functions)
     {
         functions.resize(static_cast<int>(TypeId::COUNT));
@@ -70,9 +81,10 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = getFixtureOf<TypeId::DB0_TUPLE>;
         functions[static_cast<int>(TypeId::DB0_INDEX)] = getFixtureOf<TypeId::DB0_INDEX>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = getFixtureOf<TypeId::DB0_ENUM_VALUE>;
+        functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = getFixtureOf<TypeId::OBJECT_ITERABLE>;
+        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = getFixtureOf<TypeId::OBJECT_ITERATOR>;
         /**
-        functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;                                        
-        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = createMember<TypeId::OBJECT_ITERATOR, PyToolkit>;        
+        functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;
         */
     }
     
@@ -151,9 +163,9 @@ namespace db0::python
         return tryGetUUIDOf(reinterpret_cast<IndexObject*>(py_value));
     }
 
-    // OBJECT_ITERATOR specialization
-    template <> PyObject *tryGetUUID<TypeId::OBJECT_ITERATOR>(PyObject *py_value) {
-        return tryGetSerializableUUID(&*reinterpret_cast<PyObjectIterator*>(py_value)->ext());
+    // OBJECT_ITERABLE specialization
+    template <> PyObject *tryGetUUID<TypeId::OBJECT_ITERABLE>(PyObject *py_value) {
+        return tryGetSerializableUUID(&reinterpret_cast<PyObjectIterable*>(py_value)->ext());
     }
 
     void registerTryGetUUIDFunctions(std::vector<PyObject *(*)(PyObject*)> &functions)
@@ -166,7 +178,7 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_SET)] = tryGetUUID<TypeId::DB0_SET>;        
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = tryGetUUID<TypeId::DB0_TUPLE>;
         functions[static_cast<int>(TypeId::DB0_INDEX)] = tryGetUUID<TypeId::DB0_INDEX>;        
-        functions[static_cast<int>(TypeId::OBJECT_ITERATOR)] = tryGetUUID<TypeId::OBJECT_ITERATOR>;                
+        functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = tryGetUUID<TypeId::OBJECT_ITERABLE>;
         /*
         functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;

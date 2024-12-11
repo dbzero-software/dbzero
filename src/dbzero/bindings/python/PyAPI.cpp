@@ -8,8 +8,9 @@
 #include "Memo.hpp"
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
-#include "PyObjectIterator.hpp"
 #include "Memo.hpp"
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
@@ -292,9 +293,10 @@ namespace db0::python
                 }
             }
             return Py_None;
+        } else if (PyObjectIterable_Check(py_object)) {
+            fixture = reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture();            
         } else if (PyObjectIterator_Check(py_object)) {
-            auto &iter = reinterpret_cast<PyObjectIterator*>(py_object)->ext();
-            fixture = iter->getFixture();
+            fixture = reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture();
         } else {
             fixture = getFixtureOf(py_object);
         }
@@ -676,16 +678,16 @@ namespace db0::python
     }
 
     using TagIndex = db0::object_model::TagIndex;
+    using ObjectIterable = db0::object_model::ObjectIterable;
     using ObjectIterator = db0::object_model::ObjectIterator;
-    using TypedObjectIterator = db0::object_model::TypedObjectIterator;
     using QueryObserver = db0::object_model::QueryObserver;
     
     std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
-    splitBy(PyObject *py_tag_list, ObjectIterator &iterator)
+    splitBy(PyObject *py_tag_list, const ObjectIterable &iterable)
     {        
         std::vector<std::unique_ptr<QueryObserver> > query_observers;
-        auto query = iterator.releaseQuery(query_observers);
-        auto &tag_index = iterator.getFixture()->get<db0::object_model::TagIndex>();
+        auto query = iterable.beginFTQuery(query_observers, -1);
+        auto &tag_index = iterable.getFixture()->get<db0::object_model::TagIndex>();
         auto result = tag_index.splitBy(py_tag_list, std::move(query));
         query_observers.push_back(std::move(result.second));
         return { std::move(result.first), std::move(query_observers) };
@@ -700,23 +702,15 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid argument type";
         }
         
-        if (!PyObjectIterator_Check(py_query)) {
+        if (!PyObjectIterable_Check(py_query)) {
             THROWF(db0::InputException) << "Invalid argument type";
         }
         
-        auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->modifyExt();
-        auto split_query = splitBy(py_tag_list, *iter);
-        auto py_iter = PyObjectIteratorDefault_new();
-        // create decorated iterator (either plain or typed)
-        if (iter.isTyped()) {
-            auto typed_iter = iter.m_typed_iterator_ptr->makeTypedIter(std::move(split_query.first), 
-                std::move(split_query.second), iter->getFilters());
-            Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(typed_iter));
-        } else {
-            auto _iter = std::make_unique<ObjectIterator>(iter->getFixture(), std::move(split_query.first), 
-                iter->getLangType(), std::move(split_query.second), iter->getFilters());
-            Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(_iter));
-        }
+        auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->modifyExt();
+        auto split_query = splitBy(py_tag_list, iter);
+        auto py_iter = PyObjectIterableDefault_new();
+        iter.makeNew(&(py_iter.get())->modifyExt(), std::move(split_query.first), std::move(split_query.second),
+            iter.getFilters());
         return py_iter.steal();
     }
     
@@ -755,7 +749,7 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid filter object";
         }
         
-        if (!PyObjectIterator_Check(py_query)) {
+        if (!PyObjectIterable_Check(py_query)) {
             THROWF(db0::InputException) << "Invalid query object";
         }
 
@@ -768,21 +762,14 @@ namespace db0::python
             }
             return PyObject_IsTrue(py_result);
         });
-
-        auto &iter = reinterpret_cast<PyObjectIterator*>(py_query)->ext();
-        auto py_iter = PyObjectIteratorDefault_new();
-        // create decorated iterator (either plain or typed)
-        if (iter.isTyped()) {
-            auto typed_iter = iter.m_typed_iterator_ptr->iterTyped(filters);
-            Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(typed_iter));
-        } else {
-            auto _iter = iter->iter(filters);
-            Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(_iter));
-        }
+        
+        auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->modifyExt();
+        auto py_iter = PyObjectIterableDefault_new();
+        iter.makeNewAppendFilters(&(py_iter.get())->modifyExt(), filters);
         return py_iter.steal();
     }
     
-    PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs) 
+    PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         return runSafe(tryFilterBy, args, kwargs);

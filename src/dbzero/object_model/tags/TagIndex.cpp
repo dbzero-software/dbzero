@@ -383,7 +383,7 @@ namespace db0::object_model
         if (nargs > 0 || type) {
             // flush pending updates before querying
             flush();
-            // if the 1st argument is a type then resolve as a TypedObjectIterator
+            // if the 1st argument is a type then resolve as a typed ObjectIterable
             std::size_t offset = 0;
             bool result = !no_result;
             // apply type filter if provided (unless type is MemoBase)
@@ -421,7 +421,7 @@ namespace db0::object_model
     {
         using TypeId = db0::bindings::TypeId;
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
-
+        
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
         // simple tag convertible type
         if (type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE 
@@ -479,8 +479,8 @@ namespace db0::object_model
             return true;
         }
         
-        if (type_id == TypeId::OBJECT_ITERATOR) {
-            auto &obj_iter = LangToolkit::getTypeManager().extractObjectIterator(arg);
+        if (type_id == TypeId::OBJECT_ITERABLE) {
+            auto &obj_iter = LangToolkit::getTypeManager().extractObjectIterable(arg);
             // try interpreting the iterator as FT-query
             auto ft_query = obj_iter.beginFTQuery(query_observers, -1);
             if (!ft_query || ft_query->isEnd()) {
