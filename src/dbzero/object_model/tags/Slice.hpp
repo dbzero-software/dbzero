@@ -11,8 +11,18 @@ namespace db0::object_model
     struct SliceDef
     {
         const std::size_t m_start = 0;
-        const std::size_t m_stop = std::numeric_limits<std::size_t>::max();
+        const std::size_t m_stop = MAX_STOP();
         const int m_step = 1;
+        
+        bool isDefault() const;
+        
+        bool operator==(const SliceDef &other) const {
+            return m_start == other.m_start && m_stop == other.m_stop && m_step == other.m_step;
+        }
+
+        static constexpr std::size_t MAX_STOP() {
+            return std::numeric_limits<std::size_t>::max();
+        }
     };
     
     class Slice

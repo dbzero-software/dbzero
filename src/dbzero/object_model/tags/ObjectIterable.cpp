@@ -89,6 +89,10 @@ namespace db0::object_model
         return !m_query_iterator && !m_sorted_iterator && !m_factory;
     }
     
+    bool ObjectIterable::isSliced() const {
+        return !m_slice_def.isDefault();
+    }
+
     std::unique_ptr<ObjectIterable::QueryIterator> ObjectIterable::beginFTQuery(
         std::vector<std::unique_ptr<QueryObserver> > &query_observers, int direction) const
     {
@@ -307,9 +311,16 @@ namespace db0::object_model
     
     ObjectIterable &ObjectIterable::makeSlice(void *at_ptr, const SliceDef &slice_def) const
     {
+        const SliceDef *def_ptr = &slice_def;
+        if (slice_def.isDefault()) {
+            def_ptr = &m_slice_def;
+        } else if (!m_slice_def.isDefault()) {
+            // multiple slicing is not supported
+            THROWF(db0::InputException) << "Cannot slice an already sliced iterable (Operation not supported)" << THROWF_END;
+        }
+        
         auto fixture = getFixture();
         std::vector<FilterFunc> _filters(this->m_filters);
-        
         std::vector<std::unique_ptr<QueryObserver> > query_observers;
         std::unique_ptr<QueryIterator> query_iterator;
         std::unique_ptr<SortedIterator> sorted_iterator;
@@ -319,8 +330,9 @@ namespace db0::object_model
             sorted_iterator = m_sorted_iterator->beginSorted();
         }
         
+        assert(def_ptr);
         return *new(at_ptr) ObjectIterable(fixture, m_class_factory, std::move(query_iterator), std::move(sorted_iterator),
-            m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), slice_def);  
+            m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), *def_ptr);  
     }
 
     ObjectIterable &ObjectIterable::makeNew(void *at_ptr, std::unique_ptr<SortedIterator> &&sorted_iterator, 

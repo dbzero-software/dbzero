@@ -6,6 +6,10 @@ namespace db0::object_model
 
 {
 
+    bool SliceDef::isDefault() const {
+        return *this == SliceDef();
+    }
+    
     Slice::Slice(BaseIterator *base_iterator, const SliceDef &slice_def)
         : m_slice_def(slice_def)
         , m_iterator_ptr(base_iterator)        

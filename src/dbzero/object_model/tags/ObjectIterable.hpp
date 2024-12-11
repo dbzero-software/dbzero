@@ -83,6 +83,8 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> getFixture() const;
         
         bool isNull() const;
+
+        bool isSliced() const;
         
         void serialize(std::vector<std::byte> &) const override;
         

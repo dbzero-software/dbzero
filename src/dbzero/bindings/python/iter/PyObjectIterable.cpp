@@ -98,7 +98,7 @@ namespace db0::python
         if (step == 0) {
             THROWF(db0::InputException) << "Slice step cannot be zero";
         }    
-
+        
         // only calculate size if negative indices are present
         std::optional<std::size_t> size;
         if (start < 0) start += size_func(size);
@@ -124,6 +124,7 @@ namespace db0::python
     
     PyObject *tryPyObjectIterable_GetItemSlice(PyObjectIterable *py_iterable, PyObject *py_slice)
     {        
+        using SliceDef = db0::object_model::SliceDef;
         Py_ssize_t start, stop, step;    
         auto size_func = [&](std::optional<std::size_t> &size) {
             if (!size) {
@@ -133,8 +134,20 @@ namespace db0::python
         };
         
         PySlice_GetUnboundIndices(py_slice, size_func, start, stop, step);
+        std::size_t _stop = (stop == PY_SSIZE_T_MAX) ? SliceDef::MAX_STOP() : (std::size_t)stop;        
+        auto slice_def = SliceDef { (std::size_t)start, _stop, (int)step };
+        // the default slice just returns itself
+        if (slice_def.isDefault()) {
+            Py_INCREF(py_iterable);
+            return py_iterable;
+        }
+
+        if (py_iterable->ext().isSliced()) {
+            THROWF(db0::InputException) << "Cannot slice an already sliced iterable (Operation not supported)";
+        }
+
         auto py_result = PyObjectIterableDefault_new();
-        py_iterable->ext().makeSlice(&(py_result.get()->modifyExt()), { (std::size_t)start, (std::size_t)stop, (int)step });
+        py_iterable->ext().makeSlice(&(py_result.get()->modifyExt()), slice_def);
         return py_result.steal();
     }
     
