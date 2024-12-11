@@ -116,5 +116,9 @@ def test_enum_value_repr_returned_if_unable_to_create_enum(db0_fixture):
     # attempt retrieving colors from "other_prefix" (read-only)
     values = Colors.values()
     assert "???" in f"{values}"
-    # FIXME: segfault when trying to access type
-    # print(type(value))
+
+
+def test_enum_value_created_from_string(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    assert getattr(Colors, "RED") is Colors.RED
+    assert getattr(Colors, "GREEN") is Colors.GREEN
