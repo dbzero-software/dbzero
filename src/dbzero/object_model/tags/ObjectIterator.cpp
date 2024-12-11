@@ -38,9 +38,9 @@ namespace db0::object_model
     }
     
     ObjectIterator::ObjectSharedPtr ObjectIterator::next()
-    {        
+    {
         for (;;) {
-            if (m_slice.isEnd()) {
+            if (!m_slice.isEnd()) {
                 // collect decorators if any exist
                 if (!m_decoration.empty()) {
                     auto it = m_decoration.m_query_observers.begin();

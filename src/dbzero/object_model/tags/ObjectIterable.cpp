@@ -232,7 +232,7 @@ namespace db0::object_model
         }
         
         return *new (at_ptr) ObjectIterator(fixture, std::move(query_iterator), m_type, m_lang_type.get(),
-            std::move(query_observers), new_filters);
+            std::move(query_observers), new_filters, m_slice_def);
     }
     
     db0::swine_ptr<Fixture> ObjectIterable::getFixture() const
@@ -302,9 +302,9 @@ namespace db0::object_model
         }
 
         return *new(at_ptr) ObjectIterable(fixture, m_class_factory, std::move(query_iterator), std::move(sorted_iterator),
-            m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get());
+            m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), m_slice_def);
     }
-
+    
     ObjectIterable &ObjectIterable::makeSlice(void *at_ptr, const SliceDef &slice_def) const
     {
         auto fixture = getFixture();
@@ -318,7 +318,7 @@ namespace db0::object_model
         } else if (m_sorted_iterator) {
             sorted_iterator = m_sorted_iterator->beginSorted();
         }
-
+        
         return *new(at_ptr) ObjectIterable(fixture, m_class_factory, std::move(query_iterator), std::move(sorted_iterator),
             m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), slice_def);  
     }
@@ -330,7 +330,7 @@ namespace db0::object_model
         std::vector<FilterFunc> _filters(filters);
 
         return *new(at_ptr) ObjectIterable(fixture, m_class_factory, {}, std::move(sorted_iterator),
-            m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get());
+            m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), m_slice_def);
     }
     
     ObjectIterable &ObjectIterable::makeNew(void *at_ptr, std::unique_ptr<QueryIterator> &&query_iterator,
@@ -340,7 +340,7 @@ namespace db0::object_model
         std::vector<FilterFunc> _filters(filters);
 
         return *new(at_ptr) ObjectIterable(fixture, m_class_factory, std::move(query_iterator), {},
-            m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get());
+            m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), m_slice_def);
     }
 
     std::size_t ObjectIterable::getSize() const
@@ -357,11 +357,12 @@ namespace db0::object_model
         } else if (m_sorted_iterator) {
             iter = m_sorted_iterator->beginFTQuery();
         }
-                
+        
         std::size_t result = 0;
         if (iter) {
-            while (!iter->isEnd()) {
-                --(*iter);
+            Slice slice(iter.get(), m_slice_def);            
+            while (!slice.isEnd()) {
+                slice.next();                
                 ++result;
             }        
         }
