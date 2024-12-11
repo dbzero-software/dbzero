@@ -139,7 +139,7 @@ namespace db0::object_model
         std::shared_ptr<Class> m_type = nullptr;
         TypeObjectSharedPtr m_lang_type = nullptr;
         const SliceDef m_slice_def = {};
-
+        
         // iter constructor
         ObjectIterable(db0::swine_ptr<Fixture>, const ClassFactory &, std::unique_ptr<QueryIterator> &&,
             std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>, std::vector<std::unique_ptr<QueryObserver> > &&,

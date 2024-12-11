@@ -574,3 +574,17 @@ def test_len_of_sorted_range_query(db0_fixture):
     
     query = index.sort(find("tag1"))
     assert len(query) == 5
+
+
+def test_combine_multiple_range_queries_with_find(db0_fixture):
+    ix_priority = db0.index()
+    ix_date = db0.index()
+    objects = [MemoTestClass(i) for i in range(5)]
+    priority = [999, 666, 555, 888, 777]
+    dates = [datetime.now() + timedelta(seconds=i) for i in range(5)]
+    for i in range(5):
+        ix_priority.add(priority[i], objects[i])
+        ix_date.add(dates[i], objects[i])
+    
+    query = db0.find(ix_priority.range(500, 800), ix_date.range(None, dates[3]))
+    assert len(query) == 2
