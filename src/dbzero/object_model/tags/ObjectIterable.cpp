@@ -155,8 +155,14 @@ namespace db0::object_model
         }
         if (m_factory) {
             assert(!m_query_iterator && !m_sorted_iterator);
-            db0::serial::write<std::uint8_t>(buf, 3);     
+            db0::serial::write<std::uint8_t>(buf, 3);
             m_factory->serialize(buf);
+        }
+        db0::serial::write<std::uint8_t>(buf, isSliced());
+        if (isSliced()) {
+            db0::serial::write(buf, m_slice_def.m_start);
+            db0::serial::write(buf, m_slice_def.m_stop);
+            db0::serial::write(buf, m_slice_def.m_step);
         }
     }
     
@@ -176,20 +182,35 @@ namespace db0::object_model
             // deserialize as null
             return std::make_unique<ObjectIterator>(fixture_, std::unique_ptr<QueryIterator>());            
         }
+        
+        std::unique_ptr<QueryIterator> query_iterator;
+        std::unique_ptr<SortedIterator> sorted_iterator;
+        std::shared_ptr<IteratorFactory> factory;
+
         auto &workspace = fixture_->getWorkspace();
         auto inner_type = db0::serial::read<std::uint8_t>(iter, end);
         if (inner_type == 1) {
-            auto query_iterator = db0::deserializeFT_Iterator<std::uint64_t>(workspace, iter, end);
-            return std::make_unique<ObjectIterable>(fixture_, std::move(query_iterator));
+            query_iterator = db0::deserializeFT_Iterator<std::uint64_t>(workspace, iter, end);            
         } else if (inner_type == 2) {
-            auto sorted_iterator = db0::deserializeSortedIterator<std::uint64_t>(workspace, iter, end);
-            return std::make_unique<ObjectIterable>(fixture_, std::move(sorted_iterator));
+            sorted_iterator = db0::deserializeSortedIterator<std::uint64_t>(workspace, iter, end);            
         } else if (inner_type == 3) {
-            auto factory = db0::deserializeIteratorFactory<std::uint64_t>(workspace, iter, end);
-            return std::make_unique<ObjectIterable>(fixture_, std::move(factory));
+            factory = db0::deserializeIteratorFactory<std::uint64_t>(workspace, iter, end);            
         } else {
             THROWF(db0::InputException) << "Invalid object iterable" << THROWF_END;
         }
+
+        bool is_sliced = db0::serial::read<std::uint8_t>(iter, end);        
+        std::remove_const<decltype(SliceDef::m_start)>::type start, stop;
+        std::remove_const<decltype(SliceDef::m_step)>::type step;
+        if (is_sliced) {
+            db0::serial::read(iter, end, start);
+            db0::serial::read(iter, end, stop);
+            db0::serial::read(iter, end, step);            
+        }
+        
+        auto &class_factory = fixture_->get<ClassFactory>();
+        return std::unique_ptr<ObjectIterable>(new ObjectIterable(fixture_, class_factory, std::move(query_iterator),
+            std::move(sorted_iterator), factory, {}, {}, nullptr, nullptr, is_sliced ? SliceDef{start, stop, step} : SliceDef{}));
     }
     
     double ObjectIterable::compareTo(const ObjectIterable &other) const
