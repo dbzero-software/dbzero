@@ -165,3 +165,22 @@ def test_load_can_run_with_custom_load_without_kwargs(db0_fixture):
     loaded = db0.load(memo, param="some param", other_non_used="other")
     assert "param" in loaded
     assert loaded["param"] == "some param"
+
+
+def test_load_can_load_keys_in_dict(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    test_dict = {
+        Colors.RED: "red",
+    }
+
+    loaded = db0.load(test_dict)
+    assert loaded == {"RED": "red"}
+
+def test_load_can_load_keys_in_db0_dict(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    test_dict = db0.dict({
+        Colors.RED: "red",
+    })
+
+    loaded = db0.load(test_dict)
+    assert loaded == {"RED": "red"}

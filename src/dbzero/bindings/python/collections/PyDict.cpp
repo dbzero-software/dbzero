@@ -428,18 +428,23 @@ namespace db0::python
         PyObject *elem;
         PyObject *py_result = PyDict_New();
         while ((elem = PyIter_Next(iterator))) {
+            auto key = runSafe(tryLoad, elem, kwargs, nullptr);
+            if(key == nullptr) {
+                return nullptr;
+            }
             if (PyDict_Check(py_dict)) {
                 auto result = runSafe(tryLoad, PyDict_GetItem(py_dict, elem), kwargs, nullptr);
                 if(result == nullptr) {
                     return nullptr;
                 }
-                PyDict_SetItem(py_result, elem, result);
+                
+                PyDict_SetItem(py_result, key, result);
             } else if (DictObject_Check(py_dict)) {
                 auto result = runSafe(tryLoad, PyAPI_DictObject_GetItem((DictObject*)py_dict, elem), kwargs, nullptr);
                 if(result == nullptr) {
                     return nullptr;
                 }
-                PyDict_SetItem(py_result, elem, result);
+                PyDict_SetItem(py_result, key, result);
             } else {
                 throw std::runtime_error("Unknown type");
             }     
