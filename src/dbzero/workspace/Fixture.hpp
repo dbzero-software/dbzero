@@ -249,9 +249,7 @@ namespace db0
         // the updates flag set to true means that the refresh thread detected external changes
         // and refresh might be possible
         std::atomic<bool> m_updated = false;
-        // Pre-commit flag is set by the AutoCommitThread to mark the Fixture for commit
-        std::atomic<bool> m_pre_commit = false;
-        
+                
         StringPoolT openLimitedStringPool(Memspace &, MetaAllocator &);
         
         std::shared_ptr<SlabAllocator> openSlot(Memspace &, MetaAllocator &, std::uint32_t slot_id);

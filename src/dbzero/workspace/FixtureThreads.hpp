@@ -14,7 +14,7 @@ namespace db0
 {   
 
     class Fixture;
-
+    
     /**
      * A thread object to poll fixture modification status
     */
@@ -67,7 +67,7 @@ namespace db0
     public:
         AutoCommitThread(std::uint64_t commit_interval_ms = 250);
         
-    private:
+    private:        
         void tryCommit(Fixture &fixture, std::uint64_t &status) const;
         std::shared_ptr<void> lockAtomicContext() const;
     };

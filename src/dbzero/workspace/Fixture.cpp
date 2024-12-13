@@ -221,11 +221,8 @@ namespace db0
         return true;
     }
     
-    void Fixture::onUpdated()
-    {    
+    void Fixture::onUpdated() {
         m_updated = true;
-        // this is to prevent commits when the modifications are continued
-        m_pre_commit = false;
     }
     
     bool Fixture::refreshIfUpdated()
@@ -259,8 +256,7 @@ namespace db0
         // Clear expired instances from cache so that they're not persisted
         m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
-        tryCommit(lock);
-        m_pre_commit = false;
+        tryCommit(lock);        
         m_updated = false;        
     }
     
@@ -298,25 +294,28 @@ namespace db0
     
     void Fixture::onAutoCommit()
     {
-        if (m_pre_commit) {
+        if (m_updated) {
             // prevents commit on a closed fixture
             std::unique_lock<std::mutex> lock(m_close_mutex);
-            if (!Memspace::isClosed()) {
-                // pre-commit to prepare objects which require it (e.g. Index) for commit
-                // NOTE: pre-commit must NOT lock the fixture's shared mutex
-                if (m_gc0_ptr) {
-                    getGC0().preCommit();
-                }
-
-                // lock for exclusive access
-                std::unique_lock<std::shared_mutex> lock(m_shared_mutex);            
-                tryCommit(lock);
-                m_pre_commit = false;
+            if (Memspace::isClosed()) {
+                // since it's closed we'll not be able to commit any updates anyway
                 m_updated = false;
+                return;
             }
-        }
-        if (m_updated) {
-            m_pre_commit = true;            
+
+            assert(!Memspace::isClosed());            
+            // pre-commit to prepare objects which require it (e.g. Index) for commit
+            // NOTE: pre-commit must NOT lock the fixture's shared mutex
+            if (m_gc0_ptr) {
+                getGC0().preCommit();
+            }
+
+            // lock for exclusive access
+            {
+                std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
+                tryCommit(lock);            
+                m_updated = false;            
+            }
         }
     }
     

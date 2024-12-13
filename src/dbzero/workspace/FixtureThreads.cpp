@@ -98,10 +98,10 @@ namespace db0
     AutoCommitThread::AutoCommitThread(std::uint64_t commit_interval_ms)
         : FixtureThread(
             [this](Fixture &fx, std::uint64_t &status) { tryCommit(fx, status); },
-            commit_interval_ms / 2,
+            commit_interval_ms,
             // NOTE: context function locks AtomicContext to make commit / atomic operations are mutually exclusive
             [this]() { return lockAtomicContext(); }
-        )
+        )        
     {
     }
     
