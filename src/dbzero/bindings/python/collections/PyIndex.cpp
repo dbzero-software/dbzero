@@ -141,9 +141,8 @@ namespace db0::python
         
         auto &index = py_index->ext();
         auto &iter = reinterpret_cast<PyObjectIterable*>(py_iter)->modifyExt();
-        auto iter_obj = PyObjectIterableDefault_new();
-        
         auto iter_sorted = index.sort(iter, asc, null_first);
+        auto iter_obj = PyObjectIterableDefault_new();
         iter.makeNew(&(iter_obj.get())->modifyExt(), std::move(iter_sorted), {}, iter.getFilters());
         return iter_obj.steal();
     }

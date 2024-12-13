@@ -243,10 +243,11 @@ namespace db0::object_model
         std::vector<FilterFunc> new_filters(this->m_filters);
         new_filters.insert(new_filters.end(), filters.begin(), filters.end());
         
+        // no query observers for sorted iterator
         if (m_sorted_iterator) {
             auto sorted_iterator = beginSorted();
             return *new (at_ptr) ObjectIterator(fixture, std::move(sorted_iterator), m_type, 
-                m_lang_type.get(), {}, new_filters);
+                m_lang_type.get(), {}, new_filters, m_slice_def);
         }
         
         std::unique_ptr<QueryIterator> query_iterator;
@@ -321,6 +322,7 @@ namespace db0::object_model
         std::unique_ptr<QueryIterator> query_iterator;
         std::unique_ptr<SortedIterator> sorted_iterator;
         if (m_query_iterator || m_factory) {
+            assert(!m_sorted_iterator);
             query_iterator = beginFTQuery(query_observers, -1);
         } else if (m_sorted_iterator) {
             sorted_iterator = m_sorted_iterator->beginSorted();
@@ -346,6 +348,7 @@ namespace db0::object_model
         std::unique_ptr<QueryIterator> query_iterator;
         std::unique_ptr<SortedIterator> sorted_iterator;
         if (m_query_iterator || m_factory) {
+            assert(!m_sorted_iterator);
             query_iterator = beginFTQuery(query_observers, -1);
         } else if (m_sorted_iterator) {
             sorted_iterator = m_sorted_iterator->beginSorted();
@@ -355,15 +358,16 @@ namespace db0::object_model
         return *new(at_ptr) ObjectIterable(fixture, m_class_factory, std::move(query_iterator), std::move(sorted_iterator),
             m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), *def_ptr);  
     }
-
-    ObjectIterable &ObjectIterable::makeNew(void *at_ptr, std::unique_ptr<SortedIterator> &&sorted_iterator, 
+    
+    ObjectIterable &ObjectIterable::makeNew(void *at_ptr, std::unique_ptr<SortedIterator> &&sorted_iterator,
         std::vector<std::unique_ptr<QueryObserver> > &&query_observers, const std::vector<FilterFunc> &filters) const
     {
         auto fixture = getFixture();
         std::vector<FilterFunc> _filters(filters);
 
+        // NOTE: iterator factory not passed, it's use forbidden with sorted iterators
         return *new(at_ptr) ObjectIterable(fixture, m_class_factory, {}, std::move(sorted_iterator),
-            m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), m_slice_def);
+            nullptr, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), m_slice_def);
     }
     
     ObjectIterable &ObjectIterable::makeNew(void *at_ptr, std::unique_ptr<QueryIterator> &&query_iterator,
