@@ -215,7 +215,7 @@ namespace db0
                 ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
                     // release the MemLock first to avoid or reduce CoWs
-                    // otherwise mapRange might need to manage multiple lock versions                    
+                    // otherwise mapRange might need to manage multiple lock versions
                     m_mem_lock.release();
                     // lock for +write
                     // note that lock is getting updated, possibly copy-on-write is being performed

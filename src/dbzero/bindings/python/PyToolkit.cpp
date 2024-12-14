@@ -390,7 +390,7 @@ namespace db0::python
     {
         if (isMemoType(py_type)) {
             auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-            return decor.getFixtureUUID();
+            return decor.getFixtureUUID(AccessType::READ_ONLY);
         } else {
             return 0;
         }

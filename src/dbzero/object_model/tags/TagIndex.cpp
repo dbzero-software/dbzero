@@ -788,7 +788,7 @@ namespace db0::object_model
     const db0::FT_BaseIndex<LongTagT> &TagIndex::getBaseIndexLong() const {
         return m_base_index_long;
     }
-
+    
     std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr obj_ptr)
     {
         using LangToolkit = TagIndex::LangToolkit;

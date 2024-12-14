@@ -28,11 +28,11 @@ namespace db0::python
     {
     }
     
-    std::uint64_t MemoTypeDecoration::getFixtureUUID()
+    std::uint64_t MemoTypeDecoration::getFixtureUUID(AccessType access_type)
     {
         if (m_prefix_name_ptr && !m_fixture_uuid) {
             // initialize fixture by prefix name and keep UUID for future use
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(m_prefix_name_ptr);
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(m_prefix_name_ptr, access_type);
             m_fixture_uuid = fixture->getUUID();
         }
         return m_fixture_uuid;
