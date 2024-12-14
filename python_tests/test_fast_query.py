@@ -253,3 +253,19 @@ def test_group_by_enum_value_repr(db0_fixture):
     result = db0.group_by(TriColor.values(), db0.find(MemoDataPxClass))    
     assert len(result) == 3
     
+    
+def test_group_by_queries_differing_by_group_criteria(db0_fixture, memo_enum_tags):
+    Colors = memo_enum_tags["Colors"]
+    db0.commit()
+    # make sure the 2 queries are resolved as different ones
+    groups_1 = db0.group_by((Colors.values(), lambda x: x.value % 2), db0.find(MemoTestClass))
+    groups_2 = db0.group_by((Colors.values(), lambda x: x.value % 3), db0.find(MemoTestClass))
+    assert len(groups_1) != len(groups_2)
+    
+    
+def test_get_lambda_source(db0_fixture):
+    def __call(func, **kwargs):        
+        return db0.get_lambda_source(func)
+    
+    assert __call(lambda x: x.value) == "x.value"
+    assert __call((lambda x:   x.value % 3), first = "first", second = "second") == "x.value % 3"

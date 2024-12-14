@@ -1,10 +1,15 @@
 # This is an experimental version of a possible Query Engine
 # implementation for DBZero
 import dbzero_ce as db0
+import inspect
 from typing import Any, Dict, Tuple
+import types
+import re
 
 
 __px_fast_query = None
+__lambda_regex = re.compile(r'lambda\s.*?:\s*([^,)]*)')
+
 
 def init_fast_query(prefix=None):
     global __px_fast_query
@@ -15,6 +20,42 @@ def init_fast_query(prefix=None):
         db0.open(__px_fast_query, "rw")
     
 
+def get_lambda_source(func):
+    global __lambda_regex
+    assert isinstance(func, types.LambdaType)
+    source_lines, _ = inspect.getsourcelines(func)
+    source_code = ''.join(source_lines).strip()
+    match = __lambda_regex.search(source_code)
+    if match:
+        return match.group(1).strip()
+    else:
+        raise ValueError("Could not extract lambda function implementation")
+
+
+def signature_of(group_defs):
+    if group_defs is None:
+        return ""
+    
+    if hasattr(group_defs, "signature"):
+        return group_defs.signature
+    
+    if isinstance(group_defs, types.LambdaType):
+        sig_callable = inspect.signature(group_defs)
+        return f"{len(sig_callable.parameters)}:{get_lambda_source(group_defs)}"
+
+    if callable(group_defs):
+        sig_callable = inspect.signature(group_defs)
+        return f"{len(sig_callable.parameters)}:{inspect.getsource(group_defs)}"
+    
+    if hasattr(group_defs, "__iter__"):
+        result = ""
+        for group_def in group_defs:
+            result += f"({signature_of(group_def)})"
+        return result
+
+    return repr(group_defs)
+
+    
 class FastQuery:
     def __init__(self, query, group_defs=None, uuid=None, sig=None, bytes=None, snapshot=None):
         self.__group_defs = group_defs
@@ -59,7 +100,7 @@ class FastQuery:
     @property
     def signature(self):
         if self.__sig is None:
-            self.__sig = self.__query.signature()
+            self.__sig = self.__query.signature() + signature_of(self.__group_defs)
         return self.__sig
     
     @property
@@ -93,11 +134,21 @@ class GroupDef:
         # extract decorator as the group identifier
         self.key_func = key_func if key_func else lambda row: row[1]
         self.groups = groups
+        self.__sig = None
     
     def split(self):
         # prepare key func to work with split rows
         if self.__key_func is not None:
             self.key_func = lambda row: self.__key_func(row[0])            
+    
+    @property
+    def signature(self):
+        if self.__sig is None:
+            if self.groups is not None:
+                self.__sig = signature_of(self.groups)
+            else:
+                self.__sig = signature_of(self.__key_func)
+        return self.__sig
     
     def __call__(self, row) -> Any:
         return self.key_func(row)
