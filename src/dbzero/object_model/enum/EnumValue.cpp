@@ -48,4 +48,14 @@ namespace db0::object_model
         return *new(at) EnumValueRepr(enum_type_def, str_repr);
     }
     
+} 
+
+namespace std
+
+{
+
+    ostream &operator<<(ostream &os, const db0::object_model::EnumValue &enum_value) {
+        return os << "EnumValue(" << enum_value.m_str_repr << ")";
+    }
+    
 }

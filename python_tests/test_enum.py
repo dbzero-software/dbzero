@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoDataPxClass, DATA_PX, TriColor
 from .conftest import DB0_DIR
 
 
@@ -129,4 +129,17 @@ def test_enum_value_created_from_int(db0_fixture):
     assert Colors[0] is Colors.RED
     assert Colors[1] is Colors.GREEN
     assert Colors[2] is Colors.BLUE
+    
+    
+def test_enum_value_repr_returned_from_enum_values_if_unable_to_create_enum(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    db0.open(DATA_PX, "rw")
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open(px_name, "r")    
+    db0.open(DATA_PX, "r")
+    db0.open("other-prefix", "rw")
+    # try looking up in DATA_PX which is read-only
+    db0.split_by(TriColor.values(), db0.find(MemoDataPxClass))
     

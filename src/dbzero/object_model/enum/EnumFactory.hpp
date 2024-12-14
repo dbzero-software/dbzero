@@ -71,11 +71,14 @@ namespace db0::object_model
         /**
          * Migrate / translate enum value to the one managed by this fixture/factory
          * @param enum_value enum value from a different fixture
-         * @return enum value as a language specific object
+         * @return enum value as a language specific object or nullptr if failed to migrate due to read-only prefix
          */
-        ObjectSharedPtr migrateEnumLangValue(const EnumValue &enum_value);
+        ObjectSharedPtr tryMigrateEnumLangValue(const EnumValue &enum_value);
+        ObjectSharedPtr migrateEnumLangValue(const EnumValue &enum_value);        
+
         EnumValue migrateEnumValue(const EnumValue &enum_value);
-        
+        std::optional<EnumValue> tryMigrateEnumValue(const EnumValue &enum_value);
+
         // Checks if specific enum value requires migration / translation to a different prefix
         bool isMigrateRequired(const EnumValue &) const;
         
@@ -100,6 +103,7 @@ namespace db0::object_model
         // Locate enum by definition
         EnumPtr tryFindEnumPtr(const EnumDef &, const char *type_id = nullptr) const;
         // get translated enum corresponding to enum_value
+        std::shared_ptr<Enum> tryGetMigratedEnum(const EnumValue &enum_value);
         std::shared_ptr<Enum> getMigratedEnum(const EnumValue &enum_value);
     };
     

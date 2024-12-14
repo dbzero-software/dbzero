@@ -580,17 +580,25 @@ namespace db0::object_model
         }
         return object.getAddress();
     }
-
+    
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
     {
         if (enum_value.m_fixture_uuid != m_fixture_uuid) {
             // migrate to a different prefix if needed
             if (alt_repr) {
-                *alt_repr = m_enum_factory.migrateEnumLangValue(enum_value);
+                *alt_repr = m_enum_factory.tryMigrateEnumLangValue(enum_value);
+                if (!*alt_repr) {
+                    // tag does not exist
+                    return {};
+                }
                 return LangToolkit::getTypeManager().extractEnumValue(alt_repr->get()).getUID().asULong();
             } else {
-                auto value = m_enum_factory.migrateEnumValue(enum_value);
-                return value.getUID().asULong();
+                auto value = m_enum_factory.tryMigrateEnumValue(enum_value);
+                if (!value) {
+                    // tag does not exist
+                    return {};
+                }
+                return (*value).getUID().asULong();
             }
         }
         return enum_value.getUID().asULong();

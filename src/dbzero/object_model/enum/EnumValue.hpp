@@ -53,4 +53,12 @@ namespace db0::object_model
         EnumValue_UID getUID() const;
     };
     
+} 
+
+namespace std
+
+{
+    
+    ostream &operator<<(ostream &, const db0::object_model::EnumValue &);
+
 }
