@@ -45,7 +45,7 @@ namespace db0::object_model
                     THROWF(db0::InternalException) << "Cannot create a new fixture in read-only mode";
                 }
                 // create GC0 instance first
-                auto &gc0 = fixture->addGC0(fixture);
+                auto &gc0 = fixture->createGC0(fixture);
                 // create ClassFactory and register with the object catalogue
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture);
                 auto &enum_factory = fixture->addResource<EnumFactory>(fixture);
@@ -80,9 +80,12 @@ namespace db0::object_model
                 oc.addUnique(enum_factory);
                 oc.addUnique(gc0);
             } else {
-                // initialize GC0 (possibly as read-only)
-                fixture->addGC0(fixture, oc.findUnique<db0::GC0>()->second(), read_only);
-                auto &class_factory = fixture->addResource<ClassFactory>(fixture, oc.findUnique<ClassFactory>()->second());                
+                // initialize GC0
+                // FIXME: optimization possible - we can skip creating GC0 after implementing LangCacheView::detach
+                // currently in read-only fixtures GC0 serves the function of detachable object tracking
+                fixture->createGC0(fixture, oc.findUnique<db0::GC0>()->second(), read_only);
+                
+                auto &class_factory = fixture->addResource<ClassFactory>(fixture, oc.findUnique<ClassFactory>()->second());
                 auto &enum_factory = fixture->addResource<EnumFactory>(fixture, oc.findUnique<EnumFactory>()->second());
                 auto &tag_index = fixture->addResource<TagIndex>(
                     fixture->myPtr(oc.findUnique<TagIndex>()->second()), 
@@ -120,5 +123,5 @@ namespace db0::object_model
             }
         };
     }
-          
+    
 }

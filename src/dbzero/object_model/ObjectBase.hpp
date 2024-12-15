@@ -13,6 +13,20 @@ namespace db0
     
     using StorageClass = db0::object_model::StorageClass;
     
+    template <typename T> void addToGC0(Fixture &fixture, void *vptr) {
+        fixture.getGC0().add<T>(vptr);
+    }
+
+    template <typename T> bool tryAddToGC0(Fixture &fixture, void *vptr) 
+    {
+        auto gc0_ptr = fixture.tryGetGC0();
+        if (!gc0_ptr) {
+            return false;
+        }
+        gc0_ptr->add<T>(vptr);
+        return true;
+    }
+
     /**
      * The base class for all Fixture based v_objects
      * @tparam BaseT must be some v_object or derived class
@@ -37,13 +51,15 @@ namespace db0
             if constexpr (Unique) {
                 this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
             }
-            fixture->getGC0().add<T>(this);
+            addToGC0<T>(*fixture, this);
+            m_gc_registered = true;
         }
 
         // Create a new instance (no garbage collection)
         struct tag_no_gc {};
         template <typename... Args> ObjectBase(tag_no_gc, db0::swine_ptr<Fixture> &fixture, Args &&... args)
             : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())        
+            , m_gc_registered(false)
         {
             if constexpr (Unique) {            
                 this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
@@ -55,15 +71,15 @@ namespace db0
         ObjectBase(tag_from_address, db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
             : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_address(), fixture, address)        
         {
-            fixture->getGC0().add<T>(this);
+            m_gc_registered = tryAddToGC0<T>(*fixture, this);
         }
 
         // Move existing instance / stem
         struct tag_from_stem {};
         ObjectBase(tag_from_stem, db0::swine_ptr<Fixture> &fixture, BaseT &&stem)
             : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_stem(), fixture, std::move(stem))        
-        {                        
-            fixture->getGC0().add<T>(this);           
+        {
+            m_gc_registered = tryAddToGC0<T>(*fixture, this);
         }
         
         ~ObjectBase()
@@ -74,11 +90,12 @@ namespace db0
         void unregister() const
         {
             // remove from the registry (on condition the underlying instance & fixture still exists)
-            if (hasInstance()) {                
+            if (m_gc_registered && hasInstance()) {
                 auto fixture = this->tryGetFixture();
                 if (fixture) {
                     fixture->getGC0().tryRemove((void*)this);
                 }
+                m_gc_registered = false;
             }
         }
 
@@ -91,8 +108,8 @@ namespace db0
             has_fixture<BaseT>::init(fixture, accessFlags(), std::forward<Args>(args)...);
             if constexpr (Unique) {
                 this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
-            }            
-            fixture->getGC0().add<T>(this);
+            }
+            m_gc_registered = tryAddToGC0<T>(*fixture, this);
         }
         
         inline bool hasInstance() const {
@@ -135,7 +152,7 @@ namespace db0
         void beginModify(ObjectPtr);
 
         void moveTo(db0::swine_ptr<Fixture> &);
-
+        
     protected:
         friend class db0::GC0;
 
@@ -157,6 +174,9 @@ namespace db0
         }
         
     private:
+        // Flag indicating if the instance is registered in GC0
+        mutable bool m_gc_registered = false;
+
         static bool hasRefsOp(const void *vptr) {
             return static_cast<const T*>(vptr)->hasRefs();
         }
@@ -213,6 +233,7 @@ namespace db0
             new_instance.getAddress());
         // move instance to a different GC0 (preserving the same wrapper object)
         fixture->getGC0().moveFrom<T>(this->getFixture()->getGC0(), this);
+        new_instance.m_gc_registered = true;
         auto atomic_ctx_ptr = fixture->tryGetAtomicContext();
         if (atomic_ctx_ptr) {
             // move instance to a different atomic context (changing its address)

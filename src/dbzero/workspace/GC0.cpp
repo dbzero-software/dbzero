@@ -16,6 +16,7 @@ namespace db0
 
     GC0::GC0(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture)        
+        , m_read_only(false)
     {
     }
     
@@ -41,7 +42,7 @@ namespace db0
         assert(m_gc0.m_commit_pending);
         m_gc0.m_commit_pending = false;
     }
-
+    
     void GC0::CommitContext::commit()
     {
         assert(m_gc0.m_commit_pending);
@@ -146,15 +147,13 @@ namespace db0
     
     void GC0::collect()
     {        
+        assert(!m_read_only);
         if (!m_vptr_map.empty()) {
             THROWF(db0::InternalException) << "GC0::collect: cannot collect while there are still live instances";
         }
         auto fixture = this->tryGetFixture();
         if (!fixture) {
             THROWF(db0::InternalException) << "GC0::collect: cannot collect without a valid fixture";
-        }
-        if (m_read_only) {
-            THROWF(db0::InternalException) << "GC0::collect: cannot collect in read-only mode";
         }
         
         for (auto addr: *this) {

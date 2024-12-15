@@ -14,9 +14,10 @@
 namespace db0
 
 {
+        
+    class Fixture;
     
     // C-style hasrefs / drop / detatch functions
-    class Fixture;
     using HasRefsFunction = bool (*)(const void *);
     using NoArgsFunction = void (*)(void *);
     using TypedAddress = db0::object_model::TypedAddress;
@@ -137,7 +138,7 @@ namespace db0
         static std::unordered_map<StorageClass, GCOps_ID> m_ops_map;
         // flag indicating if static bindings were initialized
         static bool m_initialized;
-        const bool m_read_only = false;
+        const bool m_read_only;
         // type / ops_id
         std::unordered_map<void*, unsigned int> m_vptr_map;
         // the map dedicated to instances which implement preCommit

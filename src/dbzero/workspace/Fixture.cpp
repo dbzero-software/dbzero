@@ -190,7 +190,7 @@ namespace db0
     
     bool Fixture::refresh(ProcessTimer *timer_ptr)
     {
-        std::unique_ptr<ProcessTimer> timer;        
+        std::unique_ptr<ProcessTimer> timer;
         if (timer_ptr) {
             timer = std::make_unique<ProcessTimer>("Fixture::refresh", timer_ptr);
         }
@@ -200,13 +200,14 @@ namespace db0
         if (!Memspace::beginRefresh()) {
             return false;
         }
-                
-        // detach all active ObjectBase instances so that they can be refreshed
-        getGC0().detachAll();
-        // detach GC0 instance itself    
+        
         if (m_gc0_ptr) {
+            // detach all active ObjectBase instances so that they can be refreshed
+            m_gc0_ptr->detachAll();
+            // detach GC0 instance itself
             getGC0().detach();
         }
+        
         // detach owned resources
         for (auto &detach: m_detach_handlers) {
             detach();
@@ -325,20 +326,20 @@ namespace db0
         }
     }
     
-    db0::GC0 &Fixture::addGC0(db0::swine_ptr<Fixture> &fixture)
+    db0::GC0 &Fixture::createGC0(db0::swine_ptr<Fixture> &fixture)
     {
         assert(!m_gc0_ptr);
         m_gc0_ptr = &addResource<db0::GC0>(fixture);
         return *m_gc0_ptr;
     }
     
-    db0::GC0 &Fixture::addGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only)
+    db0::GC0 &Fixture::createGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only)
     {
         assert(!m_gc0_ptr);
         m_gc0_ptr = &addResource<db0::GC0>(fixture, address, read_only);
         return *m_gc0_ptr;
     }
-
+    
     const Snapshot &Fixture::getWorkspace() const {
         return m_snapshot;
     }

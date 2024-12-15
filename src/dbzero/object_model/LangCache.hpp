@@ -20,7 +20,7 @@ namespace db0
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;        
         static constexpr std::size_t DEFAULT_CAPACITY = 1024;
         // the default growth step after reaching capacity        
-        static constexpr std::size_t DEFAULT_STEP = 32;        
+        static constexpr std::size_t DEFAULT_STEP = 32;
         static constexpr std::size_t DEFAULT_INITIAL_SIZE = 128;
         
         LangCache(std::optional<std::size_t> capacity = {}, std::optional<std::uint32_t> step = {});
