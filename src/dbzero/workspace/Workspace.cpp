@@ -221,7 +221,7 @@ namespace db0
 
     Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, 
         std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> vobject_cache_size, 
-        std::optional<std::size_t> flush_size, std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer,
+        std::optional<std::size_t> flush_size, std::function<void(db0::swine_ptr<Fixture> &, bool, bool, bool)> fixture_initializer,
         std::shared_ptr<Config> config, std::optional<LockFlags> default_lock_flags)
         : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size, default_lock_flags)
         , m_fixture_catalog(m_prefix_catalog)
@@ -336,7 +336,7 @@ namespace db0
                 auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator);
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
-                    m_fixture_initializer(fixture, file_created, read_only);
+                    m_fixture_initializer(fixture, file_created, read_only, false);
                 }
                 
                 if (file_created) {
@@ -464,7 +464,7 @@ namespace db0
         }
     }
     
-    std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool is_read_only)>
+    std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool is_read_only, bool is_snapshot)>
     Workspace::getFixtureInitializer() const {
         return m_fixture_initializer;
     }

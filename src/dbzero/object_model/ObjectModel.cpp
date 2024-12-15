@@ -22,7 +22,7 @@ namespace db0::object_model
 
 {
     
-    std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool read_only)> initializer()
+    std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool read_only, bool is_snapshot)> initializer()
     {
         using Block = db0::object_model::pandas::Block;
         using DataFrame = db0::object_model::pandas::DataFrame;        
@@ -35,12 +35,13 @@ namespace db0::object_model
         using FT_BaseIndexLong = db0::object_model::FT_BaseIndex<db0::num_pack<std::uint64_t, 2u> >;
         using LangToolkit = db0::object_model::LangConfig::LangToolkit;
         
-        return [](db0::swine_ptr<Fixture> &fixture, bool is_new, bool read_only)
+        return [](db0::swine_ptr<Fixture> &fixture, bool is_new, bool read_only, bool is_snapshot)
         {
             // static GC0 bindings initialization
             GC0::registerTypes<Class, Object, List, Set, Dict, Tuple, Block, DataFrame, Index, Enum, ByteArray>();
             auto &oc = fixture->getObjectCatalogue();
             if (is_new) {
+                assert(!is_snapshot);
                 if (read_only) {
                     THROWF(db0::InternalException) << "Cannot create a new fixture in read-only mode";
                 }
@@ -83,8 +84,11 @@ namespace db0::object_model
                 // initialize GC0
                 // FIXME: optimization possible - we can skip creating GC0 after implementing LangCacheView::detach
                 // currently in read-only fixtures GC0 serves the function of detachable object tracking
-                fixture->createGC0(fixture, oc.findUnique<db0::GC0>()->second(), read_only);
-                
+                if (!is_snapshot) {
+                    // snapshots don't require GC0                    
+                    fixture->createGC0(fixture, oc.findUnique<db0::GC0>()->second(), read_only);
+                }
+                     
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture, oc.findUnique<ClassFactory>()->second());
                 auto &enum_factory = fixture->addResource<EnumFactory>(fixture, oc.findUnique<EnumFactory>()->second());
                 auto &tag_index = fixture->addResource<TagIndex>(

@@ -142,7 +142,7 @@ namespace db0
         Workspace(const std::string &root_path = "", std::optional<std::size_t> cache_size = {},
             std::optional<std::size_t> slab_cache_size = {}, std::optional<std::size_t> flush_size = {},
             std::optional<std::size_t> vobject_cache_size = {},
-            std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer = {}, 
+            std::function<void(db0::swine_ptr<Fixture> &, bool, bool, bool)> fixture_initializer = {},
             std::shared_ptr<Config> config = nullptr,
             std::optional<LockFlags> default_lock_flags = {});
         virtual ~Workspace();
@@ -228,7 +228,7 @@ namespace db0
         // this is used to register known Class and language specific type bindings within the fixture
         void setOnOpenCallback(std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> callback);
         
-        std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool is_read_only)>
+        std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool is_read_only, bool is_snapshot)>
         getFixtureInitializer() const;
 
         FixedObjectList &getSharedObjectList() const;
@@ -268,7 +268,7 @@ namespace db0
 
     private:
         FixtureCatalog m_fixture_catalog;
-        std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> m_fixture_initializer;
+        std::function<void(db0::swine_ptr<Fixture> &, bool, bool, bool)> m_fixture_initializer;
         // fixture by UUID
         std::unordered_map<std::uint64_t, db0::swine_ptr<Fixture> > m_fixtures;
         swine_ptr<db0::Fixture> m_default_fixture;
