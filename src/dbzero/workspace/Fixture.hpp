@@ -222,8 +222,9 @@ namespace db0
         }
         
         // Called by the CacheRecycler when cache limit has been reached
-        void onCacheFlushed(bool threshold_reached) const;
-
+        // @return false if unable to handle this event at this time
+        bool onCacheFlushed(bool threshold_reached) const;
+        
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;
@@ -242,6 +243,7 @@ namespace db0
         mutable VObjectCache m_v_object_cache;
         AtomicContext *m_atomic_context_ptr = nullptr;
         std::atomic<bool> m_closed = false;
+        std::atomic<bool> m_commit_pending = false;
         
         // For read/write fixtures:
         // the onUpdate is called whenever the fixture is modified

@@ -32,7 +32,7 @@ namespace db0
         
         // Create a new instance
         template <typename... Args> ObjectBase(db0::swine_ptr<Fixture> &fixture, Args &&... args)
-            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())
+            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())            
         {
             if constexpr (Unique) {
                 this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
@@ -43,27 +43,27 @@ namespace db0
         // Create a new instance (no garbage collection)
         struct tag_no_gc {};
         template <typename... Args> ObjectBase(tag_no_gc, db0::swine_ptr<Fixture> &fixture, Args &&... args)
-            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())
+            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())        
         {
             if constexpr (Unique) {            
                 this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
             }
         }
         
-        // open existing instance
+        // Open an existing instance
         struct tag_from_address {};
         ObjectBase(tag_from_address, db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-            : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_address(), fixture, address)
+            : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_address(), fixture, address)        
         {
-            fixture->getGC0().add<T>(this);            
+            fixture->getGC0().add<T>(this);
         }
-        
-        // move existing instance / stem
+
+        // Move existing instance / stem
         struct tag_from_stem {};
         ObjectBase(tag_from_stem, db0::swine_ptr<Fixture> &fixture, BaseT &&stem)
-            : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_stem(), fixture, std::move(stem))
+            : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_stem(), fixture, std::move(stem))        
         {                        
-            fixture->getGC0().add<T>(this);            
+            fixture->getGC0().add<T>(this);           
         }
         
         ~ObjectBase()
@@ -91,7 +91,7 @@ namespace db0
             has_fixture<BaseT>::init(fixture, accessFlags(), std::forward<Args>(args)...);
             if constexpr (Unique) {
                 this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
-            }
+            }            
             fixture->getGC0().add<T>(this);
         }
         
@@ -109,13 +109,13 @@ namespace db0
         void incRef()
         {
             assert(hasInstance());
-            this->modify().m_header.incRef();
+            this->modify().m_header.incRef();            
         }
         
         void decRef()
         {
             assert(hasInstance());
-            this->modify().m_header.decRef();
+            this->modify().m_header.decRef();            
         }
         
         auto getRefCount() const
@@ -124,7 +124,7 @@ namespace db0
             return (*this)->m_header.m_ref_count;
         }
 
-        bool hasRefs() const
+        bool hasRefs() const 
         {
             assert(hasInstance());
             return (*this)->m_header.hasRefs();
@@ -155,16 +155,15 @@ namespace db0
             has_fixture<BaseT>::operator=(std::move(other));
             assert(!other.hasInstance());
         }
-
+        
     private:
-
         static bool hasRefsOp(const void *vptr) {
-            return (*static_cast<const T*>(vptr))->m_header.hasRefs();
+            return static_cast<const T*>(vptr)->hasRefs();
         }
         
         static void detachOp(void *vptr) {
             static_cast<T*>(vptr)->detach();
-        }        
+        }
 
         static void commitOp(void *vptr) {
             static_cast<T*>(vptr)->commit();
@@ -177,7 +176,7 @@ namespace db0
         static TypedAddress getTypedAddress(const void *vptr) {
             return { _CLS, static_cast<const T*>(vptr)->getAddress() };
         }
-
+        
         static void dropByAddr(db0::swine_ptr<Fixture> &fixture, std::uint64_t addr)
         {
             // this code creates an instance which will be registered in GC0

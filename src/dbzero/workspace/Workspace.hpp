@@ -114,7 +114,7 @@ namespace db0
         // Clear all internal in-memory caches
         void clearCache() const;
 
-        virtual void onCacheFlushed(bool threshold_reached) const;
+        virtual bool onCacheFlushed(bool threshold_reached) const;
 
         virtual void forEachMemspace(std::function<bool(Memspace &)> callback);
 
@@ -287,8 +287,9 @@ namespace db0
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;
         
         void forEachMemspace(std::function<bool(Memspace &)> callback) override;
-
-        void onCacheFlushed(bool threshold_reached) const override;
+        
+        // @return false if unable to handle this event at this time
+        bool onCacheFlushed(bool threshold_reached) const override;
 
         std::shared_ptr<WorkspaceView> getWorkspaceHeadView() const;
     };

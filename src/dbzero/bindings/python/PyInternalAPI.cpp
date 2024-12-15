@@ -494,7 +494,14 @@ namespace db0::python
         if (!stats_dict) {
             THROWF(db0::MemoryException) << "Out of memory";
         }
-        auto stats_callback = [&stats_dict](const std::string &name, std::uint64_t value) {
+        auto dirty_size = fixture->getPrefix().getDirtySize();
+        // report uncommited data size independently
+        PyDict_SetItemString(stats_dict, "dp_size_uncommited", PyLong_FromUnsignedLongLong(dirty_size));
+        auto stats_callback = [&](const std::string &name, std::uint64_t value) {
+            if (name == "dp_size_total") {
+                // also include dirty locks stored in-memory
+                value += dirty_size;
+            }
             PyDict_SetItemString(stats_dict, name.c_str(), PyLong_FromUnsignedLongLong(value));
         };
         fixture->getPrefix().getStorage().getStats(stats_callback);

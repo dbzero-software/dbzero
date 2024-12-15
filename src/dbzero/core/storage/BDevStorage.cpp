@@ -378,7 +378,7 @@ namespace db0
     bool BDevStorage::empty() const {
         return m_empty;
     }
-
+    
     std::uint64_t BDevStorage::getLastUpdated() const {
         return m_file.getLastModifiedTime();
     }
@@ -392,6 +392,9 @@ namespace db0
         auto file_io_bytes = m_file.getIOBytes();
         callback("file_bytes_read", file_io_bytes.first);
         callback("file_bytes_written", file_io_bytes.second);
+        // total size of data pages
+        callback("dp_size_total", m_sparse_index.size() * m_page_io.getPageSize());
+        callback("prefix_size", m_file.size());
     }
     
 #ifndef NDEBUG

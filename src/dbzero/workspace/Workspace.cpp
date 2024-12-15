@@ -18,8 +18,8 @@ namespace db0
             [this](std::size_t limit) {
                 this->onFlushDirty(limit);
             },
-            [this](bool threshold_reached) {
-                this->onCacheFlushed(threshold_reached);
+            [this](bool threshold_reached) -> bool {
+                return this->onCacheFlushed(threshold_reached);
             }
         )
         , m_slab_recycler(slab_cache_size ? *slab_cache_size : DEFAULT_SLAB_CACHE_SIZE)
@@ -142,8 +142,8 @@ namespace db0
         m_cache_recycler.clear();
     }
 
-    void BaseWorkspace::onCacheFlushed(bool) const
-    {
+    bool BaseWorkspace::onCacheFlushed(bool) const {
+        return true;
     }
     
     void BaseWorkspace::forEachMemspace(std::function<bool(Memspace &)> callback)
@@ -594,16 +594,24 @@ namespace db0
         m_lang_cache->clear(true);
     }
     
-    void Workspace::onCacheFlushed(bool threshold_reached) const
+    bool Workspace::onCacheFlushed(bool threshold_reached) const
     {
-        BaseWorkspace::onCacheFlushed(threshold_reached);
+        if (!BaseWorkspace::onCacheFlushed(threshold_reached)) {
+            return false;
+        }
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (!fixture->onCacheFlushed(threshold_reached)) {
+                // unable to handle this event - e.g. due to pending commit
+                return false;
+            }
+        }
+
         if (!threshold_reached) {
             // additionally erase the entire LangCache to attempt reaching the flush objective            
             m_lang_cache->clear(true);
         }
-        for (auto &[uuid, fixture] : m_fixtures) {
-            fixture->onCacheFlushed(threshold_reached);
-        }
+
+        return true;
     }
     
     const FixtureCatalog &Workspace::getFixtureCatalog() const {

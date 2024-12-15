@@ -256,40 +256,46 @@ namespace db0
         // Clear expired instances from cache so that they're not persisted
         m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
-        tryCommit(lock);        
-        m_updated = false;        
+        tryCommit(lock);
+        m_updated = false;
     }
     
     void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock, ProcessTimer *parent_timer)
     {
-        std::unique_ptr<ProcessTimer> timer;
-        if (parent_timer) {
-            timer = std::make_unique<ProcessTimer>("Fixture::tryCommit", parent_timer);
+        m_commit_pending = true;
+        try {
+            std::unique_ptr<ProcessTimer> timer;
+            if (parent_timer) {
+                timer = std::make_unique<ProcessTimer>("Fixture::tryCommit", parent_timer);
+            }
+            auto prefix_ptr = getPrefixPtr();
+            // prefix may not exist if fixture has already been closed
+            if (!prefix_ptr) {
+                return;
+            }
+            
+            std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
+            if (m_gc0_ptr) {
+                getGC0().commitAll();
+            }
+            
+            for (auto &commit: m_close_handlers) {
+                commit(true);
+            }
+            
+            // commit garbage collector's state
+            // we check if gc0 exists because the unit-tests set up may not have it
+            if (gc0_ctx) {
+                gc0_ctx->commit();
+            }
+            m_string_pool.commit();
+            m_object_catalogue.commit();
+            m_v_object_cache.commit();        
+            Memspace::commit(timer.get());
+        } catch (...) {
+            m_commit_pending = false;
+            throw;
         }
-        auto prefix_ptr = getPrefixPtr();
-        // prefix may not exist if fixture has already been closed
-        if (!prefix_ptr) {
-            return;
-        }
-        
-        std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
-        if (m_gc0_ptr) {
-            getGC0().commitAll();
-        }
-        
-        for (auto &commit: m_close_handlers) {
-            commit(true);
-        }
-        
-        // commit garbage collector's state
-        // we check if gc0 exists because the unit-tests set up may not have it
-        if (gc0_ctx) {
-            gc0_ctx->commit();
-        }
-        m_string_pool.commit();
-        m_object_catalogue.commit();
-        m_v_object_cache.commit();        
-        Memspace::commit(timer.get());
     }
     
     void Fixture::onAutoCommit()
@@ -313,7 +319,7 @@ namespace db0
             // lock for exclusive access
             {
                 std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
-                tryCommit(lock);            
+                tryCommit(lock);
                 m_updated = false;            
             }
         }
@@ -429,16 +435,22 @@ namespace db0
     AtomicContext *Fixture::tryGetAtomicContext() const {
         return m_atomic_context_ptr;
     }
-    
+
     void Fixture::forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)> f) const {
         m_meta_allocator.forAllSlabs(f);
     }
     
-    void Fixture::onCacheFlushed(bool) const
+    bool Fixture::onCacheFlushed(bool) const
     {
-        if (m_prefix) {
-            m_prefix->cleanup();
+        // NOTE: prevent cleanups during commit to avoid unwanted side-effects
+        if (m_commit_pending) {
+            return false;
         }
+        
+        if (m_prefix) {
+            m_prefix->cleanup();            
+        }
+        return true;
     }
     
 }

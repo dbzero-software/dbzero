@@ -241,4 +241,8 @@ namespace db0
         return m_change_log.empty() ? 0 : m_change_log.size() - 1;
     }
 
+    std::size_t SparseIndex::size() const {
+        return m_index.size();        
+    }
+    
 }

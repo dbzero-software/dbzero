@@ -3,6 +3,7 @@
 #include <vector>
 #include <unordered_map>
 #include <mutex>
+#include <optional>
 #include <dbzero/core/vspace/v_ptr.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
 #include <dbzero/object_model/value/TypedAddress.hpp>
@@ -127,6 +128,8 @@ namespace db0
         bool m_commit_pending = false;
 
         void commit();
+        // @return pre-commit ops-id if element was assigned it
+        std::optional<unsigned int> erase(void *vptr);
         
     private:
         static std::vector<GC_Ops> m_ops;
@@ -157,6 +160,7 @@ namespace db0
     
     template <typename T> void GC0::add(void *vptr)
     {
+        assert(vptr);
         std::unique_lock<std::mutex> lock(m_mutex);
         // detach function must always be provided
         assert(m_ops[T::m_gc_ops_id].detach);
@@ -174,23 +178,14 @@ namespace db0
     template <typename T> void GC0::moveFrom(GC0 &other, void *vptr)
     {
         std::unique_lock<std::mutex> lock(m_mutex);
-        assert(other.m_vptr_map.find(vptr) != other.m_vptr_map.end());
-        other.m_vptr_map.erase(vptr);
+        auto pre_commit_op = other.erase(vptr);
         m_vptr_map[vptr] = T::m_gc_ops_id;
         // also move between pre-commit maps
-        auto it = other.m_pre_commit_map.find(vptr);
-        if (it != other.m_pre_commit_map.end()) {
-            m_pre_commit_map[vptr] = it->second;
-            other.m_pre_commit_map.erase(it);
+        if (pre_commit_op) {
+            m_pre_commit_map[vptr] = *pre_commit_op;
         }
         if (m_atomic) {
             m_volatile.push_back(vptr);
-            // also need to remove from volatile list of the other GC0
-            for (auto &other_vptr: other.m_volatile) {
-                if (other_vptr == vptr) {
-                    other_vptr = nullptr;
-                }
-            }
         }
     }
     
