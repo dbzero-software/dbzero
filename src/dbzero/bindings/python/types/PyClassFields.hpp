@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PyWrapper.hpp"
+#include <dbzero/bindings/python/PyWrapper.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/class/ClassFields.hpp>
 

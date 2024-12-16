@@ -17,10 +17,10 @@
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
-#include "PyObjectId.hpp"
-#include "PyEnum.hpp"
-#include "PyClassFields.hpp"
-#include "PyClass.hpp"
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
+#include <dbzero/bindings/python/types/PyClassFields.hpp>
+#include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/types/PyEnum.hpp>
 
 namespace db0::python
 

@@ -2,6 +2,10 @@
 #include "PyToolkit.hpp"
 #include <iostream>
 #include <object.h>
+#include "PySnapshot.hpp"
+#include "PyInternalAPI.hpp"
+#include "Utils.hpp"
+#include "Types.hpp"
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -10,12 +14,9 @@
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
-#include "PySnapshot.hpp"
-#include "PyInternalAPI.hpp"
-#include "PyClassFields.hpp"
-#include "Utils.hpp"
-#include "Types.hpp"
-#include "PyClass.hpp"
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
+#include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/types/PyClassFields.hpp>
 
 namespace db0::python
 

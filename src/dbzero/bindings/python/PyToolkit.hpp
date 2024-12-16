@@ -1,14 +1,14 @@
 #pragma once
 
+#include <Python.h>
 #include <deque>
+#include <optional>
+#include <mutex>
 #include "PyTypeManager.hpp"
 #include "PyWorkspace.hpp"
-#include <Python.h>
 #include "PyTypes.hpp"
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
-#include <optional>
-#include <mutex>
 
 #define PY_API_FUNC auto __api_lock = db0::python::PyToolkit::lockApi();
 

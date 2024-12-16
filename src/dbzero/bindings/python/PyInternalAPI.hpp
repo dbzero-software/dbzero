@@ -2,7 +2,7 @@
 
 #include <Python.h>
 #include <cstdint>
-#include "PyObjectId.hpp"
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>

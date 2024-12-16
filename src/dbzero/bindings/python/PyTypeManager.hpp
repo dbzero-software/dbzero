@@ -5,9 +5,10 @@
 #include <list>
 #include <vector>
 #include <functional>
+#include <memory>
 #include <dbzero/bindings/TypeId.hpp>
 #include "PyTypes.hpp"
-#include "PyEnumType.hpp"
+#include <dbzero/bindings/python/types/PyEnumType.hpp>
 
 namespace db0::object_model {
 

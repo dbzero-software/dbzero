@@ -2,7 +2,11 @@
 #include "Memo.hpp"
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
-#include "PyObjectId.hpp"
+#include "PyObjectTagManager.hpp"
+#include "PySnapshot.hpp"
+#include "PyTagSet.hpp"
+#include "PyAtomic.hpp"
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyByteArray.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
@@ -12,15 +16,11 @@
 #include <dbzero/bindings/python/PyWorkspace.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
-#include "PyObjectTagManager.hpp"
-#include "PySnapshot.hpp"
-#include "PyTagSet.hpp"
-#include "PyEnum.hpp"
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
-#include "PyClassFields.hpp"
-#include "PyClass.hpp"
-#include "PyAtomic.hpp"
+#include <dbzero/bindings/python/types/PyClassFields.hpp>
+#include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/types/PyEnum.hpp>
 
 namespace py = db0::python;
     

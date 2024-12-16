@@ -1,5 +1,5 @@
 #include "PyEnum.hpp"
-#include "PyInternalAPI.hpp"
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
 

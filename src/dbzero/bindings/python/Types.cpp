@@ -1,7 +1,10 @@
 #include "Types.hpp"
 #include "PyToolkit.hpp"
 #include "Memo.hpp"
-#include "PyObjectId.hpp"
+#include "PyAPI.hpp"
+#include "PyInternalAPI.hpp"
+#include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
@@ -11,9 +14,6 @@
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include "PyAPI.hpp"
-#include "PyInternalAPI.hpp"
-#include "PyEnum.hpp"
 
 namespace db0::python
 

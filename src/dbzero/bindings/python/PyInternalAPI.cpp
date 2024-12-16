@@ -1,4 +1,6 @@
 #include "PyInternalAPI.hpp"
+#include "PyToolkit.hpp"
+#include "Memo.hpp"
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -23,12 +25,10 @@
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
-#include <dbzero/bindings/python/PyEnum.hpp>
+#include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
-#include "PyToolkit.hpp"
-#include "Memo.hpp"
-#include "PyClass.hpp"
 
 namespace db0::python
 
@@ -255,7 +255,7 @@ namespace db0::python
     
     PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs)
     {
-        using ObjectIterable = db0::object_model::ObjectIterable;         
+        using ObjectIterable = db0::object_model::ObjectIterable;
         using TagIndex = db0::object_model::TagIndex;
         using Class = db0::object_model::Class;        
         

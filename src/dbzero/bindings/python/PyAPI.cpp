@@ -1,20 +1,24 @@
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
 #include "PyToolkit.hpp"
-#include "PyEnum.hpp"
-#include "PyObjectId.hpp"
 #include "PyTypeManager.hpp"
 #include "PyWorkspace.hpp"
 #include "Memo.hpp"
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
 #include "Memo.hpp"
+#include "Types.hpp"
+#include "PyAtomic.hpp"
+#include "PyReflectionAPI.hpp"
+#include "PyHash.hpp"
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
+#include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
@@ -27,10 +31,6 @@
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 #include <dbzero/core/serialization/Types.hpp>
-#include "Types.hpp"
-#include "PyAtomic.hpp"
-#include "PyReflectionAPI.hpp"
-#include "PyHash.hpp"
 
 namespace db0::python
 

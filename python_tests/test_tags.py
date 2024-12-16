@@ -376,3 +376,8 @@ def test_using_len_to_determine_query_result_size(db0_no_autocommit, memo_tags):
     assert len(query) == 10
         
     
+# FIXME: failing test blocked
+# def test_use_find_to_match_single_object(db0_no_autocommit, memo_tags):
+#     obj_1 = next(iter(db0.find("tag1")))
+#     assert len(db0.find(obj_1, db0.find("tag1"))) == 1
+    

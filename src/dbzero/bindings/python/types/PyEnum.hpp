@@ -1,7 +1,7 @@
 #pragma once
 
-#include "PyWrapper.hpp"
-#include "PyEnumType.hpp"
+#include <dbzero/bindings/python/PyWrapper.hpp>
+#include <dbzero/bindings/python/types/PyEnumType.hpp>
 #include <dbzero/object_model/enum/EnumDef.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "PyWrapper.hpp"
-#include "PyTypes.hpp"
-#include <dbzero/object_model/enum/EnumDef.hpp>
 #include <optional>
+#include <dbzero/bindings/python/PyTypes.hpp>
+#include <dbzero/bindings/python/PyWrapper.hpp>
+#include <dbzero/object_model/enum/EnumDef.hpp>
 
 namespace db0::object_model {
     class Enum;

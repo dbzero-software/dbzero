@@ -1,4 +1,7 @@
 #include "PyTypeManager.hpp"
+#include <Python.h>
+#include <datetime.h>
+#include <chrono>
 #include "Memo.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
@@ -7,9 +10,6 @@
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
-#include <Python.h>
-#include <datetime.h>
-#include <chrono>
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
 #include <dbzero/bindings/python/PyTagSet.hpp>
@@ -25,9 +25,10 @@
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
-#include "PyClassFields.hpp"
-#include "PyEnum.hpp"
-#include "PyClass.hpp"
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
+#include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/types/PyClassFields.hpp>
+#include <dbzero/bindings/python/types/PyClass.hpp>
 
 namespace db0::python
 

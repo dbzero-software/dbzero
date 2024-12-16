@@ -390,7 +390,7 @@ namespace db0::object_model
             if (type) {
                 result &= m_base_index_short.addIterator(factory, type->getAddress());
             }
-
+            
             while (result && (offset < nargs)) {
                 result &= addIterator(args[offset], factory, neg_iterators, observers);
                 ++offset;

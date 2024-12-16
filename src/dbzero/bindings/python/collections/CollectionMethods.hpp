@@ -1,7 +1,7 @@
 #include <Python.h>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include <dbzero/bindings/python/PyEnum.hpp>
+#include <dbzero/bindings/python/types/PyEnum.hpp>
 
 namespace db0::python
 

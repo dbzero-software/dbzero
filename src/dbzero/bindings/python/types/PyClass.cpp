@@ -1,6 +1,6 @@
-#include "PyClass.hpp"
-#include "PyInternalAPI.hpp"
-#include "PyReflectionAPI.hpp"
+#include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/PyReflectionAPI.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 
 namespace db0::python
