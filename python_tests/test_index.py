@@ -598,3 +598,13 @@ def test_find_in_index_range(db0_fixture):
     index.add(3, test_obj)
     assert test_obj in set(index.range())
     assert list(db0.find(index.range(), test_obj)) == [test_obj]
+
+
+def test_find_multiple_objects_in_index_range(db0_fixture):
+    index = db0.index()
+    objects = [MemoTestClass(i) for i in range(5)]
+    for obj in objects:
+        if obj.value < 4:
+            index.add(obj.value, obj)
+    assert set(db0.find(index.range(), [objects[0], objects[3], objects[4]])) == set([objects[0], objects[3]])
+    
