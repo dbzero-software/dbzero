@@ -562,24 +562,7 @@ namespace db0::python
         PyDict_SetItemString(py_result, "size_of", PyLong_FromLong(self->ext()->sizeOf()));
         return py_result;
     }
-    
-    PyObject *PyAPI_MemoObject_IsTag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
-            return NULL;
-        }
         
-        if (!PyMemo_Check(args[0])) {
-            PyErr_SetString(PyExc_TypeError, "Invalid object type");
-            return NULL;
-        }
-
-        auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
-        return PyBool_FromLong(memo_obj.ext().isTag());
-    }
-    
     PyObject *tryMemoObject_str(MemoObject *self)
     {
         std::stringstream str;

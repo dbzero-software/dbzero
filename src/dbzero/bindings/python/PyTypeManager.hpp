@@ -24,6 +24,7 @@ namespace db0::object_model {
     struct EnumValue;
     struct EnumValueRepr;
     struct FieldDef;
+    struct TagDef;
     
 }
 
@@ -59,6 +60,7 @@ namespace db0::python
         using EnumValueRepr = db0::object_model::EnumValueRepr;
         using FieldDef = db0::object_model::FieldDef;
         using Class = db0::object_model::Class;
+        using TagDef = db0::object_model::TagDef;
 
         PyTypeManager();
         ~PyTypeManager();
@@ -102,7 +104,8 @@ namespace db0::python
         FieldDef &extractFieldDef(ObjectPtr) const;
         std::string extractString(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
-        std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;        
+        std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;
+        const TagDef &extractTag(ObjectPtr py_tag) const;
         
         ObjectPtr getBadPrefixError() const;
         ObjectPtr getClassNotFoundError() const;
@@ -187,5 +190,5 @@ namespace db0::python
         addStaticType(py_type, py_type_id);
         m_simple_py_type_ids.insert(py_type_id);
     }
-
+    
 }

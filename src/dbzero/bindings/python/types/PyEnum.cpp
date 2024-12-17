@@ -10,7 +10,7 @@ namespace db0::python
     PyEnum *PyEnum_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyEnum*>(type->tp_alloc(type, 0));
     }
-
+    
     PyEnumValue *PyEnumValue_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyEnumValue*>(type->tp_alloc(type, 0));
     }

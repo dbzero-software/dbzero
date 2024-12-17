@@ -58,10 +58,7 @@ namespace db0
 		bool limitBy(key_t key) override;
 
 		std::ostream &dump(std::ostream &os) const override;
-		
-        void scanQueryTree(std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_func,
-            int depth = 0) const override;
-        
+		        
         /**
          * @return const-reference to native v_bindex iterator
          */
@@ -72,9 +69,7 @@ namespace db0
         void detach();
 
 	    void stop() override;
-
-	    std::size_t getDepth() const override;
-
+	    
 		FTIteratorType getSerialTypeId() const override;
 
 		void getSignature(std::vector<std::byte> &) const override;
@@ -221,17 +216,6 @@ namespace db0
 	IndexKeyT FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getIndexKey() const {
 		return *m_index_key;
 	}
-
-	template <typename bindex_t, typename key_t, typename IndexKeyT>
-	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::scanQueryTree(
-	    std::function<void(const FT_Iterator<key_t> *it_ptr, int depth)> scan_function, int depth) const {
-		scan_function(this, depth);
-	}
-
-    template <typename bindex_t, typename key_t, typename IndexKeyT> 
-	std::size_t FT_IndexIterator<bindex_t, key_t, IndexKeyT>::getDepth() const {
-        return 1u;
-    }
 
 	template <typename bindex_t, typename key_t, typename IndexKeyT> 
 	void FT_IndexIterator<bindex_t, key_t, IndexKeyT>::stop() {

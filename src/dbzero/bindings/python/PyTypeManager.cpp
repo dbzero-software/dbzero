@@ -29,6 +29,7 @@
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/types/PyTag.hpp>
 
 namespace db0::python
 
@@ -59,6 +60,7 @@ namespace db0::python
         addStaticSimpleType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
 
         // DBZero extension types
+        addStaticDBZeroType(&PyTagType, TypeId::DB0_TAG);
         addStaticDBZeroType(&TagSetType, TypeId::DB0_TAG_SET);
         addStaticDBZeroType(&IndexObjectType, TypeId::DB0_INDEX);
         addStaticDBZeroType(&ListObjectType, TypeId::DB0_LIST);
@@ -431,6 +433,12 @@ namespace db0::python
     
     bool PyTypeManager::isSimplePyTypeId(TypeId type_id) const {
         return m_simple_py_type_ids.find(type_id) != m_simple_py_type_ids.end();
+    }
+
+    const PyTypeManager::TagDef &PyTypeManager::extractTag(ObjectPtr py_tag) const 
+    {
+        assert(PyTag_Check(py_tag));
+        return reinterpret_cast<PyTag*>(py_tag)->ext();
     }
 
 }

@@ -1,4 +1,5 @@
 #include "FT_Iterator.hpp"
+#include <cassert>
 
 namespace db0
 
@@ -46,11 +47,22 @@ namespace db0
         db0::serial::write<FTIteratorType>(v, this->getSerialTypeId());
         this->serializeFTIterator(v);
     }
-    
+
     template <typename key_t> bool FT_Iterator<key_t>::isSimple() const
     {
         auto type_id = this->getSerialTypeId();
         return type_id == FTIteratorType::Index || type_id == FTIteratorType::RangeTree;        
     }
     
+    template <typename key_t> void FT_Iterator<key_t>::scanQueryTree(
+        std::function<void(const FT_Iterator<key_t> *, int depth)> scan_function, int depth) const
+    {
+        assert(this->getDepth() == 1);
+        scan_function(this, depth);
+    }
+    
+    template <typename key_t> std::size_t FT_Iterator<key_t>::getDepth() const {
+        return 1u;
+    }
+
 } // dbz namespace {

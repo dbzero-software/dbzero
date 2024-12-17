@@ -45,8 +45,9 @@ namespace db0::bindings
         DB0_FIELD_DEF = 112,
         DB0_CLASS = 113,
         DB0_ENUM_VALUE_REPR = 114,
+        DB0_TAG = 115,
         // COUNT determines size of the type operator arrays
-        COUNT = 115,
+        COUNT = 116,
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };

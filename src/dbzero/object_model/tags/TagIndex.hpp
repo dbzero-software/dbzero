@@ -136,7 +136,7 @@ namespace db0::object_model
         ShortTagT getShortTag(ObjectSharedPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTag(TypeId, ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromString(ObjectPtr) const;
-        ShortTagT getShortTagFromMemo(ObjectPtr) const;
+        ShortTagT getShortTagFromTag(ObjectPtr) const;
         ShortTagT getShortTagFromEnumValue(const EnumValue &, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromEnumValue(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromEnumValueRepr(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
@@ -152,8 +152,9 @@ namespace db0::object_model
         ShortTagT addShortTag(ObjectSharedPtr, bool &inc_ref) const;
         ShortTagT addShortTag(TypeId, ObjectPtr, bool &inc_ref) const;
         ShortTagT addShortTagFromString(ObjectPtr, bool &inc_ref) const;
+        ShortTagT addShortTagFromTag(ObjectPtr) const;
         ShortTagT addShortTagFromMemo(ObjectPtr) const;
-                
+        
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;

@@ -16,7 +16,8 @@ namespace db0
 	 */
 	template <class T, class comp_t = std::less<T>, typename Iterator = const T*> class SortedArray
 	{
-	public :
+	public:
+		using ConstIteratorT = Iterator;
 		Iterator m_begin = nullptr;
 		Iterator m_end = nullptr;
 		comp_t m_comp;
@@ -56,8 +57,7 @@ namespace db0
 					// "c" meets the join criteria
 					if (m_comp(key,*c)) {
 						end = (c + 1);
-					}
-					else {
+					} else {
 						// "c" doesn't meet the join criteria
 						if (m_comp(*c,key)) {
 							it = c + 1;
@@ -86,13 +86,11 @@ namespace db0
 					// "c" meets the join criteria
 					if (m_comp(*c, key)) {
 						begin = c;
-					}
-					else {
+					} else {
 						// "c" doesn't meet the join criteria
 						if (m_comp(key, *c)) {
 							it = c;
-						}
-						else {
+						} else {
 							return c;
 						}
 					}
@@ -125,14 +123,12 @@ namespace db0
 				// "c" meets the join criteria
 				if (m_comp(*c, key)) {
 					begin = c;
-				}
-				else {
+				} else {
 					// "c" + 1 doesn't meet the join criteria
 					if (m_comp(key,*c)) {
 						end = c;
 						++end;
-					}
-					else {
+					} else {
 						return c;
 					}
 				}
@@ -161,8 +157,7 @@ namespace db0
 				// test equal
 				if (m_comp(*result,key) || m_comp(key,*result)) {
 					return m_end;
-				}
-				else {
+				} else {
 					return result;
 				}
 			}
@@ -214,6 +209,14 @@ namespace db0
 		std::size_t size() const {
 			return (m_end - m_begin);
 		}
-	};
 
+		inline ConstIteratorT begin() const {
+			return m_begin;
+		}
+
+		inline ConstIteratorT end() const {
+			return m_end;
+		}
+	};
+	
 } 

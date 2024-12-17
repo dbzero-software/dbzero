@@ -19,7 +19,8 @@ namespace db0
         RangeTree = 2,
         JoinAnd = 3,
         JoinOr = 4,
-        JoinAndNot = 5
+        JoinAndNot = 5,
+        FixedKey = 6,
     };
     
     using Serializable = db0::serial::Serializable;
@@ -99,18 +100,19 @@ namespace db0
         
         /**
          * Traverse query tree, run scan_function at each element (including this one)
+         * The default implementation for non-composite iterators is provided
          * @param scan_function
          * @param depth value to start from
          */
         virtual void scanQueryTree(std::function<void(const FT_Iterator<KeyT> *it_ptr, int depth)> scan_function,
-            int depth = 0) const = 0;
+            int depth = 0) const;
         
         /**
          * Get depth of the query tree
          * depth = 1 means no nested queries, direct iterator
          * @return depth of the query tree spanned by this iterator
          */
-        virtual std::size_t getDepth() const = 0;
+        virtual std::size_t getDepth() const;
         
         /**
          * Stop iteration, from this moment on the iterator will yield isEnd = true

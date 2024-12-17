@@ -21,6 +21,7 @@
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/types/PyTag.hpp>
 
 namespace db0::python
 
@@ -280,7 +281,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(py_iter));
     }
     
-    std::uint64_t PyToolkit::getTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)
+    std::uint64_t PyToolkit::getTagFromString(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)
     {
         if (!PyUnicode_Check(py_object)) {
             // unable to resolve as tag
@@ -290,7 +291,7 @@ namespace db0::python
         return string_pool.toAddress(string_pool.get(PyUnicode_AsUTF8(py_object)));
     }
     
-    std::uint64_t PyToolkit::addTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool, bool &inc_ref)
+    std::uint64_t PyToolkit::addTagFromString(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool, bool &inc_ref)
     {
         if (!PyUnicode_Check(py_object)) {
             // unable to resolve as tag
@@ -381,7 +382,9 @@ namespace db0::python
             return reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyObjectIterator_Check(py_object)) {
             return reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture()->getUUID();
-        } else {            
+        } else if (PyTag_Check(py_object)) {
+            return reinterpret_cast<PyTag*>(py_object)->ext().m_fixture_uuid;           
+        } else {
             return 0;
         }
     }
@@ -479,5 +482,9 @@ namespace db0::python
     std::unique_lock<std::recursive_mutex> PyToolkit::lockApi() {
         return std::unique_lock<std::recursive_mutex>(m_api_mutex);
     }
-    
+
+    bool PyToolkit::isTag(ObjectPtr py_object) {
+        return PyTag_Check(py_object);
+    }
+
 }

@@ -1,7 +1,63 @@
 #include "PyTag.hpp"
+#include <dbzero/bindings/python/Memo.hpp>
+#include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
 
 {
+
+    PyTag *PyTag_new(PyTypeObject *type, PyObject *, PyObject *) {
+        return reinterpret_cast<PyTag*>(type->tp_alloc(type, 0));
+    }
+    
+    PyTag *PyTagDefault_new() {
+        return PyTag_new(&PyTagType, NULL, NULL);
+    }
+
+    void PyTag_del(PyTag* self)
+    {
+        // destroy associated instance
+        self->destroy();
+        Py_TYPE(self)->tp_free((PyObject*)self);
+    }
+
+    PyTypeObject PyTagType = {
+        PyVarObject_HEAD_INIT(NULL, 0)
+        .tp_name = "dbzero_ce.Tag",
+        .tp_basicsize = PyTag::sizeOf(),
+        .tp_itemsize = 0,
+        .tp_dealloc = (destructor)PyTag_del,
+        .tp_flags = Py_TPFLAGS_DEFAULT,
+        .tp_alloc = PyType_GenericAlloc,
+        .tp_new = (newfunc)PyTag_new,
+        .tp_free = PyObject_Free,
+    };
+
+    bool PyTag_Check(PyObject *py_object) {
+        return Py_TYPE(py_object) == &PyTagType;
+    }
+
+    PyObject *tryAsTag(PyObject *py_obj)
+    {
+        assert(PyMemo_Check(py_obj));
+        auto &memo_obj = reinterpret_cast<MemoObject*>(py_obj)->ext();        
+        PyTag *py_tag = PyTagDefault_new();
+        TagDef::makeNew(&py_tag->modifyExt(), memo_obj.getFixture()->getUUID(), memo_obj.getAddress(), py_obj);
+        return py_tag;
+    }
+    
+    PyObject *PyAPI_as_tag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "Expected 1 argument");
+            return NULL;
+        }
+        if (!PyMemo_Check(args[0])) {
+            PyErr_SetString(PyExc_TypeError, "Expected a memo object");
+            return NULL;
+        }
+        return runSafe(tryAsTag, args[0]);
+    } 
 
 }
