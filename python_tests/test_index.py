@@ -588,3 +588,13 @@ def test_combine_multiple_range_queries_with_find(db0_fixture):
     
     query = db0.find(ix_priority.range(500, 800), ix_date.range(None, dates[3]))
     assert len(query) == 2
+
+
+def test_find_in_index_range(db0_fixture):
+    index = db0.index()
+    index.add(1, MemoTestClass(1))
+    index.add(2, MemoTestClass(2))
+    test_obj = MemoTestClass(3)
+    index.add(3, test_obj)
+    assert test_obj in set(index.range())
+    assert list(db0.find(index.range(), test_obj)) == [test_obj]

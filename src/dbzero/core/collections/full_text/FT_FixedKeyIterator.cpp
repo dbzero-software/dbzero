@@ -104,11 +104,11 @@ namespace db0
     }
     
     template <typename KeyT> bool FT_FixedKeyIterator<KeyT>::join(KeyT join_key, int direction)
-    {
-        m_current = m_keys.join(m_current, join_key, direction);
+    {        
+        m_current = m_keys.join((direction > 0 ? m_keys.begin() : m_keys.end()), join_key, direction);
         return m_current != m_keys.end();
     }
-
+    
     template <typename KeyT> void FT_FixedKeyIterator<KeyT>::joinBound(KeyT join_key) {
         m_current = m_keys.joinBound(m_keys.begin(), join_key);        
     }
