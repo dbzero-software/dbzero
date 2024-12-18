@@ -37,6 +37,8 @@ namespace db0
 
             ConstIterator &operator++();
             std::pair<std::uint16_t, std::uint16_t> operator*() const;
+            
+            std::size_t operator-(const ConstIterator &other) const;
 
         protected:
             friend o_mu_store;
@@ -49,20 +51,26 @@ namespace db0
         ConstIterator end() const;
 
         std::size_t size() const;
+        
+        // Get capacity of the container (as the number of elements)
+        std::size_t maxSize() const;
+
+        // Sort elements and merge similar or overlapping ranges
+        void compact();
 
     private:
         // capacity in bytes
         std::uint16_t m_capacity;
         // size as the number of elements
         std::uint8_t m_size = 0;
-
-        // Compact 2x 12 bit values into 24 bit container
-        inline void compact(std::uint16_t offset, std::uint16_t size, std::array<std::uint8_t, 3> &result)
-        {
-            result[0] = (offset >> 4) & 0xFF;
-            result[1] = ((offset & 0xF) << 4) | ((size >> 8) & 0xF);
-            result[2] = size & 0xFF;
-        }
     };
+    
+    // Compress 2x 12 bit values into 24 bit container
+    inline void compress(std::uint16_t offset, std::uint16_t size, std::array<std::uint8_t, 3> &result)
+    {
+        result[0] = (offset >> 4) & 0xFF;
+        result[1] = ((offset & 0xF) << 4) | ((size >> 8) & 0xF);
+        result[2] = size & 0xFF;
+    }
 
-}
+}    
