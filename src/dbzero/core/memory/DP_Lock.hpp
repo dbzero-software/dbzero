@@ -26,11 +26,10 @@ namespace db0
          * @param size size of the resource
          * @param access_mode access flags
          * @param read_state_num the existing state number of the finalized transaction (or 0 if not available)
-         * @param write_state_num the current transaction number (or 0 for read-only locks)
-         * @param create_new flag indicating if this a newly created resource (e.g. newly appended data page)
+         * @param write_state_num the current transaction number (or 0 for read-only locks)        
         */
         DP_Lock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint64_t read_state_num,
-            std::uint64_t write_state_num);
+            std::uint64_t write_state_num, std::uint16_t mu_size);
         
         /**
          * Create a copied-on-write lock from an existing lock         
@@ -65,10 +64,10 @@ namespace db0
     protected:
         // the updated state number or read-only state number
         std::uint64_t m_state_num;
-
+        
         struct tag_derived {};
         DP_Lock(tag_derived, StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-            std::uint64_t read_state_num, std::uint64_t write_state_num);
+            std::uint64_t read_state_num, std::uint64_t write_state_num, std::uint16_t mu_size);
     };
     
 }

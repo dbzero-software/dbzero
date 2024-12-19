@@ -17,21 +17,25 @@ namespace db0
 #endif
 
     ResourceLock::ResourceLock(StorageContext storage_context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode)
+        FlagSet<AccessOptions> access_mode, std::uint16_t mu_size)
         : m_context(storage_context)
         , m_address(address)
         , m_resource_flags(
             (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) |
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
         , m_access_mode(access_mode)
-        , m_data(size)
+        , m_data(size + mu_size)
+        , m_mu_size(mu_size)
     {
         // intialize buffer for write-only access (create)
         if (!access_mode[AccessOptions::read]) {
-            std::memset(m_data.data(), 0, m_data.size());
-        }        
+            std::memset(m_data.data(), 0, this->size());
+        }
+        if (m_mu_size > 0) {
+            createMUStore(mu_size);
+        }
 #ifndef NDEBUG        
-        rl_usage += m_data.size();
+        rl_usage += this->size();
         ++rl_count;
         ++rl_op_count;
 #endif
@@ -44,35 +48,23 @@ namespace db0
         , m_resource_flags(
             ((lock.m_resource_flags | db0::RESOURCE_DIRTY) & ~db0::RESOURCE_RECYCLED) |
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
-        , m_access_mode(access_mode)            
+        , m_access_mode(access_mode)
         , m_data(lock.m_data)
+        // NOTE: that a the new lock's mu-store is created initially empty
+        , m_mu_size(lock.m_mu_size)
     {
+        getMUStore().clear();
 #ifndef NDEBUG
-        rl_usage += m_data.size();
+        rl_usage += this->size();
         ++rl_count;
         ++rl_op_count;
 #endif      
     }
     
-    ResourceLock::ResourceLock(ResourceLock &&other, std::vector<std::byte> &&data)
-        : m_context(other.m_context)
-        , m_address(other.m_address)
-        , m_resource_flags(other.m_resource_flags.load())
-        , m_access_mode(other.m_access_mode)
-        , m_data(std::move(data))
-        , m_recycle_it(std::move(other.m_recycle_it))
-    {
-#ifndef NDEBUG
-        rl_usage += m_data.size();
-        ++rl_count;
-        ++rl_op_count;
-#endif
-    }
-
     ResourceLock::~ResourceLock()
     {
 #ifndef NDEBUG        
-        rl_usage -= m_data.size();
+        rl_usage -= this->size();
         --rl_count;
         ++rl_op_count;
 #endif
@@ -111,6 +103,10 @@ namespace db0
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
+                // also clear the associated MU-store if it exists
+                if (m_mu_size > 0) {
+                    getMUStore().clear();
+                }
                 lock.commit_reset();
                 // dirty flag successfully reset by this thread
                 return true;
@@ -134,11 +130,12 @@ namespace db0
             }
         }
     }
-    
+     
     void ResourceLock::moveFrom(ResourceLock &other)
     {
         assert(other.size() == size());
         setDirty();
+        // copy both data and the mu-store
         std::memcpy(m_data.data(), other.m_data.data(), m_data.size());        
         other.discard();
     }
@@ -146,11 +143,16 @@ namespace db0
     void ResourceLock::setDirty()
     {
         // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
-        if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY) && 
-            !m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) 
-        {
-            m_context.m_cache_ref.get().append(shared_from_this());
-        }        
+        if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
+            // mark the entire range as modified
+            if (m_mu_size > 0) {
+                getMUStore().appendFullRange();
+            }
+            // register lock with the dirty cache
+            if (!m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
+                m_context.m_cache_ref.get().append(shared_from_this());
+            }
+        }
     }
     
 #ifndef NDEBUG
@@ -176,5 +178,9 @@ namespace db0
         return m_access_mode[AccessOptions::no_flush];
     }
 #endif        
-    
+
+    void ResourceLock::createMUStore(std::uint16_t mu_size) {
+        o_mu_store::__new(&getMUStore(), mu_size);
+    }
+
 }

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <array>
+#include <limits>
 #include "Types.hpp"
 
 namespace db0
@@ -26,6 +27,11 @@ namespace db0
          */
         bool tryAppend(std::uint16_t offset, std::uint16_t size);
 
+        // Append a special element marking the whole range as modified
+        // note that subsequent appends until "clear" is called will complete with "false"
+        // this state can also be obtained by reaching full capactity
+        void appendFullRange();
+
         static std::size_t measure(std::size_t max_bytes);
         
         std::size_t sizeOf() const;
@@ -33,7 +39,8 @@ namespace db0
         class ConstIterator
         {
         public:            
-            bool operator!=(const ConstIterator &other) const;
+            bool operator!=(const ConstIterator &) const;
+            bool operator==(const ConstIterator &) const;
 
             ConstIterator &operator++();
             std::pair<std::uint16_t, std::uint16_t> operator*() const;
@@ -58,8 +65,23 @@ namespace db0
         // Sort elements and merge similar or overlapping ranges
         void compact();
 
+        void clear();
+
+        // Check if the collection contains a special marker indicating full-range modification
+        inline bool isFullRange() const {
+            return m_size == std::numeric_limits<std::uint8_t>::max();
+        }
+        
+        static constexpr std::size_t maxCapacity()
+        {
+            return std::min(
+                static_cast<std::size_t>(std::numeric_limits<decltype(m_capacity)>::max()),
+                static_cast<std::size_t>((std::numeric_limits<decltype(m_size)>::max() - 1) * 3 + sizeof(o_mu_store))
+            );
+        }
+        
     private:
-        // capacity in bytes
+        // total capacity in bytes (sizeof)
         std::uint16_t m_capacity;
         // size as the number of elements
         std::uint8_t m_size = 0;

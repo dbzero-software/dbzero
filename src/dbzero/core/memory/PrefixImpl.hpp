@@ -67,7 +67,7 @@ namespace db0
         AccessType getAccessType() const override {
             return m_storage_ptr->getAccessType();
         }
-
+        
         std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
 
         void beginAtomic() override;
@@ -104,6 +104,9 @@ namespace db0
         }
 
         void adjustAccessMode(FlagSet<AccessOptions> &access_mode, std::uint64_t address, std::size_t size) const;
+
+        // calculate mu-storage size to be used
+        std::uint16_t getMUSize(const BaseStorage &) const;
     };
     
 } 

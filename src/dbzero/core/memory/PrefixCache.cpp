@@ -12,11 +12,12 @@ namespace db0
 
 {
     
-    PrefixCache::PrefixCache(BaseStorage &storage, CacheRecycler *cache_recycler_ptr,
+    PrefixCache::PrefixCache(BaseStorage &storage, CacheRecycler *cache_recycler_ptr, std::uint16_t mu_size,
         std::atomic<std::size_t> *dirty_meter_ptr)
         : m_page_size(storage.getPageSize())
         , m_shift(getPageShift(m_page_size)) 
         , m_mask(getPageMask(m_page_size))
+        , m_mu_size(mu_size)
         , m_storage(storage)
         , m_dirty_dp_cache(m_page_size, dirty_meter_ptr)
         , m_dirty_wide_cache(m_page_size, dirty_meter_ptr)
@@ -26,8 +27,8 @@ namespace db0
         , m_boundary_map(m_page_size)
         , m_wide_map(m_page_size)
         , m_cache_recycler_ptr(cache_recycler_ptr)
-        , m_missing_dp_lock_ptr(std::make_shared<DP_Lock>(m_dp_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0))
-        , m_missing_wide_lock_ptr(std::make_shared<WideLock>(m_wide_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, nullptr))
+        , m_missing_dp_lock_ptr(std::make_shared<DP_Lock>(m_dp_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, 0))
+        , m_missing_wide_lock_ptr(std::make_shared<WideLock>(m_wide_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, 0, nullptr))
     {
     }
     
@@ -35,7 +36,7 @@ namespace db0
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
     {
         auto lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-            access_mode, read_state_num, state_num);
+            access_mode, read_state_num, state_num, m_mu_size);
         // initially dirty lock must be registered with the dirty cache
         lock->initDirty();
         // register under the lock's evaluated state number
@@ -72,12 +73,12 @@ namespace db0
             if (read_state_num == state_num) {
                 // the restored lock can be created as read/write if requested
                 dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-                    access_mode | AccessOptions::read, read_state_num, state_num);
+                    access_mode | AccessOptions::read, read_state_num, state_num, m_mu_size);
                 dp_lock->initDirty();
             } else {
                 // the restored lock is created as "for read"
                 dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-                    FlagSet<AccessOptions> { AccessOptions::read }, read_state_num, read_state_num);
+                    FlagSet<AccessOptions> { AccessOptions::read }, read_state_num, read_state_num, m_mu_size);
             }
             // feed the lock back into the cache
             *weak_ref = dp_lock;
@@ -127,7 +128,7 @@ namespace db0
         std::shared_ptr<DP_Lock> res_dp)
     {
         auto lock = std::make_shared<WideLock>(m_wide_context, page_num << m_shift, size,
-            access_mode, read_state_num, state_num, res_dp);
+            access_mode, read_state_num, state_num, calculateMUSize(size), res_dp);
         // initially dirty lock must be registered with the dirty cache
         lock->initDirty();
         // register under the lock's evaluated state number
@@ -172,12 +173,12 @@ namespace db0
             if (read_state_num == state_num) {
                 // restore as read/write if requested
                 wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, access_mode | AccessOptions::read,
-                    read_state_num, state_num, res_lock);
+                    read_state_num, state_num, calculateMUSize(size), res_lock);
                 wide_lock->initDirty();
             } else {
                 // restore as "for read"
                 wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, FlagSet<AccessOptions> { AccessOptions::read },
-                    read_state_num, read_state_num, res_lock);
+                    read_state_num, read_state_num, calculateMUSize(size), res_lock);
             }
             // feed the lock back into the cache
             *weak_ref = wide_lock;
@@ -254,11 +255,11 @@ namespace db0
                 if (read_state_num == state_num) {
                     // create as read/write if requested
                     br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, 
-                        access_mode | AccessOptions::read);
+                        access_mode | AccessOptions::read, calculateMUSize(size));
                 } else {
                     // restore as "for read"
                     br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, 
-                        FlagSet<AccessOptions> { AccessOptions::read });
+                        FlagSet<AccessOptions> { AccessOptions::read }, calculateMUSize(size));
                 }
                 *weak_ref = br_lock;
             }
@@ -296,7 +297,8 @@ namespace db0
 
             // NOTE: boundary locks are not registered with the dirty-cache
             // we use dp_context as a placeholder for the dirty-cache
-            br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
+            br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, 
+                access_mode, calculateMUSize(size));
             // register with the read state number
             m_boundary_map.insert(read_state_num, br_lock);
             // the new lock may need to be registered as "potentially" volatile because parent locks may already be volatile
@@ -678,4 +680,9 @@ namespace db0
         m_boundary_map.clear();
     }
     
-}
+    std::uint16_t PrefixCache::calculateMUSize(std::size_t lock_size) const {
+        // calculate as proportional to lock size but not exceeding the maximum capacity
+        return std::min((lock_size >> m_shift) * 254, o_mu_store::maxCapacity());
+    }
+
+} 

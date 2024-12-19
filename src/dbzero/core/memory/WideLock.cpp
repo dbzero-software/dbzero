@@ -9,8 +9,8 @@ namespace db0
 {
     
     WideLock::WideLock(StorageContext context, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-        std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<DP_Lock> res_lock)
-        : DP_Lock(tag_derived{}, context, address, size, access_mode, read_state_num, write_state_num)
+        std::uint64_t read_state_num, std::uint64_t write_state_num, std::uint16_t mu_size, std::shared_ptr<DP_Lock> res_lock)
+        : DP_Lock(tag_derived{}, context, address, size, access_mode, read_state_num, write_state_num, mu_size)
         , m_res_lock(res_lock)
     {
         // initialzie the local buffer
@@ -26,7 +26,7 @@ namespace db0
                 // and copy the residual contents from the res_lock
                 std::memcpy(m_data.data() + dp_size, res_lock->getBuffer(), size  - dp_size);
             } else {
-                storage.read(m_address, read_state_num, m_data.size(), m_data.data(), access_mode);
+                storage.read(m_address, read_state_num, this->size(), m_data.data(), access_mode);
             }
         }
     }
@@ -62,6 +62,9 @@ namespace db0
                 } else {
                     // write entire contents from the local buffer
                     storage.write(m_address, m_state_num, m_data.size(), m_data.data());
+                }
+                if (m_mu_size > 0) {
+                    getMUStore().clear();
                 }
                 // reset the dirty flag
                 lock.commit_reset();

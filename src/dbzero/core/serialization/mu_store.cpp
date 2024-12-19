@@ -11,7 +11,7 @@ namespace db0
         : m_capacity(max_bytes)
     {
         assert(max_bytes <= 0xFFFF);
-        assert(maxSize() <= std::numeric_limits<std::uint8_t>::max());
+        assert(maxSize() <= std::numeric_limits<std::uint8_t>::max() - 1);
     }
     
     std::size_t o_mu_store::measure(std::size_t max_bytes) 
@@ -26,6 +26,10 @@ namespace db0
 
     bool o_mu_store::ConstIterator::operator!=(const ConstIterator &other) const {
         return m_current != other.m_current;
+    }
+    
+    bool o_mu_store::ConstIterator::operator==(const ConstIterator &other) const {
+        return m_current == other.m_current;
     }
     
     o_mu_store::ConstIterator &o_mu_store::ConstIterator::operator++()
@@ -46,20 +50,34 @@ namespace db0
     {
     }
     
-    o_mu_store::ConstIterator o_mu_store::begin() const {
+    o_mu_store::ConstIterator o_mu_store::begin() const
+    {
+        // no iteration possible over a full-range modification
+        if (isFullRange()) {
+            return this->end();
+        }
         return ConstIterator((std::uint8_t*)this + sizeof(o_mu_store));
     }
-
+    
     o_mu_store::ConstIterator o_mu_store::end() const {
         return ConstIterator((std::uint8_t*)this + sizeof(o_mu_store) + m_size * 3);
     }
-    
+
     std::size_t o_mu_store::size() const {
-        return m_size;
-    }    
+        return isFullRange() ? 0 : m_size;
+    }
+    
+    void o_mu_store::appendFullRange() {
+        // special value to mark the whole range as modified
+        m_size = std::numeric_limits<std::uint8_t>::max();
+    }
 
     bool o_mu_store::tryAppend(std::uint16_t offset, std::uint16_t size)
     {
+        if (isFullRange()) {
+            return false;
+        }
+
         std::uint8_t *at;
         for (;;) {
             at = (std::uint8_t*)this + sizeof(o_mu_store) + m_size * 3;
@@ -79,7 +97,7 @@ namespace db0
         }
         
         db0::compress(offset, size, *reinterpret_cast<std::array<std::uint8_t, 3>*>(at));
-        ++m_size;
+        ++m_size;        
         return true;
     }
     
@@ -149,7 +167,7 @@ namespace db0
     
     void o_mu_store::compact()
     {        
-        if (m_size < 2) {
+        if (m_size < 2 || isFullRange()) {
             return;
         }
 
@@ -164,9 +182,13 @@ namespace db0
         }
         m_size = writer.size();
     }
-
+    
     std::size_t o_mu_store::maxSize() const {
         return (m_capacity - sizeof(o_mu_store)) / 3;
+    }
+
+    void o_mu_store::clear() {
+        m_size = 0;
     }
 
 }

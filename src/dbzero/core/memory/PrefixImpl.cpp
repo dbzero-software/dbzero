@@ -13,7 +13,7 @@ namespace db0
         , m_page_size(m_storage_ptr->getPageSize())
         , m_shift(getPageShift(m_page_size))
         , m_head_state_num(m_storage_ptr->getMaxStateNum())
-        , m_cache(*m_storage_ptr, cache_recycler_ptr, &dirty_meter)
+        , m_cache(*m_storage_ptr, cache_recycler_ptr, getMUSize(*storage), &dirty_meter)
     {
         assert(m_storage_ptr);
         if (m_storage_ptr->getAccessType() == AccessType::READ_WRITE) {
@@ -401,6 +401,11 @@ namespace db0
     
     std::size_t PrefixImpl::flushDirty(std::size_t limit) {
         return m_cache.flushDirty(limit);
+    }
+    
+    std::uint16_t PrefixImpl::getMUSize(const BaseStorage &storage) const {
+        // NOTE: for read-only storage mu-size is always 0
+        return (storage.getAccessType() == AccessType::READ_WRITE) ? 254 : 0;
     }
 
 }

@@ -6,6 +6,7 @@
 #include <cassert>
 #include <functional>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/core/serialization/mu_store.hpp>
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
 #include <dbzero/core/threading/Flags.hpp>
 #include <dbzero/core/utils/FixedList.hpp>
@@ -33,8 +34,15 @@ namespace db0
     class ResourceLock: public std::enable_shared_from_this<ResourceLock>
     {
     public:
-        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>);
-        ResourceLock(const ResourceLock &, FlagSet<AccessOptions>);        
+        /**
+         * @param storage_context
+         * @param address the starting address in the storage
+         * @param size the size of the data in bytes
+         * @param access_options the resource flags
+         * @param mu_size the size of the attached MU-store container (for collecting micro-updates)
+         */
+        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint16_t mu_size);
+        ResourceLock(const ResourceLock &, FlagSet<AccessOptions>);
         
         virtual ~ResourceLock();
         
@@ -59,17 +67,18 @@ namespace db0
         virtual void flush() = 0;
 
         /**
-         * Clear the 'dirty' flag if it has been set
+         * Clear the 'dirty' flag if it has been set, clear the MU-store
          * @return true if the flag was set
         */
         bool resetDirtyFlag();
-            
+        
         inline std::uint64_t getAddress() const {
             return m_address;
         }
-
+        
+        // MU-store not counted in the lock's size
         inline std::size_t size() const {
-            return m_data.size();
+            return m_data.size() - m_mu_size;
         }
 
         inline bool isRecycled() const {
@@ -81,6 +90,7 @@ namespace db0
         // this method cannot be called from the constructor because shared_ptr of the lock is required
         void initDirty();
         
+        // Mark the entire lock as dirty
         void setDirty();
 
         bool isCached() const;
@@ -97,8 +107,10 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_DIRTY;
         }
         
+        // Apply changes from the lock being merged (discarding changes in this lock)
+        // operation required by the atomic merge
         void moveFrom(ResourceLock &);
-
+        
         // clears the no_flush flag if it was set
         void resetNoFlush();
         // discard any changes done to this lock (to be called e.g. on rollback)
@@ -110,6 +122,11 @@ namespace db0
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
         virtual bool isBoundaryLock() const = 0;
 #endif
+
+        inline o_mu_store &getMUStore() {
+            // mu-store is located after the data part of the data-buffer
+            return o_mu_store::__ref(m_data.data() + m_data.size() - m_mu_size);
+        }
 
     protected:
         friend class CacheRecycler;
@@ -129,12 +146,10 @@ namespace db0
         FlagSet<AccessOptions> m_access_mode;
         
         mutable std::vector<std::byte> m_data;
+        const std::uint16_t m_mu_size;
         // CacheRecycler's iterator
         iterator m_recycle_it = 0;
-
-        // Conversion constructor
-        ResourceLock(ResourceLock &&, std::vector<std::byte> &&data);
-
+        
         void setRecycled(bool is_recycled);
 
         bool addrPageAligned(BaseStorage &) const;
@@ -144,7 +159,9 @@ namespace db0
         static std::atomic<std::size_t> rl_usage;
         static std::atomic<std::size_t> rl_count;
         static std::atomic<std::size_t> rl_op_count;
-#endif        
+#endif
+
+        void createMUStore(std::uint16_t mu_size);
     };
 
     std::ostream &showBytes(std::ostream &, const std::byte *, std::size_t);

@@ -169,4 +169,34 @@ namespace tests
         ASSERT_EQ(cut->size(), 3u);
     }
     
+    TEST_F( MUStoreTest , testMUStoreAppendFullRange )
+    {
+        auto memspace = getMemspace();
+        MU_Store cut(memspace, 256);
+        cut.modify().appendFullRange();
+        ASSERT_FALSE(cut.modify().tryAppend(10, 6));
+        ASSERT_EQ(cut->begin(), cut->end());
+        ASSERT_EQ(cut->size(), 0);
+
+        // after "clear" tryAppend should work normally
+        cut.modify().clear();
+        ASSERT_TRUE(cut.modify().tryAppend(10, 6));
+        ASSERT_EQ(cut->size(), 1u);
+    }
+
+    TEST_F( MUStoreTest , testMUStoreMaxCapacity ) {
+        ASSERT_TRUE( o_mu_store::maxCapacity() <= 768 );
+    }
+    
+    TEST_F( MUStoreTest , testMUStoreClear )
+    {
+        auto memspace = getMemspace();
+        MU_Store cut(memspace, 256);
+        ASSERT_TRUE(cut.modify().tryAppend(10, 6));
+        ASSERT_TRUE(cut.modify().tryAppend(127, 1));
+        ASSERT_TRUE(cut.modify().tryAppend(10, 17));
+
+        cut.modify().clear();
+    }
+
 }

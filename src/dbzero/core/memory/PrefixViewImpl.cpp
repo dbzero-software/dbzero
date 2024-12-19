@@ -9,7 +9,7 @@ namespace db0
         : Prefix(name)
         , m_storage(storage)
         , m_storage_ptr(storage.get())
-        , m_head_cache(head_cache)
+        , m_head_cache(head_cache)        
         , m_cache(*m_storage_ptr, head_cache.getCacheRecycler())
         , m_state_num(state_num)
         , m_page_size(m_head_cache.getPageSize())
