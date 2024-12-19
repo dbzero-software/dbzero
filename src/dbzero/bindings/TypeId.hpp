@@ -7,7 +7,7 @@
 namespace db0::bindings
 
 {
-
+    
     /**
      * Superset of common language types (common to all supported languages)
     */
@@ -24,10 +24,11 @@ namespace db0::bindings
         DATETIME = 7,
         DATE = 8,
         TUPLE = 9,
-        OBJECT_ITERATOR = 10,
-        BYTES = 11,
-        BYTES_ARRAY = 12,
-        BOOLEAN = 13, 
+        OBJECT_ITERABLE = 10,
+        OBJECT_ITERATOR = 11,
+        BYTES = 12,
+        BYTES_ARRAY = 13,
+        BOOLEAN = 14,
         // DBZero wrappers of common language types
         MEMO_OBJECT = 100,
         DB0_LIST = 101,
@@ -44,8 +45,9 @@ namespace db0::bindings
         DB0_FIELD_DEF = 112,
         DB0_CLASS = 113,
         DB0_ENUM_VALUE_REPR = 114,
+        DB0_TAG = 115,
         // COUNT determines size of the type operator arrays
-        COUNT = 115,
+        COUNT = 116,
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };

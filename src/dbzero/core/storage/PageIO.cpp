@@ -61,5 +61,9 @@ namespace db0
         assert(m_access_type == AccessType::READ_WRITE);
         return m_address + m_block_size;
     }
+    
+    std::uint32_t PageIO::getPageSize() const {
+        return m_page_size;        
+    }
 
 }

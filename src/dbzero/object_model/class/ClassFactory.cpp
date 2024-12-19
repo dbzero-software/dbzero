@@ -3,6 +3,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/core/utils/conversions.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
+#include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 
 namespace db0::object_model
@@ -118,15 +119,14 @@ namespace db0::object_model
         return type;
     }
     
-    std::shared_ptr<Class> ClassFactory::getOrCreateType(TypeObjectPtr lang_type)
+    std::shared_ptr<Class> ClassFactory::tryGetOrCreateType(TypeObjectPtr lang_type)
     {
         // disallow creating MemoBase type
         if (LangToolkit::getTypeManager().isMemoBase(lang_type)) {
             THROWF(db0::InputException) << "Cannot create MemoBase type";
         }
         auto it_cached = m_type_cache.find(lang_type);
-        if (it_cached == m_type_cache.end())
-        {
+        if (it_cached == m_type_cache.end()) {
             const char *type_id = LangToolkit::getMemoTypeID(lang_type);
             const char *prefix_name = LangToolkit::getPrefixName(lang_type);
             // find type in the type map, use 4 key variants of type identification
@@ -136,9 +136,12 @@ namespace db0::object_model
                 // pull existing DBZero class instance by pointer
                 type = getTypeByPtr(class_ptr, lang_type).m_class;
             } else {
-                // create new Class instance
-                bool is_singleton = LangToolkit::isSingleton(lang_type);
                 auto fixture = getFixture();
+                if (!checkAccessType(*fixture, AccessType::READ_WRITE)) {
+                    return {};
+                }
+                // create new Class instance
+                bool is_singleton = LangToolkit::isSingleton(lang_type);                
                 ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
                 type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type), 
                     LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, flags));                
@@ -163,10 +166,29 @@ namespace db0::object_model
         return it_cached->second;
     }
     
+    std::shared_ptr<Class> ClassFactory::getOrCreateType(TypeObjectPtr lang_type)
+    {
+        auto result = tryGetOrCreateType(lang_type);
+        if (!result) {
+            auto fixture = getFixture();
+            // this is to raise a proper exception if access is denied
+            assureAccessType(*fixture, AccessType::READ_WRITE);
+            // throw internal exception in other cases
+            THROWF(db0::InternalException) 
+                << "Cannot create class: " << LangToolkit::getTypeName(lang_type);
+        }
+
+        return result;
+    }
+    
     std::shared_ptr<Class> ClassFactory::getType(ClassPtr ptr, std::shared_ptr<Class> type, TypeObjectPtr lang_type) const
     {
         auto it_cached = m_ptr_cache.find(ptr);
         if (it_cached == m_ptr_cache.end()) {
+            // try looking-up language specific type with the TypeManager
+            if (!lang_type) {
+                lang_type = tryFindLangType(*type);
+            }
             // add to by-pointer cache
             it_cached = m_ptr_cache.insert({ptr, ClassItem{ type, lang_type }}).first;
         }
@@ -206,6 +228,10 @@ namespace db0::object_model
             // note that Class has no associated language specific type object yet
             auto fixture = getFixture();
             auto type = std::shared_ptr<Class>(new Class(fixture, ptr.getAddress()));
+            // try looking-up language specific type with the TypeManager
+            if (!lang_type) {
+                lang_type = tryFindLangType(*type);
+            }
             // register the mapping to language specific type object
             it_cached = m_ptr_cache.insert({ptr, ClassItem { type, lang_type }}).first;
         }
@@ -265,6 +291,23 @@ namespace db0::object_model
     {
         auto it_cached = m_ptr_cache.find(ClassPtr(type));
         return it_cached != m_ptr_cache.end() && it_cached->second.m_lang_type;
+    }
+    
+    ClassFactory::TypeObjectPtr ClassFactory::tryFindLangType(const Class &_class) const
+    {
+        auto &type_manager = LangToolkit::getTypeManager();
+        // look-up all name variants
+        for (unsigned int i = 0; i < 4; ++i) {
+            auto variant_key = getNameVariant(_class, i);
+            if (variant_key) {
+                auto lang_type = type_manager.findType(*variant_key);
+                if (lang_type) {
+                    return lang_type;
+                }
+            }
+        }
+        // type not found
+        return nullptr;
     }
 
 }

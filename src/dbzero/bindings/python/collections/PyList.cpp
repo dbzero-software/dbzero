@@ -86,9 +86,8 @@ namespace db0::python
         return makeDB0ListInternal(fixture, args, nargs).steal();
     }
     
-    PyObject *PyAPI_ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
+    PyObject *tryListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
     {
-        PY_API_FUNC
         // FIXME: this operation should be immutable
         db0::FixtureLock lock(py_src_list->ext().getFixture());
         // Check if the key is a slice object
@@ -116,6 +115,12 @@ namespace db0::python
             index += py_src_list->ext().size();
         }
         return py_src_list->ext().getItem(index).steal();
+    }
+    
+    PyObject *PyAPI_ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
+    {
+        PY_API_FUNC
+        return runSafe(tryListObject_GetItemSlice, py_src_list, elem);
     }
     
     PyObject *PyAPI_ListObject_clear(ListObject *py_list)
@@ -251,6 +256,34 @@ namespace db0::python
     {
         PY_API_FUNC
         return makeListInternal(self, args, nargs);        
+    }
+
+    PyObject *tryLoadList(ListObject *list, PyObject *kwargs) {
+    
+        auto &list_obj = list->ext();
+        PyObject *result = PyList_New(list_obj.size());
+        for (std::size_t i = 0; i < list_obj.size(); ++i) {
+            auto res = runSafe(tryLoad, list_obj.getItem(i).get(), kwargs, nullptr);
+            if (res == nullptr) {
+                return nullptr;
+            }
+            PyList_SetItem(result, i, res);
+        }
+        return result;
+    }
+    
+    PyObject *tryLoadPyList(PyObject *py_list, PyObject *kwargs)
+    {
+        Py_ssize_t size = PyList_Size(py_list);        
+        PyObject *result = PyList_New(size);
+        for (int i = 0; i < size; ++i) {
+            auto res = runSafe(tryLoad, PyList_GetItem(py_list, i), kwargs, nullptr);
+            if (res == nullptr) {
+                return nullptr;
+            }
+            PyList_SetItem(result, i, res);
+        }
+        return result;
     }
 
 }

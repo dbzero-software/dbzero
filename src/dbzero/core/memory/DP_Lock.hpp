@@ -11,7 +11,7 @@
 namespace db0
 
 {
-
+        
     /**
      * A DP_Lock holds a single or multiple data pages in a specific state (read)
      * mutable locks can process updates from the current transaction only and cannot be later mutated
@@ -30,7 +30,7 @@ namespace db0
          * @param create_new flag indicating if this a newly created resource (e.g. newly appended data page)
         */
         DP_Lock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint64_t read_state_num,
-            std::uint64_t write_state_num, bool create_new = false);
+            std::uint64_t write_state_num);
         
         /**
          * Create a copied-on-write lock from an existing lock         
@@ -68,7 +68,7 @@ namespace db0
 
         struct tag_derived {};
         DP_Lock(tag_derived, StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-            std::uint64_t read_state_num, std::uint64_t write_state_num , bool create_new);
+            std::uint64_t read_state_num, std::uint64_t write_state_num);
     };
     
 }

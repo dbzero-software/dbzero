@@ -57,8 +57,7 @@ namespace db0
             } else {
                 ++it;
             }
-        }
-        // m_locks.erase(m_locks.begin(), it);
+        }        
         *m_dirty_meter_ptr -= flushed;
         m_size -= flushed;
         return flushed;

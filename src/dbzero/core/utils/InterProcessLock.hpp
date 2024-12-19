@@ -7,21 +7,23 @@
 namespace db0 
 
 {
+
     class InterProcessLock
     {
     public:
-        InterProcessLock(const std::string & lockPath, LockFlags lock_flags);
+        InterProcessLock(const std::string &lockPath, LockFlags lock_flags);
         ~InterProcessLock();
 
         bool is_locked() const;
-
+        
         // Assure that the lock is acquired. 
         // This can be occured when lock file is removed by another process
-        void assure_lock();
+        void assureLocked();
 
     private:
         PyObject* m_lock = nullptr;
         LockFlags m_lock_flags;
         const std::string & m_lockPath;
     };
+
 }

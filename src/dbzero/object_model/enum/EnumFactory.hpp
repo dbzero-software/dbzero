@@ -30,6 +30,7 @@ namespace db0::object_model
         using super_t = db0::has_fixture<v_object<o_enum_factory> >;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
+        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         using TypeObjectSharedPtr = typename LangToolkit::TypeObjectSharedPtr;
 
@@ -42,21 +43,24 @@ namespace db0::object_model
          * @param lang_type the language specific type object (e.g. Python class)
          * @param typeid the user assigned type ID (optional)
         */
-        std::shared_ptr<Enum> getExistingEnum(const EnumDef &, const char *type_id = nullptr) const;
+        std::shared_ptr<Enum> getExistingEnum(const EnumTypeDef &) const;
         
         /**
          * A non-throwing version of getExistingType
          * @return nullptr if the class is not found
         */
-        std::shared_ptr<Enum> tryGetExistingEnum(const EnumDef &, const char *type_id = nullptr) const;
+        std::shared_ptr<Enum> tryGetExistingEnum(const EnumTypeDef &) const;
         
         /**
          * Get existing or create a new DBZero enum instance
          * @param enum_def enum definition
          * @param type_id optional user assigned type ID
         */
-        std::shared_ptr<Enum> getOrCreateEnum(const EnumDef &, const char *type_id);
-        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumDef &, const char *type_id);
+        std::shared_ptr<Enum> getOrCreateEnum(const EnumDef &, const char *type_id = nullptr);
+        std::shared_ptr<Enum> getOrCreateEnum(const EnumTypeDef &);
+        
+        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumDef &, const char *type_id = nullptr);
+        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumTypeDef &);
         
         // reference the DBZero object model's enum by its pointer
         std::shared_ptr<Enum> getEnumByPtr(EnumPtr) const;
@@ -65,11 +69,24 @@ namespace db0::object_model
         std::shared_ptr<Enum> getEnumByUID(std::uint32_t enum_uid) const;
         
         /**
-         * Translates enum value to the one managed by this fixture/factory
-         * @param other enum value from a different fixture
+         * Migrate / translate enum value to the one managed by this fixture/factory
+         * @param enum_value enum value from a different fixture
+         * @return enum value as a language specific object or nullptr if failed to migrate due to read-only prefix
          */
-        EnumValue translateEnumValue(const EnumValue &other);
+        ObjectSharedPtr tryMigrateEnumLangValue(const EnumValue &enum_value);
+        ObjectSharedPtr migrateEnumLangValue(const EnumValue &enum_value);        
+
+        EnumValue migrateEnumValue(const EnumValue &enum_value);
+        std::optional<EnumValue> tryMigrateEnumValue(const EnumValue &enum_value);
+
+        // Checks if specific enum value requires migration / translation to a different prefix
+        bool isMigrateRequired(const EnumValue &) const;
         
+        // Try converting EnumValueRepr to this EnumFactory's associated EnumValue
+        std::optional<EnumValue> tryGetEnumValue(const EnumValueRepr &);
+        // try converting to enum's related language specific object
+        ObjectSharedPtr tryGetEnumLangValue(const EnumValueRepr &);
+
         void commit() const;
         
         void detach() const;
@@ -84,7 +101,10 @@ namespace db0::object_model
         std::shared_ptr<Enum> getEnum(EnumPtr, std::shared_ptr<Enum>);
         
         // Locate enum by definition
-        EnumPtr tryFindEnumPtr(const EnumDef &, const char *type_id) const;
+        EnumPtr tryFindEnumPtr(const EnumDef &, const char *type_id = nullptr) const;
+        // get translated enum corresponding to enum_value
+        std::shared_ptr<Enum> tryGetMigratedEnum(const EnumValue &enum_value);
+        std::shared_ptr<Enum> getMigratedEnum(const EnumValue &enum_value);
     };
     
     std::optional<std::string> getEnumKeyVariant(const EnumDef &, const char *type_id, int variant_id);

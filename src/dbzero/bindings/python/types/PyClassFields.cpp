@@ -1,5 +1,5 @@
 #include "PyClassFields.hpp"
-#include "PyInternalAPI.hpp"
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
 

@@ -26,4 +26,36 @@ namespace db0::object_model
         return { m_enum_uid, m_value };
     }
 
+    EnumValueRepr::EnumValueRepr(std::shared_ptr<EnumTypeDef> enum_type_def, const std::string &str_repr)
+        : m_enum_type_def(enum_type_def)
+        , m_str_repr(str_repr)
+    {    
+    }
+
+    EnumValueRepr::~EnumValueRepr()
+    {        
+    }
+    
+    const EnumTypeDef &EnumValueRepr::getEnumTypeDef() const
+    {
+        assert(m_enum_type_def);
+        return *m_enum_type_def;
+    }
+
+    EnumValueRepr &EnumValueRepr::makeNew(
+        void *at, std::shared_ptr<EnumTypeDef> enum_type_def, const std::string &str_repr)
+    {
+        return *new(at) EnumValueRepr(enum_type_def, str_repr);
+    }
+    
+} 
+
+namespace std
+
+{
+
+    ostream &operator<<(ostream &os, const db0::object_model::EnumValue &enum_value) {
+        return os << "EnumValue(" << enum_value.m_str_repr << ")";
+    }
+    
 }

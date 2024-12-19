@@ -17,7 +17,8 @@ namespace db0::object_model
     using Object = db0::object_model::Object;
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     using LongTagT = db0::LongTagT;
-    
+    class EnumFactory;
+
     struct [[gnu::packed]] o_tag_index: public o_fixed<o_tag_index>
     {
         std::uint64_t m_base_index_short_ptr = 0;
@@ -42,8 +43,8 @@ namespace db0::object_model
         // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
         
-        TagIndex(Memspace &memspace, const ClassFactory &, RC_LimitedStringPool &, VObjectCache &);
-        TagIndex(mptr, const ClassFactory &, RC_LimitedStringPool &, VObjectCache &);
+        TagIndex(Memspace &memspace, const ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &);
+        TagIndex(mptr, const ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &);
         
         virtual ~TagIndex();
         
@@ -97,8 +98,9 @@ namespace db0::object_model
     private:
         using TypeId = db0::bindings::TypeId;
         using ActiveValueT = typename db0::FT_BaseIndex<ShortTagT>::ActiveValueT;
-                
+        
         RC_LimitedStringPool &m_string_pool;
+        EnumFactory &m_enum_factory;
         db0::FT_BaseIndex<ShortTagT> m_base_index_short;
         db0::FT_BaseIndex<LongTagT> m_base_index_long;
         // Current batch-operation buffer (may not be initialized)
@@ -112,6 +114,8 @@ namespace db0::object_model
         mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
         // A cache for incomplete objects (not yet fully initialized)
         mutable std::list<std::pair<ObjectSharedPtr, std::uint64_t> > m_active_cache;
+        // the associated fixture UUID (for validation purposes)
+        const std::uint64_t m_fixture_uuid;
         
         template <typename BaseIndexT, typename BatchOperationT>
         BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result);
@@ -124,14 +128,18 @@ namespace db0::object_model
         
         /**
          * Make a tag from the provided argument (can be a string, type or a memo instance)
+         * @param alt_repr optional buffer to hold the alternative tag representation if such exists
+         * this is useful for capturing the conversion result of EnumValueRepr -> EnumValue
          * @return 0x0 if the tag does not exist
         */        
-        ShortTagT getShortTag(ObjectPtr) const;
-        ShortTagT getShortTag(ObjectSharedPtr) const;
-        ShortTagT getShortTag(TypeId, ObjectPtr) const;
+        ShortTagT getShortTag(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
+        ShortTagT getShortTag(ObjectSharedPtr, ObjectSharedPtr *alt_repr = nullptr) const;
+        ShortTagT getShortTag(TypeId, ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromString(ObjectPtr) const;
-        ShortTagT getShortTagFromMemo(ObjectPtr) const;
-        ShortTagT getShortTagFromEnumValue(ObjectPtr) const;
+        ShortTagT getShortTagFromTag(ObjectPtr) const;
+        ShortTagT getShortTagFromEnumValue(const EnumValue &, ObjectSharedPtr *alt_repr = nullptr) const;
+        ShortTagT getShortTagFromEnumValue(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
+        ShortTagT getShortTagFromEnumValueRepr(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromFieldDef(ObjectPtr) const;
         ShortTagT getShortTagFromClass(ObjectPtr) const;
 
@@ -144,8 +152,9 @@ namespace db0::object_model
         ShortTagT addShortTag(ObjectSharedPtr, bool &inc_ref) const;
         ShortTagT addShortTag(TypeId, ObjectPtr, bool &inc_ref) const;
         ShortTagT addShortTagFromString(ObjectPtr, bool &inc_ref) const;
+        ShortTagT addShortTagFromTag(ObjectPtr) const;
         ShortTagT addShortTagFromMemo(ObjectPtr) const;
-
+        
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;

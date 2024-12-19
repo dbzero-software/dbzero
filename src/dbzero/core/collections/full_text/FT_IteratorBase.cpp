@@ -46,5 +46,16 @@ namespace db0
     std::uint64_t FT_IteratorBase::nextUID() {
         return s_next_uid++;
     }
-
+    
+    bool FT_IteratorBase::skip(std::size_t count)
+    {        
+        for (std::size_t i = 0; i < count; ++i) {
+            if (isEnd()) {
+                return false;
+            }
+            next();            
+        }
+        return true;
+    }
+    
 }

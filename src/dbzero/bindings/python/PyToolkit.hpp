@@ -1,14 +1,14 @@
 #pragma once
 
+#include <Python.h>
 #include <deque>
+#include <optional>
+#include <mutex>
 #include "PyTypeManager.hpp"
 #include "PyWorkspace.hpp"
-#include <Python.h>
 #include "PyTypes.hpp"
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
-#include <optional>
-#include <mutex>
 
 #define PY_API_FUNC auto __api_lock = db0::python::PyToolkit::lockApi();
 
@@ -112,11 +112,12 @@ namespace db0::python
         static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, std::uint64_t address);
         
         // Unload from serialized bytes
-        static ObjectSharedPtr unloadObjectIterator(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
+        static ObjectSharedPtr unloadObjectIterable(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
         
-        static ObjectSharedPtr unloadEnumValue(const EnumValue &);
-
+        // Creates a new Python instance of EnumValue
+        static ObjectSharedPtr makeEnumValue(const EnumValue &);
+        
         // generate UUID of a DBZero object
         static ObjectPtr getUUID(ObjectPtr py_object);
         
@@ -126,11 +127,11 @@ namespace db0::python
         /**
          * Adds a new object or increase ref-count of the existing element
          * @param inc_ref - whether to increase ref-count of the existing element, note that for
-         * newly created elements ref-count is always set to 1 (in such case inc_ref fill be flipped from false to true)
+         * newly created elements ref-count is always set to 1 (in such case inc_ref will be flipped from false to true)
         */
-        static std::uint64_t addTag(ObjectPtr py_object, StringPoolT &, bool &inc_ref);
+        static std::uint64_t addTagFromString(ObjectPtr py_object, StringPoolT &, bool &inc_ref);
         // Get existing tag or return 0x0 if not found
-        static std::uint64_t getTag(ObjectPtr py_object, StringPoolT &);
+        static std::uint64_t getTagFromString(ObjectPtr py_object, StringPoolT &);
         
         static bool isString(ObjectPtr py_object);
         static bool isIterable(ObjectPtr py_object);
@@ -140,6 +141,8 @@ namespace db0::python
         static bool isEnumValue(ObjectPtr py_object);
         static bool isFieldDef(ObjectPtr py_object);
         static bool isClassObject(ObjectPtr py_object);
+        static bool isTag(ObjectPtr py_object);
+        
         static ObjectSharedPtr getIterator(ObjectPtr py_object);
         static ObjectSharedPtr next(ObjectPtr py_object);
         // Get value associated fixture UUID (e.g. enum value)

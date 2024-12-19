@@ -92,4 +92,9 @@ def test_deserialize_from_bytes_with_snapshot(db0_fixture, memo_tags):
     # deserialize with snapshot
     snap_query = snap.deserialize(bytes)
     assert len(list(snap_query)) == 10
-    
+
+
+def test_serialize_sliced_query(db0_fixture, memo_tags):
+    bytes = db0.serialize(db0.find("tag1")[2:])
+    query = db0.deserialize(bytes)
+    assert len(query) == len(db0.find("tag1")[2:])

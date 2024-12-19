@@ -32,6 +32,8 @@ namespace db0
 
         std::uint64_t tail() const;
 
+        std::uint32_t getPageSize() const;
+
     private:
         const std::size_t m_header_size;
         CFile &m_file;

@@ -13,13 +13,15 @@
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
-#include "PyObjectId.hpp"
-#include "PyObjectIterator.hpp"
-#include "PyEnum.hpp"
-#include "PyClassFields.hpp"
-#include "PyClass.hpp"
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
+#include <dbzero/bindings/python/types/PyClassFields.hpp>
+#include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/types/PyTag.hpp>
 
 namespace db0::python
 
@@ -105,7 +107,7 @@ namespace db0::python
         const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr)
     {
         // try unloading from cache first
-        auto &lang_cache = fixture->getLangCache();        
+        auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
         
         if (obj_ptr) {
@@ -117,6 +119,9 @@ namespace db0::python
         auto [type, lang_type] = class_factory.getTypeByClassRef(stem->m_class_ref);
         
         if (!lang_type_ptr) {
+            if (!lang_type) {                
+                lang_type = class_factory.getLangType(*type);
+            }
             lang_type_ptr = lang_type.get();
         }
         
@@ -266,17 +271,17 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(tuple_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObjectIterator(db0::swine_ptr<Fixture> fixture,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObjectIterable(db0::swine_ptr<Fixture> fixture,
         std::vector<std::byte>::const_iterator &iter, 
         std::vector<std::byte>::const_iterator end)
     {
         auto obj_iter = db0::object_model::ObjectIterator::deserialize(fixture, iter, end);
-        auto py_iter = PyObjectIteratorDefault_new();
-        Iterator::makeNew(&(py_iter.get())->modifyExt(), std::move(obj_iter));
+        auto py_iter = PyObjectIterableDefault_new();
+        ObjectIterable::makeNew(&(py_iter.get())->modifyExt(), std::move(*obj_iter));
         return shared_py_cast<PyObject*>(std::move(py_iter));
     }
     
-    std::uint64_t PyToolkit::getTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)
+    std::uint64_t PyToolkit::getTagFromString(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)
     {
         if (!PyUnicode_Check(py_object)) {
             // unable to resolve as tag
@@ -286,7 +291,7 @@ namespace db0::python
         return string_pool.toAddress(string_pool.get(PyUnicode_AsUTF8(py_object)));
     }
     
-    std::uint64_t PyToolkit::addTag(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool, bool &inc_ref)
+    std::uint64_t PyToolkit::addTagFromString(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool, bool &inc_ref)
     {
         if (!PyUnicode_Check(py_object)) {
             // unable to resolve as tag
@@ -347,11 +352,11 @@ namespace db0::python
         return PyFieldDef_Check(py_object);
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadEnumValue(const EnumValue &value) {
+    PyToolkit::ObjectSharedPtr PyToolkit::makeEnumValue(const EnumValue &value) {
         return shared_py_cast<PyObject*>(makePyEnumValue(value));
     }
 
-    std::string PyToolkit::getLastError() 
+    std::string PyToolkit::getLastError()
     {
         PyObject *ptype, *pvalue, *ptraceback;
         PyErr_Fetch(&ptype, &pvalue, &ptraceback);
@@ -373,9 +378,13 @@ namespace db0::python
             return reinterpret_cast<PyEnumValue*>(py_object)->ext().m_fixture_uuid;
         } else if (PyMemo_Check(py_object)) {
             return reinterpret_cast<MemoObject*>(py_object)->ext().getFixture()->getUUID();
+        } else if (PyObjectIterable_Check(py_object)) {
+            return reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyObjectIterator_Check(py_object)) {
-            return reinterpret_cast<PyObjectIterator*>(py_object)->ext()->getFixture()->getUUID();
-        } else {            
+            return reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture()->getUUID();
+        } else if (PyTag_Check(py_object)) {
+            return reinterpret_cast<PyTag*>(py_object)->ext().m_fixture_uuid;           
+        } else {
             return 0;
         }
     }
@@ -384,7 +393,7 @@ namespace db0::python
     {
         if (isMemoType(py_type)) {
             auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-            return decor.getFixtureUUID();
+            return decor.getFixtureUUID(AccessType::READ_ONLY);
         } else {
             return 0;
         }
@@ -473,5 +482,9 @@ namespace db0::python
     std::unique_lock<std::recursive_mutex> PyToolkit::lockApi() {
         return std::unique_lock<std::recursive_mutex>(m_api_mutex);
     }
-    
+
+    bool PyToolkit::isTag(ObjectPtr py_object) {
+        return PyTag_Check(py_object);
+    }
+
 }

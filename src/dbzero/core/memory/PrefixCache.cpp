@@ -12,10 +12,6 @@ namespace db0
 
 {
     
-    inline bool isCreateNew(FlagSet<AccessOptions> access_mode) {
-        return access_mode[AccessOptions::create] && !access_mode[AccessOptions::read];
-    }
-
     PrefixCache::PrefixCache(BaseStorage &storage, CacheRecycler *cache_recycler_ptr,
         std::atomic<std::size_t> *dirty_meter_ptr)
         : m_page_size(storage.getPageSize())
@@ -30,8 +26,8 @@ namespace db0
         , m_boundary_map(m_page_size)
         , m_wide_map(m_page_size)
         , m_cache_recycler_ptr(cache_recycler_ptr)
-        , m_missing_dp_lock_ptr(std::make_shared<DP_Lock>(m_dp_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, true))
-        , m_missing_wide_lock_ptr(std::make_shared<WideLock>(m_wide_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, nullptr, true))
+        , m_missing_dp_lock_ptr(std::make_shared<DP_Lock>(m_dp_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0))
+        , m_missing_wide_lock_ptr(std::make_shared<WideLock>(m_wide_context, 0, 0, FlagSet<AccessOptions> {}, 0, 0, nullptr))
     {
     }
     
@@ -39,7 +35,7 @@ namespace db0
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
     {
         auto lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-            access_mode, read_state_num, state_num, isCreateNew(access_mode));
+            access_mode, read_state_num, state_num);
         // initially dirty lock must be registered with the dirty cache
         lock->initDirty();
         // register under the lock's evaluated state number
@@ -71,11 +67,18 @@ namespace db0
         }
         
         dp_lock = weak_ref->lock();
-        // must restore cache-expired lock
+        // must restore cache-expired lock        
         if (!dp_lock) {
-            // the restored lock is created as "read" since it's brought back from the storage
-            dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size, 
-                FlagSet<AccessOptions> { AccessOptions::read }, read_state_num, read_state_num, false);
+            if (read_state_num == state_num) {
+                // the restored lock can be created as read/write if requested
+                dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
+                    access_mode | AccessOptions::read, read_state_num, state_num);
+                dp_lock->initDirty();
+            } else {
+                // the restored lock is created as "for read"
+                dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
+                    FlagSet<AccessOptions> { AccessOptions::read }, read_state_num, read_state_num);
+            }
             // feed the lock back into the cache
             *weak_ref = dp_lock;
         }
@@ -89,7 +92,7 @@ namespace db0
         bool is_volatile = access_mode[AccessOptions::no_flush];
         // Try upgrading the unused lock to the write state
         // this is to avoid CoW in a writer process
-        if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::create] && read_state_num != state_num) {
+        if (access_mode[AccessOptions::write] && read_state_num != state_num) {
             // unused lock condition (i.e. might only be used by the CacheRecycler)
             // note that dirty locks cannot be upgraded (otherwise data would be lost)
             if (!dp_lock->isDirty() && dp_lock.use_count() == (dp_lock->isRecycled() ? 1 : 0) + 1) {
@@ -101,6 +104,8 @@ namespace db0
                 // note that the actual lock may span a wider range, avoid passing first_page / end_page here !!
                 m_dp_map.insert(state_num, dp_lock);
                 read_state_num = state_num;
+                // mark as dirty since write access was requested
+                dp_lock->setDirty();
                 // upgraded locks may need to be registered as volatile
                 if (is_volatile) {
                     m_volatile_locks.push_back(dp_lock);
@@ -122,7 +127,7 @@ namespace db0
         std::shared_ptr<DP_Lock> res_dp)
     {
         auto lock = std::make_shared<WideLock>(m_wide_context, page_num << m_shift, size,
-            access_mode, read_state_num, state_num, res_dp, isCreateNew(access_mode));
+            access_mode, read_state_num, state_num, res_dp);
         // initially dirty lock must be registered with the dirty cache
         lock->initDirty();
         // register under the lock's evaluated state number
@@ -154,18 +159,26 @@ namespace db0
         }
 
         auto wide_lock = weak_ref->lock();
-        // must restore cache-expired lock
+        // must restore cache-expired lock        
         if (!wide_lock) {
             // volatile locks must not expire
             assert(!access_mode[AccessOptions::no_flush]);
             // NOTE: residual lock not required if the wide lock is page-aligned
             if (!res_lock && !isPageAligned(size)) {
-                // operation needs to be repeated with residual lock
+                // operation needs to be repeated with the residual lock
                 return { true, nullptr };
             }
-            // the restored lock is created as "read" since it's brought back from the storage
-            wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, FlagSet<AccessOptions> { AccessOptions::read },
-                read_state_num, read_state_num, res_lock, isCreateNew(access_mode));
+            // restore lock and feed it back into the cache
+            if (read_state_num == state_num) {
+                // restore as read/write if requested
+                wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, access_mode | AccessOptions::read,
+                    read_state_num, state_num, res_lock);
+                wide_lock->initDirty();
+            } else {
+                // restore as "for read"
+                wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, FlagSet<AccessOptions> { AccessOptions::read },
+                    read_state_num, read_state_num, res_lock);
+            }
             // feed the lock back into the cache
             *weak_ref = wide_lock;
         }
@@ -191,7 +204,7 @@ namespace db0
         bool is_volatile = access_mode[AccessOptions::no_flush];
         // Try upgrading the unused lock to the write state
         // this is to avoid CoW in a writer process
-        if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::create] && read_state_num != state_num) {
+        if (access_mode[AccessOptions::write] && read_state_num != state_num) {
             // unused lock condition (i.e. might only be used by the CacheRecycler)
             // note that dirty locks cannot be upgraded (otherwise data would be lost)
             if (!wide_lock->isDirty() && wide_lock.use_count() == (wide_lock->isRecycled() ? 1 : 0) + 1) {
@@ -202,6 +215,8 @@ namespace db0
                 // re-register the upgraded lock under a new state
                 // note that the actual lock may span a wider range, avoid passing first_page / end_page here !!
                 m_wide_map.insert(state_num, wide_lock);
+                // mark lock as dirty since write access was requested
+                wide_lock->setDirty();
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
                 if (is_volatile) {                    
@@ -236,42 +251,49 @@ namespace db0
                 }
                 auto lhs_size = ((first_page + 1) << m_shift) - address;
                 // restore the lock and feed it back into the cache
-                // create the lock as for "read" since it's being brought back from the storage
-                // NOTE: it's important to use no_cache flag with BoundaryLock
-                br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, 
-                    FlagSet<AccessOptions> { AccessOptions::read });
+                if (read_state_num == state_num) {
+                    // create as read/write if requested
+                    br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, 
+                        access_mode | AccessOptions::read);
+                } else {
+                    // restore as "for read"
+                    br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, 
+                        FlagSet<AccessOptions> { AccessOptions::read });
+                }
                 *weak_ref = br_lock;
             }
         }
         
         if (!br_lock) {
+            // if both lhs & rhs parents are available and from the same state, we may create the boundary lock
+            // and feed it back into the cache
+            std::uint64_t lhs_state_num, rhs_state_num;
             if (lhs && rhs) {
-                read_state_num = state_num;
+                lhs_state_num = lhs->getStateNum();
+                rhs_state_num = rhs->getStateNum();                
             } else {
-                // if both lhs & rhs parents are available and from the same state, we may create the boundary lock
-                // and feed it back into the cache
-                std::uint64_t lhs_state_num, rhs_state_num;
                 lhs = findPage(first_page, state_num, access_mode, lhs_state_num);
                 rhs = findPage(first_page + 1, state_num, access_mode, rhs_state_num);
                 if (!lhs || !rhs) {
                     // inconsitent locks
                     return {};
                 }
-                
-                // pick the minimum of the underlying states as the read state number
-                read_state_num = std::min(lhs_state_num, rhs_state_num);
-                // write lock cannot be created due to inconsistent lhs / rhs state numbers
-                if (read_state_num != state_num && access_mode[AccessOptions::write]) {
-                    return {};
-                }
             }
-
+            
+            // pick the minimum of the underlying states as the read state number
+            read_state_num = std::min(lhs_state_num, rhs_state_num);
+            // write lock cannot be created due to inconsistent lhs / rhs state numbers
+            if (read_state_num != state_num && access_mode[AccessOptions::write]) {
+                return {};
+            }            
+            
             assert(lhs && rhs);
             auto lhs_size = ((first_page + 1) << m_shift) - address;
             // remove the no_flush flag if accessing from a historical transaction (as lock is non-volatile)
             if (read_state_num < state_num) {
                 access_mode.clear(AccessOptions::no_flush);
             }
+
             // NOTE: boundary locks are not registered with the dirty-cache
             // we use dp_context as a placeholder for the dirty-cache
             br_lock = std::make_shared<BoundaryLock>(m_dp_context, address, lhs, lhs_size, rhs, size - lhs_size, access_mode);
@@ -282,7 +304,7 @@ namespace db0
                 m_volatile_boundary_locks.push_back(br_lock);
             }
         }
-
+        
         // in case of a boundary lock the address must be precisely matched
         // since boundary lock contains only the single allocation's data            
         assert(br_lock->getAddress() == address);
@@ -350,10 +372,11 @@ namespace db0
     {
         auto lhs_size = ((lhs->getAddress() + lhs->size()) - address);
         auto rhs_size = size - lhs_size;
-        assert(!isCreateNew(access_mode) && "Cannot use create mode for BoundaryLocks");
+        assert(access_mode[AccessOptions::read] && "Cannot use create mode for BoundaryLocks");
         // NOTE: boundary locks are not registered with the dirty-cache
         // we use dp_context as a placeholder for the dirty-cache
         auto result = std::make_shared<BoundaryLock>(m_dp_context, address, lock, lhs, lhs_size, rhs, rhs_size, access_mode);        
+        assert(state_num == std::min(lhs->getStateNum(), rhs->getStateNum()));
         m_boundary_map.insert(state_num, result);
         
         // note that BoundaryLocks are not recycled

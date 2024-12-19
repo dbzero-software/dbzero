@@ -1,4 +1,5 @@
 #pragma once
+
 #include <Python.h>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
@@ -30,30 +31,35 @@ namespace db0::python
         return iterator_object;
     }
     
-    template <typename IteratorObjectT> 
-    IteratorObjectT *IteratorObject_iter(IteratorObjectT *self)
+    template <typename IteratorObjectT>
+    IteratorObjectT *PyAPI_IteratorObject_iter(IteratorObjectT *self)
     {
         Py_INCREF(self);
         return self;        
     }
-    
+
     template <typename IteratorObjectT>
-    PyObject *IteratorObject_iternext(IteratorObjectT *iter_obj)
-    {
-        PY_API_FUNC
-        if (!iter_obj->ext().is_end()) {
-            return iter_obj->modifyExt().next().steal();
-        } else {
+    PyObject *tryIteratorObject_iternext(IteratorObjectT *iter_obj)
+    {        
+        if (iter_obj->ext().is_end()) {
             // raise stop iteration
             PyErr_SetNone(PyExc_StopIteration);
             return NULL;
-        } 
+        }
+        return iter_obj->modifyExt().next().steal();
+    }
+
+    template <typename IteratorObjectT>
+    PyObject *PyAPI_IteratorObject_iternext(IteratorObjectT *iter_obj)
+    {
+        PY_API_FUNC
+        return runSafe(tryIteratorObject_iternext<IteratorObjectT>, iter_obj);
     }
     
     static PyMethodDef IteratorObject_methods[] = {
         {NULL}
     };
-
+    
     template <typename IteratorObjectT>
     PyTypeObject GetIteratorType(const char *name, const char *doc) {
         PyTypeObject object =  {
@@ -64,8 +70,8 @@ namespace db0::python
             .tp_dealloc = (destructor)IteratorObject_del<IteratorObjectT>,
             .tp_flags = Py_TPFLAGS_DEFAULT,
             .tp_doc = doc,
-            .tp_iter = (getiterfunc)IteratorObject_iter<IteratorObjectT>,
-            .tp_iternext = (iternextfunc)IteratorObject_iternext<IteratorObjectT>,
+            .tp_iter = (getiterfunc)PyAPI_IteratorObject_iter<IteratorObjectT>,
+            .tp_iternext = (iternextfunc)PyAPI_IteratorObject_iternext<IteratorObjectT>,
             .tp_methods = IteratorObject_methods,
             .tp_alloc = PyType_GenericAlloc,
             .tp_new = (newfunc)IteratorObject_new<IteratorObjectT>,

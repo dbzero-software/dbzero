@@ -1,5 +1,5 @@
 #include "PyEnum.hpp"
-#include "PyInternalAPI.hpp"
+#include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
 
@@ -10,7 +10,7 @@ namespace db0::python
     PyEnum *PyEnum_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyEnum*>(type->tp_alloc(type, 0));
     }
-
+    
     PyEnumValue *PyEnumValue_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyEnumValue*>(type->tp_alloc(type, 0));
     }
@@ -59,7 +59,7 @@ namespace db0::python
             if (!self->ext().hasValue(PyUnicode_AsUTF8(attr))) {
                 THROWF(db0::InputException) << "Enum value not found: " << PyUnicode_AsUTF8(attr);                
             }
-            return makePyEnumValueRepr(PyUnicode_AsUTF8(attr)).steal();
+            return makePyEnumValueRepr(enum_.m_enum_type_def, PyUnicode_AsUTF8(attr)).steal();
         }
     }
     
@@ -86,15 +86,60 @@ namespace db0::python
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
+    
+    PyObject *getEnumValueRepr(PyEnum *self, PyObject *py_key)
+    {        
+        // check if enum value exists in the definition
+        auto type_def = self->ext().m_enum_type_def;
+        const auto &enum_def = type_def->m_enum_def;
+        if (PyUnicode_Check(py_key)) {
+            auto key = PyUnicode_AsUTF8(py_key);
+            if (std::find(enum_def.m_values.begin(), enum_def.m_values.end(), key) == enum_def.m_values.end()) {
+                PyErr_SetString(PyExc_KeyError, "Key not found");
+                return NULL;
+            }
+            return makePyEnumValueRepr(type_def, key).steal();
+        } else if (PyLong_Check(py_key)) {
+            auto index = PyLong_AsLong(py_key);
+            if (index < 0) {
+                index += enum_def.m_values.size();
+            }
+            if (index < 0 || index > (long)enum_def.m_values.size()) {
+                PyErr_SetString(PyExc_IndexError, "Index out of range");
+                return NULL;
+            }
+            return makePyEnumValueRepr(type_def, enum_def.m_values[index].c_str()).steal();
+        } else {
+            PyErr_SetString(PyExc_TypeError, "Key must be a string or an integer");
+            return NULL;
+        }
+    }
 
+    PyObject *getEnumValuesRepr(PyEnum *self)
+    {
+        auto &values = self->ext().getValueDefs();
+        auto py_tuple = PyTuple_New(values.size());
+        unsigned int index = 0;
+        auto enum_type_def = self->ext().m_enum_type_def;
+        for (auto &value: values) {
+            PyTuple_SET_ITEM(py_tuple, index, makePyEnumValueRepr(enum_type_def, value.c_str()).steal());
+            ++index;
+        }
+        return py_tuple;
+    }
+    
     PyObject *tryGetEnumValues(PyEnum *self)
     {
         const Enum *enum_ = nullptr;
         if (self->ext().exists()) {
             enum_ = &self->ext().get();
         } else {
-            enum_ = &self->modifyExt().create();
-            // note that enum is created on demand            
+            // note that enum is created on demand
+            enum_ = self->modifyExt().tryCreate();
+            // return value repr instead of materialized enum values
+            if (!enum_) {
+                return getEnumValuesRepr(self);
+            }
         }
         
         auto enum_values = enum_->getValues();
@@ -113,6 +158,67 @@ namespace db0::python
         return runSafe(tryGetEnumValues, self);
     }
 
+    Py_ssize_t tryPyEnum_len(PyEnum *py_enum) {
+        return py_enum->ext().size();
+    }
+
+    Py_ssize_t PyAPI_PyEnum_len(PyEnum *py_enum)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyEnum_len, py_enum);
+    }
+
+    PyObject *tryPyEnum_GetItem(PyEnum *self, PyObject *py_key)
+    {
+        // note that only string and integer keys are supported
+        if (!PyUnicode_Check(py_key) && !PyLong_Check(py_key)) {
+            PyErr_SetString(PyExc_TypeError, "Key must be a string or an integer");
+            return NULL;
+        }
+
+        const Enum *enum_ = nullptr;
+        if (self->ext().exists()) {
+            enum_ = &self->ext().get();
+        } else {
+            // note that enum is created on demand
+            enum_ = self->modifyExt().tryCreate();
+            // return value repr instead of materialized enum values
+            if (!enum_) {
+                return getEnumValueRepr(self, py_key);
+            }
+        }
+
+        if (PyUnicode_Check(py_key)) {
+            auto key = PyUnicode_AsUTF8(py_key);
+            return enum_->getLangValue(key).steal();
+        } else if (PyLong_Check(py_key)) {
+            auto index = PyLong_AsLong(py_key);
+            if (index < 0) {
+                index += enum_->size();
+            }
+            if (index < 0 || index > (long)enum_->size()) {
+                PyErr_SetString(PyExc_IndexError, "Index out of range");
+                return NULL;
+            }
+            return enum_->getLangValue(index).steal();
+        }
+
+        assert(false);
+        PyErr_SetString(PyExc_TypeError, "Key must be a string or an integer");
+        return NULL;        
+    }
+    
+    PyObject *PyAPI_PyEnum_GetItem(PyEnum *py_enum, PyObject *py_key)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyEnum_GetItem, py_enum, py_key);
+    }
+
+    static PyMappingMethods PyEnum_mp = {
+        .mp_length = (lenfunc)PyAPI_PyEnum_len,
+        .mp_subscript = (binaryfunc)PyAPI_PyEnum_GetItem
+    };
+
     static PyMethodDef PyEnum_methods[] = 
     {
         {"values", (PyCFunction)PyAPI_getEnumValues, METH_NOARGS, "Get enum values"},
@@ -125,6 +231,7 @@ namespace db0::python
         .tp_basicsize = PyEnum::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyEnum_del,
+        .tp_as_mapping = &PyEnum_mp,
         .tp_getattro = reinterpret_cast<getattrofunc>(PyEnum_getattro),
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "Enum object",
@@ -133,7 +240,7 @@ namespace db0::python
         .tp_new = (newfunc)PyEnum_new,        
         .tp_free = PyObject_Free,
     };
-
+    
     static PyMethodDef PyEnumValue_methods[] = 
     {
         {NULL}
@@ -224,17 +331,36 @@ namespace db0::python
     PyObject *PyEnumValueRepr_repr(PyEnumValueRepr *self) {
         return PyUnicode_FromFormat("<EnumValue ???.%s>", self->ext().m_str_repr.c_str());
     }
-
-    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(const char *value)
+    
+    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(std::shared_ptr<EnumTypeDef> enum_type_def, const char *value)
     {
         auto py_enum_value = PyEnumValueReprDefault_new();
-        py_enum_value.get()->modifyExt().m_str_repr = value;
+        EnumValueRepr::makeNew(&py_enum_value.get()->modifyExt(), enum_type_def, value);
         return py_enum_value;
     }
 
     PyObject *tryLoadEnumValue(PyEnumValue *py_enum_value) {
         // load as string
         return PyEnumValue_str(py_enum_value);        
+    }
+
+    bool isMigrateRequired(db0::swine_ptr<Fixture> &fixture, PyEnumValue *py_enum_value)
+    {
+        auto &enum_value = py_enum_value->ext();
+        // translation is needed if prefixes differ
+        return (enum_value.m_fixture_uuid != fixture->getUUID());
+    }
+    
+    shared_py_object<PyObject*> migratedEnumValue(db0::swine_ptr<Fixture> &fixture, PyEnumValue *py_enum_value)
+    {
+        auto &enum_value = py_enum_value->ext();
+        if (enum_value.m_fixture_uuid == fixture->getUUID()) {
+            // no translation needed
+            return py_enum_value;
+        }
+
+        // migrate enum value to the destination fixture
+        return fixture->get<db0::object_model::EnumFactory>().migrateEnumLangValue(enum_value);        
     }
     
 }

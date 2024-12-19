@@ -2,6 +2,10 @@
 #include "PyToolkit.hpp"
 #include <iostream>
 #include <object.h>
+#include "PySnapshot.hpp"
+#include "PyInternalAPI.hpp"
+#include "Utils.hpp"
+#include "Types.hpp"
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -10,12 +14,9 @@
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
-#include "PySnapshot.hpp"
-#include "PyInternalAPI.hpp"
-#include "PyClassFields.hpp"
-#include "Utils.hpp"
-#include "Types.hpp"
-#include "PyClass.hpp"
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
+#include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/types/PyClassFields.hpp>
 
 namespace db0::python
 
@@ -28,11 +29,11 @@ namespace db0::python
     {
     }
     
-    std::uint64_t MemoTypeDecoration::getFixtureUUID()
+    std::uint64_t MemoTypeDecoration::getFixtureUUID(AccessType access_type)
     {
         if (m_prefix_name_ptr && !m_fixture_uuid) {
             // initialize fixture by prefix name and keep UUID for future use
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(m_prefix_name_ptr);
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(m_prefix_name_ptr, access_type);
             m_fixture_uuid = fixture->getUUID();
         }
         return m_fixture_uuid;
@@ -49,10 +50,25 @@ namespace db0::python
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_WRITE));
-        auto &class_factory = lock->get<db0::object_model::ClassFactory>();
+        // NOTE: read-only fixture access is sufficient here since objects are lazy-initialized
+        // i.e. the actual DBZero instance is created on postInit
+        // this is also important for dynamically scoped clases (where read/write access may not be possible on default fixture)
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
+        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated DBZero class with the ClassFactory
-        auto type = class_factory.getOrCreateType(py_type);
+        auto type = class_factory.tryGetOrCreateType(py_type);
+        // if type cannot be retrieved due to access mode then deferr this operation (fallback)
+        if (!type) {
+            auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
+                auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+                return class_factory.getOrCreateType(py_type);
+            };
+            MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
+            // prepare a new DB0 instance of a known DB0 class
+            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), std::move(type_initializer));
+            return memo_obj;
+        }
+
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
         // prepare a new DB0 instance of a known DB0 class
         db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type);
@@ -102,7 +118,7 @@ namespace db0::python
 
         return py_singleton;
     }
-
+    
     PyObject *tryMemoObject_new_singleton(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         auto result = tryMemoObject_open_singleton(py_type);
@@ -111,10 +127,21 @@ namespace db0::python
         }
 
         MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-        db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_WRITE));
-        auto &class_factory = lock->get<db0::object_model::ClassFactory>();
+        // NOTE: read-only access is sufficient because the object is lazy-initialized
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
+        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated DBZero class with the ClassFactory
-        auto type = class_factory.getOrCreateType(py_type);
+        auto type = class_factory.tryGetOrCreateType(py_type);
+        if (!type) {
+            // if type cannot be retrieved due to access mode then deferr this operation (fallback)
+            auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
+                auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+                return class_factory.getOrCreateType(py_type);
+            };
+            MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
+            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type_initializer);
+            return memo_obj;
+        }
         
         MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
         db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type);
@@ -535,24 +562,7 @@ namespace db0::python
         PyDict_SetItemString(py_result, "size_of", PyLong_FromLong(self->ext()->sizeOf()));
         return py_result;
     }
-    
-    PyObject *PyAPI_MemoObject_IsTag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
-            return NULL;
-        }
         
-        if (!PyMemo_Check(args[0])) {
-            PyErr_SetString(PyExc_TypeError, "Invalid object type");
-            return NULL;
-        }
-
-        auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
-        return PyBool_FromLong(memo_obj.ext().isTag());
-    }
-    
     PyObject *tryMemoObject_str(MemoObject *self)
     {
         std::stringstream str;
@@ -621,8 +631,76 @@ namespace db0::python
             PyErr_SetString(PyExc_AttributeError, _str.str().c_str());
             return nullptr;
         }
-
+        
         return member.steal();
     }
+
+    PyObject *getKwargsForMethod(PyObject* method, PyObject* kwargs){
+        PyObject *inspec_module = PyImport_ImportModule("inspect");
+        PyObject *signatue = PyObject_CallMethod(inspec_module, "signature", "O", method);
+        PyObject *parameters = PyObject_GetAttrString(signatue, "parameters");
+        PyObject *iterator = PyObject_GetIter(parameters);
+        PyObject *elem;
+        PyObject *py_result = PyDict_New();
+        while ((elem = PyIter_Next(iterator))) {
+            if(PyDict_Contains(kwargs, elem) == 1) {
+                PyDict_SetItem(py_result, elem, PyDict_GetItem(kwargs, elem));
+            }
+            Py_DECREF(elem);
+        }
+        Py_DECREF(iterator);
+        Py_DECREF(parameters);
+        Py_DECREF(signatue);
+        Py_DECREF(inspec_module);
+        return py_result;
+    }
     
+    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude)
+    {
+        PyObject *py_result = PyDict_New();
+        auto load_method = tryMemoObject_getattro(memo_obj, PyUnicode_FromString("__load__"));
+        if (load_method) {
+            if(py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
+                PyErr_SetString(PyExc_AttributeError, "Cannot exlude values when __load__ is implemented");
+                return nullptr;
+            }
+            
+            PyObject * result;
+            if (kwargs != nullptr) {
+                PyObject *args = PyTuple_New(0);
+                PyObject * method_kwargs = getKwargsForMethod(load_method, kwargs);
+                result = PyObject_Call(load_method, args, method_kwargs);
+
+                Py_DECREF(args);
+            } else {
+                result = PyObject_CallObject(load_method, nullptr);
+            }
+            if(result == nullptr) {
+                return result;
+            }
+            Py_DECREF(load_method);
+            return runSafe(tryLoad, result, kwargs, nullptr);
+        }
+        bool has_error=false;
+        memo_obj->ext().forAll([py_result, memo_obj, py_exclude, kwargs, &has_error](const std::string &key, PyTypes::ObjectSharedPtr) {
+            if(!has_error){
+                auto key_obj =  PyUnicode_FromString(key.c_str());
+                auto attr = MemoObject_getattro(memo_obj, key_obj);
+                if(py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, key_obj) == 0) {
+                    PyObject * res = runSafe(tryLoad, attr, kwargs, nullptr);
+                    if (res == nullptr) {
+                        has_error = true;
+                    } else {
+                        PyDict_SetItemString(py_result, key.c_str(), res);
+                    }
+                } 
+                Py_DECREF(key_obj);
+            }
+        });
+        if (has_error) {
+            return nullptr;
+        }
+        return py_result;
+    }
+
 }

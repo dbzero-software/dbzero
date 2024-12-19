@@ -154,6 +154,9 @@ namespace db0
         }
                         
         std::size_t getChangeLogSize() const;
+        
+        // Get the total number of data page descriptors stored in the index
+        std::size_t size() const;
 
     private:
         

@@ -16,6 +16,7 @@ namespace db0
 
     GC0::GC0(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture)        
+        , m_read_only(false)
     {
     }
     
@@ -41,7 +42,7 @@ namespace db0
         assert(m_gc0.m_commit_pending);
         m_gc0.m_commit_pending = false;
     }
-
+    
     void GC0::CommitContext::commit()
     {
         assert(m_gc0.m_commit_pending);
@@ -71,9 +72,10 @@ namespace db0
             // at this stage just collect the ops and remove the entry
             drop_op = ops.drop;
         }
-        m_vptr_map.erase(it);
+        // NOTE: we erase by vptr because hasRefs may have side effects and invalidate the iterator
+        m_vptr_map.erase(vptr);
         lock.unlock();
-
+        
         // drop object after erasing from map due to possible recursion
         if (drop_op) {
             auto fixture = this->getFixture();
@@ -108,7 +110,7 @@ namespace db0
         std::unique_lock<std::mutex> lock(m_mutex);
         return m_vptr_map.size();
     }
-     
+    
     void GC0::preCommit()
     {
         std::unique_lock<std::mutex> lock(m_mutex);
@@ -124,7 +126,7 @@ namespace db0
     }
     
     void GC0::commit()
-    {        
+    {
         // Important ! Collect instance addresses first because push_back can trigger "remove" calls
         std::vector<TypedAddress> addresses;
         std::unique_lock<std::mutex> lock(m_mutex);
@@ -145,15 +147,13 @@ namespace db0
     
     void GC0::collect()
     {        
+        assert(!m_read_only);
         if (!m_vptr_map.empty()) {
             THROWF(db0::InternalException) << "GC0::collect: cannot collect while there are still live instances";
         }
         auto fixture = this->tryGetFixture();
         if (!fixture) {
             THROWF(db0::InternalException) << "GC0::collect: cannot collect without a valid fixture";
-        }
-        if (m_read_only) {
-            THROWF(db0::InternalException) << "GC0::collect: cannot collect in read-only mode";
         }
         
         for (auto addr: *this) {
@@ -198,6 +198,28 @@ namespace db0
 
     std::unique_ptr<GC0::CommitContext> GC0::beginCommit() {
         return std::make_unique<CommitContext>(*this);
+    }
+
+    std::optional<unsigned int> GC0::erase(void *vptr)
+    {
+        std::optional<unsigned int> pre_commit_op;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        assert(m_vptr_map.find(vptr) != m_vptr_map.end());
+        m_vptr_map.erase(vptr);
+        auto it = m_pre_commit_map.find(vptr);
+        if (it != m_pre_commit_map.end()) {
+            pre_commit_op = it->second;
+            m_pre_commit_map.erase(it);                    
+        }
+
+        if (m_atomic) {
+            for (auto &volatile_ptr: m_volatile) {
+                if (volatile_ptr == vptr) {
+                    volatile_ptr = nullptr;
+                }
+            }
+        }
+        return pre_commit_op;
     }
 
 }

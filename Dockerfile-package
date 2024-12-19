@@ -1,0 +1,48 @@
+FROM gcc:13
+# Install dependencies and clean up
+RUN apt-get update && apt-get install -y \
+    cmake \
+    psmisc \
+    python3.11 \
+    python3-pip \
+    python3-dbg \
+    gdb \
+    screen \
+    rsync \
+    meson \
+    ninja-build \
+    python3-venv \
+    gettext-base \
+    valgrind \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip3 install --break-system-packages --no-cache-dir jupyter bokeh psycopg2-binary sqlalchemy build
+RUN pip3 install --break-system-packages fastapi uvicorn build
+
+RUN ulimit -c unlimited
+RUN mkdir -p "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
+RUN chmod 777 "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
+
+# Copy application files and install Python requirements
+WORKDIR /dbzero/
+COPY requirements.txt /dbzero/
+RUN pip3 install --break-system-packages --no-cache-dir -r /dbzero/requirements.txt --upgrade
+
+COPY . /dbzero/
+WORKDIR /dbzero/
+
+# Build and install
+RUN python3 scripts/generate_meson.py ./src/dbzero/ core
+RUN python3 scripts/generate_meson_tests.py tests/
+
+RUN python3 scripts/generate_meson.py ./src/dbzero/ core
+RUN python3 scripts/generate_meson_tests.py tests/
+RUN rm .gitignore
+RUN git config --global user.email "you@example.com"
+RUN git config --global user.name "Your Name"
+RUN git add . && git commit -m "Update meson files"
+
+RUN ./build.sh -r
+RUN python3 -m build --wheel

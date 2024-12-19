@@ -131,8 +131,8 @@ namespace db0
         /**
          * Create GC0 as a resource
         */
-        db0::GC0 &addGC0(db0::swine_ptr<Fixture> &fixture);
-        db0::GC0 &addGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only);
+        db0::GC0 &createGC0(db0::swine_ptr<Fixture> &fixture);
+        db0::GC0 &createGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only);
         
         // add commit or close handler (the actual operation identified by the boolean flag)
         void addCloseHandler(std::function<void(bool commit)>);
@@ -145,6 +145,10 @@ namespace db0
         void commit();
         void close(ProcessTimer * = nullptr);
         
+        inline GC0 *tryGetGC0() const {
+            return m_gc0_ptr;
+        }
+
         inline GC0 &getGC0()
         {
             assert(m_gc0_ptr);
@@ -156,7 +160,7 @@ namespace db0
             assert(m_gc0_ptr);
             return *m_gc0_ptr;
         }
-                
+
         VObjectCache &getVObjectCache() const {
             return m_v_object_cache;
         }
@@ -222,8 +226,9 @@ namespace db0
         }
         
         // Called by the CacheRecycler when cache limit has been reached
-        void onCacheFlushed(bool threshold_reached) const;
-
+        // @return false if unable to handle this event at this time
+        bool onCacheFlushed(bool threshold_reached) const;
+        
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;
@@ -242,6 +247,7 @@ namespace db0
         mutable VObjectCache m_v_object_cache;
         AtomicContext *m_atomic_context_ptr = nullptr;
         std::atomic<bool> m_closed = false;
+        std::atomic<bool> m_commit_pending = false;
         
         // For read/write fixtures:
         // the onUpdate is called whenever the fixture is modified
@@ -249,9 +255,7 @@ namespace db0
         // the updates flag set to true means that the refresh thread detected external changes
         // and refresh might be possible
         std::atomic<bool> m_updated = false;
-        // Pre-commit flag is set by the AutoCommitThread to mark the Fixture for commit
-        std::atomic<bool> m_pre_commit = false;
-        
+                
         StringPoolT openLimitedStringPool(Memspace &, MetaAllocator &);
         
         std::shared_ptr<SlabAllocator> openSlot(Memspace &, MetaAllocator &, std::uint32_t slot_id);
@@ -299,8 +303,7 @@ namespace db0
      * @tparam T resource type (exported)
      * @tparam args
      */
-    template <typename T, typename... Args> T &Fixture::addResource(Args&&... args)
-    {
+    template <typename T, typename... Args> T &Fixture::addResource(Args&&... args) {
         return addResourceAs<T, T>(std::forward<Args>(args)...);
     }
     

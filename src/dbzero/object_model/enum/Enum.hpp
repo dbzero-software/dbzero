@@ -74,12 +74,16 @@ namespace db0::object_model
         ObjectSharedPtr getLangValue(const char *value) const;
         ObjectSharedPtr getLangValue(EnumValue_UID) const;
         ObjectSharedPtr getLangValue(const EnumValue &) const;
+        // retrieve value by its ordinal index
+        ObjectSharedPtr getLangValue(unsigned int at) const;
         
         // Retrieve all enum defined values ordered by index
         std::vector<EnumValue> getValues() const;
 
         EnumDef getEnumDef() const;
         std::optional<std::string> getTypeID() const;
+
+        std::size_t size() const;
 
         void detach() const;
 
@@ -94,11 +98,21 @@ namespace db0::object_model
         db0::v_bvector<LP_String> m_ordered_values;
         // enum-values cache (lang objects)
         mutable std::unordered_map<std::string, ObjectSharedPtr> m_cache;
-
+        // cache by ordinal values
+        mutable std::unordered_map<unsigned int, ObjectSharedPtr> m_ord_cache;
+        
         std::uint32_t fetchUID() const;
     };
     
     std::optional<std::string> getEnumKeyVariant(std::optional<std::string> type_id, std::optional<std::string> enum_name,
         std::optional<std::string> module_name, const std::vector<std::string> &values, int variant_id);
+
+}
+
+namespace std
+
+{
+
+    ostream &operator<<(ostream &os, const db0::object_model::Enum &);
 
 }

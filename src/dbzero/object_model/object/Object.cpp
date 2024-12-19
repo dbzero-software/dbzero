@@ -8,8 +8,6 @@
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/core/utils/uuid.hpp>
 
-DEFINE_ENUM_VALUES(db0::object_model::ObjectOptions, "IS_TAG")
-
 namespace db0::object_model
 
 {
@@ -66,6 +64,13 @@ namespace db0::object_model
         // prepare for initialization
         m_init_manager.addInitializer(*this, db0_class);
     }
+
+    Object::Object(TypeInitializer &&type_initializer)
+        : m_is_dropped(false)
+    {
+        // prepare for initialization
+        m_init_manager.addInitializer(*this, std::move(type_initializer));
+    }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
         : super_t(fixture, classRef(*type), ref_count, pos_vt_data)
@@ -102,6 +107,11 @@ namespace db0::object_model
         return new (at_ptr) Object(type);
     }
     
+    Object *Object::makeNew(void *at_ptr, TypeInitializer &&type_initializer) {
+        // placement new
+        return new (at_ptr) Object(std::move(type_initializer));
+    }
+
     Object *Object::makeNull(void *at_ptr) {
         return new (at_ptr) Object();
     }
@@ -138,8 +148,8 @@ namespace db0::object_model
             auto &initializer = m_init_manager.getInitializer(*this);
             PosVT::Data pos_vt_data;
             auto index_vt_data = initializer.getData(pos_vt_data);
-
-            // place object in the same fixture as class
+            
+            // place object in the same fixture as its class
             // construct the DBZero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
@@ -501,18 +511,6 @@ namespace db0::object_model
         return m_type ? *m_type : m_init_manager.getInitializer(*this).getClass();
     }
     
-    void Object::markAsTag()
-    {
-        if (!(*this)->m_flags.test(ObjectOptions::IS_TAG)) {
-            // mark object as tag
-            modify().m_flags.set(ObjectOptions::IS_TAG);
-        }        
-    }
-
-    bool Object::isTag() const {
-        return (*this)->m_flags.test(ObjectOptions::IS_TAG);
-    }
-    
     void Object::forAll(std::function<void(const std::string &, const XValue &)> f) const
     {
         // visit pos-vt members first
@@ -583,32 +581,17 @@ namespace db0::object_model
         throw std::runtime_error("Not implemented");
     }
     
-    void Object::setFixture(db0::swine_ptr<Fixture> &other_fixture)
+    void Object::setFixture(db0::swine_ptr<Fixture> &new_fixture)
     {        
-        auto fixture = this->getFixture();
-        if (*fixture == *other_fixture) {
-            // already in the same fixture
-            return;
-        }
         if (hasInstance()) {
             THROWF(db0::InputException) << "set_prefix failed: object already initialized";
         }
-        if (!m_init_manager.getInitializer(*this).empty()) {
-            THROWF(db0::InputException) << "set_prefix failed: object must not define any members";
-        }
         
-        // migrate type to other factory
-        auto &class_factory = fixture->get<ClassFactory>();
-        auto &other_factory = other_fixture->get<ClassFactory>();
-        auto new_type = other_factory.getOrCreateType(class_factory.getLangType(this->getType()).get());
-        if (new_type->isExistingSingleton()) {
-            // cannot initialize existing singleton, signal problem with PyErr_BadPrefix
+        if (!m_init_manager.getInitializer(*this).trySetFixture(new_fixture)) {
+            // signal problem with PyErr_BadPrefix
+            auto fixture = this->getFixture();
             LangToolkit::setError(LangToolkit::getTypeManager().getBadPrefixError(), fixture->getUUID());
-            return;
         }
-        
-        // switch to a type located on a different fixture (translated)
-        m_init_manager.getInitializer(*this).setClass(new_type);        
     }
     
     void Object::detach() const

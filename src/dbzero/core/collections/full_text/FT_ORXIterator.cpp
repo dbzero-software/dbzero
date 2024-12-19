@@ -62,7 +62,35 @@ namespace db0
 			this->m_join_key = m_forward_heap.front().key;
 		}
 	}
+	
+	template <typename key_t>
+	bool FT_JoinORXIterator<key_t>::isNextKeyDuplicated() const
+	{
+		// no duplication when exclusive join
+		if (m_is_orx) {
+			return false;
+		}
 
+		// note that duplication may exist either between iterators or within any single iterator
+		if (m_direction > 0) {
+			if (m_forward_heap.isFrontElementDuplicated()) {
+				return true;
+			}
+		} else {
+			if (m_back_heap.isFrontElementDuplicated()) {
+				return true;
+			}
+		}
+
+		// check individual iterators
+		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it != itend; ++it) {
+			if ((**it).isNextKeyDuplicated()) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	template <typename key_t>
 	void FT_JoinORXIterator<key_t>::_next(void *buf)
     {

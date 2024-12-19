@@ -190,7 +190,7 @@ namespace db0
     
     bool Fixture::refresh(ProcessTimer *timer_ptr)
     {
-        std::unique_ptr<ProcessTimer> timer;        
+        std::unique_ptr<ProcessTimer> timer;
         if (timer_ptr) {
             timer = std::make_unique<ProcessTimer>("Fixture::refresh", timer_ptr);
         }
@@ -200,13 +200,14 @@ namespace db0
         if (!Memspace::beginRefresh()) {
             return false;
         }
-                
-        // detach all active ObjectBase instances so that they can be refreshed
-        getGC0().detachAll();
-        // detach GC0 instance itself    
+        
         if (m_gc0_ptr) {
+            // detach all active ObjectBase instances so that they can be refreshed
+            m_gc0_ptr->detachAll();
+            // detach GC0 instance itself
             getGC0().detach();
         }
+        
         // detach owned resources
         for (auto &detach: m_detach_handlers) {
             detach();
@@ -221,11 +222,8 @@ namespace db0
         return true;
     }
     
-    void Fixture::onUpdated()
-    {    
+    void Fixture::onUpdated() {
         m_updated = true;
-        // this is to prevent commits when the modifications are continued
-        m_pre_commit = false;
     }
     
     bool Fixture::refreshIfUpdated()
@@ -248,7 +246,7 @@ namespace db0
     
     void Fixture::commit()
     {        
-        assert(getPrefixPtr());                
+        assert(getPrefixPtr());
         // pre-commit to prepare objects which require it (e.g. Index) for commit
         // NOTE: pre-commit must NOT lock the fixture's shared mutex
         // NOTE: pre-commit may release some of the Python instances
@@ -260,80 +258,88 @@ namespace db0
         m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
         tryCommit(lock);
-        m_pre_commit = false;
-        m_updated = false;        
+        m_updated = false;
     }
     
     void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock, ProcessTimer *parent_timer)
     {
-        std::unique_ptr<ProcessTimer> timer;
-        if (parent_timer) {
-            timer = std::make_unique<ProcessTimer>("Fixture::tryCommit", parent_timer);
+        m_commit_pending = true;
+        try {
+            std::unique_ptr<ProcessTimer> timer;
+            if (parent_timer) {
+                timer = std::make_unique<ProcessTimer>("Fixture::tryCommit", parent_timer);
+            }
+            auto prefix_ptr = getPrefixPtr();
+            // prefix may not exist if fixture has already been closed
+            if (!prefix_ptr) {
+                return;
+            }
+            
+            std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
+            if (m_gc0_ptr) {
+                getGC0().commitAll();
+            }
+            
+            for (auto &commit: m_close_handlers) {
+                commit(true);
+            }
+            
+            // commit garbage collector's state
+            // we check if gc0 exists because the unit-tests set up may not have it
+            if (gc0_ctx) {
+                gc0_ctx->commit();
+            }
+            m_string_pool.commit();
+            m_object_catalogue.commit();
+            m_v_object_cache.commit();        
+            Memspace::commit(timer.get());
+        } catch (...) {
+            m_commit_pending = false;
+            throw;
         }
-        auto prefix_ptr = getPrefixPtr();
-        // prefix may not exist if fixture has already been closed
-        if (!prefix_ptr) {
-            return;
-        }
-        
-        std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
-        if (m_gc0_ptr) {
-            getGC0().commitAll();
-        }
-        
-        for (auto &commit: m_close_handlers) {
-            commit(true);
-        }
-        
-        // commit garbage collector's state
-        // we check if gc0 exists because the unit-tests set up may not have it
-        if (gc0_ctx) {
-            gc0_ctx->commit();
-        }
-        m_string_pool.commit();
-        m_object_catalogue.commit();
-        m_v_object_cache.commit();
-        Memspace::commit(timer.get());
     }
     
     void Fixture::onAutoCommit()
     {
-        if (m_pre_commit) {
+        if (m_updated) {
             // prevents commit on a closed fixture
             std::unique_lock<std::mutex> lock(m_close_mutex);
-            if (!Memspace::isClosed()) {
-                // pre-commit to prepare objects which require it (e.g. Index) for commit
-                // NOTE: pre-commit must NOT lock the fixture's shared mutex
-                if (m_gc0_ptr) {
-                    getGC0().preCommit();
-                }
-
-                // lock for exclusive access
-                std::unique_lock<std::shared_mutex> lock(m_shared_mutex);            
-                tryCommit(lock);
-                m_pre_commit = false;
+            if (Memspace::isClosed()) {
+                // since it's closed we'll not be able to commit any updates anyway
                 m_updated = false;
+                return;
             }
-        }
-        if (m_updated) {
-            m_pre_commit = true;            
+
+            assert(!Memspace::isClosed());            
+            // pre-commit to prepare objects which require it (e.g. Index) for commit
+            // NOTE: pre-commit must NOT lock the fixture's shared mutex
+            if (m_gc0_ptr) {
+                getGC0().preCommit();
+            }
+
+            // lock for exclusive access
+            {
+                std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
+                tryCommit(lock);
+                m_updated = false;            
+            }
         }
     }
     
-    db0::GC0 &Fixture::addGC0(db0::swine_ptr<Fixture> &fixture)
+    db0::GC0 &Fixture::createGC0(db0::swine_ptr<Fixture> &fixture)
     {
         assert(!m_gc0_ptr);
         m_gc0_ptr = &addResource<db0::GC0>(fixture);
         return *m_gc0_ptr;
     }
     
-    db0::GC0 &Fixture::addGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only)
+    db0::GC0 &Fixture::createGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only)
     {
         assert(!m_gc0_ptr);
         m_gc0_ptr = &addResource<db0::GC0>(fixture, address, read_only);
         return *m_gc0_ptr;
     }
-
+    
     const Snapshot &Fixture::getWorkspace() const {
         return m_snapshot;
     }
@@ -430,16 +436,22 @@ namespace db0
     AtomicContext *Fixture::tryGetAtomicContext() const {
         return m_atomic_context_ptr;
     }
-    
+
     void Fixture::forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)> f) const {
         m_meta_allocator.forAllSlabs(f);
     }
     
-    void Fixture::onCacheFlushed(bool) const
+    bool Fixture::onCacheFlushed(bool) const
     {
-        if (m_prefix) {
-            m_prefix->cleanup();
+        // NOTE: prevent cleanups during commit to avoid unwanted side-effects
+        if (m_commit_pending) {
+            return false;
         }
+        
+        if (m_prefix) {
+            m_prefix->cleanup();            
+        }
+        return true;
     }
     
 }

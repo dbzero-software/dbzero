@@ -363,7 +363,7 @@ def test_refresh_query_while_adding_new_objects(db0_fixture):
         import random
         import string    
         return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
-    
+        
     def create_process(num_iterations, num_objects, str_len):
         db0.init(DB0_DIR)
         db0.open(px_name, "rw")

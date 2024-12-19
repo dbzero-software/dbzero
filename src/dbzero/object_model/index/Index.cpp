@@ -1,6 +1,6 @@
 #include "Index.hpp"
 #include <dbzero/object_model/object/Object.hpp>
-#include <dbzero/object_model/tags/TypedObjectIterator.hpp>
+#include <dbzero/object_model/tags/ObjectIterable.hpp>
 #include <dbzero/core/collections/full_text/SortedIterator.hpp>
 #include <dbzero/core/utils/uuid.hpp>
 #include <dbzero/bindings/TypeId.hpp>
@@ -369,7 +369,7 @@ namespace db0::object_model
     }
     
     std::unique_ptr<db0::SortedIterator<std::uint64_t> >
-    Index::sort(const ObjectIterator &iter, bool asc, bool null_first) const
+    Index::sort(const ObjectIterable &iter, bool asc, bool null_first) const
     {
         assert(hasInstance());
         if (isDirty()) {

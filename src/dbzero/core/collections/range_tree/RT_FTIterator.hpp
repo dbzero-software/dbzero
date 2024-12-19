@@ -25,13 +25,13 @@ namespace db0
         // Create to range-filter results of a specific FT-iterator (e.g. tag query)
         RT_FTIterator(const IndexBase &index, SharedPtrWrapper<RT_TreeT> tree_ptr, std::optional<KeyT> min,
             bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool null_first)
-            : super_t(makeQuery(tree_ptr, min, min_inclusive, max, max_inclusive, null_first), -1, true)
+            : super_t(makeQuery(tree_ptr, min, min_inclusive, max, max_inclusive, null_first), -1, false)
             , m_fixture_uuid(index.getMemspace().getUUID())
             , m_index_addr(index.getAddress())
             , m_range { min, min_inclusive, max, max_inclusive }
         {
         }
-
+        
         FTIteratorType getSerialTypeId() const override;
         
         void serialize(std::vector<std::byte> &) const override;
@@ -44,7 +44,7 @@ namespace db0
         std::list<std::unique_ptr<FT_Iterator<ValueT> > > makeQuery(SharedPtrWrapper<RT_TreeT> tree_ptr, std::optional<KeyT> min,
             bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool null_first) const;
     };
-
+    
     template <typename KeyT, typename ValueT>
     std::list<std::unique_ptr<FT_Iterator<ValueT> > > RT_FTIterator<KeyT, ValueT>::makeQuery(SharedPtrWrapper<RT_TreeT> tree_ptr,
         std::optional<KeyT> min, bool min_inclusive, std::optional<KeyT> max, bool max_inclusive, bool null_first) const

@@ -109,7 +109,7 @@ namespace db0
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
         // initialize as read-only
         if (fx_initializer) {
-            fx_initializer(result, false, true);
+            fx_initializer(result, false, true, true);
             initSnapshot(head_fixture, result);
         }
         
@@ -151,7 +151,7 @@ namespace db0
         auto fx_initializer = m_workspace_ptr->getFixtureInitializer();
         // initialize as read-only
         if (fx_initializer) {
-            fx_initializer(result, false, true);
+            fx_initializer(result, false, true, true);
             initSnapshot(head_fixture, result);
         }
         m_fixtures[uuid] = result;

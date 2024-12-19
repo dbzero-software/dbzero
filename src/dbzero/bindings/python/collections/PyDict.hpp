@@ -33,5 +33,7 @@ namespace db0::python
     bool DictObject_Check(PyObject *);
         
     extern PyTypeObject DictIteratorObjectType;
+
+    PyObject *tryLoadDict(PyObject *py_dict, PyObject *kwargs);
     
 }

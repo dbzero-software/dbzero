@@ -1,6 +1,7 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoDataPxClass, DATA_PX, TriColor
+from .conftest import DB0_DIR
 
 
 def test_create_enum_type(db0_fixture):
@@ -95,4 +96,50 @@ def test_enum_values_order_is_preserved(db0_fixture):
     Colors = db0.enum("Colors", ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"])
     assert list(Colors.values()) == [Colors.ONE, Colors.TWO, Colors.THREE, Colors.FOUR, Colors.FIVE, Colors.SIX,
         Colors.SEVEN, Colors.EIGHT, Colors.NINE, Colors.TEN]
+    
+
+def test_load_enum_value(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    str_repr = ["RED", "GREEN", "BLUE"]
+    for index, val in enumerate(Colors.values()):
+        assert db0.load(val) == str_repr[index]
+
+
+def test_enum_value_repr_returned_if_unable_to_create_enum(db0_fixture):
+    # colors created on current / default prefix
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    db0.open("other-prefix", "rw")
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open("other-prefix", "r")
+    # attempt retrieving colors from "other_prefix" (read-only)
+    values = Colors.values()
+    assert "???" in f"{values}"
+
+
+def test_enum_value_created_from_string(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
+    Colors['RED'] is Colors.RED    
+    Colors['GREEN'] is Colors.GREEN
+
+
+def test_enum_value_created_from_int(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    assert Colors[0] is Colors.RED
+    assert Colors[1] is Colors.GREEN
+    assert Colors[2] is Colors.BLUE
+    
+    
+def test_enum_value_repr_returned_from_enum_values_if_unable_to_create_enum(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    db0.open(DATA_PX, "rw")
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open(px_name, "r")    
+    db0.open(DATA_PX, "r")
+    db0.open("other-prefix", "rw")
+    # try looking up in DATA_PX which is read-only
+    db0.split_by(TriColor.values(), db0.find(MemoDataPxClass))
     

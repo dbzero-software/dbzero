@@ -1,9 +1,11 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestSingleton
+from .memo_test_types import MemoTestSingleton, MemoTestClass
 from .conftest import DB0_DIR
-    
+import random
+import string
 
+    
 def test_db0_state_can_be_persisted_and_then_retrieved_for_read(db0_fixture):
     # create singleton
     object_1 = MemoTestSingleton(999, "text")
@@ -46,3 +48,24 @@ def test_dynamic_fields_are_persisted(db0_fixture):
     db0.open(prefix_name, "r")
     object_2 = MemoTestSingleton()
     assert object_2.kv_field == 91123
+
+
+@pytest.mark.stress_test
+def test_storage_utilization_without_commits(db0_fixture):
+    buf = db0.list()
+    
+    def rand_str():
+        return ''.join(random.choice(string.ascii_letters) for i in range(1000))    
+    
+    total_bytes = 0
+    for _ in range(10):
+        for _ in range(1000):
+            str = rand_str()
+            total_bytes += len(str)
+            buf.append(MemoTestClass(str))
+        db0.commit()
+    dp_size_total = db0.get_storage_stats()['dp_size_total']
+    file_size = db0.get_storage_stats()['prefix_size']
+    # make sure storage overhead is < 25%
+    assert dp_size_total < 1.25 * total_bytes
+    assert file_size < 1.25 * total_bytes

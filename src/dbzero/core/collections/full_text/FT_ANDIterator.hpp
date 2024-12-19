@@ -5,11 +5,12 @@
 #include "FT_Iterator.hpp"
 #include "FT_IteratorBase.hpp"
 #include "FT_IteratorFactory.hpp"
+#include "IteratorGroup.hpp"
 
 namespace db0
 
 {
-
+    
     class Snapshot;
     
     /**
@@ -65,6 +66,8 @@ namespace db0
 		void joinBound(key_t key) override;
 
 		std::pair<key_t, bool> peek(key_t join_key) const override;
+        
+        bool isNextKeyDuplicated() const override;
          
 		std::unique_ptr<FT_Iterator<key_t> > beginTyped(int direction = -1) const override;
         
@@ -101,16 +104,16 @@ namespace db0
 
         static std::unique_ptr<FT_Iterator<key_t> > deserialize(Snapshot &workspace,
             std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
-                
+        
     protected:
         void serializeFTIterator(std::vector<std::byte> &) const override;
-                
+        
 	private:
 		const int m_direction;
-		mutable std::list<std::unique_ptr<FT_Iterator<key_t> > > m_joinable;
+		mutable IteratorGroup<key_t> m_joinable;
 		bool m_end;
 		key_t m_join_key;
-
+        
 		void setEnd();
 
         void _next();
@@ -152,8 +155,9 @@ namespace db0
 		std::size_t size() const;
 
 		bool empty() const;
-
-	private :
+        
+	private:
+        bool m_invalidated = false;
 		std::list<std::unique_ptr<FT_Iterator<key_t> > > m_joinable;
 	};
 

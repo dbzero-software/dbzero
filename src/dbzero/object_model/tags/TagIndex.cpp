@@ -1,4 +1,6 @@
 #include "TagIndex.hpp"
+#include "ObjectIterator.hpp"
+#include "OR_QueryObserver.hpp"
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/iterators.hpp>
@@ -7,11 +9,12 @@
 #include <dbzero/core/collections/full_text/FT_ORXIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDIterator.hpp>
 #include <dbzero/core/collections/full_text/FT_ANDNOTIterator.hpp>
+#include <dbzero/core/collections/full_text/FT_FixedKeyIterator.hpp>
 #include <dbzero/object_model/tags/TagSet.hpp>
+#include <dbzero/object_model/tags/TagDef.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
-#include "ObjectIterator.hpp"
-#include "OR_QueryObserver.hpp"
+#include <dbzero/object_model/enum/EnumFactory.hpp>
 
 namespace db0::object_model
 
@@ -121,21 +124,27 @@ namespace db0::object_model
         std::vector<std::unique_ptr<QueryIterator> > &m_neg_iterators;
     };
 
-    TagIndex::TagIndex(Memspace &memspace, const ClassFactory &class_factory, RC_LimitedStringPool &string_pool, VObjectCache &cache)
+    TagIndex::TagIndex(Memspace &memspace, const ClassFactory &class_factory, EnumFactory &enum_factory,
+        RC_LimitedStringPool &string_pool, VObjectCache &cache)
         : db0::v_object<o_tag_index>(memspace)        
         , m_string_pool(string_pool)
+        , m_enum_factory(enum_factory)
         , m_base_index_short(memspace, cache)
         , m_base_index_long(memspace, cache)        
+        , m_fixture_uuid(enum_factory.getFixture()->getUUID())
     {
         modify().m_base_index_short_ptr = m_base_index_short.getAddress();
         modify().m_base_index_long_ptr = m_base_index_long.getAddress();
     }
     
-    TagIndex::TagIndex(mptr ptr, const ClassFactory &class_factory, RC_LimitedStringPool &string_pool, VObjectCache &cache)
+    TagIndex::TagIndex(mptr ptr, const ClassFactory &class_factory, EnumFactory &enum_factory,
+        RC_LimitedStringPool &string_pool, VObjectCache &cache)
         : db0::v_object<o_tag_index>(ptr)        
         , m_string_pool(string_pool)
+        , m_enum_factory(enum_factory)
         , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
-        , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)        
+        , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)
+        , m_fixture_uuid(enum_factory.getFixture()->getUUID())
     {
     }
 
@@ -366,24 +375,24 @@ namespace db0::object_model
             }
         }
     }
-    
+
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
         std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, bool no_result) const
-    {        
+    {
         db0::FT_ANDIteratorFactory<std::uint64_t> factory;
         // the negated root-level query components
-        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;        
+        std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
         if (nargs > 0 || type) {
             // flush pending updates before querying
             flush();
-            // if the 1st argument is a type then resolve as a TypedObjectIterator
+            // if the 1st argument is a type then resolve as a typed ObjectIterable
             std::size_t offset = 0;
             bool result = !no_result;
-            // apply type filter if provided (unless type is MemoBase)
+            // apply type filter if provided (unless type is a MemoBase)
             if (type) {
                 result &= m_base_index_short.addIterator(factory, type->getAddress());
             }
-
+            
             while (result && (offset < nargs)) {
                 result &= addIterator(args[offset], factory, neg_iterators, observers);
                 ++offset;
@@ -414,13 +423,20 @@ namespace db0::object_model
     {
         using TypeId = db0::bindings::TypeId;
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
-
+        
         auto type_id = LangToolkit::getTypeManager().getTypeId(arg);
-        // simple tag convertible type
-        if (type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE 
-            || type_id == TypeId::DB0_CLASS)
+        // simple tag-convertible type
+        if (type_id == TypeId::STRING || type_id == TypeId::DB0_TAG || type_id == TypeId::DB0_ENUM_VALUE || 
+            type_id == TypeId::DB0_CLASS) 
         {
             return m_base_index_short.addIterator(factory, getShortTag(type_id, arg));
+        }
+        
+        // Memo instance is directly feed into the FT_FixedKeyIterator
+        if (type_id == TypeId::MEMO_OBJECT) {
+            auto addr = LangToolkit::getTypeManager().extractObject(arg).getAddress();
+            factory.add(std::make_unique<FT_FixedKeyIterator<std::uint64_t> >(&addr, &addr + 1));
+            return true;
         }
         
         // a python iterable
@@ -472,8 +488,8 @@ namespace db0::object_model
             return true;
         }
         
-        if (type_id == TypeId::OBJECT_ITERATOR) {
-            auto &obj_iter = LangToolkit::getTypeManager().extractObjectIterator(arg);
+        if (type_id == TypeId::OBJECT_ITERABLE) {
+            auto &obj_iter = LangToolkit::getTypeManager().extractObjectIterable(arg);
             // try interpreting the iterator as FT-query
             auto ft_query = obj_iter.beginFTQuery(query_observers, -1);
             if (!ft_query || ft_query->isEnd()) {
@@ -509,17 +525,16 @@ namespace db0::object_model
             << " as a query" << THROWF_END;
     }
     
-    TagIndex::ShortTagT TagIndex::getShortTag(TypeId type_id, ObjectPtr py_arg) const
+    TagIndex::ShortTagT TagIndex::getShortTag(TypeId type_id, ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
     {
         if (type_id == TypeId::STRING) {
             return getShortTagFromString(py_arg);
-        } else if (type_id == TypeId::MEMO_OBJECT) {
-            return getShortTagFromMemo(py_arg);
+        } else if (type_id == TypeId::DB0_TAG) {
+            return getShortTagFromTag(py_arg);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
-            return getShortTagFromEnumValue(py_arg);
+            return getShortTagFromEnumValue(py_arg, alt_repr);
         } else if (type_id == TypeId::DB0_ENUM_VALUE_REPR) {
-            // enum value-repr associated tags don't exist
-            return {};
+            return getShortTagFromEnumValueRepr(py_arg, alt_repr);
         } else if (type_id == TypeId::DB0_FIELD_DEF) {
             return getShortTagFromFieldDef(py_arg);
         } else if (type_id == TypeId::DB0_CLASS) {
@@ -529,34 +544,73 @@ namespace db0::object_model
             << " as a tag" << THROWF_END;
     }
 
-    TagIndex::ShortTagT TagIndex::getShortTag(ObjectPtr py_arg) const
+    TagIndex::ShortTagT TagIndex::getShortTagFromEnumValueRepr(ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
     {
-        auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
-        return getShortTag(type_id, py_arg);
+        // try translating enum value-repr to enum value
+        auto &enum_value_repr = LangToolkit::getTypeManager().extractEnumValueRepr(py_arg);
+        if (alt_repr) {
+            *alt_repr = m_enum_factory.tryGetEnumLangValue(enum_value_repr);
+            // value-repr associated tags don't exist
+            if (!*alt_repr) {
+                return {};
+            }
+            return getShortTagFromEnumValue(LangToolkit::getTypeManager().extractEnumValue(alt_repr->get()));
+        } else {
+            auto enum_value = m_enum_factory.tryGetEnumValue(enum_value_repr);
+            // enum value-repr associated tags don't exist
+            if (!enum_value) {
+                return {};
+            }
+            // and so get the tag from the enum value
+            return getShortTagFromEnumValue(*enum_value);
+        }
     }
 
+    TagIndex::ShortTagT TagIndex::getShortTag(ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
+    {
+        auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
+        return getShortTag(type_id, py_arg, alt_repr);
+    }
+    
     TagIndex::ShortTagT TagIndex::getShortTagFromString(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isString(py_arg));
-        return LangToolkit::getTag(py_arg, m_string_pool);
+        return LangToolkit::getTagFromString(py_arg, m_string_pool);
     }
-
-    TagIndex::ShortTagT TagIndex::getShortTagFromMemo(ObjectPtr py_arg) const
+    
+    TagIndex::ShortTagT TagIndex::getShortTagFromTag(ObjectPtr py_arg) const
+    {        
+        assert(LangToolkit::isTag(py_arg));
+        return LangToolkit::getTypeManager().extractTag(py_arg).m_value;
+    }
+    
+    TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
     {
-        assert(LangToolkit::isMemoObject(py_arg));
-        // mark the object as tag
-        auto &object = LangToolkit::getTypeManager().extractObject(py_arg);
-        if (!object.isTag()) {
-            // object is not a tag
-            return 0;
+        if (enum_value.m_fixture_uuid != m_fixture_uuid) {
+            // migrate to a different prefix if needed
+            if (alt_repr) {
+                *alt_repr = m_enum_factory.tryMigrateEnumLangValue(enum_value);
+                if (!*alt_repr) {
+                    // tag does not exist
+                    return {};
+                }
+                return LangToolkit::getTypeManager().extractEnumValue(alt_repr->get()).getUID().asULong();
+            } else {
+                auto value = m_enum_factory.tryMigrateEnumValue(enum_value);
+                if (!value) {
+                    // tag does not exist
+                    return {};
+                }
+                return (*value).getUID().asULong();
+            }
         }
-        return object.getAddress();
+        return enum_value.getUID().asULong();
     }
-
-    TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(ObjectPtr py_arg) const
+    
+    TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
     {
         assert(LangToolkit::isEnumValue(py_arg));
-        return LangToolkit::getTypeManager().extractEnumValue(py_arg).getUID().asULong();
+        return getShortTagFromEnumValue(LangToolkit::getTypeManager().extractEnumValue(py_arg), alt_repr);
     }
 
     TagIndex::ShortTagT TagIndex::getShortTagFromClass(ObjectPtr py_arg) const
@@ -572,8 +626,8 @@ namespace db0::object_model
         return (static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.m_field_id;
     }
 
-    TagIndex::ShortTagT TagIndex::getShortTag(ObjectSharedPtr py_arg) const {
-        return getShortTag(py_arg.get());
+    TagIndex::ShortTagT TagIndex::getShortTag(ObjectSharedPtr py_arg, ObjectSharedPtr *alt_repr) const {
+        return getShortTag(py_arg.get(), alt_repr);
     }
 
     TagIndex::ShortTagT TagIndex::addShortTag(ObjectPtr py_arg, bool &inc_ref) const
@@ -592,6 +646,8 @@ namespace db0::object_model
             return addShortTagFromString(py_arg, inc_ref);
         } else if (type_id == TypeId::MEMO_OBJECT) {
             return addShortTagFromMemo(py_arg);
+        } else if (type_id == TypeId::DB0_TAG) {
+            return addShortTagFromTag(py_arg);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return getShortTagFromEnumValue(py_arg);
         } else if (type_id == TypeId::DB0_FIELD_DEF) {
@@ -602,22 +658,24 @@ namespace db0::object_model
         THROWF(db0::InputException) << "Unable to interpret object of type: " << LangToolkit::getTypeName(py_arg)
             << " as a tag" << THROWF_END;
     }
-
+    
     TagIndex::ShortTagT TagIndex::addShortTagFromString(ObjectPtr py_arg, bool &inc_ref) const
     {
         assert(LangToolkit::isString(py_arg));
-        return LangToolkit::addTag(py_arg, m_string_pool, inc_ref);
+        return LangToolkit::addTagFromString(py_arg, m_string_pool, inc_ref);
     }
-    
+
     TagIndex::ShortTagT TagIndex::addShortTagFromMemo(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isMemoObject(py_arg));
         // mark the object as tag
-        auto &object = LangToolkit::getTypeManager().extractObject(py_arg);
-        if (!object.isTag()) {
-            LangToolkit::getTypeManager().extractMutableObject(py_arg).markAsTag();
-        }
-        return object.getAddress();
+        return LangToolkit::getTypeManager().extractObject(py_arg).getAddress();        
+    }
+    
+    TagIndex::ShortTagT TagIndex::addShortTagFromTag(ObjectPtr py_arg) const
+    {
+        assert(LangToolkit::isTag(py_arg));        
+        return LangToolkit::getTypeManager().extractTag(py_arg).m_value;        
     }
 
     bool TagIndex::isScopeIdentifier(ObjectPtr ptr) const {
@@ -631,7 +689,8 @@ namespace db0::object_model
     bool TagIndex::isShortTag(ObjectPtr py_arg) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
-        return type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE || type_id == TypeId::DB0_FIELD_DEF;
+        return type_id == TypeId::STRING || type_id == TypeId::MEMO_OBJECT || type_id == TypeId::DB0_ENUM_VALUE || 
+            type_id == TypeId::DB0_FIELD_DEF || type_id == TypeId::DB0_ENUM_VALUE_REPR;
     }
 
     bool TagIndex::isShortTag(ObjectSharedPtr ptr) const {
@@ -649,12 +708,14 @@ namespace db0::object_model
                 << " (iterable expected)" << THROWF_END;
         }
         
-        OR_QueryObserverBuilder split_factory;        
+        OR_QueryObserverBuilder split_factory;
         // include ALL provided values first (OR-joined)
         for (auto it = ForwardIterator(LangToolkit::getIterator(py_arg)), end = ForwardIterator::end(); it != end; ++it) {
             if (isShortTag(*it)) {
-                auto tag_iterator = m_base_index_short.makeIterator(getShortTag(*it));
-                split_factory.add(std::move(tag_iterator), *it);
+                ObjectSharedPtr alt_repr = *it;
+                auto tag_iterator = m_base_index_short.makeIterator(getShortTag(*it, &alt_repr));
+                // use the alternative representation if such exists
+                split_factory.add(std::move(tag_iterator), alt_repr);
             } else if (isLongTag(*it)) {
                 auto tag_iterator = m_base_index_long.makeIterator(getLongTag(*it));
                 split_factory.add(std::move(tag_iterator), *it);
@@ -691,7 +752,7 @@ namespace db0::object_model
         });
         return makeLongTagFromSequence(sequence);
     }
-
+    
     bool TagIndex::isLongTag(ObjectSharedPtr py_arg) const {
         return isLongTag(py_arg.get());
     }
@@ -734,12 +795,12 @@ namespace db0::object_model
     const db0::FT_BaseIndex<LongTagT> &TagIndex::getBaseIndexLong() const {
         return m_base_index_long;
     }
-
+    
     std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr obj_ptr)
     {
         using LangToolkit = TagIndex::LangToolkit;
         using TypeId = db0::bindings::TypeId;
-
+        
         if (!obj_ptr) {
             return 0;
         }

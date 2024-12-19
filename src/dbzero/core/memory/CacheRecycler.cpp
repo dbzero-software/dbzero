@@ -8,9 +8,9 @@ namespace db0
 {
     
     CacheRecycler::CacheRecycler(std::size_t size, const std::atomic<std::size_t> &dirty_meter,
-        std::optional<std::size_t> flush_size, 
+        std::optional<std::size_t> flush_size,
         std::function<void(std::size_t limit)> flush_dirty,
-        std::function<void(bool threshold_reached)> flush_callback)
+        std::function<bool(bool threshold_reached)> flush_callback)
         : m_res_buf((size > 0)?((size - 1) / MIN_PAGE_SIZE + 1):0)
         , m_capacity(size)
         , m_dirty_meter(dirty_meter)
@@ -113,8 +113,10 @@ namespace db0
                 res_lock->setRecycled(true);
 			}
 		}
-        if (flushed && m_flush_callback) {
-            m_flush_callback(flush_result);
+        // NOTE: flush-callback will be repeated if unable to handle the previous time
+        if (m_flush_callback && (flushed || !m_last_flush_callback_result.first)) {
+            m_last_flush_callback_result.second = flush_result;
+            m_last_flush_callback_result.first = m_flush_callback(flush_result);
         }
 	}
     

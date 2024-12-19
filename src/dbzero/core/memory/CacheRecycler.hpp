@@ -29,7 +29,7 @@ namespace db0
 		 */
 		CacheRecycler(std::size_t size, const std::atomic<std::size_t> &dirty_meter, std::optional<std::size_t> flush_size = {},
 			std::function<void(std::size_t limit)> flush_dirty = {},
-			std::function<void(bool threshold_reached)> flush_callback = {});
+			std::function<bool(bool threshold_reached)> flush_callback = {});
 
 		void update(std::shared_ptr<ResourceLock> res_lock);
         
@@ -84,8 +84,9 @@ namespace db0
 		std::size_t m_flush_size;
 		mutable std::mutex m_mutex;
 		std::function<void(std::size_t limit)> m_flush_dirty;
-		std::function<void(bool)> m_flush_callback;
-
+		std::function<bool(bool)> m_flush_callback;
+		std::pair<bool, bool> m_last_flush_callback_result = {true, false};
+		
         /**
          * Adjusts cache size after updates, collect locks to unlock (can be unlocked off main thread)
          * @param released_locks locks to be released

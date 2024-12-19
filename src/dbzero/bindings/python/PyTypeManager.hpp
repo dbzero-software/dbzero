@@ -5,9 +5,10 @@
 #include <list>
 #include <vector>
 #include <functional>
+#include <memory>
 #include <dbzero/bindings/TypeId.hpp>
 #include "PyTypes.hpp"
-#include "PyEnumType.hpp"
+#include <dbzero/bindings/python/types/PyEnumType.hpp>
 
 namespace db0::object_model {
 
@@ -19,9 +20,11 @@ namespace db0::object_model {
     class Dict;
     class TagSet;
     class Index;
-    class ObjectIterator;
+    class ObjectIterable;
     struct EnumValue;
+    struct EnumValueRepr;
     struct FieldDef;
+    struct TagDef;
     
 }
 
@@ -52,10 +55,12 @@ namespace db0::python
         using TagSet = db0::object_model::TagSet;
         using PandasBlock = db0::object_model::pandas::Block;
         using Index = db0::object_model::Index;
-        using ObjectIterator = db0::object_model::ObjectIterator;
+        using ObjectIterable = db0::object_model::ObjectIterable;
         using EnumValue = db0::object_model::EnumValue;
+        using EnumValueRepr = db0::object_model::EnumValueRepr;
         using FieldDef = db0::object_model::FieldDef;
         using Class = db0::object_model::Class;
+        using TagDef = db0::object_model::TagDef;
 
         PyTypeManager();
         ~PyTypeManager();
@@ -93,12 +98,14 @@ namespace db0::python
         TagSet &extractTagSet(ObjectPtr tag_set_ptr) const;
         const Index &extractIndex(ObjectPtr index_ptr) const;
         Index &extractMutableIndex(ObjectPtr index_ptr) const;
-        EnumValue extractEnumValue(ObjectPtr enum_value_ptr) const;
-        ObjectIterator &extractObjectIterator(ObjectPtr) const;
+        const EnumValue &extractEnumValue(ObjectPtr enum_value_ptr) const;
+        const EnumValueRepr &extractEnumValueRepr(ObjectPtr enum_value_repr_ptr) const;
+        ObjectIterable &extractObjectIterable(ObjectPtr) const;
         FieldDef &extractFieldDef(ObjectPtr) const;
         std::string extractString(ObjectPtr) const;
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
         std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;
+        const TagDef &extractTag(ObjectPtr py_tag) const;
         
         ObjectPtr getBadPrefixError() const;
         ObjectPtr getClassNotFoundError() const;
@@ -138,6 +145,10 @@ namespace db0::python
 
         bool isDBZeroTypeId(TypeId type_id) const;
 
+        bool isSimplePyType(ObjectPtr) const;
+
+        bool isSimplePyTypeId(TypeId type_id) const;
+
         void close();
         
     private:
@@ -145,6 +156,7 @@ namespace db0::python
         std::unordered_map<TypeId, ObjectPtr> m_py_type_map;
         std::unordered_map<ObjectPtr, TypeId> m_id_map;
         // lang types by name variant
+        // note that this cache may contain types not present in the ClassFactory yet
         std::unordered_map<std::string, TypeObjectSharedPtr> m_type_cache;
         std::vector<ObjectSharedPtr> m_enum_cache;
         mutable ObjectSharedPtr m_py_bad_prefix_error;
@@ -153,23 +165,30 @@ namespace db0::python
         // identified reference to a MemoBase type
         TypeObjectPtr m_memo_base_type = nullptr;
         std::unordered_set<TypeId> m_dbzero_type_ids;
+        std::unordered_set<TypeId> m_simple_py_type_ids;
 
         // Register a mapping from static type
-        template <typename T> void addStaticType(T py_type, TypeId py_type_id, bool is_dbzero_type = false);
+        template <typename T> void addStaticType(T py_type, TypeId py_type_id);
         template <typename T> void addStaticDBZeroType(T py_type, TypeId py_type_id);
+        template <typename T> void addStaticSimpleType(T py_type, TypeId py_type_id);
     };
     
-    template <typename T> void PyTypeManager::addStaticType(T py_type, TypeId py_type_id, bool is_dbzero_type)
+    template <typename T> void PyTypeManager::addStaticType(T py_type, TypeId py_type_id)
     {  
         m_py_type_map[py_type_id] = reinterpret_cast<ObjectPtr>(py_type);
         m_id_map[reinterpret_cast<ObjectPtr>(py_type)] = py_type_id;
-        if (is_dbzero_type) {
-            m_dbzero_type_ids.insert(py_type_id);
-        }
     }
 
-    template <typename T> void PyTypeManager::addStaticDBZeroType(T py_type, TypeId py_type_id) {
-        addStaticType(py_type, py_type_id, true);
+    template <typename T> void PyTypeManager::addStaticDBZeroType(T py_type, TypeId py_type_id)
+    {
+        addStaticType(py_type, py_type_id);
+        m_dbzero_type_ids.insert(py_type_id);        
+    }
+    
+    template <typename T> void PyTypeManager::addStaticSimpleType(T py_type, TypeId py_type_id)
+    {
+        addStaticType(py_type, py_type_id);
+        m_simple_py_type_ids.insert(py_type_id);
     }
     
 }

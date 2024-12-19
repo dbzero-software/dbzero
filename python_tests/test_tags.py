@@ -1,6 +1,7 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass
+from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoDataPxClass
+from .conftest import DB0_DIR, DATA_PX
 
 
 @db0.memo()
@@ -191,18 +192,18 @@ def test_tuple_can_be_used_for_tag_search(db0_fixture):
 def test_memo_instance_can_be_used_as_tag(db0_fixture):
     root = MemoTestSingleton(0)
     objects = [MemoClassForTags(i) for i in range(10)]
-    db0.tags(objects[4]).add(root)
-    assert db0.is_tag(root)
+    # we can use as_tag or the instance directly
+    db0.tags(objects[4]).add(root, db0.as_tag(root))
 
 
 def test_find_by_memo_instance_as_tag(db0_fixture):
     # make 2 instances to be used as tags
-    tags = [MemoClassForTags(i) for i in range(3)]
+    tags = [db0.as_tag(MemoClassForTags(i)) for i in range(3)]
     objects = [MemoClassForTags(i) for i in range(10)]
     db0.tags(objects[4]).add([tags[0], tags[1]])
     db0.tags(objects[6]).add([tags[1], tags[2]])
     db0.tags(objects[2]).add([tags[0], tags[2]])
-    
+
     values = set([x.value for x in db0.find(MemoClassForTags, tags[0])])
     assert values == set([2, 4])
 
@@ -337,4 +338,45 @@ def test_tag_remove_then_add_in_single_transaction(db0_fixture):
     db0.commit()
     objs = [x for x in db0.find(MemoTestClass, "object")]
     assert len(objs) > 0
+    
+    
+def test_tag_query_with_subquery(db0_no_autocommit, memo_tags):
+    # combine the 2 queries
+    query = db0.find(MemoTestClass, db0.find("tag1"))
+    assert len(list(query)) == 10
+    
+    
+def test_find_static_scoped_type(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    db0.open(DATA_PX, "rw")
+    # create scoped classes on data prefix
+    for i in range(10):
+        obj = MemoDataPxClass(i)
+        db0.tags(obj).add("tag1")    
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open(DATA_PX, "r")
+    # change the default prefix
+    db0.open(px_name, "r")
+    # find class from a non-default prefix
+    query = db0.find(MemoDataPxClass)
+    assert len(list(query)) == 10
+    
+    
+def test_tag_query_results_can_be_iterated_multiple_times(db0_no_autocommit, memo_tags):
+    query = db0.find("tag1")
+    l1 = len(list(query))
+    l2 = len(list(query))
+    assert l1 == l2
+    
+
+def test_using_len_to_determine_query_result_size(db0_no_autocommit, memo_tags):
+    query = db0.find("tag1")
+    assert len(query) == 10
+        
+    
+def test_use_find_to_match_single_object(db0_no_autocommit, memo_tags):
+    obj_1 = next(iter(db0.find("tag1")))
+    assert len(db0.find(obj_1, db0.find("tag1"))) == 1
     

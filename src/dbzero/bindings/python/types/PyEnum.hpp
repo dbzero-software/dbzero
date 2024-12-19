@@ -1,7 +1,7 @@
 #pragma once
 
-#include "PyWrapper.hpp"
-#include "PyEnumType.hpp"
+#include <dbzero/bindings/python/PyWrapper.hpp>
+#include <dbzero/bindings/python/types/PyEnumType.hpp>
 #include <dbzero/object_model/enum/EnumDef.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
@@ -14,6 +14,7 @@ namespace db0::python
     using EnumValue = db0::object_model::EnumValue;
     using EnumValueRepr = db0::object_model::EnumValueRepr;
     using EnumDef = db0::object_model::EnumDef;
+    using EnumTypeDef = db0::object_model::EnumTypeDef;
     using Enum = db0::object_model::Enum;
     using PyEnumValue = PyWrapper<EnumValue, false>;
     using PyEnumValueRepr = PyWrapper<EnumValueRepr, false>;
@@ -52,10 +53,14 @@ namespace db0::python
         const char *type_id, const char *prefix_name);
     
     shared_py_object<PyEnumValue*> makePyEnumValue(const EnumValue &);
-    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(const char *value);
+    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(std::shared_ptr<EnumTypeDef>, const char *value);
+    // check if enum value migration / translation is required
+    bool isMigrateRequired(db0::swine_ptr<Fixture> &, PyEnumValue *);
+    // migrate / translate enum value between prefixes if needed
+    shared_py_object<PyObject*> migratedEnumValue(db0::swine_ptr<Fixture> &, PyEnumValue *);
     
     PyObject *tryLoadEnumValue(PyEnumValue *);
-    
+
 }
 
 

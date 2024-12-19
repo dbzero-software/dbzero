@@ -20,7 +20,7 @@ namespace db0::object_model
 
     // range-tree based index
     using RT_IndexInt = db0::RangeTree<std::int64_t, std::uint64_t>;
-    class ObjectIterator;
+    class ObjectIterable;
     
     class Index: public db0::ObjectBase<Index, db0::v_object<o_index>, StorageClass::DB0_INDEX>
     {
@@ -51,7 +51,7 @@ namespace db0::object_model
          * Sort results of a specific object iterator from the same fixture
          * @param iter object iterator        
          */        
-        std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort(const ObjectIterator &iter,
+        std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort(const ObjectIterable &iter,
             bool asc, bool null_first) const;
         
         /**

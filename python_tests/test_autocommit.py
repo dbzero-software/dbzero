@@ -25,14 +25,15 @@ def test_db0_starts_autocommit_by_default(db0_fixture):
     assert state_4 == state_3
 
 
-def test_autocommit_is_not_performed_during_mutations(db0_fixture):
+def test_autocommit_is_not_performed_during_atomic_mutations(db0_fixture):
     object_1 = MemoTestClass(951)
     state_1 = db0.get_state_num()
-    # perform mutations for 300ms
-    start = time.time()
-    while time.time() - start < 0.3:
-        time.sleep(0.01)
-        object_1.value += 1    
+    # perform atomic mutations for 300m
+    with db0.atomic():
+        start = time.time()
+        while time.time() - start < 0.3:
+            time.sleep(0.01)
+            object_1.value += 1    
     state_2 = db0.get_state_num()
     # state should not change during mutations
     assert state_2 == state_1

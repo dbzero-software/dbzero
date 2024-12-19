@@ -95,3 +95,47 @@ class DynamicDataSingleton:
         else:
             for i in range(count):
                 setattr(self, f'field_{i}', i)
+
+
+@db0.enum(values=["RED", "GREEN", "BLUE"])
+class TriColor:
+    pass
+
+@db0.enum(values=["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], prefix=DATA_PX)
+class MonthTag:
+    pass
+
+@db0.memo
+class MemoTestThreeParamsClass:
+    def __init__(self, value_1, value_2, value_3):  
+        self.value_1 = value_1
+        self.value_2 = value_2
+        self.value_3 = value_3     
+
+
+@db0.memo
+class MemoTestCustomLoadClass:
+    def __init__(self, value_1, value_2, value_3):  
+        self.value_1 = value_1
+        self.value_2 = value_2
+        self.value_3 = value_3    
+
+    def __load__(self):
+        return {
+            "v1": self.value_1,
+            "v2_v3": {self.value_2: self.value_3}
+        }
+    
+@db0.memo
+class MemoTestCustomLoadClassWithParams:
+    def __init__(self, value_1, value_2, value_3):  
+        self.value_1 = value_1
+        self.value_2 = value_2
+        self.value_3 = value_3    
+
+    def __load__(self, param=None):
+        return {
+            "v1": self.value_1,
+            "v2_v3": {self.value_2: self.value_3},
+            "param": param
+        }

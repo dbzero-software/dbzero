@@ -155,7 +155,6 @@ namespace db0
             // read / write / create flags are disallowed since they're assigned dynamically
             assert(!m_access_mode[AccessOptions::read]);
             assert(!m_access_mode[AccessOptions::write]);
-            assert(!m_access_mode[AccessOptions::create]);
         }
     };
     
@@ -215,6 +214,9 @@ namespace db0
             while (!ResourceReadWriteMutexT::__ref(m_resource_flags).get()) {
                 ResourceReadWriteMutexT::WriteOnlyLock lock(m_resource_flags);
                 if (lock.isLocked()) {
+                    // release the MemLock first to avoid or reduce CoWs
+                    // otherwise mapRange might need to manage multiple lock versions
+                    m_mem_lock.release();
                     // lock for +write
                     // note that lock is getting updated, possibly copy-on-write is being performed
                     // NOTE: must extract physical address for mapRange
@@ -245,11 +247,13 @@ namespace db0
         
         static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode = {})
         {
+            // read not allowed for instance creation
+            assert(!access_mode[AccessOptions::read]);
             auto address = memspace.alloc(size, SLOT_NUM, access_mode[AccessOptions::unique]);
             // lock for create & write
             // NOTE: must extract physical address for mapRange
             auto mem_lock = memspace.getPrefix().mapRange(
-                getPhysicalAddress(address), size, access_mode | AccessOptions::write | AccessOptions::create
+                getPhysicalAddress(address), size, access_mode | AccessOptions::write
             );
             // mark as available for both write & read
             return v_ptr<ContainerT>(

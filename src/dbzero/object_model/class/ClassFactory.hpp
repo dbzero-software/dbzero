@@ -70,6 +70,9 @@ namespace db0::object_model
          * @param prefix_name name of the associated prefix, for scoped classes        
         */
         std::shared_ptr<Class> getOrCreateType(TypeObjectPtr lang_type);
+
+        // non-throwing version of getOrCreateType
+        std::shared_ptr<Class> tryGetOrCreateType(TypeObjectPtr lang_type);
         
         struct ClassItem
         {
@@ -110,9 +113,12 @@ namespace db0::object_model
 
         // check if the class object (possibly from a different snapshot) exists in the current snapshot
         bool exists(const Class &) const;
-    };
 
+        // try finding language specific type object in the TypeManager's cache
+        TypeObjectPtr tryFindLangType(const Class &) const;
+    };
+    
     std::optional<std::string> getNameVariant(ClassFactory::TypeObjectPtr lang_type,
-        const char *type_id, int variant_id);
-        
+        const char *type_id, int variant_id);    
+
 }

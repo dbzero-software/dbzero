@@ -21,8 +21,8 @@ namespace db0
         FlagSet<AccessOptions> access_mode)
     {
         // read-only access is allowed
-        assert(!access_mode[AccessOptions::create] && !access_mode[AccessOptions::write]);
-
+        assert(!access_mode[AccessOptions::write]);
+        
         auto first_page = address >> m_shift;
         auto end_page = ((address + size - 1) >> m_shift) + 1;
         

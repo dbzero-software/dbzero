@@ -186,14 +186,32 @@ namespace db0::python
         return Py_TYPE(object) == &TupleObjectType;        
     }
     
-    PyObject *tryLoadTuple(TupleObject *py_tuple)
+    PyObject *tryLoadTuple(TupleObject *py_tuple, PyObject *kwargs)
     {
         auto &tuple_obj = py_tuple->ext();
         PyObject *result = PyTuple_New(tuple_obj.size());
         for (std::size_t i = 0; i < tuple_obj.size(); ++i) {
-            PyTuple_SetItem(result, i, tryLoad(tuple_obj.getItem(i).get()));
+            auto res = tryLoad(tuple_obj.getItem(i).get(), kwargs);
+            if(res == nullptr) {
+                return nullptr;
+            }
+            PyTuple_SetItem(result, i, res);
         }
         return result;
     }
-
+    
+    PyObject *tryLoadPyTuple(PyObject *py_tuple, PyObject *kwargs)
+    {
+        Py_ssize_t size = PyTuple_Size(py_tuple);        
+        PyObject *result = PyTuple_New(size);
+        for (int i = 0; i < size; ++i) {
+            auto res = tryLoad(PyTuple_GetItem(py_tuple, i), kwargs);
+            if (result == nullptr) {
+                return nullptr;
+            }
+            PyTuple_SetItem(result, i, res);
+        }
+        return result;
+    }
+    
 }

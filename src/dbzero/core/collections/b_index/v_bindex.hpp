@@ -6,6 +6,7 @@
 #include "v_bindex_joinable_const_iterator.hpp"
 #include "v_bindex_joinable_iterator.hpp"
 #include <dbzero/core/serialization/Serializable.hpp>
+#include <deque>
 
 namespace db0
 
@@ -179,7 +180,7 @@ namespace db0
         std::size_t size() const {
             return (*this)->size;
         }
-
+        
         /**
          * insert only items not yet present in collection
          * @return items requested / items actually inserted
@@ -256,9 +257,9 @@ namespace db0
             }
             while (begin_item != end_item) {
                 std::size_t diff = 0;
-                int push_count = (int)m_max_size - (int)data_buf->m_size;
+                int push_limit = (int)m_max_size - (int)data_buf->m_size;
                 auto _end = begin_item;
-                while ((push_count-- > 0) && (_end!=end_item)) {
+                while ((push_limit-- > 0) && (_end!=end_item)) {
                     ++_end;
                     ++diff;
                 }
@@ -609,7 +610,7 @@ namespace db0
                 // check the upper bound
                 node_iterator it_next = m_it_node;
                 ++it_next;
-                if (it_next!=ref.m_index.end()) {
+                if (it_next != ref.m_index.end()) {
                     m_has_upper_bound = true;
                     m_upper_bound = it_next->m_data.lo_bound;
                 }
@@ -638,15 +639,16 @@ namespace db0
                 std::uint32_t result = 0;
                 bool force_insert = false;
                 while (!data.empty()) {
-                    std::list<item_t> buf;
-                    std::size_t buf_size = 0;
+                    std::deque<item_t> buf;
                     // select items that fit into the bucket
-                    int push_count = std::min((int)m_ref.m_max_size - (int)m_data_buf->m_size, (int)data.size());
-                    while (!data.empty() && ((push_count > 0) || force_insert) &&
+                    int push_limit = std::min((int)m_ref.m_max_size - (int)m_data_buf->m_size, (int)data.size());
+                    // blocks are allowed to grow larger than max_size with forced insert
+                    bool has_max_size = !force_insert;
+                    while (!data.empty() && ((push_limit > 0) || force_insert) &&
                         (!m_has_upper_bound || m_ref.m_comp(data.front(), m_upper_bound)))
                     {
-                        const item_t *item = nullptr;
-                        if (!unique_only || (item = m_data_buf->find(data.front())) == nullptr) {
+                        const item_t *item_ptr = nullptr;
+                        if (!unique_only || (item_ptr = m_data_buf->find(data.front())) == nullptr) {
                             // existing item not found - just insert
                             buf.push_front(data.front());
                             if (callback_ptr) {
@@ -657,47 +659,25 @@ namespace db0
                             } else {
                                 data.pop_front();
                             }
-                            --push_count;
-                            ++buf_size;
+                            --push_limit;
                             ++result;
                             force_insert = false;
                         } else {
-                            // update existing item if not identical as existing one
-                            if (item && update && std::memcmp(item, &data.front(), sizeof(item_t)) != 0) {                               
-                                m_data_buf.modify().modifyItem(item) = data.front();
+                            // update existing item (value part) if not identical as existing one
+                            if (item_ptr && update && std::memcmp(item_ptr, &data.front(), sizeof(item_t)) != 0) {
+                                auto at = m_data_buf->getItemIndex(item_ptr);
+                                m_data_buf.modify().modifyItem(at) = data.front();
                             }
                             // duplicate item, remove all from insert heap
                             data.pop_front_all();
                         }
                     }
-                    // complete with equal (as the last) values
-                    item_t last_item = ((buf_size > 0)?buf.front():m_it_node->m_data.lo_bound);
-                    while (!data.empty() && !m_ref.m_comp(last_item, data.front())) {
-                        const item_t *item = nullptr;
-                        if (!unique_only || (item = m_data_buf->find(data.front())) == nullptr) {
-                            buf.push_front(data.front());
-                            if (callback_ptr) {
-                                (*callback_ptr)(data.front());
-                            }
-                            if (unique_only) {
-                                data.pop_front_all();
-                            } else {
-                                data.pop_front();
-                            }
-                            ++buf_size;
-                            ++result;
-                        } else {
-                            // update existing item
-                            if (item && update && std::memcmp(item, &data.front(), sizeof(item_t)) != 0) {
-                                m_data_buf.modify().modifyItem(item) = data.front();
-                            }
-                            // duplicate item, remove from insert heap
-                            data.pop_front_all();
-                        }
-                    }
-                    if (buf_size > 0) {
+                    
+                    if (buf.size() > 0) {
                         // grow data block
-                        if (m_data_buf.bulkInsertReverseSorted(buf.begin(), buf_size, m_ref.m_max_size)) {
+                        std::optional<std::uint32_t> max_size = has_max_size ? std::optional<std::uint32_t>(m_ref.m_max_size) : std::nullopt;
+                        // blocks are allowed to grow larger than max_size with forced insert (i.e. when unable to split due to identical keys)
+                        if (m_data_buf.bulkInsertReverseSorted(buf.begin(), buf.size(), max_size)) {
                             // update address (block size changed)
                             m_it_node.modify().m_data.ptr_b_data = m_data_buf.getAddress();
                         }
@@ -712,19 +692,31 @@ namespace db0
                                 if (isLastNode(m_it_node) && m_data_buf->m_size > 4) {
                                     it_split = m_data_buf->begin(m_data_buf->m_size - 4);
                                 }
-                                auto it_next = it_split;
-                                ++it_next;
-                                while (it_next != m_data_buf->end() && !m_ref.m_comp(*it_split,*it_next)) {
-                                    ++it_split;
-                                    ++it_next;
+                                bool can_split = false;
+                                if (it_split != m_data_buf->begin()) {
+                                    auto it_prev = it_split;
+                                    --it_prev;
+                                    for (;;) {
+                                        if (m_ref.m_comp(*it_prev, *it_split)) {
+                                            can_split = true;
+                                            break;
+                                        }
+                                        if (it_prev == m_data_buf->begin()) {
+                                            break;
+                                        }
+                                        --it_prev;
+                                        --it_split;
+                                    }
                                 }
-                                if (it_next != m_data_buf->end()) {
-                                    data_vector new_buf = m_data_buf.split(it_next);
+                                
+                                // cannot split a block with all identical keys
+                                if (can_split) {
+                                    data_vector new_buf = m_data_buf.split(it_split);
                                     node_iterator it_new = m_ref.m_index.insert_equal(new_buf->front());
                                     it_new.modify().m_data.ptr_b_data = new_buf.getAddress();
                                     // continue with either of the buckets
                                     if (m_ref.m_comp(data.front(), new_buf->front())) {
-                                        // continue with old bucket
+                                        // continue with old bucket & adjust the upper bound
                                         m_has_upper_bound = true;
                                         m_upper_bound = new_buf->front();
                                     } else {

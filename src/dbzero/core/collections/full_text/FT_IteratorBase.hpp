@@ -88,6 +88,11 @@ namespace db0
             return m_uid;
         }
 
+        // Advance the iterator by the specified number of elements
+        // @param count number of elements to skip, allowed to exceed the underlying collection size
+        // @return false if the end position is reached
+        virtual bool skip(std::size_t count);
+        
     protected:
         // auto-generated instace UID (preserved in copies - e.g. created during begin / clone etc.)
         const std::uint64_t m_uid;

@@ -1,10 +1,15 @@
 # This is an experimental version of a possible Query Engine
 # implementation for DBZero
 import dbzero_ce as db0
-from typing import Any, Dict
+import inspect
+from typing import Any, Dict, Tuple
+import types
+import re
 
 
 __px_fast_query = None
+__lambda_regex = re.compile(r'lambda\s.*?:\s*([^,)]*)')
+
 
 def init_fast_query(prefix=None):
     global __px_fast_query
@@ -15,28 +20,70 @@ def init_fast_query(prefix=None):
         db0.open(__px_fast_query, "rw")
     
 
+def get_lambda_source(func):
+    global __lambda_regex
+    assert isinstance(func, types.LambdaType)
+    source_lines, _ = inspect.getsourcelines(func)
+    source_code = ''.join(source_lines).strip()
+    match = __lambda_regex.search(source_code)
+    if match:
+        return match.group(1).strip()
+    else:
+        raise ValueError("Could not extract lambda function implementation")
+
+
+def signature_of(group_defs):
+    if group_defs is None:
+        return ""
+    
+    if hasattr(group_defs, "signature"):
+        return group_defs.signature
+    
+    if isinstance(group_defs, types.LambdaType):
+        sig_callable = inspect.signature(group_defs)
+        return f"{len(sig_callable.parameters)}:{get_lambda_source(group_defs)}"
+
+    if callable(group_defs):
+        sig_callable = inspect.signature(group_defs)
+        return f"{len(sig_callable.parameters)}:{inspect.getsource(group_defs)}"
+    
+    if hasattr(group_defs, "__iter__"):
+        result = ""
+        for group_def in group_defs:
+            result += f"({signature_of(group_def)})"
+        return result
+
+    return repr(group_defs)
+
+    
 class FastQuery:
     def __init__(self, query, group_defs=None, uuid=None, sig=None, bytes=None, snapshot=None):
         self.__group_defs = group_defs
-        self.__query = self.__make_query(query)
+        self.__query, self.__is_simple = self.__make_query(query)
         self.__uuid= uuid
         self.__sig = sig
         self.__bytes = bytes
         self.__snapshot = snapshot
         self.__rows = self.__query
     
-    def __make_query(self, query):
+    def __make_query(self, query) -> Tuple:
         result = query
+        is_simple = True
         # split query by all available group definitions
         for group_def in self.__group_defs:
             if group_def.groups is not None:
                 result = db0.split_by(group_def.groups, result)
-        return result
+                is_simple = False
+        return (result, is_simple)
     
     # rebase to a (different) snapshot
     def rebase(self, snapshot):
         return FastQuery(snapshot.deserialize(self.bytes), self.__group_defs, self.__uuid, 
             self.__sig, self.bytes, snapshot)
+    
+    @property
+    def is_simple(self):
+        return self.__is_simple
     
     @property
     def snapshot(self):
@@ -53,7 +100,7 @@ class FastQuery:
     @property
     def signature(self):
         if self.__sig is None:
-            self.__sig = self.__query.signature()
+            self.__sig = self.__query.signature() + signature_of(self.__group_defs)
         return self.__sig
     
     @property
@@ -64,7 +111,7 @@ class FastQuery:
                 rows = self.snapshot.deserialize(self.bytes)
             else:
                 rows = db0.deserialize(self.bytes)
-            self.__rows = self.__make_query(rows)
+            self.__rows, self.__is_simple = self.__make_query(rows)
         
         result = self.__rows
         self.__rows = None
@@ -84,14 +131,24 @@ class FastQuery:
 class GroupDef:
     def __init__(self, key_func=None, groups=None):
         self.__key_func = key_func
-        # extract decorators as the group identifier (may be one or more)
-        self.key_func = key_func if key_func else lambda row: row[1:][0]
+        # extract decorator as the group identifier
+        self.key_func = key_func if key_func else lambda row: row[1]
         self.groups = groups
+        self.__sig = None
     
     def split(self):
         # prepare key func to work with split rows
         if self.__key_func is not None:
             self.key_func = lambda row: self.__key_func(row[0])            
+    
+    @property
+    def signature(self):
+        if self.__sig is None:
+            if self.groups is not None:
+                self.__sig = signature_of(self.groups)
+            else:
+                self.__sig = signature_of(self.__key_func)
+        return self.__sig
     
     def __call__(self, row) -> Any:
         return self.key_func(row)
@@ -137,7 +194,7 @@ class FastQueryCache:
         if query.signature not in self.__cache:
             self.__cache[query.signature] = {}
 
-        # key = a tuple of: state number, serialized query bytes, full query result
+        # value = a tuple of: state number, serialized query bytes, full query result
         self.__cache[query.signature][query.uuid] = (state_num, query.bytes, result)                
         return (state_num, query.bytes, result)
     
@@ -145,52 +202,56 @@ class FastQueryCache:
         return list(self.__cache.keys())
     
     
-def count_op(status, row_groups=None):
+def count_op(state, removed_rows, added_rows):
     """
-    Update (or initialize status) with rows to remove (0) or rows to add (1)
+    Update (or initialize state) with rows to remove (0) or rows to add (1)
     """
-    if row_groups is None:
+    if state is None:
         return 0
     else:
-        status -= len(row_groups[0]) if row_groups[0] is not None else 0
-        status += len(row_groups[1]) if row_groups[1] is not None else 0
-    return status
+        state -= len(removed_rows)
+        state += len(added_rows)
+    return state
     
     
 def make_sum(value_func):
     """
     Generates sum-op with a specific value function
     """
-    def sum_op(status, row_groups=None):
+    def sum_op(state, removed_rows, added_rows):
         """
-        Update (or initialize status) with rows to remove (0) or rows to add (1)
+        Update (or initialize state) with rows to remove (0) or rows to add (1)
         """
-        if row_groups is None:
+        if state is None:
             return 0
         else:
-            status -= sum(value_func(row[0]) for row in row_groups[0]) if row_groups[0] is not None else 0
-            status += sum(value_func(row[0]) for row in row_groups[1]) if row_groups[1] is not None else 0
-        return status
+            state -= sum(value_func(row) for row in removed_rows)
+            state += sum(value_func(row) for row in added_rows)
+        return state
     
     return sum_op
 
     
 @db0.memo
 class GroupByBucket:
+    """
+    Bucket associated with a single group key
+    """
     def __init__(self, ops=(count_op,), prefix=None):
         # FIXME: ops should be cached in Python when this feature is available
         db0.set_prefix(self, prefix)
-        self.__status = tuple([op(None) for op in ops])
-    
-    def update(self, row_groups, ops=(count_op,)):
-        self.__status = tuple([op(status, row_groups) for op, status in zip(ops, self.__status)])
+        # initialize ops (passing None to generate the initial state)
+        self.__state = tuple([op(None, None, None) for op in ops])
+        
+    def update(self, removed_rows, added_rows, ops=(count_op,)):
+        self.__state = tuple([op(state, removed_rows, added_rows) for op, state in zip(ops, self.__state)])
     
     @property
     def result(self):
-        if len(self.__status) == 1:
-            return self.__status[0]
-        # return as a Python native type
-        return db0.load(self.__status)
+        if len(self.__state) == 1:
+            return self.__state[0]
+        # return as a Python native type (i.e. load from DBZero)
+        return db0.load(self.__state)
     
     
 class GroupByEval:
@@ -199,13 +260,15 @@ class GroupByEval:
         self.__prefix = prefix
         if len(group_defs) == 1:
             group_def = group_defs[0]
-            self.__group_builder = lambda row: group_def(row)
+            # group_def is a callable - can directly be used as the group builder
+            self.__group_builder = group_def
         else:
+            # composite group builder
             self.__group_builder = lambda row: tuple(group_def(row) for group_def in group_defs)
 
-    def update(self, row_groups, ops):
+    def update(self, row_groups, is_simple, ops):
         __groups = {}
-        for side_num in range(2):            
+        for side_num in range(2):
             if row_groups[side_num] is None:
                 continue
             for row in row_groups[side_num]:
@@ -214,15 +277,15 @@ class GroupByEval:
                 if row_lists is None:
                     row_lists = ([], [])
                     __groups[key] = row_lists
-                row_lists[side_num].append(row)
-        
-        # now feed groups into buckets
+                row_lists[side_num].append(row if is_simple else row[0])
+
+        # now, feed groups into buckets
         for key, row_lists in __groups.items():
             bucket = self.__data.get(key, None)
             if bucket is None:
                 bucket = GroupByBucket(ops, prefix=self.__prefix)
                 self.__data[key] = bucket
-            bucket.update(row_lists, ops)
+            bucket.update(row_lists[0], row_lists[1], ops)
     
     def release(self):
         result = self.__data
@@ -242,13 +305,13 @@ def group_by(group_defs, query, ops=(count_op,)) -> Dict:
     
     px_name = db0.get_prefix_of(query).name
     # a simple group definition is either: a string, a lambda or iterable of strings/enum values
-    def is_simple_group_def(group_defs):
+    def is_simple_group_def(group_defs):        
         if isinstance(group_defs, str) or callable(group_defs):
             return True
-        if hasattr(group_defs, "__iter__"):
+        if hasattr(group_defs, "__iter__"):            
             return all(isinstance(item, str) or db0.is_enum_value(item) for item in group_defs)
         return False
-
+    
     # extract groups and key function from a simple group definition
     def prepare_group_defs(group_defs, inner_def = False):
         if is_simple_group_def(group_defs):
@@ -270,12 +333,12 @@ def group_by(group_defs, query, ops=(count_op,)) -> Dict:
         query_eval = GroupByEval(group_defs, last_result[2] if last_result is not None else None, prefix=__px_fast_query)
         if last_result is None:
             # no cached result, evaluate full query
-            query_eval.update((None, fast_query.rows), ops)
+            query_eval.update((None, fast_query.rows), fast_query.is_simple, ops)
         else:
             # evaluate from deltas
             old_query = fast_query.rebase(db0.snapshot({px_name: last_result[0]}))
             # row groups = (rows removed since last update, rows added since last update) as delta iterators
-            query_eval.update((delta(fast_query, old_query), delta(old_query, fast_query)), ops)
+            query_eval.update((delta(fast_query, old_query), delta(old_query, fast_query)), fast_query.is_simple, ops)
         return query_eval.release()
     
     def format_result(result):
@@ -286,7 +349,7 @@ def group_by(group_defs, query, ops=(count_op,)) -> Dict:
     # otherwise refresh might invalidate query results (InvalidStateError)
     with db0.snapshot() as snapshot:
         fast_query = FastQuery(query, group_defs).rebase(snapshot)
-        last_result = cache.find_result(fast_query)    
+        last_result = cache.find_result(fast_query)
         state_num = snapshot.get_state_num(prefix=px_name)
         # return the cached result if from the same state number
         if last_result is None or last_result[0] != state_num:

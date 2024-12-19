@@ -1,14 +1,15 @@
 #include "PyTypeManager.hpp"
+#include <Python.h>
+#include <datetime.h>
+#include <chrono>
 #include "Memo.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
-#include <Python.h>
-#include <datetime.h>
-#include "PyObjectIterator.hpp"
-#include <chrono>
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
 #include <dbzero/bindings/python/PyTagSet.hpp>
@@ -24,9 +25,11 @@
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
-#include "PyClassFields.hpp"
-#include "PyEnum.hpp"
-#include "PyClass.hpp"
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
+#include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/types/PyClassFields.hpp>
+#include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/types/PyTag.hpp>
 
 namespace db0::python
 
@@ -42,10 +45,11 @@ namespace db0::python
         PyDateTime_IMPORT;
         
         // register well known static types, including DB0 extension types
-        addStaticType(&PyLong_Type, TypeId::INTEGER);
-        addStaticType(&PyFloat_Type, TypeId::FLOAT);
-        addStaticType(&_PyNone_Type, TypeId::NONE);
-        addStaticType(&PyUnicode_Type, TypeId::STRING);
+        addStaticSimpleType(&PyLong_Type, TypeId::INTEGER);
+        addStaticSimpleType(&PyFloat_Type, TypeId::FLOAT);
+        addStaticSimpleType(&PyBool_Type, TypeId::BOOLEAN);
+        addStaticSimpleType(&_PyNone_Type, TypeId::NONE);
+        addStaticSimpleType(&PyUnicode_Type, TypeId::STRING);
         // add python list type
         addStaticType(&PyList_Type, TypeId::LIST);
         addStaticType(&PySet_Type, TypeId::SET);
@@ -53,9 +57,10 @@ namespace db0::python
         addStaticType(&PyTuple_Type, TypeId::TUPLE);
         addStaticType(&PyBytes_Type, TypeId::BYTES);
         // Python datetime type
-        addStaticType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
+        addStaticSimpleType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
 
         // DBZero extension types
+        addStaticDBZeroType(&PyTagType, TypeId::DB0_TAG);
         addStaticDBZeroType(&TagSetType, TypeId::DB0_TAG_SET);
         addStaticDBZeroType(&IndexObjectType, TypeId::DB0_INDEX);
         addStaticDBZeroType(&ListObjectType, TypeId::DB0_LIST);
@@ -63,6 +68,7 @@ namespace db0::python
         addStaticDBZeroType(&DictObjectType, TypeId::DB0_DICT);
         addStaticDBZeroType(&TupleObjectType, TypeId::DB0_TUPLE);
         addStaticDBZeroType(&ClassObjectType, TypeId::DB0_CLASS);
+        addStaticDBZeroType(&PyObjectIterableType, TypeId::OBJECT_ITERABLE);
         addStaticDBZeroType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
         
         addStaticDBZeroType(&PyEnumType, TypeId::DB0_ENUM);
@@ -72,7 +78,6 @@ namespace db0::python
         addStaticDBZeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
         addStaticDBZeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
 
-        addStaticType(&PyBool_Type, TypeId::BOOLEAN);
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
         m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
     }
@@ -320,24 +325,32 @@ namespace db0::python
         return reinterpret_cast<TypeObjectPtr>(py_type);
     }
 
-    PyTypeManager::ObjectIterator &PyTypeManager::extractObjectIterator(ObjectPtr obj_ptr) const
+    PyTypeManager::ObjectIterable &PyTypeManager::extractObjectIterable(ObjectPtr obj_ptr) const
     {
-        if (!PyObjectIterator_Check(obj_ptr)) {
-            THROWF(db0::InputException) << "Expected an ObjectIterator object" << THROWF_END;
+        if (!PyObjectIterable_Check(obj_ptr)) {
+            THROWF(db0::InputException) << "Expected an ObjectIterable object" << THROWF_END;
         }
-        return *reinterpret_cast<PyObjectIterator*>(obj_ptr)->modifyExt();
+        return reinterpret_cast<PyObjectIterable*>(obj_ptr)->modifyExt();
     }
     
     bool PyTypeManager::isNull(ObjectPtr obj_ptr) const {
         return !obj_ptr || obj_ptr == Py_None;
     }
     
-    db0::object_model::EnumValue PyTypeManager::extractEnumValue(ObjectPtr enum_value_ptr) const
+    const db0::object_model::EnumValue &PyTypeManager::extractEnumValue(ObjectPtr enum_value_ptr) const
     {
         if (!PyEnumValue_Check(enum_value_ptr)) {
             THROWF(db0::InputException) << "Expected an EnumValue object" << THROWF_END;
         }
         return reinterpret_cast<PyEnumValue*>(enum_value_ptr)->ext();
+    }
+    
+    const db0::object_model::EnumValueRepr &PyTypeManager::extractEnumValueRepr(ObjectPtr enum_value_repr_ptr) const
+    {
+        if (!PyEnumValueRepr_Check(enum_value_repr_ptr)) {
+            THROWF(db0::InputException) << "Expected an EnumValueRepr object" << THROWF_END;
+        }
+        return reinterpret_cast<PyEnumValueRepr*>(enum_value_repr_ptr)->ext();
     }
 
     db0::object_model::FieldDef &PyTypeManager::extractFieldDef(ObjectPtr py_object) const
@@ -413,5 +426,19 @@ namespace db0::python
     bool PyTypeManager::isDBZeroType(ObjectPtr obj_ptr) const {
         return isDBZeroTypeId(getTypeId(obj_ptr));
     }
+
+    bool PyTypeManager::isSimplePyType(ObjectPtr obj_ptr) const {
+        return isSimplePyTypeId(getTypeId(obj_ptr));
+    }
     
+    bool PyTypeManager::isSimplePyTypeId(TypeId type_id) const {
+        return m_simple_py_type_ids.find(type_id) != m_simple_py_type_ids.end();
+    }
+
+    const PyTypeManager::TagDef &PyTypeManager::extractTag(ObjectPtr py_tag) const 
+    {
+        assert(PyTag_Check(py_tag));
+        return reinterpret_cast<PyTag*>(py_tag)->ext();
+    }
+
 }

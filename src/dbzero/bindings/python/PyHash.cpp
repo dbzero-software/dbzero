@@ -12,17 +12,20 @@ namespace db0::python
 
     using PyHashFunct = int64_t (*)(PyObject *);
 
-    template <> int64_t get_py_hash_impl<TypeId::STRING>(PyObject *key) {
+    template <> int64_t get_py_hash_impl<TypeId::STRING>(PyObject *key)
+    {
         auto unicode_value = PyUnicode_AsUTF8(key);
         return std::hash<std::string>{}(unicode_value);
     }
 
-    template <> int64_t get_py_hash_impl<TypeId::BYTES>(PyObject *key) {
+    template <> int64_t get_py_hash_impl<TypeId::BYTES>(PyObject *key) 
+    {
         auto bytes_value = PyBytes_AsString(key);
         return std::hash<std::string>{}(bytes_value);
     }
 
-    template <> int64_t get_py_hash_impl<TypeId::TUPLE>(PyObject *key) {
+    template <> int64_t get_py_hash_impl<TypeId::TUPLE>(PyObject *key) 
+    {
         auto tuple_size = PyTuple_Size(key);
         int64_t hash = 0;
         for (int i = 0; i < tuple_size; ++i) {
@@ -32,7 +35,8 @@ namespace db0::python
         return hash;
     }
 
-    template <> int64_t get_py_hash_impl<TypeId::DB0_TUPLE>(PyObject *key) {
+    template <> int64_t get_py_hash_impl<TypeId::DB0_TUPLE>(PyObject *key) 
+    {
         TupleObject *tuple_obj = reinterpret_cast<TupleObject*>(key);
         int64_t hash = 0;
         for (size_t i = 0; i < tuple_obj->ext().getData()->size(); ++i) {
@@ -43,16 +47,18 @@ namespace db0::python
         return hash;
     }
     
-    template <> int64_t get_py_hash_impl<TypeId::DB0_ENUM_VALUE>(PyObject *key){
+    template <> int64_t get_py_hash_impl<TypeId::DB0_ENUM_VALUE>(PyObject *key) 
+    {
         auto enum_value = PyToolkit::getTypeManager().extractEnumValue(key);
         return enum_value.getUID().asULong();
-
     }
-    int64_t get_py_hash_impl_default(PyObject *key) {
+    
+    std::int64_t get_py_hash_impl_default(PyObject *key) {
         return PyObject_Hash(key);
     }
 
-    void registerGetHashFunctions(std::vector<PyHashFunct> &functions){
+    void registerGetHashFunctions(std::vector<PyHashFunct> &functions)
+    {
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
         functions[static_cast<int>(TypeId::STRING)] = get_py_hash_impl<TypeId::STRING>;
@@ -60,15 +66,13 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = get_py_hash_impl<TypeId::DB0_TUPLE>;
         functions[static_cast<int>(TypeId::TUPLE)] = get_py_hash_impl<TypeId::TUPLE>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = get_py_hash_impl<TypeId::DB0_ENUM_VALUE>;
-
     }
 
-    PyObject* get_py_hash_as_py_object(PyObject *key)
-    {
+    PyObject* get_py_hash_as_py_object(PyObject *key) {
         return PyLong_FromLong(get_py_hash(key));
     }
 
-    int64_t get_py_hash(PyObject *key)
+    std::int64_t get_py_hash(PyObject *key)
     {
         static std::vector<PyHashFunct> get_py_hash_functions;
         if (get_py_hash_functions.empty()) {
@@ -83,6 +87,5 @@ namespace db0::python
         }
         return func_ptr(key);
     }
-
-    
+        
 }

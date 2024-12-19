@@ -52,15 +52,21 @@ namespace db0::serial
         const std::byte *p = reinterpret_cast<const std::byte *>(&t);
         v.insert(v.end(), p, p + sizeof(T));
     }
-    
-    template <typename T> T read(std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
+
+    template <typename T> void read(std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end, T &t)
     {
         if (iter + sizeof(T) > end) {
             THROWF(db0::InternalException) << "Not enough bytes to read";
         }
-        T t;        
         std::copy(iter, iter + sizeof(T), reinterpret_cast<std::byte *>(&t));
         iter += sizeof(T);
+    }
+    
+    template <typename T> T read(std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
+    {
+        T t;
+        read(iter, end, t);
         return t;
     }
 

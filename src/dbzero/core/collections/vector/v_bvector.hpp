@@ -4,6 +4,7 @@
 #include <map>
 #include <unordered_set>
 #include <cstring>
+#include <optional>
 #include "v_bdata_block.hpp"
 #include <dbzero/core/serialization/Types.hpp>
 #include <dbzero/core/threading/ProgressiveMutex.hpp>
@@ -14,7 +15,8 @@ namespace db0
 
 {
     
-    template <typename PtrT> struct [[gnu::packed]] o_bvector: public o_fixed<o_bvector<PtrT> >
+    template <typename PtrT>
+    struct [[gnu::packed]] o_bvector: public o_fixed<o_bvector<PtrT> >
     {
         // common DBZero object header
         db0::o_unique_header m_header;
@@ -47,7 +49,7 @@ namespace db0
         // interface to data v_bdata_block for specific block-class
         static const DataBlockInterfaceArray<ItemT, 13u> m_interface_array;
 
-    public :
+    public:
         using super_t = v_object<o_bvector<PtrT> >;
         using ptr_t = typename super_t::ptr_t;
         using DataBlockOverlaidType = o_block_data<ItemT, 0>;
@@ -64,8 +66,10 @@ namespace db0
             , m_db_mask(data_container::mask(mem.getPageSize()))
             , m_pb_shift(ptr_container::shift(mem.getPageSize()))
             , m_pb_mask(ptr_container::mask(mem.getPageSize()))
-            , m_b_class(evaluateBClass(0))
-        {
+        {                 
+#ifndef NDEBUG            
+            this->__add();       
+#endif
         }
 
         v_bvector(mptr ptr)
@@ -73,61 +77,55 @@ namespace db0
             , m_db_shift(data_container::shift((*this)->m_page_size))
             , m_db_mask(data_container::mask((*this)->m_page_size))
             , m_pb_shift(ptr_container::shift((*this)->m_page_size))
-            , m_pb_mask(ptr_container::mask((*this)->m_page_size))
-            , m_last_known_size((*this)->m_size)
-            , m_b_class(evaluateBClass(m_last_known_size))
+            , m_pb_mask(ptr_container::mask((*this)->m_page_size))            
         {
+#ifndef NDEBUG
+            this->__add();
+#endif
         }
         
-        // compatibility constructor
+        // Compatibility constructor
         v_bvector(db0::tag_verified, mptr ptr)
             : v_bvector(ptr)
         {        
         }
         
-        v_bvector(const v_bvector &other, FlagSet<AccessOptions> access_mode = {})
-            : super_t(other, access_mode)
+        v_bvector(const v_bvector &&other, FlagSet<AccessOptions> access_mode = {})
+            : super_t(std::move(other), access_mode)
             , m_db_shift(other.m_db_shift)
             , m_db_mask(other.m_db_mask)
             , m_pb_shift(other.m_pb_shift)
-            , m_pb_mask(other.m_pb_mask)
-            , m_last_known_size(other.m_last_known_size)
-            , m_b_class(other.m_b_class)
+            , m_pb_mask(other.m_pb_mask)            
         {
+#ifndef NDEBUG            
+            this->__add(true);
+#endif            
         }
 
-        void operator=(const v_bvector &other)
-        {
-            // clean local cached objects first
-            this->m_pb_cache.clear();
-            this->m_last_block_key = {0, 0};
-            this->m_last_block = nullptr;
-
-            super_t::operator=(other);
-
-            this->m_db_shift = other.m_db_shift;
-            this->m_db_mask = other.m_db_mask;
-            this->m_pb_shift = other.m_pb_shift;
-            this->m_pb_mask = other.m_pb_mask;
-            this->m_last_known_size = other.m_last_known_size;
-            this->m_b_class = other.m_b_class;
+        ~v_bvector() {
+#ifndef NDEBUG
+            this->__remove();
+#endif
         }
-
+        
         void operator=(v_bvector &&other)
         {
-            // clean local cached objects first
-            this->m_pb_cache.clear();
-            this->m_last_block_key = {0, 0};
-            this->m_last_block = nullptr;
-
-            super_t::operator=(std::move(other));
-
             assert(this->m_db_shift == other.m_db_shift);
             assert(this->m_db_mask == other.m_db_mask);
             assert(this->m_pb_shift == other.m_pb_shift);
             assert(this->m_pb_mask == other.m_pb_mask);
-            this->m_last_known_size = std::move(other.m_last_known_size);
-            this->m_b_class = std::move(other.m_b_class);
+
+#ifndef NDEBUG
+            this->__remove();
+#endif
+            // clean local cached objects first
+            this->m_pb_cache.clear();
+            this->m_last_block_key = {0, 0};
+            this->m_last_block = nullptr;
+            super_t::operator=(std::move(other));
+#ifndef NDEBUG
+            this->__add(true);
+#endif            
         }
 
         /**
@@ -191,16 +189,8 @@ namespace db0
         /**
          * @return number of items contained (indexed from 0 to size - 1)
          */
-        std::uint64_t size() const 
-        {
-            auto result = (*this)->m_size;
-            if (result!=m_last_known_size) {
-                // this is to update to modifications done to other instance
-                cleanup();
-                this->m_b_class = evaluateBClass(result);
-                m_last_known_size = result;
-            }
-            return result;
+        std::uint64_t size() const {
+            return (*this)->m_size;
         }
 
         bool empty() const {
@@ -243,11 +233,11 @@ namespace db0
                         break;
                     }
                     // full block span
-                    span = (std::size_t)(1 << (m_db_shift - this->m_b_class));
+                    span = (std::size_t)(1 << (m_db_shift - this->getBClass()));
                     --(key.second);
                 }
-                this->m_last_known_size = (*this)->m_size;
-                this->m_b_class = evaluateBClass(m_last_known_size);
+                // invalidate to recalculate
+                this->m_b_class = {};
             }
         }
 
@@ -428,20 +418,20 @@ namespace db0
             setItem(size(), ItemT(std::forward<Args>(args)...));
         }
 
-        /**
-         * For debug & evaluation only
-         * retrieve size-class of the first data block
-         */
-        int getBClass() const {
-            return this->m_b_class;
+        std::size_t getBClass() const
+        {
+            if (!this->m_b_class) {
+                this->m_b_class = evaluateBClass((*this)->m_size);
+            }
+            return *(this->m_b_class);
         }
 
         void dump(std::ostream &os) const 
         {
             b_key key = getKey(0,0);
-            uint64_t index = 0;
-            uint64_t end_index = size();
-            size_t block_index = 0;
+            std::uint64_t index = 0;
+            std::uint64_t end_index = size();
+            std::size_t block_index = 0;
             const DataBlockType *block_ptr = 0;
             while (index!=end_index) {
                 if (!block_ptr) {
@@ -455,7 +445,7 @@ namespace db0
                 (*block_ptr)->getItem(block_index).dump(os);
                 ++index;
                 ++block_index;
-                if (block_index==(1u << (m_db_shift - this->m_b_class))) {
+                if (block_index==(1u << (m_db_shift - this->getBClass()))) {
                     block_ptr = 0;
                     block_index = 0;
                     ++key.second;
@@ -483,6 +473,8 @@ namespace db0
             m_pb_cache.clear();
             m_last_block_key = { 0, 0 };
             m_last_block = nullptr;
+            // invalidate objects' b-class
+            m_b_class = {};
             super_t::detach();
         }
         
@@ -498,7 +490,7 @@ namespace db0
             super_t::commit();
         }
 
-    private :
+    private:
         
         void destroyAllBlocks() const
         {
@@ -525,14 +517,12 @@ namespace db0
             std::unordered_set<PtrT> blocks;
 
             const auto max_index = 1ul << m_pb_shift;
-            while (stack.empty() == false)
-            {
+            while (stack.empty() == false) {
                 const auto root = std::get<0>(stack.top());
                 const auto h = std::get<1>(stack.top());
                 auto& i = std::get<2>(stack.top());
 
-                if (!root)
-                {
+                if (!root) {
                     stack.pop();
                     continue;
                 }
@@ -541,26 +531,19 @@ namespace db0
                     f(root, h == 0);
                 }
 
-                if (h > 0)
-                {
-                    if (i < max_index)
-                    {
+                if (h > 0) {
+                    if (i < max_index) {
                         ptr_block block(this->myPtr(root));
                         stack.emplace(block->getItem(i), h-1, 0);
                         ++i;
-                    }
-                    else
-                    {
+                    } else {
                         stack.pop();
                     }
-                }
-                else
-                {
+                } else {
                     auto shift = (1ul << m_db_shift);
                     bool end = shift >= s;
                     s = end ? 0 : s-shift;
-                    if (s == 0)
-                    {
+                    if (s == 0) {
                         return;
                     }
                     stack.pop();
@@ -575,14 +558,13 @@ namespace db0
     
     protected:
         mutable progressive_mutex m_mutex;
-        const std::uint32_t m_db_shift;
-        const std::uint32_t m_db_mask;
-        const std::uint32_t m_pb_shift;
-        const std::uint32_t m_pb_mask;
-        // size class of the data block (0 = full size)
-        mutable std::uint64_t m_last_known_size = 0;
-        mutable std::size_t m_b_class;
-
+        const std::uint32_t m_db_shift = 0;
+        const std::uint32_t m_db_mask = 0;
+        const std::uint32_t m_pb_shift = 0;
+        const std::uint32_t m_pb_mask = 0;
+        // size class of the data block (0 = full size)        
+        mutable std::optional<std::size_t> m_b_class;
+        
         // universal block key (height / index)
         using b_key = std::pair<int, int>;
 
@@ -608,7 +590,7 @@ namespace db0
             if(size > 0) {
                 ++height;
                 --size;
-                size >>= (m_db_shift - this->m_b_class);
+                size >>= (m_db_shift - this->getBClass());
                 while (size > 0) {
                     size >>= m_pb_shift;
                     ++height;
@@ -617,7 +599,7 @@ namespace db0
             return height;
         }
 
-    public :
+    public:
 
         /**
          * Data block factory method (construct within specific memspace)
@@ -627,11 +609,11 @@ namespace db0
         {
             assert(m_interface_array[b_class].getBClass()==b_class);
             return std::unique_ptr<DataBlockType>(reinterpret_cast<DataBlockType*>(
-                    m_interface_array[b_class].createNewDataBlock(memspace))
-                    );
+                m_interface_array[b_class].createNewDataBlock(memspace))
+            );
         }
 
-    private :
+    private:
 
         /**
          * Block factory member (cast from specific b-class)
@@ -646,7 +628,7 @@ namespace db0
          */
         void growBlock(std::size_t new_b_class) 
         {
-            if (this->m_b_class!=new_b_class) {
+            if (this->getBClass() != new_b_class) {
                 // grow condition
                 assert(!empty());
                 assert(height()==1);
@@ -662,7 +644,7 @@ namespace db0
                 std::memcpy (
                     &((*new_block).modify().modifyItem(0)) ,
                     &(existing_block->getItem(0)) ,
-                    std::min(sizeof(ItemT) << (m_db_shift - m_b_class),sizeof(ItemT) << (m_db_shift - new_b_class))
+                    std::min(sizeof(ItemT) << (m_db_shift - this->getBClass()), sizeof(ItemT) << (m_db_shift - new_b_class))
                 );
 #ifdef  __linux__
 	#pragma GCC diagnostic pop
@@ -684,11 +666,11 @@ namespace db0
             std::uint64_t index = size();
             // h = 0 means data block (0 height)
             b_key key = getKey(0, index);
-            auto new_block = newDataBlock(this->m_b_class);
+            auto new_block = newDataBlock(this->getBClass());
             // link to the the pointers' block
             if (height(index + 1) > 1) {
                 // b_class = 0 means full page (full size) block
-                assert(this->m_b_class==0);
+                assert(this->getBClass() == 0);
                 ptr_block &block = createPtrBlock(getParentKey(key));
                 block.modify().modifyItem(getParentIndex(key)) = (*new_block).getAddress();
             } else {
@@ -727,9 +709,10 @@ namespace db0
         std::pair<std::uint64_t, std::uint64_t> getDataBlockRange(std::uint64_t index) const 
         {
             // scale by b_class value
-            index >>= (m_db_shift - m_b_class);
+            index >>= (m_db_shift - this->getBClass());
             return std::make_pair(
-                index << (m_db_shift - m_b_class), (index + 1) << (m_db_shift - m_b_class)
+                index << (m_db_shift - this->getBClass()), 
+                (index + 1) << (m_db_shift - this->getBClass())
             );
         }
 
@@ -740,7 +723,8 @@ namespace db0
         {
             assert(key.first == 0);
             return std::make_pair(
-                key.second << (m_db_shift - m_b_class),(key.second + 1) << (m_db_shift - m_b_class)
+                key.second << (m_db_shift - this->getBClass()),
+                (key.second + 1) << (m_db_shift - this->getBClass())
             );
         }
 
@@ -831,7 +815,7 @@ namespace db0
             progressive_mutex::scoped_read_lock rw_lock(this->m_mutex);
             return createPtrBlock(key, rw_lock);
         }
-
+        
         /**
          * Get block pointer / feed cache
          */
@@ -879,19 +863,16 @@ namespace db0
         /**
          * Get existing block of pointers, use cache
          */
-        ptr_block &modifyPtrBlock(PtrT ptr, const b_key &block_key) 
-        {
+        ptr_block &modifyPtrBlock(PtrT ptr, const b_key &block_key) {
             progressive_mutex::scoped_read_lock rw_lock(this->m_mutex);
             return getPtrBlock(ptr, block_key, rw_lock);
         }
 
-        const ptr_block &getPtrBlock(PtrT ptr, const b_key &block_key) const 
-        {
+        const ptr_block &getPtrBlock(PtrT ptr, const b_key &block_key) const {
             return ((v_bvector&)(*this)).modifyPtrBlock(ptr, block_key);
         }
 
-        const ptr_block &getPtrBlock(PtrT ptr, const b_key &block_key, progressive_mutex::scoped_lock &rw_lock) const 
-        {
+        const ptr_block &getPtrBlock(PtrT ptr, const b_key &block_key, progressive_mutex::scoped_lock &rw_lock) const {
             return ((v_bvector&)(*this)).modifyPtrBlock(ptr, block_key, rw_lock);
         }
 
@@ -899,10 +880,9 @@ namespace db0
         {
             // query cache first
             auto it = m_pb_cache.find(block_key);
-            if (it==m_pb_cache.end()) {
+            if (it == m_pb_cache.end()) {
                 return getPtrBlock(getBlockPtr(block_key, rw_lock), block_key, rw_lock);
-            }
-            else {
+            } else {
                 return *(it->second);
             }
         }
@@ -921,7 +901,7 @@ namespace db0
                 if (!lock.upgradeToUniqueLock()) {
                     continue;
                 }
-                m_last_block = fetchDataBlock(ptr_block, this->m_b_class);
+                m_last_block = fetchDataBlock(ptr_block, this->getBClass());
                 m_last_block_key = block_key;
                 return *m_last_block;
             }
@@ -946,14 +926,14 @@ namespace db0
                 progressive_mutex::scoped_read_lock rw_lock(this->m_mutex);
                 ptr_block = this->getBlockPtr(block_key, rw_lock);
             }
-            return fetchDataBlock(ptr_block, this->m_b_class);
+            return fetchDataBlock(ptr_block, this->getBClass());
         }
 
         std::unique_ptr<DataBlockType> fetchDataBlock(PtrT ptr_block, size_t b_class) const 
         {
             assert(m_interface_array[b_class].getBClass()==b_class);
             return std::unique_ptr<DataBlockType>(reinterpret_cast<DataBlockType *>(
-                    m_interface_array[b_class].createNewExistingDataBlock(this->myPtr(ptr_block)))
+                m_interface_array[b_class].createNewExistingDataBlock(this->myPtr(ptr_block)))
             );
         }
 
@@ -1024,7 +1004,7 @@ namespace db0
                 // clear pointer block(s)
                 std::size_t index = getParentIndex(key);
                 if ((index==0) || ((index==1) && (height()==2))) {
-                    assert (this->m_b_class==0);
+                    assert (this->getBClass() == 0);
                     destroyPtrBlock(getParentKey(key), rw_lock);
                 }
             }
@@ -1046,8 +1026,8 @@ namespace db0
         {
             assert(block_key.first==0);
             auto range = getDataBlockRange(block_key);
-            return (size_t)std::min(
-                    (uint64_t)(1 << (m_db_shift - this->m_b_class)), (size() - range.first)
+            return (std::size_t)std::min(
+                (std::uint64_t)(1 << (m_db_shift - this->getBClass())), (size() - range.first)
             );
         }
 
@@ -1059,13 +1039,13 @@ namespace db0
                 ref_size >>= 1;
                 ++result;
             }
-            if (size==0) {
+            if (size == 0) {
                 ++result;
             }
             return result;
         }
 
-    public :
+    public:
         friend class Builder;
 
         /**
@@ -1149,8 +1129,8 @@ namespace db0
             void addBlock(std::pair<std::uint64_t, std::uint64_t> range, b_key k, int b_class) 
             {
                 m_blocks.emplace(std::piecewise_construct,
-                               std::forward_as_tuple(range.first) ,
-                               std::forward_as_tuple(range, k, b_class)
+                    std::forward_as_tuple(range.first),
+                    std::forward_as_tuple(range, k, b_class)
                 );
             }
 
@@ -1158,8 +1138,7 @@ namespace db0
              * Before calling finish build you should iterate over all blocks,
              * create them and possibly write some data
              */
-            std::map<std::uint64_t, BlockData> &getBlocks() 
-            {
+            std::map<std::uint64_t, BlockData> &getBlocks() {
                 return m_blocks;
             }
 
@@ -1205,25 +1184,24 @@ namespace db0
          * 1) create actual data block (write data there)
          * 2) close builder (must report block addresses back to builder)
          */
-        void preparePushBack(std::uint64_t count, Builder &builder) 
+        /* FIXME: out of service
+        void preparePushBack(std::uint64_t count, Builder &builder)
         {
             assert(count > 0);
-            if (!empty()) {
-                THROWF(db0::InternalException) 
-                    << "currently preparePushBack is only supported for empty v_bvector";
-            }
+            assert(empty() && "currently preparePushBack is only supported for empty v_bvector");        
             // evaluate / modify B-CLASS
             this->m_b_class = evaluateBClass(count);
             std::uint64_t current_size = size();
             while (count > 0) {
                 // grow by adding new block(s), last block will be smaller size
-                uint64_t diff = std::min(count, (uint64_t)(1 << (m_db_shift - m_b_class)));
+                uint64_t diff = std::min(count, (std::uint64_t)(1 << (m_db_shift - m_b_class)));
                 preparePushBlock(builder, diff, current_size);
                 count -= diff;
                 // update current size but do not change actual collection size just yet
                 current_size += diff;
             }
         }
+        */
 
         /**
          * Performs part of push block operation and allow to complete this later
@@ -1232,23 +1210,25 @@ namespace db0
          * 2) bind with data structure (this part of operation is performed by builder)
          * @param size v_bvector size at the moment of adding block
          */
+        /* FIXME: out of service
         void preparePushBlock(Builder &builder, std::uint64_t block_size, std::uint64_t size) 
         {
             std::uint64_t index = size;
             auto full_range = getDataBlockRange(index);
             assert((full_range.second - full_range.first) >= block_size);
-            std::pair<uint64_t, uint64_t> range(full_range.first, full_range.first + block_size);
+            std::pair<std::uint64_t, std::uint64_t> range(full_range.first, full_range.first + block_size);
             assert(range.first==index);
             // h = 0 means data block (0 height)
             b_key key = getKey(0, index);
             // add block related information
             builder.addBlock(range, key, this->m_b_class);
         }
-
+        */
+        
         /**
          * Feed vector with "count" items (grow it)
          */
-        void growBy(unsigned int count) 
+        void growBy(unsigned int count)
         {
             assert(count > 0);
             // pad current block with data
@@ -1264,7 +1244,8 @@ namespace db0
             }
             while (count > 0) {
                 // Grow data block (by class upgrade)
-                if (!is_empty && (this->m_b_class > 0)) {
+                auto b_class = this->getBClass();
+                if (!is_empty && (b_class > 0)) {
                     assert(height() < 2);
                     // destination class
                     growBlock(evaluateBClass(size() + count));
@@ -1276,13 +1257,12 @@ namespace db0
                 } else {
                     // grow by adding new block(s)
                     push_block();
-                    auto diff = std::min(count, (unsigned int)(1 << (m_db_shift - m_b_class)));
+                    auto diff = std::min(count, (unsigned int)(1 << (m_db_shift - b_class)));
                     count -= diff;
                     this->modify().m_size += diff;
                     is_empty = false;
                 }
             }
-            m_last_known_size = (*this)->m_size;
         }
 
         class const_iterator 
@@ -1489,7 +1469,6 @@ namespace db0
         };
 
     private:
-
         /**
          * Fetch data block containing specific item from backend
          */
@@ -1556,7 +1535,7 @@ namespace db0
             auto key = getKey(0,0);
             std::uint64_t index = 0;
             std::uint64_t end_index = this->size();
-            std::size_t block_size = 1u << (m_db_shift - this->m_b_class);
+            std::size_t block_size = 1u << (m_db_shift - this->getBClass());
             while (index!=end_index) {
                 auto block = fetchDataBlock(key);
                 std::uint64_t this_block_end_index = std::min(end_index, index + block_size);
@@ -1566,9 +1545,46 @@ namespace db0
             }
         }
 
-    };
+    private:
+#ifndef NDEBUG
+        static std::map<std::pair<const Memspace*, std::uint64_t>, int> m_instance_log;
 
+        // the code to detect multiple v_bvector instances (not allowed)
+        void __add(bool move = false) {
+            auto key = std::make_pair(&this->getMemspace(), this->getAddress());
+            auto it = m_instance_log.find(key);
+            if (it == m_instance_log.end()) {
+                m_instance_log[key] = 1;
+            } else {
+                assert(move && it->second == 1);
+                it->second++;
+            }
+        }
+
+        void __remove() {
+            if (this->getAddress() == 0) {
+                return;
+            }
+            auto key = std::make_pair(&this->getMemspace(), this->getAddress());
+            auto it = m_instance_log.find(key);
+            if (it == m_instance_log.end()) {
+                assert(false);
+            } else {
+                it->second--;
+                if (it->second == 0) {
+                    m_instance_log.erase(it);
+                }
+            }
+        }
+#endif
+    };
+    
     template <typename ItemT, typename PtrT>
     const DataBlockInterfaceArray<ItemT, 13u> v_bvector<ItemT, PtrT>::m_interface_array;
+    
+#ifndef NDEBUG    
+    template <typename ItemT, typename PtrT>
+    std::map<std::pair<const Memspace*, std::uint64_t>, int> v_bvector<ItemT, PtrT>::m_instance_log;
+#endif
 
 }

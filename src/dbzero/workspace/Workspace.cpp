@@ -10,16 +10,6 @@ namespace db0
 
 {
     
-    void validateAccessType(const Fixture &fixture, std::optional<AccessType> requested)
-    {
-        if (!requested) {
-            return;
-        }
-        if (*requested == AccessType::READ_WRITE && fixture.getAccessType() != AccessType::READ_WRITE) {
-            THROWF(db0::InputException) << "Unable to update the read-only prefix: " << fixture.getPrefix().getName();
-        }
-    }
-
     BaseWorkspace::BaseWorkspace(const std::string &root_path, std::optional<std::size_t> cache_size,
         std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> flush_size, std::optional<LockFlags> default_lock_flags)
         : m_prefix_catalog(root_path)
@@ -28,8 +18,8 @@ namespace db0
             [this](std::size_t limit) {
                 this->onFlushDirty(limit);
             },
-            [this](bool threshold_reached) {
-                this->onCacheFlushed(threshold_reached);
+            [this](bool threshold_reached) -> bool {
+                return this->onCacheFlushed(threshold_reached);
             }
         )
         , m_slab_recycler(slab_cache_size ? *slab_cache_size : DEFAULT_SLAB_CACHE_SIZE)
@@ -152,8 +142,8 @@ namespace db0
         m_cache_recycler.clear();
     }
 
-    void BaseWorkspace::onCacheFlushed(bool) const
-    {
+    bool BaseWorkspace::onCacheFlushed(bool) const {
+        return true;
     }
     
     void BaseWorkspace::forEachMemspace(std::function<bool(Memspace &)> callback)
@@ -181,7 +171,7 @@ namespace db0
                 }
                 total_dirty_size -= size_flushed;
                 limit -= size_flushed;
-            }
+            }            
             return true;
         });
     }
@@ -231,7 +221,7 @@ namespace db0
 
     Workspace::Workspace(const std::string &root_path, std::optional<std::size_t> cache_size, 
         std::optional<std::size_t> slab_cache_size, std::optional<std::size_t> vobject_cache_size, 
-        std::optional<std::size_t> flush_size, std::function<void(db0::swine_ptr<Fixture> &, bool, bool)> fixture_initializer,
+        std::optional<std::size_t> flush_size, std::function<void(db0::swine_ptr<Fixture> &, bool, bool, bool)> fixture_initializer,
         std::shared_ptr<Config> config, std::optional<LockFlags> default_lock_flags)
         : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size, default_lock_flags)
         , m_fixture_catalog(m_prefix_catalog)
@@ -346,7 +336,7 @@ namespace db0
                 auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator);
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
-                    m_fixture_initializer(fixture, file_created, read_only);
+                    m_fixture_initializer(fixture, file_created, read_only, false);
                 }
                 
                 if (file_created) {
@@ -435,8 +425,8 @@ namespace db0
         } else {
             result = getCurrentFixture();
         }
-
-        validateAccessType(*result, access_type);        
+        
+        assureAccessType(*result, access_type);
         return result;
     }
     
@@ -474,7 +464,7 @@ namespace db0
         }
     }
     
-    std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool is_read_only)>
+    std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool is_read_only, bool is_snapshot)>
     Workspace::getFixtureInitializer() const {
         return m_fixture_initializer;
     }
@@ -604,16 +594,24 @@ namespace db0
         m_lang_cache->clear(true);
     }
     
-    void Workspace::onCacheFlushed(bool threshold_reached) const
+    bool Workspace::onCacheFlushed(bool threshold_reached) const
     {
-        BaseWorkspace::onCacheFlushed(threshold_reached);
+        if (!BaseWorkspace::onCacheFlushed(threshold_reached)) {
+            return false;
+        }
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (!fixture->onCacheFlushed(threshold_reached)) {
+                // unable to handle this event - e.g. due to pending commit
+                return false;
+            }
+        }
+
         if (!threshold_reached) {
             // additionally erase the entire LangCache to attempt reaching the flush objective            
             m_lang_cache->clear(true);
         }
-        for (auto &[uuid, fixture] : m_fixtures) {
-            fixture->onCacheFlushed(threshold_reached);
-        }
+
+        return true;
     }
     
     const FixtureCatalog &Workspace::getFixtureCatalog() const {

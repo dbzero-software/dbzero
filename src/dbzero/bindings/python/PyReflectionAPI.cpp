@@ -6,7 +6,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include "PyToolkit.hpp"
-#include "PyClass.hpp"
+#include <dbzero/bindings/python/types/PyClass.hpp>
 
 namespace db0::python
 

@@ -2,7 +2,11 @@
 #include "Memo.hpp"
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
-#include "PyObjectId.hpp"
+#include "PyObjectTagManager.hpp"
+#include "PySnapshot.hpp"
+#include "PyTagSet.hpp"
+#include "PyAtomic.hpp"
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyByteArray.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
@@ -10,16 +14,15 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/PyWorkspace.hpp>
-#include "PyObjectTagManager.hpp"
-#include "PyObjectIterator.hpp"
-#include "PySnapshot.hpp"
-#include "PyTagSet.hpp"
-#include "PyEnum.hpp"
+#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
+#include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
-#include "PyClassFields.hpp"
-#include "PyClass.hpp"
-#include "PyAtomic.hpp"
+#include <dbzero/bindings/python/types/PyClassFields.hpp>
+#include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/types/PyTag.hpp>
+#include <dbzero/bindings/python/PyTagSet.hpp>
 
 namespace py = db0::python;
     
@@ -58,7 +61,6 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"is_singleton", &py::isSingleton, METH_VARARGS, "Check if a specific instance is a DBZero singleton"},
     {"getrefcount", &py::getRefCount, METH_VARARGS, "Get DBZero ref counts"},
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},
-    {"is_tag", (PyCFunction)&py::PyAPI_MemoObject_IsTag, METH_FASTCALL, "Checks if a specific Memo instance is a tag"},
     {"to_dict", (PyCFunction)&py::toDict, METH_FASTCALL, "Serialize DBZero object as a Python dict"},
     {"build_flags", &py::getBuildFlags, METH_NOARGS, "Retrieve DBZero library build flags"},
     {"serialize", (PyCFunction)&py::pySerialize, METH_FASTCALL, "Serialize DBZero serializable instance"},
@@ -80,8 +82,9 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"getattr_as", (PyCFunction)&py::getAttrAs, METH_FASTCALL, "Get memo member cast to a user defined type - e.g. MemoBase"},
     {"get_address", (PyCFunction)&py::PyAPI_getAddress, METH_FASTCALL, "Get DBZero object's address"},
     {"get_type", (PyCFunction)&py::PyAPI_getType, METH_FASTCALL, "For a given DBZero instance, get associated Python type"},
-    {"load", (PyCFunction)&py::PyAPI_load, METH_FASTCALL, "Load the entire instance from DBZero to memory and return as the closest native Python type"},
+    {"load", (PyCFunction)&py::PyAPI_load, METH_VARARGS | METH_KEYWORDS, "Load the entire instance from DBZero to memory and return as the closest native Python type"},
     {"hash", (PyCFunction)&py::PyAPI_hash, METH_FASTCALL, "Returns hash of python or db0 object"},
+    {"as_tag", (PyCFunction)&py::PyAPI_as_tag, METH_FASTCALL, "Returns tag of a @db0.memo object"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
@@ -140,16 +143,20 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::DictObjectType,
         &py::PyObjectTagManagerType, 
         &py::PySnapshotObjectType, 
-        &py::PandasBlockObjectType, 
-        &py::PandasDataFrameObjectType,         
-        &py::PyObjectIteratorType,        
+        &py::PandasBlockObjectType,
+        &py::PandasDataFrameObjectType,
+        &py::PyObjectIterableType,
+        &py::PyObjectIteratorType,
         &py::ByteArrayObjectType,
         &py::PyEnumType, 
         &py::PyEnumValueType,
+        &py::PyEnumValueReprType,
         &py::PyClassFieldsType,
         &py::PyFieldDefType,
         &py::ClassObjectType,
-        &py::PyAtomicType
+        &py::TagSetType,
+        &py::PyAtomicType,        
+        &py::PyTagType
     };
     
     // register all types

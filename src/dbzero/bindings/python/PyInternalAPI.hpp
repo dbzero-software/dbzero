@@ -2,7 +2,7 @@
 
 #include <Python.h>
 #include <cstdint>
-#include "PyObjectId.hpp"
+#include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
@@ -44,28 +44,29 @@ namespace db0::python
     
     /**
      * Runs a function, catch exeptions and translate into Python errors
+     * @tparam ERR_RESULT integer value representing an error (default is 0 / NULL but some APIs may use -1)
     */
-    template <typename... Args, typename T>
+    template <int ERR_RESULT = 0, typename T, typename... Args>
     typename std::invoke_result_t<T, Args...> runSafe(T func, Args&&... args)
     {
         try {
             auto result = func(std::forward<Args>(args)...);
             if (PyErr_Occurred()) {
-                return 0;
+                return ERR_RESULT;
             }
             return result;
         } catch (const db0::ClassNotFoundException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getClassNotFoundError(), e.what());
-            return 0;
+            return ERR_RESULT;
         } catch (const db0::AbstractException &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
-            return 0;
+            return ERR_RESULT;
         } catch (const std::exception &e) {
             PyErr_SetString(PyExc_RuntimeError, e.what());
-            return 0;
+            return ERR_RESULT;
         } catch (...) {
             PyErr_SetString(PyExc_RuntimeError, "Unknown exception");
-            return 0;
+            return ERR_RESULT;
         }
     }
     
@@ -85,6 +86,7 @@ namespace db0::python
 
     /**
      * Universal find implementation (works on Workspace or WorkspaceView)
+     * @return PyObjectIterable
     */
     PyObject *findIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs);
     
@@ -111,7 +113,7 @@ namespace db0::python
     PyTypeObject *tryGetType(PyObject *py_obj);
     
     // Load dbzero object to memory
-    PyObject *tryLoad(PyObject *);
+    PyObject *tryLoad(PyObject *, PyObject*, PyObject *py_exlude = nullptr);
     
     // Retrieve prefix (its Fixture objects) from the optional argument "prefix"
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name);

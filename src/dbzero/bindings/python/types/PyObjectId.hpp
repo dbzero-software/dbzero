@@ -3,8 +3,8 @@
 #include <Python.h>
 #include <cstdint>
 #include <array>
-#include "WhichType.hpp"
-#include "PyWrapper.hpp"
+#include <dbzero/bindings/python/WhichType.hpp>
+#include <dbzero/bindings/python/PyWrapper.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 
 namespace db0::object_model

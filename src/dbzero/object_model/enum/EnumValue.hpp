@@ -8,6 +8,7 @@ namespace db0::object_model
 {
     
     using LP_String = db0::LP_String;
+    struct EnumTypeDef;
     
     struct EnumValue_UID
     {
@@ -25,8 +26,17 @@ namespace db0::object_model
     // e.g. due to read-only access
     struct EnumValueRepr
     {
+        // the associated type definition
+        std::shared_ptr<EnumTypeDef> m_enum_type_def;
         // the string representation
         std::string m_str_repr;
+
+        EnumValueRepr(std::shared_ptr<EnumTypeDef>, const std::string &str_repr);
+        ~EnumValueRepr();
+        
+        const EnumTypeDef &getEnumTypeDef() const;
+        
+        static EnumValueRepr &makeNew(void *at, std::shared_ptr<EnumTypeDef>, const std::string &str_repr);
     };
     
     struct EnumValue
@@ -43,4 +53,12 @@ namespace db0::object_model
         EnumValue_UID getUID() const;
     };
     
+} 
+
+namespace std
+
+{
+    
+    ostream &operator<<(ostream &, const db0::object_model::EnumValue &);
+
 }

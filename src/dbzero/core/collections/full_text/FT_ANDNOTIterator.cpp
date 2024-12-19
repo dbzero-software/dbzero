@@ -465,6 +465,11 @@ namespace db0
         // calculate hash from bytes as a signature
         db0::serial::sha256(buf, v);
     }
+    
+    template <typename key_t>
+    bool db0::FT_ANDNOTIterator<key_t>::isNextKeyDuplicated() const {
+        return getBaseIterator().isNextKeyDuplicated();
+    }
 
     template class FT_ANDNOTIterator<std::uint64_t>;
     

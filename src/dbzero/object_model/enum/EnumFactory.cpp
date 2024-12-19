@@ -102,9 +102,13 @@ namespace db0::object_model
         }
         return result;
     }
+    
+    std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumTypeDef &enum_type_def) {
+        return tryGetOrCreateEnum(enum_type_def.m_enum_def, enum_type_def.tryGetTypeId());
+    }
 
     std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumDef &enum_def, const char *type_id)
-    {
+    {        
         auto ptr = tryFindEnumPtr(enum_def, type_id);
         if (ptr) {
             return getEnumByPtr(ptr);
@@ -115,7 +119,8 @@ namespace db0::object_model
         if (fixture->getAccessType() != AccessType::READ_WRITE) {
             // unable to create enum due to insufficient access rights
             return nullptr;
-        }        
+        }
+        
         auto enum_ = std::shared_ptr<Enum>(
             new Enum(fixture, enum_def.m_name, enum_def.m_module_name, enum_def.m_values, type_id));
         auto enum_ptr = EnumPtr(*enum_);
@@ -137,23 +142,35 @@ namespace db0::object_model
     {
         auto enum_ = tryGetOrCreateEnum(enum_def, type_id);
         if (!enum_) {
-            THROWF(db0::InputException) << "Unable to create Enum: " << enum_def.m_name;
-        }
-        return enum_;
-    }
-    
-    std::shared_ptr<Enum> EnumFactory::getExistingEnum(const EnumDef &enum_def, const char *type_id) const
-    {
-        auto enum_ = tryGetExistingEnum(enum_def, type_id);
-        if (!enum_) {
-            THROWF(db0::InputException) << "Enum not found: " << enum_def.m_name;
+            auto prefix_name = this->getFixture()->getPrefix().getName();
+            THROWF(db0::InputException) << "Unable to create Enum: " << enum_def << ", type_id: " 
+                << (type_id != nullptr ? type_id : "null") << " in " << prefix_name;
         }
         return enum_;
     }
 
-    std::shared_ptr<Enum> EnumFactory::tryGetExistingEnum(const EnumDef &enum_def, const char *type_id) const
-    {
-        auto ptr = tryFindEnumPtr(enum_def, type_id);
+    std::shared_ptr<Enum> EnumFactory::getOrCreateEnum(const EnumTypeDef &enum_type_def)
+    {        
+        auto enum_ = tryGetOrCreateEnum(enum_type_def);
+        if (!enum_) {
+            THROWF(db0::InputException) << "Unable to create Enum: " << enum_type_def;
+        }
+        return enum_;
+    }
+    
+    std::shared_ptr<Enum> EnumFactory::getExistingEnum(const EnumTypeDef &enum_type_def) const
+    {        
+        auto enum_ = tryGetExistingEnum(enum_type_def);
+        if (!enum_) {
+            THROWF(db0::InputException) << "Enum not found: " << enum_type_def;
+        }
+        return enum_;
+    }
+    
+    std::shared_ptr<Enum> EnumFactory::tryGetExistingEnum(const EnumTypeDef &enum_type_def) const
+    {        
+        auto type_id = enum_type_def.tryGetTypeId();
+        auto ptr = tryFindEnumPtr(enum_type_def.m_enum_def, type_id);
         if (!ptr) {
             return nullptr;
         }
@@ -179,21 +196,80 @@ namespace db0::object_model
         return getEnumByPtr(enum_ptr);
     }
     
-    EnumValue EnumFactory::translateEnumValue(const EnumValue &other)
+    bool EnumFactory::isMigrateRequired(const EnumValue &other) const {
+        return (other.m_fixture_uuid != getFixture()->getUUID());
+    }
+    
+    std::shared_ptr<Enum> EnumFactory::tryGetMigratedEnum(const EnumValue &other)
     {
-        if (other.m_fixture_uuid == getFixture()->getUUID()) {
-            // no translation needed
-            return other;
-        }
+        assert(other.m_fixture_uuid != getFixture()->getUUID());
         auto &other_factory = this->getFixture()->getWorkspace().
             getFixture(other.m_fixture_uuid, AccessType::READ_ONLY)->get<EnumFactory>();
         auto other_enum = other_factory.getEnumByUID(other.m_enum_uid);
         auto type_id = other_enum->getTypeID();
-        // FIXME: opt
+        // FIXME: optimization
         // getEnumDef can be avoided if definition already exists in the destination fixture
-        auto enum_ = this->getOrCreateEnum(other_enum->getEnumDef(), type_id ? type_id->c_str() : nullptr);
-        // resolve by text representation (since UIDs are not compatible across fixtures)
+        return this->tryGetOrCreateEnum(other_enum->getEnumDef(), type_id ? type_id->c_str() : nullptr);
+    }
+    
+    std::shared_ptr<Enum> EnumFactory::getMigratedEnum(const EnumValue &other)
+    {
+        auto enum_ = tryGetMigratedEnum(other);
+        if (!enum_) {
+            THROWF(db0::InputException) << "Unable to migrate EnumValue: " << other << " to prefix: " 
+                << getFixture()->getPrefix().getName();
+        }
+        return enum_;
+    }
+    
+    std::optional<EnumValue> EnumFactory::tryMigrateEnumValue(const EnumValue &other)
+    {
+        if (other.m_fixture_uuid == getFixture()->getUUID()) {
+            // no translation required
+            return other;
+        }
+
+        auto enum_ = tryGetMigratedEnum(other);    
+        if (!enum_) {
+            return std::nullopt;
+        }
+        // must resolve enum value by name since UIDs dont match across prefixes
         return enum_->get(other.m_str_repr.c_str());
+    }
+
+    EnumValue EnumFactory::migrateEnumValue(const EnumValue &other)
+    {
+        auto enum_value = tryMigrateEnumValue(other);
+        if (!enum_value) {
+            THROWF(db0::InputException) << "Unable to migrate EnumValue: " << other << " to prefix: " 
+                << getFixture()->getPrefix().getName();
+        }
+        return *enum_value;
+    }
+    
+    EnumFactory::ObjectSharedPtr EnumFactory::tryMigrateEnumLangValue(const EnumValue &other)
+    {
+        if (other.m_fixture_uuid == getFixture()->getUUID()) {
+            // retrieve from this factory
+            return getEnumByUID(other.m_enum_uid)->getLangValue(other);
+        }
+                
+        auto enum_ = tryGetMigratedEnum(other);
+        if (!enum_) {
+            return nullptr;
+        }
+        // must resolve enum value by name since UIDs dont match across prefixes
+        return enum_->getLangValue(other.m_str_repr.c_str());
+    }
+
+    EnumFactory::ObjectSharedPtr EnumFactory::migrateEnumLangValue(const EnumValue &other)
+    {
+        auto lang_value = tryMigrateEnumLangValue(other);
+        if (!lang_value) {
+            THROWF(db0::InputException) << "Unable to migrate EnumValue: " << other << " to prefix: " 
+                << getFixture()->getPrefix().getName();
+        }
+        return lang_value;
     }
     
     void EnumFactory::commit() const
@@ -216,6 +292,30 @@ namespace db0::object_model
             item.second->detach();
         }
         super_t::detach();
+    }
+    
+    std::optional<EnumValue> EnumFactory::tryGetEnumValue(const EnumValueRepr &enum_value_repr)
+    {
+        const auto &enum_type_def = enum_value_repr.getEnumTypeDef();
+        auto enum_ = this->tryGetOrCreateEnum(enum_type_def);
+        if (!enum_) {
+            return std::nullopt;
+        }
+        
+        // resolve by text representation (since UIDs are not compatible across fixtures)
+        return enum_->get(enum_value_repr.m_str_repr.c_str());
+    }
+    
+    EnumFactory::ObjectSharedPtr EnumFactory::tryGetEnumLangValue(const EnumValueRepr &enum_value_repr)
+    {
+        const auto &enum_type_def = enum_value_repr.getEnumTypeDef();
+        auto enum_ = this->tryGetOrCreateEnum(enum_type_def);
+        if (!enum_) {
+            return nullptr;
+        }
+        
+        // resolve by text representation (since UIDs are not compatible across fixtures)
+        return enum_->getLangValue(enum_value_repr.m_str_repr.c_str());
     }
 
 }

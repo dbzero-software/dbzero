@@ -11,6 +11,7 @@
 #include <dbzero/core/collections/range_tree/RT_FTIterator.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
+#include <dbzero/object_model/enum/EnumFactory.hpp>
 
 namespace tests
 
@@ -40,12 +41,13 @@ namespace tests
             
             FixedObjectList shared_object_list(100);
             db0::object_model::ClassFactory class_factory(fixture);
+            db0::object_model::EnumFactory enum_factory(fixture);
             VObjectCache cache(*fixture, shared_object_list);
-
+            
             // prepare full-text index to join with
             using TagIndex = db0::object_model::TagIndex;
             auto &tag_index = fixture->addResource<TagIndex>(
-                *fixture, class_factory, fixture->getLimitedStringPool(), cache);                            
+                *fixture, class_factory, enum_factory, fixture->getLimitedStringPool(), cache);
             auto &ft_index = tag_index.getBaseIndexShort();
             {
                 auto batch_data = ft_index.beginBatchUpdate();

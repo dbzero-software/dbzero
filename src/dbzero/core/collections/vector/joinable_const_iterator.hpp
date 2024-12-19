@@ -133,7 +133,7 @@ namespace db0
 
 		void operator--()
 		{
-			if (m_current==this->m_begin) {
+			if (m_current == this->m_begin) {
 				// switch to end position
 				m_current = this->m_end;
                 return;
@@ -229,7 +229,7 @@ namespace db0
 		/**
          * @return native const iterator
          */
-		const_iterator getConstIterator() const 
+		const_iterator getConstIterator() const
 		{
 			assert(m_current && m_current != this->m_end);
 			return m_current;
@@ -281,15 +281,34 @@ namespace db0
                     end = super_t::join(this->m_current, m_bound_check.getBound(), m_direction);
                 }
                 int end_index = -1;
-                if (end!=this->m_end) {
+                if (end != this->m_end) {
                     end_index = end - this->m_begin;
                 }
                 // calculate backward range
                 return std::make_pair(this->m_current - this->m_begin, end_index);
             }
 		}
-
-	private :
+		
+		bool isNextKeyDuplicated() const
+		{
+			assert(m_current && m_current != this->m_end);
+			auto next = m_current;
+			if (m_direction > 0) {
+				++next;
+				if (next == this->m_end) {
+					return false;
+				}
+				return !this->m_comp(*m_current, *next) && !this->m_comp(*next, *m_current);
+			} else {
+				if (m_current == this->m_begin) {
+					return false;
+				}
+				--next;
+				return !this->m_comp(*m_current, *next) && !this->m_comp(*next, *m_current);
+			}
+		}
+		
+	private:
 		const data_t *m_current = nullptr;
 		int m_direction = -1;
 		BoundCheck<data_t, comp_t> m_bound_check;
