@@ -68,10 +68,10 @@ namespace db0
     }
     
     void o_mu_store::appendFullRange() {
-        // special value to mark the whole range as modified
+        // special value to mark the whole range as modified        
         m_size = std::numeric_limits<std::uint8_t>::max();
     }
-
+    
     bool o_mu_store::tryAppend(std::uint16_t offset, std::uint16_t size)
     {
         if (isFullRange()) {

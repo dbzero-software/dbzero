@@ -91,6 +91,11 @@ namespace db0
         // Mark the entire lock as dirty
         void setDirty();
 
+        // Mark a specific part of the lock as dirty
+        // @param offset offset in bytes (must be within the mapped range) starting from the lock's address
+        // @param size size in bytes of the updated range (must be within the mapped range)
+        void setDirty(std::size_t offset, std::size_t size);
+        
         bool isCached() const;
 
 #ifndef NDEBUG
@@ -160,6 +165,8 @@ namespace db0
 #endif
 
         void createMUStore(std::uint16_t mu_size);
+        // init the dirty state of the lock
+        bool initDirty();
     };
 
     std::ostream &showBytes(std::ostream &, const std::byte *, std::size_t);

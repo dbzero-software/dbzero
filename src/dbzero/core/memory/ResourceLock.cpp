@@ -134,19 +134,41 @@ namespace db0
         other.discard();
     }
     
-    void ResourceLock::setDirty()
+    void ResourceLock::setDirty(std::size_t offset, std::size_t size)
     {
-        // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache
-        if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
-            // mark the entire range as modified
-            if (m_mu_size > 0) {
+        assert(size <= this->size());
+        initDirty();
+        if (m_mu_size > 0) {
+            // make sure the ranges fit into acceptable limits
+            if (offset <= std::numeric_limits<std::uint16_t>::max() && size <= std::numeric_limits<std::uint16_t>::max()) {
+                getMUStore().tryAppend(offset, size);
+            } else {
+                // mark the entire range as modified otherwise
                 getMUStore().appendFullRange();
             }
-            // register lock with the dirty cache
-            if (!m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
-                m_context.m_cache_ref.get().append(shared_from_this());
-            }
         }
+    }
+
+    bool ResourceLock::initDirty()
+    {        
+        if (!atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
+            return false;
+        }
+        // register lock with the dirty cache
+        // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
+        if (!m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
+            m_context.m_cache_ref.get().append(shared_from_this());
+        }
+        return true;
+    }
+
+    void ResourceLock::setDirty()
+    {        
+        initDirty();
+        // mark the entire range as modified
+        if (m_mu_size > 0) {
+            getMUStore().appendFullRange();
+        }        
     }
     
 #ifndef NDEBUG
