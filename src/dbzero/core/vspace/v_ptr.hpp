@@ -222,25 +222,27 @@ namespace db0
                     // NOTE: must extract physical address for mapRange
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
                         getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
+                    // by calling MemLock::modify we mark the entire range as modified
+                    m_mem_lock.modify();
                     lock.commit_set();
                     break;
                 }
             }
-            return *reinterpret_cast<ContainerT*>(m_mem_lock.modify());
+            return *reinterpret_cast<ContainerT*>(m_mem_lock.m_buffer);
         }
-
+        
         const ContainerT& safeRef() const
         {
             assureInitialized();
             return ContainerT::__safe_ref(vs_buf_t(m_mem_lock.m_buffer, m_mem_lock.m_buffer + this->getSize()));
         }
-
+        
         const ContainerT *get() const
         {
             assureInitialized();            
             return reinterpret_cast<const ContainerT*>(m_mem_lock.m_buffer);
         }
-
+        
         inline const ContainerT *operator->() const {
             return get();
         }
@@ -255,6 +257,8 @@ namespace db0
             auto mem_lock = memspace.getPrefix().mapRange(
                 getPhysicalAddress(address), size, access_mode | AccessOptions::write
             );
+            // mark the entire writable area as modified
+            mem_lock.modify();
             // mark as available for both write & read
             return v_ptr<ContainerT>(
                 memspace, address, std::move(mem_lock),
@@ -262,13 +266,15 @@ namespace db0
             );
         }
         
-        static v_ptr<ContainerT> makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode = {}) 
-        {
-            // mark as available for both write & read
-            return v_ptr<ContainerT>(memspace, mapped_addr.m_address, 
-                std::move(mapped_addr.m_mem_lock), 
-                db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE,
-                access_mode);
+        static v_ptr<ContainerT> makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode = {})
+        {            
+            // mark the entire writable area as modified
+            mapped_addr.m_mem_lock.modify();
+            return v_ptr<ContainerT>(memspace, mapped_addr.m_address,
+                std::move(mapped_addr.m_mem_lock),
+                // mark as available for read & write
+                db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE, access_mode
+            );            
         }
         
         /**

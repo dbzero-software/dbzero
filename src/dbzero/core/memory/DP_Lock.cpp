@@ -40,7 +40,7 @@ namespace db0
     }
 
     void DP_Lock::flush()
-    {
+    {        
         // no-flush flag is important for volatile locks (atomic operations)
         if (m_access_mode[AccessOptions::no_flush]) {
             return;

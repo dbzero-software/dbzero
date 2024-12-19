@@ -112,8 +112,7 @@ namespace db0
                 }
                 // ... and finally the BoundaryLock on top of the existing lhs / rhs locks
                 lock = m_cache.insertCopy(address, size, *lock, lhs, rhs, state_num, access_mode);
-            }
-            lock->setDirty();
+            }            
         }
         
         return lock;
@@ -131,12 +130,11 @@ namespace db0
             if (!lock || read_state_num != state_num) {
                 // we don't need reading thus passing read_state_num = 0
                 lock = m_cache.createPage(page_num, 0, state_num, access_mode);
-            }
-            lock->setDirty();
+            }            
             assert(lock);
         } else if (!access_mode[AccessOptions::write]) {
             // read-only access
-            if (!lock) {
+            if (!lock) {    
                 // find the relevant mutation ID (aka state number) if this is read-only access
                 auto mutation_id = m_storage_ptr->findMutation(page_num, state_num);
                 // create page under the mutation ID
@@ -170,8 +168,7 @@ namespace db0
                     access_mode.set(AccessOptions::read, false);
                     lock = m_cache.createPage(page_num, 0, state_num, access_mode);
                 }
-            }
-            lock->setDirty();
+            }            
         }
         
         assert(lock);
@@ -207,8 +204,7 @@ namespace db0
                 }
                 lock = m_cache.createRange(first_page, size, 0, state_num, access_mode, res_lock);
             }            
-            assert(lock);
-            lock->setDirty();
+            assert(lock);            
         } else if (!access_mode[AccessOptions::write]) {
             // read-only access
             if (!lock) {
@@ -254,8 +250,7 @@ namespace db0
                 assert(mutation_id > 0 || !access_mode[AccessOptions::read]);
                 // we pass both read & write state numbers here
                 lock = m_cache.createRange(first_page, size, mutation_id, state_num, access_mode, res_dp);
-            }
-            lock->setDirty();
+            }            
         }
 
         assert(lock);

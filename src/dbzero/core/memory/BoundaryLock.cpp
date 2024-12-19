@@ -40,7 +40,7 @@ namespace db0
     }
     
     BoundaryLock::~BoundaryLock()
-    {
+    {        
         // internal BoundaryLock flush can be performed on destruction since it's a non-IO operation
         this->_flush();
     }

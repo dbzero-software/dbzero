@@ -409,6 +409,52 @@ namespace tests
         
         cut.close();
     }
+    
+    TEST_F( PrefixImplTest , testCommitAtomicWideUpdate )
+    {
+        BDevStorage::create(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
+        auto page_size = cut.getPageSize();
+        ASSERT_EQ(cut.getStateNum(), 1);
+        
+        // write wide range with residual part in state = 1
+        {
+            auto w1 = cut.mapRange(page_size, page_size + 8, { AccessOptions::write });
+            memcpy((char*)w1.modify() + page_size, "12345678", 8);
+            // write the residual part
+            auto w2 = cut.mapRange(page_size * 2 + 8, 8, { AccessOptions::write });
+            memcpy(w2.modify(), "AAAAAAAA", 8);
+            w1.release();
+            w2.release();
+        }
+        
+        // update wide lock as atomic
+        cut.beginAtomic();
+        {
+            auto w1 = cut.mapRange(page_size, page_size + 8, { AccessOptions::read, AccessOptions::write });
+            memcpy((char*)w1.modify() + page_size, "ABCDABCD", 8);
+            // update the residual part
+            auto w2 = cut.mapRange(page_size * 2 + 8, 8, { AccessOptions::read, AccessOptions::write });
+            memcpy(w2.modify(), "BBBBBBBB", 8);
+            w1.release();
+            w2.release();
+        }
+        
+        cut.endAtomic();
+        cut.commit();
+        
+        // validate merge result
+        {
+            auto lock = cut.mapRange(page_size, page_size + 8, { AccessOptions::read });
+            auto str_value = std::string((char *)lock.m_buffer + page_size, 8);
+            ASSERT_EQ(str_value, "ABCDABCD");
+            lock = cut.mapRange(page_size * 2 + 8, 8, { AccessOptions::read });
+            str_value = std::string((char *)lock.m_buffer, 8);
+            ASSERT_EQ(str_value, "BBBBBBBB");
+        }
+        
+        cut.close();
+    }
 
     TEST_F( PrefixImplTest , testMergingAtomicAndNonAtomicUpdates )
     {
@@ -565,6 +611,7 @@ namespace tests
         auto page_size = cut.getPageSize();
         
         auto w1 = cut.mapRange(0, page_size * 2, { AccessOptions::write });
+        w1.modify();
         w1.release();
         cut.commit();
         
@@ -573,7 +620,7 @@ namespace tests
         memcpy(w2.modify(), "12345678abcdefgh", 16);
         w2.release();
         cut.commit();
-
+        
         auto r1 = cut.mapRange(0, page_size * 3, { AccessOptions::read, AccessOptions::write });
         auto str_value = std::string((char *)r1.m_buffer, 16);
         ASSERT_EQ(str_value, "12345678abcdefgh");

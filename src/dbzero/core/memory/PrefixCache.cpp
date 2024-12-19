@@ -37,8 +37,6 @@ namespace db0
     {
         auto lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
             access_mode, read_state_num, state_num, m_mu_size);
-        // initially dirty lock must be registered with the dirty cache
-        lock->initDirty();
         // register under the lock's evaluated state number
         m_dp_map.insert(lock->getStateNum(), lock);
         
@@ -74,7 +72,6 @@ namespace db0
                 // the restored lock can be created as read/write if requested
                 dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
                     access_mode | AccessOptions::read, read_state_num, state_num, m_mu_size);
-                dp_lock->initDirty();
             } else {
                 // the restored lock is created as "for read"
                 dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
@@ -129,8 +126,6 @@ namespace db0
     {
         auto lock = std::make_shared<WideLock>(m_wide_context, page_num << m_shift, size,
             access_mode, read_state_num, state_num, calculateMUSize(size), res_dp);
-        // initially dirty lock must be registered with the dirty cache
-        lock->initDirty();
         // register under the lock's evaluated state number
         m_wide_map.insert(lock->getStateNum(), lock);
         
@@ -174,7 +169,6 @@ namespace db0
                 // restore as read/write if requested
                 wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, access_mode | AccessOptions::read,
                     read_state_num, state_num, calculateMUSize(size), res_lock);
-                wide_lock->initDirty();
             } else {
                 // restore as "for read"
                 wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, FlagSet<AccessOptions> { AccessOptions::read },
@@ -332,7 +326,6 @@ namespace db0
         FlagSet<AccessOptions> access_mode)
     {
         auto result = std::make_shared<DP_Lock>(lock, write_state_num, access_mode);
-        result->initDirty();
         m_dp_map.insert(result->getStateNum(), result);
 
         // register with the volatile locks
@@ -352,9 +345,8 @@ namespace db0
         FlagSet<AccessOptions> access_mode, std::shared_ptr<DP_Lock> res_lock)
     {
         auto result = std::make_shared<WideLock>(lock, write_state_num, access_mode, res_lock);
-        result->initDirty();
         m_wide_map.insert(result->getStateNum(), result);
-
+        
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {            
             m_volatile_wide_locks.push_back(result);
@@ -571,6 +563,12 @@ namespace db0
     void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num,
         std::vector<std::shared_ptr<ResourceLock> > &reused_locks)
     {
+        // Remove all volatile boundary locks before merge, to flush them
+        // into the underlying parent DP-locks
+        // This is fine because in the head transaction we've released all boundary locks
+        // so they need not to be merged
+        m_volatile_boundary_locks.clear();
+        
         std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > rebase_map;
         // merge DP-locks first
         for (auto &lock: m_volatile_locks) {
@@ -609,22 +607,7 @@ namespace db0
                 }
             }
         }
-        m_volatile_wide_locks.clear();
-        
-        // merge boundary locks next & rebase parent locks if needed
-        for (auto &lock: m_volatile_boundary_locks) {
-            // erase volatile range related lock
-            eraseBoundaryRange(lock->getAddress(), lock->size(), from_state_num);
-            // NOTE: boundary volatile locks may be non-dirty and such get simply discarded
-            if (lock->isDirty()) {
-                if (!replaceBoundaryRange(lock->getAddress(), lock->size(), to_state_num, lock)) {
-                    // we don't collect BoundarLock as reused because they're not cached
-                    // need to rebase parent locks if the boundary lock was reused
-                    lock->rebase(rebase_map);
-                }
-            }
-        }
-        m_volatile_boundary_locks.clear();
+        m_volatile_wide_locks.clear();        
     }
     
     std::size_t PrefixCache::getPageSize() const {

@@ -21,8 +21,8 @@ namespace db0
         : m_context(storage_context)
         , m_address(address)
         , m_resource_flags(
-            (access_mode[AccessOptions::write] ? db0::RESOURCE_DIRTY : 0) |
-            (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
+            (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) 
+        )
         , m_access_mode(access_mode)
         , m_data(size + mu_size)
         , m_mu_size(mu_size)
@@ -44,10 +44,11 @@ namespace db0
     ResourceLock::ResourceLock(const ResourceLock &lock, FlagSet<AccessOptions> access_mode)
         : m_context(lock.m_context)
         , m_address(lock.m_address)
-        // copy-on-write, assume dirty, the recycled flag must be erased
+        // copy-on-write, the recycled flag must be erased
         , m_resource_flags(
-            ((lock.m_resource_flags | db0::RESOURCE_DIRTY) & ~db0::RESOURCE_RECYCLED) |
-            (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) )
+            (lock.m_resource_flags & ~(db0::RESOURCE_RECYCLED | db0::RESOURCE_DIRTY)) |
+            (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) 
+        )
         , m_access_mode(access_mode)
         , m_data(lock.m_data)
         // NOTE: that a the new lock's mu-store is created initially empty
@@ -73,13 +74,6 @@ namespace db0
         assert(!isDirty());
     }
     
-    void ResourceLock::initDirty()
-    {
-        if (isDirty() && !m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
-            m_context.m_cache_ref.get().append(shared_from_this());
-        }
-    }
-
     bool ResourceLock::addrPageAligned(BaseStorage &storage) const {
         return m_address % storage.getPageSize() == 0;
     }
@@ -119,7 +113,7 @@ namespace db0
     void ResourceLock::discard() {
         resetDirtyFlag();
     }
-
+    
     void ResourceLock::resetNoFlush()
     {
         if (m_access_mode[AccessOptions::no_flush]) {
@@ -130,7 +124,7 @@ namespace db0
             }
         }
     }
-     
+    
     void ResourceLock::moveFrom(ResourceLock &other)
     {
         assert(other.size() == size());
@@ -142,7 +136,7 @@ namespace db0
     
     void ResourceLock::setDirty()
     {
-        // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
+        // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache
         if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
             // mark the entire range as modified
             if (m_mu_size > 0) {

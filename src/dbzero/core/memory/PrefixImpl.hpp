@@ -35,6 +35,8 @@ namespace db0
         PrefixImpl(std::string name, std::atomic<std::size_t> &dirty_meter, CacheRecycler &cache_recycler, 
             std::shared_ptr<BaseStorage> storage);
         
+        // NOTE: after calling mapRange for updates (i.e. with AccessOptions::write)
+        // we always later need to call setDirty to specificy which micro-area is getting modified
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
         std::uint64_t getStateNum() const override;

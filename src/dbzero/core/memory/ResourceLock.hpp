@@ -40,6 +40,9 @@ namespace db0
          * @param size the size of the data in bytes
          * @param access_options the resource flags
          * @param mu_size the size of the attached MU-store container (for collecting micro-updates)
+         * 
+         * NOTE: even if the ResourceLock is created with AccessOptions::write
+         * one is required to call setDirty to mark it as modified
          */
         ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint16_t mu_size);
         ResourceLock(const ResourceLock &, FlagSet<AccessOptions>);
@@ -84,11 +87,6 @@ namespace db0
         inline bool isRecycled() const {
             return m_resource_flags & db0::RESOURCE_RECYCLED;
         }
-        
-        // Finalize lock initialization by checking dirty flag
-        // and appending to dirty cache if necessary
-        // this method cannot be called from the constructor because shared_ptr of the lock is required
-        void initDirty();
         
         // Mark the entire lock as dirty
         void setDirty();

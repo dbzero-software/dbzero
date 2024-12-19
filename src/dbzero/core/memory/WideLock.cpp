@@ -51,17 +51,17 @@ namespace db0
             if (lock.isLocked()) {
                 auto &storage = m_context.m_storage_ref.get();
                 if (m_res_lock) {
-                    auto dp_size = static_cast<std::size_t>(m_data.size() / storage.getPageSize()) * storage.getPageSize();
+                    auto dp_size = static_cast<std::size_t>(this->size() / storage.getPageSize()) * storage.getPageSize();
                     assert(dp_size > 0);
-                    assert(dp_size < m_data.size());
+                    assert(dp_size < this->size());
                     // write the first part of the data from the local buffer
                     storage.write(m_address, m_state_num, dp_size, m_data.data());
                     // and the residual part into the res_lock (which may be flushed independently)
                     m_res_lock->setDirty();
-                    std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, m_data.size() - dp_size);
+                    std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
                 } else {
                     // write entire contents from the local buffer
-                    storage.write(m_address, m_state_num, m_data.size(), m_data.data());
+                    storage.write(m_address, m_state_num, this->size(), m_data.data());
                 }
                 if (m_mu_size > 0) {
                     getMUStore().clear();
@@ -88,12 +88,12 @@ namespace db0
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
                 auto &storage = m_context.m_storage_ref.get();
-                auto dp_size = static_cast<std::size_t>(m_data.size() / storage.getPageSize()) * storage.getPageSize();
+                auto dp_size = static_cast<std::size_t>(this->size() / storage.getPageSize()) * storage.getPageSize();
                 assert(dp_size > 0);
-                assert(dp_size < m_data.size());                    
+                assert(dp_size < this->size());
                 // and the residual part into the res_lock (which may be flushed independently)
                 m_res_lock->setDirty();
-                std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, m_data.size() - dp_size);
+                std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
                 // note the dirty flag is not reset here
                 break;
             }
