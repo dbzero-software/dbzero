@@ -66,6 +66,10 @@ namespace db0
         void compact();
 
         void clear();
+        
+        // calculate the total size of all micro-updates
+        // @return 0 if full range is set
+        std::size_t getMUSize() const;
 
         // Check if the collection contains a special marker indicating full-range modification
         inline bool isFullRange() const {

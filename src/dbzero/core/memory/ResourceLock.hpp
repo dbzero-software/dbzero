@@ -100,6 +100,12 @@ namespace db0
 
 #ifndef NDEBUG
         bool isVolatile() const;
+
+        static std::size_t getFlushedDPSize();
+
+        static std::size_t getFlushedMUSize();
+
+        static void resetFlushedSizeMeters();
 #endif        
         
         BaseStorage &getStorage() const {
@@ -157,12 +163,17 @@ namespace db0
 
         bool addrPageAligned(BaseStorage &) const;
 
-    private:
 #ifndef NDEBUG
         static std::atomic<std::size_t> rl_usage;
         static std::atomic<std::size_t> rl_count;
         static std::atomic<std::size_t> rl_op_count;
+        // total flushed bytes as full-DPs
+        static std::atomic<std::size_t> flush_dp_size;
+        // total flushed bytes as micro-updates
+        static std::atomic<std::size_t> flush_mu_size;
 #endif
+
+    private:
 
         void createMUStore(std::uint16_t mu_size);
         // init the dirty state of the lock

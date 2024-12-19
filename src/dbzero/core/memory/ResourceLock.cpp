@@ -14,8 +14,12 @@ namespace db0
     std::atomic<std::size_t> ResourceLock::rl_usage = 0;
     std::atomic<std::size_t> ResourceLock::rl_count = 0;
     std::atomic<std::size_t> ResourceLock::rl_op_count = 0;
+    // total flushed bytes as full-DPs
+    std::atomic<std::size_t> ResourceLock::flush_dp_size = 0;
+    // total flushed bytes as micro-updates
+    std::atomic<std::size_t> ResourceLock::flush_mu_size = 0;
 #endif
-
+    
     ResourceLock::ResourceLock(StorageContext storage_context, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, std::uint16_t mu_size)
         : m_context(storage_context)
@@ -192,6 +196,20 @@ namespace db0
 #ifndef NDEBUG
     bool ResourceLock::isVolatile() const {
         return m_access_mode[AccessOptions::no_flush];
+    }
+
+    std::size_t ResourceLock::getFlushedDPSize() {
+        return flush_dp_size;
+    }
+
+    std::size_t ResourceLock::getFlushedMUSize() {
+        return flush_mu_size;
+    }
+    
+    void ResourceLock::resetFlushedSizeMeters()
+    {
+        flush_dp_size = 0;
+        flush_mu_size = 0;
     }
 #endif        
 

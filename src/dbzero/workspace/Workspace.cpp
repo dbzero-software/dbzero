@@ -441,6 +441,9 @@ namespace db0
                 fixture->commit();
             }
         }
+#ifndef NDEBUG
+        ResourceLock::resetFlushedSizeMeters();
+#endif        
     }
     
     bool Workspace::refresh(bool if_updated)

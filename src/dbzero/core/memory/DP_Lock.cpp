@@ -45,13 +45,25 @@ namespace db0
         if (m_access_mode[AccessOptions::no_flush]) {
             return;
         }
-
+        
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
                 // write from the local buffer
                 m_context.m_storage_ref.get().write(m_address, m_state_num, this->size(), m_data.data());
+#ifndef NDEBUG
+                ResourceLock::flush_dp_size += this->size();
+                if (m_mu_size > 0) {
+                    auto &mu_store = getMUStore();
+                    mu_store.compact();
+                    if (mu_store.isFullRange()) {
+                        ResourceLock::flush_mu_size += this->size();
+                    } else {
+                        ResourceLock::flush_mu_size += mu_store.getMUSize();
+                    }
+                }
+#endif                
                 if (m_mu_size > 0) {
                     getMUStore().clear();
                 }
