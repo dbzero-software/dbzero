@@ -23,6 +23,13 @@ namespace db0
         std::reference_wrapper<DirtyCache> m_cache_ref;
         std::reference_wrapper<BaseStorage> m_storage_ref;
     };
+
+    // Calculate diff areas between the 2 binary buffers of the same size (e.g. DPs)
+    // @param size size of the buffers
+    // @param result vector to hold size of diff / size of identical areas interleaved (totalling to size)
+    // @param max_diff the maximum acceptable diff in bytes (0 for default = size / 2)
+    // @return false if the total volume of diff areas exceeds 50% threshold
+    bool getDiffs(void *, void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0);
     
     /**
      * A ResourceLock is the foundation class for DP_Lock and BoundaryLock implementations    
@@ -159,7 +166,7 @@ namespace db0
         static std::atomic<std::size_t> rl_op_count;
 #endif
 
-    private:        
+    private:
         // init the dirty state of the lock
         bool initDirty();
     };
