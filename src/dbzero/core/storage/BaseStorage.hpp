@@ -42,6 +42,14 @@ namespace db0
         virtual void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) = 0;
 
         /**
+         * Write diff-data into a specific page
+         * @param diffs interleved values of diff size / identical sequence size (ignored)
+         * NOTE: diff areas must be evaluated page-wise
+         */
+        virtual void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+            const std::vector<std::uint16_t> &diffs) = 0;
+        
+        /**
          * Look up sparse index to find the state number at which the given range was mutated
          * with respect to the given state number. This functionality is required for caching.
          * 

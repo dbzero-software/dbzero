@@ -188,7 +188,7 @@ namespace db0
         // write as physical pages and register with the sparse index
         for (auto page_num = begin_page; page_num != end_page; ++page_num, write_buf += m_config.m_page_size) {
             // look up if page has already been added in current transaction
-            auto item  = m_sparse_index.lookup(page_num, state_num);
+            auto item = m_sparse_index.lookup(page_num, state_num);
             if (item && item.m_state_num == state_num) {
                 // page already added in current transaction / update in the stream
                 // this may happen due to cache overflow and later modification of the same page
@@ -200,7 +200,13 @@ namespace db0
             }
         }
     }
-    
+
+    void BDevStorage::writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+        const std::vector<std::uint16_t> &diffs) 
+    {
+        // FIXME: implement
+    }
+
     std::size_t BDevStorage::getPageSize() const {
         return m_config.m_page_size;
     }
@@ -386,6 +392,7 @@ namespace db0
     void BDevStorage::getStats(std::function<void(const std::string &, std::uint64_t)> callback) const
     {
         callback("dram_io_rand_ops", m_dram_io.getRandOpsCount());
+        callback("dram_prefix_size", m_dram_io.getDRAMPrefix().size());
         auto file_rand_ops = m_file.getRandOps();
         callback("file_rand_read_ops", file_rand_ops.first);
         callback("file_rand_write_ops", file_rand_ops.second);
@@ -394,7 +401,7 @@ namespace db0
         callback("file_bytes_written", file_io_bytes.second);
         // total size of data pages
         callback("dp_size_total", m_sparse_index.size() * m_page_io.getPageSize());
-        callback("prefix_size", m_file.size());
+        callback("prefix_size", m_file.size());        
     }
     
 #ifndef NDEBUG
