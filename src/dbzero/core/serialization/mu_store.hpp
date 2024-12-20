@@ -67,7 +67,7 @@ namespace db0
 
         void clear();
         
-        // calculate the total size of all micro-updates
+        // Calculate the total size of all micro-updates
         // @return 0 if full range is set
         std::size_t getMUSize() const;
 

@@ -29,7 +29,7 @@ namespace db0
          * @param write_state_num the current transaction number (or 0 for read-only locks)        
         */
         DP_Lock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint64_t read_state_num,
-            std::uint64_t write_state_num, std::uint16_t mu_size);
+            std::uint64_t write_state_num);
         
         /**
          * Create a copied-on-write lock from an existing lock         
@@ -67,7 +67,7 @@ namespace db0
         
         struct tag_derived {};
         DP_Lock(tag_derived, StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-            std::uint64_t read_state_num, std::uint64_t write_state_num, std::uint16_t mu_size);
+            std::uint64_t read_state_num, std::uint64_t write_state_num);
     };
     
 }

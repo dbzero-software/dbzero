@@ -60,6 +60,8 @@ namespace db0
 
         std::size_t getPageSize() const;
         
+        void flush();
+
         /**
          * Commit data with backend and immediately initiate a new transaction
         */

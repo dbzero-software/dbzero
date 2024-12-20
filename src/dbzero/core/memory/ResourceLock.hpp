@@ -38,13 +38,12 @@ namespace db0
          * @param storage_context
          * @param address the starting address in the storage
          * @param size the size of the data in bytes
-         * @param access_options the resource flags
-         * @param mu_size the size of the attached MU-store container (for collecting micro-updates)
+         * @param access_options the resource flags         
          * 
          * NOTE: even if the ResourceLock is created with AccessOptions::write
          * one is required to call setDirty to mark it as modified
          */
-        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint16_t mu_size);
+        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>);
         ResourceLock(const ResourceLock &, FlagSet<AccessOptions>);
         
         virtual ~ResourceLock();
@@ -78,10 +77,9 @@ namespace db0
         inline std::uint64_t getAddress() const {
             return m_address;
         }
-        
-        // MU-store not counted in the lock's size
+                
         inline std::size_t size() const {
-            return m_data.size() - m_mu_size;
+            return m_data.size();
         }
 
         inline bool isRecycled() const {
@@ -100,12 +98,6 @@ namespace db0
 
 #ifndef NDEBUG
         bool isVolatile() const;
-
-        static std::size_t getFlushedDPSize();
-
-        static std::size_t getFlushedMUSize();
-
-        static void resetFlushedSizeMeters();
 #endif        
         
         BaseStorage &getStorage() const {
@@ -132,11 +124,6 @@ namespace db0
         virtual bool isBoundaryLock() const = 0;
 #endif
 
-        inline o_mu_store &getMUStore() {
-            // mu-store is located after the data part of the data-buffer
-            return o_mu_store::__ref(m_data.data() + m_data.size() - m_mu_size);
-        }
-
     protected:
         friend class CacheRecycler;
         friend class BoundaryLock;
@@ -154,28 +141,21 @@ namespace db0
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         FlagSet<AccessOptions> m_access_mode;
         
-        mutable std::vector<std::byte> m_data;
-        const std::uint16_t m_mu_size;
+        mutable std::vector<std::byte> m_data;        
         // CacheRecycler's iterator
         iterator m_recycle_it = 0;
         
         void setRecycled(bool is_recycled);
 
         bool addrPageAligned(BaseStorage &) const;
-
+        
 #ifndef NDEBUG
         static std::atomic<std::size_t> rl_usage;
         static std::atomic<std::size_t> rl_count;
         static std::atomic<std::size_t> rl_op_count;
-        // total flushed bytes as full-DPs
-        static std::atomic<std::size_t> flush_dp_size;
-        // total flushed bytes as micro-updates
-        static std::atomic<std::size_t> flush_mu_size;
 #endif
 
-    private:
-
-        void createMUStore(std::uint16_t mu_size);
+    private:        
         // init the dirty state of the lock
         bool initDirty();
     };

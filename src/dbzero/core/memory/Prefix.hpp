@@ -42,7 +42,7 @@ namespace db0
         virtual std::size_t getPageSize() const = 0;
         
         virtual std::uint64_t getStateNum() const = 0;
-        
+                
         /**
          * Commit all local changes made since last commit
          * 

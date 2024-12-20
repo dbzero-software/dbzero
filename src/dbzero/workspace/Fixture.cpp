@@ -244,8 +244,20 @@ namespace db0
         );
     }
     
+    void Fixture::flush()
+    {
+        assert(getPrefixPtr());
+        if (m_gc0_ptr) {
+            getGC0().preCommit();
+        }
+        
+        m_lang_cache.clear(true);
+        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
+        Memspace::flush();
+    }
+    
     void Fixture::commit()
-    {        
+    {
         assert(getPrefixPtr());
         // pre-commit to prepare objects which require it (e.g. Index) for commit
         // NOTE: pre-commit must NOT lock the fixture's shared mutex
@@ -291,7 +303,7 @@ namespace db0
             }
             m_string_pool.commit();
             m_object_catalogue.commit();
-            m_v_object_cache.commit();        
+            m_v_object_cache.commit();
             Memspace::commit(timer.get());
         } catch (...) {
             m_commit_pending = false;

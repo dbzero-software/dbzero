@@ -14,7 +14,7 @@ namespace db0
     {
     public:
         WideLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
-            std::uint64_t read_state_num, std::uint64_t write_state_num, std::uint16_t mu_size, 
+            std::uint64_t read_state_num, std::uint64_t write_state_num, 
             std::shared_ptr<DP_Lock> res_lock);
         
         /**

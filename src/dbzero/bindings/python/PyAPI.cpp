@@ -234,10 +234,33 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *commit(PyObject *self, PyObject *args)
+    PyObject *PyAPI_commit(PyObject *self, PyObject *args)
     {
-        PY_API_FUNC        
+        PY_API_FUNC
         return runSafe(tryCommit, self, args);
+    }
+
+    PyObject *tryFlush(PyObject *, PyObject *args)
+    {
+        // extract optional prefix name
+        const char *prefix_name = nullptr;
+        if (!PyArg_ParseTuple(args, "|s", &prefix_name)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+        
+        if (prefix_name) {
+            PyToolkit::getPyWorkspace().getWorkspace().flush(prefix_name);
+        } else {
+            PyToolkit::getPyWorkspace().getWorkspace().flush();
+        }
+        Py_RETURN_NONE;
+    }
+    
+    PyObject *PyAPI_flush(PyObject *self, PyObject *args)
+    {
+        PY_API_FUNC
+        return runSafe(tryFlush, self, args);
     }
 
     PyObject *tryStopWorkspaceThreads()

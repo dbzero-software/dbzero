@@ -14,29 +14,21 @@ namespace db0
     std::atomic<std::size_t> ResourceLock::rl_usage = 0;
     std::atomic<std::size_t> ResourceLock::rl_count = 0;
     std::atomic<std::size_t> ResourceLock::rl_op_count = 0;
-    // total flushed bytes as full-DPs
-    std::atomic<std::size_t> ResourceLock::flush_dp_size = 0;
-    // total flushed bytes as micro-updates
-    std::atomic<std::size_t> ResourceLock::flush_mu_size = 0;
 #endif
     
     ResourceLock::ResourceLock(StorageContext storage_context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode, std::uint16_t mu_size)
+        FlagSet<AccessOptions> access_mode)
         : m_context(storage_context)
         , m_address(address)
         , m_resource_flags(
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) 
         )
         , m_access_mode(access_mode)
-        , m_data(size + mu_size)
-        , m_mu_size(mu_size)
+        , m_data(size)        
     {
         // intialize buffer for write-only access (create)
         if (!access_mode[AccessOptions::read]) {
             std::memset(m_data.data(), 0, this->size());
-        }
-        if (m_mu_size > 0) {
-            createMUStore(mu_size);
         }
 #ifndef NDEBUG        
         rl_usage += this->size();
@@ -55,10 +47,7 @@ namespace db0
         )
         , m_access_mode(access_mode)
         , m_data(lock.m_data)
-        // NOTE: that a the new lock's mu-store is created initially empty
-        , m_mu_size(lock.m_mu_size)
-    {
-        getMUStore().clear();
+    {        
 #ifndef NDEBUG
         rl_usage += this->size();
         ++rl_count;
@@ -101,16 +90,12 @@ namespace db0
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
-                // also clear the associated MU-store if it exists
-                if (m_mu_size > 0) {
-                    getMUStore().clear();
-                }
                 lock.commit_reset();
                 // dirty flag successfully reset by this thread
                 return true;
             }
         }
-
+        
         return false;
     }
     
@@ -138,43 +123,17 @@ namespace db0
         other.discard();
     }
     
-    void ResourceLock::setDirty(std::size_t offset, std::size_t size)
-    {
-        assert(size <= this->size());
-        initDirty();
-        if (m_mu_size > 0) {
-            // make sure the ranges fit into acceptable limits
-            if (offset <= std::numeric_limits<std::uint16_t>::max() && size <= std::numeric_limits<std::uint16_t>::max()) {
-                getMUStore().tryAppend(offset, size);
-            } else {
-                // mark the entire range as modified otherwise
-                getMUStore().appendFullRange();
-            }
-        }
-    }
-
-    bool ResourceLock::initDirty()
-    {        
-        if (!atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
-            return false;
-        }
-        // register lock with the dirty cache
-        // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
-        if (!m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
-            m_context.m_cache_ref.get().append(shared_from_this());
-        }
-        return true;
-    }
-
     void ResourceLock::setDirty()
     {        
-        initDirty();
-        // mark the entire range as modified
-        if (m_mu_size > 0) {
-            getMUStore().appendFullRange();
+        if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
+            // register lock with the dirty cache
+            // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
+            if (!m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
+                m_context.m_cache_ref.get().append(shared_from_this());
+            }
         }        
     }
-    
+
 #ifndef NDEBUG
     std::pair<std::size_t, std::size_t> ResourceLock::getTotalMemoryUsage() 
     {
@@ -197,24 +156,6 @@ namespace db0
     bool ResourceLock::isVolatile() const {
         return m_access_mode[AccessOptions::no_flush];
     }
-
-    std::size_t ResourceLock::getFlushedDPSize() {
-        return flush_dp_size;
-    }
-
-    std::size_t ResourceLock::getFlushedMUSize() {
-        return flush_mu_size;
-    }
-    
-    void ResourceLock::resetFlushedSizeMeters()
-    {
-        flush_dp_size = 0;
-        flush_mu_size = 0;
-    }
 #endif        
-
-    void ResourceLock::createMUStore(std::uint16_t mu_size) {
-        o_mu_store::__new(&getMUStore(), mu_size);
-    }
-
+    
 }

@@ -10,7 +10,7 @@
 namespace db0
 
 {
-
+    
     BlockIOStream readAll(BlockIOStream &&io)
     {
        // FIXME: implement WAL processing

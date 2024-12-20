@@ -31,10 +31,9 @@ namespace db0
     {
     public:
         /**
-         * @param storage prefix related storage reference
-         * @param mu_size the mu-store size to be used (for a single DP)
+         * @param storage prefix related storage reference         
         */
-        PrefixCache(BaseStorage &, CacheRecycler *, std::uint16_t mu_size, std::atomic<std::size_t> *dirty_meter_ptr = nullptr);
+        PrefixCache(BaseStorage &, CacheRecycler *, std::atomic<std::size_t> *dirty_meter_ptr = nullptr);
         
         /**
          * Attempt retrieving the page / range associated existing resource lock for read or write
@@ -157,8 +156,7 @@ namespace db0
     protected:        
         const std::size_t m_page_size;
         const unsigned int m_shift;
-        const std::uint64_t m_mask;
-        const std::uint16_t m_mu_size;
+        const std::uint64_t m_mask;        
         BaseStorage &m_storage;
         // the collection for tracking dirty locks of each type (cleared on flush)
         mutable DirtyCache m_dirty_dp_cache;
@@ -197,10 +195,7 @@ namespace db0
         
         inline bool isPageAligned(std::uint64_t addr_or_size) const {
             return (addr_or_size & (m_page_size - 1)) == 0;
-        }
-        
-        // Calculate mu-store size to be proportional to the lock size
-        std::uint16_t calculateMUSize(std::size_t lock_size) const;
+        }        
     };
     
     template <typename T> void discardAll(T &volatile_locks)

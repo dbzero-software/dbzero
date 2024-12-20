@@ -190,7 +190,7 @@ namespace db0
     void o_mu_store::clear() {
         m_size = 0;
     }
-    
+        
     std::size_t o_mu_store::getMUSize() const
     {
         if (isFullRange()) {

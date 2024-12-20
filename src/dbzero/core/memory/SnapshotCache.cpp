@@ -5,9 +5,8 @@ namespace db0
 
 {
     
-    SnapshotCache::SnapshotCache(BaseStorage &storage, CacheRecycler *recycler_ptr)
-        // NOTE: for snapshot-cache mu_size = 0 (since it's rado-only)
-        : PrefixCache(storage, recycler_ptr, 0)
+    SnapshotCache::SnapshotCache(BaseStorage &storage, CacheRecycler *recycler_ptr)        
+        : PrefixCache(storage, recycler_ptr)
     {
     }
     

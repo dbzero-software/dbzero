@@ -219,12 +219,11 @@ namespace db0
                     m_mem_lock.release();
                     // lock for +write
                     // note that lock is getting updated, possibly copy-on-write is being performed
-                    // NOTE: must extract physical address for mapRange
-                    auto obj_size = this->getSize();
+                    // NOTE: must extract physical address for mapRange                    
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        getPhysicalAddress(m_address), obj_size, m_access_mode | AccessOptions::write | AccessOptions::read);
+                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
                     // by calling MemLock::modify we mark the object's associated range as modified
-                    m_mem_lock.modify(0, obj_size);
+                    m_mem_lock.modify();
                     lock.commit_set();
                     break;
                 }

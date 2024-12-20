@@ -9,8 +9,8 @@ namespace db0
 {
     
     DP_Lock::DP_Lock(StorageContext context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num, std::uint16_t mu_size)
-        : ResourceLock(context, address, size, access_mode, mu_size)
+        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num)
+        : ResourceLock(context, address, size, access_mode)
         , m_state_num(std::max(read_state_num, write_state_num))
     {
         assert(addrPageAligned(m_context.m_storage_ref.get()));
@@ -25,8 +25,8 @@ namespace db0
     }
 
     DP_Lock::DP_Lock(tag_derived, StorageContext context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num, std::uint16_t mu_size)
-        : ResourceLock(context, address, size, access_mode, mu_size)
+        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num)
+        : ResourceLock(context, address, size, access_mode)
         , m_state_num(std::max(read_state_num, write_state_num))
     {
     }
@@ -52,27 +52,12 @@ namespace db0
             if (lock.isLocked()) {
                 // write from the local buffer
                 m_context.m_storage_ref.get().write(m_address, m_state_num, this->size(), m_data.data());
-#ifndef NDEBUG
-                ResourceLock::flush_dp_size += this->size();
-                if (m_mu_size > 0) {
-                    auto &mu_store = getMUStore();
-                    mu_store.compact();
-                    if (mu_store.isFullRange()) {
-                        ResourceLock::flush_mu_size += this->size();
-                    } else {
-                        ResourceLock::flush_mu_size += mu_store.getMUSize();
-                    }
-                }
-#endif                
-                if (m_mu_size > 0) {
-                    getMUStore().clear();
-                }
                 // reset the dirty flag
                 lock.commit_reset();
             }
         }
     }
-
+    
     std::uint64_t DP_Lock::getStateNum() const {
         return m_state_num;
     }

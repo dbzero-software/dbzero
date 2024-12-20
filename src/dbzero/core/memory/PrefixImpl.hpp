@@ -106,9 +106,6 @@ namespace db0
         }
 
         void adjustAccessMode(FlagSet<AccessOptions> &access_mode, std::uint64_t address, std::size_t size) const;
-
-        // calculate mu-storage size to be used
-        std::uint16_t getMUSize(const BaseStorage &) const;
     };
     
 } 

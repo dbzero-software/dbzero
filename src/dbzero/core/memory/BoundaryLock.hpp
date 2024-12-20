@@ -15,7 +15,7 @@ namespace db0
     {
     public:
         BoundaryLock(StorageContext, std::uint64_t address, std::shared_ptr<DP_Lock> lhs, std::size_t lhs_size,
-            std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, FlagSet<AccessOptions>, std::uint16_t mu_size);
+            std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, FlagSet<AccessOptions>);
         // Create copy of an existing BoundaryLock (for CoW)
         BoundaryLock(StorageContext, std::uint64_t address, const BoundaryLock &lock, std::shared_ptr<DP_Lock> lhs, std::size_t lhs_size,
             std::shared_ptr<DP_Lock> rhs, std::size_t rhs_size, FlagSet<AccessOptions>);

@@ -44,6 +44,10 @@ namespace db0
         return m_page_size;
     }
     
+    void Memspace::flush() {
+        m_prefix->flushDirty(std::numeric_limits<std::size_t>::max());
+    }
+    
     void Memspace::commit(ProcessTimer *timer)
     {       
         assert(m_prefix);

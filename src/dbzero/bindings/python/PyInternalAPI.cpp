@@ -505,16 +505,10 @@ namespace db0::python
             PyDict_SetItemString(stats_dict, name.c_str(), PyLong_FromUnsignedLongLong(value));
         };
         fixture->getPrefix().getStorage().getStats(stats_callback);
-        
-#ifndef NDEBUG
-        // collect resource-lock flush statistics
-        stats_callback("flushed_dp_size", ResourceLock::getFlushedDPSize());
-        stats_callback("flushed_mu_size", ResourceLock::getFlushedMUSize());
-#endif
         return stats_dict;
     }
     
-#ifndef NDEBUG    
+#ifndef NDEBUG
     PyObject *formatDRAM_IOMap(const std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t> > &dram_io_map)
     {        
         PyObject *py_dict = PyDict_New();

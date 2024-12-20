@@ -61,6 +61,8 @@ namespace db0
         
         bool hasMemspace(const PrefixName &) const;
         
+        void flush();
+
         /**
          * Commit all underlying read/write prefixes
         */
@@ -180,11 +182,15 @@ namespace db0
         */
         db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const override;
         
+        void flush();
+
         /**
          * Commit all underlying read/write prefixes
         */
         void commit();
         
+        void flush(const PrefixName &);
+
         /**
          * Commit specific prefix (must be opened as read/write)
         */

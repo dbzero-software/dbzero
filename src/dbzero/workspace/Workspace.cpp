@@ -94,7 +94,16 @@ namespace db0
         }
         return it->second;
     }
-    
+
+    void BaseWorkspace::flush()
+    {        
+        for (auto &[prefix_name, memspace] : m_memspaces) {
+            if (memspace.getAccessType() == AccessType::READ_WRITE) {
+                memspace.flush();
+            }            
+        }    
+    }
+
     void BaseWorkspace::commit()
     {        
         for (auto &[prefix_name, memspace] : m_memspaces) {
@@ -434,6 +443,15 @@ namespace db0
         return m_fixture_catalog.getFixtureUUID(prefix_name);
     }
     
+    void Workspace::flush()
+    {
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                fixture->flush();
+            }
+        }
+    }
+
     void Workspace::commit()
     {
         for (auto &[uuid, fixture] : m_fixtures) {
@@ -441,9 +459,6 @@ namespace db0
                 fixture->commit();
             }
         }
-#ifndef NDEBUG
-        ResourceLock::resetFlushedSizeMeters();
-#endif        
     }
     
     bool Workspace::refresh(bool if_updated)
@@ -475,7 +490,19 @@ namespace db0
     bool Workspace::drop(const PrefixName &prefix_name, bool if_exists) {
         return BaseWorkspace::drop(prefix_name, if_exists);
     }
-    
+
+    void Workspace::flush(const PrefixName &prefix_name)
+    {
+        auto fixture = findFixture(prefix_name);
+        if (!fixture) {
+            THROWF(db0::InputException) << "Prefix: " << prefix_name << " not found";
+        }        
+        if (fixture->getAccessType() != AccessType::READ_WRITE) {
+            THROWF(db0::InputException) << "Prefix: " << prefix_name << " is not opened as read/write";
+        }
+        fixture->flush();
+    }
+
     void Workspace::commit(const PrefixName &prefix_name)
     {
         auto fixture = findFixture(prefix_name);
