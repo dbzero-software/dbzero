@@ -44,7 +44,9 @@ namespace db0
          * one is required to call setDirty to mark it as modified
          */
         ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>);
-        ResourceLock(const ResourceLock &, FlagSet<AccessOptions>);
+        
+        // Copy-on-write constructor
+        ResourceLock(std::shared_ptr<ResourceLock>, FlagSet<AccessOptions>);
         
         virtual ~ResourceLock();
         
@@ -141,10 +143,12 @@ namespace db0
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         FlagSet<AccessOptions> m_access_mode;
         
-        mutable std::vector<std::byte> m_data;        
+        mutable std::vector<std::byte> m_data;
         // CacheRecycler's iterator
         iterator m_recycle_it = 0;
-        
+        // immutable copy-on-write lock (i.e. previous version)
+        std::shared_ptr<ResourceLock> m_cow_lock;
+
         void setRecycled(bool is_recycled);
 
         bool addrPageAligned(BaseStorage &) const;

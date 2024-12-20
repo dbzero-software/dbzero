@@ -319,7 +319,7 @@ namespace db0
         return result;
     }
     
-    std::shared_ptr<DP_Lock> PrefixCache::insertCopy(const DP_Lock &lock, std::uint64_t write_state_num,
+    std::shared_ptr<DP_Lock> PrefixCache::insertCopy(std::shared_ptr<DP_Lock> lock, std::uint64_t write_state_num,
         FlagSet<AccessOptions> access_mode)
     {
         auto result = std::make_shared<DP_Lock>(lock, write_state_num, access_mode);
@@ -338,7 +338,7 @@ namespace db0
         return result;
     }
     
-    std::shared_ptr<WideLock> PrefixCache::insertWideCopy(const WideLock &lock, std::uint64_t write_state_num,
+    std::shared_ptr<WideLock> PrefixCache::insertWideCopy(std::shared_ptr<WideLock> lock, std::uint64_t write_state_num,
         FlagSet<AccessOptions> access_mode, std::shared_ptr<DP_Lock> res_lock)
     {
         auto result = std::make_shared<WideLock>(lock, write_state_num, access_mode, res_lock);
@@ -378,7 +378,7 @@ namespace db0
         
         return result;
     }
-
+    
     void PrefixCache::forEach(std::function<void(ResourceLock &)> f) const
     {
         m_boundary_map.forEach(f);

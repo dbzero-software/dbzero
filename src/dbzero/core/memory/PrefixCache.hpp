@@ -78,10 +78,10 @@ namespace db0
         /**
          * Insert copy of a single or wide page lock (not BoundaryLock)
          */
-        std::shared_ptr<DP_Lock> insertCopy(const DP_Lock &, std::uint64_t write_state_num,
+        std::shared_ptr<DP_Lock> insertCopy(std::shared_ptr<DP_Lock>, std::uint64_t write_state_num,
             FlagSet<AccessOptions> access_mode);
-
-        std::shared_ptr<WideLock> insertWideCopy(const WideLock &, std::uint64_t write_state_num,
+        
+        std::shared_ptr<WideLock> insertWideCopy(std::shared_ptr<WideLock>, std::uint64_t write_state_num,
             FlagSet<AccessOptions> access_mode, std::shared_ptr<DP_Lock> res_lock);
         
         /**

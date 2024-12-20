@@ -31,7 +31,7 @@ namespace db0
         }
     }
     
-    WideLock::WideLock(const WideLock &lock, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode,
+    WideLock::WideLock(std::shared_ptr<WideLock> lock, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode,
         std::shared_ptr<DP_Lock> res_lock)
         : DP_Lock(lock, write_state_num, access_mode)
         , m_res_lock(res_lock)

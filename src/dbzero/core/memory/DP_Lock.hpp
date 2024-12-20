@@ -32,9 +32,9 @@ namespace db0
             std::uint64_t write_state_num);
         
         /**
-         * Create a copied-on-write lock from an existing lock         
+         * Create a copied-on-write lock from an existing lock   
         */
-        DP_Lock(const DP_Lock &, std::uint64_t write_state_num, FlagSet<AccessOptions>);
+        DP_Lock(std::shared_ptr<DP_Lock>, std::uint64_t write_state_num, FlagSet<AccessOptions>);   
         
         /**
          * Flush data from local buffer and clear the 'dirty' flag

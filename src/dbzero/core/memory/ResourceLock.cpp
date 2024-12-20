@@ -37,16 +37,17 @@ namespace db0
 #endif
     }
     
-    ResourceLock::ResourceLock(const ResourceLock &lock, FlagSet<AccessOptions> access_mode)
-        : m_context(lock.m_context)
-        , m_address(lock.m_address)
+    ResourceLock::ResourceLock(std::shared_ptr<ResourceLock> lock, FlagSet<AccessOptions> access_mode)
+        : m_context(lock->m_context)
+        , m_address(lock->m_address)
         // copy-on-write, the recycled flag must be erased
         , m_resource_flags(
-            (lock.m_resource_flags & ~(db0::RESOURCE_RECYCLED | db0::RESOURCE_DIRTY)) |
+            (lock->m_resource_flags & ~(db0::RESOURCE_RECYCLED | db0::RESOURCE_DIRTY)) |
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) 
         )
         , m_access_mode(access_mode)
-        , m_data(lock.m_data)
+        , m_data(lock->m_data)
+        , m_cow_lock(lock)
     {        
 #ifndef NDEBUG
         rl_usage += this->size();

@@ -31,14 +31,14 @@ namespace db0
     {
     }
     
-    DP_Lock::DP_Lock(const DP_Lock &other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
+    DP_Lock::DP_Lock(std::shared_ptr<DP_Lock> other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
         : ResourceLock(other, access_mode)
         , m_state_num(write_state_num)
     {
         assert(addrPageAligned(m_context.m_storage_ref.get()));
         assert(m_state_num > 0);
     }
-
+    
     void DP_Lock::flush()
     {        
         // no-flush flag is important for volatile locks (atomic operations)

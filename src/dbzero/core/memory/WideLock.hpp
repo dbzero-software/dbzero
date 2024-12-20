@@ -20,7 +20,7 @@ namespace db0
         /**
          * Create a copied-on-write lock from an existing lock
         */
-        WideLock(const WideLock &, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode, 
+        WideLock(std::shared_ptr<WideLock>, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode,
             std::shared_ptr<DP_Lock> res_lock);
         
         void flush() override;

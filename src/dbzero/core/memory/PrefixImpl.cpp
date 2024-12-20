@@ -153,7 +153,7 @@ namespace db0
             if (lock) {
                 if (read_state_num != state_num) {
                     // create a new lock as a copy of existing read_lock (CoW)
-                    lock = m_cache.insertCopy(*lock, state_num, access_mode);
+                    lock = m_cache.insertCopy(lock, state_num, access_mode);
                 }
             } else {
                 // try identifying the last available mutation (may not exist yet)
@@ -234,8 +234,8 @@ namespace db0
                     std::shared_ptr<DP_Lock> res_lock;
                     if (has_res) {
                         res_lock = mapPage(end_page - 1, state_num, access_mode | AccessOptions::read);
-                    }                    
-                    lock = m_cache.insertWideCopy(*lock, state_num, access_mode, res_lock);                    
+                    }
+                    lock = m_cache.insertWideCopy(lock, state_num, access_mode, res_lock);
                 }
             } else {
                 // identify the last available mutation (must exist for reading)
