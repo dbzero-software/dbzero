@@ -38,21 +38,15 @@ namespace tests
     TEST_F( SparseIndexTest , testSparseIndexCanAppendPageDescriptors )
     {
         SparseIndex cut(16 * 1024);
-        cut.emplace(0, 0, 0, SparseIndex::PageType::FIXED);
+        cut.emplace(0, 0, 0);
     }
 
     void testSparseIndexLookupPageDescriptors(std::size_t node_size)
     {
         SparseIndex cut(node_size);
-        std::vector<SparseIndex::Item> items {
+        std::vector<typename SparseIndex::SI_ItemT> items {
             // page number, state number, physical page number, page type
-            { 0, 1, 0, SparseIndex::PageType::FIXED },
-            { 1, 1, 1, SparseIndex::PageType::FIXED },
-            { 2, 1, 2, SparseIndex::PageType::FIXED },
-            { 3, 2, 3, SparseIndex::PageType::FIXED },
-            { 0, 2, 4, SparseIndex::PageType::FIXED },
-            { 2, 3, 5, SparseIndex::PageType::FIXED },
-            { 4, 4, 6, SparseIndex::PageType::FIXED }
+            { 0, 1, 0 }, { 1, 1, 1 }, { 2, 1, 2 }, { 3, 2, 3 }, { 0, 2, 4 }, { 2, 3, 5 }, { 4, 4, 6 }
         };
 
         // page number, state number
@@ -98,15 +92,9 @@ namespace tests
     TEST_F( SparseIndexTest , testSparseIndexCanTrackMaxStoragePageNum )
     {
         SparseIndex cut(16 * 1024);
-        std::vector<SparseIndex::Item> items {
+        std::vector<typename SparseIndex::SI_ItemT> items {
             // page number, state number, physical page number, page type
-            { 0, 0, 0, SparseIndex::PageType::FIXED },
-            { 1, 0, 1, SparseIndex::PageType::FIXED },
-            { 2, 0, 2, SparseIndex::PageType::FIXED },
-            { 3, 1, 3, SparseIndex::PageType::FIXED },
-            { 0, 1, 4, SparseIndex::PageType::FIXED },
-            { 2, 2, 5, SparseIndex::PageType::FIXED },
-            { 4, 3, 6, SparseIndex::PageType::FIXED }
+            { 0, 0, 0 }, { 1, 0, 1 }, { 2, 0, 2 }, { 3, 1, 3 }, { 0, 1, 4 }, { 2, 2, 5 }, { 4, 3, 6 }
         };
         for (auto &item: items) {
             cut.insert(item);
@@ -117,15 +105,9 @@ namespace tests
     TEST_F( SparseIndexTest , testSparseIndexCanTrackMaxStateNum )
     {
         SparseIndex cut(16 * 1024);
-        std::vector<SparseIndex::Item> items {
+        std::vector<typename SparseIndex::SI_ItemT> items {
             // page number, state number, physical page number, page type
-            { 0, 0, 0, SparseIndex::PageType::FIXED },
-            { 1, 0, 1, SparseIndex::PageType::FIXED },
-            { 2, 0, 2, SparseIndex::PageType::FIXED },
-            { 3, 1, 3, SparseIndex::PageType::FIXED },
-            { 0, 1, 4, SparseIndex::PageType::FIXED },
-            { 2, 2, 5, SparseIndex::PageType::FIXED },
-            { 4, 3, 6, SparseIndex::PageType::FIXED }
+            { 0, 0, 0 }, { 1, 0, 1 }, { 2, 0, 2 }, { 3, 1, 3 }, { 0, 1, 4 }, { 2, 2, 5 }, { 4, 3, 6 }
         };
         for (auto &item: items) {
             cut.insert(item);
@@ -143,10 +125,9 @@ namespace tests
         });
 
         SparseIndex cut(dram_pair, AccessType::READ_WRITE);
-        std::vector<SparseIndex::Item> items_1 {
+        std::vector<typename SparseIndex::SI_ItemT> items_1 {
             // page number, state number, physical page number, page type
-            { 0, 0, 0, SparseIndex::PageType::FIXED },
-            { 1, 0, 1, SparseIndex::PageType::FIXED }
+            { 0, 0, 0 }, { 1, 0, 1 }
         };
 
         for (auto &item: items_1) {
@@ -159,13 +140,9 @@ namespace tests
         ASSERT_EQ(cut.lookup(0, 0), sparse_index.lookup(0, 0));
         ASSERT_EQ(cut.lookup(1, 0), sparse_index.lookup(1, 0));
 
-        std::vector<SparseIndex::Item> items_2 {
+        std::vector<typename SparseIndex::SI_ItemT> items_2 {
             // page number, state number, physical page number, page type
-            { 2, 0, 2, SparseIndex::PageType::FIXED },
-            { 3, 1, 3, SparseIndex::PageType::FIXED },
-            { 0, 1, 4, SparseIndex::PageType::FIXED },
-            { 2, 2, 5, SparseIndex::PageType::FIXED },
-            { 4, 3, 6, SparseIndex::PageType::FIXED }
+            { 2, 0, 2 }, { 3, 1, 3 }, { 0, 1, 4 }, { 2, 2, 5 }, { 4, 3, 6 }
         };
 
         for (auto &item: items_2) {
@@ -190,10 +167,9 @@ namespace tests
         });
 
         SparseIndex cut(dram_pair, AccessType::READ_WRITE);
-        std::vector<SparseIndex::Item> items_1 {
+        std::vector<typename SparseIndex::SI_ItemT> items_1 {
             // page number, state number, physical page number, page type
-            { 0, 0, 0, SparseIndex::PageType::FIXED },
-            { 1, 1, 1, SparseIndex::PageType::FIXED }
+            { 0, 0, 0 }, { 1, 1, 1 }
         };
 
         for (auto &item: items_1) {
@@ -206,13 +182,9 @@ namespace tests
         cut.refresh();
         ASSERT_EQ(cut.getMaxStateNum(), 1);
 
-        std::vector<SparseIndex::Item> items_2 {
+        std::vector<typename SparseIndex::SI_ItemT> items_2 {
             // page number, state number, physical page number, page type
-            { 2, 0, 2, SparseIndex::PageType::FIXED },
-            { 3, 1, 3, SparseIndex::PageType::FIXED },
-            { 0, 1, 4, SparseIndex::PageType::FIXED },
-            { 2, 2, 5, SparseIndex::PageType::FIXED },
-            { 4, 3, 6, SparseIndex::PageType::FIXED }
+            { 2, 0, 2 }, { 3, 1, 3 }, { 0, 1, 4 }, { 2, 2, 5 }, { 4, 3, 6 }
         };
 
         for (auto &item: items_2) {
@@ -234,10 +206,9 @@ namespace tests
         });
 
         SparseIndex cut(dram_pair, AccessType::READ_WRITE);
-        std::vector<SparseIndex::Item> items_1 {
+        std::vector<typename SparseIndex::SI_ItemT> items_1 {
             // page number, state number, physical page number, page type
-            { 1, 1, 1, SparseIndex::PageType::FIXED },
-            { 0, 1, 0, SparseIndex::PageType::FIXED }
+            { 1, 1, 1 }, { 0, 1, 0 }
         };
 
         for (auto &item: items_1) {
@@ -262,13 +233,9 @@ namespace tests
             ASSERT_EQ(data, (std::vector<std::uint64_t> { 1, 0, 1 }));
         }
 
-        std::vector<SparseIndex::Item> items_2 {
+        std::vector<typename SparseIndex::SI_ItemT> items_2 {
             // page number, state number, physical page number, page type
-            { 2, 1, 2, SparseIndex::PageType::FIXED },
-            { 3, 2, 3, SparseIndex::PageType::FIXED },
-            { 0, 3, 4, SparseIndex::PageType::FIXED },
-            { 2, 4, 5, SparseIndex::PageType::FIXED },
-            { 4, 5, 6, SparseIndex::PageType::FIXED }
+            { 2, 1, 2 }, { 3, 2, 3 }, { 0, 3, 4 }, { 2, 4, 5 }, { 4, 5, 6 }
         };
 
         for (auto &item: items_2) {
@@ -293,16 +260,16 @@ namespace tests
     TEST_F( SparseIndexTest , testSparseIndexInsertFailingCase )
     {
         SparseIndex cut(16 * 1024);
-        std::vector<SparseIndex::Item> items {
+        std::vector<typename SparseIndex::SI_ItemT> items {
             // page number, state number, physical page number, page type
-            { 0, 1, 0, SparseIndex::PageType::FIXED }
+            { 0, 1, 0 }
         };
         for (auto &item: items) {
             cut.insert(item);
         }
 
         std::vector<std::uint64_t> page_num;
-        cut.forAll([&](const SparseIndex::Item &item) {
+        cut.forAll([&](const typename SparseIndex::SI_ItemT &item) {
             page_num.push_back(item.m_page_num);        
         });
         ASSERT_EQ(page_num, std::vector<std::uint64_t> { 0 });
@@ -311,9 +278,9 @@ namespace tests
     TEST_F( SparseIndexTest , testSparseIndexInsertLookupFailingCase )
     {
         SparseIndex cut(16 * 1024);
-        std::vector<SparseIndex::Item> items {
+        std::vector<typename SparseIndex::SI_ItemT> items {
             // page number, state number, physical page number, page type
-            { 0, 1, 0, SparseIndex::PageType::FIXED }
+            { 0, 1, 0 }
         };
         for (auto &item: items) {
             cut.insert(item);
@@ -339,7 +306,7 @@ namespace tests
         for (int i = 0; i < count; ++i) {
             SparseIndex cut({ prefix, allocator}, AccessType::READ_WRITE);
             for (unsigned int page_num = 0; page_num < 1000; ++page_num) {
-                cut.emplace(page_num, i, 999, SparseIndex::PageType::FIXED);
+                cut.emplace(page_num, i, 999);
             }
             
             // simulate change log extraction

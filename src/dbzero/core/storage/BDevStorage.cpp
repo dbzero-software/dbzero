@@ -196,11 +196,11 @@ namespace db0
             } else {
                 // append as new page
                 auto storage_page_id = m_page_io.append(write_buf);
-                m_sparse_index.emplace(page_num, state_num, storage_page_id, SparseIndex::PageType::FIXED);
+                m_sparse_index.emplace(page_num, state_num, storage_page_id);
             }
         }
     }
-
+    
     void BDevStorage::writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
         const std::vector<std::uint16_t> &diffs) 
     {

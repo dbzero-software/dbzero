@@ -445,7 +445,7 @@ namespace tests
             }
             auto &sparse_index = cut.getSparseIndex();
             for (unsigned int page_num = 0; page_num < 1000; ++page_num) {
-                sparse_index.emplace(page_num, i, 999, SparseIndex::PageType::FIXED);
+                sparse_index.emplace(page_num, i, 999);
 
                 cut.getSparseIndex().refresh();
                 ASSERT_EQ(cut.getMaxStateNum(), (std::uint32_t)i);

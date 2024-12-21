@@ -3,10 +3,12 @@
 #include <cstdint>
 #include <utility>
 #include <string>
-
+#include "SparseIndexBase.hpp"
+    
 namespace db0
 
 {
+    
     struct SI_Item;
     struct SI_CompressedItem;
 
@@ -78,13 +80,18 @@ namespace db0
         using CompT = SI_CompressedItemCompT;
         using EqualT = SI_CompressedItemEqualT;
 
+        // construct SI-compressed item relative to the specific page number - i.e. first_page_num
+        SI_CompressedItem(std::uint32_t first_page_num, const SI_Item &);
+        // construct SI-compressed item for comparison purposes (incomplete)
+        SI_CompressedItem(std::uint32_t first_page_num, std::uint64_t page_num, std::uint32_t state_num);
+
         // high bits include (in this order)
         // 1. relative logical page number (24 bits)
-        // 2. state number (32 bits)        
+        // 2. state number (32 bits)
         // 3. physical page number (8 highest bits)
-        std::uint64_t m_high_bits = 0;
+        std::uint64_t m_high_bits;
         // low bits = physical page number (lower 32 bits)
-        std::uint32_t m_low_bits = 0;
+        std::uint32_t m_low_bits;
 
         inline std::uint64_t getPageNum() const {
             return m_high_bits >> 40;
@@ -101,8 +108,13 @@ namespace db0
         
         // retrieve physical (storage) page number
         std::uint64_t getStoragePageNum() const;
+        
+        // uncompress relative to a specific page number
+        SI_Item uncompress(std::uint32_t first_page_num) const;
 
         std::string toString() const;
     };
-    
+
+    using SparseIndex = SparseIndexBase<SI_Item, SI_CompressedItem>;
+
 }
