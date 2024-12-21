@@ -46,6 +46,11 @@ namespace db0
         ConstIterator begin() const;
         ConstIterator end() const;
 
+        // Check if a specific element can be appended without adding it
+        template <typename... Args> bool canEmplaceBack(Args&&... args) const {
+            return sizeof(self_t) + m_end_offset + ItemT::measure(args...) <= MAX_BYTES;
+        }
+        
         // Try appending a next element
         // @return false if there's no sufficient capacity for item to be appended
         template <typename... Args> bool tryEmplaceBack(Args&&... args)
@@ -55,6 +60,16 @@ namespace db0
                 // capacity reached
                 return false;
             }
+            ItemT::__new(reinterpret_cast<std::byte*>(this) + sizeof(self_t) + m_end_offset,
+                std::forward<Args>(args)...);
+            m_end_offset += size_of_item;
+            return true;
+        }
+        
+        // Append next element without bounds validation
+        template <typename... Args> bool emplaceBack(Args&&... args)
+        {
+            auto size_of_item = ItemT::measure(args...);
             ItemT::__new(reinterpret_cast<std::byte*>(this) + sizeof(self_t) + m_end_offset,
                 std::forward<Args>(args)...);
             m_end_offset += size_of_item;

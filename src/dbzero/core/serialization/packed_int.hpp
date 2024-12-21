@@ -40,20 +40,26 @@ namespace db0
 
     public:        
 
-        inline IntT value() const 
+        inline IntT value() const
         {
-            if constexpr (is_nullable) {
-                return decodeNullable((const std::byte*)this);
-            } else {
-                return decode((const std::byte *) this);
-            }
+            auto at = reinterpret_cast<const std::byte*>(this);
+            return read(at);
         }
 
         inline operator IntT() const {
             return this->value();
         }
+        
+        static IntT read(const std::byte *&at) 
+        {
+            if constexpr (is_nullable) {
+                return decodeNullable(at);
+            } else {
+                return decode(at);
+            }
+        }
 
-        inline bool isNull() const 
+        inline bool isNull() const
         {
             if constexpr (is_nullable) {
                 return isNull((const std::byte*)this);
@@ -140,8 +146,8 @@ namespace db0
                 encode(value, end);
             }
         }
-
-        template <class buf_t> IntT decode(buf_t buf) const
+        
+        template <class buf_t> static IntT decode(buf_t &buf)
         {
             IntT value = 0;
             while (static_cast<std::uint8_t>(*buf) & 0x80) {
@@ -150,10 +156,11 @@ namespace db0
                 ++buf;
             }
             value |= (static_cast<std::uint8_t>(*buf) & 0x7f);
+            ++buf;
             return value;
         }
-
-        template <class buf_t> IntT decodeNullable(buf_t buf) const 
+        
+        template <class buf_t> static IntT decodeNullable(buf_t &buf) 
         {
             // test for null value
             if (static_cast<std::uint8_t>(*buf) == 0x7f) {
@@ -163,7 +170,7 @@ namespace db0
             return decode(buf);
         }
     };
-
+    
     using packed_int32 = o_packed_int<std::uint32_t>;
     using packed_int64 = o_packed_int<std::uint64_t>;
     using nullable_packed_int32 = o_packed_int<std::uint32_t, true>;

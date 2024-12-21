@@ -290,6 +290,22 @@ namespace db0
             // return uncompressed
             return node->header().uncompress(*item_ptr);
         }
+    
+        template <typename KeyT>
+        const CompressedItemT *lower_equal_bound(const KeyT &key, sg_tree_const_iterator &node) const
+        {
+            node = base_t::lower_equal_bound(key);
+            if (node == base_t::end()) {
+                return nullptr;
+            }
+            
+            // node will be sorted if needed (only if opened as READ/WRITE)
+            if (this->m_access_type == AccessType::READ_WRITE) {
+                this->onNodeLookup(node);
+            }
+            // within the node look up by compressed key
+            return node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
+        }
 
         const TreeHeaderT &treeHeader() const {
             return base_t::getData()->treeHeader();

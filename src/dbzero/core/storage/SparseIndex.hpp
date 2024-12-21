@@ -93,7 +93,7 @@ namespace db0
         // low bits = physical page number (lower 32 bits)
         std::uint32_t m_low_bits;
 
-        inline std::uint64_t getPageNum() const {
+        inline std::uint64_t getCompressedPageNum() const {
             return m_high_bits >> 40;
         }
 
@@ -111,6 +111,10 @@ namespace db0
         
         // uncompress relative to a specific page number
         SI_Item uncompress(std::uint32_t first_page_num) const;
+
+        inline std::uint64_t getPageNum(std::uint32_t first_page_num) const {
+            return this->getCompressedPageNum() | (static_cast<std::uint64_t>(first_page_num) << 24);
+        }
 
         std::string toString() const;
     };

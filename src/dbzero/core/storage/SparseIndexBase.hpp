@@ -94,8 +94,8 @@ namespace db0
         // Get the total number of data page descriptors stored in the index
         std::size_t size() const;
 
-    private:
-        
+    protected:
+
         struct BlockHeader
         {
             // number of the 1st page in a data block / node (high order bits)
@@ -108,29 +108,37 @@ namespace db0
 
             CompressedItemT compress(const ItemT &) const;
 
-            ItemT uncompress(CompressedItemT) const;
+            ItemT uncompress(const CompressedItemT &) const;
+
+            // From a compressed item, retrieve the (logical) page number only
+            PageNumT getPageNum(const CompressedItemT &) const;
 
             bool canFit(const ItemT &) const;
 
             std::string toString(const CompressedItemT &) const;
         };
 
-        std::shared_ptr<DRAM_Prefix> m_dram_prefix;
-        std::shared_ptr<DRAM_Allocator> m_dram_allocator;
-        Memspace m_dram_space;
-
         // tree-level header type
         struct [[gnu::packed]] o_sparse_index_header: o_fixed<o_sparse_index_header> {
             PageNumT m_next_page_num = 0;
             StateNumT m_max_state_num = 0;
         };
-        
+
         // DRAM space deployed sparse index (in-memory)
         using IndexT = SGB_CompressedLookupTree<
             ItemT, CompressedItemT, BlockHeader,
             ItemCompT, CompressedItemCompT, ItemEqualT, CompressedItemEqualT,
             o_sparse_index_header>;
         
+        using ConstNodeIterator = typename IndexT::sg_tree_const_iterator;
+
+        const CompressedItemT *lowerEqualBound(PageNumT, StateNumT, ConstNodeIterator &) const;
+
+    private:
+        std::shared_ptr<DRAM_Prefix> m_dram_prefix;
+        std::shared_ptr<DRAM_Allocator> m_dram_allocator;
+        Memspace m_dram_space;
+        // the actual index
         IndexT m_index;
         // copied from tree header (cached)
         PageNumT m_next_page_num = 0;
@@ -224,10 +232,16 @@ namespace db0
         assert(m_first_page_num == (item.first >> 24));
         return CompressedItemT(m_first_page_num, item.first, item.second);
     }
+    
+    template <typename ItemT, typename CompressedItemT>
+    ItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::uncompress(const CompressedItemT &item) const {
+        return item.uncompress(this->m_first_page_num);
+    }
 
     template <typename ItemT, typename CompressedItemT>
-    ItemT SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::uncompress(CompressedItemT item) const {
-        return item.uncompress(this->m_first_page_num);
+    typename SparseIndexBase<ItemT, CompressedItemT>::PageNumT 
+    SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::getPageNum(const CompressedItemT &item) const {
+        return item.getPageNum(this->m_first_page_num);
     }
 
     template <typename ItemT, typename CompressedItemT>
@@ -321,6 +335,13 @@ namespace db0
     template <typename ItemT, typename CompressedItemT>
     std::size_t SparseIndexBase<ItemT, CompressedItemT>::size() const {
         return m_index.size();
+    }
+
+    template <typename ItemT, typename CompressedItemT>
+    const CompressedItemT *SparseIndexBase<ItemT, CompressedItemT>::lowerEqualBound(
+        PageNumT page_num, StateNumT state_num, ConstNodeIterator &node) const
+    {
+        return m_index.lower_equal_bound(std::make_pair(page_num, state_num), node);
     }
     
 }       

@@ -275,7 +275,7 @@ namespace db0
         bool erase_existing(unsigned int at, const HeapCompT &comp) {
             return this->erase_existing(this->itemAt(at), comp);
         }
-
+        
     private:
 
         /**

@@ -93,11 +93,11 @@ namespace db0
         result |= m_low_bits;
         return result;
     }
-
+    
     SI_Item SI_CompressedItem::uncompress(std::uint32_t first_page_num) const
     {
-        return { 
-            this->getPageNum() | (static_cast<std::uint64_t>(first_page_num) << 24),
+        return {
+            this->getPageNum(first_page_num),
             this->getStateNum(), 
             this->getStoragePageNum()            
         };
@@ -106,7 +106,7 @@ namespace db0
     std::string SI_CompressedItem::toString() const
     {
         std::stringstream ss;        
-        ss << "CompressedItem(" << getPageNum() << ", " << getStateNum() << ", " << getStoragePageNum() << ")";
+        ss << "CompressedItem(" << getCompressedPageNum() << ", " << getStateNum() << ", " << getStoragePageNum() << ")";
         return ss.str();
     }
 
