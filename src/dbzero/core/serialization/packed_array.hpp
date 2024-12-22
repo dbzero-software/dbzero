@@ -34,13 +34,22 @@ namespace db0
         class ConstIterator
         {
         public:
+            ConstIterator() = default;
             ConstIterator(const std::byte *at);
+
             ConstIterator &operator++();
+
+            bool operator==(const ConstIterator &other) const;
             bool operator!=(const ConstIterator &other) const;
+
             const ItemT &operator*() const;
+            
+            operator bool () const {
+                return m_at != nullptr;
+            }
 
         private:
-            const std::byte *m_at;
+            const std::byte *m_at = nullptr;
         };
 
         ConstIterator begin() const;
@@ -100,6 +109,11 @@ namespace db0
         return *this;
     }   
     
+    template <typename ItemT, typename SizeT, std::size_t MAX_BYTES>
+    bool o_packed_array<ItemT, SizeT, MAX_BYTES>::ConstIterator::operator==(const o_packed_array<ItemT, SizeT, MAX_BYTES>::ConstIterator &other) const {
+        return m_at == other.m_at;
+    }
+
     template <typename ItemT, typename SizeT, std::size_t MAX_BYTES>
     bool o_packed_array<ItemT, SizeT, MAX_BYTES>::ConstIterator::operator!=(const o_packed_array<ItemT, SizeT, MAX_BYTES>::ConstIterator &other) const {
         return m_at != other.m_at;

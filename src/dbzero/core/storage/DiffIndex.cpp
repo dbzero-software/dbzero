@@ -10,6 +10,40 @@ namespace db0
     {    
     }
 
+    DI_Item::ConstIterator::ConstIterator(std::uint32_t base_state_num, std::uint64_t base_storage_page_num,
+        typename DiffArrayT::ConstIterator current, typename DiffArrayT::ConstIterator end)        
+        : m_base_state_num(base_state_num)
+        , m_base_storage_page_num(base_storage_page_num)
+        , m_current(current)
+        , m_end(end)
+    {
+    }
+
+    bool DI_Item::ConstIterator::next(std::uint32_t &state_num, std::uint64_t &storage_page_num)
+    {
+        assert(m_current);
+        if (m_current == m_end) {
+            return false;
+        }
+
+        // contains relative state number / storage page number
+        auto result_pair = (*m_current).value();
+        state_num = m_base_state_num + result_pair.first;
+        storage_page_num = m_base_storage_page_num + result_pair.second;
+        ++m_current;
+        return true;
+    }
+
+    void DI_Item::ConstIterator::reset() {
+        m_current = nullptr;
+    }
+
+    DI_Item::ConstIterator DI_Item::beginDiff() const
+    {
+        const auto &diff_array = DiffArrayT::__const_ref(m_diff_data.data());
+        return ConstIterator(m_state_num, m_storage_page_num, diff_array.begin(), diff_array.end());
+    }
+
     DI_CompressedItem::DI_CompressedItem(std::uint32_t first_page_num, const DI_Item &item)
         : SI_CompressedItem(first_page_num, item)
         , m_diff_data(item.m_diff_data)
@@ -21,10 +55,10 @@ namespace db0
     {        
     }
 
-    DI_Item DI_CompressedItem::uncompress(std::uint32_t first_page_num) const {
-        return DI_Item(SI_CompressedItem::uncompress(first_page_num), m_diff_data);
+    DI_Item DI_CompressedItem::uncompress(std::uint32_t first_page_num) const {        
+        return DI_Item(SI_CompressedItem::uncompress(first_page_num), this->m_diff_data);
     }
-
+    
     bool DI_CompressedItem::beginAppend(std::uint32_t &state_num, std::uint64_t &storage_page_num) const
     {
         auto base_state_num = SI_CompressedItem::getStateNum();
@@ -75,5 +109,9 @@ namespace db0
             super_t::emplace(page_num, state_num, storage_page_num);
         }
     }
-        
+    
+    DI_Item DiffIndex::findUpper(PageNumT page_num, StateNumT state_num) const {
+        return super_t::findUpper(page_num, state_num);
+    }
+    
 }

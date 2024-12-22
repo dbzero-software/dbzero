@@ -62,6 +62,9 @@ namespace db0
         
         ItemT lookup(std::pair<PageNumT, StateNumT> page_and_state) const;
 
+        // Locate the item with equal page_num and state number >= state_num
+        ItemT findUpper(PageNumT, StateNumT) const;
+
         const DRAM_Prefix &getDRAMPrefix() const;
 
         /**
@@ -344,4 +347,14 @@ namespace db0
         return m_index.lower_equal_bound(std::make_pair(page_num, state_num), node);
     }
     
+    template <typename ItemT, typename CompressedItemT>
+    ItemT SparseIndexBase<ItemT, CompressedItemT>::findUpper(PageNumT page_num, StateNumT state_num) const
+    {
+        auto result = m_index.upper_equal_bound(std::make_pair(page_num, state_num));
+        if (!result || result->m_page_num != page_num) {
+            return {};
+        }
+        return *result;
+    }
+
 }       

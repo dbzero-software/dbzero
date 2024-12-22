@@ -20,14 +20,18 @@ namespace db0
         inline std::uint64_t first() const {
             return m_full_dp.m_storage_page_num;
         }
-
+        
         // and the subsequent ones - diff-DPs until false is returned
-        bool next(std::uint64_t &storage_page_num);
+        bool next(std::uint32_t &state_num, std::uint64_t &storage_page_num);
 
     private:
+        using DiffArrayT = DI_Item::DiffArrayT;
+        const std::uint32_t m_query_state_num;
+        std::uint32_t m_state_num;
         const SI_Item m_full_dp;
         const DiffIndex &m_diff_index;
         DI_Item m_diff_dp;
+        typename DI_Item::ConstIterator m_diff_it;        
     };
     
 }   

@@ -4,7 +4,7 @@
 #include <utility>
 #include <string>
 #include "SparseIndex.hpp"
-#include <dbzero/core/serialization/packed_pair.hpp>
+#include <dbzero/core/serialization/packed_int_pair.hpp>
 #include <dbzero/core/serialization/packed_array.hpp>
 
 namespace db0
@@ -21,7 +21,7 @@ namespace db0
         using CompT = SI_ItemCompT;
         using EqualT = SI_ItemEqualT;
         using DiffBufT = std::array<std::uint8_t, 20>;
-        using DiffArrayT = o_packed_array<o_packed_pair<std::uint32_t, std::uint64_t>, std::uint8_t, sizeof(DiffBufT)>;
+        using DiffArrayT = o_packed_array<o_packed_int_pair<std::uint32_t, std::uint64_t>, std::uint8_t, sizeof(DiffBufT)>;
 
         // the diff-data buffer to hold o_packed_array
         DiffBufT m_diff_data;
@@ -43,6 +43,33 @@ namespace db0
         }
 
         DI_Item(const SI_Item &, const DiffBufT &);
+        
+        // the iterator over diff-items
+        class ConstIterator
+        {
+        public:
+            ConstIterator() = default;
+            ConstIterator(std::uint32_t base_state_num, std::uint64_t base_page_num,
+                typename DiffArrayT::ConstIterator current, typename DiffArrayT::ConstIterator end);
+            
+            bool next(std::uint32_t &state_num, std::uint64_t &storage_page_num);
+
+            // invalidate the iterator
+            void reset();
+
+            operator bool () const {
+                return m_current;
+            }
+            
+        private:
+            // base page num & state num are required for decoding
+            std::uint32_t m_base_state_num = 0;
+            std::uint64_t m_base_storage_page_num = 0;
+            typename DiffArrayT::ConstIterator m_current;
+            typename DiffArrayT::ConstIterator m_end;
+        };
+
+        ConstIterator beginDiff() const;
     };
 
     struct [[gnu::packed]] DI_CompressedItem: public SI_CompressedItem
@@ -85,8 +112,8 @@ namespace db0
         void insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num);
 
         std::size_t size() const;
-            
-        // DI_Item lookup(PageNumT page_num, StateNumT state_num) const;
+        
+        DI_Item findUpper(PageNumT page_num, StateNumT state_num) const;
     };
 
 }
