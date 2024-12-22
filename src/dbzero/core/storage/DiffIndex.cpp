@@ -100,10 +100,7 @@ namespace db0
         typename super_t::ConstNodeIterator node;
         auto item_ptr = super_t::lowerEqualBound(page_num, state_num, node);
         if (item_ptr && node->header().getPageNum(*item_ptr) == page_num && item_ptr->beginAppend(state_num, storage_page_num)) {
-            // extend the existing item
-            auto item_index = node->indexOf(item_ptr);
-            // NOTE: item_ptr gets invalidated by "modify"
-            node.modify().at(item_index).append(state_num, storage_page_num);
+            db0::modifyMember(node, *item_ptr).append(state_num, storage_page_num);
         } else {
             // create new item
             super_t::emplace(page_num, state_num, storage_page_num);

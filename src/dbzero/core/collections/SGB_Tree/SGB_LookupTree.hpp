@@ -76,7 +76,7 @@ namespace db0
         const_iterator cbegin() const
         {
             if (!is_reversed()) {
-                return super_t::cbegin();                
+                return super_t::cbegin();
             }
             // reversed begin
             return super_t::cbegin() + this->maxItems() - 1;

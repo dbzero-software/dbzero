@@ -242,6 +242,12 @@ namespace db0
             assureInitialized();            
             return reinterpret_cast<const ContainerT*>(m_mem_lock.m_buffer);
         }
+
+        const ContainerT *getData() const
+        {
+            assureInitialized();            
+            return reinterpret_cast<const ContainerT*>(m_mem_lock.m_buffer);
+        }
         
         inline const ContainerT *operator->() const {
             return get();

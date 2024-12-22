@@ -92,4 +92,36 @@ namespace tests
         ASSERT_FALSE(cut.next(state_num, storage_page_num));
     }
 
+    TEST_F( SparseIndexQueryTest , testSparseIndexQueryWithLongDiffsChain )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_index(16 * 1024);
+        sparse_index.emplace(1, 1, 1);
+        sparse_index.emplace(4, 7, 2343);
+        // append a long chain of diffs
+        for (std::uint32_t i = 3; i < 100; ++i) {
+            diff_index.insert(1, i, i + 1);
+            diff_index.insert(2, i, i + 1);
+            diff_index.insert(3, i, i + 1);
+        }
+        ASSERT_TRUE(diff_index.size() > 3);
+        
+        // multi-diff-mutated DP
+        SparseIndexQuery cut(sparse_index, diff_index, 1, 45);
+        ASSERT_EQ(cut.first(), 1);
+        
+        std::uint32_t state_num, last_state_num;
+        std::uint64_t storage_page_num, last_storage_page_num;
+        std::uint64_t expected_page_num = 4;
+        while (cut.next(state_num, storage_page_num)) {
+            ASSERT_EQ(storage_page_num, expected_page_num);
+            ++expected_page_num;
+            last_state_num = state_num;
+            last_storage_page_num = storage_page_num;
+        }
+        
+        ASSERT_EQ(last_state_num, 45);
+        ASSERT_EQ(last_storage_page_num, 46);
+    }
+
 }

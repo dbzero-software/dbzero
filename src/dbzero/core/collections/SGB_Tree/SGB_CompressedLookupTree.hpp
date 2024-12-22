@@ -26,7 +26,7 @@ namespace db0
         o_sgb_compressed_lookup_tree_node<ItemT, KeyItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 
         o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 0, false>
     {
-    protected: 
+    protected:
         using ext_t = o_ext<
             o_sgb_compressed_lookup_tree_node<ItemT, KeyItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 
             o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 0, false>;

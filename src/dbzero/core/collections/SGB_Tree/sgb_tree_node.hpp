@@ -176,12 +176,12 @@ namespace db0
         bool erase_existing(unsigned int item_index, const HeapCompT &comp) {
             return this->erase_existing(itemAt(item_index), comp);
         }
-        
+                        
         inline unsigned int indexOf(const_iterator item_ptr) const
         {
-            assert(item_ptr != nullptr);
-            assert(item_ptr >= cbegin() && item_ptr < cend());
-            return item_ptr - cbegin();
+            assert(item_ptr);
+            assert(item_ptr >= this->cbegin() && item_ptr < this->cend());
+            return item_ptr - this->cbegin();
         }
 
         inline const_iterator itemAt(unsigned int index) const {
@@ -331,13 +331,6 @@ namespace db0
         }
         
         /**
-         * A helper function to retrieve the mutable iterator from the const one
-        */
-        iterator modifyItem(const_iterator item) const {
-            return const_cast<iterator>(item);
-        }
-
-        /**
          * Try finding the lower-equal element and the surrounding (prev/next) ones
         */
         template <typename KeyT> const_iterator lower_equal_window(const KeyT &key, const_iterator &prev, 
@@ -414,8 +407,8 @@ namespace db0
         */
         bool erase_existing(const_iterator item_ptr, const HeapCompT &comp)
         {
-            assert(item_ptr != nullptr);
-            assert(item_ptr >= cbegin() && item_ptr < cend());
+            assert(item_ptr);
+            assert(item_ptr >= this->cbegin() && item_ptr < this->cend());
             dheap::erase<D>(begin(), end(), const_cast<iterator>(item_ptr), comp);
             --m_size;
             return m_size == 0;
