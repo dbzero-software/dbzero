@@ -52,7 +52,7 @@ namespace tests
         cut.insert(1, 1, 1);
         cut.insert(2, 1, 3);
         cut.insert(1, 3, 8);
-        cut.insert(2, 3, 1);
+        cut.insert(2, 3, 128);
         // 2 items of length = 2 should be inserted
         ASSERT_EQ(cut.size(), 2);
     }

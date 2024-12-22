@@ -290,7 +290,29 @@ namespace db0
             // return uncompressed
             return node->header().uncompress(*item_ptr);
         }
-    
+
+        // Locate first element which is greater or equal to the key
+        template <typename KeyT> std::optional<ItemT> upper_equal_bound(const KeyT &key) const
+        {
+            auto node = base_t::lower_equal_bound(key);
+            if (node == base_t::end()) {
+                return std::nullopt;
+            }
+            
+            // node will be sorted if needed (only if opened as READ/WRITE)
+            if (this->m_access_type == AccessType::READ_WRITE) {
+                this->onNodeLookup(node);
+            }
+            // within the node look up by compressed key
+            auto item_ptr = node->upper_equal_bound(node->header().compress(key), this->m_heap_comp);
+            if (!item_ptr) {
+                return std::nullopt;
+            }
+            
+            // return uncompressed
+            return node->header().uncompress(*item_ptr);
+        }
+        
         template <typename KeyT>
         const CompressedItemT *lower_equal_bound(const KeyT &key, sg_tree_const_iterator &node) const
         {

@@ -64,8 +64,9 @@ namespace db0
         DI_Item uncompress(std::uint32_t first_page_num) const;
 
         // check if the item can be appended to diff-data
-        bool canAppend(std::uint32_t state_num, std::uint64_t storage_page_num) const;
-        // append a new item to the diff-data
+        // and prepare the appended values (i.e. make them relative)
+        bool beginAppend(std::uint32_t &state_num, std::uint64_t &storage_page_num) const;
+        // append relative values
         void append(std::uint32_t state_num, std::uint64_t storage_page_num);
     };
     
@@ -84,6 +85,8 @@ namespace db0
         void insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num);
 
         std::size_t size() const;
+            
+        // DI_Item lookup(PageNumT page_num, StateNumT state_num) const;
     };
 
 }

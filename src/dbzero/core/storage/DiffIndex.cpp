@@ -25,8 +25,21 @@ namespace db0
         return DI_Item(SI_CompressedItem::uncompress(first_page_num), m_diff_data);
     }
 
-    bool DI_CompressedItem::canAppend(std::uint32_t state_num, std::uint64_t storage_page_num) const {
-        return DiffArrayT::__const_ref(m_diff_data.data()).canEmplaceBack(state_num, storage_page_num);
+    bool DI_CompressedItem::beginAppend(std::uint32_t &state_num, std::uint64_t &storage_page_num) const
+    {
+        auto base_state_num = SI_CompressedItem::getStateNum();
+        auto base_storage_page_num = SI_CompressedItem::getStoragePageNum();
+        // state & storage page numbers should be growing values
+        assert(state_num > base_state_num);
+        assert(storage_page_num > base_storage_page_num);
+        if (!DiffArrayT::__const_ref(m_diff_data.data()).
+            canEmplaceBack(state_num - base_state_num, storage_page_num - base_storage_page_num)) 
+        {
+            return false;
+        }
+        state_num -= base_state_num;
+        storage_page_num -= base_storage_page_num;
+        return true;
     }
 
     void DI_CompressedItem::append(std::uint32_t state_num, std::uint64_t storage_page_num) {
@@ -52,7 +65,7 @@ namespace db0
         // try locating existing item first
         typename super_t::ConstNodeIterator node;
         auto item_ptr = super_t::lowerEqualBound(page_num, state_num, node);
-        if (item_ptr && node->header().getPageNum(*item_ptr) == page_num && item_ptr->canAppend(state_num, storage_page_num)) {
+        if (item_ptr && node->header().getPageNum(*item_ptr) == page_num && item_ptr->beginAppend(state_num, storage_page_num)) {
             // extend the existing item
             auto item_index = node->indexOf(item_ptr);
             // NOTE: item_ptr gets invalidated by "modify"
@@ -62,5 +75,5 @@ namespace db0
             super_t::emplace(page_num, state_num, storage_page_num);
         }
     }
-
+        
 }
