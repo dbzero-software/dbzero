@@ -179,15 +179,21 @@ namespace db0
             if (diff_total > max_diff) {
                 return false;
             }
-            result.push_back(diff_len);
+            if (diff_len || it_1 != end) {
+                result.push_back(diff_len);
+            }            
+            if (it_1 == end) {
+                break;
+            }
             std::uint16_t sim_len = 0;
             for (; it_1 != end && *it_1 == *it_2; ++it_1, ++it_2) {
                 ++sim_len;
             }
-            if (!sim_len) {
-                assert(it_1 == end);
-                break;                
+            // do not include the trailing similarity area
+            if (it_1 == end) {
+                break;
             }
+            assert(sim_len);
             result.push_back(sim_len);
         }
         return true;

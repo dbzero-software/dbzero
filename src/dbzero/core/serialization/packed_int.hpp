@@ -50,13 +50,24 @@ namespace db0
             return this->value();
         }
         
-        static IntT read(const std::byte *&at) 
+        static IntT read(const std::byte *&at)
         {
             if constexpr (is_nullable) {
                 return decodeNullable(at);
             } else {
                 return decode(at);
             }
+        }
+
+        static void write(std::byte *&at, IntT value)
+        {
+            auto size_of = measure(value);
+            if constexpr (is_nullable) {
+                encodeNullable(value, at + size_of);
+            } else {
+                encode(value, at + size_of);
+            }
+            at += size_of;
         }
 
         inline bool isNull() const
@@ -118,7 +129,7 @@ namespace db0
             return *at == static_cast<std::byte>(0x7f);
         }
         
-        void encode(IntT value, std::byte *end)
+        static void encode(IntT value, std::byte *end)
         {
             // encode bits
             --end;
@@ -133,7 +144,7 @@ namespace db0
             }
         }
 
-        void encodeNullable(IntT value, std::byte *end) 
+        static void encodeNullable(IntT value, std::byte *end)
         {
             if (value == 0x7f) {
                 --end;

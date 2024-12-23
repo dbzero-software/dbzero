@@ -39,7 +39,7 @@ namespace db0
         , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))
         , m_sparse_index(m_dram_io.getDRAMPair(), access_type)
         , m_wal_io(readAll(getBlockIOStream(m_config.m_wal_offset, AccessType::READ_ONLY)))
-        , m_page_io(getPageIO(m_sparse_index.getNextStoragePageNum(), access_type))
+        , m_page_io(getPage_IO(m_sparse_index.getNextStoragePageNum(), access_type))
         // mark empty until retrieving actual data
         , m_empty(m_dram_io.empty())
     {
@@ -272,7 +272,7 @@ namespace db0
         return result;
     }
     
-    PageIO BDevStorage::getPageIO(std::uint64_t next_page_hint, AccessType access_type)
+    Page_IO BDevStorage::getPage_IO(std::uint64_t next_page_hint, AccessType access_type)
     {   
         if (access_type == AccessType::READ_ONLY) {
             // return empty page IO

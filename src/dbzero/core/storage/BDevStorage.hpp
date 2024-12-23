@@ -4,7 +4,7 @@
 #include "CFile.hpp"
 #include "Storage0.hpp"
 #include "BlockIOStream.hpp"
-#include "PageIO.hpp"
+#include "Page_IO.hpp"
 #include <optional>
 #include <cstdio>
 #include <dbzero/core/memory/AccessOptions.hpp>
@@ -120,7 +120,7 @@ namespace db0
         SparseIndex m_sparse_index;
         BlockIOStream m_wal_io;
         // the last / current physical pages block
-        PageIO m_page_io;
+        Page_IO m_page_io;
         // empty flag maintained in read-only mode
         bool m_empty = false;
         
@@ -140,7 +140,7 @@ namespace db0
 
         ChangeLogIOStream getChangeLogIOStream(std::uint64_t first_block_pos, AccessType);
 
-        PageIO getPageIO(std::uint64_t next_page_hint, AccessType);
+        Page_IO getPage_IO(std::uint64_t next_page_hint, AccessType);
         
         o_prefix_config readConfig() const;
         
