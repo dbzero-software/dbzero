@@ -32,20 +32,23 @@ namespace db0
 
     std::uint64_t Page_IO::append(const void *buffer)
     {
-        if (m_access_type != AccessType::READ_WRITE) {
-            THROWF(db0::InternalException) << "Page_IO instance is not writable";
-        }
+        assert(m_access_type == AccessType::READ_WRITE);
         if (m_page_count == m_block_capacity) {
-            // allocate the next block by appending it to the file
-            m_address = std::max(this->tail(), m_tail_function());
-            m_first_page_num = getPageNum(m_address);
-            m_page_count = 0;
+            allocateNextBlock();
         }
         
         m_file.write(m_address + m_page_count * m_page_size, m_page_size, buffer);
         return m_first_page_num + (m_page_count++);
     }
-    
+
+    void Page_IO::allocateNextBlock()
+    {
+        // allocate the next block by appending it to the file
+        m_address = std::max(this->tail(), m_tail_function());
+        m_first_page_num = getPageNum(m_address);
+        m_page_count = 0;
+    }
+
     void Page_IO::read(std::uint64_t page_num, void *buffer) const {
         m_file.read(m_header_size + page_num * m_page_size, m_page_size, buffer);
     }
@@ -67,5 +70,14 @@ namespace db0
     std::uint32_t Page_IO::getPageSize() const {
         return m_page_size;        
     }
-
+    
+    std::pair<std::uint64_t, std::uint32_t> Page_IO::getNextPageNum()
+    {
+        assert(m_access_type == AccessType::READ_WRITE);
+        if (m_page_count == m_block_capacity) {
+            allocateNextBlock();
+        }
+        return { m_first_page_num + m_page_count, m_block_capacity - m_page_count };
+    }
+    
 }

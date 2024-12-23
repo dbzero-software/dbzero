@@ -43,6 +43,11 @@ namespace db0
 
         std::uint32_t getPageSize() const;
 
+    protected:
+        // Get the next page number to be assigned by the "append" method (first)
+        // and the number of consecutive pages available in the current block
+        std::pair<std::uint64_t, std::uint32_t> getNextPageNum();
+
     private:
         const std::size_t m_header_size;
         CFile &m_file;
@@ -60,6 +65,7 @@ namespace db0
         const AccessType m_access_type;
 
         std::uint64_t getPageNum(std::uint64_t address) const;
+        void allocateNextBlock();
     };
 
 }
