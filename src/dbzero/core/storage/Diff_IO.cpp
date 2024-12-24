@@ -23,7 +23,8 @@ namespace db0
         
         // Append as o_diff_buffer object, if overflow occurs then
         // remainig contents needs to be written to the next (+1) storage page
-        void append(const std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
+        // @return false if append unsuccessful (must be appended to next page)
+        bool append(const std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
             const std::vector<std::uint16_t> &diff_data, bool &overflow);
         
         // Flush current page with the Page_IO and handle overflow data if such exists
@@ -85,19 +86,25 @@ namespace db0
         m_current += m_header.sizeOf();
     }
     
-    void DiffWriter::append(const std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
+    bool DiffWriter::append(const std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
         const std::vector<std::uint16_t> &diff_data, bool &overflow)
     {
         using PairT = o_packed_int_pair<std::uint64_t, std::uint32_t>;
         assert(m_current + o_diff_buffer::measure(dp_data, diff_data) + PairT::measure(page_and_state) <= m_end);
         auto begin = m_current;
         PairT::write(m_current, page_and_state);
+        if (m_current + o_diff_buffer::sizeOfHeader() > m_begin + m_page_size) {
+            // unable to fit headers onto current page, revert
+            m_current = begin;
+            return false;
+        }
         auto &diff_buf = o_diff_buffer::__new(m_current, dp_data, diff_data);
         m_current += diff_buf.sizeOf();
         m_last_size = m_current - begin;
         ++m_header.m_size;
         // overflows a single DP
         overflow = m_current > (m_begin + m_page_size);
+        return true;
     }
 
     void DiffWriter::flush()
@@ -136,17 +143,19 @@ namespace db0
     bool DiffWriter::empty() const {
         return m_header.m_size == 0 && m_header.m_offset == 0;
     }
-
+    
     DiffReader::DiffReader(Page_IO &page_io, std::uint64_t page_num, std::byte *begin, std::byte *end)
         : m_page_io(page_io)
         , m_page_size(page_io.getPageSize())
         , m_page_num(page_num)
         , m_begin(begin)
         , m_current(begin + m_page_size)
-        , m_end(end)
-        , m_size(o_diff_header::__const_ref(m_current).m_size)
+        , m_end(end)      
     {
-        m_current += o_diff_header::sizeOf();
+        page_io.read(page_num, m_begin + m_page_size);
+        m_size = o_diff_header::__const_ref(m_current).m_size;
+        // position at the first diff block
+        m_current += o_diff_header::sizeOf()+ o_diff_header::__const_ref(m_current).m_offset;
     }
     
     bool DiffReader::apply(std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
@@ -175,7 +184,7 @@ namespace db0
         // unable to locate the diff block
         return false;
     }
-
+    
     void DiffReader::loadNext()
     {
         // move underflown contenxt
@@ -206,6 +215,10 @@ namespace db0
     {
     }
     
+    Diff_IO::~Diff_IO()
+    {
+    }
+
     std::uint64_t Diff_IO::append(const void *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
         const std::vector<std::uint16_t> &diff_data)
     {
@@ -217,21 +230,26 @@ namespace db0
             bool overflow = false;
             auto next_page_num = Page_IO::getNextPageNum();
             assert(next_page_num.second > 0);
-            m_writer->append((const std::byte*)dp_data, page_and_state, diff_data, overflow);
-            if (overflow) {
-                // on overflow we can either append remnants to the next storage page (+1)
-                // if such is available or revert the append and try again with a fresh buffer
-                if (next_page_num.second > 1) {
-                    // flush with the Page_IO
-                    m_writer->flush();
-                } else {
-                    m_writer->revert();
-                    m_writer->flush();
-                    // continue wita fresh buffer
-                    continue;
+            if (m_writer->append((const std::byte*)dp_data, page_and_state, diff_data, overflow)) {
+                if (overflow) {
+                    // on overflow we can either append remnants to the next storage page (+1)
+                    // if such is available or revert the append and try again with a fresh buffer
+                    if (next_page_num.second > 1) {
+                        // flush with the Page_IO
+                        m_writer->flush();
+                    } else {
+                        m_writer->revert();
+                        m_writer->flush();
+                        // continue wita fresh buffer
+                        continue;
+                    }
                 }
+                return next_page_num.first;
+            } else {
+                // continue with a fresh buffer                
+                m_writer->flush();                
+                continue;
             }
-            return next_page_num.first;
         }
     }
     
@@ -258,6 +276,13 @@ namespace db0
 
     std::uint32_t Diff_IO::getPageSize() const {
         return Page_IO::getPageSize();
+    }
+    
+    void Diff_IO::flush()
+    {
+        if (m_writer) {
+            m_writer->flush();
+        }
     }
 
 }

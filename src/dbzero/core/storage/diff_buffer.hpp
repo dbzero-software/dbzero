@@ -19,6 +19,7 @@ namespace db0
     public:
         // size of the entire diff buffer
         std::uint16_t m_size;
+
         static std::size_t measure(const std::byte *dp_data, const std::vector<std::uint16_t> &diff_buf);
 
         template <typename buf_t> static std::size_t safeSizeOf(buf_t at)
@@ -31,6 +32,10 @@ namespace db0
         // Apply diffs on to a specific data-page        
         // @param dp_result the buffer to hold the data-page affter diff application
         void apply(std::byte *) const;
+        
+        static std::size_t sizeOfHeader() {
+            return sizeof(o_diff_buffer);
+        }
     };
     
 }
