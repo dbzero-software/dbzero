@@ -18,13 +18,24 @@ namespace db0
         // Read-only Diff_IO
         Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size);
         ~Diff_IO();
-
+        
         // Appends a new diff-block to the stream
         // NOTE: that the diff-block may be stored on 2 pages in which case the number of the first one is returned
         // and the continuation page number will be stored in the page header (continuation page number)
+        // @param dp_data the data page buffer
+        // @param page_and_state relative logical page and state numbers to mark the diff block
+        // @param diff_data the diff buffer (see getDiffs)
         // @return page number
-        std::uint64_t append(const std::byte *dp_data, const std::vector<std::uint16_t> &diff_data);
+        std::uint64_t append(const void *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
+            const std::vector<std::uint16_t> &diff_data);
         
+        // Read diff stream and apply changes to the DP-buffer (must be already populated with the base data)
+        // @param page_num the storage page number to read from
+        // @param buffer the buffer to hold the resulting data page
+        // @param page_and_state logical page and state numbers (possibly relative) to identify the diff block
+        // Exception raised if the diff block is not found
+        void read(std::uint64_t page_num, void *buffer, std::pair<std::uint64_t, std::uint32_t> page_and_state);
+
         // Flush needs to be called before closing the stream
         // and after each transaction
         void flush();
@@ -35,7 +46,8 @@ namespace db0
         
     protected:
         // the data buffer to hold up to 2 data pages
-        std::vector<std::byte> m_data_buf;
+        std::vector<std::byte> m_write_buf;
+        std::vector<std::byte> m_read_buf;
         std::unique_ptr<DiffWriter> m_writer;
     };
     

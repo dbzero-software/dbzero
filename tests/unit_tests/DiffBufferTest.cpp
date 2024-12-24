@@ -52,7 +52,8 @@ namespace tests
         
         std::vector<std::byte> result(page_size);
         // apply diffs
-        cut.apply(dp_0.data(), page_size, result.data());
+        std::memcpy(result.data(), dp_0.data(), page_size);
+        cut.apply(result.data());
         ASSERT_EQ(0, std::memcmp(dp_1.data(), result.data(), page_size));
     }
 

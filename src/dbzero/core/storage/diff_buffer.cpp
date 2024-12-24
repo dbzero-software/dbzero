@@ -49,10 +49,8 @@ namespace db0
         return result;
     }
     
-    void o_diff_buffer::apply(const std::byte *dp_data, std::size_t dp_size, std::byte *dp_result)
+    void o_diff_buffer::apply(std::byte *dp_result) const
     {
-        // copy the entire DP contents first
-        std::memcpy(dp_result, dp_data, dp_size);
         // apply diffs next
         const std::byte *at = (std::byte*)this + sizeof(o_diff_buffer);
         auto end = (std::byte*)this + m_size;

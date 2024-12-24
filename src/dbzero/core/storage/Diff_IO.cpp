@@ -1,4 +1,6 @@
 #include "Diff_IO.hpp"
+#include <dbzero/core/serialization/packed_int_pair.hpp>
+#include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
 
@@ -21,8 +23,8 @@ namespace db0
         
         // Append as o_diff_buffer object, if overflow occurs then
         // remainig contents needs to be written to the next (+1) storage page
-        void append(const std::byte *dp_data, const std::vector<std::uint16_t> &diff_data,
-            bool &overflow);
+        void append(const std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
+            const std::vector<std::uint16_t> &diff_data, bool &overflow);
         
         // Flush current page with the Page_IO and handle overflow data if such exists
         // only flushed if there's been contents written
@@ -47,6 +49,31 @@ namespace db0
         std::uint32_t m_last_size = 0;
     };
 
+    class DiffReader
+    {
+    public:
+        // buffer is 2 pages long
+        DiffReader(Page_IO &, std::uint64_t page_num, std::byte *begin, std::byte *end);
+        
+        // appy diffs from a specific page / state number into a provided data buffer
+        // if underflow occurs then next page needs to be fetched and apply repeated
+        bool apply(std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state, 
+            bool &underflow);
+
+        // Load continued data from the next page
+        void loadNext();
+    
+    private:
+        Page_IO &m_page_io;
+        const std::uint32_t m_page_size;
+        const std::uint64_t m_page_num;
+        std::byte * const m_begin;
+        const std::byte *m_current;
+        std::byte const *m_end;
+        // the number of objects remaining to be read
+        unsigned int m_size = 0;
+    };
+    
     DiffWriter::DiffWriter(Page_IO &page_io, std::byte *begin, std::byte *end)
         : m_page_io(page_io)
         , m_begin(begin)
@@ -58,12 +85,16 @@ namespace db0
         m_current += m_header.sizeOf();
     }
     
-    void DiffWriter::append(const std::byte *dp_data, const std::vector<std::uint16_t> &diff_data, bool &overflow)
+    void DiffWriter::append(const std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
+        const std::vector<std::uint16_t> &diff_data, bool &overflow)
     {
-        assert(m_current + o_diff_buffer::measure(dp_data, diff_data) <= m_end);
+        using PairT = o_packed_int_pair<std::uint64_t, std::uint32_t>;
+        assert(m_current + o_diff_buffer::measure(dp_data, diff_data) + PairT::measure(page_and_state) <= m_end);
+        auto begin = m_current;
+        PairT::write(m_current, page_and_state);
         auto &diff_buf = o_diff_buffer::__new(m_current, dp_data, diff_data);
-        m_last_size = diff_buf.sizeOf();
-        m_current += m_last_size;
+        m_current += diff_buf.sizeOf();
+        m_last_size = m_current - begin;
         ++m_header.m_size;
         // overflows a single DP
         overflow = m_current > (m_begin + m_page_size);
@@ -106,21 +137,77 @@ namespace db0
         return m_header.m_size == 0 && m_header.m_offset == 0;
     }
 
+    DiffReader::DiffReader(Page_IO &page_io, std::uint64_t page_num, std::byte *begin, std::byte *end)
+        : m_page_io(page_io)
+        , m_page_size(page_io.getPageSize())
+        , m_page_num(page_num)
+        , m_begin(begin)
+        , m_current(begin + m_page_size)
+        , m_end(end)
+        , m_size(o_diff_header::__const_ref(m_current).m_size)
+    {
+        m_current += o_diff_header::sizeOf();
+    }
+    
+    bool DiffReader::apply(std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
+        bool &underflow)
+    {
+        using PairT = o_packed_int_pair<std::uint64_t, std::uint32_t>;
+        while (m_size > 0) {
+            auto revert_to = m_current;
+            auto next_page_and_state = PairT::read(m_current);
+            auto diff_buf_size = o_diff_buffer::safeSizeOf(m_current);
+            if (next_page_and_state == page_and_state) {
+                if (m_current + diff_buf_size > m_end) {
+                    m_current = revert_to;
+                    // need to handle the underflow
+                    underflow = true;
+                    return false;
+                }
+                o_diff_buffer::__const_ref(m_current).apply(dp_data);
+                m_current += diff_buf_size;
+                --m_size;
+                return true;
+            }
+            m_current += diff_buf_size;
+            --m_size;
+        }
+        // unable to locate the diff block
+        return false;
+    }
+
+    void DiffReader::loadNext()
+    {
+        // move underflown contenxt
+        auto offset = m_current - (m_begin + m_page_size);
+        auto size = m_end - m_current;
+        std::memcpy(m_begin + offset, m_current, size);
+        m_current = m_begin + offset;
+        // read the next page
+        m_page_io.read(m_page_num + 1, m_begin + m_page_size);
+        // and merge neighboring parts of the diff block (note that header gets overwritten)
+        std::memmove((void*)(m_current + o_diff_header::sizeOf()), m_current, size);
+        m_current += o_diff_header::sizeOf();
+    }
+    
     Diff_IO::Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size, std::uint64_t address,
         std::uint32_t page_count, std::function<std::uint64_t()> tail_function)
         : Page_IO(header_size, file, page_size, block_size, address, page_count, tail_function)
-        , m_data_buf(page_size * 2)
+        , m_write_buf(page_size * 2)
+        , m_read_buf(page_size * 2)
         , m_writer(std::make_unique<DiffWriter>(
-            reinterpret_cast<Page_IO&>(*this), m_data_buf.data(), m_data_buf.data() + m_data_buf.size()))
+            reinterpret_cast<Page_IO&>(*this), m_write_buf.data(), m_write_buf.data() + m_write_buf.size()))
     {
     }
     
     Diff_IO::Diff_IO(std::size_t header_size, CFile &file, std::uint32_t page_size)
         : Page_IO(header_size, file, page_size)    
+        , m_read_buf(page_size * 2)
     {
     }
     
-    std::uint64_t Diff_IO::append(const std::byte *dp_data, const std::vector<std::uint16_t> &diff_data)
+    std::uint64_t Diff_IO::append(const void *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
+        const std::vector<std::uint16_t> &diff_data)
     {
         assert(m_writer);
         for (;;) {
@@ -130,7 +217,7 @@ namespace db0
             bool overflow = false;
             auto next_page_num = Page_IO::getNextPageNum();
             assert(next_page_num.second > 0);
-            m_writer->append(dp_data, diff_data, overflow);
+            m_writer->append((const std::byte*)dp_data, page_and_state, diff_data, overflow);
             if (overflow) {
                 // on overflow we can either append remnants to the next storage page (+1)
                 // if such is available or revert the append and try again with a fresh buffer
@@ -148,6 +235,23 @@ namespace db0
         }
     }
     
+    void Diff_IO::read(std::uint64_t page_num, void *buffer, std::pair<std::uint64_t, std::uint32_t> page_and_state)
+    {
+        DiffReader reader((Page_IO&)*this, page_num, m_read_buf.data(), m_read_buf.data() + m_read_buf.size());        
+        for (;;) {
+            bool underflow = false;
+            if (reader.apply((std::byte*)buffer, page_and_state, underflow)) {
+                return;
+            }
+            if (underflow) {
+                // repeat after fetching the next page
+                reader.loadNext();
+                continue;
+            }
+            THROWF(db0::InternalException) << "Diff block not found";            
+        }
+    }
+
     std::uint64_t Diff_IO::tail() const {
         return Page_IO::tail();
     }

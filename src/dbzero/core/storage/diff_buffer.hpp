@@ -28,9 +28,9 @@ namespace db0
             return size;
         }
 
-        // @param dp_data the original data page
+        // Apply diffs on to a specific data-page        
         // @param dp_result the buffer to hold the data-page affter diff application
-        void apply(const std::byte *dp_data, std::size_t dp_size, std::byte *dp_result);
+        void apply(std::byte *) const;
     };
-
+    
 }
