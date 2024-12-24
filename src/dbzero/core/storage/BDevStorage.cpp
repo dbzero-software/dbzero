@@ -272,7 +272,7 @@ namespace db0
         return result;
     }
     
-    Page_IO BDevStorage::getPage_IO(std::uint64_t next_page_hint, AccessType access_type)
+    Diff_IO BDevStorage::getPage_IO(std::uint64_t next_page_hint, AccessType access_type)
     {   
         if (access_type == AccessType::READ_ONLY) {
             // return empty page IO

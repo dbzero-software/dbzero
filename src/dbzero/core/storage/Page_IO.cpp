@@ -79,5 +79,5 @@ namespace db0
         }
         return { m_first_page_num + m_page_count, m_block_capacity - m_page_count };
     }
-    
+        
 }

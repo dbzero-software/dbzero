@@ -39,7 +39,7 @@ namespace tests
         std::vector<std::byte> m_dp_1;
     };
     
-    TEST_F( Diff_IOTest , testDiff_IOSimpleAppend )
+    TEST_F( Diff_IOTest , testDiff_IOSimpleAppendDiff )
     {
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
@@ -51,11 +51,11 @@ namespace tests
         std::vector<std::uint16_t> diff_buf;
         db0::getDiffs(m_dp_0.data(), m_dp_1.data(), page_size, diff_buf);
 
-        auto page_num = cut.append(m_dp_1.data(), {0, 0}, diff_buf);
+        auto page_num = cut.appendDiff(m_dp_1.data(), {0, 0}, diff_buf);
         ASSERT_EQ(0, page_num);
     }
     
-    TEST_F( Diff_IOTest , testDiff_IOAppendMultiplePages )
+    TEST_F( Diff_IOTest , testDiff_IOAppendMultiplePageDiff )
     {
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
@@ -69,12 +69,12 @@ namespace tests
 
         std::uint64_t last_page_num = 0;
         for (unsigned int i = 0; i < 100; ++i) {
-            last_page_num = cut.append(m_dp_1.data(), {i, i}, diff_buf);
+            last_page_num = cut.appendDiff(m_dp_1.data(), {i, i}, diff_buf);
         }
         ASSERT_TRUE(last_page_num > 0);
     }
 
-    TEST_F( Diff_IOTest , testDiff_IOAppendMultipleBlocks )
+    TEST_F( Diff_IOTest , testDiff_IOAppendMultipleBlocksDiff )
     {
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
@@ -89,12 +89,12 @@ namespace tests
 
         std::uint64_t last_page_num = 0;
         for (unsigned int i = 0; i < 100; ++i) {
-            last_page_num = cut.append(m_dp_1.data(), {i, i}, diff_buf);
+            last_page_num = cut.appendDiff(m_dp_1.data(), {i, i}, diff_buf);
         }
         ASSERT_TRUE(last_page_num > 0);
     }
 
-    TEST_F( Diff_IOTest , testDiff_IOApply )
+    TEST_F( Diff_IOTest , testDiff_IOApplyFrom )
     {
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
@@ -109,7 +109,7 @@ namespace tests
         
         std::map<std::uint64_t, std::uint64_t> diff_map;
         for (unsigned int i = 0; i < 100; ++i) {            
-            auto page_num = cut.append(m_dp_1.data(), {i, i}, diff_buf);
+            auto page_num = cut.appendDiff(m_dp_1.data(), {i, i}, diff_buf);
             diff_map[i] = page_num;
         }
         // must flush before performing any reads
@@ -118,7 +118,7 @@ namespace tests
         for (auto &item : diff_map) {
             // use old version as a base
             auto dp = m_dp_0;
-            cut.read(item.second, dp.data(), {item.first, item.first});
+            cut.applyFrom(item.second, dp.data(), {item.first, item.first});
             // make sure the diffs were applied correctly
             ASSERT_EQ(std::memcmp(m_dp_1.data(), dp.data(), page_size), 0);
         }

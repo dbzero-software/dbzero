@@ -5,6 +5,7 @@
 #include "Storage0.hpp"
 #include "BlockIOStream.hpp"
 #include "Page_IO.hpp"
+#include "Diff_IO.hpp"
 #include <optional>
 #include <cstdio>
 #include <dbzero/core/memory/AccessOptions.hpp>
@@ -23,8 +24,7 @@ namespace db0
         static constexpr std::uint64_t DB0_MAGIC = 0x0DB0DB0DB0DB0DB0;
 
         std::uint64_t m_magic = DB0_MAGIC;
-        std::uint32_t m_version = 1;
-        // storage block size
+        std::uint32_t m_version = 1;        
         std::uint32_t m_block_size;
         // the prefix page size
         std::uint32_t m_page_size;
@@ -119,8 +119,8 @@ namespace db0
         // DRAM-backed sparse index tree
         SparseIndex m_sparse_index;
         BlockIOStream m_wal_io;
-        // the last / current physical pages block
-        Page_IO m_page_io;
+        // The stream for storing & reading full DPs or diff-encoded DPs
+        Diff_IO m_page_io;
         // empty flag maintained in read-only mode
         bool m_empty = false;
         
@@ -140,7 +140,7 @@ namespace db0
 
         ChangeLogIOStream getChangeLogIOStream(std::uint64_t first_block_pos, AccessType);
 
-        Page_IO getPage_IO(std::uint64_t next_page_hint, AccessType);
+        Diff_IO getPage_IO(std::uint64_t next_page_hint, AccessType);
         
         o_prefix_config readConfig() const;
         

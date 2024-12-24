@@ -38,7 +38,7 @@ namespace db0
          * Overwrite existing page
         */
         void write(std::uint64_t page_num, void *buffer);
-
+        
         std::uint64_t tail() const;
 
         std::uint32_t getPageSize() const;
