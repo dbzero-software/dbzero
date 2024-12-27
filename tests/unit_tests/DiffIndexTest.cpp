@@ -56,5 +56,22 @@ namespace tests
         // 2 items of length = 2 should be inserted
         ASSERT_EQ(cut.size(), 2);
     }
+    
+    TEST_F( DiffIndexTest , testDiffIndexFindLower )
+    {
+        DiffIndex cut(16 * 1024);
+        cut.insert(1, 1, 1);
+        cut.insert(2, 1, 3);
+        cut.insert(1, 3, 8);
+        cut.insert(2, 3, 128);
+        ASSERT_EQ(cut.findLower(1, 1), 1);
+        ASSERT_EQ(cut.findLower(1, 2), 1);
+        ASSERT_EQ(cut.findLower(1, 3), 3);
+        ASSERT_EQ(cut.findLower(1, 16), 3);
+        ASSERT_EQ(cut.findLower(2, 1), 1);
+        ASSERT_EQ(cut.findLower(2, 11), 3);
+        // not found
+        ASSERT_EQ(cut.findLower(3, 11), 0);
+    }
 
 }

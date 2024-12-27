@@ -65,7 +65,7 @@ namespace db0
         
         void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) override;
         
-        void writeDiffs(std::uint64_t address, std::uint64_t state_num, void *buffer,
+        void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
             const std::vector<std::uint16_t> &diffs) override;
         
         std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const override;
@@ -96,12 +96,14 @@ namespace db0
             return m_dram_io;
         }
         
-        bool empty() const;
-        
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
 #endif
+
+        void beginCommit() override;
+
+        void endCommit() override;
 
     protected:
         // all prefix configuration must fit into this block
@@ -125,8 +127,8 @@ namespace db0
         BlockIOStream m_wal_io;
         // The stream for storing & reading full DPs or diff-encoded DPs
         Diff_IO m_page_io;
-        // empty flag maintained in read-only mode
-        bool m_empty = false;
+        // flag indicating if diff-writes should be performed
+        std::atomic<bool> m_diff_writes_enabled = false;
         
         static DRAM_IOStream init(DRAM_IOStream &&, ChangeLogIOStream &);
 

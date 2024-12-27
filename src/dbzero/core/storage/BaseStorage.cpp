@@ -19,7 +19,7 @@ namespace db0
     bool BaseStorage::beginRefresh() {
         return false;
     }
-            
+    
     std::uint64_t BaseStorage::completeRefresh(
         std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)>)
     {
@@ -48,5 +48,11 @@ namespace db0
     {        
     }
 #endif        
+
+    void BaseStorage::beginCommit() {
+    }
+    
+    void BaseStorage::endCommit() {        
+    }
 
 }

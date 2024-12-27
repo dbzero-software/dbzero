@@ -222,6 +222,8 @@ namespace db0
     std::uint64_t Diff_IO::appendDiff(const void *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
         const std::vector<std::uint16_t> &diff_data)
     {
+        // must lock because the write-buffer is shared
+        std::unique_lock<std::mutex> lock(m_mx_write);
         assert(m_writer);
         for (;;) {
             if (m_writer->isFull()) {
@@ -253,9 +255,12 @@ namespace db0
         }
     }
     
-    void Diff_IO::applyFrom(std::uint64_t page_num, void *buffer, std::pair<std::uint64_t, std::uint32_t> page_and_state)
+    void Diff_IO::applyFrom(std::uint64_t page_num, void *buffer,
+        std::pair<std::uint64_t, std::uint32_t> page_and_state) const
     {
-        DiffReader reader((Page_IO&)*this, page_num, m_read_buf.data(), m_read_buf.data() + m_read_buf.size());        
+        // must lock because the read-buffer is shared
+        std::unique_lock<std::mutex> lock(m_mx_read);
+        DiffReader reader((Page_IO&)*this, page_num, m_read_buf.data(), m_read_buf.data() + m_read_buf.size());
         for (;;) {
             bool underflow = false;
             if (reader.apply((std::byte*)buffer, page_and_state, underflow)) {
@@ -272,13 +277,14 @@ namespace db0
     
     void Diff_IO::flush()
     {
+        std::unique_lock<std::mutex> lock(m_mx_write);
         if (m_writer) {
             m_writer->flush();
         }
     }
     
     void Diff_IO::write(std::uint64_t page_num, void *buffer)
-    {
+    {        
         // full-DP write can only be performed after flushing from diff-writer
         assert(!m_writer || m_writer->empty());
         Page_IO::write(page_num, buffer);

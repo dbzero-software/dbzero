@@ -125,10 +125,8 @@ namespace tests
         // open .db0 file directly as read-only
         auto file_name = m_workspace.getPrefixCatalog().getFileName(prefix_name).string();
         BDevStorage storage(file_name, AccessType::READ_ONLY);
-        // make sure file is not reported as empty
-        ASSERT_FALSE(storage.empty());
     }
-    
+        
     struct [[gnu::packed]] o_TT: public o_fixed<o_TT> {
         int a = 0;
         int b = 0;

@@ -54,6 +54,7 @@ namespace db0
          * with respect to the given state number. This functionality is required for caching.
          * 
          * Exception will be raised if read access requested and some of the pages in the range does not exist
+         * @return mutation state number
         */
         virtual std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const = 0;
 
@@ -104,6 +105,11 @@ namespace db0
         std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {});
         
         virtual std::uint64_t getLastUpdated() const;
+        
+        // beginCommit / endCommit should be called to indicate the start and end of 
+        // transaction data flushing. This might be relevant e.g. to determine if diff-writes should be allowed
+        virtual void beginCommit();
+        virtual void endCommit();
         
 #ifndef NDEBUG
         // state number, file offset

@@ -51,8 +51,10 @@ namespace db0
             ConstIterator() = default;
             ConstIterator(std::uint32_t base_state_num, std::uint64_t base_page_num,
                 typename DiffArrayT::ConstIterator current, typename DiffArrayT::ConstIterator end);
-            
+                        
             bool next(std::uint32_t &state_num, std::uint64_t &storage_page_num);
+            // retrieve the next state number only
+            bool next(std::uint32_t &state_num);
 
             // invalidate the iterator
             void reset();
@@ -70,8 +72,11 @@ namespace db0
         };
 
         ConstIterator beginDiff() const;
-    };
 
+        // @return the largest state number such that state <= state_num
+        std::uint32_t findLower(std::uint32_t state_num) const;
+    };
+    
     struct [[gnu::packed]] DI_CompressedItem: public SI_CompressedItem
     {
         using CompT = SI_CompressedItemCompT;
@@ -94,7 +99,7 @@ namespace db0
         // and prepare the appended values (i.e. make them relative)
         bool beginAppend(std::uint32_t &state_num, std::uint64_t &storage_page_num) const;
         // append relative values
-        void append(std::uint32_t state_num, std::uint64_t storage_page_num);
+        void append(std::uint32_t state_num, std::uint64_t storage_page_num);        
     };
     
     class DiffIndex: protected SparseIndexBase<DI_Item, DI_CompressedItem>
@@ -104,19 +109,22 @@ namespace db0
         using PageNumT = typename super_t::PageNumT;
         using StateNumT = typename super_t::StateNumT;
         
-        DiffIndex(std::size_t node_size);
-        DiffIndex(DRAM_Pair, AccessType, std::uint64_t address);
+        DiffIndex(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr = nullptr);
+        DiffIndex(DRAM_Pair, AccessType, std::uint64_t address, std::vector<std::uint64_t> *change_log_ptr = nullptr);
 
         struct tag_create {};
-        DiffIndex(tag_create, DRAM_Pair);
-
+        DiffIndex(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr);
+        
         // Either insert into a new item or extend the existing one
         void insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num);
 
         std::size_t size() const;
         
+        // Find mutation of page_num where state >= state_num
         DI_Item findUpper(PageNumT page_num, StateNumT state_num) const;
-
+        // Find mutation ID of page_num where state <= state_num
+        StateNumT findLower(PageNumT page_num, StateNumT state_num) const;
+        
         PageNumT getNextStoragePageNum() const;
         
         StateNumT getMaxStateNum() const;

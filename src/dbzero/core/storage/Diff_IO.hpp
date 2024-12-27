@@ -34,7 +34,7 @@ namespace db0
         // @param buffer the buffer to hold the resulting data page
         // @param page_and_state logical page and state numbers (possibly relative) to identify the diff block
         // Exception raised if the diff block is not found
-        void applyFrom(std::uint64_t page_num, void *buffer, std::pair<std::uint64_t, std::uint32_t> page_and_state);
+        void applyFrom(std::uint64_t page_num, void *buffer, std::pair<std::uint64_t, std::uint32_t> page_and_state) const;
 
         // Flush needs to be called before closing the stream
         // and after each transaction
@@ -44,9 +44,11 @@ namespace db0
         void write(std::uint64_t page_num, void *buffer);
         
     protected:
+        mutable std::mutex m_mx_write;
         // the data buffer to hold up to 2 data pages
         std::vector<std::byte> m_write_buf;
-        std::vector<std::byte> m_read_buf;
+        mutable std::mutex m_mx_read;
+        mutable std::vector<std::byte> m_read_buf;
         std::unique_ptr<DiffWriter> m_writer;
     };
     

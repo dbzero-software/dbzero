@@ -38,18 +38,19 @@ namespace db0
          * Create empty as read/write
          * @param node_size size of a single in-memory data block / node
         */
-        SparseIndexBase(std::size_t node_size);
+        SparseIndexBase(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr = nullptr);
         
         /**
          * Create pre-populated with existing data (e.g. after reading from disk)
          * open either for read or read/write
          * @param address pass 0 to use the first assigned address
         */
-        SparseIndexBase(DRAM_Pair, AccessType, std::uint64_t address = 0);
+        SparseIndexBase(DRAM_Pair, AccessType, std::uint64_t address = 0, 
+            std::vector<std::uint64_t> *change_log_ptr = nullptr);
 
         // Create a new empty sparse index
         struct tag_create {};
-        SparseIndexBase(tag_create, DRAM_Pair);
+        SparseIndexBase(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr);
         
         void insert(const ItemT &item);
 
@@ -86,19 +87,11 @@ namespace db0
          * Refresh cache after underlying DRAM has been updated
         */
         void refresh();
-
-        /**
-         * Write internally managed change log into a specific stream 
-         * and then clean the internal change log
-        */
-        const o_change_log &extractChangeLog(ChangeLogIOStream &changelog_io);
-        
+                
         void forAll(std::function<void(const ItemT &)> callback) const {
             m_index.forAll(callback);
         }
-        
-        std::size_t getChangeLogSize() const;
-        
+                
         // Get the total number of data page descriptors stored in the index
         std::size_t size() const;
 
@@ -153,6 +146,8 @@ namespace db0
 
         std::uint64_t getExtraData() const;
 
+        void update(PageNumT page_num, StateNumT state_num, std::uint64_t storage_page_num);
+
     private:
         std::shared_ptr<DRAM_Prefix> m_dram_prefix;
         std::shared_ptr<DRAM_Allocator> m_dram_allocator;
@@ -163,27 +158,29 @@ namespace db0
         // copied from tree header (cached)
         PageNumT m_next_page_num = 0;
         StateNumT m_max_state_num = 0;
-        // change log contains the list of updates (modified items / page numbers)
+        // change log contains the list of updates (modified items / page numbers)qweqwe
         // first element is the state number
-        std::vector<std::uint64_t> m_change_log;
+        std::vector<std::uint64_t> *m_change_log_ptr = nullptr;
         
         IndexT openIndex(std::uint64_t address, AccessType access_type);
         IndexT createIndex();
     };
 
     template <typename ItemT, typename CompressedItemT>
-    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(std::size_t node_size)
+    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr)
         : m_dram_space(DRAMSpace::create(node_size, [this](DRAM_Pair dram_pair) {
             this->m_dram_prefix = dram_pair.first;
             this->m_dram_allocator = dram_pair.second;
         }))
         , m_access_type(AccessType::READ_WRITE)
-        , m_index(m_dram_space, node_size, AccessType::READ_WRITE)        
+        , m_index(m_dram_space, node_size, AccessType::READ_WRITE)
+        , m_change_log_ptr(change_log_ptr)
     {
     }
 
     template <typename ItemT, typename CompressedItemT>
-    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(DRAM_Pair dram_pair, AccessType access_type, std::uint64_t address)
+    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(DRAM_Pair dram_pair, AccessType access_type, std::uint64_t address,
+        std::vector<std::uint64_t> *change_log_ptr)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
         , m_dram_space(DRAMSpace::create(dram_pair))
@@ -191,11 +188,12 @@ namespace db0
         , m_index(openIndex(address, access_type))        
         , m_next_page_num(m_index.treeHeader().m_next_page_num)
         , m_max_state_num(m_index.treeHeader().m_max_state_num)
+        , m_change_log_ptr(change_log_ptr)
     {
     }
 
     template <typename ItemT, typename CompressedItemT>
-    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(tag_create, DRAM_Pair dram_pair)
+    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(tag_create, DRAM_Pair dram_pair, std::vector<std::uint64_t> *change_log_ptr)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
         , m_dram_space(DRAMSpace::create(dram_pair))
@@ -203,29 +201,38 @@ namespace db0
         , m_index(createIndex())        
         , m_next_page_num(m_index.treeHeader().m_next_page_num)
         , m_max_state_num(m_index.treeHeader().m_max_state_num)
+        , m_change_log_ptr(change_log_ptr)
     {
     }
 
     template <typename ItemT, typename CompressedItemT>
+    void SparseIndexBase<ItemT, CompressedItemT>::update(PageNumT page_num, StateNumT state_num, std::uint64_t storage_page_num)
+    {
+        // update tree header if necessary
+        if (storage_page_num >= m_next_page_num) {
+            m_next_page_num = storage_page_num + 1;
+            m_index.modifyTreeHeader().m_next_page_num = m_next_page_num;
+        }
+        if (state_num > m_max_state_num) {
+            m_max_state_num = state_num;
+            m_index.modifyTreeHeader().m_max_state_num = state_num;
+        }
+        // put the currently generated state number as the first element in the change-log
+        if (m_change_log_ptr) {
+            if (m_change_log_ptr->empty()) {
+                m_change_log_ptr->push_back(m_max_state_num);
+            }
+            m_change_log_ptr->push_back(page_num);
+        }
+    }
+    
+    template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::insert(const ItemT &item)
     {
         m_index.insert(item);
-        // update tree header if necessary
-        if (item.m_storage_page_num >= m_next_page_num) {
-            m_next_page_num = item.m_storage_page_num + 1;
-            m_index.modifyTreeHeader().m_next_page_num = m_next_page_num;
-        }
-        if (item.m_state_num > m_max_state_num) {
-            m_max_state_num = item.m_state_num;
-            m_index.modifyTreeHeader().m_max_state_num = m_max_state_num;
-        }
-        // put the currently generated state number as the first element in the change-log
-        if (m_change_log.empty()) {
-            m_change_log.push_back(m_max_state_num);
-        }
-        m_change_log.push_back(item.m_page_num);
+        this->update(item.m_page_num, item.m_state_num, item.m_storage_page_num);
     }
-
+    
     template <typename ItemT, typename CompressedItemT>
     typename SparseIndexBase<ItemT, CompressedItemT>::IndexT
     SparseIndexBase<ItemT, CompressedItemT>::openIndex(std::uint64_t address, AccessType access_type)
@@ -329,45 +336,12 @@ namespace db0
         m_max_state_num = m_index.treeHeader().m_max_state_num;
         m_index.detach();        
     }
-    
-    template <typename ItemT, typename CompressedItemT>
-    const o_change_log &SparseIndexBase<ItemT, CompressedItemT>::extractChangeLog(ChangeLogIOStream &changelog_io)
-    {        
-        assert(!m_change_log.empty());
-        // sort change log but keep the 1st item (the state number) at its place
-        if (!m_change_log.empty()) {
-            std::sort(m_change_log.begin() + 1, m_change_log.end());
-        }
         
-        ChangeLogData cl_data;
-        auto it = m_change_log.begin(), end = m_change_log.end();
-        // first item is the state number
-        cl_data.m_rle_builder.append(*(it++), true);
-        // the first page number (second item) must be added even if it is identical as the state number
-        if (it != end) {
-            cl_data.m_rle_builder.append(*(it++), true);
-        }
-        // all remaining items add with deduplication
-        for (; it != end; ++it) {
-            cl_data.m_rle_builder.append(*it, false);
-        }
-        
-        // RLE encode, no duplicates
-        auto &result = changelog_io.appendChangeLog(std::move(cl_data));
-        m_change_log.clear();
-        return result;
-    }
-    
     template <typename ItemT, typename CompressedItemT>
     std::string SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::toString(const CompressedItemT &item) const {
         return item.toString();
     }
-    
-    template <typename ItemT, typename CompressedItemT>
-    std::size_t SparseIndexBase<ItemT, CompressedItemT>::getChangeLogSize() const {
-        return m_change_log.empty() ? 0 : m_change_log.size() - 1;
-    }
-    
+        
     template <typename ItemT, typename CompressedItemT>
     std::size_t SparseIndexBase<ItemT, CompressedItemT>::size() const {
         return m_index.size();

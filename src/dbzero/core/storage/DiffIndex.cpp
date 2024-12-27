@@ -34,6 +34,20 @@ namespace db0
         return true;
     }
 
+    bool DI_Item::ConstIterator::next(std::uint32_t &state_num)
+    {
+        assert(m_current);
+        if (m_current == m_end) {
+            return false;
+        }
+
+        // contains relative state number / storage page number
+        auto result_pair = (*m_current).value();
+        state_num = m_base_state_num + result_pair.first;        
+        ++m_current;
+        return true;
+    }
+
     void DI_Item::ConstIterator::reset() {
         m_current = nullptr;
     }
@@ -42,6 +56,24 @@ namespace db0
     {
         const auto &diff_array = DiffArrayT::__const_ref(m_diff_data.data());
         return ConstIterator(m_state_num, m_storage_page_num, diff_array.begin(), diff_array.end());
+    }
+    
+    std::uint32_t DI_Item::findLower(std::uint32_t state_num) const
+    {
+        std::uint32_t result = 0;
+        if (m_state_num > state_num) {
+            return result;
+        }
+        result = m_state_num;
+        std::uint32_t next_state_num = 0;
+        auto it = beginDiff();
+        while (result != state_num && it.next(next_state_num)) {
+            if (next_state_num > state_num) {
+                break;
+            }
+            result = next_state_num;
+        }
+        return result;
     }
 
     DI_CompressedItem::DI_CompressedItem(std::uint32_t first_page_num, const DI_Item &item)
@@ -54,8 +86,8 @@ namespace db0
         : SI_CompressedItem(first_page_num, page_num, state_num)
     {        
     }
-
-    DI_Item DI_CompressedItem::uncompress(std::uint32_t first_page_num) const {        
+    
+    DI_Item DI_CompressedItem::uncompress(std::uint32_t first_page_num) const {
         return DI_Item(SI_CompressedItem::uncompress(first_page_num), this->m_diff_data);
     }
     
@@ -80,18 +112,18 @@ namespace db0
         DiffArrayT::__ref(m_diff_data.data()).emplaceBack(state_num, storage_page_num);
     }
 
-    DiffIndex::DiffIndex(std::size_t node_size)
-        : SparseIndexBase(node_size)
+    DiffIndex::DiffIndex(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr)
+        : SparseIndexBase(node_size, change_log_ptr)
     {
     }
     
-    DiffIndex::DiffIndex(DRAM_Pair dram_pair, AccessType access_type, std::uint64_t address)
-        : SparseIndexBase(dram_pair, access_type, address)
+    DiffIndex::DiffIndex(DRAM_Pair dram_pair, AccessType access_type, std::uint64_t address, std::vector<std::uint64_t> *change_log_ptr)
+        : SparseIndexBase(dram_pair, access_type, address, change_log_ptr)
     {
     }
     
-    DiffIndex::DiffIndex(tag_create, DRAM_Pair dram_pair)
-        : SparseIndexBase(typename super_t::tag_create{}, dram_pair)
+    DiffIndex::DiffIndex(tag_create, DRAM_Pair dram_pair, std::vector<std::uint64_t> *change_log_ptr)
+        : SparseIndexBase(typename super_t::tag_create{}, dram_pair, change_log_ptr)
     {
     }
 
@@ -106,6 +138,8 @@ namespace db0
         auto item_ptr = super_t::lowerEqualBound(page_num, state_num, node);
         if (item_ptr && node->header().getPageNum(*item_ptr) == page_num && item_ptr->beginAppend(state_num, storage_page_num)) {
             db0::modifyMember(node, *item_ptr).append(state_num, storage_page_num);
+            // collect the change-log
+            this->update(page_num, state_num, storage_page_num);
         } else {
             // create new item
             super_t::emplace(page_num, state_num, storage_page_num);
@@ -127,9 +161,18 @@ namespace db0
     typename DiffIndex::StateNumT DiffIndex::getMaxStateNum() const {
         return super_t::getMaxStateNum();
     }
-
-    void DiffIndex::refresh() {
-        super_t::refresh();        
-    }
     
+    void DiffIndex::refresh() {
+        super_t::refresh();
+    }
+        
+    DiffIndex::StateNumT DiffIndex::findLower(PageNumT page_num, StateNumT state_num) const
+    {        
+        auto item = super_t::lookup(page_num, state_num);
+        if (!item) {
+            return 0;
+        }
+        return item.findLower(state_num);        
+    }
+
 }

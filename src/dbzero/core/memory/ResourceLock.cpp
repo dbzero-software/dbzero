@@ -164,7 +164,7 @@ namespace db0
         assert(size <= std::numeric_limits<std::uint16_t>::max());
         if (!max_diff) {
             max_diff = size / 2;
-        }        
+        }
         const auto max_size = 128u;
         result.reserve(max_size);
         std::uint8_t *it_1 = static_cast<std::uint8_t *>(buf_1), *it_2 = static_cast<std::uint8_t *>(buf_2);
@@ -176,12 +176,14 @@ namespace db0
                 ++diff_len;
                 ++diff_total;
             }
+            // account for the administrative space overhead (approximate)
+            diff_total += sizeof(std::uint16_t);
             if (diff_total > max_diff) {
                 return false;
             }
             if (diff_len || it_1 != end) {
                 result.push_back(diff_len);
-            }            
+            }
             if (it_1 == end) {
                 break;
             }

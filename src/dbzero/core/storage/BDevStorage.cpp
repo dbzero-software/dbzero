@@ -1,4 +1,5 @@
 #include "BDevStorage.hpp"
+#include "SparseIndexQuery.hpp"
 #include <unordered_set>
 #include <unordered_map>
 #include <dbzero/core/serialization/Fixed.hpp>
@@ -42,8 +43,6 @@ namespace db0
         , m_diff_index(m_sparse_pair.getDiffIndex())
         , m_wal_io(readAll(getBlockIOStream(m_config.m_wal_offset, AccessType::READ_ONLY)))
         , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), access_type))
-        // mark empty until retrieving actual data
-        , m_empty(m_dram_io.empty())
     {
         if (m_access_type == AccessType::READ_ONLY) {
             refresh();
@@ -154,11 +153,15 @@ namespace db0
     bool BDevStorage::tryFindMutationImpl(std::uint64_t page_num, std::uint64_t state_num,
         std::uint64_t &mutation_id) const
     {
-        auto item  = m_sparse_index.lookup(page_num, state_num);
+        // query diff index first
+        mutation_id = m_diff_index.findLower(page_num, state_num);
+        auto item  = m_sparse_index.lookup(page_num, state_num);        
         if (!item) {
-            return false;
+            // mutation only exists in the diff index
+            return mutation_id != 0;
         }
-        mutation_id = item.m_state_num;
+        // take max from the sparse index and diff index
+        mutation_id = std::max((std::uint64_t)item.m_state_num, mutation_id);
         return true;
     }
     
@@ -190,17 +193,26 @@ namespace db0
         std::byte *read_buf = reinterpret_cast<std::byte *>(buffer);
         // lookup sparse index and read physical pages
         for (auto page_num = begin_page; page_num != end_page; ++page_num, read_buf += m_config.m_page_size) {
-            auto item  = m_sparse_index.lookup(page_num, state_num);
-            if (item) {
-                m_page_io.read(item.m_storage_page_num, read_buf);
-            } else {
+            // query sparse index + diff index
+            SparseIndexQuery query(m_sparse_index, m_diff_index, page_num, state_num);
+            // query.first yields the full-DP
+            std::uint64_t storage_page_num = query.first();
+            if (!storage_page_num) {
                 if (flags[AccessOptions::read]) {
                     THROWF(db0::IOException) << "BDevStorage::read: page not found: " << page_num << ", state: " << state_num;
                 }
                  // if requested access is write-only then simply fill the misssing (new) page with 0
                 memset(read_buf, 0, m_config.m_page_size);
             }
-        }
+             
+            // read full page
+            m_page_io.read(storage_page_num, read_buf);
+            std::uint32_t diff_state_num;
+            while (query.next(diff_state_num, storage_page_num)) {
+                // apply all diff-updates on top of the full-DP
+                m_page_io.applyFrom(storage_page_num, read_buf, { page_num, diff_state_num });
+            }
+        }              
     }
     
     void BDevStorage::write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer)
@@ -229,15 +241,22 @@ namespace db0
         }
     }
     
-    void BDevStorage::writeDiffs(std::uint64_t address, std::uint64_t state_num, void *buffer,
+    void BDevStorage::writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
         const std::vector<std::uint16_t> &diff_data) 
     {
         assert(state_num > 0 && "BDevStorage::writeDiffs: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::writeDiffs: address must be page-aligned");
+        assert(size == m_config.m_page_size && "BDevStorage::writeDiffs: size must be equal to page size");
+        
+        if (!m_diff_writes_enabled) {
+            // perform as a regular write if diff-writes not enabled
+            write(address, state_num, size, buffer);
+            return;
+        }
 
         auto page_num = address / m_config.m_page_size;
 
-        // If a page has already been written as full-DP in the current transaction
+        // if a page has already been written as full-DP in the current transaction then
         // we cannot append as diff but need to overwrite the full page instead
         {
             // look up if page has already been added in current transaction
@@ -268,15 +287,15 @@ namespace db0
         if (m_access_type == AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "BDevStorage::flush error: read-only stream";
         }
-
+        
         // check if there're any modifications to be flushed 
-        if (m_sparse_index.getChangeLogSize() == 0 && m_diff_index.getChangeLogSize() == 0) {
+        if (m_sparse_pair.getChangeLogSize() == 0) {
             // no modifications to be flushed
             return false;
         }
         
         // Extract & flush sparse index change log first (on condition of any updates)
-        m_sparse_index.extractChangeLog(m_dp_changelog_io);
+        m_sparse_pair.extractChangeLog(m_dp_changelog_io);
         m_dram_io.flushUpdates(m_sparse_pair.getMaxStateNum(), m_dram_changelog_io);
         m_dp_changelog_io.flush();
         // flush changelog AFTER all updates from dram_io have been flushed
@@ -357,7 +376,7 @@ namespace db0
     }
     
     std::uint32_t BDevStorage::getMaxStateNum() const {
-        return m_empty ? 0 : m_sparse_pair.getMaxStateNum();
+        return m_sparse_pair.getMaxStateNum();
     }
     
     std::function<std::uint64_t()> BDevStorage::getTailFunction() const
@@ -399,8 +418,6 @@ namespace db0
             if (m_dram_io.applyChanges(m_dram_changelog_io)) {
                 // refresh underlying sparse index / diff index after DRAM update
                 m_sparse_pair.refresh();
-                // clear empty flag if it was set
-                m_empty = false;
             }
             m_dp_changelog_io.refresh();
             // send all page-update notifications to the provided handler
@@ -431,11 +448,7 @@ namespace db0
         while (m_dram_changelog_io.refresh());        
         return result;
     }
-    
-    bool BDevStorage::empty() const {
-        return m_empty;
-    }
-    
+        
     std::uint64_t BDevStorage::getLastUpdated() const {
         return m_file.getLastModifiedTime();
     }
@@ -464,5 +477,14 @@ namespace db0
         m_dram_io.dramIOCheck(check_result);
     }
 #endif
+
+    void BDevStorage::beginCommit() {
+        // only enable for the duration of the storage commit operation
+        m_diff_writes_enabled = true;
+    }
+
+    void BDevStorage::endCommit() {
+        m_diff_writes_enabled = false;
+    }
 
 }
