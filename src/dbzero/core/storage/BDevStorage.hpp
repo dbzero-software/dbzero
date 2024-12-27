@@ -65,7 +65,7 @@ namespace db0
         
         void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) override;
         
-        void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+        void writeDiffs(std::uint64_t address, std::uint64_t state_num, void *buffer,
             const std::vector<std::uint16_t> &diffs) override;
         
         std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const override;
@@ -121,6 +121,7 @@ namespace db0
         SparsePair m_sparse_pair;
         // DRAM-backed sparse index tree
         SparseIndex &m_sparse_index;        
+        DiffIndex &m_diff_index;
         BlockIOStream m_wal_io;
         // The stream for storing & reading full DPs or diff-encoded DPs
         Diff_IO m_page_io;

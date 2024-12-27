@@ -39,8 +39,9 @@ namespace db0
         , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))
         , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
         , m_sparse_index(m_sparse_pair.getSparseIndex())
+        , m_diff_index(m_sparse_pair.getDiffIndex())
         , m_wal_io(readAll(getBlockIOStream(m_config.m_wal_offset, AccessType::READ_ONLY)))
-        , m_page_io(getPage_IO(m_sparse_index.getNextStoragePageNum(), access_type))
+        , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), access_type))
         // mark empty until retrieving actual data
         , m_empty(m_dram_io.empty())
     {
@@ -228,12 +229,32 @@ namespace db0
         }
     }
     
-    void BDevStorage::writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
-        const std::vector<std::uint16_t> &diffs) 
+    void BDevStorage::writeDiffs(std::uint64_t address, std::uint64_t state_num, void *buffer,
+        const std::vector<std::uint16_t> &diff_data) 
     {
-        // FIXME: implement
-    }
+        assert(state_num > 0 && "BDevStorage::writeDiffs: state number must be > 0");
+        assert((address % m_config.m_page_size == 0) && "BDevStorage::writeDiffs: address must be page-aligned");
 
+        auto page_num = address / m_config.m_page_size;
+
+        // If a page has already been written as full-DP in the current transaction
+        // we cannot append as diff but need to overwrite the full page instead
+        {
+            // look up if page has already been added in current transaction
+            auto item = m_sparse_index.lookup(page_num, state_num);
+            if (item && item.m_state_num == state_num) {
+                // page already added in current transaction / update in the stream
+                // this may happen due to cache overflow and later modification of the same page
+                m_page_io.write(item.m_storage_page_num, buffer);
+                return;
+            }
+        }
+        
+        // append as diff-page (NOTE: diff-writes are only appended)
+        auto storage_page_num = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data);
+        m_diff_index.insert(page_num, state_num, storage_page_num);
+    }
+    
     std::size_t BDevStorage::getPageSize() const {
         return m_config.m_page_size;
     }
@@ -247,15 +268,16 @@ namespace db0
         if (m_access_type == AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "BDevStorage::flush error: read-only stream";
         }
-        
-        // no modifications to be flushed
-        if (m_sparse_index.getChangeLogSize() == 0) {
+
+        // check if there're any modifications to be flushed 
+        if (m_sparse_index.getChangeLogSize() == 0 && m_diff_index.getChangeLogSize() == 0) {
+            // no modifications to be flushed
             return false;
         }
         
         // Extract & flush sparse index change log first (on condition of any updates)
         m_sparse_index.extractChangeLog(m_dp_changelog_io);
-        m_dram_io.flushUpdates(m_sparse_index.getMaxStateNum(), m_dram_changelog_io);
+        m_dram_io.flushUpdates(m_sparse_pair.getMaxStateNum(), m_dram_changelog_io);
         m_dp_changelog_io.flush();
         // flush changelog AFTER all updates from dram_io have been flushed
         m_dram_changelog_io.flush();

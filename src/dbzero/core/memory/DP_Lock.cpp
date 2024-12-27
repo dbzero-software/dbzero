@@ -50,8 +50,18 @@ namespace db0
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
-                // write from the local buffer
-                m_context.m_storage_ref.get().write(m_address, m_state_num, this->size(), m_data.data());
+                // write from the local buffer (either as a full-DP or diff-DP)
+                auto &storage = m_context.m_storage_ref.get();
+                if (m_cow_lock) {
+                    std::vector<std::uint16_t> diffs;
+                    if (getDiffs(m_cow_lock->getBuffer(), m_data.data(), this->size(), diffs)) {
+                        storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
+                    } else {
+                        storage.write(m_address, m_state_num, this->size(), m_data.data());    
+                    }
+                } else {
+                    storage.write(m_address, m_state_num, this->size(), m_data.data());
+                }
                 // reset the dirty flag
                 lock.commit_reset();
             }
