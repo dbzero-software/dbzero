@@ -37,7 +37,8 @@ namespace db0
         , m_dram_changelog_io(getChangeLogIOStream(m_config.m_dram_changelog_io_offset, access_type))
         , m_dp_changelog_io(init(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type)))
         , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))
-        , m_sparse_index(m_dram_io.getDRAMPair(), access_type)
+        , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
+        , m_sparse_index(m_sparse_pair.getSparseIndex())
         , m_wal_io(readAll(getBlockIOStream(m_config.m_wal_offset, AccessType::READ_ONLY)))
         , m_page_io(getPage_IO(m_sparse_index.getNextStoragePageNum(), access_type))
         // mark empty until retrieving actual data
@@ -100,21 +101,47 @@ namespace db0
         // create a new config using placement new
         auto config = new (buffer.data()) o_prefix_config(block_size, *page_size, dram_page_size);
 
-        auto offset = CONFIG_BLOCK_SIZE;
+        std::uint64_t offset = CONFIG_BLOCK_SIZE;
         auto next_block_offset = [&]() 
         {
             auto result = offset;
             offset += block_size;
             return result;
-        };        
+        };
 
         // cofigure offsets for all inner streams (even though they have not been materialized yet)
         config->m_dram_io_offset = next_block_offset();
         config->m_wal_offset = next_block_offset();
         config->m_dram_changelog_io_offset = next_block_offset();
-        config->m_dp_changelog_io_offset = next_block_offset();
-        
+        config->m_dp_changelog_io_offset = next_block_offset();        
         CFile::create(file_name, buffer);
+        
+        // Create higher-order data structures        
+        {
+            CFile file(file_name, AccessType::READ_WRITE);
+            ChangeLogIOStream *dram_changelog_io_ptr = nullptr;
+            DRAM_IOStream *dram_io_ptr = nullptr;
+            auto tail_function = [&]() {
+                assert(dram_io_ptr && dram_changelog_io_ptr);                
+                // take max from the underlying I/O streams
+                return std::max(offset, std::max(dram_io_ptr->tail(), dram_changelog_io_ptr->tail()));
+            };
+
+            auto dram_changelog_io = ChangeLogIOStream(file, config->m_dram_changelog_io_offset, config->m_block_size,
+                tail_function, AccessType::READ_WRITE);
+            dram_changelog_io_ptr = &dram_changelog_io;
+            auto dram_io = DRAM_IOStream(file, config->m_dram_io_offset, config->m_block_size, tail_function,
+                AccessType::READ_WRITE, config->m_dram_page_size);
+            dram_io_ptr = &dram_io;
+            
+            // create then flush an empty sparse pair (i.e. SparseIndex + DiffIndex)
+            SparsePair sparse_pair(SparsePair::tag_create(), dram_io.getDRAMPair());
+            dram_io.flushUpdates(sparse_pair.getMaxStateNum(), dram_changelog_io);
+            dram_changelog_io.flush();
+            dram_io.close();
+            dram_changelog_io.close();
+            file.close();
+        }        
     }
     
     bool BDevStorage::tryFindMutation(std::uint64_t page_num, std::uint64_t state_num,
@@ -232,6 +259,7 @@ namespace db0
         m_dp_changelog_io.flush();
         // flush changelog AFTER all updates from dram_io have been flushed
         m_dram_changelog_io.flush();
+        m_page_io.flush();
         m_wal_io.flush();
         m_file.flush();
         return true;
@@ -242,6 +270,7 @@ namespace db0
         if (m_access_type == AccessType::READ_WRITE) {
             flush();
         }
+        
         m_dram_io.close();
         m_dram_changelog_io.close();
         m_dp_changelog_io.close();
@@ -260,7 +289,7 @@ namespace db0
     ChangeLogIOStream BDevStorage::getChangeLogIOStream(std::uint64_t first_block_pos, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
     }
-    
+
     std::uint64_t BDevStorage::tail() const
     {
         // take max from the 4 underlying I/O streams
@@ -306,7 +335,7 @@ namespace db0
     }
     
     std::uint32_t BDevStorage::getMaxStateNum() const {
-        return m_empty ? 0 : m_sparse_index.getMaxStateNum();
+        return m_empty ? 0 : m_sparse_pair.getMaxStateNum();
     }
     
     std::function<std::uint64_t()> BDevStorage::getTailFunction() const
@@ -346,8 +375,8 @@ namespace db0
                 result = m_file.getLastModifiedTime();
             }
             if (m_dram_io.applyChanges(m_dram_changelog_io)) {
-                // refresh underlying sparse index after DRAM update
-                m_sparse_index.refresh();
+                // refresh underlying sparse index / diff index after DRAM update
+                m_sparse_pair.refresh();
                 // clear empty flag if it was set
                 m_empty = false;
             }
@@ -400,8 +429,8 @@ namespace db0
         callback("file_bytes_read", file_io_bytes.first);
         callback("file_bytes_written", file_io_bytes.second);
         // total size of data pages
-        callback("dp_size_total", m_sparse_index.size() * m_page_io.getPageSize());
-        callback("prefix_size", m_file.size());        
+        callback("dp_size_total", m_sparse_pair.size() * m_page_io.getPageSize());
+        callback("prefix_size", m_file.size());
     }
     
 #ifndef NDEBUG
@@ -413,5 +442,5 @@ namespace db0
         m_dram_io.dramIOCheck(check_result);
     }
 #endif
-    
+
 }

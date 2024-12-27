@@ -167,7 +167,7 @@ namespace db0
         // flush all changes done to DRAM Prerfix (append modified pages only)
         std::vector<std::uint64_t> dram_changelog;
         m_prefix->flushDirty([&, this](std::uint64_t page_num, const void *page_buffer) {
-            // the last page must be stored in a new block to mark end of the sequence            
+            // the last page must be stored in a new block to mark end of the sequence
             auto reusable_addr = find_reusable();            
             if (reusable_addr) {
                 reusable_header.m_page_num = page_num;

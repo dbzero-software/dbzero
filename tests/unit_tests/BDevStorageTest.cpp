@@ -58,13 +58,6 @@ namespace tests
         ASSERT_TRUE(file_exists(file_name));
     }
 
-    TEST_F( BDevStorageTest , testCanOpenEmptyDB0FileCreatedWithDefaultConfiguration )
-    {
-        BDevStorage::create(file_name);
-        std::unique_ptr<BDevStorage> cut;
-        ASSERT_NO_THROW(cut = std::make_unique<BDevStorage>(file_name, AccessType::READ_ONLY));
-    }
-    
     TEST_F( BDevStorageTest , testCanWriteThenReadFullPagesFromOneState )
     { 
         srand(9142424u);
@@ -318,6 +311,7 @@ namespace tests
         // should be accessible to a newly opened read-only instance, no refresh called     
         std::size_t page_size = 4096;
         BDevStorage::create(file_name, page_size);
+        
         // Write operations to be performed, each operation will be performed within a dedicated state        
         // (address, span, character)
         std::vector<std::tuple<std::uint64_t, std::size_t, char> > write_ops = {

@@ -100,13 +100,15 @@ namespace db0
     class DiffIndex: protected SparseIndexBase<DI_Item, DI_CompressedItem>
     {
     public:
-        using super_t = SparseIndexBase<DI_Item, DI_CompressedItem>;
+        using super_t = SparseIndexBase<DI_Item, DI_CompressedItem>;        
         using PageNumT = typename super_t::PageNumT;
         using StateNumT = typename super_t::StateNumT;
-
+        
         DiffIndex(std::size_t node_size);
+        DiffIndex(DRAM_Pair, AccessType, std::uint64_t address);
 
-        DiffIndex(DRAM_Pair, AccessType);
+        struct tag_create {};
+        DiffIndex(tag_create, DRAM_Pair);
 
         // Either insert into a new item or extend the existing one
         void insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num);
@@ -114,6 +116,14 @@ namespace db0
         std::size_t size() const;
         
         DI_Item findUpper(PageNumT page_num, StateNumT state_num) const;
+
+        PageNumT getNextStoragePageNum() const;
+        
+        StateNumT getMaxStateNum() const;
+
+        std::uint64_t getIndexAddress() const;
+
+        void refresh();
     };
 
 }

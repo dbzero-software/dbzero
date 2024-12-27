@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SparseIndex.hpp"
+#include "SparsePair.hpp"
 #include "CFile.hpp"
 #include "Storage0.hpp"
 #include "BlockIOStream.hpp"
@@ -107,7 +108,7 @@ namespace db0
         static constexpr unsigned int CONFIG_BLOCK_SIZE = 4096;
         CFile m_file;
         const o_prefix_config m_config;
-
+        
         // DRAM-changelog stream stores the sequence of updates to DRAM pages
         // DRAM-changelog must be initialized before DRAM_IOStream
         ChangeLogIOStream m_dram_changelog_io;
@@ -116,8 +117,10 @@ namespace db0
         ChangeLogIOStream m_dp_changelog_io;
         // memory-mapped file I/O
         DRAM_IOStream m_dram_io;
+        // SparseIndex + DiffIndex
+        SparsePair m_sparse_pair;
         // DRAM-backed sparse index tree
-        SparseIndex m_sparse_index;
+        SparseIndex &m_sparse_index;        
         BlockIOStream m_wal_io;
         // The stream for storing & reading full DPs or diff-encoded DPs
         Diff_IO m_page_io;
@@ -139,7 +142,7 @@ namespace db0
         DRAM_IOStream getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType);
 
         ChangeLogIOStream getChangeLogIOStream(std::uint64_t first_block_pos, AccessType);
-
+        
         Diff_IO getPage_IO(std::uint64_t next_page_hint, AccessType);
         
         o_prefix_config readConfig() const;

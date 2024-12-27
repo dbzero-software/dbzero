@@ -43,9 +43,14 @@ namespace db0
         /**
          * Create pre-populated with existing data (e.g. after reading from disk)
          * open either for read or read/write
+         * @param address pass 0 to use the first assigned address
         */
-        SparseIndexBase(DRAM_Pair, AccessType);
+        SparseIndexBase(DRAM_Pair, AccessType, std::uint64_t address = 0);
 
+        // Create a new empty sparse index
+        struct tag_create {};
+        SparseIndexBase(tag_create, DRAM_Pair);
+        
         void insert(const ItemT &item);
 
         template <typename... Args> void emplace(Args&&... args) {
@@ -76,7 +81,7 @@ namespace db0
          * Get the maximum used state number
         */
         StateNumT getMaxStateNum() const;
-                
+        
         /**
          * Refresh cache after underlying DRAM has been updated
         */
@@ -98,6 +103,7 @@ namespace db0
         std::size_t size() const;
 
     protected:
+        friend class SparsePair;
 
         struct BlockHeader
         {
@@ -125,6 +131,10 @@ namespace db0
         struct [[gnu::packed]] o_sparse_index_header: o_fixed<o_sparse_index_header> {
             PageNumT m_next_page_num = 0;
             StateNumT m_max_state_num = 0;
+            // the extra-data slot currently used to store reference to the dff-index
+            std::uint64_t m_extra_data = 0;
+            // reserved space for future use
+            std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
         };
 
         // DRAM space deployed sparse index (in-memory)
@@ -137,10 +147,17 @@ namespace db0
 
         const CompressedItemT *lowerEqualBound(PageNumT, StateNumT, ConstNodeIterator &) const;
 
+        std::uint64_t getIndexAddress() const;
+
+        void setExtraData(std::uint64_t);
+
+        std::uint64_t getExtraData() const;
+
     private:
         std::shared_ptr<DRAM_Prefix> m_dram_prefix;
         std::shared_ptr<DRAM_Allocator> m_dram_allocator;
         Memspace m_dram_space;
+        const AccessType m_access_type;
         // the actual index
         IndexT m_index;
         // copied from tree header (cached)
@@ -150,7 +167,8 @@ namespace db0
         // first element is the state number
         std::vector<std::uint64_t> m_change_log;
         
-        IndexT openIndex(AccessType);
+        IndexT openIndex(std::uint64_t address, AccessType access_type);
+        IndexT createIndex();
     };
 
     template <typename ItemT, typename CompressedItemT>
@@ -159,23 +177,35 @@ namespace db0
             this->m_dram_prefix = dram_pair.first;
             this->m_dram_allocator = dram_pair.second;
         }))
-        , m_index(m_dram_space, node_size, AccessType::READ_WRITE)
+        , m_access_type(AccessType::READ_WRITE)
+        , m_index(m_dram_space, node_size, AccessType::READ_WRITE)        
     {
-        m_index.modifyTreeHeader().m_next_page_num = m_next_page_num;
-        m_index.modifyTreeHeader().m_max_state_num = m_max_state_num;
     }
 
     template <typename ItemT, typename CompressedItemT>
-    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(DRAM_Pair dram_pair, AccessType access_type)
+    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(DRAM_Pair dram_pair, AccessType access_type, std::uint64_t address)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
         , m_dram_space(DRAMSpace::create(dram_pair))
-        , m_index(openIndex(access_type))
+        , m_access_type(access_type)
+        , m_index(openIndex(address, access_type))        
         , m_next_page_num(m_index.treeHeader().m_next_page_num)
         , m_max_state_num(m_index.treeHeader().m_max_state_num)
     {
     }
-    
+
+    template <typename ItemT, typename CompressedItemT>
+    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(tag_create, DRAM_Pair dram_pair)
+        : m_dram_prefix(dram_pair.first)
+        , m_dram_allocator(dram_pair.second)
+        , m_dram_space(DRAMSpace::create(dram_pair))
+        , m_access_type(AccessType::READ_WRITE)
+        , m_index(createIndex())        
+        , m_next_page_num(m_index.treeHeader().m_next_page_num)
+        , m_max_state_num(m_index.treeHeader().m_max_state_num)
+    {
+    }
+
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::insert(const ItemT &item)
     {
@@ -198,18 +228,21 @@ namespace db0
 
     template <typename ItemT, typename CompressedItemT>
     typename SparseIndexBase<ItemT, CompressedItemT>::IndexT
-    SparseIndexBase<ItemT, CompressedItemT>::openIndex(AccessType access_type)
+    SparseIndexBase<ItemT, CompressedItemT>::openIndex(std::uint64_t address, AccessType access_type)
     {
-        if (m_dram_prefix->empty()) {
-            // create new on top of existing DRAMSpace
-            return IndexT(m_dram_space, m_dram_prefix->getPageSize(), access_type);
-        } else {
-            // open existing under first addres assigned to the DRAMSpace
-            auto address = m_dram_allocator->firstAlloc();            
-            return IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), access_type);
+        assert(!m_dram_prefix->empty() && "SparseIndexBase::openIndex: DRAM prefix is empty");
+        if (!address) {
+            address = m_dram_allocator->firstAlloc();
         }
+        return IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), access_type);
     }
-
+    
+    template <typename ItemT, typename CompressedItemT>
+    typename SparseIndexBase<ItemT, CompressedItemT>::IndexT
+    SparseIndexBase<ItemT, CompressedItemT>::createIndex() {
+        return IndexT(m_dram_space, m_dram_prefix->getPageSize(), AccessType::READ_WRITE);  
+    }
+    
     template <typename ItemT, typename CompressedItemT>
     const DRAM_Prefix &SparseIndexBase<ItemT, CompressedItemT>::getDRAMPrefix() const {
         return *m_dram_prefix;
@@ -291,10 +324,10 @@ namespace db0
     
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::refresh()
-    {
+    {        
         m_next_page_num = m_index.treeHeader().m_next_page_num;
         m_max_state_num = m_index.treeHeader().m_max_state_num;
-        m_index.detach();
+        m_index.detach();        
     }
     
     template <typename ItemT, typename CompressedItemT>
@@ -355,6 +388,21 @@ namespace db0
             return {};
         }
         return *result;
+    }
+    
+    template <typename ItemT, typename CompressedItemT>
+    void SparseIndexBase<ItemT, CompressedItemT>::setExtraData(std::uint64_t data) {
+        m_index.modifyTreeHeader().m_extra_data = data;
+    }
+
+    template <typename ItemT, typename CompressedItemT>
+    std::uint64_t SparseIndexBase<ItemT, CompressedItemT>::getExtraData() const {
+        return m_index.treeHeader().m_extra_data;
+    }
+    
+    template <typename ItemT, typename CompressedItemT>
+    std::uint64_t SparseIndexBase<ItemT, CompressedItemT>::getIndexAddress() const {
+        return m_index.getAddress();
     }
 
 }       

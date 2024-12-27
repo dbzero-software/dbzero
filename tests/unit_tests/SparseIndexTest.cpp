@@ -123,8 +123,8 @@ namespace tests
         auto dram_space = DRAMSpace::create(node_size, [&](DRAM_Pair dp) {
             dram_pair = dp;
         });
-
-        SparseIndex cut(dram_pair, AccessType::READ_WRITE);
+        
+        SparseIndex cut(SparseIndex::tag_create(), dram_pair);
         std::vector<typename SparseIndex::SI_ItemT> items_1 {
             // page number, state number, physical page number, page type
             { 0, 0, 0 }, { 1, 0, 1 }
@@ -166,7 +166,7 @@ namespace tests
             dram_pair = dp;
         });
 
-        SparseIndex cut(dram_pair, AccessType::READ_WRITE);
+        SparseIndex cut(SparseIndex::tag_create(), dram_pair);
         std::vector<typename SparseIndex::SI_ItemT> items_1 {
             // page number, state number, physical page number, page type
             { 0, 0, 0 }, { 1, 1, 1 }
@@ -205,7 +205,7 @@ namespace tests
             dram_pair = dp;
         });
 
-        SparseIndex cut(dram_pair, AccessType::READ_WRITE);
+        SparseIndex cut(SparseIndex::tag_create(), dram_pair);
         std::vector<typename SparseIndex::SI_ItemT> items_1 {
             // page number, state number, physical page number, page type
             { 1, 1, 1 }, { 0, 1, 0 }
@@ -300,7 +300,12 @@ namespace tests
         db0::CFile file(file_name, AccessType::READ_WRITE);
         auto tail_function = [&]() {
             return file.size();
-        };     
+        };        
+        
+        {
+            // create an empty instance
+            SparseIndex cut(SparseIndex::tag_create(), { prefix, allocator});
+        }
 
         int count = 10;
         for (int i = 0; i < count; ++i) {

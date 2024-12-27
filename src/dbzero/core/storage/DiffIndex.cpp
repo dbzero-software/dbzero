@@ -84,12 +84,17 @@ namespace db0
         : SparseIndexBase(node_size)
     {
     }
-
-    DiffIndex::DiffIndex(DRAM_Pair dram_pair, AccessType access_type)
-        : SparseIndexBase(dram_pair, access_type)
+    
+    DiffIndex::DiffIndex(DRAM_Pair dram_pair, AccessType access_type, std::uint64_t address)
+        : SparseIndexBase(dram_pair, access_type, address)
     {
     }
     
+    DiffIndex::DiffIndex(tag_create, DRAM_Pair dram_pair)
+        : SparseIndexBase(typename super_t::tag_create{}, dram_pair)
+    {
+    }
+
     std::size_t DiffIndex::size() const {
         return super_t::size();
     }
@@ -109,6 +114,22 @@ namespace db0
     
     DI_Item DiffIndex::findUpper(PageNumT page_num, StateNumT state_num) const {
         return super_t::findUpper(page_num, state_num);
+    }
+    
+    std::uint64_t DiffIndex::getIndexAddress() const {
+        return super_t::getIndexAddress();
+    }
+
+    typename DiffIndex::PageNumT DiffIndex::getNextStoragePageNum() const {
+        return super_t::getNextStoragePageNum();
+    }
+    
+    typename DiffIndex::StateNumT DiffIndex::getMaxStateNum() const {
+        return super_t::getMaxStateNum();
+    }
+
+    void DiffIndex::refresh() {
+        super_t::refresh();        
     }
     
 }
