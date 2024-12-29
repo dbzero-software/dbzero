@@ -78,18 +78,35 @@ namespace tests
         diff_cut.insert(1, 9, 40);
         diff_cut.insert(1, 12, 41);
         
-        // multi-diff-mutated DP
-        SparseIndexQuery cut(sparse_index, diff_cut, 1, 7);
-        ASSERT_EQ(cut.first(), 1);
-        
-        std::uint32_t state_num;
-        std::uint64_t storage_page_num;
-        std::vector<std::uint64_t> expected_page_num { 3, 4, 11 };
-        for (auto expected : expected_page_num) {
-            ASSERT_TRUE(cut.next(state_num, storage_page_num));
-            ASSERT_EQ(storage_page_num, expected);
+        // sparse index / diff index interleaved items
+        {
+            SparseIndexQuery cut(sparse_index, diff_cut, 1, 11);
+            ASSERT_EQ(cut.first(), 17);
+
+            std::uint32_t state_num;
+            std::uint64_t storage_page_num;
+            std::vector<std::uint64_t> expected_page_num { 40 };
+            for (auto expected : expected_page_num) {
+                ASSERT_TRUE(cut.next(state_num, storage_page_num));
+                ASSERT_EQ(storage_page_num, expected);
+            }
+            ASSERT_FALSE(cut.next(state_num, storage_page_num));
         }
-        ASSERT_FALSE(cut.next(state_num, storage_page_num));
+        
+        // multi-diff-mutated DP
+        {
+            SparseIndexQuery cut(sparse_index, diff_cut, 1, 7);
+            ASSERT_EQ(cut.first(), 1);
+            
+            std::uint32_t state_num;
+            std::uint64_t storage_page_num;
+            std::vector<std::uint64_t> expected_page_num { 3, 4, 11 };
+            for (auto expected : expected_page_num) {
+                ASSERT_TRUE(cut.next(state_num, storage_page_num));
+                ASSERT_EQ(storage_page_num, expected);
+            }
+            ASSERT_FALSE(cut.next(state_num, storage_page_num));
+        }
     }
 
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryWithLongDiffsChain )

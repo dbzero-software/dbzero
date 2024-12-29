@@ -73,5 +73,20 @@ namespace tests
         // not found
         ASSERT_EQ(cut.findLower(3, 11), 0);
     }
+    
+    TEST_F( DiffIndexTest , testDiffIndexFindUpper )
+    {
+        DiffIndex cut(16 * 1024);
+        cut.insert(1, 2, 3);
+        cut.insert(1, 4, 4);
+        cut.insert(1, 5, 11);
+        cut.insert(1, 9, 40);
+        cut.insert(1, 12, 41);
+
+        ASSERT_TRUE(cut.findUpper(1, 9));
+        ASSERT_TRUE(cut.findUpper(1, 10));
+        ASSERT_TRUE(cut.findUpper(1, 12));
+        ASSERT_FALSE(cut.findUpper(1, 13));
+    }
 
 }

@@ -36,6 +36,8 @@ namespace db0
         */
         DP_Lock(std::shared_ptr<DP_Lock>, std::uint64_t write_state_num, FlagSet<AccessOptions>);   
         
+        bool tryFlush(FlushMethod) override;
+
         /**
          * Flush data from local buffer and clear the 'dirty' flag
          * data is not flushed if not dirty.
@@ -68,6 +70,8 @@ namespace db0
         struct tag_derived {};
         DP_Lock(tag_derived, StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
             std::uint64_t read_state_num, std::uint64_t write_state_num);
+
+        bool _tryFlush(FlushMethod);
     };
     
 }

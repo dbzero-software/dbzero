@@ -274,7 +274,7 @@ namespace db0
             THROWF(db0::InternalException) << "Diff block not found";            
         }
     }
-    
+     
     void Diff_IO::flush()
     {
         std::unique_lock<std::mutex> lock(m_mx_write);
@@ -284,9 +284,12 @@ namespace db0
     }
     
     void Diff_IO::write(std::uint64_t page_num, void *buffer)
-    {        
+    {
         // full-DP write can only be performed after flushing from diff-writer
-        assert(!m_writer || m_writer->empty());
+        std::unique_lock<std::mutex> lock(m_mx_write);
+        if (m_writer) {
+            m_writer->flush();
+        }        
         Page_IO::write(page_num, buffer);
     }
 

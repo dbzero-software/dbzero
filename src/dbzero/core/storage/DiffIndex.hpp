@@ -51,7 +51,7 @@ namespace db0
             ConstIterator() = default;
             ConstIterator(std::uint32_t base_state_num, std::uint64_t base_page_num,
                 typename DiffArrayT::ConstIterator current, typename DiffArrayT::ConstIterator end);
-                        
+            
             bool next(std::uint32_t &state_num, std::uint64_t &storage_page_num);
             // retrieve the next state number only
             bool next(std::uint32_t &state_num);
@@ -68,13 +68,16 @@ namespace db0
             std::uint32_t m_base_state_num = 0;
             std::uint64_t m_base_storage_page_num = 0;
             typename DiffArrayT::ConstIterator m_current;
-            typename DiffArrayT::ConstIterator m_end;
+            typename DiffArrayT::ConstIterator m_end;            
         };
-
+                
         ConstIterator beginDiff() const;
 
         // @return the largest state number such that state <= state_num
         std::uint32_t findLower(std::uint32_t state_num) const;
+        
+        // @return the smallest state number such that state >= state_num
+        std::uint32_t findUpper(std::uint32_t state_num) const;
     };
     
     struct [[gnu::packed]] DI_CompressedItem: public SI_CompressedItem

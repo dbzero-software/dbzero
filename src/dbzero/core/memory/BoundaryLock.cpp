@@ -64,13 +64,26 @@ namespace db0
             }
         }
     }
-    
-    void BoundaryLock::flush()
+
+    bool BoundaryLock::_tryFlush(FlushMethod flush_method)
     {
+        if (flush_method == FlushMethod::diff) {
+            // diff-flush not supported for BoundaryLock
+            return false;
+        }
         _flush();
         // flush both parent locks
         m_lhs->flush();
         m_rhs->flush();
+        return true;
+    }
+    
+    bool BoundaryLock::tryFlush(FlushMethod flush_method) {
+        return _tryFlush(flush_method);
+    }
+
+    void BoundaryLock::flush() {
+        _tryFlush(FlushMethod::full);
     }
     
     void __rebase(std::shared_ptr<DP_Lock> &lock,

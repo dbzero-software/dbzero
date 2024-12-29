@@ -9,13 +9,13 @@ namespace db0
         , m_diff_data(diff_data)
     {    
     }
-
+    
     DI_Item::ConstIterator::ConstIterator(std::uint32_t base_state_num, std::uint64_t base_storage_page_num,
-        typename DiffArrayT::ConstIterator current, typename DiffArrayT::ConstIterator end)        
+        typename DiffArrayT::ConstIterator current, typename DiffArrayT::ConstIterator end)
         : m_base_state_num(base_state_num)
         , m_base_storage_page_num(base_storage_page_num)
         , m_current(current)
-        , m_end(end)
+        , m_end(end)        
     {
     }
 
@@ -28,7 +28,7 @@ namespace db0
 
         // contains relative state number / storage page number
         auto result_pair = (*m_current).value();
-        state_num = m_base_state_num + result_pair.first;
+        state_num = m_base_state_num + result_pair.first;            
         storage_page_num = m_base_storage_page_num + result_pair.second;
         ++m_current;
         return true;
@@ -74,6 +74,22 @@ namespace db0
             result = next_state_num;
         }
         return result;
+    }
+
+    std::uint32_t DI_Item::findUpper(std::uint32_t state_num) const
+    {        
+        if (m_state_num >= state_num) {
+            return m_state_num;
+        }
+        auto it = beginDiff();
+        std::uint32_t next_state_num;
+        while (it.next(next_state_num)) {
+            if (next_state_num >= state_num) {
+                return next_state_num;
+            }            
+        }
+        // all elements are less than state_num
+        return 0;
     }
 
     DI_CompressedItem::DI_CompressedItem(std::uint32_t first_page_num, const DI_Item &item)
@@ -132,12 +148,15 @@ namespace db0
     }
     
     void DiffIndex::insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num)
-    {
+    {        
         // try locating existing item first
         typename super_t::ConstNodeIterator node;
         auto item_ptr = super_t::lowerEqualBound(page_num, state_num, node);
-        if (item_ptr && node->header().getPageNum(*item_ptr) == page_num && item_ptr->beginAppend(state_num, storage_page_num)) {
-            db0::modifyMember(node, *item_ptr).append(state_num, storage_page_num);
+        auto relative_state_num = state_num;
+        auto relative_storage_page_num = storage_page_num;
+        if (item_ptr && node->header().getPageNum(*item_ptr) == page_num && item_ptr->beginAppend(relative_state_num, relative_storage_page_num)) {
+            // NOTE: relative_state_num & relative_storage_page_num get converted from absolute to relative values
+            db0::modifyMember(node, *item_ptr).append(relative_state_num, relative_storage_page_num);
             // collect the change-log
             this->update(page_num, state_num, storage_page_num);
         } else {
@@ -145,8 +164,16 @@ namespace db0
             super_t::emplace(page_num, state_num, storage_page_num);
         }
     }
-    
-    DI_Item DiffIndex::findUpper(PageNumT page_num, StateNumT state_num) const {
+
+    DI_Item DiffIndex::findUpper(PageNumT page_num, StateNumT state_num) const
+    {
+        auto it = super_t::findLower(page_num, state_num);
+        if (it) {
+            auto item = it.second->header().uncompress(*it.get());
+            if (item.findUpper(state_num)) {
+                return item;
+            }
+        }
         return super_t::findUpper(page_num, state_num);
     }
     

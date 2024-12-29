@@ -137,8 +137,11 @@ namespace db0
             o_sparse_index_header>;
         
         using ConstNodeIterator = typename IndexT::sg_tree_const_iterator;
+        using ConstItemIterator = typename IndexT::ConstItemIterator;
 
         const CompressedItemT *lowerEqualBound(PageNumT, StateNumT, ConstNodeIterator &) const;
+
+        ConstItemIterator findLower(PageNumT, StateNumT) const;
 
         std::uint64_t getIndexAddress() const;
 
@@ -207,7 +210,7 @@ namespace db0
 
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::update(PageNumT page_num, StateNumT state_num, std::uint64_t storage_page_num)
-    {
+    {        
         // update tree header if necessary
         if (storage_page_num >= m_next_page_num) {
             m_next_page_num = storage_page_num + 1;
@@ -378,5 +381,11 @@ namespace db0
     std::uint64_t SparseIndexBase<ItemT, CompressedItemT>::getIndexAddress() const {
         return m_index.getAddress();
     }
-
+    
+    template <typename ItemT, typename CompressedItemT>
+    typename SparseIndexBase<ItemT, CompressedItemT>::ConstItemIterator    
+    SparseIndexBase<ItemT, CompressedItemT>::findLower(PageNumT page_num, StateNumT state_num) const {
+        return m_index.findLower(std::make_pair(page_num, state_num));
+    }
+    
 }       

@@ -101,10 +101,6 @@ namespace db0
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
 #endif
 
-        void beginCommit() override;
-
-        void endCommit() override;
-
     protected:
         // all prefix configuration must fit into this block
         static constexpr unsigned int CONFIG_BLOCK_SIZE = 4096;
@@ -125,11 +121,9 @@ namespace db0
         SparseIndex &m_sparse_index;        
         DiffIndex &m_diff_index;
         BlockIOStream m_wal_io;
-        // The stream for storing & reading full DPs or diff-encoded DPs
+        // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
-        // flag indicating if diff-writes should be performed
-        std::atomic<bool> m_diff_writes_enabled = false;
-        
+                
         static DRAM_IOStream init(DRAM_IOStream &&, ChangeLogIOStream &);
 
         static ChangeLogIOStream init(ChangeLogIOStream &&);

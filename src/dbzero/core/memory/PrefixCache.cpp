@@ -438,22 +438,27 @@ namespace db0
         });
     }
     
-    void PrefixCache::flush(ProcessTimer *parent_timer)
+    void PrefixCache::commit(ProcessTimer *parent_timer)
     {
         std::unique_ptr<ProcessTimer> timer;
         if (parent_timer) {
-            timer = std::make_unique<ProcessTimer>("PrefixCache::flush", parent_timer);
+            timer = std::make_unique<ProcessTimer>("PrefixCache::commit", parent_timer);
         }
         // boundary locks need to be flushed first (from the map since they're not cached)        
         m_boundary_map.forEach([&](BoundaryLock &lock) {
             lock.flush();
         });
-        // flush wide locks next
+        // NOTE: only commit operation can use the FlushMethod::diff method
+        // NOTE: we first flush using the diff-method and then again using full-write method
+        // this is to aovid interleaved diff / full writes
+        // wide locks need to be flushed before dp-locks
+        m_dirty_wide_cache.tryFlush(FlushMethod::diff);
         m_dirty_wide_cache.flush();
         // finally flush DP_Locks using the DirtyCache
+        m_dirty_dp_cache.tryFlush(FlushMethod::diff);
         m_dirty_dp_cache.flush();
     }
-
+    
     void PrefixCache::markAsMissing(std::uint64_t page_num, std::uint64_t state_num)
     {
         // only mark already existing ranges
@@ -467,7 +472,7 @@ namespace db0
             m_wide_map.insert(state_num, m_missing_wide_lock_ptr, page_num);
         }
     }
-
+    
     void PrefixCache::rollback(std::uint64_t state_num)
     {
         // remove all volatile locks

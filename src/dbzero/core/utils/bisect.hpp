@@ -57,7 +57,7 @@ namespace db0::bisect
             }
         }
         if (less(*low, key)) {
-            ++low;
+            low = op::add(low, 1);
         }
         assert(low == end || !less(*low, key));
         return low;

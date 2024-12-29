@@ -24,6 +24,14 @@ namespace db0
         std::reference_wrapper<BaseStorage> m_storage_ref;
     };
 
+    enum class FlushMethod: std::uint8_t
+    {
+        // Flush using the diff-range calculation (if possible)
+        diff = 0x01 ,
+        // Flush using the full-DP write (always possible)
+        full = 0x02
+    };
+    
     // Calculate diff areas between the 2 binary buffers of the same size (e.g. DPs)
     // @param size size of the buffers
     // @param result vector to hold size of diff / size of identical areas interleaved (totalling to size)
@@ -70,6 +78,10 @@ namespace db0
             return static_cast<std::byte*>(getBuffer()) + address - m_address;
         }
         
+        // Try flushing using a specific method
+        // @return true if the lock's data has been flushed (or not dirty)
+        virtual bool tryFlush(FlushMethod) = 0;
+
         /**
          * Flush data from local buffer and clear the 'dirty' flag
          * data is not flushed if not dirty.

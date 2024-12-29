@@ -266,6 +266,21 @@ namespace db0
         std::size_t size() const {
             return super_t::size();
         }
+        
+        template <typename KeyT> ConstItemIterator findLower(const KeyT &key) const
+        {
+            auto node = base_t::lower_equal_bound(key);
+            if (node == base_t::end()) {
+                return { nullptr, sg_tree_const_iterator() };
+            }
+
+            // node will be sorted if needed (only if in READ/WRITE mode)
+            if (this->m_access_type == AccessType::READ_WRITE) {
+                this->onNodeLookup(node);
+            }
+            // within the node look up by compressed key
+            return { node->lower_equal_bound(node->header().compress(key), this->m_heap_comp), node };
+        }
 
         /**
          * Note that return type is different from the base class

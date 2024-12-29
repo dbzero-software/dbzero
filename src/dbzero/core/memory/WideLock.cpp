@@ -38,11 +38,19 @@ namespace db0
     {    
     }
     
-    void WideLock::flush()
+    bool WideLock::tryFlush(FlushMethod flush_method) {
+        return _tryFlush(flush_method);
+    }
+
+    void WideLock::flush() {
+        _tryFlush(FlushMethod::full);
+    }
+    
+    bool WideLock::_tryFlush(FlushMethod flush_method)
     {
         // no-flush flag is important for volatile locks (atomic operations)
         if (m_access_mode[AccessOptions::no_flush]) {
-            return;
+            return true;
         }
 
         using MutexT = ResourceDirtyMutexT;
@@ -50,6 +58,10 @@ namespace db0
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
                 auto &storage = m_context.m_storage_ref.get();
+                if (flush_method == FlushMethod::diff) {
+                    // method currently not supported
+                    return false;
+                }
                 if (m_res_lock) {
                     auto dp_size = static_cast<std::size_t>(this->size() / storage.getPageSize()) * storage.getPageSize();
                     assert(dp_size > 0);
@@ -67,6 +79,7 @@ namespace db0
                 lock.commit_reset();
             }
         }
+        return true;
     }
     
     void WideLock::flushResidual()

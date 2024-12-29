@@ -27,7 +27,25 @@ namespace db0
             *m_dirty_meter_ptr += lock_size;
         }
     }
-
+    
+    void DirtyCache::tryFlush(FlushMethod flush_method)
+    {
+        std::size_t flushed = 0;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        auto it = m_locks.begin();
+        while (it != m_locks.end()) {
+            if ((*it)->tryFlush(flush_method)) {
+                flushed += (*it)->size();
+                it = m_locks.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        if (m_dirty_meter_ptr) {
+            *m_dirty_meter_ptr -= flushed;
+        }
+    }
+    
     void DirtyCache::flush()
     {        
         std::unique_lock<std::mutex> lock(m_mutex);

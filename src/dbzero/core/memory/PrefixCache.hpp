@@ -112,7 +112,7 @@ namespace db0
         /**
          * Flush all managed locks
         */
-        void flush(ProcessTimer * = nullptr);
+        void commit(ProcessTimer * = nullptr);
 
         // Flush managed boundary locks only
         void flushBoundary();

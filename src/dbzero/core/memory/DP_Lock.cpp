@@ -39,11 +39,11 @@ namespace db0
         assert(m_state_num > 0);
     }
     
-    void DP_Lock::flush()
-    {        
+    bool DP_Lock::_tryFlush(FlushMethod flush_method)
+    {
         // no-flush flag is important for volatile locks (atomic operations)
         if (m_access_mode[AccessOptions::no_flush]) {
-            return;
+            return true;
         }
         
         using MutexT = ResourceDirtyMutexT;
@@ -52,20 +52,35 @@ namespace db0
             if (lock.isLocked()) {
                 // write from the local buffer (either as a full-DP or diff-DP)
                 auto &storage = m_context.m_storage_ref.get();
-                if (m_cow_lock) {
-                    std::vector<std::uint16_t> diffs;
-                    if (getDiffs(m_cow_lock->getBuffer(), m_data.data(), this->size(), diffs)) {
-                        storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
-                    } else {
-                        storage.write(m_address, m_state_num, this->size(), m_data.data());    
-                    }
-                } else {
+                if (flush_method == FlushMethod::full) {
                     storage.write(m_address, m_state_num, this->size(), m_data.data());
+                } else {
+                    if (!m_cow_lock) {
+                        // unable to diff-flush
+                        return false;
+                    }
+                    std::vector<std::uint16_t> diffs;
+                    if (!getDiffs(m_cow_lock->getBuffer(), m_data.data(), this->size(), diffs)) {
+                        // unable to diff-flush
+                        return false;
+                    }
+                    storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
+                    // invalidate the CoW lock
+                    m_cow_lock = nullptr;
                 }
                 // reset the dirty flag
                 lock.commit_reset();
             }
         }
+        return true;
+    }
+
+    bool DP_Lock::tryFlush(FlushMethod flush_method) {
+        return _tryFlush(flush_method);
+    }
+
+    void DP_Lock::flush() {
+        _tryFlush(FlushMethod::full);
     }
     
     std::uint64_t DP_Lock::getStateNum() const {

@@ -204,7 +204,7 @@ namespace db0
                  // if requested access is write-only then simply fill the misssing (new) page with 0
                 memset(read_buf, 0, m_config.m_page_size);
             }
-             
+            
             // read full page
             m_page_io.read(storage_page_num, read_buf);
             std::uint32_t diff_state_num;
@@ -248,12 +248,6 @@ namespace db0
         assert((address % m_config.m_page_size == 0) && "BDevStorage::writeDiffs: address must be page-aligned");
         assert(size == m_config.m_page_size && "BDevStorage::writeDiffs: size must be equal to page size");
         
-        if (!m_diff_writes_enabled) {
-            // perform as a regular write if diff-writes not enabled
-            write(address, state_num, size, buffer);
-            return;
-        }
-
         auto page_num = address / m_config.m_page_size;
 
         // if a page has already been written as full-DP in the current transaction then
@@ -268,7 +262,7 @@ namespace db0
                 return;
             }
         }
-        
+
         // append as diff-page (NOTE: diff-writes are only appended)
         auto storage_page_num = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data);
         m_diff_index.insert(page_num, state_num, storage_page_num);
@@ -477,14 +471,5 @@ namespace db0
         m_dram_io.dramIOCheck(check_result);
     }
 #endif
-
-    void BDevStorage::beginCommit() {
-        // only enable for the duration of the storage commit operation
-        m_diff_writes_enabled = true;
-    }
-
-    void BDevStorage::endCommit() {
-        m_diff_writes_enabled = false;
-    }
 
 }

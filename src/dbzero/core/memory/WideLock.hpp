@@ -23,7 +23,9 @@ namespace db0
         WideLock(std::shared_ptr<WideLock>, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode,
             std::shared_ptr<DP_Lock> res_lock);
         
+        bool tryFlush(FlushMethod) override;
         void flush() override;
+
         // Flush the residual part only of the wide lock
         void flushResidual();
         
@@ -36,6 +38,8 @@ namespace db0
         
     private:
         std::shared_ptr<DP_Lock> m_res_lock;
+        
+        bool _tryFlush(FlushMethod);
     };
 
 }

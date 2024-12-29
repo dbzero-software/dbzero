@@ -15,7 +15,7 @@ using namespace db0::tests;
 namespace tests
 
 {
-
+    
     class SparsePairTest: public testing::Test
     {
     public:
@@ -34,14 +34,14 @@ namespace tests
     TEST_F( SparsePairTest , testSparsePairCollectsChangeLogOfAddedItems )
     {   
         std::size_t node_size = 16 * 1024;
-        SparsePair sparse_pair(node_size);
-        auto &sparse_index = sparse_pair.getSparseIndex();
+        SparsePair sparse_pair(node_size);        
         DRAM_Pair dram_pair;
         auto dram_space = DRAMSpace::create(node_size, [&](DRAM_Pair dp) {
             dram_pair = dp;
         });
 
         SparsePair cut(SparsePair::tag_create(), dram_pair);
+        auto &sparse_index = cut.getSparseIndex();
         std::vector<typename SparseIndex::SI_ItemT> items_1 {
             // page number, state number, physical page number, page type
             { 1, 1, 1 }, { 0, 1, 0 }

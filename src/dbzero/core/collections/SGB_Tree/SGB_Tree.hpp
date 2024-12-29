@@ -74,6 +74,14 @@ namespace db0
                 return this->first - this->second->cbegin();
             }
 
+            inline node_const_iterator operator->() const {
+                return this->first;
+            }
+            
+            inline node_const_iterator get() const {
+                return this->first;
+            }
+
 #ifndef NDEBUG
             bool validate() const {
                 assert(this->first == nullptr || (this->first >= this->second->cbegin() && this->first < this->second->cend()));

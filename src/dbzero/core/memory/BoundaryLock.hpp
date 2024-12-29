@@ -22,6 +22,8 @@ namespace db0
         
         virtual ~BoundaryLock();
         
+        bool tryFlush(FlushMethod) override;
+
         void flush() override;
 
         // rebase parent locks if needed
@@ -39,6 +41,7 @@ namespace db0
         
         // internal flush, without flushing parents
         void _flush();
+        bool _tryFlush(FlushMethod);
     };
             
 }

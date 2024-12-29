@@ -166,12 +166,11 @@ namespace tests
             (*memspace).commit();
             m_workspace.close(prefix_name);
         }
-
+        
         // state_num + expected value
         std::vector<std::pair<std::uint64_t, int> > state_log;
         // perform 10 object modifications in 10 transactions
-        for (int i = 0; i < 10; ++i)
-        {
+        for (int i = 0; i < 10; ++i) {
             auto memspace = m_workspace.getFixture(prefix_name);
             v_object<o_simple<int>> obj((*memspace).myPtr(address));
             obj.modify() = i + 1;
@@ -181,8 +180,7 @@ namespace tests
         }
         
         // now go back to specific transactions and validate object state
-        for (auto &log: state_log)
-        {
+        for (auto &log: state_log) {
             auto memspace = m_workspace.getFixture(prefix_name, AccessType::READ_ONLY)->getSnapshot(m_workspace, log.first);
             v_object<o_simple<int>> obj((*memspace).myPtr(address));
             ASSERT_EQ(obj->value(), log.second);

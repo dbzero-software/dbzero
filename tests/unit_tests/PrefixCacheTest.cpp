@@ -74,7 +74,7 @@ namespace tests
         // create page in state #1
         {
             auto lock = cut.createPage(0, 0, 1, { AccessOptions::write });
-            cut.flush();            
+            cut.commit();
         }
         // request state #2 for read-write (note that lock has been released)
         std::uint64_t read_state_num;
