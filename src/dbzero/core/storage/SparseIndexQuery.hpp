@@ -23,9 +23,7 @@ namespace db0
         
         // and the subsequent ones - diff-DPs until false is returned
         bool next(std::uint32_t &state_num, std::uint64_t &storage_page_num);
-
-        bool tryFindMutation(std::uint64_t &mutation_id) const;
-    
+        
     private:
         using DiffArrayT = DI_Item::DiffArrayT;
         const std::uint32_t m_query_state_num;
@@ -35,5 +33,9 @@ namespace db0
         DI_Item m_diff_dp;
         typename DI_Item::ConstIterator m_diff_it;        
     };
+    
+    // Try identifying the state number (but not larger than state_num) swhen a specific page was modified
+    bool tryFindMutation(const SparseIndex &, const DiffIndex &, std::uint64_t page_num, std::uint64_t state_num,
+        std::uint64_t &mutation_id);
     
 }   

@@ -57,11 +57,12 @@ namespace db0
         }
     }
     
-    bool SparseIndexQuery::tryFindMutation(std::uint64_t &mutation_id) const
+    bool tryFindMutation(const SparseIndex &sparse_index, const DiffIndex &diff_index, std::uint64_t page_num,
+        std::uint64_t state_num, std::uint64_t &mutation_id)
     {
-        // query diff index first
-        mutation_id = m_diff_index.findLower(page_num, state_num);
-        auto item  = m_sparse_index.lookup(page_num, state_num);        
+        // query the diff index first
+        mutation_id = diff_index.findLower(page_num, state_num);
+        auto item  = sparse_index.lookup(page_num, state_num);
         if (!item) {
             // mutation only exists in the diff index
             return mutation_id != 0;
@@ -70,5 +71,5 @@ namespace db0
         mutation_id = std::max((std::uint64_t)item.m_state_num, mutation_id);
         return true;
     }
-
+    
 }

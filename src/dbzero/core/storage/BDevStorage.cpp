@@ -147,28 +147,13 @@ namespace db0
     bool BDevStorage::tryFindMutation(std::uint64_t page_num, std::uint64_t state_num,
         std::uint64_t &mutation_id) const
     {
-        return tryFindMutationImpl(page_num, state_num, mutation_id);
-    }
-    
-    bool BDevStorage::tryFindMutationImpl(std::uint64_t page_num, std::uint64_t state_num,
-        std::uint64_t &mutation_id) const
-    {
-        // query diff index first
-        mutation_id = m_diff_index.findLower(page_num, state_num);
-        auto item  = m_sparse_index.lookup(page_num, state_num);        
-        if (!item) {
-            // mutation only exists in the diff index
-            return mutation_id != 0;
-        }
-        // take max from the sparse index and diff index
-        mutation_id = std::max((std::uint64_t)item.m_state_num, mutation_id);
-        return true;
+        return db0::tryFindMutation(m_sparse_index, m_diff_index, page_num, state_num, mutation_id);
     }
     
     std::uint64_t BDevStorage::findMutation(std::uint64_t page_num, std::uint64_t state_num) const
     {
         std::uint64_t result;
-        if (!tryFindMutationImpl(page_num, state_num, result)) {
+        if (!db0::tryFindMutation(m_sparse_index, m_diff_index, page_num, state_num, result)) {
             assert(false && "BDevStorage::findMutation: page not found");
             THROWF(db0::IOException) 
                 << "BDevStorage::findMutation: page_num " << page_num << " not found, state: " << state_num;

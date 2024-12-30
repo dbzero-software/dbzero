@@ -140,5 +140,54 @@ namespace tests
         ASSERT_EQ(last_state_num, 45);
         ASSERT_EQ(last_storage_page_num, 46);
     }
+    
+    TEST_F( SparseIndexQueryTest , testFindMutationQuery )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_cut(16 * 1024);
+        sparse_index.emplace(1, 1, 1);
+        // append multiple diff-mutations for page 1
+        diff_cut.insert(1, 2, 3);
+        diff_cut.insert(1, 4, 4);
+        diff_cut.insert(1, 5, 11);
+        sparse_index.emplace(1, 8, 17);
+        sparse_index.emplace(4, 7, 2343);
+        diff_cut.insert(1, 9, 40);
+        diff_cut.insert(1, 12, 41);
 
+        // test positive cases
+        // query params: page_num, state_num, expected state num
+        std::vector<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> query_params {
+            { 1, 11, 9 },
+            { 1, 7, 5 },
+            { 1, 8, 8 },
+            { 1, 9, 9 },
+            { 1, 12, 12 },
+            { 1, 13, 12 },
+            { 1, 16, 12 },
+            { 4, 7, 7 },
+            { 4, 13, 7 }
+        };
+
+        for (auto [page_num, state_num, expected_state_num] : query_params) {
+            std::uint64_t mutation_id;
+            ASSERT_TRUE(tryFindMutation(sparse_index, diff_cut, page_num, state_num, mutation_id));
+            ASSERT_EQ(mutation_id, expected_state_num);
+        }
+
+        // test negative cases
+        // query params: page_num, state_num
+        std::vector<std::tuple<std::uint64_t, std::uint32_t>> negative_query_params {
+            { 2, 11 },
+            { 3, 1 },
+            { 4, 1 },
+            { 4, 6 },
+        };
+
+        for (auto [page_num, state_num] : negative_query_params) {
+            std::uint64_t mutation_id;
+            ASSERT_FALSE(tryFindMutation(sparse_index, diff_cut, page_num, state_num, mutation_id));
+        }
+    }
+    
 }
