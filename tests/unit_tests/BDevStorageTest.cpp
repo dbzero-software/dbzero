@@ -157,7 +157,7 @@ namespace tests
         std::vector<char> buffer(cut.getPageSize());
         std::vector<char> zero_buffer(cut.getPageSize());
         memset(zero_buffer.data(), 0, zero_buffer.size());
-
+        
         cut.read(0, 1, cut.getPageSize(), buffer.data(), { AccessOptions::write });
         ASSERT_TRUE(equal(zero_buffer, buffer));
         cut.close();

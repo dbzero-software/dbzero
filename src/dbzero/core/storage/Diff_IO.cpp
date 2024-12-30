@@ -85,7 +85,7 @@ namespace db0
     {
         m_current += m_header.sizeOf();
     }
-    
+
     bool DiffWriter::append(const std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
         const std::vector<std::uint16_t> &diff_data, bool &overflow)
     {
@@ -205,7 +205,8 @@ namespace db0
         , m_write_buf(page_size * 2)
         , m_read_buf(page_size * 2)
         , m_writer(std::make_unique<DiffWriter>(
-            reinterpret_cast<Page_IO&>(*this), m_write_buf.data(), m_write_buf.data() + m_write_buf.size()))
+            reinterpret_cast<Page_IO&>(*this), m_write_buf.data(), m_write_buf.data() + m_write_buf.size())
+        )
     {
     }
     
@@ -221,7 +222,7 @@ namespace db0
     
     std::uint64_t Diff_IO::appendDiff(const void *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
         const std::vector<std::uint16_t> &diff_data)
-    {
+    {        
         // must lock because the write-buffer is shared
         std::unique_lock<std::mutex> lock(m_mx_write);
         assert(m_writer);
@@ -274,7 +275,7 @@ namespace db0
             THROWF(db0::InternalException) << "Diff block not found";            
         }
     }
-     
+    
     void Diff_IO::flush()
     {
         std::unique_lock<std::mutex> lock(m_mx_write);
@@ -289,8 +290,24 @@ namespace db0
         std::unique_lock<std::mutex> lock(m_mx_write);
         if (m_writer) {
             m_writer->flush();
-        }        
+        }
         Page_IO::write(page_num, buffer);
+    }
+
+    void Diff_IO::read(std::uint64_t page_num, void *buffer) const
+    {
+        assert(!m_writer || m_writer->empty());
+        Page_IO::read(page_num, buffer);
+    }
+    
+    std::uint64_t Diff_IO::append(const void *buffer)
+    {
+        // full-DP write can only be performed after flushing from diff-writer
+        std::unique_lock<std::mutex> lock(m_mx_write);
+        if (m_writer) {
+            m_writer->flush();
+        }
+        return Page_IO::append(buffer);
     }
 
 }

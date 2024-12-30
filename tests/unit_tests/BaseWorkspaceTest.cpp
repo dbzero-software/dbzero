@@ -106,7 +106,7 @@ namespace tests
         BDevStorage storage(file_name, AccessType::READ_WRITE);
         // make sure the DramIO (sparse index + diff index storage) streams have allocated < 4 blocks
         auto &io = storage.getDramIO();
-        ASSERT_TRUE((int)(io.getAllocatedSize() / io.getBlockSize()) < 4);
+        ASSERT_LE((int)(io.getAllocatedSize() / io.getBlockSize()), 4);        
         storage.close();
     }
     
@@ -126,7 +126,7 @@ namespace tests
         auto file_name = m_workspace.getPrefixCatalog().getFileName(prefix_name).string();
         BDevStorage storage(file_name, AccessType::READ_ONLY);
     }
-        
+    
     struct [[gnu::packed]] o_TT: public o_fixed<o_TT> {
         int a = 0;
         int b = 0;

@@ -29,7 +29,7 @@ namespace db0
         , m_access_type(AccessType::READ_ONLY)
     {
     }
-
+    
     std::uint64_t Page_IO::append(const void *buffer)
     {
         assert(m_access_type == AccessType::READ_WRITE);
@@ -79,5 +79,5 @@ namespace db0
         }
         return { m_first_page_num + m_page_count, m_block_capacity - m_page_count };
     }
-        
+    
 }

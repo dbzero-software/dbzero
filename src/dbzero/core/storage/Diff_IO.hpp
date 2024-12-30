@@ -43,6 +43,10 @@ namespace db0
         // Write as full-DP
         void write(std::uint64_t page_num, void *buffer);
         
+        std::uint64_t append(const void *buffer);
+
+        void read(std::uint64_t page_num, void *buffer) const;
+
     protected:
         mutable std::mutex m_mx_write;
         // the data buffer to hold up to 2 data pages
