@@ -7,7 +7,6 @@ def __bootstrap__():
     __file__ = None
     for path in paths:
         if os.path.isdir(path):
-            print(f"PATH: {path}")
             for file in os.listdir(path):
                 if "dbzero_ce" in file and ("pyd" in file or '.so' in file):
                     full_file_name = os.path.join(path, file)

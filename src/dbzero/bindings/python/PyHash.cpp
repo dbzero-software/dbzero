@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
+#include <dbzero/bindings/python/Memo.hpp>
+#include <dbzero/object_model/object/Object.hpp>
 
 
 namespace db0::python
@@ -52,7 +54,12 @@ namespace db0::python
         auto enum_value = PyToolkit::getTypeManager().extractEnumValue(key);
         return enum_value.getUID().asULong();
     }
-    
+
+    template <> int64_t get_py_hash_impl<TypeId::MEMO_OBJECT>(PyObject *key)
+    {
+        return reinterpret_cast<MemoObject*>(key)->ext().getAddress();
+    }
+
     std::int64_t get_py_hash_impl_default(PyObject *key) {
         return PyObject_Hash(key);
     }
@@ -66,6 +73,7 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = get_py_hash_impl<TypeId::DB0_TUPLE>;
         functions[static_cast<int>(TypeId::TUPLE)] = get_py_hash_impl<TypeId::TUPLE>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = get_py_hash_impl<TypeId::DB0_ENUM_VALUE>;
+        functions[static_cast<int>(TypeId::MEMO_OBJECT)] = get_py_hash_impl<TypeId::MEMO_OBJECT>;
     }
 
     PyObject* get_py_hash_as_py_object(PyObject *key) {
