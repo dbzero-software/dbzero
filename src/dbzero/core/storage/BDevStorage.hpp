@@ -65,8 +65,9 @@ namespace db0
         
         void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) override;
         
+        // @param max_len - the maximum allowed diff-sequence length (when exceeded, the full-DP will be written)
         void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
-            const std::vector<std::uint16_t> &diffs) override;
+            const std::vector<std::uint16_t> &diffs, unsigned int max_len = 8) override;
         
         std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const override;
         

@@ -228,7 +228,7 @@ namespace db0
     }
     
     void BDevStorage::writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
-        const std::vector<std::uint16_t> &diff_data) 
+        const std::vector<std::uint16_t> &diff_data, unsigned int max_len)
     {
         assert(state_num > 0 && "BDevStorage::writeDiffs: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::writeDiffs: address must be page-aligned");
@@ -236,22 +236,28 @@ namespace db0
         
         auto page_num = address / m_config.m_page_size;
 
+        // Use SparseIndexQuery to determine the current sequence length & check limits
+        SparseIndexQuery query(m_sparse_index, m_diff_index, page_num, state_num);
         // if a page has already been written as full-DP in the current transaction then
         // we cannot append as diff but need to overwrite the full page instead
-        {
-            // look up if page has already been added in current transaction
-            auto item = m_sparse_index.lookup(page_num, state_num);
-            if (item && item.m_state_num == state_num) {
-                // page already added in current transaction / update in the stream
-                // this may happen due to cache overflow and later modification of the same page
-                m_page_io.write(item.m_storage_page_num, buffer);
-                return;
-            }
+        std::uint32_t first_state_num = 0;
+        auto storage_page_num = query.first(first_state_num);
+        if (first_state_num == state_num) {
+            // page already added in current transaction / update in the stream
+            // this may happen due to cache overflow and later modification of the same page
+            m_page_io.write(storage_page_num, buffer);
+            return;
         }
-
-        // append as diff-page (NOTE: diff-writes are only appended)
-        auto storage_page_num = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data);
-        m_diff_index.insert(page_num, state_num, storage_page_num);
+        
+        if (query.lessThan(max_len)) {
+            // append as diff-page (NOTE: diff-writes are only appended)
+            auto storage_page_num = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data);
+            m_diff_index.insert(page_num, state_num, storage_page_num);
+        } else {
+            // full-DP write
+            auto storage_page_num = m_page_io.append(buffer);
+            m_sparse_index.emplace(page_num, state_num, storage_page_num);
+        }
     }
     
     std::size_t BDevStorage::getPageSize() const {

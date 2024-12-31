@@ -120,7 +120,7 @@ namespace db0
         
         // Either insert into a new item or extend the existing one
         void insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num);
-
+        
         std::size_t size() const;
         
         // Find mutation of page_num where state >= state_num

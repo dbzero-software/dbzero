@@ -208,5 +208,29 @@ namespace tests
         ASSERT_EQ(storage_page_num, 5348);
         ASSERT_FALSE(cut.next(state_num, storage_page_num));
     }
-
+    
+    TEST_F( SparseIndexQueryTest , testSparseIndexQueryLessThan )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_index(16 * 1024);
+        sparse_index.emplace(4, 500, 100);
+        sparse_index.emplace(3, 500, 300);
+        for (auto [page, state, storage]: getDiffIndexData1()) {
+            diff_index.insert(page, state, storage);
+        }
+        
+        {
+            SparseIndexQuery cut(sparse_index, diff_index, 4, 1055);
+            cut.first();
+            ASSERT_TRUE(cut.lessThan(2));
+            ASSERT_FALSE(cut.lessThan(1));
+        }
+        
+        {
+            SparseIndexQuery cut(sparse_index, diff_index, 3, 900);
+            cut.first();
+            ASSERT_FALSE(cut.lessThan(6));            
+        }
+    }
+    
 }

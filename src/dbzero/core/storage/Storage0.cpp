@@ -21,7 +21,7 @@ namespace db0
     void Storage0::write(std::uint64_t, std::uint64_t, std::size_t, void *) {
     }
 
-    void Storage0::writeDiffs(std::uint64_t, std::uint64_t, std::size_t, void *, const std::vector<std::uint16_t> &) {
+    void Storage0::writeDiffs(std::uint64_t, std::uint64_t, std::size_t, void *, const std::vector<std::uint16_t> &, unsigned int) {
     }
 
     std::uint64_t Storage0::findMutation(std::uint64_t, std::uint64_t state_num) const {

@@ -20,10 +20,19 @@ namespace db0
         inline std::uint64_t first() const {
             return m_full_dp.m_storage_page_num;
         }
+
+        inline std::uint64_t first(std::uint32_t &state_num) const 
+        {
+            state_num = m_full_dp.m_state_num;
+            return m_full_dp.m_storage_page_num;
+        }
         
         // and the subsequent ones - diff-DPs until false is returned
         bool next(std::uint32_t &state_num, std::uint64_t &storage_page_num);
         
+        // check the number of elements accessible via next() is less than size
+        bool lessThan(unsigned int size) const;
+
     private:
         using DiffArrayT = DI_Item::DiffArrayT;
         const std::uint32_t m_query_state_num;
@@ -31,7 +40,7 @@ namespace db0
         const SI_Item m_full_dp;
         const DiffIndex &m_diff_index;
         DI_Item m_diff_dp;
-        typename DI_Item::ConstIterator m_diff_it;        
+        typename DI_Item::ConstIterator m_diff_it;
     };
     
     // Try identifying the state number (but not larger than state_num) swhen a specific page was modified

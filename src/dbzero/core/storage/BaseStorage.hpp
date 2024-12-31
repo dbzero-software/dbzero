@@ -40,14 +40,15 @@ namespace db0
          * @param buffer the buffer holding data to be written
         */
         virtual void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) = 0;
-
+        
         /**
          * Write diff-data into a specific page
          * @param diffs interleved values of diff size / identical sequence size (ignored)
+         * @param max_len - the maximum allowed diff-sequence length (when exceeded, the full-DP will be written)
          * NOTE: diff areas must be evaluated page-wise
          */
         virtual void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
-            const std::vector<std::uint16_t> &diffs) = 0;
+            const std::vector<std::uint16_t> &diffs, unsigned int max_len = 8) = 0;
         
         /**
          * Look up sparse index to find the state number at which the given range was mutated
