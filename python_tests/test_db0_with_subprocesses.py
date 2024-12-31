@@ -1,7 +1,7 @@
 import pytest
 import subprocess
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, MemoTestSingleton
+from python_tests.memo_test_types import MemoTestClass, MemoTestSingleton
 
 
 def test_hash_py_string():  
@@ -34,6 +34,37 @@ def test_hash_with_db0_tuple_with_enum(db0_fixture):
     t2 = db0.tuple([1, Colors.RED, 999])    
     assert db0.hash(t1) == db0.hash(t2)
 
+
+def get_test_without_remove(script, setup_script=""):
+    return f"""
+import os
+import dbzero_ce as db0
+import shutil
+import gc
+DB0_DIR = os.path.join(os.getcwd(), "db0-test-data-subprocess/")
+if not os.path.exists(DB0_DIR):
+# create empty directory
+    os.mkdir(DB0_DIR)
+db0.init(DB0_DIR)
+db0.open("my-test-prefix")
+{setup_script}
+print({script})
+gc.collect()
+db0.commit()
+db0.close()
+"""
+
+def get_cleanup_script():
+    return """
+import os
+import dbzero_ce as db0
+import shutil
+import gc
+DB0_DIR = os.path.join(os.getcwd(), "db0-test-data-subprocess/")
+if os.path.exists(DB0_DIR):
+    shutil.rmtree(DB0_DIR)
+"""
+
 def get_test_for_subprocess(value_to_hash, setup_script=""):
     return f"""
 import os
@@ -61,6 +92,7 @@ def run_subprocess_script(script):
     if result.returncode != 0:
         print(result.stderr)
         raise Exception("Error in subprocess")
+
     return result.stdout
 
 def test_hash_strings_subprocess():
@@ -98,3 +130,32 @@ def test_hash_bytes_subprocess():
     sr1 = run_subprocess_script(subprocess_script)
     sr2 = run_subprocess_script(subprocess_script)
     assert sr1 == sr2
+
+def test_dict_comparation_when_runned_on_subprocess():
+    cleanup = get_cleanup_script()
+    run_subprocess_script(cleanup)
+    setup = '''
+from python_tests.memo_test_types import MemoTestClass, MemoTestSingleton
+key = MemoTestClass("key")
+dictionary = db0.dict({key: "value"})
+key_uuid = db0.uuid(key)
+uuid = db0.uuid(dictionary)
+singleton = MemoTestSingleton(dictionary, key)
+db0.commit()
+'''
+    script = "f'{key_uuid},{uuid}'"
+    subprocess_script = get_test_without_remove(script, setup)
+    sr1 = run_subprocess_script(subprocess_script)
+    key_uuid, uuid = sr1[:-1].decode("UTF-8").split(",")
+    
+    setup = f"""
+from python_tests.memo_test_types import MemoTestClass, MemoTestSingleton
+key = db0.fetch('{key_uuid}')
+dict = db0.fetch('{uuid}')
+value = key in dict
+"""
+    script = "value"
+    subprocess_script = get_test_without_remove(script, setup)
+    sr1 = run_subprocess_script(subprocess_script)
+    assert sr1 == b"True\n"
+    run_subprocess_script(cleanup)
