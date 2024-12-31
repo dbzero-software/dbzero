@@ -626,5 +626,27 @@ namespace tests
         ASSERT_EQ(str_value, "12345678abcdefgh");
         cut.close();
     }
+    
+    TEST_F( PrefixImplTest , testDiffWriterUseAfterMultipleTransactions )
+    {
+        // The purpose of this test is to check how the diff mechanism is used
+        // in a series of modifiactions of a single page across multiple transactions.
+        BDevStorage::create(file_name);
+        auto storage = std::make_shared<BDevStorage>(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, storage);
 
+        for (unsigned int i = 0; i < 10; ++i) {
+            auto w1 = cut.mapRange(16, 32, { AccessOptions::write });
+            auto buf = w1.modify();
+            std::memset(buf, i + 1, 32);
+            w1.release();
+            cut.commit();
+        }
+        
+        auto stats = storage->getDiff_IOStats();
+        cut.close();
+        // make sure most writes are diff writes
+        ASSERT_TRUE((double)stats.second / (double)stats.first > 0.75);        
+    }
+    
 }

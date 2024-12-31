@@ -148,7 +148,7 @@ namespace db0
     }
     
     void DiffIndex::insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num)
-    {        
+    {
         // try locating existing item first
         typename super_t::ConstNodeIterator node;
         auto item_ptr = super_t::lowerEqualBound(page_num, state_num, node);
@@ -164,13 +164,13 @@ namespace db0
             super_t::emplace(page_num, state_num, storage_page_num);
         }
     }
-
+    
     DI_Item DiffIndex::findUpper(PageNumT page_num, StateNumT state_num) const
     {
         auto it = super_t::findLower(page_num, state_num);
         if (it) {
             auto item = it.second->header().uncompress(*it.get());
-            if (item.findUpper(state_num)) {
+            if (item.m_page_num == page_num && item.findUpper(state_num)) {
                 return item;
             }
         }

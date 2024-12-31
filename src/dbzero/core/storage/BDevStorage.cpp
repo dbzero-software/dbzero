@@ -163,7 +163,7 @@ namespace db0
     
     void BDevStorage::read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags) const
-    {
+    {        
         assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::read: size must be page-aligned");
@@ -198,11 +198,11 @@ namespace db0
                 // apply all diff-updates on top of the full-DP
                 m_page_io.applyFrom(storage_page_num, read_buf, { page_num, diff_state_num });
             }
-        }              
+        }
     }
     
     void BDevStorage::write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer)
-    {            
+    {
         assert(state_num > 0 && "BDevStorage::write: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::write: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::write: size must be page-aligned");
@@ -212,7 +212,7 @@ namespace db0
         
         std::byte *write_buf = reinterpret_cast<std::byte *>(buffer);
         // write as physical pages and register with the sparse index
-        for (auto page_num = begin_page; page_num != end_page; ++page_num, write_buf += m_config.m_page_size) {
+        for (auto page_num = begin_page; page_num != end_page; ++page_num, write_buf += m_config.m_page_size) {            
             // look up if page has already been added in current transaction
             auto item = m_sparse_index.lookup(page_num, state_num);
             if (item && item.m_state_num == state_num) {
@@ -448,6 +448,10 @@ namespace db0
         callback("prefix_size", m_file.size());
     }
     
+    std::pair<std::size_t, std::size_t> BDevStorage::getDiff_IOStats() const {
+        return m_page_io.getStats();
+    }
+
 #ifndef NDEBUG
     void BDevStorage::getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &io_map) const {
         m_dram_io.getDRAM_IOMap(io_map);

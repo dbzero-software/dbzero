@@ -56,7 +56,7 @@ namespace db0
             return true;
         }
     }
-    
+
     bool tryFindMutation(const SparseIndex &sparse_index, const DiffIndex &diff_index, std::uint64_t page_num,
         std::uint64_t state_num, std::uint64_t &mutation_id)
     {

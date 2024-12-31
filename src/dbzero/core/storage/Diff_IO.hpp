@@ -46,6 +46,9 @@ namespace db0
         std::uint64_t append(const void *buffer);
 
         void read(std::uint64_t page_num, void *buffer) const;
+        
+        // @return total bytes written/ diff bytes written
+        std::pair<std::size_t, std::size_t> getStats() const;
 
     protected:
         mutable std::mutex m_mx_write;
@@ -54,6 +57,10 @@ namespace db0
         mutable std::mutex m_mx_read;
         mutable std::vector<std::byte> m_read_buf;
         std::unique_ptr<DiffWriter> m_writer;
+        // total bytes written to the stream (since class creation) using full-DP method
+        std::size_t m_full_dp_bytes_written = 0;
+        // total bytes written using the diff mechanism
+        std::size_t m_diff_bytes_written = 0;
     };
     
 }

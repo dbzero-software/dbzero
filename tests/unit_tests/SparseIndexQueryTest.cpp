@@ -3,6 +3,7 @@
 #include <iostream>
 #include <utils/TestWorkspace.hpp>
 #include <dbzero/core/storage/SparseIndexQuery.hpp>
+#include <utils/diff_data_1.hpp>
 
 using namespace std;
 using namespace db0;
@@ -140,7 +141,7 @@ namespace tests
         ASSERT_EQ(last_state_num, 45);
         ASSERT_EQ(last_storage_page_num, 46);
     }
-    
+
     TEST_F( SparseIndexQueryTest , testFindMutationQuery )
     {
         SparseIndex sparse_index(16 * 1024);
@@ -190,4 +191,22 @@ namespace tests
         }
     }
     
+    TEST_F( SparseIndexQueryTest , testSparseIndexQueryIssue1 )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_index(16 * 1024);
+        sparse_index.emplace(4, 500, 100);
+        for (auto [page, state, storage]: getDiffIndexData1()) {
+            diff_index.insert(page, state, storage);
+        }
+
+        SparseIndexQuery cut(sparse_index, diff_index, 4, 1055);
+        ASSERT_EQ(cut.first(), 100);
+        std::uint32_t state_num;
+        std::uint64_t storage_page_num;
+        ASSERT_TRUE(cut.next(state_num, storage_page_num));
+        ASSERT_EQ(storage_page_num, 5348);
+        ASSERT_FALSE(cut.next(state_num, storage_page_num));
+    }
+
 }

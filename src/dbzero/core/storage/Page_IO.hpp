@@ -44,17 +44,18 @@ namespace db0
         std::uint32_t getPageSize() const;
 
     protected:
+        const std::size_t m_header_size;        
+        const std::uint32_t m_page_size;
+        const std::uint32_t m_block_size = 0;
+        // maximum number of pages in block
+        const std::uint32_t m_block_capacity = 0;
+
         // Get the next page number to be assigned by the "append" method (first)
         // and the number of consecutive pages available in the current block
         std::pair<std::uint64_t, std::uint32_t> getNextPageNum();
 
     private:
-        const std::size_t m_header_size;
         CFile &m_file;
-        const std::uint32_t m_page_size;
-        const std::uint32_t m_block_size = 0;
-        // maximum number of pages in block
-        const std::uint32_t m_block_capacity = 0;
         // begin address of the current block
         std::uint64_t m_address = 0;
         // the number of pages already stored in current block

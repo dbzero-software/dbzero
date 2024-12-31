@@ -17,15 +17,17 @@ namespace db0
 #endif
     
     ResourceLock::ResourceLock(StorageContext storage_context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode)
+        FlagSet<AccessOptions> access_mode, std::shared_ptr<ResourceLock> cow_lock)
         : m_context(storage_context)
         , m_address(address)
         , m_resource_flags(
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) 
         )
         , m_access_mode(access_mode)
-        , m_data(size)        
+        , m_data(size)
+        , m_cow_lock(cow_lock)
     {
+        assert(!m_cow_lock || m_cow_lock->size() == this->size());
         // intialize buffer for write-only access (create)
         if (!access_mode[AccessOptions::read]) {
             std::memset(m_data.data(), 0, this->size());
@@ -48,7 +50,7 @@ namespace db0
         , m_access_mode(access_mode)
         , m_data(lock->m_data)
         , m_cow_lock(lock)
-    {        
+    {
 #ifndef NDEBUG
         rl_usage += this->size();
         ++rl_count;
@@ -159,7 +161,8 @@ namespace db0
     }
 #endif
     
-    bool getDiffs(void *buf_1, void *buf_2, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff)
+    bool getDiffs(const void *buf_1, const void *buf_2,
+        std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff)
     {
         assert(size <= std::numeric_limits<std::uint16_t>::max());
         if (!max_diff) {
@@ -167,7 +170,7 @@ namespace db0
         }
         const auto max_size = 128u;
         result.reserve(max_size);
-        std::uint8_t *it_1 = static_cast<std::uint8_t *>(buf_1), *it_2 = static_cast<std::uint8_t *>(buf_2);
+        const std::uint8_t *it_1 = static_cast<const std::uint8_t *>(buf_1), *it_2 = static_cast<const std::uint8_t *>(buf_2);
         auto end = it_1 + size;
         std::uint16_t diff_total = 0;
         for (;;) {

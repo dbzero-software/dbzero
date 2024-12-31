@@ -27,10 +27,11 @@ namespace db0
          * @param access_mode access flags
          * @param read_state_num the existing state number of the finalized transaction (or 0 if not available)
          * @param write_state_num the current transaction number (or 0 for read-only locks)        
+         * @param cow_lock optional copy-on-write lock (previous version)
         */
         DP_Lock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint64_t read_state_num,
-            std::uint64_t write_state_num);
-        
+            std::uint64_t write_state_num, std::shared_ptr<ResourceLock> cow_lock = nullptr);
+
         /**
          * Create a copied-on-write lock from an existing lock   
         */
@@ -49,6 +50,7 @@ namespace db0
          * Update lock to a different state number
          * this can safely be done only for unused locks (cached only)
          * This operation will also upgrade the acccess mode to "write"
+         * !!! The internal buffer can be moved (underlying pointer change is allowed)
          * @param state_num the new state number
          * @param no_flush true to additionally assign the no_flush flag
          */
@@ -62,7 +64,7 @@ namespace db0
 #ifndef NDEBUG
         bool isBoundaryLock() const override;
 #endif
-
+        
     protected:
         // the updated state number or read-only state number
         std::uint64_t m_state_num;
@@ -70,7 +72,7 @@ namespace db0
         struct tag_derived {};
         DP_Lock(tag_derived, StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
             std::uint64_t read_state_num, std::uint64_t write_state_num);
-
+        
         bool _tryFlush(FlushMethod);
     };
     

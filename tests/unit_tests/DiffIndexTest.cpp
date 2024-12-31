@@ -7,6 +7,7 @@
 #include <dbzero/core/dram/DRAM_Allocator.hpp>
 #include <dbzero/core/storage/ChangeLogIOStream.hpp>
 #include <utils/utils.hpp>
+#include <utils/diff_data_1.hpp>
 
 using namespace std;
 using namespace db0;
@@ -87,6 +88,17 @@ namespace tests
         ASSERT_TRUE(cut.findUpper(1, 10));
         ASSERT_TRUE(cut.findUpper(1, 12));
         ASSERT_FALSE(cut.findUpper(1, 13));
+    }
+
+    TEST_F( DiffIndexTest , testDiffIndexFindUpperIssue1 )
+    {        
+        DiffIndex diff_index(16 * 1024);
+        for (auto [page, state, storage]: getDiffIndexData1()) {
+            diff_index.insert(page, state, storage);
+        }
+
+        auto item = diff_index.findUpper(4, 501);
+        ASSERT_EQ(item.m_page_num, 4);
     }
 
 }

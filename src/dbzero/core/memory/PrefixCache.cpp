@@ -31,10 +31,10 @@ namespace db0
     }
     
     std::shared_ptr<DP_Lock> PrefixCache::createPage(std::uint64_t page_num, std::uint64_t read_state_num,
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
+        std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::shared_ptr<ResourceLock> cow_lock)
     {
         auto lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-            access_mode, read_state_num, state_num);
+            access_mode, read_state_num, state_num, cow_lock);
         // register under the lock's evaluated state number
         m_dp_map.insert(lock->getStateNum(), lock);
         
@@ -64,16 +64,18 @@ namespace db0
         }
         
         dp_lock = weak_ref->lock();
-        // must restore cache-expired lock        
+        // must restore cache-expired lock
         if (!dp_lock) {
             if (read_state_num == state_num) {
                 // the restored lock can be created as read/write if requested
                 dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-                    access_mode | AccessOptions::read, read_state_num, state_num);
+                    access_mode | AccessOptions::read, read_state_num, state_num
+                );
             } else {
                 // the restored lock is created as "for read"
                 dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-                    FlagSet<AccessOptions> { AccessOptions::read }, read_state_num, read_state_num);
+                    FlagSet<AccessOptions> { AccessOptions::read }, read_state_num, read_state_num
+                );
             }
             // feed the lock back into the cache
             *weak_ref = dp_lock;

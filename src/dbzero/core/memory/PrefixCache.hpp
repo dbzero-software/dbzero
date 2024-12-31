@@ -63,9 +63,10 @@ namespace db0
         /**
          * Create a new page associated resource lock
          * may be a new DP or existing with the storage but not available in cache         
+         * @param cow_lock optional copy-on-write lock (previous version)
         */
         std::shared_ptr<DP_Lock> createPage(std::uint64_t page_num, std::uint64_t read_state_num,
-            std::uint64_t state_num, FlagSet<AccessOptions>);
+            std::uint64_t state_num, FlagSet<AccessOptions>, std::shared_ptr<ResourceLock> cow_lock = nullptr);
         
         /**
          * Create a new wide range associated resource lock

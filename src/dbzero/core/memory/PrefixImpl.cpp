@@ -129,12 +129,12 @@ namespace db0
             // create/write-only access
             if (!lock || read_state_num != state_num) {
                 // we don't need reading thus passing read_state_num = 0
-                lock = m_cache.createPage(page_num, 0, state_num, access_mode);
-            }            
+                lock = m_cache.createPage(page_num, 0, state_num, access_mode, lock);
+            }
             assert(lock);
         } else if (!access_mode[AccessOptions::write]) {
             // read-only access
-            if (!lock) {    
+            if (!lock) {
                 // find the relevant mutation ID (aka state number) if this is read-only access
                 auto mutation_id = m_storage_ptr->findMutation(page_num, state_num);
                 // create page under the mutation ID
@@ -271,7 +271,7 @@ namespace db0
         if (m_storage_ptr->flush(timer.get())) {
             // increment state number only if there were any changes
             ++m_head_state_num;
-        }        
+        }
         return m_head_state_num;
     }
     

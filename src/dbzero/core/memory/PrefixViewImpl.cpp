@@ -103,7 +103,7 @@ namespace db0
                 m_cache.insert(lock, mutation_id);
             } else {
                 // fetch the range into local cache (as read-only)
-                lock = m_cache.createPage(page_num, mutation_id, 0, { AccessOptions::read });
+                lock = m_cache.createPage(page_num, mutation_id, 0, { AccessOptions::read }, nullptr);
             }
         }
         

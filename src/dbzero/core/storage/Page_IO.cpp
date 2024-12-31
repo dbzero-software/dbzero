@@ -8,11 +8,11 @@ namespace db0
 
     Page_IO::Page_IO(std::size_t header_size, CFile &file, std::uint32_t page_size, std::uint32_t block_size,
         std::uint64_t address, std::uint32_t page_count, std::function<std::uint64_t()> tail_function)  
-        : m_header_size(header_size)
-        , m_file(file)
+        : m_header_size(header_size)        
         , m_page_size(page_size)
         , m_block_size(block_size)
         , m_block_capacity(block_size / page_size)
+        , m_file(file)
         , m_address(address)
         , m_page_count(page_count)
         , m_first_page_num(getPageNum(address))
@@ -23,9 +23,9 @@ namespace db0
     }
     
     Page_IO::Page_IO(std::size_t header_size, CFile &file, std::uint32_t page_size)
-        : m_header_size(header_size)
-        , m_file(file)
+        : m_header_size(header_size)        
         , m_page_size(page_size)
+        , m_file(file)
         , m_access_type(AccessType::READ_ONLY)
     {
     }

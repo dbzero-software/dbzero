@@ -9,8 +9,9 @@ namespace db0
 {
     
     DP_Lock::DP_Lock(StorageContext context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num)
-        : ResourceLock(context, address, size, access_mode)
+        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num,
+        std::shared_ptr<ResourceLock> cow_lock)
+        : ResourceLock(context, address, size, access_mode, cow_lock)
         , m_state_num(std::max(read_state_num, write_state_num))
     {
         assert(addrPageAligned(m_context.m_storage_ref.get()));
@@ -23,7 +24,7 @@ namespace db0
             );
         }
     }
-
+    
     DP_Lock::DP_Lock(tag_derived, StorageContext context, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num)
         : ResourceLock(context, address, size, access_mode)
@@ -55,30 +56,35 @@ namespace db0
                 if (flush_method == FlushMethod::full) {
                     storage.write(m_address, m_state_num, this->size(), m_data.data());
                 } else {
-                    if (!m_cow_lock) {
+                    const std::byte *cow_ptr = m_cow_lock ? (const std::byte*)m_cow_lock->getBuffer() : 
+                        (m_cow_data.size() ? m_cow_data.data() : nullptr);
+                    if (!cow_ptr) {
                         // unable to diff-flush
                         return false;
                     }
                     std::vector<std::uint16_t> diffs;
-                    if (!getDiffs(m_cow_lock->getBuffer(), m_data.data(), this->size(), diffs)) {
+                    if (!getDiffs(cow_ptr, m_data.data(), this->size(), diffs)) {
                         // unable to diff-flush
                         return false;
                     }
                     storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
-                    // invalidate the CoW lock
-                    m_cow_lock = nullptr;
                 }
+                // invalidate the CoW lock if it exists
+                if (m_cow_lock) {
+                    m_cow_lock = nullptr;
+                }                
+                m_cow_data.clear();
                 // reset the dirty flag
                 lock.commit_reset();
             }
         }
         return true;
     }
-
+    
     bool DP_Lock::tryFlush(FlushMethod flush_method) {
         return _tryFlush(flush_method);
     }
-
+    
     void DP_Lock::flush() {
         _tryFlush(FlushMethod::full);
     }
@@ -86,14 +92,19 @@ namespace db0
     std::uint64_t DP_Lock::getStateNum() const {
         return m_state_num;
     }
-
+    
     void DP_Lock::updateStateNum(std::uint64_t state_num, bool no_flush)
     {
+        assert(!m_cow_lock);
         assert(state_num > m_state_num);
-        assert(!isDirty());        
-        m_state_num = state_num;        
+        assert(!isDirty());   
+        m_state_num = state_num;
         if (no_flush) {
             m_access_mode.set(AccessOptions::no_flush);
+        } else {
+            // collect the CoW's data buffer, only collected for flushed locks
+            m_cow_data.resize(m_data.size());
+            std::memcpy(m_cow_data.data(), m_data.data(), m_data.size());
         }
         setDirty();
     }

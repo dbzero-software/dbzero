@@ -37,7 +37,7 @@ namespace db0
     // @param result vector to hold size of diff / size of identical areas interleaved (totalling to size)
     // @param max_diff the maximum acceptable diff in bytes (0 for default = size / 2)
     // @return false if the total volume of diff areas exceeds 50% threshold
-    bool getDiffs(void *, void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0);
+    bool getDiffs(const void *, const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0);
     
     /**
      * A ResourceLock is the foundation class for DP_Lock and BoundaryLock implementations    
@@ -58,7 +58,8 @@ namespace db0
          * NOTE: even if the ResourceLock is created with AccessOptions::write
          * one is required to call setDirty to mark it as modified
          */
-        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>);
+        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
+            std::shared_ptr<ResourceLock> cow_lock = nullptr);
         
         // Copy-on-write constructor
         ResourceLock(std::shared_ptr<ResourceLock>, FlagSet<AccessOptions>);
@@ -167,7 +168,9 @@ namespace db0
         iterator m_recycle_it = 0;
         // immutable copy-on-write lock (i.e. previous version)
         std::shared_ptr<ResourceLock> m_cow_lock;
-
+        // the internally managed CoW's buffer
+        std::vector<std::byte> m_cow_data;
+        
         void setRecycled(bool is_recycled);
 
         bool addrPageAligned(BaseStorage &) const;

@@ -26,11 +26,16 @@ namespace db0
         // @return false if append unsuccessful (must be appended to next page)
         bool append(const std::byte *dp_data, std::pair<std::uint64_t, std::uint32_t> page_and_state,
             const std::vector<std::uint16_t> &diff_data, bool &overflow);
-        
+
+        // Flush all bufferend contents
+        // @return the number of bytes written
+        std::size_t flush();
+
         // Flush current page with the Page_IO and handle overflow data if such exists
         // only flushed if there's been contents written
-        void flush();
-        
+        // @return the number of bytes written            
+        std::size_t flushDP();
+
         // Revert the last append operation
         void revert();
 
@@ -107,12 +112,21 @@ namespace db0
         return true;
     }
 
-    void DiffWriter::flush()
+    std::size_t DiffWriter::flush()
+    {
+        std::size_t result = 0;
+        while (!empty()) {
+            result += flushDP();
+        }
+        return result;
+    }
+
+    std::size_t DiffWriter::flushDP()
     {
         if (empty()) {
-            return;
+            return 0;
         }
-
+        
         m_page_io.append(m_begin);
         m_header.m_size = 0;
         // handle overflowed contents if such exists
@@ -126,6 +140,7 @@ namespace db0
             m_header.m_offset = 0;
             m_current = m_begin + m_header.sizeOf();
         }
+        return m_page_size;
     }
 
     void DiffWriter::revert()
@@ -228,7 +243,7 @@ namespace db0
         assert(m_writer);
         for (;;) {
             if (m_writer->isFull()) {
-                m_writer->flush();
+                m_diff_bytes_written += m_writer->flushDP();
             }
             bool overflow = false;
             auto next_page_num = Page_IO::getNextPageNum();
@@ -239,18 +254,18 @@ namespace db0
                     // if such is available or revert the append and try again with a fresh buffer
                     if (next_page_num.second > 1) {
                         // flush with the Page_IO
-                        m_writer->flush();
+                        m_diff_bytes_written += m_writer->flushDP();
                     } else {
                         m_writer->revert();
-                        m_writer->flush();
-                        // continue wita fresh buffer
+                        m_diff_bytes_written += m_writer->flushDP();
+                        // continue with a fresh buffer
                         continue;
                     }
                 }
                 return next_page_num.first;
             } else {
                 // continue with a fresh buffer                
-                m_writer->flush();                
+                m_diff_bytes_written += m_writer->flushDP();
                 continue;
             }
         }
@@ -280,7 +295,7 @@ namespace db0
     {
         std::unique_lock<std::mutex> lock(m_mx_write);
         if (m_writer) {
-            m_writer->flush();
+            m_diff_bytes_written += m_writer->flush();
         }
     }
     
@@ -289,7 +304,7 @@ namespace db0
         // full-DP write can only be performed after flushing from diff-writer
         std::unique_lock<std::mutex> lock(m_mx_write);
         if (m_writer) {
-            m_writer->flush();
+            m_diff_bytes_written += m_writer->flush();
         }
         Page_IO::write(page_num, buffer);
     }
@@ -299,15 +314,20 @@ namespace db0
         assert(!m_writer || m_writer->empty());
         Page_IO::read(page_num, buffer);
     }
-    
+
     std::uint64_t Diff_IO::append(const void *buffer)
     {
         // full-DP write can only be performed after flushing from diff-writer
         std::unique_lock<std::mutex> lock(m_mx_write);
         if (m_writer) {
-            m_writer->flush();
+            m_diff_bytes_written += m_writer->flush();
         }
+        m_full_dp_bytes_written += m_page_size;
         return Page_IO::append(buffer);
+    }
+    
+    std::pair<std::size_t, std::size_t> Diff_IO::getStats() const {
+        return { m_full_dp_bytes_written + m_diff_bytes_written, m_diff_bytes_written };
     }
 
 }

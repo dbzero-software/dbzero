@@ -96,6 +96,9 @@ namespace db0
             return m_dram_io;
         }
         
+        // @return total bytes written / diff bytes written
+        std::pair<std::size_t, std::size_t> getDiff_IOStats() const;
+        
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;

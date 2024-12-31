@@ -131,7 +131,7 @@ def test_durability_of_random_objects_issue1(db0_no_default_fixture):
                 db0.commit()
                 transaction_bytes = 0
         db0.commit()
-    
+
     p = multiprocessing.Process(target=create_objects)
     p.start()
     p.join()
