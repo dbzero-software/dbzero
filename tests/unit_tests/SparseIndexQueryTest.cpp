@@ -37,7 +37,7 @@ namespace tests
             ASSERT_EQ(cut.first(), 0);
         }
     }
-
+    
     TEST_F( SparseIndexQueryTest , testSparseIndexQuerySingleDiff )
     {
         SparseIndex sparse_index(16 * 1024);
@@ -64,7 +64,7 @@ namespace tests
             ASSERT_EQ(cut.first(), 17);
         }
     }
-    
+
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryMultipleDiffs )
     {
         SparseIndex sparse_index(16 * 1024);
@@ -232,5 +232,55 @@ namespace tests
             ASSERT_FALSE(cut.lessThan(6));            
         }
     }
-    
+
+    TEST_F( SparseIndexQueryTest , testSparseIndexQueryStartingFromDiffPage )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_index(16 * 1024);
+        // append multiple diff-mutations for page 1 without base page (i.e. 0x0 based)
+        diff_index.insert(1, 2, 3);
+        diff_index.insert(1, 4, 4);
+        sparse_index.emplace(1, 7, 1);
+        diff_index.insert(1, 8, 11);
+        diff_index.insert(1, 9, 12);
+        sparse_index.emplace(4, 7, 17);
+        sparse_index.emplace(4, 8, 2343);
+        diff_index.insert(4, 9, 40);
+
+        SparseIndexQuery cut(sparse_index, diff_index, 1, 5);
+        ASSERT_EQ(cut.first(), 0);
+        std::uint32_t state_num;
+        std::uint64_t storage_page_num;
+        ASSERT_TRUE(cut.next(state_num, storage_page_num));
+        ASSERT_EQ(storage_page_num, 3);
+        ASSERT_TRUE(cut.next(state_num, storage_page_num));
+        ASSERT_EQ(storage_page_num, 4);
+        ASSERT_FALSE(cut.next(state_num, storage_page_num));
+    }
+
+    TEST_F( SparseIndexQueryTest , testSparseIndexQueryEmpty )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_index(16 * 1024);        
+        diff_index.insert(1, 2, 3);
+        diff_index.insert(1, 4, 4);
+        sparse_index.emplace(1, 7, 1);
+        diff_index.insert(1, 8, 11);
+        diff_index.insert(1, 9, 12);
+        sparse_index.emplace(4, 7, 17);
+        sparse_index.emplace(4, 8, 2343);
+        diff_index.insert(4, 9, 40);
+        
+        // page / state / is empty
+        auto query_data = std::vector<std::tuple<int, int, bool> > {
+            { 1, 1, true }, { 1, 2, false }, { 1, 3, false },
+            { 1, 7, false }, { 4, 4, true }, { 4, 6, true }, { 4, 7, false }
+        };
+        
+        for (auto [page, state, is_empty]: query_data) {
+            SparseIndexQuery cut(sparse_index, diff_index, page, state);
+            ASSERT_EQ(cut.empty(), is_empty);
+        }
+    }
+
 }

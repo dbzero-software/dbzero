@@ -39,15 +39,11 @@ namespace db0
         m_allocator_ptr = m_allocator.get();
         m_page_size = prefix->getPageSize();
     }
-
+    
     std::size_t Memspace::getPageSize() const {
         return m_page_size;
     }
-    
-    void Memspace::flush() {
-        m_prefix->flushDirty(std::numeric_limits<std::size_t>::max());
-    }
-    
+        
     void Memspace::commit(ProcessTimer *timer)
     {       
         assert(m_prefix);

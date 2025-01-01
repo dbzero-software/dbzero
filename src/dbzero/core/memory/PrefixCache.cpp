@@ -122,10 +122,10 @@ namespace db0
     
     std::shared_ptr<WideLock> PrefixCache::createRange(std::uint64_t page_num, std::size_t size,
         std::uint64_t read_state_num, std::uint64_t state_num, FlagSet<AccessOptions> access_mode, 
-        std::shared_ptr<DP_Lock> res_dp)
+        std::shared_ptr<DP_Lock> res_dp, std::shared_ptr<ResourceLock> cow_lock)
     {
         auto lock = std::make_shared<WideLock>(m_wide_context, page_num << m_shift, size,
-            access_mode, read_state_num, state_num, res_dp);
+            access_mode, read_state_num, state_num, res_dp, cow_lock);
         // register under the lock's evaluated state number
         m_wide_map.insert(lock->getStateNum(), lock);
         

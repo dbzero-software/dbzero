@@ -16,6 +16,8 @@ namespace db0
     std::atomic<std::size_t> ResourceLock::rl_op_count = 0;
 #endif
     
+    std::vector<std::byte> ResourceLock::m_cow_zero;
+    
     ResourceLock::ResourceLock(StorageContext storage_context, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, std::shared_ptr<ResourceLock> cow_lock)
         : m_context(storage_context)
@@ -162,13 +164,12 @@ namespace db0
 #endif
     
     bool getDiffs(const void *buf_1, const void *buf_2,
-        std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff)
+        std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff, std::size_t max_size)
     {
         assert(size <= std::numeric_limits<std::uint16_t>::max());
         if (!max_diff) {
             max_diff = size / 2;
         }
-        const auto max_size = 128u;
         result.reserve(max_size);
         const std::uint8_t *it_1 = static_cast<const std::uint8_t *>(buf_1), *it_2 = static_cast<const std::uint8_t *>(buf_2);
         auto end = it_1 + size;
@@ -204,4 +205,47 @@ namespace db0
         return true;
     }
     
+    bool getDiffs(const void *buf, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff,
+        std::size_t max_size)
+    {
+        assert(size <= std::numeric_limits<std::uint16_t>::max());
+        if (!max_diff) {
+            max_diff = size / 2;
+        }    
+        result.reserve(max_size);
+        const std::uint8_t *it = static_cast<const std::uint8_t *>(buf);
+        auto end = it + size;
+        std::uint16_t diff_total = 0;
+        for (;;) {
+            std::uint16_t diff_len = 0;
+            // identify non-zero bytes
+            for (; it != end && *it; ++it) {
+                ++diff_len;
+                ++diff_total;
+            }
+            // account for the administrative space overhead (approximate)
+            diff_total += sizeof(std::uint16_t);
+            if (diff_total > max_diff) {
+                return false;
+            }
+            if (diff_len || it != end) {
+                result.push_back(diff_len);
+            }
+            if (it == end) {
+                break;
+            }
+            std::uint16_t sim_len = 0;
+            for (; it != end && !*it; ++it) {
+                ++sim_len;
+            }
+            // do not include the trailing similarity area
+            if (it == end) {
+                break;
+            }
+            assert(sim_len);
+            result.push_back(sim_len);
+        }
+        return true;
+    }
+
 }

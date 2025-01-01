@@ -142,9 +142,6 @@ namespace db0
         // Rollback uncommited contents from internal buffers
         void rollback();
         
-        // Flush any pending writes to disk (not a commit!)
-        void flush();
-
         void commit();
         
         void close(ProcessTimer * = nullptr);

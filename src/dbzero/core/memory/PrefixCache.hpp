@@ -74,7 +74,8 @@ namespace db0
          * @param res_dp the residual lock (may be nullptr if the wide size lock is page aligned)
          */
         std::shared_ptr<WideLock> createRange(std::uint64_t page_num, std::size_t size, std::uint64_t read_state_num,
-            std::uint64_t state_num, FlagSet<AccessOptions>, std::shared_ptr<DP_Lock> res_dp);
+            std::uint64_t state_num, FlagSet<AccessOptions>, std::shared_ptr<DP_Lock> res_dp, 
+            std::shared_ptr<ResourceLock> cow_lock = nullptr);
         
         /**
          * Insert copy of a single or wide page lock (not BoundaryLock)
@@ -153,8 +154,8 @@ namespace db0
         
         // prepare cache for the refresh operation
         void beginRefresh();
-        
-    protected:        
+
+    protected:
         const std::size_t m_page_size;
         const unsigned int m_shift;
         const std::uint64_t m_mask;        

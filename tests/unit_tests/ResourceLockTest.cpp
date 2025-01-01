@@ -34,7 +34,7 @@ namespace tests
             ASSERT_EQ(result, (std::vector<std::uint16_t> { 4, 2, 1, 1, 2}));
         }    
     }
-    
+
     TEST_F( ResourceLockTest, testCalculateDPDiffWhenMaxDiffExceeded )
     {
         std::vector<std::uint8_t> bytes_1 = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
@@ -56,6 +56,24 @@ namespace tests
         std::vector<std::uint16_t> diff_buf;
         db0::getDiffs(dp_0.data(), dp_1.data(), page_size, diff_buf);
         ASSERT_NE(diff_buf.back(), 0);
+    }
+
+    TEST_F( ResourceLockTest, testCalculateDPZeroDiff )
+    {
+        std::vector<std::uint8_t> bytes_1 = { 0, 0, 1, 3, 4, 0, 0, 0, 0, 9 };
+        std::vector<std::uint8_t> bytes_2 = { 0, 1, 2, 4, 4, 0, 7, 0, 7, 0 };
+        
+        {
+            std::vector<std::uint16_t> result;
+            ASSERT_TRUE(getDiffs(bytes_1.data(), bytes_1.size(), result, 128));
+            ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 2, 3, 4, 1 }));
+        }
+        
+        {
+            std::vector<std::uint16_t> result;
+            ASSERT_TRUE(getDiffs(bytes_2.data(), bytes_2.size(), result, 128));
+            ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 1, 4, 1, 1, 1, 1 }));
+        }
     }
 
 }

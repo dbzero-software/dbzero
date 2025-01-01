@@ -20,7 +20,7 @@ namespace db0
         inline std::uint64_t first() const {
             return m_full_dp.m_storage_page_num;
         }
-
+        
         inline std::uint64_t first(std::uint32_t &state_num) const 
         {
             state_num = m_full_dp.m_state_num;
@@ -32,6 +32,9 @@ namespace db0
         
         // check the number of elements accessible via next() is less than size
         bool lessThan(unsigned int size) const;
+        
+        // check if the query yields any results (first or next)
+        bool empty() const;
 
     private:
         using DiffArrayT = DI_Item::DiffArrayT;

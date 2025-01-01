@@ -10,6 +10,7 @@ namespace db0
         : Prefix(name)
         , m_storage(storage)
         , m_storage_ptr(m_storage.get())
+        , m_access_type(m_storage_ptr->getAccessType())
         , m_page_size(m_storage_ptr->getPageSize())
         , m_shift(getPageShift(m_page_size))
         , m_head_state_num(m_storage_ptr->getMaxStateNum())
@@ -145,6 +146,10 @@ namespace db0
                     // assert lock is from past transaction
                     assert(mutation_id < state_num);
                 }
+                // apply no_cow flag only if prefix opened as read-only
+                if (m_access_type == AccessType::READ_ONLY) {
+                    access_mode.set(AccessOptions::no_cow, true);
+                }
                 lock = m_cache.createPage(page_num, mutation_id, 0, access_mode);
             }
         } else {
@@ -166,9 +171,10 @@ namespace db0
                 } else {
                     // create / write page
                     access_mode.set(AccessOptions::read, false);
-                    lock = m_cache.createPage(page_num, 0, state_num, access_mode);
+                    // use AccessOptions::create to indicate a newly created page
+                    lock = m_cache.createPage(page_num, 0, state_num, access_mode | AccessOptions::create);
                 }
-            }            
+            }
         }
         
         assert(lock);
@@ -202,9 +208,10 @@ namespace db0
                     // read or create the residual DP
                     res_lock = mapPage(end_page - 1, state_num, access_mode | AccessOptions::read);
                 }
-                lock = m_cache.createRange(first_page, size, 0, state_num, access_mode, res_lock);
-            }            
-            assert(lock);            
+                // passing previous lock's version for CoW
+                lock = m_cache.createRange(first_page, size, 0, state_num, access_mode, res_lock, lock);
+            }
+            assert(lock);
         } else if (!access_mode[AccessOptions::write]) {
             // read-only access
             if (!lock) {
@@ -222,6 +229,10 @@ namespace db0
                     access_mode.set(AccessOptions::no_flush, false);
                     // assert lock is from past transaction
                     assert(mutation_id < state_num);
+                }
+                // apply no_cow flag only if prefix opened as read-only
+                if (m_access_type == AccessType::READ_ONLY) {
+                    access_mode.set(AccessOptions::no_cow, true);
                 }
                 lock = m_cache.createRange(first_page, size, mutation_id, 0, access_mode, res_dp);
             }
@@ -249,8 +260,9 @@ namespace db0
                 // unable to read if mutation does not exist
                 assert(mutation_id > 0 || !access_mode[AccessOptions::read]);
                 // we pass both read & write state numbers here
-                lock = m_cache.createRange(first_page, size, mutation_id, state_num, access_mode, res_dp);
-            }            
+                lock = m_cache.createRange(first_page, size, mutation_id, state_num, 
+                    access_mode | AccessOptions::create, res_dp);
+            }
         }
 
         assert(lock);

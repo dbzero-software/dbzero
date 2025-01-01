@@ -243,19 +243,7 @@ namespace db0
             workspace_view, m_v_object_cache.getSharedObjectList(), px_snapshot, allocator_snapshot
         );
     }
-    
-    void Fixture::flush()
-    {
-        assert(getPrefixPtr());
-        if (m_gc0_ptr) {
-            getGC0().preCommit();
-        }
         
-        m_lang_cache.clear(true);
-        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
-        Memspace::flush();
-    }
-    
     void Fixture::commit()
     {
         assert(getPrefixPtr());

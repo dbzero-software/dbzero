@@ -174,25 +174,32 @@ namespace db0
 
         auto begin_page = address / m_config.m_page_size;
         auto end_page = begin_page + size / m_config.m_page_size;
-
+        
         std::byte *read_buf = reinterpret_cast<std::byte *>(buffer);
         // lookup sparse index and read physical pages
         for (auto page_num = begin_page; page_num != end_page; ++page_num, read_buf += m_config.m_page_size) {
             // query sparse index + diff index
             SparseIndexQuery query(m_sparse_index, m_diff_index, page_num, state_num);
-            // query.first yields the full-DP
-            std::uint64_t storage_page_num = query.first();
-            if (!storage_page_num) {
+            if (query.empty()) {
                 if (flags[AccessOptions::read]) {
                     THROWF(db0::IOException) << "BDevStorage::read: page not found: " << page_num << ", state: " << state_num;
                 }
                  // if requested access is write-only then simply fill the misssing (new) page with 0
-                memset(read_buf, 0, m_config.m_page_size);
+                memset(read_buf, 0, m_config.m_page_size);                
                 continue;
             }
+
+            // query.first yields the full-DP (if it exists)
+            std::uint64_t storage_page_num = query.first();
+            if (storage_page_num) {
+                // read full page
+                m_page_io.read(storage_page_num, read_buf);
+            } else {
+                // requesting a diff-DP only encoded page, use zero buffer as a base
+                memset(read_buf, 0, m_config.m_page_size);
+            }
             
-            // read full page
-            m_page_io.read(storage_page_num, read_buf);
+            // apply changes from diff-DPs
             std::uint32_t diff_state_num;
             while (query.next(diff_state_num, storage_page_num)) {
                 // apply all diff-updates on top of the full-DP
@@ -202,7 +209,7 @@ namespace db0
     }
     
     void BDevStorage::write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer)
-    {
+    {        
         assert(state_num > 0 && "BDevStorage::write: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::write: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::write: size must be page-aligned");
@@ -212,7 +219,7 @@ namespace db0
         
         std::byte *write_buf = reinterpret_cast<std::byte *>(buffer);
         // write as physical pages and register with the sparse index
-        for (auto page_num = begin_page; page_num != end_page; ++page_num, write_buf += m_config.m_page_size) {            
+        for (auto page_num = begin_page; page_num != end_page; ++page_num, write_buf += m_config.m_page_size) {
             // look up if page has already been added in current transaction
             auto item = m_sparse_index.lookup(page_num, state_num);
             if (item && item.m_state_num == state_num) {
@@ -223,6 +230,9 @@ namespace db0
                 // append as new page
                 auto storage_page_id = m_page_io.append(write_buf);
                 m_sparse_index.emplace(page_num, state_num, storage_page_id);
+                #ifndef NDEBUG
+                m_page_io_raw_bytes += m_config.m_page_size;
+                #endif
             }
         }
     }
@@ -258,6 +268,10 @@ namespace db0
             auto storage_page_num = m_page_io.append(buffer);
             m_sparse_index.emplace(page_num, state_num, storage_page_num);
         }
+        
+        #ifndef NDEBUG
+        m_page_io_raw_bytes += m_config.m_page_size;
+        #endif
     }
     
     std::size_t BDevStorage::getPageSize() const {
@@ -434,7 +448,7 @@ namespace db0
         while (m_dram_changelog_io.refresh());        
         return result;
     }
-        
+    
     std::uint64_t BDevStorage::getLastUpdated() const {
         return m_file.getLastModifiedTime();
     }
@@ -452,6 +466,12 @@ namespace db0
         // total size of data pages
         callback("dp_size_total", m_sparse_pair.size() * m_page_io.getPageSize());
         callback("prefix_size", m_file.size());
+        auto page_io_stats = m_page_io.getStats();
+        callback("page_io_total_bytes", page_io_stats.first);
+        callback("page_io_diff_bytes", page_io_stats.second);
+        #ifndef NDEBUG
+        callback("page_io_raw_bytes", m_page_io_raw_bytes);
+        #endif
     }
     
     std::pair<std::size_t, std::size_t> BDevStorage::getDiff_IOStats() const {

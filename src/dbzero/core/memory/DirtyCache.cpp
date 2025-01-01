@@ -43,7 +43,8 @@ namespace db0
         }
         if (m_dirty_meter_ptr) {
             *m_dirty_meter_ptr -= flushed;
-        }
+            m_size -= flushed;
+        }        
     }
     
     void DirtyCache::flush()
@@ -56,7 +57,7 @@ namespace db0
         if (m_dirty_meter_ptr) {
             *m_dirty_meter_ptr -= m_size;
             m_size = 0;
-        }
+        }        
     }
     
     std::size_t DirtyCache::flush(std::size_t limit)
@@ -75,9 +76,11 @@ namespace db0
             } else {
                 ++it;
             }
-        }        
-        *m_dirty_meter_ptr -= flushed;
-        m_size -= flushed;
+        }
+        if (m_dirty_meter_ptr) {
+            *m_dirty_meter_ptr -= flushed;
+            m_size -= flushed;
+        }
         return flushed;
     }
     

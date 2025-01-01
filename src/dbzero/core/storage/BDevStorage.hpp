@@ -127,7 +127,11 @@ namespace db0
         BlockIOStream m_wal_io;
         // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
-                
+#ifndef NDEBUG
+        // total number of bytes from mutated data pages
+        std::uint64_t m_page_io_raw_bytes = 0;
+#endif        
+                        
         static DRAM_IOStream init(DRAM_IOStream &&, ChangeLogIOStream &);
 
         static ChangeLogIOStream init(ChangeLogIOStream &&);

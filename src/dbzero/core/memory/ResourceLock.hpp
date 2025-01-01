@@ -36,8 +36,13 @@ namespace db0
     // @param size size of the buffers
     // @param result vector to hold size of diff / size of identical areas interleaved (totalling to size)
     // @param max_diff the maximum acceptable diff in bytes (0 for default = size / 2)
+    // @param max_size the maximum number of diff areas allowed to be stored in the result
     // @return false if the total volume of diff areas exceeds 50% threshold
-    bool getDiffs(const void *, const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0);
+    bool getDiffs(const void *, const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
+        std::size_t max_size = 128);
+    // the getDiffs version comparing to all-zero buffer
+    bool getDiffs(const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
+        std::size_t max_size = 128);
     
     /**
      * A ResourceLock is the foundation class for DP_Lock and BoundaryLock implementations    
@@ -170,6 +175,7 @@ namespace db0
         std::shared_ptr<ResourceLock> m_cow_lock;
         // the internally managed CoW's buffer
         std::vector<std::byte> m_cow_data;
+        static std::vector<std::byte> m_cow_zero;
         
         void setRecycled(bool is_recycled);
 

@@ -88,6 +88,7 @@ namespace db0
     protected:
         std::shared_ptr<BaseStorage> m_storage;
         BaseStorage *m_storage_ptr;
+        const AccessType m_access_type;
         const std::size_t m_page_size;
         const std::uint32_t m_shift;
         std::uint64_t m_head_state_num;

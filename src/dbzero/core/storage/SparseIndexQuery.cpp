@@ -13,9 +13,26 @@ namespace db0
     {
         if (m_full_dp && m_full_dp.m_state_num < state_num) {
             m_diff_dp = m_diff_index.findUpper(page_num, m_full_dp.m_state_num + 1);
+        } else {
+            // in case updates start from the diff-DP
+            m_diff_dp = m_diff_index.findUpper(page_num, state_num);
         }
     }
     
+    bool SparseIndexQuery::empty() const
+    {
+        if (m_full_dp) {
+            return false;
+        }
+        if (!m_diff_dp || m_diff_dp.m_state_num > m_query_state_num) {
+            return true;
+        }
+        if (m_state_num >= m_query_state_num) {
+            return true;
+        }
+        return false;
+    }
+
     bool SparseIndexQuery::next(std::uint32_t &state_num, std::uint64_t &storage_page_num)
     {
         // unable to iterate past the queried state number
