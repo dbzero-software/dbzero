@@ -53,6 +53,8 @@ namespace db0
 
         std::size_t getDirtySize() const override;
 
+        void getStats(std::function<void(const std::string &name, std::uint64_t value)>) const override;
+
         PrefixCache &getCache() const;
 
         /**

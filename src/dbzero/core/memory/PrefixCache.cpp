@@ -667,4 +667,26 @@ namespace db0
         m_boundary_map.clear();
     }
     
+    std::pair<std::uint64_t, std::uint64_t> PrefixCache::getCoWStats() const
+    {
+        std::uint64_t dp_total = 0;
+        std::uint64_t dp_cow = 0;
+        m_dirty_dp_cache.forAll([&](const ResourceLock &lock) {
+            ++dp_total;
+            if (lock.hasCoWData()) {
+                ++dp_cow;
+            }
+        });
+
+        m_dirty_wide_cache.forAll([&](const ResourceLock &lock) {
+            auto dp_count = (lock.size() / m_page_size);
+            dp_total += dp_count;
+            if (lock.hasCoWData()) {
+                dp_cow += dp_count;
+            }
+        });
+
+        return { dp_total, dp_cow };
+    }
+
 } 

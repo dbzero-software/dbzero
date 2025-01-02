@@ -16,7 +16,7 @@ namespace db0
     std::atomic<std::size_t> ResourceLock::rl_op_count = 0;
 #endif
     
-    std::vector<std::byte> ResourceLock::m_cow_zero;
+    const std::byte ResourceLock::m_cow_zero = std::byte(0);
     
     ResourceLock::ResourceLock(StorageContext storage_context, std::uint64_t address, std::size_t size,
         FlagSet<AccessOptions> access_mode, std::shared_ptr<ResourceLock> cow_lock)
@@ -122,8 +122,7 @@ namespace db0
     void ResourceLock::moveFrom(ResourceLock &other)
     {
         assert(other.size() == size());
-        setDirty();
-        // copy both data and the mu-store
+        setDirty();        
         std::memcpy(m_data.data(), other.m_data.data(), m_data.size());        
         other.discard();
     }
@@ -163,6 +162,24 @@ namespace db0
     }
 #endif
     
+    const std::byte *ResourceLock::getCowPtr() const
+    {
+        if (m_cow_lock) {
+            return (const std::byte*)m_cow_lock->getBuffer();
+        }
+        if (m_cow_data.size()) {
+            return m_cow_data.data();
+        }
+        if (m_access_mode[AccessOptions::create]) {            
+            return &m_cow_zero;
+        }
+        return nullptr;
+    }
+    
+    bool ResourceLock::hasCoWData() const {
+        return m_cow_lock || !m_cow_data.empty() || m_access_mode[AccessOptions::create];
+    }
+    
     bool getDiffs(const void *buf_1, const void *buf_2,
         std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff, std::size_t max_size)
     {
@@ -170,11 +187,15 @@ namespace db0
         if (!max_diff) {
             max_diff = size / 2;
         }
-        result.reserve(max_size);
+        result.reserve(max_size + 2);
         const std::uint8_t *it_1 = static_cast<const std::uint8_t *>(buf_1), *it_2 = static_cast<const std::uint8_t *>(buf_2);
         auto end = it_1 + size;
         std::uint16_t diff_total = 0;
         for (;;) {
+            // total number of allowed diff areas exceeded
+            if (result.size() >= max_size) {                
+                return false;
+            }
             std::uint16_t diff_len = 0;
             for (; it_1 != end && *it_1 != *it_2; ++it_1, ++it_2) {
                 ++diff_len;
@@ -212,11 +233,18 @@ namespace db0
         if (!max_diff) {
             max_diff = size / 2;
         }    
-        result.reserve(max_size);
+        result.reserve(max_size + 2);
         const std::uint8_t *it = static_cast<const std::uint8_t *>(buf);
         auto end = it + size;
         std::uint16_t diff_total = 0;
+        // include the zero-fill indicator (i.e. the 0, 0 elements)
+        result.push_back(0);
+        result.push_back(0);
         for (;;) {
+            // total number of allowed diff areas exceeded
+            if (result.size() >= max_size) {
+                return false;
+            }
             std::uint16_t diff_len = 0;
             // identify non-zero bytes
             for (; it != end && *it; ++it) {

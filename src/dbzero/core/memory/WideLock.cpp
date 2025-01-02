@@ -29,7 +29,7 @@ namespace db0
                 storage.read(m_address, read_state_num, this->size(), m_data.data(), access_mode);
             }
             // prepare the CoW data buffer (for a mutable lock)
-            if (!access_mode[AccessOptions::no_cow] && !m_cow_lock) {
+            if (!access_mode[AccessOptions::no_cow] && !m_cow_lock && !access_mode[AccessOptions::create]) {
                 m_cow_data.resize(m_data.size());
                 std::memcpy(m_cow_data.data(), m_data.data(), m_data.size());
             }
@@ -121,6 +121,14 @@ namespace db0
                     m_res_lock->setDirty();
                     std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
                 }
+                
+                // invalidate the CoW lock if it exists
+                if (m_cow_lock) {
+                    m_cow_lock = nullptr;
+                }
+                m_cow_data.clear();
+                // must also reset the "create" flag
+                m_access_mode.set(AccessOptions::create, false);
                 // reset the dirty flag
                 lock.commit_reset();
             }
@@ -172,7 +180,7 @@ namespace db0
     
     bool WideLock::getDiffs(const std::byte *&cow_ptr, void *buf, std::size_t size, std::vector<std::uint16_t> &result) const
     {
-        if (cow_ptr == m_cow_zero.data()) {
+        if (cow_ptr == &m_cow_zero) {
             return db0::getDiffs(buf, size, result);
         } else {
             auto has_diffs = db0::getDiffs(cow_ptr, buf, size, result);

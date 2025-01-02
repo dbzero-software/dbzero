@@ -410,4 +410,12 @@ namespace db0
         return m_cache.flushDirty(limit);
     }
     
+    void PrefixImpl::getStats(std::function<void(const std::string &name, std::uint64_t value)> callback) const
+    {   
+        auto cow_stats = m_cache.getCoWStats();
+        callback("dirty_cache_bytes", m_cache.getDirtySize());        
+        callback("dirty_dp_total", cow_stats.first);
+        callback("dirty_dp_cow", cow_stats.second);
+    }
+
 }

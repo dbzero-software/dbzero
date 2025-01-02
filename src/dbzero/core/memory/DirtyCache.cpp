@@ -108,5 +108,13 @@ namespace db0
         assert(m_dirty_meter_ptr);
         return m_size;        
     }
+    
+    void DirtyCache::forAll(std::function<void(const ResourceLock &)> f) const
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        for (auto &res_lock : m_locks) {
+            f(*res_lock);
+        }
+    }
 
 }

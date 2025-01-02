@@ -484,6 +484,14 @@ namespace db0::python
         }
         PyDict_SetItemString(sp_dict, "size", PyLong_FromLong(fixture->getLimitedStringPool().size()));
         PyDict_SetItemString(stats_dict, "string_pool", sp_dict);
+        auto cache_dict = PyDict_New();
+        if (!cache_dict) {
+            THROWF(db0::MemoryException) << "Out of memory";
+        }
+        fixture->getPrefix().getStats([&](const std::string &name, std::uint64_t value) {
+            PyDict_SetItemString(cache_dict, name.c_str(), PyLong_FromUnsignedLongLong(value));
+        });
+        PyDict_SetItemString(stats_dict, "cache", cache_dict);
         return stats_dict;
     }
     

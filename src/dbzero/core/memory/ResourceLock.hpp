@@ -35,6 +35,7 @@ namespace db0
     // Calculate diff areas between the 2 binary buffers of the same size (e.g. DPs)
     // @param size size of the buffers
     // @param result vector to hold size of diff / size of identical areas interleaved (totalling to size)
+    // NOTE that the leading elements 0, 0 indicate the 0-filled base buffer
     // @param max_diff the maximum acceptable diff in bytes (0 for default = size / 2)
     // @param max_size the maximum number of diff areas allowed to be stored in the result
     // @return false if the total volume of diff areas exceeds 50% threshold
@@ -144,6 +145,10 @@ namespace db0
         // discard any changes done to this lock (to be called e.g. on rollback)
         void discard();
         
+        // Check if the copy-on-write data is available
+        // this member is used for debug & evaluation purposes
+        bool hasCoWData() const;
+        
 #ifndef NDEBUG
         // get total memory usage of all ResourceLock instances
         // @return total size in bytes / total count
@@ -175,12 +180,15 @@ namespace db0
         std::shared_ptr<ResourceLock> m_cow_lock;
         // the internally managed CoW's buffer
         std::vector<std::byte> m_cow_data;
-        static std::vector<std::byte> m_cow_zero;
+        // special indicator of the zero-fill buffer
+        static const std::byte m_cow_zero;
         
         void setRecycled(bool is_recycled);
 
         bool addrPageAligned(BaseStorage &) const;
         
+        const std::byte *getCowPtr() const;
+
 #ifndef NDEBUG
         static std::atomic<std::size_t> rl_usage;
         static std::atomic<std::size_t> rl_count;

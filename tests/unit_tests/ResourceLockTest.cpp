@@ -57,6 +57,16 @@ namespace tests
         db0::getDiffs(dp_0.data(), dp_1.data(), page_size, diff_buf);
         ASSERT_NE(diff_buf.back(), 0);
     }
+    
+    TEST_F( ResourceLockTest, testDPDiffZeroFillIndicator )
+    {
+        std::vector<std::uint8_t> bytes_1 = { 0, 0, 1, 3, 4, 0, 0, 0, 0, 9 };
+        std::vector<std::uint16_t> result;
+        ASSERT_TRUE(getDiffs(bytes_1.data(), bytes_1.size(), result, 128));
+        // make sure the zero-fill indicator is present
+        ASSERT_EQ(result[0], 0);
+        ASSERT_EQ(result[1], 0);
+    }
 
     TEST_F( ResourceLockTest, testCalculateDPZeroDiff )
     {
@@ -66,13 +76,13 @@ namespace tests
         {
             std::vector<std::uint16_t> result;
             ASSERT_TRUE(getDiffs(bytes_1.data(), bytes_1.size(), result, 128));
-            ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 2, 3, 4, 1 }));
+            ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 0, 0, 2, 3, 4, 1 }));
         }
         
         {
             std::vector<std::uint16_t> result;
             ASSERT_TRUE(getDiffs(bytes_2.data(), bytes_2.size(), result, 128));
-            ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 1, 4, 1, 1, 1, 1 }));
+            ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 0, 0, 1, 4, 1, 1, 1, 1 }));
         }
     }
 

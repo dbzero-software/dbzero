@@ -75,10 +75,7 @@ namespace db0
         
         bool _tryFlush(FlushMethod);
         
-        bool getDiffs(const void *buf, std::vector<std::uint16_t> &result) const;
-        
-    protected:
-        const std::byte *getCowPtr() const;
+        bool getDiffs(const void *buf, std::vector<std::uint16_t> &result) const;        
     };
     
 }

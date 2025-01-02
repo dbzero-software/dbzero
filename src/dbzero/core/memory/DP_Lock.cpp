@@ -23,7 +23,7 @@ namespace db0
                 m_address, read_state_num, this->size(), m_data.data(), access_mode
             );
             // prepare the CoW data buffer (for a mutable lock)
-            if (!access_mode[AccessOptions::no_cow] && !m_cow_lock) {
+            if (!access_mode[AccessOptions::no_cow] && !access_mode[AccessOptions::create] && !m_cow_lock) {
                 m_cow_data.resize(m_data.size());
                 std::memcpy(m_cow_data.data(), m_data.data(), m_data.size());
             }
@@ -80,6 +80,8 @@ namespace db0
                     m_cow_lock = nullptr;
                 }
                 m_cow_data.clear();
+                // must also reset the "create" flag
+                m_access_mode.set(AccessOptions::create, false);
                 // reset the dirty flag
                 lock.commit_reset();
             }
@@ -127,26 +129,10 @@ namespace db0
         return false;
     }
 #endif
-
-    const std::byte *DP_Lock::getCowPtr() const
-    {
-        if (m_cow_lock) {
-            return (const std::byte*)m_cow_lock->getBuffer();
-        }
-        if (m_cow_data.size()) {
-            return m_cow_data.data();
-        }
-        if (m_access_mode[AccessOptions::create]) {
-            return m_cow_zero.data();
-        }
-        return nullptr;
-    }
-    
+        
     bool DP_Lock::getDiffs(const void *buf, std::vector<std::uint16_t> &result) const
     {
-        if (buf == m_cow_zero.data()) {
-            // FIXME: log
-            std::cout << "!!! zero-base CoW data" << std::endl;
+        if (buf == &m_cow_zero) {
             return db0::getDiffs(m_data.data(), this->size(), result);
         } else {
             return db0::getDiffs(buf, m_data.data(), this->size(), result);

@@ -155,6 +155,10 @@ namespace db0
         // prepare cache for the refresh operation
         void beginRefresh();
 
+        // Scan available dirty locks and return:
+        // total number of locks (DP count) / number of locks with CoW data present
+        std::pair<std::uint64_t, std::uint64_t> getCoWStats() const;
+        
     protected:
         const std::size_t m_page_size;
         const unsigned int m_shift;

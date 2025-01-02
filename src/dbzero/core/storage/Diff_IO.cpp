@@ -188,7 +188,7 @@ namespace db0
                     underflow = true;
                     return false;
                 }
-                o_diff_buffer::__const_ref(m_current).apply(dp_data);
+                o_diff_buffer::__const_ref(m_current).apply(dp_data, dp_data + m_page_size);
                 m_current += diff_buf_size;
                 --m_size;
                 return true;
