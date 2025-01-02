@@ -283,4 +283,86 @@ namespace tests
         }
     }
 
+    TEST_F( SparseIndexQueryTest , testSparseIndexQueryZeroBasedChain )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_index(16 * 1024);
+        std::vector<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> diff_data {
+            { 1, 2, 2 }, { 1, 3, 3 }, { 1, 4, 4 }, { 1, 5, 5 }, { 1, 6, 6 }, { 1, 7, 7 },
+            { 1, 8, 8 }, { 1, 9, 9 }, { 1, 10, 10 }, { 1, 11, 11 }, { 1, 12, 12 }, 
+            { 1, 13, 13 }, { 1, 14, 14 }, { 1, 15, 15 }, { 1, 16, 16 }, { 1, 17, 17 }, 
+            { 1, 18, 18 }, { 1, 19, 19 }, { 1, 20, 20 }, { 1, 21, 21 }, { 1, 22, 22 },
+            { 1, 24, 24 }
+        };
+        
+        for (auto [page, state, storage]: diff_data) {
+            diff_index.insert(page, state, storage);
+        }
+        // make sure at least 2 items have been crated
+        ASSERT_TRUE(diff_index.size() > 1);
+        sparse_index.emplace(1, 23, 23);
+
+        SparseIndexQuery cut(sparse_index, diff_index, 1, 24);
+        ASSERT_EQ(cut.empty(), false);
+        ASSERT_EQ(cut.first(), 23);
+        std::uint32_t state_num;
+        std::uint64_t storage_page_num;        
+        ASSERT_TRUE(cut.next(state_num, storage_page_num));
+        ASSERT_EQ(storage_page_num, 24);
+        ASSERT_FALSE(cut.next(state_num, storage_page_num));
+    }
+    
+    TEST_F( SparseIndexQueryTest , testSparseIndexQueryZeroBasedDiffChain )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_index(16 * 1024);
+        std::vector<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> diff_data {
+            { 1, 2, 2 }, { 1, 3, 3 }, { 1, 4, 4 }, { 1, 5, 5 }, { 1, 6, 6 }, { 1, 7, 7 },
+            { 1, 8, 8 }, { 1, 9, 9 }, { 1, 10, 10 }, { 1, 11, 11 }, { 1, 12, 12 }, 
+            { 1, 13, 13 }, { 1, 14, 14 }, { 1, 15, 15 }, { 1, 16, 16 }, { 1, 17, 17 }, 
+            { 1, 18, 18 }, { 1, 19, 19 }, { 1, 20, 20 }, { 1, 21, 21 }, { 1, 22, 22 },
+            { 1, 24, 24 }
+        };
+
+        for (auto [page, state, storage]: diff_data) {
+            diff_index.insert(page, state, storage);
+        }
+        // make sure at least 2 items have been crated
+        ASSERT_TRUE(diff_index.size() > 1);
+
+        SparseIndexQuery cut(sparse_index, diff_index, 1, 24);
+        ASSERT_EQ(cut.empty(), false);
+        ASSERT_EQ(cut.first(), 0);
+
+        std::vector<std::uint64_t> expected_page_num { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+            13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24 };
+
+        std::uint32_t state_num;
+        std::uint64_t storage_page_num;
+        for (auto expected : expected_page_num) {
+            ASSERT_TRUE(cut.next(state_num, storage_page_num));
+            ASSERT_EQ(storage_page_num, expected);
+        }
+        ASSERT_FALSE(cut.next(state_num, storage_page_num));
+    }
+
+    TEST_F( SparseIndexQueryTest , testSparseIndexQuery_Issue1 )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_index(16 * 1024);        
+        diff_index.insert(1, 2, 2);
+        diff_index.insert(1, 3, 3);
+        sparse_index.emplace(1, 4, 4);
+        diff_index.insert(1, 5, 5);
+        diff_index.insert(1, 6, 6);
+        
+        SparseIndexQuery cut(sparse_index, diff_index, 1, 5);
+        ASSERT_EQ(cut.first(), 4);
+        std::uint32_t state_num;
+        std::uint64_t storage_page_num;
+        ASSERT_TRUE(cut.next(state_num, storage_page_num));
+        ASSERT_EQ(storage_page_num, 5);
+        ASSERT_FALSE(cut.next(state_num, storage_page_num));
+    }
+    
 }

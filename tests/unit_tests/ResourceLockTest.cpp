@@ -85,5 +85,22 @@ namespace tests
             ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 0, 0, 1, 4, 1, 1, 1, 1 }));
         }
     }
+    
+    TEST_F( ResourceLockTest, testGetDiffsOfIdentities )
+    {
+        std::vector<std::uint8_t> bytes_1 = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+        // all-zero buffer
+        std::vector<std::uint8_t> bytes_2(100, 0);
+
+        std::vector<std::uint16_t> result { 1, 2, 3 };
+        ASSERT_TRUE(getDiffs(bytes_1.data(), bytes_1.data(), bytes_1.size(), result));
+        ASSERT_TRUE(result.empty());
+        
+        result = { 1, 2, 3 };
+        // zero-base diff cannot be empty because of the case when the writer fills entire DP with zeros
+        ASSERT_TRUE(getDiffs(bytes_2.data(), bytes_2.size(), result));
+        ASSERT_EQ(result[0], 0);
+        ASSERT_EQ(result[1], 0);
+    }
 
 }

@@ -170,9 +170,9 @@ namespace db0
         if (m_cow_data.size()) {
             return m_cow_data.data();
         }
-        if (m_access_mode[AccessOptions::create]) {            
+        if (m_access_mode[AccessOptions::create]) {
             return &m_cow_zero;
-        }
+        }        
         return nullptr;
     }
     
@@ -187,22 +187,26 @@ namespace db0
         if (!max_diff) {
             max_diff = size / 2;
         }
+        result.clear();
         result.reserve(max_size + 2);
         const std::uint8_t *it_1 = static_cast<const std::uint8_t *>(buf_1), *it_2 = static_cast<const std::uint8_t *>(buf_2);
         auto end = it_1 + size;
+        // exact number of bytes that differ
+        std::uint16_t diff_bytes = 0;
+        // estimated space occupied by the diff data
         std::uint16_t diff_total = 0;
         for (;;) {
             // total number of allowed diff areas exceeded
-            if (result.size() >= max_size) {                
+            if (result.size() >= max_size) {
                 return false;
             }
             std::uint16_t diff_len = 0;
             for (; it_1 != end && *it_1 != *it_2; ++it_1, ++it_2) {
                 ++diff_len;
-                ++diff_total;
             }
             // account for the administrative space overhead (approximate)
-            diff_total += sizeof(std::uint16_t);
+            diff_bytes += diff_len;
+            diff_total += diff_len + sizeof(std::uint16_t);
             if (diff_total > max_diff) {
                 return false;
             }
@@ -223,6 +227,10 @@ namespace db0
             assert(sim_len);
             result.push_back(sim_len);
         }
+        // no diffs found
+        if (!diff_bytes) {
+            result.clear();
+        }
         return true;
     }
     
@@ -232,10 +240,12 @@ namespace db0
         assert(size <= std::numeric_limits<std::uint16_t>::max());
         if (!max_diff) {
             max_diff = size / 2;
-        }    
+        }
+        result.clear();
         result.reserve(max_size + 2);
         const std::uint8_t *it = static_cast<const std::uint8_t *>(buf);
         auto end = it + size;
+        // estimated space occupied by the diff data
         std::uint16_t diff_total = 0;
         // include the zero-fill indicator (i.e. the 0, 0 elements)
         result.push_back(0);
@@ -248,11 +258,10 @@ namespace db0
             std::uint16_t diff_len = 0;
             // identify non-zero bytes
             for (; it != end && *it; ++it) {
-                ++diff_len;
-                ++diff_total;
+                ++diff_len;                
             }
             // account for the administrative space overhead (approximate)
-            diff_total += sizeof(std::uint16_t);
+            diff_total += diff_len + sizeof(std::uint16_t);
             if (diff_total > max_diff) {
                 return false;
             }
@@ -275,5 +284,5 @@ namespace db0
         }
         return true;
     }
-
+    
 }

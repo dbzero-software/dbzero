@@ -17,13 +17,16 @@ namespace db0
 
         // NOTE: the first returned storage page num will be full-DP
         // @return 0 if no associated DP found
-        inline std::uint64_t first() const {
+        inline std::uint64_t first() const 
+        {
+            m_state_num = m_full_dp.m_state_num;
             return m_full_dp.m_storage_page_num;
         }
         
         inline std::uint64_t first(std::uint32_t &state_num) const 
         {
             state_num = m_full_dp.m_state_num;
+            m_state_num = state_num;
             return m_full_dp.m_storage_page_num;
         }
         
@@ -39,7 +42,7 @@ namespace db0
     private:
         using DiffArrayT = DI_Item::DiffArrayT;
         const std::uint32_t m_query_state_num;
-        std::uint32_t m_state_num = 0;
+        mutable std::uint32_t m_state_num = 0;
         const SI_Item m_full_dp;
         const DiffIndex &m_diff_index;
         DI_Item m_diff_dp;

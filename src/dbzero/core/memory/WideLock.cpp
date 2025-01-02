@@ -28,7 +28,7 @@ namespace db0
             } else {
                 storage.read(m_address, read_state_num, this->size(), m_data.data(), access_mode);
             }
-            // prepare the CoW data buffer (for a mutable lock)
+            // prepare the CoW data buffer (for a mutable lock)            
             if (!access_mode[AccessOptions::no_cow] && !m_cow_lock && !access_mode[AccessOptions::create]) {
                 m_cow_data.resize(m_data.size());
                 std::memcpy(m_cow_data.data(), m_data.data(), m_data.size());
@@ -94,7 +94,10 @@ namespace db0
                                 storage.write(m_address, m_state_num, unwritten_size, m_data.data());
                                 unwritten_size = 0;
                             }
-                            storage.writeDiffs(m_address + (page_ptr - m_data.data()), m_state_num, page_size, page_ptr, diffs);
+                            // NOTE: DP needs not to be flushed if there are no diffs
+                            if (!diffs.empty()) {
+                                storage.writeDiffs(m_address + (page_ptr - m_data.data()), m_state_num, page_size, page_ptr, diffs);
+                            }
                             first_write = false;
                         } else {
                             if (first_write) {

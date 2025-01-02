@@ -185,7 +185,7 @@ namespace db0
                     THROWF(db0::IOException) << "BDevStorage::read: page not found: " << page_num << ", state: " << state_num;
                 }
                  // if requested access is write-only then simply fill the misssing (new) page with 0
-                memset(read_buf, 0, m_config.m_page_size);                
+                memset(read_buf, 0, m_config.m_page_size);      
                 continue;
             }
 
@@ -204,7 +204,7 @@ namespace db0
             while (query.next(diff_state_num, storage_page_num)) {
                 // apply all diff-updates on top of the full-DP
                 m_page_io.applyFrom(storage_page_num, read_buf, { page_num, diff_state_num });
-            }
+            }            
         }
     }
     

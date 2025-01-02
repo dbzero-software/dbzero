@@ -675,6 +675,9 @@ namespace db0
             ++dp_total;
             if (lock.hasCoWData()) {
                 ++dp_cow;
+            } else {
+                // FIXME: log
+                std::cout << "No cow-data: " << &lock << std::endl;
             }
         });
 

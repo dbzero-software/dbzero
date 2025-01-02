@@ -63,12 +63,12 @@ namespace db0
             }
             auto identical_size = o_packed_int<std::uint16_t>::read(at);
             dp_result += identical_size;
-            // zero-fill when the indicator is present            
+            // zero-fill when the indicator is present
             if (!diff_size && !identical_size) {
                 // make sure the indicator is only present at the beginning
                 assert(at <= (std::byte*)this + sizeof(o_diff_buffer) + sizeof(std::uint16_t) * 3);
                 std::memset(dp_result, 0, dp_end - dp_result);
-            }
+            }            
         }
     }
     

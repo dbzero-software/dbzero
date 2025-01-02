@@ -15,7 +15,7 @@ namespace db0
             m_diff_dp = m_diff_index.findUpper(page_num, m_full_dp.m_state_num + 1);
         } else {
             // in case updates start from the diff-DP
-            m_diff_dp = m_diff_index.findUpper(page_num, state_num);
+            m_diff_dp = m_diff_index.findUpper(page_num, 0);
         }
     }
     
@@ -39,47 +39,53 @@ namespace db0
         if (m_state_num >= m_query_state_num) {
             return false;
         }
+
         for (;;) {
             if (!m_diff_dp || m_diff_dp.m_state_num > m_query_state_num) {
                 return false;
             }
             if (m_diff_it) {
-                if (!m_diff_it.next(state_num, storage_page_num)) {
-                    m_diff_it.reset();
-                    // try locating the next diff-DP 
-                    m_diff_dp = m_diff_index.findUpper(m_diff_dp.m_page_num, m_state_num + 1);
-                    continue;
-                }
-                // end of iteration since the queried state number was reached
-                if (state_num > m_query_state_num) {
-                    return false;
-                }
-                // must position after the full-DP item
-                if (state_num < m_full_dp.m_state_num) {
-                    continue;
-                }
-                m_state_num = state_num;
+                for (;;) {
+                    if (m_diff_it.next(state_num, storage_page_num)) {
+                        if (state_num <= m_state_num) {
+                            // must position after the full-DP item
+                            continue;
+                        }
+                    } else {
+                        m_diff_it.reset();
+                        // try locating the next diff-DP
+                        m_diff_dp = m_diff_index.findUpper(m_diff_dp.m_page_num, m_state_num + 1);
+                        break;
+                    }
+                    if (state_num > m_query_state_num) {
+                        // end of iteration since the queried state number was reached
+                        return false;
+                    }
+                    m_state_num = state_num;
+                    return true;
+                }                
             } else {
+                m_diff_it = m_diff_dp.beginDiff();
+                // must position after the full-DP item
+                if (m_diff_dp.m_state_num <= m_state_num) {
+                    continue;
+                }
                 // retrieve the first diff-item
                 storage_page_num = m_diff_dp.m_storage_page_num;
                 state_num = m_diff_dp.m_state_num;
                 m_state_num = state_num;
-                m_diff_it = m_diff_dp.beginDiff();
-                // must position after the full-DP item
-                if (m_diff_dp.m_state_num < m_full_dp.m_state_num) {
-                    continue;
-                }
-            }
-            return true;
+                return true;
+            }        
         }
     }
-
+    
     bool SparseIndexQuery::lessThan(unsigned int size) const
     {
         // unable to iterate past the queried state number
         if (m_state_num >= m_query_state_num) {
             return true;
         }
+
         auto diff_dp = m_diff_dp;
         auto diff_it = m_diff_it;
         auto last_state_num = m_state_num;
@@ -89,33 +95,39 @@ namespace db0
                 return true;
             }
             if (diff_it) {
-                if (!diff_it.next(state_num)) {
-                    diff_it.reset();
-                    // try locating the next diff-DP
-                    diff_dp = m_diff_index.findUpper(diff_dp.m_page_num, last_state_num + 1);                    
-                    continue;
+                for (;;) {
+                    if (diff_it.next(state_num)) {
+                        if (state_num <= last_state_num) {
+                            // must position after the full-DP item
+                            continue;
+                        }
+                    } else {
+                        diff_it.reset();
+                        // try locating the next diff-DP
+                        diff_dp = m_diff_index.findUpper(diff_dp.m_page_num, last_state_num + 1);
+                        break;
+                    }
+                    if (state_num > m_query_state_num) {
+                        // end of iteration since the queried state number was reached
+                        return true;
+                    }
+                    last_state_num = state_num;
+                    --size;
+                    break;
                 }
-                // end of iteration since the queried state number was reached
-                if (state_num > m_query_state_num) {
-                    return true;
-                }
-                // must position after the full-DP item
-                if (state_num < m_full_dp.m_state_num) {
-                    continue;
-                }
-                last_state_num = state_num;
             } else {
-                // retrieve the first diff-item
-                state_num = m_diff_dp.m_state_num;
-                last_state_num = state_num;
                 diff_it = diff_dp.beginDiff();
                 // must position after the full-DP item
-                if (diff_dp.m_state_num < m_full_dp.m_state_num) {
+                if (diff_dp.m_state_num <= last_state_num) {
                     continue;
                 }
+                // retrieve the first diff-item                
+                state_num = diff_dp.m_state_num;
+                last_state_num = state_num;
+                --size;
             }
-            --size;         
         }
+
         return false;
     }
     

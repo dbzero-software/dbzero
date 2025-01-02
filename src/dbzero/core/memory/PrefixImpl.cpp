@@ -129,7 +129,15 @@ namespace db0
             assert(getAccessType() == AccessType::READ_WRITE);
             // create/write-only access
             if (!lock || read_state_num != state_num) {
-                // we don't need reading thus passing read_state_num = 0
+                if (!lock && m_access_type == AccessType::READ_WRITE) {
+                    // try identifying the last available mutation (may not exist yet)
+                    std::uint64_t mutation_id = 0;
+                    m_storage_ptr->tryFindMutation(page_num, state_num, mutation_id);
+                    if (!mutation_id) {
+                        // create / write page
+                        access_mode.set(AccessOptions::create, true);
+                    }
+                }
                 lock = m_cache.createPage(page_num, 0, state_num, access_mode, lock);
             }
             assert(lock);
@@ -259,9 +267,11 @@ namespace db0
                 
                 // unable to read if mutation does not exist
                 assert(mutation_id > 0 || !access_mode[AccessOptions::read]);
+                if (!mutation_id) {
+                    access_mode.set(AccessOptions::create, true);
+                }
                 // we pass both read & write state numbers here
-                lock = m_cache.createRange(first_page, size, mutation_id, state_num, 
-                    access_mode | AccessOptions::create, res_dp);
+                lock = m_cache.createRange(first_page, size, mutation_id, state_num, access_mode, res_dp);
             }
         }
 

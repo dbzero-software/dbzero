@@ -22,7 +22,7 @@ namespace db0
             m_context.m_storage_ref.get().read(
                 m_address, read_state_num, this->size(), m_data.data(), access_mode
             );
-            // prepare the CoW data buffer (for a mutable lock)
+            // prepare the CoW data buffer (for a mutable lock)            
             if (!access_mode[AccessOptions::no_cow] && !access_mode[AccessOptions::create] && !m_cow_lock) {
                 m_cow_data.resize(m_data.size());
                 std::memcpy(m_cow_data.data(), m_data.data(), m_data.size());
@@ -37,7 +37,7 @@ namespace db0
         , m_state_num(std::max(read_state_num, write_state_num))
     {
     }
-
+    
     DP_Lock::DP_Lock(std::shared_ptr<DP_Lock> other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
         : ResourceLock(other, access_mode)
         , m_state_num(write_state_num)
@@ -73,7 +73,10 @@ namespace db0
                         // unable to diff-flush
                         return false;
                     }
-                    storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
+                    // NOTE: DP needs not to be flushed if there are no diffs                    
+                    if (!diffs.empty()) {
+                        storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
+                    }
                 }
                 // invalidate the CoW lock if it exists
                 if (m_cow_lock) {
@@ -129,7 +132,7 @@ namespace db0
         return false;
     }
 #endif
-        
+    
     bool DP_Lock::getDiffs(const void *buf, std::vector<std::uint16_t> &result) const
     {
         if (buf == &m_cow_zero) {
