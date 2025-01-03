@@ -42,10 +42,10 @@ namespace db0
     BoundaryLock::~BoundaryLock()
     {        
         // internal BoundaryLock flush can be performed on destruction since it's a non-IO operation
-        this->_flush();
+        this->flushBoundary();
     }
     
-    void BoundaryLock::_flush()
+    void BoundaryLock::flushBoundary()
     {        
         // note that boundary locks are flushed even with no_flush flag
         using MutexT = ResourceDirtyMutexT;
@@ -71,11 +71,11 @@ namespace db0
             // diff-flush not supported for BoundaryLock
             return false;
         }
-        _flush();
-        // flush both parent locks
-        m_lhs->flush();
-        m_rhs->flush();
-        return true;
+        flushBoundary();
+        // try flushing both parent locks
+        bool result = m_lhs->tryFlush(flush_method);
+        result &= m_rhs->tryFlush(flush_method);
+        return result;
     }
     
     bool BoundaryLock::tryFlush(FlushMethod flush_method) {

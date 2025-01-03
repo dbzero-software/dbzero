@@ -185,7 +185,8 @@ namespace db0
     {
         assert(size <= std::numeric_limits<std::uint16_t>::max());
         if (!max_diff) {
-            max_diff = size / 2;
+            // by default flush as diff if less than 75% of the data differs
+            max_diff = (size * 3) >> 2;
         }
         result.clear();        
         const std::uint8_t *it_1 = static_cast<const std::uint8_t *>(buf_1), *it_2 = static_cast<const std::uint8_t *>(buf_2);
@@ -238,7 +239,8 @@ namespace db0
     {
         assert(size <= std::numeric_limits<std::uint16_t>::max());
         if (!max_diff) {
-            max_diff = size / 2;
+            // by default flush as diff if less than 75% of the data differs
+            max_diff = (size * 3) >> 2;
         }
         result.clear();        
         const std::uint8_t *it = static_cast<const std::uint8_t *>(buf);

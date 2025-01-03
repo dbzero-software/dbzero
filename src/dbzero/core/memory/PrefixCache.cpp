@@ -446,13 +446,14 @@ namespace db0
         if (parent_timer) {
             timer = std::make_unique<ProcessTimer>("PrefixCache::commit", parent_timer);
         }
-        // boundary locks need to be flushed first (from the map since they're not cached)        
+        // boundary locks need to be flushed first (from the map since they're not cached)
         m_boundary_map.forEach([&](BoundaryLock &lock) {
-            lock.flush();
+            // flush the boundary area only, since parent lock will be flushed either as DP or wide locks
+            lock.flushBoundary();
         });
         // NOTE: only commit operation can use the FlushMethod::diff method
         // NOTE: we first flush using the diff-method and then again using full-write method
-        // this is to aovid interleaved diff / full writes
+        // this is to reduce the number of interleaved diff / full writes
         // wide locks need to be flushed before dp-locks
         m_dirty_wide_cache.tryFlush(FlushMethod::diff);
         m_dirty_wide_cache.flush();
