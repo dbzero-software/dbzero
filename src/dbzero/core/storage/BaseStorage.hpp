@@ -48,7 +48,7 @@ namespace db0
          * NOTE: diff areas must be evaluated page-wise
          */
         virtual void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
-            const std::vector<std::uint16_t> &diffs, unsigned int max_len = 8) = 0;
+            const std::vector<std::uint16_t> &diffs, unsigned int max_len = 32) = 0;
         
         /**
          * Look up sparse index to find the state number at which the given range was mutated
@@ -58,7 +58,7 @@ namespace db0
          * @return mutation state number
         */
         virtual std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const = 0;
-
+        
         /**
          * Try finding mutation
          * @return true if found and mutation_id was set

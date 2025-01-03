@@ -73,7 +73,7 @@ namespace db0
                         // unable to diff-flush
                         return false;
                     }
-                    // NOTE: DP needs not to be flushed if there are no diffs                    
+                    // NOTE: DP needs not to be flushed if there are no diffs            
                     if (!diffs.empty()) {
                         storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
                     }

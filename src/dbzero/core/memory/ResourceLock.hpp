@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cassert>
 #include <functional>
+#include <limits>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/serialization/mu_store.hpp>
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
@@ -40,10 +41,10 @@ namespace db0
     // @param max_size the maximum number of diff areas allowed to be stored in the result
     // @return false if the total volume of diff areas exceeds 50% threshold
     bool getDiffs(const void *, const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
-        std::size_t max_size = 128);
+        std::size_t max_size = std::numeric_limits<std::uint16_t>::max());
     // the getDiffs version comparing to all-zero buffer
     bool getDiffs(const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
-        std::size_t max_size = 128);
+        std::size_t max_size = std::numeric_limits<std::uint16_t>::max());
     
     /**
      * A ResourceLock is the foundation class for DP_Lock and BoundaryLock implementations    

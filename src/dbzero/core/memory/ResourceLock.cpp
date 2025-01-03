@@ -187,8 +187,7 @@ namespace db0
         if (!max_diff) {
             max_diff = size / 2;
         }
-        result.clear();
-        result.reserve(max_size + 2);
+        result.clear();        
         const std::uint8_t *it_1 = static_cast<const std::uint8_t *>(buf_1), *it_2 = static_cast<const std::uint8_t *>(buf_2);
         auto end = it_1 + size;
         // exact number of bytes that differ
@@ -241,8 +240,7 @@ namespace db0
         if (!max_diff) {
             max_diff = size / 2;
         }
-        result.clear();
-        result.reserve(max_size + 2);
+        result.clear();        
         const std::uint8_t *it = static_cast<const std::uint8_t *>(buf);
         auto end = it + size;
         // estimated space occupied by the diff data

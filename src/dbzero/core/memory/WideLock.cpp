@@ -107,7 +107,7 @@ namespace db0
                                 assert(unwritten_size == 0);
                                 // write as a full-DP
                                 storage.write(m_address + (page_ptr - m_data.data()), m_state_num, page_size, page_ptr);
-                                first_write = false;                                
+                                first_write = false;
                             }
                         }
                     }

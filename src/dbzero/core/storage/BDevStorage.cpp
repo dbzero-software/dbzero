@@ -245,7 +245,7 @@ namespace db0
         assert(size == m_config.m_page_size && "BDevStorage::writeDiffs: size must be equal to page size");
         
         auto page_num = address / m_config.m_page_size;
-
+        
         // Use SparseIndexQuery to determine the current sequence length & check limits
         SparseIndexQuery query(m_sparse_index, m_diff_index, page_num, state_num);
         // if a page has already been written as full-DP in the current transaction then
@@ -262,7 +262,7 @@ namespace db0
         if (query.leftLessThan(max_len)) {
             // append as diff-page (NOTE: diff-writes are only appended)
             auto storage_page_num = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data);
-            m_diff_index.insert(page_num, state_num, storage_page_num);
+            m_diff_index.insert(page_num, state_num, storage_page_num);        
         } else {
             // full-DP write
             auto storage_page_num = m_page_io.append(buffer);
