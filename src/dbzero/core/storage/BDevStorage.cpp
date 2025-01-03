@@ -259,7 +259,7 @@ namespace db0
             return;
         }
         
-        if (query.lessThan(max_len)) {
+        if (query.leftLessThan(max_len)) {
             // append as diff-page (NOTE: diff-writes are only appended)
             auto storage_page_num = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data);
             m_diff_index.insert(page_num, state_num, storage_page_num);

@@ -209,7 +209,7 @@ namespace tests
         ASSERT_FALSE(cut.next(state_num, storage_page_num));
     }
     
-    TEST_F( SparseIndexQueryTest , testSparseIndexQueryLessThan )
+    TEST_F( SparseIndexQueryTest , testSparseIndexQueryLeftLessThan )
     {
         SparseIndex sparse_index(16 * 1024);
         DiffIndex diff_index(16 * 1024);
@@ -222,17 +222,48 @@ namespace tests
         {
             SparseIndexQuery cut(sparse_index, diff_index, 4, 1055);
             cut.first();
-            ASSERT_TRUE(cut.lessThan(2));
-            ASSERT_FALSE(cut.lessThan(1));
+            ASSERT_TRUE(cut.leftLessThan(2));
+            ASSERT_FALSE(cut.leftLessThan(1));
         }
         
         {
-            SparseIndexQuery cut(sparse_index, diff_index, 3, 900);
+            SparseIndexQuery cut(sparse_index, diff_index, 3, 900);            
             cut.first();
-            ASSERT_FALSE(cut.lessThan(6));            
+            ASSERT_FALSE(cut.leftLessThan(6));
         }
     }
-
+    
+    TEST_F( SparseIndexQueryTest , testSparseIndexQueryLessThan )
+    {
+        SparseIndex sparse_index(16 * 1024);
+        DiffIndex diff_index(16 * 1024);
+        sparse_index.emplace(4, 500, 100);
+        sparse_index.emplace(3, 500, 300);
+        for (auto [page, state, storage]: getDiffIndexData1()) {
+            diff_index.insert(page, state, storage);
+        }
+        
+        std::uint32_t state_num;
+        std::uint64_t storage_page_num;
+        {
+            SparseIndexQuery cut(sparse_index, diff_index, 4, 1055);
+            cut.first();
+            ASSERT_TRUE(cut.lessThan(3));
+            ASSERT_FALSE(cut.lessThan(2));
+            // result not affected by first / next calls
+            cut.first();
+            cut.next(state_num, storage_page_num);
+            ASSERT_TRUE(cut.lessThan(3));
+            ASSERT_FALSE(cut.lessThan(2));
+        }
+        
+        {
+            SparseIndexQuery cut(sparse_index, diff_index, 3, 900);            
+            cut.first();
+            ASSERT_FALSE(cut.lessThan(7));
+        }
+    }
+    
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryStartingFromDiffPage )
     {
         SparseIndex sparse_index(16 * 1024);
@@ -262,19 +293,27 @@ namespace tests
     {
         SparseIndex sparse_index(16 * 1024);
         DiffIndex diff_index(16 * 1024);        
-        diff_index.insert(1, 2, 3);
-        diff_index.insert(1, 4, 4);
+        std::vector<std::tuple<std::uint64_t, std::uint32_t, std::uint32_t>> diff_data {
+            { 1, 2, 3 }, { 1, 4, 4 }, { 1, 8, 11 }, { 1, 9, 12 },
+            { 5, 2, 22 }, { 5, 3, 23 }, { 5, 4, 24 }, { 5, 5, 25 }, { 5, 6, 26 },
+            { 5, 7, 27 }, { 5, 8, 28 }, { 5, 9, 29 }, { 5, 10, 30 }, { 5, 11, 31 },
+            { 5, 12, 32 }, { 5, 13, 33 }, { 5, 14, 34 }, { 5, 15, 35 }, { 5, 16, 36 }
+        };
+        for (auto [page, state, storage]: diff_data) {
+            diff_index.insert(page, state, storage);
+        }
+        
         sparse_index.emplace(1, 7, 1);
-        diff_index.insert(1, 8, 11);
-        diff_index.insert(1, 9, 12);
         sparse_index.emplace(4, 7, 17);
         sparse_index.emplace(4, 8, 2343);
-        diff_index.insert(4, 9, 40);
         
         // page / state / is empty
         auto query_data = std::vector<std::tuple<int, int, bool> > {
-            { 1, 1, true }, { 1, 2, false }, { 1, 3, false },
-            { 1, 7, false }, { 4, 4, true }, { 4, 6, true }, { 4, 7, false }
+            { 4, 7, false }, { 1, 1, true }, { 1, 2, false }, { 1, 3, false },
+            { 1, 7, false }, { 4, 4, true }, { 4, 6, true }, { 5, 1, true }, 
+            { 5, 2, false }, { 5, 3, false }, { 5, 4, false }, 
+            { 5, 12, false }, { 5, 3, false }, { 5, 24, false }, 
+            { 15, 3, true }
         };
         
         for (auto [page, state, is_empty]: query_data) {
@@ -282,7 +321,7 @@ namespace tests
             ASSERT_EQ(cut.empty(), is_empty);
         }
     }
-
+    
     TEST_F( SparseIndexQueryTest , testSparseIndexQueryZeroBasedChain )
     {
         SparseIndex sparse_index(16 * 1024);

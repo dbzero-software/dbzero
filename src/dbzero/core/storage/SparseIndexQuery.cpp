@@ -6,31 +6,26 @@ namespace db0
 
     SparseIndexQuery::SparseIndexQuery(const SparseIndex &sparse_index, const DiffIndex &diff_index,
         std::uint64_t page_num, std::uint32_t state_num)
-        : m_query_state_num(state_num)        
+        : m_query_page_num(page_num)
+        , m_query_state_num(state_num)
         // will be initialized with 0 if not found
         , m_full_dp(sparse_index.lookup(page_num, state_num))
         , m_diff_index(diff_index)
     {
+        assert(m_full_dp.m_state_num <= state_num && "SparseIndexQuery: full-DP state number must be <= query state number");
         if (m_full_dp && m_full_dp.m_state_num < state_num) {
             m_diff_dp = m_diff_index.findUpper(page_num, m_full_dp.m_state_num + 1);
         } else {
             // in case updates start from the diff-DP
             m_diff_dp = m_diff_index.findUpper(page_num, 0);
+            if (!m_full_dp && (!m_diff_dp || m_diff_dp.m_state_num > m_query_state_num)) {
+                m_non_empty = false;
+            }
         }
     }
     
-    bool SparseIndexQuery::empty() const
-    {
-        if (m_full_dp) {
-            return false;
-        }
-        if (!m_diff_dp || m_diff_dp.m_state_num > m_query_state_num) {
-            return true;
-        }
-        if (m_state_num >= m_query_state_num) {
-            return true;
-        }
-        return false;
+    bool SparseIndexQuery::empty() const {
+        return !m_non_empty || lessThan(1);
     }
 
     bool SparseIndexQuery::next(std::uint32_t &state_num, std::uint64_t &storage_page_num)
@@ -39,7 +34,7 @@ namespace db0
         if (m_state_num >= m_query_state_num) {
             return false;
         }
-
+        
         for (;;) {
             if (!m_diff_dp || m_diff_dp.m_state_num > m_query_state_num) {
                 return false;
@@ -81,14 +76,46 @@ namespace db0
     
     bool SparseIndexQuery::lessThan(unsigned int size) const
     {
-        // unable to iterate past the queried state number
-        if (m_state_num >= m_query_state_num) {
-            return true;
+        assert(size > 0 && "SparseIndexQuery::lessThan: size must be > 0");        
+        if (m_full_dp) {
+            --size;
         }
 
+        if (size == 0) {
+            return false;
+        }
+
+        DI_Item diff_dp;
+        if (m_full_dp && m_full_dp.m_state_num < m_query_state_num) {
+            diff_dp = m_diff_index.findUpper(m_query_page_num, m_full_dp.m_state_num + 1);
+        } else {
+            // in case updates start from the diff-DP
+            diff_dp = m_diff_index.findUpper(m_query_page_num, 0);
+        }
+
+        typename DI_Item::ConstIterator diff_it;
+        std::uint32_t last_state_num = 0;
+        return lessThanFrom(size, diff_dp, diff_it, last_state_num);
+    }
+    
+    bool SparseIndexQuery::leftLessThan(unsigned int size) const
+    {
+        assert(size > 0 && "SparseIndexQuery::lessThan: size must be > 0");
         auto diff_dp = m_diff_dp;
         auto diff_it = m_diff_it;
         auto last_state_num = m_state_num;
+        return lessThanFrom(size, diff_dp, diff_it, last_state_num);
+    }
+    
+    bool SparseIndexQuery::lessThanFrom(unsigned int size, DI_Item &diff_dp, typename DI_Item::ConstIterator &diff_it,
+        std::uint32_t &last_state_num) const
+    {
+        assert(size > 0 && "SparseIndexQuery::lessThan: size must be > 0");
+        // unable to iterate past the queried state number
+        if (last_state_num >= m_query_state_num) {
+            return true;
+        }
+        
         std::uint32_t state_num = 0;
         while (size > 0) {
             if (!diff_dp || diff_dp.m_state_num > m_query_state_num) {
@@ -130,7 +157,7 @@ namespace db0
 
         return false;
     }
-    
+
     bool tryFindMutation(const SparseIndex &sparse_index, const DiffIndex &diff_index, std::uint64_t page_num,
         std::uint64_t state_num, std::uint64_t &mutation_id)
     {
