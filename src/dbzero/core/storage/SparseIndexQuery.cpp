@@ -17,7 +17,7 @@ namespace db0
             m_diff_dp = m_diff_index.findUpper(page_num, m_full_dp.m_state_num + 1);
         } else {
             // in case updates start from the diff-DP
-            m_diff_dp = m_diff_index.findUpper(page_num, 0);
+            m_diff_dp = m_diff_index.findUpper(page_num, 1);
             if (!m_full_dp && (!m_diff_dp || m_diff_dp.m_state_num > m_query_state_num)) {
                 m_non_empty = false;
             }
@@ -90,9 +90,9 @@ namespace db0
             diff_dp = m_diff_index.findUpper(m_query_page_num, m_full_dp.m_state_num + 1);
         } else {
             // in case updates start from the diff-DP
-            diff_dp = m_diff_index.findUpper(m_query_page_num, 0);
+            diff_dp = m_diff_index.findUpper(m_query_page_num, 1);
         }
-
+        
         typename DI_Item::ConstIterator diff_it;
         std::uint32_t last_state_num = 0;
         return lessThanFrom(size, diff_dp, diff_it, last_state_num);

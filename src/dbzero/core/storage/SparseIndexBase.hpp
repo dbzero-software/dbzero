@@ -207,7 +207,7 @@ namespace db0
         , m_change_log_ptr(change_log_ptr)
     {
     }
-
+    
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::update(PageNumT page_num, StateNumT state_num, std::uint64_t storage_page_num)
     {        
@@ -231,7 +231,7 @@ namespace db0
     
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::insert(const ItemT &item)
-    {        
+    {
         m_index.insert(item);
         this->update(item.m_page_num, item.m_state_num, item.m_storage_page_num);
     }

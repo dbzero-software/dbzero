@@ -148,7 +148,7 @@ namespace db0
     }
     
     void DiffIndex::insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num)
-    {
+    {        
         // try locating existing item first
         typename super_t::ConstNodeIterator node;
         auto item_ptr = super_t::lowerEqualBound(page_num, state_num, node);

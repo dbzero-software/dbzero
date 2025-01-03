@@ -188,7 +188,7 @@ namespace db0
                 memset(read_buf, 0, m_config.m_page_size);      
                 continue;
             }
-
+            
             // query.first yields the full-DP (if it exists)
             std::uint64_t storage_page_num = query.first();
             if (storage_page_num) {
