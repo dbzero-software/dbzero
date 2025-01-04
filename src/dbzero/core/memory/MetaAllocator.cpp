@@ -654,7 +654,7 @@ namespace db0
                         // NOTE: the returned address is logical
                         return addr;
                     }
-                    
+                                     
                     // unable to make the address unique, schedule for deferred free and try again
                     // NOTE: the allocation is lost
                     deferredFree(*addr);
@@ -679,7 +679,7 @@ namespace db0
             }
         }
     }
-
+    
     void MetaAllocator::free(std::uint64_t address)
     {
         address = db0::getPhysicalAddress(address);
@@ -700,7 +700,7 @@ namespace db0
             m_deferred_free_ops.insert(address);
         }
     }
-
+    
     void MetaAllocator::_free(std::uint64_t address)
     {
         assert(db0::isPhysicalAddress(address));
