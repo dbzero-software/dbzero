@@ -22,12 +22,12 @@ namespace db0
 		/**
 		 * Holds resource locks and recycles based on LRU policy
          * 
-		 * @param size as the number of bytes
+		 * @param capactity cahe capacity as the number of bytes
 		 * @param flush_size recommended number of bytes to be released in single operation
 		 * @param flush_dirty function to request releasing specific number of bytes from dirty locks (i.e. converting to non-dirty)
 		 * @param flush_callback to be notified on each flush operation (with indication if sufficient space was released)
 		 */
-		CacheRecycler(std::size_t size, const std::atomic<std::size_t> &dirty_meter, std::optional<std::size_t> flush_size = {},
+		CacheRecycler(std::size_t capacity, const std::atomic<std::size_t> &dirty_meter, std::optional<std::size_t> flush_size = {},
 			std::function<void(std::size_t limit)> flush_dirty = {},
 			std::function<bool(bool threshold_reached)> flush_callback = {});
 

@@ -22,7 +22,7 @@ namespace db0
         std::unique_lock<std::mutex> lock(m_mutex);
         m_locks.push_back(res_lock);
         if (m_dirty_meter_ptr) {
-            auto lock_size = res_lock->size();
+            auto lock_size = res_lock->usedMem();
             m_size += lock_size;
             *m_dirty_meter_ptr += lock_size;
         }
@@ -35,7 +35,7 @@ namespace db0
         auto it = m_locks.begin();
         while (it != m_locks.end()) {
             if ((*it)->tryFlush(flush_method)) {
-                flushed += (*it)->size();
+                flushed += (*it)->usedMem();
                 it = m_locks.erase(it);
             } else {
                 ++it;
@@ -71,7 +71,7 @@ namespace db0
             // i.e. - owned by the DirtyCache and possibly by the CacheRecycler
             if ((*it).use_count() <= 2) {
                 (*it)->flush();
-                flushed += (*it)->size();
+                flushed += (*it)->usedMem();
                 it = m_locks.erase(it);
             } else {
                 ++it;

@@ -180,6 +180,16 @@ namespace db0
         return m_cow_lock || !m_cow_data.empty() || m_access_mode[AccessOptions::create];
     }
     
+    std::size_t ResourceLock::usedMem() const
+    {
+        std::size_t result = m_data.size() + sizeof(*this);
+        // assume potential CoW buffer
+        if (!m_access_mode[AccessOptions::no_cow]) {
+            result += m_data.size();
+        }
+        return result;
+    }
+    
     bool getDiffs(const void *buf_1, const void *buf_2,
         std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff, std::size_t max_size)
     {

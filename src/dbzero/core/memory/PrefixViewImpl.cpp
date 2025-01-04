@@ -27,6 +27,8 @@ namespace db0
         auto end_page = ((address + size - 1) >> m_shift) + 1;
         
         std::shared_ptr<ResourceLock> lock;
+        // use no_cow flag since PrevixView is read-only
+        access_mode.set(AccessOptions::no_cow, true);
         if (end_page == first_page + 1) {
             lock = mapPage(first_page);
         } else {
@@ -49,7 +51,7 @@ namespace db0
     std::size_t PrefixViewImpl::getPageSize() const {
         return m_cache.getPageSize();
     }
-
+    
     AccessType PrefixViewImpl::getAccessType() const {
         // read-only access
         return AccessType::READ_ONLY;

@@ -106,7 +106,7 @@ namespace db0
         inline std::uint64_t getAddress() const {
             return m_address;
         }
-                
+        
         inline std::size_t size() const {
             return m_data.size();
         }
@@ -149,6 +149,10 @@ namespace db0
         // Check if the copy-on-write data is available
         // this member is used for debug & evaluation purposes
         bool hasCoWData() const;
+
+        // Calculate the estimated upper bound of a memory footprint
+        // NOTE: for mutable locks (i.e. from active transactiona the CoW buffer capacity is added)
+        std::size_t usedMem() const;
         
 #ifndef NDEBUG
         // get total memory usage of all ResourceLock instances
@@ -156,7 +160,7 @@ namespace db0
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
         virtual bool isBoundaryLock() const = 0;
 #endif
-
+        
     protected:
         friend class CacheRecycler;
         friend class BoundaryLock;

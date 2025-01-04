@@ -82,7 +82,7 @@ namespace tests
         ASSERT_TRUE(lock);
         
         // make sure only 1 lock is cached (no CoW), since upgrade took place
-        ASSERT_EQ(cache_recycler.size(), lock->size());
+        ASSERT_EQ(cache_recycler.size(), lock->usedMem());
         
         // now, try reading the state #1 version of the page
         auto lock_1 = cut.findPage(0, 1, { AccessOptions::read }, read_state_num);

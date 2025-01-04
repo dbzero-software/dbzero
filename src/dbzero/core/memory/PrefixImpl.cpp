@@ -60,6 +60,10 @@ namespace db0
         auto end_page = ((address + size - 1) >> m_shift) + 1;
         
         std::shared_ptr<ResourceLock> lock;
+        // use no_cow flag for read-only access
+        if (m_access_type == AccessType::READ_ONLY) {
+            access_mode.set(AccessOptions::no_cow, true);
+        }
         if (end_page == first_page + 1) {
             // adjust access mode since the requested range may not be well aligned
             adjustAccessMode(access_mode, address, size);
@@ -154,10 +158,6 @@ namespace db0
                     // assert lock is from past transaction
                     assert(mutation_id < state_num);
                 }
-                // apply no_cow flag only if prefix opened as read-only
-                if (m_access_type == AccessType::READ_ONLY) {
-                    access_mode.set(AccessOptions::no_cow, true);
-                }
                 lock = m_cache.createPage(page_num, mutation_id, 0, access_mode);
             }
         } else {
@@ -237,10 +237,6 @@ namespace db0
                     access_mode.set(AccessOptions::no_flush, false);
                     // assert lock is from past transaction
                     assert(mutation_id < state_num);
-                }
-                // apply no_cow flag only if prefix opened as read-only
-                if (m_access_type == AccessType::READ_ONLY) {
-                    access_mode.set(AccessOptions::no_cow, true);
                 }
                 lock = m_cache.createRange(first_page, size, mutation_id, 0, access_mode, res_dp);
             }
