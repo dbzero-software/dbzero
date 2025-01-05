@@ -432,10 +432,11 @@ namespace db0
     void PrefixCache::flushBoundary()
     {
         m_boundary_map.forEach([&](BoundaryLock &lock) {
-            lock.flush();
+            // flush boundary part of the lock
+            lock.flushBoundary();
         });
-        // flush residual part of the wide locks
         m_wide_map.forEach([&](WideLock &lock) {
+            // flush residual part of the wide locks
             lock.flushResidual();
         });
     }

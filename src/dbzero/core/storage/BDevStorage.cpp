@@ -160,9 +160,15 @@ namespace db0
         }
         return result;
     }
-    
+
     void BDevStorage::read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags) const
+    {
+        _read(address, state_num, size, buffer, flags);
+    }
+    
+    void BDevStorage::_read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+        FlagSet<AccessOptions> flags, unsigned int *chain_len) const
     {        
         assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
@@ -175,6 +181,10 @@ namespace db0
         auto begin_page = address / m_config.m_page_size;
         auto end_page = begin_page + size / m_config.m_page_size;
         
+        if (chain_len) {
+            *chain_len = 0;
+        }
+
         std::byte *read_buf = reinterpret_cast<std::byte *>(buffer);
         // lookup sparse index and read physical pages
         for (auto page_num = begin_page; page_num != end_page; ++page_num, read_buf += m_config.m_page_size) {
@@ -204,7 +214,11 @@ namespace db0
             while (query.next(diff_state_num, storage_page_num)) {
                 // apply all diff-updates on top of the full-DP
                 m_page_io.applyFrom(storage_page_num, read_buf, { page_num, diff_state_num });
-            }            
+                // collect chain-len statistics
+                if (chain_len) {
+                    ++(*chain_len);
+                }
+            }
         }
     }
     

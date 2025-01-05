@@ -164,6 +164,10 @@ namespace db0
         // non-virtual version of tryFindMutation
         bool tryFindMutationImpl(std::uint64_t page_num, std::uint64_t state_num,
             std::uint64_t &mutation_id) const;
+
+        // @param chain_len length of the diff-storage chain processed while reading
+        void _read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+            FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }, unsigned int *chain_len = nullptr) const;
     };
     
 }
