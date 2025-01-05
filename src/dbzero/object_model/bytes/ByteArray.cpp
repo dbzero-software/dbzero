@@ -141,5 +141,9 @@ namespace db0::object_model
         }
         return !(*this == bytearray);
     }
+    
+    ByteArray *ByteArray::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
+        return new (at_ptr) ByteArray(fixture, address);
+    }
 
 }

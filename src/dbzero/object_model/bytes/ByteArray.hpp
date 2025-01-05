@@ -43,6 +43,8 @@ namespace db0::object_model
         // operators
         bool operator==(const ByteArray &) const;
         bool operator!=(const ByteArray &) const;
+        
+        static ByteArray *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
 
     private:
         ByteArray(db0::swine_ptr<Fixture> &, std::byte *, std::size_t);

@@ -53,6 +53,7 @@ def test_list_iterator_issue_1(db0_fixture):
         assert item > 0
     
 
+@pytest.mark.stress_test
 def test_list_iterator_issue_2(db0_fixture):
     lists = []
     buf = db0.list()

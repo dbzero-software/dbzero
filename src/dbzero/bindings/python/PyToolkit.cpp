@@ -3,6 +3,9 @@
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
+#include <dbzero/bindings/python/collections/PyByteArray.hpp>
+#include <dbzero/bindings/python/collections/PySet.hpp>
+#include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/object_model/class.hpp>
@@ -10,8 +13,6 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/pandas/Block.hpp>
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
-#include <dbzero/bindings/python/collections/PySet.hpp>
-#include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
@@ -175,7 +176,7 @@ namespace db0::python
         lang_cache.add(address, block_object.get());
         return shared_py_cast<PyObject*>(std::move(block_object));
     }
-    
+
     PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
     {
         // try pulling from cache first
@@ -189,10 +190,27 @@ namespace db0::python
         auto list_object = ListDefaultObject_new();
         // retrieve actual DBZero instance
         db0::object_model::List::unload(&(list_object.get())->modifyExt(), fixture, address);
-
         // add list object to cache
         lang_cache.add(address, list_object.get());
         return shared_py_cast<PyObject*>(std::move(list_object));
+    }
+
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadByteArray(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
+    {
+        // try pulling from cache first
+        auto &lang_cache = fixture->getLangCache();
+        auto object_ptr = lang_cache.get(address);
+        if (object_ptr) {
+            // return from cache
+            return object_ptr;
+        }
+        
+        auto byte_array_object = ByteArrayDefaultObject_new();
+        // retrieve actual DBZero instance
+        db0::object_model::ByteArray::unload(&(byte_array_object.get())->modifyExt(), fixture, address);        
+        // add byte_array object to cache
+        lang_cache.add(address, byte_array_object.get());
+        return shared_py_cast<PyObject*>(std::move(byte_array_object));
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadIndex(db0::swine_ptr<Fixture> fixture, std::uint64_t address)

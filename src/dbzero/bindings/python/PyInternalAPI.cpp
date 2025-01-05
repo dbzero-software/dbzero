@@ -472,6 +472,7 @@ namespace db0::python
         
         PyDict_SetItemString(stats_dict, "name", PyUnicode_FromString(fixture->getPrefix().getName().c_str()));
         PyDict_SetItemString(stats_dict, "uuid", PyLong_FromLong(fixture->getUUID()));
+        PyDict_SetItemString(stats_dict, "dp_size", PyLong_FromLong(fixture->getPrefix().getPageSize()));
         auto gc0_dict = PyDict_New();
         if (!gc0_dict) {
             THROWF(db0::MemoryException) << "Out of memory";

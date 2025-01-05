@@ -347,7 +347,7 @@ namespace db0::object_model
     {
         return PyToolkit::unloadTuple(fixture, value.cast<std::uint64_t>());
     }
-    
+
     // DB0_SERIALIZED specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
@@ -382,6 +382,13 @@ namespace db0::object_model
          return value.cast<std::uint64_t>() ? Py_True : Py_False;
     }   
 
+    // DB0_BYTES_ARRAY specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        return PyToolkit::unloadByteArray(fixture, value.cast<std::uint64_t>());
+    }
+    
     template <> void registerUnloadMemberFunctions<PyToolkit>(
         std::vector<typename PyToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *)> &functions)
     {
@@ -403,6 +410,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
         functions[static_cast<int>(StorageClass::BOOLEAN)] = unloadMember<StorageClass::BOOLEAN, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_BYTES_ARRAY)] = unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>;
     }
 
     template <typename T, typename LangToolkit>
