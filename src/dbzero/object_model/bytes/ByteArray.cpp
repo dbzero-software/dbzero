@@ -25,6 +25,11 @@ namespace db0::object_model
     {
     }
     
+    ByteArray::ByteArray(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const ByteArray &byte_array)
+        : super_t(tag_no_gc(), fixture, byte_array)
+    {
+    }
+    
     ByteArray::~ByteArray()
     {
         // unregister needs to be called before destruction of members

@@ -28,11 +28,11 @@ namespace db0::object_model
         GC0_Declare
     public:
         using super_t = db0::ObjectBase<List, v_bvector<o_typed_item>, StorageClass::DB0_LIST>;
-        friend class db0::ObjectBase<List, v_bvector<o_typed_item>, StorageClass::DB0_LIST>;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = typename v_bvector<o_typed_item>::const_iterator;
+        friend super_t;
         
         List(db0::swine_ptr<Fixture> &, std::uint64_t address);
         ~List();

@@ -21,10 +21,11 @@ namespace db0::object_model
     {
         GC0_Declare
     public:
-        using super_t = db0::ObjectBase<ByteArray, v_bvector<std::byte>, StorageClass::DB0_BYTES_ARRAY>;
+        using super_t = db0::ObjectBase<ByteArray, v_bvector<std::byte>, StorageClass::DB0_BYTES_ARRAY>;        
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        friend super_t;
         
         ByteArray(db0::swine_ptr<Fixture> &, std::uint64_t address);
         ~ByteArray();
@@ -45,6 +46,7 @@ namespace db0::object_model
 
     private:
         ByteArray(db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
+        ByteArray(tag_no_gc, db0::swine_ptr<Fixture> &, const ByteArray &);
     };
 
 }

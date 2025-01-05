@@ -25,6 +25,7 @@ namespace db0::object_model {
     struct EnumValueRepr;
     struct FieldDef;
     struct TagDef;
+    class ByteArray;
     
 }
 
@@ -61,6 +62,7 @@ namespace db0::python
         using FieldDef = db0::object_model::FieldDef;
         using Class = db0::object_model::Class;
         using TagDef = db0::object_model::TagDef;
+        using ByteArray = db0::object_model::ByteArray;
 
         PyTypeManager();
         ~PyTypeManager();
@@ -106,6 +108,7 @@ namespace db0::python
         TypeObjectPtr getTypeObject(ObjectPtr py_type) const;
         std::shared_ptr<const Class> extractConstClass(ObjectPtr py_class) const;
         const TagDef &extractTag(ObjectPtr py_tag) const;
+        ByteArray &extractMutableByteArray(ObjectPtr) const;
         
         ObjectPtr getBadPrefixError() const;
         ObjectPtr getClassNotFoundError() const;

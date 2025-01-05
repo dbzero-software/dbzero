@@ -8,6 +8,7 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyDict.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
+#include <dbzero/bindings/python/collections/PyByteArray.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
@@ -23,6 +24,7 @@
 #include <dbzero/object_model/pandas/Dataframe.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
+#include <dbzero/object_model/bytes/ByteArray.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
@@ -70,14 +72,14 @@ namespace db0::python
         addStaticDBZeroType(&ClassObjectType, TypeId::DB0_CLASS);
         addStaticDBZeroType(&PyObjectIterableType, TypeId::OBJECT_ITERABLE);
         addStaticDBZeroType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
-        
+        addStaticDBZeroType(&ByteArrayObjectType, TypeId::DB0_BYTES_ARRAY);
         addStaticDBZeroType(&PyEnumType, TypeId::DB0_ENUM);
         addStaticDBZeroType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
         addStaticDBZeroType(&PyEnumValueReprType, TypeId::DB0_ENUM_VALUE_REPR);
         addStaticDBZeroType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
         addStaticDBZeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
         addStaticDBZeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
-
+        
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
         m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
     }
@@ -191,12 +193,20 @@ namespace db0::python
         return reinterpret_cast<const db0::python::PandasBlockObject*>(memo_ptr)->ext();
     }
 
-    db0::object_model::pandas::Block &PyTypeManager::extractMutableBlock(ObjectPtr memo_ptr) const
+    db0::object_model::pandas::Block &PyTypeManager::extractMutableBlock(ObjectPtr py_obj) const
     {
-        if (!PandasBlock_Check(memo_ptr)) {
+        if (!PandasBlock_Check(py_obj)) {
             THROWF(db0::InputException) << "Expected a Block object" << THROWF_END;
         }
-        return reinterpret_cast<db0::python::PandasBlockObject*>(memo_ptr)->modifyExt();
+        return reinterpret_cast<db0::python::PandasBlockObject*>(py_obj)->modifyExt();
+    }
+    
+    db0::object_model::ByteArray &PyTypeManager::extractMutableByteArray(ObjectPtr py_obj) const
+    {
+        if (!ByteArrayObject_Check(py_obj)) {
+            THROWF(db0::InputException) << "Expected a db0.BytesArray object" << THROWF_END;
+        }
+        return reinterpret_cast<db0::python::ByteArrayObject*>(py_obj)->modifyExt();
     }
 
     const db0::object_model::Tuple &PyTypeManager::extractTuple(ObjectPtr memo_ptr) const

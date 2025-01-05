@@ -28,6 +28,7 @@ namespace db0::object_model
         addMapping(TypeId::OBJECT_ITERABLE, StorageClass::DB0_SERIALIZED);
         addMapping(TypeId::DB0_ENUM_VALUE, StorageClass::DB0_ENUM_VALUE);
         addMapping(TypeId::BOOLEAN, StorageClass::BOOLEAN);
+        addMapping(TypeId::DB0_BYTES_ARRAY, StorageClass::DB0_BYTES_ARRAY);
     }
     
     StorageClass StorageClassMapper::getStorageClass(TypeId type_id) const
