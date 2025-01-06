@@ -73,9 +73,7 @@ namespace db0
         DP_Lock(tag_derived, StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
             std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<ResourceLock> cow_lock);
         
-        bool _tryFlush(FlushMethod);
-        
-        bool getDiffs(const void *buf, std::vector<std::uint16_t> &result) const;        
+        bool _tryFlush(FlushMethod);                
     };
     
 }

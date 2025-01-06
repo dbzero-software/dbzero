@@ -78,13 +78,8 @@ namespace db0
                         storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
                     }
                 }
-                // invalidate the CoW lock if it exists
-                if (m_cow_lock) {
-                    m_cow_lock = nullptr;
-                }
-                m_cow_data.clear();
-                // must also reset the "create" flag
-                m_access_mode.set(AccessOptions::create, false);
+                // invalidate the CoW data if it exists
+                clearCoWData();
                 // reset the dirty flag
                 lock.commit_reset();
             }
@@ -133,13 +128,4 @@ namespace db0
     }
 #endif
     
-    bool DP_Lock::getDiffs(const void *buf, std::vector<std::uint16_t> &result) const
-    {
-        if (buf == &m_cow_zero) {
-            return db0::getDiffs(m_data.data(), this->size(), result);
-        } else {
-            return db0::getDiffs(buf, m_data.data(), this->size(), result);
-        }
-    }
-
 }

@@ -122,7 +122,7 @@ namespace db0
     void ResourceLock::moveFrom(ResourceLock &other)
     {
         assert(other.size() == size());
-        setDirty();        
+        setDirty();
         std::memcpy(m_data.data(), other.m_data.data(), m_data.size());        
         other.discard();
     }
@@ -180,6 +180,15 @@ namespace db0
         return m_cow_lock || !m_cow_data.empty() || m_access_mode[AccessOptions::create];
     }
     
+    void ResourceLock::clearCoWData()
+    {
+        m_cow_data.clear();
+        m_cow_lock = nullptr;
+        if (m_access_mode[AccessOptions::create]) {
+            m_access_mode.set(AccessOptions::create, false);
+        }
+    }
+    
     std::size_t ResourceLock::usedMem() const
     {
         std::size_t result = m_data.size() + sizeof(*this);
@@ -190,6 +199,15 @@ namespace db0
         return result;
     }
     
+    bool ResourceLock::getDiffs(const void *buf, std::vector<std::uint16_t> &result) const
+    {
+        if (buf == &m_cow_zero) {
+            return db0::getDiffs(m_data.data(), this->size(), result);
+        } else {
+            return db0::getDiffs(buf, m_data.data(), this->size(), result);
+        }
+    }
+
     bool getDiffs(const void *buf_1, const void *buf_2,
         std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff, std::size_t max_size)
     {
@@ -295,4 +313,14 @@ namespace db0
         return true;
     }
     
+    bool ResourceLock::getDiffs(std::vector<std::uint16_t> &result) const
+    {        
+        auto cow_ptr = getCowPtr();
+        if (!cow_ptr) {
+            // unable to diff-flush
+            return false;
+        }
+        return this->getDiffs(cow_ptr, result);
+    }
+
 }

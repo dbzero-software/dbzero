@@ -70,6 +70,7 @@ namespace db0
             // only flush locks with use_count below 2 
             // i.e. - owned by the DirtyCache and possibly by the CacheRecycler
             if ((*it).use_count() <= 2) {
+                // flush using the FlushMethod::full method (default)
                 (*it)->flush();
                 flushed += (*it)->usedMem();
                 it = m_locks.erase(it);
@@ -116,5 +117,5 @@ namespace db0
             f(*res_lock);
         }
     }
-
+    
 }

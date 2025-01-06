@@ -64,7 +64,7 @@ def test_diff_storage_of_atomic_updates(db0_fixture):
     db0.commit()
     stats = db0.get_storage_stats()
     for _ in range(10):
-        # in each atomic operation update 1 field or randomly picked objects        
+        # in each atomic operation update 1 field of randomly picked objects
         with db0.atomic():
             for _ in range(25):
                 random.choice(buf).value += 1

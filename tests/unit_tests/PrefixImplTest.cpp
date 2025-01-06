@@ -648,5 +648,74 @@ namespace tests
         // make sure most writes are diff writes
         ASSERT_TRUE((double)stats.second / (double)stats.first > 0.75);        
     }
+
+    TEST_F( PrefixImplTest , testVolatileLockCoWDataHandling )
+    {
+        // we check if the CoW data is handled correctly by the volatile locks
+        BDevStorage::create(file_name);
+        auto storage = std::make_shared<BDevStorage>(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, storage);
+
+        // 1. Create a regular DP lock and modify it
+        {
+            auto w1 = cut.mapRange(16, 16, { AccessOptions::write });        
+            std::memset(w1.modify(), 1, 16);        
+        }
+        // 2. Update the range using "atomic" operation
+        {
+            cut.beginAtomic();
+            auto w2 = cut.mapRange(18, 18, { AccessOptions::read, AccessOptions::write });
+            std::memset(w2.modify(), 2, 18);
+            w2.release();
+            cut.endAtomic();
+        }
+        auto r1 = cut.mapRange(16, 16, { AccessOptions::read });
+        ASSERT_TRUE(r1.m_lock->isDirty());
+        // make sure the CoW's diff is evaluated correctly
+        std::vector<std::uint16_t> diffs;
+        ASSERT_TRUE(r1.m_lock->getDiffs(diffs));
+        // NOTE: the 2 leading 0, 0 elements mean the zero-based DP
+        ASSERT_EQ(diffs, (std::vector<std::uint16_t> { 0, 0, 0, 16, 20 }));
+        cut.close();
+    }
+    
+    TEST_F( PrefixImplTest , testReusedVolatileLockCoWDataHandling )
+    {
+        // we check if the CoW data is handled correctly by the volatile locks
+        BDevStorage::create(file_name);
+        auto storage = std::make_shared<BDevStorage>(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, storage);
+
+        // 1. Create a regular DP lock and modify it
+        {
+            auto w1 = cut.mapRange(16, 16, { AccessOptions::write });        
+            std::memset(w1.modify(), 1, 16);        
+        }
+    
+        // Clear cache to force reuse of atomic lock
+        cut.flushDirty(std::numeric_limits<std::size_t>::max());        
+        m_cache_recycler.clear();
+        
+        // 2. Update the range using "atomic" operation
+        {
+            cut.beginAtomic();
+            auto w2 = cut.mapRange(18, 18, { AccessOptions::read, AccessOptions::write });
+            std::memset(w2.modify(), 2, 18);
+            w2.release();            
+        }
+        
+        cut.flushDirty(std::numeric_limits<std::size_t>::max());
+        m_cache_recycler.clear();
+        cut.endAtomic();
+
+        auto r1 = cut.mapRange(16, 16, { AccessOptions::read });
+        ASSERT_TRUE(r1.m_lock->isDirty());        
+        // make sure the CoW's diff is evaluated correctly (i.e. either no diff or correct diff)
+        std::vector<std::uint16_t> diffs;
+        if (r1.m_lock->getDiffs(diffs)) {
+            ASSERT_EQ(diffs, (std::vector<std::uint16_t> { 0, 0, 0, 16, 20 }));
+        }
+        cut.close();
+    }
     
 }

@@ -263,7 +263,7 @@ namespace db0
         existing_lock->moveFrom(*lock);
         return existing_lock;
     }
-
+    
     template <typename ResourceLockT>
     std::size_t PageMap<ResourceLockT>::size() const 
     {

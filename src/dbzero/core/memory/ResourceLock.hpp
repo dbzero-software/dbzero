@@ -149,16 +149,22 @@ namespace db0
         // Check if the copy-on-write data is available
         // this member is used for debug & evaluation purposes
         bool hasCoWData() const;
-
+        
+        // Remove the lock's related CoW data if such exists        
+        void clearCoWData();
+        
         // Calculate the estimated upper bound of a memory footprint
         // NOTE: for mutable locks (i.e. from active transactiona the CoW buffer capacity is added)
         std::size_t usedMem() const;
+        
+        // retrieve diffs from the CoW buffer (if such exists)
+        bool getDiffs(std::vector<std::uint16_t> &) const;
         
 #ifndef NDEBUG
         // get total memory usage of all ResourceLock instances
         // @return total size in bytes / total count
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
-        virtual bool isBoundaryLock() const = 0;
+        virtual bool isBoundaryLock() const = 0;        
 #endif
         
     protected:
@@ -193,6 +199,7 @@ namespace db0
         bool addrPageAligned(BaseStorage &) const;
         
         const std::byte *getCowPtr() const;
+        bool getDiffs(const void *buf, std::vector<std::uint16_t> &result) const;
 
 #ifndef NDEBUG
         static std::atomic<std::size_t> rl_usage;

@@ -126,12 +126,7 @@ namespace db0
                 }
                 
                 // invalidate the CoW lock if it exists
-                if (m_cow_lock) {
-                    m_cow_lock = nullptr;
-                }
-                m_cow_data.clear();
-                // must also reset the "create" flag
-                m_access_mode.set(AccessOptions::create, false);
+                clearCoWData();
                 // reset the dirty flag
                 lock.commit_reset();
             }

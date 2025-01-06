@@ -33,6 +33,12 @@ namespace db0
     std::shared_ptr<DP_Lock> PrefixCache::createPage(std::uint64_t page_num, std::uint64_t read_state_num,
         std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::shared_ptr<ResourceLock> cow_lock)
     {
+        bool is_volatile = access_mode[AccessOptions::no_flush];
+        // in case of volatile locks, don't pass the CoW lock
+        if (is_volatile) {
+            cow_lock = nullptr;
+        }
+
         auto lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
             access_mode, read_state_num, state_num, cow_lock);
         // register under the lock's evaluated state number
@@ -40,7 +46,7 @@ namespace db0
         
         // register with the volatile locks
         assert(lock);
-        if (access_mode[AccessOptions::no_flush]) {
+        if (is_volatile) {
             // NOTE: volatile locks are not registered with the recycler
             m_volatile_locks.push_back(lock);
         } else {
@@ -66,15 +72,18 @@ namespace db0
         dp_lock = weak_ref->lock();
         // must restore cache-expired lock
         if (!dp_lock) {
+            // NOTE: restored locks are created with "no_cow" flag
+            // because the persisted state might not be final
             if (read_state_num == state_num) {
                 // the restored lock can be created as read/write if requested
                 dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-                    access_mode | AccessOptions::read, read_state_num, state_num
+                    access_mode | AccessOptions::read | AccessOptions::no_cow, read_state_num, state_num
                 );
             } else {
                 // the restored lock is created as "for read"
                 dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-                    FlagSet<AccessOptions> { AccessOptions::read }, read_state_num, read_state_num
+                    FlagSet<AccessOptions> { AccessOptions::read, AccessOptions::no_cow }, 
+                    read_state_num, read_state_num
                 );
             }
             // feed the lock back into the cache
@@ -124,6 +133,12 @@ namespace db0
         std::uint64_t read_state_num, std::uint64_t state_num, FlagSet<AccessOptions> access_mode, 
         std::shared_ptr<DP_Lock> res_dp, std::shared_ptr<ResourceLock> cow_lock)
     {
+        bool is_volatile = access_mode[AccessOptions::no_flush];
+        // in case of volatile locks, don't pass the CoW lock
+        if (is_volatile) {
+            cow_lock = nullptr;
+        }
+
         auto lock = std::make_shared<WideLock>(m_wide_context, page_num << m_shift, size,
             access_mode, read_state_num, state_num, res_dp, cow_lock);
         // register under the lock's evaluated state number
@@ -131,7 +146,7 @@ namespace db0
         
         assert(lock);
         // register with the volatile locks
-        if (access_mode[AccessOptions::no_flush]) {            
+        if (is_volatile) {
             m_volatile_wide_locks.push_back(lock);
         } else {
             // register or update lock with the recycler
@@ -165,14 +180,18 @@ namespace db0
                 return { true, nullptr };
             }
             // restore lock and feed it back into the cache
+            // NOTE: restored locks are created with "no_cow" flag
             if (read_state_num == state_num) {
                 // restore as read/write if requested
-                wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, access_mode | AccessOptions::read,
-                    read_state_num, state_num, res_lock);
+                wide_lock = std::make_shared<WideLock>(m_wide_context, address, size,
+                    access_mode | AccessOptions::read | AccessOptions::no_cow, read_state_num, state_num, res_lock
+                );
             } else {
                 // restore as "for read"
-                wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, FlagSet<AccessOptions> { AccessOptions::read },
-                    read_state_num, read_state_num, res_lock);
+                wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, 
+                    FlagSet<AccessOptions> { AccessOptions::read, AccessOptions::no_cow },
+                    read_state_num, read_state_num, res_lock
+                );
             }
             // feed the lock back into the cache
             *weak_ref = wide_lock;
@@ -542,7 +561,7 @@ namespace db0
             if (existing_lock) {
                 assert(!existing_lock->isVolatile());
                 return existing_lock;
-            } else {            
+            } else {
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
                 return {};
@@ -561,7 +580,7 @@ namespace db0
             return true;
         } else {
             // must clear the no_flush flag if lock was reused (i.e. added to cache under a different state)
-            new_lock->resetNoFlush();
+            new_lock->resetNoFlush();            
             return false;
         }
     }
