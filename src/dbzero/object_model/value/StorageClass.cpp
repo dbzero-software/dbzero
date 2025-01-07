@@ -10,8 +10,12 @@ namespace db0::object_model
         addMapping(TypeId::NONE, StorageClass::NONE);
         addMapping(TypeId::FLOAT, StorageClass::FP_NUMERIC64);
         addMapping(TypeId::INTEGER, StorageClass::INT64);
-        addMapping(TypeId::DATETIME, StorageClass::DATE);
+        addMapping(TypeId::DATETIME, StorageClass::DATETIME);
+        addMapping(TypeId::DATETIME_TZ, StorageClass::DATETIME_TZ);
         addMapping(TypeId::DATE, StorageClass::DATE);
+        addMapping(TypeId::TIME, StorageClass::TIME);
+        addMapping(TypeId::TIME_TZ, StorageClass::TIME_TZ);
+        addMapping(TypeId::DECIMAL, StorageClass::DECIMAL);
         addMapping(TypeId::LIST, StorageClass::DB0_LIST);
         addMapping(TypeId::DICT, StorageClass::DB0_DICT);
         addMapping(TypeId::SET, StorageClass::DB0_SET);

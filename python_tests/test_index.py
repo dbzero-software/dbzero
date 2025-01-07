@@ -195,6 +195,59 @@ def test_range_index_can_sort_by_datetime(db0_fixture):
         last_value = object.value
 
 
+def test_range_index_can_sort_by_datetime_between_years(db0_fixture):
+    index = db0.index()
+    dt_base = datetime.now()
+    objects = [MemoTestClass(dt_base + timedelta(days=(i + 1)*365)) for i in range(5)]
+    for i in range(5):
+        db0.tags(objects[i]).add(["tag1", "tag2"])
+        # datetime key, value
+        index.add(objects[i].value, objects[i])
+    
+    result = list(index.sort(db0.find("tag1")))
+    last_value = dt_base
+    for object in result:
+        assert object.value >= last_value
+        last_value = object.value
+
+
+def test_range_index_can_sort_by_date(db0_fixture):
+    index = db0.index()
+    dt_base = datetime.now().date()
+    objects = [MemoTestClass((dt_base + timedelta(days=i + 1))) for i in range(5)]
+    for i in range(5):
+        db0.tags(objects[i]).add(["tag1", "tag2"])
+        # datetime key, value
+        index.add(objects[i].value, objects[i])
+    
+    result = list(index.sort(db0.find("tag1")))
+    last_value = dt_base
+    count = 0
+    for object in result:
+        assert object.value >= last_value
+        last_value = object.value
+        count += 1
+    assert count == 5
+
+
+def test_range_index_can_sort_by_date_between_years(db0_fixture):
+    index = db0.index()
+    dt_base = datetime.now().date()
+    objects = [MemoTestClass((dt_base + timedelta(days=(i + 1)*365))) for i in range(5)]
+    for i in range(5):
+        db0.tags(objects[i]).add(["tag1", "tag2"])
+        # datetime key, value
+        index.add(objects[i].value, objects[i])
+    
+    result = list(index.sort(db0.find("tag1")))
+    last_value = dt_base
+    count = 0
+    for object in result:
+        assert object.value >= last_value
+        last_value = object.value
+        count += 1
+    assert count == 5
+
 def test_index_can_hold_all_null_elements(db0_fixture):
     index = db0.index()
     # key, value

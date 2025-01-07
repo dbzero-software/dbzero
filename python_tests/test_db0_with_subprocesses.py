@@ -90,8 +90,7 @@ if os.path.exists(DB0_DIR):
 def run_subprocess_script(script):
     result = subprocess.run(["python3", "-c", script], capture_output=True)
     if result.returncode != 0:
-        print(result.stdout)
-        print(result.stderr) 
+        print(result.stderr)
         raise Exception("Error in subprocess")
 
     return result.stdout
