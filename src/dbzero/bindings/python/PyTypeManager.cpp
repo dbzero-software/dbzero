@@ -30,6 +30,7 @@
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
+#include <dbzero/bindings/python/types/PyDecimal.hpp>
 
 namespace db0::python
 
@@ -56,9 +57,18 @@ namespace db0::python
         addStaticType(&PyDict_Type, TypeId::DICT);
         addStaticType(&PyTuple_Type, TypeId::TUPLE);
         addStaticType(&PyBytes_Type, TypeId::BYTES);
-        // Python datetime type
-        addStaticSimpleType(PyDateTimeAPI->DateTimeType, TypeId::DATETIME);
+        // Python date types
+        addStaticSimpleType(PyDateTimeAPI->DateType, TypeId::DATE);
 
+        // special cases for types with Timezone
+        m_simple_py_type_ids.insert(TypeId::DATETIME);
+        m_simple_py_type_ids.insert(TypeId::DATETIME_TZ);
+        m_simple_py_type_ids.insert(TypeId::TIME);
+        m_simple_py_type_ids.insert(TypeId::TIME_TZ);
+
+        PyObject *decimal_type = getDecimalClass();
+ 
+        addStaticSimpleType(decimal_type, TypeId::DECIMAL);
         // DBZero extension types
         addStaticDBZeroType(&PyTagType, TypeId::DB0_TAG);
         addStaticDBZeroType(&TagSetType, TypeId::DB0_TAG_SET);
@@ -115,8 +125,25 @@ namespace db0::python
         if (!ptr) {
             return TypeId::UNKNOWN;
         }
+        auto py_type = Py_TYPE(ptr);
+        // case for datetime
+        if(py_type == PyDateTimeAPI->DateTimeType){
+            if (isDatatimeWithTZ(ptr)) {
+                return TypeId::DATETIME_TZ;
+            } else {
+                return TypeId::DATETIME;
+            }
+        }
 
-        return getTypeId(Py_TYPE(ptr));
+        if(py_type == PyDateTimeAPI->TimeType){
+            if (isDatatimeWithTZ(ptr)) {
+                return TypeId::TIME_TZ;
+            } else {
+                return TypeId::TIME;
+            }
+        }
+
+        return getTypeId(py_type);
     }
     
     const db0::object_model::Object &PyTypeManager::extractObject(ObjectPtr memo_ptr) const
@@ -311,8 +338,18 @@ namespace db0::python
         switch (type_id) {
             case TypeId::DATETIME:
                 return pyDateTimeToToUint64(obj_ptr);
+            case TypeId::DATETIME_TZ:
+                return pyDateTimeWithTzToUint64(obj_ptr);
+            case TypeId::DATE:
+                return pyDateToUint64(obj_ptr);
+            case TypeId::TIME:
+                return pyTimeToUint64(obj_ptr);
+            case TypeId::TIME_TZ:
+                return pyTimeWithTzToUint64(obj_ptr);
             case TypeId::INTEGER:
                 return PyLong_AsUnsignedLongLong(obj_ptr);
+            case TypeId::DECIMAL:
+                return pyDecimalToUint64(obj_ptr);
             default:
                 THROWF(db0::InputException) << "Unable to convert object of type " << PyToolkit::getTypeName(obj_ptr) 
                     << " to UInt64" << THROWF_END;

@@ -325,21 +325,25 @@ def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_1(db0_fixtur
 
 def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_2(db0_fixture):
     prefix = "test-data"
-    obj = MemoScopedClass(None, prefix=prefix)    
+    obj = MemoScopedClass(None, prefix=prefix)
+    index = 0
     with db0.atomic():
         obj.value = db0.index()
         for _ in range(3):
-            obj.value.add(datetime.now(), MemoScopedClass(None, prefix=prefix))
+            obj.value.add(index, MemoScopedClass(None, prefix=prefix))
+            index += 1
     
     with db0.atomic():
         for _ in range(3):
-            obj.value.add(datetime.now(), MemoScopedClass(None, prefix=prefix))
+            obj.value.add(index, MemoScopedClass(None, prefix=prefix))
+            index += 1
     
     with db0.atomic():
         for _ in range(3):
-            obj.value.add(datetime.now(), MemoScopedClass(None, prefix=prefix))
+            obj.value.add(index, MemoScopedClass(None, prefix=prefix))
+            index += 1
     
-    assert len(list(obj.value.range(None, datetime.now(), null_first=True))) == 9
+    assert len(list(obj.value.range(None, index, null_first=True))) == 9
 
 
 def test_atomic_operation_auto_canceled_on_exception(db0_fixture):

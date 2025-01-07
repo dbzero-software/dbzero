@@ -24,8 +24,9 @@ namespace db0
             case TypeId::INTEGER:
                 return IndexDataType::Int64;
             case TypeId::DATETIME:
-                return IndexDataType::UInt64;
-            case TypeId::BOOLEAN:
+            case TypeId::DATE:
+            case TypeId::TIME:
+            case TypeId::DECIMAL:
                 return IndexDataType::UInt64;
             default:
                 THROWF(db0::InputException) << "Unsupported index key type: " 

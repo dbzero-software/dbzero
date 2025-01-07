@@ -5,6 +5,7 @@
 #include <dbzero/object_model/enum/EnumValue.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
+#include <dbzero/bindings/python/types/PyDecimal.hpp>
 
 namespace db0::object_model
 
@@ -152,11 +153,48 @@ namespace db0::object_model
         return tuple.get()->ext().getAddress();
     }
 
+    // DATETIME with TIMEZONE specialization
+    template <> Value createMember<TypeId::DATETIME_TZ, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr)
+    {   
+        return db0::python::pyDateTimeWithTzToUint64(obj_ptr);
+    }
+
+
     // DATETIME specialization
     template <> Value createMember<TypeId::DATETIME, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr)
-    {
+    {   
         return db0::python::pyDateTimeToToUint64(obj_ptr);
+    }
+
+     // DATE specialization
+    template <> Value createMember<TypeId::DATE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr)
+    {   
+        return db0::python::pyDateToUint64(obj_ptr);
+    }
+
+    // TIME specialization
+    template <> Value createMember<TypeId::TIME, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr)
+    {   
+        return db0::python::pyTimeToUint64(obj_ptr);
+    }
+
+    // TIME wit TIMEZONE specialization
+    template <> Value createMember<TypeId::TIME_TZ, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr)
+    {   
+        return db0::python::pyTimeWithTzToUint64(obj_ptr);
+    }
+
+
+    // DECIMAL specialization
+    template <> Value createMember<TypeId::DECIMAL, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr)
+    {   
+        return db0::python::pyDecimalToUint64(obj_ptr);
     }
 
     // BYTES specialization
@@ -234,6 +272,11 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::DICT)] = createMember<TypeId::DICT, PyToolkit>;
         functions[static_cast<int>(TypeId::TUPLE)] = createMember<TypeId::TUPLE, PyToolkit>;
         functions[static_cast<int>(TypeId::DATETIME)] = createMember<TypeId::DATETIME, PyToolkit>;
+        functions[static_cast<int>(TypeId::DATETIME_TZ)] = createMember<TypeId::DATETIME_TZ, PyToolkit>;
+        functions[static_cast<int>(TypeId::DECIMAL)] = createMember<TypeId::DECIMAL, PyToolkit>;
+        functions[static_cast<int>(TypeId::DATE)] = createMember<TypeId::DATE, PyToolkit>;
+        functions[static_cast<int>(TypeId::TIME)] = createMember<TypeId::TIME, PyToolkit>;
+        functions[static_cast<int>(TypeId::TIME_TZ)] = createMember<TypeId::TIME_TZ, PyToolkit>;
         functions[static_cast<int>(TypeId::BYTES)] = createMember<TypeId::BYTES, PyToolkit>; 
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = createMember<TypeId::OBJECT_ITERABLE, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
@@ -316,11 +359,47 @@ namespace db0::object_model
     }
     
     // DATETIME specialization
-    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATE, PyToolkit>(
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATETIME, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return db0::python::uint64ToPyDatetime(value.cast<std::uint64_t>());
     }
+
+    // DATETIME with TZ specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATETIME_TZ, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        return db0::python::uint64ToPyDatetimeWithTZ(value.cast<std::uint64_t>());
+    }
+
+    // DATE specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATE, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        return db0::python::uint64ToPyDate(value.cast<std::uint64_t>());
+    }
+
+    // Time specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::TIME, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        return db0::python::uint64ToPyTime(value.cast<std::uint64_t>());
+    }
+
+    // Time with Timezone specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::TIME_TZ, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        return db0::python::uint64ToPyTimeWithTz(value.cast<std::uint64_t>());
+    }
+
+    // DECIMAL specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DECIMAL, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        return db0::python::uint64ToPyDecimal(value.cast<std::uint64_t>());
+    }
+
 
     // NONE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::NONE, PyToolkit>(
@@ -387,6 +466,11 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_DICT)] = unloadMember<StorageClass::DB0_DICT, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_TUPLE)] = unloadMember<StorageClass::DB0_TUPLE, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_BYTES)] = unloadMember<StorageClass::DB0_BYTES, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DATETIME)] = unloadMember<StorageClass::DATETIME, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DATETIME_TZ)] = unloadMember<StorageClass::DATETIME_TZ, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DECIMAL)] = unloadMember<StorageClass::DECIMAL, PyToolkit>;
+        functions[static_cast<int>(StorageClass::TIME)] = unloadMember<StorageClass::TIME, PyToolkit>;
+        functions[static_cast<int>(StorageClass::TIME_TZ)] = unloadMember<StorageClass::TIME_TZ, PyToolkit>;
         functions[static_cast<int>(StorageClass::DATE)] = unloadMember<StorageClass::DATE, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
