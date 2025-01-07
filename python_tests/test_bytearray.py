@@ -293,3 +293,27 @@ def test_zfill(db0_fixture):
 def test_db0_bytearray_can_be_stored_as_member(db0_fixture):
     ba_1 = db0.bytearray(b'abc')
     _ = MemoTestClass(ba_1)
+
+
+# FIXME: failing test
+# def test_db0_bytearray_create_from_list_issue(db0_fixture):
+#     """
+#     The test was failing with an exception:  TypeError: bytearray() argument needs to be bytearray
+#     """
+#     # create python's bytearray from list (to verify it works fine)
+#     ba_1 = bytearray(list([1, 2, 3, 4]))
+#     ba_2 = db0.bytearray(list[1, 2, 3, 4])
+#     assert len(ba_2) == len(ba_1)
+#     assert list(ba_1) == [1, 2, 3, 4]
+
+
+# FIXME: failing test
+# def test_db0_bytearray_as_iterable_issue(db0_fixture):
+#     """
+#     The test was failing with C++ side exception:
+#     python_tests/test_bytearray.py::test_db0_bytearray_as_iterable_issue terminate called after throwing an instance of 'db0::InputException'
+#     what():  Exception N3db014InputExceptionE thrown in function getItem at /src/dev/src/dbzero/object_model/bytes/ByteArray.cpp, line 42: Index out of range: 4:
+#     """
+#     ba_1 = db0.bytearray(b'1234')
+#     for actual, expected in zip(ba_1, [49, 50, 51, 52]):
+#         assert actual == expected
