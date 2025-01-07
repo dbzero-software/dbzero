@@ -5,7 +5,7 @@ namespace db0
 
 {
     
-    SnapshotCache::SnapshotCache(BaseStorage &storage, CacheRecycler *recycler_ptr)
+    SnapshotCache::SnapshotCache(BaseStorage &storage, CacheRecycler *recycler_ptr)        
         : PrefixCache(storage, recycler_ptr)
     {
     }

@@ -12,11 +12,10 @@ namespace db0
 
 {
     
-    PrefixCache::PrefixCache(BaseStorage &storage, CacheRecycler *cache_recycler_ptr,
-        std::atomic<std::size_t> *dirty_meter_ptr)
+    PrefixCache::PrefixCache(BaseStorage &storage, CacheRecycler *cache_recycler_ptr, std::atomic<std::size_t> *dirty_meter_ptr)
         : m_page_size(storage.getPageSize())
         , m_shift(getPageShift(m_page_size)) 
-        , m_mask(getPageMask(m_page_size))
+        , m_mask(getPageMask(m_page_size))        
         , m_storage(storage)
         , m_dirty_dp_cache(m_page_size, dirty_meter_ptr)
         , m_dirty_wide_cache(m_page_size, dirty_meter_ptr)
@@ -32,18 +31,22 @@ namespace db0
     }
     
     std::shared_ptr<DP_Lock> PrefixCache::createPage(std::uint64_t page_num, std::uint64_t read_state_num,
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
+        std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::shared_ptr<ResourceLock> cow_lock)
     {
+        bool is_volatile = access_mode[AccessOptions::no_flush];
+        // in case of volatile locks, don't pass the CoW lock
+        if (is_volatile) {
+            cow_lock = nullptr;
+        }
+
         auto lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-            access_mode, read_state_num, state_num);
-        // initially dirty lock must be registered with the dirty cache
-        lock->initDirty();
+            access_mode, read_state_num, state_num, cow_lock);
         // register under the lock's evaluated state number
         m_dp_map.insert(lock->getStateNum(), lock);
         
         // register with the volatile locks
         assert(lock);
-        if (access_mode[AccessOptions::no_flush]) {
+        if (is_volatile) {
             // NOTE: volatile locks are not registered with the recycler
             m_volatile_locks.push_back(lock);
         } else {
@@ -67,17 +70,21 @@ namespace db0
         }
         
         dp_lock = weak_ref->lock();
-        // must restore cache-expired lock        
+        // must restore cache-expired lock
         if (!dp_lock) {
+            // NOTE: restored locks are created with "no_cow" flag
+            // because the persisted state might not be final
             if (read_state_num == state_num) {
                 // the restored lock can be created as read/write if requested
                 dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-                    access_mode | AccessOptions::read, read_state_num, state_num);
-                dp_lock->initDirty();
+                    access_mode | AccessOptions::read | AccessOptions::no_cow, read_state_num, state_num
+                );
             } else {
                 // the restored lock is created as "for read"
                 dp_lock = std::make_shared<DP_Lock>(m_dp_context, page_num << m_shift, m_page_size,
-                    FlagSet<AccessOptions> { AccessOptions::read }, read_state_num, read_state_num);
+                    FlagSet<AccessOptions> { AccessOptions::read, AccessOptions::no_cow }, 
+                    read_state_num, read_state_num
+                );
             }
             // feed the lock back into the cache
             *weak_ref = dp_lock;
@@ -124,18 +131,22 @@ namespace db0
     
     std::shared_ptr<WideLock> PrefixCache::createRange(std::uint64_t page_num, std::size_t size,
         std::uint64_t read_state_num, std::uint64_t state_num, FlagSet<AccessOptions> access_mode, 
-        std::shared_ptr<DP_Lock> res_dp)
+        std::shared_ptr<DP_Lock> res_dp, std::shared_ptr<ResourceLock> cow_lock)
     {
+        bool is_volatile = access_mode[AccessOptions::no_flush];
+        // in case of volatile locks, don't pass the CoW lock
+        if (is_volatile) {
+            cow_lock = nullptr;
+        }
+
         auto lock = std::make_shared<WideLock>(m_wide_context, page_num << m_shift, size,
-            access_mode, read_state_num, state_num, res_dp);
-        // initially dirty lock must be registered with the dirty cache
-        lock->initDirty();
+            access_mode, read_state_num, state_num, res_dp, cow_lock);
         // register under the lock's evaluated state number
         m_wide_map.insert(lock->getStateNum(), lock);
         
         assert(lock);
         // register with the volatile locks
-        if (access_mode[AccessOptions::no_flush]) {            
+        if (is_volatile) {
             m_volatile_wide_locks.push_back(lock);
         } else {
             // register or update lock with the recycler
@@ -169,15 +180,18 @@ namespace db0
                 return { true, nullptr };
             }
             // restore lock and feed it back into the cache
+            // NOTE: restored locks are created with "no_cow" flag
             if (read_state_num == state_num) {
                 // restore as read/write if requested
-                wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, access_mode | AccessOptions::read,
-                    read_state_num, state_num, res_lock);
-                wide_lock->initDirty();
+                wide_lock = std::make_shared<WideLock>(m_wide_context, address, size,
+                    access_mode | AccessOptions::read | AccessOptions::no_cow, read_state_num, state_num, res_lock
+                );
             } else {
                 // restore as "for read"
-                wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, FlagSet<AccessOptions> { AccessOptions::read },
-                    read_state_num, read_state_num, res_lock);
+                wide_lock = std::make_shared<WideLock>(m_wide_context, address, size, 
+                    FlagSet<AccessOptions> { AccessOptions::read, AccessOptions::no_cow },
+                    read_state_num, read_state_num, res_lock
+                );
             }
             // feed the lock back into the cache
             *weak_ref = wide_lock;
@@ -326,11 +340,10 @@ namespace db0
         return result;
     }
     
-    std::shared_ptr<DP_Lock> PrefixCache::insertCopy(const DP_Lock &lock, std::uint64_t write_state_num,
+    std::shared_ptr<DP_Lock> PrefixCache::insertCopy(std::shared_ptr<DP_Lock> lock, std::uint64_t write_state_num,
         FlagSet<AccessOptions> access_mode)
     {
         auto result = std::make_shared<DP_Lock>(lock, write_state_num, access_mode);
-        result->initDirty();
         m_dp_map.insert(result->getStateNum(), result);
 
         // register with the volatile locks
@@ -346,13 +359,12 @@ namespace db0
         return result;
     }
     
-    std::shared_ptr<WideLock> PrefixCache::insertWideCopy(const WideLock &lock, std::uint64_t write_state_num,
+    std::shared_ptr<WideLock> PrefixCache::insertWideCopy(std::shared_ptr<WideLock> lock, std::uint64_t write_state_num,
         FlagSet<AccessOptions> access_mode, std::shared_ptr<DP_Lock> res_lock)
     {
         auto result = std::make_shared<WideLock>(lock, write_state_num, access_mode, res_lock);
-        result->initDirty();
         m_wide_map.insert(result->getStateNum(), result);
-
+        
         // register with the volatile locks
         if (access_mode[AccessOptions::no_flush]) {            
             m_volatile_wide_locks.push_back(result);
@@ -387,7 +399,7 @@ namespace db0
         
         return result;
     }
-
+    
     void PrefixCache::forEach(std::function<void(ResourceLock &)> f) const
     {
         m_boundary_map.forEach(f);
@@ -439,30 +451,37 @@ namespace db0
     void PrefixCache::flushBoundary()
     {
         m_boundary_map.forEach([&](BoundaryLock &lock) {
-            lock.flush();
+            // flush boundary part of the lock
+            lock.flushBoundary();
         });
-        // flush residual part of the wide locks
         m_wide_map.forEach([&](WideLock &lock) {
+            // flush residual part of the wide locks
             lock.flushResidual();
         });
     }
     
-    void PrefixCache::flush(ProcessTimer *parent_timer)
+    void PrefixCache::commit(ProcessTimer *parent_timer)
     {
         std::unique_ptr<ProcessTimer> timer;
         if (parent_timer) {
-            timer = std::make_unique<ProcessTimer>("PrefixCache::flush", parent_timer);
+            timer = std::make_unique<ProcessTimer>("PrefixCache::commit", parent_timer);
         }
-        // boundary locks need to be flushed first (from the map since they're not cached)        
+        // boundary locks need to be flushed first (from the map since they're not cached)
         m_boundary_map.forEach([&](BoundaryLock &lock) {
-            lock.flush();
+            // flush the boundary area only, since parent lock will be flushed either as DP or wide locks
+            lock.flushBoundary();
         });
-        // flush wide locks next
+        // NOTE: only commit operation can use the FlushMethod::diff method
+        // NOTE: we first flush using the diff-method and then again using full-write method
+        // this is to reduce the number of interleaved diff / full writes
+        // wide locks need to be flushed before dp-locks
+        m_dirty_wide_cache.tryFlush(FlushMethod::diff);
         m_dirty_wide_cache.flush();
         // finally flush DP_Locks using the DirtyCache
+        m_dirty_dp_cache.tryFlush(FlushMethod::diff);
         m_dirty_dp_cache.flush();
     }
-
+    
     void PrefixCache::markAsMissing(std::uint64_t page_num, std::uint64_t state_num)
     {
         // only mark already existing ranges
@@ -476,7 +495,7 @@ namespace db0
             m_wide_map.insert(state_num, m_missing_wide_lock_ptr, page_num);
         }
     }
-
+    
     void PrefixCache::rollback(std::uint64_t state_num)
     {
         // remove all volatile locks
@@ -542,7 +561,7 @@ namespace db0
             if (existing_lock) {
                 assert(!existing_lock->isVolatile());
                 return existing_lock;
-            } else {            
+            } else {
                 // must clear the no_flush flag if lock was reused
                 new_lock->resetNoFlush();
                 return {};
@@ -561,7 +580,7 @@ namespace db0
             return true;
         } else {
             // must clear the no_flush flag if lock was reused (i.e. added to cache under a different state)
-            new_lock->resetNoFlush();
+            new_lock->resetNoFlush();            
             return false;
         }
     }
@@ -569,6 +588,12 @@ namespace db0
     void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num,
         std::vector<std::shared_ptr<ResourceLock> > &reused_locks)
     {
+        // Remove all volatile boundary locks before merge, to flush them
+        // into the underlying parent DP-locks
+        // This is fine because in the head transaction we've released all boundary locks
+        // so they need not to be merged
+        m_volatile_boundary_locks.clear();
+        
         std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > rebase_map;
         // merge DP-locks first
         for (auto &lock: m_volatile_locks) {
@@ -607,22 +632,7 @@ namespace db0
                 }
             }
         }
-        m_volatile_wide_locks.clear();
-        
-        // merge boundary locks next & rebase parent locks if needed
-        for (auto &lock: m_volatile_boundary_locks) {
-            // erase volatile range related lock
-            eraseBoundaryRange(lock->getAddress(), lock->size(), from_state_num);
-            // NOTE: boundary volatile locks may be non-dirty and such get simply discarded
-            if (lock->isDirty()) {
-                if (!replaceBoundaryRange(lock->getAddress(), lock->size(), to_state_num, lock)) {
-                    // we don't collect BoundarLock as reused because they're not cached
-                    // need to rebase parent locks if the boundary lock was reused
-                    lock->rebase(rebase_map);
-                }
-            }
-        }
-        m_volatile_boundary_locks.clear();
+        m_volatile_wide_locks.clear();        
     }
     
     std::size_t PrefixCache::getPageSize() const {
@@ -678,4 +688,26 @@ namespace db0
         m_boundary_map.clear();
     }
     
-}
+    std::pair<std::uint64_t, std::uint64_t> PrefixCache::getCoWStats() const
+    {
+        std::uint64_t dp_total = 0;
+        std::uint64_t dp_cow = 0;
+        m_dirty_dp_cache.forAll([&](const ResourceLock &lock) {
+            ++dp_total;
+            if (lock.hasCoWData()) {
+                ++dp_cow;
+            }
+        });
+
+        m_dirty_wide_cache.forAll([&](const ResourceLock &lock) {
+            auto dp_count = (lock.size() / m_page_size);
+            dp_total += dp_count;
+            if (lock.hasCoWData()) {
+                dp_cow += dp_count;
+            }
+        });
+
+        return { dp_total, dp_cow };
+    }
+
+} 

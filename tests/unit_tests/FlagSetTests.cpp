@@ -5,7 +5,7 @@
 using namespace std;
 using namespace db0;
 
-namespace tests 
+namespace tests
 
 {
 
@@ -73,7 +73,7 @@ namespace tests
     {
         ASSERT_ANY_THROW ( FlagSet<UndeclaredTestOptions>::all() );
     }
-
+    
     TEST_F( FlagSetTest, testFlagSetCanBeOutputToStream )
     {
         auto cut = FlagSet<TestOptions>::all();
@@ -87,7 +87,7 @@ namespace tests
         auto cut = FlagSet<AccessOptions>::all();
         std::stringstream ss;
         ss << cut;
-        ASSERT_EQ ("[read, write, create, no_cache, no_flush, unique]", ss.str());
+        ASSERT_EQ ("[read, write, create, no_cache, no_flush, unique, no_cow]", ss.str());
     }
-    
+
 }

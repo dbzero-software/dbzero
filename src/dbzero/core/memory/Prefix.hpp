@@ -42,7 +42,7 @@ namespace db0
         virtual std::size_t getPageSize() const = 0;
         
         virtual std::uint64_t getStateNum() const = 0;
-        
+                
         /**
          * Commit all local changes made since last commit
          * 
@@ -101,6 +101,9 @@ namespace db0
         // @return number of bytes actually released
         virtual std::size_t flushDirty(std::size_t limit) = 0;
 
+        // Get arbitrary prefix statistics
+        virtual void getStats(std::function<void(const std::string &name, std::uint64_t value)>) const;
+        
     private:
         const std::string m_name;
     };

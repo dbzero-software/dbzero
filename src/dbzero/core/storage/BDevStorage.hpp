@@ -1,10 +1,12 @@
 #pragma once
 
 #include "SparseIndex.hpp"
+#include "SparsePair.hpp"
 #include "CFile.hpp"
 #include "Storage0.hpp"
 #include "BlockIOStream.hpp"
-#include "PageIO.hpp"
+#include "Page_IO.hpp"
+#include "Diff_IO.hpp"
 #include <optional>
 #include <cstdio>
 #include <dbzero/core/memory/AccessOptions.hpp>
@@ -23,8 +25,7 @@ namespace db0
         static constexpr std::uint64_t DB0_MAGIC = 0x0DB0DB0DB0DB0DB0;
 
         std::uint64_t m_magic = DB0_MAGIC;
-        std::uint32_t m_version = 1;
-        // storage block size
+        std::uint32_t m_version = 1;        
         std::uint32_t m_block_size;
         // the prefix page size
         std::uint32_t m_page_size;
@@ -64,6 +65,10 @@ namespace db0
         
         void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) override;
         
+        // @param max_len - the maximum allowed diff-sequence length (when exceeded, the full-DP will be written)
+        void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+            const std::vector<std::uint16_t> &diffs, unsigned int max_len = 32) override;
+        
         std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const override;
         
         bool tryFindMutation(std::uint64_t page_num, std::uint64_t state_num, std::uint64_t &mutation_id) const override;
@@ -92,19 +97,20 @@ namespace db0
             return m_dram_io;
         }
         
-        bool empty() const;
+        // @return total bytes written / diff bytes written
+        std::pair<std::size_t, std::size_t> getDiff_IOStats() const;
         
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
 #endif
-    
+
     protected:
         // all prefix configuration must fit into this block
         static constexpr unsigned int CONFIG_BLOCK_SIZE = 4096;
         CFile m_file;
         const o_prefix_config m_config;
-
+        
         // DRAM-changelog stream stores the sequence of updates to DRAM pages
         // DRAM-changelog must be initialized before DRAM_IOStream
         ChangeLogIOStream m_dram_changelog_io;
@@ -113,14 +119,19 @@ namespace db0
         ChangeLogIOStream m_dp_changelog_io;
         // memory-mapped file I/O
         DRAM_IOStream m_dram_io;
+        // SparseIndex + DiffIndex
+        SparsePair m_sparse_pair;
         // DRAM-backed sparse index tree
-        SparseIndex m_sparse_index;
+        SparseIndex &m_sparse_index;        
+        DiffIndex &m_diff_index;
         BlockIOStream m_wal_io;
-        // the last / current physical pages block
-        PageIO m_page_io;
-        // empty flag maintained in read-only mode
-        bool m_empty = false;
-        
+        // the stream for storing & reading full-DPs and diff-encoded DPs
+        Diff_IO m_page_io;
+#ifndef NDEBUG
+        // total number of bytes from mutated data pages
+        std::uint64_t m_page_io_raw_bytes = 0;
+#endif        
+                        
         static DRAM_IOStream init(DRAM_IOStream &&, ChangeLogIOStream &);
 
         static ChangeLogIOStream init(ChangeLogIOStream &&);
@@ -136,8 +147,8 @@ namespace db0
         DRAM_IOStream getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType);
 
         ChangeLogIOStream getChangeLogIOStream(std::uint64_t first_block_pos, AccessType);
-
-        PageIO getPageIO(std::uint64_t next_page_hint, AccessType);
+        
+        Diff_IO getPage_IO(std::uint64_t next_page_hint, AccessType);
         
         o_prefix_config readConfig() const;
         
@@ -153,6 +164,10 @@ namespace db0
         // non-virtual version of tryFindMutation
         bool tryFindMutationImpl(std::uint64_t page_num, std::uint64_t state_num,
             std::uint64_t &mutation_id) const;
+
+        // @param chain_len length of the diff-storage chain processed while reading
+        void _read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+            FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }, unsigned int *chain_len = nullptr) const;
     };
     
 }

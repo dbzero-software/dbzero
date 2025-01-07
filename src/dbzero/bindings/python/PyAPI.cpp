@@ -234,12 +234,12 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *commit(PyObject *self, PyObject *args)
+    PyObject *PyAPI_commit(PyObject *self, PyObject *args)
     {
-        PY_API_FUNC        
+        PY_API_FUNC
         return runSafe(tryCommit, self, args);
     }
-
+    
     PyObject *tryStopWorkspaceThreads()
     {
         PyToolkit::getPyWorkspace().stopThreads();

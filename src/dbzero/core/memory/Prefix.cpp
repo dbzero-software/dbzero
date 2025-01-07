@@ -47,5 +47,8 @@ namespace db0
         }
         return 0;
     }
-
+    
+    void Prefix::getStats(std::function<void(const std::string &, std::uint64_t)>) const {
+    }
+    
 }

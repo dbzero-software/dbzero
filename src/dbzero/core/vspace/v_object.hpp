@@ -65,7 +65,7 @@ namespace db0
             // placement new syntax
             c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::get<I>(std::forward<Tuple>(t))...);
         }
-
+        
     public:
         /**
          * Allocating constructor with flags
@@ -241,5 +241,15 @@ namespace db0
         // container reference
         mutable ptr_t v_this;
     };
+
+    // Utility function to safely mutate a v_object's fixed-size member
+    template <typename T, typename MemberT>
+    MemberT &modifyMember(T &obj, const MemberT &member) 
+    {
+        assert((std::byte*)&member >= (std::byte*)obj.getData());
+        assert((std::byte*)&member + sizeof(MemberT) <= (std::byte*)obj.getData() + obj->sizeOf());
+        auto offset = (std::byte*)&member - (std::byte*)obj.getData();
+        return *(MemberT*)((std::byte*)(&obj.modify()) + offset);
+    }
 
 }

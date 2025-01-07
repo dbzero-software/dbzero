@@ -32,7 +32,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"open", (PyCFunction)&py::open, METH_VARARGS | METH_KEYWORDS, "Open or create a prefix for read or read/write"},
     {"close", &py::PyAPI_close, METH_VARARGS, ""},
     {"drop", &py::drop, METH_VARARGS, "Drop prefix (if exists)"},
-    {"commit", &py::commit, METH_VARARGS, ""},
+    {"commit", &py::PyAPI_commit, METH_VARARGS, "Commit data to disk / persistent storage"},
     {"fetch", (PyCFunction)&py::fetch, METH_FASTCALL, "Retrieve DBZero object instance by its UUID or type (in case of a singleton)"},
     {"delete", &py::del, METH_VARARGS, "Delete DBZero object and the corresponding Python instance"},
     {"wrap_memo_type", (PyCFunction)&py::wrapPyClass, METH_VARARGS | METH_KEYWORDS, "Wraps a memo type for use with DBZero"},

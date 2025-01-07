@@ -143,6 +143,7 @@ namespace db0
         void rollback();
         
         void commit();
+        
         void close(ProcessTimer * = nullptr);
         
         inline GC0 *tryGetGC0() const {

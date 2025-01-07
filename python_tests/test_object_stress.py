@@ -46,7 +46,6 @@ def test_create_random_objects_stress_test(db0_no_autocommit):
 
 
 @pytest.mark.stress_test
-# @pytest.mark.parametrize("db0_autocommit_fixture", [1], indirect=True)
 def test_create_random_gc0_objects_stress_test(db0_no_autocommit):
     def rand_string(max_len):
         import random
@@ -69,9 +68,9 @@ def test_create_random_gc0_objects_stress_test(db0_no_autocommit):
         if total_bytes > report_bytes:
             pre_commit = datetime.now()
             # NOTE: with each commit the size of GC0 is increasing due to large 
-            # number of objects referenced only from python
+            # number of objects referenced only from python            
             db0.commit()
-            storage_stats = db0.get_storage_stats()
+            storage_stats = db0.get_storage_stats()            
             print(f"Total bytes: {total_bytes}")
             print(f"Rand DRAM I/O ops: {storage_stats['dram_io_rand_ops'] - rand_dram_io}")
             print(f"Rand file write ops: {storage_stats['file_rand_write_ops'] - rand_file_write_ops}")
@@ -80,11 +79,12 @@ def test_create_random_gc0_objects_stress_test(db0_no_autocommit):
             rand_dram_io = storage_stats["dram_io_rand_ops"]
             rand_file_write_ops = storage_stats["file_rand_write_ops"]
             bytes_written = storage_stats["file_bytes_written"]
-            report_bytes += 1024 * 1024
+            report_bytes += 1024 * 1024        
         if count % 1000 == 0:
             print(f"Objects created: {count}")
+    # NOTE: on close, all objects are getting GC0 collected (dropped)
 
-            
+    
 @pytest.mark.stress_test
 def test_create_random_objects_with_short_members(db0_fixture):
     def rand_string(max_len):

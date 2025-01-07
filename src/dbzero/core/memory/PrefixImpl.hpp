@@ -35,6 +35,8 @@ namespace db0
         PrefixImpl(std::string name, std::atomic<std::size_t> &dirty_meter, CacheRecycler &cache_recycler, 
             std::shared_ptr<BaseStorage> storage);
         
+        // NOTE: after calling mapRange for updates (i.e. with AccessOptions::write)
+        // we always later need to call setDirty to specificy which micro-area is getting modified
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
         std::uint64_t getStateNum() const override;
@@ -50,6 +52,8 @@ namespace db0
         BaseStorage &getStorage() const override;
 
         std::size_t getDirtySize() const override;
+
+        void getStats(std::function<void(const std::string &name, std::uint64_t value)>) const override;
 
         PrefixCache &getCache() const;
 
@@ -67,7 +71,7 @@ namespace db0
         AccessType getAccessType() const override {
             return m_storage_ptr->getAccessType();
         }
-
+        
         std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
 
         void beginAtomic() override;
@@ -86,6 +90,7 @@ namespace db0
     protected:
         std::shared_ptr<BaseStorage> m_storage;
         BaseStorage *m_storage_ptr;
+        const AccessType m_access_type;
         const std::size_t m_page_size;
         const std::uint32_t m_shift;
         std::uint64_t m_head_state_num;

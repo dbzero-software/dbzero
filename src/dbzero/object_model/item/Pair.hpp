@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Item.hpp"
 
 namespace db0::object_model

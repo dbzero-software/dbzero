@@ -5,7 +5,9 @@
 #include <atomic>
 #include <cassert>
 #include <functional>
+#include <limits>
 #include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/core/serialization/mu_store.hpp>
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
 #include <dbzero/core/threading/Flags.hpp>
 #include <dbzero/core/utils/FixedList.hpp>
@@ -22,6 +24,27 @@ namespace db0
         std::reference_wrapper<DirtyCache> m_cache_ref;
         std::reference_wrapper<BaseStorage> m_storage_ref;
     };
+
+    enum class FlushMethod: std::uint8_t
+    {
+        // Flush using the diff-range calculation (if possible)
+        diff = 0x01 ,
+        // Flush using the full-DP write (always possible)
+        full = 0x02
+    };
+    
+    // Calculate diff areas between the 2 binary buffers of the same size (e.g. DPs)
+    // @param size size of the buffers
+    // @param result vector to hold size of diff / size of identical areas interleaved (totalling to size)
+    // NOTE that the leading elements 0, 0 indicate the 0-filled base buffer
+    // @param max_diff the maximum acceptable diff in bytes (0 for default = size / 2)
+    // @param max_size the maximum number of diff areas allowed to be stored in the result
+    // @return false if the total volume of diff areas exceeds 50% threshold
+    bool getDiffs(const void *, const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
+        std::size_t max_size = std::numeric_limits<std::uint16_t>::max());
+    // the getDiffs version comparing to all-zero buffer
+    bool getDiffs(const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
+        std::size_t max_size = std::numeric_limits<std::uint16_t>::max());
     
     /**
      * A ResourceLock is the foundation class for DP_Lock and BoundaryLock implementations    
@@ -33,8 +56,20 @@ namespace db0
     class ResourceLock: public std::enable_shared_from_this<ResourceLock>
     {
     public:
-        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>);
-        ResourceLock(const ResourceLock &, FlagSet<AccessOptions>);        
+        /**
+         * @param storage_context
+         * @param address the starting address in the storage
+         * @param size the size of the data in bytes
+         * @param access_options the resource flags         
+         * 
+         * NOTE: even if the ResourceLock is created with AccessOptions::write
+         * one is required to call setDirty to mark it as modified
+         */
+        ResourceLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
+            std::shared_ptr<ResourceLock> cow_lock = nullptr);
+        
+        // Copy-on-write constructor
+        ResourceLock(std::shared_ptr<ResourceLock>, FlagSet<AccessOptions>);
         
         virtual ~ResourceLock();
         
@@ -51,6 +86,10 @@ namespace db0
             return static_cast<std::byte*>(getBuffer()) + address - m_address;
         }
         
+        // Try flushing using a specific method
+        // @return true if the lock's data has been flushed (or not dirty)
+        virtual bool tryFlush(FlushMethod) = 0;
+
         /**
          * Flush data from local buffer and clear the 'dirty' flag
          * data is not flushed if not dirty.
@@ -59,15 +98,15 @@ namespace db0
         virtual void flush() = 0;
 
         /**
-         * Clear the 'dirty' flag if it has been set
+         * Clear the 'dirty' flag if it has been set, clear the MU-store
          * @return true if the flag was set
         */
         bool resetDirtyFlag();
-            
+        
         inline std::uint64_t getAddress() const {
             return m_address;
         }
-
+        
         inline std::size_t size() const {
             return m_data.size();
         }
@@ -76,13 +115,14 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_RECYCLED;
         }
         
-        // Finalize lock initialization by checking dirty flag
-        // and appending to dirty cache if necessary
-        // this method cannot be called from the constructor because shared_ptr of the lock is required
-        void initDirty();
-        
+        // Mark the entire lock as dirty
         void setDirty();
 
+        // Mark a specific part of the lock as dirty
+        // @param offset offset in bytes (must be within the mapped range) starting from the lock's address
+        // @param size size in bytes of the updated range (must be within the mapped range)
+        void setDirty(std::size_t offset, std::size_t size);
+        
         bool isCached() const;
 
 #ifndef NDEBUG
@@ -97,20 +137,36 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_DIRTY;
         }
         
+        // Apply changes from the lock being merged (discarding changes in this lock)
+        // operation required by the atomic merge
         void moveFrom(ResourceLock &);
-
+        
         // clears the no_flush flag if it was set
         void resetNoFlush();
         // discard any changes done to this lock (to be called e.g. on rollback)
         void discard();
         
+        // Check if the copy-on-write data is available
+        // this member is used for debug & evaluation purposes
+        bool hasCoWData() const;
+        
+        // Remove the lock's related CoW data if such exists        
+        void clearCoWData();
+        
+        // Calculate the estimated upper bound of a memory footprint
+        // NOTE: for mutable locks (i.e. from active transactiona the CoW buffer capacity is added)
+        std::size_t usedMem() const;
+        
+        // retrieve diffs from the CoW buffer (if such exists)
+        bool getDiffs(std::vector<std::uint16_t> &) const;
+        
 #ifndef NDEBUG
         // get total memory usage of all ResourceLock instances
         // @return total size in bytes / total count
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
-        virtual bool isBoundaryLock() const = 0;
+        virtual bool isBoundaryLock() const = 0;        
 #endif
-
+        
     protected:
         friend class CacheRecycler;
         friend class BoundaryLock;
@@ -131,20 +187,29 @@ namespace db0
         mutable std::vector<std::byte> m_data;
         // CacheRecycler's iterator
         iterator m_recycle_it = 0;
-
-        // Conversion constructor
-        ResourceLock(ResourceLock &&, std::vector<std::byte> &&data);
-
+        // immutable copy-on-write lock (i.e. previous version)
+        std::shared_ptr<ResourceLock> m_cow_lock;
+        // the internally managed CoW's buffer
+        std::vector<std::byte> m_cow_data;
+        // special indicator of the zero-fill buffer
+        static const std::byte m_cow_zero;
+        
         void setRecycled(bool is_recycled);
 
         bool addrPageAligned(BaseStorage &) const;
+        
+        const std::byte *getCowPtr() const;
+        bool getDiffs(const void *buf, std::vector<std::uint16_t> &result) const;
 
-    private:
 #ifndef NDEBUG
         static std::atomic<std::size_t> rl_usage;
         static std::atomic<std::size_t> rl_count;
         static std::atomic<std::size_t> rl_op_count;
-#endif        
+#endif
+
+    private:
+        // init the dirty state of the lock
+        bool initDirty();
     };
 
     std::ostream &showBytes(std::ostream &, const std::byte *, std::size_t);

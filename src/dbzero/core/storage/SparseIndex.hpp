@@ -1,251 +1,124 @@
 #pragma once
 
-#include <dbzero/core/dram/DRAMSpace.hpp>
-#include <dbzero/core/collections/SGB_Tree/SGB_CompressedLookupTree.hpp>
-#include <dbzero/core/collections/rle/RLE_Sequence.hpp>
-#include "ChangeLogIOStream.hpp"
-
+#include <cstdint>
+#include <utility>
+#include <string>
+#include "SparseIndexBase.hpp"
+    
 namespace db0
 
 {
     
-    class DRAM_Prefix;
-    class DRAM_Allocator;
-    class ChangeLogIOStream;
+    struct SI_Item;
+    struct SI_CompressedItem;
 
-    /**
-     * The in-memory sparse index implementation
-     * it utilizes DRAMSpace (in-memory) for storage and SGB_Tree as the data structure
-    */
-    class SparseIndex
+    struct SI_ItemCompT
     {
-    public:
+        bool operator()(const SI_Item &, const SI_Item &) const;
 
-        enum class PageType: short unsigned int
-        {
-            // a fixed content full data page
-            FIXED = 0,
-            // a multiple-state page to which data can be appended
-            MUTABLE = 1
-        };
+        bool operator()(const SI_Item &, std::pair<std::uint64_t, std::uint32_t>) const;
 
-        /**
-         * Create empty as read/write
-         * @param node_size size of a single in-memory data block / node
-        */
-        SparseIndex(std::size_t node_size);
-        
-        /**
-         * Create pre-populated with existing data (e.g. after reading from disk)
-         * open either for read or read/write
-        */
-        SparseIndex(DRAM_Pair, AccessType);
-        
-        struct [[gnu::packed]] Item
-        {
-            // the logical page number
-            std::uint64_t m_page_num = 0;
-            // the state number (>0 for valid items)
-            std::uint32_t m_state_num = 0;
-            // the physical / storage page number
-            std::uint64_t m_storage_page_num = 0;
-            PageType m_page_type = PageType::FIXED;
-
-            Item() = default;
-
-            Item(std::uint64_t page_num, std::uint32_t state_num)
-                : m_page_num(page_num)
-                , m_state_num(state_num) 
-            {                
-            }
-            
-            Item(std::uint64_t page_num, std::uint32_t state_num, std::uint64_t storage_page_num, PageType page_type)
-                : m_page_num(page_num)
-                , m_state_num(state_num)
-                , m_storage_page_num(storage_page_num)
-                , m_page_type(page_type)
-            {                
-            }
-
-            bool operator==(const Item &) const;
-
-            inline operator bool() const {
-                return m_state_num;
-            }
-        };
-        
-        struct ItemCompT
-        {
-            bool operator()(const Item &, const Item &) const;
-
-            bool operator()(const Item &, std::pair<std::uint64_t, std::uint32_t>) const;
-
-            bool operator()(std::pair<std::uint64_t, std::uint32_t>, const Item &) const;
-        };
-        
-        struct ItemEqualT
-        {
-            bool operator()(const Item &, const Item &) const;
-
-            bool operator()(const Item &, std::pair<std::uint64_t, std::uint32_t>) const;
-
-            bool operator()(std::pair<std::uint64_t, std::uint32_t>, const Item &) const;
-        };
-
-        void insert(const Item &item)
-        {
-            m_index.insert(item);
-
-            // update tree header if necessary
-            if (item.m_storage_page_num >= m_next_page_num) {
-                m_next_page_num = item.m_storage_page_num + 1;
-                m_index.modifyTreeHeader().m_next_page_num = m_next_page_num;
-            }
-            if (item.m_state_num > m_max_state_num) {
-                m_max_state_num = item.m_state_num;
-                m_index.modifyTreeHeader().m_max_state_num = m_max_state_num;
-            }
-            // put the currently generated state number as the first element in the change-log
-            if (m_change_log.empty()) {
-                m_change_log.push_back(m_max_state_num);
-            }
-            m_change_log.push_back(item.m_page_num);
-        }
-
-        template <typename... Args> void emplace(Args&&... args) {
-            insert(Item(std::forward<Args>(args)...));
-        }
-        
-        /**
-         * Note that 'lookup' may fail in presence of duplicate items, the behavior is undefined
-         * @return false item if not found
-        */
-        Item lookup(const Item &item) const;
-
-        Item lookup(std::uint64_t page_num, std::uint32_t state_num) const;
-
-        Item lookup(std::pair<std::uint64_t, std::uint32_t> page_and_state) const;
-
-        const DRAM_Prefix &getDRAMPrefix() const;
-
-        /**
-         * Get next storage page number expected to be assigned
-        */
-        std::uint64_t getNextStoragePageNum() const;
-        
-        /**
-         * Get the maximum used state number
-        */
-        std::uint32_t getMaxStateNum() const;
-                
-        /**
-         * Refresh cache after underlying DRAM has been updated
-        */
-        void refresh();
-
-        /**
-         * Write internally managed change log into a specific stream 
-         * and then clean the internal change log
-        */
-        const o_change_log &extractChangeLog(ChangeLogIOStream &changelog_io);
-        
-        void forAll(std::function<void(const Item &)> callback) const {
-            m_index.forAll(callback);
-        }
-                        
-        std::size_t getChangeLogSize() const;
-        
-        // Get the total number of data page descriptors stored in the index
-        std::size_t size() const;
-
-    private:
-        
-        // Compressed items are actual in-memory representation
-        struct [[gnu::packed]] CompressedItem
-        {
-            // high bits include (in this order)
-            // 1. logical page number (23 bits)
-            // 2. state number (32 bits)
-            // 3. page type (1 bit)
-            // 4. physical page number (8 highest bits)
-            std::uint64_t m_high_bits = 0;
-            // low bits = physical page number (lower 32 bits)
-            std::uint32_t m_low_bits = 0;
-
-            inline std::uint64_t getPageNum() const {
-                return m_high_bits >> 41;
-            }
-
-            inline std::uint32_t getStateNum() const {
-                return (m_high_bits >> 9) & 0xFFFFFFFF;
-            }
-
-            // get page_num + state_num for comparisons
-            inline std::uint64_t getKey() const {
-                return m_high_bits >> 9;
-            }
-
-            PageType getPageType() const;
-            
-            // retrieve physical (storage) page number
-            std::uint64_t getStoragePageNum() const;
-
-            std::string toString() const;
-        };
-        
-        struct CompressedItemCompT 
-        {
-            bool operator()(CompressedItem, CompressedItem) const;
-        };
-
-        struct CompressedItemEqualT
-        {
-            bool operator()(CompressedItem, CompressedItem) const;
-        };
-        
-        struct BlockHeader
-        {
-            // number of the 1st page in a data block / node
-            std::uint32_t m_first_page_num = 0;
-
-            CompressedItem compressFirst(const Item &);
-
-            CompressedItem compress(std::pair<std::uint64_t, std::int32_t>) const;
-
-            CompressedItem compress(const Item &) const;
-
-            Item uncompress(CompressedItem) const;
-
-            bool canFit(const Item &) const;
-
-            std::string toString(const CompressedItem &) const;
-        };
-
-        std::shared_ptr<DRAM_Prefix> m_dram_prefix;
-        std::shared_ptr<DRAM_Allocator> m_dram_allocator;
-        Memspace m_dram_space;
-
-        // tree-level header type
-        struct [[gnu::packed]] o_sparse_index_header: o_fixed<o_sparse_index_header> {
-            std::uint64_t m_next_page_num = 0;
-            std::uint32_t m_max_state_num = 0;
-        };
-        
-        // DRAM space deployed sparse index (in-memory)
-        using IndexT = SGB_CompressedLookupTree<
-            Item, CompressedItem, BlockHeader,
-            ItemCompT, CompressedItemCompT, ItemEqualT, CompressedItemEqualT,
-            o_sparse_index_header>;
-        
-        IndexT m_index;
-        // copied from tree header (cached)
-        std::uint64_t m_next_page_num = 0;
-        std::uint32_t m_max_state_num = 0;
-        // change log contains the list of updates (modified items / page numbers)
-        // first element is the state number
-        std::vector<std::uint64_t> m_change_log;
-        
-        IndexT openIndex(AccessType);
+        bool operator()(std::pair<std::uint64_t, std::uint32_t>, const SI_Item &) const;
     };
+
+    struct SI_ItemEqualT
+    {
+        bool operator()(const SI_Item &, const SI_Item &) const;
+
+        bool operator()(const SI_Item &, std::pair<std::uint64_t, std::uint32_t>) const;
+
+        bool operator()(std::pair<std::uint64_t, std::uint32_t>, const SI_Item &) const;
+    };
+
+    struct [[gnu::packed]] SI_Item
+    {
+        using CompT = SI_ItemCompT;
+        using EqualT = SI_ItemEqualT;
+
+        // the logical page number
+        std::uint64_t m_page_num = 0;
+        // the state number (>0 for valid items)
+        std::uint32_t m_state_num = 0;
+        // the physical / storage page number
+        std::uint64_t m_storage_page_num = 0;
+
+        SI_Item() = default;
+
+        SI_Item(std::uint64_t page_num, std::uint32_t state_num)
+            : m_page_num(page_num)
+            , m_state_num(state_num) 
+        {                
+        }
+        
+        SI_Item(std::uint64_t page_num, std::uint32_t state_num, std::uint64_t storage_page_num)
+            : m_page_num(page_num)
+            , m_state_num(state_num)
+            , m_storage_page_num(storage_page_num)        
+        {                
+        }
+
+        bool operator==(const SI_Item &) const;
+
+        inline operator bool() const {
+            return m_state_num;
+        }
+    };
+    
+    struct SI_CompressedItemCompT
+    {
+        bool operator()(const SI_CompressedItem &, const SI_CompressedItem &) const;
+    };
+
+    struct SI_CompressedItemEqualT
+    {
+        bool operator()(const SI_CompressedItem &, const SI_CompressedItem &) const;
+    };
+
+    // Compressed items are actual in-memory representation
+    struct [[gnu::packed]] SI_CompressedItem
+    {
+        using CompT = SI_CompressedItemCompT;
+        using EqualT = SI_CompressedItemEqualT;
+
+        // construct SI-compressed item relative to the specific page number - i.e. first_page_num
+        SI_CompressedItem(std::uint32_t first_page_num, const SI_Item &);
+        // construct SI-compressed item for comparison purposes (incomplete)
+        SI_CompressedItem(std::uint32_t first_page_num, std::uint64_t page_num, std::uint32_t state_num);
+
+        // high bits include (in this order)
+        // 1. relative logical page number (24 bits)
+        // 2. state number (32 bits)
+        // 3. physical page number (8 highest bits)
+        std::uint64_t m_high_bits;
+        // low bits = physical page number (lower 32 bits)
+        std::uint32_t m_low_bits;
+
+        inline std::uint64_t getCompressedPageNum() const {
+            return m_high_bits >> 40;
+        }
+
+        inline std::uint32_t getStateNum() const {
+            return (m_high_bits >> 8) & 0xFFFFFFFF;
+        }
+
+        // get page_num + state_num for comparisons
+        inline std::uint64_t getKey() const {
+            return m_high_bits >> 8;
+        }
+        
+        // retrieve physical (storage) page number
+        std::uint64_t getStoragePageNum() const;
+        
+        // uncompress relative to a specific page number
+        SI_Item uncompress(std::uint32_t first_page_num) const;
+
+        inline std::uint64_t getPageNum(std::uint32_t first_page_num) const {
+            return this->getCompressedPageNum() | (static_cast<std::uint64_t>(first_page_num) << 24);
+        }
+
+        std::string toString() const;
+    };
+
+    using SparseIndex = SparseIndexBase<SI_Item, SI_CompressedItem>;
 
 }

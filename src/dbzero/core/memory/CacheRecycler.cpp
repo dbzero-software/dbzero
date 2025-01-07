@@ -7,12 +7,12 @@ namespace db0
 
 {
     
-    CacheRecycler::CacheRecycler(std::size_t size, const std::atomic<std::size_t> &dirty_meter,
+    CacheRecycler::CacheRecycler(std::size_t capacity, const std::atomic<std::size_t> &dirty_meter,
         std::optional<std::size_t> flush_size,
         std::function<void(std::size_t limit)> flush_dirty,
         std::function<bool(bool threshold_reached)> flush_callback)
-        : m_res_buf((size > 0)?((size - 1) / MIN_PAGE_SIZE + 1):0)
-        , m_capacity(size)
+        : m_res_buf((capacity > 0)?((capacity - 1) / MIN_PAGE_SIZE + 1):0)
+        , m_capacity(capacity)
         , m_dirty_meter(dirty_meter)
         // assign default flush size
         , m_flush_size(flush_size.value_or(DEFAULT_FLUSH_SIZE))
@@ -39,7 +39,7 @@ namespace db0
             // only release locks with no active external references (other than the CacheRecycler itself)
             // NOTE: dirty locks are relased by m_flush_dirty callback
             if ((*it).use_count() == 1 && !(*it)->isDirty()) {
-                released_size += (*it)->size();
+                released_size += (*it)->usedMem();
                 it = m_res_buf.erase(it);
             } else {
                 ++it;
@@ -83,7 +83,7 @@ namespace db0
                 m_res_buf.splice(m_res_buf.end(), res_lock->m_recycle_it);
 			} else if (res_lock->isCached()) {
                 // add new resource (if to be cached)
-                auto lock_size = res_lock->size();
+                auto lock_size = res_lock->usedMem();
                 if (lock_size > m_capacity) {
                     // Cache size is too small to keep this resource
                     // (or is uninitialized)
@@ -126,13 +126,14 @@ namespace db0
         // try releasing all locks
         updateSize(lock, 0);
 	}
-
+    
     void CacheRecycler::resize(std::size_t new_size)
     {        
         std::unique_lock<std::mutex> lock(m_mutex);
         if (new_size == m_capacity) {
             return;
         }
+        
         m_capacity = new_size;
         // try releasing excess locks
         updateSize(lock, m_capacity);

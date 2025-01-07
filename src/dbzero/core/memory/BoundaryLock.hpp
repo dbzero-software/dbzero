@@ -22,6 +22,11 @@ namespace db0
         
         virtual ~BoundaryLock();
         
+        // flush the boundary writes only (without flushing parent locks)
+        void flushBoundary();
+
+        bool tryFlush(FlushMethod) override;
+
         void flush() override;
 
         // rebase parent locks if needed
@@ -36,9 +41,8 @@ namespace db0
         const std::size_t m_lhs_size;
         std::shared_ptr<DP_Lock> m_rhs;
         const std::size_t m_rhs_size;
-        
-        // internal flush, without flushing parents
-        void _flush();
+
+        bool _tryFlush(FlushMethod);
     };
             
 }

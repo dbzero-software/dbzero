@@ -26,7 +26,7 @@ namespace db0
         o_sgb_compressed_lookup_tree_node<ItemT, KeyItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 
         o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 0, false>
     {
-    protected: 
+    protected:
         using ext_t = o_ext<
             o_sgb_compressed_lookup_tree_node<ItemT, KeyItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 
             o_sgb_lookup_tree_node<ItemT, CapacityT, AddressT, ItemCompT, ItemEqualT, HeaderT, D>, 0, false>;
@@ -266,6 +266,21 @@ namespace db0
         std::size_t size() const {
             return super_t::size();
         }
+        
+        template <typename KeyT> ConstItemIterator findLower(const KeyT &key) const
+        {
+            auto node = base_t::lower_equal_bound(key);
+            if (node == base_t::end()) {
+                return { nullptr, sg_tree_const_iterator() };
+            }
+
+            // node will be sorted if needed (only if in READ/WRITE mode)
+            if (this->m_access_type == AccessType::READ_WRITE) {
+                this->onNodeLookup(node);
+            }
+            // within the node look up by compressed key
+            return { node->lower_equal_bound(node->header().compress(key), this->m_heap_comp), node };
+        }
 
         /**
          * Note that return type is different from the base class
@@ -289,6 +304,57 @@ namespace db0
             
             // return uncompressed
             return node->header().uncompress(*item_ptr);
+        }
+
+        // Locate first element which is greater or equal to the key
+        template <typename KeyT> std::optional<ItemT> upper_equal_bound(const KeyT &key) const
+        {
+            if (base_t::empty()) {
+                return std::nullopt;
+            }
+
+            auto node = base_t::lower_equal_bound(key);
+            if (node == base_t::end()) {
+                // take the last node
+                --node;                
+            }
+            
+            // node will be sorted if needed (only if opened as READ/WRITE)
+            if (this->m_access_type == AccessType::READ_WRITE) {
+                this->onNodeLookup(node);
+            }
+            // within the node look up by compressed key
+            auto item_ptr = node->upper_equal_bound(node->header().compress(key), this->m_heap_comp);
+            if (!item_ptr) {
+                // check within the next node
+                ++node;
+                if (node == base_t::end()) {
+                    return std::nullopt;
+                }
+                item_ptr = node->upper_equal_bound(node->header().compress(key), this->m_heap_comp);
+                if (!item_ptr) {
+                    return std::nullopt;
+                }                
+            }
+            
+            // return uncompressed
+            return node->header().uncompress(*item_ptr);
+        }
+        
+        template <typename KeyT>
+        const CompressedItemT *lower_equal_bound(const KeyT &key, sg_tree_const_iterator &node) const
+        {
+            node = base_t::lower_equal_bound(key);
+            if (node == base_t::end()) {
+                return nullptr;
+            }
+            
+            // node will be sorted if needed (only if opened as READ/WRITE)
+            if (this->m_access_type == AccessType::READ_WRITE) {
+                this->onNodeLookup(node);
+            }
+            // within the node look up by compressed key
+            return node->lower_equal_bound(node->header().compress(key), this->m_heap_comp);
         }
 
         const TreeHeaderT &treeHeader() const {

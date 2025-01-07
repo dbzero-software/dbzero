@@ -4,8 +4,10 @@
 #include <dbzero/object_model/enum/Enum.hpp>
 #include <dbzero/object_model/enum/EnumValue.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
+#include <dbzero/object_model/bytes/ByteArray.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
+#include <dbzero/object_model/bytes/ByteArray.hpp>
 
 namespace db0::object_model
 
@@ -250,7 +252,16 @@ namespace db0::object_model
         return obj_ptr == Py_True ? 1 : 0;
     }
     
-
+    // DB0_BYTES_ARRAY specialization
+    template <> Value createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr)
+    {
+        auto &byte_array = PyToolkit::getTypeManager().extractMutableByteArray(obj_ptr);
+        assureSameFixture(fixture, byte_array);
+        byte_array.modify().incRef();
+        return byte_array.getAddress();
+    }
+    
     template <> void registerCreateMemberFunctions<PyToolkit>(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr)> &functions)
     {
@@ -281,6 +292,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = createMember<TypeId::OBJECT_ITERABLE, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
         functions[static_cast<int>(TypeId::BOOLEAN)] = createMember<TypeId::BOOLEAN, PyToolkit>;
+        functions[static_cast<int>(TypeId::DB0_BYTES_ARRAY)] = createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>;
     }
     
     // STRING_REF specialization
@@ -414,7 +426,7 @@ namespace db0::object_model
     {
         return PyToolkit::unloadTuple(fixture, value.cast<std::uint64_t>());
     }
-    
+
     // DB0_SERIALIZED specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
@@ -449,6 +461,13 @@ namespace db0::object_model
          return value.cast<std::uint64_t>() ? Py_True : Py_False;
     }   
 
+    // DB0_BYTES_ARRAY specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        return PyToolkit::unloadByteArray(fixture, value.cast<std::uint64_t>());
+    }
+    
     template <> void registerUnloadMemberFunctions<PyToolkit>(
         std::vector<typename PyToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *)> &functions)
     {
@@ -475,6 +494,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
         functions[static_cast<int>(StorageClass::BOOLEAN)] = unloadMember<StorageClass::BOOLEAN, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_BYTES_ARRAY)] = unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>;
     }
 
     template <typename T, typename LangToolkit>
@@ -541,7 +561,13 @@ namespace db0::object_model
     {
         throw std::runtime_error("Not implemented");
     }
-    
+
+    template <> void unrefMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value)
+    {
+        unrefObjectBase<ByteArray, PyToolkit>(fixture, value.cast<std::uint64_t>());
+    }
+
     template <> void registerUnrefMemberFunctions<PyToolkit>(
         std::vector<void (*)(db0::swine_ptr<Fixture> &, Value)> &functions)
     {
@@ -554,7 +580,8 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_SET)] = unrefMember<StorageClass::DB0_SET, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_DICT)] = unrefMember<StorageClass::DB0_DICT, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_TUPLE)] = unrefMember<StorageClass::DB0_TUPLE, PyToolkit>;
-        // FIXME: uncomment and refactor when handling of BYTES if fixed (same storage)
+        functions[static_cast<int>(StorageClass::DB0_BYTES_ARRAY)] = unrefMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>;
+        // FIXME: uncomment and refactor when handling of BYTES is fixed (same storage)
         // functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unrefMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
     }
     

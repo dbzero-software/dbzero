@@ -21,7 +21,7 @@ namespace db0
 	protected:
 		using self = o_base_string<StrT, is_nullable>;
 		using super_t = o_base<o_base_string<StrT, is_nullable>, 0, false >;
-        using SizeType = db0::packed_int<std::uint32_t, is_nullable>;
+        using SizeType = db0::o_packed_int<std::uint32_t, is_nullable>;
         friend super_t;
 
         // new empty string (or null if nullable)

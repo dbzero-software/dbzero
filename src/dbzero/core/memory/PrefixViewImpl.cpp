@@ -9,7 +9,7 @@ namespace db0
         : Prefix(name)
         , m_storage(storage)
         , m_storage_ptr(storage.get())
-        , m_head_cache(head_cache)
+        , m_head_cache(head_cache)        
         , m_cache(*m_storage_ptr, head_cache.getCacheRecycler())
         , m_state_num(state_num)
         , m_page_size(m_head_cache.getPageSize())
@@ -27,6 +27,8 @@ namespace db0
         auto end_page = ((address + size - 1) >> m_shift) + 1;
         
         std::shared_ptr<ResourceLock> lock;
+        // use no_cow flag since PrevixView is read-only
+        access_mode.set(AccessOptions::no_cow, true);
         if (end_page == first_page + 1) {
             lock = mapPage(first_page);
         } else {
@@ -49,7 +51,7 @@ namespace db0
     std::size_t PrefixViewImpl::getPageSize() const {
         return m_cache.getPageSize();
     }
-
+    
     AccessType PrefixViewImpl::getAccessType() const {
         // read-only access
         return AccessType::READ_ONLY;
@@ -103,7 +105,7 @@ namespace db0
                 m_cache.insert(lock, mutation_id);
             } else {
                 // fetch the range into local cache (as read-only)
-                lock = m_cache.createPage(page_num, mutation_id, 0, { AccessOptions::read });
+                lock = m_cache.createPage(page_num, mutation_id, 0, { AccessOptions::read }, nullptr);
             }
         }
         

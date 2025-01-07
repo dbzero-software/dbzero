@@ -20,9 +20,11 @@ namespace db0
         
         DirtyCache(std::size_t page_size, std::atomic<std::size_t> &dirty_meter);
         DirtyCache(std::size_t page_size, std::atomic<std::size_t> *dirty_meter_ptr = nullptr);
-
+        
         // register resource with the dirty locks
         void append(std::shared_ptr<ResourceLock>);
+        // only flush locks which support a specific flush method
+        void tryFlush(FlushMethod);
         void flush();
         
         // try flushing up to 'size' bytes
@@ -38,6 +40,8 @@ namespace db0
 
         // NOTE: size only works for a metered cache (i.e. initialized with the dirty_meter)
         std::size_t size() const;
+        
+        void forAll(std::function<void(const ResourceLock &)>) const;
 
     private:
         std::atomic<std::size_t> *m_dirty_meter_ptr = nullptr;

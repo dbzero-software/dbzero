@@ -10,6 +10,7 @@ namespace db0
         : Prefix(name)
         , m_storage(storage)
         , m_storage_ptr(m_storage.get())
+        , m_access_type(m_storage_ptr->getAccessType())
         , m_page_size(m_storage_ptr->getPageSize())
         , m_shift(getPageShift(m_page_size))
         , m_head_state_num(m_storage_ptr->getMaxStateNum())
@@ -59,6 +60,10 @@ namespace db0
         auto end_page = ((address + size - 1) >> m_shift) + 1;
         
         std::shared_ptr<ResourceLock> lock;
+        // use no_cow flag for read-only access
+        if (m_access_type == AccessType::READ_ONLY) {
+            access_mode.set(AccessOptions::no_cow, true);
+        }
         if (end_page == first_page + 1) {
             // adjust access mode since the requested range may not be well aligned
             adjustAccessMode(access_mode, address, size);
@@ -112,8 +117,7 @@ namespace db0
                 }
                 // ... and finally the BoundaryLock on top of the existing lhs / rhs locks
                 lock = m_cache.insertCopy(address, size, *lock, lhs, rhs, state_num, access_mode);
-            }
-            lock->setDirty();
+            }            
         }
         
         return lock;
@@ -129,10 +133,17 @@ namespace db0
             assert(getAccessType() == AccessType::READ_WRITE);
             // create/write-only access
             if (!lock || read_state_num != state_num) {
-                // we don't need reading thus passing read_state_num = 0
-                lock = m_cache.createPage(page_num, 0, state_num, access_mode);
+                if (!lock && m_access_type == AccessType::READ_WRITE) {
+                    // try identifying the last available mutation (may not exist yet)
+                    std::uint64_t mutation_id = 0;
+                    m_storage_ptr->tryFindMutation(page_num, state_num, mutation_id);
+                    if (!mutation_id) {
+                        // create / write page
+                        access_mode.set(AccessOptions::create, true);
+                    }
+                }
+                lock = m_cache.createPage(page_num, 0, state_num, access_mode, lock);
             }
-            lock->setDirty();
             assert(lock);
         } else if (!access_mode[AccessOptions::write]) {
             // read-only access
@@ -155,7 +166,7 @@ namespace db0
             if (lock) {
                 if (read_state_num != state_num) {
                     // create a new lock as a copy of existing read_lock (CoW)
-                    lock = m_cache.insertCopy(*lock, state_num, access_mode);
+                    lock = m_cache.insertCopy(lock, state_num, access_mode);
                 }
             } else {
                 // try identifying the last available mutation (may not exist yet)
@@ -168,10 +179,10 @@ namespace db0
                 } else {
                     // create / write page
                     access_mode.set(AccessOptions::read, false);
-                    lock = m_cache.createPage(page_num, 0, state_num, access_mode);
+                    // use AccessOptions::create to indicate a newly created page
+                    lock = m_cache.createPage(page_num, 0, state_num, access_mode | AccessOptions::create);
                 }
             }
-            lock->setDirty();
         }
         
         assert(lock);
@@ -205,10 +216,10 @@ namespace db0
                     // read or create the residual DP
                     res_lock = mapPage(end_page - 1, state_num, access_mode | AccessOptions::read);
                 }
-                lock = m_cache.createRange(first_page, size, 0, state_num, access_mode, res_lock);
-            }            
+                // passing previous lock's version for CoW
+                lock = m_cache.createRange(first_page, size, 0, state_num, access_mode, res_lock, lock);
+            }
             assert(lock);
-            lock->setDirty();
         } else if (!access_mode[AccessOptions::write]) {
             // read-only access
             if (!lock) {
@@ -238,8 +249,8 @@ namespace db0
                     std::shared_ptr<DP_Lock> res_lock;
                     if (has_res) {
                         res_lock = mapPage(end_page - 1, state_num, access_mode | AccessOptions::read);
-                    }                    
-                    lock = m_cache.insertWideCopy(*lock, state_num, access_mode, res_lock);                    
+                    }
+                    lock = m_cache.insertWideCopy(lock, state_num, access_mode, res_lock);
                 }
             } else {
                 // identify the last available mutation (must exist for reading)
@@ -252,10 +263,12 @@ namespace db0
                 
                 // unable to read if mutation does not exist
                 assert(mutation_id > 0 || !access_mode[AccessOptions::read]);
+                if (!mutation_id) {
+                    access_mode.set(AccessOptions::create, true);
+                }
                 // we pass both read & write state numbers here
                 lock = m_cache.createRange(first_page, size, mutation_id, state_num, access_mode, res_dp);
             }
-            lock->setDirty();
         }
 
         assert(lock);
@@ -272,7 +285,7 @@ namespace db0
         if (parent_timer) {
             timer = std::make_unique<ProcessTimer>("Prefix::commit", parent_timer);
         }
-        m_cache.flush(timer.get());
+        m_cache.commit(timer.get());
         if (m_storage_ptr->flush(timer.get())) {
             // increment state number only if there were any changes
             ++m_head_state_num;
@@ -285,7 +298,7 @@ namespace db0
         m_cache.release();
         m_storage_ptr->close();
     }
-
+    
     PrefixCache &PrefixImpl::getCache() const {
         return m_cache;
     }
@@ -401,6 +414,14 @@ namespace db0
     
     std::size_t PrefixImpl::flushDirty(std::size_t limit) {
         return m_cache.flushDirty(limit);
+    }
+    
+    void PrefixImpl::getStats(std::function<void(const std::string &name, std::uint64_t value)> callback) const
+    {   
+        auto cow_stats = m_cache.getCoWStats();
+        callback("dirty_cache_bytes", m_cache.getDirtySize());        
+        callback("dirty_dp_total", cow_stats.first);
+        callback("dirty_dp_cow", cow_stats.second);
     }
 
 }

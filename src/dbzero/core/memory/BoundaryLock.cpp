@@ -35,17 +35,17 @@ namespace db0
         , m_rhs(rhs)
         , m_rhs_size(rhs_size)
     {
-        // copy existing data
-        std::memcpy(m_data.data(), lock.m_data.data(), lock.m_data.size());
+        // copy existing data (only data, mu-store not copied)
+        std::memcpy(m_data.data(), lock.m_data.data(), lock.size());
     }
     
     BoundaryLock::~BoundaryLock()
-    {
+    {        
         // internal BoundaryLock flush can be performed on destruction since it's a non-IO operation
-        this->_flush();
+        this->flushBoundary();
     }
     
-    void BoundaryLock::_flush()
+    void BoundaryLock::flushBoundary()
     {        
         // note that boundary locks are flushed even with no_flush flag
         using MutexT = ResourceDirtyMutexT;
@@ -64,15 +64,28 @@ namespace db0
             }
         }
     }
-    
-    void BoundaryLock::flush()
+
+    bool BoundaryLock::_tryFlush(FlushMethod flush_method)
     {
-        _flush();
-        // flush both parent locks
-        m_lhs->flush();
-        m_rhs->flush();
+        if (flush_method == FlushMethod::diff) {
+            // diff-flush not supported for BoundaryLock
+            return false;
+        }
+        flushBoundary();
+        // try flushing both parent locks
+        bool result = m_lhs->tryFlush(flush_method);
+        result &= m_rhs->tryFlush(flush_method);
+        return result;
+    }
+    
+    bool BoundaryLock::tryFlush(FlushMethod flush_method) {
+        return _tryFlush(flush_method);
     }
 
+    void BoundaryLock::flush() {
+        _tryFlush(FlushMethod::full);
+    }
+    
     void __rebase(std::shared_ptr<DP_Lock> &lock,
         const std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > &rebase_map) 
     {

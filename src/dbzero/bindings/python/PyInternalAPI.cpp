@@ -472,6 +472,7 @@ namespace db0::python
         
         PyDict_SetItemString(stats_dict, "name", PyUnicode_FromString(fixture->getPrefix().getName().c_str()));
         PyDict_SetItemString(stats_dict, "uuid", PyLong_FromLong(fixture->getUUID()));
+        PyDict_SetItemString(stats_dict, "dp_size", PyLong_FromLong(fixture->getPrefix().getPageSize()));
         auto gc0_dict = PyDict_New();
         if (!gc0_dict) {
             THROWF(db0::MemoryException) << "Out of memory";
@@ -484,6 +485,14 @@ namespace db0::python
         }
         PyDict_SetItemString(sp_dict, "size", PyLong_FromLong(fixture->getLimitedStringPool().size()));
         PyDict_SetItemString(stats_dict, "string_pool", sp_dict);
+        auto cache_dict = PyDict_New();
+        if (!cache_dict) {
+            THROWF(db0::MemoryException) << "Out of memory";
+        }
+        fixture->getPrefix().getStats([&](const std::string &name, std::uint64_t value) {
+            PyDict_SetItemString(cache_dict, name.c_str(), PyLong_FromUnsignedLongLong(value));
+        });
+        PyDict_SetItemString(stats_dict, "cache", cache_dict);
         return stats_dict;
     }
     
@@ -508,7 +517,7 @@ namespace db0::python
         return stats_dict;
     }
     
-#ifndef NDEBUG    
+#ifndef NDEBUG
     PyObject *formatDRAM_IOMap(const std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t> > &dram_io_map)
     {        
         PyObject *py_dict = PyDict_New();

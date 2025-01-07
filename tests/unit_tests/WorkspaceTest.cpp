@@ -166,12 +166,11 @@ namespace tests
             (*memspace).commit();
             m_workspace.close(prefix_name);
         }
-
+        
         // state_num + expected value
         std::vector<std::pair<std::uint64_t, int> > state_log;
         // perform 10 object modifications in 10 transactions
-        for (int i = 0; i < 10; ++i)
-        {
+        for (int i = 0; i < 10; ++i) {
             auto memspace = m_workspace.getFixture(prefix_name);
             v_object<o_simple<int>> obj((*memspace).myPtr(address));
             obj.modify() = i + 1;
@@ -181,8 +180,7 @@ namespace tests
         }
         
         // now go back to specific transactions and validate object state
-        for (auto &log: state_log)
-        {
+        for (auto &log: state_log) {
             auto memspace = m_workspace.getFixture(prefix_name, AccessType::READ_ONLY)->getSnapshot(m_workspace, log.first);
             v_object<o_simple<int>> obj((*memspace).myPtr(address));
             ASSERT_EQ(obj->value(), log.second);
@@ -205,8 +203,7 @@ namespace tests
         // state_num + values
         std::vector<std::pair<std::uint64_t, std::pair<int, int> > > state_log;
         // perform 10 object modifications in 10 transactions
-        for (int i = 0; i < 10; ++i)
-        {
+        for (int i = 0; i < 10; ++i) {
             auto memspace = m_workspace.getFixture(prefix_name);
             v_object<o_TT> obj((*memspace).myPtr(address));
             // either modify a or b
@@ -224,8 +221,7 @@ namespace tests
         
         // now, go back to specific transactions and validate object state
         // note that read-only mode is used to access transactions
-        for (auto &log: state_log)
-        {
+        for (auto &log: state_log) {
             auto memspace = m_workspace.getFixture(prefix_name, AccessType::READ_ONLY)->getSnapshot(m_workspace, log.first);
             v_object<o_TT> obj((*memspace).myPtr(address));
             ASSERT_EQ(obj->a, log.second.first);

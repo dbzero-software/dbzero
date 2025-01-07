@@ -76,7 +76,7 @@ namespace db0
         const_iterator cbegin() const
         {
             if (!is_reversed()) {
-                return super_t::cbegin();                
+                return super_t::cbegin();
             }
             // reversed begin
             return super_t::cbegin() + this->maxItems() - 1;
@@ -199,6 +199,34 @@ namespace db0
             return result;
         }
         
+        template <typename KeyT> const_iterator upper_equal_bound(const KeyT &key, const HeapCompT &comp) const
+        {
+            const_iterator result = nullptr;
+            if (is_sorted()) {
+                // if sorted, use binary search
+                const_iterator it, end_ = this->cend();
+                if (is_reversed()) {
+                    it = bisect::rupper_equal(this->cbegin(), end_, key, comp.itemComp);
+                } else {
+                    it = bisect::upper_equal(this->cbegin(), end_, key, comp.itemComp);
+                }
+                if (it != end_) {
+                    result = it;
+                }
+            } else {
+                // must scan all items otherwise
+                auto step_ = this->step();
+                for (auto it = this->cbegin(); it != this->cend(); it += step_) {
+                    if (!comp(key, *it)) {
+                        if (!result || comp(*result, *it)) {
+                            result = it;
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
         void flipSort(const HeapCompT &comp) 
         {
             if (is_sorted()) {
@@ -275,7 +303,7 @@ namespace db0
         bool erase_existing(unsigned int at, const HeapCompT &comp) {
             return this->erase_existing(this->itemAt(at), comp);
         }
-
+        
     private:
 
         /**

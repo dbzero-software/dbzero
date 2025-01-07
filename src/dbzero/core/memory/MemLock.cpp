@@ -12,11 +12,7 @@ namespace db0
     {
         assert(m_buffer);
     }
-    
-    void *MemLock::modify(std::size_t offset, std::size_t size) {
-        THROWF(db0::InternalException) << "not implemented" << THROWF_END;
-    }
-
+        
     void *MemLock::modify()
     {
         m_lock->setDirty();

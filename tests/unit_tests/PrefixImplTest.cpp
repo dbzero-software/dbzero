@@ -409,6 +409,52 @@ namespace tests
         
         cut.close();
     }
+    
+    TEST_F( PrefixImplTest , testCommitAtomicWideUpdate )
+    {
+        BDevStorage::create(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, std::make_shared<BDevStorage>(file_name));
+        auto page_size = cut.getPageSize();
+        ASSERT_EQ(cut.getStateNum(), 1);
+        
+        // write wide range with residual part in state = 1
+        {
+            auto w1 = cut.mapRange(page_size, page_size + 8, { AccessOptions::write });
+            memcpy((char*)w1.modify() + page_size, "12345678", 8);
+            // write the residual part
+            auto w2 = cut.mapRange(page_size * 2 + 8, 8, { AccessOptions::write });
+            memcpy(w2.modify(), "AAAAAAAA", 8);
+            w1.release();
+            w2.release();
+        }
+        
+        // update wide lock as atomic
+        cut.beginAtomic();
+        {
+            auto w1 = cut.mapRange(page_size, page_size + 8, { AccessOptions::read, AccessOptions::write });
+            memcpy((char*)w1.modify() + page_size, "ABCDABCD", 8);
+            // update the residual part
+            auto w2 = cut.mapRange(page_size * 2 + 8, 8, { AccessOptions::read, AccessOptions::write });
+            memcpy(w2.modify(), "BBBBBBBB", 8);
+            w1.release();
+            w2.release();
+        }
+        
+        cut.endAtomic();
+        cut.commit();
+        
+        // validate merge result
+        {
+            auto lock = cut.mapRange(page_size, page_size + 8, { AccessOptions::read });
+            auto str_value = std::string((char *)lock.m_buffer + page_size, 8);
+            ASSERT_EQ(str_value, "ABCDABCD");
+            lock = cut.mapRange(page_size * 2 + 8, 8, { AccessOptions::read });
+            str_value = std::string((char *)lock.m_buffer, 8);
+            ASSERT_EQ(str_value, "BBBBBBBB");
+        }
+        
+        cut.close();
+    }
 
     TEST_F( PrefixImplTest , testMergingAtomicAndNonAtomicUpdates )
     {
@@ -565,6 +611,7 @@ namespace tests
         auto page_size = cut.getPageSize();
         
         auto w1 = cut.mapRange(0, page_size * 2, { AccessOptions::write });
+        w1.modify();
         w1.release();
         cut.commit();
         
@@ -573,11 +620,102 @@ namespace tests
         memcpy(w2.modify(), "12345678abcdefgh", 16);
         w2.release();
         cut.commit();
-
+        
         auto r1 = cut.mapRange(0, page_size * 3, { AccessOptions::read, AccessOptions::write });
         auto str_value = std::string((char *)r1.m_buffer, 16);
         ASSERT_EQ(str_value, "12345678abcdefgh");
         cut.close();
     }
+    
+    TEST_F( PrefixImplTest , testDiffWriterUseAfterMultipleTransactions )
+    {
+        // The purpose of this test is to check how the diff mechanism is used
+        // in a series of modifiactions of a single page across multiple transactions.
+        BDevStorage::create(file_name);
+        auto storage = std::make_shared<BDevStorage>(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, storage);
 
+        for (unsigned int i = 0; i < 10; ++i) {
+            auto w1 = cut.mapRange(16, 32, { AccessOptions::write });
+            auto buf = w1.modify();
+            std::memset(buf, i + 1, 32);
+            w1.release();
+            cut.commit();
+        }
+        
+        auto stats = storage->getDiff_IOStats();
+        cut.close();
+        // make sure most writes are diff writes
+        ASSERT_TRUE((double)stats.second / (double)stats.first > 0.75);        
+    }
+
+    TEST_F( PrefixImplTest , testVolatileLockCoWDataHandling )
+    {
+        // we check if the CoW data is handled correctly by the volatile locks
+        BDevStorage::create(file_name);
+        auto storage = std::make_shared<BDevStorage>(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, storage);
+
+        // 1. Create a regular DP lock and modify it
+        {
+            auto w1 = cut.mapRange(16, 16, { AccessOptions::write });        
+            std::memset(w1.modify(), 1, 16);        
+        }
+        // 2. Update the range using "atomic" operation
+        {
+            cut.beginAtomic();
+            auto w2 = cut.mapRange(18, 18, { AccessOptions::read, AccessOptions::write });
+            std::memset(w2.modify(), 2, 18);
+            w2.release();
+            cut.endAtomic();
+        }
+        auto r1 = cut.mapRange(16, 16, { AccessOptions::read });
+        ASSERT_TRUE(r1.m_lock->isDirty());
+        // make sure the CoW's diff is evaluated correctly
+        std::vector<std::uint16_t> diffs;
+        ASSERT_TRUE(r1.m_lock->getDiffs(diffs));
+        // NOTE: the 2 leading 0, 0 elements mean the zero-based DP
+        ASSERT_EQ(diffs, (std::vector<std::uint16_t> { 0, 0, 0, 16, 20 }));
+        cut.close();
+    }
+    
+    TEST_F( PrefixImplTest , testReusedVolatileLockCoWDataHandling )
+    {
+        // we check if the CoW data is handled correctly by the volatile locks
+        BDevStorage::create(file_name);
+        auto storage = std::make_shared<BDevStorage>(file_name);
+        PrefixImpl cut(file_name, m_dirty_meter, &m_cache_recycler, storage);
+
+        // 1. Create a regular DP lock and modify it
+        {
+            auto w1 = cut.mapRange(16, 16, { AccessOptions::write });        
+            std::memset(w1.modify(), 1, 16);        
+        }
+    
+        // Clear cache to force reuse of atomic lock
+        cut.flushDirty(std::numeric_limits<std::size_t>::max());        
+        m_cache_recycler.clear();
+        
+        // 2. Update the range using "atomic" operation
+        {
+            cut.beginAtomic();
+            auto w2 = cut.mapRange(18, 18, { AccessOptions::read, AccessOptions::write });
+            std::memset(w2.modify(), 2, 18);
+            w2.release();            
+        }
+        
+        cut.flushDirty(std::numeric_limits<std::size_t>::max());
+        m_cache_recycler.clear();
+        cut.endAtomic();
+
+        auto r1 = cut.mapRange(16, 16, { AccessOptions::read });
+        ASSERT_TRUE(r1.m_lock->isDirty());        
+        // make sure the CoW's diff is evaluated correctly (i.e. either no diff or correct diff)
+        std::vector<std::uint16_t> diffs;
+        if (r1.m_lock->getDiffs(diffs)) {
+            ASSERT_EQ(diffs, (std::vector<std::uint16_t> { 0, 0, 0, 16, 20 }));
+        }
+        cut.close();
+    }
+    
 }

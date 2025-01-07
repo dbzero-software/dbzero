@@ -9,9 +9,10 @@ namespace db0
 {
     
     DP_Lock::DP_Lock(StorageContext context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num)
-        : ResourceLock(context, address, size, access_mode)
-        , m_state_num(std::max(read_state_num, write_state_num))        
+        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num,
+        std::shared_ptr<ResourceLock> cow_lock)
+        : ResourceLock(context, address, size, access_mode, cow_lock)
+        , m_state_num(std::max(read_state_num, write_state_num))
     {
         assert(addrPageAligned(m_context.m_storage_ref.get()));
         // initialzie the local buffer
@@ -19,56 +20,97 @@ namespace db0
             assert(read_state_num > 0);
             // read into the local buffer
             m_context.m_storage_ref.get().read(
-                m_address, read_state_num, m_data.size(), m_data.data(), access_mode
+                m_address, read_state_num, this->size(), m_data.data(), access_mode
             );
+            // prepare the CoW data buffer (for a mutable lock)            
+            if (!access_mode[AccessOptions::no_cow] && !access_mode[AccessOptions::create] && !m_cow_lock) {
+                m_cow_data.resize(m_data.size());
+                std::memcpy(m_cow_data.data(), m_data.data(), m_data.size());
+            }
         }
     }
-
+    
     DP_Lock::DP_Lock(tag_derived, StorageContext context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num)
-        : ResourceLock(context, address, size, access_mode)
+        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num, 
+        std::shared_ptr<ResourceLock> cow_lock)
+        : ResourceLock(context, address, size, access_mode, cow_lock)
         , m_state_num(std::max(read_state_num, write_state_num))
     {
     }
     
-    DP_Lock::DP_Lock(const DP_Lock &other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
+    DP_Lock::DP_Lock(std::shared_ptr<DP_Lock> other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
         : ResourceLock(other, access_mode)
         , m_state_num(write_state_num)
     {
         assert(addrPageAligned(m_context.m_storage_ref.get()));
         assert(m_state_num > 0);
     }
-
-    void DP_Lock::flush()
+    
+    bool DP_Lock::_tryFlush(FlushMethod flush_method)
     {
         // no-flush flag is important for volatile locks (atomic operations)
         if (m_access_mode[AccessOptions::no_flush]) {
-            return;
+            return true;
         }
-
+        
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
-                // write from the local buffer
-                m_context.m_storage_ref.get().write(m_address, m_state_num, m_data.size(), m_data.data());
+                // write from the local buffer (either as a full-DP or diff-DP)
+                auto &storage = m_context.m_storage_ref.get();
+                if (flush_method == FlushMethod::full) {
+                    storage.write(m_address, m_state_num, this->size(), m_data.data());
+                } else {
+                    assert(flush_method == FlushMethod::diff);
+                    auto cow_ptr = getCowPtr();
+                    if (!cow_ptr) {
+                        // unable to diff-flush
+                        return false;
+                    }
+                    std::vector<std::uint16_t> diffs;
+                    if (!this->getDiffs(cow_ptr, diffs)) {
+                        // unable to diff-flush
+                        return false;
+                    }
+                    // NOTE: DP needs not to be flushed if there are no diffs            
+                    if (!diffs.empty()) {
+                        storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
+                    }
+                }
+                // invalidate the CoW data if it exists
+                clearCoWData();
                 // reset the dirty flag
                 lock.commit_reset();
             }
         }
+        return true;
     }
-
+    
+    bool DP_Lock::tryFlush(FlushMethod flush_method) {
+        return _tryFlush(flush_method);
+    }
+    
+    void DP_Lock::flush() {
+        _tryFlush(FlushMethod::full);
+    }
+    
     std::uint64_t DP_Lock::getStateNum() const {
         return m_state_num;
     }
-
+    
     void DP_Lock::updateStateNum(std::uint64_t state_num, bool no_flush)
     {
+        assert(!m_cow_lock);
         assert(state_num > m_state_num);
-        assert(!isDirty());        
-        m_state_num = state_num;        
+        assert(!isDirty());
+        m_state_num = state_num;
         if (no_flush) {
             m_access_mode.set(AccessOptions::no_flush);
+        } else {
+            // collect the CoW's data buffer, only collected for flushed locks
+            m_cow_data.resize(m_data.size());
+            std::memcpy(m_cow_data.data(), m_data.data(), m_data.size());
         }
         setDirty();
     }

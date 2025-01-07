@@ -22,12 +22,31 @@ namespace db0
         std::unique_lock<std::mutex> lock(m_mutex);
         m_locks.push_back(res_lock);
         if (m_dirty_meter_ptr) {
-            auto lock_size = res_lock->size();
+            auto lock_size = res_lock->usedMem();
             m_size += lock_size;
             *m_dirty_meter_ptr += lock_size;
         }
     }
-
+    
+    void DirtyCache::tryFlush(FlushMethod flush_method)
+    {
+        std::size_t flushed = 0;
+        std::unique_lock<std::mutex> lock(m_mutex);
+        auto it = m_locks.begin();
+        while (it != m_locks.end()) {
+            if ((*it)->tryFlush(flush_method)) {
+                flushed += (*it)->usedMem();
+                it = m_locks.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        if (m_dirty_meter_ptr) {
+            *m_dirty_meter_ptr -= flushed;
+            m_size -= flushed;
+        }        
+    }
+    
     void DirtyCache::flush()
     {        
         std::unique_lock<std::mutex> lock(m_mutex);
@@ -38,7 +57,7 @@ namespace db0
         if (m_dirty_meter_ptr) {
             *m_dirty_meter_ptr -= m_size;
             m_size = 0;
-        }
+        }        
     }
     
     std::size_t DirtyCache::flush(std::size_t limit)
@@ -51,15 +70,18 @@ namespace db0
             // only flush locks with use_count below 2 
             // i.e. - owned by the DirtyCache and possibly by the CacheRecycler
             if ((*it).use_count() <= 2) {
+                // flush using the FlushMethod::full method (default)
                 (*it)->flush();
-                flushed += (*it)->size();
+                flushed += (*it)->usedMem();
                 it = m_locks.erase(it);
             } else {
                 ++it;
             }
-        }        
-        *m_dirty_meter_ptr -= flushed;
-        m_size -= flushed;
+        }
+        if (m_dirty_meter_ptr) {
+            *m_dirty_meter_ptr -= flushed;
+            m_size -= flushed;
+        }
         return flushed;
     }
     
@@ -87,5 +109,13 @@ namespace db0
         assert(m_dirty_meter_ptr);
         return m_size;        
     }
-
+    
+    void DirtyCache::forAll(std::function<void(const ResourceLock &)> f) const
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        for (auto &res_lock : m_locks) {
+            f(*res_lock);
+        }
+    }
+    
 }

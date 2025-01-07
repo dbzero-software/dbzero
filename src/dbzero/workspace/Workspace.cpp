@@ -472,7 +472,7 @@ namespace db0
     bool Workspace::drop(const PrefixName &prefix_name, bool if_exists) {
         return BaseWorkspace::drop(prefix_name, if_exists);
     }
-    
+
     void Workspace::commit(const PrefixName &prefix_name)
     {
         auto fixture = findFixture(prefix_name);

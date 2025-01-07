@@ -40,15 +40,25 @@ namespace db0
          * @param buffer the buffer holding data to be written
         */
         virtual void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) = 0;
-
+        
+        /**
+         * Write diff-data into a specific page
+         * @param diffs interleved values of diff size / identical sequence size (ignored)
+         * @param max_len - the maximum allowed diff-sequence length (when exceeded, the full-DP will be written)
+         * NOTE: diff areas must be evaluated page-wise
+         */
+        virtual void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+            const std::vector<std::uint16_t> &diffs, unsigned int max_len = 32) = 0;
+        
         /**
          * Look up sparse index to find the state number at which the given range was mutated
          * with respect to the given state number. This functionality is required for caching.
          * 
          * Exception will be raised if read access requested and some of the pages in the range does not exist
+         * @return mutation state number
         */
         virtual std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const = 0;
-
+        
         /**
          * Try finding mutation
          * @return true if found and mutation_id was set
@@ -96,6 +106,11 @@ namespace db0
         std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {});
         
         virtual std::uint64_t getLastUpdated() const;
+        
+        // beginCommit / endCommit should be called to indicate the start and end of 
+        // transaction data flushing. This might be relevant e.g. to determine if diff-writes should be allowed
+        virtual void beginCommit();
+        virtual void endCommit();
         
 #ifndef NDEBUG
         // state number, file offset

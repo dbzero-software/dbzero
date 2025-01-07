@@ -31,7 +31,7 @@ namespace db0
     {
     public:
         /**
-         * @param storage prefix related storage reference
+         * @param storage prefix related storage reference         
         */
         PrefixCache(BaseStorage &, CacheRecycler *, std::atomic<std::size_t> *dirty_meter_ptr = nullptr);
         
@@ -63,9 +63,10 @@ namespace db0
         /**
          * Create a new page associated resource lock
          * may be a new DP or existing with the storage but not available in cache         
+         * @param cow_lock optional copy-on-write lock (previous version)
         */
         std::shared_ptr<DP_Lock> createPage(std::uint64_t page_num, std::uint64_t read_state_num,
-            std::uint64_t state_num, FlagSet<AccessOptions>);
+            std::uint64_t state_num, FlagSet<AccessOptions>, std::shared_ptr<ResourceLock> cow_lock = nullptr);
         
         /**
          * Create a new wide range associated resource lock
@@ -73,15 +74,16 @@ namespace db0
          * @param res_dp the residual lock (may be nullptr if the wide size lock is page aligned)
          */
         std::shared_ptr<WideLock> createRange(std::uint64_t page_num, std::size_t size, std::uint64_t read_state_num,
-            std::uint64_t state_num, FlagSet<AccessOptions>, std::shared_ptr<DP_Lock> res_dp);
+            std::uint64_t state_num, FlagSet<AccessOptions>, std::shared_ptr<DP_Lock> res_dp, 
+            std::shared_ptr<ResourceLock> cow_lock = nullptr);
         
         /**
          * Insert copy of a single or wide page lock (not BoundaryLock)
          */
-        std::shared_ptr<DP_Lock> insertCopy(const DP_Lock &, std::uint64_t write_state_num,
+        std::shared_ptr<DP_Lock> insertCopy(std::shared_ptr<DP_Lock>, std::uint64_t write_state_num,
             FlagSet<AccessOptions> access_mode);
-
-        std::shared_ptr<WideLock> insertWideCopy(const WideLock &, std::uint64_t write_state_num,
+        
+        std::shared_ptr<WideLock> insertWideCopy(std::shared_ptr<WideLock>, std::uint64_t write_state_num,
             FlagSet<AccessOptions> access_mode, std::shared_ptr<DP_Lock> res_lock);
         
         /**
@@ -112,7 +114,7 @@ namespace db0
         /**
          * Flush all managed locks
         */
-        void flush(ProcessTimer * = nullptr);
+        void commit(ProcessTimer * = nullptr);
 
         // Flush managed boundary locks only
         void flushBoundary();
@@ -152,11 +154,15 @@ namespace db0
         
         // prepare cache for the refresh operation
         void beginRefresh();
+
+        // Scan available dirty locks and return:
+        // total number of locks (DP count) / number of locks with CoW data present
+        std::pair<std::uint64_t, std::uint64_t> getCoWStats() const;
         
-    protected:        
+    protected:
         const std::size_t m_page_size;
         const unsigned int m_shift;
-        const std::uint64_t m_mask;
+        const std::uint64_t m_mask;        
         BaseStorage &m_storage;
         // the collection for tracking dirty locks of each type (cleared on flush)
         mutable DirtyCache m_dirty_dp_cache;
@@ -195,7 +201,7 @@ namespace db0
         
         inline bool isPageAligned(std::uint64_t addr_or_size) const {
             return (addr_or_size & (m_page_size - 1)) == 0;
-        }
+        }        
     };
     
     template <typename T> void discardAll(T &volatile_locks)

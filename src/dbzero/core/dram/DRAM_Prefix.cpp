@@ -32,8 +32,7 @@ namespace db0
         : m_lock(std::make_shared<DP_Lock>(context, address, size, FlagSet<AccessOptions> {}, 0, 0))
         // pull from Storage0 temp instance
         , m_buffer(m_lock->getBuffer(address))
-    {
-        m_lock->initDirty();
+    {        
 #ifndef NDEBUG
         dp_size += m_lock->size();
         ++dp_count;

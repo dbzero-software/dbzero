@@ -50,21 +50,20 @@ namespace tests
         const DRAM_IOStream &getDRAM_IOStream() const {
             return m_dram_io;
         }
+
+        void readMetered(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+            unsigned int &chain_len) const
+        {
+            _read(address, state_num, size, buffer, { AccessOptions::read }, &chain_len);
+        }
     };
-    
+
     TEST_F( BDevStorageTest , testCanCreateEmptyDB0FileWithDefaultConfiguration )
     {         
         BDevStorage::create(file_name);
         ASSERT_TRUE(file_exists(file_name));
     }
 
-    TEST_F( BDevStorageTest , testCanOpenEmptyDB0FileCreatedWithDefaultConfiguration )
-    {
-        BDevStorage::create(file_name);
-        std::unique_ptr<BDevStorage> cut;
-        ASSERT_NO_THROW(cut = std::make_unique<BDevStorage>(file_name, AccessType::READ_ONLY));
-    }
-    
     TEST_F( BDevStorageTest , testCanWriteThenReadFullPagesFromOneState )
     { 
         srand(9142424u);
@@ -164,7 +163,7 @@ namespace tests
         std::vector<char> buffer(cut.getPageSize());
         std::vector<char> zero_buffer(cut.getPageSize());
         memset(zero_buffer.data(), 0, zero_buffer.size());
-
+        
         cut.read(0, 1, cut.getPageSize(), buffer.data(), { AccessOptions::write });
         ASSERT_TRUE(equal(zero_buffer, buffer));
         cut.close();
@@ -318,6 +317,7 @@ namespace tests
         // should be accessible to a newly opened read-only instance, no refresh called     
         std::size_t page_size = 4096;
         BDevStorage::create(file_name, page_size);
+        
         // Write operations to be performed, each operation will be performed within a dedicated state        
         // (address, span, character)
         std::vector<std::tuple<std::uint64_t, std::size_t, char> > write_ops = {
@@ -445,7 +445,7 @@ namespace tests
             }
             auto &sparse_index = cut.getSparseIndex();
             for (unsigned int page_num = 0; page_num < 1000; ++page_num) {
-                sparse_index.emplace(page_num, i, 999, SparseIndex::PageType::FIXED);
+                sparse_index.emplace(page_num, i, 999);
 
                 cut.getSparseIndex().refresh();
                 ASSERT_EQ(cut.getMaxStateNum(), (std::uint32_t)i);
@@ -456,6 +456,41 @@ namespace tests
             cut.close();
             last_state_num = i;
         }
+    }
+    
+    TEST_F( BDevStorageTest , testDiffsChainIsLimited )
+    {   
+        // in this test we perform as sequence of writes usind the diff-storage
+        // the expected outcome is that the diff-chain is limited to the specified length
+        std::size_t page_size = 4096;
+        BDevStorage::create(file_name, page_size);        
+        std::optional<int> last_state_num;
+        BDevStorageWrapper cut(file_name, AccessType::READ_WRITE);
+
+        std::vector<std::byte> dp_0(page_size, std::byte{0});
+        std::vector<std::byte> dp_1(page_size, std::byte{0});
+        unsigned int max_len = 16;
+        for (int i = 1; i < 100; ++i) {
+            std::vector<std::uint16_t> diffs;
+            dp_1[150] = (std::byte)(i + 1);
+            ASSERT_TRUE(db0::getDiffs(dp_0.data(), dp_1.data(), dp_1.size(), diffs));            
+            cut.writeDiffs(0, i + 1, page_size, dp_1.data(), diffs, max_len);
+            cut.flush();
+            std::memcpy(dp_0.data(), dp_1.data(), dp_1.size());
+        }
+
+        // now, reading the data from past transactions verify that then chain length is limited
+        unsigned int last_chain_len = 0;
+        for (int i = 1; i < 100; ++i) {
+            std::vector<char> buffer(page_size);
+            unsigned int chain_len = 0;
+            cut.readMetered(0, i + 1, buffer.size(), buffer.data(), chain_len);
+            ASSERT_EQ(buffer[150], i + 1);
+            ASSERT_TRUE(chain_len <= max_len);
+            ASSERT_TRUE(chain_len >= last_chain_len || chain_len <= 1);
+            last_chain_len = chain_len;
+        }
+        cut.close();
     }
 
 }

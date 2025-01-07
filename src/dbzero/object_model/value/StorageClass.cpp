@@ -32,6 +32,7 @@ namespace db0::object_model
         addMapping(TypeId::OBJECT_ITERABLE, StorageClass::DB0_SERIALIZED);
         addMapping(TypeId::DB0_ENUM_VALUE, StorageClass::DB0_ENUM_VALUE);
         addMapping(TypeId::BOOLEAN, StorageClass::BOOLEAN);
+        addMapping(TypeId::DB0_BYTES_ARRAY, StorageClass::DB0_BYTES_ARRAY);
     }
     
     StorageClass StorageClassMapper::getStorageClass(TypeId type_id) const
@@ -48,7 +49,7 @@ namespace db0::object_model
         THROWF(db0::InputException)
             << "Storage class unknown for common language type ID: " << static_cast<int>(type_id) << THROWF_END;
     }
-
+    
     void StorageClassMapper::addMapping(TypeId type_id, StorageClass storage_class) 
     {
         auto int_id = static_cast<unsigned int>(type_id);
@@ -70,6 +71,8 @@ namespace db0::object_model
             case StorageClass::DB0_PANDAS_DATAFRAME:
             case StorageClass::DB0_CLASS:
             case StorageClass::DB0_INDEX:
+            case StorageClass::DB0_BYTES:
+            case StorageClass::DB0_BYTES_ARRAY:
                 return true;
             default:
                 return false;
@@ -101,6 +104,7 @@ namespace std
             case StorageClass::DB0_TUPLE: return os << "DB0_TUPLE";
             case StorageClass::STR64: return os << "STR64";
             case StorageClass::DB0_BYTES: return os << "BYTES";
+            case StorageClass::DB0_BYTES_ARRAY: return os << "BYTES_ARRAY";
             case StorageClass::BOOLEAN: return os << "BOOLEAN";
             case StorageClass::INVALID: return os << "INVALID";
             default: return os << "ERROR!";

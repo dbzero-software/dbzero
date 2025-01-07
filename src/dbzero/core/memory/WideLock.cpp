@@ -9,8 +9,8 @@ namespace db0
 {
     
     WideLock::WideLock(StorageContext context, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-        std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<DP_Lock> res_lock)
-        : DP_Lock(tag_derived{}, context, address, size, access_mode, read_state_num, write_state_num)
+        std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<DP_Lock> res_lock, std::shared_ptr<ResourceLock> cow_lock)
+        : DP_Lock(tag_derived{}, context, address, size, access_mode, read_state_num, write_state_num, cow_lock)
         , m_res_lock(res_lock)
     {
         // initialzie the local buffer
@@ -24,25 +24,38 @@ namespace db0
                 assert(dp_size < size);
                 storage.read(m_address, read_state_num, dp_size, m_data.data(), access_mode);
                 // and copy the residual contents from the res_lock
-                std::memcpy(m_data.data() + dp_size, res_lock->getBuffer(), size  - dp_size);
+                std::memcpy(m_data.data() + dp_size, res_lock->getBuffer(), size  - dp_size);                
             } else {
-                storage.read(m_address, read_state_num, m_data.size(), m_data.data(), access_mode);
+                storage.read(m_address, read_state_num, this->size(), m_data.data(), access_mode);
+            }
+            // prepare the CoW data buffer (for a mutable lock)            
+            if (!access_mode[AccessOptions::no_cow] && !m_cow_lock && !access_mode[AccessOptions::create]) {
+                m_cow_data.resize(m_data.size());
+                std::memcpy(m_cow_data.data(), m_data.data(), m_data.size());
             }
         }
     }
     
-    WideLock::WideLock(const WideLock &lock, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode,
+    WideLock::WideLock(std::shared_ptr<WideLock> lock, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode,
         std::shared_ptr<DP_Lock> res_lock)
         : DP_Lock(lock, write_state_num, access_mode)
         , m_res_lock(res_lock)
     {    
     }
     
-    void WideLock::flush()
+    bool WideLock::tryFlush(FlushMethod flush_method) {
+        return _tryFlush(flush_method);
+    }
+
+    void WideLock::flush() {
+        _tryFlush(FlushMethod::full);
+    }
+    
+    bool WideLock::_tryFlush(FlushMethod flush_method)
     {
         // no-flush flag is important for volatile locks (atomic operations)
         if (m_access_mode[AccessOptions::no_flush]) {
-            return;
+            return true;
         }
 
         using MutexT = ResourceDirtyMutexT;
@@ -50,23 +63,75 @@ namespace db0
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
                 auto &storage = m_context.m_storage_ref.get();
+                auto dp_size = this->size();
+                auto page_size = storage.getPageSize();
                 if (m_res_lock) {
-                    auto dp_size = static_cast<std::size_t>(m_data.size() / storage.getPageSize()) * storage.getPageSize();
+                    dp_size = static_cast<std::size_t>(dp_size / page_size) * page_size;
                     assert(dp_size > 0);
-                    assert(dp_size < m_data.size());
+                    assert(dp_size < this->size());
+                }
+                
+                if (flush_method == FlushMethod::full) {
                     // write the first part of the data from the local buffer
                     storage.write(m_address, m_state_num, dp_size, m_data.data());
+                } else {
+                    assert(flush_method == FlushMethod::diff);
+                    auto cow_ptr = getCowPtr();
+                    if (!cow_ptr) {
+                        // unable to diff-flush (CoW data not available)
+                        return false;
+                    }
+                    // write page-by-page using diff method (for DPs where diff method is applicable)
+                    std::vector<std::uint16_t> diffs;
+                    std::size_t unwritten_size = 0;
+                    auto page_ptr = m_data.data(), end_ptr = m_data.data() + dp_size;
+                    bool first_write = true;
+                    for (;page_ptr != end_ptr; page_ptr += page_size) {
+                        // NOTE that cow_ptr gets adjusted to the next page after this call
+                        if (this->getDiffs(cow_ptr, page_ptr, page_size, diffs)) {
+                            // flush unwritten data as a full-DP
+                            if (unwritten_size > 0) {
+                                storage.write(m_address, m_state_num, unwritten_size, m_data.data());
+                                unwritten_size = 0;
+                            }
+                            // NOTE: DP needs not to be flushed if there are no diffs
+                            if (!diffs.empty()) {
+                                storage.writeDiffs(m_address + (page_ptr - m_data.data()), m_state_num, page_size, page_ptr, diffs);
+                            }
+                            first_write = false;
+                        } else {
+                            if (first_write) {
+                                unwritten_size += page_size;
+                            } else {
+                                // some data has already been written as diff-DP
+                                assert(unwritten_size == 0);
+                                // write as a full-DP
+                                storage.write(m_address + (page_ptr - m_data.data()), m_state_num, page_size, page_ptr);
+                                first_write = false;
+                            }
+                        }
+                    }
+                    if (unwritten_size > 0) {
+                        assert(first_write);
+                        assert(unwritten_size == dp_size);
+                        // unable to write using the diff method
+                        return false;                        
+                    }
+                }
+
+                if (m_res_lock) {
                     // and the residual part into the res_lock (which may be flushed independently)
                     m_res_lock->setDirty();
-                    std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, m_data.size() - dp_size);
-                } else {
-                    // write entire contents from the local buffer
-                    storage.write(m_address, m_state_num, m_data.size(), m_data.data());
+                    std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
                 }
+                
+                // invalidate the CoW lock if it exists
+                clearCoWData();
                 // reset the dirty flag
                 lock.commit_reset();
             }
         }
+        return true;
     }
     
     void WideLock::flushResidual()
@@ -85,12 +150,12 @@ namespace db0
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
                 auto &storage = m_context.m_storage_ref.get();
-                auto dp_size = static_cast<std::size_t>(m_data.size() / storage.getPageSize()) * storage.getPageSize();
+                auto dp_size = static_cast<std::size_t>(this->size() / storage.getPageSize()) * storage.getPageSize();
                 assert(dp_size > 0);
-                assert(dp_size < m_data.size());                    
+                assert(dp_size < this->size());
                 // and the residual part into the res_lock (which may be flushed independently)
                 m_res_lock->setDirty();
-                std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, m_data.size() - dp_size);
+                std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
                 // note the dirty flag is not reset here
                 break;
             }
@@ -110,5 +175,16 @@ namespace db0
         return false;
     }
 #endif
+    
+    bool WideLock::getDiffs(const std::byte *&cow_ptr, void *buf, std::size_t size, std::vector<std::uint16_t> &result) const
+    {
+        if (cow_ptr == &m_cow_zero) {
+            return db0::getDiffs(buf, size, result);
+        } else {
+            auto has_diffs = db0::getDiffs(cow_ptr, buf, size, result);
+            cow_ptr += size;
+            return has_diffs;
+        }
+    }
 
 }

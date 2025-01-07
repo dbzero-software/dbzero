@@ -23,18 +23,6 @@ namespace db0
         MemLock(void *buffer, std::shared_ptr<ResourceLock> lock);
         MemLock(const MemLock &other) = default;
 
-        /**
-         * Mark a specific part of the buffer as modified
-         * 
-         * Mark a specific part of the buffer (e.g. a single variable) as modified.
-         * This method does not modify any data but only marks as modified.
-         * 
-         * @param offset offset in bytes (must be within the mapped range). validated in debug mode only
-         * @param size size in bytes (must be within the mapped range). validated in debug mode only
-         * @return the pointer to the modified range
-        */
-        void *modify(std::size_t offset, std::size_t size);
-
         void *modify();
 
         inline operator void *() const {

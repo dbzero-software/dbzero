@@ -243,9 +243,9 @@ namespace db0
             workspace_view, m_v_object_cache.getSharedObjectList(), px_snapshot, allocator_snapshot
         );
     }
-    
+        
     void Fixture::commit()
-    {        
+    {
         assert(getPrefixPtr());
         // pre-commit to prepare objects which require it (e.g. Index) for commit
         // NOTE: pre-commit must NOT lock the fixture's shared mutex
@@ -291,7 +291,7 @@ namespace db0
             }
             m_string_pool.commit();
             m_object_catalogue.commit();
-            m_v_object_cache.commit();        
+            m_v_object_cache.commit();
             Memspace::commit(timer.get());
         } catch (...) {
             m_commit_pending = false;

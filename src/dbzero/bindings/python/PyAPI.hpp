@@ -49,8 +49,8 @@ namespace db0::python
     PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs);
     
     PyObject *drop(PyObject *self, PyObject *args);
-
-    PyObject *commit(PyObject *self, PyObject *args);
+    
+    PyObject *PyAPI_commit(PyObject *self, PyObject *args);
 
     PyObject *PyAPI_close(PyObject *self, PyObject *args);
         

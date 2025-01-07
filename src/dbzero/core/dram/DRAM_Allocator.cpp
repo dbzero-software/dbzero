@@ -45,7 +45,7 @@ namespace db0
     
     std::optional<std::uint64_t> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
         bool aligned, bool unique)
-    {
+    {        
         assert(slot_num == 0);
         assert(!aligned && "DRAM_Allocator: aligned allocation not supported");
         assert(!unique && "DRAM_Allocator: unique allocation not supported");

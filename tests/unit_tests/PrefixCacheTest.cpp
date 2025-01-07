@@ -24,9 +24,9 @@ namespace tests
     };
     
     TEST_F( PrefixCacheTest , testPrefixCacheCanTrackDPNegations )
-    {        
+    {
         db0::Storage0 dev_null;
-        PrefixCache cut(dev_null, nullptr);
+        PrefixCache cut(dev_null, nullptr, 0);
 
         // state = 1, page_num = 0
         auto lock_1 = cut.createPage(0, 0, 1, { AccessOptions::write });
@@ -48,7 +48,7 @@ namespace tests
     TEST_F( PrefixCacheTest , testPrefixCacheNegationsClearedByCreatePage )
     {
         db0::Storage0 dev_null;
-        PrefixCache cut(dev_null, nullptr);
+        PrefixCache cut(dev_null, nullptr, 0);
 
         // address, state_num, size
         auto lock_1 = cut.createPage(0, 0, 1, { AccessOptions::write });
@@ -68,13 +68,13 @@ namespace tests
         db0::Storage0 dev_null;
         std::atomic<std::size_t> null_meter = 0;
         db0::CacheRecycler cache_recycler(1 << 20u, null_meter);
-        PrefixCache cut(dev_null, &cache_recycler);
+        PrefixCache cut(dev_null, &cache_recycler, 0);
 
         // page num, read state num, state num
         // create page in state #1
         {
             auto lock = cut.createPage(0, 0, 1, { AccessOptions::write });
-            cut.flush();            
+            cut.commit();
         }
         // request state #2 for read-write (note that lock has been released)
         std::uint64_t read_state_num;
@@ -82,7 +82,7 @@ namespace tests
         ASSERT_TRUE(lock);
         
         // make sure only 1 lock is cached (no CoW), since upgrade took place
-        ASSERT_EQ(cache_recycler.size(), lock->size());
+        ASSERT_EQ(cache_recycler.size(), lock->usedMem());
         
         // now, try reading the state #1 version of the page
         auto lock_1 = cut.findPage(0, 1, { AccessOptions::read }, read_state_num);

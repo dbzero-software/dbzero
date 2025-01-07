@@ -25,6 +25,11 @@ namespace db0::object_model
     {
     }
     
+    ByteArray::ByteArray(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const ByteArray &byte_array)
+        : super_t(tag_no_gc(), fixture, byte_array)
+    {
+    }
+    
     ByteArray::~ByteArray()
     {
         // unregister needs to be called before destruction of members
@@ -135,6 +140,10 @@ namespace db0::object_model
             return false;
         }
         return !(*this == bytearray);
+    }
+    
+    ByteArray *ByteArray::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
+        return new (at_ptr) ByteArray(fixture, address);
     }
 
 }
