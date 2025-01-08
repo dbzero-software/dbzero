@@ -117,6 +117,18 @@ class DataClassWithMinimalComparators:
         return NotImplemented
 
 
+@db0.memo
+class MemoBase():
+    def __init__(self, value):
+        self.value = value
+
+@db0.memo
+class MemoChild(MemoBase):
+    def __init__(self, value, value_child):
+        super().__init__(value)
+        self.value_child = value_child
+
+
 def test_create_memo_object(db0_fixture):
     object_1 = DataClass()
     assert object_1 is not None
@@ -450,3 +462,8 @@ def test_object_fetch_as_memo_base(db0_fixture):
     obj_2 = db0.fetch(db0.MemoBase, uuid_1)
     assert obj_2.value == 123
     
+
+def test_child_object_comparastion(db0_fixture):
+    child = MemoChild(123, 456)
+    obj_1 = MemoTestClass(child)
+    assert obj_1.value == child
