@@ -84,7 +84,8 @@ namespace db0::object_model
         // @param optional language specific type object if known
         ClassItem getTypeByPtr(ClassPtr, TypeObjectPtr lang_type = nullptr) const;
         ClassItem getTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type = nullptr) const;
-        
+        static std::uint32_t classRef(const Class &);
+
         void commit() const;
         
         void detach() const;

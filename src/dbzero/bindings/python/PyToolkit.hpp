@@ -182,6 +182,13 @@ namespace db0::python
         // block until lock acquired
         static std::unique_lock<std::recursive_mutex> lockApi();
 
+        // return base type of TypeObject
+        static TypeObjectPtr getBaseType(TypeObjectPtr py_object);
+
+
+        // return base type of Memo Type object instance or nullptr if base class is not MemoObjec
+        static TypeObjectPtr getBaseMemoType(TypeObjectPtr py_object);
+
     private:
         static PyWorkspace m_py_workspace;
         static TypeManager m_type_manager;

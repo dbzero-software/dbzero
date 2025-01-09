@@ -501,6 +501,26 @@ namespace db0::python
         return std::unique_lock<std::recursive_mutex>(m_api_mutex);
     }
 
+    PyToolkit::TypeObjectPtr PyToolkit::getBaseType(TypeObjectPtr py_object)
+    {
+        return py_object->tp_base;
+    }
+
+    PyToolkit::TypeObjectPtr PyToolkit::getBaseMemoType(TypeObjectPtr py_memo_type)
+    {
+        assert(isMemoType(py_memo_type));
+        // first base type is python base. From there we can get the actual base type
+        auto base_py_type = getBaseType(py_memo_type);
+        if (!base_py_type) {
+            return nullptr;
+        }
+        auto memo_base_type = getBaseType(base_py_type);
+        if(isMemoType(memo_base_type)) {
+            return memo_base_type;
+        }
+        return nullptr;
+    }
+
     bool PyToolkit::isTag(ObjectPtr py_object) {
         return PyTag_Check(py_object);
     }

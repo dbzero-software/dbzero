@@ -19,13 +19,15 @@ namespace db0::object_model
     GC0_Define(Class)
     
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
-        const VFieldVector &members, const char *type_id, const char *prefix_name, ClassFlags flags)
+        const VFieldVector &members, const char *type_id, const char *prefix_name, ClassFlags flags, 
+        const std::uint32_t base_class_ref)
         : m_uuid(db0::make_UUID())
         , m_name(string_pool.addRef(name))
         , m_type_id(type_id ? string_pool.addRef(type_id) : LP_String())
         , m_prefix_name(prefix_name ? string_pool.addRef(prefix_name) : LP_String())
         , m_members_ptr(members)
         , m_flags(flags)
+        , m_base_class_ref(base_class_ref)
     {
         if (module_name) {
             m_module_name = string_pool.addRef(*module_name);
@@ -45,8 +47,9 @@ namespace db0::object_model
     }
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
-        const char *type_id, const char *prefix_name, ClassFlags flags)
-        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, prefix_name, flags)
+        const char *type_id, const char *prefix_name, ClassFlags flags, const std::uint32_t  base_class_ref)
+        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, prefix_name, 
+                  flags, base_class_ref)
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
         , m_uid(this->fetchUID())
     {
@@ -378,4 +381,13 @@ namespace db0::object_model
         return std::shared_ptr<Class>(new Class());
     }
 
+    std::shared_ptr<Class> Class::getBaseClass() const
+    {
+        auto base_class_ref = (*this)->m_base_class_ref;
+        if(base_class_ref == 0) {
+            return nullptr;
+        }
+        auto fixture = this->getFixture();
+        return fixture->get<ClassFactory>().getTypeByClassRef(base_class_ref).m_class;
+    }
 }

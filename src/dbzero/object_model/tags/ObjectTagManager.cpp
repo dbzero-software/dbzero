@@ -60,9 +60,11 @@ namespace db0::object_model
         assert(m_access_mode == AccessType::READ_WRITE);
         m_tag_index_ptr->addTags(m_lang_ptr.get(), args, nargs);
         if (m_type) {
-            // also add type as tag (once)
-            m_tag_index_ptr->addTag(m_lang_ptr.get(), m_type->getAddress());
-            m_type = nullptr;
+            while(m_type){
+                // also add type as tag (once)
+                m_tag_index_ptr->addTag(m_lang_ptr.get(), m_type->getAddress());
+                m_type = m_type->getBaseClass();
+            }
         }
     }
     

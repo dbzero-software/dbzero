@@ -14,15 +14,6 @@ namespace db0::object_model
     
     GC0_Define(Object)
     thread_local ObjectInitializerManager Object::m_init_manager;
-    
-    std::uint32_t classRef(const Class &db0_class)
-    {
-        auto address = db0::getPhysicalAddress(db0_class.getAddress());
-        if (address > std::numeric_limits<std::uint32_t>::max()) {
-            THROWF(db0::InternalException) << "Class address out of allowed range: " << address << THROWF_END;
-        }
-        return static_cast<std::uint32_t>(address);
-    }
 
     o_object::o_object(std::uint32_t class_ref, std::uint32_t ref_count, const PosVT::Data &pos_vt_data,
         const XValue *index_vt_begin, const XValue *index_vt_end)
@@ -73,7 +64,7 @@ namespace db0::object_model
     }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
-        : super_t(fixture, classRef(*type), ref_count, pos_vt_data)
+        : super_t(fixture, ClassFactory::classRef(*type), ref_count, pos_vt_data)
         , m_type(type)
         , m_is_dropped(false)
     {
@@ -153,7 +144,7 @@ namespace db0::object_model
             // construct the DBZero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
-            super_t::init(*fixture, classRef(*m_type), initializer.getRefCount(), pos_vt_data,
+            super_t::init(*fixture, ClassFactory::classRef(*m_type), initializer.getRefCount(), pos_vt_data,
                 index_vt_data.first, index_vt_data.second);
             // reference associated class
             m_type->incRef();

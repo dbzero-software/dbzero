@@ -22,6 +22,15 @@ class MemoWithTagsAssignedOnInit:
         self.value = value
         db0.tags(self).add(*tags)
 
+@db0.memo
+class MemoBaseClass:
+    def __init__(self, value):
+        self.value = value
+
+@db0.memo
+class MemoSubClass(MemoBaseClass):
+    def __init__(self, value):
+        super().__init__(value)
 
 def test_assign_single_tag_to_memo_object(db0_fixture):
     object_1 = MemoClassForTags(1)
@@ -380,3 +389,34 @@ def test_use_find_to_match_single_object(db0_no_autocommit, memo_tags):
     obj_1 = next(iter(db0.find("tag1")))
     assert len(db0.find(obj_1, db0.find("tag1"))) == 1
     
+
+
+def test_find_base_type(db0_fixture):
+    object_1 = MemoSubClass(1)
+    # assign tag first
+    db0.tags(object_1).add("tag1")
+    # then try looking up by the assigned tag
+    assert len(list(db0.find(MemoSubClass, "tag1"))) == 1
+    assert len(list(db0.find(MemoBaseClass, "tag1"))) == 1
+
+
+def test_tags_assigned_to_inherited_type_can_be_removed(db0_fixture):
+    object_1 = MemoSubClass(1)
+    db0.tags(object_1).add(["tag1", "tag2"])
+
+    assert len(list(db0.find(MemoSubClass, "tag1"))) == 1
+    assert len(list(db0.find(MemoBaseClass, "tag1"))) == 1
+    assert len(list(db0.find(MemoSubClass, "tag2"))) == 1
+    assert len(list(db0.find(MemoBaseClass, "tag2"))) == 1
+
+    db0.tags(object_1).remove("tag1")
+    assert len(list(db0.find(MemoSubClass, "tag1"))) == 0
+    assert len(list(db0.find(MemoBaseClass, "tag1"))) == 0
+    assert len(list(db0.find(MemoSubClass, "tag2"))) == 1
+    assert len(list(db0.find(MemoBaseClass, "tag2"))) == 1
+    
+    db0.tags(object_1).remove("tag2")
+    assert len(list(db0.find(MemoSubClass, "tag1"))) == 0
+    assert len(list(db0.find(MemoBaseClass, "tag1"))) == 0
+    assert len(list(db0.find(MemoSubClass, "tag2"))) == 0
+    assert len(list(db0.find(MemoBaseClass, "tag2"))) == 0

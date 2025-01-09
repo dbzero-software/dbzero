@@ -57,11 +57,12 @@ namespace db0::object_model
         ClassFlags m_flags;
         // language specific class type
         std::uint64_t m_singleton_address = 0;
+        const std::uint32_t m_base_class_ref;
         // unused, reserved for future purposes
         std::array<std::uint64_t, 4> m_reserved;
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name, const VFieldVector &,
-            const char *type_id, const char *prefix_name, ClassFlags);
+            const char *type_id, const char *prefix_name, ClassFlags, const std::uint32_t);
     };
     
     // NOTE: Class type uses SLOT_NUM = TYPE_SLOT_NUM
@@ -169,6 +170,8 @@ namespace db0::object_model
         // Get null class instance (e.g. for testing)
         static std::shared_ptr<Class> getNullClass();
 
+        std::shared_ptr<Class> getBaseClass() const;
+
     protected:
         friend class ClassFactory;
         friend ClassPtr;
@@ -179,7 +182,7 @@ namespace db0::object_model
         // construct a new DBZero class
         // NOTE: module name may not be available in some contexts (e.g. classes defined in notebooks)
         Class(db0::swine_ptr<Fixture> &, const std::string &name, std::optional<std::string> module_name,
-            const char *type_id, const char *prefix_name, ClassFlags);
+            const char *type_id, const char *prefix_name, ClassFlags, const std::uint32_t);
         
         void unlinkSingleton();
         
@@ -196,7 +199,6 @@ namespace db0::object_model
         // field by-name index (cache)
         mutable std::unordered_map<std::string, std::uint32_t> m_index;
         const std::uint32_t m_uid = 0;
-        
         // null-class constructor (for testing only)
         Class() = default;
 
