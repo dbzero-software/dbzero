@@ -28,7 +28,19 @@ class MemoBaseClass:
         self.value = value
 
 @db0.memo
+class MemoSecondSubClass(MemoBaseClass):
+    def __init__(self, value):
+        super().__init__(value)
+
+
+@db0.memo
 class MemoSubClass(MemoBaseClass):
+    def __init__(self, value):
+        super().__init__(value)
+
+
+@db0.memo
+class MemoSubSubClass(MemoSubClass):
     def __init__(self, value):
         super().__init__(value)
 
@@ -399,6 +411,19 @@ def test_find_base_type(db0_fixture):
     assert len(list(db0.find(MemoSubClass, "tag1"))) == 1
     assert len(list(db0.find(MemoBaseClass, "tag1"))) == 1
 
+def test_find_base_type_multiple_subclass(db0_fixture):
+    object_1 = MemoSubClass(1)
+    object_2 = MemoSecondSubClass(2)
+    object_3 = MemoSubSubClass(3)
+    # assign tag first
+    db0.tags(object_1).add("tag1")
+    db0.tags(object_2).add("tag1")
+    db0.tags(object_3).add("tag1")
+    # then try looking up by the assigned tag
+    assert len(list(db0.find(MemoSubClass, "tag1"))) == 2
+    assert len(list(db0.find(MemoBaseClass, "tag1"))) == 3
+    assert len(list(db0.find(MemoSecondSubClass, "tag1"))) == 1
+    assert len(list(db0.find(MemoSubSubClass, "tag1"))) == 1
 
 def test_tags_assigned_to_inherited_type_can_be_removed(db0_fixture):
     object_1 = MemoSubClass(1)
@@ -414,7 +439,7 @@ def test_tags_assigned_to_inherited_type_can_be_removed(db0_fixture):
     assert len(list(db0.find(MemoBaseClass, "tag1"))) == 0
     assert len(list(db0.find(MemoSubClass, "tag2"))) == 1
     assert len(list(db0.find(MemoBaseClass, "tag2"))) == 1
-    
+
     db0.tags(object_1).remove("tag2")
     assert len(list(db0.find(MemoSubClass, "tag1"))) == 0
     assert len(list(db0.find(MemoBaseClass, "tag1"))) == 0
