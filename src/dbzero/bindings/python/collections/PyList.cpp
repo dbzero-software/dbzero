@@ -203,7 +203,7 @@ namespace db0::python
             }
 
             Py_DECREF(iterator);
-            return Py_True;
+            Py_RETURN_TRUE;
         }
     }
 
