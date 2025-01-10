@@ -381,13 +381,16 @@ namespace db0::object_model
         return std::shared_ptr<Class>(new Class());
     }
 
-    std::shared_ptr<Class> Class::getBaseClass() const
+    std::shared_ptr<Class> Class::tryGetBaseClass()
     {
-        auto base_class_ref = (*this)->m_base_class_ref;
-        if(base_class_ref == 0) {
-            return nullptr;
+        if(!m_base_class_ptr){
+            auto base_class_ref = (*this)->m_base_class_ref;
+            if(base_class_ref == 0) {
+                return nullptr;
+            }
+            auto fixture = this->getFixture();
+            m_base_class_ptr = fixture->get<ClassFactory>().getTypeByClassRef(base_class_ref).m_class;
         }
-        auto fixture = this->getFixture();
-        return fixture->get<ClassFactory>().getTypeByClassRef(base_class_ref).m_class;
+        return m_base_class_ptr;
     }
 }

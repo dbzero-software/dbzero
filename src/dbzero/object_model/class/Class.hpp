@@ -170,7 +170,7 @@ namespace db0::object_model
         // Get null class instance (e.g. for testing)
         static std::shared_ptr<Class> getNullClass();
 
-        std::shared_ptr<Class> getBaseClass() const;
+        std::shared_ptr<Class> tryGetBaseClass();
 
     protected:
         friend class ClassFactory;
@@ -194,7 +194,8 @@ namespace db0::object_model
 
     private:
         // member field definitions
-        VFieldVector m_members;        
+        VFieldVector m_members;
+        std::shared_ptr<Class> m_base_class_ptr;
         mutable std::vector<Member> m_member_cache;
         // field by-name index (cache)
         mutable std::unordered_map<std::string, std::uint32_t> m_index;

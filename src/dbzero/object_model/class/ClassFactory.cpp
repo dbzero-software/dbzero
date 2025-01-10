@@ -229,9 +229,7 @@ namespace db0::object_model
     std::uint32_t ClassFactory::classRef(const Class &db0_class)
     {
         auto address = db0::getPhysicalAddress(db0_class.getAddress());
-        if (address > std::numeric_limits<std::uint32_t>::max()) {
-            THROWF(db0::InternalException) << "Class address out of allowed range: " << address << THROWF_END;
-        }
+        assert(address <= std::numeric_limits<std::uint32_t>::max());
         return static_cast<std::uint32_t>(address);
     }
 
