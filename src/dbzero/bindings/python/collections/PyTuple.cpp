@@ -97,7 +97,7 @@ namespace db0::python
                 return Py_NotImplemented;
             }            
             Py_DECREF(iterator);
-            return Py_True;
+            Py_RETURN_TRUE;
         }
     }
     

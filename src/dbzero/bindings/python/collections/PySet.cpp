@@ -95,7 +95,7 @@ namespace db0::python
         
         if (SetObject_Check(args[0])) {
             SetObject *other = (SetObject*)args[0];
-            if (SetObject_len(self) == 0 || SetObject_len(other) == 0) return Py_True;
+            if (SetObject_len(self) == 0 || SetObject_len(other) == 0) Py_RETURN_TRUE;
 
             auto it1 = self->ext().begin();
             auto it2 = other->ext().begin();
@@ -105,7 +105,7 @@ namespace db0::python
             while(it1 != it1End)
             {
                 if(it2 == it2End) {
-                    return Py_False;
+                    Py_RETURN_FALSE;
                 }
                 if(*it1 == *it2){
                     ++it1;
@@ -114,20 +114,20 @@ namespace db0::python
             }
         } else {
             PyObject *other = args[0];
-            if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
+            if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) Py_RETURN_TRUE;
             PyObject *iterator = PyObject_GetIter(self);
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
                 if (!PySequence_Contains(other, elem)) {                    
                     Py_DECREF(iterator);
                     Py_DECREF(elem);
-                    return Py_False;
+                    Py_RETURN_FALSE;
                 }                
                 Py_DECREF(elem);
             }            
             Py_DECREF(iterator);
         }
-        return Py_True;
+        Py_RETURN_TRUE;
     }
 
     PyObject *SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -148,7 +148,7 @@ namespace db0::python
             return SetObject_issubsetInternal(other, &py_self,1);
         } else {
             PyObject *other = args[0];
-            if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
+            if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) Py_RETURN_TRUE;
             PyObject *iterator = PyObject_GetIter(other);
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
@@ -156,13 +156,13 @@ namespace db0::python
                 if (!self->ext().has_item(hash,elem)) {                    
                     Py_DECREF(iterator);
                     Py_DECREF(elem);
-                    return Py_False;
+                    Py_RETURN_FALSE;
                 }                
                 Py_DECREF(elem);
             }            
             Py_DECREF(iterator);
         }
-        return Py_True;
+        Py_RETURN_TRUE;
     }
 
     PyObject * SetObject_issuperset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -179,19 +179,19 @@ namespace db0::python
         {
         case Py_EQ:
             if (SetObject_len(set_obj) != getLenPyObjectOrSet(other)) {
-                return Py_False;
+                Py_RETURN_FALSE;
             }
             return PyBool_fromBool(has_all_elements_in_collection(set_obj, other));
         case Py_NE:
             if (SetObject_len(set_obj) != getLenPyObjectOrSet(other)) {
-                return Py_True;
+                Py_RETURN_TRUE;
             }
             return PyBool_fromBool(!has_all_elements_in_collection(set_obj, other));
         case Py_LE:  // Test whether every element in the set is in other.
             return SetObject_issubsetInternal(set_obj, args, 1);
         case Py_LT:{  // Test whether the set is a proper subset of other, that is, set <= other and set != other.
             if (SetObject_len(set_obj) == getLenPyObjectOrSet(other)) {
-                return Py_False;
+                Py_RETURN_FALSE;
             }
             return SetObject_issubsetInternal(set_obj, args, 1);
         }
@@ -199,7 +199,7 @@ namespace db0::python
             return SetObject_issupersetInternal(set_obj, args, 1);
         case Py_GT:{  // Test whether the set is a proper superset of other, that is, set >= other and set != other.
             if (SetObject_len(set_obj) == getLenPyObjectOrSet(other)) {
-                return Py_False;
+                Py_RETURN_FALSE;
             }
             return SetObject_issupersetInternal(set_obj, args, 1);
         }
@@ -305,7 +305,7 @@ namespace db0::python
 
         if (SetObject_Check(args[0])) {
             SetObject *other = (SetObject*)args[0];
-            if (SetObject_len(self) == 0 || SetObject_len(other) == 0) return Py_True;
+            if (SetObject_len(self) == 0 || SetObject_len(other) == 0) Py_RETURN_TRUE;
             auto it1 = self->ext().begin();
             auto it2 = other->ext().begin();
             auto it1End = self->ext().end();
@@ -313,13 +313,13 @@ namespace db0::python
 
             while(it1 != it1End && it2 != it2End)
             {
-                if(*it1 == *it2) return Py_False;
+                if(*it1 == *it2) Py_RETURN_FALSE;
                 if(*it1 < *it2) { ++it1; }
                 else { ++it2; }
             }
         } else {
             PyObject *other = args[0];
-            if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) return Py_True;
+            if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) Py_RETURN_TRUE;
             PyObject *iterator = PyObject_GetIter(other);
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
@@ -327,13 +327,13 @@ namespace db0::python
                 if (self->ext().has_item(hash, elem)) {
                     Py_DECREF(iterator);
                     Py_DECREF(elem);
-                    return Py_False;
+                    Py_RETURN_FALSE;
                 }
                 Py_DECREF(elem);
             }
             Py_DECREF(iterator);
         }
-        return Py_True;
+        Py_RETURN_TRUE;
     }
     
     PyObject *SetObject_copyInternal(SetObject *py_src_set)

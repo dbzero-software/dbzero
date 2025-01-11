@@ -11,7 +11,7 @@ namespace db0::object_model
 {
     
     using namespace db0;
-    
+
     std::array<VClassMap, 4> openClassMaps(const db0::db0_ptr<VClassMap> *class_map_ptrs, Memspace &memspace)
     {
         return {
@@ -143,8 +143,14 @@ namespace db0::object_model
                 // create new Class instance
                 bool is_singleton = LangToolkit::isSingleton(lang_type);                
                 ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
+                auto memo_base = LangToolkit::getBaseMemoType(lang_type);
+                std::uint32_t base_class_ref = 0;
+                if(memo_base){
+                    auto base_class = getOrCreateType(memo_base);
+                    base_class_ref = ClassFactory::classRef(*base_class);
+                }
                 type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type), 
-                    LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, flags));                
+                    LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, flags, base_class_ref));                
                 class_ptr = ClassPtr(*type);
                 // inc-ref to persist the class
                 type->incRef();
@@ -218,6 +224,13 @@ namespace db0::object_model
     
     ClassFactory::ClassItem ClassFactory::getTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type) const {
         return getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(class_ref), lang_type);
+    }
+
+    std::uint32_t ClassFactory::classRef(const Class &db0_class)
+    {
+        auto address = db0::getPhysicalAddress(db0_class.getAddress());
+        assert(address <= std::numeric_limits<std::uint32_t>::max());
+        return static_cast<std::uint32_t>(address);
     }
 
     ClassFactory::ClassItem ClassFactory::getTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const
