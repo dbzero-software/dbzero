@@ -149,7 +149,7 @@ namespace db0
             m_file_pos = address;
             ++m_rand_write_ops;
         }
-        assert(m_file_pos == ftell(m_file));
+        assert(m_file_pos == (std::uint64_t)ftell(m_file));
         if (fwrite(buffer, size, 1, m_file) != 1) {
             THROWF(db0::IOException) << "CFile::write: fwrite failed";
         }
@@ -175,7 +175,7 @@ namespace db0
             m_file_pos = address;
             ++m_rand_read_ops;
         }
-        assert(m_file_pos == ftell(m_file));
+        assert(m_file_pos == (std::uint64_t)ftell(m_file));
         if (fread(buffer, size, 1, m_file) != 1) {
             THROWF(db0::IOException) << "CFile::read: fread failed";
         }
