@@ -67,9 +67,6 @@ namespace db0
 #endif
         
     protected:
-        // the data state number, may be less than m_state_num if lock has been created for write
-        // but data has not been yet modified (note that it may be 0 for the newly created write-only locks)
-        StateNumType m_data_state_num = 0;
         // the actual state number under which this lock is registered
         StateNumType m_state_num;
         
@@ -77,9 +74,7 @@ namespace db0
         DP_Lock(tag_derived, StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
             StateNumType read_state_num, StateNumType write_state_num, std::shared_ptr<ResourceLock> cow_lock);
         
-        bool _tryFlush(FlushMethod);
-
-        void onDirty() override;
+        bool _tryFlush(FlushMethod);        
     };
     
 }

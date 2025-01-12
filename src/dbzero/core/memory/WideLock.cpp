@@ -15,8 +15,7 @@ namespace db0
     {
         // initialzie the local buffer
         if (access_mode[AccessOptions::read]) {
-            assert(read_state_num > 0);
-            m_data_state_num = read_state_num;
+            assert(read_state_num > 0);            
             // NOTE: if res_lock (residual) is present then we can skip reading the last page from storage
             auto &storage = m_context.m_storage_ref.get();
             if (m_res_lock) {
@@ -126,8 +125,6 @@ namespace db0
                     std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
                 }
                 
-                // invalidate the CoW lock if it exists
-                clearCoWData();
                 // reset the dirty flag
                 lock.commit_reset();
             }

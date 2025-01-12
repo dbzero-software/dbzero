@@ -144,10 +144,7 @@ namespace db0
         // Check if the copy-on-write data is available
         // this member is used for debug & evaluation purposes
         bool hasCoWData() const;
-        
-        // Remove the lock's related CoW data if such exists        
-        void clearCoWData();
-        
+                
         // Calculate the estimated upper bound of a memory footprint
         // NOTE: for mutable locks (i.e. from active transactiona the CoW buffer capacity is added)
         std::size_t usedMem() const;
@@ -195,10 +192,7 @@ namespace db0
         
         const std::byte *getCowPtr() const;
         bool getDiffs(const void *buf, std::vector<std::uint16_t> &result) const;
-
-        // overridable handler called on the dirty flag set
-        virtual void onDirty();
-        
+                
 #ifndef NDEBUG
         static std::atomic<std::size_t> rl_usage;
         static std::atomic<std::size_t> rl_count;

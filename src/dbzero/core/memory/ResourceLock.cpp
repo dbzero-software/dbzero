@@ -130,8 +130,6 @@ namespace db0
     void ResourceLock::setDirty()
     {        
         if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
-            // invoke implementation specific handler
-            onDirty();
             // register lock with the dirty cache
             // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
             if (!m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
@@ -139,11 +137,7 @@ namespace db0
             }
         }        
     }
-
-    void ResourceLock::onDirty()
-    {
-    }
-
+    
 #ifndef NDEBUG
     std::pair<std::size_t, std::size_t> ResourceLock::getTotalMemoryUsage() 
     {
@@ -185,16 +179,7 @@ namespace db0
     bool ResourceLock::hasCoWData() const {
         return m_cow_lock || !m_cow_data.empty() || m_access_mode[AccessOptions::create];
     }
-    
-    void ResourceLock::clearCoWData()
-    {
-        m_cow_data.clear();
-        m_cow_lock = nullptr;
-        if (m_access_mode[AccessOptions::create]) {
-            m_access_mode.set(AccessOptions::create, false);
-        }
-    }
-    
+        
     std::size_t ResourceLock::usedMem() const
     {
         std::size_t result = m_data.size() + sizeof(*this);

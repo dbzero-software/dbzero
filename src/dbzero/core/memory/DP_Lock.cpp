@@ -17,8 +17,7 @@ namespace db0
         assert(addrPageAligned(m_context.m_storage_ref.get()));
         // initialzie the local buffer
         if (access_mode[AccessOptions::read]) {
-            assert(read_state_num > 0);
-            m_data_state_num = read_state_num;
+            assert(read_state_num > 0);            
             // read into the local buffer
             m_context.m_storage_ref.get().read(
                 m_address, read_state_num, this->size(), m_data.data(), access_mode
@@ -79,8 +78,6 @@ namespace db0
                         storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
                     }
                 }
-                // invalidate the CoW data if it exists
-                clearCoWData();
                 // reset the dirty flag
                 lock.commit_reset();
             }
@@ -102,33 +99,31 @@ namespace db0
     
     void DP_Lock::updateStateNum(StateNumType state_num, bool is_volatile)
     {
-        assert(!m_cow_lock);
         assert(state_num > m_state_num);
         assert(!isDirty());
-        m_state_num = state_num;
         if (is_volatile) {
+            // NOTE: in case of volatile locks, CoW data will be reused
             m_access_mode.set(AccessOptions::no_flush);
-        }
-
-        // collect the CoW's data buffer, for volatile locks the CoW data buffer is inherited
-        if (!is_volatile || !hasCoWData()) {            
+        } else {
+            // collect the CoW's data buffer for the next transaction
+            m_cow_lock = nullptr;
+            if (m_access_mode[AccessOptions::create]) {
+                m_access_mode.set(AccessOptions::create, false);
+            }
             m_cow_data.resize(m_data.size());
             std::memcpy(m_cow_data.data(), m_data.data(), m_data.size());
         }
+        m_state_num = state_num;
         setDirty();
     }
-    
-    void DP_Lock::onDirty() {
-        m_data_state_num = m_state_num;
-    }
-    
+        
     void DP_Lock::merge(StateNumType final_state_num)
     {
         // for atomic operations current state num is active transaction +1
         assert(m_state_num == final_state_num + 1);
-        m_state_num = final_state_num;
+        m_state_num = final_state_num;        
     }
-
+    
 #ifndef NDEBUG
     bool DP_Lock::isBoundaryLock() const {
         return false;

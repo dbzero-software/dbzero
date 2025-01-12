@@ -678,8 +678,7 @@ namespace tests
         ASSERT_EQ(diffs, (std::vector<std::uint16_t> { 0, 0, 0, 16, 20 }));
         cut.close();
     }
-    
-    /* FIXME: log
+        
     TEST_F( PrefixImplTest , testReusedVolatileLockCoWDataHandling )
     {
         // we check if the CoW data is handled correctly by the volatile locks
@@ -717,7 +716,6 @@ namespace tests
             ASSERT_EQ(diffs, (std::vector<std::uint16_t> { 0, 0, 0, 16, 20 }));
         }
         cut.close();
-    }
-    */
+    }    
     
 }
