@@ -85,7 +85,7 @@ namespace db0
         return { (std::byte*)it->second.m_buffer + offset, it->second.m_lock };
     }
     
-    std::uint64_t DRAM_Prefix::getStateNum() const {
+    StateNumType DRAM_Prefix::getStateNum() const {
         return 0;
     }
     
@@ -154,7 +154,7 @@ namespace db0
         return 0;
     }
     
-    std::shared_ptr<Prefix> DRAM_Prefix::getSnapshot(std::optional<std::uint64_t>) const {
+    std::shared_ptr<Prefix> DRAM_Prefix::getSnapshot(std::optional<StateNumType>) const {
         return const_cast<DRAM_Prefix *>(this)->shared_from_this();
     }
     

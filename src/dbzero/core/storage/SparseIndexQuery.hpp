@@ -2,6 +2,7 @@
 
 #include "SparseIndex.hpp"
 #include "DiffIndex.hpp"
+#include <dbzero/core/memory/config.hpp>
 
 namespace db0
 
@@ -57,9 +58,9 @@ namespace db0
         bool lessThanFrom(unsigned int size, DI_Item &, typename DI_Item::ConstIterator &, 
             std::uint32_t &last_state_num) const;
     };
-    
+
     // Try identifying the state number (but not larger than state_num) swhen a specific page was modified
-    bool tryFindMutation(const SparseIndex &, const DiffIndex &, std::uint64_t page_num, std::uint64_t state_num,
-        std::uint64_t &mutation_id);
+    bool tryFindMutation(const SparseIndex &, const DiffIndex &, std::uint64_t page_num, StateNumType state_num,
+        StateNumType &mutation_id);
     
 }   

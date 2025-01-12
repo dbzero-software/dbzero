@@ -5,7 +5,7 @@ namespace db0
 {
     
     PrefixViewImpl::PrefixViewImpl(const std::string &name, std::shared_ptr<BaseStorage> storage,
-        const PrefixCache &head_cache, std::uint64_t state_num)
+        const PrefixCache &head_cache, StateNumType state_num)
         : Prefix(name)
         , m_storage(storage)
         , m_storage_ptr(storage.get())
@@ -57,7 +57,7 @@ namespace db0
         return AccessType::READ_ONLY;
     }
     
-    std::uint64_t PrefixViewImpl::getStateNum() const {
+    StateNumType PrefixViewImpl::getStateNum() const {
         return m_state_num;
     }
 
@@ -77,7 +77,7 @@ namespace db0
         // close does nothing
     }
     
-    std::shared_ptr<Prefix> PrefixViewImpl::getSnapshot(std::optional<std::uint64_t>) const
+    std::shared_ptr<Prefix> PrefixViewImpl::getSnapshot(std::optional<StateNumType>) const
     {
         THROWF(db0::InternalException) 
             << "PrefixViewImpl::getSnapshot: cannot create snapshot from snapshot" << THROWF_END;
@@ -90,10 +90,10 @@ namespace db0
     std::shared_ptr<DP_Lock> PrefixViewImpl::mapPage(std::uint64_t page_num)
     {
         // read-only access
-        std::uint64_t read_state_num = 0;
+        StateNumType read_state_num = 0;
         auto lock = m_cache.findPage(page_num, m_state_num, { AccessOptions::read }, read_state_num);        
         if (!lock) {
-            std::uint64_t mutation_id;
+            StateNumType mutation_id;
             // page may not be available in storage yet, in such case we pick from the head cache using state_num
             if (!m_storage_ptr->tryFindMutation(page_num, m_state_num, mutation_id)) {
                 mutation_id = m_state_num;
@@ -116,7 +116,7 @@ namespace db0
     std::shared_ptr<WideLock> PrefixViewImpl::mapWideRange(
         std::uint64_t first_page, std::uint64_t end_page, std::uint64_t address, std::size_t size)
     {
-        std::uint64_t read_state_num = 0;
+        StateNumType read_state_num = 0;
         auto lock_info = m_cache.findRange(first_page, end_page, address, size, m_state_num, 
             { AccessOptions::read }, read_state_num);
         if (!lock_info.second && lock_info.first) {
@@ -130,7 +130,7 @@ namespace db0
         auto lock = lock_info.second;
         if (!lock) {
             bool has_res = !isPageAligned(size);
-            std::uint64_t mutation_id;
+            StateNumType mutation_id;
             if (!tryFindUniqueMutation(*m_storage_ptr, first_page, end_page - (has_res ? 1: 0), m_state_num, mutation_id)) {
                 mutation_id = m_state_num;
             }
@@ -156,7 +156,7 @@ namespace db0
     std::shared_ptr<BoundaryLock> PrefixViewImpl::mapBoundaryRange(std::uint64_t first_page_num,
         std::uint64_t address, std::size_t size)
     {
-        std::uint64_t read_state_num = 0;
+        StateNumType read_state_num = 0;
         std::shared_ptr<BoundaryLock> lock;
         std::shared_ptr<DP_Lock> lhs, rhs;
         while (!lock) {

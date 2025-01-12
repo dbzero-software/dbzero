@@ -93,3 +93,25 @@ def test_durability_of_diff_atomic_updates(db0_fixture):
     db0.open(px_name, "r")
     for expected, actual in zip(expected_values, [x.value for x in MemoTestSingleton().value]):
         assert expected == actual
+
+
+def test_diff_storage_of_atomic_ops_issue1(db0_fixture):
+    """
+    This test was failing only when using db0.atomic
+    Resolution: 
+    """
+    buf = db0.list()
+    root = MemoTestSingleton(buf)
+    old_stats = None
+    for _ in range(2):
+        old_stats = db0.get_storage_stats()
+        with db0.atomic():
+            for _ in range(25):
+                buf.append(MemoTestClass(0))
+        db0.commit()
+        stats = db0.get_storage_stats()
+        diff_bytes = stats['page_io_diff_bytes'] - old_stats['page_io_diff_bytes']
+        total_bytes = stats['page_io_total_bytes'] - old_stats['page_io_total_bytes']
+        diff_usage = diff_bytes / total_bytes
+        assert diff_usage > 0.7
+    

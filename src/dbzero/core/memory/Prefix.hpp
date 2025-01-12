@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config.hpp"
 #include <dbzero/core/memory/MemLock.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <optional>
@@ -41,7 +42,7 @@ namespace db0
                 
         virtual std::size_t getPageSize() const = 0;
         
-        virtual std::uint64_t getStateNum() const = 0;
+        virtual StateNumType getStateNum() const = 0;
                 
         /**
          * Commit all local changes made since last commit
@@ -79,8 +80,8 @@ namespace db0
         /**
          * Get the read-only snapshot of the prefix (i.e. a view based on current state number)
          */
-        virtual std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const = 0;
-
+        virtual std::shared_ptr<Prefix> getSnapshot(std::optional<StateNumType> state_num = {}) const = 0;
+        
         // Get approximate (may not be threading precise) volume of the underlying dirty locks
         virtual std::size_t getDirtySize() const = 0;
         

@@ -6,6 +6,7 @@
 #include <functional>
 #include <shared_mutex>
 #include <mutex>
+#include "config.hpp"
 #include <dbzero/core/memory/DP_Lock.hpp>
 #include <dbzero/core/memory/BoundaryLock.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
@@ -27,28 +28,28 @@ namespace db0
         PageMap(std::size_t page_size);
 
         // page_num, state_num
-        using PageKeyT = std::pair<std::uint64_t, std::uint64_t>;
+        using PageKeyT = std::pair<std::uint64_t, StateNumType>;
         
         /**
          * Check if the DP exists without returning its parameters
         */
-        bool exists(std::uint64_t state_num, std::uint64_t page_num) const;
+        bool exists(StateNumType state_num, std::uint64_t page_num) const;
 
         // NOTE: may return expired lock
         // @return nullptr if lock not found
-        std::weak_ptr<ResourceLockT> *find(std::uint64_t state_num, std::uint64_t page_num,
-            std::uint64_t &read_state_num) const;
+        std::weak_ptr<ResourceLockT> *find(StateNumType state_num, std::uint64_t page_num,
+            StateNumType &read_state_num) const;
 
-        void insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT>);
+        void insert(StateNumType state_num, std::shared_ptr<ResourceLockT>);
 
-        void insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT>, std::uint64_t page_num);
+        void insert(StateNumType state_num, std::shared_ptr<ResourceLockT>, std::uint64_t page_num);
 
         void forEach(std::function<void(const ResourceLockT &)>) const;
 
         void forEach(std::function<void(ResourceLockT &)>);
 
         // @return existing lock updated with the new lock's contents
-        std::shared_ptr<ResourceLockT> replace(std::uint64_t state_num, std::shared_ptr<ResourceLockT> new_lock, 
+        std::shared_ptr<ResourceLockT> replace(StateNumType state_num, std::shared_ptr<ResourceLockT> new_lock,
             std::uint64_t page_num);
 
         void clear();
@@ -67,13 +68,13 @@ namespace db0
         friend class PrefixCache;
         
         // Erase lock stored under a known state number
-        void erase(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock);
-        void erase(std::uint64_t state_num, std::uint64_t page_num);
+        void erase(StateNumType state_num, std::shared_ptr<ResourceLockT> lock);
+        void erase(StateNumType state_num, std::uint64_t page_num);
 
         // remove expired locks only up to a specific state number
         // note that the lock with the highest state number below head_state_num is not erased even if it's expired
         // @return the number of removed (expired) locks
-        std::size_t clearExpired(std::uint64_t head_state_num);
+        std::size_t clearExpired(StateNumType head_state_num);
 
     private:
         const unsigned int m_shift;
@@ -89,11 +90,11 @@ namespace db0
         mutable std::map<PageKeyT, std::weak_ptr<ResourceLockT>, CompT> m_cache;        
         using CacheIterator = typename decltype(m_cache)::iterator;
 
-        CacheIterator find(std::uint64_t page_num, std::uint64_t state_num) const;
+        CacheIterator find(std::uint64_t page_num, StateNumType state_num) const;
 
         // Erase ALL locks with a given page number where state < state_num
         // irrespective of their use count, this is required for handling inconsistent locks problem
-        void eraseAll(std::uint64_t page_num, std::uint64_t state_num) const;        
+        void eraseAll(std::uint64_t page_num, StateNumType state_num) const;
     };
     
     template <typename ResourceLockT>
@@ -103,14 +104,14 @@ namespace db0
     }
     
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT> res_lock)
+    void PageMap<ResourceLockT>::insert(StateNumType state_num, std::shared_ptr<ResourceLockT> res_lock)
     {
         std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
         m_cache[{res_lock->getAddress() >> m_shift, state_num}] = res_lock;
     }
     
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::insert(std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, 
+    void PageMap<ResourceLockT>::insert(StateNumType state_num, std::shared_ptr<ResourceLockT> lock,
         std::uint64_t page_num)
     {
         std::unique_lock<std::shared_mutex> _lock(m_rw_mutex);
@@ -142,15 +143,15 @@ namespace db0
     }
     
     template <typename ResourceLockT>
-    bool PageMap<ResourceLockT>::exists(std::uint64_t state_num, std::uint64_t page_num) const
+    bool PageMap<ResourceLockT>::exists(StateNumType state_num, std::uint64_t page_num) const
     {
         std::shared_lock<std::shared_mutex> _lock(m_rw_mutex);
         return find(page_num, state_num) != m_cache.end();
     }
     
     template <typename ResourceLockT>
-    std::weak_ptr<ResourceLockT> *PageMap<ResourceLockT>::find(std::uint64_t state_num, std::uint64_t page_num,
-        std::uint64_t &read_state_num) const
+    std::weak_ptr<ResourceLockT> *PageMap<ResourceLockT>::find(StateNumType state_num, std::uint64_t page_num,
+        StateNumType &read_state_num) const
     {
         // needs to be unique locked due to potential m_cache::erase operation
         std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
@@ -164,7 +165,7 @@ namespace db0
     
     template <typename ResourceLockT>
     typename PageMap<ResourceLockT>::CacheIterator PageMap<ResourceLockT>::find(
-        std::uint64_t page_num, std::uint64_t state_num) const
+        std::uint64_t page_num, StateNumType state_num) const
     {
         if (m_cache.empty()) {
             return m_cache.end();
@@ -184,7 +185,7 @@ namespace db0
     }
 
     template <typename ResourceLockT> void PageMap<ResourceLockT>::eraseAll(
-        std::uint64_t page_num, std::uint64_t state_num) const
+        std::uint64_t page_num, StateNumType state_num) const
     {
         if (m_cache.empty()) {
             return;
@@ -204,7 +205,7 @@ namespace db0
     }
     
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::erase(std::uint64_t state_num, std::shared_ptr<ResourceLockT> res_lock)
+    void PageMap<ResourceLockT>::erase(StateNumType state_num, std::shared_ptr<ResourceLockT> res_lock)
     {
         std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
         auto page_num = res_lock->getAddress() >> m_shift;
@@ -227,7 +228,7 @@ namespace db0
     }
     
     template <typename ResourceLockT>
-    void PageMap<ResourceLockT>::erase(std::uint64_t state_num, std::uint64_t page_num)
+    void PageMap<ResourceLockT>::erase(StateNumType state_num, std::uint64_t page_num)
     {
         std::unique_lock<std::shared_mutex> lock(m_rw_mutex);
 #ifndef NDEBUG        
@@ -240,7 +241,7 @@ namespace db0
     
     template <typename ResourceLockT>
     std::shared_ptr<ResourceLockT> PageMap<ResourceLockT>::replace(
-        std::uint64_t state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num)
+        StateNumType state_num, std::shared_ptr<ResourceLockT> lock, std::uint64_t page_num)
     {
         // find exact match of the page / state
         auto it = m_cache.find({page_num, state_num});
@@ -272,7 +273,7 @@ namespace db0
     }
     
     template <typename ResourceLockT>
-    std::size_t PageMap<ResourceLockT>::clearExpired(std::uint64_t head_state_num)
+    std::size_t PageMap<ResourceLockT>::clearExpired(StateNumType head_state_num)
     {
         std::size_t count = 0;
         std::unique_lock<std::shared_mutex> lock(m_rw_mutex);

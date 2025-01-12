@@ -6,7 +6,7 @@ namespace db0
 
 {
 
-    std::uint64_t Storage0::STATE_NULL = 0;
+    StateNumType Storage0::STATE_NULL = 0;
     
     Storage0::Storage0(std::size_t page_size)
         : BaseStorage(AccessType::READ_WRITE)
@@ -14,21 +14,21 @@ namespace db0
     {
     }
     
-    void Storage0::read(std::uint64_t, std::uint64_t, std::size_t size, void *buffer, FlagSet<AccessOptions>) const {
+    void Storage0::read(std::uint64_t, StateNumType, std::size_t size, void *buffer, FlagSet<AccessOptions>) const {
         std::memset(buffer, 0, size);
     }
 
-    void Storage0::write(std::uint64_t, std::uint64_t, std::size_t, void *) {
+    void Storage0::write(std::uint64_t, StateNumType, std::size_t, void *) {
     }
 
-    void Storage0::writeDiffs(std::uint64_t, std::uint64_t, std::size_t, void *, const std::vector<std::uint16_t> &, unsigned int) {
+    void Storage0::writeDiffs(std::uint64_t, StateNumType, std::size_t, void *, const std::vector<std::uint16_t> &, unsigned int) {
     }
 
-    std::uint64_t Storage0::findMutation(std::uint64_t, std::uint64_t state_num) const {
+    StateNumType Storage0::findMutation(std::uint64_t, StateNumType state_num) const {
         return state_num;
     }
     
-    bool Storage0::tryFindMutation(std::uint64_t address, std::uint64_t state_num, std::uint64_t &mutation_id) const
+    bool Storage0::tryFindMutation(std::uint64_t address, StateNumType state_num, StateNumType &mutation_id) const
     {
         mutation_id = state_num;
         return true;

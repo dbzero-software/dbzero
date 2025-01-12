@@ -9,7 +9,7 @@ namespace db0
 {
     
     DP_Lock::DP_Lock(StorageContext context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num,
+        FlagSet<AccessOptions> access_mode, StateNumType read_state_num, StateNumType write_state_num,
         std::shared_ptr<ResourceLock> cow_lock)
         : ResourceLock(context, address, size, access_mode, cow_lock)
         , m_state_num(std::max(read_state_num, write_state_num))
@@ -18,6 +18,7 @@ namespace db0
         // initialzie the local buffer
         if (access_mode[AccessOptions::read]) {
             assert(read_state_num > 0);
+            m_data_state_num = read_state_num;
             // read into the local buffer
             m_context.m_storage_ref.get().read(
                 m_address, read_state_num, this->size(), m_data.data(), access_mode
@@ -31,14 +32,14 @@ namespace db0
     }
     
     DP_Lock::DP_Lock(tag_derived, StorageContext context, std::uint64_t address, std::size_t size,
-        FlagSet<AccessOptions> access_mode, std::uint64_t read_state_num, std::uint64_t write_state_num, 
+        FlagSet<AccessOptions> access_mode, StateNumType read_state_num, StateNumType write_state_num,
         std::shared_ptr<ResourceLock> cow_lock)
         : ResourceLock(context, address, size, access_mode, cow_lock)
         , m_state_num(std::max(read_state_num, write_state_num))
     {
     }
     
-    DP_Lock::DP_Lock(std::shared_ptr<DP_Lock> other, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode)
+    DP_Lock::DP_Lock(std::shared_ptr<DP_Lock> other, StateNumType write_state_num, FlagSet<AccessOptions> access_mode)
         : ResourceLock(other, access_mode)
         , m_state_num(write_state_num)
     {
@@ -73,7 +74,7 @@ namespace db0
                         // unable to diff-flush
                         return false;
                     }
-                    // NOTE: DP needs not to be flushed if there are no diffs            
+                    // NOTE: DP needs not to be flushed if there are no diffs
                     if (!diffs.empty()) {
                         storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
                     }
@@ -99,23 +100,29 @@ namespace db0
         return m_state_num;
     }
     
-    void DP_Lock::updateStateNum(std::uint64_t state_num, bool no_flush)
+    void DP_Lock::updateStateNum(StateNumType state_num, bool is_volatile)
     {
         assert(!m_cow_lock);
         assert(state_num > m_state_num);
         assert(!isDirty());
         m_state_num = state_num;
-        if (no_flush) {
+        if (is_volatile) {
             m_access_mode.set(AccessOptions::no_flush);
-        } else {
-            // collect the CoW's data buffer, only collected for flushed locks
+        }
+
+        // collect the CoW's data buffer, for volatile locks the CoW data buffer is inherited
+        if (!is_volatile || !hasCoWData()) {            
             m_cow_data.resize(m_data.size());
             std::memcpy(m_cow_data.data(), m_data.data(), m_data.size());
         }
         setDirty();
     }
     
-    void DP_Lock::merge(std::uint64_t final_state_num)
+    void DP_Lock::onDirty() {
+        m_data_state_num = m_state_num;
+    }
+    
+    void DP_Lock::merge(StateNumType final_state_num)
     {
         // for atomic operations current state num is active transaction +1
         assert(m_state_num == final_state_num + 1);

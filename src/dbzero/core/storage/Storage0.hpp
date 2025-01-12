@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <optional>
 #include <functional>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/utils/FlagSet.hpp>
 #include "BaseStorage.hpp"
@@ -18,27 +19,27 @@ namespace db0
     class Storage0: public BaseStorage
     {
     public:
-        static std::uint64_t STATE_NULL;
+        static StateNumType STATE_NULL;
         
         Storage0(std::size_t page_size = 4096);
         ~Storage0() = default;
 
-        void read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+        void read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }) const override;
         
-        void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) override;
+        void write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer) override;
 
-        void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+        void writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             const std::vector<std::uint16_t> &diffs, unsigned int) override;
 
-        std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const override;
+        StateNumType findMutation(std::uint64_t page_num, StateNumType state_num) const override;
         
-        bool tryFindMutation(std::uint64_t page_num, std::uint64_t state_num, std::uint64_t &) const override;
+        bool tryFindMutation(std::uint64_t page_num, StateNumType state_num, StateNumType &) const override;
 
         std::size_t getPageSize() const override;
 
-        std::uint32_t getMaxStateNum() const override {
-            return 1;
+        StateNumType getMaxStateNum() const override {
+            return 1u;
         }
         
         bool flush(ProcessTimer * = nullptr) override {

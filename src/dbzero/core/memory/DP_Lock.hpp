@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <atomic>
+#include "config.hpp"
 #include "ResourceLock.hpp"
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
 #include <dbzero/core/threading/Flags.hpp>
@@ -29,13 +30,13 @@ namespace db0
          * @param write_state_num the current transaction number (or 0 for read-only locks)        
          * @param cow_lock optional copy-on-write lock (previous version)
         */
-        DP_Lock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, std::uint64_t read_state_num,
-            std::uint64_t write_state_num, std::shared_ptr<ResourceLock> cow_lock = nullptr);
+        DP_Lock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>, StateNumType read_state_num,
+            StateNumType write_state_num, std::shared_ptr<ResourceLock> cow_lock = nullptr);
 
         /**
          * Create a copied-on-write lock from an existing lock   
         */
-        DP_Lock(std::shared_ptr<DP_Lock>, std::uint64_t write_state_num, FlagSet<AccessOptions>);   
+        DP_Lock(std::shared_ptr<DP_Lock>, StateNumType write_state_num, FlagSet<AccessOptions>);
         
         bool tryFlush(FlushMethod) override;
 
@@ -52,28 +53,33 @@ namespace db0
          * This operation will also upgrade the acccess mode to "write"
          * !!! The internal buffer can be moved (underlying pointer change is allowed)
          * @param state_num the new state number
-         * @param no_flush true to additionally assign the no_flush flag
+         * @param is_volatile flag indicating if the volatile lock (i.e. of the atomic operation) is being created
          */
-        void updateStateNum(std::uint64_t state_num, bool no_flush);
+        void updateStateNum(StateNumType state_num, bool is_volatile);
         
         std::uint64_t getStateNum() const;
         
-        // Updates the local state number before merging atomic operation with active transaction
-        void merge(std::uint64_t final_state_num);
+        // Updates the local state number before merging atomic operation with the active transaction
+        void merge(StateNumType final_state_num);
         
 #ifndef NDEBUG
         bool isBoundaryLock() const override;
 #endif
         
     protected:
-        // the updated state number or read-only state number
-        std::uint64_t m_state_num;
+        // the data state number, may be less than m_state_num if lock has been created for write
+        // but data has not been yet modified (note that it may be 0 for the newly created write-only locks)
+        StateNumType m_data_state_num = 0;
+        // the actual state number under which this lock is registered
+        StateNumType m_state_num;
         
         struct tag_derived {};
         DP_Lock(tag_derived, StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-            std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<ResourceLock> cow_lock);
+            StateNumType read_state_num, StateNumType write_state_num, std::shared_ptr<ResourceLock> cow_lock);
         
-        bool _tryFlush(FlushMethod);                
+        bool _tryFlush(FlushMethod);
+
+        void onDirty() override;
     };
     
 }

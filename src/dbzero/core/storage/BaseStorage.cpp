@@ -21,13 +21,13 @@ namespace db0
     }
     
     std::uint64_t BaseStorage::completeRefresh(
-        std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)>)
+        std::function<void(std::uint64_t updated_page_num, StateNumType state_num)>)
     {
         return 0;
     }
     
     std::uint64_t BaseStorage::refresh(
-        std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)>)
+        std::function<void(std::uint64_t updated_page_num, StateNumType state_num)>)
     {
         if (beginRefresh()) {
             return completeRefresh();

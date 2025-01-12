@@ -1,6 +1,7 @@
 #pragma once
 
 #include <dbzero/core/utils/FlagSet.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <functional>
 #include <unordered_map>
@@ -28,7 +29,7 @@ namespace db0
          * @param size the range size in bytes
          * @param buffer the buffer to hold the data
         */       
-        virtual void read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+        virtual void read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }) const = 0;
         
         /**
@@ -39,7 +40,7 @@ namespace db0
          * @param size the range size in bytes
          * @param buffer the buffer holding data to be written
         */
-        virtual void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) = 0;
+        virtual void write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer) = 0;
         
         /**
          * Write diff-data into a specific page
@@ -47,7 +48,7 @@ namespace db0
          * @param max_len - the maximum allowed diff-sequence length (when exceeded, the full-DP will be written)
          * NOTE: diff areas must be evaluated page-wise
          */
-        virtual void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+        virtual void writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             const std::vector<std::uint16_t> &diffs, unsigned int max_len = 32) = 0;
         
         /**
@@ -57,21 +58,21 @@ namespace db0
          * Exception will be raised if read access requested and some of the pages in the range does not exist
          * @return mutation state number
         */
-        virtual std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const = 0;
+        virtual StateNumType findMutation(std::uint64_t page_num, StateNumType state_num) const = 0;
         
         /**
          * Try finding mutation
          * @return true if found and mutation_id was set
         */
-        virtual bool tryFindMutation(std::uint64_t page_num, std::uint64_t state_num, 
-            std::uint64_t &mutation_id) const = 0;
+        virtual bool tryFindMutation(std::uint64_t page_num, StateNumType state_num, 
+            StateNumType &mutation_id) const = 0;
         
         virtual std::size_t getPageSize() const = 0;
 
         /**
          * Get maximum used state number
         */
-        virtual std::uint32_t getMaxStateNum() const = 0;
+        virtual StateNumType getMaxStateNum() const = 0;
 
         virtual AccessType getAccessType() const;
         
@@ -94,8 +95,9 @@ namespace db0
         virtual bool beginRefresh();
         
         // Complete the refresh operation after successful invocation of beginRefresh
+        // @return last modification timestamp
         virtual std::uint64_t completeRefresh(
-            std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {});
+            std::function<void(std::uint64_t updated_page_num, StateNumType state_num)> f = {});
         
         /**
          * Allowed in read-only mode only
@@ -103,7 +105,7 @@ namespace db0
          * @param f optional function to be notified on updated data pages (DP)
          * @return 0 if no changes were applied, last modified timestamp otherwise
         */    
-        std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {});
+        std::uint64_t refresh(std::function<void(std::uint64_t updated_page_num, StateNumType state_num)> f = {});
         
         virtual std::uint64_t getLastUpdated() const;
         

@@ -117,11 +117,6 @@ namespace db0
         
         // Mark the entire lock as dirty
         void setDirty();
-
-        // Mark a specific part of the lock as dirty
-        // @param offset offset in bytes (must be within the mapped range) starting from the lock's address
-        // @param size size in bytes of the updated range (must be within the mapped range)
-        void setDirty(std::size_t offset, std::size_t size);
         
         bool isCached() const;
 
@@ -201,6 +196,9 @@ namespace db0
         const std::byte *getCowPtr() const;
         bool getDiffs(const void *buf, std::vector<std::uint16_t> &result) const;
 
+        // overridable handler called on the dirty flag set
+        virtual void onDirty();
+        
 #ifndef NDEBUG
         static std::atomic<std::size_t> rl_usage;
         static std::atomic<std::size_t> rl_count;

@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cassert>
+#include "config.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
@@ -53,9 +54,9 @@ namespace db0
     }
     
     template <typename StorageT> bool tryFindUniqueMutation(const StorageT &storage, std::uint64_t first_page,
-        std::uint64_t end_page, std::uint64_t state_num, std::uint64_t &mutation_id)
+        std::uint64_t end_page, StateNumType state_num, StateNumType &mutation_id)
     {
-        std::uint64_t result = 0;
+        StateNumType result = 0;
         bool has_mutation = false;
         for (;first_page < end_page; ++first_page) {
             if (storage.tryFindMutation(first_page, state_num, result)) {

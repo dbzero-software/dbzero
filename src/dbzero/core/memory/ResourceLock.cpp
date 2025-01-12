@@ -130,12 +130,18 @@ namespace db0
     void ResourceLock::setDirty()
     {        
         if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
+            // invoke implementation specific handler
+            onDirty();
             // register lock with the dirty cache
             // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
             if (!m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
                 m_context.m_cache_ref.get().append(shared_from_this());
             }
         }        
+    }
+
+    void ResourceLock::onDirty()
+    {
     }
 
 #ifndef NDEBUG

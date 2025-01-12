@@ -7,15 +7,16 @@
 namespace db0
 
 {
-    
+
     WideLock::WideLock(StorageContext context, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
-        std::uint64_t read_state_num, std::uint64_t write_state_num, std::shared_ptr<DP_Lock> res_lock, std::shared_ptr<ResourceLock> cow_lock)
+        StateNumType read_state_num, StateNumType write_state_num, std::shared_ptr<DP_Lock> res_lock, std::shared_ptr<ResourceLock> cow_lock)
         : DP_Lock(tag_derived{}, context, address, size, access_mode, read_state_num, write_state_num, cow_lock)
         , m_res_lock(res_lock)
     {
         // initialzie the local buffer
         if (access_mode[AccessOptions::read]) {
             assert(read_state_num > 0);
+            m_data_state_num = read_state_num;
             // NOTE: if res_lock (residual) is present then we can skip reading the last page from storage
             auto &storage = m_context.m_storage_ref.get();
             if (m_res_lock) {
@@ -36,11 +37,11 @@ namespace db0
         }
     }
     
-    WideLock::WideLock(std::shared_ptr<WideLock> lock, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode,
+    WideLock::WideLock(std::shared_ptr<WideLock> lock, StateNumType write_state_num, FlagSet<AccessOptions> access_mode,
         std::shared_ptr<DP_Lock> res_lock)
         : DP_Lock(lock, write_state_num, access_mode)
         , m_res_lock(res_lock)
-    {    
+    {
     }
     
     bool WideLock::tryFlush(FlushMethod flush_method) {
@@ -139,7 +140,7 @@ namespace db0
         if (!m_res_lock) {
             return;
         }
-
+        
         // no-flush flag is important for volatile locks (atomic operations)
         if (m_access_mode[AccessOptions::no_flush]) {
             return;

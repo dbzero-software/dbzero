@@ -159,7 +159,7 @@ namespace db0
     }
 
     bool tryFindMutation(const SparseIndex &sparse_index, const DiffIndex &diff_index, std::uint64_t page_num,
-        std::uint64_t state_num, std::uint64_t &mutation_id)
+        StateNumType state_num, StateNumType &mutation_id)
     {
         // query the diff index first
         mutation_id = diff_index.findLower(page_num, state_num);
@@ -169,7 +169,7 @@ namespace db0
             return mutation_id != 0;
         }
         // take max from the sparse index and diff index
-        mutation_id = std::max((std::uint64_t)item.m_state_num, mutation_id);
+        mutation_id = std::max((StateNumType)item.m_state_num, mutation_id);
         return true;
     }
     
