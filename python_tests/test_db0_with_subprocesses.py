@@ -1,3 +1,4 @@
+from datetime import date, datetime
 import pytest
 import subprocess
 import dbzero_ce as db0
@@ -33,6 +34,16 @@ def test_hash_with_db0_tuple_with_enum(db0_fixture):
     t1 = db0.tuple([1, Colors.RED, 999])
     t2 = db0.tuple([1, Colors.RED, 999])    
     assert db0.hash(t1) == db0.hash(t2)
+
+def test_hash_with_db0_date(db0_fixture):
+    d1 = date(2021, 12, 12)
+    d2 = date(2021, 12, 12)    
+    assert db0.hash(d1) == db0.hash(d2)
+
+def test_hash_with_db0_datetime(db0_fixture):
+    d1 = datetime(2021, 12, 12, 5, 5, 5)
+    d2 = datetime(2021, 12, 12, 5, 5, 5)
+    assert db0.hash(d1) == db0.hash(d2)
 
 
 def get_test_without_remove(script, setup_script=""):
@@ -159,3 +170,64 @@ value = key in dict
     sr1 = run_subprocess_script(subprocess_script)
     assert sr1 == b"True\n"
     run_subprocess_script(cleanup)
+
+
+def test_hash_date_subprocess():
+    setup= """
+from datetime import date
+t1 = date(2021, 12, 12)
+"""
+    subprocess_script = get_test_for_subprocess('db0.hash(t1)', setup)
+    sr1 = run_subprocess_script(subprocess_script)
+    
+    sr2 = run_subprocess_script(subprocess_script)
+    assert sr1 == sr2
+
+def test_hash_time_subprocess():
+    setup= """
+from datetime import time
+from datetime import timezone
+t1 = time(12, 12, 12)
+"""
+    subprocess_script = get_test_for_subprocess('db0.hash(t1)', setup)
+    sr1 = run_subprocess_script(subprocess_script)
+    
+    sr2 = run_subprocess_script(subprocess_script)
+    assert sr1 == sr2
+
+def test_hash_time_with_tz_subprocess():
+    setup= """
+from datetime import datetime
+from datetime import timezone
+t1 = datetime(12, 12, 12, 5, 5, 5, tzinfo=timezone.utc).time()
+"""
+    subprocess_script = get_test_for_subprocess('db0.hash(t1)', setup)
+    sr1 = run_subprocess_script(subprocess_script)
+    
+    sr2 = run_subprocess_script(subprocess_script)
+    assert sr1 == sr2
+
+
+def test_hash_datetime_subprocess():
+    setup= """
+from datetime import datetime
+t1 = datetime(2021, 12, 12, 5, 5, 5)
+"""
+    subprocess_script = get_test_for_subprocess('db0.hash(t1)', setup)
+    sr1 = run_subprocess_script(subprocess_script)
+    
+    sr2 = run_subprocess_script(subprocess_script)
+    assert sr1 == sr2
+
+
+def test_hash_datetime_with_tz_subprocess():
+    setup= """
+from datetime import datetime
+from datetime import timezone
+t1 = datetime(2021, 12, 12, 5, 5, 5, tzinfo=timezone.utc)
+"""
+    subprocess_script = get_test_for_subprocess('db0.hash(t1)', setup)
+    sr1 = run_subprocess_script(subprocess_script)
+    
+    sr2 = run_subprocess_script(subprocess_script)
+    assert sr1 == sr2
