@@ -25,13 +25,21 @@ PyObject* db0::python::getDecimalClass() {
     return decimal_class;
 }
 
-PyObject *db0::python::uint64ToPyDecimal(std::uint64_t datetime)
+PyObject *db0::python::uint64ToPyDecimal(std::uint64_t decimal)
 {
-    auto numerator = get_bytes(datetime, 0, 58);
-    std::int64_t exponent = get_bytes(datetime, 58, 5);
-    exponent = -exponent;
-    PyObject *numerator_py = PyLong_FromLong(numerator);
+
     PyObject *decimal_type = getDecimalClass();
+    auto numerator = get_bytes(decimal, 0, 57);
+    std::int64_t exponent = get_bytes(decimal, 57, 5);
+    int is_negative = get_bytes(decimal, 62, 1);
+    exponent = -exponent;
+    if(decimal == 0){
+        return PyObject_CallFunctionObjArgs(decimal_type, PyLong_FromLong(0), NULL);
+    }
+    if(is_negative){
+        numerator = -numerator;
+    }
+    PyObject *numerator_py = PyLong_FromLong(numerator);
     PyObject* decimal_value = PyObject_CallFunctionObjArgs(decimal_type, numerator_py, NULL);
     PyObject* decimal_result = PyObject_CallMethod(decimal_value, "scaleb", "l", exponent);
     Py_DECREF(decimal_value);
@@ -47,6 +55,10 @@ PyObject *db0::python::uint64ToPyDecimal(std::uint64_t datetime)
 std::int64_t decimalToIntegral(PyObject *decimal){
     auto decimal_integral = PyObject_CallMethod(decimal, "to_integral_value", nullptr);
     PyObject* intValue = PyObject_CallFunctionObjArgs((PyObject*)&PyLong_Type, decimal_integral, NULL);
+    if (PyErr_Occurred()) {
+        PyErr_Print();
+        throw std::runtime_error("Error occurred while converting numerator to long.");
+    }
     auto result = PyLong_AsLong(intValue);
     Py_DECREF(decimal_integral);
     Py_DECREF(intValue);
@@ -56,11 +68,15 @@ std::int64_t decimalToIntegral(PyObject *decimal){
 
 std::uint64_t db0::python::pyDecimalToUint64(PyObject *py_datetime)
 {
-
+    // check if decimal is 0
+    if(PyObject_IsTrue(PyObject_CallMethod(py_datetime, "is_zero", nullptr))){
+        return 0;
+    }
     PyObject *as_tuple = PyObject_CallMethod(py_datetime, "as_tuple", nullptr);
     auto exponent_obj = PyTuple_GetItem(as_tuple, 2);
     auto exponent = PyLong_AsLongLong(exponent_obj);
-    PyObject *log_decimal = PyObject_CallMethod(py_datetime, "log10", nullptr);
+    PyObject* abs = PyObject_CallMethod(py_datetime, "copy_abs", nullptr);
+    PyObject *log_decimal = PyObject_CallMethod(abs, "log10", nullptr);
     auto log_value = decimalToIntegral(log_decimal);
     Py_DECREF(log_decimal);
     Py_DECREF(as_tuple);
@@ -80,8 +96,15 @@ std::uint64_t db0::python::pyDecimalToUint64(PyObject *py_datetime)
         PyErr_Print();
         throw std::runtime_error("Error occurred while converting numerator to long.");
     }
+    // check if decimal is negatice
+    int is_negative = 0;
+    if(PyObject_IsTrue(PyObject_CallMethod(py_datetime, "is_signed", nullptr))){
+        integer_value = -integer_value;
+        is_negative = 1;
+    }
     std::uint64_t decimal = 0;
-    set_bytes(decimal, 0, 58, integer_value);
-    set_bytes(decimal, 58, 5, exponent);
+    set_bytes(decimal, 0, 57, integer_value);
+    set_bytes(decimal, 57, 5, exponent);
+    set_bytes(decimal, 62, 1, is_negative);
     return decimal;
 }

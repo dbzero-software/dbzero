@@ -60,6 +60,11 @@ namespace db0::python
         return reinterpret_cast<MemoObject*>(key)->ext().getAddress();
     }
 
+
+    std::int64_t get_py_hash_impl_for_simple_obj(PyObject *key) {
+        return PyToolkit::getTypeManager().extractUInt64(key);
+    }
+
     std::int64_t get_py_hash_impl_default(PyObject *key) {
         return PyObject_Hash(key);
     }
@@ -74,6 +79,16 @@ namespace db0::python
         functions[static_cast<int>(TypeId::TUPLE)] = get_py_hash_impl<TypeId::TUPLE>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = get_py_hash_impl<TypeId::DB0_ENUM_VALUE>;
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = get_py_hash_impl<TypeId::MEMO_OBJECT>;
+        functions[static_cast<int>(TypeId::DB0_CLASS)] = get_py_hash_impl_for_simple_obj;
+
+        functions[static_cast<int>(TypeId::DATETIME)] = get_py_hash_impl_for_simple_obj;
+        functions[static_cast<int>(TypeId::DATETIME_TZ)] = get_py_hash_impl_for_simple_obj;
+        functions[static_cast<int>(TypeId::DATE)] = get_py_hash_impl_for_simple_obj;
+        functions[static_cast<int>(TypeId::TIME)] = get_py_hash_impl_for_simple_obj;
+        functions[static_cast<int>(TypeId::TIME_TZ)] = get_py_hash_impl_for_simple_obj;
+        functions[static_cast<int>(TypeId::INTEGER)] = get_py_hash_impl_for_simple_obj;
+        functions[static_cast<int>(TypeId::DECIMAL)] = get_py_hash_impl_for_simple_obj;
+
     }
 
     PyObject* get_py_hash_as_py_object(PyObject *key) {
