@@ -33,8 +33,8 @@ namespace tests
         // same page, different state (11)
         auto lock_2 = cut.createPage(0, 0, 11, { AccessOptions::write });
         
-        std::uint64_t state_num;
-        ASSERT_EQ(cut.findPage(0, 1, {}, state_num), lock_1);        
+        StateNumType state_num;
+        ASSERT_EQ(cut.findPage(0, 1, {}, state_num), lock_1);
         // state 14 is reported as existing
         ASSERT_NE(cut.findPage(0, 14, {}, state_num), nullptr);
         
@@ -58,7 +58,7 @@ namespace tests
         // this simulates retrieval of data from state_num = 12
         auto lock_3 = cut.createPage(0, 0, 12, { AccessOptions::write });
         
-        std::uint64_t state_num;
+        StateNumType state_num;
         ASSERT_EQ(cut.findPage(0, 14, {}, state_num), lock_3);
         cut.release();
     }
@@ -77,7 +77,7 @@ namespace tests
             cut.commit();
         }
         // request state #2 for read-write (note that lock has been released)
-        std::uint64_t read_state_num;
+        StateNumType read_state_num;
         auto lock = cut.findPage(0, 2, { AccessOptions::read, AccessOptions::write }, read_state_num);
         ASSERT_TRUE(lock);
         

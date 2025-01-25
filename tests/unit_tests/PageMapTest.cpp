@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/utils/FlagSet.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/memory/PrefixCache.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/memory/DP_Lock.hpp>
@@ -26,7 +27,7 @@ namespace tests
     {
         db0::Storage0 dev_null;
         PageMap<DP_Lock> cut(dev_null.getPageSize());
-        std::uint64_t state_num;
+        StateNumType state_num;
         ASSERT_EQ(cut.find(1, 2, state_num), nullptr);
         ASSERT_EQ(cut.find(1, 10, state_num), nullptr);
         ASSERT_EQ(cut.find(7, 5, state_num), nullptr);        
@@ -45,7 +46,7 @@ namespace tests
         cut.insert(1, lock_1);
         // same page_num, different state
         cut.insert(11, lock_2);
-        std::uint64_t state_num;
+        StateNumType state_num;
         ASSERT_NE(cut.find(1, 1, state_num), nullptr);
         ASSERT_EQ(cut.find(1, 1, state_num)->lock(), lock_1);
         ASSERT_NE(cut.find(7, 1, state_num), nullptr);

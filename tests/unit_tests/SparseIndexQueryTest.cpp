@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <iostream>
 #include <utils/TestWorkspace.hpp>
+#include <dbzero/core/memory/config.hpp>
 #include <dbzero/core/storage/SparseIndexQuery.hpp>
 #include <utils/diff_data_1.hpp>
 
@@ -164,7 +165,7 @@ namespace tests
         };
 
         for (auto [page_num, state_num, expected_state_num] : query_params) {
-            std::uint64_t mutation_id;
+            StateNumType mutation_id;
             ASSERT_TRUE(tryFindMutation(sparse_index, diff_cut, page_num, state_num, mutation_id));
             ASSERT_EQ(mutation_id, expected_state_num);
         }
@@ -179,7 +180,7 @@ namespace tests
         };
 
         for (auto [page_num, state_num] : negative_query_params) {
-            std::uint64_t mutation_id;
+            StateNumType mutation_id;
             ASSERT_FALSE(tryFindMutation(sparse_index, diff_cut, page_num, state_num, mutation_id));
         }
     }
@@ -195,7 +196,7 @@ namespace tests
 
         SparseIndexQuery cut(sparse_index, diff_index, 4, 1055);
         ASSERT_EQ(cut.first(), 100);
-        std::uint32_t state_num;
+        StateNumType state_num;
         std::uint64_t storage_page_num;
         ASSERT_TRUE(cut.next(state_num, storage_page_num));
         ASSERT_EQ(storage_page_num, 5348);
@@ -236,7 +237,7 @@ namespace tests
             diff_index.insert(page, state, storage);
         }
         
-        std::uint32_t state_num;
+        StateNumType state_num;
         std::uint64_t storage_page_num;
         {
             SparseIndexQuery cut(sparse_index, diff_index, 4, 1055);
@@ -273,7 +274,7 @@ namespace tests
 
         SparseIndexQuery cut(sparse_index, diff_index, 1, 5);
         ASSERT_EQ(cut.first(), 0);
-        std::uint32_t state_num;
+        StateNumType state_num;
         std::uint64_t storage_page_num;
         ASSERT_TRUE(cut.next(state_num, storage_page_num));
         ASSERT_EQ(storage_page_num, 3);
@@ -337,7 +338,7 @@ namespace tests
         SparseIndexQuery cut(sparse_index, diff_index, 1, 24);
         ASSERT_EQ(cut.empty(), false);
         ASSERT_EQ(cut.first(), 23);
-        std::uint32_t state_num;
+        StateNumType state_num;
         std::uint64_t storage_page_num;        
         ASSERT_TRUE(cut.next(state_num, storage_page_num));
         ASSERT_EQ(storage_page_num, 24);
@@ -369,7 +370,7 @@ namespace tests
         std::vector<std::uint64_t> expected_page_num { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
             13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24 };
 
-        std::uint32_t state_num;
+        StateNumType state_num;
         std::uint64_t storage_page_num;
         for (auto expected : expected_page_num) {
             ASSERT_TRUE(cut.next(state_num, storage_page_num));
@@ -390,13 +391,13 @@ namespace tests
         
         SparseIndexQuery cut(sparse_index, diff_index, 1, 5);
         ASSERT_EQ(cut.first(), 4);
-        std::uint32_t state_num;
+        StateNumType state_num;
         std::uint64_t storage_page_num;
         ASSERT_TRUE(cut.next(state_num, storage_page_num));
         ASSERT_EQ(storage_page_num, 5);
         ASSERT_FALSE(cut.next(state_num, storage_page_num));
     }
-
+    
     TEST_F( SparseIndexQueryTest , testFindMutationOfZeroBasedDPs )
     {
         SparseIndex sparse_index(16 * 1024);
@@ -426,7 +427,7 @@ namespace tests
         };
 
         for (auto [page, state, expected_mutation_id]: query_data) {
-            std::uint64_t mutation_id = 0;
+            StateNumType mutation_id = 0;
             db0::tryFindMutation(sparse_index, diff_index, page, state, mutation_id);
             ASSERT_EQ(mutation_id, expected_mutation_id);
         }

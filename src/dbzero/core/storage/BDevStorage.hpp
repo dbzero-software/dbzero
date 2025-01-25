@@ -60,23 +60,23 @@ namespace db0
         static void create(const std::string &file_name, std::optional<std::size_t> page_size = {},
             std::uint32_t dram_page_size_hint = 16 * 1024 - 256);
         
-        void read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+        void read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }) const override;
         
-        void write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer) override;
+        void write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer) override;
         
         // @param max_len - the maximum allowed diff-sequence length (when exceeded, the full-DP will be written)
-        void writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+        void writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             const std::vector<std::uint16_t> &diffs, unsigned int max_len = 32) override;
         
-        std::uint64_t findMutation(std::uint64_t page_num, std::uint64_t state_num) const override;
+        StateNumType findMutation(std::uint64_t page_num, StateNumType state_num) const override;
         
-        bool tryFindMutation(std::uint64_t page_num, std::uint64_t state_num, std::uint64_t &mutation_id) const override;
+        bool tryFindMutation(std::uint64_t page_num, StateNumType state_num, StateNumType &mutation_id) const override;
 
         bool beginRefresh() override;
 
         std::uint64_t completeRefresh(
-            std::function<void(std::uint64_t updated_page_num, std::uint64_t state_num)> f = {}) override;
+            std::function<void(std::uint64_t updated_page_num, StateNumType state_num)> f = {}) override;
         
         bool flush(ProcessTimer * = nullptr) override;
 
@@ -84,7 +84,7 @@ namespace db0
         
         std::size_t getPageSize() const override;
 
-        std::uint32_t getMaxStateNum() const override;
+        StateNumType getMaxStateNum() const override;
         
         void getStats(std::function<void(const std::string &, std::uint64_t)>) const override;
 
@@ -162,11 +162,11 @@ namespace db0
         std::function<std::uint64_t()> getBlockIOTailFunction() const;
         
         // non-virtual version of tryFindMutation
-        bool tryFindMutationImpl(std::uint64_t page_num, std::uint64_t state_num,
-            std::uint64_t &mutation_id) const;
+        bool tryFindMutationImpl(std::uint64_t page_num, StateNumType state_num,
+            StateNumType &mutation_id) const;
 
         // @param chain_len length of the diff-storage chain processed while reading
-        void _read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+        void _read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
             FlagSet<AccessOptions> = { AccessOptions::read, AccessOptions::write }, unsigned int *chain_len = nullptr) const;
     };
     

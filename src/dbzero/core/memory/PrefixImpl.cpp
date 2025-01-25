@@ -46,7 +46,7 @@ namespace db0
         }
     }
     
-    MemLock PrefixImpl::mapRange(std::uint64_t address, std::size_t size, std::uint64_t state_num, 
+    MemLock PrefixImpl::mapRange(std::uint64_t address, std::size_t size, StateNumType state_num,
         FlagSet<AccessOptions> access_mode)
     {
         assert(state_num > 0);
@@ -85,10 +85,10 @@ namespace db0
     }
     
     std::shared_ptr<BoundaryLock> PrefixImpl::mapBoundaryRange(
-        std::uint64_t first_page_num, std::uint64_t address, std::size_t size, std::uint64_t state_num, 
+        std::uint64_t first_page_num, std::uint64_t address, std::size_t size, StateNumType state_num, 
         FlagSet<AccessOptions> access_mode)
     {
-        std::uint64_t read_state_num = 0;
+        StateNumType read_state_num = 0;
         std::shared_ptr<BoundaryLock> lock;
         std::shared_ptr<DP_Lock> lhs, rhs;
         while (!lock) {
@@ -123,10 +123,10 @@ namespace db0
         return lock;
     }
     
-    std::shared_ptr<DP_Lock> PrefixImpl::mapPage(std::uint64_t page_num, std::uint64_t state_num,
+    std::shared_ptr<DP_Lock> PrefixImpl::mapPage(std::uint64_t page_num, StateNumType state_num,
         FlagSet<AccessOptions> access_mode)
     {
-        std::uint64_t read_state_num = 0;
+        StateNumType read_state_num = 0;
         auto lock = m_cache.findPage(page_num, state_num, access_mode, read_state_num);
         assert(!lock || read_state_num > 0);
         if (access_mode[AccessOptions::write] && !access_mode[AccessOptions::read]) {
@@ -135,7 +135,7 @@ namespace db0
             if (!lock || read_state_num != state_num) {
                 if (!lock && m_access_type == AccessType::READ_WRITE) {
                     // try identifying the last available mutation (may not exist yet)
-                    std::uint64_t mutation_id = 0;
+                    StateNumType mutation_id = 0;
                     m_storage_ptr->tryFindMutation(page_num, state_num, mutation_id);
                     if (!mutation_id) {
                         // create / write page
@@ -170,7 +170,7 @@ namespace db0
                 }
             } else {
                 // try identifying the last available mutation (may not exist yet)
-                std::uint64_t mutation_id = 0;
+                StateNumType mutation_id = 0;
                 m_storage_ptr->tryFindMutation(page_num, state_num, mutation_id);
                 // unable to read if mutation does not exist
                 if (mutation_id) {
@@ -191,9 +191,9 @@ namespace db0
     
     std::shared_ptr<WideLock> PrefixImpl::mapWideRange(
         std::uint64_t first_page, std::uint64_t end_page, std::uint64_t address, std::size_t size, 
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
+        StateNumType state_num, FlagSet<AccessOptions> access_mode)
     {        
-        std::uint64_t read_state_num = 0;
+        StateNumType read_state_num = 0;
         auto lock_info = m_cache.findRange(first_page, end_page, address, size, state_num, access_mode, read_state_num);
         if (!lock_info.second && lock_info.first) {
             // retrieve the residual lock and repeat the operation
@@ -224,7 +224,7 @@ namespace db0
             // read-only access
             if (!lock) {
                 // a consistent mutation must exist for the entire wide-lock (with the exception of the residual DP)
-                std::uint64_t mutation_id = 0;
+                StateNumType mutation_id = 0;
                 std::shared_ptr<DP_Lock> res_dp;
                 if (has_res) {
                     mutation_id = db0::findUniqueMutation(*m_storage_ptr, first_page, end_page - 1, state_num);
@@ -254,7 +254,7 @@ namespace db0
                 }
             } else {
                 // identify the last available mutation (must exist for reading)
-                std::uint64_t mutation_id = 0;
+                StateNumType mutation_id = 0;
                 std::shared_ptr<DP_Lock> res_dp;
                 if (has_res) {
                     db0::tryFindUniqueMutation(*m_storage_ptr, first_page, end_page - 1, state_num, mutation_id);
@@ -275,7 +275,7 @@ namespace db0
         return lock;
     }
     
-    std::uint64_t PrefixImpl::getStateNum() const {
+    StateNumType PrefixImpl::getStateNum() const {
         return m_head_state_num;
     }
     
@@ -326,7 +326,7 @@ namespace db0
         return m_storage_ptr->getLastUpdated();
     }
     
-    std::shared_ptr<Prefix> PrefixImpl::getSnapshot(std::optional<std::uint64_t> state_num_req) const
+    std::shared_ptr<Prefix> PrefixImpl::getSnapshot(std::optional<StateNumType> state_num_req) const
     {
         auto is_valid_snapshot = [this](std::uint64_t state_num) {
             if (getAccessType() == AccessType::READ_WRITE) {
@@ -337,7 +337,7 @@ namespace db0
             }
         };
         
-        std::uint64_t snapshot_state_num = m_head_state_num;
+        auto snapshot_state_num = m_head_state_num;
         if (state_num_req && !is_valid_snapshot(*state_num_req)) {
             THROWF(db0::InputException) << "Requested state number is not available (" << getName() << "): " << *state_num_req;
         }

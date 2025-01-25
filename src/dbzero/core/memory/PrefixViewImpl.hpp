@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <cstdint>
+#include "config.hpp"
 #include "SnapshotCache.hpp"
 #include "utils.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
@@ -19,11 +20,11 @@ namespace db0
          * @param head_cache the head transaction's cache
          */
         PrefixViewImpl(const std::string &name, std::shared_ptr<BaseStorage> storage, const PrefixCache &head_cache,
-            std::uint64_t state_num);
+            StateNumType state_num);
         
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
-        std::uint64_t getStateNum() const override;
+        StateNumType getStateNum() const override;
         
         std::size_t getPageSize() const override;
 
@@ -35,7 +36,7 @@ namespace db0
         
         AccessType getAccessType() const override;
 
-        std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
+        std::shared_ptr<Prefix> getSnapshot(std::optional<StateNumType> state_num = {}) const override;
 
         BaseStorage &getStorage() const override;
 
@@ -50,10 +51,10 @@ namespace db0
         // snapshot's private cache instance
         mutable SnapshotCache m_cache;
         // immutable snapshot's state number
-        const std::uint64_t m_state_num;
+        const StateNumType m_state_num;
         const std::size_t m_page_size;
         const std::uint32_t m_shift;
-
+        
         std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num);
         std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address, std::size_t size);
         std::shared_ptr<WideLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page,

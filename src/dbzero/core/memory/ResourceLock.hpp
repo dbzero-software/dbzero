@@ -117,11 +117,6 @@ namespace db0
         
         // Mark the entire lock as dirty
         void setDirty();
-
-        // Mark a specific part of the lock as dirty
-        // @param offset offset in bytes (must be within the mapped range) starting from the lock's address
-        // @param size size in bytes of the updated range (must be within the mapped range)
-        void setDirty(std::size_t offset, std::size_t size);
         
         bool isCached() const;
 
@@ -149,10 +144,7 @@ namespace db0
         // Check if the copy-on-write data is available
         // this member is used for debug & evaluation purposes
         bool hasCoWData() const;
-        
-        // Remove the lock's related CoW data if such exists        
-        void clearCoWData();
-        
+                
         // Calculate the estimated upper bound of a memory footprint
         // NOTE: for mutable locks (i.e. from active transactiona the CoW buffer capacity is added)
         std::size_t usedMem() const;
@@ -200,7 +192,7 @@ namespace db0
         
         const std::byte *getCowPtr() const;
         bool getDiffs(const void *buf, std::vector<std::uint16_t> &result) const;
-
+                
 #ifndef NDEBUG
         static std::atomic<std::size_t> rl_usage;
         static std::atomic<std::size_t> rl_count;

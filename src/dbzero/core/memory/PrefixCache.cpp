@@ -30,8 +30,8 @@ namespace db0
     {
     }
     
-    std::shared_ptr<DP_Lock> PrefixCache::createPage(std::uint64_t page_num, std::uint64_t read_state_num,
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode, std::shared_ptr<ResourceLock> cow_lock)
+    std::shared_ptr<DP_Lock> PrefixCache::createPage(std::uint64_t page_num, StateNumType read_state_num,
+        StateNumType state_num, FlagSet<AccessOptions> access_mode, std::shared_ptr<ResourceLock> cow_lock)
     {
         bool is_volatile = access_mode[AccessOptions::no_flush];
         // in case of volatile locks, don't pass the CoW lock
@@ -59,8 +59,8 @@ namespace db0
         return lock;
     }
     
-    std::shared_ptr<DP_Lock> PrefixCache::findPage(std::uint64_t page_num, std::uint64_t state_num,
-        FlagSet<AccessOptions> access_mode, std::uint64_t &read_state_num) const
+    std::shared_ptr<DP_Lock> PrefixCache::findPage(std::uint64_t page_num, StateNumType state_num,
+        FlagSet<AccessOptions> access_mode, StateNumType &read_state_num) const
     {
         std::shared_ptr<DP_Lock> dp_lock;
         auto weak_ref = m_dp_map.find(state_num, page_num, read_state_num);
@@ -130,7 +130,7 @@ namespace db0
     }
     
     std::shared_ptr<WideLock> PrefixCache::createRange(std::uint64_t page_num, std::size_t size,
-        std::uint64_t read_state_num, std::uint64_t state_num, FlagSet<AccessOptions> access_mode, 
+        StateNumType read_state_num, StateNumType state_num, FlagSet<AccessOptions> access_mode,
         std::shared_ptr<DP_Lock> res_dp, std::shared_ptr<ResourceLock> cow_lock)
     {
         bool is_volatile = access_mode[AccessOptions::no_flush];
@@ -159,8 +159,8 @@ namespace db0
     }
     
     std::pair<bool, std::shared_ptr<WideLock> > PrefixCache::findRange(std::uint64_t first_page, std::uint64_t end_page, 
-        std::uint64_t address, std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions> access_mode, 
-        std::uint64_t &read_state_num, std::shared_ptr<DP_Lock> res_lock) const
+        std::uint64_t address, std::size_t size, StateNumType state_num, FlagSet<AccessOptions> access_mode,
+        StateNumType &read_state_num, std::shared_ptr<DP_Lock> res_lock) const
     {
         // wide range must span at least 2 pages
         assert(end_page > first_page + 1);
@@ -249,8 +249,8 @@ namespace db0
     }
     
     std::shared_ptr<BoundaryLock> PrefixCache::findBoundaryRange(std::uint64_t first_page,
-        std::uint64_t address, std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions> access_mode, 
-        std::uint64_t &read_state_num, std::shared_ptr<DP_Lock> lhs, std::shared_ptr<DP_Lock> rhs) const
+        std::uint64_t address, std::size_t size, StateNumType state_num, FlagSet<AccessOptions> access_mode, 
+        StateNumType &read_state_num, std::shared_ptr<DP_Lock> lhs, std::shared_ptr<DP_Lock> rhs) const
     {
         assert((lhs && rhs) || (!lhs && !rhs));
         auto weak_ref = m_boundary_map.find(state_num, first_page, read_state_num);
@@ -281,7 +281,7 @@ namespace db0
         if (!br_lock) {
             // if both lhs & rhs parents are available and from the same state, we may create the boundary lock
             // and feed it back into the cache
-            std::uint64_t lhs_state_num, rhs_state_num;
+            StateNumType lhs_state_num, rhs_state_num;
             if (lhs && rhs) {
                 lhs_state_num = lhs->getStateNum();
                 rhs_state_num = rhs->getStateNum();                
@@ -340,7 +340,7 @@ namespace db0
         return result;
     }
     
-    std::shared_ptr<DP_Lock> PrefixCache::insertCopy(std::shared_ptr<DP_Lock> lock, std::uint64_t write_state_num,
+    std::shared_ptr<DP_Lock> PrefixCache::insertCopy(std::shared_ptr<DP_Lock> lock, StateNumType write_state_num,
         FlagSet<AccessOptions> access_mode)
     {
         auto result = std::make_shared<DP_Lock>(lock, write_state_num, access_mode);
@@ -359,7 +359,7 @@ namespace db0
         return result;
     }
     
-    std::shared_ptr<WideLock> PrefixCache::insertWideCopy(std::shared_ptr<WideLock> lock, std::uint64_t write_state_num,
+    std::shared_ptr<WideLock> PrefixCache::insertWideCopy(std::shared_ptr<WideLock> lock, StateNumType write_state_num,
         FlagSet<AccessOptions> access_mode, std::shared_ptr<DP_Lock> res_lock)
     {
         auto result = std::make_shared<WideLock>(lock, write_state_num, access_mode, res_lock);
@@ -380,7 +380,7 @@ namespace db0
     
     std::shared_ptr<BoundaryLock> PrefixCache::insertCopy(std::uint64_t address, std::size_t size,
         const BoundaryLock &lock, std::shared_ptr<DP_Lock> lhs, std::shared_ptr<DP_Lock> rhs, 
-        std::uint64_t state_num, FlagSet<AccessOptions> access_mode)
+        StateNumType state_num, FlagSet<AccessOptions> access_mode)
     {
         auto lhs_size = ((lhs->getAddress() + lhs->size()) - address);
         auto rhs_size = size - lhs_size;
@@ -482,7 +482,7 @@ namespace db0
         m_dirty_dp_cache.flush();
     }
     
-    void PrefixCache::markAsMissing(std::uint64_t page_num, std::uint64_t state_num)
+    void PrefixCache::markAsMissing(std::uint64_t page_num, StateNumType state_num)
     {
         // only mark already existing ranges
         if (m_dp_map.exists(state_num, page_num)) {
@@ -496,7 +496,7 @@ namespace db0
         }
     }
     
-    void PrefixCache::rollback(std::uint64_t state_num)
+    void PrefixCache::rollback(StateNumType state_num)
     {
         // remove all volatile locks
         for (auto &lock: m_volatile_boundary_locks) {
@@ -519,7 +519,7 @@ namespace db0
         m_volatile_locks.clear();
     }
     
-    void PrefixCache::eraseRange(std::uint64_t address, std::size_t size, std::uint64_t state_num)
+    void PrefixCache::eraseRange(std::uint64_t address, std::size_t size, StateNumType state_num)
     {
         auto first_page = address >> m_shift;
         auto end_page = ((address + size - 1) >> m_shift) + 1;        
@@ -532,14 +532,14 @@ namespace db0
         }
     }
     
-    void PrefixCache::eraseBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num)
+    void PrefixCache::eraseBoundaryRange(std::uint64_t address, std::size_t size, StateNumType state_num)
     {
         auto first_page = address >> m_shift;
         assert(isBoundaryRange(first_page, ((address + size - 1) >> m_shift) + 1, address & m_mask));
         m_boundary_map.erase(state_num, first_page);
     }
     
-    std::shared_ptr<DP_Lock> PrefixCache::replaceRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+    std::shared_ptr<DP_Lock> PrefixCache::replaceRange(std::uint64_t address, std::size_t size, StateNumType state_num,
         std::shared_ptr<DP_Lock> new_lock)
     {
         auto first_page = address >> m_shift;
@@ -569,7 +569,7 @@ namespace db0
         }
     }
     
-    bool PrefixCache::replaceBoundaryRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+    bool PrefixCache::replaceBoundaryRange(std::uint64_t address, std::size_t size, StateNumType state_num,
         std::shared_ptr<BoundaryLock> new_lock)
     {
         auto first_page = address >> m_shift;
@@ -585,7 +585,7 @@ namespace db0
         }
     }
     
-    void PrefixCache::merge(std::uint64_t from_state_num, std::uint64_t to_state_num,
+    void PrefixCache::merge(StateNumType from_state_num, StateNumType to_state_num,
         std::vector<std::shared_ptr<ResourceLock> > &reused_locks)
     {
         // Remove all volatile boundary locks before merge, to flush them
@@ -643,7 +643,7 @@ namespace db0
         return m_cache_recycler_ptr;
     }
     
-    void PrefixCache::clearExpired(std::uint64_t head_state_num) const
+    void PrefixCache::clearExpired(StateNumType head_state_num) const
     {
         m_dp_map.clearExpired(head_state_num);
         m_boundary_map.clearExpired(head_state_num);
@@ -709,5 +709,5 @@ namespace db0
 
         return { dp_total, dp_cow };
     }
-
+    
 } 

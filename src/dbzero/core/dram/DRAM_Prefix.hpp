@@ -30,7 +30,7 @@ namespace db0
 
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
-        std::uint64_t getStateNum() const override;
+        StateNumType getStateNum() const override;
         
         std::uint64_t commit(ProcessTimer * = nullptr) override;
 
@@ -67,8 +67,8 @@ namespace db0
         }
 
         std::uint64_t getLastUpdated() const override;
-
-        std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
+        
+        std::shared_ptr<Prefix> getSnapshot(std::optional<StateNumType> state_num = {}) const override;
         
         BaseStorage &getStorage() const override;
         

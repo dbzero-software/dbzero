@@ -14,18 +14,18 @@ namespace db0
     {
     public:
         WideLock(StorageContext, std::uint64_t address, std::size_t size, FlagSet<AccessOptions>,
-            std::uint64_t read_state_num, std::uint64_t write_state_num, 
+            StateNumType read_state_num, StateNumType write_state_num,
             std::shared_ptr<DP_Lock> res_lock, std::shared_ptr<ResourceLock> cow_lock = nullptr);
         
         /**
          * Create a copied-on-write lock from an existing lock
         */
-        WideLock(std::shared_ptr<WideLock>, std::uint64_t write_state_num, FlagSet<AccessOptions> access_mode,
+        WideLock(std::shared_ptr<WideLock>, StateNumType write_state_num, FlagSet<AccessOptions> access_mode,
             std::shared_ptr<DP_Lock> res_lock);
         
         bool tryFlush(FlushMethod) override;
         void flush() override;
-
+        
         // Flush the residual part only of the wide lock
         void flushResidual();
         

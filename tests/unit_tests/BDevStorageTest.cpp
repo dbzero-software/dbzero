@@ -185,7 +185,7 @@ namespace tests
         }
         ASSERT_EQ(cut.findMutation(0, 1 + 3), 1);
         // unable to read page #1 (not yet available in state = 1)
-        std::uint64_t mutation_id;
+        StateNumType mutation_id;
         ASSERT_FALSE(cut.tryFindMutation(1, 1, mutation_id));
         cut.close();
     }
@@ -244,7 +244,7 @@ namespace tests
         // Writer, eaach write performed under a different state number
         {
             BDevStorage cut(file_name, AccessType::READ_WRITE);
-            std::uint64_t state_num = 1;
+            StateNumType state_num = 1;
             for (auto &op: write_ops) {
                 std::vector<char> data(std::get<1>(op) * page_size, std::get<2>(op));
                 cut.write(std::get<0>(op) * page_size, state_num, data.size(), data.data());
@@ -258,7 +258,7 @@ namespace tests
         // Reader, validate contents
         {
             BDevStorage cut(file_name, AccessType::READ_ONLY);
-            std::uint64_t state_num = 1;
+            StateNumType state_num = 1;
             for (auto &op: write_ops) {
                 std::vector<char> buffer(std::get<1>(op) * page_size);
                 cut.read(std::get<0>(op) * page_size, state_num, buffer.size(), buffer.data(), { AccessOptions::read });
@@ -287,7 +287,7 @@ namespace tests
 
         // Writer, eaach write performed under a different state number    
         BDevStorage cut(file_name, AccessType::READ_WRITE);
-        std::uint64_t state_num = 1;
+        StateNumType state_num = 1;
         for (auto &op: write_ops) {
             std::vector<char> data(std::get<1>(op) * page_size, std::get<2>(op));
             cut.write(std::get<0>(op) * page_size, state_num, data.size(), data.data());
@@ -328,7 +328,7 @@ namespace tests
         // Start reader from a separate thread
         std::thread reader([&]()
         {
-            std::uint64_t state_num = 1;
+            StateNumType state_num = 1;
             for (auto &op: write_ops) {
                 bool success = false;
                 while (!success) {
@@ -354,7 +354,7 @@ namespace tests
         });
         
         BDevStorage cut(file_name, AccessType::READ_WRITE);
-        std::uint64_t state_num = 1;
+        StateNumType state_num = 1;
         for (auto &op: write_ops) {
             std::vector<char> data(std::get<1>(op) * page_size, std::get<2>(op));
             cut.write(std::get<0>(op) * page_size, state_num, data.size(), data.data());
@@ -385,7 +385,7 @@ namespace tests
         // Start reader from a separate thread
         std::thread reader([&]()
         {
-            std::uint64_t state_num = 1;
+            StateNumType state_num = 1;
             BDevStorage storage(file_name, AccessType::READ_ONLY);
             for (auto &op: write_ops) {
                 bool success = false;
@@ -414,7 +414,7 @@ namespace tests
         });
         
         BDevStorage cut(file_name, AccessType::READ_WRITE);
-        std::uint64_t state_num = 1;
+        StateNumType state_num = 1;
         for (auto &op: write_ops) {
             std::vector<char> data(std::get<1>(op) * page_size, std::get<2>(op));
             cut.write(std::get<0>(op) * page_size, state_num, data.size(), data.data());
@@ -492,5 +492,5 @@ namespace tests
         }
         cut.close();
     }
-
+    
 }

@@ -70,7 +70,7 @@ namespace db0
         while (io.readChangeLogChunk());
         return std::move(io);
     }
-
+    
     o_prefix_config BDevStorage::readConfig() const
     {
         std::vector<char> buffer(CONFIG_BLOCK_SIZE);
@@ -144,15 +144,15 @@ namespace db0
         }        
     }
     
-    bool BDevStorage::tryFindMutation(std::uint64_t page_num, std::uint64_t state_num,
-        std::uint64_t &mutation_id) const
+    bool BDevStorage::tryFindMutation(std::uint64_t page_num, StateNumType state_num,
+        StateNumType &mutation_id) const
     {
         return db0::tryFindMutation(m_sparse_index, m_diff_index, page_num, state_num, mutation_id);
     }
     
-    std::uint64_t BDevStorage::findMutation(std::uint64_t page_num, std::uint64_t state_num) const
+    StateNumType BDevStorage::findMutation(std::uint64_t page_num, StateNumType state_num) const
     {
-        std::uint64_t result;
+        StateNumType result;
         if (!db0::tryFindMutation(m_sparse_index, m_diff_index, page_num, state_num, result)) {
             assert(false && "BDevStorage::findMutation: page not found");
             THROWF(db0::IOException) 
@@ -161,13 +161,13 @@ namespace db0
         return result;
     }
 
-    void BDevStorage::read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+    void BDevStorage::read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags) const
     {
         _read(address, state_num, size, buffer, flags);
     }
     
-    void BDevStorage::_read(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+    void BDevStorage::_read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags, unsigned int *chain_len) const
     {        
         assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
@@ -222,7 +222,7 @@ namespace db0
         }
     }
     
-    void BDevStorage::write(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer)
+    void BDevStorage::write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer)
     {        
         assert(state_num > 0 && "BDevStorage::write: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::write: address must be page-aligned");
@@ -251,7 +251,7 @@ namespace db0
         }
     }
     
-    void BDevStorage::writeDiffs(std::uint64_t address, std::uint64_t state_num, std::size_t size, void *buffer,
+    void BDevStorage::writeDiffs(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         const std::vector<std::uint16_t> &diff_data, unsigned int max_len)
     {
         assert(state_num > 0 && "BDevStorage::writeDiffs: state number must be > 0");
@@ -264,7 +264,7 @@ namespace db0
         SparseIndexQuery query(m_sparse_index, m_diff_index, page_num, state_num);
         // if a page has already been written as full-DP in the current transaction then
         // we cannot append as diff but need to overwrite the full page instead
-        std::uint32_t first_state_num = 0;
+        StateNumType first_state_num = 0;
         auto storage_page_num = query.first(first_state_num);
         if (first_state_num == state_num) {
             // page already added in current transaction / update in the stream
@@ -420,7 +420,7 @@ namespace db0
     }
     
     std::uint64_t BDevStorage::completeRefresh(
-        std::function<void(std::uint64_t page_num, std::uint64_t state_num)> on_page_updated)
+        std::function<void(std::uint64_t page_num, StateNumType state_num)> on_page_updated)
     {
         assert(m_access_type == AccessType::READ_ONLY);
         std::uint64_t result = 0;
@@ -436,7 +436,7 @@ namespace db0
             m_dp_changelog_io.refresh();
             // send all page-update notifications to the provided handler
             if (on_page_updated) {
-                std::uint64_t updated_state_num = 0;
+                StateNumType updated_state_num = 0;
                 for (;;) {
                     auto dp_change_log_ptr = m_dp_changelog_io.readChangeLogChunk();
                     if (!dp_change_log_ptr) {

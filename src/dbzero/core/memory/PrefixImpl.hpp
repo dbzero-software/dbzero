@@ -11,6 +11,7 @@
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/utils/ProcessTimer.hpp>
 #include "utils.hpp"
+#include "config.hpp"
 #include "PrefixViewImpl.hpp"
 #include "PrefixCache.hpp"
     
@@ -39,7 +40,7 @@ namespace db0
         // we always later need to call setDirty to specificy which micro-area is getting modified
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
-        std::uint64_t getStateNum() const override;
+        StateNumType getStateNum() const override;
         
         std::size_t getPageSize() const override {
             return m_page_size;
@@ -72,7 +73,7 @@ namespace db0
             return m_storage_ptr->getAccessType();
         }
         
-        std::shared_ptr<Prefix> getSnapshot(std::optional<std::uint64_t> state_num = {}) const override;
+        std::shared_ptr<Prefix> getSnapshot(std::optional<StateNumType> state_num = {}) const override;
 
         void beginAtomic() override;
 
@@ -80,7 +81,7 @@ namespace db0
 
         void cancelAtomic() override;
         
-        MemLock mapRange(std::uint64_t address, std::size_t size, std::uint64_t state_num,
+        MemLock mapRange(std::uint64_t address, std::size_t size, StateNumType state_num,
             FlagSet<AccessOptions>);
 
         void cleanup() const override;
@@ -93,21 +94,21 @@ namespace db0
         const AccessType m_access_type;
         const std::size_t m_page_size;
         const std::uint32_t m_shift;
-        std::uint64_t m_head_state_num;
+        StateNumType m_head_state_num;
         mutable PrefixCache m_cache;
         // flag indicating atomic operation in progress
         bool m_atomic = false;
 
-        std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num, std::uint64_t state_num, FlagSet<AccessOptions>);
+        std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num, StateNumType state_num, FlagSet<AccessOptions>);
         std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address,
-            std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>);
+            std::size_t size, StateNumType state_num, FlagSet<AccessOptions>);
         std::shared_ptr<WideLock> mapWideRange(std::uint64_t first_page, std::uint64_t end_page, std::uint64_t address, 
-            std::size_t size, std::uint64_t state_num, FlagSet<AccessOptions>);
+            std::size_t size, StateNumType state_num, FlagSet<AccessOptions>);
 
         inline bool isPageAligned(std::uint64_t addr_or_size) const {
             return (addr_or_size & (m_page_size - 1)) == 0;
         }
-
+        
         void adjustAccessMode(FlagSet<AccessOptions> &access_mode, std::uint64_t address, std::size_t size) const;
     };
     

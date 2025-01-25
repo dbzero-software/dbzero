@@ -137,7 +137,7 @@ namespace db0
             }
         }        
     }
-
+    
 #ifndef NDEBUG
     std::pair<std::size_t, std::size_t> ResourceLock::getTotalMemoryUsage() 
     {
@@ -179,16 +179,7 @@ namespace db0
     bool ResourceLock::hasCoWData() const {
         return m_cow_lock || !m_cow_data.empty() || m_access_mode[AccessOptions::create];
     }
-    
-    void ResourceLock::clearCoWData()
-    {
-        m_cow_data.clear();
-        m_cow_lock = nullptr;
-        if (m_access_mode[AccessOptions::create]) {
-            m_access_mode.set(AccessOptions::create, false);
-        }
-    }
-    
+        
     std::size_t ResourceLock::usedMem() const
     {
         std::size_t result = m_data.size() + sizeof(*this);
