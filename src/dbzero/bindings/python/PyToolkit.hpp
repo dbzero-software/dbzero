@@ -152,9 +152,10 @@ namespace db0::python
         // Get scoped type's associated fixture UUID (or 0x0)
         static std::uint64_t getFixtureUUID(TypeObjectPtr py_type);
         // Get scoped type's associated prefix name (or nullptr if not defined)
-        static const char *getPrefixName(TypeObjectPtr memo_type);
+        static const char *getPrefixName(TypeObjectPtr memo_type);        
         // Get memo type associated type_id or nullptr if not defined
         static const char *getMemoTypeID(TypeObjectPtr memo_type);
+        static const std::vector<std::string> &getInitVars(TypeObjectPtr memo_type);
         
         static bool isSingleton(TypeObjectPtr py_type);
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Field.hpp"
+#include "FieldID.hpp"
 
 #include <limits>
 #include <array>
@@ -81,32 +82,36 @@ namespace db0::object_model
         
         struct Member
         {
-            std::uint32_t m_field_id;
+            FieldID m_field_id;
             std::string m_name;
             
-            Member(std::uint32_t, const char *);
-            Member(std::uint32_t, const std::string &);
+            Member(FieldID, const char *);
+            Member(FieldID, const std::string &);
         };
         
         // Pull existing type
         Class(db0::swine_ptr<Fixture> &, std::uint64_t address);
         ~Class();
 
+        // set the model field names
+        void setInitVars(const std::vector<std::string> &init_vars);
+
         // Get class name in the underlying language object model
         std::string getName() const;
 
         std::optional<std::string> getTypeId() const;
         
-        std::uint32_t addField(const char *name);
-
-        std::uint32_t findField(const char *name) const;
-
+        FieldID addField(const char *name);
+        
+        // @return field ID / assigned on initialization flag (see Schema Extensions)
+        std::pair<FieldID, bool> findField(const char *name) const;
+        
         // Get the number of fields declared in this class
         std::size_t size() const {
             return m_members.size();
         }
         
-        const Member &get(std::uint32_t index) const;
+        const Member &get(FieldID field_id) const;
         
         const Member &get(const char *name) const;
 
@@ -163,42 +168,42 @@ namespace db0::object_model
 
         // get class id (UUID) as an ObjectId type
         ObjectId getClassId() const;
-
-        // @return field name & index
+        
+        // @return field name / field index map
         std::unordered_map<std::string, std::uint32_t> getMembers() const;
         
         // Get null class instance (e.g. for testing)
         static std::shared_ptr<Class> getNullClass();
 
         std::shared_ptr<Class> tryGetBaseClass();
-
+                
     protected:
         friend class ClassFactory;
         friend ClassPtr;
         friend class Object;
         friend super_t;
-                
+        
         // DBZero class instances should only be created by the ClassFactory
         // construct a new DBZero class
         // NOTE: module name may not be available in some contexts (e.g. classes defined in notebooks)
         Class(db0::swine_ptr<Fixture> &, const std::string &name, std::optional<std::string> module_name,
-            const char *type_id, const char *prefix_name, ClassFlags, const std::uint32_t);
+            const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags, const std::uint32_t);
         
         void unlinkSingleton();
         
         // Get unique class identifier within its fixture
         std::uint32_t fetchUID() const;
 
-    public:
-        static constexpr std::uint32_t NField = std::numeric_limits<std::uint32_t>::max();
-
     private:
         // member field definitions
         VFieldVector m_members;
         std::shared_ptr<Class> m_base_class_ptr;
         mutable std::vector<Member> m_member_cache;
-        // field by-name index (cache)
-        mutable std::unordered_map<std::string, std::uint32_t> m_index;
+        // Field by-name index (cache)
+        // values: field id / assigned on initialization flag
+        mutable std::unordered_map<std::string, std::pair<FieldID, bool> > m_index;
+        // fields initialized on class creation (from static code analysis)
+        std::unordered_set<std::string> m_init_vars;
         const std::uint32_t m_uid = 0;
         // null-class constructor (for testing only)
         Class() = default;

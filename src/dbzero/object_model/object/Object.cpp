@@ -180,16 +180,16 @@ namespace db0::object_model
         auto fixture = initializer.getFixture();
         auto &db0_class = initializer.getClass();
         auto [type_id, storage_class] = recognizeType(*fixture, obj_ptr);
-                
+        
         // find already existing field index
-        auto at = db0_class.findField(field_name);
-        if (at == Class::NField) {
+        auto [field_id, is_init_var] = db0_class.findField(field_name);
+        if (!field_id) {
             // update class definition
-            at = db0_class.addField(field_name);
+            field_id = db0_class.addField(field_name);
         }
         
         // register a member with the initializer
-        initializer.set(at, storage_class, createMember<LangToolkit>(fixture, type_id, obj_ptr));
+        initializer.set(field_id.getIndex(), storage_class, createMember<LangToolkit>(fixture, type_id, obj_ptr));
     }
     
     void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
@@ -199,27 +199,28 @@ namespace db0::object_model
         
         assert(m_type);
         // find already existing field index
-        auto field_id = m_type->findField(field_name);
-        if (field_id == Class::NField) {
+        auto [field_id, is_init_var] = m_type->findField(field_name);
+        if (!field_id) {
             // try mutating the class first
             field_id = m_type->addField(field_name);
         }
         
+        assert(field_id);
         // FIXME: value should be destroyed on exception
         auto value = createMember<LangToolkit>(*fixture, type_id, lang_value);
         // make sure object address is not null
         assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
-        if (field_id < (*this)->pos_vt().size()) {
+        if (field_id.getIndex() < (*this)->pos_vt().size()) {
             auto &pos_vt = modify().pos_vt();
-            unrefMember(*fixture, pos_vt.types()[field_id], pos_vt.values()[field_id]);
+            unrefMember(*fixture, pos_vt.types()[field_id.getIndex()], pos_vt.values()[field_id.getIndex()]);
             // update attribute stored in the positional value-table
-            pos_vt.set(field_id, storage_class, value);
+            pos_vt.set(field_id.getIndex(), storage_class, value);
             return;
         }
         
         // try updating field in the index-vt
         unsigned int index_vt_pos;
-        if ((*this)->index_vt().find(field_id, index_vt_pos)) {
+        if ((*this)->index_vt().find(field_id.getIndex(), index_vt_pos)) {
             auto &index_vt = modify().index_vt();
             unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
             index_vt.set(index_vt_pos, storage_class, value);
@@ -227,7 +228,7 @@ namespace db0::object_model
         }
         
         // add field to the kv_index
-        XValue xvalue(field_id, storage_class, value);
+        XValue xvalue(field_id.getIndex(), storage_class, value);
         auto kv_index_ptr = addKV_First(xvalue);
         if (kv_index_ptr) {
             // try updating an existing element first
@@ -268,7 +269,7 @@ namespace db0::object_model
         if (m_is_dropped) {
             THROWF(db0::InputException) << "Object does not exist";
         }
-        
+
         auto class_ptr = m_type.get();
         if (!class_ptr) {
             // retrieve class from the initializer
@@ -276,16 +277,8 @@ namespace db0::object_model
         }
         
         assert(class_ptr);
-        auto field_index = class_ptr->findField(field_name);        
-        if (field_index == Class::NField) {
-            /* FIXME
-            // try pulling from cached members if not found
-            return getMemberCacheReference().get(field_name);
-            */
-           return false;
-        }
-                
-        return tryGetMemberAt(field_index, member);
+        auto [field_id, is_init_var] = class_ptr->findField(field_name);
+        return tryGetMemberAt(field_id, is_init_var, member);    
     }
     
     Object::ObjectSharedPtr Object::tryGet(const char *field_name) const
@@ -322,11 +315,29 @@ namespace db0::object_model
         return obj;
     }
     
-    bool Object::tryGetMemberAt(unsigned int index, std::pair<StorageClass, Value> &result) const
-    {
+    bool Object::tryGetMemberAt(FieldID field_id, bool is_init_var, std::pair<StorageClass, Value> &result) const
+    {   
+        if (!field_id) {
+            if (!is_init_var) {
+                return false;
+            }
+            // report as None even if the field_id has not been assigned yet
+            result = { StorageClass::NONE, Value() };
+            return true;
+        }
+
+        auto index = field_id.getIndex();
         if (!hasInstance()) {
             // try retrieving from initializer
-            return m_init_manager.getInitializer(*this).tryGetAt(index, result);
+            if (m_init_manager.getInitializer(*this).tryGetAt(index, result)) {
+                return true;
+            }
+            if (!is_init_var) {
+                return false;
+            }
+            // report as None even if the field_id has not been assigned yet
+            result = { StorageClass::NONE, Value() };
+            return true;
         }
         
         // retrieve from positionally encoded values
@@ -349,7 +360,12 @@ namespace db0::object_model
             }
         }
 
-        return false;
+        if (!is_init_var) {
+            return false;
+        }
+        // report as None even if the field_id has not been assigned yet
+        result = { StorageClass::NONE, Value() };
+        return true;
     }
     
     db0::swine_ptr<Fixture> Object::tryGetFixture() const
@@ -512,14 +528,14 @@ namespace db0::object_model
             auto value = values.begin();
             unsigned int index = 0;
             for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
-                f(obj_type.get(index).m_name, { index, *type, *value });
+                f(obj_type.get(FieldID::fromIndex(index)).m_name, { index, *type, *value });
             }
         }
         // visit index-vt members next
         {
             auto &xvalues = (*this)->index_vt().xvalues();
             for (auto &xvalue: xvalues) {
-                f(obj_type.get(xvalue.getIndex()).m_name, xvalue);
+                f(obj_type.get(FieldID::fromIndex(xvalue.getIndex())).m_name, xvalue);
             }
         }
         // finally visit kv-index members
@@ -527,11 +543,11 @@ namespace db0::object_model
         if (kv_index_ptr) {
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
-                f(obj_type.get((*it).getIndex()).m_name, *it);
+                f(obj_type.get(FieldID::fromIndex((*it).getIndex())).m_name, *it);
             }
-        }       
+        }
     }
-
+    
     void Object::forAll(std::function<void(const std::string &, ObjectSharedPtr)> f) const
     {
         auto fixture = this->getFixture();
@@ -545,7 +561,7 @@ namespace db0::object_model
             }
         });
     }
-
+    
     void Object::incRef()
     {
         if (hasInstance()) {
@@ -555,7 +571,7 @@ namespace db0::object_model
             m_init_manager.getInitializer(*this).incRef();
         }
     }
-            
+    
     bool Object::operator==(const Object &other) const
     {
         if (!hasInstance() || !other.hasInstance()) {
@@ -615,5 +631,5 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         return fixture->get<ClassFactory>().getTypeByClassRef((*this)->m_class_ref).m_class;
     }
-    
+
 }

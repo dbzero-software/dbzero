@@ -429,6 +429,12 @@ namespace db0::python
         return MemoTypeDecoration::get(memo_type).tryGetTypeId();        
     }
     
+    const std::vector<std::string> &PyToolkit::getInitVars(TypeObjectPtr memo_type)
+    {
+        assert(isMemoType(memo_type));
+        return MemoTypeDecoration::get(memo_type).getInitVars();
+    }
+    
     bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
         return PyMemoType_Check(py_type);
     }

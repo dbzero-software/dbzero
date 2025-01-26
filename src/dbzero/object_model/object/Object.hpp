@@ -3,6 +3,7 @@
 #include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
+#include <dbzero/object_model/class/FieldID.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include "ValueTable.hpp"
 #include "ObjectInitializer.hpp"
@@ -229,7 +230,7 @@ namespace db0::object_model
         void detach() const;
 
         void commit() const;
-                
+        
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
@@ -254,7 +255,7 @@ namespace db0::object_model
         // void operator=(const DBZObject &);
         
         // Try retrieving member either from DB0 values (initialized) or from the initialization buffer (not initialized yet)        
-        bool tryGetMemberAt(unsigned int index, std::pair<StorageClass, Value> &) const;
+        bool tryGetMemberAt(FieldID, bool is_init_var, std::pair<StorageClass, Value> &) const;
         bool tryGetMember(const char *field_name, std::pair<StorageClass, Value> &) const;
 
         inline ObjectInitializer *tryGetInitializer() const {

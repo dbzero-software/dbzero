@@ -22,10 +22,12 @@ namespace db0::python
 
 {
     
-    MemoTypeDecoration::MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name)
+    MemoTypeDecoration::MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name,
+        std::vector<std::string> &&init_vars)
         : m_prefix_name_ptr(prefix_name)
         , m_type_id(type_id)
         , m_file_name(file_name)
+        , m_init_vars(std::move(init_vars))
     {
     }
     
@@ -45,6 +47,10 @@ namespace db0::python
     
     const char *MemoTypeDecoration::getPrefixName() const {
         return m_prefix_name_ptr ? m_prefix_name_ptr : "";
+    }
+
+    const std::vector<std::string> &MemoTypeDecoration::getInitVars() const {
+        return m_init_vars;
     }
     
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
@@ -391,7 +397,7 @@ namespace db0::python
     }
     
     PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name,
-        const char *type_id, const char *file_name)
+        const char *type_id, const char *file_name, std::vector<std::string> &&init_vars)
     {
         Py_INCREF(py_class);
         PyObject *py_module = findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__"));
@@ -421,8 +427,10 @@ namespace db0::python
         new (data + sizeof(PyHeapTypeObject)) MemoTypeDecoration(
             type_manager.getPooledString(prefix_name), 
             type_manager.getPooledString(type_id),
-            type_manager.getPooledString(file_name)
+            type_manager.getPooledString(file_name),
+            std::move(init_vars)
         );
+
         // Construct base type as a copy of the original type
         PyTypeObject *base_type = new PyTypeObject(*py_class);
         Py_INCREF(base_type);
@@ -481,7 +489,7 @@ namespace db0::python
             PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
             return NULL;
         }
-
+        
         return new_type;
     }
     
@@ -493,9 +501,11 @@ namespace db0::python
         PyObject *py_prefix_name = nullptr;
         PyObject *py_type_id = nullptr;
         PyObject *py_file_name = nullptr;
-        static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOO", const_cast<char**>(kwlist), &class_obj, &singleton,
-            &py_prefix_name, &py_type_id, &py_file_name))
+        PyObject *py_init_vars = nullptr;
+
+        static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", "py_init_vars", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOO", const_cast<char**>(kwlist), &class_obj, &singleton,
+            &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars))
         {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
@@ -505,8 +515,25 @@ namespace db0::python
         const char *prefix_name = py_prefix_name ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
+        std::vector<std::string> init_vars;
+        if (py_init_vars) {
+            if (!PyList_Check(py_init_vars)) {
+                PyErr_SetString(PyExc_TypeError, "Expected list of strings");
+                return NULL;
+            }
+            Py_ssize_t size = PyList_Size(py_init_vars);
+            for (Py_ssize_t i = 0; i < size; ++i) {
+                PyObject *item = PyList_GetItem(py_init_vars, i);
+                if (!PyUnicode_Check(item)) {
+                    PyErr_SetString(PyExc_TypeError, "Expected list of strings");
+                    return NULL;
+                }
+                init_vars.push_back(PyUnicode_AsUTF8(item));
+            }
+        }
+
         return reinterpret_cast<PyObject*>(
-            wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id, file_name)
+            wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id, file_name, std::move(init_vars))
         );
     }
     
