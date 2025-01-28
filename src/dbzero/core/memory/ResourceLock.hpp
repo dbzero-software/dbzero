@@ -198,6 +198,8 @@ namespace db0
         static std::atomic<std::size_t> rl_count;
         static std::atomic<std::size_t> rl_op_count;
 #endif
+        
+        std::size_t getPageSize() const;
 
     private:
         // init the dirty state of the lock

@@ -119,7 +119,7 @@ namespace db0
                 lock = m_cache.insertCopy(address, size, *lock, lhs, rhs, state_num, access_mode);
             }            
         }
-        
+
         return lock;
     }
     

@@ -34,9 +34,9 @@ namespace db0::pools
         /**
          * Adds a new object or increase ref-count of the existing element
          * @param inc_ref - whether to increase ref-count of the existing element, note that for
-         * newly created elements ref-count is always set to 1 (in such case inc_ref fill be flipped from false to true)
+         * newly created elements ref-count is always set to 1 (in such case inc_ref will be flipped from false to true)
         */
-        PtrT add(bool &inc_ref, const char *);        
+        PtrT add(bool &inc_ref, const char *);
         PtrT add(bool &inc_ref, const std::string &);
         PtrT addRef(const char *);
         PtrT addRef(const std::string &);

@@ -165,12 +165,12 @@ namespace db0::object_model
     }
     
     void Class::refreshMemberCache() const
-    {
+    {        
         assert(m_members.size() >= m_member_cache.size());
         if (m_members.size() == m_member_cache.size()) {
             return;
         }
-
+        
         // fetch all members into cache
         unsigned int index = m_member_cache.size();
         auto &string_pool = getFixture()->getLimitedStringPool();

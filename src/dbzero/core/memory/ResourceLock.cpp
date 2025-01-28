@@ -314,4 +314,8 @@ namespace db0
         return this->getDiffs(cow_ptr, result);
     }
 
+    std::size_t ResourceLock::getPageSize() const {
+        return m_context.m_storage_ref.get().getPageSize();
+    }
+    
 }
