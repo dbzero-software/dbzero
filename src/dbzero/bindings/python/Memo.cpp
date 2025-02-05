@@ -334,7 +334,7 @@ namespace db0::python
             case Py_NE:
                 return PyBool_fromBool(!eq_result);
             default:
-                return Py_NotImplemented;
+                Py_RETURN_NOTIMPLEMENTED;
         }
     }
 
