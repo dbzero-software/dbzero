@@ -220,10 +220,10 @@ namespace db0::python
             case Py_NE:
                 return PyBool_fromBool(list_obj->ext() != other_list->ext());
             default:
-                return Py_NotImplemented;
+                Py_RETURN_NOTIMPLEMENTED;
             }
         } else {
-            return Py_NotImplemented;
+            Py_RETURN_NOTIMPLEMENTED;
         }
     }
 

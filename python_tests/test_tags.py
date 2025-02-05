@@ -1,4 +1,5 @@
 import pytest
+import operator
 import dbzero_ce as db0
 from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoDataPxClass
 from .conftest import DB0_DIR, DATA_PX
@@ -445,3 +446,28 @@ def test_tags_assigned_to_inherited_type_can_be_removed(db0_fixture):
     assert len(list(db0.find(MemoBaseClass, "tag1"))) == 0
     assert len(list(db0.find(MemoSubClass, "tag2"))) == 0
     assert len(list(db0.find(MemoBaseClass, "tag2"))) == 0
+
+def test_tags_compare(db0_fixture):
+    obj1 = MemoClassForTags(1)
+    obj2 = MemoClassForTags(2)
+    tag1 = db0.as_tag(obj1)
+    tag2 = db0.as_tag(obj2)
+
+    assert tag1 == tag1
+    assert tag1 == db0.as_tag(obj1)
+    assert (tag1 != db0.as_tag(obj1)) == False
+
+    assert tag1 != tag2
+    assert (tag1 == tag2) == False
+
+    for op in (operator.lt, operator.le, operator.ge, operator.gt):
+        with pytest.raises(TypeError):
+            op(tag1, tag1)
+        with pytest.raises(TypeError):
+            op(tag1, tag2)
+    
+    assert tag1 != 'test'
+    assert (tag1 == 'test') == False
+    assert tag1 != 123
+    assert tag1 != None
+    assert tag1 != []

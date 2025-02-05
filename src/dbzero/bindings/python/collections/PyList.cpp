@@ -188,7 +188,7 @@ namespace db0::python
             case Py_NE:
                 return PyBool_fromBool(list_obj->ext() != other_list->ext());
             default:
-                return Py_NotImplemented;
+                Py_RETURN_NOTIMPLEMENTED;
             }
         } else {
             PyObject *iterator = PyObject_GetIter(other);
@@ -199,7 +199,7 @@ namespace db0::python
             case Py_NE:
                 return PyBool_fromBool(!has_all_elements_same(list_obj, iterator));
             default:
-                return Py_NotImplemented;
+                Py_RETURN_NOTIMPLEMENTED;
             }
 
             Py_DECREF(iterator);

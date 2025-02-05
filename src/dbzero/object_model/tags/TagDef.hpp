@@ -22,6 +22,9 @@ namespace db0::object_model
         TagDef(std::uint64_t fixture_uuid, std::uint64_t value, ObjectPtr);
                 
         static TagDef &makeNew(void *at_ptr, std::uint64_t fixture_uuid, std::uint64_t value, ObjectPtr);
+
+        bool operator==(const TagDef &other) const;
+        bool operator!=(const TagDef &other) const;
     };
     
 }

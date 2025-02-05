@@ -2,6 +2,7 @@
 #include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/Utils.hpp>
 
 namespace db0::python
 
@@ -22,6 +23,26 @@ namespace db0::python
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
 
+    static PyObject *PyAPI_PyTag_richcompare(PyTag *self, PyObject *other, int op)
+    {
+        PY_API_FUNC
+        bool result = false;
+        if (PyTag_Check(other)) {
+            PyTag * other_tag = reinterpret_cast<PyTag*>(other);
+            result = self->ext() == other_tag->ext();
+        }
+
+        switch (op)
+        {
+            case Py_EQ:
+                return PyBool_fromBool(result);
+            case Py_NE:
+                return PyBool_fromBool(!result);
+            default:
+                Py_RETURN_NOTIMPLEMENTED;
+        }
+    }
+
     PyTypeObject PyTagType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.Tag",
@@ -29,6 +50,7 @@ namespace db0::python
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyTag_del,
         .tp_flags = Py_TPFLAGS_DEFAULT,
+        .tp_richcompare = (richcmpfunc)PyAPI_PyTag_richcompare,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PyTag_new,
         .tp_free = PyObject_Free,
@@ -49,6 +71,7 @@ namespace db0::python
     
     PyObject *PyAPI_as_tag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "Expected 1 argument");
             return NULL;

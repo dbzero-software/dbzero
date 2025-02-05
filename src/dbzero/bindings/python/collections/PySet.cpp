@@ -204,9 +204,9 @@ namespace db0::python
             return SetObject_issupersetInternal(set_obj, args, 1);
         }
         default:
-            return Py_NotImplemented;
+            Py_RETURN_NOTIMPLEMENTED;
         }
-        return Py_NotImplemented;
+        Py_RETURN_NOTIMPLEMENTED;
     }
     
     PyTypeObject SetObjectType = {
