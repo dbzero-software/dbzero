@@ -182,10 +182,10 @@ namespace db0::object_model
         db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder *batch_op_long_ptr = nullptr;
         auto &type_manager = LangToolkit::getTypeManager();
         for (std::size_t i = 0; i < nargs; ++i) {
-            auto type_id = type_manager.getTypeId(args[i]);
+            ObjectPtr arg = args[i];
             // must check for string since it's an iterable as well
-            if (type_id != TypeId::STRING && LangToolkit::isIterable(args[i])) {
-                auto tag_sequence = IterableSequence(LangToolkit::getIterator(args[i]), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
+            if (!LangToolkit::isString(arg) && LangToolkit::isIterable(arg)) {
+                auto tag_sequence = IterableSequence(LangToolkit::getIterator(arg), ForwardIterator::end(), [this](ObjectSharedPtr arg) {
                     bool inc_ref = false;
                     auto result = addShortTag(arg.get(), inc_ref);
                     if (inc_ref) {
@@ -194,7 +194,7 @@ namespace db0::object_model
                     return result;
                 });
                 // sequence (pair) may represent a single long tag
-                if (isLongTag<ForwardIterator>(LangToolkit::getIterator(args[i]), ForwardIterator::end())) {
+                if (isLongTag(arg)) {
                     if (!batch_op_long_ptr) {
                         batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
                     }
@@ -204,8 +204,9 @@ namespace db0::object_model
                     batch_op_short->addTags(active_key, tag_sequence);
                 }
             } else {
+                auto type_id = type_manager.getTypeId(arg);
                 bool inc_ref = false;
-                auto tag_addr = addShortTag(type_id, args[i], inc_ref);
+                auto tag_addr = addShortTag(type_id, arg, inc_ref);
                 batch_op_short->addTag(active_key, tag_addr);
                 if (inc_ref) {
                     m_inc_refed_tags.insert(tag_addr);
@@ -759,14 +760,10 @@ namespace db0::object_model
 
     bool TagIndex::isLongTag(ObjectPtr py_arg) const
     {
-        auto &type_manager = LangToolkit::getTypeManager();
-        auto type_id = type_manager.getTypeId(py_arg);
-        // must check for string since it's is an iterable as well
-        if (type_id == TypeId::STRING || !LangToolkit::isIterable(py_arg)) {
+        if (PyToolkit::isString(py_arg) || !PyToolkit::isSequence(py_arg) || PyToolkit::length(py_arg) != 2) {
             return false;
         }
-        
-        return isLongTag<ForwardIterator>(LangToolkit::getIterator(py_arg), ForwardIterator::end());
+        return isScopeIdentifier(PyToolkit::getItem(py_arg, 0)) && isShortTag(PyToolkit::getItem(py_arg, 1));
     }
     
     void TagIndex::commit() const

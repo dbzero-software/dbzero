@@ -325,6 +325,11 @@ namespace db0::python
     bool PyToolkit::isString(ObjectPtr py_object) {
         return PyUnicode_Check(py_object);
     }
+
+    bool PyToolkit::isSequence(ObjectPtr py_object)
+    {
+        return PySequence_Check(py_object);
+    }
     
     PyToolkit::ObjectSharedPtr PyToolkit::getIterator(ObjectPtr py_object)
     {
@@ -344,6 +349,26 @@ namespace db0::python
         }
 
         return { py_next, false };
+    }
+
+    std::size_t PyToolkit::length(ObjectPtr py_object)
+    {
+        Py_ssize_t size = PySequence_Length(py_object);
+        if(size < 0)
+        {
+            THROWF(db0::InputException) << "Unable to get sequence length" << THROWF_END;
+        }
+        return size;
+    }
+
+    PyToolkit::ObjectSharedPtr PyToolkit::getItem(ObjectPtr py_object, std::size_t i)
+    {
+        ObjectPtr item = PySequence_GetItem(py_object, i);
+        if (!item)
+        {
+            THROWF(db0::InputException) << "Unable to get sequence item at index " << i << THROWF_END;
+        }
+        return { item, false };
     }
     
     bool PyToolkit::isSingleton(TypeObjectPtr py_type) {
