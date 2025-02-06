@@ -3,6 +3,7 @@ import operator
 import dbzero_ce as db0
 from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoDataPxClass
 from .conftest import DB0_DIR, DATA_PX
+import itertools
 
 
 @db0.memo()
@@ -447,6 +448,7 @@ def test_tags_assigned_to_inherited_type_can_be_removed(db0_fixture):
     assert len(list(db0.find(MemoSubClass, "tag2"))) == 0
     assert len(list(db0.find(MemoBaseClass, "tag2"))) == 0
 
+
 def test_tags_compare(db0_fixture):
     obj1 = MemoClassForTags(1)
     obj2 = MemoClassForTags(2)
@@ -471,3 +473,24 @@ def test_tags_compare(db0_fixture):
     assert tag1 != 123
     assert tag1 != None
     assert tag1 != []
+
+
+def test_assign_multiple_tags_from_iterator(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    db0.tags(object_1).add((tag for tag in ["tag1", "tag2", "tag3"]))
+    result = list(db0.find("tag1", "tag2", "tag3"))
+    assert len(result) == 1
+    assert result[0].value == 1
+
+    object_2 = MemoClassForTags(2)
+    db0.tags(object_2).add(itertools.chain(["tag1", "tag2"], ["tag3", "tag4"]))
+    result = list(db0.find("tag1", "tag2", "tag3", "tag4"))
+    assert len(result) == 1
+    assert result[0].value == 2
+
+    d = {'tag5': 1, 'tag6': 2, 'tag7': 3}
+    object_3 = MemoClassForTags(3)
+    db0.tags(object_3).add(d)
+    result = list(db0.find("tag5", "tag6", "tag7"))
+    assert len(result) == 1
+    assert result[0].value == 3
