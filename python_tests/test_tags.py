@@ -494,3 +494,29 @@ def test_assign_multiple_tags_from_iterator(db0_fixture):
     result = list(db0.find("tag5", "tag6", "tag7"))
     assert len(result) == 1
     assert result[0].value == 3
+
+
+def test_tags_set_operations(db0_fixture):
+    obj1 = MemoClassForTags(1)
+    tag1 = db0.as_tag(obj1)
+    assert hash(tag1) == hash(tag1)
+    assert hash(tag1) == hash(db0.as_tag(obj1))
+
+    obj2 = MemoClassForTags(2)
+    tag2 = db0.as_tag(obj2)
+    assert hash(tag1) != hash(tag2)
+
+    result = set((tag1, db0.as_tag(obj1), db0.as_tag(obj1)))
+    assert len(result) == 1
+    assert list(result) == [tag1]
+
+    obj3 = MemoClassForTags(3)
+    tag3 = db0.as_tag(obj3)
+
+    set1 = set((tag1, tag2))
+    set2 = set((tag2, tag3))
+
+    set_sum = set1 | set2
+    assert all((tag in set_sum for tag in (tag1, tag2, tag3)))
+    assert list(set1 - set2) == [tag1]
+    assert list(set2 - set1) == [tag3]
