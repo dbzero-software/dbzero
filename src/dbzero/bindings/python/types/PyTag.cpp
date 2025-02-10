@@ -43,12 +43,24 @@ namespace db0::python
         }
     }
 
+    static Py_hash_t PyAPI_PyTag_hash(PyTag *self)
+    {
+        static_assert(sizeof(unsigned long) == sizeof(self->ext().m_fixture_uuid));
+        static_assert(sizeof(unsigned long) == sizeof(self->ext().m_value));
+        PyTypes::ObjectSharedPtr tuple{Py_BuildValue("(kk)", self->ext().m_fixture_uuid, self->ext().m_value), false};
+        if(!tuple) {
+            return -1;
+        }
+        return PyObject_Hash(tuple.get());
+    }
+
     PyTypeObject PyTagType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.Tag",
         .tp_basicsize = PyTag::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyTag_del,
+        .tp_hash = (hashfunc)PyAPI_PyTag_hash,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_richcompare = (richcmpfunc)PyAPI_PyTag_richcompare,
         .tp_alloc = PyType_GenericAlloc,
