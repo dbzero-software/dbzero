@@ -660,4 +660,16 @@ def test_find_multiple_objects_in_index_range(db0_fixture):
         if obj.value < 4:
             index.add(obj.value, obj)
     assert set(db0.find(index.range(), [objects[0], objects[3], objects[4]])) == set([objects[0], objects[3]])
-    
+
+@db0.memo
+class TestSelfInsert():
+    __test_ = False
+    def __init__(self, v, index):
+        index.add(v, self)
+
+@pytest.mark.skip(reason='crash - to be fixed')
+def test_index_self_insert(db0_fixture):
+    #FIXME: https://github.com/wskozlowski/dbzero_ce/issues/263
+    index = db0.index()
+    x = TestSelfInsert(1, index)
+    index.range()
