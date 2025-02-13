@@ -970,7 +970,7 @@ namespace db0::python
     PyObject *PyAPI_materialized(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "hash requires exactly 1 argument");
+            PyErr_SetString(PyExc_TypeError, "materialized requires exactly 1 argument");
             return NULL;
         }
         PY_API_FUNC
