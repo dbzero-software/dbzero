@@ -85,6 +85,7 @@ static PyMethodDef DBZeroCE_Methods[] =
     {"load", (PyCFunction)&py::PyAPI_load, METH_VARARGS | METH_KEYWORDS, "Load the entire instance from DBZero to memory and return as the closest native Python type"},
     {"hash", (PyCFunction)&py::PyAPI_hash, METH_FASTCALL, "Returns hash of python or db0 object"},
     {"as_tag", (PyCFunction)&py::PyAPI_as_tag, METH_FASTCALL, "Returns tag of a @db0.memo object"},
+    {"materialized", (PyCFunction)&py::PyAPI_materialized, METH_FASTCALL, "Returns a materialized version of a @db0.memo object"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

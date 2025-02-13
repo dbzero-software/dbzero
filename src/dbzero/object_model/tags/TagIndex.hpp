@@ -197,10 +197,10 @@ namespace db0::object_model
         
         // prepare the active value only if it's not yet initialized
         if (!result.first && !result.second) {
-            auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);
-            auto object_addr = memo.getAddress();
+            auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);            
             // NOTE: that memo object may not have address before fully initialized (before postInit)
-            if (object_addr) {
+            if (memo.hasInstance()) {
+                auto object_addr = memo.getAddress();
                 // cache object locally
                 if (m_object_cache.find(object_addr) == m_object_cache.end()) {
                     m_object_cache.emplace(object_addr, memo_ptr);

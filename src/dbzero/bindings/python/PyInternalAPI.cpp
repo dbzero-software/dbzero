@@ -33,7 +33,7 @@
 namespace db0::python
 
 {
-        
+    
     ObjectId extractObjectId(PyObject *args)
     {
         // extact ObjectId from args
@@ -636,6 +636,26 @@ namespace db0::python
             THROWF(db0::InputException) << "Unload not implemented for type: " 
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;
         }
+    }
+    
+    PyObject *getMaterializedMemoObject(PyObject *py_obj)
+    {
+        if (!PyMemo_Check(py_obj)) {
+            // simply return self if not a memo object
+            Py_INCREF(py_obj);
+            return py_obj;
+        }
+        auto memo_obj = reinterpret_cast<MemoObject*>(py_obj);
+        if (memo_obj->ext().hasInstance()) {
+            Py_INCREF(py_obj);
+            return py_obj;
+        }
+        
+        db0::FixtureLock lock(memo_obj->ext().getFixture());
+        // materialize by calling postInit
+        memo_obj->modifyExt().postInit(lock);
+        Py_INCREF(py_obj);
+        return py_obj;
     }
     
 }

@@ -229,6 +229,8 @@ namespace db0::object_model
         void detach() const;
 
         void commit() const;
+        
+        std::uint64_t getAddress() const;
                 
     private:
         // Class will only be assigned after initialization

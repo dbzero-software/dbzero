@@ -966,5 +966,15 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(get_py_hash_as_py_object, args[0]);
     }
+
+    PyObject *PyAPI_materialized(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "hash requires exactly 1 argument");
+            return NULL;
+        }
+        PY_API_FUNC
+        return runSafe(getMaterializedMemoObject, args[0]);
+    }
     
 }
