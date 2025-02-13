@@ -661,15 +661,19 @@ def test_find_multiple_objects_in_index_range(db0_fixture):
             index.add(obj.value, obj)
     assert set(db0.find(index.range(), [objects[0], objects[3], objects[4]])) == set([objects[0], objects[3]])
 
+
 @db0.memo
 class TestSelfInsert():
-    __test_ = False
     def __init__(self, v, index):
-        index.add(v, self)
+        index.add(v, db0.materialized(self))
 
-@pytest.mark.skip(reason='crash - to be fixed')
+
 def test_index_self_insert(db0_fixture):
-    #FIXME: https://github.com/wskozlowski/dbzero_ce/issues/263
+    """
+    Issue: the test was failing with MetaAllocator.cpp, line 263: Slab 4294426096 does not exist
+    which is caused by a non-existing object (self accessed from __init__) added to the index
+    Resolution: db0.materialized function added to db0
+    """    
     index = db0.index()
     x = TestSelfInsert(1, index)
     index.range()

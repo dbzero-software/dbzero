@@ -617,4 +617,12 @@ namespace db0::object_model
         return fixture->get<ClassFactory>().getTypeByClassRef((*this)->m_class_ref).m_class;
     }
     
+    std::uint64_t Object::getAddress() const
+    {
+        if (!hasInstance()) {
+            THROWF(db0::InternalException) << "Object instance does not exist yet (did you forget to use db0.materialized(self) in constructor ?)";
+        }
+        return super_t::getAddress();
+    }
+
 }

@@ -236,13 +236,14 @@ namespace db0::python
             PyErr_SetString(PyExc_RuntimeError, "delete failed: object has references");
             return;    
         }
-        
+         
         // create a null placeholder in place of the original instance to mark as deleted
         auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
+        auto obj_addr = memo_obj->ext().getAddress();
         memo_obj->destroy();
         db0::object_model::Object::makeNull((void*)(&memo_obj->ext()));
         // remove instance from the lang cache
-        lang_cache.erase(memo_obj->ext().getAddress());
+        lang_cache.erase(obj_addr);
     }
     
     PyObject *tryMemoObject_getattro(MemoObject *memo_obj, PyObject *attr)

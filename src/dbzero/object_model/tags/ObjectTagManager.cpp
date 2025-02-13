@@ -20,7 +20,7 @@ namespace db0::object_model
         : m_info(memo_ptr[0])
         , m_info_vec_ptr((nargs > 1) ? (new ObjectInfo[nargs - 1]) : nullptr)
         , m_info_vec_size(nargs - 1)
-        , m_access_mode(m_info.m_access_mode) 
+        , m_access_mode(m_info.m_access_mode)
     {
         assert(nargs > 0);
         for (std::size_t i = 1; i < nargs; ++i) {
