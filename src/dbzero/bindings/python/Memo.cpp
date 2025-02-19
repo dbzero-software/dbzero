@@ -515,6 +515,16 @@ namespace db0::python
         return type->tp_init == reinterpret_cast<initproc>(PyAPI_MemoObject_init);
     }
     
+    PyObject *PyAPI_PyMemo_Check(PyObject *self, PyObject *const * args, Py_ssize_t nargs) {
+        PY_API_FUNC
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "is_memo requires 1 argument");
+            return NULL;
+        }
+        bool is_memo = runSafe(PyMemo_Check, args[0]);
+        return PyBool_FromLong(is_memo);
+    }
+
     bool PyMemo_Check(PyObject *obj) {
         return PyMemoType_Check(Py_TYPE(obj));
     }
