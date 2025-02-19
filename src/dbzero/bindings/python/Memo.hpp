@@ -105,4 +105,6 @@ namespace db0::python
     PyObject *tryGetAttrAs(MemoObject *, PyObject *attr, PyTypeObject *);
     
     PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject* kwargs,  PyObject* exclude);
+
+    PyObject *PyAPI_PyMemo_Check(PyObject *self, PyObject *const * args, Py_ssize_t nargs);
 }
