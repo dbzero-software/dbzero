@@ -521,7 +521,10 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "is_memo requires 1 argument");
             return NULL;
         }
-        bool is_memo = runSafe(PyMemo_Check, args[0]);
+        int is_memo = runSafe<-1>(PyMemo_Check, args[0]);
+        if(is_memo == -1){
+            return nullptr;
+        }
         return PyBool_FromLong(is_memo);
     }
 
