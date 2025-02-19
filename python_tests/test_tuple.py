@@ -86,3 +86,33 @@ def test_tuples_destroy_removes_reference(db0_fixture):
 #     # make sure dependent instance has been destroyed as well
 #     with pytest.raises(Exception):
 #         db0.fetch(dep_uuid)
+
+
+def test_tuple_from_generator(db0_fixture):
+    t = db0.tuple((v for v in [1, 2, 'abc', 4, None]))
+    assert t == (1, 2, 'abc', 4, None)
+
+
+def test_empty_tuple(db0_fixture):
+    t = db0.tuple()
+    assert t == ()
+    assert db0.tuple() == ()
+    assert db0.tuple() == db0.tuple()
+
+
+def test_invalid_constructor_arguments(db0_fixture):
+    with pytest.raises(TypeError):
+        db0.tuple(1,2)
+
+    for arg in [1, 1.0, None, True, False]:
+        with pytest.raises(TypeError):
+            db0.tuple(arg)
+
+    def broken_iterator():
+        for i in range(100):
+            yield i
+        raise ValueError('TestError')
+    
+    for i in range(5):
+        with pytest.raises(ValueError):
+            db0.tuple(broken_iterator())
