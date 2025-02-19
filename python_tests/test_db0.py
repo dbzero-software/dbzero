@@ -15,3 +15,6 @@ def test_db0_is_memo(db0_fixture):
     assert db0.is_memo(TriColor.RED) == False
     assert db0.is_memo(1) == False
     assert db0.is_memo("asd") == False
+    assert db0.is_memo([1, 2, 3]) == False
+    assert db0.is_memo({"a": 1, "b": 2}) == False
+    assert db0.is_memo(db0.list([1,2,3])) == False
