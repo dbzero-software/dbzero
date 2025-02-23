@@ -38,38 +38,43 @@ namespace db0::python
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
-
-    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr)
+    
+    shared_py_object<PyObject*> tryPyEnum_getenum(PyEnum *self, PyObject *attr)
     {
         auto &enum_ = self->ext();
         if (enum_.exists()) {
-            return enum_.get().getLangValue(PyUnicode_AsUTF8(attr)).steal();
+            return enum_.get().tryGetLangValue(PyUnicode_AsUTF8(attr));
         } else {
             if (!PyToolkit::getPyWorkspace().hasWorkspace()) {
-                PyErr_SetString(PyExc_RuntimeError, "Unable to get enum value without a workspace");
-                return NULL;
+                THROWF(db0::InputException) << "Unable to get enum value without a workspace";
             }
             // note that enum is created on demand
             auto enum_ptr = self->modifyExt().tryCreate();
             if (enum_ptr) {
-                return enum_ptr->getLangValue(PyUnicode_AsUTF8(attr)).steal();
+                return enum_ptr->tryGetLangValue(PyUnicode_AsUTF8(attr));
             }
             // if unable to create (e.g. prefix not accessible for read/write) then
             // return a value placeholder
-            if (!self->ext().hasValue(PyUnicode_AsUTF8(attr))) {
-                THROWF(db0::InputException) << "Enum value not found: " << PyUnicode_AsUTF8(attr);                
+            if (enum_.hasValue(PyUnicode_AsUTF8(attr))) {                        
+                return makePyEnumValueRepr(enum_.m_enum_type_def, PyUnicode_AsUTF8(attr)).steal();
             }
-            return makePyEnumValueRepr(enum_.m_enum_type_def, PyUnicode_AsUTF8(attr)).steal();
+            return nullptr;
         }
     }
     
+    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr)
+    {   
+        auto obj_ptr = tryPyEnum_getenum(self, attr);
+        if (obj_ptr) {
+            return obj_ptr.steal();
+        }
+                
+        return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(self), attr, NULL, 0);        
+    }
+
     PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr)
     {
         PY_API_FUNC
-        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(self), attr);
-        if (res) {
-            return res;
-        }
         return runSafe(tryPyEnum_getattro, self, attr);
     }
     
@@ -338,7 +343,7 @@ namespace db0::python
         EnumValueRepr::makeNew(&py_enum_value.get()->modifyExt(), enum_type_def, value);
         return py_enum_value;
     }
-
+    
     PyObject *tryLoadEnumValue(PyEnumValue *py_enum_value) {
         // load as string
         return PyEnumValue_str(py_enum_value);        

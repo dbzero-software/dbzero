@@ -936,27 +936,27 @@ namespace db0::python
         if (!PyArg_ParseTuple(args,  "O", &py_object)) {
             return NULL;
         }
-        if(kwargs != nullptr){
-            if(!PyArg_ValidateKeywordArguments(kwargs)){
+        if (kwargs != nullptr) {
+            if (!PyArg_ValidateKeywordArguments(kwargs)) {
                 return NULL;
             }
             py_exclude = PyDict_GetItemString(kwargs, "exclude");
         }
-        if(py_exclude != nullptr) {
+        if (py_exclude != nullptr) {
             if (!PySequence_Check(py_exclude) || PyUnicode_Check(py_exclude)) {
                 PyErr_SetString(PyExc_TypeError, "Invalid argument type. Exclude shoud be a sequence");
                 return NULL;
             }
-            if(!PyMemo_Check(py_object)) {
+            if (!PyMemo_Check(py_object)) {
                 PyErr_SetString(PyExc_TypeError, "Exclude is only supported for memo objects");
                 return NULL;
             }
         }
-
+        
         PY_API_FUNC
         return runSafe(tryLoad, py_object, kwargs, py_exclude);
     }
-
+    
     PyObject *PyAPI_hash(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {

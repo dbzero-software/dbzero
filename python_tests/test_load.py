@@ -27,15 +27,18 @@ def test_load_list(db0_fixture):
     t1 = db0.list([1, "string", 999])
     assert db0.load(t1) == [1, "string", 999]
 
+
 def test_py_load_list(db0_fixture):
     t1 = [1, "string", 999]
     assert db0.load(t1) == [1, "string", 999]
 
-def test_load_py_tuple_of_db0_classes(db0_fixture):
-    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+
+def test_load_py_tuple_of_db0_classes(db0_fixture):    
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
     memo = MemoTestClass("string")
     t1 = (Colors.RED, Colors.GREEN, memo)
     assert db0.load(t1) == ("RED", "GREEN", {"value": "string"})
+
 
 def test_load_memo_types(db0_fixture):
     memo = MemoTestClass("string")
@@ -114,6 +117,7 @@ def test_load_exlude(db0_fixture):
         "value_2": ["1", 2, "GREEN"],
         "value_3": {"value": "string"}
     }
+
 
 def test_load_exlude_doesnt_exclude_in_subobject(db0_fixture):
     memo = MemoTestThreeParamsClass("value_1", "value_2", "value_3")

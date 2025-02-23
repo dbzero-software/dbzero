@@ -317,42 +317,7 @@ namespace db0::python
                 << static_cast<int>(type_id) << THROWF_END;
         }
     }
-
-    PyObject *_PyObject_GetDescrOptional(PyObject *obj, PyObject *name)
-    {
-        // This implementation is based on _PyObject_GenericGetAttrWithDict function
-        PyTypeObject *tp = Py_TYPE(obj);
-        PyObject *descr = NULL;
-        PyObject *res = NULL;
-        descrgetfunc f;
-
-        if (!PyUnicode_Check(name)) {
-            PyErr_Format(PyExc_TypeError,
-                        "attribute name must be string, not '%.200s'",
-                        Py_TYPE(name)->tp_name);
-            return NULL;
-        }
-        Py_INCREF(name);
-
-        descr = _PyType_Lookup(tp, name);
-        f = NULL;
-        if (descr != NULL) {
-            Py_INCREF(descr);
-            f = Py_TYPE(descr)->tp_descr_get;
-            if (f != NULL /*&& PyDescr_IsData(descr)*/) {
-                res = f(descr, obj, (PyObject *)Py_TYPE(obj));
-                if (res == NULL && PyErr_ExceptionMatches(PyExc_AttributeError)) {
-                    PyErr_Clear();
-                }
-                goto done;
-            }
-        }
-    done:
-        Py_XDECREF(descr);
-        Py_DECREF(name);
-        return res;
-    }
-    
+        
     PyObject *getSlabMetrics(const db0::SlabAllocator &slab)
     {        
         PyObject *py_dict = PyDict_New();
@@ -613,6 +578,7 @@ namespace db0::python
             Py_INCREF(py_obj);
             return py_obj;
         }
+
         // FIXME: implement for other types
         if (type_id == TypeId::DB0_TUPLE) {
             return tryLoadTuple(reinterpret_cast<TupleObject*>(py_obj), kwargs);

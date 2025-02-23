@@ -81,8 +81,8 @@ namespace db0::python
     void MemoObject_del(MemoObject* self);
     void MemoObject_drop(MemoObject* self);
     int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds);
-    PyObject *MemoObject_getattro(MemoObject *self, PyObject *attr);
-    int MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value);
+    PyObject *PyAPI_MemoObject_getattro(MemoObject *self, PyObject *attr);
+    int PyAPI_MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value);
     // check for equal instances - i.e. if fixture and address are the same
     bool isEqual(MemoObject *, MemoObject *);
         

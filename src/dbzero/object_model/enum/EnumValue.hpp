@@ -42,15 +42,19 @@ namespace db0::object_model
     struct EnumValue
     {
         // associated fixture UUID (for context validation purposes)
-        std::uint64_t m_fixture_uuid;
+        std::uint64_t m_fixture_uuid = 0;
         // the associated enum's UID (i.e. its address from the dedicated address pool)
-        std::uint32_t m_enum_uid;
+        std::uint32_t m_enum_uid = 0;
         LP_String m_value;
         // the string representation
         std::string m_str_repr;
-
+        
         // get unique tag identifier (unique within its prefix)
         EnumValue_UID getUID() const;
+        
+        operator bool() const {
+            return m_fixture_uuid && m_enum_uid;
+        }
     };
     
 } 

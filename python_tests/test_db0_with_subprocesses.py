@@ -142,7 +142,7 @@ def test_hash_bytes_subprocess():
     sr2 = run_subprocess_script(subprocess_script)
     assert sr1 == sr2
 
-def test_dict_comparation_when_runned_on_subprocess():
+def test_dict_comparison_when_executed_from_subprocess():
     cleanup = get_cleanup_script()
     run_subprocess_script(cleanup)
     setup = '''
