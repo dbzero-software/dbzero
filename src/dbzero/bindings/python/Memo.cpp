@@ -253,30 +253,42 @@ namespace db0::python
         // 2. DB0 object extension methods
         // 3. DB0 object members (attributes)
         // 4. User instance members (e.g. attributes set during __postinit__)                
+        
+        /* FIXME: 
         auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(memo_obj), attr);
         if (res) {
             return res;
         }
-            
+        */
+        
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr));
+        
+        if (member) {
+            return member.steal();
+        }
+        
+        return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(memo_obj), attr, NULL, 0);
+
         // raise AttributeError
-        if (!member) {            
+        /*
+        if (!member) {
             std::stringstream _str;
             _str << "AttributeError: " << PyUnicode_AsUTF8(attr) << " not found";
             PyErr_SetString(PyExc_AttributeError, _str.str().c_str());
             return nullptr;
         }
         return member.steal();
+        */
     }
     
-    PyObject *MemoObject_getattro(MemoObject *self, PyObject *attr)
+    PyObject *PyAPI_MemoObject_getattro(MemoObject *self, PyObject *attr)
     {
         PY_API_FUNC
         return runSafe(tryMemoObject_getattro, self, attr);
     }
     
-    int MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value)
+    int PyAPI_MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value)
     {
         PY_API_FUNC
         // assign value to a DB0 attribute
@@ -447,8 +459,8 @@ namespace db0::python
         new_type->tp_getattr = 0;
         new_type->tp_setattr = 0;
         // redirect to Memo_ functions
-        new_type->tp_getattro = reinterpret_cast<getattrofunc>(MemoObject_getattro);
-        new_type->tp_setattro = reinterpret_cast<setattrofunc>(MemoObject_setattro);
+        new_type->tp_getattro = reinterpret_cast<getattrofunc>(PyAPI_MemoObject_getattro);
+        new_type->tp_setattro = reinterpret_cast<setattrofunc>(PyAPI_MemoObject_setattro);
         // set original class (copy) as a base class
         new_type->tp_base = base_type;
         new_type->tp_richcompare = (richcmpfunc)PyAPI_MemoObject_rq;
@@ -635,24 +647,15 @@ namespace db0::python
     
     PyObject *tryGetAttrAs(MemoObject *memo_obj, PyObject *attr, PyTypeObject *py_type)
     {
-        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(memo_obj), attr);
-        if (res) {
-            return res;
-        }
-        
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGetAs(PyUnicode_AsUTF8(attr), py_type);
-        // raise AttributeError
-        if (!member) {
-            std::stringstream _str;
-            _str << "AttributeError: " << PyUnicode_AsUTF8(attr) << " not found";
-            PyErr_SetString(PyExc_AttributeError, _str.str().c_str());
-            return nullptr;
+        if (member) {
+            return member.steal();
         }
-        
-        return member.steal();
-    }
 
+        return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(memo_obj), attr, NULL, 0);
+    }
+    
     PyObject *getKwargsForMethod(PyObject* method, PyObject* kwargs){
         PyObject *inspec_module = PyImport_ImportModule("inspect");
         PyObject *signatue = PyObject_CallMethod(inspec_module, "signature", "O", method);
@@ -677,8 +680,9 @@ namespace db0::python
     {
         PyObject *py_result = PyDict_New();
         auto load_method = tryMemoObject_getattro(memo_obj, PyUnicode_FromString("__load__"));
+                
         if (load_method) {
-            if(py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
+            if (py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot exlude values when __load__ is implemented");
                 return nullptr;
             }
@@ -688,30 +692,40 @@ namespace db0::python
                 PyObject *args = PyTuple_New(0);
                 PyObject * method_kwargs = getKwargsForMethod(load_method, kwargs);
                 result = PyObject_Call(load_method, args, method_kwargs);
-
                 Py_DECREF(args);
             } else {
                 result = PyObject_CallObject(load_method, nullptr);
             }
-            if(result == nullptr) {
+            if (result == nullptr) {
                 return result;
             }
             Py_DECREF(load_method);
             return runSafe(tryLoad, result, kwargs, nullptr);
         }
-        bool has_error=false;
+        
+        // reset Python error
+        // FIXME: optimization opportunity if we're able to eliminate error message formatting
+        PyErr_Clear();
+                
+        bool has_error = false;
         memo_obj->ext().forAll([py_result, memo_obj, py_exclude, kwargs, &has_error](const std::string &key, PyTypes::ObjectSharedPtr) {
-            if(!has_error){
-                auto key_obj =  PyUnicode_FromString(key.c_str());
-                auto attr = MemoObject_getattro(memo_obj, key_obj);
-                if(py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, key_obj) == 0) {
-                    PyObject * res = runSafe(tryLoad, attr, kwargs, nullptr);
+            if (!has_error) {
+                auto key_obj = PyUnicode_FromString(key.c_str());
+                auto attr = PyAPI_MemoObject_getattro(memo_obj, key_obj);
+                if (!attr) {
+                    has_error = true;
+                    return;
+                }
+                
+                if (py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, key_obj) == 0) {
+                    PyObject *res = runSafe(tryLoad, attr, kwargs, nullptr);
                     if (res == nullptr) {
                         has_error = true;
                     } else {
                         PyDict_SetItemString(py_result, key.c_str(), res);
                     }
-                } 
+                }
+                Py_DECREF(attr);
                 Py_DECREF(key_obj);
             }
         });

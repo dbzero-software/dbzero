@@ -463,7 +463,7 @@ def test_object_fetch_as_memo_base(db0_fixture):
     assert obj_2.value == 123
     
 
-def test_child_object_comparastion(db0_fixture):
+def test_child_object_comparison(db0_fixture):
     child = MemoChild(123, 456)
     obj_1 = MemoTestClass(child)
     assert obj_1.value == child
