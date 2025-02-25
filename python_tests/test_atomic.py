@@ -177,7 +177,7 @@ def test_atomic_index_add(db0_fixture):
         index.add(1, MemoTestClass(100))
         index.add(2, MemoTestClass(200))
     # validate with the range query
-    values = set([x.value for x in index.range(0, 100)])
+    values = set([x.value for x in index.select(0, 100)])
     assert values == set([100, 200])
 
 
@@ -186,7 +186,7 @@ def test_atomic_index_create(db0_fixture):
     with db0.atomic():
         obj.value = db0.index()    
         obj.value.add(None, MemoTestClass(100))    
-    assert len(list(obj.value.range(None, 100, null_first=True))) == 1
+    assert len(list(obj.value.select(None, 100, null_first=True))) == 1
 
 
 def test_atomic_index_add_with_transaction(db0_fixture):
@@ -202,7 +202,7 @@ def test_atomic_index_add_with_transaction(db0_fixture):
     db0.open(prefix.name, "r")
     # validate with the range query
     index = MemoTestSingleton().value
-    values = set([x.value for x in index.range(0, 100)])
+    values = set([x.value for x in index.select(0, 100)])
     assert values == set([100, 200])
     
 
@@ -217,7 +217,7 @@ def test_atomic_index_revert_add(db0_fixture, flush):
             index.flush()
         atomic.cancel()
     # validate with the range query
-    values = set([x.value for x in index.range(0, 100)])
+    values = set([x.value for x in index.select(0, 100)])
     assert values == set([200])
 
 
@@ -294,7 +294,7 @@ def test_atomic_index_as_member(db0_fixture):
     
     # check if element was added to index
     root = MemoTestSingleton()
-    assert len(list(root.value["x"].value.range(None, 100, null_first=True))) == 1
+    assert len(list(root.value["x"].value.select(None, 100, null_first=True))) == 1
 
 
 def test_atomic_with_multiple_prefixes(db0_fixture):
@@ -304,7 +304,7 @@ def test_atomic_with_multiple_prefixes(db0_fixture):
         obj.value = db0.index()
         obj.value.add(None, MemoScopedClass(100, prefix=prefix))
     
-    assert len(list(obj.value.range(None, 100, null_first=True))) == 1
+    assert len(list(obj.value.select(None, 100, null_first=True))) == 1
     
     
 def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_1(db0_fixture):
@@ -320,7 +320,7 @@ def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_1(db0_fixtur
     with db0.atomic():
         pass
     
-    assert len(list(obj.value.range(None, 10, null_first=True))) == 2
+    assert len(list(obj.value.select(None, 10, null_first=True))) == 2
 
 
 def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_2(db0_fixture):
@@ -343,7 +343,7 @@ def test_multiple_atomic_index_updates_with_multiple_prefixes_issue_2(db0_fixtur
             obj.value.add(index, MemoScopedClass(None, prefix=prefix))
             index += 1
     
-    assert len(list(obj.value.range(None, index, null_first=True))) == 9
+    assert len(list(obj.value.select(None, index, null_first=True))) == 9
 
 
 def test_atomic_operation_auto_canceled_on_exception(db0_fixture):

@@ -49,7 +49,7 @@ def test_serde_range_query(db0_fixture):
     for i in range(10):
         index.add(i, MemoTestClass(i))
     # null query since tag_2 is not present
-    query_object = MemoTestClass(index.range(4, 8))
+    query_object = MemoTestClass(index.select(4, 8))
     # run serialized query directly (it will be deserialized on the go)
     assert len(list(query_object.value)) == 5
 

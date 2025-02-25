@@ -53,5 +53,5 @@ def test_slicing_sorted_results(db0_no_autocommit, memo_tags):
     for value in [0, 12, 4192, 33, 99, 313, 7, 99, 14, 28]:
         index.add(value, MemoTestClass(value))
     
-    sliced = list(x.value for x in index.sort(index.range(), desc = True)[:5])
+    sliced = list(x.value for x in index.sort(index.select(), desc = True)[:5])
     assert sliced == [4192, 313, 99, 99, 33]
