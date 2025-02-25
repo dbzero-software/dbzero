@@ -3,7 +3,7 @@ import random
 import datetime
 import dbzero_ce as db0
 from .conftest import DB0_DIR
-from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedSingleton, MemoScopedClass, MonthTag
+from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedSingleton, MemoScopedClass, MonthTag, DATA_PX
 
 
 def test_can_create_dict(db0_fixture):
@@ -457,14 +457,16 @@ def test_dict_no_duplicate_keys_when_mixed_python_db0_types(db0_no_autocommit):
     
 
 def test_dict_storing_enum_values_from_different_prefix(db0_no_autocommit):
+    # create data_px since MonthTag enum is scoped to it
+    db0.open(DATA_PX, "rw")
     obj = db0.dict()
-    # NOTE: MonthTag is located on a different data-prefix    
+    # NOTE: MonthTag is located on a different data-prefix
     obj[(MonthTag.NOV, 1, "Szczecin")] = 1
     obj[MonthTag.NOV] = 2
     obj[MonthTag.NOV] = 3
     obj[(MonthTag.NOV, 1, "Szczecin")] = 2
     assert len(obj) == 2
-
+    
 
 @pytest.mark.parametrize("make_dict", dict_test_params)
 def test_dict_raises_key_error(db0_fixture, make_dict):

@@ -70,13 +70,13 @@ namespace db0::python
         using EnumFactory = db0::object_model::EnumFactory;
         if (!m_enum_ptr) {
             std::uint64_t fixture_uuid = 0;
+            auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
             if (m_enum_type_def->hasPrefix()) {
-                auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(
-                    m_enum_type_def->getPrefixName().c_str()
-                );
+                auto fixture = workspace.getFixture(m_enum_type_def->getPrefixName().c_str());
                 fixture_uuid = fixture->getUUID();
             }
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
+            // either get a specific or current prefix
+            auto fixture = workspace.getFixture(fixture_uuid);
             auto &enum_factory = fixture->get<EnumFactory>();
             // use empty module name since it's unknown
             m_enum_ptr = enum_factory.tryGetOrCreateEnum(*m_enum_type_def);
