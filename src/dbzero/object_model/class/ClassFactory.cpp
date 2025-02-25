@@ -125,6 +125,7 @@ namespace db0::object_model
         if (LangToolkit::getTypeManager().isMemoBase(lang_type)) {
             THROWF(db0::InputException) << "Cannot create MemoBase type";
         }
+
         auto it_cached = m_type_cache.find(lang_type);
         if (it_cached == m_type_cache.end()) {
             const char *type_id = LangToolkit::getMemoTypeID(lang_type);
@@ -145,7 +146,7 @@ namespace db0::object_model
                 ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
                 auto memo_base = LangToolkit::getBaseMemoType(lang_type);
                 std::uint32_t base_class_ref = 0;
-                if(memo_base){
+                if (memo_base) {
                     auto base_class = getOrCreateType(memo_base);
                     base_class_ref = ClassFactory::classRef(*base_class);
                 }
@@ -232,7 +233,7 @@ namespace db0::object_model
         assert(address <= std::numeric_limits<std::uint32_t>::max());
         return static_cast<std::uint32_t>(address);
     }
-
+    
     ClassFactory::ClassItem ClassFactory::getTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const
     {
         auto it_cached = m_ptr_cache.find(ptr);
@@ -295,7 +296,7 @@ namespace db0::object_model
     {
         auto it_cached = m_ptr_cache.find(ClassPtr(type));
         if (it_cached == m_ptr_cache.end()) {
-            THROWF(db0::InputException) << "Class not found: " << type.getName();
+            THROWF(db0::InternalException) << "Class not found: " << type.getName();
         }
         return it_cached->second.m_lang_type;
     }
@@ -322,5 +323,5 @@ namespace db0::object_model
         // type not found
         return nullptr;
     }
-
+    
 }

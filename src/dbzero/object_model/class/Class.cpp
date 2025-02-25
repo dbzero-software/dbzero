@@ -292,9 +292,8 @@ namespace db0::object_model
         m_members.detach();
         super_t::detach();
     }
-            
-    void Class::unlinkSingleton()
-    {
+         
+    void Class::unlinkSingleton() {
         modify().m_singleton_address = 0;
     }
     
@@ -383,9 +382,9 @@ namespace db0::object_model
 
     std::shared_ptr<Class> Class::tryGetBaseClass()
     {
-        if(!m_base_class_ptr){
+        if (!m_base_class_ptr) {
             auto base_class_ref = (*this)->m_base_class_ref;
-            if(base_class_ref == 0) {
+            if (base_class_ref == 0) {
                 return nullptr;
             }
             auto fixture = this->getFixture();
@@ -393,4 +392,5 @@ namespace db0::object_model
         }
         return m_base_class_ptr;
     }
+    
 }

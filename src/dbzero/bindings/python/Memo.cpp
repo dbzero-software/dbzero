@@ -436,6 +436,7 @@ namespace db0::python
             type_manager.getPooledString(type_id),
             type_manager.getPooledString(file_name)
         );
+
         // Construct base type as a copy of the original type
         PyTypeObject *base_type = new PyTypeObject(*py_class);
         Py_INCREF(base_type);
@@ -656,7 +657,8 @@ namespace db0::python
         return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(memo_obj), attr, NULL, 0);
     }
     
-    PyObject *getKwargsForMethod(PyObject* method, PyObject* kwargs){
+    PyObject *getKwargsForMethod(PyObject* method, PyObject* kwargs)
+    {
         PyObject *inspec_module = PyImport_ImportModule("inspect");
         PyObject *signatue = PyObject_CallMethod(inspec_module, "signature", "O", method);
         PyObject *parameters = PyObject_GetAttrString(signatue, "parameters");
@@ -664,7 +666,7 @@ namespace db0::python
         PyObject *elem;
         PyObject *py_result = PyDict_New();
         while ((elem = PyIter_Next(iterator))) {
-            if(PyDict_Contains(kwargs, elem) == 1) {
+            if (PyDict_Contains(kwargs, elem) == 1) {
                 PyDict_SetItem(py_result, elem, PyDict_GetItem(kwargs, elem));
             }
             Py_DECREF(elem);
@@ -706,7 +708,7 @@ namespace db0::python
         // reset Python error
         // FIXME: optimization opportunity if we're able to eliminate error message formatting
         PyErr_Clear();
-                
+        
         bool has_error = false;
         memo_obj->ext().forAll([py_result, memo_obj, py_exclude, kwargs, &has_error](const std::string &key, PyTypes::ObjectSharedPtr) {
             if (!has_error) {

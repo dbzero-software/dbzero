@@ -167,6 +167,10 @@ def __import_module(module_or_file_name):
         return __import_from_file(module_or_file_name)
     
     
+def import_model(module_or_file_name):
+    __import_module(module_or_file_name)
+    
+    
 def get_queries(*module_names):
     # Dynamically import modules
     for name in module_names:
