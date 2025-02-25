@@ -77,7 +77,7 @@ class TaskQueue:
         self.ix_created_at = db0.index()
     
     def test_schedule(self):
-        return self.ix_scheduled_at.range(None, datetime.now(), null_first=True)
+        return self.ix_scheduled_at.select(None, datetime.now(), null_first=True)
 
     def __grab_from(self, query, limit):        
         tasks = list(islice(query, limit))        

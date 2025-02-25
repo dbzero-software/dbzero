@@ -129,7 +129,7 @@ def test_using_index_after_hardening(db0_fixture):
     for i in range(10):
         obj.value.add(i, obj)    
     db0.commit()
-    assert len(list(obj.value.range(0, 10))) == 10
+    assert len(list(obj.value.select(0, 10))) == 10
     
 
 @db0.memo(prefix="scoped-class-prefix")
@@ -164,7 +164,7 @@ def test_zorch_scoped_types_issue(db0_fixture):
     del ix_test
     
     ix_test = TestScopedSingleton().container.ix_test
-    query = ix_test.range(None, 100, null_first=True)
+    query = ix_test.select(None, 100, null_first=True)
     assert len(list(query)) == 10
 
 
@@ -173,7 +173,7 @@ def test_scoped_index_issue(db0_fixture):
     obj = MemoScopedClass(db0.index(), prefix=prefix)    
     index = obj.value
     index.add(None, MemoScopedClass(100, prefix=prefix))
-    assert len(list(index.range(None, 100, null_first=True))) == 1
+    assert len(list(index.select(None, 100, null_first=True))) == 1
 
 
 def test_scoped_dict_issue(db0_fixture):
