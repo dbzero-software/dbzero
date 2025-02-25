@@ -114,7 +114,7 @@ namespace db0::python
         if (obj_ptr) {
             return obj_ptr;
         }
-
+        
         // Unload from backend otherwise
         auto stem = db0::object_model::Object::unloadStem(fixture, address);
         auto [type, lang_type] = class_factory.getTypeByClassRef(stem->m_class_ref);

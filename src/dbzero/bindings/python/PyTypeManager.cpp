@@ -305,7 +305,7 @@ namespace db0::python
         }
         return getPooledString(std::string(str));
     }
-
+    
     void PyTypeManager::addMemoType(TypeObjectPtr type, const char *type_id)
     {        
         // register type with up to 4 key variants

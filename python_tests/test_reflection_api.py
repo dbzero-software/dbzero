@@ -156,3 +156,7 @@ def test_get_all_instances_of_unknown_type_from_snapshot(db0_fixture, memo_tags)
             uuids = [db0.uuid(obj) for obj in memo_class.all(snapshot=snap, as_memo_base=True)]
             total_len += len(uuids)
         assert total_len > 0
+
+    
+def test_import_model(db0_fixture):
+    db0.import_model("datetime")
