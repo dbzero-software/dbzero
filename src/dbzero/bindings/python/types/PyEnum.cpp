@@ -45,15 +45,15 @@ namespace db0::python
         if (enum_.exists()) {
             return enum_.get().tryGetLangValue(PyUnicode_AsUTF8(attr));
         } else {
-            if (!PyToolkit::getPyWorkspace().hasWorkspace()) {
-                THROWF(db0::InputException) << "Unable to get enum value without a workspace";
+            if (PyToolkit::getPyWorkspace().hasWorkspace()) {
+                // note that enum is created on demand
+                auto enum_ptr = self->modifyExt().tryCreate();
+                if (enum_ptr) {
+                    return enum_ptr->tryGetLangValue(PyUnicode_AsUTF8(attr));
+                }
             }
-            // note that enum is created on demand
-            auto enum_ptr = self->modifyExt().tryCreate();
-            if (enum_ptr) {
-                return enum_ptr->tryGetLangValue(PyUnicode_AsUTF8(attr));
-            }
-            // if unable to create (e.g. prefix not accessible for read/write) then
+            
+            // if unable to create (e.g. prefix not accessible for read/write or Worspace unavailable) then
             // return a value placeholder
             if (enum_.hasValue(PyUnicode_AsUTF8(attr))) {                        
                 return makePyEnumValueRepr(enum_.m_enum_type_def, PyUnicode_AsUTF8(attr)).steal();
