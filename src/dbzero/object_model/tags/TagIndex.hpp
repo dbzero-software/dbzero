@@ -71,11 +71,12 @@ namespace db0::object_model
         /**
          * Split query by all values from a specific tags_list (can be either short or long tag definitions)
          * @param lang_arg must represent a list of tags as language specific types (e.g. string / enum value etc.)
+         * @param exclusive if false, then duplicate objects will be returned (the ones tagged with multiple of split-by tags)
          * @return updated query iterator + observer to retrieve the active value
         */
-        std::pair<std::unique_ptr<QueryIterator>, std::unique_ptr<QueryObserver> > 
-        splitBy(ObjectPtr lang_arg, std::unique_ptr<QueryIterator> &&query) const;
-
+        std::pair<std::unique_ptr<QueryIterator>, std::unique_ptr<QueryObserver> >
+        splitBy(ObjectPtr lang_arg, std::unique_ptr<QueryIterator> &&query, bool exclusive) const;
+        
         // Clears the uncommited contents (rollback)
         void rollback();
 
@@ -212,7 +213,7 @@ namespace db0::object_model
                 result = ActiveValueT(0, &m_active_cache.back().second);
             }
         }
-
+        
         return batch_op;
     }
     

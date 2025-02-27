@@ -49,7 +49,7 @@ namespace db0
 		if (m_is_orx) {
 			key_t _key = m_forward_heap.front().key;
 			_next();
-			// pop all equal values from heap ( excluding OR )
+			// pop all equal values from heap (exclusive OR)
 			while (!m_forward_heap.empty() && _key==m_forward_heap.front().key) {
 				_next();
 			}
@@ -93,7 +93,7 @@ namespace db0
 	
 	template <typename key_t>
 	void FT_JoinORXIterator<key_t>::_next(void *buf)
-    {
+    {		
 		assert(m_direction < 0);
 		assert(!m_end);
 		if (buf) {
@@ -492,7 +492,7 @@ namespace db0
 			std::move(this->m_joinable), direction, this->m_orx_join, lazy_init)
 		);
 	}
-		
+	
 	template <typename key_t>
 	std::size_t FT_OR_ORXIteratorFactory<key_t>::size() const {
 		return m_joinable.size();
