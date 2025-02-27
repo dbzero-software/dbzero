@@ -683,12 +683,12 @@ namespace db0::python
     using QueryObserver = db0::object_model::QueryObserver;
     
     std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
-    splitBy(PyObject *py_tag_list, const ObjectIterable &iterable)
-    {        
+    splitBy(PyObject *py_tag_list, const ObjectIterable &iterable, bool exclusive)
+    {
         std::vector<std::unique_ptr<QueryObserver> > query_observers;
         auto query = iterable.beginFTQuery(query_observers, -1);
         auto &tag_index = iterable.getFixture()->get<db0::object_model::TagIndex>();
-        auto result = tag_index.splitBy(py_tag_list, std::move(query));
+        auto result = tag_index.splitBy(py_tag_list, std::move(query), exclusive);
         query_observers.push_back(std::move(result.second));
         return { std::move(result.first), std::move(query_observers) };
     }
@@ -696,18 +696,22 @@ namespace db0::python
     PyObject *trySplitBy(PyObject *args, PyObject *kwargs)
     {
         // extract 2 object arguments
-        PyObject *py_tag_list = nullptr;
+        PyObject *py_tags = nullptr;
         PyObject *py_query = nullptr;
-        if (!PyArg_ParseTuple(args, "OO", &py_tag_list, &py_query)) {
-            THROWF(db0::InputException) << "Invalid argument type";
+        int exclusive = true;
+        // tags, query, exclusive (bool)
+        static const char *kwlist[] = {"tags", "query", "exclusive", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", const_cast<char**>(kwlist), &py_tags, &py_query, &exclusive)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
         }
-        
+                
         if (!PyObjectIterable_Check(py_query)) {
             THROWF(db0::InputException) << "Invalid argument type";
         }
         
         auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->modifyExt();
-        auto split_query = splitBy(py_tag_list, iter);
+        auto split_query = splitBy(py_tags, iter, exclusive);
         auto py_iter = PyObjectIterableDefault_new();
         iter.makeNew(&(py_iter.get())->modifyExt(), std::move(split_query.first), std::move(split_query.second),
             iter.getFilters());
@@ -889,7 +893,7 @@ namespace db0::python
         
         return runSafe(tryGetAddress, args[0]);
     }
-    
+
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {

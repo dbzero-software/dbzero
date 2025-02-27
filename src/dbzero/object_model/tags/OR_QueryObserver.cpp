@@ -6,7 +6,7 @@ namespace db0::object_model
 {
     
     OR_QueryObserverBuilder::OR_QueryObserverBuilder(bool is_exclusive)
-        : m_factory(is_exclusive)
+        : m_factory(is_exclusive)        
     {
     }
     

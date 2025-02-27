@@ -699,7 +699,7 @@ namespace db0::object_model
     }
     
     std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::unique_ptr<QueryObserver> >
-    TagIndex::splitBy(ObjectPtr py_arg, std::unique_ptr<QueryIterator> &&query) const
+    TagIndex::splitBy(ObjectPtr py_arg, std::unique_ptr<QueryIterator> &&query, bool exclusive) const
     {
         auto &type_manager = LangToolkit::getTypeManager();
         auto type_id = type_manager.getTypeId(py_arg);
@@ -709,7 +709,7 @@ namespace db0::object_model
                 << " (iterable expected)" << THROWF_END;
         }
         
-        OR_QueryObserverBuilder split_factory;
+        OR_QueryObserverBuilder split_factory(exclusive);
         // include ALL provided values first (OR-joined)
         for (auto it = ForwardIterator(LangToolkit::getIterator(py_arg)), end = ForwardIterator::end(); it != end; ++it) {
             if (isShortTag(*it)) {
@@ -726,14 +726,21 @@ namespace db0::object_model
                     << THROWF_END;
             }
         }
-
-        auto split_result = split_factory.release();
-        db0::FT_ANDIteratorFactory<std::uint64_t> factory;
-        factory.add(std::move(split_result.first));
-        factory.add(std::move(query));
-        return { factory.release(), std::move(split_result.second) };
-    }
         
+        auto split_result = split_factory.release();
+        if (exclusive) {
+            db0::FT_ANDIteratorFactory<std::uint64_t, true> factory;
+            factory.add(std::move(split_result.first));
+            factory.add(std::move(query));
+            return { factory.release(), std::move(split_result.second) };
+        } else {
+            db0::FT_ANDIteratorFactory<std::uint64_t, false> factory;
+            factory.add(std::move(split_result.first));
+            factory.add(std::move(query));
+            return { factory.release(), std::move(split_result.second) };
+        }
+    }
+    
     LongTagT TagIndex::getLongTag(ObjectSharedPtr py_arg) const {
         return getLongTag(py_arg.get());
     }
