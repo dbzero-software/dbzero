@@ -161,6 +161,11 @@ namespace db0
          * Create new or open/get existing prefix associated fixture
          * access type must be provided when the prefix is accessed for the 1st time
          */
+        swine_ptr<Fixture> tryGetFixtureEx(const PrefixName &, std::optional<AccessType> = AccessType::READ_WRITE,
+            std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {}, 
+            std::optional<std::size_t> sparse_index_node_size = {},
+            std::optional<bool> autocommit = {}, std::optional<LockFlags> lock_flags = {});
+        
         swine_ptr<Fixture> getFixtureEx(const PrefixName &, std::optional<AccessType> = AccessType::READ_WRITE,
             std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {}, 
             std::optional<std::size_t> sparse_index_node_size = {},
@@ -170,10 +175,10 @@ namespace db0
          * Get existing fixture by UUID
          * if access type is specified then auto-open is also attmpted
         */
-        db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+        db0::swine_ptr<Fixture> tryGetFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;        
         
-        db0::swine_ptr<Fixture> getFixture(const PrefixName &prefix_name,
-            std::optional<AccessType> = AccessType::READ_WRITE) override;
+        db0::swine_ptr<Fixture> tryGetFixture(const PrefixName &prefix_name,
+            std::optional<AccessType> = {}) override;
         
         /**
          * Find existing (opened) fixture or return nullptr

@@ -27,10 +27,10 @@ namespace db0
         // Check if a prefix with the given name exists
         virtual bool hasFixture(const PrefixName &prefix_name) const = 0;
 
-        virtual db0::swine_ptr<Fixture> getFixture(
-            const PrefixName &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE) = 0;
-        
-        virtual db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) = 0;
+        virtual db0::swine_ptr<Fixture> tryGetFixture(
+            const PrefixName &prefix_name, std::optional<AccessType> = {}) = 0;
+            
+        virtual db0::swine_ptr<Fixture> tryGetFixture(std::uint64_t uuid, std::optional<AccessType> = {}) = 0;
         
         virtual db0::swine_ptr<Fixture> getCurrentFixture() = 0;
         
@@ -48,6 +48,11 @@ namespace db0
         virtual bool isMutable() const = 0;
         
         db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
+        
+        db0::swine_ptr<Fixture> getFixture(
+            const PrefixName &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE);
+        
+        db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {});
     };
     
     bool checkAccessType(const Fixture &fixture, AccessType);

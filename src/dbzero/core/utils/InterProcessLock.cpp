@@ -77,6 +77,8 @@ namespace db0
         PyObject *result = PyObject_Call(aquire, args, keywords);
         auto result_str = PyLong_AsLong(result);
         if (result_str == 0) {
+            // FIXME: log
+            assert(false);
             THROWF(db0::InternalException) << "Failed to aquire lock of: " << m_lockPath;
         }
         

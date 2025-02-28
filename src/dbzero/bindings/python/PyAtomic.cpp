@@ -74,7 +74,7 @@ namespace db0::python
     PyObject *tryPyAtomic_close(PyAtomic *self)
     {        
         self->modifyExt().close();
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     PyObject *PyAPI_PyAtomic_close(PyObject *self, PyObject *args)
@@ -86,7 +86,7 @@ namespace db0::python
     PyObject *tryPyAtomic_cancel(PyAtomic *self)
     {    
         self->modifyExt().cancel();
-        return Py_None;
+        Py_RETURN_NONE;
     }
     
     PyObject *PyAPI_PyAtomic_cancel(PyObject *self, PyObject *args)

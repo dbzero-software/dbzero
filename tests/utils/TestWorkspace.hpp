@@ -53,10 +53,10 @@ namespace db0
 
         bool hasFixture(const PrefixName &) const override;
         
-        db0::swine_ptr<Fixture> getFixture(const PrefixName &prefix_name, 
-            std::optional<AccessType> = AccessType::READ_WRITE) override;
+        db0::swine_ptr<Fixture> tryGetFixture(const PrefixName &prefix_name, 
+            std::optional<AccessType> = {}) override;
         
-        db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+        db0::swine_ptr<Fixture> tryGetFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
         
         db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const override;
 

@@ -33,6 +33,25 @@ namespace db0
             THROWF(db0::InputException) << "Prefix with name " << prefix_name << " not found";
         }
         return result;
-    }
+    } 
 
+    db0::swine_ptr<Fixture> Snapshot::getFixture(
+        const PrefixName &prefix_name, std::optional<AccessType> access_type)
+    {
+        auto fixture = tryGetFixture(prefix_name, access_type);
+        if (!fixture) {
+            THROWF(db0::InputException) << "Prefix: " << prefix_name << " not found";
+        }
+        return fixture;
+    }
+    
+    db0::swine_ptr<Fixture> Snapshot::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
+    {
+        auto fixture = tryGetFixture(uuid, access_type);
+        if (!fixture) {
+            THROWF(db0::InputException) << "Prefix: " << uuid << " not found";
+        }
+        return fixture;
+    }
+    
 }

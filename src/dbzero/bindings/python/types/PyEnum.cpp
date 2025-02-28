@@ -286,6 +286,10 @@ namespace db0::python
         return Py_TYPE(py_object) == &PyEnumType;        
     }
 
+    bool PyEnumType_Check(PyTypeObject *py_type) {
+        return py_type == &PyEnumType;
+    }
+    
     bool PyEnumValue_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyEnumValueType;        
     }
@@ -303,7 +307,7 @@ namespace db0::python
         PyToolkit::getTypeManager().addEnum(py_enum);
         return py_enum;
     }
-
+    
     PyObject *tryMakeEnumFromType(PyObject *self, PyTypeObject *py_type, const std::vector<std::string> &enum_values,
         const char *type_id, const char *prefix_name)
     {
@@ -355,7 +359,7 @@ namespace db0::python
         // translation is needed if prefixes differ
         return (enum_value.m_fixture_uuid != fixture->getUUID());
     }
-    
+
     shared_py_object<PyObject*> migratedEnumValue(db0::swine_ptr<Fixture> &fixture, PyEnumValue *py_enum_value)
     {
         auto &enum_value = py_enum_value->ext();
@@ -367,6 +371,5 @@ namespace db0::python
         // migrate enum value to the destination fixture
         return fixture->get<db0::object_model::EnumFactory>().migrateEnumLangValue(enum_value);        
     }
-    
-}
 
+}

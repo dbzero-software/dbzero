@@ -309,7 +309,7 @@ namespace db0
         return BaseWorkspace::getCacheRecycler();
     }
     
-    db0::swine_ptr<Fixture> Workspace::getFixtureEx(const PrefixName &prefix_name,
+    db0::swine_ptr<Fixture> Workspace::tryGetFixtureEx(const PrefixName &prefix_name,
         std::optional<AccessType> access_type, std::optional<std::size_t> page_size, 
         std::optional<std::size_t> slab_size, std::optional<std::size_t> sparse_index_node_size, 
         std::optional<bool> autocommit, std::optional<LockFlags> lock_flags)
@@ -323,7 +323,7 @@ namespace db0
         try {
             if (it == m_fixtures.end()) {
                 if (!access_type) {
-                    THROWF(db0::InputException) << "Fixture with name " << prefix_name << " not found";
+                    return nullptr;                    
                 }
                 bool read_only = (*access_type == AccessType::READ_ONLY);
                 auto [prefix, allocator] = openMemspace(
@@ -370,7 +370,7 @@ namespace db0
                 // remove incomplete file
                 m_fixture_catalog.drop(prefix_name);                
             }
-            throw;
+            return nullptr;            
         }
         
         // Validate access type
@@ -379,8 +379,22 @@ namespace db0
             // FIXME: implement
             // throw std::runtime_error("Upgrade to read/write access is not implemented");
         }
-
+        
         return it->second;
+    }
+    
+    swine_ptr<Fixture> Workspace::getFixtureEx(const PrefixName &px_name, std::optional<AccessType> access_type,
+        std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
+        std::optional<std::size_t> sparse_index_node_size,
+        std::optional<bool> autocommit, std::optional<LockFlags> lock_flags)
+    {
+        auto fixture = tryGetFixtureEx(
+            px_name, access_type, page_size, slab_size, sparse_index_node_size, autocommit, lock_flags
+        );
+        if (!fixture) {
+            THROWF(db0::InputException) << "Prefix: " << px_name << " not found";
+        }
+        return fixture;
     }
     
     bool Workspace::hasFixture(const PrefixName &prefix_name) const
@@ -403,20 +417,20 @@ namespace db0
         }
         return it->second;
     }
-        
-    db0::swine_ptr<Fixture> Workspace::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
+    
+    db0::swine_ptr<Fixture> Workspace::tryGetFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
     {
         db0::swine_ptr<Fixture> result;
         if (uuid) {
             auto it = m_fixtures.find(uuid);
             if (it == m_fixtures.end()) {
                 if (!access_type) {
-                    THROWF(db0::InputException) << "Fixture with UUID " << uuid << " not found";
+                    return nullptr;
                 }
                 m_fixture_catalog.refresh();
                 auto maybe_prefix_name = m_fixture_catalog.getPrefixName(uuid);
                 if (!maybe_prefix_name) {
-                    THROWF(db0::InputException) << "Fixture with UUID " << uuid << " not found";
+                    return nullptr;
                 }
                 // try opening fixture by name
                 return getFixtureEx(*maybe_prefix_name, *access_type);
@@ -468,7 +482,7 @@ namespace db0
     Workspace::getFixtureInitializer() const {
         return m_fixture_initializer;
     }
-
+    
     bool Workspace::drop(const PrefixName &prefix_name, bool if_exists) {
         return BaseWorkspace::drop(prefix_name, if_exists);
     }
@@ -516,8 +530,8 @@ namespace db0
         return m_default_fixture->getUUID();
     }
     
-    db0::swine_ptr<Fixture> Workspace::getFixture(const PrefixName &prefix_name, std::optional<AccessType> access_type) {
-        return getFixtureEx(prefix_name, access_type);
+    db0::swine_ptr<Fixture> Workspace::tryGetFixture(const PrefixName &prefix_name, std::optional<AccessType> access_type) {
+        return tryGetFixtureEx(prefix_name, access_type);
     }
     
     void Workspace::preAtomic()

@@ -62,12 +62,12 @@ namespace db0::python
     /**
      * Get name/UUID of the prefix/file hosting specific instance
     */
-    PyObject *getPrefixOf(PyObject *self, PyObject *args);
+    PyObject *PyAPI_getPrefixOf(PyObject *self, PyObject *args);
     
     /**
      * Get name of the current/default prefix
     */
-    PyObject *getCurrentPrefix(PyObject *self, PyObject *args);
+    PyObject *PyAPI_getCurrentPrefix(PyObject *self, PyObject *args);
 
     /**
      * Delete specific DBZero object instance
