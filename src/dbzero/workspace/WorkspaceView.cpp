@@ -84,7 +84,7 @@ namespace db0
     {
     }
     
-    db0::swine_ptr<Fixture> WorkspaceView::getFixture(
+    db0::swine_ptr<Fixture> WorkspaceView::tryGetFixture(
         const PrefixName &prefix_name, std::optional<AccessType> access_type)
     {
         if (m_closed) {
@@ -101,7 +101,10 @@ namespace db0
             return getFixture(it->second);
         }
         
-        auto head_fixture = m_workspace_ptr->getFixture(prefix_name, AccessType::READ_ONLY);
+        auto head_fixture = m_workspace_ptr->tryGetFixture(prefix_name, AccessType::READ_ONLY);
+        if (!head_fixture) {
+            return nullptr;
+        }
         auto fixture_uuid = head_fixture->getUUID();
         // get snapshot of the latest state
         auto result = head_fixture->getSnapshot(*this, getSnapshotStateNum(*head_fixture));
@@ -122,7 +125,7 @@ namespace db0
         return m_workspace->hasFixture(prefix_name);
     }
     
-    db0::swine_ptr<Fixture> WorkspaceView::getFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
+    db0::swine_ptr<Fixture> WorkspaceView::tryGetFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
     {
         if (m_closed) {
             THROWF(db0::InternalException) << "WorkspaceView is closed";
@@ -131,20 +134,23 @@ namespace db0
         if (access_type && *access_type != AccessType::READ_ONLY) {
             THROWF(db0::InternalException) << "WorkspaceView does not support read/write access";
         }
-
+        
         if (!uuid) {
             if (!m_default_uuid) {
                 THROWF(db0::InternalException) << "No default fixture";
             }
             uuid = *m_default_uuid;
         }
-
+        
         auto it = m_fixtures.find(uuid);
         if (it != m_fixtures.end()) {
             return it->second;
         }
         
-        auto head_fixture = m_workspace_ptr->getFixture(uuid, AccessType::READ_ONLY);
+        auto head_fixture = m_workspace_ptr->tryGetFixture(uuid, AccessType::READ_ONLY);
+        if (!head_fixture) {
+            return nullptr;
+        }
         assert(head_fixture->getUUID() == uuid);
         auto result = head_fixture->getSnapshot(*this, getSnapshotStateNum(*head_fixture));
         // initialize snapshot (use both Workspace and WorkspaceView initializers)

@@ -84,7 +84,7 @@ namespace db0
     {
     }
 
-    db0::swine_ptr<Fixture> TestWorkspace::getFixture(const PrefixName &prefix_name, std::optional<AccessType> access_type)
+    db0::swine_ptr<Fixture> TestWorkspace::tryGetFixture(const PrefixName &prefix_name, std::optional<AccessType> access_type)
     {
         auto it = m_uuids.find(prefix_name);
         if (it != m_uuids.end()) {
@@ -111,15 +111,15 @@ namespace db0
         return fixture;
     }
 
-    db0::swine_ptr<Fixture> TestWorkspace::getFixture(std::uint64_t uuid, std::optional<AccessType>)
+    db0::swine_ptr<Fixture> TestWorkspace::tryGetFixture(std::uint64_t uuid, std::optional<AccessType>)
     {
         auto it = m_fixtures.find(uuid);
         if (it == m_fixtures.end()) {
-            THROWF(db0::InputException) << "Fixture with UUID: " << uuid << " not found";
+            return nullptr;
         }
         return it->second;
     }
-
+    
     db0::swine_ptr<Fixture> TestWorkspace::getCurrentFixture()
     {
         if (!m_current_fixture) {

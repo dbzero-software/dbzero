@@ -56,7 +56,7 @@ namespace tests
         ASSERT_EQ(fixture, fx2);
     }
     
-    struct [[gnu::packed]] o_TT: public o_fixed<o_TT> 
+    struct [[gnu::packed]] o_TT: public o_fixed<o_TT>
     {
         int a = 0;
         int b = 0;

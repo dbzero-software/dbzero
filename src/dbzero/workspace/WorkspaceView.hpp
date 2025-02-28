@@ -23,9 +23,9 @@ namespace db0
 
         bool hasFixture(const PrefixName &) const override;
 
-        db0::swine_ptr<Fixture> getFixture(const PrefixName &, std::optional<AccessType> = {}) override;
+        db0::swine_ptr<Fixture> tryGetFixture(const PrefixName &, std::optional<AccessType> = {}) override;
         
-        db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
+        db0::swine_ptr<Fixture> tryGetFixture(std::uint64_t uuid, std::optional<AccessType> = {}) override;
 
         db0::swine_ptr<Fixture> getCurrentFixture() override;
 

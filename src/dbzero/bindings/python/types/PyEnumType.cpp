@@ -72,11 +72,18 @@ namespace db0::python
             std::uint64_t fixture_uuid = 0;
             auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
             if (m_enum_type_def->hasPrefix()) {
-                auto fixture = workspace.getFixture(m_enum_type_def->getPrefixName().c_str());
+                // try retrieving an already opened fixture / prefix
+                auto fixture = workspace.tryGetFixture(m_enum_type_def->getPrefixName().c_str());
+                if (!fixture) {
+                    return nullptr;
+                }
                 fixture_uuid = fixture->getUUID();
             }
-            // either get a specific or current prefix
-            auto fixture = workspace.getFixture(fixture_uuid);
+            // either get a specific or current prefix (must already be opened)
+            auto fixture = workspace.tryGetFixture(fixture_uuid);
+            if (!fixture) {
+                return nullptr;
+            }
             auto &enum_factory = fixture->get<EnumFactory>();
             // use empty module name since it's unknown
             m_enum_ptr = enum_factory.tryGetOrCreateEnum(*m_enum_type_def);

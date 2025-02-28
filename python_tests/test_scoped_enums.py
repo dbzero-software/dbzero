@@ -38,6 +38,8 @@ def test_scoped_enum_after_close(db0_fixture):
     db0.commit()
     db0.close()
     db0.init(DB0_DIR)
+    # open enum associated prefix for read-only
+    db0.open("scoped-class-prefix", "r")
     assert len(list(db0.find(ScopedDataClass, ScopedColor.RED))) == 1
 
 
