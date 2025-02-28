@@ -635,7 +635,7 @@ namespace db0::python
             auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix_name, AccessType::READ_WRITE);            
             obj.setFixture(fixture);
         }
-        return Py_None;
+        Py_RETURN_NONE;
     }
     
     PyObject *tryGetAttributes(PyTypeObject *type)

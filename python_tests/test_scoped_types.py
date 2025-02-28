@@ -241,3 +241,9 @@ def test_opening_dynamically_scoped_singleton(db0_fixture):
     # open with dynamic scope
     obj = MemoScopedSingleton(0, prefix = "test-data")
     assert obj.value == 94123
+    
+    
+def test_get_prefix_of_works_for_types(db0_fixture):
+    obj = ScopedDataClass(42)
+    assert db0.get_prefix_of(obj) == db0.get_prefix_of(ScopedDataClass)
+    

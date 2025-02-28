@@ -274,9 +274,8 @@ namespace db0::python
         return runSafe(tryClose, prefix_name);        
     }
     
-    PyObject *getPrefixOf(PyObject *self, PyObject *args)
+    PyObject *tryGetPrefixOf(PyObject *self, PyObject *args)
     {
-        PY_API_FUNC
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -284,37 +283,70 @@ namespace db0::python
         }
         
         db0::swine_ptr<Fixture> fixture;
+        
         if (PyType_Check(py_object)) {
+            // only memo or enum types can be scoped
             if (PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
                 PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
                 auto prefix_name = MemoTypeDecoration::get(py_type).tryGetPrefixName();
                 if (prefix_name) {
-                    return PyUnicode_FromString(prefix_name);
+                    // try locating an existing prefix to obtain its UUID                    
+                    auto fixture = PyToolkit::getPyWorkspace().getWorkspace().tryGetFixture(prefix_name);
+                    // name & UUID as tuple
+                    // note that UUID may be 0 if prefix was not found
+                    return Py_BuildValue("sK", prefix_name, fixture ? fixture->getUUID() : 0);
                 }
             }
-            return Py_None;
+            Py_RETURN_NONE;
+        } else if (PyObjectIterable_Check(py_object)) {
+            fixture = reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture();            
+        } else if (PyObjectIterator_Check(py_object)) {
+            fixture = reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture();
+        } else if (PyEnum_Check(py_object)) {
+            auto &enum_ = reinterpret_cast<PyEnum*>(py_object)->ext();
+            auto &enum_type_def = *enum_.m_enum_type_def;
+            if (enum_type_def.hasPrefix()) {
+                // try retrieving an already opened fixture / prefix
+                auto prefix_name = enum_type_def.getPrefixName();
+                // fixture may not exist of be accessible, in which case UUID will be 0
+                auto fixture = PyToolkit::getPyWorkspace().getWorkspace().tryGetFixture(prefix_name.c_str());
+                return Py_BuildValue("sK", prefix_name.c_str(), fixture ? fixture->getUUID() : 0);
+            }
+            Py_RETURN_NONE;
         } else if (PyObjectIterable_Check(py_object)) {
             fixture = reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture();            
         } else if (PyObjectIterator_Check(py_object)) {
             fixture = reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture();
         } else {
             fixture = getFixtureOf(py_object);
-        }
-                
+        }            
+        
         if (!fixture) {
-            return Py_None;
+            // there's no prefix associated with the object
+            Py_RETURN_NONE;
         }
         
         // name & UUID as tuple
         return Py_BuildValue("sK", fixture->getPrefix().getName().c_str(), fixture->getUUID());        
     }
-    
-    PyObject *getCurrentPrefix(PyObject *, PyObject *)
+
+    PyObject *PyAPI_getPrefixOf(PyObject *self, PyObject *args)
     {
         PY_API_FUNC
+        return runSafe(tryGetPrefixOf, self, args);
+    }
+    
+    PyObject *tryGetCurrentPrefix(PyObject *, PyObject *)
+    {
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
         // name & UUID as tuple
         return Py_BuildValue("sK", fixture->getPrefix().getName().c_str(), fixture->getUUID());        
+    }
+    
+    PyObject *PyAPI_getCurrentPrefix(PyObject *self, PyObject *args)
+    {
+        PY_API_FUNC
+        return runSafe(tryGetCurrentPrefix, self, args);
     }
     
     PyObject *tryDel(PyObject *self, PyObject *args)

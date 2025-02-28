@@ -37,12 +37,13 @@ namespace db0::python
     void PyEnumValueRepr_del(PyEnumValueRepr *);
     PyObject *PyEnumValueRepr_str(PyEnumValueRepr *);
     PyObject *PyEnumValueRepr_repr(PyEnumValueRepr *);
-
+    
     extern PyTypeObject PyEnumType;
     extern PyTypeObject PyEnumValueType;
     extern PyTypeObject PyEnumValueReprType;
     
     bool PyEnum_Check(PyObject *);
+    bool PyEnumType_Check(PyTypeObject *);
     bool PyEnumValue_Check(PyObject *);
     bool PyEnumValueRepr_Check(PyObject *);
     

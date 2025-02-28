@@ -67,7 +67,7 @@ namespace db0::python
         {"index", (PyCFunction)PyAPI_TupleObject_index, METH_FASTCALL, "Returns the index of the first element with the specified value."},
         {NULL}
     };
-
+    
     PyObject *tryPyAPI_TupleObject_rq(TupleObject *tuple_obj, TupleObject *other, int op)
     {
         if (TupleObject_Check(other)) {
