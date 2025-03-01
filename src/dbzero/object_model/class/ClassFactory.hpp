@@ -64,7 +64,7 @@ namespace db0::object_model
         std::shared_ptr<Class> tryGetExistingType(TypeObjectPtr lang_type) const;
         
         /**
-         * Get existing or create a new DBZero class instance
+         * Get existing or create a new dbzero class instance
          * @param lang_type the language specific memo type object (e.g. Python class)
          * @param type_id the user assigned type ID (optional)
          * @param prefix_name name of the associated prefix, for scoped classes        
@@ -80,7 +80,7 @@ namespace db0::object_model
             TypeObjectSharedPtr m_lang_type;
         };
 
-        // reference the DBZero object model's class by its pointer
+        // reference the dbzero object model's class by its pointer
         // @param optional language specific type object if known
         ClassItem getTypeByPtr(ClassPtr, TypeObjectPtr lang_type = nullptr) const;
         ClassItem getTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type = nullptr) const;
@@ -98,9 +98,9 @@ namespace db0::object_model
         bool hasLangType(const Class &) const;
         
     private:
-        // Language specific type to DBZero class mapping
+        // Language specific type to dbzero class mapping
         mutable std::unordered_map<TypeObjectPtr, std::shared_ptr<Class> > m_type_cache;
-        // DBZero Class objects by pointer (may not have language specific type assigned yet)
+        // dbzero Class objects by pointer (may not have language specific type assigned yet)
         // Class instance may exist in ptr_cache but not in class_cache
         mutable std::unordered_map<ClassPtr, ClassItem> m_ptr_cache;
         // class maps in 4 variants: 0: type ID, 1: name + module, 2: name + fields: 3: module + fields

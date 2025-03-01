@@ -244,7 +244,7 @@ namespace db0
         db0::GC0 *m_gc0_ptr = nullptr;
         StringPoolT m_string_pool;
         ObjectCatalogue m_object_catalogue;
-        // internal cache for DBZero based collections
+        // internal cache for dbzero based collections
         mutable VObjectCache m_v_object_cache;
         AtomicContext *m_atomic_context_ptr = nullptr;
         std::atomic<bool> m_closed = false;

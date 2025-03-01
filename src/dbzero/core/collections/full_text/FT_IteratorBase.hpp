@@ -14,7 +14,7 @@ namespace db0
 {
     
     /**
-     * Base class for all derived DBZero full-text inverted index iterators
+     * Base class for all derived dbzero full-text inverted index iterators
      */
     class FT_IteratorBase
     {

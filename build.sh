@@ -2,7 +2,7 @@
 cd $(cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P)
 set -e 
 function show_help {
-    echo "Builds DBZero"
+    echo "Builds dbzero"
     echo "Use: build.sh [options]"
     echo " -h, --help                   Shows this help screen."
     echo " -j, --jobs                   Threads number. Max by default."

@@ -27,7 +27,7 @@ namespace db0::python
         std::optional<std::size_t> slab_size, ObjectPtr py_lock_flags)
     {
         if (!m_workspace) {
-            // initialize DBZero with current working directory
+            // initialize dbzero with current working directory
             initWorkspace("");
         }
         if (py_lock_flags) {
@@ -65,7 +65,7 @@ namespace db0::python
     db0::Workspace &PyWorkspace::getWorkspace() const
     {
         if (!m_workspace) {
-            THROWF(db0::InternalException) << "DBZero not initialized";
+            THROWF(db0::InternalException) << "dbzero not initialized";
         }
         return static_cast<db0::Workspace&>(*m_workspace);
     }
@@ -73,7 +73,7 @@ namespace db0::python
     std::shared_ptr<db0::Workspace> PyWorkspace::getWorkspaceSharedPtr() const
     {
         if (!m_workspace) {
-            THROWF(db0::InternalException) << "DBZero not initialized";
+            THROWF(db0::InternalException) << "dbzero not initialized";
         }
         return m_workspace;
     }

@@ -24,7 +24,7 @@ namespace db0
 		Memspace &getMemspace() const;
         
 		/**
-         * @return DBZero storage size used by this data structure
+         * @return dbzero storage size used by this data structure
          */
 		static std::uint64_t getStorageSize() {
 			return 0;

@@ -12,7 +12,7 @@ def test_unreferenced_object_is_dropped_on_del_from_python(db0_fixture):
     # object might be internally cached
     db0.clear_cache()
     db0.commit()
-    # object should be dropped from DBZero    
+    # object should be dropped from dbzero    
     with pytest.raises(Exception):
         db0.fetch(uuid)
 
@@ -60,7 +60,7 @@ def test_unreferenced_posvt_member_is_dropped_on_parent_destroy(db0_fixture):
     del object_1
     db0.clear_cache()
     db0.commit()
-    # member object should no longer exist in DBZero
+    # member object should no longer exist in dbzero
     with pytest.raises(Exception):
         db0.fetch(uuid)
 
@@ -76,7 +76,7 @@ def test_unreferenced_indexvt_member_is_dropped_on_parent_destroy(db0_fixture):
     del object_2
     db0.clear_cache()
     db0.commit()
-    # member object should no longer exist in DBZero
+    # member object should no longer exist in dbzero
     with pytest.raises(Exception):
         db0.fetch(uuid)
 
@@ -91,7 +91,7 @@ def test_unreferenced_kvindex_member_is_dropped_on_parent_destroy(db0_fixture):
     del object_1
     db0.clear_cache()
     db0.commit()
-    # member object should no longer exist in DBZero
+    # member object should no longer exist in dbzero
     with pytest.raises(Exception):
         db0.fetch(uuid)
 
@@ -106,7 +106,7 @@ def test_multiple_py_instances_pointing_to_same_unreferenced_object(db0_fixture)
     del object_2
     db0.clear_cache()
     db0.commit()
-    # object should be dropped from DBZero
+    # object should be dropped from dbzero
     with pytest.raises(Exception):
         db0.fetch(uuid)
 

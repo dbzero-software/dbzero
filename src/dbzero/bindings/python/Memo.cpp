@@ -51,11 +51,11 @@ namespace db0::python
     {
         MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
         // NOTE: read-only fixture access is sufficient here since objects are lazy-initialized
-        // i.e. the actual DBZero instance is created on postInit
+        // i.e. the actual dbzero instance is created on postInit
         // this is also important for dynamically scoped clases (where read/write access may not be possible on default fixture)
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
-        // find py type associated DBZero class with the ClassFactory
+        // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.tryGetOrCreateType(py_type);
         // if type cannot be retrieved due to access mode then deferr this operation (fallback)
         if (!type) {
@@ -84,7 +84,7 @@ namespace db0::python
     PyObject *tryMemoObject_open_singleton(PyTypeObject *py_type, const Fixture &fixture)
     {
         auto &class_factory = fixture.get<db0::object_model::ClassFactory>();
-        // find py type associated DBZero class with the ClassFactory
+        // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.tryGetExistingType(py_type);
         
         if (!type) {
@@ -130,7 +130,7 @@ namespace db0::python
         // NOTE: read-only access is sufficient because the object is lazy-initialized
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
-        // find py type associated DBZero class with the ClassFactory
+        // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.tryGetOrCreateType(py_type);
         if (!type) {
             // if type cannot be retrieved due to access mode then deferr this operation (fallback)
@@ -203,7 +203,7 @@ namespace db0::python
                 return -1;
             }
                         
-            // invoke post-init on associated DBZero object
+            // invoke post-init on associated dbzero object
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());
             object.postInit(fixture);
@@ -408,19 +408,19 @@ namespace db0::python
     {
         Py_INCREF(py_class);
         PyObject *py_module = findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__"));
-        if (!PyModule_Check(py_module)) {
-            PyErr_SetString(PyExc_TypeError, "Not a module");
-            return NULL;
+        if (!py_module || !PyModule_Check(py_module)) {
+            Py_DECREF(py_class);
+            THROWF(db0::InternalException) << "Type related module not found: " << py_class->tp_name;
         }
         
         if (py_class->tp_dict == nullptr) {
-            PyErr_SetString(PyExc_TypeError, "Type has no tp_dict");
-            return NULL;
+            Py_DECREF(py_class);
+            THROWF(db0::InternalException) << "Type has no tp_dict: " << py_class->tp_name;
         }
         
         if (py_class->tp_itemsize != 0) {
-            PyErr_SetString(PyExc_TypeError, "Variable-length types not supported");
-            return NULL;
+            Py_DECREF(py_class);
+            THROWF(db0::InternalException) << "Variable-length types not supported: " << py_class->tp_name;                        
         }
         
         // Create a new python type which inherits after dbzero_ce.Object (tp_base)
@@ -436,7 +436,7 @@ namespace db0::python
             type_manager.getPooledString(type_id),
             type_manager.getPooledString(file_name)
         );
-
+        
         // Construct base type as a copy of the original type
         PyTypeObject *base_type = new PyTypeObject(*py_class);
         Py_INCREF(base_type);
@@ -447,7 +447,7 @@ namespace db0::python
         new_type->tp_name = full_type_name;
         // remove Py_TPFLAGS_READY flag so that the type can be initialized by the PyType_Ready
         new_type->tp_flags = py_class->tp_flags & ~Py_TPFLAGS_READY;
-        // extend basic size with pointer to a DBZero object instance
+        // extend basic size with pointer to a dbzero object instance
         new_type->tp_basicsize = py_class->tp_basicsize + sizeof(db0::object_model::Object);
         // distinguish between singleton and non-singleton types
         new_type->tp_new = is_singleton ? reinterpret_cast<newfunc>(PyAPI_MemoObject_new_singleton) : reinterpret_cast<newfunc>(PyAPI_MemoObject_new);
@@ -499,7 +499,7 @@ namespace db0::python
         return new_type;
     }
     
-    PyObject *wrapPyClass(PyObject *, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_wrapPyClass(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         PyObject* class_obj;
@@ -520,8 +520,8 @@ namespace db0::python
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
         return reinterpret_cast<PyObject*>(
-            wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id, file_name)
-        );
+            runSafe(wrapPyType, castToType(class_obj), is_singleton, prefix_name, type_id, file_name)
+        );        
     }
     
     bool PyMemoType_Check(PyTypeObject *type) {
@@ -593,7 +593,7 @@ namespace db0::python
         PyDict_SetItemString(py_result, "size_of", PyLong_FromLong(self->ext()->sizeOf()));
         return py_result;
     }
-        
+    
     PyObject *tryMemoObject_str(MemoObject *self)
     {
         std::stringstream str;

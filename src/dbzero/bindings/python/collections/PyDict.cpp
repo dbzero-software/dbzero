@@ -15,7 +15,7 @@ namespace db0::python
 
     using DictIteratorObject = PyWrapper<db0::object_model::DictIterator, false>;
 
-    PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "DBZero dict iterator");
+    PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "dbzero dict iterator");
     
     DictIteratorObject *PyAPI_DictObject_iter(DictObject *self)
     {
@@ -147,7 +147,7 @@ namespace db0::python
         .tp_as_sequence = &DictObject_seq,
         .tp_as_mapping = &DictObject_mp,
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero dict collection object",
+        .tp_doc = "dbzero dict collection object",
         .tp_iter = (getiterfunc)PyAPI_DictObject_iter,
         .tp_methods = DictObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
@@ -253,14 +253,14 @@ namespace db0::python
 
     PyObject *PyAPI_DictObject_copy(DictObject *py_src_dict)
     {
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         PY_API_FUNC
         return runSafe(tryDictObject_copy, py_src_dict);
     }
     
     PyObject *tryDictObject_fromKeys(PyObject *const *args, Py_ssize_t nargs)
     {
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto py_dict = DictDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         db0::object_model::Dict::makeNew(&py_dict.get()->modifyExt(), *lock);

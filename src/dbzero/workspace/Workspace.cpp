@@ -502,7 +502,7 @@ namespace db0
     db0::swine_ptr<Fixture> Workspace::getCurrentFixture()
     {
         if (!m_default_fixture) {
-            THROWF(db0::InternalException) << "DBZero: no default prefix exists";
+            THROWF(db0::InternalException) << "dbzero: no default prefix exists";
         }
         return m_default_fixture;
     }

@@ -92,7 +92,7 @@ namespace db0::python
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)ClassObject_del,        
         .tp_flags =  Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero memo class object",
+        .tp_doc = "dbzero memo class object",
         .tp_methods = ClassObject_methods,
         .tp_alloc = PyType_GenericAlloc,        
         .tp_free = PyObject_Free,

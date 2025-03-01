@@ -102,7 +102,7 @@ namespace db0::object_model
             if (!class_ptr) {
                 return nullptr;
             }
-            // pull existing DBZero class instance by pointer
+            // pull existing dbzero class instance by pointer
             std::shared_ptr<Class> type = getTypeByPtr(class_ptr, lang_type).m_class;
             // add to by-type cache
             it_cached = m_type_cache.insert({lang_type, type}).first;
@@ -134,7 +134,7 @@ namespace db0::object_model
             auto class_ptr = tryFindClassPtr(lang_type, type_id);
             std::shared_ptr<Class> type;
             if (class_ptr) {
-                // pull existing DBZero class instance by pointer
+                // pull existing dbzero class instance by pointer
                 type = getTypeByPtr(class_ptr, lang_type).m_class;
             } else {
                 auto fixture = getFixture();

@@ -29,7 +29,7 @@ namespace db0::python
         .tp_dealloc = (destructor)PyAPI_IndexObject_del,
         .tp_as_sequence = &IndexObject_sq,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero indexing object",
+        .tp_doc = "dbzero indexing object",
         .tp_methods = IndexObject_methods,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)IndexObject_new,
@@ -66,7 +66,7 @@ namespace db0::python
     
     IndexObject *tryMakeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto index_object = IndexDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         db0::object_model::Index::makeNew(&index_object.get()->modifyExt(), *lock);

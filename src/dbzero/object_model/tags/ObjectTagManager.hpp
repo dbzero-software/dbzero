@@ -14,7 +14,7 @@ namespace db0::object_model
 
     /**
      * An convenience wrapper which implements operationas associated with
-     * applying and querying object (DBZero Object instance) specific tags
+     * applying and querying object (dbzero Object instance) specific tags
     */
     class ObjectTagManager
     {

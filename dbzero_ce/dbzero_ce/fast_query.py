@@ -1,5 +1,5 @@
 # This is an experimental version of a possible Query Engine
-# implementation for DBZero
+# implementation for dbzero
 import dbzero_ce as db0
 import inspect
 from typing import Any, Dict, Tuple
@@ -250,7 +250,7 @@ class GroupByBucket:
     def result(self):
         if len(self.__state) == 1:
             return self.__state[0]
-        # return as a Python native type (i.e. load from DBZero)
+        # return as a Python native type (i.e. load from dbzero)
         return db0.load(self.__state)
     
     

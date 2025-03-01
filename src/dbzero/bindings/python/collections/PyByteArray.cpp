@@ -235,7 +235,7 @@ namespace db0::python
         .tp_dealloc = (destructor)PyAPI_ByteArrayObject_del,
         .tp_as_sequence = &ByteArrayObject_sq,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero bytearray",
+        .tp_doc = "dbzero bytearray",
         .tp_richcompare = (richcmpfunc)PyAPI_ByteArrayObject_rq,
         .tp_methods = ByteArrayObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
@@ -268,7 +268,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "make_bytearray() takes exacly 1 arguments");
             return NULL;
         }
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto bytearray_object = ByteArrayDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         if (PyBytes_Check(args[0])) {

@@ -43,7 +43,7 @@ namespace db0::python
         .tp_dealloc = (destructor)DictViewObject_del,
         .tp_as_mapping = &DictViewObject_mp,
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero dict collection object",
+        .tp_doc = "dbzero dict collection object",
         .tp_iter = (getiterfunc)DictViewObject_iter,
         .tp_methods = DictViewObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
@@ -78,7 +78,7 @@ namespace db0::python
     DictViewObject *makeDictView(PyObject *py_dict, const db0::object_model::Dict *ptr,
         db0::object_model::IteratorType iterator_type)
     {
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto dict_view_object = DictViewObject_newInternal(&DictViewObjectType, NULL, NULL);
         db0::object_model::DictView::makeNew(&dict_view_object->modifyExt(), ptr, py_dict, iterator_type);
         return dict_view_object;

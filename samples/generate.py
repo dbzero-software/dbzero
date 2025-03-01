@@ -5,7 +5,7 @@ from model import *
 
 
 """
-A sample script to generate data using DBZero
+A sample script to generate data using dbzero
 """
     
 def __main__():
