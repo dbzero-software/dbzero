@@ -146,7 +146,7 @@ namespace db0::python
                 return getEnumValuesRepr(self);
             }
         }
-        
+                
         auto enum_values = enum_->getValues();
         auto py_tuple = PyTuple_New(enum_values.size());
         unsigned int index = 0;

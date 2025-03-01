@@ -57,10 +57,11 @@ namespace db0
         return AccessType::READ_ONLY;
     }
     
-    StateNumType PrefixViewImpl::getStateNum() const {
+    StateNumType PrefixViewImpl::getStateNum(bool) const {
+        // snapshots work only on finalized states
         return m_state_num;
     }
-
+    
     std::uint64_t PrefixViewImpl::commit(ProcessTimer *) 
     {
         THROWF(db0::InternalException)

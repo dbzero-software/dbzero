@@ -40,7 +40,7 @@ namespace db0
         // we always later need to call setDirty to specificy which micro-area is getting modified
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
-        StateNumType getStateNum() const override;
+        StateNumType getStateNum(bool finalized = false) const override;
         
         std::size_t getPageSize() const override {
             return m_page_size;

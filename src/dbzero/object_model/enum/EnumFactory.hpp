@@ -62,10 +62,10 @@ namespace db0::object_model
         std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumDef &, const char *type_id = nullptr);
         std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumTypeDef &);
         
-        // reference the DBZero object model's enum by its pointer
+        // reference the dbzero object model's enum by its pointer
         std::shared_ptr<Enum> getEnumByPtr(EnumPtr) const;
         
-        // reference the DBZero object model's enum by its 32-but UID
+        // reference the dbzero object model's enum by its 32-bit UID
         std::shared_ptr<Enum> getEnumByUID(std::uint32_t enum_uid) const;
         
         /**

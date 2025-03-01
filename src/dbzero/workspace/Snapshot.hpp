@@ -38,11 +38,11 @@ namespace db0
          * Find existing (opened) fixture or throw
         */
         virtual db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const = 0;
-
+        
         virtual bool close(const PrefixName &prefix_name) = 0;
         
         virtual void close(ProcessTimer * = nullptr) = 0;
-
+        
         virtual std::shared_ptr<LangCache> getLangCache() const = 0;
         
         virtual bool isMutable() const = 0;
@@ -53,8 +53,12 @@ namespace db0
             const PrefixName &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE);
         
         db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {});
+        
+        // Get the corresponding "head" snapshot / workspace
+        // the default implementation returns itself
+        virtual Snapshot &getHeadWorkspace() const;
     };
-    
+
     bool checkAccessType(const Fixture &fixture, AccessType);
     bool checkAccessType(const Fixture &fixture, std::optional<AccessType> requested);
     // throws if the requested access type is not allowed

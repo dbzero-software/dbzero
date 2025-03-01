@@ -191,7 +191,7 @@ namespace db0
             // query sparse index + diff index
             SparseIndexQuery query(m_sparse_index, m_diff_index, page_num, state_num);
             if (query.empty()) {
-                if (flags[AccessOptions::read]) {
+                if (flags[AccessOptions::read]) {                    
                     THROWF(db0::IOException) << "BDevStorage::read: page not found: " << page_num << ", state: " << state_num;
                 }
                  // if requested access is write-only then simply fill the misssing (new) page with 0

@@ -30,7 +30,7 @@ namespace db0
 
         MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) override;
         
-        StateNumType getStateNum() const override;
+        StateNumType getStateNum(bool finalized) const override;
         
         std::uint64_t commit(ProcessTimer * = nullptr) override;
 
