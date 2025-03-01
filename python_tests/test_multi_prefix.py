@@ -4,7 +4,7 @@ from .memo_test_types import MemoTestClass, MemoTestPxClass, MemoTestSingleton
 
 
 def test_memo_objects_can_be_created_on_different_prefixes(db0_fixture):
-    # create DBZero object over a default prefix
+    # create dbzero object over a default prefix
     object_1 = MemoTestClass(123)
     # open the 2nd prefix which becomes default
     db0.open("some-other-prefix")

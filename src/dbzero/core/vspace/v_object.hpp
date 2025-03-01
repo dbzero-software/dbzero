@@ -96,7 +96,7 @@ namespace db0
         }
         
         /**
-         * Create a new DBZero instance in the given memory space
+         * Create a new dbzero instance in the given memory space
         */       
         template <typename... Args>
         void init(Memspace &memspace, FlagSet<AccessOptions> access_mode, Args&&... args)

@@ -142,7 +142,7 @@ namespace db0::python
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = fixture->get<ClassFactory>();            
             auto class_ptr = class_factory.getTypeByClassRef(addr).m_class;
-            // return as a DBZero class instance
+            // return as a dbzero class instance
             return makeClass(class_ptr);
         }
         
@@ -155,7 +155,7 @@ namespace db0::python
         // find type associated class with the ClassFactory
         auto type = class_factory.getExistingType(py_type);
         if (!type->isSingleton()) {
-            THROWF(db0::InputException) << "Not a DBZero singleton type";
+            THROWF(db0::InputException) << "Not a dbzero singleton type";
         }
 
         if (!type->isExistingSingleton()) {

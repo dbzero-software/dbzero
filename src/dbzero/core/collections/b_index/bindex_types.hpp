@@ -124,7 +124,7 @@ namespace db0
         class [[gnu::packed]] bindex_container : public o_fixed<bindex_container> 
         {
         public :
-            // common DBZero object header (not copied)
+            // common dbzero object header (not copied)
             db0::o_object_header m_header;
             // block index
             std::uint64_t ptr_index = 0;

@@ -120,7 +120,7 @@ namespace db0::python
         // Creates a new Python instance of EnumValue
         static ObjectSharedPtr makeEnumValue(const EnumValue &);
         
-        // generate UUID of a DBZero object
+        // generate UUID of a dbzero object
         static ObjectPtr getUUID(ObjectPtr py_object);
         
         // Try converting specific PyObject instance into a tag, possibly adding a new tag into the pool        

@@ -1,6 +1,6 @@
 #pragma once
 
-// This module contains python specific DBZero API implementation
+// This module contains python specific dbzero API implementation
 #include <Python.h>
 #include <string>
 #include "Memo.hpp"
@@ -34,12 +34,12 @@ namespace db0::python
     PyObject *PyAPI_clearCache(PyObject *, PyObject *);
     
     /**    
-     * Fetch DBZero object instance by its ID or type (in case of a singleton)
+     * Fetch dbzero object instance by its ID or type (in case of a singleton)
      */
     PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     /**
-     * Initialize DBZero Python bindings
+     * Initialize dbzero Python bindings
     */    
     PyObject *init(PyObject *self, PyObject *args, PyObject *kwargs);
     
@@ -55,7 +55,7 @@ namespace db0::python
     PyObject *PyAPI_close(PyObject *self, PyObject *args);
         
     /**
-     * Constructs a DBZero list instance
+     * Constructs a dbzero list instance
     */
     PyObject *list(PyObject *self, PyObject *args);
     
@@ -70,7 +70,7 @@ namespace db0::python
     PyObject *PyAPI_getCurrentPrefix(PyObject *self, PyObject *args);
 
     /**
-     * Delete specific DBZero object instance
+     * Delete specific dbzero object instance
     */
     PyObject *del(PyObject *self, PyObject *args);
     
@@ -85,19 +85,19 @@ namespace db0::python
     PyObject *getStateNum(PyObject *self, PyObject *args, PyObject *kwargs);
     
     /**
-     * Retrieve metrics of all active DBZero prefixes
+     * Retrieve metrics of all active dbzero prefixes
     */
     PyObject *getDBMetrics(PyObject *self, PyObject *args);
     
     /**
-     * Get DBZero state snapshot
+     * Get dbzero state snapshot
     */
     PyObject *getSnapshot(PyObject *self, PyObject *args, PyObject *kwargs);
 
     PyObject *beginAtomic(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
     /**
-     * Describe field layout and output other properties of a specific DBZero object instance
+     * Describe field layout and output other properties of a specific dbzero object instance
     */
     PyObject *describeObject(PyObject *self, PyObject *args);
     

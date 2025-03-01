@@ -141,7 +141,7 @@ namespace db0::object_model
             auto index_vt_data = initializer.getData(pos_vt_data);
             
             // place object in the same fixture as its class
-            // construct the DBZero instance & assign to self
+            // construct the dbzero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
             super_t::init(*fixture, ClassFactory::classRef(*m_type), initializer.getRefCount(), pos_vt_data,

@@ -177,7 +177,7 @@ namespace db0::python
         .tp_dealloc = (destructor)PyObjectIterable_del,
         .tp_as_mapping = &PyObjectIterable_as_mapping,
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero object iterable",
+        .tp_doc = "dbzero object iterable",
         .tp_iter = (getiterfunc)PyAPI_PyObjectIterable_iter,        
         .tp_methods = PyObjectIterable_methods,
         .tp_alloc = PyType_GenericAlloc,

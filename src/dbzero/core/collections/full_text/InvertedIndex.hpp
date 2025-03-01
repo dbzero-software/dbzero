@@ -184,7 +184,7 @@ namespace db0
     std::shared_ptr<typename InvertedIndex<IndexKeyT, KeyT, ValueT>::ListT>
     InvertedIndex<IndexKeyT, KeyT, ValueT>::getInvertedList(const MapItemT &item) const
     {
-        // pull DBZero existing        
+        // pull dbzero existing        
         return m_list_function(m_cache, item.value);
     }
 

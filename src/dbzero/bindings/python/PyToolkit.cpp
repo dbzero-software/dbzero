@@ -130,7 +130,7 @@ namespace db0::python
             THROWF(db0::ClassNotFoundException) << "Could not find type: " << type->getName();
         }
         
-        // construct Python's memo object (placeholder for actual DBZero instance)
+        // construct Python's memo object (placeholder for actual dbzero instance)
         // the associated lang class must be available
         auto memo_object = MemoObjectStub_new(lang_type_ptr);
         // unload from stem
@@ -171,7 +171,7 @@ namespace db0::python
         }
 
         auto block_object = BlockDefaultObject_new();
-        // retrieve actual DBZero instance        
+        // retrieve actual dbzero instance        
         db0::object_model::pandas::Block::unload(&(block_object.get())->modifyExt(), fixture, address);
         lang_cache.add(address, block_object.get());
         return shared_py_cast<PyObject*>(std::move(block_object));
@@ -188,7 +188,7 @@ namespace db0::python
         }
         
         auto list_object = ListDefaultObject_new();
-        // retrieve actual DBZero instance
+        // retrieve actual dbzero instance
         db0::object_model::List::unload(&(list_object.get())->modifyExt(), fixture, address);
         // add list object to cache
         lang_cache.add(address, list_object.get());
@@ -206,7 +206,7 @@ namespace db0::python
         }
         
         auto byte_array_object = ByteArrayDefaultObject_new();
-        // retrieve actual DBZero instance
+        // retrieve actual dbzero instance
         db0::object_model::ByteArray::unload(&(byte_array_object.get())->modifyExt(), fixture, address);        
         // add byte_array object to cache
         lang_cache.add(address, byte_array_object.get());
@@ -224,7 +224,7 @@ namespace db0::python
         }
         
         auto index_object = IndexDefaultObject_new();
-        // retrieve actual DBZero instance
+        // retrieve actual dbzero instance
         db0::object_model::Index::unload(&(index_object.get())->modifyExt(), fixture, address);
 
         // add list object to cache
@@ -243,7 +243,7 @@ namespace db0::python
         }
         
         auto set_object = SetDefaultObject_new();
-        // retrieve actual DBZero instance
+        // retrieve actual dbzero instance
         db0::object_model::Set::unload(&(set_object.get())->modifyExt(), fixture, address);
         
         // add list object to cache
@@ -262,7 +262,7 @@ namespace db0::python
         }
         
         auto dict_object = DictDefaultObject_new();
-        // retrieve actual DBZero instance        
+        // retrieve actual dbzero instance        
         db0::object_model::Dict::unload(&(dict_object.get())->modifyExt(), fixture, address);
     
         // add list object to cache
@@ -281,7 +281,7 @@ namespace db0::python
         }
         
         auto tuple_object = TupleDefaultObject_new();
-        // retrieve actual DBZero instance        
+        // retrieve actual dbzero instance        
         db0::object_model::Tuple::unload(&(tuple_object.get())->modifyExt(), fixture, address);
 
         // add list object to cache

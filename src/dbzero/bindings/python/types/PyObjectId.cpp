@@ -26,7 +26,7 @@ namespace db0::python
         .tp_dealloc = (destructor)PyObject_Del,
         .tp_repr = (reprfunc)ObjectId_repr,
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "Type representing generic object ID in DBZero.",
+        .tp_doc = "Type representing generic object ID in dbzero.",
         .tp_richcompare = (richcmpfunc)ObjectId_richcompare,
         .tp_methods = ObjectId_methods,
         .tp_init = reinterpret_cast<initproc>(ObjectId_init),        

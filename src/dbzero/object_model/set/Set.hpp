@@ -69,7 +69,7 @@ namespace db0::object_model
 
         void detach() const;
 
-        // drop underlying DBZero representation
+        // drop underlying dbzero representation
         void destroy() const;
         
         const_iterator begin() const;

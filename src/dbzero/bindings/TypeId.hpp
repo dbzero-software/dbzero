@@ -33,7 +33,7 @@ namespace db0::bindings
         BYTES_ARRAY = 16,
         BOOLEAN = 17,
         DECIMAL = 18,
-        // DBZero wrappers of common language types
+        // dbzero wrappers of common language types
         MEMO_OBJECT = 100,
         DB0_LIST = 101,
         DB0_DICT = 102,

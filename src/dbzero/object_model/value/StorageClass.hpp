@@ -31,7 +31,7 @@ namespace db0::object_model
         TIME = 10,
         TIME_TZ = 11,
         DECIMAL = 12,
-        // reference to other DBZero object (Memo)
+        // reference to other dbzero object (Memo)
         OBJECT_REF = 13,
         DB0_LIST = 14,
         DB0_DICT = 15,
@@ -44,7 +44,7 @@ namespace db0::object_model
         DB0_CLASS = 21,
         DB0_INDEX = 22,
         DB0_BYTES = 23,
-        // DBZero object serialized to a byte array
+        // dbzero object serialized to a byte array
         DB0_SERIALIZED = 24,
         DB0_BYTES_ARRAY = 25,
         DB0_ENUM_TYPE_REF = 26,

@@ -8,13 +8,13 @@ namespace db0::python
     
     static PyMethodDef PySnapshot_methods[] = 
     {
-        {"fetch", (PyCFunction)&PyAPI_PySnapshot_fetch, METH_FASTCALL, "Fetch DBZero object instance by its ID or type (in case of a singleton)"},
+        {"fetch", (PyCFunction)&PyAPI_PySnapshot_fetch, METH_FASTCALL, "Fetch dbzero object instance by its ID or type (in case of a singleton)"},
         {"find", (PyCFunction)&PyAPI_PySnapshot_find, METH_FASTCALL, ""},
         {"deserialize", (PyCFunction)&PyAPI_PySnapshot_deserialize, METH_FASTCALL, "Deserialize from bytes within the snapshot's context"},
-        {"close", &PyAPI_PySnapshot_close, METH_NOARGS, "Close DBZero snapshot"},
+        {"close", &PyAPI_PySnapshot_close, METH_NOARGS, "Close dbzero snapshot"},
         {"get_state_num", (PyCFunction)&PyAPI_PySnapshot_GetStateNum, METH_VARARGS | METH_KEYWORDS, "Get state number of the snapshot"},
-        {"__enter__", &PyAPI_PySnapshot_enter, METH_NOARGS, "Enter DBZero snapshot context"},
-        {"__exit__", &PyAPI_PySnapshot_exit, METH_VARARGS, "Exit DBZero snapshot's context"},
+        {"__enter__", &PyAPI_PySnapshot_enter, METH_NOARGS, "Enter dbzero snapshot context"},
+        {"__exit__", &PyAPI_PySnapshot_exit, METH_VARARGS, "Exit dbzero snapshot's context"},
         {NULL}
     };
     
@@ -41,7 +41,7 @@ namespace db0::python
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_PySnapshot_del,
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero state snapshot object",
+        .tp_doc = "dbzero state snapshot object",
         .tp_methods = PySnapshot_methods,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PySnapshot_new,

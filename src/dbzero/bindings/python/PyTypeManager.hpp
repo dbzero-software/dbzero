@@ -144,9 +144,9 @@ namespace db0::python
         
         bool isMemoBase(TypeObjectPtr) const;
 
-        bool isDBZeroType(ObjectPtr) const;
+        bool isdbzeroType(ObjectPtr) const;
 
-        bool isDBZeroTypeId(TypeId type_id) const;
+        bool isdbzeroTypeId(TypeId type_id) const;
 
         bool isSimplePyType(ObjectPtr) const;
 
@@ -172,7 +172,7 @@ namespace db0::python
 
         // Register a mapping from static type
         template <typename T> void addStaticType(T py_type, TypeId py_type_id);
-        template <typename T> void addStaticDBZeroType(T py_type, TypeId py_type_id);
+        template <typename T> void addStaticdbzeroType(T py_type, TypeId py_type_id);
         template <typename T> void addStaticSimpleType(T py_type, TypeId py_type_id);
     };
     
@@ -182,7 +182,7 @@ namespace db0::python
         m_id_map[reinterpret_cast<ObjectPtr>(py_type)] = py_type_id;
     }
 
-    template <typename T> void PyTypeManager::addStaticDBZeroType(T py_type, TypeId py_type_id)
+    template <typename T> void PyTypeManager::addStaticdbzeroType(T py_type, TypeId py_type_id)
     {
         addStaticType(py_type, py_type_id);
         m_dbzero_type_ids.insert(py_type_id);        

@@ -13,7 +13,7 @@ namespace db0::python
     using TupleIteratorObject = PyWrapper<db0::object_model::TupleIterator, false>;
 
     PyTypeObject TupleIteratorObjectType = GetIteratorType<TupleIteratorObject>("dbzero_ce.TupleIterator",
-                                                                              "DBZero tuple iterator");
+                                                                              "dbzero tuple iterator");
 
     TupleIteratorObject *PyAPI_TupleObject_iter(TupleObject *self)
     {
@@ -115,7 +115,7 @@ namespace db0::python
         .tp_dealloc = (destructor)PyAPI_TupleObject_del,
         .tp_as_sequence = &TupleObject_sq,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero tuple",
+        .tp_doc = "dbzero tuple",
         .tp_richcompare = (richcmpfunc)PyAPI_TupleObject_rq,
         .tp_iter = (getiterfunc)PyAPI_TupleObject_iter,
         .tp_methods = TupleObject_methods,        
@@ -156,7 +156,7 @@ namespace db0::python
             return nullptr;
         }
 
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto py_tuple = TupleDefaultObject_new();
         db0::FixtureLock lock(fixture);
         auto &tuple = py_tuple.get()->modifyExt();

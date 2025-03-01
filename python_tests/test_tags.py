@@ -157,7 +157,7 @@ def test_assigned_tags_can_be_removed_as_list_with_operators(db0_fixture):
 #     del object_1
 #     db0.clear_cache()
 #     db0.commit()
-#     # object should be dropped from DBZero
+#     # object should be dropped from dbzero
 #     with pytest.raises(Exception):
 #         db0.fetch(uuid)
 
