@@ -82,7 +82,7 @@ namespace db0::object_model
         }
         return value_id;
     }
-    
+
     std::uint32_t Enum::fetchUID() const
     {
         // return UID as relative address from the underlying SLOT
@@ -117,7 +117,7 @@ namespace db0::object_model
         return { m_fixture_uuid, enum_value_uid.m_enum_uid, enum_value_uid.m_value, 
             m_string_pool.fetch(enum_value_uid.m_value) };
     }
-
+    
     std::vector<EnumValue> Enum::getValues() const
     {
         std::vector<EnumValue> values;

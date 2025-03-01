@@ -85,12 +85,12 @@ namespace db0
         return { (std::byte*)it->second.m_buffer + offset, it->second.m_lock };
     }
     
-    StateNumType DRAM_Prefix::getStateNum() const {
+    StateNumType DRAM_Prefix::getStateNum(bool) const {
         return 0;
     }
     
     std::uint64_t DRAM_Prefix::commit(ProcessTimer *) {
-        return getStateNum();
+        return getStateNum(false);
     }
     
     std::size_t DRAM_Prefix::getPageSize() const {

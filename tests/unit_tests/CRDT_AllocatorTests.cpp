@@ -352,7 +352,7 @@ namespace tests
             ASSERT_EQ(addr % page_size, 0);
         }
     }
-
+    
     TEST_F( CRDT_AllocatorTests , testCRDT_AlignedAllocsFromSmallBlanks )
     {
         auto capacity = page_size * 256;

@@ -54,4 +54,8 @@ namespace db0
         return fixture;
     }
     
+    Snapshot &Snapshot::getHeadWorkspace() const {
+        return const_cast<Snapshot &>(*this);
+    }
+    
 }

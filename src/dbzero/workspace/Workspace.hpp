@@ -151,7 +151,7 @@ namespace db0
         void setAutocommitInterval(std::uint64_t interval_ms);
 
         bool hasFixture(const PrefixName &prefix_name) const override;
-
+        
         /**
          * Get current fixture for either read-only or read-write access
         */
@@ -184,7 +184,7 @@ namespace db0
          * Find existing (opened) fixture or return nullptr
         */
         db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const override;
-        
+            
         /**
          * Commit all underlying read/write prefixes
         */

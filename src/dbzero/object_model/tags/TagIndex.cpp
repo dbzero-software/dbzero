@@ -587,6 +587,7 @@ namespace db0::object_model
     
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
     {
+        assert(enum_value);
         if (enum_value.m_fixture_uuid != m_fixture_uuid) {
             // migrate to a different prefix if needed
             if (alt_repr) {

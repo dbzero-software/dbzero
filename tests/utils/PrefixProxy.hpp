@@ -27,10 +27,10 @@ namespace db0::tests
             return m_prefix->mapRange(address, size, options);
         }
 
-        StateNumType getStateNum() const override {
-            return m_prefix->getStateNum();
+        StateNumType getStateNum(bool finalized) const override {
+            return m_prefix->getStateNum(finalized);
         }
-
+        
         std::size_t getPageSize() const override {
             return m_prefix->getPageSize();
         }

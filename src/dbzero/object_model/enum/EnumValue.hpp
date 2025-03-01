@@ -43,7 +43,8 @@ namespace db0::object_model
     {
         // associated fixture UUID (for context validation purposes)
         std::uint64_t m_fixture_uuid = 0;
-        // the associated enum's UID (i.e. its address from the dedicated address pool)
+        // the associated enum's UID (i.e. its address from the dedicated address pool)        
+        // Note that m_enum_id = 0 may be a vailid enum's UID
         std::uint32_t m_enum_uid = 0;
         LP_String m_value;
         // the string representation
@@ -53,7 +54,7 @@ namespace db0::object_model
         EnumValue_UID getUID() const;
         
         operator bool() const {
-            return m_fixture_uuid && m_enum_uid;
+            return m_fixture_uuid && m_value;
         }
     };
     

@@ -41,9 +41,7 @@ namespace db0::python
     void PyWorkspace::initWorkspace(const std::string &root_path, ObjectPtr py_config, ObjectPtr py_lock_flags)
     {
         if (m_workspace) {
-            // FIXME: log
-            assert(false);
-            THROWF(db0::InternalException) << "DBZero already initialized";
+            THROWF(db0::InternalException) << "dbzero already initialized";
         }
         
         m_config = std::make_shared<db0::Config>(py_config);

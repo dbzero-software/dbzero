@@ -66,14 +66,16 @@ namespace db0
             m_state_nums[*m_default_uuid] = *state_num;
         }
         
-        // freeze state numbers of the remaining open fixtures
+        // Freeze state numbers of the remaining open fixtures
+        // note that for read/write fixtures only the last fully consistent state number is retained
         m_workspace_ptr->forEachFixture([this](const Fixture &fixture) {
             if (!m_default_uuid || *m_default_uuid != fixture.getUUID()) {
                 auto it = m_prefix_state_nums.find(fixture.getPrefix().getName());
                 if (it != m_prefix_state_nums.end()) {
                     m_state_nums[fixture.getUUID()] = it->second;
                 } else {
-                    m_state_nums[fixture.getUUID()] = fixture.getPrefix().getStateNum();
+                    // for snapshots we can only use the last fully consistent state (i.e. finalized = true)
+                    m_state_nums[fixture.getUUID()] = fixture.getPrefix().getStateNum(true);
                 }
             }
             return true;
@@ -225,7 +227,7 @@ namespace db0
             m_state_nums[fixture.getUUID()] = it_name->second;
             return it_name->second;
         }
-
+        
         return {};
     }
     
@@ -252,4 +254,10 @@ namespace db0
         return const_cast<WorkspaceView *>(this)->getFixture(*uuid);
     }
 
+    Snapshot &WorkspaceView::getHeadWorkspace() const 
+    {
+        assert(m_workspace_ptr);
+        return *m_workspace_ptr;
+    }
+    
 }

@@ -275,8 +275,14 @@ namespace db0
         return lock;
     }
     
-    StateNumType PrefixImpl::getStateNum() const {
-        return m_head_state_num;
+    StateNumType PrefixImpl::getStateNum(bool finalized) const
+    {
+        if (finalized) {
+            // in case of read/write prefixes the head state number is never finalized
+            return m_access_type == AccessType::READ_WRITE ? m_head_state_num - 1 : m_head_state_num;
+        } else {
+            return m_head_state_num;
+        }
     }
     
     std::uint64_t PrefixImpl::commit(ProcessTimer *parent_timer)
