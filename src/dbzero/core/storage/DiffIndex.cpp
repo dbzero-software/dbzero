@@ -111,8 +111,8 @@ namespace db0
     {
         auto base_state_num = SI_CompressedItem::getStateNum();
         auto base_storage_page_num = SI_CompressedItem::getStoragePageNum();
-        // state & storage page numbers should be growing values
-        assert(state_num > base_state_num);
+        // state & storage page numbers should be non-decreasing values
+        assert(state_num >= base_state_num);
         assert(storage_page_num > base_storage_page_num);
         if (!DiffArrayT::__const_ref(m_diff_data.data()).
             canEmplaceBack(state_num - base_state_num, storage_page_num - base_storage_page_num)) 
