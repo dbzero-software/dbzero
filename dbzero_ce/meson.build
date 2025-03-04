@@ -8,7 +8,8 @@ python_sources = [
     'dbzero_ce/memo.py',
     'dbzero_ce/pandas.py',
     'dbzero_ce/reflection_api.py',
-    'dbzero_ce/storage_api.py'
+    'dbzero_ce/storage_api.py',
+    'dbzero_ce/utilities.py'
 ]
 
 py3_inst.install_sources(
