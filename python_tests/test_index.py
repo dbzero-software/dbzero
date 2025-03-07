@@ -429,6 +429,15 @@ def test_index_sort_asc_desc_with_null_first_policy(db0_fixture):
     assert [x.value for x in index.sort(find("tag1"), null_first=True)] == [None, None, 555, 666, 888]
 
 
+# FIXME: https://github.com/wskozlowski/dbzero_ce/issues/281
+# def test_index_sort_desc_null_last(db0_fixture):
+#     index = db0.index()
+#     for p in [666, None, 555, 888, None]:
+#         obj = MemoTestClass(p)
+#         index.add(p, obj)
+#     assert [x.value for x in index.sort(index.select(), desc=True, null_first=False)] == [888, 666, 555, None, None]
+
+
 def test_scoped_datetime_index_issue(db0_fixture):
     prefix = "test-data"
     obj = MemoScopedClass(db0.index(), prefix=prefix)    
