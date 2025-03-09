@@ -677,3 +677,29 @@ def test_index_self_insert(db0_fixture):
     index = db0.index()
     x = TestSelfInsert(1, index)
     index.select()
+
+
+def test_index_sort_desc_null_last(db0_fixture):
+    """
+    Issue related with the following issue:
+    https://github.com/wskozlowski/dbzero_ce/issues/281
+    """
+    index = db0.index()
+    for p in [666, None, 555, 888, None]:
+        obj = MemoTestClass(p)
+        index.add(p, obj)
+    
+    assert [x.value for x in index.sort(index.select(), desc=False, null_first=True)] == [None, None, 555, 666, 888]
+    assert [x.value for x in index.sort(index.select(), desc=False, null_first=False)] == [555, 666, 888, None, None]
+
+    assert [x.value for x in index.sort(index.select(), desc=True, null_first=True)] == [888, 666, 555, None, None]
+    assert [x.value for x in index.sort(index.select(), desc=True, null_first=False)] == [None, None, 888, 666, 555]
+    
+        
+def test_index_default_sort_select_segv_issue_1(db0_fixture):
+    index = db0.index()
+    for p in [666, None, 555, 888, None]:
+        obj = MemoTestClass(p)
+        index.add(p, obj)
+
+    assert [x.value for x in index.sort(index.select())] == [555, 666, 888, None, None]

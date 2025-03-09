@@ -70,24 +70,18 @@ namespace db0
 		if (m_is_orx) {
 			return false;
 		}
-
-		// note that duplication may exist either between iterators or within any single iterator
+		
+		// note that duplication may exist either between iterators or within the yielding iterator
 		if (m_direction > 0) {
-			if (m_forward_heap.isFrontElementDuplicated()) {
-				return true;
-			}
+			return (m_forward_heap.isFrontElementDuplicated() || 
+				m_forward_heap.front().it->isNextKeyDuplicated()
+			);
 		} else {
-			if (m_back_heap.isFrontElementDuplicated()) {
-				return true;
-			}
+			return (m_back_heap.isFrontElementDuplicated() || 
+				m_back_heap.front().it->isNextKeyDuplicated()
+			);
 		}
-
-		// check individual iterators
-		for (auto it = m_joinable.begin(),itend = m_joinable.end(); it != itend; ++it) {
-			if ((**it).isNextKeyDuplicated()) {
-				return true;
-			}
-		}
+		
 		return false;
 	}
 	
