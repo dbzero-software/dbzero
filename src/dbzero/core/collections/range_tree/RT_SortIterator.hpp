@@ -114,7 +114,7 @@ namespace db0
             , m_null_query_it(beginNullBlockQuery())
             , m_inner_it(std::move(inner_it)) 
             , m_is_end(m_has_query && (!m_query_it || m_query_it->isEnd()))
-        {
+        {            
             if (m_tree_it.isEnd()) {
                 m_null_it = std::move(m_null_query_it);
                 m_null_query_it = nullptr;
