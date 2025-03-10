@@ -8,3 +8,4 @@ from .storage_api import *
 from .atomic import *
 from .connection import *
 from .utilities import taggify
+from .decorators import *
