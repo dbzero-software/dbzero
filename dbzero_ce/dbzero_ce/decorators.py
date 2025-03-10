@@ -17,7 +17,6 @@ def fulltext(f):
         retval = f(*args, **kwargs)
         return retval
     params = inspect.getfullargspec(f)
-    print(params)
     if len(params.args) != 1 or params.varargs or params.varkw or params.kwonlyargs:
         raise RuntimeError("Fulltext function must have exacly one positional parameter")
     wrapper.__db0_fulltext = True
