@@ -23,6 +23,7 @@ namespace db0::python
     PyEnum *PyEnumDefault_new();
     void PyEnum_del(PyEnum* self);
     PyObject *PyEnum_getattro(PyEnum *, PyObject *attr);
+    Py_hash_t PyAPI_PyEnumValue_hash(PyObject*);
 
     PyEnumValue *PyEnumValue_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<PyEnumValue*> PyEnumValueDefault_new();
@@ -36,7 +37,7 @@ namespace db0::python
     
     void PyEnumValueRepr_del(PyEnumValueRepr *);
     PyObject *PyEnumValueRepr_str(PyEnumValueRepr *);
-    PyObject *PyEnumValueRepr_repr(PyEnumValueRepr *);
+    PyObject *PyEnumValueRepr_repr(PyEnumValueRepr *);    
     
     extern PyTypeObject PyEnumType;
     extern PyTypeObject PyEnumValueType;

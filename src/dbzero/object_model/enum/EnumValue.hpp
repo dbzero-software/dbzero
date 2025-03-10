@@ -37,6 +37,9 @@ namespace db0::object_model
         const EnumTypeDef &getEnumTypeDef() const;
         
         static EnumValueRepr &makeNew(void *at, std::shared_ptr<EnumTypeDef>, const std::string &str_repr);
+
+        bool operator==(const EnumValueRepr &other) const;        
+        bool operator!=(const EnumValueRepr &other) const;        
     };
     
     struct EnumValue
@@ -56,6 +59,9 @@ namespace db0::object_model
         operator bool() const {
             return m_fixture_uuid && m_value;
         }
+
+        bool operator==(const EnumValue &) const;
+        bool operator!=(const EnumValue &) const;
     };
     
 } 

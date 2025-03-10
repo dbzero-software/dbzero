@@ -29,6 +29,14 @@ namespace db0::pools
             inline operator bool() const {
                 return m_value != 0;
             }
+
+            inline bool operator==(const PtrT &other) const {
+                return m_value == other.m_value;
+            }
+
+            inline bool operator!=(const PtrT &other) const {
+                return m_value != other.m_value;
+            }
         };
         
         /**

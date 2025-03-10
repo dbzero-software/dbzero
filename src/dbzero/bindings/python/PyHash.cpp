@@ -60,7 +60,6 @@ namespace db0::python
         return reinterpret_cast<MemoObject*>(key)->ext().getAddress();
     }
 
-
     std::int64_t get_py_hash_impl_for_simple_obj(PyObject *key) {
         return PyToolkit::getTypeManager().extractUInt64(key);
     }
@@ -88,13 +87,12 @@ namespace db0::python
         functions[static_cast<int>(TypeId::TIME_TZ)] = get_py_hash_impl_for_simple_obj;
         functions[static_cast<int>(TypeId::INTEGER)] = get_py_hash_impl_for_simple_obj;
         functions[static_cast<int>(TypeId::DECIMAL)] = get_py_hash_impl_for_simple_obj;
-
     }
 
     PyObject* get_py_hash_as_py_object(PyObject *key) {
         return PyLong_FromLong(get_py_hash(key));
     }
-
+    
     std::int64_t get_py_hash(PyObject *key)
     {
         static std::vector<PyHashFunct> get_py_hash_functions;
