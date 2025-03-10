@@ -143,3 +143,41 @@ def test_enum_value_repr_returned_from_enum_values_if_unable_to_create_enum(db0_
     # try looking up in DATA_PX which is read-only
     db0.split_by(TriColor.values(), db0.find(MemoDataPxClass))
     
+
+@db0.enum(values = ["RED", "GREEN", "BLUE"])
+class ColorsEnum:
+    pass
+
+
+def test_func(color=ColorsEnum.RED):
+    return color
+
+    
+def test_enum_value_as_default_param(db0_fixture):
+    """
+    This test assures that enum values can be used as default parameters in functions
+    which is resovled as enum-value-repr before db0 is initialized
+    """
+    assert test_func() == ColorsEnum.RED
+    assert test_func(ColorsEnum.GREEN) == ColorsEnum.GREEN
+    assert test_func(ColorsEnum.BLUE) == ColorsEnum.BLUE
+    
+    
+def test_enum_value_value_repr_compare(db0_fixture):
+    """
+    This tests run equal / non-equal comparison between enum values and their repr
+    """
+    red_repr = test_func()
+    assert red_repr == ColorsEnum.RED
+    assert ColorsEnum.RED == red_repr
+
+    assert red_repr != ColorsEnum.GREEN
+    assert ColorsEnum.GREEN != red_repr
+    
+    assert red_repr != "RED"
+
+
+def test_enum_value_hash(db0_fixture):
+    db0.hash((ColorsEnum.RED, ColorsEnum.GREEN)) == db0.hash((ColorsEnum.RED, ColorsEnum.GREEN))
+    db0.hash(ColorsEnum.RED) != db0.hash(ColorsEnum.GREEN)
+    

@@ -13,9 +13,9 @@ namespace db0::python
     PyObject* get_py_hash_as_py_object(PyObject *key);
 
     int64_t get_py_hash(PyObject *key);
-
+    
     template <TypeId type_id> int64_t get_py_hash_impl(PyObject *key);
 
-
     int64_t get_py_hash_impl_default(PyObject *key);
+
 }

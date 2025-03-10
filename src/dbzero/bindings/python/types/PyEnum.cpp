@@ -1,5 +1,6 @@
 #include "PyEnum.hpp"
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/Utils.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
 
@@ -251,6 +252,95 @@ namespace db0::python
         {NULL}
     };
     
+    PyObject *EnumValueRepr_rq(PyEnumValueRepr *enum_value_repr_obj, PyObject *other, int op)
+    {
+        // Compare to other enum value repr
+        if (PyEnumValueRepr_Check(other)) {
+            PyEnumValueRepr *other_enum_value_repr = (PyEnumValueRepr*) other;
+            switch (op)
+            {
+            case Py_EQ:
+                return PyBool_fromBool(enum_value_repr_obj->ext() == other_enum_value_repr->ext());
+            case Py_NE:
+                return PyBool_fromBool(enum_value_repr_obj->ext() != other_enum_value_repr->ext());
+            default:
+                Py_RETURN_NOTIMPLEMENTED;
+            }
+        // Compare to enum value
+        } else if (PyEnumValue_Check(other)) {
+            PyEnumValue *other_enum_value = (PyEnumValue*) other;
+            auto &enum_value = other_enum_value->ext();
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(enum_value.m_fixture_uuid);
+            auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
+            // try converting value repr to enum value
+            auto enum_ = enum_factory.tryGetEnumValue(enum_value_repr_obj->ext());
+            
+            switch (op)
+            {
+                case Py_EQ: {
+                    if (enum_) {
+                        // compare as enum values
+                        return PyBool_fromBool(*enum_ == enum_value);
+                    } else {
+                        Py_RETURN_FALSE;
+                    }
+                }
+                break;
+                
+                case Py_NE: {
+                    if (enum_) {
+                        // compare as enum values
+                        return PyBool_fromBool(*enum_ != enum_value);
+                    } else {
+                        Py_RETURN_TRUE;
+                    }
+                }
+                break;
+
+                default: {
+                    Py_RETURN_NOTIMPLEMENTED;
+                }
+            }
+        } else {
+            Py_RETURN_NOTIMPLEMENTED;            
+        }
+    }
+
+    PyObject *EnumValue_rq(PyEnumValue *enum_value_obj, PyObject *other, int op)
+    {        
+        // Compare to other enum value
+        if (PyEnumValue_Check(other)) {
+            PyEnumValue *other_enum_value = (PyEnumValue*) other;
+            switch (op)
+            {
+            case Py_EQ:
+                return PyBool_fromBool(enum_value_obj->ext() == other_enum_value->ext());
+            case Py_NE:
+                return PyBool_fromBool(enum_value_obj->ext() != other_enum_value->ext());
+            default:
+                Py_RETURN_NOTIMPLEMENTED;
+            }
+        // Compare to enum value repr
+        } else if (PyEnumValueRepr_Check(other)) {
+            return EnumValueRepr_rq((PyEnumValueRepr*) other, enum_value_obj, op);
+        } else {
+            Py_RETURN_NOTIMPLEMENTED;
+        }
+    }
+
+    PyObject *PyAPI_EnumValue_rq(PyEnumValue *enum_value_obj, PyObject *other, int op)
+    {
+        PY_API_FUNC
+        return runSafe(EnumValue_rq, enum_value_obj, other, op);
+    }
+    
+    Py_hash_t PyAPI_PyEnumValue_hash(PyObject *enum_value_obj)
+    {
+        PY_API_FUNC
+        auto &enum_value = PyToolkit::getTypeManager().extractEnumValue(enum_value_obj);
+        return enum_value.getUID().asULong();
+    }
+
     PyTypeObject PyEnumValueType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.EnumValue",
@@ -258,25 +348,34 @@ namespace db0::python
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyEnumValue_del,
         .tp_repr = reinterpret_cast<reprfunc>(PyEnumValue_repr),
+        .tp_hash = reinterpret_cast<hashfunc>(PyAPI_PyEnumValue_hash),
         .tp_str = reinterpret_cast<reprfunc>(PyEnumValue_str),        
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "Enum value object",
+        .tp_richcompare = (richcmpfunc)PyAPI_EnumValue_rq,
         .tp_methods = PyEnumValue_methods,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PyEnumValue_new,
         .tp_free = PyObject_Free,
     };
-
+    
+    PyObject *PyAPI_EnumValueRepr_rq(PyEnumValueRepr *enum_value_repr_obj, PyObject *other, int op)
+    {
+        PY_API_FUNC
+        return runSafe(EnumValueRepr_rq, enum_value_repr_obj, other, op);
+    }
+    
     PyTypeObject PyEnumValueReprType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.EnumValue",
+        .tp_name = "dbzero_ce.EnumValueRepr",
         .tp_basicsize = PyEnumValue::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyEnumValue_del,
         .tp_repr = reinterpret_cast<reprfunc>(PyEnumValueRepr_repr),
         .tp_str = reinterpret_cast<reprfunc>(PyEnumValueRepr_str),        
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "Enum value object",        
+        .tp_doc = "Enum value object",
+        .tp_richcompare = (richcmpfunc)PyAPI_EnumValueRepr_rq,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PyEnumValue_new,
         .tp_free = PyObject_Free,

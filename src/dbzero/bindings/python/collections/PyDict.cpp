@@ -41,7 +41,7 @@ namespace db0::python
             return NULL;
         }
         auto item_ptr = dict_obj.getItem(hash, key.get());
-        if(item_ptr == nullptr) {   
+        if (item_ptr == nullptr) {
             auto py_str = PyObject_Str(py_key);
             auto str_name =  PyUnicode_AsUTF8(py_str);
             Py_DECREF(py_str);
@@ -420,8 +420,7 @@ namespace db0::python
     bool DictObject_Check(PyObject *object) {
         return Py_TYPE(object) == &DictObjectType;        
     }
-    
-    
+        
     PyObject *tryLoadDict(PyObject *py_dict, PyObject *kwargs)
     {   
         PyObject *iterator = PyObject_GetIter(py_dict);

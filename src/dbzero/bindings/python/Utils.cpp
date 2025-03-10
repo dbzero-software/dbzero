@@ -5,7 +5,8 @@ namespace db0::python
 
 {
 
-    PyObject * PyBool_fromBool(bool value) {
+    PyObject * PyBool_fromBool(bool value)
+    {
         if (value) {
             Py_RETURN_TRUE;
         } else {
