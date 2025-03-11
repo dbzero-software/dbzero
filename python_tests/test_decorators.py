@@ -8,32 +8,54 @@ def test_can_mark_metod_immutable():
         return 42
 
     assert db0.is_immutable(foo)
+    assert not db0.is_immutable_query(foo)
+    assert db0.is_immutable_parameter(foo)
     assert foo() == 42
 
-    with pytest.raises(RuntimeError) as ex:
-        @db0.immutable
-        def foo(param):
-            return param
-    assert "Immutable function must have no positional parameters" in str(ex.value)
 
-    with pytest.raises(RuntimeError) as ex:
+    @db0.immutable
+    def foo(param):
+        return param
+    assert db0.is_immutable(foo)
+    assert db0.is_immutable_query(foo)
+    assert not db0.is_immutable_parameter(foo)
+
+    @db0.immutable
+    def foo(**kwargs):
+        return 42
+    assert db0.is_immutable(foo)
+    assert db0.is_immutable_query(foo)
+    assert not db0.is_immutable_parameter(foo)
+
+
+    @db0.immutable
+    def foo(*args):
+        return 42
+
+    assert db0.is_immutable(foo)
+    assert db0.is_immutable_query(foo)
+    assert not db0.is_immutable_parameter(foo)
+
+    @db0.immutable
+    def foo_default(some_arg=None):
+        return 42
+    assert db0.is_immutable(foo)
+    assert db0.is_immutable_query(foo)
+    assert not db0.is_immutable_parameter(foo)
+
+
+def test_immutable_class_params():
+    
+    class Foo:
+        def __init__(self):
+            self.param = 42
         @db0.immutable
-        def foo(**kwargs):
+        def method(self):
             return 42
-    assert "Immutable function must have no positional parameters" in str(ex.value)
-
-    with pytest.raises(RuntimeError) as ex:
-        @db0.immutable
-        def foo(*args):
-            return 42
-    assert "Immutable function must have no positional parameters" in str(ex.value)
-
-    with pytest.raises(RuntimeError) as ex:
-        @db0.immutable
-        def foo_default(some_arg=None):
-            return 42
-    assert "Immutable function must have no positional parameters" in str(ex.value)
-
+    obj = Foo()
+    assert db0.is_immutable(Foo.method)
+    assert db0.is_immutable(obj.method)
+    assert obj.param == 42
 
 
 def test_can_mark_metod_fulltext_search():

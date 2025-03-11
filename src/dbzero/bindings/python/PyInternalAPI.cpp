@@ -565,7 +565,9 @@ namespace db0::python
             }
             return class_factory.getLangType(memo.getType()).steal();
         }
-        return Py_TYPE(py_obj);
+        auto py_type = Py_TYPE(py_obj);
+        Py_INCREF(py_type);
+        return py_type;
     }
     
     PyObject *tryLoad(PyObject *py_obj, PyObject* kwargs, PyObject *py_exclude)
