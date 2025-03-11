@@ -156,6 +156,8 @@ namespace db0::python
     PyObject *PyAPI_hash(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 
     PyObject *PyAPI_materialized(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+
+    PyObject *PyApi_wait(PyObject *self, PyObject *args, PyObject *kwargs);
     
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *);

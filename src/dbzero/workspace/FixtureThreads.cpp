@@ -20,7 +20,7 @@ namespace db0
     void FixtureThread::addFixture(swine_ptr<Fixture> &fixture)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
-        m_fixtures.push_back({fixture, fixture->getPrefix().getLastUpdated()});
+        m_fixtures.emplace_back(new FixtureHolder{fixture, fixture->getPrefix().getLastUpdated()});
     }
 
     void FixtureThread::setInterval(std::uint64_t interval_ms) {
@@ -53,25 +53,25 @@ namespace db0
                 lock.lock();
             }
             // collect fixtures first
-            std::vector<std::pair<weak_swine_ptr<Fixture>, std::uint64_t> > fixtures;
+            std::vector<FixtureHolder*> fixtures;
+            fixtures.reserve(m_fixtures.size());
             for (auto it = m_fixtures.begin(); it != m_fixtures.end(); ) {
-                auto fixture = it->first.lock();
-                if (!fixture) {
+                auto &holder_ptr = *it;
+                if (!holder_ptr->fixture.lock()) {
                     it = m_fixtures.erase(it);
                     continue;
                 }
-                fixtures.push_back(*it);                
+                fixtures.push_back(holder_ptr.get());                
                 ++it;
             }
 
             // then process as unlocked
             lock.unlock();
-            for (auto it = fixtures.begin(); it != fixtures.end(); ++it) {
-                auto fixture = it->first.lock();
-                if (fixture) {
-                    m_fx_function(*fixture, it->second);
-                }                
-            }            
+            for(FixtureHolder *holder_ptr : fixtures) {
+                if (auto fixture = holder_ptr->fixture.lock()) {
+                    m_fx_function(*fixture, holder_ptr->last_updated);
+                }      
+            }         
         }
     }
     

@@ -41,8 +41,13 @@ namespace db0
         std::condition_variable m_cv;
         std::mutex m_mutex;
         bool m_stopped = false;
+
+        struct FixtureHolder {
+            weak_swine_ptr<Fixture> fixture;
+            std::uint64_t last_updated;
+        };
         // fixtures being monitored (weak pointer + last updated timestamp)
-        std::vector<std::pair<weak_swine_ptr<Fixture>, std::uint64_t> > m_fixtures;        
+        std::vector<std::unique_ptr<FixtureHolder>> m_fixtures;   
     };
 
     /**
