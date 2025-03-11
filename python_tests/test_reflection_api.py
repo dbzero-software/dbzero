@@ -1,8 +1,10 @@
+
 import pytest
 import dbzero_ce as db0
 import multiprocessing
+from dbzero_ce.reflection_api import CallableType
 from .conftest import DB0_DIR
-from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoTestClassWithMethods
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoTestClassPropertiesAndImmutables, MemoTestClassWithMethods
 from datetime import datetime
 
 
@@ -92,6 +94,109 @@ def test_memo_class_get_attributes(db0_fixture):
     memo_info = [obj for obj in db0.get_memo_classes() if not obj.is_singleton][0]
     assert len(list(memo_info.get_attributes())) > 0
 
+
+class TestClassPropertiesAndImmutables:
+    def __init__(self, value):
+        self.__value = value
+        self.some_param = 5
+
+    @db0.immutable
+    def immutable_func(self):
+        return self.value
+
+    @property
+    def value(self):
+        return self.__value
+
+    def normal_method(self):
+        print("normal method")
+
+def test_memo_class_get_properties(db0_fixture):
+    obj = MemoTestClassPropertiesAndImmutables(123)
+    result = list(db0.get_properties(obj))
+    assert len(result) == 3
+    assert ("some_param", False) in result
+    assert ("value", False) in result
+    assert ("immutable_func", True) in result
+
+def test_class_get_properties():
+    obj = TestClassPropertiesAndImmutables(123)
+    result = list(db0.get_properties(obj))
+    assert len(result) == 3
+    assert ("some_param", False) in result
+    assert ("value", False) in result
+    assert ("immutable_func", True) in result
+
+class CallablesTestClass:
+    # query
+    @db0.immutable
+    def immutable_query(self, from_date: datetime = None):
+        pass
+    
+    # action
+    def action(self, from_date: datetime = None):
+        pass
+
+    # mutator
+    def mutator(self):
+        pass
+
+    # property
+    @db0.immutable
+    def immutable_property(self):
+        pass
+
+
+def test_class_get_callables():
+    obj = CallablesTestClass()
+    result = list(db0.get_callables(obj))
+    assert len(result) == 3
+    assert ("immutable_query", CallableType.QUERY) in result
+    assert ("action", CallableType.ACTION) in result
+    assert ("mutator", CallableType.MUTATOR) in result
+
+    result = list(db0.get_callables(obj, True))
+    assert len(result) == 4
+    assert ("immutable_query", CallableType.QUERY) in result
+    assert ("action", CallableType.ACTION) in result
+    assert ("mutator", CallableType.MUTATOR) in result
+    assert ("immutable_property", CallableType.PROPERTY) in result
+
+
+class CallablesMemoTestClass:
+    # query
+    @db0.immutable
+    def immutable_query(self, from_date: datetime = None):
+        pass
+    
+    # action
+    def action(self, from_date: datetime = None):
+        pass
+
+    # mutator
+    def mutator(self):
+        pass
+
+    # property
+    @db0.immutable
+    def immutable_property(self):
+        pass
+
+
+def test_memo_class_get_callables(db0_fixture):
+    obj = CallablesMemoTestClass()
+    result = list(db0.get_callables(obj))
+    assert len(result) == 3
+    assert ("immutable_query", CallableType.QUERY) in result
+    assert ("action", CallableType.ACTION) in result
+    assert ("mutator", CallableType.MUTATOR) in result
+
+    result = list(db0.get_callables(obj, True))
+    assert len(result) == 4
+    assert ("immutable_query", CallableType.QUERY) in result
+    assert ("action", CallableType.ACTION) in result
+    assert ("mutator", CallableType.MUTATOR) in result
+    assert ("immutable_property", CallableType.PROPERTY) in result
 
 def test_discover_tagged_objects(db0_fixture):
     obj = MemoTestClass(123)
