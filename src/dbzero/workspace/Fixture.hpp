@@ -186,6 +186,13 @@ namespace db0
         void onUpdated();
 
         /**
+         * Block until new data version is detected.
+         * Return immediately if there's already a new update pending.
+         * @return true if the fixture was updated, false on timeout
+         */
+        bool awaitUpdate(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+
+        /**
          * Get the Snapshot interface of the related workspace
         */
         const Snapshot &getWorkspace() const;
@@ -256,6 +263,8 @@ namespace db0
         // the updates flag set to true means that the refresh thread detected external changes
         // and refresh might be possible
         std::atomic<bool> m_updated = false;
+        std::mutex m_update_watch_mtx;
+        std::condition_variable m_update_watch_cv;
                 
         StringPoolT openLimitedStringPool(Memspace &, MetaAllocator &);
         

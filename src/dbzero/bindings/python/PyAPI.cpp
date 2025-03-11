@@ -1012,5 +1012,49 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(getMaterializedMemoObject, args[0]);
     }
+
+    PyObject *tryWait(const char *prefix, int state, int timeout)
+    {
+        db0::swine_ptr<Fixture> fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix, AccessType::READ_ONLY);
+        if(fixture->getAccessType() == AccessType::READ_WRITE) {
+            PyErr_SetString(PyExc_RuntimeError, "wait() not supported for read-write prefix");
+            return nullptr;
+        }
+
+        std::optional<std::chrono::milliseconds> optional_timeout;
+        if(timeout > 0) {
+            optional_timeout.emplace(timeout);
+        }
+
+        while(fixture->getPrefix().getStateNum() < (StateNumType)state) {
+            if(!fixture->awaitUpdate(optional_timeout)) {
+                Py_RETURN_FALSE;
+            }
+            fixture->refresh();
+        }
+        Py_RETURN_TRUE;
+    }
+
+    PyObject *PyApi_wait(PyObject*, PyObject *args, PyObject *kwargs)
+    {
+        const char *prefix = nullptr;
+        int state = 0;
+        int timeout = 0;
+        const char *kwlist[] = {"prefix", "state", "timeout", nullptr};
+        if(!PyArg_ParseTupleAndKeywords(args, kwargs, "si|i:wait", const_cast<char**>(kwlist), &prefix, &state, &timeout)) {
+            return nullptr;
+        }
+        if(state <= 0) {
+            PyErr_SetString(PyExc_ValueError, "state number have to be greater than 0");
+            return nullptr;
+        }
+        if(timeout < 0) {
+            PyErr_SetString(PyExc_ValueError, "timeout have to be a positive integer");
+            return nullptr;
+        }
+
+        PY_API_FUNC
+        return runSafe(tryWait, prefix, state, timeout);
+    }
     
 }
