@@ -27,8 +27,9 @@ namespace db0::python
     class MemoTypeDecoration
     {   
     public:     
-        MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name);
-
+        MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name,
+            std::vector<std::string> &&init_vars);
+        
         // get decoration of a given memo type
         static inline MemoTypeDecoration &get(PyTypeObject *type)
         {
@@ -53,6 +54,8 @@ namespace db0::python
 
         // @return empty string if no prefix name is set
         const char *getPrefixName() const;
+        // @return variables potentially asignable during the type initialization
+        const std::vector<std::string> &getInitVars() const;
         
         // @param access_type to use for opening the prefix if UUID needs to be resolved by name
         // note that read-only access cannot later be upgraded to read-write
@@ -64,8 +67,10 @@ namespace db0::python
         const char *m_prefix_name_ptr = 0;
         const char *m_type_id = 0;
         const char *m_file_name = 0;
+        // variables potentially asignable during the type initialization
+        const std::vector<std::string> m_init_vars;
         // resolved fixture UUID (initialized by the process)
-        std::atomic<std::uint64_t> m_fixture_uuid = 0;        
+        std::atomic<std::uint64_t> m_fixture_uuid = 0;      
     };
     
     using MemoObject = PyWrapper<db0::object_model::Object>;

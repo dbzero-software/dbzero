@@ -130,6 +130,7 @@ namespace db0::object_model
         if (it_cached == m_type_cache.end()) {
             const char *type_id = LangToolkit::getMemoTypeID(lang_type);
             const char *prefix_name = LangToolkit::getPrefixName(lang_type);
+            const auto &init_vars = LangToolkit::getInitVars(lang_type);
             // find type in the type map, use 4 key variants of type identification
             auto class_ptr = tryFindClassPtr(lang_type, type_id);
             std::shared_ptr<Class> type;
@@ -150,8 +151,8 @@ namespace db0::object_model
                     auto base_class = getOrCreateType(memo_base);
                     base_class_ref = ClassFactory::classRef(*base_class);
                 }
-                type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type), 
-                    LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, flags, base_class_ref));                
+                type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type),
+                    LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, init_vars, flags, base_class_ref));
                 class_ptr = ClassPtr(*type);
                 // inc-ref to persist the class
                 type->incRef();
@@ -226,7 +227,7 @@ namespace db0::object_model
     ClassFactory::ClassItem ClassFactory::getTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type) const {
         return getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(class_ref), lang_type);
     }
-
+    
     std::uint32_t ClassFactory::classRef(const Class &db0_class)
     {
         auto address = db0::getPhysicalAddress(db0_class.getAddress());
@@ -246,12 +247,17 @@ namespace db0::object_model
             if (!lang_type) {
                 lang_type = tryFindLangType(*type);
             }
+            // initialize the language model
+            if (lang_type) {                
+                type->setInitVars(LangToolkit::getInitVars(lang_type));
+            }
             // register the mapping to language specific type object
             it_cached = m_ptr_cache.insert({ptr, ClassItem { type, lang_type }}).first;
         }
-        // register the mapping if missing
+        // register the lang type mapping if missing
         if (lang_type && !it_cached->second.m_lang_type) {
-            it_cached->second.m_lang_type = lang_type;
+            it_cached->second.m_lang_type = lang_type;            
+            it_cached->second.m_class->setInitVars(LangToolkit::getInitVars(lang_type));
         }
         return it_cached->second;
     }

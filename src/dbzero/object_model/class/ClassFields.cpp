@@ -35,7 +35,8 @@ namespace db0::object_model
             m_type = class_factory.getOrCreateType(m_lang_type.get());
         }
         
-        return { m_type->getUID(), m_type->get(m_type->findField(field_name)) };
+        auto field_id = m_type->findField(field_name).first;
+        return { m_type->getUID(), m_type->get(field_id) };
     }
-
+    
 }

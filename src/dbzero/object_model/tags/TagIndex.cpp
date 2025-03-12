@@ -625,9 +625,9 @@ namespace db0::object_model
     {
         auto &field_def = LangToolkit::getTypeManager().extractFieldDef(py_arg);
         // class UID (32bit) + field ID (32 bit)
-        return (static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.m_field_id;
+        return (static_cast<std::uint64_t>(field_def.m_class_uid) << 32) | field_def.m_member.m_field_id.getIndex();
     }
-
+    
     TagIndex::ShortTagT TagIndex::getShortTag(ObjectSharedPtr py_arg, ObjectSharedPtr *alt_repr) const {
         return getShortTag(py_arg.get(), alt_repr);
     }
