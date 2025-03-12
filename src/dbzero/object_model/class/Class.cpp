@@ -300,14 +300,9 @@ namespace db0::object_model
         m_members.detach();
         super_t::detach();
     }
-<<<<<<< HEAD
     
     void Class::unlinkSingleton()
     {
-=======
-         
-    void Class::unlinkSingleton() {
->>>>>>> main
         modify().m_singleton_address = 0;
     }
     
@@ -410,8 +405,7 @@ namespace db0::object_model
         }
         return m_base_class_ptr;
     }
-<<<<<<< HEAD
-
+    
     void Class::setInitVars(const std::vector<std::string> &init_vars)
     {
         assert(m_init_vars.empty());
@@ -425,7 +419,4 @@ namespace db0::object_model
         }
     }
 
-=======
-    
->>>>>>> main
 }

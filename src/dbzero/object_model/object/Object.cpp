@@ -275,19 +275,10 @@ namespace db0::object_model
             // retrieve class from the initializer
             class_ptr = &m_init_manager.getInitializer(*this).getClass();
         }
-        
+
         assert(class_ptr);
-        auto field_index = class_ptr->findField(field_name); 
-        
-        if (field_index == Class::NField) {
-            /* FIXME
-            // try pulling from cached members if not found
-            return getMemberCacheReference().get(field_name);
-            */
-           return false;
-        }
-        
-        return tryGetMemberAt(field_index, member);
+        auto [field_id, is_init_var] = class_ptr->findField(field_name);
+        return tryGetMemberAt(field_id, is_init_var, member);        
     }
     
     Object::ObjectSharedPtr Object::tryGet(const char *field_name) const
@@ -640,8 +631,6 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         return fixture->get<ClassFactory>().getTypeByClassRef((*this)->m_class_ref).m_class;
     }
-<<<<<<< HEAD
-=======
     
     std::uint64_t Object::getAddress() const
     {
@@ -650,6 +639,5 @@ namespace db0::object_model
         }
         return super_t::getAddress();
     }
->>>>>>> main
-
+    
 }

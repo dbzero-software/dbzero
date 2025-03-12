@@ -443,11 +443,7 @@ namespace db0::python
             type_manager.getPooledString(file_name),
             std::move(init_vars)
         );
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> main
         // Construct base type as a copy of the original type
         PyTypeObject *base_type = new PyTypeObject(*py_class);
         Py_INCREF(base_type);
@@ -548,15 +544,10 @@ namespace db0::python
                 init_vars.push_back(PyUnicode_AsUTF8(item));
             }
         }
-
+        
         return reinterpret_cast<PyObject*>(
-<<<<<<< HEAD
-            wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id, file_name, std::move(init_vars))
+            runSafe(wrapPyType, castToType(class_obj), is_singleton, prefix_name, type_id, file_name, std::move(init_vars))
         );
-=======
-            runSafe(wrapPyType, castToType(class_obj), is_singleton, prefix_name, type_id, file_name)
-        );        
->>>>>>> main
     }
     
     bool PyMemoType_Check(PyTypeObject *type) {
