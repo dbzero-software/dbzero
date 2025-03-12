@@ -30,7 +30,7 @@ namespace db0::python
     PyObject *getSingletonUUID(const db0::object_model::Class &type)
     {
         if (!type.isSingleton() || !type.isExistingSingleton()) {
-            return Py_None;
+            Py_RETURN_NONE;
         }
         return PyUnicode_FromString(type.getSingletonObjectId().toUUIDString().c_str());
     }

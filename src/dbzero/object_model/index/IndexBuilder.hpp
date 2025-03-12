@@ -8,7 +8,7 @@ namespace db0::object_model
 {
 
     /**
-     * Wraps extends the RangeTree::Builder providing persistency cache for DBZero instances
+     * Wraps extends the RangeTree::Builder providing persistency cache for dbzero instances
     */
     template <typename KeyT> class IndexBuilder: public RangeTree<KeyT, std::uint64_t>::Builder
     {

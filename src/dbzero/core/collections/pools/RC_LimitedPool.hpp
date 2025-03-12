@@ -208,7 +208,8 @@ namespace db0::pools
     template <typename T, typename CompT, typename AddressT>
     void RC_LimitedPool<T, CompT, AddressT>::unRefByAddr(AddressT addr)
     {
-        auto it_addr = LP_Type::template fetch<const ItemT&>(addr).m_first;
+        MemLock lock;
+        auto it_addr = LP_Type::template fetch<const ItemT&>(addr, lock).m_first;
         auto it = m_pool_map.beginFromAddress(it_addr);
         unRefItem(it);
     }

@@ -65,7 +65,7 @@ namespace db0::python
         .tp_dealloc = (destructor)PandasBlockObject_del,
         .tp_as_sequence = &PandasBlockObject_sq,
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero block object",
+        .tp_doc = "dbzero block object",
         .tp_methods = PandasBlockObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PandasBlockObject_new,
@@ -96,7 +96,7 @@ namespace db0::python
     PyObject *makeBlock(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {        
         PY_API_FUNC
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
         return makeDB0PandasBlock(fixture, args, nargs).steal();
     }

@@ -89,7 +89,7 @@ namespace db0::python
         .tp_dealloc = (destructor)PyObjectTagManager_del,
         .tp_as_number = &PyObjectTagManager_as_num,
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero tag manager object",
+        .tp_doc = "dbzero tag manager object",
         .tp_methods = PyObjectTagManager_methods,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PyObjectTagManager_new,

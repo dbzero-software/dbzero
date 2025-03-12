@@ -38,15 +38,29 @@ def test_scoped_enum_after_close(db0_fixture):
     db0.commit()
     db0.close()
     db0.init(DB0_DIR)
+    # open enum associated prefix for read-only
+    db0.open("scoped-class-prefix", "r")
     assert len(list(db0.find(ScopedDataClass, ScopedColor.RED))) == 1
 
 
+def test_get_prefix_of_works_for_enums(db0_fixture):
+    assert db0.get_prefix_of(ScopedColor) is not None
+
+
 def test_scoped_enum_values(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    db0.open(db0.get_prefix_of(ScopedColor).name, "rw")
+    # change current prefix
+    db0.open(px_name)
     assert db0.get_prefix_of(ScopedColor.RED) is not None
     assert db0.get_prefix_of(ScopedColor.RED) != db0.get_current_prefix()
     
     
 def test_scoped_enum_values_are_translated_across_prefixes(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    db0.open(db0.get_prefix_of(ScopedColor).name, "rw")
+    # change current prefix
+    db0.open(px_name)
     obj = MemoTestClass(ScopedColor.RED)
     assert db0.get_prefix_of(ScopedColor.RED) != db0.get_prefix_of(obj)
     assert db0.get_prefix_of(obj.value) == db0.get_prefix_of(obj)

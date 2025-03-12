@@ -81,3 +81,12 @@ def test_split_by_enum_values_repr(db0_fixture):
     
     assert count == 10
     
+
+def test_non_exclusive_split(db0_fixture):
+    obj = MemoTestClass(0)
+    db0.tags(obj).add(["tag1", "tag2"])
+    # default split_by is exclusive
+    assert len(list(db0.split_by(["tag1", "tag2"], db0.find(MemoTestClass)))) == 1
+    assert len(list(db0.split_by(["tag1", "tag2"], db0.find(MemoTestClass), exclusive = True))) == 1
+    assert len(list(db0.split_by(["tag1", "tag2"], db0.find(MemoTestClass), exclusive = False))) == 2
+    

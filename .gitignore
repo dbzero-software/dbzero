@@ -1,3 +1,4 @@
 **/meson.build
 *.build
 **/__pycache__/
+.vscode

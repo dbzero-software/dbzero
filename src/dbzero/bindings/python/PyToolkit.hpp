@@ -120,7 +120,7 @@ namespace db0::python
         // Creates a new Python instance of EnumValue
         static ObjectSharedPtr makeEnumValue(const EnumValue &);
         
-        // generate UUID of a DBZero object
+        // generate UUID of a dbzero object
         static ObjectPtr getUUID(ObjectPtr py_object);
         
         // Try converting specific PyObject instance into a tag, possibly adding a new tag into the pool        
@@ -137,6 +137,7 @@ namespace db0::python
         
         static bool isString(ObjectPtr py_object);
         static bool isIterable(ObjectPtr py_object);
+        static bool isSequence(ObjectPtr py_object);
         static bool isType(ObjectPtr py_object);
         static bool isMemoType(TypeObjectPtr py_type);
         static bool isMemoObject(ObjectPtr py_object);
@@ -147,6 +148,8 @@ namespace db0::python
         
         static ObjectSharedPtr getIterator(ObjectPtr py_object);
         static ObjectSharedPtr next(ObjectPtr py_object);
+        static std::size_t length(ObjectPtr py_object);
+        static ObjectSharedPtr getItem(ObjectPtr py_object, std::size_t i);
         // Get value associated fixture UUID (e.g. enum value)
         static std::uint64_t getFixtureUUID(ObjectPtr py_object);
         // Get scoped type's associated fixture UUID (or 0x0)

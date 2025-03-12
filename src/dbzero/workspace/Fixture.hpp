@@ -186,6 +186,13 @@ namespace db0
         void onUpdated();
 
         /**
+         * Block until new data version is detected.
+         * Return immediately if there's already a new update pending.
+         * @return true if the fixture was updated, false on timeout
+         */
+        bool awaitUpdate(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+
+        /**
          * Get the Snapshot interface of the related workspace
         */
         const Snapshot &getWorkspace() const;
@@ -244,7 +251,7 @@ namespace db0
         db0::GC0 *m_gc0_ptr = nullptr;
         StringPoolT m_string_pool;
         ObjectCatalogue m_object_catalogue;
-        // internal cache for DBZero based collections
+        // internal cache for dbzero based collections
         mutable VObjectCache m_v_object_cache;
         AtomicContext *m_atomic_context_ptr = nullptr;
         std::atomic<bool> m_closed = false;
@@ -256,6 +263,8 @@ namespace db0
         // the updates flag set to true means that the refresh thread detected external changes
         // and refresh might be possible
         std::atomic<bool> m_updated = false;
+        std::mutex m_update_watch_mtx;
+        std::condition_variable m_update_watch_cv;
                 
         StringPoolT openLimitedStringPool(Memspace &, MetaAllocator &);
         

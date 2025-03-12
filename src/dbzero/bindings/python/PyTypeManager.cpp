@@ -71,24 +71,24 @@ namespace db0::python
         PyObject *decimal_type = getDecimalClass();
  
         addStaticSimpleType(decimal_type, TypeId::DECIMAL);
-        // DBZero extension types
-        addStaticDBZeroType(&PyTagType, TypeId::DB0_TAG);
-        addStaticDBZeroType(&TagSetType, TypeId::DB0_TAG_SET);
-        addStaticDBZeroType(&IndexObjectType, TypeId::DB0_INDEX);
-        addStaticDBZeroType(&ListObjectType, TypeId::DB0_LIST);
-        addStaticDBZeroType(&SetObjectType, TypeId::DB0_SET);
-        addStaticDBZeroType(&DictObjectType, TypeId::DB0_DICT);
-        addStaticDBZeroType(&TupleObjectType, TypeId::DB0_TUPLE);
-        addStaticDBZeroType(&ClassObjectType, TypeId::DB0_CLASS);
-        addStaticDBZeroType(&PyObjectIterableType, TypeId::OBJECT_ITERABLE);
-        addStaticDBZeroType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
-        addStaticDBZeroType(&ByteArrayObjectType, TypeId::DB0_BYTES_ARRAY);
-        addStaticDBZeroType(&PyEnumType, TypeId::DB0_ENUM);
-        addStaticDBZeroType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
-        addStaticDBZeroType(&PyEnumValueReprType, TypeId::DB0_ENUM_VALUE_REPR);
-        addStaticDBZeroType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
-        addStaticDBZeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
-        addStaticDBZeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
+        // dbzero extension types
+        addStaticdbzeroType(&PyTagType, TypeId::DB0_TAG);
+        addStaticdbzeroType(&TagSetType, TypeId::DB0_TAG_SET);
+        addStaticdbzeroType(&IndexObjectType, TypeId::DB0_INDEX);
+        addStaticdbzeroType(&ListObjectType, TypeId::DB0_LIST);
+        addStaticdbzeroType(&SetObjectType, TypeId::DB0_SET);
+        addStaticdbzeroType(&DictObjectType, TypeId::DB0_DICT);
+        addStaticdbzeroType(&TupleObjectType, TypeId::DB0_TUPLE);
+        addStaticdbzeroType(&ClassObjectType, TypeId::DB0_CLASS);
+        addStaticdbzeroType(&PyObjectIterableType, TypeId::OBJECT_ITERABLE);
+        addStaticdbzeroType(&PyObjectIteratorType, TypeId::OBJECT_ITERATOR);
+        addStaticdbzeroType(&ByteArrayObjectType, TypeId::DB0_BYTES_ARRAY);
+        addStaticdbzeroType(&PyEnumType, TypeId::DB0_ENUM);
+        addStaticdbzeroType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
+        addStaticdbzeroType(&PyEnumValueReprType, TypeId::DB0_ENUM_VALUE_REPR);
+        addStaticdbzeroType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
+        addStaticdbzeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
+        addStaticdbzeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
         
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
         m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
@@ -115,7 +115,7 @@ namespace db0::python
         // check with the static types next
         auto it = m_id_map.find(reinterpret_cast<PyObject*>(py_type));
         if (it == m_id_map.end()) {            
-            THROWF(db0::InputException) << "Type unsupported by DBZero: " << py_type->tp_name;
+            THROWF(db0::InputException) << "Type unsupported by dbzero: " << py_type->tp_name;
         }
 
         // return a known registered type
@@ -305,7 +305,7 @@ namespace db0::python
         }
         return getPooledString(std::string(str));
     }
-
+    
     void PyTypeManager::addMemoType(TypeObjectPtr type, const char *type_id)
     {        
         // register type with up to 4 key variants
@@ -415,7 +415,7 @@ namespace db0::python
     void PyTypeManager::close()
     {
         // close Enum's but don't remove from cache
-        // this is to allow future creation / retrieval of DBZero enums while keeping python objects alive
+        // this is to allow future creation / retrieval of dbzero enums while keeping python objects alive
         for (auto &obj : m_enum_cache) {
             PyEnum *py_enum = reinterpret_cast<PyEnum*>(obj.get());
             py_enum->modifyExt().close();
@@ -466,12 +466,12 @@ namespace db0::python
         return py_type == m_memo_base_type;
     }
 
-    bool PyTypeManager::isDBZeroTypeId(TypeId type_id) const {
+    bool PyTypeManager::isdbzeroTypeId(TypeId type_id) const {
         return m_dbzero_type_ids.find(type_id) != m_dbzero_type_ids.end();
     }
 
-    bool PyTypeManager::isDBZeroType(ObjectPtr obj_ptr) const {
-        return isDBZeroTypeId(getTypeId(obj_ptr));
+    bool PyTypeManager::isdbzeroType(ObjectPtr obj_ptr) const {
+        return isdbzeroTypeId(getTypeId(obj_ptr));
     }
 
     bool PyTypeManager::isSimplePyType(ObjectPtr obj_ptr) const {

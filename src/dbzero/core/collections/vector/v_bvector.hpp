@@ -18,7 +18,7 @@ namespace db0
     template <typename PtrT>
     struct [[gnu::packed]] o_bvector: public o_fixed<o_bvector<PtrT> >
     {
-        // common DBZero object header
+        // common dbzero object header
         db0::o_unique_header m_header;
         // root node pointer (may be data or pointers' block)
         PtrT m_ptr_root = 0;
@@ -38,7 +38,7 @@ namespace db0
     };
     
     /**
-     * DBZero scalable vector implementation
+     * dbzero scalable vector implementation
      * @tparam ItemT - fixed size item type (simple value or struct without pointers)
      * @tparam PtrT - type for inner pointers (V-Space)
      */

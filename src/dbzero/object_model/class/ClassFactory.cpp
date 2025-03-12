@@ -102,7 +102,7 @@ namespace db0::object_model
             if (!class_ptr) {
                 return nullptr;
             }
-            // pull existing DBZero class instance by pointer
+            // pull existing dbzero class instance by pointer
             std::shared_ptr<Class> type = getTypeByPtr(class_ptr, lang_type).m_class;
             // add to by-type cache
             it_cached = m_type_cache.insert({lang_type, type}).first;
@@ -125,6 +125,7 @@ namespace db0::object_model
         if (LangToolkit::getTypeManager().isMemoBase(lang_type)) {
             THROWF(db0::InputException) << "Cannot create MemoBase type";
         }
+
         auto it_cached = m_type_cache.find(lang_type);
         if (it_cached == m_type_cache.end()) {
             const char *type_id = LangToolkit::getMemoTypeID(lang_type);
@@ -134,7 +135,7 @@ namespace db0::object_model
             auto class_ptr = tryFindClassPtr(lang_type, type_id);
             std::shared_ptr<Class> type;
             if (class_ptr) {
-                // pull existing DBZero class instance by pointer
+                // pull existing dbzero class instance by pointer
                 type = getTypeByPtr(class_ptr, lang_type).m_class;
             } else {
                 auto fixture = getFixture();
@@ -233,7 +234,7 @@ namespace db0::object_model
         assert(address <= std::numeric_limits<std::uint32_t>::max());
         return static_cast<std::uint32_t>(address);
     }
-
+    
     ClassFactory::ClassItem ClassFactory::getTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const
     {
         auto it_cached = m_ptr_cache.find(ptr);
@@ -301,7 +302,7 @@ namespace db0::object_model
     {
         auto it_cached = m_ptr_cache.find(ClassPtr(type));
         if (it_cached == m_ptr_cache.end()) {
-            THROWF(db0::InputException) << "Class not found: " << type.getName();
+            THROWF(db0::InternalException) << "Class not found: " << type.getName();
         }
         return it_cached->second.m_lang_type;
     }
@@ -328,5 +329,5 @@ namespace db0::object_model
         // type not found
         return nullptr;
     }
-
+    
 }

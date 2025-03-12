@@ -62,7 +62,7 @@ namespace db0
 
     /**
      * GC0 keeps track of all "live" v_ptr instances.
-     * and drops associated DBZero instances once they are no longer referenced from Python
+     * and drops associated dbzero instances once they are no longer referenced from Python
      * GC0 has also a persistence layer to keep track of unreferenced instances as long as
      * the corresponding Python objects are still alive.
     */

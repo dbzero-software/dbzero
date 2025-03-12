@@ -28,8 +28,10 @@ namespace db0::pools
         /**
          * Fetch object from the pool by its address
          * fetch is performed as the call operation if provided arguments over T instance
+         * @param address the pool element's address
+         * @param lock the MemLock persistency buffer
         */
-        template <typename ResultT> ResultT fetch(AddressT address) const;
+        template <typename ResultT> ResultT fetch(AddressT address, MemLock &lock) const;
 
         void erase(AddressT address);
 
@@ -53,24 +55,27 @@ namespace db0::pools
         : m_memspace(other.m_memspace)
     {
     }
-
+    
     template <typename T, typename AddressT> template <typename... Args> AddressT LimitedPool<T, AddressT>::add(Args&&... args)
     {
         auto size_of = T::measure(std::forward<Args>(args)...);
         auto address = m_memspace.alloc(size_of);
         assert(address <= std::numeric_limits<AddressT>::max());
         auto ptr = m_memspace.getPrefix().mapRange(address, size_of, { AccessOptions::write });
-        T::__new(ptr.modify(), std::forward<Args>(args)...);        
+        T::__new(ptr.modify(), std::forward<Args>(args)...);
+        
         return static_cast<AddressT>(address);
     }
     
-    template <typename T, typename AddressT> template <typename ResultT> ResultT LimitedPool<T, AddressT>::fetch(AddressT address) const
+    template <typename T, typename AddressT> template <typename ResultT> 
+    ResultT LimitedPool<T, AddressT>::fetch(AddressT address, MemLock &lock) const
     {
         // FIXME: mapRangeWeak optimization should be implemented
         auto size = m_memspace.getAllocator().getAllocSize(address);
-        auto ptr = m_memspace.getPrefix().mapRange(address, size, { AccessOptions::read });
-        // cast to result type
-        return T::__const_ref(ptr);
+        lock = m_memspace.getPrefix().mapRange(address, size, { AccessOptions::read });
+
+        // cast to result type, persistency buffer managed by the caller
+        return T::__const_ref(lock);
     }
     
     template <typename T, typename AddressT> void LimitedPool<T, AddressT>::erase(AddressT address) {

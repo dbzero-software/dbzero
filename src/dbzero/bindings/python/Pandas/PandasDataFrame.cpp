@@ -63,7 +63,7 @@ namespace db0::python
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PandasDataFrameObject_del,
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero dataframe object",
+        .tp_doc = "dbzero dataframe object",
         .tp_methods = PandasDataFrameObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PandasDataFrameObject_new,
@@ -85,7 +85,7 @@ namespace db0::python
     PandasDataFrameObject *makeDataFrame(PyObject *, PyObject *, PyObject *)
     {
         PY_API_FUNC
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
         db0::FixtureLock lock(fixture);
         auto dataframe_obj = PandasDataFrameObject_new(&PandasDataFrameObjectType, NULL, NULL);

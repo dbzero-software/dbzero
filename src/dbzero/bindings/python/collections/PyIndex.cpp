@@ -11,7 +11,8 @@ namespace db0::python
         {"add", (PyCFunction)PyAPI_IndexObject_add, METH_FASTCALL, "Add item to index."},
         {"remove", (PyCFunction)PyAPI_IndexObject_remove, METH_FASTCALL, "Remove item from index if it exists."},
         {"sort", (PyCFunction)PyAPI_IndexObject_sort, METH_VARARGS | METH_KEYWORDS, "Sort results of other iterator."},
-        {"range", (PyCFunction)PyAPI_IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Extract values from a specific range"},
+        {"range", (PyCFunction)PyAPI_IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Deprecated"},
+        {"select", (PyCFunction)PyAPI_IndexObject_range, METH_VARARGS | METH_KEYWORDS, "Extract unsorted values from a specific range"},
         {"flush", (PyCFunction)PyAPI_IndexObject_flush, METH_NOARGS, "Flush buffered changes"},
         {NULL}
     };
@@ -28,7 +29,7 @@ namespace db0::python
         .tp_dealloc = (destructor)PyAPI_IndexObject_del,
         .tp_as_sequence = &IndexObject_sq,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero indexing object",
+        .tp_doc = "dbzero indexing object",
         .tp_methods = IndexObject_methods,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)IndexObject_new,
@@ -65,7 +66,7 @@ namespace db0::python
     
     IndexObject *tryMakeIndex(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto index_object = IndexDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         db0::object_model::Index::makeNew(&index_object.get()->modifyExt(), *lock);
@@ -170,7 +171,7 @@ namespace db0::python
         }
         
         auto &index = py_index->ext();
-        // construct range iterator        
+        // construct range iterator
         auto iter_factory = index.range(low, high, null_first);        
         auto py_iter_obj = PyObjectIterableDefault_new();
         ObjectIterable::makeNew(&(py_iter_obj.get())->modifyExt(), index.getFixture(), std::move(iter_factory));

@@ -1,6 +1,6 @@
 # dbzero_ce
 
-DBZero Community Edition
+dbzero Community Edition
 
 ## Getting started
 

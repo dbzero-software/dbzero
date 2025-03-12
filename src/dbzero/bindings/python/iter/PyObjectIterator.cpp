@@ -82,7 +82,7 @@ namespace db0::python
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObjectIterator_del,
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero object iterator",
+        .tp_doc = "dbzero object iterator",
         .tp_iter = (getiterfunc)PyAPI_PyObjectIterator_iter,
         .tp_iternext = (iternextfunc)PyAPI_PyObjectIterator_iternext,
         .tp_methods = PyObjectIterator_methods,

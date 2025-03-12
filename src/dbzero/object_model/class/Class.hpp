@@ -182,9 +182,9 @@ namespace db0::object_model
         friend ClassPtr;
         friend class Object;
         friend super_t;
-        
-        // DBZero class instances should only be created by the ClassFactory
-        // construct a new DBZero class
+                
+        // dbzero class instances should only be created by the ClassFactory
+        // construct a new dbzero class
         // NOTE: module name may not be available in some contexts (e.g. classes defined in notebooks)
         Class(db0::swine_ptr<Fixture> &, const std::string &name, std::optional<std::string> module_name,
             const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags, const std::uint32_t);

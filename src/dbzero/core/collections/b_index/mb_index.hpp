@@ -543,7 +543,7 @@ namespace db0
 			}
 
 			/**
-			 * Render this instance invalid, release all underlying DBZero resources
+			 * Render this instance invalid, release all underlying dbzero resources
 			 */
 			void reset() {
 			    m_iterator.reset();

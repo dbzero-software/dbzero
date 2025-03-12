@@ -26,7 +26,7 @@ namespace db0
     using Serializable = db0::serial::Serializable;
 
     /**
-     * Abstract DBZero inverted index iterator definition
+     * Abstract dbzero inverted index iterator definition
      * NOTICE: IDs are not assigned automatically, when required need to call db0:assignUniqueIDs method
      */
 	template <typename KeyT = std::uint64_t> class FT_Iterator: public FT_IteratorBase, public Serializable

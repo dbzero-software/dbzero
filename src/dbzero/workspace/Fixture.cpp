@@ -223,7 +223,25 @@ namespace db0
     }
     
     void Fixture::onUpdated() {
-        m_updated = true;
+        {
+            std::unique_lock<std::mutex> lock(m_update_watch_mtx);
+            m_updated = true;
+        }
+        m_update_watch_cv.notify_all();
+    }
+
+    bool Fixture::awaitUpdate(std::optional<std::chrono::milliseconds> timeout) {
+        assert(getAccessType() == AccessType::READ_ONLY && "Waiting for update only allowed for read-only fixtures");
+
+        std::unique_lock<std::mutex> lock(m_update_watch_mtx);
+        auto pred = [this]{ return m_updated.load(); };
+
+        if(timeout) {
+            return m_update_watch_cv.wait_for(lock, *timeout, pred);
+        }
+
+        m_update_watch_cv.wait(lock, pred);
+        return true;
     }
     
     bool Fixture::refreshIfUpdated()
@@ -292,7 +310,7 @@ namespace db0
             m_string_pool.commit();
             m_object_catalogue.commit();
             m_v_object_cache.commit();
-            Memspace::commit(timer.get());            
+            Memspace::commit(timer.get());
         } catch (...) {
             m_commit_pending = false;
             throw;

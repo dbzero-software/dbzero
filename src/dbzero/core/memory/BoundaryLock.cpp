@@ -46,7 +46,7 @@ namespace db0
     }
     
     void BoundaryLock::flushBoundary()
-    {        
+    {
         // note that boundary locks are flushed even with no_flush flag
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {

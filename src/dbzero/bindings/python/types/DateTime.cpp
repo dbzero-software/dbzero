@@ -48,9 +48,9 @@ namespace db0::python
         if(((PyDateTime_DateTime *)(py_datetime))->hastzinfo){
             return ((PyDateTime_DateTime *)(py_datetime))->tzinfo;
         }
-        return Py_None;
+        Py_RETURN_NONE;
     }
-
+    
     bool isDatatimeWithTZ(PyObject *py_datetime)
     {
         return ((PyDateTime_DateTime *)(py_datetime))->hastzinfo;

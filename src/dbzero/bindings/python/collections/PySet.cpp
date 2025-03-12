@@ -16,7 +16,7 @@ namespace db0::python
     using SetIteratorObject = PyWrapper<db0::object_model::SetIterator, false>;
 
     PyTypeObject SetIteratorObjectType = GetIteratorType<SetIteratorObject>("dbzero_ce.SetObjectIterator",
-        "DBZero typed query object iterator");
+        "dbzero typed query object iterator");
     
     SetIteratorObject *SetObject_iter(SetObject *self)
     {
@@ -204,9 +204,9 @@ namespace db0::python
             return SetObject_issupersetInternal(set_obj, args, 1);
         }
         default:
-            return Py_NotImplemented;
+            Py_RETURN_NOTIMPLEMENTED;
         }
-        return Py_NotImplemented;
+        Py_RETURN_NOTIMPLEMENTED;
     }
     
     PyTypeObject SetObjectType = {
@@ -218,7 +218,7 @@ namespace db0::python
         .tp_as_number = &SetObject_as_num,
         .tp_as_sequence = &SetObject_sq,
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero set collection object",
+        .tp_doc = "dbzero set collection object",
         .tp_richcompare = (richcmpfunc)SetObject_rq,
         .tp_iter = (getiterfunc)SetObject_iter,
         .tp_methods = SetObject_methods,        
@@ -259,7 +259,7 @@ namespace db0::python
     shared_py_object<SetObject*> makeDB0Set(
         db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs)
     {
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto py_set = SetDefaultObject_new();
         db0::FixtureLock lock(fixture);
         auto &set = py_set.get()->modifyExt();

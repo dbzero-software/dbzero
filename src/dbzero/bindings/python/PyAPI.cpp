@@ -274,9 +274,8 @@ namespace db0::python
         return runSafe(tryClose, prefix_name);        
     }
     
-    PyObject *getPrefixOf(PyObject *self, PyObject *args)
+    PyObject *tryGetPrefixOf(PyObject *self, PyObject *args)
     {
-        PY_API_FUNC
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -284,37 +283,70 @@ namespace db0::python
         }
         
         db0::swine_ptr<Fixture> fixture;
+        
         if (PyType_Check(py_object)) {
+            // only memo or enum types can be scoped
             if (PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_object))) {
                 PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
                 auto prefix_name = MemoTypeDecoration::get(py_type).tryGetPrefixName();
                 if (prefix_name) {
-                    return PyUnicode_FromString(prefix_name);
+                    // try locating an existing prefix to obtain its UUID                    
+                    auto fixture = PyToolkit::getPyWorkspace().getWorkspace().tryGetFixture(prefix_name);
+                    // name & UUID as tuple
+                    // note that UUID may be 0 if prefix was not found
+                    return Py_BuildValue("sK", prefix_name, fixture ? fixture->getUUID() : 0);
                 }
             }
-            return Py_None;
+            Py_RETURN_NONE;
+        } else if (PyObjectIterable_Check(py_object)) {
+            fixture = reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture();            
+        } else if (PyObjectIterator_Check(py_object)) {
+            fixture = reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture();
+        } else if (PyEnum_Check(py_object)) {
+            auto &enum_ = reinterpret_cast<PyEnum*>(py_object)->ext();
+            auto &enum_type_def = *enum_.m_enum_type_def;
+            if (enum_type_def.hasPrefix()) {
+                // try retrieving an already opened fixture / prefix
+                auto prefix_name = enum_type_def.getPrefixName();
+                // fixture may not exist of be accessible, in which case UUID will be 0
+                auto fixture = PyToolkit::getPyWorkspace().getWorkspace().tryGetFixture(prefix_name.c_str());
+                return Py_BuildValue("sK", prefix_name.c_str(), fixture ? fixture->getUUID() : 0);
+            }
+            Py_RETURN_NONE;
         } else if (PyObjectIterable_Check(py_object)) {
             fixture = reinterpret_cast<PyObjectIterable*>(py_object)->ext().getFixture();            
         } else if (PyObjectIterator_Check(py_object)) {
             fixture = reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture();
         } else {
             fixture = getFixtureOf(py_object);
-        }
-                
+        }            
+        
         if (!fixture) {
-            return Py_None;
+            // there's no prefix associated with the object
+            Py_RETURN_NONE;
         }
         
         // name & UUID as tuple
         return Py_BuildValue("sK", fixture->getPrefix().getName().c_str(), fixture->getUUID());        
     }
-    
-    PyObject *getCurrentPrefix(PyObject *, PyObject *)
+
+    PyObject *PyAPI_getPrefixOf(PyObject *self, PyObject *args)
     {
         PY_API_FUNC
+        return runSafe(tryGetPrefixOf, self, args);
+    }
+    
+    PyObject *tryGetCurrentPrefix(PyObject *, PyObject *)
+    {
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
         // name & UUID as tuple
         return Py_BuildValue("sK", fixture->getPrefix().getName().c_str(), fixture->getUUID());        
+    }
+    
+    PyObject *PyAPI_getCurrentPrefix(PyObject *self, PyObject *args)
+    {
+        PY_API_FUNC
+        return runSafe(tryGetCurrentPrefix, self, args);
     }
     
     PyObject *tryDel(PyObject *self, PyObject *args)
@@ -683,12 +715,12 @@ namespace db0::python
     using QueryObserver = db0::object_model::QueryObserver;
     
     std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
-    splitBy(PyObject *py_tag_list, const ObjectIterable &iterable)
-    {        
+    splitBy(PyObject *py_tag_list, const ObjectIterable &iterable, bool exclusive)
+    {
         std::vector<std::unique_ptr<QueryObserver> > query_observers;
         auto query = iterable.beginFTQuery(query_observers, -1);
         auto &tag_index = iterable.getFixture()->get<db0::object_model::TagIndex>();
-        auto result = tag_index.splitBy(py_tag_list, std::move(query));
+        auto result = tag_index.splitBy(py_tag_list, std::move(query), exclusive);
         query_observers.push_back(std::move(result.second));
         return { std::move(result.first), std::move(query_observers) };
     }
@@ -696,18 +728,22 @@ namespace db0::python
     PyObject *trySplitBy(PyObject *args, PyObject *kwargs)
     {
         // extract 2 object arguments
-        PyObject *py_tag_list = nullptr;
+        PyObject *py_tags = nullptr;
         PyObject *py_query = nullptr;
-        if (!PyArg_ParseTuple(args, "OO", &py_tag_list, &py_query)) {
-            THROWF(db0::InputException) << "Invalid argument type";
+        int exclusive = true;
+        // tags, query, exclusive (bool)
+        static const char *kwlist[] = {"tags", "query", "exclusive", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", const_cast<char**>(kwlist), &py_tags, &py_query, &exclusive)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
         }
-        
+                
         if (!PyObjectIterable_Check(py_query)) {
             THROWF(db0::InputException) << "Invalid argument type";
         }
         
         auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->modifyExt();
-        auto split_query = splitBy(py_tag_list, iter);
+        auto split_query = splitBy(py_tags, iter, exclusive);
         auto py_iter = PyObjectIterableDefault_new();
         iter.makeNew(&(py_iter.get())->modifyExt(), std::move(split_query.first), std::move(split_query.second),
             iter.getFilters());
@@ -889,7 +925,7 @@ namespace db0::python
         
         return runSafe(tryGetAddress, args[0]);
     }
-    
+
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *)
     {
@@ -936,27 +972,27 @@ namespace db0::python
         if (!PyArg_ParseTuple(args,  "O", &py_object)) {
             return NULL;
         }
-        if(kwargs != nullptr){
-            if(!PyArg_ValidateKeywordArguments(kwargs)){
+        if (kwargs != nullptr) {
+            if (!PyArg_ValidateKeywordArguments(kwargs)) {
                 return NULL;
             }
             py_exclude = PyDict_GetItemString(kwargs, "exclude");
         }
-        if(py_exclude != nullptr) {
+        if (py_exclude != nullptr) {
             if (!PySequence_Check(py_exclude) || PyUnicode_Check(py_exclude)) {
                 PyErr_SetString(PyExc_TypeError, "Invalid argument type. Exclude shoud be a sequence");
                 return NULL;
             }
-            if(!PyMemo_Check(py_object)) {
+            if (!PyMemo_Check(py_object)) {
                 PyErr_SetString(PyExc_TypeError, "Exclude is only supported for memo objects");
                 return NULL;
             }
         }
-
+        
         PY_API_FUNC
         return runSafe(tryLoad, py_object, kwargs, py_exclude);
     }
-
+    
     PyObject *PyAPI_hash(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {
@@ -965,6 +1001,60 @@ namespace db0::python
         }
         PY_API_FUNC
         return runSafe(get_py_hash_as_py_object, args[0]);
+    }
+
+    PyObject *PyAPI_materialized(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "materialized requires exactly 1 argument");
+            return NULL;
+        }
+        PY_API_FUNC
+        return runSafe(getMaterializedMemoObject, args[0]);
+    }
+
+    PyObject *tryWait(const char *prefix, int state, int timeout)
+    {
+        db0::swine_ptr<Fixture> fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix, AccessType::READ_ONLY);
+        if(fixture->getAccessType() == AccessType::READ_WRITE) {
+            PyErr_SetString(PyExc_RuntimeError, "wait() not supported for read-write prefix");
+            return nullptr;
+        }
+
+        std::optional<std::chrono::milliseconds> optional_timeout;
+        if(timeout > 0) {
+            optional_timeout.emplace(timeout);
+        }
+
+        while(fixture->getPrefix().getStateNum() < (StateNumType)state) {
+            if(!fixture->awaitUpdate(optional_timeout)) {
+                Py_RETURN_FALSE;
+            }
+            fixture->refresh();
+        }
+        Py_RETURN_TRUE;
+    }
+
+    PyObject *PyApi_wait(PyObject*, PyObject *args, PyObject *kwargs)
+    {
+        const char *prefix = nullptr;
+        int state = 0;
+        int timeout = 0;
+        const char *kwlist[] = {"prefix", "state", "timeout", nullptr};
+        if(!PyArg_ParseTupleAndKeywords(args, kwargs, "si|i:wait", const_cast<char**>(kwlist), &prefix, &state, &timeout)) {
+            return nullptr;
+        }
+        if(state <= 0) {
+            PyErr_SetString(PyExc_ValueError, "state number have to be greater than 0");
+            return nullptr;
+        }
+        if(timeout < 0) {
+            PyErr_SetString(PyExc_ValueError, "timeout have to be a positive integer");
+            return nullptr;
+        }
+
+        PY_API_FUNC
+        return runSafe(tryWait, prefix, state, timeout);
     }
     
 }

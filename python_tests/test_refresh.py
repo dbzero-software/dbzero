@@ -399,4 +399,55 @@ def test_refresh_query_while_adding_new_objects(db0_fixture):
         p.terminate()
         p.join()
         db0.close()
-    
+
+
+def test_wait_for_updates(db0_fixture):
+    prefix = db0.get_current_prefix().name
+    db0.commit()
+    db0.close()
+
+    def writer_process(prefix, writer_sem, reader_sem):
+        db0.init(DB0_DIR)
+        db0.open(prefix, "rw")
+        reader_sem.release()
+        while True:
+            if not writer_sem.acquire(timeout=3.0):
+                return # Safeguard
+            time.sleep(0.1)
+            _obj = MemoTestClass(123)
+            db0.commit()
+
+    writer_sem = multiprocessing.Semaphore(0)
+    reader_sem = multiprocessing.Semaphore(0)
+    def make_trasaction(n):
+        for _ in range(n):
+            writer_sem.release()
+
+    p = multiprocessing.Process(target=writer_process, args=(prefix, writer_sem, reader_sem))
+    p.start()
+    reader_sem.acquire()
+
+    db0.init(DB0_DIR)
+    db0.open(prefix, "r")
+
+    # Start waiting before transactions complete
+    current_num = db0.get_state_num(prefix)
+    make_trasaction(5)
+    assert db0.wait(prefix, current_num + 5, 1000)
+
+    # Start waiting after transactions complete
+    current_num = db0.get_state_num(prefix)
+    make_trasaction(2)
+    time.sleep(0.5)
+    assert db0.wait(prefix, current_num + 2, 1000)
+
+    current_num = db0.get_state_num(prefix)
+    # Wait current state
+    assert db0.wait(prefix, current_num, 1000)
+    # Wait past state
+    assert db0.wait(prefix, current_num - 2, 1000)
+    # Wait timeout
+    assert db0.wait(prefix, current_num + 1, 1000) == False
+
+    p.terminate()
+    p.join()

@@ -79,7 +79,7 @@ namespace db0
         if (result_str == 0) {
             THROWF(db0::InternalException) << "Failed to aquire lock of: " << m_lockPath;
         }
-
+        
         Py_DECREF(keywords);
         Py_DECREF(args);
         Py_DECREF(result);

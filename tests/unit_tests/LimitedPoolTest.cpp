@@ -36,10 +36,11 @@ namespace tests
         auto addr_0 = pool.add(123);
         auto addr_1 = pool.add(456);
         int value;
-        value = pool.fetch<int>(addr_0);
+        db0::MemLock lock;
+        value = pool.fetch<int>(addr_0, lock);
         ASSERT_EQ(value, 123);
 
-        value = pool.fetch<int>(addr_1);
+        value = pool.fetch<int>(addr_1, lock);
         ASSERT_EQ(value, 456);
     }
 
@@ -109,6 +110,13 @@ namespace tests
         ASSERT_EQ(pool.size(), 1);
         pool.unRefByAddr(addr_2);
         ASSERT_EQ(pool.size(), 0);
+    }
+    
+    TEST_F( LimitedPoolTest , testOStringStorageSize )
+    {
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        db0::v_object<db0::o_string> cut(memspace, "serving_temps");
+        ASSERT_EQ(cut->sizeOf(), 14);
     }
 
 }

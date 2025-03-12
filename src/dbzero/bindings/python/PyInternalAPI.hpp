@@ -34,7 +34,7 @@ namespace db0::python
     PyObject *fetchListObject(db0::swine_ptr<Fixture> &, ObjectId);
     
     /**
-     * Open DBZero object from a specific fixture
+     * Open dbzero object from a specific fixture
      * with optional type validation
     */
     shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, 
@@ -74,13 +74,13 @@ namespace db0::python
     shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &, PyObject *const *args, Py_ssize_t nargs);
     
     /**
-     * Open DBZero object by UUID     
+     * Open dbzero object by UUID     
      * @param py_expected_type - expected Python type of the object
     */    
     shared_py_object<PyObject*> fetchObject(db0::Snapshot &, ObjectId object_id, PyTypeObject *py_expected_type = nullptr);
 
     /**
-     * Open DBZero singleton by its corresponding Python type
+     * Open dbzero singleton by its corresponding Python type
     */
     PyObject *fetchSingletonObject(db0::Snapshot &, PyTypeObject *py_type);
 
@@ -100,8 +100,6 @@ namespace db0::python
 
     PyObject *trySetCacheSize(db0::Workspace *, std::size_t new_cache_size);
     
-    PyObject *_PyObject_GetDescrOptional(PyObject *obj, PyObject *name);
-    
     PyObject *tryGetRefCount(PyObject *);
     
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs);
@@ -114,6 +112,8 @@ namespace db0::python
     
     // Load dbzero object to memory
     PyObject *tryLoad(PyObject *, PyObject*, PyObject *py_exlude = nullptr);
+    
+    PyObject *getMaterializedMemoObject(PyObject *py_obj);
     
     // Retrieve prefix (its Fixture objects) from the optional argument "prefix"
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name);

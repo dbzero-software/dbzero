@@ -1,5 +1,6 @@
 #include "PyEnum.hpp"
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/Utils.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
 
@@ -38,38 +39,43 @@ namespace db0::python
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
-
-    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr)
+    
+    shared_py_object<PyObject*> tryPyEnum_getenum(PyEnum *self, PyObject *attr)
     {
         auto &enum_ = self->ext();
         if (enum_.exists()) {
-            return enum_.get().getLangValue(PyUnicode_AsUTF8(attr)).steal();
+            return enum_.get().tryGetLangValue(PyUnicode_AsUTF8(attr));
         } else {
-            if (!PyToolkit::getPyWorkspace().hasWorkspace()) {
-                PyErr_SetString(PyExc_RuntimeError, "Unable to get enum value without a workspace");
-                return NULL;
+            if (PyToolkit::getPyWorkspace().hasWorkspace()) {
+                // note that enum is created on demand
+                auto enum_ptr = self->modifyExt().tryCreate();
+                if (enum_ptr) {
+                    return enum_ptr->tryGetLangValue(PyUnicode_AsUTF8(attr));
+                }
             }
-            // note that enum is created on demand
-            auto enum_ptr = self->modifyExt().tryCreate();
-            if (enum_ptr) {
-                return enum_ptr->getLangValue(PyUnicode_AsUTF8(attr)).steal();
-            }
-            // if unable to create (e.g. prefix not accessible for read/write) then
+            
+            // if unable to create (e.g. prefix not accessible for read/write or Worspace unavailable) then
             // return a value placeholder
-            if (!self->ext().hasValue(PyUnicode_AsUTF8(attr))) {
-                THROWF(db0::InputException) << "Enum value not found: " << PyUnicode_AsUTF8(attr);                
+            if (enum_.hasValue(PyUnicode_AsUTF8(attr))) {                        
+                return makePyEnumValueRepr(enum_.m_enum_type_def, PyUnicode_AsUTF8(attr)).steal();
             }
-            return makePyEnumValueRepr(enum_.m_enum_type_def, PyUnicode_AsUTF8(attr)).steal();
+            return nullptr;
         }
     }
     
+    PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr)
+    {   
+        auto obj_ptr = tryPyEnum_getenum(self, attr);
+        if (obj_ptr) {
+            return obj_ptr.steal();
+        }
+                
+        return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(self), attr, NULL, 0);        
+    }
+
     PyObject *PyEnum_getattro(PyEnum *self, PyObject *attr)
     {
         PY_API_FUNC
-        auto res = _PyObject_GetDescrOptional(reinterpret_cast<PyObject*>(self), attr);
-        if (res) {
-            return res;
-        }
         return runSafe(tryPyEnum_getattro, self, attr);
     }
     
@@ -141,7 +147,7 @@ namespace db0::python
                 return getEnumValuesRepr(self);
             }
         }
-        
+                
         auto enum_values = enum_->getValues();
         auto py_tuple = PyTuple_New(enum_values.size());
         unsigned int index = 0;
@@ -246,6 +252,95 @@ namespace db0::python
         {NULL}
     };
     
+    PyObject *EnumValueRepr_rq(PyEnumValueRepr *enum_value_repr_obj, PyObject *other, int op)
+    {
+        // Compare to other enum value repr
+        if (PyEnumValueRepr_Check(other)) {
+            PyEnumValueRepr *other_enum_value_repr = (PyEnumValueRepr*) other;
+            switch (op)
+            {
+            case Py_EQ:
+                return PyBool_fromBool(enum_value_repr_obj->ext() == other_enum_value_repr->ext());
+            case Py_NE:
+                return PyBool_fromBool(enum_value_repr_obj->ext() != other_enum_value_repr->ext());
+            default:
+                Py_RETURN_NOTIMPLEMENTED;
+            }
+        // Compare to enum value
+        } else if (PyEnumValue_Check(other)) {
+            PyEnumValue *other_enum_value = (PyEnumValue*) other;
+            auto &enum_value = other_enum_value->ext();
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(enum_value.m_fixture_uuid);
+            auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
+            // try converting value repr to enum value
+            auto enum_ = enum_factory.tryGetEnumValue(enum_value_repr_obj->ext());
+            
+            switch (op)
+            {
+                case Py_EQ: {
+                    if (enum_) {
+                        // compare as enum values
+                        return PyBool_fromBool(*enum_ == enum_value);
+                    } else {
+                        Py_RETURN_FALSE;
+                    }
+                }
+                break;
+                
+                case Py_NE: {
+                    if (enum_) {
+                        // compare as enum values
+                        return PyBool_fromBool(*enum_ != enum_value);
+                    } else {
+                        Py_RETURN_TRUE;
+                    }
+                }
+                break;
+
+                default: {
+                    Py_RETURN_NOTIMPLEMENTED;
+                }
+            }
+        } else {
+            Py_RETURN_NOTIMPLEMENTED;            
+        }
+    }
+
+    PyObject *EnumValue_rq(PyEnumValue *enum_value_obj, PyObject *other, int op)
+    {        
+        // Compare to other enum value
+        if (PyEnumValue_Check(other)) {
+            PyEnumValue *other_enum_value = (PyEnumValue*) other;
+            switch (op)
+            {
+            case Py_EQ:
+                return PyBool_fromBool(enum_value_obj->ext() == other_enum_value->ext());
+            case Py_NE:
+                return PyBool_fromBool(enum_value_obj->ext() != other_enum_value->ext());
+            default:
+                Py_RETURN_NOTIMPLEMENTED;
+            }
+        // Compare to enum value repr
+        } else if (PyEnumValueRepr_Check(other)) {
+            return EnumValueRepr_rq((PyEnumValueRepr*) other, enum_value_obj, op);
+        } else {
+            Py_RETURN_NOTIMPLEMENTED;
+        }
+    }
+
+    PyObject *PyAPI_EnumValue_rq(PyEnumValue *enum_value_obj, PyObject *other, int op)
+    {
+        PY_API_FUNC
+        return runSafe(EnumValue_rq, enum_value_obj, other, op);
+    }
+    
+    Py_hash_t PyAPI_PyEnumValue_hash(PyObject *enum_value_obj)
+    {
+        PY_API_FUNC
+        auto &enum_value = PyToolkit::getTypeManager().extractEnumValue(enum_value_obj);
+        return enum_value.getUID().asULong();
+    }
+
     PyTypeObject PyEnumValueType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.EnumValue",
@@ -253,25 +348,34 @@ namespace db0::python
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyEnumValue_del,
         .tp_repr = reinterpret_cast<reprfunc>(PyEnumValue_repr),
+        .tp_hash = reinterpret_cast<hashfunc>(PyAPI_PyEnumValue_hash),
         .tp_str = reinterpret_cast<reprfunc>(PyEnumValue_str),        
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "Enum value object",
+        .tp_richcompare = (richcmpfunc)PyAPI_EnumValue_rq,
         .tp_methods = PyEnumValue_methods,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PyEnumValue_new,
         .tp_free = PyObject_Free,
     };
-
+    
+    PyObject *PyAPI_EnumValueRepr_rq(PyEnumValueRepr *enum_value_repr_obj, PyObject *other, int op)
+    {
+        PY_API_FUNC
+        return runSafe(EnumValueRepr_rq, enum_value_repr_obj, other, op);
+    }
+    
     PyTypeObject PyEnumValueReprType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.EnumValue",
+        .tp_name = "dbzero_ce.EnumValueRepr",
         .tp_basicsize = PyEnumValue::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyEnumValue_del,
         .tp_repr = reinterpret_cast<reprfunc>(PyEnumValueRepr_repr),
         .tp_str = reinterpret_cast<reprfunc>(PyEnumValueRepr_str),        
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "Enum value object",        
+        .tp_doc = "Enum value object",
+        .tp_richcompare = (richcmpfunc)PyAPI_EnumValueRepr_rq,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PyEnumValue_new,
         .tp_free = PyObject_Free,
@@ -281,6 +385,10 @@ namespace db0::python
         return Py_TYPE(py_object) == &PyEnumType;        
     }
 
+    bool PyEnumType_Check(PyTypeObject *py_type) {
+        return py_type == &PyEnumType;
+    }
+    
     bool PyEnumValue_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyEnumValueType;        
     }
@@ -298,7 +406,7 @@ namespace db0::python
         PyToolkit::getTypeManager().addEnum(py_enum);
         return py_enum;
     }
-
+    
     PyObject *tryMakeEnumFromType(PyObject *self, PyTypeObject *py_type, const std::vector<std::string> &enum_values,
         const char *type_id, const char *prefix_name)
     {
@@ -338,7 +446,7 @@ namespace db0::python
         EnumValueRepr::makeNew(&py_enum_value.get()->modifyExt(), enum_type_def, value);
         return py_enum_value;
     }
-
+    
     PyObject *tryLoadEnumValue(PyEnumValue *py_enum_value) {
         // load as string
         return PyEnumValue_str(py_enum_value);        
@@ -350,7 +458,7 @@ namespace db0::python
         // translation is needed if prefixes differ
         return (enum_value.m_fixture_uuid != fixture->getUUID());
     }
-    
+
     shared_py_object<PyObject*> migratedEnumValue(db0::swine_ptr<Fixture> &fixture, PyEnumValue *py_enum_value)
     {
         auto &enum_value = py_enum_value->ext();
@@ -362,6 +470,5 @@ namespace db0::python
         // migrate enum value to the destination fixture
         return fixture->get<db0::object_model::EnumFactory>().migrateEnumLangValue(enum_value);        
     }
-    
-}
 
+}

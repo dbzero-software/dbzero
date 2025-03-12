@@ -170,12 +170,12 @@ namespace db0::object_model
     }
     
     void Class::refreshMemberCache() const
-    {
+    {        
         assert(m_members.size() >= m_member_cache.size());
         if (m_members.size() == m_member_cache.size()) {
             return;
         }
-
+        
         // fetch all members into cache
         unsigned int index = m_member_cache.size();
         auto &string_pool = getFixture()->getLimitedStringPool();
@@ -300,9 +300,14 @@ namespace db0::object_model
         m_members.detach();
         super_t::detach();
     }
+<<<<<<< HEAD
     
     void Class::unlinkSingleton()
     {
+=======
+         
+    void Class::unlinkSingleton() {
+>>>>>>> main
         modify().m_singleton_address = 0;
     }
     
@@ -405,6 +410,7 @@ namespace db0::object_model
         }
         return m_base_class_ptr;
     }
+<<<<<<< HEAD
 
     void Class::setInitVars(const std::vector<std::string> &init_vars)
     {
@@ -419,4 +425,7 @@ namespace db0::object_model
         }
     }
 
+=======
+    
+>>>>>>> main
 }

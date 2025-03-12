@@ -35,7 +35,7 @@ namespace db0::python
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_PyAtomic_del, 
         .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero atomic operation context",
+        .tp_doc = "dbzero atomic operation context",
         .tp_methods = PyAtomic_methods,
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)PyAtomic_new,
@@ -74,7 +74,7 @@ namespace db0::python
     PyObject *tryPyAtomic_close(PyAtomic *self)
     {        
         self->modifyExt().close();
-        return Py_None;
+        Py_RETURN_NONE;
     }
 
     PyObject *PyAPI_PyAtomic_close(PyObject *self, PyObject *args)
@@ -86,7 +86,7 @@ namespace db0::python
     PyObject *tryPyAtomic_cancel(PyAtomic *self)
     {    
         self->modifyExt().cancel();
-        return Py_None;
+        Py_RETURN_NONE;
     }
     
     PyObject *PyAPI_PyAtomic_cancel(PyObject *self, PyObject *args)

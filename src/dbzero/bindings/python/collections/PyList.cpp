@@ -14,7 +14,7 @@ namespace db0::python
     using ListIteratorObject = PyWrapper<db0::object_model::ListIterator, false>;
 
     PyTypeObject ListIteratorObjectType = GetIteratorType<ListIteratorObject>("dbzero_ce.ListIterator",
-                                                                              "DBZero list iterator");
+                                                                              "dbzero list iterator");
     
     ListIteratorObject *PyAPI_ListObject_iter(ListObject *self)
     {
@@ -32,7 +32,7 @@ namespace db0::python
     
     PyObject *ListObject_copy(ListObject *py_src_list)
     {
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
         db0::FixtureLock lock(py_src_list->ext().getFixture());
         py_src_list->ext().copy(&py_list->modifyExt(), *lock);
@@ -188,7 +188,7 @@ namespace db0::python
             case Py_NE:
                 return PyBool_fromBool(list_obj->ext() != other_list->ext());
             default:
-                return Py_NotImplemented;
+                Py_RETURN_NOTIMPLEMENTED;
             }
         } else {
             PyObject *iterator = PyObject_GetIter(other);
@@ -199,7 +199,7 @@ namespace db0::python
             case Py_NE:
                 return PyBool_fromBool(!has_all_elements_same(list_obj, iterator));
             default:
-                return Py_NotImplemented;
+                Py_RETURN_NOTIMPLEMENTED;
             }
 
             Py_DECREF(iterator);
@@ -217,7 +217,7 @@ namespace db0::python
         .tp_as_sequence = &ListObject_sq,
         .tp_as_mapping = &ListObject_mp,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero indexed collection object",
+        .tp_doc = "dbzero indexed collection object",
         .tp_richcompare = (richcmpfunc)PyAPI_ListObject_rq,
         .tp_iter = (getiterfunc)PyAPI_ListObject_iter,
         .tp_methods = ListObject_methods,        

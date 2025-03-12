@@ -139,3 +139,21 @@ class MemoTestCustomLoadClassWithParams:
             "v2_v3": {self.value_2: self.value_3},
             "param": param
         }
+    
+@db0.memo
+class MemoTestClassPropertiesAndImmutables:
+    def __init__(self, value):
+        self.__value = value
+        self.some_param = 5
+
+    @db0.immutable
+    def immutable_func(self):
+        return self.value
+
+    @property
+    def value(self):
+        return self.__value
+
+    def normal_method(self):
+        print("normal method")
+    

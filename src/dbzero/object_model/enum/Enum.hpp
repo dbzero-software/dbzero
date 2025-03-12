@@ -53,12 +53,13 @@ namespace db0::object_model
         Enum(db0::swine_ptr<Fixture> &, const std::string &name, const std::string &module_name, 
             const std::vector<std::string> &values, const char *type_id = nullptr);
         ~Enum();
-                
+        
         std::string getName() const;
         std::string getModuleName() const;
         
         // exception thrown if value not found
         LP_String find(const char *value) const;
+        LP_String tryFind(const char *value) const;
 
         static Enum *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, const std::string &name, const std::string &module_name,
             const std::vector<std::string> &values, const char *type_id = nullptr);
@@ -67,8 +68,9 @@ namespace db0::object_model
         // it's implemented as a relative address from the underlying SLOT
         std::uint32_t getUID() const { return m_uid; }
         
+        EnumValue tryGet(const char *value) const;
         EnumValue get(const char *value) const;
-        EnumValue get(EnumValue_UID) const;
+        EnumValue get(EnumValue_UID) const;        
         
         // Get enum value as a language-specific type
         ObjectSharedPtr getLangValue(const char *value) const;
@@ -76,6 +78,8 @@ namespace db0::object_model
         ObjectSharedPtr getLangValue(const EnumValue &) const;
         // retrieve value by its ordinal index
         ObjectSharedPtr getLangValue(unsigned int at) const;
+        // returns nullptr if a value does not exist
+        ObjectSharedPtr tryGetLangValue(const char *value) const;
         
         // Retrieve all enum defined values ordered by index
         std::vector<EnumValue> getValues() const;

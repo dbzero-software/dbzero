@@ -141,7 +141,7 @@ namespace db0::object_model
             auto index_vt_data = initializer.getData(pos_vt_data);
             
             // place object in the same fixture as its class
-            // construct the DBZero instance & assign to self
+            // construct the dbzero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
             super_t::init(*fixture, ClassFactory::classRef(*m_type), initializer.getRefCount(), pos_vt_data,
@@ -251,7 +251,7 @@ namespace db0::object_model
     }
     
     bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
-    {        
+    {
         /* FIXME:
         if (strcmp(field_name, "__cache__") == 0) {
             if (!initialized()) {
@@ -277,8 +277,17 @@ namespace db0::object_model
         }
         
         assert(class_ptr);
-        auto [field_id, is_init_var] = class_ptr->findField(field_name);
-        return tryGetMemberAt(field_id, is_init_var, member);    
+        auto field_index = class_ptr->findField(field_name); 
+        
+        if (field_index == Class::NField) {
+            /* FIXME
+            // try pulling from cached members if not found
+            return getMemberCacheReference().get(field_name);
+            */
+           return false;
+        }
+        
+        return tryGetMemberAt(field_index, member);
     }
     
     Object::ObjectSharedPtr Object::tryGet(const char *field_name) const
@@ -631,5 +640,16 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         return fixture->get<ClassFactory>().getTypeByClassRef((*this)->m_class_ref).m_class;
     }
+<<<<<<< HEAD
+=======
+    
+    std::uint64_t Object::getAddress() const
+    {
+        if (!hasInstance()) {
+            THROWF(db0::InternalException) << "Object instance does not exist yet (did you forget to use db0.materialized(self) in constructor ?)";
+        }
+        return super_t::getAddress();
+    }
+>>>>>>> main
 
 }

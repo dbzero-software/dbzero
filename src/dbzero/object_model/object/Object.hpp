@@ -119,7 +119,7 @@ namespace db0::object_model
         */
         
         /**
-         * Construct new Object (uninitialized, without corresponding DBZero instance yet) 
+         * Construct new Object (uninitialized, without corresponding dbzero instance yet) 
          * at a specific memory location
         */
         static Object *makeNew(void *at_ptr, std::shared_ptr<Class>);
@@ -174,7 +174,7 @@ namespace db0::object_model
 
         static std::shared_ptr<DBZObject> __new(const bp::object &py_class);
         
-        // Pull instance from DBZero and assign type
+        // Pull instance from dbzero and assign type
         static std::shared_ptr<DBZObject> __ref(std::uint64_t dbz_addr, std::shared_ptr<DBZClass>);
 
         static std::shared_ptr<DBZObject> __ref(db0::long_ptr, std::shared_ptr<DBZClass>);
@@ -231,6 +231,8 @@ namespace db0::object_model
 
         void commit() const;
         
+        std::uint64_t getAddress() const;
+        
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
@@ -248,7 +250,7 @@ namespace db0::object_model
         
         void setType(std::shared_ptr<Class>);
         
-        // Pull existing reference from DBZero as a specific type (schema on read)
+        // Pull existing reference from dbzero as a specific type (schema on read)
         // DBZObject(db0::mptr ptr, std::shared_ptr<DBZClass> type);
         
         // Initialize as the same DB0 instance (only allowed for uninitialized instances)

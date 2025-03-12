@@ -17,7 +17,7 @@ namespace db0::pools
     RC_LimitedStringPool::PtrT RC_LimitedStringPool::add(bool &inc_ref, const char *value) {
         return super_t::add(inc_ref, value);
     }
-
+    
     RC_LimitedStringPool::PtrT RC_LimitedStringPool::add(bool &inc_ref, const std::string &value) {
         return super_t::add(inc_ref, value);
     }
@@ -49,8 +49,10 @@ namespace db0::pools
         return get(value.c_str());
     }
 
-    std::string RC_LimitedStringPool::fetch(PtrT ptr) const {
-        return super_t::fetch<const ItemT&>(ptr.m_value).second();
+    std::string RC_LimitedStringPool::fetch(PtrT ptr) const
+    {
+        MemLock lock;
+        return super_t::fetch<const ItemT&>(ptr.m_value, lock).second();
     }
     
     std::uint64_t RC_LimitedStringPool::toAddress(PtrT ptr) const {

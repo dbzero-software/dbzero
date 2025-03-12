@@ -56,10 +56,23 @@ namespace db0::object_model
         // unregister needs to be called before destruction of members
         unregister();
     }
-    
+
+    LP_String Enum::tryFind(const char *value) const
+    {
+        assert(value);
+        decltype(LP_String::m_value) value_id;
+        if (!m_string_pool.find(value, value_id)) {
+            return LP_String();
+        }
+        if (m_values.find(value_id) == m_values.end()) {
+            return LP_String();
+        }
+        return value_id;
+    }
+
     LP_String Enum::find(const char *value) const
     {
-        assert(value);        
+        assert(value);
         decltype(LP_String::m_value) value_id;
         if (!m_string_pool.find(value, value_id)) {
             THROWF(db0::InputException) << "Enum value not found: " << value;
@@ -69,7 +82,7 @@ namespace db0::object_model
         }
         return value_id;
     }
-    
+
     std::uint32_t Enum::fetchUID() const
     {
         // return UID as relative address from the underlying SLOT
@@ -79,13 +92,23 @@ namespace db0::object_model
         return result;
     }
     
+    EnumValue Enum::tryGet(const char *str_value) const
+    {
+        assert(str_value);
+        auto value = tryFind(str_value);
+        if (!value) {
+            return {};
+        }
+        return { m_fixture_uuid, m_uid, value, std::string(str_value) };
+    }
+
     EnumValue Enum::get(const char *str_value) const
     {
         assert(str_value);
         auto value = find(str_value);
         return { m_fixture_uuid, m_uid, value, std::string(str_value) };
     }
-    
+
     EnumValue Enum::get(EnumValue_UID enum_value_uid) const
     {
         if (m_values.find(enum_value_uid.m_value) == m_values.end()) {
@@ -94,7 +117,7 @@ namespace db0::object_model
         return { m_fixture_uuid, enum_value_uid.m_enum_uid, enum_value_uid.m_value, 
             m_string_pool.fetch(enum_value_uid.m_value) };
     }
-
+    
     std::vector<EnumValue> Enum::getValues() const
     {
         std::vector<EnumValue> values;
@@ -115,7 +138,23 @@ namespace db0::object_model
         }
         return it_cache->second.get();
     }
-
+    
+    Enum::ObjectSharedPtr Enum::tryGetLangValue(const char *value) const
+    {
+        auto it_cache = m_cache.find(value);
+        if (it_cache != m_cache.end()) {
+            return it_cache->second.get();    
+        }
+        
+        auto enum_value = tryGet(value);
+        if (!enum_value) {
+            return nullptr;
+        }
+        auto lang_value = LangToolkit::makeEnumValue(enum_value);
+        it_cache = m_cache.insert({value, lang_value}).first;
+        return it_cache->second.get();
+    }
+    
     Enum::ObjectSharedPtr Enum::getLangValue(EnumValue_UID value_uid) const {
         return getLangValue(get(value_uid).m_str_repr.c_str());
     }

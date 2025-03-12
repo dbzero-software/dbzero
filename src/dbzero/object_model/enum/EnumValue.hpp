@@ -37,20 +37,31 @@ namespace db0::object_model
         const EnumTypeDef &getEnumTypeDef() const;
         
         static EnumValueRepr &makeNew(void *at, std::shared_ptr<EnumTypeDef>, const std::string &str_repr);
+
+        bool operator==(const EnumValueRepr &other) const;        
+        bool operator!=(const EnumValueRepr &other) const;        
     };
     
     struct EnumValue
     {
         // associated fixture UUID (for context validation purposes)
-        std::uint64_t m_fixture_uuid;
-        // the associated enum's UID (i.e. its address from the dedicated address pool)
-        std::uint32_t m_enum_uid;
+        std::uint64_t m_fixture_uuid = 0;
+        // the associated enum's UID (i.e. its address from the dedicated address pool)        
+        // Note that m_enum_id = 0 may be a vailid enum's UID
+        std::uint32_t m_enum_uid = 0;
         LP_String m_value;
         // the string representation
         std::string m_str_repr;
-
+        
         // get unique tag identifier (unique within its prefix)
         EnumValue_UID getUID() const;
+        
+        operator bool() const {
+            return m_fixture_uuid && m_value;
+        }
+
+        bool operator==(const EnumValue &) const;
+        bool operator!=(const EnumValue &) const;
     };
     
 } 

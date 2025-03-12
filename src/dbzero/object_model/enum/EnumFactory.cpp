@@ -106,9 +106,9 @@ namespace db0::object_model
     std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumTypeDef &enum_type_def) {
         return tryGetOrCreateEnum(enum_type_def.m_enum_def, enum_type_def.tryGetTypeId());
     }
-
+    
     std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumDef &enum_def, const char *type_id)
-    {        
+    {
         auto ptr = tryFindEnumPtr(enum_def, type_id);
         if (ptr) {
             return getEnumByPtr(ptr);
@@ -122,8 +122,9 @@ namespace db0::object_model
         }
         
         auto enum_ = std::shared_ptr<Enum>(
-            new Enum(fixture, enum_def.m_name, enum_def.m_module_name, enum_def.m_values, type_id));
+            new Enum(fixture, enum_def.m_name, enum_def.m_module_name, enum_def.m_values, type_id));                
         auto enum_ptr = EnumPtr(*enum_);
+        
         // inc-ref to persist the Enum
         enum_->incRef();
         // register Enum under all known key variants
@@ -133,7 +134,7 @@ namespace db0::object_model
                 m_enum_maps[i].insert_equal(variant_name->c_str(), enum_ptr);
             }
         }
-
+        
         // registering enum in the by-pointer cache (for accessing by-EnumPtr)
         return this->getEnum(enum_ptr, enum_);
     }
@@ -178,11 +179,11 @@ namespace db0::object_model
     }
     
     std::shared_ptr<Enum> EnumFactory::getEnumByPtr(EnumPtr ptr) const
-    {        
+    {
         auto it_cached = m_ptr_cache.find(ptr);
         if (it_cached == m_ptr_cache.end()) {
             auto fixture = getFixture();
-            // pull existing DBZero Enum instance by pointer
+            // pull existing dbzero Enum instance by pointer
             auto enum_ = std::shared_ptr<Enum>(new Enum(fixture, ptr.getAddress()));
             it_cached = m_ptr_cache.insert({ptr, enum_}).first;
         }
@@ -201,10 +202,12 @@ namespace db0::object_model
     }
     
     std::shared_ptr<Enum> EnumFactory::tryGetMigratedEnum(const EnumValue &other)
-    {
+    {        
+        assert(other);
         assert(other.m_fixture_uuid != getFixture()->getUUID());
-        auto &other_factory = this->getFixture()->getWorkspace().
-            getFixture(other.m_fixture_uuid, AccessType::READ_ONLY)->get<EnumFactory>();
+        // NOTE: this operation may not work if we're on a snapshot
+        // therefore enum resolution should be done from the "head" workspace
+        auto &other_factory = this->getFixture()->getWorkspace().getHeadWorkspace().getFixture(other.m_fixture_uuid)->get<EnumFactory>();
         auto other_enum = other_factory.getEnumByUID(other.m_enum_uid);
         auto type_id = other_enum->getTypeID();
         // FIXME: optimization
@@ -249,6 +252,7 @@ namespace db0::object_model
     
     EnumFactory::ObjectSharedPtr EnumFactory::tryMigrateEnumLangValue(const EnumValue &other)
     {
+        assert(other);
         if (other.m_fixture_uuid == getFixture()->getUUID()) {
             // retrieve from this factory
             return getEnumByUID(other.m_enum_uid)->getLangValue(other);

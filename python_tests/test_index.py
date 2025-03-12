@@ -49,7 +49,7 @@ def test_index_updates_are_flushed_on_close(db0_fixture):
     assert len(index) == 1
 
 
-def test_range_index_can_sort_results_of_tags_query(db0_fixture):
+def test_index_can_sort_results_of_tags_query(db0_fixture):
     index = db0.index()
     objects = [MemoTestClass(i) for i in range(5)]
     priority = [999, 666, 555, 888, 777]
@@ -65,7 +65,7 @@ def test_range_index_can_sort_results_of_tags_query(db0_fixture):
     assert values == [2, 1, 4, 3, 0]
 
 
-def test_range_index_can_store_nulls(db0_fixture):
+def test_index_can_store_nulls(db0_fixture):
     index = db0.index()
     objects = [MemoTestClass(i) for i in range(5)]
     priority = [666, None, 555, 888, None]
@@ -81,7 +81,7 @@ def test_range_index_can_store_nulls(db0_fixture):
     assert values == [2, 0, 3, 4, 1]
 
 
-def test_range_index_can_sort_by_multiple_criteria(db0_fixture):
+def test_index_can_sort_by_multiple_criteria(db0_fixture):
     index_1 = db0.index()
     index_2 = db0.index()
     objects = [MemoTestClass(i) for i in range(5)]
@@ -98,7 +98,7 @@ def test_range_index_can_sort_by_multiple_criteria(db0_fixture):
     assert values == [2, 0, 3, 1, 4]
 
 
-def test_range_index_can_sort_by_multiple_criteria_with_nulls(db0_fixture):
+def test_index_can_sort_by_multiple_criteria_with_nulls(db0_fixture):
     index_1 = db0.index()
     index_2 = db0.index()
     objects = [MemoTestClass(i) for i in range(5)]
@@ -122,7 +122,7 @@ def test_index_can_be_class_member(db0_fixture):
     assert len(object.value) == 1    
 
 
-def test_range_index_can_evaluate_range_query(db0_fixture):
+def test_index_can_evaluate_select_query(db0_fixture):
     index_1 = db0.index()
     objects = [MemoTestClass(i) for i in range(5)]
     priority = [666, 22, 99, 888, 444]
@@ -130,13 +130,13 @@ def test_range_index_can_evaluate_range_query(db0_fixture):
         # key, value
         index_1.add(priority[i], objects[i])
     
-    # retrieve specific range of keys
-    range_query = index_1.range(50, 700)
-    values = set([x.value for x in range_query])
+    # retrieve specific range of keys (unsorted)
+    select_query = index_1.select(50, 700)
+    values = set([x.value for x in select_query])
     assert values == set([0, 2, 4])
 
 
-def test_range_and_tag_filters_can_be_combined(db0_fixture):
+def test_select_and_tag_filters_can_be_combined(db0_fixture):
     ix_one = db0.index()
     objects = [MemoTestClass(i) for i in range(5)]
     priority = [666, 22, 99, 888, 444]
@@ -147,11 +147,11 @@ def test_range_and_tag_filters_can_be_combined(db0_fixture):
             db0.tags(objects[i]).add(["tag1", "tag2"])
     
     # retrieve specific range of keys    
-    values = set([x.value for x in db0.find("tag1", ix_one.range(99, 800))])
+    values = set([x.value for x in db0.find("tag1", ix_one.select(99, 800))])
     assert values == set([0, 2, 4])
 
 
-def test_range_index_query_is_inclusive_by_default(db0_fixture):
+def test_select_index_query_is_inclusive_by_default(db0_fixture):
     index_1 = db0.index()
     objects = [MemoTestClass(i) for i in range(5)]
     priority = [666, 22, 99, 888, 444]
@@ -159,7 +159,7 @@ def test_range_index_query_is_inclusive_by_default(db0_fixture):
         # key, value
         index_1.add(priority[i], objects[i])
         
-    values = set([x.value for x in index_1.range(22, 444)])
+    values = set([x.value for x in index_1.select(22, 444)])
     assert values == set([1, 2, 4])
 
 
@@ -179,7 +179,7 @@ def test_sorting_empty_tag_filter(db0_fixture):
     assert len(list(ix_one.sort(find("tag1", "tag2")))) == 0
 
 
-def test_range_index_can_sort_by_datetime(db0_fixture):
+def test_index_can_sort_by_datetime(db0_fixture):
     index = db0.index()
     dt_base = datetime.now()
     objects = [MemoTestClass(dt_base + timedelta(seconds=i + 1)) for i in range(5)]
@@ -195,7 +195,7 @@ def test_range_index_can_sort_by_datetime(db0_fixture):
         last_value = object.value
 
 
-def test_range_index_can_sort_by_datetime_between_years(db0_fixture):
+def test_index_can_sort_by_datetime_between_years(db0_fixture):
     index = db0.index()
     dt_base = datetime.now()
     objects = [MemoTestClass(dt_base + timedelta(days=(i + 1)*365)) for i in range(5)]
@@ -211,7 +211,7 @@ def test_range_index_can_sort_by_datetime_between_years(db0_fixture):
         last_value = object.value
 
 
-def test_range_index_can_sort_by_date(db0_fixture):
+def test_index_can_sort_by_date(db0_fixture):
     index = db0.index()
     dt_base = datetime.now().date()
     objects = [MemoTestClass((dt_base + timedelta(days=i + 1))) for i in range(5)]
@@ -230,7 +230,7 @@ def test_range_index_can_sort_by_date(db0_fixture):
     assert count == 5
 
 
-def test_range_index_can_sort_by_date_between_years(db0_fixture):
+def test_index_can_sort_by_date_between_years(db0_fixture):
     index = db0.index()
     dt_base = datetime.now().date()
     objects = [MemoTestClass((dt_base + timedelta(days=(i + 1)*365))) for i in range(5)]
@@ -288,47 +288,47 @@ def test_index_can_sort_all_null_values(db0_fixture):
     assert values == set([0, 1, 2])
 
 
-def test_low_unbounded_range_query(db0_fixture):
+def test_low_unbounded_select_query(db0_fixture):
     index = db0.index()
     for i in range(10):
         # add null elements only
         index.add(i, MemoTestClass(i))
 
     # run range query passing a concrete type
-    values = set([x.value for x in index.range(None, 4)])
+    values = set([x.value for x in index.select(None, 4)])
     assert values == set([0, 1, 2, 3, 4])
 
 
-def test_high_unbounded_range_query(db0_fixture):
+def test_high_unbounded_select_query(db0_fixture):
     index = db0.index()
     for i in range(10):
         # add null elements only
         index.add(i, MemoTestClass(i))
 
     # run range query passing a concrete type
-    values = set([x.value for x in index.range(7, None)])
+    values = set([x.value for x in index.select(7, None)])
     assert values == set([7, 8, 9])
 
 
-def test_both_side_unbounded_range_query(db0_fixture):
+def test_both_side_unbounded_select_query(db0_fixture):
     index = db0.index()
     for i in range(5):
         # add null elements only
         index.add(i, MemoTestClass(i))
 
     # run range query passing a concrete type
-    values = set([x.value for x in index.range(None, None)])
+    values = set([x.value for x in index.select(None, None)])
     assert values == set([0, 1, 2, 3, 4])
 
 
-def test_null_index_can_run_query_with_incompatible_range_type(db0_fixture):
+def test_null_index_can_run_query_with_incompatible_select_type(db0_fixture):
     index = db0.index()
     for i in range(3):
         # add null elements only
         index.add(None, MemoTestClass(i))
     
     # run range query passing a concrete type
-    values = set([x.value for x in index.range(datetime.now(), None)])
+    values = set([x.value for x in index.select(datetime.now(), None)])
     assert values == set([0, 1, 2])
 
 
@@ -344,7 +344,7 @@ def test_invalid_addr_case(db0_fixture):
     assert values == set([0, 1, 2])
 
 
-def test_null_first_range_query(db0_fixture):
+def test_null_first_select_query(db0_fixture):
     index = db0.index()
     # combine null + non-null elements
     index.add(None, MemoTestClass(999))
@@ -352,7 +352,7 @@ def test_null_first_range_query(db0_fixture):
         index.add(i, MemoTestClass(i))
 
     # null-first query should include null in the high-bound range
-    values = set([x.value for x in index.range(None, 1 , null_first=True)])
+    values = set([x.value for x in index.select(None, 1 , null_first=True)])
     assert values == set([999, 0, 1])
 
 
@@ -434,17 +434,17 @@ def test_scoped_datetime_index_issue(db0_fixture):
     obj = MemoScopedClass(db0.index(), prefix=prefix)    
     index = obj.value
     index.add(datetime.now(), MemoScopedClass(100, prefix=prefix))
-    assert len(list(index.range(None, None, null_first=True))) == 1
+    assert len(list(index.select(None, None, null_first=True))) == 1
 
 
-def test_range_query_on_empty_index(db0_fixture):
+def test_select_query_on_empty_index(db0_fixture):
     index = db0.index()
-    assert len(list(index.range(1, 2))) == 0
+    assert len(list(index.select(1, 2))) == 0
 
 
-def test_range_query_on_empty_index_using_non_default_range_type(db0_fixture):
+def test_select_query_on_empty_index_using_non_default_select_type(db0_fixture):
     index = db0.index()
-    assert len(list(index.range(None, datetime.now()))) == 0
+    assert len(list(index.select(None, datetime.now()))) == 0
 
 
 def test_unflushed_index_data_is_discarded_when_destroyed(db0_fixture):
@@ -486,21 +486,21 @@ def test_moved_index_updates_are_flushed_on_close(db0_fixture):
     assert len(root.value) == 1
 
 
-def test_index_unbounded_range_query(db0_fixture):
+def test_index_unbounded_select_query(db0_fixture):
     # 2-side unbounded range query
     index = db0.index()
     for i in range(10):
         index.add(i, MemoTestClass(i))
-    values = set([x for x in index.range(None, None)])
+    values = set([x for x in index.select(None, None)])
     assert len(values) == 10
 
 
-def test_index_default_range_query(db0_fixture):
+def test_index_default_select_query(db0_fixture):
     # a default range query should return all elements (unbounded)
     index = db0.index()
     for i in range(10):
         index.add(i, MemoTestClass(i))
-    values = set([x for x in index.range()])
+    values = set([x for x in index.select()])
     assert len(values) == 10
 
 
@@ -509,7 +509,7 @@ def test_index_destroys_its_depencencies_when_dropped(db0_fixture):
     index.add(1, MemoTestClass(999))
     index.add(None, MemoTestClass(999))
     dep_uuids = []
-    for obj in index.range(None, None):
+    for obj in index.select(None, None):
         dep_uuids.append(db0.uuid(obj))
         # NOTE: important to drop python reference to obj otherwise will be accessible outside of the scope
         del obj
@@ -548,7 +548,7 @@ def test_index_destroys_its_dependencies_when_removed(db0_fixture):
     dep_uuid = db0.uuid(obj)
     index.add(1, obj)
     del obj
-    for obj in index.range(None, None):
+    for obj in index.select(None, None):
         index.remove(1, obj)
         del obj
     index.flush()
@@ -567,7 +567,7 @@ def test_index_same_object_under_multiple_keys(db0_fixture):
         for key in range(10):
             index.add(key, obj)
     
-    assert len(list(index.sort(index.range(None, 3), desc=True))) == len(list(index.range(None, 3)))
+    assert len(list(index.sort(index.select(None, 3), desc=True))) == len(list(index.select(None, 3)))
     
     
 def test_index_add_remove_sequence_issue_1(db0_fixture):
@@ -612,11 +612,11 @@ def test_index_add_remove_sequence_issue_1(db0_fixture):
         db0.commit()
     
     # validate index with sort query
-    assert len(list(index.sort(index.range(None, 500), desc=True))) == len(list(index.range(None, 500)))
+    assert len(list(index.sort(index.select(None, 500), desc=True))) == len(list(index.select(None, 500)))
     del obj_arr
     
     
-def test_len_of_sorted_range_query(db0_fixture):
+def test_len_of_sorted_query(db0_fixture):
     index = db0.index()
     objects = [MemoTestClass(i) for i in range(5)]
     priority = [999, 666, 555, 888, 777]
@@ -629,7 +629,7 @@ def test_len_of_sorted_range_query(db0_fixture):
     assert len(query) == 5
 
 
-def test_combine_multiple_range_queries_with_find(db0_fixture):
+def test_combine_multiple_select_queries_with_find(db0_fixture):
     ix_priority = db0.index()
     ix_date = db0.index()
     objects = [MemoTestClass(i) for i in range(5)]
@@ -639,25 +639,67 @@ def test_combine_multiple_range_queries_with_find(db0_fixture):
         ix_priority.add(priority[i], objects[i])
         ix_date.add(dates[i], objects[i])
     
-    query = db0.find(ix_priority.range(500, 800), ix_date.range(None, dates[3]))
+    query = db0.find(ix_priority.select(500, 800), ix_date.select(None, dates[3]))
     assert len(query) == 2
 
 
-def test_find_in_index_range(db0_fixture):
+def test_find_in_index_select(db0_fixture):
     index = db0.index()
     index.add(1, MemoTestClass(1))
     index.add(2, MemoTestClass(2))
     test_obj = MemoTestClass(3)
     index.add(3, test_obj)
-    assert test_obj in set(index.range())
-    assert list(db0.find(index.range(), test_obj)) == [test_obj]
+    assert test_obj in set(index.select())
+    assert list(db0.find(index.select(), test_obj)) == [test_obj]
 
 
-def test_find_multiple_objects_in_index_range(db0_fixture):
+def test_find_multiple_objects_in_index_select(db0_fixture):
     index = db0.index()
     objects = [MemoTestClass(i) for i in range(5)]
     for obj in objects:
         if obj.value < 4:
             index.add(obj.value, obj)
-    assert set(db0.find(index.range(), [objects[0], objects[3], objects[4]])) == set([objects[0], objects[3]])
+    assert set(db0.find(index.select(), [objects[0], objects[3], objects[4]])) == set([objects[0], objects[3]])
+
+
+@db0.memo
+class TestSelfInsert():
+    def __init__(self, v, index):
+        index.add(v, db0.materialized(self))
+
+
+def test_index_self_insert(db0_fixture):
+    """
+    Issue: the test was failing with MetaAllocator.cpp, line 263: Slab 4294426096 does not exist
+    which is caused by a non-existing object (self accessed from __init__) added to the index
+    Resolution: db0.materialized function added to db0
+    """    
+    index = db0.index()
+    x = TestSelfInsert(1, index)
+    index.select()
+
+
+def test_index_sort_desc_null_last(db0_fixture):
+    """
+    Issue related with the following issue:
+    https://github.com/wskozlowski/dbzero_ce/issues/281
+    """
+    index = db0.index()
+    for p in [666, None, 555, 888, None]:
+        obj = MemoTestClass(p)
+        index.add(p, obj)
     
+    assert [x.value for x in index.sort(index.select(), desc=False, null_first=True)] == [None, None, 555, 666, 888]
+    assert [x.value for x in index.sort(index.select(), desc=False, null_first=False)] == [555, 666, 888, None, None]
+
+    assert [x.value for x in index.sort(index.select(), desc=True, null_first=True)] == [888, 666, 555, None, None]
+    assert [x.value for x in index.sort(index.select(), desc=True, null_first=False)] == [None, None, 888, 666, 555]
+    
+        
+def test_index_default_sort_select_segv_issue_1(db0_fixture):
+    index = db0.index()
+    for p in [666, None, 555, 888, None]:
+        obj = MemoTestClass(p)
+        index.add(p, obj)
+
+    assert [x.value for x in index.sort(index.select())] == [555, 666, 888, None, None]

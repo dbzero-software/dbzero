@@ -1,7 +1,9 @@
 import pytest
+import operator
 import dbzero_ce as db0
 from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoDataPxClass
 from .conftest import DB0_DIR, DATA_PX
+import itertools
 
 
 @db0.memo()
@@ -155,7 +157,7 @@ def test_assigned_tags_can_be_removed_as_list_with_operators(db0_fixture):
 #     del object_1
 #     db0.clear_cache()
 #     db0.commit()
-#     # object should be dropped from DBZero
+#     # object should be dropped from dbzero
 #     with pytest.raises(Exception):
 #         db0.fetch(uuid)
 
@@ -445,3 +447,76 @@ def test_tags_assigned_to_inherited_type_can_be_removed(db0_fixture):
     assert len(list(db0.find(MemoBaseClass, "tag1"))) == 0
     assert len(list(db0.find(MemoSubClass, "tag2"))) == 0
     assert len(list(db0.find(MemoBaseClass, "tag2"))) == 0
+
+
+def test_tags_compare(db0_fixture):
+    obj1 = MemoClassForTags(1)
+    obj2 = MemoClassForTags(2)
+    tag1 = db0.as_tag(obj1)
+    tag2 = db0.as_tag(obj2)
+
+    assert tag1 == tag1
+    assert tag1 == db0.as_tag(obj1)
+    assert (tag1 != db0.as_tag(obj1)) == False
+
+    assert tag1 != tag2
+    assert (tag1 == tag2) == False
+
+    for op in (operator.lt, operator.le, operator.ge, operator.gt):
+        with pytest.raises(TypeError):
+            op(tag1, tag1)
+        with pytest.raises(TypeError):
+            op(tag1, tag2)
+    
+    assert tag1 != 'test'
+    assert (tag1 == 'test') == False
+    assert tag1 != 123
+    assert tag1 != None
+    assert tag1 != []
+
+
+def test_assign_multiple_tags_from_iterator(db0_fixture):
+    object_1 = MemoClassForTags(1)
+    db0.tags(object_1).add((tag for tag in ["tag1", "tag2", "tag3"]))
+    result = list(db0.find("tag1", "tag2", "tag3"))
+    assert len(result) == 1
+    assert result[0].value == 1
+
+    object_2 = MemoClassForTags(2)
+    db0.tags(object_2).add(itertools.chain(["tag1", "tag2"], ["tag3", "tag4"]))
+    result = list(db0.find("tag1", "tag2", "tag3", "tag4"))
+    assert len(result) == 1
+    assert result[0].value == 2
+
+    d = {'tag5': 1, 'tag6': 2, 'tag7': 3}
+    object_3 = MemoClassForTags(3)
+    db0.tags(object_3).add(d)
+    result = list(db0.find("tag5", "tag6", "tag7"))
+    assert len(result) == 1
+    assert result[0].value == 3
+
+
+def test_tags_set_operations(db0_fixture):
+    obj1 = MemoClassForTags(1)
+    tag1 = db0.as_tag(obj1)
+    assert hash(tag1) == hash(tag1)
+    assert hash(tag1) == hash(db0.as_tag(obj1))
+
+    obj2 = MemoClassForTags(2)
+    tag2 = db0.as_tag(obj2)
+    assert hash(tag1) != hash(tag2)
+
+    result = set((tag1, db0.as_tag(obj1), db0.as_tag(obj1)))
+    assert len(result) == 1
+    assert list(result) == [tag1]
+
+    obj3 = MemoClassForTags(3)
+    tag3 = db0.as_tag(obj3)
+
+    set1 = set((tag1, tag2))
+    set2 = set((tag2, tag3))
+
+    set_sum = set1 | set2
+    assert all((tag in set_sum for tag in (tag1, tag2, tag3)))
+    assert list(set1 - set2) == [tag1]
+    assert list(set2 - set1) == [tag3]

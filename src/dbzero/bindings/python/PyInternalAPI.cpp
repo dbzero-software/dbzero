@@ -33,7 +33,7 @@
 namespace db0::python
 
 {
-        
+    
     ObjectId extractObjectId(PyObject *args)
     {
         // extact ObjectId from args
@@ -142,7 +142,7 @@ namespace db0::python
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = fixture->get<ClassFactory>();            
             auto class_ptr = class_factory.getTypeByClassRef(addr).m_class;
-            // return as a DBZero class instance
+            // return as a dbzero class instance
             return makeClass(class_ptr);
         }
         
@@ -155,7 +155,7 @@ namespace db0::python
         // find type associated class with the ClassFactory
         auto type = class_factory.getExistingType(py_type);
         if (!type->isSingleton()) {
-            THROWF(db0::InputException) << "Not a DBZero singleton type";
+            THROWF(db0::InputException) << "Not a dbzero singleton type";
         }
 
         if (!type->isExistingSingleton()) {
@@ -317,42 +317,7 @@ namespace db0::python
                 << static_cast<int>(type_id) << THROWF_END;
         }
     }
-
-    PyObject *_PyObject_GetDescrOptional(PyObject *obj, PyObject *name)
-    {
-        // This implementation is based on _PyObject_GenericGetAttrWithDict function
-        PyTypeObject *tp = Py_TYPE(obj);
-        PyObject *descr = NULL;
-        PyObject *res = NULL;
-        descrgetfunc f;
-
-        if (!PyUnicode_Check(name)) {
-            PyErr_Format(PyExc_TypeError,
-                        "attribute name must be string, not '%.200s'",
-                        Py_TYPE(name)->tp_name);
-            return NULL;
-        }
-        Py_INCREF(name);
-
-        descr = _PyType_Lookup(tp, name);
-        f = NULL;
-        if (descr != NULL) {
-            Py_INCREF(descr);
-            f = Py_TYPE(descr)->tp_descr_get;
-            if (f != NULL /*&& PyDescr_IsData(descr)*/) {
-                res = f(descr, obj, (PyObject *)Py_TYPE(obj));
-                if (res == NULL && PyErr_ExceptionMatches(PyExc_AttributeError)) {
-                    PyErr_Clear();
-                }
-                goto done;
-            }
-        }
-    done:
-        Py_XDECREF(descr);
-        Py_DECREF(name);
-        return res;
-    }
-    
+        
     PyObject *getSlabMetrics(const db0::SlabAllocator &slab)
     {        
         PyObject *py_dict = PyDict_New();
@@ -600,7 +565,9 @@ namespace db0::python
             }
             return class_factory.getLangType(memo.getType()).steal();
         }
-        return Py_TYPE(py_obj);
+        auto py_type = Py_TYPE(py_obj);
+        Py_INCREF(py_type);
+        return py_type;
     }
     
     PyObject *tryLoad(PyObject *py_obj, PyObject* kwargs, PyObject *py_exclude)
@@ -613,6 +580,7 @@ namespace db0::python
             Py_INCREF(py_obj);
             return py_obj;
         }
+
         // FIXME: implement for other types
         if (type_id == TypeId::DB0_TUPLE) {
             return tryLoadTuple(reinterpret_cast<TupleObject*>(py_obj), kwargs);
@@ -636,6 +604,26 @@ namespace db0::python
             THROWF(db0::InputException) << "Unload not implemented for type: " 
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;
         }
+    }
+    
+    PyObject *getMaterializedMemoObject(PyObject *py_obj)
+    {
+        if (!PyMemo_Check(py_obj)) {
+            // simply return self if not a memo object
+            Py_INCREF(py_obj);
+            return py_obj;
+        }
+        auto memo_obj = reinterpret_cast<MemoObject*>(py_obj);
+        if (memo_obj->ext().hasInstance()) {
+            Py_INCREF(py_obj);
+            return py_obj;
+        }
+        
+        db0::FixtureLock lock(memo_obj->ext().getFixture());
+        // materialize by calling postInit
+        memo_obj->modifyExt().postInit(lock);
+        Py_INCREF(py_obj);
+        return py_obj;
     }
     
 }

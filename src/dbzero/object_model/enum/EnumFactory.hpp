@@ -52,7 +52,7 @@ namespace db0::object_model
         std::shared_ptr<Enum> tryGetExistingEnum(const EnumTypeDef &) const;
         
         /**
-         * Get existing or create a new DBZero enum instance
+         * Get existing or create a new dbzero enum instance
          * @param enum_def enum definition
          * @param type_id optional user assigned type ID
         */
@@ -62,10 +62,10 @@ namespace db0::object_model
         std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumDef &, const char *type_id = nullptr);
         std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumTypeDef &);
         
-        // reference the DBZero object model's enum by its pointer
+        // reference the dbzero object model's enum by its pointer
         std::shared_ptr<Enum> getEnumByPtr(EnumPtr) const;
         
-        // reference the DBZero object model's enum by its 32-but UID
+        // reference the dbzero object model's enum by its 32-bit UID
         std::shared_ptr<Enum> getEnumByUID(std::uint32_t enum_uid) const;
         
         /**
@@ -94,7 +94,7 @@ namespace db0::object_model
     private:
         // enum maps in 4 variants: 0: type ID, 1: name + module, 2: name + values: 3: module + values
         std::array<VEnumMap, 4> m_enum_maps;
-        // Language specific type to DBZero class mapping
+        // Language specific type to dbzero class mapping
         mutable std::unordered_map<EnumPtr, std::shared_ptr<Enum> > m_ptr_cache;
 
         // Pull through by-pointer cache

@@ -101,7 +101,7 @@ namespace db0
 		}
 		
 		/**
-         * @return DBZero storage size used by this data structure
+         * @return dbzero storage size used by this data structure
          */
 		static std::uint64_t getStorageSize() {
 			// reported storage size is 0 (since no BN storage is used for itty_index, all data kept in pointer)

@@ -428,7 +428,7 @@ namespace db0
         }
 
         /**
-         * Render this instance invalid relase all locked DBZero resources
+         * Render this instance invalid relase all locked dbzero resources
          */
         void reset()
         {

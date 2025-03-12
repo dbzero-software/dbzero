@@ -31,7 +31,7 @@ namespace db0::object_model
                 LangToolkit::getFixtureUUID(m_lang_type.get()), AccessType::READ_ONLY
             );
             auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
-            // find py type associated DBZero class with the ClassFactory
+            // find py type associated dbzero class with the ClassFactory
             m_type = class_factory.getOrCreateType(m_lang_type.get());
         }
         

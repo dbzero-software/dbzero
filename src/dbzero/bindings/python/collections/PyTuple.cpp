@@ -13,7 +13,7 @@ namespace db0::python
     using TupleIteratorObject = PyWrapper<db0::object_model::TupleIterator, false>;
 
     PyTypeObject TupleIteratorObjectType = GetIteratorType<TupleIteratorObject>("dbzero_ce.TupleIterator",
-                                                                              "DBZero tuple iterator");
+                                                                              "dbzero tuple iterator");
 
     TupleIteratorObject *PyAPI_TupleObject_iter(TupleObject *self)
     {
@@ -67,7 +67,7 @@ namespace db0::python
         {"index", (PyCFunction)PyAPI_TupleObject_index, METH_FASTCALL, "Returns the index of the first element with the specified value."},
         {NULL}
     };
-
+    
     PyObject *tryPyAPI_TupleObject_rq(TupleObject *tuple_obj, TupleObject *other, int op)
     {
         if (TupleObject_Check(other)) {
@@ -79,7 +79,7 @@ namespace db0::python
             case Py_NE:
                 return PyBool_fromBool(tuple_obj->ext() != other_tuple->ext());
             default:
-                return Py_NotImplemented;
+                Py_RETURN_NOTIMPLEMENTED;
             }
         } else {
             PyObject *iterator = PyObject_GetIter(other);
@@ -94,7 +94,7 @@ namespace db0::python
             case Py_NE:
                 return PyBool_fromBool(!has_all_elements_same(tuple_obj, iterator));
             default:
-                return Py_NotImplemented;
+                Py_RETURN_NOTIMPLEMENTED;
             }            
             Py_DECREF(iterator);
             Py_RETURN_TRUE;
@@ -115,7 +115,7 @@ namespace db0::python
         .tp_dealloc = (destructor)PyAPI_TupleObject_del,
         .tp_as_sequence = &TupleObject_sq,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
-        .tp_doc = "DBZero tuple",
+        .tp_doc = "dbzero tuple",
         .tp_richcompare = (richcmpfunc)PyAPI_TupleObject_rq,
         .tp_iter = (getiterfunc)PyAPI_TupleObject_iter,
         .tp_methods = TupleObject_methods,        
@@ -151,27 +151,62 @@ namespace db0::python
     shared_py_object<TupleObject*> makeDB0Tuple(db0::swine_ptr<Fixture> &fixture, PyObject *const *args,
         Py_ssize_t nargs)
     {
-        if (nargs != 1) {
-            THROWF(db0::InputException) << "make_tuple() takes exacly 1 arguments";
+        if (nargs > 1) {
+            PyErr_SetString(PyExc_TypeError, "tuple() expected at most 1 argument");
+            return nullptr;
         }
 
-        // make actual DBZero instance, use default fixture
+        // make actual dbzero instance, use default fixture
         auto py_tuple = TupleDefaultObject_new();
         db0::FixtureLock lock(fixture);
         auto &tuple = py_tuple.get()->modifyExt();
-        db0::object_model::Tuple::makeNew(&tuple, *lock, PyObject_Length(args[0]));
-        PyObject *iterator = PyObject_GetIter(args[0]);
-        PyObject *item;
-        int index = 0;
-        while ((item = PyIter_Next(iterator))) {
-            tuple.setItem(lock, index, item);            
-            Py_DECREF(item);
-            ++index;
+
+        if (nargs == 0)
+        {
+            db0::object_model::Tuple::makeNew(&tuple, *lock, 0);
+            fixture->getLangCache().add(tuple.getAddress(), py_tuple.get()); 
+            return py_tuple;
+        }
+
+        shared_py_object<PyObject*> iterator = {PyObject_GetIter(args[0]), false};
+        if (!iterator) {
+            return nullptr;
+        }
+
+        Py_ssize_t length = PyObject_Length(args[0]);
+        if (length == -1)
+        {
+            // We are dealing with generator-like object
+            PyErr_Clear();
+            std::vector<shared_py_object<PyObject*>> values;
+            while (PyObject *item = PyIter_Next(iterator.get())) {
+                values.emplace_back(item, false);
+            }
+            if (PyErr_Occurred())
+            {
+                return nullptr; // Error from PyIter_Next
+            }
+            db0::object_model::Tuple::makeNew(&tuple, *lock, values.size());
+            for (std::size_t index = 0; index != values.size(); ++index) {
+                tuple.setItem(lock, index, values[index].get());
+            }
+        }
+        else
+        {
+            db0::object_model::Tuple::makeNew(&tuple, *lock, length);
+            int index = 0;
+            while (PyObject *item = PyIter_Next(iterator.get())) {
+                tuple.setItem(lock, index++, item);            
+                Py_DECREF(item);
+            }
+            if (PyErr_Occurred())
+            {
+                return nullptr; // Error from PyIter_Next
+            }
         }
 
         // register newly created tuple with py-object cache
         fixture->getLangCache().add(tuple.getAddress(), py_tuple.get());        
-        Py_DECREF(iterator);
         return py_tuple;
     }
     

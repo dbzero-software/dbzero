@@ -39,11 +39,15 @@ namespace db0
          * @return the memory lock object or exception thrown on invalid address / out of available range
         */
         virtual MemLock mapRange(std::uint64_t address, std::size_t size, FlagSet<AccessOptions> = {}) = 0;
-                
+        
         virtual std::size_t getPageSize() const = 0;
         
-        virtual StateNumType getStateNum() const = 0;
-                
+        /**
+         * Get current (or the last finalized) state number
+         * The current and finalized state number may be different for read/write prefixes (on head transaction)
+         */
+        virtual StateNumType getStateNum(bool finalized = false) const = 0;
+        
         /**
          * Commit all local changes made since last commit
          * 

@@ -38,7 +38,7 @@ current_dir=`realpath ${current_dir}`
 dbz_date=`date`
 
 echo " "
-echo "DBZeroCore git version: "
+echo "dbzero git version: "
 echo "${dbz_remote_url} ${dbz_remote} ${dbz_branch} ${dbz_commit}" 
 echo " "
 
