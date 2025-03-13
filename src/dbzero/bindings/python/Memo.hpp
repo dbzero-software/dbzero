@@ -28,7 +28,7 @@ namespace db0::python
     {   
     public:     
         MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name,
-            std::vector<std::string> &&init_vars);
+            std::vector<std::string> &&init_vars, shared_py_object<PyObject*> py_dyn_prefix_callable);
         
         // get decoration of a given memo type
         static inline MemoTypeDecoration &get(PyTypeObject *type)
@@ -61,6 +61,12 @@ namespace db0::python
         // note that read-only access cannot later be upgraded to read-write
         std::uint64_t getFixtureUUID(AccessType access_type = AccessType::READ_WRITE);
         
+        // check if the dyn-prefix callable is set
+        bool hasDynPrefix() const;
+
+        // resolve dynamic prefix from the callable
+        std::string getDynPrefix(PyObject *args, PyObject *kwargs) const;
+        
         void close();
 
     private:
@@ -70,7 +76,9 @@ namespace db0::python
         // variables potentially asignable during the type initialization
         const std::vector<std::string> m_init_vars;
         // resolved fixture UUID (initialized by the process)
-        std::atomic<std::uint64_t> m_fixture_uuid = 0;      
+        std::atomic<std::uint64_t> m_fixture_uuid = 0;
+        // dynamic prefix callable
+        shared_py_object<PyObject*> m_py_dyn_prefix_callable; 
     };
     
     using MemoObject = PyWrapper<db0::object_model::Object>;

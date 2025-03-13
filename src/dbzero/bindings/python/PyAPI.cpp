@@ -811,9 +811,10 @@ namespace db0::python
         return runSafe(tryFilterBy, args, kwargs);
     }
     
-    PyObject *setPrefix(PyObject *, PyObject *args, PyObject *kwargs)
-    {
+    PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
+    {        
         PY_API_FUNC
+                
         // extract object / prefix name (can be None)
         PyObject *py_object = nullptr;
         const char *prefix_name = nullptr;
@@ -822,12 +823,31 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
-        if (!PyMemo_Check(py_object)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid object type");
-            return NULL;
+        
+        // in case of the "None" target just return prefix name
+        if (!py_object || py_object == Py_None) {
+            if (prefix_name) {
+                return PyUnicode_FromString(prefix_name);
+            }                
+            Py_RETURN_NONE;
         }
-        return runSafe(MemoObject_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);
+        
+        if (PyMemo_Check(py_object)) {
+            // this operation is handled differently for singletons (as dyn_prefix)
+            // check from type, not instance
+            if (PyMemoType_IsSingleton(Py_TYPE(py_object))) {
+                if (reinterpret_cast<MemoObject*>(py_object)->ext().hasInstance()) {
+                    PyErr_SetString(PyExc_TypeError, "Unable to change scope of an existing singleton instance");
+                    return NULL;
+                }
+                Py_RETURN_NONE;
+            } else {
+                return runSafe(MemoObject_set_prefix, reinterpret_cast<MemoObject*>(py_object), prefix_name);
+            }            
+        }
+        
+        PyErr_SetString(PyExc_TypeError, "Invalid object type");
+        return NULL;
     }
 
     PyObject *getSlabMetrics(PyObject *, PyObject *)

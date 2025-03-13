@@ -2,6 +2,7 @@ import pytest
 import dbzero_ce as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoScopedClass, MemoScopedSingleton
+from typing import List
 
 
 @db0.memo(prefix="scoped-class-prefix")
@@ -229,7 +230,7 @@ def test_create_dynamically_scoped_singleton_with_read_only_default_prefix(db0_f
     
     
 def test_opening_dynamically_scoped_singleton(db0_fixture):
-    px_name = db0.get_current_prefix()
+    px_name = db0.get_current_prefix()        
     # create with dynamic scope
     obj = MemoScopedSingleton(94123, prefix = "test-data")    
     del obj

@@ -23,11 +23,12 @@ namespace db0::python
 {
     
     MemoTypeDecoration::MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name,
-        std::vector<std::string> &&init_vars)
+        std::vector<std::string> &&init_vars, shared_py_object<PyObject*> py_dyn_prefix_callable)
         : m_prefix_name_ptr(prefix_name)
         , m_type_id(type_id)
         , m_file_name(file_name)
         , m_init_vars(std::move(init_vars))
+        , m_py_dyn_prefix_callable(std::move(py_dyn_prefix_callable))
     {
     }
     
@@ -39,6 +40,22 @@ namespace db0::python
             m_fixture_uuid = fixture->getUUID();
         }
         return m_fixture_uuid;
+    }
+    
+    bool MemoTypeDecoration::hasDynPrefix() const {
+        return m_py_dyn_prefix_callable;
+    }
+    
+    std::string MemoTypeDecoration::getDynPrefix(PyObject *args, PyObject *kwargs) const
+    {
+        assert(m_py_dyn_prefix_callable);
+        PyObject *py_result = PyObject_Call(m_py_dyn_prefix_callable.get(), args, kwargs);
+        if (!py_result || py_result == Py_None) {
+            return "";
+        }
+        std::string prefix = PyUnicode_AsUTF8(py_result);
+        Py_DECREF(py_result);
+        return prefix;
     }
     
     void MemoTypeDecoration::close() {
@@ -105,36 +122,61 @@ namespace db0::python
         }
         return memo_obj;
     }
-    
-    PyObject *tryMemoObject_open_singleton(PyTypeObject *py_type)
+
+    void tryGetScope(PyTypeObject *py_type, PyObject *args, PyObject *kwargs,
+        std::string &px_name, std::uint64_t &fixture_uuid)
     {
         MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-        // try opening from a known prefix
-        if (decor.getFixtureUUID()) {
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
-            return tryMemoObject_open_singleton(py_type, *fixture);
+        
+        // if the type is dynamic scoped, then try resolving it dynamically
+        if (decor.hasDynPrefix()) {
+            px_name = decor.getDynPrefix(args, kwargs);
+            if (!px_name.empty()) {
+                return;
+            }
         }
-
-        // if prefix not known then scan all fixtures
-        PyObject *py_singleton = nullptr;
-        PyToolkit::getPyWorkspace().getWorkspace().forEachFixture([&](const Fixture &fixture) {
-            py_singleton = tryMemoObject_open_singleton(py_type, fixture);
-            return py_singleton == nullptr;
-        });
-
-        return py_singleton;
+        
+        // otherwise either retrieve static scope or just the default fixture
+        fixture_uuid = decor.getFixtureUUID();
     }
-    
-    PyObject *tryMemoObject_new_singleton(PyTypeObject *py_type, PyObject *, PyObject *)
+
+    db0::swine_ptr<Fixture> tryGetFixture(const std::string &px_name, std::uint64_t fixture_uuid,
+        AccessType access_type)
     {
-        auto result = tryMemoObject_open_singleton(py_type);
-        if (result) {
-            return result;
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        if (!px_name.empty()) {
+            // get existing or create a new prefix
+            if (workspace.hasFixture(px_name) || access_type == AccessType::READ_WRITE) {
+                return workspace.getFixture(px_name, access_type);
+            }
+            // prefix not found and could not be created
+            return {};            
+        }
+        return workspace.getFixture(fixture_uuid, access_type);
+    }
+
+    PyObject *tryMemoObject_new_singleton(PyTypeObject *py_type, PyObject *args, PyObject *kwargs)
+    {
+        std::string px_name;
+        std::uint64_t fixture_uuid = 0;
+        // try resolve type specific scope: static, dynamic or default
+        tryGetScope(py_type, args, kwargs, px_name, fixture_uuid);
+        // NOTE: read-only access is sufficient because the object is lazy-initialized
+        auto fixture = tryGetFixture(px_name, fixture_uuid, AccessType::READ_ONLY);
+
+        // try opening existing singleton from an existing fixture
+        if (fixture) {
+            auto result = tryMemoObject_open_singleton(py_type, *fixture);
+            if (result) {
+                return result;
+            }
         }
 
-        MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-        // NOTE: read-only access is sufficient because the object is lazy-initialized
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
+        // fixture, does not exist, try creating a new one
+        if (!fixture) {
+            fixture = tryGetFixture(px_name, fixture_uuid, AccessType::READ_WRITE);
+        }
+                
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.tryGetOrCreateType(py_type);
@@ -410,7 +452,7 @@ namespace db0::python
     }
     
     PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name,
-        const char *type_id, const char *file_name, std::vector<std::string> &&init_vars)
+        const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable)
     {
         Py_INCREF(py_class);
         PyObject *py_module = findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__"));
@@ -441,7 +483,8 @@ namespace db0::python
             type_manager.getPooledString(prefix_name), 
             type_manager.getPooledString(type_id),
             type_manager.getPooledString(file_name),
-            std::move(init_vars)
+            std::move(init_vars),
+            py_dyn_prefix_callable
         );
 
         // Construct base type as a copy of the original type
@@ -515,10 +558,11 @@ namespace db0::python
         PyObject *py_type_id = nullptr;
         PyObject *py_file_name = nullptr;
         PyObject *py_init_vars = nullptr;
+        PyObject *py_dyn_prefix = nullptr;
 
-        static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", "py_init_vars", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOO", const_cast<char**>(kwlist), &class_obj, &singleton,
-            &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars))
+        static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", "py_init_vars", "py_dyn_prefix", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOO", const_cast<char**>(kwlist), &class_obj, &singleton,
+            &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix))
         {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
@@ -545,8 +589,20 @@ namespace db0::python
             }
         }
         
-        return reinterpret_cast<PyObject*>(
-            runSafe(wrapPyType, castToType(class_obj), is_singleton, prefix_name, type_id, file_name, std::move(init_vars))
+        if (py_dyn_prefix == Py_None) {
+            py_dyn_prefix = nullptr;
+        }
+
+        // check if py_dyn_prefix is a callable
+        if (py_dyn_prefix) {
+            if (!PyCallable_Check(py_dyn_prefix)) {
+                PyErr_SetString(PyExc_TypeError, "Expected callable: py_dyn_prefix");
+                return NULL;
+            }
+        }
+        
+        return reinterpret_cast<PyObject*>(runSafe(
+            wrapPyType, castToType(class_obj), is_singleton, prefix_name, type_id, file_name, std::move(init_vars), py_dyn_prefix)
         );
     }
     
@@ -654,12 +710,13 @@ namespace db0::python
     }
     
     PyObject *MemoObject_set_prefix(MemoObject *py_obj, const char *prefix_name)
-    {        
+    {
         if (prefix_name) {
             // can use "ext" since setFixtue is a non-mutating operation
             auto &obj = const_cast<db0::object_model::Object&>(py_obj->ext());
             auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix_name, AccessType::READ_WRITE);            
             obj.setFixture(fixture);
+            return PyUnicode_FromString(prefix_name);
         }
         Py_RETURN_NONE;
     }
@@ -762,5 +819,5 @@ namespace db0::python
         }
         return py_result;
     }
-
+    
 }
