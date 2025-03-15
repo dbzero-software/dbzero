@@ -104,25 +104,6 @@ namespace db0::python
         return reinterpret_cast<MemoObject*>(runSafe(tryMemoObject_new, py_type, args, kwargs));
     }
     
-    PyObject *tryMemoObject_open_singleton(PyTypeObject *py_type, const Fixture &fixture)
-    {
-        auto &class_factory = fixture.get<db0::object_model::ClassFactory>();
-        // find py type associated dbzero class with the ClassFactory
-        auto type = class_factory.tryGetExistingType(py_type);
-        
-        if (!type) {
-            return nullptr;
-        }
-
-        MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-        // try unloading associated singleton if such exists
-        if (!type->unloadSingleton(&memo_obj->modifyExt())) {
-            py_type->tp_dealloc(memo_obj);
-            return nullptr;
-        }
-        return memo_obj;
-    }
-
     void tryGetScope(PyTypeObject *py_type, PyObject *args, PyObject *kwargs,
         std::string &px_name, std::uint64_t &fixture_uuid)
     {
@@ -176,23 +157,24 @@ namespace db0::python
         if (!fixture) {
             fixture = tryGetFixture(px_name, fixture_uuid, AccessType::READ_WRITE);
         }
-                
+        
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.tryGetOrCreateType(py_type);
-        if (!type) {
+        MemoObject *memo_obj = nullptr;
+        if (type) {
+            memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
+            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type);    
+        } else {
             // if type cannot be retrieved due to access mode then deferr this operation (fallback)
             auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
                 auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
                 return class_factory.getOrCreateType(py_type);
             };
-            MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type_initializer);
-            return memo_obj;
+            memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
+            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type_initializer);            
         }
         
-        MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-        db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type);
         return memo_obj;
     }
     
@@ -486,7 +468,7 @@ namespace db0::python
             std::move(init_vars),
             py_dyn_prefix_callable
         );
-
+        
         // Construct base type as a copy of the original type
         PyTypeObject *base_type = new PyTypeObject(*py_class);
         Py_INCREF(base_type);

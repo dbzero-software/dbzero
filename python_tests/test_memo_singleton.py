@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedSingleton
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedSingleton, MemoDataPxSingleton
 from .conftest import DB0_DIR
 
 
@@ -48,3 +48,22 @@ def test_create_then_open_dynamically_scoped_singleton(db0_fixture):
     obj = MemoScopedSingleton(prefix="my-temp-prefix-1")
     assert db0.uuid(obj) == uuid
     assert obj.value == 123
+    
+
+def test_find_singleton_static_scope(db0_fixture):
+    # find singleton with a static-scope
+    assert db0.find_singleton(MemoDataPxSingleton) is None
+    obj_1 = MemoDataPxSingleton(789)
+    assert db0.find_singleton(MemoDataPxSingleton) is obj_1
+    
+        
+def test_find_singleton(db0_fixture):
+    assert db0.find_singleton(MemoTestSingleton) is None    
+    # create on default prefix
+    obj_1 = MemoScopedSingleton(123)
+    assert db0.find_singleton(MemoScopedSingleton) is obj_1
+    assert db0.find_singleton(MemoScopedSingleton, "my-test-prefix-1") is None
+    # create scoped singleton
+    obj_2 = MemoScopedSingleton(456, prefix="my-test-prefix-1")
+    assert db0.find_singleton(MemoScopedSingleton, prefix = "my-test-prefix-1") is obj_2
+    

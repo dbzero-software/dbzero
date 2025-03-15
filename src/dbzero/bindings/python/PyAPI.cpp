@@ -93,8 +93,8 @@ namespace db0::python
     shared_py_object<PyObject*> tryFetch(PyObject *const *args, Py_ssize_t nargs) {
         return tryFetchFrom(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
     }
-
-    PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs) 
+    
+    PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         return runSafe(tryFetch, args, nargs).steal();
@@ -1075,6 +1075,46 @@ namespace db0::python
 
         PY_API_FUNC
         return runSafe(tryWait, prefix, state, timeout);
+    }
+    
+    PyObject *tryFindSingleton(PyObject *args, PyObject *kwargs)
+    {
+        // singleton type must be the 1st argument
+        PyObject *py_type = nullptr;
+        const char *prefix_name = nullptr;
+        static const char *kwlist[] = {"type", "prefix", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|s", const_cast<char**>(kwlist), &py_type, &prefix_name)) {
+            THROWF(db0::InputException) << "Invalid argument type";
+        }
+        
+        if (!PyType_Check(py_type)) {
+            THROWF(db0::InputException) << "Invalid argument type";
+        }
+        
+        if (!PyMemoType_IsSingleton(reinterpret_cast<PyTypeObject*>(py_type))) {
+            THROWF(db0::InputException) << "Type is not a singleton: " << Py_TYPE(py_type)->tp_name;
+        }
+        
+        // retrieve static prefix name
+        if (!prefix_name) {
+            MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+            prefix_name = decor.tryGetPrefixName();
+        }
+        
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        db0::swine_ptr<Fixture> fixture = prefix_name ? workspace.getFixture(prefix_name) : workspace.getCurrentFixture();
+        fixture->refreshIfUpdated();
+        auto py_singleton = tryMemoObject_open_singleton(reinterpret_cast<PyTypeObject*>(py_type), *fixture);
+        if (!py_singleton) {
+            Py_RETURN_NONE;
+        }
+        return py_singleton;
+    }
+
+    PyObject *PyApi_findSingleton(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return runSafe(tryFindSingleton, args, kwargs);
     }
     
 }

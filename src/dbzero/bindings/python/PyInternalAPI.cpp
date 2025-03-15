@@ -317,7 +317,7 @@ namespace db0::python
                 << static_cast<int>(type_id) << THROWF_END;
         }
     }
-        
+    
     PyObject *getSlabMetrics(const db0::SlabAllocator &slab)
     {        
         PyObject *py_dict = PyDict_New();
@@ -626,4 +626,55 @@ namespace db0::python
         return py_obj;
     }
     
+    shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, std::uint64_t address,
+        std::shared_ptr<db0::object_model::Class> expected_type)
+    {
+        auto obj_ptr = lang_cache.get(address);
+        if (obj_ptr) {
+            if (!PyMemo_Check(obj_ptr.get())) {
+                THROWF(db0::InputException) << "Invalid object type: " << PyToolkit::getTypeName(obj_ptr.get()) << " (Memo expected)";
+            }
+            auto &memo = reinterpret_cast<MemoObject*>(obj_ptr.get())->ext();
+            // validate type
+            if (expected_type && memo.getType() != *expected_type) {
+                THROWF(db0::InputException) << "Memo type mismatch";
+            }
+        }
+        return obj_ptr;
+    }
+    
+    PyObject *tryMemoObject_open_singleton(PyTypeObject *py_type, const Fixture &fixture)
+    {
+        auto &class_factory = fixture.get<db0::object_model::ClassFactory>();
+        // find py type associated dbzero class with the ClassFactory
+        auto type = class_factory.tryGetExistingType(py_type);
+        
+        if (!type) {
+            return nullptr;
+        }
+
+        std::uint64_t addr = type->getSingletonAddress();
+        if (!addr) {
+            return nullptr;
+        }
+        
+        // try unloading from cache first
+        auto &lang_cache = fixture.getLangCache();
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, addr);
+        
+        if (obj_ptr) {
+            return obj_ptr.steal();
+        }
+        
+        MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
+        // try unloading associated singleton if such exists
+        if (!type->unloadSingleton(&memo_obj->modifyExt())) {
+            py_type->tp_dealloc(memo_obj);
+            return nullptr;
+        }
+        // add singleton to cache
+        lang_cache.add(addr, memo_obj);
+        return memo_obj;
+    }
+
 }
