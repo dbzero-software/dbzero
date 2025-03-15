@@ -6,6 +6,7 @@
 #include "PyInternalAPI.hpp"
 #include "Utils.hpp"
 #include "Types.hpp"
+#include "Migration.hpp"
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
@@ -434,7 +435,8 @@ namespace db0::python
     }
     
     PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name,
-        const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable)
+        const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
+        std::vector<Migration> &&migrations)
     {
         Py_INCREF(py_class);
         PyObject *py_module = findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__"));
@@ -531,9 +533,8 @@ namespace db0::python
         return new_type;
     }
     
-    PyObject *PyAPI_wrapPyClass(PyObject *, PyObject *args, PyObject *kwargs)
+    PyTypeObject *tryWrapPyClass(PyObject *args, PyObject *kwargs)
     {
-        PY_API_FUNC
         PyObject* class_obj;
         PyObject *singleton = Py_False;
         PyObject *py_prefix_name = nullptr;
@@ -541,10 +542,13 @@ namespace db0::python
         PyObject *py_file_name = nullptr;
         PyObject *py_init_vars = nullptr;
         PyObject *py_dyn_prefix = nullptr;
-
-        static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", "py_init_vars", "py_dyn_prefix", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOO", const_cast<char**>(kwlist), &class_obj, &singleton,
-            &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix))
+        // migrations are only processed for singleton types
+        PyObject *py_migrations = nullptr;
+        
+        static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", "py_init_vars", 
+            "py_dyn_prefix", "py_migrations", NULL };
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOO", const_cast<char**>(kwlist), &class_obj, &singleton,
+            &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations))
         {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
@@ -574,7 +578,7 @@ namespace db0::python
         if (py_dyn_prefix == Py_None) {
             py_dyn_prefix = nullptr;
         }
-
+        
         // check if py_dyn_prefix is a callable
         if (py_dyn_prefix) {
             if (!PyCallable_Check(py_dyn_prefix)) {
@@ -583,9 +587,16 @@ namespace db0::python
             }
         }
         
-        return reinterpret_cast<PyObject*>(runSafe(
-            wrapPyType, castToType(class_obj), is_singleton, prefix_name, type_id, file_name, std::move(init_vars), py_dyn_prefix)
+        auto migrations = extractMigrations(py_migrations);
+        return wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id, file_name, std::move(init_vars), 
+            py_dyn_prefix, std::move(migrations)
         );
+    }
+    
+    PyObject *PyAPI_wrapPyClass(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        return reinterpret_cast<PyObject*>(runSafe(tryWrapPyClass, args, kwargs));
     }
     
     bool PyMemoType_Check(PyTypeObject *type) {

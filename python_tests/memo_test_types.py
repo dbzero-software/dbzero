@@ -157,3 +157,14 @@ class MemoTestClassPropertiesAndImmutables:
     def normal_method(self):
         print("normal method")
     
+
+@db0.memo(singleton=True)
+class MemoSingletonWithMigrations:
+    def __init__(self, value, value_2 = None):
+        self.value = value
+        self.__ix_orders = db0.index()
+    
+    @db0.migration
+    def migrate__(self):
+        self.__ix_orders = db0.index()
+    

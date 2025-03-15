@@ -78,7 +78,7 @@ namespace db0::python
         // resolved fixture UUID (initialized by the process)
         std::atomic<std::uint64_t> m_fixture_uuid = 0;
         // dynamic prefix callable
-        shared_py_object<PyObject*> m_py_dyn_prefix_callable; 
+        shared_py_object<PyObject*> m_py_dyn_prefix_callable;
     };
     
     using MemoObject = PyWrapper<db0::object_model::Object>;

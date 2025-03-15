@@ -195,6 +195,7 @@ def get_queries(*module_names):
 def is_private(name):
         return name.startswith("_")
 
+    
 def get_methods(obj):
     """
     get_methods of a given memo object
@@ -205,7 +206,6 @@ def get_methods(obj):
         if callable(attr) and not isinstance(attr, staticmethod) and not isinstance(attr, classmethod) \
             and not is_private(attr_name):                
             yield MethodInfo(attr_name, inspect.signature(attr))
-
 
 
 def get_properties(obj):
