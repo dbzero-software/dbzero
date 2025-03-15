@@ -1,5 +1,6 @@
 #include "PyToolkit.hpp"
 #include "Memo.hpp"
+#include "PyInternalAPI.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
@@ -85,23 +86,6 @@ namespace db0::python
             THROWF(db0::InputException) << "Could not get module name for class " << getTypeName(py_type);
         }
         return *result;
-    }
-
-    PyToolkit::ObjectSharedPtr tryUnloadObjectFromCache(LangCacheView &lang_cache, std::uint64_t address,
-        std::shared_ptr<db0::object_model::Class> expected_type = nullptr)
-    {
-        auto obj_ptr = lang_cache.get(address);
-        if (obj_ptr) {
-            if (!PyMemo_Check(obj_ptr.get())) {
-                THROWF(db0::InputException) << "Invalid object type: " << PyToolkit::getTypeName(obj_ptr.get()) << " (Memo expected)";
-            }
-            auto &memo = reinterpret_cast<MemoObject*>(obj_ptr.get())->ext();
-            // validate type
-            if (expected_type && memo.getType() != *expected_type) {
-                THROWF(db0::InputException) << "Memo type mismatch";
-            }
-        }
-        return obj_ptr;
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> fixture, std::uint64_t address,

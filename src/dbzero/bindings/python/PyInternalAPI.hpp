@@ -73,6 +73,9 @@ namespace db0::python
     // Universal implementaton for both Workspace and WorkspaceView (aka Snapshot)
     shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &, PyObject *const *args, Py_ssize_t nargs);
     
+    shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, std::uint64_t address,
+        std::shared_ptr<db0::object_model::Class> expected_type = nullptr);
+    
     /**
      * Open dbzero object by UUID     
      * @param py_expected_type - expected Python type of the object
@@ -119,6 +122,8 @@ namespace db0::python
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name);
     db0::swine_ptr<Fixture> getPrefixFromArgs(db0::Snapshot &, PyObject *args, PyObject *kwargs, 
         const char *param_name);
+    
+    PyObject *tryMemoObject_open_singleton(PyTypeObject *, const Fixture &);
     
 #ifndef NDEBUG
     /**

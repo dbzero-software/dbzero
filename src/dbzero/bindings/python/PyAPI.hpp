@@ -159,6 +159,8 @@ namespace db0::python
 
     PyObject *PyApi_wait(PyObject *self, PyObject *args, PyObject *kwargs);
     
+    PyObject *PyApi_findSingleton(PyObject *self, PyObject *args, PyObject *kwargs);
+
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *);
 #endif

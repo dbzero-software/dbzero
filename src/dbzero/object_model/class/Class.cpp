@@ -419,4 +419,8 @@ namespace db0::object_model
         }
     }
 
+    std::uint64_t Class::getSingletonAddress() const {
+        return (*this)->m_singleton_address;
+    }
+    
 }

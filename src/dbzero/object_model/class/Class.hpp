@@ -145,6 +145,8 @@ namespace db0::object_model
 
         void setSingletonAddress(Object &);
 
+        std::uint64_t getSingletonAddress() const;
+
         void commit();
 
         std::string getTypeName() const;
