@@ -1,6 +1,8 @@
 import pytest
 import dbzero_ce as db0
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoScopedSingleton, MemoDataPxSingleton
+from .memo_test_types import MemoSingletonWithMigrations
+    
 from .conftest import DB0_DIR
 
 
@@ -56,7 +58,7 @@ def test_find_singleton_static_scope(db0_fixture):
     obj_1 = MemoDataPxSingleton(789)
     assert db0.find_singleton(MemoDataPxSingleton) is obj_1
     
-        
+    
 def test_find_singleton(db0_fixture):
     assert db0.find_singleton(MemoTestSingleton) is None    
     # create on default prefix
@@ -66,4 +68,7 @@ def test_find_singleton(db0_fixture):
     # create scoped singleton
     obj_2 = MemoScopedSingleton(456, prefix="my-test-prefix-1")
     assert db0.find_singleton(MemoScopedSingleton, prefix = "my-test-prefix-1") is obj_2
-    
+
+
+def test_singleton_with_migrations(db0_fixture):
+    obj_1 = MemoSingletonWithMigrations(123)

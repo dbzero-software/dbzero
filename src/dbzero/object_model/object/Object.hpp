@@ -106,18 +106,13 @@ namespace db0::object_model
         */
         
         ~Object();
-
+        
         // post-init invoked by memo type directly after __init__
         void postInit(FixtureLock &);
         
         // Express-init an object from the "kwargs" arguments
         // void expressInit(const bp::dict &kwargs);
 
-        /* FIXME
-        // Assign arbitrary tags to this object
-        void assignTags(const bp::object &tags);
-        */
-        
         /**
          * Construct new Object (uninitialized, without corresponding dbzero instance yet) 
          * at a specific memory location
@@ -162,18 +157,9 @@ namespace db0::object_model
         Class &getType();
 
         /* FIXME:
-        // Obtain the instance specific tag manager
-        std::shared_ptr<DBZTags> tags() const;
-        */
-        
-        /* FIXME:
         // Get reference to the instance-specific cache (e.g. for storing transformed fields)
         std::shared_ptr<DB0Cache> getMemberCache() const;
 
-        DB0Cache &getMemberCacheReference() const;
-
-        static std::shared_ptr<DBZObject> __new(const bp::object &py_class);
-        
         // Pull instance from dbzero and assign type
         static std::shared_ptr<DBZObject> __ref(std::uint64_t dbz_addr, std::shared_ptr<DBZClass>);
 
@@ -207,7 +193,10 @@ namespace db0::object_model
         // execute the function for all members
         void forAll(std::function<void(const std::string &, const XValue &)>) const;
         void forAll(std::function<void(const std::string &, ObjectSharedPtr)>) const;
-
+        
+        // get dbzero member / member names assigned to this object
+        std::unordered_set<std::string> getMembers() const;
+        
         /**
          * The overloaded incRef implementation is provided to also handle non-fully initialized objects
         */

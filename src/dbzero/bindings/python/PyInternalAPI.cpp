@@ -672,6 +672,35 @@ namespace db0::python
             py_type->tp_dealloc(memo_obj);
             return nullptr;
         }
+
+        // once unloaded, check if the singleton needs migration
+        auto &decor = MemoTypeDecoration::get(py_type);
+        if (decor.hasMigrations()) {
+            auto members = memo_obj->ext().getMembers();
+            std::unordered_set<Migration*> migrations;
+            PyObject *py_result = nullptr;
+            bool exec_migrate = false;
+            // for all missing members, execute migrations in order
+            decor.forAllMigrations(members, [&](Migration &migration) {
+                // execute migration once
+                // one migration may be associated with multiple members
+                if (migrations.insert(&migration).second) {
+                    exec_migrate = true;
+                    py_result = migration.exec(memo_obj);                    
+                    if (!py_result) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            
+            if (exec_migrate && !py_result) {
+                // migrate exec failed, return with error set
+                py_type->tp_dealloc(memo_obj);
+                return py_result;
+            }
+        }
+        
         // add singleton to cache
         lang_cache.add(addr, memo_obj);
         return memo_obj;

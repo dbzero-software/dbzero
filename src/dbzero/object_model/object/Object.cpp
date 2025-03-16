@@ -193,7 +193,7 @@ namespace db0::object_model
     }
     
     void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
-    {
+    {        
         assert(hasInstance());
         auto [type_id, storage_class] = recognizeType(**fixture, lang_value);
         
@@ -516,6 +516,35 @@ namespace db0::object_model
     
     Class &Object::getType() {
         return m_type ? *m_type : m_init_manager.getInitializer(*this).getClass();
+    }
+    
+    std::unordered_set<std::string> Object::getMembers() const 
+    {
+        std::unordered_set<std::string> result;
+        // visit pos-vt members first
+        auto &obj_type = this->getType();
+        {
+            for (unsigned int index = 0;index < (*this)->pos_vt().size(); ++index) {
+                result.insert(obj_type.get(FieldID::fromIndex(index)).m_name);
+            }
+        }
+        
+        // visit index-vt members next
+        {
+            auto &xvalues = (*this)->index_vt().xvalues();
+            for (auto &xvalue: xvalues) {
+                result.insert(obj_type.get(FieldID::fromIndex(xvalue.getIndex())).m_name);
+            }
+        }
+        // finally visit kv-index members
+        auto kv_index_ptr = tryGetKV_Index();
+        if (kv_index_ptr) {
+            auto it = kv_index_ptr->beginJoin(1);
+            for (;!it.is_end(); ++it) {
+                result.insert(obj_type.get(FieldID::fromIndex((*it).getIndex())).m_name);
+            }
+        }
+        return result;
     }
     
     void Object::forAll(std::function<void(const std::string &, const XValue &)> f) const

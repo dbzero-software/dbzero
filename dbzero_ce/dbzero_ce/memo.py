@@ -3,6 +3,14 @@ import dis
 from .dbzero_ce import wrap_memo_type
 
 
+def migration(func):
+    """
+    Decorator for marking a function as a migration function.
+    """
+    func._db0_migration = None
+    return func
+
+    
 def memo(cls=None, **kwargs):
     def getfile(cls_):
         # inspect.getfile() can raise TypeError if cls_ is a built-in class (e.g. defined in a notebook).
@@ -10,7 +18,7 @@ def memo(cls=None, **kwargs):
             return inspect.getfile(cls_)
         except TypeError:
             return None
-    
+        
     def dyn_prefix(from_type):
         """
         Process a specific init_func and build derived bytecode which
@@ -103,34 +111,47 @@ def memo(cls=None, **kwargs):
         
         return dyn_wrapper
     
-    def dis_init_assig(from_type):
-        # this is to check if __init__ exists and is not inherited from object
-        if not hasattr(from_type, "__init__") or from_type.__init__ == object.__init__:
-            return
-
-        """
-        This function disassembles a class constructor and yields names of potentially assignable member variables.
-        """        
+    def dis_assig(method):
         last_inst = None
-        for next_inst in dis.get_instructions(from_type.__init__):
+        for next_inst in dis.get_instructions(method):
             # value assignment
             if next_inst.opname == "STORE_ATTR":
                 # "self" argument put on the stack
                 if last_inst is not None and last_inst.opname == "LOAD_FAST" and last_inst.arg == 0:
                     yield next_inst.argval
-            last_inst = next_inst
+            last_inst = next_inst        
+    
+    def dis_init_assig(from_type):
+        """
+        This function disassembles a class constructor and yields names of potentially assignable member variables.
+        """        
+        # this is to check if __init__ exists and is not inherited from object
+        if not hasattr(from_type, "__init__") or from_type.__init__ == object.__init__:
+            return
+
+        yield from dis_assig(from_type.__init__)
+
+    def find_migrations(from_type):
+        # Get all class attributes
+        for name in dir(from_type):
+            attr = getattr(from_type, name)
+            if callable(attr) and not isinstance(attr, staticmethod) and not isinstance(attr, classmethod):
+                if hasattr(attr, '_db0_migration'):
+                    yield (attr, list(dis_assig(attr)))
     
     def wrap(cls_):
         # note that we use the dyn_prefix mechanism only for singletons
         is_singleton = kwargs.get("singleton", False)
-        return wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = list(dis_init_assig(cls_)), 
-            py_dyn_prefix = dyn_prefix(cls_) if is_singleton else None, **kwargs)
+        return wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = list(dis_init_assig(cls_)), \
+            py_dyn_prefix = dyn_prefix(cls_) if is_singleton else None, \
+            py_migrations = list(find_migrations(cls_)) if is_singleton else None, **kwargs
+        )
     
     # See if we're being called as @memo or @memo().
     if cls is None:
         # We're called with parens.
         return wrap
-    
+        
     # We're called as @memo without parens.
     return wrap(cls, **kwargs)
 
