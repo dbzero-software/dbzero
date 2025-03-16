@@ -23,57 +23,9 @@ namespace db0::python
 
 {
     
-    MemoTypeDecoration::MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name,
-        std::vector<std::string> &&init_vars, shared_py_object<PyObject*> py_dyn_prefix_callable)
-        : m_prefix_name_ptr(prefix_name)
-        , m_type_id(type_id)
-        , m_file_name(file_name)
-        , m_init_vars(std::move(init_vars))
-        , m_py_dyn_prefix_callable(std::move(py_dyn_prefix_callable))
-    {
-    }
-    
-    std::uint64_t MemoTypeDecoration::getFixtureUUID(AccessType access_type)
-    {
-        if (m_prefix_name_ptr && !m_fixture_uuid) {
-            // initialize fixture by prefix name and keep UUID for future use
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(m_prefix_name_ptr, access_type);
-            m_fixture_uuid = fixture->getUUID();
-        }
-        return m_fixture_uuid;
-    }
-    
-    bool MemoTypeDecoration::hasDynPrefix() const {
-        return m_py_dyn_prefix_callable;
-    }
-    
-    std::string MemoTypeDecoration::getDynPrefix(PyObject *args, PyObject *kwargs) const
-    {
-        assert(m_py_dyn_prefix_callable);
-        PyObject *py_result = PyObject_Call(m_py_dyn_prefix_callable.get(), args, kwargs);
-        if (!py_result || py_result == Py_None) {
-            return "";
-        }
-        std::string prefix = PyUnicode_AsUTF8(py_result);
-        Py_DECREF(py_result);
-        return prefix;
-    }
-    
-    void MemoTypeDecoration::close() {
-        m_fixture_uuid = 0;
-    }
-    
-    const char *MemoTypeDecoration::getPrefixName() const {
-        return m_prefix_name_ptr ? m_prefix_name_ptr : "";
-    }
-
-    const std::vector<std::string> &MemoTypeDecoration::getInitVars() const {
-        return m_init_vars;
-    }
-    
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
     {
-        MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+        auto &decor = MemoTypeDecoration::get(py_type);
         // NOTE: read-only fixture access is sufficient here since objects are lazy-initialized
         // i.e. the actual dbzero instance is created on postInit
         // this is also important for dynamically scoped clases (where read/write access may not be possible on default fixture)
@@ -108,7 +60,7 @@ namespace db0::python
     void tryGetScope(PyTypeObject *py_type, PyObject *args, PyObject *kwargs,
         std::string &px_name, std::uint64_t &fixture_uuid)
     {
-        MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
+        auto &decor = MemoTypeDecoration::get(py_type);        
         
         // if the type is dynamic scoped, then try resolving it dynamically
         if (decor.hasDynPrefix()) {
@@ -449,7 +401,7 @@ namespace db0::python
             Py_DECREF(py_class);
             THROWF(db0::InternalException) << "Type has no tp_dict: " << py_class->tp_name;
         }
-        
+
         if (py_class->tp_itemsize != 0) {
             Py_DECREF(py_class);
             THROWF(db0::InternalException) << "Variable-length types not supported: " << py_class->tp_name;                        
@@ -468,7 +420,8 @@ namespace db0::python
             type_manager.getPooledString(type_id),
             type_manager.getPooledString(file_name),
             std::move(init_vars),
-            py_dyn_prefix_callable
+            py_dyn_prefix_callable,
+            std::move(migrations)
         );
         
         // Construct base type as a copy of the original type
@@ -598,11 +551,7 @@ namespace db0::python
         PY_API_FUNC
         return reinterpret_cast<PyObject*>(runSafe(tryWrapPyClass, args, kwargs));
     }
-    
-    bool PyMemoType_Check(PyTypeObject *type) {
-        return type->tp_init == reinterpret_cast<initproc>(PyAPI_MemoObject_init);
-    }
-    
+        
     PyObject *PyAPI_PyMemo_Check(PyObject *self, PyObject *const * args, Py_ssize_t nargs) {
         PY_API_FUNC
         if (nargs != 1) {
@@ -615,11 +564,7 @@ namespace db0::python
         }
         return PyBool_FromLong(is_memo);
     }
-
-    bool PyMemo_Check(PyObject *obj) {
-        return PyMemoType_Check(Py_TYPE(obj));
-    }
-    
+        
     bool PyMemoType_IsSingleton(PyTypeObject *type) {
         return type->tp_new == reinterpret_cast<newfunc>(PyAPI_MemoObject_new_singleton);
     }
@@ -698,7 +643,7 @@ namespace db0::python
     
     void MemoType_close(PyTypeObject *type)
     {        
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
+        auto &decor = MemoTypeDecoration::get(type);        
         decor.close();
     }
     
@@ -716,7 +661,7 @@ namespace db0::python
     
     PyObject *tryGetAttributes(PyTypeObject *type)
     {
-        auto &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));
+        auto &decor = MemoTypeDecoration::get(type);        
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();        
         return tryGetClassAttributes(*class_factory.getExistingType(type));

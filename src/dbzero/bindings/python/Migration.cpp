@@ -46,4 +46,16 @@ namespace db0::python
         return result;
     }
     
+    PyObject *Migration::exec(PyObject *py_self) const
+    {
+        PyObject *args = PyTuple_New(1);
+        Py_INCREF(py_self);
+        PyTuple_SetItem(args, 0, py_self);
+        PyObject *kwargs = PyDict_New();
+        PyObject *result = PyObject_Call(m_migrate.get(), args, kwargs);
+        Py_DECREF(args);
+        Py_DECREF(kwargs);        
+        return result;
+    }
+
 }

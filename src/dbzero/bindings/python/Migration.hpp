@@ -18,6 +18,9 @@ namespace db0::python
         std::vector<std::string> m_vars;
 
         Migration(PyObject *, std::vector<std::string> &&);
+
+        // try executing the migrate function with no arguments
+        PyObject *exec(PyObject *self) const;
     };
     
     std::vector<Migration> extractMigrations(PyObject *py_migrations);
