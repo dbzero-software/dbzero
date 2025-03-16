@@ -57,5 +57,5 @@ namespace db0::python
         Py_DECREF(kwargs);        
         return result;
     }
-
+    
 }

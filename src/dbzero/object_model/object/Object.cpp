@@ -193,7 +193,7 @@ namespace db0::object_model
     }
     
     void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
-    {
+    {        
         assert(hasInstance());
         auto [type_id, storage_class] = recognizeType(**fixture, lang_value);
         

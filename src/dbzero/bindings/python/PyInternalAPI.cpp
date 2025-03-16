@@ -694,7 +694,7 @@ namespace db0::python
                 return true;
             });
             
-            if (exec_migrate && py_result) {
+            if (exec_migrate && !py_result) {
                 // migrate exec failed, return with error set
                 py_type->tp_dealloc(memo_obj);
                 return py_result;
