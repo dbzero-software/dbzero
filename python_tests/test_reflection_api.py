@@ -265,3 +265,27 @@ def test_get_all_instances_of_unknown_type_from_snapshot(db0_fixture, memo_tags)
     
 def test_import_model(db0_fixture):
     db0.import_model("datetime")
+
+
+def test_get_mutable_prefixes(db0_fixture):
+    def names(prefixes):
+        return [prefix.name for prefix in prefixes]
+
+    prefix = db0.get_current_prefix().name
+    assert names(db0.get_mutable_prefixes()) == [prefix]
+
+    db0.open('prefix1')
+    db0.open('prefix2')
+    result = names(db0.get_mutable_prefixes())
+    assert set(result) == {'prefix2', 'prefix1', prefix}
+    assert len(result) == len(set(result))
+
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open('prefix1', 'r')
+    db0.open('prefix2', 'r')
+    db0.open('prefix3', 'rw')
+    db0.open('prefix4', 'rw')
+    result = names(db0.get_mutable_prefixes())
+    assert set(names(db0.get_mutable_prefixes())) == {'prefix4', 'prefix3'}
+    assert len(result) == len(set(result))

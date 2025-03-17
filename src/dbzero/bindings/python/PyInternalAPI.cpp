@@ -405,6 +405,11 @@ namespace db0::python
         THROWF(db0::InputException) << "Unable to retrieve ref count for type: "
             << Py_TYPE(py_object)->tp_name << THROWF_END;
     }
+
+    db0::swine_ptr<Fixture> getOptionalPrefixFromArg(db0::Snapshot &workspace, const char *prefix_name)
+    {
+        return prefix_name ? workspace.findFixture(prefix_name) : workspace.getCurrentFixture();
+    }
     
     db0::swine_ptr<Fixture> getPrefixFromArgs(db0::Snapshot &workspace, PyObject *args,
         PyObject *kwargs, const char *param_name)
@@ -416,11 +421,7 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid argument type";
         }
         
-        if (prefix_name) {
-            return workspace.findFixture(prefix_name);
-        } else {
-            return workspace.getCurrentFixture();
-        }
+        return getOptionalPrefixFromArg(workspace, prefix_name);
     }
     
     db0::swine_ptr<Fixture> getPrefixFromArgs(PyObject *args, PyObject *kwargs, const char *param_name) {

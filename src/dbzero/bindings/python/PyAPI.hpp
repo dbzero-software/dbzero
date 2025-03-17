@@ -136,6 +136,8 @@ namespace db0::python
     PyObject *setCacheSize(PyObject *self, PyObject *args);
     
     PyObject *getPrefixes(PyObject *, PyObject *);
+
+    PyObject *PyAPI_getMutablePrefixes(PyObject *, PyObject *);
     
     PyObject *getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs);
     
@@ -157,7 +159,7 @@ namespace db0::python
 
     PyObject *PyAPI_materialized(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 
-    PyObject *PyApi_wait(PyObject *self, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_wait(PyObject *self, PyObject *args, PyObject *kwargs);
     
     PyObject *PyApi_findSingleton(PyObject *self, PyObject *args, PyObject *kwargs);
 

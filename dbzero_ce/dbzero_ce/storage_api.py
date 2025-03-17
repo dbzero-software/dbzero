@@ -10,6 +10,11 @@ def get_prefixes():
         yield PrefixMetaData(*prefix)
 
 
+def get_mutable_prefixes():
+    for prefix in db0.get_raw_mutable_prefixes():
+        yield PrefixMetaData(*prefix)
+
+
 def get_current_prefix():
     return PrefixMetaData(*get_raw_current_prefix())
 
