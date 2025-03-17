@@ -77,6 +77,7 @@ static PyMethodDef dbzero_methods[] =
     {"get_storage_stats", (PyCFunction)&py::getStorageStats, METH_VARARGS | METH_KEYWORDS, "Retrieve dbzero storage utilization statistics for a specific prefix"},
     // the Reflection API functions
     {"get_raw_prefixes", &py::getPrefixes, METH_NOARGS, "Get the list of prefixes accessible from the current context"},
+    {"get_raw_mutable_prefixes", &py::PyAPI_getMutablePrefixes, METH_NOARGS, "Get the list of prefixes opened with write access"},
     {"get_raw_memo_classes", (PyCFunction)&py::getMemoClasses, METH_VARARGS | METH_KEYWORDS, "Get the list of memo classes from a specific prefix"},
     {"get_attributes", (PyCFunction)&py::getAttributes, METH_VARARGS, "Get attributes of a memo type"},
     {"getattr_as", (PyCFunction)&py::getAttrAs, METH_FASTCALL, "Get memo member cast to a user defined type - e.g. MemoBase"},
@@ -87,7 +88,7 @@ static PyMethodDef dbzero_methods[] =
     {"as_tag", (PyCFunction)&py::PyAPI_as_tag, METH_FASTCALL, "Returns tag of a @db0.memo object"},
     {"materialized", (PyCFunction)&py::PyAPI_materialized, METH_FASTCALL, "Returns a materialized version of a @db0.memo object"},
     {"is_memo", (PyCFunction)&py::PyAPI_PyMemo_Check, METH_FASTCALL, "Checks if passed object is memo type"},
-    {"wait", (PyCFunction)&py::PyApi_wait, METH_VARARGS | METH_KEYWORDS, "Wait for desired prefix state number"},
+    {"wait", (PyCFunction)&py::PyAPI_wait, METH_VARARGS | METH_KEYWORDS, "Wait for desired prefix state number"},
     {"find_singleton", (PyCFunction)&py::PyApi_findSingleton, METH_VARARGS | METH_KEYWORDS, "Try retrieving an existing singleton, possibly from a given prefix"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},

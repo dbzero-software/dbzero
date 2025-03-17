@@ -384,9 +384,16 @@ namespace db0::python
     
     PyObject *tryGetStateNum(PyObject *args, PyObject *kwargs)
     {
-        auto fixture = getPrefixFromArgs(args, kwargs, "prefix");
+        const char *prefix_name = nullptr;
+        int  finalized = 0;
+        const char * const kwlist[] = {"prefix", "finalized", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sp", const_cast<char**>(kwlist), &prefix_name, &finalized)) {
+            return nullptr;
+        }
+
+        auto fixture = getOptionalPrefixFromArg(PyToolkit::getPyWorkspace().getWorkspace(), prefix_name);
         fixture->refreshIfUpdated();
-        return PyLong_FromLong(fixture->getPrefix().getStateNum());
+        return PyLong_FromLong(fixture->getPrefix().getStateNum(finalized == 1));
     }
 
     PyObject *getStateNum(PyObject *, PyObject *args, PyObject *kwargs) 
@@ -873,6 +880,36 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryGetPrefixes);
     }
+
+    PyObject *tryGetMutablePrefixes()
+    {
+        using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+        ObjectSharedPtr list(PyList_New(0), false);
+        if(!list) {
+            return nullptr;
+        }
+        PyToolkit::getPyWorkspace().getWorkspace().forEachFixture([&list](const Fixture &fixture) {
+            if(fixture.getAccessType() == AccessType::READ_WRITE) {
+                ObjectSharedPtr prefix(Py_BuildValue("sK", fixture.getPrefix().getName().c_str(), fixture.getUUID()), false);
+                if(!prefix) {
+                    list = ObjectSharedPtr();
+                    return false;
+                }
+                if(PyList_Append(list.get(), prefix.get()) == -1) {
+                    list = ObjectSharedPtr();
+                    return false;
+                }
+            }
+            return true;
+        });
+        return list.steal();
+    }
+
+    PyObject *PyAPI_getMutablePrefixes(PyObject *, PyObject *) 
+    {
+        PY_API_FUNC
+        return runSafe(tryGetMutablePrefixes);
+    }
     
     PyObject *getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs)
     {
@@ -1055,12 +1092,12 @@ namespace db0::python
         Py_RETURN_TRUE;
     }
 
-    PyObject *PyApi_wait(PyObject*, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_wait(PyObject*, PyObject *args, PyObject *kwargs)
     {
         const char *prefix = nullptr;
         int state = 0;
         int timeout = 0;
-        const char *kwlist[] = {"prefix", "state", "timeout", nullptr};
+        const char * const kwlist[] = {"prefix", "state", "timeout", nullptr};
         if(!PyArg_ParseTupleAndKeywords(args, kwargs, "si|i:wait", const_cast<char**>(kwlist), &prefix, &state, &timeout)) {
             return nullptr;
         }
