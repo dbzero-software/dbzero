@@ -1,4 +1,5 @@
 import inspect
+import functools
 
 def check_params_not_equal(params, count):
     if 'self' in params.args:
@@ -6,6 +7,7 @@ def check_params_not_equal(params, count):
     return len(params.args) != count or params.varargs or params.varkw or params.kwonlyargs
 
 def immutable(f):
+    @functools.wraps(f)
     def wrapper(*args, **kwargs):
         retval = f(*args, **kwargs)
         return retval
@@ -16,6 +18,7 @@ def immutable(f):
 
 
 def fulltext(f):
+    @functools.wraps(f)
     def wrapper(*args, **kwargs):
         retval = f(*args, **kwargs)
         return retval
