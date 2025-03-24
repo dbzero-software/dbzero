@@ -1,4 +1,7 @@
 #include "EnumValue.hpp"
+#include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/object_model/enum/EnumFactory.hpp>
+#include <dbzero/object_model/enum/Enum.hpp>
 
 namespace db0::object_model
 
@@ -56,12 +59,31 @@ namespace db0::object_model
         return m_enum_type_def != other.m_enum_type_def || m_str_repr != other.m_str_repr;
     }
     
-    bool EnumValue::operator==(const EnumValue &other) const {
-        return m_fixture_uuid == other.m_fixture_uuid && m_enum_uid == other.m_enum_uid && m_value == other.m_value;
+    bool EnumValue::operator==(const EnumValue &other) const
+    {
+        using EnumFactory = db0::object_model::EnumFactory;
+        if (*m_fixture == *other.m_fixture) {
+            // compare values from the same prefix
+            return m_enum_uid == other.m_enum_uid && m_value == other.m_value;
+        } else {
+            // First, compare if the enum definitions match
+            auto enum_ = m_fixture->get<EnumFactory>().getEnumByUID(m_enum_uid);
+            auto other_enum = other.m_fixture->get<EnumFactory>().getEnumByUID(other.m_enum_uid);
+            if (enum_->getEnumDef() != other_enum->getEnumDef()) {
+                return false;
+            }
+            
+            // compare string representations if definitions match
+            return m_str_repr == other.m_str_repr;
+        }
     }
-
+    
     bool EnumValue::operator!=(const EnumValue &other) const {
-        return m_fixture_uuid != other.m_fixture_uuid || m_enum_uid != other.m_enum_uid || m_value != other.m_value;
+        return !(*this == other);
+    }
+    
+    std::int64_t EnumValue::getPermHash() const {
+        return std::hash<std::string>{}(m_str_repr);
     }
 
 } 

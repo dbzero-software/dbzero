@@ -199,3 +199,10 @@ def test_enum_values_from_different_prefixes_are_compared_equal(db0_fixture):
     # make sure the 2 values from different prefixes are equal
     assert val_1 == val_2
     
+    
+def test_looking_up_by_enum_from_different_prefix(db0_fixture):
+    set_1 = db0.set([ColorsEnum.RED])
+    # change current prefix
+    db0.open("some-other-prefix", "rw")
+    # look up by enum value from different prefix
+    assert ColorsEnum.RED in set_1

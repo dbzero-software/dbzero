@@ -105,14 +105,14 @@ namespace db0::object_model
         if (!value) {
             return {};
         }
-        return { m_fixture_uuid, m_uid, value, std::string(str_value) };
+        return { this->getFixture(), m_uid, value, std::string(str_value) };
     }
 
     EnumValue Enum::get(const char *str_value) const
     {
         assert(str_value);
         auto value = find(str_value);
-        return { m_fixture_uuid, m_uid, value, std::string(str_value) };
+        return { this->getFixture(), m_uid, value, std::string(str_value) };
     }
 
     EnumValue Enum::get(EnumValue_UID enum_value_uid) const
@@ -120,7 +120,7 @@ namespace db0::object_model
         if (m_values.find(enum_value_uid.m_value) == m_values.end()) {
             THROWF(db0::InputException) << "Enum value not found by UID: " << enum_value_uid.asULong();
         }
-        return { m_fixture_uuid, enum_value_uid.m_enum_uid, enum_value_uid.m_value, 
+        return { this->getFixture(), enum_value_uid.m_enum_uid, enum_value_uid.m_value,
             m_string_pool.fetch(enum_value_uid.m_value) };
     }
     
@@ -128,7 +128,7 @@ namespace db0::object_model
     {
         std::vector<EnumValue> values;
         for (auto value: m_ordered_values) {
-            values.push_back({ m_fixture_uuid, m_uid, value, m_string_pool.fetch(value) });
+            values.push_back({ this->getFixture(), m_uid, value, m_string_pool.fetch(value) });
         }
         return values;
     }

@@ -270,8 +270,8 @@ namespace db0::python
         } else if (PyEnumValue_Check(other)) {
             PyEnumValue *other_enum_value = (PyEnumValue*) other;
             auto &enum_value = other_enum_value->ext();
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(enum_value.m_fixture_uuid);
-            auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
+            assert(enum_value);
+            auto &enum_factory = enum_value.m_fixture->get<db0::object_model::EnumFactory>();
             // try converting value repr to enum value
             auto enum_ = enum_factory.tryGetEnumValue(enum_value_repr_obj->ext());
             
@@ -425,9 +425,8 @@ namespace db0::python
     }
     
     PyObject *PyEnumValue_repr(PyEnumValue *self)
-    {
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(self->ext().m_fixture_uuid);
-        auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
+    {        
+        auto &enum_factory = self->ext().m_fixture->get<db0::object_model::EnumFactory>();
         auto enum_ = enum_factory.getEnumByUID(self->ext().m_enum_uid);
         return PyUnicode_FromFormat("<EnumValue %s.%s>", enum_->getName().c_str(), self->ext().m_str_repr.c_str());
     }
@@ -456,13 +455,15 @@ namespace db0::python
     {
         auto &enum_value = py_enum_value->ext();
         // translation is needed if prefixes differ
-        return (enum_value.m_fixture_uuid != fixture->getUUID());
+        assert(enum_value);
+        return (*enum_value.m_fixture != *fixture);
     }
 
     shared_py_object<PyObject*> migratedEnumValue(db0::swine_ptr<Fixture> &fixture, PyEnumValue *py_enum_value)
     {
         auto &enum_value = py_enum_value->ext();
-        if (enum_value.m_fixture_uuid == fixture->getUUID()) {
+        assert(enum_value);
+        if (*enum_value.m_fixture == *fixture) {
             // no translation needed
             return py_enum_value;
         }
@@ -470,5 +471,5 @@ namespace db0::python
         // migrate enum value to the destination fixture
         return fixture->get<db0::object_model::EnumFactory>().migrateEnumLangValue(enum_value);        
     }
-
+    
 }

@@ -239,7 +239,8 @@ namespace db0::object_model
     {
         auto enum_value = PyToolkit::getTypeManager().extractEnumValue(obj_ptr);
         // make sure value from the same Fixture is assigned
-        if (enum_value.m_fixture_uuid != fixture->getUUID()) {
+        assert(enum_value);
+        if (*enum_value.m_fixture != *fixture) {
             // migrate enum value to the destination fixture
             enum_value = fixture->get<EnumFactory>().migrateEnumValue(enum_value);
         }

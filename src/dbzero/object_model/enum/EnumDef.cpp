@@ -5,11 +5,21 @@ namespace db0::object_model
 
 {
     
+    std::uint32_t getHashOf(const std::vector<std::string> &values)
+    {
+        std::uint32_t hash = 0;
+        for (const auto &value : values) {
+            hash ^= std::hash<std::string>{}(value);
+        }
+        return hash;
+    }
+    
     EnumDef::EnumDef(const std::string &name, const std::string &module_name, const std::vector<std::string> &values,
         const char *type_id)
         : m_name(name)
         , m_module_name(module_name)
         , m_values(values)
+        , m_hash(getHashOf(values))
         , m_type_id(type_id ? std::optional<std::string>(type_id) : std::nullopt)
     {
     }
@@ -19,8 +29,37 @@ namespace db0::object_model
         : m_name(name)
         , m_module_name(module_name)
         , m_values(values)
+        , m_hash(getHashOf(values))
         , m_type_id(type_id)
     {
+    }
+
+    bool EnumDef::operator==(const EnumDef &other) const
+    {
+        // any 2 of the 3 components should match
+        unsigned int matched = 0;
+        if (m_name == other.m_name) {
+            ++matched;
+        }
+        if (m_module_name == other.m_module_name) {
+            ++matched;
+        }
+        if (matched == 2) {
+            return true;
+        }
+        if (matched < 1) {
+            return false;
+        }
+        // compare values finally
+        if (m_hash != other.m_hash) {
+            return false;
+        }
+        // FIXME: compare as order independent
+        return m_values == other.m_values;
+    }
+    
+    bool EnumDef::operator!=(const EnumDef &other) const {
+        return !(*this == other);
     }
 
     EnumTypeDef::EnumTypeDef(const EnumDef &enum_def, const char *prefix_name)

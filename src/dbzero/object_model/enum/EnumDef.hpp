@@ -4,6 +4,7 @@
 #include <string>
 #include <optional>
 #include <iostream>
+#include <cstdint>
 
 namespace db0::object_model
 
@@ -14,9 +15,11 @@ namespace db0::object_model
         // user assigned enum name
         const std::string m_name;
         // a module where the enum is defined
-        const std::string m_module_name;        
+        const std::string m_module_name;
         // user assigned enum values
         const std::vector<std::string> m_values;
+        // combined hash computed from enum values
+        const std::uint32_t m_hash;
         std::optional<std::string> m_type_id;
         
         EnumDef(const std::string &name, const std::string &module_name, const std::vector<std::string> &values,
@@ -29,6 +32,10 @@ namespace db0::object_model
         
         // @return nullptr if type-id has not been assigned
         const char *tryGetTypeId() const;
+        
+        // Compare enum type definitions
+        bool operator==(const EnumDef &) const;
+        bool operator!=(const EnumDef &) const;
     };
     
     // Full enum type definition

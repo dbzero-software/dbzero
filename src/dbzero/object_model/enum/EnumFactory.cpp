@@ -200,16 +200,15 @@ namespace db0::object_model
     }
     
     bool EnumFactory::isMigrateRequired(const EnumValue &other) const {
-        return (other.m_fixture_uuid != getFixture()->getUUID());
+        assert(other);
+        return *other.m_fixture != *this->getFixture();
     }
     
     std::shared_ptr<Enum> EnumFactory::tryGetMigratedEnum(const EnumValue &other)
     {        
         assert(other);
-        assert(other.m_fixture_uuid != getFixture()->getUUID());
-        // NOTE: this operation may not work if we're on a snapshot
-        // therefore enum resolution should be done from the "head" workspace
-        auto &other_factory = this->getFixture()->getWorkspace().getHeadWorkspace().getFixture(other.m_fixture_uuid)->get<EnumFactory>();
+        assert(*other.m_fixture != *this->getFixture());
+        auto &other_factory = other.m_fixture->get<EnumFactory>();
         auto other_enum = other_factory.getEnumByUID(other.m_enum_uid);
         auto type_id = other_enum->getTypeID();
         // FIXME: optimization
@@ -229,7 +228,7 @@ namespace db0::object_model
     
     std::optional<EnumValue> EnumFactory::tryMigrateEnumValue(const EnumValue &other)
     {
-        if (other.m_fixture_uuid == getFixture()->getUUID()) {
+        if (*other.m_fixture == *this->getFixture()) {
             // no translation required
             return other;
         }
@@ -255,7 +254,7 @@ namespace db0::object_model
     EnumFactory::ObjectSharedPtr EnumFactory::tryMigrateEnumLangValue(const EnumValue &other)
     {
         assert(other);
-        if (other.m_fixture_uuid == getFixture()->getUUID()) {
+        if (*other.m_fixture == *getFixture()) {
             // retrieve from this factory
             return getEnumByUID(other.m_enum_uid)->getLangValue(other);
         }

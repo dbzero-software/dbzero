@@ -87,6 +87,9 @@ namespace db0::object_model
         const EnumDef &getEnumDef() const;
         std::optional<std::string> getTypeID() const;
         
+        // Fetch specific enum value's string representation
+        std::string fetchValue(LP_String) const;
+        
         std::size_t size() const;
 
         void detach() const;

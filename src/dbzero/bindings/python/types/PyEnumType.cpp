@@ -91,6 +91,8 @@ namespace db0::python
     
     void PyEnumData::close() {
         m_enum_cache.clear();
+        m_fixture_uuid = std::nullopt;
+        
     }
     
     void PyEnumData::makeNew(void *at_ptr, const EnumDef &enum_def, const char *prefix_name) {
