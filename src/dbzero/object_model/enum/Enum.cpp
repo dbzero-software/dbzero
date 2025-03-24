@@ -20,6 +20,7 @@ namespace db0::object_model
         , m_string_pool(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
         , m_ordered_values((*this)->m_ordered_values(*fixture))
+        , m_enum_def(name, module_name, values, type_id)
     {
         for (auto &value: values) {
             auto value_ref = m_string_pool.addRef(value);
@@ -42,6 +43,7 @@ namespace db0::object_model
         , m_string_pool(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
         , m_ordered_values((*this)->m_ordered_values(*fixture))
+        , m_enum_def(makeEnumDef())
     {
     }
     
@@ -90,6 +92,10 @@ namespace db0::object_model
         // relative address must not exceed SLOT size
         assert(result < std::numeric_limits<std::uint32_t>::max());
         return result;
+    }
+    
+    const EnumDef &Enum::getEnumDef() const {
+        return m_enum_def;
     }
     
     EnumValue Enum::tryGet(const char *str_value) const
@@ -239,15 +245,6 @@ namespace db0::object_model
         return std::nullopt;
     }
 
-    EnumDef Enum::getEnumDef() const
-    {
-        std::vector<std::string> values;
-        for (auto value: m_ordered_values) {
-            values.push_back(m_string_pool.fetch(value));
-        }
-        return { getName(), getModuleName(), values };
-    }
-
     void Enum::detach() const 
     {
         m_values.detach();
@@ -264,6 +261,15 @@ namespace db0::object_model
 
     std::size_t Enum::size() const {
         return m_values.size();
+    }
+    
+    EnumDef Enum::makeEnumDef() const
+    {
+        std::vector<std::string> values;
+        for (auto value: m_ordered_values) {
+            values.push_back(m_string_pool.fetch(value));
+        }
+        return { getName(), getModuleName(), values, getTypeID() };
     }
 
 }

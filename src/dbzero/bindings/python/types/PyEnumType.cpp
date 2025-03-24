@@ -8,93 +8,76 @@ namespace db0::python
 
 {
     
-    PyEnumData::PyEnumData(const EnumDef &enum_def, const char *type_id, const char *prefix_name)
-        : m_enum_type_def(std::make_shared<EnumTypeDef>(enum_def, type_id, prefix_name))
+    PyEnumData::PyEnumData(const EnumDef &enum_def, const char *prefix_name)
+        : m_enum_type_def(std::make_shared<EnumTypeDef>(enum_def, prefix_name))
+        , m_fixture_uuid(tryGetFixtureUUID(prefix_name))
     {
     }
-
+    
     bool PyEnumData::exists() const
     {
         assert(m_enum_type_def);
-        using EnumFactory = db0::object_model::EnumFactory;
-        if (m_enum_ptr) {
-            return true;
-        }
-        
-        if (!PyToolkit::getPyWorkspace().hasWorkspace()) {
-            // unable to check without a workspace
+        auto fixture_uuid = tryGetFixtureUUID();
+        if (!fixture_uuid) {
+            // failed to resolve the fixture UUID
             return false;
         }
 
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        std::uint64_t fixture_uuid = 0;
-        if (m_enum_type_def->hasPrefix()) {
-            if (!workspace.hasFixture(m_enum_type_def->getPrefixName())) {
-                return false;
-            }
-            fixture_uuid = workspace.getFixture(
-                m_enum_type_def->getPrefixName().c_str(), AccessType::READ_ONLY)->getUUID();
+        if (m_enum_cache.find(fixture_uuid) != m_enum_cache.end()) {
+            return true;
         }
+
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
         const auto &enum_factory = fixture->get<EnumFactory>();
         return enum_factory.tryGetExistingEnum(*m_enum_type_def) != nullptr;
     }
-    
+
     const Enum &PyEnumData::get() const
-    {
-        using EnumFactory = db0::object_model::EnumFactory;
-        if (!m_enum_ptr) {
-            std::uint64_t fixture_uuid = 0;
-            if (m_enum_type_def->hasPrefix()) {
-                auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(
-                    m_enum_type_def->getPrefixName().c_str(), 
-                    AccessType::READ_ONLY
-                );
-                fixture_uuid = fixture->getUUID();
-            }
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
-            const auto &enum_factory = fixture->get<EnumFactory>();
-            // use empty module name since it's unknown
-            m_enum_ptr = enum_factory.getExistingEnum(*m_enum_type_def);
-            // popluate enum's value cache
-            for (auto &value: m_enum_ptr->getValues()) {
-                m_enum_ptr->getLangValue(value);
-            }
+    {        
+        auto fixture_uuid = getFixtureUUID();
+        auto it = m_enum_cache.find(fixture_uuid);
+        if (it != m_enum_cache.end()) {
+            return *it->second;
         }
-        assert(m_enum_ptr);
-        return *m_enum_ptr;
+
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
+        const auto &enum_factory = fixture->get<EnumFactory>();
+        // use empty module name since it's unknown
+        auto enum_ptr = enum_factory.getExistingEnum(*m_enum_type_def);
+        // popluate enum's value cache
+        for (auto &value: enum_ptr->getValues()) {
+            enum_ptr->getLangValue(value);
+        }
+
+        m_enum_cache[fixture_uuid] = enum_ptr;
+        return *enum_ptr;
     }
-    
+
     Enum *PyEnumData::tryCreate()
     {
-        using EnumFactory = db0::object_model::EnumFactory;
-        if (!m_enum_ptr) {
-            std::uint64_t fixture_uuid = 0;
-            auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-            if (m_enum_type_def->hasPrefix()) {
-                // try retrieving an already opened fixture / prefix
-                auto fixture = workspace.tryGetFixture(m_enum_type_def->getPrefixName().c_str());
-                if (!fixture) {
-                    return nullptr;
-                }
-                fixture_uuid = fixture->getUUID();
-            }
-            // either get a specific or current prefix (must already be opened)
-            auto fixture = workspace.tryGetFixture(fixture_uuid);
-            if (!fixture) {
-                return nullptr;
-            }
-            auto &enum_factory = fixture->get<EnumFactory>();
-            // use empty module name since it's unknown
-            m_enum_ptr = enum_factory.tryGetOrCreateEnum(*m_enum_type_def);
-            if (m_enum_ptr) {
-                // popluate enum's value cache
-                for (auto &value: m_enum_ptr->getValues()) {
-                    m_enum_ptr->getLangValue(value);
-                }
-            }
+        auto fixture_uuid = getFixtureUUID();
+        auto it = m_enum_cache.find(fixture_uuid);
+        if (it != m_enum_cache.end()) {
+            return it->second.get();
         }
-        return m_enum_ptr.get();
+
+        // either get a specific or current prefix (must already be opened)
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().tryGetFixture(fixture_uuid);
+        if (!fixture) {
+            return nullptr;
+        }
+
+        auto &enum_factory = fixture->get<EnumFactory>();
+        // use empty module name since it's unknown
+        auto enum_ptr = enum_factory.tryGetOrCreateEnum(*m_enum_type_def);
+        if (enum_ptr) {
+            // popluate enum's value cache
+            for (auto &value: enum_ptr->getValues()) {
+                enum_ptr->getLangValue(value);
+            }
+            m_enum_cache[fixture_uuid] = enum_ptr;
+        }
+        return enum_ptr.get();
     }
     
     Enum &PyEnumData::create()
@@ -107,11 +90,11 @@ namespace db0::python
     }
     
     void PyEnumData::close() {
-        m_enum_ptr = nullptr;
+        m_enum_cache.clear();
     }
     
-    void PyEnumData::makeNew(void *at_ptr, const EnumDef &enum_def, const char *type_id, const char *prefix_name) {
-        new(at_ptr) PyEnumData(enum_def, type_id, prefix_name);
+    void PyEnumData::makeNew(void *at_ptr, const EnumDef &enum_def, const char *prefix_name) {
+        new(at_ptr) PyEnumData(enum_def, prefix_name);
     }
     
     bool PyEnumData::hasValue(const char *value) const
@@ -130,4 +113,67 @@ namespace db0::python
         return m_enum_type_def->m_enum_def.m_values.size();
     }
     
+    std::uint64_t PyEnumData::getFixtureUUID() const
+    {
+        if (!m_fixture_uuid) {
+            m_fixture_uuid = tryGetFixtureUUID(m_enum_type_def->getPrefixNamePtr());        
+        }
+        
+        if (!m_fixture_uuid) {
+            THROWF(db0::InputException) << "Unable to resolve the scope of: " << *m_enum_type_def;
+        }
+
+        auto fixture_uuid = *m_fixture_uuid;
+        if (!fixture_uuid) {
+            // retrieve the current fixture UUID
+            if (!PyToolkit::getPyWorkspace().hasWorkspace()) {
+                THROWF(db0::InputException) << "Unable to resolve the scope of: " << *m_enum_type_def;
+            }
+            auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+            return workspace.getCurrentFixture()->getUUID();
+        }
+        return fixture_uuid;
+    }
+
+    std::uint64_t PyEnumData::tryGetFixtureUUID() const
+    {
+        if (!m_fixture_uuid) {
+            m_fixture_uuid = tryGetFixtureUUID(m_enum_type_def->getPrefixNamePtr());        
+        }
+        
+        if (!m_fixture_uuid) {
+            return 0;
+        }
+        
+        auto fixture_uuid = *m_fixture_uuid;
+        if (!fixture_uuid) {
+            // retrieve the current fixture UUID
+            if (!PyToolkit::getPyWorkspace().hasWorkspace()) {
+                return 0;
+            }
+            auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+            return workspace.getCurrentFixture()->getUUID();
+        }
+        return fixture_uuid;
+    }
+
+    std::optional<std::uint64_t> PyEnumData::tryGetFixtureUUID(const char *prefix_name)
+    {
+        if (prefix_name) {
+            if (!PyToolkit::getPyWorkspace().hasWorkspace()) {
+                return std::nullopt;
+            }
+            
+            auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+            auto fixture = workspace.tryGetFixture(prefix_name, AccessType::READ_ONLY);
+            if (!fixture) {
+                return std::nullopt;
+            }
+            return fixture->getUUID();
+        } else {
+            // fixture UUID = 0 represents the default fixture
+            return 0;
+        }
+    }
+
 }

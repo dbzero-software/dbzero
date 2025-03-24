@@ -84,10 +84,11 @@ namespace db0::object_model
         }
         return it_cached->second;
     }
-
-    EnumPtr EnumFactory::tryFindEnumPtr(const EnumDef &enum_def, const char *type_id) const
+    
+    EnumPtr EnumFactory::tryFindEnumPtr(const EnumDef &enum_def) const
     {
         EnumPtr result;
+        auto type_id = enum_def.tryGetTypeId();
         for (unsigned int i = 0; i < 4; ++i) {
             auto variant_key = getEnumKeyVariant(enum_def, type_id, i);
             if (variant_key) {
@@ -104,16 +105,16 @@ namespace db0::object_model
     }
     
     std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumTypeDef &enum_type_def) {
-        return tryGetOrCreateEnum(enum_type_def.m_enum_def, enum_type_def.tryGetTypeId());
+        return tryGetOrCreateEnum(enum_type_def.m_enum_def);
     }
     
-    std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumDef &enum_def, const char *type_id)
+    std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumDef &enum_def)
     {
-        auto ptr = tryFindEnumPtr(enum_def, type_id);
+        auto ptr = tryFindEnumPtr(enum_def);
         if (ptr) {
             return getEnumByPtr(ptr);
         }
-        
+                
         // create new Enum instance (fixture must be accessible for write)
         auto fixture = getFixture();
         if (fixture->getAccessType() != AccessType::READ_WRITE) {
@@ -121,6 +122,7 @@ namespace db0::object_model
             return nullptr;
         }
         
+        auto type_id = enum_def.tryGetTypeId();
         auto enum_ = std::shared_ptr<Enum>(
             new Enum(fixture, enum_def.m_name, enum_def.m_module_name, enum_def.m_values, type_id));                
         auto enum_ptr = EnumPtr(*enum_);
@@ -139,10 +141,11 @@ namespace db0::object_model
         return this->getEnum(enum_ptr, enum_);
     }
 
-    std::shared_ptr<Enum> EnumFactory::getOrCreateEnum(const EnumDef &enum_def, const char *type_id)
+    std::shared_ptr<Enum> EnumFactory::getOrCreateEnum(const EnumDef &enum_def)
     {
-        auto enum_ = tryGetOrCreateEnum(enum_def, type_id);
+        auto enum_ = tryGetOrCreateEnum(enum_def);
         if (!enum_) {
+            auto type_id = enum_def.tryGetTypeId();
             auto prefix_name = this->getFixture()->getPrefix().getName();
             THROWF(db0::InputException) << "Unable to create Enum: " << enum_def << ", type_id: " 
                 << (type_id != nullptr ? type_id : "null") << " in " << prefix_name;
@@ -169,9 +172,8 @@ namespace db0::object_model
     }
     
     std::shared_ptr<Enum> EnumFactory::tryGetExistingEnum(const EnumTypeDef &enum_type_def) const
-    {        
-        auto type_id = enum_type_def.tryGetTypeId();
-        auto ptr = tryFindEnumPtr(enum_type_def.m_enum_def, type_id);
+    {                
+        auto ptr = tryFindEnumPtr(enum_type_def.m_enum_def);
         if (!ptr) {
             return nullptr;
         }
@@ -212,7 +214,7 @@ namespace db0::object_model
         auto type_id = other_enum->getTypeID();
         // FIXME: optimization
         // getEnumDef can be avoided if definition already exists in the destination fixture
-        return this->tryGetOrCreateEnum(other_enum->getEnumDef(), type_id ? type_id->c_str() : nullptr);
+        return this->tryGetOrCreateEnum(other_enum->getEnumDef());
     }
     
     std::shared_ptr<Enum> EnumFactory::getMigratedEnum(const EnumValue &other)

@@ -253,7 +253,7 @@ namespace db0::python
     };
     
     PyObject *EnumValueRepr_rq(PyEnumValueRepr *enum_value_repr_obj, PyObject *other, int op)
-    {
+    {        
         // Compare to other enum value repr
         if (PyEnumValueRepr_Check(other)) {
             PyEnumValueRepr *other_enum_value_repr = (PyEnumValueRepr*) other;
@@ -340,7 +340,7 @@ namespace db0::python
         auto &enum_value = PyToolkit::getTypeManager().extractEnumValue(enum_value_obj);
         return enum_value.getUID().asULong();
     }
-
+    
     PyTypeObject PyEnumValueType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.EnumValue",
@@ -402,7 +402,7 @@ namespace db0::python
     {
         auto py_enum = PyEnumDefault_new();
         // use empty module name since it's unknown
-        PyEnumData::makeNew(&py_enum->modifyExt(), EnumDef {enum_name, "", user_enum_values}, type_id, prefix_name);
+        PyEnumData::makeNew(&py_enum->modifyExt(), EnumDef {enum_name, "", user_enum_values, type_id }, prefix_name);
         PyToolkit::getTypeManager().addEnum(py_enum);
         return py_enum;
     }
@@ -412,7 +412,7 @@ namespace db0::python
     {
         return tryMakeEnum(self, py_type->tp_name, enum_values, type_id, prefix_name);
     }
-
+    
     shared_py_object<PyEnumValue*> makePyEnumValue(const EnumValue &enum_value)
     {
         auto py_enum_value = PyEnumValueDefault_new();

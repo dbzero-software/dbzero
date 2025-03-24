@@ -55,7 +55,7 @@ namespace db0::object_model
     bool EnumValueRepr::operator!=(const EnumValueRepr &other) const {
         return m_enum_type_def != other.m_enum_type_def || m_str_repr != other.m_str_repr;
     }
-
+    
     bool EnumValue::operator==(const EnumValue &other) const {
         return m_fixture_uuid == other.m_fixture_uuid && m_enum_uid == other.m_enum_uid && m_value == other.m_value;
     }

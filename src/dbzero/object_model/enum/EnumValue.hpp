@@ -2,12 +2,14 @@
 
 #include <string>
 #include <dbzero/core/collections/pools/StringPools.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 
 namespace db0::object_model
 
 {
     
     using LP_String = db0::LP_String;
+    using ObjectSharedPtr = db0::object_model::LangConfig::ObjectSharedPtr;
     struct EnumTypeDef;
     
     struct EnumValue_UID
