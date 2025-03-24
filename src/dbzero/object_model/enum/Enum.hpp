@@ -60,17 +60,17 @@ namespace db0::object_model
         // exception thrown if value not found
         LP_String find(const char *value) const;
         LP_String tryFind(const char *value) const;
-
-        static Enum *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, const std::string &name, const std::string &module_name,
-            const std::vector<std::string> &values, const char *type_id = nullptr);
-
+        
+        static Enum *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, const std::string &name, 
+            const std::string &module_name, const std::vector<std::string> &values, const char *type_id = nullptr);
+        
         // Get unique 32-bit identifier
         // it's implemented as a relative address from the underlying SLOT
         std::uint32_t getUID() const { return m_uid; }
         
         EnumValue tryGet(const char *value) const;
         EnumValue get(const char *value) const;
-        EnumValue get(EnumValue_UID) const;        
+        EnumValue get(EnumValue_UID) const;
         
         // Get enum value as a language-specific type
         ObjectSharedPtr getLangValue(const char *value) const;
@@ -83,10 +83,13 @@ namespace db0::object_model
         
         // Retrieve all enum defined values ordered by index
         std::vector<EnumValue> getValues() const;
-
-        EnumDef getEnumDef() const;
+        
+        const EnumDef &getEnumDef() const;
         std::optional<std::string> getTypeID() const;
-
+        
+        // Fetch specific enum value's string representation
+        std::string fetchValue(LP_String) const;
+        
         std::size_t size() const;
 
         void detach() const;
@@ -104,8 +107,13 @@ namespace db0::object_model
         mutable std::unordered_map<std::string, ObjectSharedPtr> m_cache;
         // cache by ordinal values
         mutable std::unordered_map<unsigned int, ObjectSharedPtr> m_ord_cache;
+        const EnumDef m_enum_def;
         
         std::uint32_t fetchUID() const;
+        
+        EnumDef makeEnumDef() const;
+        EnumDef makeEnumDef(const std::string &name, const std::string &module_name, const std::vector<std::string> &values, 
+            const char *type_id);
     };
     
     std::optional<std::string> getEnumKeyVariant(std::optional<std::string> type_id, std::optional<std::string> enum_name,

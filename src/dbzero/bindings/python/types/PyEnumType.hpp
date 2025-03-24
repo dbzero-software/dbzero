@@ -4,9 +4,19 @@
 #include <dbzero/bindings/python/PyTypes.hpp>
 #include <dbzero/bindings/python/PyWrapper.hpp>
 #include <dbzero/object_model/enum/EnumDef.hpp>
+#include <unordered_map>
+
+namespace db0 {
+
+    class Snapshot;
+
+}
 
 namespace db0::object_model {
+
     class Enum;
+    class EnumFactory;
+
 }
 
 namespace db0::python
@@ -18,21 +28,23 @@ namespace db0::python
     using EnumTypeDef = db0::object_model::EnumTypeDef;
     
     // must store EnumDef for deferred creation
-    struct PyEnumData
+    class PyEnumData
     {
+    public:
+        using Snapshot = db0::Snapshot;
+        using EnumFactory = db0::object_model::EnumFactory;
+
         // shared_ptr to be able to associated this element with EnumValueRepre elemenst
         std::shared_ptr<EnumTypeDef> m_enum_type_def;
-        // lazily created enum instance
-        mutable std::shared_ptr<Enum> m_enum_ptr;
+
+        PyEnumData(const EnumDef &, const char *prefix_name);
         
-        PyEnumData(const EnumDef &, const char *type_id, const char *prefix_name);
-        
-        // tryCreate may fail if enum if first accessed and prefix is not opened for read/write
+        // tryCreate may fail if enum is first accessed and prefix is not opened for read/write
         Enum *tryCreate();
         // when first accessed, tries pulling existing or creating a new enum in the current fixture
         Enum &create();
-
-        // get existing enum
+        
+        // get an existing enum
         const Enum &get() const;        
 
         void close();
@@ -47,8 +59,20 @@ namespace db0::python
         
         std::size_t size() const;
         
-        static void makeNew(void *at_ptr, const EnumDef &enum_def, const char *type_id, 
-            const char *prefix_name);
+        static void makeNew(void *at_ptr, const EnumDef &enum_def, const char *prefix_name);
+
+    private:
+        // enum specific fixture UUID (for scoped enums) or 0 to use the current fixture
+        mutable std::optional<std::uint64_t> m_fixture_uuid;
+        // prefix-specific enum instances
+        mutable std::unordered_map<std::uint64_t, std::shared_ptr<Enum> > m_enum_cache;
+        
+        // resolve a concrete fixture UUID (!=0)
+        std::uint64_t getFixtureUUID() const;
+        // return 0 if resolving a concrete fixture UUID was not possible
+        std::uint64_t tryGetFixtureUUID() const;
+
+        static std::optional<std::uint64_t> tryGetFixtureUUID(const char *prefix_name);
     };
     
     using PyEnum = PyWrapper<PyEnumData, false>;

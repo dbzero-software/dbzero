@@ -56,10 +56,10 @@ namespace db0::object_model
          * @param enum_def enum definition
          * @param type_id optional user assigned type ID
         */
-        std::shared_ptr<Enum> getOrCreateEnum(const EnumDef &, const char *type_id = nullptr);
+        std::shared_ptr<Enum> getOrCreateEnum(const EnumDef &);
         std::shared_ptr<Enum> getOrCreateEnum(const EnumTypeDef &);
         
-        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumDef &, const char *type_id = nullptr);
+        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumDef &);
         std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumTypeDef &);
         
         // reference the dbzero object model's enum by its pointer
@@ -101,7 +101,7 @@ namespace db0::object_model
         std::shared_ptr<Enum> getEnum(EnumPtr, std::shared_ptr<Enum>);
         
         // Locate enum by definition
-        EnumPtr tryFindEnumPtr(const EnumDef &, const char *type_id = nullptr) const;
+        EnumPtr tryFindEnumPtr(const EnumDef &) const;
         // get translated enum corresponding to enum_value
         std::shared_ptr<Enum> tryGetMigratedEnum(const EnumValue &enum_value);
         std::shared_ptr<Enum> getMigratedEnum(const EnumValue &enum_value);

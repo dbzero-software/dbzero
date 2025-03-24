@@ -2,12 +2,14 @@
 
 #include <string>
 #include <dbzero/core/collections/pools/StringPools.hpp>
+#include <dbzero/object_model/LangConfig.hpp>
 
 namespace db0::object_model
 
 {
     
     using LP_String = db0::LP_String;
+    using ObjectSharedPtr = db0::object_model::LangConfig::ObjectSharedPtr;
     struct EnumTypeDef;
     
     struct EnumValue_UID
@@ -43,10 +45,10 @@ namespace db0::object_model
     };
     
     struct EnumValue
-    {
-        // associated fixture UUID (for context validation purposes)
-        std::uint64_t m_fixture_uuid = 0;
-        // the associated enum's UID (i.e. its address from the dedicated address pool)        
+    {   
+        // the associated fixture (for context validation purposes)     
+        db0::swine_ptr<Fixture> m_fixture;
+        // the associated enum's UID (i.e. its address from the dedicated address pool)
         // Note that m_enum_id = 0 may be a vailid enum's UID
         std::uint32_t m_enum_uid = 0;
         LP_String m_value;
@@ -57,11 +59,15 @@ namespace db0::object_model
         EnumValue_UID getUID() const;
         
         operator bool() const {
-            return m_fixture_uuid && m_value;
+            return m_fixture && m_value;
         }
 
         bool operator==(const EnumValue &) const;
         bool operator!=(const EnumValue &) const;
+        
+        // get hash for persistent storage (computed from string representation)
+        // this is to allow matching enum values from different prefixes
+        std::int64_t getPermHash() const;
     };
     
 } 

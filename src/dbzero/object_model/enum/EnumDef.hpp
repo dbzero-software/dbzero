@@ -4,6 +4,7 @@
 #include <string>
 #include <optional>
 #include <iostream>
+#include <cstdint>
 
 namespace db0::object_model
 
@@ -17,25 +18,37 @@ namespace db0::object_model
         const std::string m_module_name;
         // user assigned enum values
         const std::vector<std::string> m_values;
+        // combined hash computed from enum values
+        const std::uint32_t m_hash;
+        std::optional<std::string> m_type_id;
+        
+        EnumDef(const std::string &name, const std::string &module_name, const std::vector<std::string> &values,
+            const char *type_id = nullptr);
+        EnumDef(const std::string &name, const std::string &module_name, const std::vector<std::string> &values,
+            std::optional<std::string> type_id);
+        
+        bool hasTypeId() const;
+        const char *getTypeId() const;
+        
+        // @return nullptr if type-id has not been assigned
+        const char *tryGetTypeId() const;
+        
+        // Compare enum type definitions
+        bool operator==(const EnumDef &) const;
+        bool operator!=(const EnumDef &) const;
     };
     
     // Full enum type definition
     struct EnumTypeDef
     {
-        EnumDef m_enum_def;
-        std::optional<std::string> m_type_id;
+        EnumDef m_enum_def;        
         std::optional<std::string> m_prefix_name;
 
-        EnumTypeDef(const EnumDef &, const char *type_id, const char *prefix_name);
+        EnumTypeDef(const EnumDef &, const char *prefix_name);
 
         bool hasPrefix() const;
         const std::string &getPrefixName() const;
-
-        bool hasTypeId() const;
-        const char *getTypeId() const;
-
-        // @return nullptr if type-id has not been assigned
-        const char *tryGetTypeId() const;
+        const char *getPrefixNamePtr() const;   
     };
     
 }

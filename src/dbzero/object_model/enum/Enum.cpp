@@ -20,6 +20,7 @@ namespace db0::object_model
         , m_string_pool(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
         , m_ordered_values((*this)->m_ordered_values(*fixture))
+        , m_enum_def(name, module_name, values, type_id)
     {
         for (auto &value: values) {
             auto value_ref = m_string_pool.addRef(value);
@@ -42,6 +43,7 @@ namespace db0::object_model
         , m_string_pool(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
         , m_ordered_values((*this)->m_ordered_values(*fixture))
+        , m_enum_def(makeEnumDef())
     {
     }
     
@@ -92,6 +94,10 @@ namespace db0::object_model
         return result;
     }
     
+    const EnumDef &Enum::getEnumDef() const {
+        return m_enum_def;
+    }
+    
     EnumValue Enum::tryGet(const char *str_value) const
     {
         assert(str_value);
@@ -99,14 +105,14 @@ namespace db0::object_model
         if (!value) {
             return {};
         }
-        return { m_fixture_uuid, m_uid, value, std::string(str_value) };
+        return { this->getFixture(), m_uid, value, std::string(str_value) };
     }
 
     EnumValue Enum::get(const char *str_value) const
     {
         assert(str_value);
         auto value = find(str_value);
-        return { m_fixture_uuid, m_uid, value, std::string(str_value) };
+        return { this->getFixture(), m_uid, value, std::string(str_value) };
     }
 
     EnumValue Enum::get(EnumValue_UID enum_value_uid) const
@@ -114,7 +120,7 @@ namespace db0::object_model
         if (m_values.find(enum_value_uid.m_value) == m_values.end()) {
             THROWF(db0::InputException) << "Enum value not found by UID: " << enum_value_uid.asULong();
         }
-        return { m_fixture_uuid, enum_value_uid.m_enum_uid, enum_value_uid.m_value, 
+        return { this->getFixture(), enum_value_uid.m_enum_uid, enum_value_uid.m_value,
             m_string_pool.fetch(enum_value_uid.m_value) };
     }
     
@@ -122,7 +128,7 @@ namespace db0::object_model
     {
         std::vector<EnumValue> values;
         for (auto value: m_ordered_values) {
-            values.push_back({ m_fixture_uuid, m_uid, value, m_string_pool.fetch(value) });
+            values.push_back({ this->getFixture(), m_uid, value, m_string_pool.fetch(value) });
         }
         return values;
     }
@@ -239,15 +245,6 @@ namespace db0::object_model
         return std::nullopt;
     }
 
-    EnumDef Enum::getEnumDef() const
-    {
-        std::vector<std::string> values;
-        for (auto value: m_ordered_values) {
-            values.push_back(m_string_pool.fetch(value));
-        }
-        return { getName(), getModuleName(), values };
-    }
-
     void Enum::detach() const 
     {
         m_values.detach();
@@ -264,6 +261,15 @@ namespace db0::object_model
 
     std::size_t Enum::size() const {
         return m_values.size();
+    }
+    
+    EnumDef Enum::makeEnumDef() const
+    {
+        std::vector<std::string> values;
+        for (auto value: m_ordered_values) {
+            values.push_back(m_string_pool.fetch(value));
+        }
+        return { getName(), getModuleName(), values, getTypeID() };
     }
 
 }

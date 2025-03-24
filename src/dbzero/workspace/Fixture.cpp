@@ -378,6 +378,10 @@ namespace db0
         return m_UUID == other.m_UUID;
     }
     
+    bool Fixture::operator!=(const Fixture &other) const {
+        return m_UUID != other.m_UUID;
+    }
+    
     void Fixture::preAtomic()
     {
         getGC0().preCommit();

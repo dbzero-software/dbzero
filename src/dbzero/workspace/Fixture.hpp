@@ -208,7 +208,8 @@ namespace db0
             return m_access_type;
         }
         
-        bool operator==(const Fixture &other) const;
+        bool operator==(const Fixture &) const;
+        bool operator!=(const Fixture &) const;
         
         void preAtomic();
         

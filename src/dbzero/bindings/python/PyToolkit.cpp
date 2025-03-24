@@ -402,7 +402,7 @@ namespace db0::python
         if (PyType_Check(py_object)) {
             return getFixtureUUID(reinterpret_cast<TypeObjectPtr>(py_object));
         } else if (PyEnumValue_Check(py_object)) {
-            return reinterpret_cast<PyEnumValue*>(py_object)->ext().m_fixture_uuid;
+            return reinterpret_cast<PyEnumValue*>(py_object)->ext().m_fixture->getUUID();
         } else if (PyMemo_Check(py_object)) {
             return reinterpret_cast<MemoObject*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyObjectIterable_Check(py_object)) {
