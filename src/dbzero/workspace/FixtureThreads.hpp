@@ -74,7 +74,7 @@ namespace db0
         
     private:        
         void tryCommit(Fixture &fixture, std::uint64_t &status) const;
-        std::shared_ptr<void> lockAtomicContext() const;
+        std::shared_ptr<void> lockAutoCommit() const;
     };
-
+    
 } 

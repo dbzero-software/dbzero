@@ -556,7 +556,7 @@ namespace db0
         }
         m_atomic_context_ptr = context;
     }
-
+    
     void Workspace::detach()
     {        
         // detach mutable fixtures only (as a preparation step before endAtomic)
