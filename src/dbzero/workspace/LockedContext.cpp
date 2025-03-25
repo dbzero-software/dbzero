@@ -28,4 +28,9 @@ namespace db0
         new (at) LockedContext(workspace, std::move(lock));
     }
     
+    std::vector<std::pair<std::string, std::uint64_t> > LockedContext::getMutationLog() const {
+        // FIXME: implement
+        return {};
+    }
+    
 }

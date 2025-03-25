@@ -23,6 +23,9 @@ namespace db0
 
         LockedContext(std::shared_ptr<Workspace> &, std::shared_lock<std::shared_mutex> &&);
         
+        // pairs of: prefix name / state number
+        std::vector<std::pair<std::string, std::uint64_t> > getMutationLog() const;
+
         void close();
         
         static void makeNew(void *, std::shared_ptr<Workspace> &, std::shared_lock<std::shared_mutex> &&);

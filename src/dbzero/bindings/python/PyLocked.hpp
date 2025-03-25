@@ -17,7 +17,7 @@ namespace db0::python
     bool PyLocked_Check(PyObject *);
     
     PyObject *PyAPI_PyLocked_close(PyObject *, PyObject *);
-    PyObject &PyAPI_PyLocked_get_mutation_log(PyObject *, PyObject *);
+    PyObject *PyAPI_PyLocked_get_mutation_log(PyObject *, PyObject *);
     PyObject *PyAPI_beginLocked(PyObject *self, PyObject *const *, Py_ssize_t nargs);    
        
 }

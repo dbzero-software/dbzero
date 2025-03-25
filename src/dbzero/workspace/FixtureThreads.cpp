@@ -4,6 +4,7 @@
 #include <dbzero/object_model/LangConfig.hpp>
 #include <dbzero/core/threading/ThreadTracker.hpp>
 #include "AtomicContext.hpp"
+#include "LockedContext.hpp"
 
 namespace db0
 
@@ -125,10 +126,10 @@ namespace db0
     // auto-commit lock object
     struct AC_Lock
     {
-        std::unique_lock<std::shared_mutex> m_lock_context_lock;
+        std::unique_lock<std::shared_mutex> m_locked_context_lock;
         std::unique_lock<std::mutex> m_atomic_lock;
-        AC_Lock(std::unique_lock<std::shared_mutex> &&lock_context_lock, std::unique_lock<std::mutex> &&atomic_lock)
-            : m_lock_context_lock(std::move(lock_context_lock))
+        AC_Lock(std::unique_lock<std::shared_mutex> &&locked_context_lock, std::unique_lock<std::mutex> &&atomic_lock)
+            : m_locked_context_lock(std::move(locked_context_lock))
             , m_atomic_lock(std::move(atomic_lock))
         {
         }
@@ -137,10 +138,10 @@ namespace db0
     std::shared_ptr<void> AutoCommitThread::lockAutoCommit() const
     {
         // must acquire unique lock-context's lock
-        auto lock_context_lock = db0::LockContext::lockUnique();
+        auto locked_context_lock = db0::LockedContext::lockUnique();
         // and the atomic lock next (order is relevant here !!)
         auto atomic_lock = db0::AtomicContext::lock();
-        return db0::make_shared_void<AC_Lock>(std::move(lock_context_lock), std::move(atomic_lock));
+        return db0::make_shared_void<AC_Lock>(std::move(locked_context_lock), std::move(atomic_lock));
     }
 
 }

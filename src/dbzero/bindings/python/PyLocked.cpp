@@ -75,11 +75,39 @@ namespace db0::python
         self->modifyExt().close();
         Py_RETURN_NONE;
     }
-
+    
     PyObject *PyAPI_PyLocked_close(PyObject *self, PyObject *args)
     {
         PY_API_FUNC
         return runSafe(tryPyLocked_close, reinterpret_cast<PyLocked*>(self));
     }
+
+    PyObject *tryPyLocked_get_mutation_log(PyLocked *self)
+    {   
+        // list of tuples: prefix name / state number       
+        auto mutation_log = self->ext().getMutationLog();
+        auto mutation_log_list = PyList_New(mutation_log.size());
+        if (!mutation_log_list) {
+            return NULL;
+        }
+
+        unsigned int i = 0;
+        for (const auto &item: mutation_log) {
+            auto tuple = PyTuple_Pack(2, PyUnicode_FromString(item.first.c_str()), PyLong_FromUnsignedLongLong(item.second));
+            if (!tuple) {
+                Py_DECREF(mutation_log_list);
+                return NULL;
+            }
+            PyList_SET_ITEM(mutation_log_list, i, tuple);
+            ++i;
+        }
+        return mutation_log_list;
+    }
     
+    PyObject *PyAPI_PyLocked_get_mutation_log(PyObject *self, PyObject *)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyLocked_get_mutation_log, reinterpret_cast<PyLocked*>(self));
+    }
+
 }
