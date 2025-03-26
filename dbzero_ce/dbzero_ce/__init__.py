@@ -6,6 +6,7 @@ from .fast_query import *
 from .reflection_api import *
 from .storage_api import *
 from .atomic import *
+from .locked import *
 from .connection import *
 from .utilities import taggify
 from .decorators import *

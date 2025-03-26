@@ -8,19 +8,20 @@ namespace db0
 
     MemLock::MemLock(void *buffer, std::shared_ptr<ResourceLock> lock)
         : m_buffer(buffer)
-        , m_lock(lock)
+        , m_lock(lock)    
     {
         assert(m_buffer);
     }
-        
+    
     void *MemLock::modify()
-    {
+    {        
+        assert(m_lock);
         m_lock->setDirty();
         return m_buffer;
     }
     
     void MemLock::release()
-    {
+    {        
         m_lock = nullptr;
         m_buffer = nullptr;
     }    
@@ -44,7 +45,7 @@ namespace db0
     bool MemLock::operator!=(const MemLock &other) const {
         return m_buffer != other.m_buffer || m_lock != other.m_lock;
     }
-
+    
     unsigned int MemLock::use_count() const {
         return m_lock.use_count();
     }
@@ -52,8 +53,12 @@ namespace db0
     void MemLock::operator=(MemLock &&other)
     {
         m_buffer = other.m_buffer;
-        m_lock = std::move(other.m_lock);        
+        m_lock = std::move(other.m_lock);
         other.m_buffer = nullptr;
     }
-
+    
+    std::shared_ptr<ResourceLock> MemLock::lock() const {
+        return m_lock;
+    }
+    
 }

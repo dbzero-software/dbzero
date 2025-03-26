@@ -16,7 +16,7 @@ namespace db0
         , m_shift(getPageShift(page_size, false))
     {
     }
-    
+        
     void DirtyCache::append(std::shared_ptr<ResourceLock> res_lock)
     {
         std::unique_lock<std::mutex> lock(m_mutex);
@@ -117,5 +117,5 @@ namespace db0
             f(*res_lock);
         }
     }
-    
+        
 }

@@ -242,5 +242,23 @@ namespace tests
             }
         }
     }
-    
+
+    TEST_F( WorkspaceTest , testLockedSectionIDsAreReused )
+    {        
+        auto callback = [](const std::string &, std::uint64_t) {};
+        auto id_0 = m_workspace.beginLocked();       
+        auto id_1 = m_workspace.beginLocked();
+        auto id_2 = m_workspace.beginLocked();
+        
+        // release in a different order
+        m_workspace.endLocked(id_1, callback);
+        m_workspace.endLocked(id_0, callback);
+        m_workspace.endLocked(id_2, callback);
+
+        // make sure the same IDs are reused in the same order
+        ASSERT_EQ(m_workspace.beginLocked(), id_0);
+        ASSERT_EQ(m_workspace.beginLocked(), id_1);
+        ASSERT_EQ(m_workspace.beginLocked(), id_2);
+    }
+
 }

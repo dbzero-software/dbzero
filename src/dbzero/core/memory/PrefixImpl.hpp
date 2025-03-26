@@ -87,7 +87,7 @@ namespace db0
         void cleanup() const override;
         
         std::size_t flushDirty(std::size_t limit) override;
-        
+                
     protected:
         std::shared_ptr<BaseStorage> m_storage;
         BaseStorage *m_storage_ptr;
@@ -98,7 +98,7 @@ namespace db0
         mutable PrefixCache m_cache;
         // flag indicating atomic operation in progress
         bool m_atomic = false;
-
+        
         std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num, StateNumType state_num, FlagSet<AccessOptions>);
         std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address,
             std::size_t size, StateNumType state_num, FlagSet<AccessOptions>);

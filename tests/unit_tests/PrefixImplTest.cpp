@@ -53,9 +53,9 @@ namespace tests
         auto r1 = cut.mapRange(100, 100, { AccessOptions::read, AccessOptions::write });
         // within page = 1
         auto r2 = cut.mapRange(4102, 3312, { AccessOptions::write });
-        ASSERT_EQ(r0.m_lock, r1.m_lock);
+        ASSERT_EQ(r0.lock(), r1.lock());
         ASSERT_NE(r0, r1);
-        ASSERT_NE(r0.m_lock, r2.m_lock);
+        ASSERT_NE(r0.lock(), r2.lock());
         cut.close();
     }
     
@@ -670,15 +670,15 @@ namespace tests
             cut.endAtomic();
         }
         auto r1 = cut.mapRange(16, 16, { AccessOptions::read });
-        ASSERT_TRUE(r1.m_lock->isDirty());
+        ASSERT_TRUE(r1.lock()->isDirty());
         // make sure the CoW's diff is evaluated correctly
         std::vector<std::uint16_t> diffs;
-        ASSERT_TRUE(r1.m_lock->getDiffs(diffs));
+        ASSERT_TRUE(r1.lock()->getDiffs(diffs));
         // NOTE: the 2 leading 0, 0 elements mean the zero-based DP
         ASSERT_EQ(diffs, (std::vector<std::uint16_t> { 0, 0, 0, 16, 20 }));
         cut.close();
     }
-        
+    
     TEST_F( PrefixImplTest , testReusedVolatileLockCoWDataHandling )
     {
         // we check if the CoW data is handled correctly by the volatile locks
@@ -709,13 +709,13 @@ namespace tests
         cut.endAtomic();
 
         auto r1 = cut.mapRange(16, 16, { AccessOptions::read });
-        ASSERT_TRUE(r1.m_lock->isDirty());        
+        ASSERT_TRUE(r1.lock()->isDirty());
         // make sure the CoW's diff is evaluated correctly (i.e. either no diff or correct diff)
         std::vector<std::uint16_t> diffs;
-        if (r1.m_lock->getDiffs(diffs)) {
+        if (r1.lock()->getDiffs(diffs)) {
             ASSERT_EQ(diffs, (std::vector<std::uint16_t> { 0, 0, 0, 16, 20 }));
         }
         cut.close();
-    }    
+    } 
     
 }

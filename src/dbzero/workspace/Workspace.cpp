@@ -114,7 +114,7 @@ namespace db0
         }
         return false;
     }
-    
+
     void BaseWorkspace::close(ProcessTimer *timer_ptr)
     {
         std::unique_ptr<ProcessTimer> timer;
@@ -249,6 +249,12 @@ namespace db0
         if (uuid) {
             auto it = m_fixtures.find(*uuid);
             if (it != m_fixtures.end()) {
+                auto &fixture = *(it->second);
+                fixture.endAllLocked([&](unsigned int locked_section_id) {
+                    // log prefixes closed inside the locked section
+                    m_locked_section_log[locked_section_id].emplace_back(fixture.getPrefix().getName(), fixture.getStateNum());
+                });
+                                
                 bool is_default = (it->second == m_default_fixture);
                 it->second->close();
                 m_fixtures.erase(it);
@@ -333,7 +339,7 @@ namespace db0
                     // initialize new fixture                    
                     Fixture::formatFixture(Memspace(prefix, allocator), *allocator);
                 }
-                auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator);
+                auto fixture = db0::make_swine<Fixture>(*this, prefix, allocator, m_next_locked_section_id);
                 if (m_fixture_initializer) {
                     // initialize fixture with a model-specific initializer
                     m_fixture_initializer(fixture, file_created, read_only, false);
@@ -556,7 +562,55 @@ namespace db0
         }
         m_atomic_context_ptr = context;
     }
-
+    
+    unsigned int Workspace::beginLocked()
+    {
+        auto locked_section_id = m_next_locked_section_id++;
+        m_locked_section_ids.insert(locked_section_id);
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                fixture->beginLocked(locked_section_id);
+            }
+        }
+        return locked_section_id;
+    }
+    
+    void Workspace::endLocked(unsigned int locked_section_id, std::function<void(const std::string &, std::uint64_t)> callback)
+    {
+        std::unordered_set<std::string> px_names;
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                if (fixture->endLocked(locked_section_id)) {
+                    auto px_name = fixture->getPrefix().getName();
+                    // avoid reporting more than once
+                    if (px_names.insert(px_name).second) {
+                        callback(px_name, fixture->getStateNum());
+                    }
+                }
+            }
+        }
+        
+        // also report prefixes closed inside the locked section
+        auto it = m_locked_section_log.find(locked_section_id);
+        if (it != m_locked_section_log.end()) {
+            for (auto &[prefix_name, state_num] : it->second) {
+                // avoid reporting more than once
+                if (px_names.insert(prefix_name).second) {
+                    callback(prefix_name, state_num);
+                }
+            }
+            m_locked_section_log.erase(it);
+        }
+        
+        m_locked_section_ids.erase(locked_section_id);
+        // reuse locked section IDs to keep the assigned values low
+        while (m_next_locked_section_id > 0 &&
+            m_locked_section_ids.find(m_next_locked_section_id - 1) == m_locked_section_ids.end())
+        {
+            --m_next_locked_section_id;
+        }
+    }
+    
     void Workspace::detach()
     {        
         // detach mutable fixtures only (as a preparation step before endAtomic)
