@@ -16,8 +16,8 @@ namespace db0
     
     void LockedContext::close()
     {
-        auto callback = [&](const Fixture &fixture) {
-            m_mutation_log.emplace_back(fixture.getPrefix().getName(), fixture.getPrefix().getStateNum());
+        auto callback = [&](const std::string &prefix_name, std::uint64_t state_num) {
+            m_mutation_log.emplace_back(prefix_name, state_num);
         };
         m_workspace->endLocked(m_locked_section_id, callback);
     }

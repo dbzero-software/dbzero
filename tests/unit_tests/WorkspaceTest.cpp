@@ -245,7 +245,7 @@ namespace tests
 
     TEST_F( WorkspaceTest , testLockedSectionIDsAreReused )
     {        
-        auto callback = [](const Fixture &) {};
+        auto callback = [](const std::string &, std::uint64_t) {};
         auto id_0 = m_workspace.beginLocked();       
         auto id_1 = m_workspace.beginLocked();
         auto id_2 = m_workspace.beginLocked();

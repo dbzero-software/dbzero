@@ -74,12 +74,14 @@ namespace db0
         // slot number for DB0 types and enums
         static constexpr std::uint32_t TYPE_SLOT_NUM = 2;
         
-        Fixture(Workspace &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
-        Fixture(Snapshot &, FixedObjectList &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>);
+        // @param locked_sections - the number of active locked sections
+        Fixture(Workspace &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>, int locked_sections = 0);
+        Fixture(Snapshot &, FixedObjectList &, std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator>,
+            int locked_sections = 0);
         Fixture(Fixture const &) = delete;
         
         virtual ~Fixture();
-
+        
         /**
          * Initialize a new fixture over existing memspace
          * must be called for each newly created memspace
@@ -290,13 +292,26 @@ namespace db0
         friend class FixtureThread;
         friend class FixtureLock;
         friend class AutoCommitThread;
+        friend class Workspace;
         mutable std::shared_mutex m_shared_mutex;
         mutable std::mutex m_close_mutex;
-            
+        // locked-section specific mutation flags (-1 = released)
+        std::vector<char> m_mutation_flags;
+        // the flag for additional speedup
+        bool m_all_mutation_flags_set = false;
+        
+        void beginLocked(unsigned int locked_section_id);
+        bool endLocked(unsigned int locked_section_id);
+        // ends all locked sections, invokes callback for all mutated ones
+        void endAllLocked(std::function<void(unsigned int)> callback);
+        
         /**
          * Called by the AutoCommitThread
         */
         void onAutoCommit();        
+
+        // collect prefix-level mutation flags (for locked sections)
+        void onDirty();
     };
     
     template <typename T, typename ResultT, typename... Args> ResultT &Fixture::addResourceAs(Args&&... args)

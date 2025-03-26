@@ -5,6 +5,7 @@
 #include <list>
 #include <functional>
 #include <atomic>
+#include <vector>
 #include <unordered_set>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
@@ -273,7 +274,7 @@ namespace db0
         unsigned int beginLocked();
         
         // End a specific locked section, callback will be notified with all mutated fixtures
-        void endLocked(unsigned int, std::function<void(const Fixture &)> callback);
+        void endLocked(unsigned int, std::function<void(const std::string &prefix_name, std::uint64_t state_num)> callback);
         
     protected:
         friend class WorkspaceView;
@@ -302,6 +303,8 @@ namespace db0
         unsigned int m_next_locked_section_id = 0;
         // active locked section IDs
         std::unordered_set<unsigned int> m_locked_section_ids;
+        // log of prefixes closed inside locked sections
+        std::unordered_map<unsigned int, std::vector<std::pair<std::string, std::uint64_t> > > m_locked_section_log;
         
         void forEachMemspace(std::function<bool(Memspace &)> callback) override;
         

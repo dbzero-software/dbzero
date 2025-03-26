@@ -51,11 +51,4 @@ namespace db0
     void Prefix::getStats(std::function<void(const std::string &, std::uint64_t)>) const {
     }
     
-    void Prefix::beginLocked(unsigned int) {
-    }        
-    
-    bool Prefix::endLocked(unsigned int) {
-        return false;
-    }
-
 }

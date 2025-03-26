@@ -21,12 +21,13 @@ namespace db0
     {
     }
     
-    Fixture::Fixture(Workspace &workspace, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
-        : Fixture(workspace, workspace.getSharedObjectList(), prefix, meta)
+    Fixture::Fixture(Workspace &workspace, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta, int locked_sections)
+        : Fixture(workspace, workspace.getSharedObjectList(), prefix, meta, locked_sections)
     {        
     }
     
-    Fixture::Fixture(Snapshot &snapshot, FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta)
+    Fixture::Fixture(Snapshot &snapshot, FixedObjectList &shared_object_list, std::shared_ptr<Prefix> prefix, std::shared_ptr<MetaAllocator> meta,
+        int locked_sections)
         : Memspace(prefix, std::make_shared<SlotAllocator>(meta), getUUID(prefix, *meta))
         , m_access_type(prefix->getAccessType())
         , m_snapshot(snapshot)
@@ -38,6 +39,11 @@ namespace db0
         , m_object_catalogue(openObjectCatalogue(*meta))
         , m_v_object_cache(*this, shared_object_list)
     {
+        // initialize locked sections        
+        if (locked_sections > 0) {
+            m_mutation_flags.resize(locked_sections, -1);
+        }
+        
         // set-up slots with the allocator
         m_slot_allocator.setSlot(TYPE_SLOT_NUM, openSlot(*this, *meta, TYPE_SLOT_NUM));
     }
@@ -227,7 +233,7 @@ namespace db0
         {
             std::unique_lock<std::mutex> lock(m_update_watch_mtx);
             // collect locked-section mutations            
-            Memspace::onDirty();
+            onDirty();
             m_updated = true;
         }
         m_update_watch_cv.notify_all();
@@ -478,5 +484,51 @@ namespace db0
         }
         return true;
     }
+
+    void Fixture::beginLocked(unsigned int locked_section_id)
+    {        
+        if (locked_section_id >= m_mutation_flags.size()) {
+            m_mutation_flags.resize(locked_section_id + 1, -1);
+        }
+        m_mutation_flags[locked_section_id] = 0;
+        m_all_mutation_flags_set = false;
+    }
     
+    bool Fixture::endLocked(unsigned int locked_section_id)
+    {
+        assert(locked_section_id < m_mutation_flags.size());
+        auto result = m_mutation_flags[locked_section_id];
+        m_mutation_flags[locked_section_id] = -1;
+        // clean-up released slots
+        while (!m_mutation_flags.empty() && m_mutation_flags.back() == -1) {
+            m_mutation_flags.pop_back();
+        }
+
+        return result;
+    }
+    
+    void Fixture::endAllLocked(std::function<void(unsigned int)> callback)
+    {
+        for (unsigned int i = 0; i < m_mutation_flags.size(); ++i) {
+            if (m_mutation_flags[i] == 1) {
+                callback(i);
+            }
+        }
+        m_mutation_flags.clear();
+        m_all_mutation_flags_set = false;
+    }
+    
+    void Fixture::onDirty()
+    {
+        if (!m_mutation_flags.empty() && !m_all_mutation_flags_set) {
+            // set all flags to "true" where not released
+            for (auto &flag: m_mutation_flags) {
+                if (flag == 0) {
+                    flag = 1;
+                }
+            }
+            m_all_mutation_flags_set = true;
+        }
+    }
+
 }

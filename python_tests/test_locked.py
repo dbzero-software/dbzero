@@ -47,3 +47,27 @@ def test_locked_section_non_default_prefix_mutations(db0_fixture):
     assert px_name not in [name for name, _ in mutation_log]
     assert "some-new-prefix" in [name for name, _ in mutation_log]    
     
+    
+def test_prefix_opened_inside_locked_section(db0_fixture):
+    obj_1 = MemoTestClass(951)
+    with db0.locked() as lock:
+        db0.open("some-new-prefix", "rw")
+        obj_2 = MemoTestClass(952)
+    
+    mutation_log = lock.get_mutation_log()
+    assert len(mutation_log) == 1
+    assert "some-new-prefix" in [name for name, _ in mutation_log]    
+    
+    
+def test_mutated_prefix_closed_inside_locked_section(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    obj_1 = MemoTestClass(951)
+    db0.open("some-new-prefix", "rw")
+    with db0.locked() as lock:
+        obj_1.value = 77777
+        db0.close(px_name)
+    
+    mutation_log = lock.get_mutation_log()
+    assert len(mutation_log) == 1
+    assert px_name in [name for name, _ in mutation_log]
+    
