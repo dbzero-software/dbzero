@@ -17,6 +17,10 @@ namespace db0
     {
     }
     
+    void DirtyCache::setDirtyCallback(std::function<void()> callback) {
+        m_dirty_callback = callback;
+    }
+    
     void DirtyCache::append(std::shared_ptr<ResourceLock> res_lock)
     {
         std::unique_lock<std::mutex> lock(m_mutex);
@@ -115,6 +119,25 @@ namespace db0
         std::unique_lock<std::mutex> lock(m_mutex);
         for (auto &res_lock : m_locks) {
             f(*res_lock);
+        }
+    }
+    
+    void DirtyCache::beginLocked()
+    {
+        // reset the dirty-callback flags to obtain notifications for new mutations
+        std::unique_lock<std::mutex> lock(m_mutex);
+        for (auto &res_lock : m_locks) {
+            res_lock->resetDirtyCallbackFlag();
+        }
+        m_dirty_callback_notified = false;
+    }
+    
+    void DirtyCache::setDirty()
+    {
+        // may not be thread-safe but spurious notifications are acceptable
+        if (!m_dirty_callback_notified && m_dirty_callback) {
+            m_dirty_callback_notified = true;            
+            m_dirty_callback();
         }
     }
     

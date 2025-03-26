@@ -557,6 +557,36 @@ namespace db0
         m_atomic_context_ptr = context;
     }
     
+    unsigned int Workspace::beginLocked()
+    {
+        auto locked_section_id = m_next_locked_section_id++;
+        m_locked_section_ids.insert(locked_section_id);
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                fixture->beginLocked(locked_section_id);
+            }
+        }
+        return locked_section_id;
+    }
+    
+    void Workspace::endLocked(unsigned int locked_section_id, std::function<void(const Fixture &)> callback)
+    {
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                if (fixture->endLocked(locked_section_id)) {
+                    callback(*fixture);
+                }
+            }
+        }
+        m_locked_section_ids.erase(locked_section_id);
+        // reuse locked section IDs to keep the assigned values low
+        while (m_next_locked_section_id > 0 && 
+            m_locked_section_ids.find(m_next_locked_section_id - 1) == m_locked_section_ids.end())
+        {
+            --m_next_locked_section_id;
+        }
+    }
+    
     void Workspace::detach()
     {        
         // detach mutable fixtures only (as a preparation step before endAtomic)

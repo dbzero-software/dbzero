@@ -24,7 +24,7 @@ namespace db0
         std::reference_wrapper<DirtyCache> m_cache_ref;
         std::reference_wrapper<BaseStorage> m_storage_ref;
     };
-
+    
     enum class FlushMethod: std::uint8_t
     {
         // Flush using the diff-range calculation (if possible)
@@ -103,6 +103,9 @@ namespace db0
         */
         bool resetDirtyFlag();
         
+        // reset the dirty-callback flag only
+        void resetDirtyCallbackFlag();
+        
         inline std::uint64_t getAddress() const {
             return m_address;
         }
@@ -117,6 +120,8 @@ namespace db0
         
         // Mark the entire lock as dirty
         void setDirty();
+        // Process the dirty-callback flag only (apply and issue callback if not set)
+        void onDirtyCallback();
         
         bool isCached() const;
 
@@ -166,9 +171,15 @@ namespace db0
         using iterator = list_t::iterator;
         
         using ResourceDirtyMutexT = ROWO_Mutex<
-            std::uint16_t, 
+            std::uint16_t,
             db0::RESOURCE_DIRTY,
-            db0::RESOURCE_DIRTY,
+            db0::RESOURCE_DIRTY | db0::RESOURCE_DIRTY_CALLBACK,
+            db0::RESOURCE_LOCK >;
+
+        using ResourceDirtyCallbackMutexT = ROWO_Mutex<
+            std::uint16_t,
+            db0::RESOURCE_DIRTY_CALLBACK,
+            db0::RESOURCE_DIRTY_CALLBACK,
             db0::RESOURCE_LOCK >;
         
         StorageContext m_context;

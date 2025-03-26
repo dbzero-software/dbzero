@@ -97,7 +97,10 @@ namespace db0
         inline BaseStorage &getStorage() {
             return *m_storage_ptr;
         }
-                
+         
+        void beginLocked(unsigned int locked_section_id);        
+        bool endLocked(unsigned int locked_section_id);
+
     protected:
         std::shared_ptr<Prefix> m_prefix;
         BaseStorage *m_storage_ptr = nullptr;

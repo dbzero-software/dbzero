@@ -88,6 +88,10 @@ namespace db0
         
         std::size_t flushDirty(std::size_t limit) override;
         
+        void beginLocked(unsigned int locked_section_id) override;
+        
+        bool endLocked(unsigned int locked_section_id) override;
+        
     protected:
         std::shared_ptr<BaseStorage> m_storage;
         BaseStorage *m_storage_ptr;
@@ -98,7 +102,11 @@ namespace db0
         mutable PrefixCache m_cache;
         // flag indicating atomic operation in progress
         bool m_atomic = false;
-
+        // locked-section specific mutation flags (-1 = released)
+        std::vector<char> m_mutation_flags;
+        // the flag for additional speedup
+        bool m_all_mutation_flags_set = false;
+        
         std::shared_ptr<DP_Lock> mapPage(std::uint64_t page_num, StateNumType state_num, FlagSet<AccessOptions>);
         std::shared_ptr<BoundaryLock> mapBoundaryRange(std::uint64_t page_num, std::uint64_t address,
             std::size_t size, StateNumType state_num, FlagSet<AccessOptions>);
@@ -110,6 +118,9 @@ namespace db0
         }
         
         void adjustAccessMode(FlagSet<AccessOptions> &access_mode, std::uint64_t address, std::size_t size) const;
+
+        // the callback notified on prefix-related mutation
+        void onDirty();
     };
     
 } 

@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <dbzero/object_model/LangConfig.hpp>
-#include <unordered_set>
 #include <vector>
 #include <shared_mutex>
 
@@ -35,6 +34,9 @@ namespace db0
 
     private:
         std::shared_ptr<Workspace> m_workspace;
+        // the workspace-assigned ID for this locked section
+        const unsigned int m_locked_section_id;
+        std::vector<std::pair<std::string, std::uint64_t> > m_mutation_log;
         
         // mutex to prevent auto-commit operations from locked context
         static std::shared_mutex m_locked_mutex;

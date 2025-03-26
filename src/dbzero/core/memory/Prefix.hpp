@@ -108,7 +108,15 @@ namespace db0
 
         // Get arbitrary prefix statistics
         virtual void getStats(std::function<void(const std::string &name, std::uint64_t value)>) const;
+
+        // Begin locked section (where this functionality is supported)
+        // @param locked_section_id - some low-order ID (assigned by the Workspace) to identify the section
+        virtual void beginLocked(unsigned int locked_section_id);
         
+        // End locked section
+        // @return true if there were any mutations on this prefix within the locked section
+        virtual bool endLocked(unsigned int locked_section_id);
+                
     private:
         const std::string m_name;
     };

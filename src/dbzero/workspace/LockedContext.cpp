@@ -1,4 +1,5 @@
 #include "LockedContext.hpp"
+#include <dbzero/workspace/Workspace.hpp>
 
 namespace db0
 
@@ -8,12 +9,17 @@ namespace db0
 
     LockedContext::LockedContext(std::shared_ptr<Workspace> &workspace, std::shared_lock<std::shared_mutex> &&lock)\
         : m_workspace(workspace)
-        , m_lock(std::move(lock))
+        , m_locked_section_id(m_workspace->beginLocked())
+        , m_lock(std::move(lock))        
     {
     }
     
     void LockedContext::close()
     {
+        auto callback = [&](const Fixture &fixture) {
+            m_mutation_log.emplace_back(fixture.getPrefix().getName(), fixture.getPrefix().getStateNum());
+        };
+        m_workspace->endLocked(m_locked_section_id, callback);
     }
     
     std::shared_lock<std::shared_mutex> LockedContext::lockShared() {
@@ -29,8 +35,7 @@ namespace db0
     }
     
     std::vector<std::pair<std::string, std::uint64_t> > LockedContext::getMutationLog() const {
-        // FIXME: implement
-        return {};
+        return m_mutation_log;
     }
     
 }

@@ -137,5 +137,13 @@ namespace db0
     void Memspace::free(std::uint64_t address) {
         getAllocatorForUpdate().free(address);
     }
-        
+
+    void Memspace::beginLocked(unsigned int locked_section_id) {
+        m_prefix->beginLocked(locked_section_id);
+    }
+    
+    bool Memspace::endLocked(unsigned int locked_section_id) {
+        return m_prefix->endLocked(locked_section_id);
+    }
+
 }

@@ -9,19 +9,28 @@ namespace db0
     MemLock::MemLock(void *buffer, std::shared_ptr<ResourceLock> lock)
         : m_buffer(buffer)
         , m_lock(lock)
+        , m_lock_ptr(lock.get())
     {
         assert(m_buffer);
     }
-        
+    
     void *MemLock::modify()
     {
-        m_lock->setDirty();
+        assert(m_lock_ptr);
+        m_lock_ptr->setDirty();
         return m_buffer;
     }
     
+    void MemLock::onDirtyCallback()
+    {
+        assert(m_lock_ptr);
+        m_lock_ptr->onDirtyCallback();
+    }
+
     void MemLock::release()
     {
         m_lock = nullptr;
+        m_lock_ptr = nullptr;
         m_buffer = nullptr;
     }    
     
@@ -52,8 +61,13 @@ namespace db0
     void MemLock::operator=(MemLock &&other)
     {
         m_buffer = other.m_buffer;
-        m_lock = std::move(other.m_lock);        
+        m_lock = std::move(other.m_lock);
+        m_lock_ptr = m_lock.get();     
         other.m_buffer = nullptr;
     }
 
+    std::shared_ptr<ResourceLock> MemLock::lock() const {
+        return m_lock;
+    }
+    
 }
