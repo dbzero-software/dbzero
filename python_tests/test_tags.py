@@ -413,6 +413,28 @@ def test_find_base_type(db0_fixture):
     assert len(list(db0.find(MemoSubClass, "tag1"))) == 1
     assert len(list(db0.find(MemoBaseClass, "tag1"))) == 1
 
+@pytest.mark.skip("")
+def test_find_base_type_after_close(db0_fixture):
+    prefix = db0_fixture.get_current_prefix()
+    object_1 = MemoSubClass(1)
+
+    # assign tag first
+    db0.tags(object_1).add("tag1")
+    # then try looking up by the assigned tag
+    assert len(list(db0.find(MemoSubClass, "tag1"))) == 1
+    sublcas_list = list(db0.find(MemoBaseClass, "tag1"))
+    assert len(sublcas_list) == 1
+    obj = sublcas_list[0]
+    assert obj.value == 1
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(prefix.name, "r")
+    sublcas_list = list(db0.find(MemoBaseClass, "tag1"))
+    assert len(sublcas_list) == 1
+    obj = sublcas_list[0]
+    assert obj.value == 1
+
 def test_find_base_type_multiple_subclass(db0_fixture):
     object_1 = MemoSubClass(1)
     object_2 = MemoSecondSubClass(2)
