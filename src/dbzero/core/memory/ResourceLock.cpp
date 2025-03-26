@@ -89,19 +89,6 @@ namespace db0
         return !(m_resource_flags & db0::RESOURCE_NO_CACHE);
     }
     
-    void ResourceLock::resetDirtyCallbackFlag()
-    {
-        using MutexT = ResourceDirtyCallbackMutexT;
-        while (MutexT::__ref(m_resource_flags).get()) {
-            MutexT::WriteOnlyLock lock(m_resource_flags);
-            if (lock.isLocked()) {
-                lock.commit_reset();
-                // dirty-callback flag successfully reset by this thread
-                return;
-            }
-        }        
-    }
-
     bool ResourceLock::resetDirtyFlag()
     {
         using MutexT = ResourceDirtyMutexT;
@@ -140,19 +127,8 @@ namespace db0
         other.discard();
     }
     
-    void ResourceLock::onDirtyCallback()
-    {
-        if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY_CALLBACK)) {
-            m_context.m_cache_ref.get().setDirty();
-        }
-    }
-    
     void ResourceLock::setDirty()
     {
-        // the resource-dirty callbacks are managed independently of the dirty flag
-        if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY_CALLBACK)) {
-            m_context.m_cache_ref.get().setDirty();
-        }
         if (atomicCheckAndSetFlags(m_resource_flags, db0::RESOURCE_DIRTY)) {
             // register lock with the dirty cache
             // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        

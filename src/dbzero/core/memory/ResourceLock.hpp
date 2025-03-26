@@ -102,10 +102,7 @@ namespace db0
          * @return true if the flag was set
         */
         bool resetDirtyFlag();
-        
-        // reset the dirty-callback flag only
-        void resetDirtyCallbackFlag();
-        
+                
         inline std::uint64_t getAddress() const {
             return m_address;
         }
@@ -120,9 +117,7 @@ namespace db0
         
         // Mark the entire lock as dirty
         void setDirty();
-        // Process the dirty-callback flag only (apply and issue callback if not set)
-        void onDirtyCallback();
-        
+
         bool isCached() const;
 
 #ifndef NDEBUG
@@ -173,15 +168,9 @@ namespace db0
         using ResourceDirtyMutexT = ROWO_Mutex<
             std::uint16_t,
             db0::RESOURCE_DIRTY,
-            db0::RESOURCE_DIRTY | db0::RESOURCE_DIRTY_CALLBACK,
+            db0::RESOURCE_DIRTY,
             db0::RESOURCE_LOCK >;
 
-        using ResourceDirtyCallbackMutexT = ROWO_Mutex<
-            std::uint16_t,
-            db0::RESOURCE_DIRTY_CALLBACK,
-            db0::RESOURCE_DIRTY_CALLBACK,
-            db0::RESOURCE_LOCK >;
-        
         StorageContext m_context;
         const std::uint64_t m_address;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
@@ -198,7 +187,7 @@ namespace db0
         static const std::byte m_cow_zero;
         
         void setRecycled(bool is_recycled);
-
+        
         bool addrPageAligned(BaseStorage &) const;
         
         const std::byte *getCowPtr() const;

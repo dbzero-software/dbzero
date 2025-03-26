@@ -413,7 +413,7 @@ namespace db0
         m_wide_map.clear();
         m_dp_map.clear();    
     }
-
+    
     void PrefixCache::release()
     {
         discardAll(m_volatile_boundary_locks);
@@ -709,17 +709,5 @@ namespace db0
 
         return { dp_total, dp_cow };
     }
-    
-    void PrefixCache::setDirtyCallback(std::function<void()> callback)
-    {
-        m_dirty_dp_cache.setDirtyCallback(callback);
-        m_dirty_wide_cache.setDirtyCallback(callback);
-    }
-    
-    void PrefixCache::beginLocked()
-    {
-        m_dirty_dp_cache.beginLocked();
-        m_dirty_wide_cache.beginLocked();
-    }
-    
+        
 } 

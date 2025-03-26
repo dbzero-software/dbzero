@@ -21,8 +21,6 @@ namespace db0
         DirtyCache(std::size_t page_size, std::atomic<std::size_t> &dirty_meter);
         DirtyCache(std::size_t page_size, std::atomic<std::size_t> *dirty_meter_ptr = nullptr);
         
-        void setDirtyCallback(std::function<void()>);
-
         // register resource with the dirty locks
         void append(std::shared_ptr<ResourceLock>);
         // only flush locks which support a specific flush method
@@ -44,14 +42,7 @@ namespace db0
         std::size_t size() const;
         
         void forAll(std::function<void(const ResourceLock &)>) const;
-
-        // initiate the new locked section, the implementation clears the dirty-callback flags
-        void beginLocked();
-        
-        // Mark the entire related prefix as dirty
-        // this is a callback required for tracking mutations in the locked sections
-        void setDirty();
-        
+                
     private:
         std::atomic<std::size_t> *m_dirty_meter_ptr = nullptr;
         mutable std::mutex m_mutex;
@@ -60,9 +51,6 @@ namespace db0
         const unsigned int m_shift;
         // total bytes supported by this cache
         std::atomic<std::size_t> m_size = 0;
-        // callback notified when the entire prefix is marked as dirty
-        std::function<void()> m_dirty_callback;
-        std::atomic<bool> m_dirty_callback_notified = false;
     };
     
 } 

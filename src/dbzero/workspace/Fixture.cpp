@@ -222,14 +222,17 @@ namespace db0
         return true;
     }
     
-    void Fixture::onUpdated() {
+    void Fixture::onUpdated()
+    {
         {
             std::unique_lock<std::mutex> lock(m_update_watch_mtx);
+            // collect locked-section mutations            
+            Memspace::onDirty();
             m_updated = true;
         }
         m_update_watch_cv.notify_all();
     }
-
+    
     bool Fixture::awaitUpdate(std::optional<std::chrono::milliseconds> timeout) {
         assert(getAccessType() == AccessType::READ_ONLY && "Waiting for update only allowed for read-only fixtures");
 

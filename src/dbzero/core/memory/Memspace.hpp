@@ -93,14 +93,17 @@ namespace db0
         void beginAtomic();
         void endAtomic();
         void cancelAtomic();
-
+        
         inline BaseStorage &getStorage() {
             return *m_storage_ptr;
         }
-         
+        
         void beginLocked(unsigned int locked_section_id);        
         bool endLocked(unsigned int locked_section_id);
-
+        
+        // collect prefix-level mutation flags (for locked sections)
+        void onDirty();
+        
     protected:
         std::shared_ptr<Prefix> m_prefix;
         BaseStorage *m_storage_ptr = nullptr;
@@ -111,7 +114,11 @@ namespace db0
         // flag indicating if the atomic operation is in progress
         bool m_atomic = false;
         std::size_t m_page_size;
-
+        // locked-section specific mutation flags (-1 = released)
+        std::vector<char> m_mutation_flags;
+        // the flag for additional speedup
+        bool m_all_mutation_flags_set = false;
+        
         inline Allocator &getAllocatorForUpdate() {
             assert(m_allocator_ptr);
             return *m_allocator_ptr;

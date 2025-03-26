@@ -257,7 +257,7 @@ namespace db0
         AtomicContext *m_atomic_context_ptr = nullptr;
         std::atomic<bool> m_closed = false;
         std::atomic<bool> m_commit_pending = false;
-        
+
         // For read/write fixtures:
         // the onUpdate is called whenever the fixture is modified
         // For read-only fixtures:

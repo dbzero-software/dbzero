@@ -15,12 +15,7 @@ namespace db0
         , m_shift(getPageShift(m_page_size))
         , m_head_state_num(m_storage_ptr->getMaxStateNum())
         , m_cache(*m_storage_ptr, cache_recycler_ptr, &dirty_meter)
-    {
-        // register the dirty-callback
-        m_cache.setDirtyCallback([this]() {
-            this->onDirty();
-        });
-        
+    {        
         assert(m_storage_ptr);
         if (m_storage_ptr->getAccessType() == AccessType::READ_WRITE) {
             // increment state number for read-write storage (i.e. new data transaction)
@@ -33,24 +28,10 @@ namespace db0
         : PrefixImpl(name, dirty_meter, &cache_recycler, storage)
     {
     }
-    
-    void PrefixImpl::onDirty()
-    {
-        // set all flags to "true" where not released
-        for (auto &flag: m_mutation_flags) {
-            if (flag == 0) {
-                flag = 1;
-            }
-        }
-        m_all_mutation_flags_set = true;
-    }
-
+        
     MemLock PrefixImpl::PrefixImpl::mapRange(std::uint64_t address,
         std::size_t size, FlagSet<AccessOptions> access_mode)
     {
-        if (!m_mutation_flags.empty() && !m_all_mutation_flags_set && access_mode[AccessOptions::write]) {
-            onDirty();
-        }
         return mapRange(address, size, m_head_state_num, access_mode);
     }
     
@@ -449,27 +430,4 @@ namespace db0
         callback("dirty_dp_cow", cow_stats.second);
     }
 
-    void PrefixImpl::beginLocked(unsigned int locked_section_id)
-    {
-        m_cache.beginLocked();
-        if (locked_section_id >= m_mutation_flags.size()) {
-            m_mutation_flags.resize(locked_section_id + 1, -1);
-        }
-        m_mutation_flags[locked_section_id] = 0;
-        m_all_mutation_flags_set = false;
-    }
-    
-    bool PrefixImpl::endLocked(unsigned int locked_section_id)
-    {
-        assert(locked_section_id < m_mutation_flags.size());
-        auto result = m_mutation_flags[locked_section_id];
-        m_mutation_flags[locked_section_id] = -1;
-        // clean-up released slots
-        while (!m_mutation_flags.empty() && m_mutation_flags.back() == -1) {
-            m_mutation_flags.pop_back();
-        }
-
-        return result;
-    }
-    
 }

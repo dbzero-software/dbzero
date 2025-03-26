@@ -35,10 +35,7 @@ namespace db0
          * @param storage prefix related storage reference         
         */
         PrefixCache(BaseStorage &, CacheRecycler *, std::atomic<std::size_t> *dirty_meter_ptr = nullptr);
-        
-        // Register a callback to be notified on a prefix related mutation
-        void setDirtyCallback(std::function<void()> callback);
-        
+                
         /**
          * Attempt retrieving the page / range associated existing resource lock for read or write
          * 
@@ -162,10 +159,7 @@ namespace db0
         // Scan available dirty locks and return:
         // total number of locks (DP count) / number of locks with CoW data present
         std::pair<std::uint64_t, std::uint64_t> getCoWStats() const;
-        
-        // initialize the new locked-section
-        void beginLocked();
-        
+                
     protected:
         const std::size_t m_page_size;
         const unsigned int m_shift;

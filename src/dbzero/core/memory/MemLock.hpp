@@ -18,10 +18,8 @@ namespace db0
         MemLock() = default;
         MemLock(void *buffer, std::shared_ptr<ResourceLock> lock);
         MemLock(const MemLock &other) = default;
-
+        
         void *modify();
-        // notify dirty callbacks only
-        void onDirtyCallback();
 
         inline operator void *() const {
             return m_buffer;
@@ -49,13 +47,12 @@ namespace db0
         
         // Retrieve the underlying lock, this is for testing purposes only
         std::shared_ptr<ResourceLock> lock() const;
-
+        
     private:
         /**
          * Underlying locked resource
         */
-		std::shared_ptr<ResourceLock> m_lock;
-        ResourceLock *m_lock_ptr = nullptr;
+		std::shared_ptr<ResourceLock> m_lock;        
     };
     
 }

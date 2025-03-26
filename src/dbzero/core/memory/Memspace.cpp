@@ -138,12 +138,39 @@ namespace db0
         getAllocatorForUpdate().free(address);
     }
 
-    void Memspace::beginLocked(unsigned int locked_section_id) {
-        m_prefix->beginLocked(locked_section_id);
+    void Memspace::beginLocked(unsigned int locked_section_id)
+    {        
+        if (locked_section_id >= m_mutation_flags.size()) {
+            m_mutation_flags.resize(locked_section_id + 1, -1);
+        }
+        m_mutation_flags[locked_section_id] = 0;
+        m_all_mutation_flags_set = false;
     }
     
-    bool Memspace::endLocked(unsigned int locked_section_id) {
-        return m_prefix->endLocked(locked_section_id);
+    bool Memspace::endLocked(unsigned int locked_section_id)
+    {
+        assert(locked_section_id < m_mutation_flags.size());
+        auto result = m_mutation_flags[locked_section_id];
+        m_mutation_flags[locked_section_id] = -1;
+        // clean-up released slots
+        while (!m_mutation_flags.empty() && m_mutation_flags.back() == -1) {
+            m_mutation_flags.pop_back();
+        }
+
+        return result;
+    }
+    
+    void Memspace::onDirty()
+    {
+        if (!m_mutation_flags.empty() && !m_all_mutation_flags_set) {
+            // set all flags to "true" where not released
+            for (auto &flag: m_mutation_flags) {
+                if (flag == 0) {
+                    flag = 1;
+                }
+            }
+            m_all_mutation_flags_set = true;
+        }
     }
 
 }
