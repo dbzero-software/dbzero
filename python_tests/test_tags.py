@@ -397,13 +397,12 @@ def test_tag_query_results_can_be_iterated_multiple_times(db0_no_autocommit, mem
 def test_using_len_to_determine_query_result_size(db0_no_autocommit, memo_tags):
     query = db0.find("tag1")
     assert len(query) == 10
-        
+    
     
 def test_use_find_to_match_single_object(db0_no_autocommit, memo_tags):
     obj_1 = next(iter(db0.find("tag1")))
     assert len(db0.find(obj_1, db0.find("tag1"))) == 1
     
-
 
 def test_find_base_type(db0_fixture):
     object_1 = MemoSubClass(1)
@@ -412,6 +411,7 @@ def test_find_base_type(db0_fixture):
     # then try looking up by the assigned tag
     assert len(list(db0.find(MemoSubClass, "tag1"))) == 1
     assert len(list(db0.find(MemoBaseClass, "tag1"))) == 1
+
 
 def test_find_base_type_multiple_subclass(db0_fixture):
     object_1 = MemoSubClass(1)
@@ -426,6 +426,7 @@ def test_find_base_type_multiple_subclass(db0_fixture):
     assert len(list(db0.find(MemoBaseClass, "tag1"))) == 3
     assert len(list(db0.find(MemoSecondSubClass, "tag1"))) == 1
     assert len(list(db0.find(MemoSubSubClass, "tag1"))) == 1
+
 
 def test_tags_assigned_to_inherited_type_can_be_removed(db0_fixture):
     object_1 = MemoSubClass(1)
@@ -520,3 +521,16 @@ def test_tags_set_operations(db0_fixture):
     assert all((tag in set_sum for tag in (tag1, tag2, tag3)))
     assert list(set1 - set2) == [tag1]
     assert list(set2 - set1) == [tag3]
+
+
+def test_find_base_type_after_close(db0_fixture):
+    prefix = db0_fixture.get_current_prefix()
+    object_1 = MemoSubClass(1)
+    db0.tags(object_1).add("tag1")
+    db0.commit()
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(prefix.name, "r")
+    sublcass_list = list(db0.find(MemoBaseClass, "tag1"))
+    assert len(sublcass_list) == 1
+    assert sublcass_list[0].value == 1

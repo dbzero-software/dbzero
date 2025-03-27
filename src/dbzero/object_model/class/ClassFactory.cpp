@@ -146,13 +146,13 @@ namespace db0::object_model
                 bool is_singleton = LangToolkit::isSingleton(lang_type);                
                 ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
                 auto memo_base = LangToolkit::getBaseMemoType(lang_type);
-                std::uint32_t base_class_ref = 0;
+                std::shared_ptr<Class> base_class;                
                 if (memo_base) {
-                    auto base_class = getOrCreateType(memo_base);
-                    base_class_ref = ClassFactory::classRef(*base_class);
+                    base_class = getOrCreateType(memo_base);                    
                 }
                 type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type),
-                    LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, init_vars, flags, base_class_ref));
+                    LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, init_vars, flags, base_class)
+                );
                 class_ptr = ClassPtr(*type);
                 // inc-ref to persist the class
                 type->incRef();

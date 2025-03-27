@@ -98,7 +98,7 @@ namespace db0::object_model
 
         // Get class name in the underlying language object model
         std::string getName() const;
-
+        
         std::optional<std::string> getTypeId() const;
         
         FieldID addField(const char *name);
@@ -176,9 +176,13 @@ namespace db0::object_model
         
         // Get null class instance (e.g. for testing)
         static std::shared_ptr<Class> getNullClass();
-
-        std::shared_ptr<Class> tryGetBaseClass();
-                
+        
+        std::shared_ptr<Class> tryGetBaseClass() const;
+        
+        // Get initialization variables identified by static code analysis
+        // note that the result includes also all base class init vars
+        const std::unordered_set<std::string> &getInitVars() const;
+        
     protected:
         friend class ClassFactory;
         friend ClassPtr;
@@ -189,13 +193,18 @@ namespace db0::object_model
         // construct a new dbzero class
         // NOTE: module name may not be available in some contexts (e.g. classes defined in notebooks)
         Class(db0::swine_ptr<Fixture> &, const std::string &name, std::optional<std::string> module_name,
-            const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags, const std::uint32_t);
+            const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags, 
+            std::shared_ptr<Class> base_class);
         
         void unlinkSingleton();
         
         // Get unique class identifier within its fixture
         std::uint32_t fetchUID() const;
-
+        
+        const Member *tryGet(FieldID field_id) const;
+        
+        const Member *tryGet(const char *name) const;
+        
     private:
         // member field definitions
         VFieldVector m_members;

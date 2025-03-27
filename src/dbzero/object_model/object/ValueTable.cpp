@@ -63,7 +63,7 @@ namespace db0::object_model
         result.second = values()[index];
         return true;
     }
-
+    
     void PosVT::set(unsigned int index, StorageClass type, Value value)
     {
         assert(index < this->size());
