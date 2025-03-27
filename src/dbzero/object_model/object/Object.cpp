@@ -251,7 +251,7 @@ namespace db0::object_model
     }
     
     bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
-    {
+    {        
         /* FIXME:
         if (strcmp(field_name, "__cache__") == 0) {
             if (!initialized()) {
@@ -307,7 +307,7 @@ namespace db0::object_model
     }
     
     Object::ObjectSharedPtr Object::get(const char *field_name) const
-    {        
+    {
         auto obj = tryGet(field_name);
         if (!obj) {
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
@@ -316,8 +316,8 @@ namespace db0::object_model
     }
     
     bool Object::tryGetMemberAt(FieldID field_id, bool is_init_var, std::pair<StorageClass, Value> &result) const
-    {   
-        if (!field_id) {
+    {
+        if (!field_id) {            
             if (!is_init_var) {
                 return false;
             }

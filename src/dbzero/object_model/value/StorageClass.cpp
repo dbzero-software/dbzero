@@ -84,7 +84,7 @@ namespace db0::object_model
 namespace std
 
 {
-
+    
     using StorageClass = db0::object_model::StorageClass;
     ostream &operator<<(ostream &os, StorageClass type) 
     {
@@ -97,14 +97,26 @@ namespace std
             case StorageClass::PTIME64: return os << "PTIME64";
             case StorageClass::FP_NUMERIC64: return os << "FP_NUMERIC64";
             case StorageClass::DATE: return os << "DATE";
+            case StorageClass::DATETIME: return os << "DATETIME";
+            case StorageClass::DATETIME_TZ: return os << "DATETIME_TZ";
+            case StorageClass::TIME: return os << "TIME";
+            case StorageClass::TIME_TZ: return os << "TIME_TZ";
+            case StorageClass::DECIMAL: return os << "DECIMAL";    
             case StorageClass::OBJECT_REF: return os << "OBJECT_REF";
             case StorageClass::DB0_LIST: return os << "DB0_LIST";
             case StorageClass::DB0_DICT: return os << "DB0_DICT";
             case StorageClass::DB0_SET: return os << "DB0_SET";
             case StorageClass::DB0_TUPLE: return os << "DB0_TUPLE";
             case StorageClass::STR64: return os << "STR64";
+            case StorageClass::DB0_BLOCK: return os << "DB0_BLOCK";
+            case StorageClass::DB0_PANDAS_DATAFRAME: return os << "DB0_PANDAS_DATAFRAME";
+            case StorageClass::DB0_CLASS: return os << "DB0_CLASS";
+            case StorageClass::DB0_INDEX: return os << "DB0_INDEX";        
+            case StorageClass::DB0_SERIALIZED: return os << "DB0_SERIALIZED";
             case StorageClass::DB0_BYTES: return os << "BYTES";
             case StorageClass::DB0_BYTES_ARRAY: return os << "BYTES_ARRAY";
+            case StorageClass::DB0_ENUM_TYPE_REF: return os << "DB0_ENUM_TYPE_REF";
+            case StorageClass::DB0_ENUM_VALUE: return os << "DB0_ENUM_VALUE";        
             case StorageClass::BOOLEAN: return os << "BOOLEAN";
             case StorageClass::INVALID: return os << "INVALID";
             default: return os << "ERROR!";

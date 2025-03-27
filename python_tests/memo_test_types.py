@@ -32,8 +32,8 @@ class MemoDataPxClass:
 class MemoScopedClass:
     def __init__(self, value, prefix=None):
         db0.set_prefix(self, prefix)        
-        self.value = value   
-
+        self.value = value
+    
 
 @db0.memo
 class MemoTestPxClass:

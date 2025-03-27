@@ -152,7 +152,8 @@ namespace db0::object_model
                     base_class_ref = ClassFactory::classRef(*base_class);
                 }
                 type = std::shared_ptr<Class>(new Class(fixture, LangToolkit::getTypeName(lang_type),
-                    LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, init_vars, flags, base_class_ref));
+                    LangToolkit::tryGetModuleName(lang_type), type_id, prefix_name, init_vars, flags, base_class_ref)
+                );
                 class_ptr = ClassPtr(*type);
                 // inc-ref to persist the class
                 type->incRef();

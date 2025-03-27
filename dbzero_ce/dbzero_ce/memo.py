@@ -113,13 +113,16 @@ def memo(cls=None, **kwargs):
     
     def dis_assig(method):
         last_inst = None
+        unique_args = set()
         for next_inst in dis.get_instructions(method):
             # value assignment
             if next_inst.opname == "STORE_ATTR":
                 # "self" argument put on the stack
                 if last_inst is not None and last_inst.opname == "LOAD_FAST" and last_inst.arg == 0:
-                    yield next_inst.argval
-            last_inst = next_inst        
+                    if next_inst.argval not in unique_args:
+                        unique_args.add(next_inst.argval)
+                        yield next_inst.argval
+            last_inst = next_inst   
     
     def dis_init_assig(from_type):
         """

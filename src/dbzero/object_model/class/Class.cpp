@@ -47,13 +47,17 @@ namespace db0::object_model
     }
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
-        const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags flags, const std::uint32_t  base_class_ref)
-        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, prefix_name, 
+        const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags flags, const std::uint32_t base_class_ref)
+        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, prefix_name,
                   flags, base_class_ref)
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
         , m_uid(this->fetchUID())
     {
         std::copy(init_vars.begin(), init_vars.end(), std::inserter(m_init_vars, m_init_vars.end()));
+        // register initializer assigned variables as class fields
+        for (auto &var_name: init_vars) {
+            addField(var_name.c_str());
+        }
     }
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
@@ -85,6 +89,7 @@ namespace db0::object_model
     
     FieldID Class::addField(const char *name)
     {
+        assert(m_index.find(name) == m_index.end());
         bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
         // NOTE: we start field IDs from 1
         auto next_field_id = FieldID::fromIndex(m_members.size());
@@ -408,7 +413,7 @@ namespace db0::object_model
     
     void Class::setInitVars(const std::vector<std::string> &init_vars)
     {
-        assert(m_init_vars.empty());
+        assert(m_init_vars.empty());        
         std::copy(init_vars.begin(), init_vars.end(), std::inserter(m_init_vars, m_init_vars.end()));        
         // update the field index
         for (auto &name: m_init_vars) {
