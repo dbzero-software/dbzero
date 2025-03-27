@@ -15,7 +15,7 @@ namespace db0
         , m_shift(getPageShift(m_page_size))
         , m_head_state_num(m_storage_ptr->getMaxStateNum())
         , m_cache(*m_storage_ptr, cache_recycler_ptr, &dirty_meter)
-    {
+    {        
         assert(m_storage_ptr);
         if (m_storage_ptr->getAccessType() == AccessType::READ_WRITE) {
             // increment state number for read-write storage (i.e. new data transaction)
@@ -28,7 +28,7 @@ namespace db0
         : PrefixImpl(name, dirty_meter, &cache_recycler, storage)
     {
     }
-
+        
     MemLock PrefixImpl::PrefixImpl::mapRange(std::uint64_t address,
         std::size_t size, FlagSet<AccessOptions> access_mode)
     {

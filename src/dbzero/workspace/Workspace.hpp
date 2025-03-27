@@ -5,6 +5,8 @@
 #include <list>
 #include <functional>
 #include <atomic>
+#include <vector>
+#include <unordered_set>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
@@ -248,7 +250,7 @@ namespace db0
         void endAtomic();
         
         void cancelAtomic();
-
+        
         void setCacheSize(std::size_t cache_size);
 
         // Clear all internal in-memory caches
@@ -262,15 +264,23 @@ namespace db0
         
         // either get frozen head view or throw
         std::shared_ptr<WorkspaceView> getFrozenWorkspaceHeadView() const;
-
+        
         // stop all fixture threads - i.e. refresh and autocommit
         void stopThreads();
-
+        
+        // begin a new locked section
+        // note that locked section IDs will be reused
+        // @return the locked section ID (which must be used to end the section)
+        unsigned int beginLocked();
+        
+        // End a specific locked section, callback will be notified with all mutated fixtures
+        void endLocked(unsigned int, std::function<void(const std::string &prefix_name, std::uint64_t state_num)> callback);
+        
     protected:
         friend class WorkspaceView;
-
+        
         std::optional<std::uint64_t> getUUID(const PrefixName &) const;
-
+        
     private:
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool, bool, bool)> m_fixture_initializer;
@@ -289,7 +299,12 @@ namespace db0
         mutable std::list<std::weak_ptr<WorkspaceView> > m_views;
         // the designated "head" view with the prolonged lifetime
         mutable std::weak_ptr<WorkspaceView> m_head_view;
-        std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;
+        std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;        
+        unsigned int m_next_locked_section_id = 0;
+        // active locked section IDs
+        std::unordered_set<unsigned int> m_locked_section_ids;
+        // log of prefixes closed inside locked sections
+        std::unordered_map<unsigned int, std::vector<std::pair<std::string, std::uint64_t> > > m_locked_section_log;
         
         void forEachMemspace(std::function<bool(Memspace &)> callback) override;
         

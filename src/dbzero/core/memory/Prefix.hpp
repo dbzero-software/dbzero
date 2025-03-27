@@ -108,7 +108,7 @@ namespace db0
 
         // Get arbitrary prefix statistics
         virtual void getStats(std::function<void(const std::string &name, std::uint64_t value)>) const;
-        
+                        
     private:
         const std::string m_name;
     };

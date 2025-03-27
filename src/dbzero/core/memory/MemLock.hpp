@@ -7,22 +7,18 @@ namespace db0
 
 {
 
-	struct MemLock
+	class MemLock
     {
+    public:
         /**
          * Address of the memory buffer
         */
 		void *m_buffer = nullptr;
 
-        /**
-         * Underlying locked resource
-        */
-		std::shared_ptr<ResourceLock> m_lock;
-        
         MemLock() = default;
         MemLock(void *buffer, std::shared_ptr<ResourceLock> lock);
         MemLock(const MemLock &other) = default;
-
+        
         void *modify();
 
         inline operator void *() const {
@@ -48,6 +44,15 @@ namespace db0
          * Get use count of the underlying lock
         */
         unsigned int use_count() const;
-    };
         
+        // Retrieve the underlying lock, this is for testing purposes only
+        std::shared_ptr<ResourceLock> lock() const;
+        
+    private:
+        /**
+         * Underlying locked resource
+        */
+		std::shared_ptr<ResourceLock> m_lock;        
+    };
+    
 }

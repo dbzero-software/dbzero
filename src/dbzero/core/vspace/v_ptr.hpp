@@ -228,6 +228,7 @@ namespace db0
                     break;
                 }
             }
+            // this is to notify dirty-callbacks if needed
             return *reinterpret_cast<ContainerT*>(m_mem_lock.m_buffer);
         }
         

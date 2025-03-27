@@ -42,7 +42,7 @@ namespace db0
         std::size_t size() const;
         
         void forAll(std::function<void(const ResourceLock &)>) const;
-
+                
     private:
         std::atomic<std::size_t> *m_dirty_meter_ptr = nullptr;
         mutable std::mutex m_mutex;
@@ -52,5 +52,5 @@ namespace db0
         // total bytes supported by this cache
         std::atomic<std::size_t> m_size = 0;
     };
-
+    
 } 

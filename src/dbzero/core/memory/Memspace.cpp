@@ -137,5 +137,5 @@ namespace db0
     void Memspace::free(std::uint64_t address) {
         getAllocatorForUpdate().free(address);
     }
-        
+    
 }

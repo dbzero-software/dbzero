@@ -24,7 +24,7 @@ namespace db0
         std::reference_wrapper<DirtyCache> m_cache_ref;
         std::reference_wrapper<BaseStorage> m_storage_ref;
     };
-
+    
     enum class FlushMethod: std::uint8_t
     {
         // Flush using the diff-range calculation (if possible)
@@ -102,7 +102,7 @@ namespace db0
          * @return true if the flag was set
         */
         bool resetDirtyFlag();
-        
+                
         inline std::uint64_t getAddress() const {
             return m_address;
         }
@@ -117,7 +117,7 @@ namespace db0
         
         // Mark the entire lock as dirty
         void setDirty();
-        
+
         bool isCached() const;
 
 #ifndef NDEBUG
@@ -166,11 +166,11 @@ namespace db0
         using iterator = list_t::iterator;
         
         using ResourceDirtyMutexT = ROWO_Mutex<
-            std::uint16_t, 
+            std::uint16_t,
             db0::RESOURCE_DIRTY,
             db0::RESOURCE_DIRTY,
             db0::RESOURCE_LOCK >;
-        
+
         StorageContext m_context;
         const std::uint64_t m_address;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
@@ -187,7 +187,7 @@ namespace db0
         static const std::byte m_cow_zero;
         
         void setRecycled(bool is_recycled);
-
+        
         bool addrPageAligned(BaseStorage &) const;
         
         const std::byte *getCowPtr() const;

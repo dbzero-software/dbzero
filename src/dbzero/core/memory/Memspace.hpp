@@ -93,7 +93,7 @@ namespace db0
         void beginAtomic();
         void endAtomic();
         void cancelAtomic();
-
+        
         inline BaseStorage &getStorage() {
             return *m_storage_ptr;
         }
@@ -108,7 +108,7 @@ namespace db0
         // flag indicating if the atomic operation is in progress
         bool m_atomic = false;
         std::size_t m_page_size;
-
+                
         inline Allocator &getAllocatorForUpdate() {
             assert(m_allocator_ptr);
             return *m_allocator_ptr;

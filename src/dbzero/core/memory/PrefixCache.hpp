@@ -35,7 +35,7 @@ namespace db0
          * @param storage prefix related storage reference         
         */
         PrefixCache(BaseStorage &, CacheRecycler *, std::atomic<std::size_t> *dirty_meter_ptr = nullptr);
-        
+                
         /**
          * Attempt retrieving the page / range associated existing resource lock for read or write
          * 
@@ -136,7 +136,7 @@ namespace db0
         // which can only be done AFTER completing the atomic operation since it may trigger the unwanted updates - e.g. via PY_DECREF)
         void merge(StateNumType from_state_num, StateNumType to_state_num, 
             std::vector<std::shared_ptr<ResourceLock> > &reused_locks);
-         
+        
         std::size_t getPageSize() const;
         
         CacheRecycler *getCacheRecycler() const;
@@ -159,7 +159,7 @@ namespace db0
         // Scan available dirty locks and return:
         // total number of locks (DP count) / number of locks with CoW data present
         std::pair<std::uint64_t, std::uint64_t> getCoWStats() const;
-        
+                
     protected:
         const std::size_t m_page_size;
         const unsigned int m_shift;

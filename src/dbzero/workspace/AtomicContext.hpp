@@ -66,6 +66,7 @@ namespace db0
         std::unordered_map<std::uint64_t, ObjectSharedPtr> m_objects;        
         
         // mutex / lock to prevent mutliple concurrent atomic operations
+        // also acquired by the autocommit-thread to prevent auto-commit during atomic operation
         static std::mutex m_atomic_mutex;
         std::unique_lock<std::mutex> m_atomic_lock;
 

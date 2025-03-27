@@ -413,7 +413,7 @@ namespace db0
         m_wide_map.clear();
         m_dp_map.clear();    
     }
-
+    
     void PrefixCache::release()
     {
         discardAll(m_volatile_boundary_locks);
@@ -709,5 +709,5 @@ namespace db0
 
         return { dp_total, dp_cow };
     }
-    
+        
 } 
