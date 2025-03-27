@@ -79,8 +79,9 @@ namespace db0::object_model
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
         : super_t(super_t::tag_from_stem(), fixture, std::move(stem))
         , m_type(type)
-        , m_is_dropped(false)        
+        , m_is_dropped(false)
     {
+        assert(hasValidClassRef());
     }
     
     Object::~Object()
@@ -118,19 +119,19 @@ namespace db0::object_model
         return stem;
     }
     
-    Object *Object::unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type)
+    Object *Object::unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type_hint)
     {
-        auto fixture = type->getFixture();
+        auto fixture = type_hint->getFixture();
         Object *object = new (at_ptr) Object(fixture, address);
-        object->setType(type);
+        object->setTypeWithHint(type_hint);
         return object;
     }
 
-    Object *Object::unload(void *at_ptr, ObjectStem &&stem, std::shared_ptr<Class> type)
+    Object *Object::unload(void *at_ptr, ObjectStem &&stem, std::shared_ptr<Class> type_hint)
     {        
-        auto fixture = type->getFixture();
+        auto fixture = type_hint->getFixture();
         // placement new
-        return new (at_ptr) Object(fixture, std::move(stem), type);        
+        return new (at_ptr) Object(fixture, std::move(stem), getTypeWithHint(*fixture, stem->m_class_ref, type_hint));
     }
     
     void Object::postInit(FixtureLock &fixture)
@@ -389,11 +390,24 @@ namespace db0::object_model
     Memspace &Object::getMemspace() const {
         return *getFixture();
     }
-
+    
     void Object::setType(std::shared_ptr<Class> type)
     {
         assert(!m_type);
         m_type = type;
+        assert(hasValidClassRef());
+    }
+
+    void Object::setTypeWithHint(std::shared_ptr<Class> type_hint)
+    {
+        assert(!m_type);        
+        assert(type_hint);
+        assert(hasInstance());
+        if (ClassFactory::classRef(*type_hint) == (*this)->m_class_ref) {
+            m_type = type_hint;
+        } else {
+            m_type = unloadType();
+        }
     }
 
     bool Object::isSingleton() const {
@@ -669,4 +683,21 @@ namespace db0::object_model
         return super_t::getAddress();
     }
     
+    bool Object::hasValidClassRef() const
+    {
+        if (hasInstance() && m_type) {            
+            return (*this)->m_class_ref == ClassFactory::classRef(*m_type);
+        }
+        return true;
+    }
+    
+    std::shared_ptr<Class> Object::getTypeWithHint(const Fixture &fixture, std::uint32_t class_ref, std::shared_ptr<Class> type_hint)
+    {
+        assert(type_hint);
+        if (ClassFactory::classRef(*type_hint) == class_ref) {
+            return type_hint;
+        }
+        return fixture.get<ClassFactory>().getTypeByClassRef(class_ref).m_class;
+    }
+
 }

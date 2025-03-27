@@ -126,11 +126,13 @@ namespace db0::object_model
         // Unload the object stem, to retrieve its type and validate UUID / instance ID
         static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
-        // unload from stem with a known type
-        static Object *unload(void *at_ptr, ObjectStem &&, std::shared_ptr<Class>);
+        // unload from stem with a known type (possibly a base type)
+        // NOTE: unload works faster if type_hint is the exect object's type
+        static Object *unload(void *at_ptr, ObjectStem &&, std::shared_ptr<Class> type_hint);
         
-        // unload from address with a known type
-        static Object *unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class>);
+        // unload from address with a known type (possibly a base type)
+        // NOTE: unload works faster if type_hint is the exect object's type
+        static Object *unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type_hint);
 
         // Called to finalize adding members
         void endInit();
@@ -238,6 +240,8 @@ namespace db0::object_model
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
         
         void setType(std::shared_ptr<Class>);
+        // adjusts to actual type if the type hint is a base class
+        void setTypeWithHint(std::shared_ptr<Class> type_hint);
         
         // Pull existing reference from dbzero as a specific type (schema on read)
         // DBZObject(db0::mptr ptr, std::shared_ptr<DBZClass> type);
@@ -271,6 +275,11 @@ namespace db0::object_model
         
         // Unload associated type
         std::shared_ptr<Class> unloadType() const;
+        
+        // Retrieve a type by class-ref with a possible match (type_hint)
+        static std::shared_ptr<Class> getTypeWithHint(const Fixture &, std::uint32_t class_ref, std::shared_ptr<Class> type_hint);
+        
+        bool hasValidClassRef() const;              
     };
        
 }

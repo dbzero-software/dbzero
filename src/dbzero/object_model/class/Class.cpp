@@ -15,7 +15,7 @@ namespace db0::object_model
     
     using namespace db0;
     using namespace db0::pools;
-
+    
     GC0_Define(Class)
     
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
@@ -47,17 +47,20 @@ namespace db0::object_model
     }
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
-        const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags flags, const std::uint32_t base_class_ref)
+        const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags flags, 
+        std::shared_ptr<Class> base_class)
         : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, prefix_name,
-                  flags, base_class_ref)
+                  flags, base_class ? ClassFactory::classRef(*base_class) : 0)
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
+        , m_base_class_ptr(base_class)
         , m_uid(this->fetchUID())
     {
-        std::copy(init_vars.begin(), init_vars.end(), std::inserter(m_init_vars, m_init_vars.end()));
-        // register initializer assigned variables as class fields
-        for (auto &var_name: init_vars) {
-            addField(var_name.c_str());
+        // copy all init vars from base class
+        if (m_base_class_ptr) {        
+            const auto &base_init_vars = m_base_class_ptr->getInitVars();
+            std::copy(base_init_vars.begin(), base_init_vars.end(), std::inserter(m_init_vars, m_init_vars.end()));
         }
+        std::copy(init_vars.begin(), init_vars.end(), std::inserter(m_init_vars, m_init_vars.end()));
     }
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
@@ -65,6 +68,12 @@ namespace db0::object_model
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
         , m_uid(this->fetchUID())    
     {
+        // initialize base class if such exists
+        if ((*this)->m_base_class_ref) {
+            auto fixture = this->getFixture();
+            m_base_class_ptr = fixture->get<ClassFactory>().getTypeByClassRef((*this)->m_base_class_ref).m_class;
+        }
+
         // fetch all members into cache
         refreshMemberCache();
     }
@@ -107,7 +116,7 @@ namespace db0::object_model
             refreshMemberCache();
             it = m_index.find(name);
             if (it == m_index.end()) {
-                // field ID not found, which does not exclude possibility of the model field
+                // field ID not found, check for possible initialization variable
                 bool is_init_var = m_init_vars.find(name) != m_init_vars.end();
                 return { FieldID(), is_init_var };
             }
@@ -116,30 +125,48 @@ namespace db0::object_model
         return it->second;
     }
     
-    const Class::Member &Class::get(FieldID field_id) const
+    const Class::Member *Class::tryGet(FieldID field_id) const
     {
         auto index = field_id.getIndex();
         if (index < m_member_cache.size()) {
-            return m_member_cache[index];
+            return &m_member_cache[index];
         }
-
+        
         if (index >= m_member_cache.size()) {
             // try updating cache (fields might've been added by other process)
             refreshMemberCache();            
         }
-        if (index >= m_member_cache.size()) {
-            THROWF(db0::InternalException) << "Member slot not found: " << index;
+        if (index < m_member_cache.size()) {
+            return &m_member_cache[index];
         }
-        return m_member_cache[index];
+        return nullptr;
+    }
+    
+    const Class::Member &Class::get(FieldID field_id) const
+    {
+        auto member_ptr = tryGet(field_id);
+        if (!member_ptr) {
+            THROWF(db0::InputException) << "Member slot not found: " << field_id.getIndex();
+        }
+        return *member_ptr;
+    }
+    
+    const Class::Member *Class::tryGet(const char *name) const
+    {
+        auto it = m_index.find(name);
+        if (it != m_index.end()) {
+            return &get(it->second.first);
+        }
+        return nullptr;
     }
 
     const Class::Member &Class::get(const char *name) const
     {
-        auto it = m_index.find(name);
-        if (it == m_index.end()) {
+        auto member_ptr = tryGet(name);
+        if (!member_ptr) {
             THROWF(db0::InputException) << "Field " << name << " not found in class " << getName();
         }
-        return get(it->second.first);
+        return *member_ptr;
     }
     
     bool Class::unloadSingleton(void *at) const
@@ -398,19 +425,10 @@ namespace db0::object_model
         return std::shared_ptr<Class>(new Class());
     }
 
-    std::shared_ptr<Class> Class::tryGetBaseClass()
-    {
-        if (!m_base_class_ptr) {
-            auto base_class_ref = (*this)->m_base_class_ref;
-            if (base_class_ref == 0) {
-                return nullptr;
-            }
-            auto fixture = this->getFixture();
-            m_base_class_ptr = fixture->get<ClassFactory>().getTypeByClassRef(base_class_ref).m_class;
-        }
+    std::shared_ptr<Class> Class::tryGetBaseClass() const {
         return m_base_class_ptr;
     }
-    
+
     void Class::setInitVars(const std::vector<std::string> &init_vars)
     {
         assert(m_init_vars.empty());        
@@ -428,4 +446,8 @@ namespace db0::object_model
         return (*this)->m_singleton_address;
     }
     
+    const std::unordered_set<std::string> &Class::getInitVars() const {
+        return m_init_vars;
+    }
+
 }
