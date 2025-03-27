@@ -20,6 +20,7 @@ namespace db0
             m_mutation_log.emplace_back(prefix_name, state_num);
         };
         m_workspace->endLocked(m_locked_section_id, callback);
+        m_lock.unlock();
     }
     
     std::shared_lock<std::shared_mutex> LockedContext::lockShared() {
