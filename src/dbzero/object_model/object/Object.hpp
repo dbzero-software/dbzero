@@ -223,7 +223,7 @@ namespace db0::object_model
         void commit() const;
         
         std::uint64_t getAddress() const;
-        
+                
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;

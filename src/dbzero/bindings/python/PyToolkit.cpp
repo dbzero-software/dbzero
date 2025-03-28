@@ -382,7 +382,7 @@ namespace db0::python
     PyToolkit::ObjectSharedPtr PyToolkit::makeEnumValue(const EnumValue &value) {
         return shared_py_cast<PyObject*>(makePyEnumValue(value));
     }
-
+    
     std::string PyToolkit::getLastError()
     {
         PyObject *ptype, *pvalue, *ptraceback;
@@ -410,7 +410,7 @@ namespace db0::python
         } else if (PyObjectIterator_Check(py_object)) {
             return reinterpret_cast<PyObjectIterator*>(py_object)->ext().getFixture()->getUUID();
         } else if (PyTag_Check(py_object)) {
-            return reinterpret_cast<PyTag*>(py_object)->ext().m_fixture_uuid;           
+            return reinterpret_cast<PyTag*>(py_object)->ext().m_fixture_uuid;
         } else {
             return 0;
         }

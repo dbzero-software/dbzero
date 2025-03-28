@@ -132,7 +132,7 @@ namespace db0::object_model
          * @param alt_repr optional buffer to hold the alternative tag representation if such exists
          * this is useful for capturing the conversion result of EnumValueRepr -> EnumValue
          * @return 0x0 if the tag does not exist
-        */        
+        */
         ShortTagT getShortTag(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTag(ObjectSharedPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTag(TypeId, ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
@@ -143,18 +143,20 @@ namespace db0::object_model
         ShortTagT getShortTagFromEnumValueRepr(ObjectPtr, ObjectSharedPtr *alt_repr = nullptr) const;
         ShortTagT getShortTagFromFieldDef(ObjectPtr) const;
         ShortTagT getShortTagFromClass(ObjectPtr) const;
-
+        
         /**
          * Adds a new object or increase ref-count of the existing element
          * @param inc_ref - whether to increase ref-count of the existing element, note that for
          * newly created elements ref-count is always set to 1 (in such case inc_ref fill be flipped from false to true)
+         * @return nullopt if element cannot be added as short tag (must use long-tag instead)
         */
-        ShortTagT addShortTag(ObjectPtr, bool &inc_ref) const;
-        ShortTagT addShortTag(ObjectSharedPtr, bool &inc_ref) const;
-        ShortTagT addShortTag(TypeId, ObjectPtr, bool &inc_ref) const;
+        std::optional<ShortTagT> tryAddShortTag(TypeId, ObjectPtr, bool &inc_ref) const;
+        std::optional<ShortTagT> tryAddShortTag(ObjectPtr, bool &inc_ref) const;
+        std::optional<ShortTagT> tryAddShortTag(ObjectSharedPtr, bool &inc_ref) const;
         ShortTagT addShortTagFromString(ObjectPtr, bool &inc_ref) const;
-        ShortTagT addShortTagFromTag(ObjectPtr) const;
-        ShortTagT addShortTagFromMemo(ObjectPtr) const;
+        // return 0x0 if object is from a different prefix (must be added as long tag)
+        std::optional<ShortTagT> tryAddShortTagFromTag(ObjectPtr) const;        
+        std::optional<ShortTagT> tryAddShortTagFromMemo(ObjectPtr) const;
         
         bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
@@ -162,15 +164,17 @@ namespace db0::object_model
         
         bool isShortTag(ObjectPtr) const;
         bool isShortTag(ObjectSharedPtr) const;
-
+        
         bool isLongTag(ObjectPtr) const;
         bool isLongTag(ObjectSharedPtr) const;
+        bool isLongTag(TypeId, ObjectPtr) const;
         
         LongTagT getLongTag(ObjectPtr) const;
-        LongTagT getLongTag(ObjectSharedPtr) const;        
-
-        LongTagT addLongTag(ObjectPtr, bool &inc_ref) const;
-        LongTagT addLongTag(ObjectSharedPtr, bool &inc_ref) const;
+        LongTagT getLongTag(TypeId, ObjectPtr) const;
+        LongTagT getLongTag(ObjectSharedPtr) const;
+        LongTagT getLongTagFromTag(ObjectPtr) const;
+        LongTagT getLongTagFromMemo(ObjectPtr) const;
+        
         template <typename SequenceT> LongTagT makeLongTagFromSequence(const SequenceT &) const;
         
         // Check if the sequence represents a long tag (i.e. scope + short tag)

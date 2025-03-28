@@ -119,7 +119,11 @@ namespace db0
             // take weak ref of the Fixture
             other_fixture.take_weak();
         }
-
+        
+        // gets the underlying fixture UUID (or throw)
+        std::uint64_t getFixtureUUID() const {
+            return this->getFixture()->getUUID();
+        }
     };
     
 }
