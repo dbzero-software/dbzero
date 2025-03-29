@@ -26,7 +26,7 @@ def memo(cls=None, **kwargs):
         This operation is only viable for very specific class of object constructors 
         which call db0.set_prefix as the 1st statement
         """
-        import types
+        import types as py_types
         import dis
         import inspect
         
@@ -36,7 +36,7 @@ def memo(cls=None, **kwargs):
 
         def assemble_code(code, stop_instr, ret_instr):        
             # Now create a new code object
-            new_code = types.CodeType(
+            new_code = py_types.CodeType(
                 code.co_argcount, # Number of arguments
                 0, # code.co_posonlyargcount,
                 code.co_kwonlyargcount,
@@ -59,7 +59,7 @@ def memo(cls=None, **kwargs):
             )
 
             # Create a new function with the modified bytecode
-            return types.FunctionType(new_code, from_type.__init__.__globals__)
+            return py_types.FunctionType(new_code, from_type.__init__.__globals__)
         
         # get the indices of first "CALL" and the last "RETURN_VALUE" instructions
         def find_call_ret_instructions(instructions):

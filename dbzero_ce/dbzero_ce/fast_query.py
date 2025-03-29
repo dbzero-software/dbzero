@@ -3,7 +3,7 @@
 import dbzero_ce as db0
 import inspect
 import typing
-import types
+import types as py_types
 import re
 
 
@@ -22,7 +22,7 @@ def init_fast_query(prefix=None):
 
 def get_lambda_source(func):
     global __lambda_regex
-    assert isinstance(func, types.LambdaType)
+    assert isinstance(func, py_types.LambdaType)
     source_lines, _ = inspect.getsourcelines(func)
     source_code = ''.join(source_lines).strip()
     match = __lambda_regex.search(source_code)
@@ -39,7 +39,7 @@ def signature_of(group_defs):
     if hasattr(group_defs, "signature"):
         return group_defs.signature
     
-    if isinstance(group_defs, types.LambdaType):
+    if isinstance(group_defs, py_types.LambdaType):
         sig_callable = inspect.signature(group_defs)
         return f"{len(sig_callable.parameters)}:{get_lambda_source(group_defs)}"
 

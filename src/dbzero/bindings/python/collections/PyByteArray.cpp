@@ -229,7 +229,7 @@ namespace db0::python
 
     PyTypeObject ByteArrayObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.ByteArray",
+        .tp_name = "ByteArray",
         .tp_basicsize = ByteArrayObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_ByteArrayObject_del,

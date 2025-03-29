@@ -110,6 +110,14 @@ static struct PyModuleDef dbzero_ce_module = {
     dbzero_methods
 };
     
+static struct PyModuleDef dbzero_types_module = {
+    PyModuleDef_HEAD_INIT,
+    "dbzero_ce.types",
+    NULL,
+    -1,
+    NULL,
+};
+
 void initPyType(PyObject *mod, PyTypeObject *py_type)
 {
     std::stringstream _str;
@@ -148,6 +156,14 @@ void initPyError(PyObject *mod, PyObject *py_error, const char *error_name)
 PyMODINIT_FUNC PyInit_dbzero_ce(void)
 {   
     auto mod = PyModule_Create(&dbzero_ce_module);
+    auto types_mod = PyModule_Create(&dbzero_types_module);
+
+    if (PyModule_AddObject(mod, "types", types_mod) < 0) {        
+        Py_DECREF(types_mod);
+        Py_DECREF(mod);
+        return NULL;
+    }
+    
     std::vector<PyTypeObject*> types = {
         &py::ObjectIdType, 
         &py::ListObjectType, 
@@ -176,7 +192,7 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
     // register all types
     try {
         for (auto py_type: types) {
-            initPyType(mod, py_type);
+            initPyType(types_mod, py_type);
         }
         initPyError(mod, py::PyToolkit::getTypeManager().getBadPrefixError(), "BadPrefixError");
         initPyError(mod, py::PyToolkit::getTypeManager().getClassNotFoundError(), "ClassNotFoundError");
