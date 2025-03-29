@@ -37,7 +37,7 @@ namespace db0::python
 
     PyTypeObject DictViewObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.Dict",
+        .tp_name = "Dict",
         .tp_basicsize = DictViewObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)DictViewObject_del,

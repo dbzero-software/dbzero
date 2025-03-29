@@ -109,7 +109,7 @@ namespace db0::python
     
     PyTypeObject TupleObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.Tuple",
+        .tp_name = "Tuple",
         .tp_basicsize = TupleObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_TupleObject_del,
