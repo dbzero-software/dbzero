@@ -2,7 +2,7 @@
 # implementation for dbzero
 import dbzero_ce as db0
 import inspect
-from typing import Any, Dict, Tuple
+import typing
 import types
 import re
 
@@ -66,7 +66,7 @@ class FastQuery:
         self.__snapshot = snapshot
         self.__rows = self.__query
     
-    def __make_query(self, query) -> Tuple:
+    def __make_query(self, query) -> typing.Tuple:
         result = query
         is_simple = True
         # split query by all available group definitions
@@ -150,7 +150,7 @@ class GroupDef:
                 self.__sig = signature_of(self.__key_func)
         return self.__sig
     
-    def __call__(self, row) -> Any:
+    def __call__(self, row) -> typing.Any:
         return self.key_func(row)
     
     
@@ -293,7 +293,7 @@ class GroupByEval:
         return result
     
     
-def group_by(group_defs, query, ops=(count_op,)) -> Dict:
+def group_by(group_defs, query, ops=(count_op,)) -> typing.Dict:
     """
     Group query results by the given key
     """

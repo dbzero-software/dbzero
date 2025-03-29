@@ -140,7 +140,7 @@ namespace db0::python
 
     PyTypeObject DictObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.Dict",        
+        .tp_name = "Dict",
         .tp_basicsize = DictObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_DictObject_del,

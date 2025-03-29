@@ -118,13 +118,20 @@ void initPyType(PyObject *mod, PyTypeObject *py_type)
         Py_DECREF(mod);
         throw std::runtime_error(_str.str());
     }
-    
+
     Py_INCREF(py_type);
     if (PyModule_AddObject(mod, py_type->tp_name, (PyObject *)py_type) < 0) {
         Py_DECREF(py_type);
         Py_DECREF(mod);    
         throw std::runtime_error(_str.str());    
     }
+
+        // FIXME: log
+        // convert as str(mod)
+        auto str_module_name = PyUnicode_AsUTF8(PyObject_Str(mod)); 
+        std::cout << "module name: " << str_module_name << std::endl;
+        std::cout << "type name: " << py_type->tp_name << std::endl;
+
 }
 
 void initPyError(PyObject *mod, PyObject *py_error, const char *error_name)
