@@ -706,5 +706,7 @@ namespace db0::python
         lang_cache.add(addr, memo_obj);
         return memo_obj;
     }
+    
+    PyObject *tryWeakProxy(PyObject *);    
 
 }

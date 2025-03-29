@@ -8,6 +8,7 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
 #include <dbzero/object_model/bytes/ByteArray.hpp>
+#include <dbzero/object_model/value/weak_ref.hpp>
 
 namespace db0::object_model
 
@@ -263,6 +264,16 @@ namespace db0::object_model
         return byte_array.getAddress();
     }
     
+    // DB0_WEAK_PROXY specialization
+    template <> Value createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr)
+    {
+        // NOTE: memo object can be extracted from the weak proxy
+        const auto &obj = PyToolkit::getTypeManager().extractObject(obj_ptr);        
+        WeakRef weak_ref(fixture, obj);
+        return weak_ref.getAddress();
+    }
+
     template <> void registerCreateMemberFunctions<PyToolkit>(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr)> &functions)
     {
@@ -294,6 +305,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
         functions[static_cast<int>(TypeId::BOOLEAN)] = createMember<TypeId::BOOLEAN, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_BYTES_ARRAY)] = createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>;
+        functions[static_cast<int>(TypeId::DB0_WEAK_PROXY)] = createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>;
     }
     
     // STRING_REF specialization
@@ -413,7 +425,6 @@ namespace db0::object_model
         return db0::python::uint64ToPyDecimal(value.cast<std::uint64_t>());
     }
 
-
     // NONE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::NONE, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
@@ -460,13 +471,24 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
          return value.cast<std::uint64_t>() ? Py_True : Py_False;
-    }   
+    }
 
     // DB0_BYTES_ARRAY specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyToolkit::unloadByteArray(fixture, value.cast<std::uint64_t>());
+    }
+
+    // OBJECT_LONG_WEAK_REF
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        WeakRef weak_ref(fixture, value.cast<std::uint64_t>());
+        // unload object from a foreign prefix
+        return PyToolkit::unloadObject(
+            fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid), value.cast<std::uint64_t>()
+        );
     }
     
     template <> void registerUnloadMemberFunctions<PyToolkit>(
@@ -496,6 +518,7 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
         functions[static_cast<int>(StorageClass::BOOLEAN)] = unloadMember<StorageClass::BOOLEAN, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_BYTES_ARRAY)] = unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>;
+        functions[static_cast<int>(StorageClass::OBJECT_LONG_WEAK_REF)] = unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>;
     }
 
     template <typename T, typename LangToolkit>

@@ -92,6 +92,9 @@ namespace db0::python
         // optionally may use specific lang class (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture>, std::uint64_t address, const ClassFactory &,
             TypeObjectPtr lang_class = nullptr);
+
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture>, std::uint64_t address,
+            TypeObjectPtr lang_class = nullptr);
         
         // Unload with known type & lang class
         // note that lang_class may be a base of the actual type (e.g. MemoBase)

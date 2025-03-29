@@ -26,6 +26,7 @@ namespace db0::object_model {
     struct FieldDef;
     struct TagDef;
     class ByteArray;
+    class PyWeakProxy;
     
 }
 

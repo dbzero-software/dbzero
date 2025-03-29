@@ -9,7 +9,7 @@ namespace db0::python
     PyTypeObject TagSetType = 
     {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.TagSet",
+        .tp_name = "TagSet",
         .tp_basicsize = sizeof(PyTagSet),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObject_Del,        

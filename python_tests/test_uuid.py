@@ -7,12 +7,12 @@ from .memo_test_types import MemoTestClass
 import json
 
 
-def test_uid_of_memo_object(db0_fixture):
+def test_uuid_of_memo_object(db0_fixture):
     object_1 = MemoTestClass(123)
     assert db0.uuid(object_1) is not None
 
 
-def test_uid_has_base32_repr(db0_fixture):
+def test_uuid_has_base32_repr(db0_fixture):
     object_1 = MemoTestClass(123)
     uuid = db0.uuid(object_1)
     # only uppercase or digit characters
@@ -20,7 +20,7 @@ def test_uid_has_base32_repr(db0_fixture):
     assert len(uuid) == 29
 
 
-def test_uid_can_be_encoded_in_json(db0_fixture):
+def test_uuid_can_be_encoded_in_json(db0_fixture):
     object_1 = MemoTestClass(123)
     uuid = db0.uuid(object_1)
     js_data = json.dumps({"uuid": uuid})    

@@ -88,6 +88,13 @@ namespace db0::python
         return *result;
     }
     
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> fixture, std::uint64_t address, 
+        TypeObjectPtr lang_class)
+    {
+        auto &class_factory = fixture->get<ClassFactory>();
+        return unloadObject(fixture, address, class_factory, lang_class);
+    }
+    
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> fixture, std::uint64_t address,
         const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr)
     {

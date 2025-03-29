@@ -11,6 +11,7 @@
 #include "PyAtomic.hpp"
 #include "PyReflectionAPI.hpp"
 #include "PyHash.hpp"
+#include "PyWeakProxy.hpp"
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
@@ -1148,10 +1149,20 @@ namespace db0::python
         return py_singleton;
     }
 
-    PyObject *PyApi_findSingleton(PyObject *, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_findSingleton(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         return runSafe(tryFindSingleton, args, kwargs);
     }
-    
+
+    PyObject *PyAPI_weakProxy(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "weakProxy requires exactly 1 argument");
+            return NULL;
+        }
+        PY_API_FUNC
+        return runSafe(tryWeakProxy, args[0]);
+    }
+
 }

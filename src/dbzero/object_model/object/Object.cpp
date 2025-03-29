@@ -168,9 +168,19 @@ namespace db0::object_model
             // object reference must be from the same fixture
             auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
             if (fixture.getUUID() != obj.getFixture()->getUUID()) {
-                THROWF(db0::InputException) << "Linking objects from different prefixes is not allowed. Store db0.uuid instead";
+                THROWF(db0::InputException) << "Referencing objects from foreign prefixes is not allowed. Use db0.weak_proxy instead";
             }
         }
+
+        // may need to refine the storage class (i.e. long weak ref might be needed instead)
+        if (storage_class == StorageClass::OBJECT_WEAK_REF) {
+            const auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
+            if (*obj.getFixture() != fixture) {
+                // must use long weak-ref instead, since referenced object is from a foreign prefix
+                storage_class = StorageClass::OBJECT_LONG_WEAK_REF;
+            }
+        }
+
         return { type_id, storage_class };
     }
 

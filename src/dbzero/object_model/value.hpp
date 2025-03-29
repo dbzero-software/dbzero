@@ -4,3 +4,4 @@
 #include "value/StorageClass.hpp"
 #include "value/Value.hpp"
 #include "value/TypeUtils.hpp"
+#include "value/weak_ref.hpp"

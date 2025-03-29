@@ -12,7 +12,7 @@
 #include <dbzero/core/vspace/v_object.hpp>
 #include "KV_Index.hpp"
 
-namespace db0 
+namespace db0
 
 {
 
