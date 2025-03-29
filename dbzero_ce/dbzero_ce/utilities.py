@@ -1,4 +1,4 @@
-from typing import Iterator
+import typing
 
 _NORMALIZE_TRANSLATION_SOURCE = 'ĄĆĘŁŃÓŚŻŹ'
 _NORMALIZE_TRANSLATION_MAPPINGS = 'ACELNOSZZ'
@@ -7,7 +7,7 @@ _NORMALIZE_TRANSLATION_TABLE = str.maketrans(_NORMALIZE_TRANSLATION_SOURCE, _NOR
 _EXTRA_SPLIT_DELIMITERS = '.,;:-!?\t\n"\''
 _EXTRA_SPLIT_TABLE = str.maketrans(_EXTRA_SPLIT_DELIMITERS, ' ' * len(_EXTRA_SPLIT_DELIMITERS))
 
-def taggify(input_text: str, max_len = 3, min_len = 1) -> Iterator[str]:
+def taggify(input_text: str, max_len = 3, min_len = 1) -> typing.Iterator[str]:
     """
     This function tokenizes an arbitrary string and breaks it into an iterable of tags - which are constructed by taking a prefix of up to
     a specific length, removing any whitespaces and delimiters and normalizing to uppercase and latin characters.

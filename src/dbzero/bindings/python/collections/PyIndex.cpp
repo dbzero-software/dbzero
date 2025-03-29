@@ -23,7 +23,7 @@ namespace db0::python
 
     PyTypeObject IndexObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.Index",
+        .tp_name = "Index",
         .tp_basicsize = IndexObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_IndexObject_del,

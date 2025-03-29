@@ -1,7 +1,7 @@
 from collections import namedtuple
 from enum import Enum
 import itertools
-from typing import Iterable, Tuple
+import typing
 import dbzero_ce as db0
 import inspect
 import importlib
@@ -239,7 +239,7 @@ class CallableType(Enum):
     ACTION = 3
     MUTATOR = 4
 
-def get_callables(obj: object, include_properties = False) -> Iterable[Tuple[str, CallableType]]:
+def get_callables(obj: object, include_properties = False) -> typing.Iterable[typing.Tuple[str, CallableType]]:
     _type = db0.get_type(obj)
 
     callable_parameters = [param_name for param_name, is_callable in get_properties(obj) if is_callable]

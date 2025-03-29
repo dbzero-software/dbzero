@@ -209,7 +209,7 @@ namespace db0::python
 
     PyTypeObject ListObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.List",
+        .tp_name = "List",
         .tp_basicsize = ListObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_ListObject_del,

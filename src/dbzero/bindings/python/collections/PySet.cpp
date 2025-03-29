@@ -211,7 +211,7 @@ namespace db0::python
     
     PyTypeObject SetObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.Set",
+        .tp_name = "Set",
         .tp_basicsize = SetObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)SetObject_del,
