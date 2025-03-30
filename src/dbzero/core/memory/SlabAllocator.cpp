@@ -82,6 +82,12 @@ namespace db0
         assert(db0::isPhysicalAddress(address));
         return m_allocator.getAllocSize(makeRelative(address));
     }
+    
+    bool SlabAllocator::isAllocated(std::uint64_t address) const 
+    {
+        assert(db0::isPhysicalAddress(address));
+        return m_allocator.isAllocated(makeRelative(address));
+    }
 
     std::uint64_t SlabAllocator::headerAddr(std::uint64_t begin_addr, std::uint32_t size) {
         return begin_addr + size - o_slab_header::sizeOf();

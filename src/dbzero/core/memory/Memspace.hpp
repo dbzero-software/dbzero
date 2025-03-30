@@ -97,7 +97,10 @@ namespace db0
         inline BaseStorage &getStorage() {
             return *m_storage_ptr;
         }
-                
+        
+        // Check if the address is valid (allocated) with the underlying allocator
+        bool isAddressValid(std::uint64_t address) const;
+        
     protected:
         std::shared_ptr<Prefix> m_prefix;
         BaseStorage *m_storage_ptr = nullptr;

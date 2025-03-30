@@ -125,6 +125,8 @@ namespace db0::object_model
         
         // Unload the object stem, to retrieve its type and validate UUID / instance ID
         static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        // Check if the unloadStem operation would be successful (withot actually performing it)
+        static bool checkUnloadStem(db0::swine_ptr<Fixture> &, std::uint64_t address);
         
         // unload from stem with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exect object's type

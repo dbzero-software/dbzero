@@ -150,19 +150,23 @@ namespace db0
     std::uint32_t CRDT_Allocator::Alloc::getAllocSize(std::uint32_t address) const
     {
         // Get allocation size under a specific address or throw exception
-        if ((address >= m_address) && ((address - m_address) % m_stride == 0) && (address < m_address + m_stride * m_fill_map.size()) &&
-            m_fill_map[int((address - m_address) / m_stride)]) {
-            return m_stride;
+        if (!isAllocated(address)) {            
+            THROWF(db0::BadAddressException) << "Invalid address: " << address << THROWF_END;
         }
-        THROWF(db0::InternalException) << "Invalid address: " << address << THROWF_END;
+        return m_stride;
     }
     
+    bool CRDT_Allocator::Alloc::isAllocated(std::uint32_t address) const {
+        return ((address >= m_address) && ((address - m_address) % m_stride == 0) && (address < m_address + m_stride * m_fill_map.size()) &&
+            m_fill_map[int((address - m_address) / m_stride)]);
+    }
+
     bool CRDT_Allocator::Alloc::deallocUnit(std::uint32_t address)
     {
         if ((address >= m_address) && ((address - m_address) % m_stride == 0) && (address < m_address + m_stride * m_fill_map.size())) {
             auto index = int((address - m_address) / m_stride);
             if (!m_fill_map[index]) {
-                THROWF(db0::InternalException) << "Invalid address: " << address;
+                THROWF(db0::BadAddressException) << "Invalid address: " << address;
             }
             m_fill_map.reset(index);
         }
@@ -425,7 +429,7 @@ namespace db0
             // find the corresponding alloc (window)
             AllocWindowT alloc_window;
             if (!m_allocs.lower_equal_window(stripe.m_address, alloc_window)) {
-                THROWF(db0::InternalException) << "Invalid address: " << stripe.m_address;
+                THROWF(db0::BadAddressException) << "Invalid address: " << stripe.m_address;
             }
             
             // NOTE: modify invalidates the entire window, therefore dedicated "modify" version is used
@@ -482,7 +486,7 @@ namespace db0
         using AllocWindowT = typename CRDT_Allocator::AllocSetT::WindowT;
         AllocWindowT alloc_window;
         if (!m_allocs.lower_equal_window(address, alloc_window)) {
-            THROWF(db0::InternalException) << "Invalid address: " << address;            
+            THROWF(db0::BadAddressException) << "Invalid address: " << address;            
         }
 
         assert(alloc_window[1]);
@@ -572,11 +576,20 @@ namespace db0
     {
         auto alloc = m_allocs.lower_equal_bound(address);
         if (!alloc) {
-            THROWF(db0::InternalException) << "Invalid address: " << address;            
+            THROWF(db0::BadAddressException) << "Invalid address: " << address;            
         }
         return alloc.first->getAllocSize(address);
     }
     
+    bool CRDT_Allocator::isAllocated(std::uint64_t address) const
+    {
+        auto alloc = m_allocs.lower_equal_bound(address);
+        if (!alloc) {
+            return false;
+        }
+        return alloc.first->isAllocated(address);
+    }
+
     std::optional<std::uint32_t> CRDT_Allocator::tryAlignedAllocFromBlanks(std::uint32_t size)
     {
         // do not perform allocations from blanks if max_addr crossed dynamic bounds

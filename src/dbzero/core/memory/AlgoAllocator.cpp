@@ -31,7 +31,7 @@ namespace db0
         }
         auto i = m_reverse_address_pool_f(address);
         if (i >= m_next_i) {
-            THROWF(db0::InternalException) << "AlgoAllocator: invalid address " << address;
+            THROWF(db0::BadAddressException) << "AlgoAllocator: invalid address " << address;
         }
         if (i == m_next_i - 1) {
             --m_next_i;
@@ -43,9 +43,16 @@ namespace db0
         auto offset = address % m_alloc_size;
         auto i = m_reverse_address_pool_f(address - offset);
         if (i >= m_next_i) {
-            THROWF(db0::InternalException) << "AlgoAllocator: invalid address " << address;
+            THROWF(db0::BadAddressException) << "AlgoAllocator: invalid address " << address;
         }
         return m_alloc_size - offset;
+    }
+    
+    bool AlgoAllocator::isAllocated(std::uint64_t address) const 
+    {
+        auto offset = address % m_alloc_size;
+        auto i = m_reverse_address_pool_f(address - offset);
+        return i < m_next_i;
     }
 
     void AlgoAllocator::reset() {

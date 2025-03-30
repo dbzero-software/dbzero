@@ -28,7 +28,7 @@ namespace db0
     void OneShotAllocator::free(std::uint64_t address) 
     {
         if (address != m_addr || !m_allocated) {
-            THROWF(db0::InternalException) << "OneShotAllocator invalid address: " << address;
+            THROWF(db0::BadAddressException) << "OneShotAllocator invalid address: " << address;
         }
         m_allocated = false;
     }
@@ -36,9 +36,13 @@ namespace db0
     std::size_t OneShotAllocator::getAllocSize(std::uint64_t address) const 
     {
         if (address != m_addr || !m_allocated) {
-            THROWF(db0::InternalException) << "OneShotAllocator invalid address: " << address;
+            THROWF(db0::BadAddressException) << "OneShotAllocator invalid address: " << address;
         }
         return m_size;
+    }
+    
+    bool OneShotAllocator::isAllocated(std::uint64_t address) const {
+        return (address == m_addr && m_allocated);
     }
 
     void OneShotAllocator::commit() const {

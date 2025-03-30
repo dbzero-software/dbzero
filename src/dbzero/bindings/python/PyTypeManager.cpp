@@ -95,6 +95,7 @@ namespace db0::python
         
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
         m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
+        m_py_reference_error = PyErr_NewException("dbzero_ce.ReferenceError", NULL, NULL);
     }
     
     PyTypeManager::~PyTypeManager()
@@ -438,6 +439,10 @@ namespace db0::python
         return m_py_class_not_found_error.get();
     }
     
+    PyTypeManager::ObjectPtr PyTypeManager::getReferenceError() const {
+        return m_py_reference_error.get();
+    }
+
     std::shared_ptr<const db0::object_model::Class> PyTypeManager::extractConstClass(ObjectPtr py_class) const
     {
         if (!PyClassObject_Check(py_class)) {

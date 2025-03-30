@@ -193,6 +193,7 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         }
         initPyError(mod, py::PyToolkit::getTypeManager().getBadPrefixError(), "BadPrefixError");
         initPyError(mod, py::PyToolkit::getTypeManager().getClassNotFoundError(), "ClassNotFoundError");
+        initPyError(mod, py::PyToolkit::getTypeManager().getReferenceError(), "ReferenceError");
     } catch (const std::exception &e) {
         // set python error
         PyErr_SetString(PyExc_RuntimeError, e.what());

@@ -70,12 +70,13 @@ namespace db0::object_model
     
     ObjectIterator::ObjectSharedPtr ObjectIterator::unload(std::uint64_t address) const
     {
+        auto fixture = getFixture();
         if (m_type) {
             // unload as typed if class is known
-            return LangToolkit::unloadObject(getFixture(), address, m_type, m_lang_type.get());
+            return LangToolkit::unloadObject(fixture, address, m_type, m_lang_type.get());
         } else {
             // NOTE: lang type may be available even without the corresponding Class (e.g. MemoBase)
-            return LangToolkit::unloadObject(getFixture(), address, m_class_factory, m_lang_type.get());
+            return LangToolkit::unloadObject(fixture, address, m_class_factory, m_lang_type.get());
         }
     }
         

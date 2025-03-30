@@ -472,23 +472,27 @@ namespace db0::object_model
     {
          return value.cast<std::uint64_t>() ? Py_True : Py_False;
     }
-
+    
     // DB0_BYTES_ARRAY specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyToolkit::unloadByteArray(fixture, value.cast<std::uint64_t>());
     }
-
+    
     // OBJECT_LONG_WEAK_REF
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         WeakRef weak_ref(fixture, value.cast<std::uint64_t>());
-        // unload object from a foreign prefix
-        return PyToolkit::unloadObject(
-            fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid), value.cast<std::uint64_t>()
-        );
+        auto other_fixture = fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid);
+        if (PyToolkit::isObjectExpired(other_fixture, value.cast<std::uint64_t>())) {
+            // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
+            return PyToolkit::unloadExpiredRef(fixture, weak_ref);
+        } else {
+            // unload object from a foreign prefix
+            return PyToolkit::unloadObject(other_fixture, value.cast<std::uint64_t>());
+        }
     }
     
     template <> void registerUnloadMemberFunctions<PyToolkit>(

@@ -28,6 +28,7 @@ namespace db0::object_model
     class Class;
     class ClassFactory;
     struct EnumValue;
+    class WeakRef;
 
 }
 
@@ -51,6 +52,8 @@ namespace db0::python
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
         using EnumValue = db0::object_model::EnumValue;
+        using WeakRef = db0::object_model::WeakRef;
+        using Object = db0::object_model::Object;
         
         inline static TypeManager &getTypeManager() {
             return m_type_manager;    
@@ -88,17 +91,23 @@ namespace db0::python
         static std::optional<std::string> tryGetModuleName(TypeObjectPtr py_type);
         static std::string getModuleName(TypeObjectPtr py_type);
         
+        // Check whether the object's reference is no longer available (i.e. expired)
+        // NOTE: this works only for memo objects (also included the instance ID validation)
+        static bool isObjectExpired(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        
         // Unload with type resolution
         // optionally may use specific lang class (e.g. MemoBase)
-        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture>, std::uint64_t address, const ClassFactory &,
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address, const ClassFactory &,
             TypeObjectPtr lang_class = nullptr);
-
-        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture>, std::uint64_t address,
+        
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,
             TypeObjectPtr lang_class = nullptr);
+        
+        static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, const WeakRef &);
         
         // Unload with known type & lang class
         // note that lang_class may be a base of the actual type (e.g. MemoBase)
-        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture>, std::uint64_t address,
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,
             std::shared_ptr<Class>, TypeObjectPtr lang_class);
         
         static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture>, std::uint64_t address);

@@ -1,5 +1,6 @@
 #include "PyToolkit.hpp"
 #include "Memo.hpp"
+#include "MemoExpiredRef.hpp"
 #include "PyInternalAPI.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
@@ -19,6 +20,7 @@
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
+#include <dbzero/object_model/value/weak_ref.hpp>
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
@@ -88,14 +90,14 @@ namespace db0::python
         return *result;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> fixture, std::uint64_t address, 
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
         TypeObjectPtr lang_class)
     {
         auto &class_factory = fixture->get<ClassFactory>();
         return unloadObject(fixture, address, class_factory, lang_class);
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> fixture, std::uint64_t address,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
         const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr)
     {
         // try unloading from cache first
@@ -131,7 +133,7 @@ namespace db0::python
         return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> fixture, std::uint64_t address,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
         std::shared_ptr<Class> type, TypeObjectPtr lang_class)
     {
         assert(lang_class);
@@ -149,6 +151,25 @@ namespace db0::python
         obj_ptr = shared_py_cast<PyObject*>(std::move(memo_object));
         lang_cache.add(address, obj_ptr.get());
         return obj_ptr;
+    }
+    
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, const WeakRef &weak_ref)
+    {
+        // try unloading from cache first
+        auto &lang_cache = fixture->getLangCache();
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, weak_ref.getAddress());
+        
+        if (obj_ptr) {
+            return obj_ptr;
+        }
+        
+        obj_ptr = MemoExpiredRef_new(weak_ref->m_fixture_uuid, weak_ref->m_address);
+        lang_cache.add(weak_ref.getAddress(), obj_ptr.get());
+        return obj_ptr;
+    }
+    
+    bool PyToolkit::isObjectExpired(db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
+        return !Object::checkUnloadStem(fixture, address);
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadBlock(db0::swine_ptr<Fixture> fixture, std::uint64_t address)

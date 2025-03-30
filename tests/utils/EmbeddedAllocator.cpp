@@ -34,6 +34,10 @@ namespace db0
         return it->second;
     }
     
+    bool EmbeddedAllocator::isAllocated(std::uint64_t address) const {
+        return m_allocations.find(address) != m_allocations.end();
+    }
+
     void EmbeddedAllocator::commit() const {
         // nothing to do
     }

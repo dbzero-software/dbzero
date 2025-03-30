@@ -20,6 +20,7 @@ namespace db0::python
     
     extern PyTypeObject PyWeakProxyType;
     
+    void PyAPI_PyWeakProxy_del(PyWeakProxy *self);
     bool PyWeakProxy_Check(PyObject *obj);
 
     PyObject *tryWeakProxy(PyObject *);

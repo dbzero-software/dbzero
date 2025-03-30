@@ -315,7 +315,7 @@ namespace db0::python
         if (obj_memo->ob_type->tp_base->tp_richcompare != PyType_Type.tp_richcompare) {
             // if the base class richcompare is the same as the memo richcompare don't call the base class richcompare
             // to avoid infinite recursion
-            if(obj_memo->ob_type->tp_base->tp_richcompare != (richcmpfunc)PyAPI_MemoObject_rq){
+            if (obj_memo->ob_type->tp_base->tp_richcompare != (richcmpfunc)PyAPI_MemoObject_rq) {
                 return obj_memo->ob_type->tp_base->tp_richcompare(reinterpret_cast<PyObject*>(memo_obj), other, op);
             }
         }

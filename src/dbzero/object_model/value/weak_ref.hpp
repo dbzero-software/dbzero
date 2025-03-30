@@ -11,12 +11,12 @@ namespace db0::object_model
 {
     
     class Object;
-
+    
     struct [[gnu::packed]] o_weak_ref: public o_fixed<o_weak_ref>
     {
         std::uint64_t m_fixture_uuid;
         // the full logical address (i.e. physical address + instance ID) of a memo object
-        std::uint64_t m_address;        
+        std::uint64_t m_address;
 
         o_weak_ref(std::uint64_t fixture_uuid, std::uint64_t address);
     };

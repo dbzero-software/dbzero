@@ -111,12 +111,25 @@ namespace db0::object_model
     Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
     {
         db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-        // validate the instance ID if assigned
+        // validate the instance ID if assigned        
         auto instance_id = db0::getInstanceId(address);
         if (instance_id && (instance_id != stem->m_header.m_instance_id)) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+        }        
+        
+        return stem;        
+    }
+    
+    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    {
+        if (fixture->isAddressValid(address)) {
+            db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
+            // validate the instance ID if assigned        
+            auto instance_id = db0::getInstanceId(address);
+            return !instance_id || instance_id == stem->m_header.m_instance_id;
         }
-        return stem;
+        // the address no longer exists
+        return false;
     }
     
     Object *Object::unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type_hint)
@@ -126,7 +139,7 @@ namespace db0::object_model
         object->setTypeWithHint(type_hint);
         return object;
     }
-
+    
     Object *Object::unload(void *at_ptr, ObjectStem &&stem, std::shared_ptr<Class> type_hint)
     {        
         auto fixture = type_hint->getFixture();

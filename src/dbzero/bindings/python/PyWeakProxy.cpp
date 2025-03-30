@@ -12,7 +12,7 @@ namespace db0::python
         .tp_name = "WeakProxy",
         .tp_basicsize = sizeof(PyWeakProxy),
         .tp_itemsize = 0,
-        .tp_dealloc = (destructor)PyObject_Del,        
+        .tp_dealloc = (destructor)PyAPI_PyWeakProxy_del,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_new = PyType_GenericNew,
     };
@@ -20,7 +20,14 @@ namespace db0::python
     MemoObject *PyWeakProxy::get() const {
         return reinterpret_cast<MemoObject*>(m_py_object.get());
     }
-    
+
+    void PyAPI_PyWeakProxy_del(PyWeakProxy *py_weak_proxy)
+    {
+        PY_API_FUNC
+        py_weak_proxy->~PyWeakProxy();        
+        Py_TYPE(py_weak_proxy)->tp_free((PyObject*)py_weak_proxy);
+    }
+
     bool PyWeakProxy_Check(PyObject *obj) {
         return PyObject_TypeCheck(obj, &PyWeakProxyType);
     }
