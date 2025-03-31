@@ -631,13 +631,13 @@ namespace db0::python
         std::shared_ptr<db0::object_model::Class> expected_type)
     {
         auto obj_ptr = lang_cache.get(address);
-        if (obj_ptr) {
+        if (obj_ptr && expected_type) {
             if (!PyMemo_Check(obj_ptr.get())) {
                 THROWF(db0::InputException) << "Invalid object type: " << PyToolkit::getTypeName(obj_ptr.get()) << " (Memo expected)";
             }
             auto &memo = reinterpret_cast<MemoObject*>(obj_ptr.get())->ext();
             // validate type
-            if (expected_type && memo.getType() != *expected_type) {
+            if (memo.getType() != *expected_type) {
                 THROWF(db0::InputException) << "Memo type mismatch";
             }
         }

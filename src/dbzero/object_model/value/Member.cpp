@@ -486,12 +486,13 @@ namespace db0::object_model
     {
         WeakRef weak_ref(fixture, value.cast<std::uint64_t>());
         auto other_fixture = fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid);
-        if (PyToolkit::isObjectExpired(other_fixture, value.cast<std::uint64_t>())) {
+        auto address = weak_ref->m_address;
+        if (PyToolkit::isObjectExpired(other_fixture, address)) {
             // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
             return PyToolkit::unloadExpiredRef(fixture, weak_ref);
         } else {
             // unload object from a foreign prefix
-            return PyToolkit::unloadObject(other_fixture, value.cast<std::uint64_t>());
+            return PyToolkit::unloadObject(other_fixture, address);
         }
     }
     

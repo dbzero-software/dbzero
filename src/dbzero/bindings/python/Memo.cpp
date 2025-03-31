@@ -252,7 +252,7 @@ namespace db0::python
         }
         
         return _PyObject_GenericGetAttrWithDict(reinterpret_cast<PyObject*>(memo_obj), attr, NULL, 0);
-
+        
         // raise AttributeError
         /*
         if (!member) {

@@ -12,7 +12,7 @@ namespace db0::python
     struct PyWeakProxy
     {
         PyObject_HEAD
-        shared_py_object<PyObject*> m_py_object;        
+        shared_py_object<PyObject*> m_py_object;   
         
         // get the underlying memo object
         MemoObject *get() const;

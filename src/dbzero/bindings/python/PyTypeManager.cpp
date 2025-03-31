@@ -16,6 +16,7 @@
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
 #include <dbzero/bindings/python/PyTagSet.hpp>
 #include <dbzero/bindings/python/PyWeakProxy.hpp>
+#include <dbzero/bindings/python/MemoExpiredRef.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/list/List.hpp>
@@ -92,7 +93,8 @@ namespace db0::python
         addStaticdbzeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
         addStaticdbzeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
         addStaticdbzeroType(&PyWeakProxyType, TypeId::DB0_WEAK_PROXY);
-        
+        addStaticdbzeroType(&MemoExpiredRefType, TypeId::MEMO_EXPIRED_REF);
+
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
         m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
         m_py_reference_error = PyErr_NewException("dbzero_ce.ReferenceError", NULL, NULL);

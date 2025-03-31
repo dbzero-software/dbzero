@@ -20,12 +20,12 @@ namespace db0::python
     MemoObject *PyWeakProxy::get() const {
         return reinterpret_cast<MemoObject*>(m_py_object.get());
     }
-
+    
     void PyAPI_PyWeakProxy_del(PyWeakProxy *py_weak_proxy)
     {
         PY_API_FUNC
-        py_weak_proxy->~PyWeakProxy();        
-        Py_TYPE(py_weak_proxy)->tp_free((PyObject*)py_weak_proxy);
+        py_weak_proxy->m_py_object.reset();
+        Py_TYPE(py_weak_proxy)->tp_free((PyObject*)py_weak_proxy);        
     }
 
     bool PyWeakProxy_Check(PyObject *obj) {

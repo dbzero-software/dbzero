@@ -1,6 +1,7 @@
 #include "Types.hpp"
 #include "PyToolkit.hpp"
 #include "Memo.hpp"
+#include "MemoExpiredRef.hpp"
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
 #include <dbzero/bindings/python/types/PyEnum.hpp>
@@ -165,6 +166,22 @@ namespace db0::python
     template <> PyObject *tryGetUUID<TypeId::OBJECT_ITERABLE>(PyObject *py_value) {
         return tryGetSerializableUUID(&reinterpret_cast<PyObjectIterable*>(py_value)->ext());
     }
+    
+    // MEMO_EXPIRED_REF specialization
+    template <> PyObject *tryGetUUID<TypeId::MEMO_EXPIRED_REF>(PyObject *py_value) 
+    {
+        auto &expired_ref = *reinterpret_cast<MemoExpiredRef*>(py_value);
+        db0::object_model::ObjectId object_id;
+        object_id.m_fixture_uuid = expired_ref.getFixtureUUID();
+        object_id.m_instance_id = db0::getInstanceId(expired_ref.getAddress());
+        object_id.m_typed_addr.setAddress(db0::getPhysicalAddress(expired_ref.getAddress()));
+        object_id.m_typed_addr.setType(StorageClass::OBJECT_REF);
+
+        // return as base-32 string
+        char buffer[ObjectId::encodedSize() + 1];
+        object_id.toBase32(buffer);
+        return PyUnicode_FromString(buffer);
+    }
 
     void registerTryGetUUIDFunctions(std::vector<PyObject *(*)(PyObject*)> &functions)
     {
@@ -177,6 +194,8 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = tryGetUUID<TypeId::DB0_TUPLE>;
         functions[static_cast<int>(TypeId::DB0_INDEX)] = tryGetUUID<TypeId::DB0_INDEX>;        
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = tryGetUUID<TypeId::OBJECT_ITERABLE>;
+        // for expired refs UUIDs are still available
+        functions[static_cast<int>(TypeId::MEMO_EXPIRED_REF)] = tryGetUUID<TypeId::MEMO_EXPIRED_REF>;
         /*
         functions[static_cast<int>(TypeId::DB0_BLOCK)] = createMember<TypeId::DB0_BLOCK, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
