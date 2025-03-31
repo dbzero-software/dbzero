@@ -20,7 +20,7 @@
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/set/Set.hpp>
-#include <dbzero/object_model/value/weak_ref.hpp>
+#include <dbzero/object_model/value/long_weak_ref.hpp>
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
@@ -153,19 +153,24 @@ namespace db0::python
         return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, const WeakRef &weak_ref)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, std::uint64_t fixture_uuid,
+        std::uint64_t address)
     {
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
-        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, weak_ref.getAddress());
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
         
         if (obj_ptr) {
             return obj_ptr;
         }
         
-        obj_ptr = MemoExpiredRef_new(weak_ref->m_fixture_uuid, weak_ref->m_address);
-        lang_cache.add(weak_ref.getAddress(), obj_ptr.get());
+        obj_ptr = MemoExpiredRef_new(fixture_uuid, address);
+        lang_cache.add(address, obj_ptr.get());
         return obj_ptr;
+    }
+    
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, const LongWeakRef &weak_ref) {
+        return unloadExpiredRef(fixture, weak_ref->m_fixture_uuid, weak_ref->m_address);
     }
     
     bool PyToolkit::isObjectExpired(db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {

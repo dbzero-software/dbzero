@@ -28,7 +28,7 @@ namespace db0::object_model
     class Class;
     class ClassFactory;
     struct EnumValue;
-    class WeakRef;
+    class LongWeakRef;
 
 }
 
@@ -52,7 +52,7 @@ namespace db0::python
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
         using EnumValue = db0::object_model::EnumValue;
-        using WeakRef = db0::object_model::WeakRef;
+        using LongWeakRef = db0::object_model::LongWeakRef;
         using Object = db0::object_model::Object;
         
         inline static TypeManager &getTypeManager() {
@@ -103,8 +103,10 @@ namespace db0::python
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,
             TypeObjectPtr lang_class = nullptr);
         
-        static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, const WeakRef &);
-        
+        static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, const LongWeakRef &);
+        static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, std::uint64_t fixture_uuid,
+            std::uint64_t address);
+                
         // Unload with known type & lang class
         // note that lang_class may be a base of the actual type (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, std::uint64_t address,

@@ -184,7 +184,7 @@ namespace db0::object_model
                 THROWF(db0::InputException) << "Referencing objects from foreign prefixes is not allowed. Use db0.weak_proxy instead";
             }
         }
-
+        
         // may need to refine the storage class (i.e. long weak ref might be needed instead)
         if (storage_class == StorageClass::OBJECT_WEAK_REF) {
             const auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
@@ -193,7 +193,7 @@ namespace db0::object_model
                 storage_class = StorageClass::OBJECT_LONG_WEAK_REF;
             }
         }
-
+        
         return { type_id, storage_class };
     }
 
@@ -213,7 +213,7 @@ namespace db0::object_model
         }
         
         // register a member with the initializer
-        initializer.set(field_id.getIndex(), storage_class, createMember<LangToolkit>(fixture, type_id, obj_ptr));
+        initializer.set(field_id.getIndex(), storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr));
     }
     
     void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
@@ -231,7 +231,7 @@ namespace db0::object_model
         
         assert(field_id);
         // FIXME: value should be destroyed on exception
-        auto value = createMember<LangToolkit>(*fixture, type_id, lang_value);
+        auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value);
         // make sure object address is not null
         assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
         if (field_id.getIndex() < (*this)->pos_vt().size()) {

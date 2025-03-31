@@ -94,6 +94,7 @@ static PyMethodDef dbzero_methods[] =
     {"wait", (PyCFunction)&py::PyAPI_wait, METH_VARARGS | METH_KEYWORDS, "Wait for desired prefix state number"},
     {"find_singleton", (PyCFunction)&py::PyAPI_findSingleton, METH_VARARGS | METH_KEYWORDS, "Try retrieving an existing singleton, possibly from a given prefix"},
     {"weak_proxy", (PyCFunction)&py::PyAPI_weakProxy, METH_FASTCALL, "Construct weak proxy from a db0 object"},
+    {"expired", (PyCFunction)&py::PyAPI_expired, METH_FASTCALL, "Check if the weak reference has expired"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

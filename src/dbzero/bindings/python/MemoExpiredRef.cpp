@@ -4,7 +4,7 @@
 namespace db0::python
 
 {
-
+    
     void MemoExpiredRef::init(std::uint64_t fixture_uuid, std::uint64_t address)
     {
         m_fixture_uuid = fixture_uuid;
@@ -48,7 +48,7 @@ namespace db0::python
     bool MemoExpiredRef_Check(PyObject *obj) {
         return PyObject_TypeCheck(obj, &MemoExpiredRefType);
     }
-
+    
     shared_py_object<PyObject*> MemoExpiredRef_new(std::uint64_t fixture_uuid, std::uint64_t address)
     {
         auto py_expired_ref = PyObject_New(MemoExpiredRef, &MemoExpiredRefType);

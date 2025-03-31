@@ -164,7 +164,9 @@ namespace db0::python
     PyObject *PyAPI_findSingleton(PyObject *self, PyObject *args, PyObject *kwargs);
 
     PyObject *PyAPI_weakProxy(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
-    
+
+    PyObject *PyAPI_expired(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+
 #ifndef NDEBUG
     PyObject *getResourceLockUsage(PyObject *, PyObject *);
 #endif

@@ -26,7 +26,7 @@ namespace db0::object_model::pandas
         // unregister needs to be called before destruction of members
         unregister();
     }
-
+    
     void Block::append(FixtureLock &fixture, ObjectPtr lang_value)
     {
         using TypeId = db0::bindings::TypeId;
@@ -37,11 +37,11 @@ namespace db0::object_model::pandas
         if (size() == 0) {
             m_storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
         } else {
-            if( m_storage_class != TypeUtils::m_storage_class_mapper.getStorageClass(type_id)){
+            if (m_storage_class != TypeUtils::m_storage_class_mapper.getStorageClass(type_id)){
                 throw std::runtime_error("Storage class shoud be same for all Block elements");
             }
         }        
-        v_bvector::push_back(createMember<LangToolkit>(*fixture, type_id, lang_value));
+        v_bvector::push_back(createMember<LangToolkit>(*fixture, type_id, m_storage_class, lang_value));
     }
 
     Block::ObjectSharedPtr Block::getStorageClass() const {
@@ -65,8 +65,8 @@ namespace db0::object_model::pandas
         }
 
         // recognize type ID from language specific object
-        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);        
-        v_bvector::setItem(i, createMember<LangToolkit>(*fixture, type_id, lang_value));
+        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
+        v_bvector::setItem(i, createMember<LangToolkit>(*fixture, type_id, m_storage_class, lang_value));
     }
     
     Block *Block::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {

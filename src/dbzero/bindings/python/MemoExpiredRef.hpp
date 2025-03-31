@@ -24,7 +24,8 @@ namespace db0::python
     
     extern PyTypeObject MemoExpiredRefType;
     
-    bool MemoExpiredRef_Check(PyObject *obj);
+    bool MemoExpiredRef_Check(PyObject *obj);    
+    
     shared_py_object<PyObject*> MemoExpiredRef_new(std::uint64_t fixture_uuid,
         std::uint64_t address);
     

@@ -1165,4 +1165,14 @@ namespace db0::python
         return runSafe(tryWeakProxy, args[0]);
     }
 
+    PyObject *PyAPI_expired(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "weakProxy requires exactly 1 argument");
+            return NULL;
+        }
+        PY_API_FUNC
+        return runSafe(tryExpired, args[0]);
+    }
+
 }

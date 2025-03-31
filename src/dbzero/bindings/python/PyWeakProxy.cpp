@@ -1,5 +1,6 @@
 #include "PyWeakProxy.hpp"
 #include "Memo.hpp"
+#include "MemoExpiredRef.hpp"
 #include "PyToolkit.hpp"
 
 namespace db0::python
@@ -44,6 +45,15 @@ namespace db0::python
         }
         py_weak_proxy->m_py_object = py_obj;
         return reinterpret_cast<PyObject *>(py_weak_proxy);
+    }
+    
+    PyObject *tryExpired(PyObject *py_obj)
+    {
+        if (MemoExpiredRef_Check(py_obj)) {
+            Py_RETURN_TRUE;
+        } else {
+            Py_RETURN_FALSE;
+        }
     }
     
 }
