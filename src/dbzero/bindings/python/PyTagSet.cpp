@@ -22,7 +22,7 @@ namespace db0::python
         py_tag_set->m_tag_set.~TagSet();    
         PyObject_Del(py_tag_set);
     }
-
+    
     bool TagSet_Check(PyObject *obj) {
         return PyObject_TypeCheck(obj, &TagSetType);
     }

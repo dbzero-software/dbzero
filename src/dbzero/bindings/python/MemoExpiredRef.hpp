@@ -11,7 +11,7 @@ namespace db0::python
     
     class MemoExpiredRef
     {            
-        PyObject_HEAD    
+        PyObject_HEAD
         std::uint64_t m_fixture_uuid;
         std::uint64_t m_address;
 

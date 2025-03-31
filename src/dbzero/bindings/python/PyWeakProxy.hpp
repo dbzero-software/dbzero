@@ -2,7 +2,6 @@
 
 #include <Python.h>
 #include "PyWrapper.hpp"
-#include "shared_py_object.hpp"
 #include "Memo.hpp"
 
 namespace db0::python
@@ -12,7 +11,7 @@ namespace db0::python
     struct PyWeakProxy
     {
         PyObject_HEAD
-        shared_py_object<PyObject*> m_py_object;   
+        PyObject* m_py_object;
         
         // get the underlying memo object
         MemoObject *get() const;

@@ -19,14 +19,16 @@ namespace db0::python
     };
     
     MemoObject *PyWeakProxy::get() const {
-        return reinterpret_cast<MemoObject*>(m_py_object.get());
+        return reinterpret_cast<MemoObject*>(m_py_object);
     }
     
     void PyAPI_PyWeakProxy_del(PyWeakProxy *py_weak_proxy)
     {
         PY_API_FUNC
-        py_weak_proxy->m_py_object.reset();
-        Py_TYPE(py_weak_proxy)->tp_free((PyObject*)py_weak_proxy);        
+        if (py_weak_proxy->m_py_object) {
+            Py_DECREF(py_weak_proxy->m_py_object);            
+        }
+        Py_TYPE(py_weak_proxy)->tp_free((PyObject*)py_weak_proxy);
     }
 
     bool PyWeakProxy_Check(PyObject *obj) {
@@ -43,6 +45,7 @@ namespace db0::python
         if (!py_weak_proxy) {
             return nullptr;
         }
+        Py_INCREF(py_obj);
         py_weak_proxy->m_py_object = py_obj;
         return reinterpret_cast<PyObject *>(py_weak_proxy);
     }
