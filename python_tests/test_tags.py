@@ -535,10 +535,3 @@ def test_find_base_type_after_close(db0_fixture):
     sublcass_list = list(db0.find(MemoBaseClass, "tag1"))
     assert len(sublcass_list) == 1
     assert sublcass_list[0].value == 1
-
-
-def test_temp_1(db0_fixture):
-    d = db0.dict()
-    print(type(d))
-    print(db0.dbzero_ce.Dict)
-    print(isinstance(d, db0.dbzero_ce.Dict))
