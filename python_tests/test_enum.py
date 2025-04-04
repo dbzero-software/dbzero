@@ -206,3 +206,15 @@ def test_looking_up_by_enum_from_different_prefix(db0_fixture):
     db0.open("some-other-prefix", "rw")
     # look up by enum value from different prefix
     assert ColorsEnum.RED in set_1
+
+
+def test_using_db0_enum_as_python_dict_keys(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    d = {Colors.RED: "red", Colors.GREEN: "green", Colors.BLUE: "blue"}
+    # change current prefix
+    db0.open("some-other-prefix", "rw")
+    obj_1, obj_2, obj_3 = MemoTestClass(Colors.RED), MemoTestClass(Colors.GREEN), MemoTestClass(Colors.BLUE)
+    assert db0.get_prefix_of(obj_1.value).name == "some-other-prefix"
+    assert d[obj_1.value] == "red"
+    assert d[obj_2.value] == "green"
+    assert d[obj_3.value] == "blue"
