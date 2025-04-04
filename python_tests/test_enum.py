@@ -213,8 +213,12 @@ def test_using_db0_enum_as_python_dict_keys(db0_fixture):
     d = {Colors.RED: "red", Colors.GREEN: "green", Colors.BLUE: "blue"}
     # change current prefix
     db0.open("some-other-prefix", "rw")
+    States = db0.enum("States", ["TX", "CA", "NY"])
+    state_tx = States.TX
+    Countries = db0.enum("Countries", ["USA", "CAN", "MEX"])
     obj_1, obj_2, obj_3 = MemoTestClass(Colors.RED), MemoTestClass(Colors.GREEN), MemoTestClass(Colors.BLUE)
     assert db0.get_prefix_of(obj_1.value).name == "some-other-prefix"
     assert d[obj_1.value] == "red"
     assert d[obj_2.value] == "green"
     assert d[obj_3.value] == "blue"
+    

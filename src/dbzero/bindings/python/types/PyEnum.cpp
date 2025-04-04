@@ -337,8 +337,7 @@ namespace db0::python
     Py_hash_t PyAPI_PyEnumValue_hash(PyObject *enum_value_obj)
     {
         PY_API_FUNC
-        auto &enum_value = PyToolkit::getTypeManager().extractEnumValue(enum_value_obj);
-        return enum_value.getUID().asULong();
+        return PyToolkit::getTypeManager().extractEnumValue(enum_value_obj).getPermHash();        
     }
     
     PyTypeObject PyEnumValueType = {
