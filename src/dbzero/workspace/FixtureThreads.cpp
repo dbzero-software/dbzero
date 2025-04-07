@@ -81,18 +81,39 @@ namespace db0
     {
     }
     
-    void RefreshThread::tryRefresh(Fixture &fixture, std::uint64_t &status) const
+    void RefreshThread::tryRefresh(Fixture &fixture, std::uint64_t &status)
     {
         auto prefix_ptr = fixture.getPrefixPtr();
         // prefix_ptr may not exist a fixture has already been closed
         if (!prefix_ptr) {
             return;
         }
+        std::string prefix_name = prefix_ptr->getName();
+        auto now = ClockType::now();
 
         auto last_updated = prefix_ptr->getLastUpdated();
         if (last_updated != status) {
             fixture.onUpdated();
             status = last_updated;
+            m_last_updates[prefix_name] = now;
+        }
+        else
+        {
+            auto it = m_last_updates.find(prefix_name);
+            if(it == m_last_updates.end()) {
+                m_last_updates[prefix_name] = now;
+                return;
+            }
+
+            auto fixture_last_update_time = it->second;
+            if((now - fixture_last_update_time) > std::chrono::seconds(5))
+            {
+                // This is to protect against edge-case hang on 'wait' function,
+                // caused by refresh thread not picking up all cases when prefix file is modified.
+                // The refresh mechanism can potentially be improved in the future.
+                fixture.onUpdated();
+                m_last_updates[prefix_name] = now;
+            }
         }
     }
     

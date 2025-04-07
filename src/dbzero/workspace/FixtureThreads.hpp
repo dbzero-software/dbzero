@@ -60,7 +60,10 @@ namespace db0
         RefreshThread();
 
     private:
-        void tryRefresh(Fixture &fixture, std::uint64_t &status) const;
+        void tryRefresh(Fixture &fixture, std::uint64_t &status);
+
+        using ClockType = std::chrono::high_resolution_clock;
+        std::unordered_map<std::string, ClockType::time_point> m_last_updates;
     };
 
     /**
