@@ -296,15 +296,16 @@ namespace db0::python
     PyObject *tryDictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
         PyObject *py_elem = args[0];
-        PyObject *value = Py_None;
-        if (nargs == 2) {
-            value = args[1];
-        }
         auto elem = migratedKey(dict_object->ext(), py_elem);
         auto hash = get_py_hash(elem.get());
         if (dict_object->ext().has_item(hash, elem.get())) {
             return DictObject_GetItem(dict_object, elem.get());
         }
+        PyObject *value = Py_None;
+        if (nargs == 2) {
+            value = args[1];
+        }
+        Py_INCREF(value);
         return value;
     }
     
