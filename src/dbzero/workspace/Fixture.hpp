@@ -60,6 +60,14 @@ namespace db0
     
     struct FixtureLock;
 
+    class StateReachedCallbackBase
+    {
+    public:
+        virtual ~StateReachedCallbackBase() = default;
+
+        virtual void execute() = 0;
+    };
+
     /**
      * Fixture is a Memspace extension with additionaly initialized common utilities:     
      * 1) Object catalogue
@@ -239,6 +247,10 @@ namespace db0
         // Called by the CacheRecycler when cache limit has been reached
         // @return false if unable to handle this event at this time
         bool onCacheFlushed(bool threshold_reached) const;
+
+        // Registers a new callback to be called after given prefix state number is reached
+        // Fixture takes ownership of the callback
+        void registerPrefixStateReachedCallback(StateNumType state_num, std::unique_ptr<StateReachedCallbackBase> &&callback);
         
     private:
         const AccessType m_access_type;
@@ -304,11 +316,29 @@ namespace db0
         bool endLocked(unsigned int locked_section_id);
         // ends all locked sections, invokes callback for all mutated ones
         void endAllLocked(std::function<void(unsigned int)> callback);
+
+        using StateReachedCallbackList = std::vector<std::unique_ptr<StateReachedCallbackBase>>;
+        std::map<StateNumType, StateReachedCallbackList> m_state_num_callbacks;
+
+        /**
+         * Obtain the list of callbacks to be called for current prefix state number
+         * Returned callbacks are removed from the Fixture's internal list
+         * Note: This is a part of the mechanism to ensure thread-safety
+         */
+        StateReachedCallbackList collectStateReachedCallbacks();
+
+        /**
+         * Execute a given list of callbacks
+         * Note: The code in these callbacks can be called from a different thread and may need to access the fixture or other parts of the API,
+         * so it's important to ensure that held locks are released before calling this function! Otherwise a deadlock can occur.
+         */
+        void executeStateReachedCallbacks(const StateReachedCallbackList &callbacks);
         
         /**
          * Called by the AutoCommitThread
+         * @return the list of callbacks to be executed when committing process was completed
         */
-        void onAutoCommit();        
+        StateReachedCallbackList onAutoCommit();        
 
         // collect prefix-level mutation flags (for locked sections)
         void onDirty();

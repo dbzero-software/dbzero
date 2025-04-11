@@ -91,6 +91,7 @@ static PyMethodDef dbzero_methods[] =
     {"materialized", (PyCFunction)&py::PyAPI_materialized, METH_FASTCALL, "Returns a materialized version of a @db0.memo object"},
     {"is_memo", (PyCFunction)&py::PyAPI_PyMemo_Check, METH_FASTCALL, "Checks if passed object is memo type"},
     {"wait", (PyCFunction)&py::PyAPI_wait, METH_VARARGS | METH_KEYWORDS, "Wait for desired prefix state number"},
+    {"_await_prefix_state", (PyCFunction)&py::PyAPI_await_prefix_state, METH_VARARGS | METH_KEYWORDS, "Get notified about state number being reached"},
     {"find_singleton", (PyCFunction)&py::PyApi_findSingleton, METH_VARARGS | METH_KEYWORDS, "Try retrieving an existing singleton, possibly from a given prefix"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},

@@ -184,6 +184,9 @@ namespace db0
                 // lock for exclusive access
                 std::unique_lock<std::shared_mutex> lock(m_shared_mutex);            
                 tryCommit(lock, timer.get());
+                auto callbacks = collectStateReachedCallbacks();
+                lock.unlock();
+                executeStateReachedCallbacks(callbacks);
             }
         }
         
@@ -286,6 +289,9 @@ namespace db0
         std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
         tryCommit(lock);
         m_updated = false;
+        auto callbacks = collectStateReachedCallbacks();
+        lock.unlock();
+        executeStateReachedCallbacks(callbacks);
     }
     
     void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock, ProcessTimer *parent_timer)
@@ -327,7 +333,7 @@ namespace db0
         m_commit_pending = false;
     }
     
-    void Fixture::onAutoCommit()
+    Fixture::StateReachedCallbackList Fixture::onAutoCommit()
     {
         if (m_updated) {
             // prevents commit on a closed fixture
@@ -335,7 +341,7 @@ namespace db0
             if (Memspace::isClosed()) {
                 // since it's closed we'll not be able to commit any updates anyway
                 m_updated = false;
-                return;
+                return {};
             }
 
             assert(!Memspace::isClosed());            
@@ -349,9 +355,11 @@ namespace db0
             {
                 std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
                 tryCommit(lock);
-                m_updated = false;            
+                m_updated = false;
+                return collectStateReachedCallbacks();      
             }
         }
+        return {};
     }
     
     db0::GC0 &Fixture::createGC0(db0::swine_ptr<Fixture> &fixture)
@@ -532,4 +540,45 @@ namespace db0
         }
     }
 
+    void Fixture::registerPrefixStateReachedCallback(StateNumType state_num, std::unique_ptr<StateReachedCallbackBase> &&callback)
+    {
+        std::unique_lock lock(m_shared_mutex);
+        auto current_state_num = getPrefix().getStateNum(true);
+        if(state_num <= current_state_num) {
+            callback->execute();
+            callback.reset();
+            return;
+        }
+
+        auto [list_it, _] = m_state_num_callbacks.try_emplace(state_num);
+        StateReachedCallbackList &list = list_it->second;
+        list.push_back(std::move(callback));
+    }
+
+
+    Fixture::StateReachedCallbackList Fixture::collectStateReachedCallbacks()
+    {
+        auto prefix_ptr = getPrefixPtr();
+        if(!prefix_ptr) {
+            return {};
+        }        
+
+        StateReachedCallbackList result_callbacks;
+        auto current_state_num = prefix_ptr->getStateNum(true);
+        auto it = m_state_num_callbacks.begin();
+        while(it != m_state_num_callbacks.end() && it->first <= current_state_num) {
+            StateReachedCallbackList &state_num_callbacks = it->second;
+            std::move(state_num_callbacks.begin(), state_num_callbacks.end(), std::back_inserter(result_callbacks));
+            it = m_state_num_callbacks.erase(it);
+        }
+        return result_callbacks;
+    }
+
+    void Fixture::executeStateReachedCallbacks(const StateReachedCallbackList &callbacks)
+    {
+        // Notify state number observers
+        for(const auto &callback : callbacks) {
+            callback->execute();
+        }
+    }
 }
