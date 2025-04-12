@@ -425,7 +425,11 @@ namespace db0
         : std::vector<std::pair<IndexKeyT, std::uint64_t> >(buf.m_values.begin(), buf.m_values.end())
     {
         for (auto &item : buf.m_value_refs) {
-            this->emplace_back(item.first, *item.second);
+            // NOTE: the 0x0 references may come from the defunct objects
+            // and therefore mutest be ignored
+            if (*item.second) {
+                this->emplace_back(item.first, *item.second);
+            }
         }
         buf.m_values.clear();
         buf.m_value_refs.clear();
@@ -433,5 +437,5 @@ namespace db0
     
     template class FT_BaseIndex<std::uint64_t>;
     template class FT_BaseIndex<db0::LongTagT>;
-
+    
 }

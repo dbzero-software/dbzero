@@ -59,21 +59,7 @@ namespace db0
             crdt::bitarray_t m_data = 0;
 
             FillMap() = default;
-            
-            FillMap(std::uint32_t size)
-            {
-                if (size == crdt::SIZE_MAP[3]) {
-                    m_data = (crdt::bitarray_t)0x3 << crdt::SIZE_MAP[0];
-                } else if (size == crdt::SIZE_MAP[2]) {
-                    m_data = (crdt::bitarray_t)0x2 << crdt::SIZE_MAP[0];
-                } else if (size == crdt::SIZE_MAP[1]) {
-                    m_data = (crdt::bitarray_t)0x1 << crdt::SIZE_MAP[0];
-                } else if (size == crdt::SIZE_MAP[0]) {
-                    m_data = 0x0;
-                } else {
-                    THROWF(InternalException) << "invalid size (FillMap): " << size << THROWF_END;
-                }
-            }
+            FillMap(std::uint32_t size);
             
             bool operator[](unsigned int index) const;
 
@@ -82,8 +68,10 @@ namespace db0
             }
 
             /// Tests if all units are allocated
-            bool all() const;
-
+            inline bool all() const {
+                return (m_data & crdt::NSIZE_MASK()) == crdt::m_masks[m_data >> crdt::SIZE_MAP[0]];
+            }
+            
             bool empty() const;
             
             /**
@@ -182,8 +170,10 @@ namespace db0
             std::uint32_t getUnitCount() const {
                 return m_fill_map.size();
             }
-
-            bool isFull() const;
+            
+            inline bool isFull() const {
+                return m_fill_map.all();
+            }
 
             /**
              * Allocate a single unit

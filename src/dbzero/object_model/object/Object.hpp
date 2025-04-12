@@ -77,6 +77,16 @@ namespace db0::object_model
         std::vector<std::pair<unsigned int, StorageClass> > m_kv_index_fields;        
     };
     
+    enum class ObjectOptions: std::uint8_t
+    {
+        // the dbzero instance has been deleted
+        DROPPED = 0x01,
+        // object is defunct - e.g. due to exception on __init__
+        DEFUNCT = 0x02
+    };
+
+    using ObjectFlags = db0::FlagSet<ObjectOptions>;
+
     class Object: public db0::ObjectBase<Object, db0::v_object<o_object>, StorageClass::OBJECT_REF>
     {
         // GC0 specific declarations
@@ -225,17 +235,27 @@ namespace db0::object_model
         void commit() const;
         
         std::uint64_t getAddress() const;
-                
+
+        // NOTE: the operation is marked const because the dbzero state is not affected
+        void setDefunct() const;
+
+        inline bool isDropped() const {
+            return m_flags.test(ObjectOptions::DROPPED);
+        }
+
+        inline bool isDefunct() const {
+            return m_flags.test(ObjectOptions::DEFUNCT);
+        }
+
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
         // local kv-index instance cache (created at first use)
         mutable std::unique_ptr<KV_Index> m_kv_index;
-        static thread_local ObjectInitializerManager m_init_manager;
-        // flag indicating that the underlying db0 instance has been dropped
-        const bool m_is_dropped = true;
+        static thread_local ObjectInitializerManager m_init_manager;        
+        mutable ObjectFlags m_flags;
         
-        Object() = default;
+        Object();
         Object(std::shared_ptr<Class>);
         Object(TypeInitializer &&);
         Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::uint32_t ref_count ,const PosVT::Data &);
@@ -283,5 +303,7 @@ namespace db0::object_model
         
         bool hasValidClassRef() const;              
     };
-       
+    
 }
+
+DECLARE_ENUM_VALUES(db0::object_model::ObjectOptions, 2)

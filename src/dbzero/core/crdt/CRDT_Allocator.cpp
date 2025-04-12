@@ -20,7 +20,7 @@ namespace db0
         }
         
         std::optional<std::uint32_t> tryAlloc(std::size_t size, std::optional<std::uint32_t> addr_bound)
-        {            
+        {
             auto hint = &m_hints[0];
             for (auto &alloc : m_cache) {
                 if (alloc && alloc.first->m_stride == size) {
@@ -33,7 +33,7 @@ namespace db0
                     return result;
                 }
                 ++hint;
-            }            
+            }
             return std::nullopt;
         }
         
@@ -109,9 +109,13 @@ namespace db0
     std::uint32_t CRDT_Allocator::Alloc::allocUnit() {
         return m_address + m_stride * m_fill_map.allocUnit();
     }
-
+    
     std::optional<std::uint32_t> CRDT_Allocator::Alloc::tryAllocUnit(std::optional<std::uint32_t> addr_bound)
     {
+        if (isFull()) {
+            return std::nullopt;
+        }
+
         auto revert = m_fill_map;
         auto result = m_address + m_stride * m_fill_map.allocUnit();
         // would fall out of bound, revert
@@ -125,18 +129,20 @@ namespace db0
     std::optional<std::uint32_t> CRDT_Allocator::Alloc::tryAllocUnit(std::optional<std::uint32_t> addr_bound, unsigned int end_index,
         unsigned int &hint_index)
     {
+        if (isFull()) {
+            return std::nullopt;
+        }
+        
         auto revert = m_fill_map;
+        auto hint_revert = hint_index;
         auto result = m_address + m_stride * m_fill_map.allocUnit(end_index, hint_index);
         // would fall out of bound
         if (addr_bound && result + m_stride > *addr_bound) {
             m_fill_map = revert;
+            hint_index = hint_revert;
             return std::nullopt;
         }
-        return result;      
-    }
-
-    bool CRDT_Allocator::Alloc::isFull() const {
-        return m_fill_map.all();
+        return result;   
     }
 
     std::uint32_t CRDT_Allocator::Alloc::endAddr() const {
@@ -192,6 +198,21 @@ namespace db0
         return Stripe(m_stride, m_address);
     }
     
+    CRDT_Allocator::FillMap::FillMap(std::uint32_t size)
+    {
+        if (size == crdt::SIZE_MAP[3]) {
+            m_data = (crdt::bitarray_t)0x3 << crdt::SIZE_MAP[0];
+        } else if (size == crdt::SIZE_MAP[2]) {
+            m_data = (crdt::bitarray_t)0x2 << crdt::SIZE_MAP[0];
+        } else if (size == crdt::SIZE_MAP[1]) {
+            m_data = (crdt::bitarray_t)0x1 << crdt::SIZE_MAP[0];
+        } else if (size == crdt::SIZE_MAP[0]) {
+            m_data = 0x0;
+        } else {
+            THROWF(InternalException) << "invalid size (FillMap): " << size << THROWF_END;
+        }
+    }
+
     bool CRDT_Allocator::FillMap::operator[](unsigned int index) const {
         return m_data & ((crdt::bitarray_t)0x01 << index);
     }
@@ -261,6 +282,7 @@ namespace db0
                 return index;
             }
         }
+        assert(false);
         THROWF(db0::InternalException) << "FillMap: allocUnit failed" << THROWF_END;
     }
 
@@ -281,10 +303,6 @@ namespace db0
         return { size(), 0 };
     }
     
-    bool CRDT_Allocator::FillMap::all() const {
-        return (m_data & crdt::NSIZE_MASK()) == crdt::m_masks[m_data >> crdt::SIZE_MAP[0]];
-    }
-
     bool CRDT_Allocator::FillMap::empty() const {
         return !(m_data & crdt::NSIZE_MASK());
     }

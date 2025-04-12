@@ -85,7 +85,7 @@ namespace db0::object_model
         
         // Close tag index without flushing any pending updates
         void close();
-
+        
         void commit() const;
         
         void detach() const;
@@ -93,7 +93,10 @@ namespace db0::object_model
         db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort();
         const db0::FT_BaseIndex<ShortTagT> &getBaseIndexShort() const;
         const db0::FT_BaseIndex<LongTagT> &getBaseIndexLong() const;
-
+        
+        // add a defunct object (failed on __init__)
+        void addDefunct(ObjectPtr memo_ptr) const;
+        
         void clear();
         
     private:
@@ -114,7 +117,7 @@ namespace db0::object_model
         // and to handle callbacks from the full-text index
         mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
         // A cache for incomplete objects (not yet fully initialized)
-        mutable std::list<std::pair<ObjectSharedPtr, std::uint64_t> > m_active_cache;
+        mutable std::unordered_map<ObjectSharedPtr, std::uint64_t> m_active_cache;
         // the associated fixture UUID (for validation purposes)
         const std::uint64_t m_fixture_uuid;
         
@@ -212,9 +215,9 @@ namespace db0::object_model
                 }
                 result = ActiveValueT(object_addr, nullptr);
             } else {
-                m_active_cache.emplace_back(memo_ptr, 0);
+                auto it = m_active_cache.emplace(memo_ptr, 0);
                 // use the address placeholder for an active value
-                result = ActiveValueT(0, &m_active_cache.back().second);
+                result = ActiveValueT(0, &(it.first->second));
             }
         }
         

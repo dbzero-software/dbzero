@@ -163,6 +163,8 @@ namespace db0::python
             
             // invoke tp_init from base type (wrapped pyhon class)
             if (base_type->tp_init((PyObject*)self, args, kwds) < 0) {
+                // mark object as defunct
+                self->ext().setDefunct();
                 PyObject *ptype, *pvalue, *ptraceback;
                 PyErr_Fetch(&ptype, &pvalue, &ptraceback);
                 if (ptype == PyToolkit::getTypeManager().getBadPrefixError()) {
@@ -185,7 +187,7 @@ namespace db0::python
                 PyErr_Restore(ptype, pvalue, ptraceback);
                 return -1;
             }
-                        
+            
             // invoke post-init on associated dbzero object
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());
