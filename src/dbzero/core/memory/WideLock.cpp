@@ -12,7 +12,7 @@ namespace db0
         StateNumType read_state_num, StateNumType write_state_num, std::shared_ptr<DP_Lock> res_lock, std::shared_ptr<ResourceLock> cow_lock)
         : DP_Lock(tag_derived{}, context, address, size, access_mode, read_state_num, write_state_num, cow_lock)
         , m_res_lock(res_lock)
-    {
+    {        
         // initialzie the local buffer
         if (access_mode[AccessOptions::read]) {
             assert(read_state_num > 0);            

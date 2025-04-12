@@ -221,11 +221,14 @@ namespace db0
         if (access_mode[AccessOptions::write] && read_state_num != state_num) {
             // unused lock condition (i.e. might only be used by the CacheRecycler)
             // note that dirty locks cannot be upgraded (otherwise data would be lost)
+            /* FIXME: 
             if (!wide_lock->isDirty() && wide_lock.use_count() == (wide_lock->isRecycled() ? 1 : 0) + 1) {
                 assert(read_state_num == wide_lock->getStateNum());
                 m_wide_map.erase(read_state_num, wide_lock);
                 // note that this operation may also assign the no_flush flag if it was requested
                 wide_lock->updateStateNum(state_num, access_mode[AccessOptions::no_flush]);
+                // FIXME: log
+                std::cout << "*** Wide lock / update state num !!! ***" << std::endl;
                 // re-register the upgraded lock under a new state
                 // note that the actual lock may span a wider range, avoid passing first_page / end_page here !!
                 m_wide_map.insert(state_num, wide_lock);
@@ -237,6 +240,7 @@ namespace db0
                     m_volatile_wide_locks.push_back(wide_lock);
                 }
             }
+            */
         }
         
         // register / update lock with the recycler (mark as accessed for LRU policy evaluation)
@@ -479,7 +483,7 @@ namespace db0
         m_dirty_wide_cache.flush();
         // finally flush DP_Locks using the DirtyCache
         m_dirty_dp_cache.tryFlush(FlushMethod::diff);
-        m_dirty_dp_cache.flush();
+        m_dirty_dp_cache.flush();        
     }
     
     void PrefixCache::markAsMissing(std::uint64_t page_num, StateNumType state_num)

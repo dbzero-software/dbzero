@@ -39,6 +39,9 @@ namespace db0
         DP_Lock(std::shared_ptr<DP_Lock>, StateNumType write_state_num, FlagSet<AccessOptions>);
         
         bool tryFlush(FlushMethod) override;
+        
+        // FIXME: log
+        virtual void setDirty();
 
         /**
          * Flush data from local buffer and clear the 'dirty' flag

@@ -100,6 +100,7 @@ static PyMethodDef dbzero_methods[] =
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
     {"dbg_read_bytes", &py::readBytes, METH_VARARGS, "Debug function"},
+    {"dbg_start_logs", &py::PyAPI_startDebugLogs, METH_VARARGS, "Enable dbzeo debug logs"},
     {"get_base_lock_usage", &py::getResourceLockUsage, METH_VARARGS, "Debug function, retrieves total memory occupied by ResourceLocks"},
     {"get_dram_io_map", (PyCFunction)&py::getDRAM_IOMap, METH_VARARGS | METH_KEYWORDS, "Get page_num -> state_num mapping related with a specific DRAM_Prefix"},
 #endif

@@ -116,7 +116,7 @@ namespace db0
         m_state_num = state_num;
         setDirty();
     }
-        
+    
     void DP_Lock::merge(StateNumType final_state_num)
     {
         // for atomic operations current state num is active transaction +1
@@ -124,6 +124,16 @@ namespace db0
         m_state_num = final_state_num;        
     }
     
+    // FIXME: log remove this method
+    void DP_Lock::setDirty() 
+    {
+        ResourceLock::setDirty();
+        if (db0::Settings::__dbg_logs) {            
+            std::cout << "DP_Lock::setDirty: state_num = " << m_state_num << std::endl;
+            assert(m_state_num != 15);
+        }
+    }
+
 #ifndef NDEBUG
     bool DP_Lock::isBoundaryLock() const {
         return false;

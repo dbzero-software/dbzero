@@ -15,4 +15,11 @@ namespace db0
     // assuming 1s per transaction that gives us 136 years of continuous operation until the state number wraps
     using StateNumType = std::uint32_t;
     
+    struct Settings
+    {
+#ifndef NDEBUG        
+        static bool __dbg_logs;
+#endif
+    };
+    
 }

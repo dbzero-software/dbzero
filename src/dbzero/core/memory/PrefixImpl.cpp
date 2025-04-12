@@ -145,6 +145,8 @@ namespace db0
                 lock = m_cache.createPage(page_num, 0, state_num, access_mode, lock);
             }
             assert(lock);
+            // since locked for write, must be the same state number
+            assert(lock->getStateNum() == state_num);
         } else if (!access_mode[AccessOptions::write]) {
             // read-only access
             if (!lock) {
@@ -183,6 +185,8 @@ namespace db0
                     lock = m_cache.createPage(page_num, 0, state_num, access_mode | AccessOptions::create);
                 }
             }
+            // since locked for read/write, must be the same state number
+            assert(lock->getStateNum() == state_num);
         }
         
         assert(lock);

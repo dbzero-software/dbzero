@@ -116,7 +116,8 @@ namespace db0
         }
         
         // Mark the entire lock as dirty
-        void setDirty();
+        // FIXME: log
+        virtual void setDirty();
 
         bool isCached() const;
 

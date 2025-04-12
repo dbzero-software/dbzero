@@ -260,6 +260,7 @@ namespace db0
         FindResult find(std::uint32_t slab_id) 
         {
             if (slab_id >= nextSlabId()) {
+                assert(false);
                 THROWF(db0::InputException) << "Slab " << slab_id << " does not exist";
             }
             if (m_active_slab == slab_id) {
