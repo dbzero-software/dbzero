@@ -298,7 +298,7 @@ namespace db0::object_model
             m_batch_operation_long.reset();
         }
         m_object_cache.clear();
-        m_active_cache.clear();
+        m_active_cache.clear();        
         m_inc_refed_tags.clear();
     }
     
@@ -368,8 +368,8 @@ namespace db0::object_model
                 &add_long_index_callback, &erase_long_index_callback);
         }
 
-        m_object_cache.clear();           
-        m_active_cache.clear();
+        m_object_cache.clear();
+        m_active_cache.clear();        
         m_inc_refed_tags.clear();
     }
 
@@ -377,10 +377,16 @@ namespace db0::object_model
     {
         for (auto &item: m_active_cache) {
             auto &memo = LangToolkit::getTypeManager().extractObject(item.first.get());
-            auto object_addr = memo.getAddress();
-            if (!object_addr) {
+            if (!memo.hasInstance()) {
+                // object might be defunct, in which case needs to be ignored
+                if (memo.isDefunct()) {                   
+                    continue;
+                }
                 THROWF(db0::InternalException) << "Tags cannot be flushed before initialization of @memo objects" << THROWF_END;
             }
+            
+            auto object_addr = memo.getAddress();
+            assert(object_addr);
             // initialize active value with the actual object address
             item.second = object_addr;
             // add object to cache
@@ -959,5 +965,5 @@ namespace db0::object_model
         auto &py_obj = LangToolkit::getTypeManager().extractObject(py_arg);
         return { py_obj.getFixtureUUID(), py_obj.getAddress() };
     }
-
+    
 }

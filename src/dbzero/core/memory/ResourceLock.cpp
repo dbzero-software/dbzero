@@ -207,7 +207,7 @@ namespace db0
             // by default flush as diff if less than 75% of the data differs
             max_diff = (size * 3) >> 2;
         }
-        result.clear();        
+        result.clear();
         const std::uint8_t *it_1 = static_cast<const std::uint8_t *>(buf_1), *it_2 = static_cast<const std::uint8_t *>(buf_2);
         auto end = it_1 + size;
         // exact number of bytes that differ

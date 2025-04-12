@@ -47,6 +47,14 @@ class MemoSubSubClass(MemoSubClass):
         super().__init__(value)
 
 
+@db0.memo
+class MemoErrorFromConstructor:
+    def __init__(self, value):
+        self.value = value
+        db0.tags(self).add("tag1")
+        raise Exception("Error from constructor")
+    
+
 def test_assign_single_tag_to_memo_object(db0_fixture):
     object_1 = MemoClassForTags(1)
     root = MemoTestSingleton(object_1)
@@ -535,3 +543,18 @@ def test_find_base_type_after_close(db0_fixture):
     sublcass_list = list(db0.find(MemoBaseClass, "tag1"))
     assert len(sublcass_list) == 1
     assert sublcass_list[0].value == 1
+
+
+def test_tagging_incomplete_objects(db0_fixture):
+    obj = None
+    try:
+        obj = MemoErrorFromConstructor(1)
+    except Exception:
+        pass
+    
+    # object has NOT been created but what about tags ?
+    assert obj is None    
+    # no tags should be assigned either
+    assert len(db0.find("tag1")) == 0
+    db0.commit()
+    assert len(db0.find("tag1")) == 0

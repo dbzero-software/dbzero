@@ -8,6 +8,8 @@
 #include <dbzero/object_model/list/List.hpp>
 #include <dbzero/core/utils/uuid.hpp>
 
+DEFINE_ENUM_VALUES(db0::object_model::ObjectOptions, "DROPPED", "DEFUNCT")
+
 namespace db0::object_model
 
 {
@@ -49,15 +51,18 @@ namespace db0::object_model
         return getDynAfter(pos_vt(), IndexVT::type());
     }
     
-    Object::Object(std::shared_ptr<Class> db0_class)
-        : m_is_dropped(false)
+    Object::Object()
+        : m_flags { ObjectOptions::DROPPED }
+    {
+    }
+
+    Object::Object(std::shared_ptr<Class> db0_class) 
     {
         // prepare for initialization
         m_init_manager.addInitializer(*this, db0_class);
     }
 
-    Object::Object(TypeInitializer &&type_initializer)
-        : m_is_dropped(false)
+    Object::Object(TypeInitializer &&type_initializer)        
     {
         // prepare for initialization
         m_init_manager.addInitializer(*this, std::move(type_initializer));
@@ -65,21 +70,18 @@ namespace db0::object_model
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
         : super_t(fixture, ClassFactory::classRef(*type), ref_count, pos_vt_data)
-        , m_type(type)
-        , m_is_dropped(false)
+        , m_type(type)        
     {
     }
 
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-        : super_t(super_t::tag_from_address(), fixture, address)
-        , m_is_dropped(false)
+        : super_t(super_t::tag_from_address(), fixture, address)        
     {
     }
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
         : super_t(super_t::tag_from_stem(), fixture, std::move(stem))
-        , m_type(type)
-        , m_is_dropped(false)
+        , m_type(type)        
     {
         assert(hasValidClassRef());
     }
@@ -290,7 +292,9 @@ namespace db0::object_model
         }
         */
 
-        if (m_is_dropped) {
+        if (isDropped()) {
+            // defunct objects should not be accessible
+            assert(!isDefunct());
             THROWF(db0::InputException) << "Object does not exist";
         }
 
@@ -700,7 +704,8 @@ namespace db0::object_model
     
     std::uint64_t Object::getAddress() const
     {
-        if (!hasInstance()) {
+        assert(!isDefunct());
+        if (!hasInstance()) {            
             THROWF(db0::InternalException) << "Object instance does not exist yet (did you forget to use db0.materialized(self) in constructor ?)";
         }
         return super_t::getAddress();
@@ -722,5 +727,9 @@ namespace db0::object_model
         }
         return fixture.get<ClassFactory>().getTypeByClassRef(class_ref).m_class;
     }
-
+    
+    void Object::setDefunct() const {
+        m_flags.set(ObjectOptions::DEFUNCT);
+    }
+    
 }
