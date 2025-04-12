@@ -95,6 +95,20 @@ namespace db0
         return m_page_size - offset;    
     }
     
+    bool DRAM_Allocator::isAllocated(std::uint64_t address) const
+    {
+        auto page_id = address / m_page_size;
+        if (page_id >= m_next_page_id) {
+            return false;
+        }
+        if (address % m_page_size != 0) {
+            // we don't check inner addresses
+            return false;
+        }
+        auto it = m_free_pages.find(page_id);
+        return it == m_free_pages.end();
+    }
+    
     std::uint64_t DRAM_Allocator::firstAlloc() const {
         return FIRST_PAGE_ID * m_page_size;
     }

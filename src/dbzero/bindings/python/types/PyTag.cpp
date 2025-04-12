@@ -1,5 +1,6 @@
 #include "PyTag.hpp"
 #include <dbzero/bindings/python/Memo.hpp>
+#include <dbzero/bindings/python/MemoExpiredRef.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 #include <dbzero/bindings/python/Utils.hpp>
@@ -72,7 +73,7 @@ namespace db0::python
         return Py_TYPE(py_object) == &PyTagType;
     }
 
-    PyObject *tryAsTag(PyObject *py_obj)
+    PyObject *tryMemoAsTag(PyObject *py_obj)
     {
         assert(PyMemo_Check(py_obj));
         auto &memo_obj = reinterpret_cast<MemoObject*>(py_obj)->ext();        
@@ -81,18 +82,30 @@ namespace db0::python
         return py_tag;
     }
     
+    PyObject *tryMemoExpiredRefAsTag(PyObject *py_obj)
+    {
+        assert(MemoExpiredRef_Check(py_obj));
+        const auto &expired_ref = *reinterpret_cast<const MemoExpiredRef*>(py_obj);
+        PyTag *py_tag = PyTagDefault_new();
+        TagDef::makeNew(&py_tag->modifyExt(), expired_ref.getFixtureUUID(), expired_ref.getAddress(), py_obj);
+        return py_tag;
+    }
+
     PyObject *PyAPI_as_tag(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "Expected 1 argument");
+            PyErr_SetString(PyExc_TypeError, "as_tag: Expected 1 argument");
             return NULL;
-        }
-        if (!PyMemo_Check(args[0])) {
-            PyErr_SetString(PyExc_TypeError, "Expected a memo object");
+        }        
+        if (PyMemo_Check(args[0])) {
+            return runSafe(tryMemoAsTag, args[0]);
+        } else if (MemoExpiredRef_Check(args[0])) {
+            return runSafe(tryMemoExpiredRefAsTag, args[0]);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "as_tag: Expected a memo object");
             return NULL;
-        }
-        return runSafe(tryAsTag, args[0]);
-    } 
+        }        
+    }
 
 }

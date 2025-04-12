@@ -37,11 +37,10 @@ class MemoScopedClass:
 
 @db0.memo
 class MemoTestPxClass:
-    def __init__(self, value, prefix=None):
-        if prefix is not None:
-            db0.set_prefix(self, prefix)
+    def __init__(self, value, prefix=None):        
+        db0.set_prefix(self, prefix)
         self.value = value        
-
+    
 
 @db0.memo
 class KVTestClass:

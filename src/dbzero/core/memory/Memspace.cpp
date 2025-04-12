@@ -138,4 +138,10 @@ namespace db0
         getAllocatorForUpdate().free(address);
     }
     
+    bool Memspace::isAddressValid(std::uint64_t address) const 
+    {
+        assert(m_allocator_ptr);
+        return m_allocator_ptr->isAllocated(address);
+    }
+    
 }

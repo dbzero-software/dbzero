@@ -19,12 +19,13 @@ namespace db0::object_model
         typename LangToolkit::ObjectPtr lang_value)
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        return { 
-            TypeUtils::m_storage_class_mapper.getStorageClass(type_id), 
-            createMember<LangToolkit>(fixture, type_id, lang_value) 
+        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
+        return {
+            storage_class, 
+            createMember<LangToolkit>(fixture, type_id, storage_class, lang_value)
         };
     }
-
+    
     template <typename LangToolkit> dict_item createDictItem(db0::swine_ptr<Fixture> &fixture, std::uint64_t hash,
         o_typed_item key, o_typed_item value)
     {

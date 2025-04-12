@@ -28,8 +28,10 @@ namespace db0
         
         void free(std::uint64_t address) override;
 
-        std::size_t getAllocSize(std::uint64_t address) const override;    
-
+        std::size_t getAllocSize(std::uint64_t address) const override;
+        
+        bool isAllocated(std::uint64_t address) const override;
+        
         void commit() const override;
 
         void detach() const override;
@@ -143,7 +145,7 @@ namespace db0
         }
         std::uint64_t index = indexOf(address);
         if (index >= m_bitset.npos || !m_bitset->get(index)) {
-            THROWF(db0::InternalException) << "Invalid address: " << address;
+            THROWF(db0::BadAddressException) << "Invalid address: " << address;
         }
         m_bitset.modify().set(index, false);
         m_span = calculateSpan();
@@ -154,12 +156,19 @@ namespace db0
         auto inner_offset = address % m_alloc_size;
         auto index = indexOf(address - inner_offset);
         if (index >= m_bitset.npos || !m_bitset->get(index)) {
-            THROWF(db0::InternalException) << "BitsetAllocator " << this << " invalid address: " << address;
+            THROWF(db0::BadAddressException) << "BitsetAllocator " << this << " invalid address: " << address;
         }
         // handle inner offset to allow resolution of sub-addresses
         return m_alloc_size - inner_offset;
     }
-    
+
+    template <typename BitSetT> bool BitsetAllocator<BitSetT>::isAllocated(std::uint64_t address) const
+    {
+        auto inner_offset = address % m_alloc_size;
+        auto index = indexOf(address - inner_offset);
+        return index < m_bitset.npos && m_bitset->get(index);
+    }
+
     template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::getAllocCount() const {
         return m_bitset->count(true);
     }

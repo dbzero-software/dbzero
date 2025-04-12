@@ -111,12 +111,25 @@ namespace db0::object_model
     Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
     {
         db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-        // validate the instance ID if assigned
+        // validate the instance ID if assigned        
         auto instance_id = db0::getInstanceId(address);
         if (instance_id && (instance_id != stem->m_header.m_instance_id)) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+        }        
+        
+        return stem;        
+    }
+    
+    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    {
+        if (fixture->isAddressValid(address)) {
+            db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
+            // validate the instance ID if assigned        
+            auto instance_id = db0::getInstanceId(address);
+            return !instance_id || instance_id == stem->m_header.m_instance_id;
         }
-        return stem;
+        // the address no longer exists
+        return false;
     }
     
     Object *Object::unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type_hint)
@@ -126,7 +139,7 @@ namespace db0::object_model
         object->setTypeWithHint(type_hint);
         return object;
     }
-
+    
     Object *Object::unload(void *at_ptr, ObjectStem &&stem, std::shared_ptr<Class> type_hint)
     {        
         auto fixture = type_hint->getFixture();
@@ -168,9 +181,19 @@ namespace db0::object_model
             // object reference must be from the same fixture
             auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
             if (fixture.getUUID() != obj.getFixture()->getUUID()) {
-                THROWF(db0::InputException) << "Linking objects from different prefixes is not allowed. Store db0.uuid instead";
+                THROWF(db0::InputException) << "Referencing objects from foreign prefixes is not allowed. Use db0.weak_proxy instead";
             }
         }
+        
+        // may need to refine the storage class (i.e. long weak ref might be needed instead)
+        if (storage_class == StorageClass::OBJECT_WEAK_REF) {
+            const auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
+            if (*obj.getFixture() != fixture) {
+                // must use long weak-ref instead, since referenced object is from a foreign prefix
+                storage_class = StorageClass::OBJECT_LONG_WEAK_REF;
+            }
+        }
+        
         return { type_id, storage_class };
     }
 
@@ -190,7 +213,7 @@ namespace db0::object_model
         }
         
         // register a member with the initializer
-        initializer.set(field_id.getIndex(), storage_class, createMember<LangToolkit>(fixture, type_id, obj_ptr));
+        initializer.set(field_id.getIndex(), storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, obj_ptr));
     }
     
     void Object::set(FixtureLock &fixture, const char *field_name, ObjectPtr lang_value)
@@ -208,7 +231,7 @@ namespace db0::object_model
         
         assert(field_id);
         // FIXME: value should be destroyed on exception
-        auto value = createMember<LangToolkit>(*fixture, type_id, lang_value);
+        auto value = createMember<LangToolkit>(*fixture, type_id, storage_class, lang_value);
         // make sure object address is not null
         assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
         if (field_id.getIndex() < (*this)->pos_vt().size()) {

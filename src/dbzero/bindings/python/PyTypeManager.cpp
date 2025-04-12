@@ -3,6 +3,7 @@
 #include <datetime.h>
 #include <chrono>
 #include "Memo.hpp"
+#include "PyWeakProxy.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
@@ -14,6 +15,8 @@
 #include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
 #include <dbzero/bindings/python/PyTagSet.hpp>
+#include <dbzero/bindings/python/PyWeakProxy.hpp>
+#include <dbzero/bindings/python/MemoExpiredRef.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/list/List.hpp>
@@ -89,9 +92,12 @@ namespace db0::python
         addStaticdbzeroType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
         addStaticdbzeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
         addStaticdbzeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
-        
+        addStaticdbzeroType(&PyWeakProxyType, TypeId::DB0_WEAK_PROXY);
+        addStaticdbzeroType(&MemoExpiredRefType, TypeId::MEMO_EXPIRED_REF);
+
         m_py_bad_prefix_error = PyErr_NewException("dbzero_ce.BadPrefixError", NULL, NULL);
         m_py_class_not_found_error = PyErr_NewException("dbzero_ce.ClassNotFoundError", NULL, NULL);
+        m_py_reference_error = PyErr_NewException("dbzero_ce.ReferenceError", NULL, NULL);
     }
     
     PyTypeManager::~PyTypeManager()
@@ -150,10 +156,12 @@ namespace db0::python
     
     const db0::object_model::Object &PyTypeManager::extractObject(ObjectPtr memo_ptr) const
     {
-        if (!PyMemo_Check(memo_ptr)) {
-            THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;
+        if (PyMemo_Check(memo_ptr)) {
+            return reinterpret_cast<const MemoObject*>(memo_ptr)->ext();
+        } else if (PyWeakProxy_Check(memo_ptr)) {
+            return reinterpret_cast<const MemoObject*>(reinterpret_cast<const PyWeakProxy*>(memo_ptr)->get())->ext();
         }
-        return reinterpret_cast<const MemoObject*>(memo_ptr)->ext();
+        THROWF(db0::InputException) << "Expected a memo object" << THROWF_END;            
     }
 
     db0::object_model::Object &PyTypeManager::extractMutableObject(ObjectPtr memo_ptr) const
@@ -433,6 +441,10 @@ namespace db0::python
         return m_py_class_not_found_error.get();
     }
     
+    PyTypeManager::ObjectPtr PyTypeManager::getReferenceError() const {
+        return m_py_reference_error.get();
+    }
+
     std::shared_ptr<const db0::object_model::Class> PyTypeManager::extractConstClass(ObjectPtr py_class) const
     {
         if (!PyClassObject_Check(py_class)) {

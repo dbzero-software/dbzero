@@ -46,6 +46,7 @@ class MemoSubSubClass(MemoSubClass):
     def __init__(self, value):
         super().__init__(value)
 
+
 def test_assign_single_tag_to_memo_object(db0_fixture):
     object_1 = MemoClassForTags(1)
     root = MemoTestSingleton(object_1)

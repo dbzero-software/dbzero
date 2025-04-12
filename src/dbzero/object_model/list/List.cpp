@@ -13,7 +13,7 @@ namespace db0::object_model
     template <typename LangToolkit> o_typed_item createListItem(db0::swine_ptr<Fixture> &fixture,
         db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
     {
-        return { storage_class, createMember<LangToolkit>(fixture, type_id, lang_value) };
+        return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value) };
     }
     
     List::List(db0::swine_ptr<Fixture> &fixture)

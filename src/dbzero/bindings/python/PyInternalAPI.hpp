@@ -55,6 +55,9 @@ namespace db0::python
                 return ERR_RESULT;
             }
             return result;
+        } catch (const db0::BadAddressException &e) {
+            PyErr_SetString(PyToolkit::getTypeManager().getReferenceError(), e.what());
+            return ERR_RESULT;
         } catch (const db0::ClassNotFoundException &e) {
             PyErr_SetString(PyToolkit::getTypeManager().getClassNotFoundError(), e.what());
             return ERR_RESULT;

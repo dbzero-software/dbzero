@@ -23,6 +23,8 @@ namespace db0
         void free(std::uint64_t address) override;
 
         std::size_t getAllocSize(std::uint64_t address) const override;
+
+        bool isAllocated(std::uint64_t address) const override;
         
         void commit() const override;
 

@@ -83,7 +83,11 @@ namespace db0
     std::size_t SlotAllocator::getAllocSize(std::uint64_t address) const {
         return m_allocator_ptr->getAllocSize(address);
     }
-    
+
+    bool SlotAllocator::isAllocated(std::uint64_t address) const {
+        return m_allocator_ptr->isAllocated(address);
+    }
+
     void SlotAllocator::commit() const
     {
         m_allocator_ptr->commit();

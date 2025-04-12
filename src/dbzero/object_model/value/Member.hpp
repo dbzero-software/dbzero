@@ -25,19 +25,19 @@ namespace db0::object_model
     using TypeId = db0::bindings::TypeId;
     using PyToolkit = db0::python::PyToolkit;
     using PyObjectPtr = PyToolkit::ObjectPtr;
-
+    
     template <TypeId type_id, typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
-        typename LangToolkit::ObjectPtr obj_ptr);
+        typename LangToolkit::ObjectPtr obj_ptr, StorageClass);
 
     // register TypeId specialized functions
     template <typename LangToolkit> void registerCreateMemberFunctions(
-        std::vector<Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr)> &functions);
-
+        std::vector<Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr, StorageClass)> &functions);
+    
     template <typename LangToolkit> Value createMember(db0::swine_ptr<Fixture> &fixture,
-        TypeId type_id, typename LangToolkit::ObjectPtr obj_ptr)
+        TypeId type_id, StorageClass storage_class, typename LangToolkit::ObjectPtr obj_ptr)
     {   
         // create member function pointer
-        using CreateMemberFunc = Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr);
+        using CreateMemberFunc = Value (*)(db0::swine_ptr<Fixture> &, typename LangToolkit::ObjectPtr, StorageClass);
         static std::vector<CreateMemberFunc> create_member_functions;
         if (create_member_functions.empty()) {
             registerCreateMemberFunctions<LangToolkit>(create_member_functions);
@@ -47,9 +47,8 @@ namespace db0::object_model
         auto func_ptr = create_member_functions[static_cast<int>(type_id)];
         if (!func_ptr) {
             THROWF(db0::InternalException) << "Value of TypeID: " << (int)type_id << " cannot be converted to a member" << THROWF_END;
-
         }
-        return func_ptr(fixture, obj_ptr);
+        return func_ptr(fixture, obj_ptr, storage_class);
     }
     
     template <typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(

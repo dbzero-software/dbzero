@@ -722,7 +722,17 @@ namespace db0
         auto slab_id = m_slab_id_function(address);
         return m_slab_manager->find(slab_id).m_slab->getAllocSize(address);        
     }
-    
+
+    bool MetaAllocator::isAllocated(std::uint64_t address) const
+    {        
+        address = db0::getPhysicalAddress(address);
+        if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
+            return false;
+        }
+        auto slab_id = m_slab_id_function(address);
+        return m_slab_manager->find(slab_id).m_slab->isAllocated(address);
+    }
+
     std::uint32_t MetaAllocator::getSlabId(std::uint64_t address) const {
         return m_slab_id_function(address);
     }

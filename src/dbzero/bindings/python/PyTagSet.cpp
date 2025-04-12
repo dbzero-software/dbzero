@@ -9,14 +9,20 @@ namespace db0::python
     PyTypeObject TagSetType = 
     {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.TagSet",
+        .tp_name = "TagSet",
         .tp_basicsize = sizeof(PyTagSet),
         .tp_itemsize = 0,
-        .tp_dealloc = (destructor)PyObject_Del,        
+        .tp_dealloc = (destructor)PyAPI_PyTagSet_del,
         .tp_flags = Py_TPFLAGS_DEFAULT,        
         .tp_new = PyType_GenericNew,
     };
 
+    void PyAPI_PyTagSet_del(PyTagSet *py_tag_set)
+    {        
+        py_tag_set->m_tag_set.~TagSet();    
+        PyObject_Del(py_tag_set);
+    }
+    
     bool TagSet_Check(PyObject *obj) {
         return PyObject_TypeCheck(obj, &TagSetType);
     }
