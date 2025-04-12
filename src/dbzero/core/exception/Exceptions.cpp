@@ -53,5 +53,10 @@ namespace db0
         : CriticalException(exception_id)
     {        
     }
+    
+    BadAddressException::BadAddressException()
+        : CriticalException(exception_id)
+    {        
+    }
 
 }

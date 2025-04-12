@@ -8,6 +8,7 @@
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
 #include <dbzero/object_model/bytes/ByteArray.hpp>
+#include <dbzero/object_model/value/long_weak_ref.hpp>
 
 namespace db0::object_model
 
@@ -26,29 +27,33 @@ namespace db0::object_model
     }
     
     // INTEGER specialization
-    template <> Value createMember<TypeId::INTEGER, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr obj_ptr)
+    template <> Value createMember<TypeId::INTEGER, PyToolkit>(db0::swine_ptr<Fixture> &fixture, 
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto int_value = PyLong_AsLong(obj_ptr);
         return db0::binary_cast<std::uint64_t, std::int64_t>()(int_value);
     }
     
     // FLOAT specialization
-    template <>  Value createMember<TypeId::FLOAT, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr obj_ptr)
+    template <>  Value createMember<TypeId::FLOAT, PyToolkit>(db0::swine_ptr<Fixture> &fixture, 
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto fp_value = PyFloat_AsDouble(obj_ptr);
         return db0::binary_cast<std::uint64_t, double>()(fp_value);
     }
 
     // STRING specialization
-    template <> Value createMember<TypeId::STRING, PyToolkit>(db0::swine_ptr<Fixture> &fixture, PyObjectPtr obj_ptr) {
+    template <> Value createMember<TypeId::STRING, PyToolkit>(db0::swine_ptr<Fixture> &fixture, 
+        PyObjectPtr obj_ptr, StorageClass)
+    {
         // create string-ref member and take its address
         return db0::v_object<db0::o_string>(*fixture, PyUnicode_AsUTF8(obj_ptr)).getAddress();
     }
     
     // OBJECT specialization
     template <> Value createMember<TypeId::MEMO_OBJECT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
-    {        
+        PyObjectPtr obj_ptr, StorageClass)
+    {
         auto &obj = PyToolkit::getTypeManager().extractMutableObject(obj_ptr);
         assert(obj.hasInstance());
         assureSameFixture(fixture, obj);
@@ -58,7 +63,7 @@ namespace db0::object_model
 
     // BLOCK specialization
     template <> Value createMember<TypeId::DB0_BLOCK, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto &block = PyToolkit::getTypeManager().extractMutableBlock(obj_ptr);
         assureSameFixture(fixture, block);
@@ -68,7 +73,7 @@ namespace db0::object_model
 
     // LIST specialization
     template <> Value createMember<TypeId::DB0_LIST, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto &list = PyToolkit::getTypeManager().extractMutableList(obj_ptr);
         assureSameFixture(fixture, list);
@@ -78,7 +83,7 @@ namespace db0::object_model
     
     // INDEX specialization
     template <> Value createMember<TypeId::DB0_INDEX, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto &index = PyToolkit::getTypeManager().extractMutableIndex(obj_ptr);
         assureSameFixture(fixture, index);
@@ -88,7 +93,7 @@ namespace db0::object_model
 
     // SET specialization
     template <> Value createMember<TypeId::DB0_SET, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto &set = PyToolkit::getTypeManager().extractMutableSet(obj_ptr);
         assureSameFixture(fixture, set);
@@ -98,7 +103,7 @@ namespace db0::object_model
 
     // DB0 DICT specialization
     template <> Value createMember<TypeId::DB0_DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto &dict = PyToolkit::getTypeManager().extractMutableDict(obj_ptr);
         assureSameFixture(fixture, dict);
@@ -108,7 +113,7 @@ namespace db0::object_model
 
     // TUPLE specialization
     template <> Value createMember<TypeId::DB0_TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto &tuple = PyToolkit::getTypeManager().extractMutableTuple(obj_ptr);
         assureSameFixture(fixture, tuple);
@@ -118,7 +123,7 @@ namespace db0::object_model
     
     // LIST specialization
     template <> Value createMember<TypeId::LIST, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto list_ptr = db0::python::makeDB0List(fixture, &obj_ptr, 1);
         list_ptr.get()->modifyExt().modify().incRef();
@@ -127,7 +132,7 @@ namespace db0::object_model
     
     // SET specialization
     template <> Value createMember<TypeId::SET, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto set = db0::python::makeDB0Set(fixture, &obj_ptr, 1);
         set.get()->modifyExt().incRef();
@@ -136,7 +141,7 @@ namespace db0::object_model
     
     // DICT specialization
     template <> Value createMember<TypeId::DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         PyObject* args = PyTuple_New(1);
         Py_INCREF(obj_ptr);
@@ -148,7 +153,7 @@ namespace db0::object_model
     
     // TUPLE specialization
     template <> Value createMember<TypeId::TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto tuple = db0::python::makeDB0Tuple(fixture, &obj_ptr, 1);
         tuple.get()->modifyExt().incRef();
@@ -157,49 +162,46 @@ namespace db0::object_model
 
     // DATETIME with TIMEZONE specialization
     template <> Value createMember<TypeId::DATETIME_TZ, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
-    {   
+        PyObjectPtr obj_ptr, StorageClass)
+    {
         return db0::python::pyDateTimeWithTzToUint64(obj_ptr);
     }
 
-
     // DATETIME specialization
     template <> Value createMember<TypeId::DATETIME, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {   
         return db0::python::pyDateTimeToToUint64(obj_ptr);
     }
 
      // DATE specialization
     template <> Value createMember<TypeId::DATE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
-    {   
+        PyObjectPtr obj_ptr, StorageClass)
+    {
         return db0::python::pyDateToUint64(obj_ptr);
     }
 
     // TIME specialization
     template <> Value createMember<TypeId::TIME, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
-    {   
+        PyObjectPtr obj_ptr, StorageClass)
+    {
         return db0::python::pyTimeToUint64(obj_ptr);
     }
 
     // TIME wit TIMEZONE specialization
     template <> Value createMember<TypeId::TIME_TZ, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
-    {   
+        PyObjectPtr obj_ptr, StorageClass)
+    {
         return db0::python::pyTimeWithTzToUint64(obj_ptr);
     }
 
-
     // DECIMAL specialization
     template <> Value createMember<TypeId::DECIMAL, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {   
         return db0::python::pyDecimalToUint64(obj_ptr);
     }
 
-    // BYTES specialization
     Value createBytesMember(db0::swine_ptr<Fixture> &fixture, const std::byte *bytes, std::size_t size) {
         // FIXME: impement as ObjectBase and incRef
         return db0::v_object<db0::o_binary>(*fixture, bytes, size).getAddress();
@@ -207,7 +209,7 @@ namespace db0::object_model
 
     // BYTES specialization
     template <> Value createMember<TypeId::BYTES, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto size = PyBytes_GET_SIZE(obj_ptr);
         auto *str = PyBytes_AsString(obj_ptr);
@@ -216,14 +218,14 @@ namespace db0::object_model
 
     // NONE specialization
     template <> Value createMember<TypeId::NONE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         return 0;
     }
     
     // OBJECT_ITERABLE specialization (serialized member)
     template <> Value createMember<TypeId::OBJECT_ITERABLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto &obj_iter = PyToolkit::getTypeManager().extractObjectIterable(obj_ptr);
         std::vector<std::byte> bytes;
@@ -235,7 +237,7 @@ namespace db0::object_model
     
     // ENUM value specialization (serialized member)
     template <> Value createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto enum_value = PyToolkit::getTypeManager().extractEnumValue(obj_ptr);
         // make sure value from the same Fixture is assigned
@@ -248,14 +250,14 @@ namespace db0::object_model
     }
     
     template <> Value createMember<TypeId::BOOLEAN, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         return obj_ptr == Py_True ? 1 : 0;
     }
     
     // DB0_BYTES_ARRAY specialization
     template <> Value createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
-        PyObjectPtr obj_ptr)
+        PyObjectPtr obj_ptr, StorageClass)
     {
         auto &byte_array = PyToolkit::getTypeManager().extractMutableByteArray(obj_ptr);
         assureSameFixture(fixture, byte_array);
@@ -263,8 +265,23 @@ namespace db0::object_model
         return byte_array.getAddress();
     }
     
+    // DB0_WEAK_PROXY specialization
+    template <> Value createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr, StorageClass storage_class)
+    {
+        // NOTE: memo object can be extracted from the weak proxy
+        const auto &obj = PyToolkit::getTypeManager().extractObject(obj_ptr);
+        if (storage_class == StorageClass::OBJECT_LONG_WEAK_REF) {    
+            LongWeakRef weak_ref(fixture, obj);
+            return weak_ref.getAddress();
+        } else {
+            // short weak ref
+            return obj.getAddress();
+        }
+    }
+    
     template <> void registerCreateMemberFunctions<PyToolkit>(
-        std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr)> &functions)
+        std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr, StorageClass)> &functions)
     {
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
@@ -294,6 +311,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
         functions[static_cast<int>(TypeId::BOOLEAN)] = createMember<TypeId::BOOLEAN, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_BYTES_ARRAY)] = createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>;
+        functions[static_cast<int>(TypeId::DB0_WEAK_PROXY)] = createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>;
     }
     
     // STRING_REF specialization
@@ -413,7 +431,6 @@ namespace db0::object_model
         return db0::python::uint64ToPyDecimal(value.cast<std::uint64_t>());
     }
 
-
     // NONE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::NONE, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
@@ -460,13 +477,42 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
          return value.cast<std::uint64_t>() ? Py_True : Py_False;
-    }   
-
+    }
+    
     // DB0_BYTES_ARRAY specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         return PyToolkit::unloadByteArray(fixture, value.cast<std::uint64_t>());
+    }
+    
+    // OBJECT_WEAK_REF
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_WEAK_REF, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        auto address = value.cast<std::uint64_t>();
+        if (PyToolkit::isObjectExpired(fixture, address)) {
+            // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
+            return PyToolkit::unloadExpiredRef(fixture, fixture->getUUID(), address);
+        } else {
+            return PyToolkit::unloadObject(fixture, address);
+        }
+    }
+
+    // OBJECT_LONG_WEAK_REF
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        LongWeakRef weak_ref(fixture, value.cast<std::uint64_t>());
+        auto other_fixture = fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid);
+        auto address = weak_ref->m_address;
+        if (PyToolkit::isObjectExpired(other_fixture, address)) {
+            // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
+            return PyToolkit::unloadExpiredRef(fixture, weak_ref);
+        } else {
+            // unload object from a foreign prefix
+            return PyToolkit::unloadObject(other_fixture, address);
+        }
     }
     
     template <> void registerUnloadMemberFunctions<PyToolkit>(
@@ -496,6 +542,8 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
         functions[static_cast<int>(StorageClass::BOOLEAN)] = unloadMember<StorageClass::BOOLEAN, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_BYTES_ARRAY)] = unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>;
+        functions[static_cast<int>(StorageClass::OBJECT_WEAK_REF)] = unloadMember<StorageClass::OBJECT_WEAK_REF, PyToolkit>;
+        functions[static_cast<int>(StorageClass::OBJECT_LONG_WEAK_REF)] = unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>;
     }
 
     template <typename T, typename LangToolkit>

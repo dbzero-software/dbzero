@@ -33,6 +33,8 @@ namespace db0::object_model
         addMapping(TypeId::DB0_ENUM_VALUE, StorageClass::DB0_ENUM_VALUE);
         addMapping(TypeId::BOOLEAN, StorageClass::BOOLEAN);
         addMapping(TypeId::DB0_BYTES_ARRAY, StorageClass::DB0_BYTES_ARRAY);
+        // Note: DB0_WEAK_PROXY by default maps to OBJECT_WEAK_REF but can also be OBJECT_LONG_WEAK_REF which needs to be checked
+        addMapping(TypeId::DB0_WEAK_PROXY, StorageClass::OBJECT_WEAK_REF);
     }
     
     StorageClass StorageClassMapper::getStorageClass(TypeId type_id) const
@@ -73,6 +75,8 @@ namespace db0::object_model
             case StorageClass::DB0_INDEX:
             case StorageClass::DB0_BYTES:
             case StorageClass::DB0_BYTES_ARRAY:
+            case StorageClass::OBJECT_WEAK_REF:
+            case StorageClass::OBJECT_LONG_WEAK_REF:            
                 return true;
             default:
                 return false;
@@ -118,6 +122,8 @@ namespace std
             case StorageClass::DB0_ENUM_TYPE_REF: return os << "DB0_ENUM_TYPE_REF";
             case StorageClass::DB0_ENUM_VALUE: return os << "DB0_ENUM_VALUE";        
             case StorageClass::BOOLEAN: return os << "BOOLEAN";
+            case StorageClass::OBJECT_WEAK_REF: return os << "OBJECT_WEAK_REF";
+            case StorageClass::OBJECT_LONG_WEAK_REF: return os << "OBJECT_LONG_WEAK_REF";
             case StorageClass::INVALID: return os << "INVALID";
             default: return os << "ERROR!";
         }

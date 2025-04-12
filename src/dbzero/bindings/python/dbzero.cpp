@@ -7,6 +7,7 @@
 #include "PyTagSet.hpp"
 #include "PyAtomic.hpp"
 #include "PyLocked.hpp"
+#include "PyWeakProxy.hpp"
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyByteArray.hpp>
@@ -91,8 +92,10 @@ static PyMethodDef dbzero_methods[] =
     {"materialized", (PyCFunction)&py::PyAPI_materialized, METH_FASTCALL, "Returns a materialized version of a @db0.memo object"},
     {"is_memo", (PyCFunction)&py::PyAPI_PyMemo_Check, METH_FASTCALL, "Checks if passed object is memo type"},
     {"wait", (PyCFunction)&py::PyAPI_wait, METH_VARARGS | METH_KEYWORDS, "Wait for desired prefix state number"},
+    {"find_singleton", (PyCFunction)&py::PyAPI_findSingleton, METH_VARARGS | METH_KEYWORDS, "Try retrieving an existing singleton, possibly from a given prefix"},
+    {"weak_proxy", (PyCFunction)&py::PyAPI_weakProxy, METH_FASTCALL, "Construct weak proxy from a db0 object"},
+    {"expired", (PyCFunction)&py::PyAPI_expired, METH_FASTCALL, "Check if the weak reference has expired"},
     {"_await_prefix_state", (PyCFunction)&py::PyAPI_await_prefix_state, METH_VARARGS | METH_KEYWORDS, "Get notified about state number being reached"},
-    {"find_singleton", (PyCFunction)&py::PyApi_findSingleton, METH_VARARGS | METH_KEYWORDS, "Try retrieving an existing singleton, possibly from a given prefix"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},
@@ -180,7 +183,9 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::ClassObjectType,
         &py::TagSetType,
         &py::PyAtomicType,        
-        &py::PyTagType
+        &py::PyTagType,
+        &py::PyLockedType,
+        &py::PyWeakProxyType,
     };
     
     // register all types
@@ -190,6 +195,7 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         }
         initPyError(mod, py::PyToolkit::getTypeManager().getBadPrefixError(), "BadPrefixError");
         initPyError(mod, py::PyToolkit::getTypeManager().getClassNotFoundError(), "ClassNotFoundError");
+        initPyError(mod, py::PyToolkit::getTypeManager().getReferenceError(), "ReferenceError");
     } catch (const std::exception &e) {
         // set python error
         PyErr_SetString(PyExc_RuntimeError, e.what());

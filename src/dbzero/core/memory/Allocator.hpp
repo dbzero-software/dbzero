@@ -40,7 +40,12 @@ namespace db0
          * @return the range size in bytes
         */
         virtual std::size_t getAllocSize(std::uint64_t address) const = 0;
-                
+        
+        /**
+         * Check if the address is a valid allocation address with this allocator
+         */
+        virtual bool isAllocated(std::uint64_t address) const = 0;
+        
         /**
          * Prepare the allocator for the next transaction
         */

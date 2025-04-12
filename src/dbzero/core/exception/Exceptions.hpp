@@ -25,7 +25,7 @@ namespace db0
 
         CriticalException(int err_id = exception_id);
     };
-        
+    
     class RecoverableException: public AbstractException 
     {
     public:	
@@ -35,7 +35,7 @@ namespace db0
         virtual ~RecoverableException() = default;
     };
 
-    class InternalException: public CriticalException 
+    class InternalException: public CriticalException
     {
     public:
         static constexpr int exception_id = EXCEPTION_ID_PREFIX::BASIC | 0x01;
@@ -43,7 +43,7 @@ namespace db0
         InternalException(int err_id = exception_id);
     };
         
-    class InputException: public RecoverableException 
+    class InputException: public RecoverableException
     {
     public:
         static constexpr int exception_id = EXCEPTION_ID_PREFIX::BASIC | 0x03;
@@ -60,7 +60,7 @@ namespace db0
         KeyNotFoundException(int err_id = exception_id);
     };
 
-    class IOException: public RecoverableException 
+    class IOException: public RecoverableException
     {
     public:
         static constexpr int exception_id = EXCEPTION_ID_PREFIX::BASIC | 0x02;
@@ -99,6 +99,15 @@ namespace db0
         static constexpr int exception_id = EXCEPTION_ID_PREFIX::BASIC | 0x0c;
 
         AccessTypeException();
+    };
+
+    // Address of the dbzero object does not exist or is no longer valid
+    class BadAddressException: public CriticalException
+    {
+    public:
+        static constexpr int exception_id = EXCEPTION_ID_PREFIX::BASIC | 0x0d;
+
+        BadAddressException();
     };
 
 }

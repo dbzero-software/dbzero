@@ -68,6 +68,14 @@ namespace db0::python
             }
         }
         
+        void reset()
+        {
+            if (m_py_object) {
+                Py_DECREF(m_py_object);
+                m_py_object = nullptr;
+            }
+        }
+
     private:
         T m_py_object = nullptr;
     };

@@ -9,7 +9,7 @@ namespace db0::object_model
 
 {
 
-    // A struct that combine StorageClass (14bit) + address (50bits) in a single 64bit value
+    // A struct that combines StorageClass (14bit) + address (50bits) in a single 64bit value
     struct [[gnu::packed]] TypedAddress
     {
         std::uint64_t m_value;

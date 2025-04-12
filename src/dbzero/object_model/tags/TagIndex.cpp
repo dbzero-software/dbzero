@@ -169,7 +169,7 @@ namespace db0::object_model
     }
     
     void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
-    {        
+    {       
         using TypeId = db0::bindings::TypeId;
         if (nargs == 0) {
             return;
@@ -187,11 +187,15 @@ namespace db0::object_model
             if (!LangToolkit::isString(arg) && LangToolkit::isIterable(arg)) {
                 auto tag_sequence = IterableSequence(LangToolkit::getIterator(arg), ForwardIterator::end(), [this](ObjectSharedPtr arg) {
                     bool inc_ref = false;
-                    auto result = addShortTag(arg.get(), inc_ref);
-                    if (inc_ref) {
-                        m_inc_refed_tags.insert(result);                        
+                    auto result = tryAddShortTag(arg.get(), inc_ref);
+                    if (!result) {
+                        // FIXME: implement
+                        THROWF(db0::InputException) << "Unable to add foreign tag";
                     }
-                    return result;
+                    if (inc_ref) {
+                        m_inc_refed_tags.insert(*result);
+                    }
+                    return *result;
                 });
                 // sequence (pair) may represent a single long tag
                 if (isLongTag(arg)) {
@@ -206,10 +210,19 @@ namespace db0::object_model
             } else {
                 auto type_id = type_manager.getTypeId(arg);
                 bool inc_ref = false;
-                auto tag_addr = addShortTag(type_id, arg, inc_ref);
-                batch_op_short->addTag(active_key, tag_addr);
-                if (inc_ref) {
-                    m_inc_refed_tags.insert(tag_addr);
+                auto tag_addr = tryAddShortTag(type_id, arg, inc_ref);
+                if (tag_addr) {
+                    batch_op_short->addTag(active_key, *tag_addr);
+                    if (inc_ref) {
+                        m_inc_refed_tags.insert(*tag_addr);
+                    }
+                } else {
+                    // must try adding as a long tag (item from a foreign scope)
+                    if (!batch_op_long_ptr) {
+                        batch_op_long_ptr = &getBatchOperationLong(memo_ptr, active_key);
+                    }
+                    auto long_tag = getLongTag(arg);
+                    (*batch_op_long_ptr)->addTag(active_key, long_tag);
                 }
             }
         }
@@ -430,7 +443,12 @@ namespace db0::object_model
         if (type_id == TypeId::STRING || type_id == TypeId::DB0_TAG || type_id == TypeId::DB0_ENUM_VALUE || 
             type_id == TypeId::DB0_CLASS) 
         {
-            return m_base_index_short.addIterator(factory, getShortTag(type_id, arg));
+            if (isLongTag(type_id, arg)) {
+                // query as the long-tag
+                return m_base_index_long.addIterator(factory, getLongTag(type_id, arg));
+            } else {
+                return m_base_index_short.addIterator(factory, getShortTag(type_id, arg));
+            }
         }
         
         // Memo instance is directly feed into the FT_FixedKeyIterator
@@ -446,15 +464,18 @@ namespace db0::object_model
             if (isLongTag<ForwardIterator>(LangToolkit::getIterator(arg), ForwardIterator::end())) {
                 IterableSequence sequence(LangToolkit::getIterator(arg), ForwardIterator::end(), [&](ObjectSharedPtr arg) {
                     bool inc_ref = false;
-                    auto result = addShortTag(arg.get(), inc_ref);
-                    if (inc_ref) {
-                        m_inc_refed_tags.insert(result);                        
+                    auto result = tryAddShortTag(arg.get(), inc_ref);
+                    if (!result) {
+                        THROWF(db0::InputException) << "Unable to add foreign tag";
                     }
-                    return result;
+                    if (inc_ref) {
+                        m_inc_refed_tags.insert(*result);                        
+                    }
+                    return *result;
                 });
                 return m_base_index_long.addIterator(factory, makeLongTagFromSequence(sequence));
             }
-
+            
             bool is_or_clause = (type_id == TypeId::LIST);
             // lists corresponds to OR operator, tuple - to AND
             std::unique_ptr<FT_IteratorFactory<std::uint64_t> > inner_factory;
@@ -631,25 +652,25 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::getShortTag(ObjectSharedPtr py_arg, ObjectSharedPtr *alt_repr) const {
         return getShortTag(py_arg.get(), alt_repr);
     }
-
-    TagIndex::ShortTagT TagIndex::addShortTag(ObjectPtr py_arg, bool &inc_ref) const
+    
+    std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTag(ObjectPtr py_arg, bool &inc_ref) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
-        return addShortTag(type_id, py_arg, inc_ref);
+        return tryAddShortTag(type_id, py_arg, inc_ref);
     }
 
-    TagIndex::ShortTagT TagIndex::addShortTag(ObjectSharedPtr py_arg, bool &inc_ref) const {
-        return addShortTag(py_arg.get(), inc_ref);
+    std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTag(ObjectSharedPtr py_arg, bool &inc_ref) const {
+        return tryAddShortTag(py_arg.get(), inc_ref);
     }
-
-    TagIndex::ShortTagT TagIndex::addShortTag(TypeId type_id, ObjectPtr py_arg, bool &inc_ref) const 
+    
+    std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTag(TypeId type_id, ObjectPtr py_arg, bool &inc_ref) const
     {
         if (type_id == TypeId::STRING) {
             return addShortTagFromString(py_arg, inc_ref);
         } else if (type_id == TypeId::MEMO_OBJECT) {
-            return addShortTagFromMemo(py_arg);
+            return tryAddShortTagFromMemo(py_arg);
         } else if (type_id == TypeId::DB0_TAG) {
-            return addShortTagFromTag(py_arg);
+            return tryAddShortTagFromTag(py_arg);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return getShortTagFromEnumValue(py_arg);
         } else if (type_id == TypeId::DB0_FIELD_DEF) {
@@ -667,19 +688,29 @@ namespace db0::object_model
         return LangToolkit::addTagFromString(py_arg, m_string_pool, inc_ref);
     }
 
-    TagIndex::ShortTagT TagIndex::addShortTagFromMemo(ObjectPtr py_arg) const
+    std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromMemo(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isMemoObject(py_arg));
+        auto &py_obj = LangToolkit::getTypeManager().extractObject(py_arg);
+        if (py_obj.getFixtureUUID() != m_fixture_uuid) {
+            // must be added as long tag
+            return std::nullopt;
+        }
         // mark the object as tag
-        return LangToolkit::getTypeManager().extractObject(py_arg).getAddress();        
+        return py_obj.getAddress();
     }
     
-    TagIndex::ShortTagT TagIndex::addShortTagFromTag(ObjectPtr py_arg) const
+    std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromTag(ObjectPtr py_arg) const
     {
-        assert(LangToolkit::isTag(py_arg));        
-        return LangToolkit::getTypeManager().extractTag(py_arg).m_value;        
+        assert(LangToolkit::isTag(py_arg));
+        auto &py_tag = LangToolkit::getTypeManager().extractTag(py_arg);
+        if (py_tag.m_fixture_uuid != m_fixture_uuid) {
+            // must be added as long tag
+            return std::nullopt;
+        }
+        return py_tag.m_value;
     }
-
+    
     bool TagIndex::isScopeIdentifier(ObjectPtr ptr) const {
         return LangToolkit::isFieldDef(ptr);
     }
@@ -746,12 +777,18 @@ namespace db0::object_model
         return getLongTag(py_arg.get());
     }
 
-    LongTagT TagIndex::getLongTag(ObjectPtr py_arg) const
+    LongTagT TagIndex::getLongTag(ObjectPtr py_arg) const {
+        return getLongTag(LangToolkit::getTypeManager().getTypeId(py_arg), py_arg);
+    }
+
+    LongTagT TagIndex::getLongTag(TypeId type_id, ObjectPtr py_arg) const
     {
-        auto &type_manager = LangToolkit::getTypeManager();
-        auto type_id = type_manager.getTypeId(py_arg);
         // must check for string since it's is an iterable as well
-        if (type_id == TypeId::STRING || !LangToolkit::isIterable(py_arg)) {
+        if (type_id == TypeId::DB0_TAG) {
+            return getLongTagFromTag(py_arg);
+        } else if (type_id == TypeId::MEMO_OBJECT) {
+            return getLongTagFromMemo(py_arg); 
+        } else if (type_id == TypeId::STRING || !LangToolkit::isIterable(py_arg)) {
             THROWF(db0::InputException) << "Invalid argument (iterable expected)" << THROWF_END;
         }
 
@@ -774,6 +811,16 @@ namespace db0::object_model
         return isScopeIdentifier(PyToolkit::getItem(py_arg, 0)) && isShortTag(PyToolkit::getItem(py_arg, 1));
     }
     
+    bool TagIndex::isLongTag(TypeId type_id, ObjectPtr py_arg) const
+    {
+        // assumed long tag if from a foreign scope
+        if (type_id == TypeId::DB0_TAG) {
+            auto &py_tag = LangToolkit::getTypeManager().extractTag(py_arg);
+            return py_tag.m_fixture_uuid != m_fixture_uuid;
+        }
+        return false;
+    }
+
     void TagIndex::commit() const
     {
         flush();
@@ -806,7 +853,8 @@ namespace db0::object_model
         using LangToolkit = TagIndex::LangToolkit;
         using TypeId = db0::bindings::TypeId;
         
-        if (!obj_ptr) {
+        // NOTE: we don't report fixture UUID for tags since foreign tags (i.e. from different scope) are allowed        
+        if (!obj_ptr || PyToolkit::isTag(obj_ptr)) {
             return 0;
         }
         
@@ -898,4 +946,18 @@ namespace db0::object_model
         return fixture;
     }
     
+    LongTagT TagIndex::getLongTagFromTag(ObjectPtr py_arg) const
+    {
+        assert(LangToolkit::isTag(py_arg));
+        auto &py_tag = LangToolkit::getTypeManager().extractTag(py_arg);
+        return { py_tag.m_fixture_uuid, py_tag.m_value };
+    }
+    
+    LongTagT TagIndex::getLongTagFromMemo(ObjectPtr py_arg) const
+    {
+        assert(LangToolkit::isMemoObject(py_arg));
+        auto &py_obj = LangToolkit::getTypeManager().extractObject(py_arg);
+        return { py_obj.getFixtureUUID(), py_obj.getAddress() };
+    }
+
 }

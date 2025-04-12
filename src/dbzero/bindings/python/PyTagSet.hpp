@@ -17,6 +17,7 @@ namespace db0::python
     
     extern PyTypeObject TagSetType;
     
+    void PyAPI_PyTagSet_del(PyTagSet *self);
     bool TagSet_Check(PyObject *obj);
     // Construct the negated PyTagSet object
     PyObject *negTagSet(PyObject *self, PyObject *const *args, Py_ssize_t nargs);

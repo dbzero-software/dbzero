@@ -51,10 +51,13 @@ namespace db0::object_model
         DB0_ENUM_VALUE = 27,
         // BOOL
         BOOLEAN = 28,
+        // weak reference to other (Memo) instance on the same prefix
+        OBJECT_WEAK_REF = 29,
+        // weak reference to other (Memo) instance from a foreign prefix
+        OBJECT_LONG_WEAK_REF = 30,
         // COUNT used to determine size of the StorageClass associated arrays
-        COUNT = 29,
-
-
+        COUNT = 31,
+        
         // invalid / reserved value, never used in objects
         INVALID = std::numeric_limits<std::uint8_t>::max()
     };
