@@ -133,3 +133,27 @@ def test_allocator_out_of_space_when_small_slab_size(db0_slab_size):
         str = test_strings[count % len(test_strings)]
         buf[test_ints[count % len(test_ints)]].append(MemoTestClass(str))
         count += 1
+
+
+@pytest.mark.stress_test
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
+def test_allocator_out_of_space_when_small_slab_size(db0_slab_size):
+    """
+    Test was failing with: Allocator out of space    
+    Resolution: 
+    """
+    def rand_string(max_len):
+        str_len = random.randint(1, max_len)
+        return ''.join(random.choice(string.ascii_letters) for i in range(str_len))
+    
+    root = MemoTestSingleton([])
+    buf = root.value
+    for _ in range(10000):
+        buf.append([])
+    
+    # append to random lists
+    count = 0
+    for _ in range(100000):
+        str = rand_string(256)
+        buf[random.randint(0, len(buf) - 1)].append(MemoTestClass(str))
+        count += 1
