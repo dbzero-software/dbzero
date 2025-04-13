@@ -308,11 +308,11 @@ namespace db0
                 // open data bucket
                 data_buf = data_vector(this->getMemspace().myPtr(it_node->m_data.ptr_b_data), m_item_destroy_func);
             }
-
+            
             // actual insert
             {
                 bool addr_changed = false;
-                data_buf.insert(item,addr_changed);
+                data_buf.insert(item, addr_changed, this->m_max_size);
                 if (addr_changed) {
                     it_node.modify().m_data.ptr_b_data = data_buf.getAddress();
                 }
