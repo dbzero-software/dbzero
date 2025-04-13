@@ -62,7 +62,7 @@ namespace db0
         {
             assert(m_capacity > 0);
         }
-
+        
     public :
         using iterator = data_t*;
         using const_iterator = const data_t*;
@@ -613,7 +613,7 @@ namespace db0
          * Evaluate maximum number of items that can be stored
          * with the specified buffer (size)
          */
-        static std::uint32_t getMaxSize(std::size_t buf_size) 
+        static std::uint32_t getMaxSize(std::size_t buf_size)
         {
             std::size_t size_of_members = sizeof(self);
             if (buf_size > size_of_members) {
@@ -841,9 +841,9 @@ namespace db0
          * grow vector if necessary
          * @return inserted item iterator
          */
-        iterator insert(const data_t &data, bool &was_addr_changed)
+        iterator insert(const data_t &data, bool &was_addr_changed, std::optional<std::uint32_t> max_size = {})
         {
-            was_addr_changed = growVector((*this)->m_size + 1);
+            was_addr_changed = growVector((*this)->m_size + 1, max_size);
             return this->modify().insert(data);
         }
         
@@ -852,9 +852,9 @@ namespace db0
          * @param data element to insert
          * @return
          */
-        iterator insert(const data_t &data) 
+        iterator insert(const data_t &data, std::optional<std::uint32_t> max_size = {})
         {
-            growVector((*this)->m_size + 1);
+            growVector((*this)->m_size + 1, max_size);
             return this->modify().insert(data);
         }
 
@@ -891,22 +891,23 @@ namespace db0
         /**
          * grow vector if necessary
          */
-        std::pair<iterator,bool> insertUnique(const data_t &data, bool &addr_changed) 
+        std::pair<iterator,bool> insertUnique(const data_t &data, bool &addr_changed, 
+            std::optional<std::uint32_t> max_size = {})
         {
-            addr_changed = growVector((*this)->m_size + 1);
+            addr_changed = growVector((*this)->m_size + 1, max_size);
             return this->modify().insertUnique(data);
         }
-
+        
         /**
          * @return true if object relocated
          */
-        bool bulkInsert(const std::vector<data_t> &data) 
+        bool bulkInsert(const std::vector<data_t> &data, std::optional<std::uint32_t> max_size = {})
         {
-            bool result = growVector((*this)->m_size + data.size());
+            bool result = growVector((*this)->m_size + data.size(), max_size);
             this->modify().bulkInsert(data);
             return result;
         }
-
+        
         /**
          * insert new / update existing
          * @result - optional buffer to write number of items requested to add / number of items actually added
