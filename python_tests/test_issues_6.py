@@ -84,7 +84,7 @@ def test_signup_clients_issue_1(db0_no_autocommit):
     """
     Test was failing with: db0::SlabManager::FindResult db0::SlabManager::find(uint32_t): Assertion `false' failed.
     null address accessed from Dict::getItem
-    Resolution: 
+    Resolution: problem with upgrading WideLock to a newer version (residual lock not refreshed)
     """
     px_name = db0.get_current_prefix().name
     def rand_string(max_len):
