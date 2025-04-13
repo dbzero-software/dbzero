@@ -115,7 +115,7 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_RECYCLED;
         }
         
-        // Mark the entire lock as dirty
+        // Mark the entire lock as dirty        
         void setDirty();
 
         bool isCached() const;

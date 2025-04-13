@@ -104,7 +104,7 @@ namespace db0
             m_ops[vptr_item.second].commit(vptr_item.first);
         }
     }
-
+    
     std::size_t GC0::size() const 
     {
         std::unique_lock<std::mutex> lock(m_mutex);

@@ -32,10 +32,10 @@ namespace db0::object_model
 
 }
 
-namespace db0::python 
+namespace db0::python
 
 {
-        
+    
     /**
      * Python specialized standard language toolkit
      * all of the implemented methods and types must be exposed for each new language integration
@@ -202,7 +202,6 @@ namespace db0::python
 
         // return base type of TypeObject
         static TypeObjectPtr getBaseType(TypeObjectPtr py_object);
-
 
         // return base type of Memo Type object instance or nullptr if base class is not MemoObjec
         static TypeObjectPtr getBaseMemoType(TypeObjectPtr py_object);

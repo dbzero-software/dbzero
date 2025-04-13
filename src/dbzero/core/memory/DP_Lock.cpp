@@ -116,7 +116,7 @@ namespace db0
         m_state_num = state_num;
         setDirty();
     }
-        
+    
     void DP_Lock::merge(StateNumType final_state_num)
     {
         // for atomic operations current state num is active transaction +1

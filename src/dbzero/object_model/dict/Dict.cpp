@@ -124,7 +124,7 @@ namespace db0::object_model
     Dict::ObjectSharedPtr Dict::getItem(std::uint64_t key_hash, ObjectPtr key_value) const
     {
         auto fixture = this->getFixture();
-        auto iter = m_index.find(key_hash);        
+        auto iter = m_index.find(key_hash);
         if (iter != m_index.end()) {
             auto [key, address] = *iter;            
             auto bindex = address.getIndex(*fixture);

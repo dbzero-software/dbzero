@@ -1260,4 +1260,13 @@ namespace db0::python
         return runSafe(tryAwaitPrefixState, future, prefix, state);
     }
 
+#ifndef NDEBUG
+    PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *)
+    {
+        PY_API_FUNC
+        db0::Settings::__dbg_logs = true;
+        Py_RETURN_NONE;
+    }
+#endif
+    
 }
