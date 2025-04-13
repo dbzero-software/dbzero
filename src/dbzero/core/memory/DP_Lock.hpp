@@ -40,9 +40,6 @@ namespace db0
         
         bool tryFlush(FlushMethod) override;
         
-        // FIXME: log
-        virtual void setDirty();
-
         /**
          * Flush data from local buffer and clear the 'dirty' flag
          * data is not flushed if not dirty.

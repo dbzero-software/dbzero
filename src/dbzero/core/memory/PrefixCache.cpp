@@ -219,16 +219,19 @@ namespace db0
         // Try upgrading the unused lock to the write state
         // this is to avoid CoW in a writer process
         if (access_mode[AccessOptions::write] && read_state_num != state_num) {
-            // unused lock condition (i.e. might only be used by the CacheRecycler)
+            // Unused lock condition (i.e. might only be used by the CacheRecycler)
             // note that dirty locks cannot be upgraded (otherwise data would be lost)
-            /* FIXME: 
+            // note that, on upgrade, the residual lock must be refreshed as well
             if (!wide_lock->isDirty() && wide_lock.use_count() == (wide_lock->isRecycled() ? 1 : 0) + 1) {
+                // have the operation repeated with the res_lock
+                if (!res_lock) {
+                    return { true, nullptr };
+                }
+                assert(res_lock);
                 assert(read_state_num == wide_lock->getStateNum());
                 m_wide_map.erase(read_state_num, wide_lock);
                 // note that this operation may also assign the no_flush flag if it was requested
-                wide_lock->updateStateNum(state_num, access_mode[AccessOptions::no_flush]);
-                // FIXME: log
-                std::cout << "*** Wide lock / update state num !!! ***" << std::endl;
+                wide_lock->updateStateNum(state_num, access_mode[AccessOptions::no_flush], res_lock);
                 // re-register the upgraded lock under a new state
                 // note that the actual lock may span a wider range, avoid passing first_page / end_page here !!
                 m_wide_map.insert(state_num, wide_lock);
@@ -236,11 +239,10 @@ namespace db0
                 wide_lock->setDirty();
                 read_state_num = state_num;
                 // upgraded locks may need to be registered as volatile
-                if (is_volatile) {                    
+                if (is_volatile) {
                     m_volatile_wide_locks.push_back(wide_lock);
                 }
             }
-            */
         }
         
         // register / update lock with the recycler (mark as accessed for LRU policy evaluation)

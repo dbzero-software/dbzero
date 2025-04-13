@@ -80,9 +80,6 @@ class Client():
             yield from self.default_address.get_tags()
     
 
-#@pytest.mark.stress_test
-#@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
-#def test_signup_clients_issue_1(db0_slab_size):
 def test_signup_clients_issue_1(db0_no_autocommit):
     """
     Test was failing with: db0::SlabManager::FindResult db0::SlabManager::find(uint32_t): Assertion `false' failed.
@@ -112,14 +109,10 @@ def test_signup_clients_issue_1(db0_no_autocommit):
     from .data_for_tests import test_logins, test_large_ints
     
     def validate(clients):
-        # FIXME: log
-        print("--- Begin validate ---")
         num_clients = 0
         for k, v in clients.items():
             num_clients += 1
-        # FIXME: log            
-        print("--- post validate ---")            
-    
+
     commit_interval = 10
     # NOTE: 780 works fine, something breaks at 790
     for count in range(790):
@@ -138,7 +131,7 @@ def test_signup_clients_issue_1(db0_no_autocommit):
             if count == 780 and 'D' in db0.build_flags():
                 db0.dbg_start_logs()
             db0.commit()
-        
+    
     db0.close()
     db0.init(DB0_DIR)
     db0.open(px_name, "r")

@@ -168,6 +168,13 @@ namespace db0
         }
     }
     
+    void WideLock::updateStateNum(StateNumType state_num, bool is_volatile, std::shared_ptr<DP_Lock> res_lock)
+    {
+        DP_Lock::updateStateNum(state_num, is_volatile);        
+        // also need to update the residual lock
+        m_res_lock = res_lock;        
+    }
+
 #ifndef NDEBUG
     bool WideLock::isBoundaryLock() const {
         return false;

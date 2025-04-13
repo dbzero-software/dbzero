@@ -149,11 +149,6 @@ namespace db0
     
     void DiffIndex::insert(PageNumT page_num, StateNumT state_num, PageNumT storage_page_num)
     {        
-        // FIXME: log
-        if (db0::Settings::__dbg_logs) {
-            // assert(state_num >= 80);
-            std::cout << "DiffIndex @" << this << " insert: page_num: " << page_num << ", state_num: " << state_num << ", storage_page_num: " << storage_page_num << std::endl;
-        }
         // try locating existing item first
         typename super_t::ConstNodeIterator node;
         auto item_ptr = super_t::lowerEqualBound(page_num, state_num, node);

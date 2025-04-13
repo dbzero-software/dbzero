@@ -115,9 +115,8 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_RECYCLED;
         }
         
-        // Mark the entire lock as dirty
-        // FIXME: log
-        virtual void setDirty();
+        // Mark the entire lock as dirty        
+        void setDirty();
 
         bool isCached() const;
 

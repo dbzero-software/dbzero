@@ -15,7 +15,7 @@ namespace db0
         , m_shift(getPageShift(m_page_size))
         , m_head_state_num(m_storage_ptr->getMaxStateNum())
         , m_cache(*m_storage_ptr, cache_recycler_ptr, &dirty_meter)
-    {        
+    {
         assert(m_storage_ptr);
         if (m_storage_ptr->getAccessType() == AccessType::READ_WRITE) {
             // increment state number for read-write storage (i.e. new data transaction)
@@ -204,7 +204,7 @@ namespace db0
             auto res_lock = mapPage(end_page - 1, state_num, access_mode | AccessOptions::read);
             lock_info = m_cache.findRange(first_page, end_page, address, size, state_num, access_mode, read_state_num, res_lock);
         }
-
+        
         assert(!lock_info.first || lock_info.second);
         auto lock = lock_info.second;
         // flag indicating if the residual part of the wide lock is present
