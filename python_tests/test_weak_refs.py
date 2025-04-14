@@ -162,3 +162,23 @@ def test_tag_by_object_query_by_expired_weak_ref(db0_fixture):
     # query by an expired weak-ref
     assert db0.expired(obj_2.value)
     assert list(db0.find(db0.as_tag(obj_2.value))) == [obj_3]
+
+
+# FIXME: https://github.com/wskozlowski/kv-crm/issues/876
+# def test_weak_ref_inside_list(db0_fixture):
+#     px_1 = db0.get_current_prefix().name
+#     px_2 = "some-other-prefix"
+#     db0.open(px_2, "rw")
+
+#     obj_1 = MemoTestPxClass(123, prefix=px_1)
+#     obj_2 = MemoTestPxClass(db0.list([db0.weak_proxy(obj_1)]), prefix=px_2)
+#     assert obj_2.value[0] == obj_1
+#     assert obj_2.value[0].value == 123
+
+#     obj_2 = MemoTestPxClass(db0.list(), prefix=px_2)
+#     obj_2.value.append(db0.weak_proxy(obj_1))
+#     assert obj_2.value[0] == obj_1
+#     assert obj_2.value[0].value == 123
+
+#     db0.tags(obj_2).add(db0.as_tag(obj_2.value[0]))
+#     assert list(db0.find(db0.as_tag(obj_1))) == [obj_2]
