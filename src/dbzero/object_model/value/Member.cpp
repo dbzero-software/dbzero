@@ -498,11 +498,13 @@ namespace db0::object_model
             return PyToolkit::unloadObject(fixture, address);
         }
     }
-
+    
     // OBJECT_LONG_WEAK_REF
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
+        // FIXME: log
+        std::cout << "Unloading long-weak ref" << std::endl;
         LongWeakRef weak_ref(fixture, value.cast<std::uint64_t>());
         auto other_fixture = fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid);
         auto address = weak_ref->m_address;
