@@ -94,7 +94,14 @@ namespace db0::object_model
         auto iter = m_index.find(key);
         // recognize type ID from language specific object
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
+        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+        StorageClass storage_class;
+        if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
+            storage_class = db0::getStorageClass(pre_storage_class, fixture, lang_value);
+        } else {
+            storage_class = db0::getStorageClass(pre_storage_class);
+        }
+        
         if (iter == m_index.end()) {
             ++modify().m_size;
             auto set_it = createSetItem<LangToolkit>(fixture, key, type_id, lang_value, storage_class);            

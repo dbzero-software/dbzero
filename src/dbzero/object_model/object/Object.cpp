@@ -178,7 +178,7 @@ namespace db0::object_model
     std::pair<db0::bindings::TypeId, StorageClass> Object::recognizeType(Fixture &fixture, ObjectPtr lang_value) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
+        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
         if (type_id == TypeId::MEMO_OBJECT) {
             // object reference must be from the same fixture
             auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
@@ -188,17 +188,16 @@ namespace db0::object_model
         }
         
         // may need to refine the storage class (i.e. long weak ref might be needed instead)
-        if (storage_class == StorageClass::OBJECT_WEAK_REF) {
-            const auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
-            if (*obj.getFixture() != fixture) {
-                // must use long weak-ref instead, since referenced object is from a foreign prefix
-                storage_class = StorageClass::OBJECT_LONG_WEAK_REF;
-            }
+        StorageClass storage_class;
+        if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
+            storage_class = db0::getStorageClass(pre_storage_class, fixture, lang_value);
+        } else {
+            storage_class = db0::getStorageClass(pre_storage_class);
         }
         
         return { type_id, storage_class };
     }
-
+    
     void Object::setPreInit(const char *field_name, ObjectPtr obj_ptr) const
     {
         assert(!hasInstance());

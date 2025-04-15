@@ -92,15 +92,16 @@ namespace db0::python
     {   
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
-
+        
         auto storage_class = object_id.m_typed_addr.getType();
         // use logical address to access the object
         auto addr = db0::makeLogicalAddress(object_id.m_typed_addr, object_id.m_instance_id);
         
-        // validate storage class first
+        // validate pre-storage class first
         if (py_expected_type) {
             auto type_id = PyToolkit::getTypeManager().getTypeId(py_expected_type);
-            if (storage_class != db0::object_model::TypeUtils::m_storage_class_mapper.getStorageClass(type_id)) {
+            auto pre_storage_class = db0::object_model::TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+            if (pre_storage_class != db0::getPreStorageClass(storage_class)) {
                 THROWF(db0::InputException) << "Object ID type mismatch";
             }
         }
