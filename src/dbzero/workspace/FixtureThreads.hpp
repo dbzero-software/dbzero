@@ -81,6 +81,9 @@ namespace db0
     public:
         AutoCommitThread(std::uint64_t commit_interval_ms = 250);
         
+        // This lock prevents auto-commit thread collision (even if auto-commit thread is already waiting)
+        static std::unique_lock<std::mutex> preventAutoCommit();
+
     private:
         using StateReachedCallbackList = Fixture::StateReachedCallbackList;
 
@@ -89,19 +92,23 @@ namespace db0
          */
         class AutoCommitContext : public FixtureThreadContextBase
         {
+            std::unique_lock<std::mutex> m_commit_lock;
             std::unique_lock<std::shared_mutex> m_locked_context_lock;
             std::unique_lock<std::mutex> m_atomic_lock;
             StateReachedCallbackList m_callbacks;
 
         public:
-            AutoCommitContext(std::unique_lock<std::shared_mutex> &&locked_context_lock, std::unique_lock<std::mutex> &&atomic_lock);
-
+            AutoCommitContext(std::unique_lock<std::mutex> &&commit_lock, std::unique_lock<std::shared_mutex> &&locked_context_lock, 
+                std::unique_lock<std::mutex> &&atomic_lock);
+            
             virtual void finalize();
 
             void appendCallbacks(StateReachedCallbackList &&callbacks);
         };
+        
+        static std::mutex m_commit_mutex;
         std::weak_ptr<AutoCommitContext> m_tmp_context;
-
+        
         void tryCommit(Fixture &fixture, std::uint64_t &status) const;
         std::shared_ptr<FixtureThreadContextBase> prepareContext();
     };

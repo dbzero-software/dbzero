@@ -6,8 +6,8 @@ namespace db0
 {
 
     std::shared_mutex LockedContext::m_locked_mutex;
-
-    LockedContext::LockedContext(std::shared_ptr<Workspace> &workspace, std::shared_lock<std::shared_mutex> &&lock)\
+    
+    LockedContext::LockedContext(std::shared_ptr<Workspace> &workspace, std::shared_lock<std::shared_mutex> &&lock)
         : m_workspace(workspace)
         , m_locked_section_id(m_workspace->beginLocked())
         , m_lock(std::move(lock))        
