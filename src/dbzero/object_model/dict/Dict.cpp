@@ -19,7 +19,14 @@ namespace db0::object_model
         typename LangToolkit::ObjectPtr lang_value)
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
+        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+        StorageClass storage_class;
+        if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
+            storage_class = db0::getStorageClass(pre_storage_class, fixture, lang_value);
+        } else {
+            storage_class = db0::getStorageClass(pre_storage_class);
+        }
+
         return {
             storage_class, 
             createMember<LangToolkit>(fixture, type_id, storage_class, lang_value)

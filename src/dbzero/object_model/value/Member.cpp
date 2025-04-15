@@ -490,6 +490,8 @@ namespace db0::object_model
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_WEAK_REF, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
+        // FIXME: log
+        std::cout << "Unloading weak ref" << std::endl;
         auto address = value.cast<std::uint64_t>();
         if (PyToolkit::isObjectExpired(fixture, address)) {
             // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)

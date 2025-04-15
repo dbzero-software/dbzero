@@ -12,7 +12,7 @@ namespace db0::object_model
 
     template <typename LangToolkit> o_typed_item createListItem(db0::swine_ptr<Fixture> &fixture,
         db0::bindings::TypeId type_id, typename LangToolkit::ObjectPtr lang_value, StorageClass storage_class)
-    {
+    {        
         return { storage_class, createMember<LangToolkit>(fixture, type_id, storage_class, lang_value) };
     }
     
@@ -48,7 +48,14 @@ namespace db0::object_model
         
         // recognize type ID from language specific object
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
+        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+        StorageClass storage_class;
+        if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
+            storage_class = db0::getStorageClass(pre_storage_class, *fixture, lang_value);
+        } else {
+            storage_class = db0::getStorageClass(pre_storage_class);
+        }
+        
         v_bvector::push_back(
             createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class)
         );
@@ -86,7 +93,14 @@ namespace db0::object_model
 
         // recognize type ID from language specific object
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
-        auto storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);        
+        auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+        StorageClass storage_class;
+        if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
+            storage_class = db0::getStorageClass(pre_storage_class, *fixture, lang_value);
+        } else {
+            storage_class = db0::getStorageClass(pre_storage_class);
+        }
+        
         auto [storage_class_value, value] = (*this)[i];
         v_bvector::setItem(i, createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class));
         unrefMember<LangToolkit>(*fixture, storage_class_value, value);

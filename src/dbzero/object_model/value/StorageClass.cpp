@@ -1,47 +1,48 @@
 #include "StorageClass.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/object_model/object/Object.hpp>
 
-namespace db0::object_model 
+namespace db0::object_model
 
 {
     
     StorageClassMapper::StorageClassMapper()
     {
-        addMapping(TypeId::NONE, StorageClass::NONE);
-        addMapping(TypeId::FLOAT, StorageClass::FP_NUMERIC64);
-        addMapping(TypeId::INTEGER, StorageClass::INT64);
-        addMapping(TypeId::DATETIME, StorageClass::DATETIME);
-        addMapping(TypeId::DATETIME_TZ, StorageClass::DATETIME_TZ);
-        addMapping(TypeId::DATE, StorageClass::DATE);
-        addMapping(TypeId::TIME, StorageClass::TIME);
-        addMapping(TypeId::TIME_TZ, StorageClass::TIME_TZ);
-        addMapping(TypeId::DECIMAL, StorageClass::DECIMAL);
-        addMapping(TypeId::LIST, StorageClass::DB0_LIST);
-        addMapping(TypeId::DICT, StorageClass::DB0_DICT);
-        addMapping(TypeId::SET, StorageClass::DB0_SET);
-        addMapping(TypeId::TUPLE, StorageClass::DB0_TUPLE);
-        addMapping(TypeId::BYTES, StorageClass::DB0_BYTES);
-        addMapping(TypeId::MEMO_OBJECT, StorageClass::OBJECT_REF);
-        addMapping(TypeId::DB0_LIST, StorageClass::DB0_LIST);
-        addMapping(TypeId::DB0_DICT, StorageClass::DB0_DICT);
-        addMapping(TypeId::DB0_SET, StorageClass::DB0_SET);
-        addMapping(TypeId::DB0_TUPLE, StorageClass::DB0_TUPLE);
-        addMapping(TypeId::DB0_BLOCK, StorageClass::DB0_BLOCK);
-        addMapping(TypeId::DB0_INDEX, StorageClass::DB0_INDEX);
-        addMapping(TypeId::DB0_PANDAS_DATAFRAME, StorageClass::DB0_PANDAS_DATAFRAME);
-        addMapping(TypeId::OBJECT_ITERABLE, StorageClass::DB0_SERIALIZED);
-        addMapping(TypeId::DB0_ENUM_VALUE, StorageClass::DB0_ENUM_VALUE);
-        addMapping(TypeId::BOOLEAN, StorageClass::BOOLEAN);
-        addMapping(TypeId::DB0_BYTES_ARRAY, StorageClass::DB0_BYTES_ARRAY);
+        addMapping(TypeId::NONE, PreStorageClass::NONE);
+        addMapping(TypeId::FLOAT, PreStorageClass::FP_NUMERIC64);
+        addMapping(TypeId::INTEGER, PreStorageClass::INT64);
+        addMapping(TypeId::DATETIME, PreStorageClass::DATETIME);
+        addMapping(TypeId::DATETIME_TZ, PreStorageClass::DATETIME_TZ);
+        addMapping(TypeId::DATE, PreStorageClass::DATE);
+        addMapping(TypeId::TIME, PreStorageClass::TIME);
+        addMapping(TypeId::TIME_TZ, PreStorageClass::TIME_TZ);
+        addMapping(TypeId::DECIMAL, PreStorageClass::DECIMAL);
+        addMapping(TypeId::LIST, PreStorageClass::DB0_LIST);
+        addMapping(TypeId::DICT, PreStorageClass::DB0_DICT);
+        addMapping(TypeId::SET, PreStorageClass::DB0_SET);
+        addMapping(TypeId::TUPLE, PreStorageClass::DB0_TUPLE);
+        addMapping(TypeId::BYTES, PreStorageClass::DB0_BYTES);
+        addMapping(TypeId::MEMO_OBJECT, PreStorageClass::OBJECT_REF);
+        addMapping(TypeId::DB0_LIST, PreStorageClass::DB0_LIST);
+        addMapping(TypeId::DB0_DICT, PreStorageClass::DB0_DICT);
+        addMapping(TypeId::DB0_SET, PreStorageClass::DB0_SET);
+        addMapping(TypeId::DB0_TUPLE, PreStorageClass::DB0_TUPLE);
+        addMapping(TypeId::DB0_BLOCK, PreStorageClass::DB0_BLOCK);
+        addMapping(TypeId::DB0_INDEX, PreStorageClass::DB0_INDEX);
+        addMapping(TypeId::DB0_PANDAS_DATAFRAME, PreStorageClass::DB0_PANDAS_DATAFRAME);
+        addMapping(TypeId::OBJECT_ITERABLE, PreStorageClass::DB0_SERIALIZED);
+        addMapping(TypeId::DB0_ENUM_VALUE, PreStorageClass::DB0_ENUM_VALUE);
+        addMapping(TypeId::BOOLEAN, PreStorageClass::BOOLEAN);
+        addMapping(TypeId::DB0_BYTES_ARRAY, PreStorageClass::DB0_BYTES_ARRAY);
         // Note: DB0_WEAK_PROXY by default maps to OBJECT_WEAK_REF but can also be OBJECT_LONG_WEAK_REF which needs to be checked
-        addMapping(TypeId::DB0_WEAK_PROXY, StorageClass::OBJECT_WEAK_REF);
+        addMapping(TypeId::DB0_WEAK_PROXY, PreStorageClass::OBJECT_WEAK_REF);
     }
     
-    StorageClass StorageClassMapper::getStorageClass(TypeId type_id) const
+    PreStorageClass StorageClassMapper::getPreStorageClass(TypeId type_id) const
     {
         if (type_id == TypeId::STRING) {
             // determine string type dynamically
-            return StorageClass::STRING_REF;
+            return PreStorageClass::STRING_REF;
         }
         
         auto int_id = static_cast<std::size_t>(type_id);
@@ -52,11 +53,11 @@ namespace db0::object_model
             << "Storage class unknown for common language type ID: " << static_cast<int>(type_id) << THROWF_END;
     }
     
-    void StorageClassMapper::addMapping(TypeId type_id, StorageClass storage_class) 
+    void StorageClassMapper::addMapping(TypeId type_id, PreStorageClass storage_class) 
     {
         auto int_id = static_cast<unsigned int>(type_id);
         while (m_storage_class_map.size() <= int_id) {
-            m_storage_class_map.push_back(StorageClass::INVALID);
+            m_storage_class_map.push_back(PreStorageClass::INVALID);
         }
         m_storage_class_map[int_id] = storage_class;
     }
@@ -130,4 +131,36 @@ namespace std
         return os;
     }
 
+}
+
+namespace db0
+
+{
+
+    using LangToolkit = db0::object_model::LangConfig::LangToolkit;
+
+    db0::object_model::StorageClass getStorageClass(db0::object_model::PreStorageClass pre_storage_class,
+        db0::swine_ptr<db0::Fixture> &fixture, ObjectPtr lang_value)
+    {
+        assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF);
+        const auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
+        if (*obj.getFixture() != *fixture.get()) {
+            // must use long weak-ref instead, since referenced object is from a foreign prefix
+            return StorageClass::OBJECT_LONG_WEAK_REF;
+        }
+        return StorageClass::OBJECT_WEAK_REF;
+    }
+
+    db0::object_model::StorageClass getStorageClass(db0::object_model::PreStorageClass pre_storage_class,
+        const db0::Fixture &fixture, ObjectPtr lang_value)
+    {
+        assert(pre_storage_class == PreStorageClass::OBJECT_WEAK_REF);
+        const auto &obj = LangToolkit::getTypeManager().extractObject(lang_value);
+        if (*obj.getFixture() != fixture) {
+            // must use long weak-ref instead, since referenced object is from a foreign prefix
+            return StorageClass::OBJECT_LONG_WEAK_REF;
+        }
+        return StorageClass::OBJECT_WEAK_REF;
+    }
+    
 }

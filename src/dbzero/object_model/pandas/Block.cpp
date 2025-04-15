@@ -35,15 +35,27 @@ namespace db0::object_model::pandas
         auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
         // first element defines storage class
         if (size() == 0) {
-            m_storage_class = TypeUtils::m_storage_class_mapper.getStorageClass(type_id);
+            auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+            if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
+                m_storage_class = db0::getStorageClass(pre_storage_class, *fixture, lang_value);
+            } else {
+                m_storage_class = db0::getStorageClass(pre_storage_class);
+            }
         } else {
-            if (m_storage_class != TypeUtils::m_storage_class_mapper.getStorageClass(type_id)){
-                throw std::runtime_error("Storage class shoud be same for all Block elements");
+            auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+            if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
+                if (m_storage_class != db0::getStorageClass(pre_storage_class, *fixture, lang_value)) {
+                    throw std::runtime_error("Storage class shoud be same for all Block elements");    
+                }                 
+            } else {
+                if (m_storage_class != db0::getStorageClass(pre_storage_class)) {                    
+                    throw std::runtime_error("Storage class shoud be same for all Block elements");
+                }
             }
         }        
         v_bvector::push_back(createMember<LangToolkit>(*fixture, type_id, m_storage_class, lang_value));
     }
-
+    
     Block::ObjectSharedPtr Block::getStorageClass() const {
         return PyLong_FromUnsignedLong((std::uint8_t )m_storage_class);
     }
