@@ -38,8 +38,7 @@ namespace db0
     
     void FixtureThread::run()
     {        
-        while (true) {
-            // std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_ms));
+        while (true) {            
             std::unique_lock<std::mutex> lock(m_mutex);
             m_cv.wait_for(lock, std::chrono::milliseconds(m_interval_ms));
             if (m_stopped) {
@@ -120,6 +119,8 @@ namespace db0
         }
     }
     
+    std::mutex AutoCommitThread::m_commit_mutex;
+
     AutoCommitThread::AutoCommitThread(std::uint64_t commit_interval_ms)
         : FixtureThread(
             [this](Fixture &fx, std::uint64_t &status) { tryCommit(fx, status); },
@@ -155,36 +156,46 @@ namespace db0
     std::shared_ptr<FixtureThreadContextBase> AutoCommitThread::prepareContext()
     {
         assert(!m_tmp_context.lock() && "Only one AutoCommitContext should exist at the time!");
+        auto commit_lock = std::unique_lock<std::mutex>(m_commit_mutex);
         // must acquire unique lock-context's lock
         auto locked_context_lock = db0::LockedContext::lockUnique();
         // and the atomic lock next (order is relevant here !!)
         auto atomic_lock = db0::AtomicContext::lock();
-        auto context = std::make_shared<AutoCommitContext>(std::move(locked_context_lock), std::move(atomic_lock));
+        auto context = std::make_shared<AutoCommitContext>(std::move(commit_lock),
+            std::move(locked_context_lock), std::move(atomic_lock)
+        );
         // To collect callbacks from fixtures as we proceed with commiting
         m_tmp_context = context;
         return context;
     }
 
     AutoCommitThread::AutoCommitContext::AutoCommitContext(
+        std::unique_lock<std::mutex> &&commit_lock,
         std::unique_lock<std::shared_mutex> &&locked_context_lock,
         std::unique_lock<std::mutex> &&atomic_lock)
-        : m_locked_context_lock(std::move(locked_context_lock))
+        : m_commit_lock(std::move(commit_lock))
+        , m_locked_context_lock(std::move(locked_context_lock))
         , m_atomic_lock(std::move(atomic_lock))
     {}
-
+    
     void AutoCommitThread::AutoCommitContext::finalize()
     {
         m_locked_context_lock.unlock();
         m_atomic_lock.unlock();
+        m_commit_lock.unlock();
         for(auto &callback : m_callbacks) {
             callback->execute();
         }
     }
-
+    
     void AutoCommitThread::AutoCommitContext::appendCallbacks(StateReachedCallbackList &&callbacks)
     {
         // As of writing this, the purpose of these callbacks solely is to notify observers of prefix state number being reached
         std::move(callbacks.begin(), callbacks.end(), std::back_inserter(m_callbacks));
+    }
+
+    std::unique_lock<std::mutex> AutoCommitThread::preventAutoCommit() {
+        return std::unique_lock<std::mutex>(m_commit_mutex);
     }
 
 }

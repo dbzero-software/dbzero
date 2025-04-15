@@ -1,6 +1,7 @@
 #include "PyLocked.hpp"
 #include "PyToolkit.hpp"
 #include "PyInternalAPI.hpp"
+#include <dbzero/workspace/FixtureThreads.hpp>
 
 namespace db0::python
 
@@ -46,12 +47,18 @@ namespace db0::python
     {
         PY_API_FUNC
         auto py_object = PyLocked_new(&PyLockedType, NULL, NULL);
-        try {            
+        try {
             auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
+            {
+                // this lock is to prevent auto-commit starvation which might
+                // happen in a heavy load situation when locked sections are created indefinitely
+                // owning the LockedCoontext's shared mutex
+                auto ac_lock = db0::AutoCommitThread::preventAutoCommit();
+            }
             auto shared_lock = db0::LockedContext::lockShared();
             db0::LockedContext::makeNew(&py_object->modifyExt(), workspace_ptr, std::move(shared_lock));
             return py_object;
-        } catch (...) {        
+        } catch (...) {
             Py_DECREF(py_object);
             throw;
         }
