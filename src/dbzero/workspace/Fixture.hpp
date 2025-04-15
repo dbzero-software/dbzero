@@ -305,7 +305,7 @@ namespace db0
         friend class FixtureLock;
         friend class AutoCommitThread;
         friend class Workspace;
-        mutable std::shared_mutex m_shared_mutex;
+        mutable std::shared_mutex m_commit_mutex;
         mutable std::mutex m_close_mutex;
         // locked-section specific mutation flags (-1 = released)
         std::vector<char> m_mutation_flags;
@@ -367,7 +367,7 @@ namespace db0
     {
         inline FixtureLock(const db0::swine_ptr<Fixture> &fixture)
             : m_fixture(fixture)
-            , m_lock(fixture->m_shared_mutex)
+            , m_lock(fixture->m_commit_mutex)
         {
             if (fixture->getAccessType() != AccessType::READ_WRITE) {
                 THROWF(db0::InputException) << "Cannot modify read-only prefix: " << fixture->getPrefix().getName();

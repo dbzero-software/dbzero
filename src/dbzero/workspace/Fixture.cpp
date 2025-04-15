@@ -182,7 +182,7 @@ namespace db0
                 m_lang_cache.clear(true);
 
                 // lock for exclusive access
-                std::unique_lock<std::shared_mutex> lock(m_shared_mutex);            
+                std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
                 tryCommit(lock, timer.get());
                 auto callbacks = collectStateReachedCallbacks();
                 lock.unlock();
@@ -273,7 +273,7 @@ namespace db0
             workspace_view, m_v_object_cache.getSharedObjectList(), px_snapshot, allocator_snapshot
         );
     }
-        
+    
     void Fixture::commit()
     {
         assert(getPrefixPtr());
@@ -286,7 +286,7 @@ namespace db0
         
         // Clear expired instances from cache so that they're not persisted
         m_lang_cache.clear(true);
-        std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
+        std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
         tryCommit(lock);
         m_updated = false;
         auto callbacks = collectStateReachedCallbacks();
@@ -353,7 +353,7 @@ namespace db0
 
             // lock for exclusive access
             {
-                std::unique_lock<std::shared_mutex> lock(m_shared_mutex);
+                std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
                 tryCommit(lock);
                 m_updated = false;
                 return collectStateReachedCallbacks();      
@@ -542,7 +542,7 @@ namespace db0
 
     void Fixture::registerPrefixStateReachedCallback(StateNumType state_num, std::unique_ptr<StateReachedCallbackBase> &&callback)
     {
-        std::unique_lock lock(m_shared_mutex);
+        std::unique_lock lock(m_commit_mutex);
         auto current_state_num = getPrefix().getStateNum(true);
         if(state_num <= current_state_num) {
             callback->execute();
@@ -581,4 +581,5 @@ namespace db0
             callback->execute();
         }
     }
+    
 }
