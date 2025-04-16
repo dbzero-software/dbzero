@@ -255,7 +255,7 @@ namespace db0::python
         return fetchObject(fixture, object_id, py_expected_type);
     }
     
-    PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs)
+    PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs, PyObject *context)
     {
         using ObjectIterable = db0::object_model::ObjectIterable;
         using TagIndex = db0::object_model::TagIndex;
@@ -273,6 +273,9 @@ namespace db0::python
         auto iter_obj = PyObjectIterableDefault_new();
         ObjectIterable::makeNew(&(iter_obj.get())->modifyExt(), fixture, std::move(query_iterator), type,
             lang_type, std::move(query_observers));
+        if (context) {
+            (iter_obj.get())->ext().attachContext(context);
+        }
         return iter_obj.steal();
     }
     

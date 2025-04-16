@@ -308,3 +308,34 @@ def test_auto_open_fixture_in_head_snapshot(db0_fixture):
             # on fetch attempt, the prefix should be auto-opened as head
             root = head_2.fetch(MemoDataPxSingleton)
             assert root.value == 123
+
+
+def test_out_of_context_snapshot_query(db0_fixture):
+    obj_list = [MemoTestClass(123) for _ in range(100)]
+    for obj in obj_list:
+        db0.tags(obj).add("tag1")    
+    state_1 = db0.get_state_num()
+    db0.commit()
+    obj_2 = MemoTestClass(123)
+    db0.tags(obj_2).add("tag1")
+    db0.commit()
+    with db0.snapshot(state_1) as snap:
+        query = snap.find("tag1")
+    
+    # NOTE: an exception raised because query executed out of the context
+    with pytest.raises(Exception):
+        assert len(query) == 100
+    
+    
+def test_snapshot_scope_bound_to_query(db0_fixture):
+    obj_list = [MemoTestClass(123) for _ in range(100)]
+    for obj in obj_list:
+        db0.tags(obj).add("tag1")    
+    state_1 = db0.get_state_num()
+    db0.commit()
+    obj_2 = MemoTestClass(123)
+    db0.tags(obj_2).add("tag1")
+    db0.commit()
+    query = db0.snapshot(state_1).find("tag1")
+    # snapshot's scope should be bound with the scoped of the query
+    assert len(query) == 100

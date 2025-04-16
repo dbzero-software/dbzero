@@ -36,7 +36,7 @@ namespace db0::python
 
     PyTypeObject PySnapshotObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.Snapshot",
+        .tp_name = "Snapshot",
         .tp_basicsize = PySnapshotObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_PySnapshot_del,
@@ -47,7 +47,7 @@ namespace db0::python
         .tp_new = (newfunc)PySnapshot_new,
         .tp_free = PyObject_Free,
     };
-
+    
     bool PySnapshot_Check(PyObject *object) {
         return Py_TYPE(object) == &PySnapshotObjectType;
     }
@@ -93,9 +93,10 @@ namespace db0::python
         }
 
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
-        return findIn(snapshot, args, nargs);
+        // NOTE: self attached as context
+        return findIn(snapshot, args, nargs, self);
     }
-
+    
     PyObject *tryGetStateNum(db0::Snapshot &snapshot, PyObject *args, PyObject *kwargs)
     {
         auto fixture = getPrefixFromArgs(snapshot, args, kwargs, "prefix");

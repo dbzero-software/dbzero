@@ -77,7 +77,7 @@ namespace db0::python
     
     PyTypeObject PyObjectIteratorType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.ObjectIterator",
+        .tp_name = "ObjectIterator",
         .tp_basicsize = PyObjectIterator::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObjectIterator_del,
