@@ -135,18 +135,24 @@ def test_using_index_after_hardening(db0_fixture):
 
 @db0.memo(prefix="scoped-class-prefix")
 class TestScopedContainer:
+    __test__ = False
+    
     def __init__(self):
         self.ix_test = db0.index()
 
 
 @db0.memo(prefix="scoped-class-prefix")
 class TestScopedData:
+    __test__ = False
+    
     def __init__(self, value):
         self.value = value
 
 
 @db0.memo(prefix="scoped-class-prefix", singleton=True)
 class TestScopedSingleton:
+    __test__ = False
+    
     def __init__(self):
         self.container = TestScopedContainer()
 
