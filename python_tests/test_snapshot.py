@@ -339,3 +339,20 @@ def test_snapshot_scope_bound_to_query(db0_fixture):
     query = db0.snapshot(state_1).find("tag1")
     # snapshot's scope should be bound with the scoped of the query
     assert len(query) == 100
+
+
+def test_out_of_context_object_access(db0_fixture):
+    obj_list = [MemoTestClass(123) for _ in range(100)]
+    state_1 = db0.get_state_num()
+    db0.commit()
+    for obj in obj_list:
+        obj.value = 999
+    db0.commit()
+    with db0.snapshot(state_1) as snap:
+        # re-fetch objects from the snapshot
+        obj_list = [snap.fetch(db0.uuid(obj)) for obj in obj_list]        
+    
+    # NOTE: an exception raised because query executed out of the context
+    with pytest.raises(Exception):
+        for obj in obj_list:
+            assert obj.value == 123        
