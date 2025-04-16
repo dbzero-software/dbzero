@@ -172,9 +172,11 @@ namespace db0::python
         if (!PyMemoType_Check(py_type)) {
             THROWF(db0::InternalException) << "Memo type expected for: " << py_type->tp_name << THROWF_END;
         }
-
+        
         // get either curren fixture or a scope-related fixture
-        auto fixture = snapshot.getFixture(MemoTypeDecoration::get(py_type).getFixtureUUID());
+        auto maybe_access_type = snapshot.tryGetAccessType();
+        auto fixture = snapshot.getFixture(MemoTypeDecoration::get(py_type).getFixtureUUID(maybe_access_type), 
+            maybe_access_type);
         return fetchSingletonObject(fixture, py_type);
     }
     

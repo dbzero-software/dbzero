@@ -260,4 +260,9 @@ namespace db0
         return *m_workspace_ptr;
     }
     
+    std::optional<AccessType> WorkspaceView::tryGetAccessType() const {
+        // WorkspaceView is always read-only
+        return AccessType::READ_ONLY;
+    }
+
 }

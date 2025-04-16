@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, MemoTestSingleton
+from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoDataPxSingleton
 from .conftest import DB0_DIR
 
 
@@ -293,3 +293,18 @@ def test_exception_when_attempting_to_access_frozen_head_snapshot(db0_fixture):
     with pytest.raises(Exception):
         with db0.snapshot(frozen=True) as head:
             pass
+    
+    
+def test_auto_open_fixture_in_head_snapshot(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    # create root object on the data prefix
+    root = MemoDataPxSingleton(123)
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(px_name, "r")    
+    # take the head snapshot before data-px has been opened
+    with db0.snapshot():
+        with db0.snapshot(frozen=True) as head_2:
+            # on fetch attempt, the prefix should be auto-opened as head
+            root = head_2.fetch(MemoDataPxSingleton)
+            assert root.value == 123

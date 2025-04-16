@@ -715,15 +715,15 @@ namespace db0
     }
     
     std::size_t MetaAllocator::getAllocSize(std::uint64_t address) const
-    {        
+    {
         address = db0::getPhysicalAddress(address);
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             THROWF(db0::InputException) << "Address " << address << " not found (pending deferred free)";
         }
         auto slab_id = m_slab_id_function(address);
-        return m_slab_manager->find(slab_id).m_slab->getAllocSize(address);        
+        return m_slab_manager->find(slab_id).m_slab->getAllocSize(address);
     }
-
+    
     bool MetaAllocator::isAllocated(std::uint64_t address) const
     {        
         address = db0::getPhysicalAddress(address);

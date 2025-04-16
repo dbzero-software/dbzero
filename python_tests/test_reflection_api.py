@@ -96,6 +96,8 @@ def test_memo_class_get_attributes(db0_fixture):
 
 
 class TestClassPropertiesAndImmutables:
+    __test__ = False
+    
     def __init__(self, value):
         self.__value = value
         self.some_param = 5

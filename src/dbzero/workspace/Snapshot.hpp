@@ -56,7 +56,11 @@ namespace db0
         
         // Get the corresponding "head" snapshot / workspace
         // the default implementation returns itself
-        virtual Snapshot &getHeadWorkspace() const;
+        virtual Snapshot &getHeadWorkspace() const;        
+        
+        // The implementation returns snapshot-level access type where it has been defined (e.g. read-only snapshots)
+        // by default, the std::nullopt is returned
+        virtual std::optional<AccessType> tryGetAccessType() const;
     };
 
     bool checkAccessType(const Fixture &fixture, AccessType);

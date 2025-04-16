@@ -664,6 +664,7 @@ def test_find_multiple_objects_in_index_select(db0_fixture):
 
 @db0.memo
 class TestSelfInsert():
+    __test__ = False
     def __init__(self, v, index):
         index.add(v, db0.materialized(self))
 

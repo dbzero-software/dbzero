@@ -57,5 +57,9 @@ namespace db0
     Snapshot &Snapshot::getHeadWorkspace() const {
         return const_cast<Snapshot &>(*this);
     }
+
+    std::optional<AccessType> Snapshot::tryGetAccessType() const {
+        return std::nullopt;
+    }
     
 }

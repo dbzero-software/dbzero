@@ -5,6 +5,7 @@ from .conftest import DB0_DIR
 
 @db0.memo(singleton=True)
 class TestDynScopedSingleton:
+    __test__ = False
     def __init__(self, prefix=None, value=None):
         db0.set_prefix(self, prefix)
         self.value = value
