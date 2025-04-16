@@ -13,8 +13,6 @@
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/workspace/Fixture.hpp>
-#include <dbzero/object_model/pandas/Block.hpp>
-#include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
 #include <dbzero/bindings/python/types/DateTime.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
@@ -175,23 +173,6 @@ namespace db0::python
     
     bool PyToolkit::isObjectExpired(db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
         return !Object::checkUnloadStem(fixture, address);
-    }
-    
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadBlock(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
-    {
-        // try pulling from cache first
-        auto &lang_cache = fixture->getLangCache();
-        auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
-            // return from cache
-            return object_ptr;
-        }
-
-        auto block_object = BlockDefaultObject_new();
-        // retrieve actual dbzero instance        
-        db0::object_model::pandas::Block::unload(&(block_object.get())->modifyExt(), fixture, address);
-        lang_cache.add(address, block_object.get());
-        return shared_py_cast<PyObject*>(std::move(block_object));
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, std::uint64_t address)

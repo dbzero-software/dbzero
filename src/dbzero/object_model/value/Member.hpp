@@ -12,7 +12,6 @@
 #include <dbzero/core/serialization/string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
-#include <dbzero/object_model/pandas/Block.hpp>
 #include <dbzero/object_model/set/Set.hpp>
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>

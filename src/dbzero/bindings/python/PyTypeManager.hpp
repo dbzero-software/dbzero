@@ -55,7 +55,6 @@ namespace db0::python
         using Tuple = db0::object_model::Tuple;
         using Dict = db0::object_model::Dict;
         using TagSet = db0::object_model::TagSet;
-        using PandasBlock = db0::object_model::pandas::Block;
         using Index = db0::object_model::Index;
         using ObjectIterable = db0::object_model::ObjectIterable;
         using EnumValue = db0::object_model::EnumValue;
@@ -115,12 +114,6 @@ namespace db0::python
         ObjectPtr getClassNotFoundError() const;
         ObjectPtr getReferenceError() const;
         
-        /**
-         * Extracts reference to DB0 Block
-        */
-        const PandasBlock &extractBlock(ObjectPtr memo_ptr) const;
-        PandasBlock &extractMutableBlock(ObjectPtr memo_ptr) const;
-
         /**
          * Called with each new memo type
         */
