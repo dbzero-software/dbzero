@@ -128,6 +128,11 @@ namespace db0::object_model
         ObjectIterable &makeNew(void *at_ptr, std::unique_ptr<QueryIterator> &&, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {}) const;
         
+        // NOTE: ObjectIterable might be related with a specific context / scope (e.g. snapshot)
+        // to prevend context deletion before the query, it's important to attach it
+        // otherwise a segfault might happen when query iterated over, after closing the context
+        void attachContext(ObjectPtr) const;
+        
     protected:
         mutable db0::weak_swine_ptr<Fixture> m_fixture;
         const ClassFactory &m_class_factory;
@@ -139,6 +144,7 @@ namespace db0::object_model
         std::shared_ptr<Class> m_type = nullptr;
         TypeObjectSharedPtr m_lang_type = nullptr;
         const SliceDef m_slice_def = {};
+        mutable ObjectSharedPtr m_lang_context;
         
         // iter constructor
         ObjectIterable(db0::swine_ptr<Fixture>, const ClassFactory &, std::unique_ptr<QueryIterator> &&,

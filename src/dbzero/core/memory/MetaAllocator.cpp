@@ -259,8 +259,7 @@ namespace db0
         */
         FindResult find(std::uint32_t slab_id) 
         {
-            if (slab_id >= nextSlabId()) {
-                assert(false);
+            if (slab_id >= nextSlabId()) {                
                 THROWF(db0::InputException) << "Slab " << slab_id << " does not exist";
             }
             if (m_active_slab == slab_id) {
@@ -715,15 +714,15 @@ namespace db0
     }
     
     std::size_t MetaAllocator::getAllocSize(std::uint64_t address) const
-    {        
+    {
         address = db0::getPhysicalAddress(address);
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             THROWF(db0::InputException) << "Address " << address << " not found (pending deferred free)";
         }
         auto slab_id = m_slab_id_function(address);
-        return m_slab_manager->find(slab_id).m_slab->getAllocSize(address);        
+        return m_slab_manager->find(slab_id).m_slab->getAllocSize(address);
     }
-
+    
     bool MetaAllocator::isAllocated(std::uint64_t address) const
     {        
         address = db0::getPhysicalAddress(address);

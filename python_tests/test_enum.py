@@ -149,7 +149,7 @@ class ColorsEnum:
     pass
 
 
-def test_func(color=ColorsEnum.RED):
+def func_to_test(color=ColorsEnum.RED):
     return color
 
     
@@ -158,16 +158,16 @@ def test_enum_value_as_default_param(db0_fixture):
     This test assures that enum values can be used as default parameters in functions
     which is resovled as enum-value-repr before db0 is initialized
     """
-    assert test_func() == ColorsEnum.RED
-    assert test_func(ColorsEnum.GREEN) == ColorsEnum.GREEN
-    assert test_func(ColorsEnum.BLUE) == ColorsEnum.BLUE
+    assert func_to_test() == ColorsEnum.RED
+    assert func_to_test(ColorsEnum.GREEN) == ColorsEnum.GREEN
+    assert func_to_test(ColorsEnum.BLUE) == ColorsEnum.BLUE
     
     
 def test_enum_value_value_repr_compare(db0_fixture):
     """
     This tests run equal / non-equal comparison between enum values and their repr
     """
-    red_repr = test_func()
+    red_repr = func_to_test()
     assert red_repr == ColorsEnum.RED
     assert ColorsEnum.RED == red_repr
 

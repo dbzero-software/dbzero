@@ -41,6 +41,8 @@ namespace db0
 
         Snapshot &getHeadWorkspace() const override;
         
+        std::optional<AccessType> tryGetAccessType() const override;
+                
     protected:
         friend class Workspace;
 

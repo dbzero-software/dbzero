@@ -173,9 +173,11 @@ namespace db0::python
         if (!PyMemoType_Check(py_type)) {
             THROWF(db0::InternalException) << "Memo type expected for: " << py_type->tp_name << THROWF_END;
         }
-
+        
         // get either curren fixture or a scope-related fixture
-        auto fixture = snapshot.getFixture(MemoTypeDecoration::get(py_type).getFixtureUUID());
+        auto maybe_access_type = snapshot.tryGetAccessType();
+        auto fixture = snapshot.getFixture(MemoTypeDecoration::get(py_type).getFixtureUUID(maybe_access_type), 
+            maybe_access_type);
         return fetchSingletonObject(fixture, py_type);
     }
     
@@ -254,7 +256,7 @@ namespace db0::python
         return fetchObject(fixture, object_id, py_expected_type);
     }
     
-    PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs)
+    PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs, PyObject *context)
     {
         using ObjectIterable = db0::object_model::ObjectIterable;
         using TagIndex = db0::object_model::TagIndex;
@@ -272,6 +274,9 @@ namespace db0::python
         auto iter_obj = PyObjectIterableDefault_new();
         ObjectIterable::makeNew(&(iter_obj.get())->modifyExt(), fixture, std::move(query_iterator), type,
             lang_type, std::move(query_observers));
+        if (context) {
+            (iter_obj.get())->ext().attachContext(context);
+        }
         return iter_obj.steal();
     }
     

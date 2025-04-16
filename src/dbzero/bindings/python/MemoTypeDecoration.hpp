@@ -10,6 +10,7 @@
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <functional>
 #include <atomic>
+#include <optional>
 
 namespace db0::python
 
@@ -57,7 +58,8 @@ namespace db0::python
         
         // @param access_type to use for opening the prefix if UUID needs to be resolved by name
         // note that read-only access cannot later be upgraded to read-write
-        std::uint64_t getFixtureUUID(AccessType access_type = AccessType::READ_WRITE);
+        // NOTE: if access type is not provided (std::nullopt), then READ_WRITE will be used as the default
+        std::uint64_t getFixtureUUID(std::optional<AccessType> access_type = AccessType::READ_WRITE);
         
         // check if the dyn-prefix callable is set
         bool hasDynPrefix() const;

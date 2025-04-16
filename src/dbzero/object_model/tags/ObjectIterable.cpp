@@ -19,7 +19,7 @@ namespace db0::object_model
         }
         return std::move(sorted_iterator);
     }
-
+    
     using QueryIterator = db0::FT_Iterator<std::uint64_t>;
     std::unique_ptr<QueryIterator> validated(std::unique_ptr<QueryIterator> &&query_iterator)
     {
@@ -379,7 +379,7 @@ namespace db0::object_model
         return *new(at_ptr) ObjectIterable(fixture, m_class_factory, std::move(query_iterator), {},
             m_factory, std::move(query_observers), std::move(_filters), m_type, m_lang_type.get(), m_slice_def);
     }
-
+    
     std::size_t ObjectIterable::getSize() const
     {
         if (isNull()) {
@@ -404,6 +404,10 @@ namespace db0::object_model
             }        
         }
         return result;
+    }
+
+    void ObjectIterable::attachContext(ObjectPtr lang_context) const {
+        m_lang_context = lang_context;
     }
 
 }

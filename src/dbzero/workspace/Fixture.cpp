@@ -555,7 +555,6 @@ namespace db0
         list.push_back(std::move(callback));
     }
 
-
     Fixture::StateReachedCallbackList Fixture::collectStateReachedCallbacks()
     {
         auto prefix_ptr = getPrefixPtr();
@@ -573,7 +572,7 @@ namespace db0
         }
         return result_callbacks;
     }
-
+    
     void Fixture::executeStateReachedCallbacks(const StateReachedCallbackList &callbacks)
     {
         // Notify state number observers

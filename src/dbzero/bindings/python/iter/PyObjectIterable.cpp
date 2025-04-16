@@ -65,6 +65,8 @@ namespace db0::python
     
     PyObject *tryPyAPI_PyObjectIterable_iter(PyObjectIterable *py_iterable)
     {
+        // getFixture to prevent segfault in case the associated context (e.g. snapshot) has been destroyed
+        auto fixture = py_iterable->ext().getFixture();
         auto py_iter = PyObjectIteratorDefault_new();
         py_iterable->ext().makeIter(&(py_iter.get()->modifyExt()));
         return py_iter.steal();
@@ -76,7 +78,10 @@ namespace db0::python
         return runSafe(tryPyAPI_PyObjectIterable_iter, py_iterable);
     }
     
-    Py_ssize_t tryPyObjectIterable_len(PyObjectIterable *py_iterable) {
+    Py_ssize_t tryPyObjectIterable_len(PyObjectIterable *py_iterable)
+    {
+        // getFixture to prevent segfault in case the associated context (e.g. snapshot) has been destroyed
+        auto fixture = py_iterable->ext().getFixture();
         return py_iterable->ext().getSize();
     }
 
@@ -156,7 +161,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryPyObjectIterable_GetItemSlice, py_iterable, py_elem);
     }
-
+    
     static PyMappingMethods PyObjectIterable_as_mapping = {
         .mp_length = (lenfunc)PyAPI_PyObjectIterable_len,
         .mp_subscript = (binaryfunc)PyAPI_PyObjectIterable_GetItemSlice
@@ -171,7 +176,7 @@ namespace db0::python
     
     PyTypeObject PyObjectIterableType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "dbzero_ce.ObjectIterable",
+        .tp_name = "ObjectIterable",
         .tp_basicsize = PyObjectIterable::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObjectIterable_del,
@@ -192,7 +197,7 @@ namespace db0::python
     PyObject *PyAPI_find(PyObject *, PyObject* const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
-        return runSafe(findIn, PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
+        return runSafe(findIn, PyToolkit::getPyWorkspace().getWorkspace(), args, nargs, nullptr);
     }
-
+    
 }
