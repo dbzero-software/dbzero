@@ -43,8 +43,8 @@ namespace db0::object_model
        DB0_TUPLE = 17,
        // string value encoded in 64 bits
        STR64 = 18,
-       DB0_BLOCK = 19,
-       DB0_PANDAS_DATAFRAME = 20,
+    //    DB0_BLOCK = 19,
+    //    DB0_PANDAS_DATAFRAME = 20,
        DB0_CLASS = 21,
        DB0_INDEX = 22,
        DB0_BYTES = 23,
@@ -92,8 +92,6 @@ namespace db0::object_model
         DB0_TUPLE = static_cast<int>(PreStorageClass::DB0_TUPLE),
         // string value encoded in 64 bits
         STR64 = static_cast<int>(PreStorageClass::STR64),
-        DB0_BLOCK = static_cast<int>(PreStorageClass::DB0_BLOCK),
-        DB0_PANDAS_DATAFRAME = static_cast<int>(PreStorageClass::DB0_PANDAS_DATAFRAME),
         DB0_CLASS = static_cast<int>(PreStorageClass::DB0_CLASS),
         DB0_INDEX = static_cast<int>(PreStorageClass::DB0_INDEX),
         DB0_BYTES = static_cast<int>(PreStorageClass::DB0_BYTES),

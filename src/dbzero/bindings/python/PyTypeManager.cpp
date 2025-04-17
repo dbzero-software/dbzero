@@ -12,8 +12,6 @@
 #include <dbzero/bindings/python/collections/PyByteArray.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
-#include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
-#include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
 #include <dbzero/bindings/python/PyTagSet.hpp>
 #include <dbzero/bindings/python/PyWeakProxy.hpp>
 #include <dbzero/bindings/python/MemoExpiredRef.hpp>
@@ -23,8 +21,6 @@
 #include <dbzero/object_model/set/Set.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/dict/Dict.hpp>
-#include <dbzero/object_model/pandas/Block.hpp>
-#include <dbzero/object_model/pandas/Dataframe.hpp>
 #include <dbzero/object_model/index/Index.hpp>
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/object_model/bytes/ByteArray.hpp>
@@ -90,8 +86,6 @@ namespace db0::python
         addStaticdbzeroType(&PyEnumValueType, TypeId::DB0_ENUM_VALUE);
         addStaticdbzeroType(&PyEnumValueReprType, TypeId::DB0_ENUM_VALUE_REPR);
         addStaticdbzeroType(&PyFieldDefType, TypeId::DB0_FIELD_DEF);
-        addStaticdbzeroType(&PandasBlockObjectType, TypeId::DB0_BLOCK);
-        addStaticdbzeroType(&PandasDataFrameObjectType, TypeId::DB0_PANDAS_DATAFRAME);
         addStaticdbzeroType(&PyWeakProxyType, TypeId::DB0_WEAK_PROXY);
         addStaticdbzeroType(&MemoExpiredRefType, TypeId::MEMO_EXPIRED_REF);
 
@@ -218,22 +212,6 @@ namespace db0::python
             THROWF(db0::InputException) << "Expected a set object" << THROWF_END;
         }
         return reinterpret_cast<SetObject*>(set_ptr)->modifyExt();
-    }
-
-    const db0::object_model::pandas::Block &PyTypeManager::extractBlock(ObjectPtr memo_ptr) const
-    {
-        if (!PandasBlock_Check(memo_ptr)) {
-            THROWF(db0::InputException) << "Expected a Block object" << THROWF_END;
-        }
-        return reinterpret_cast<const db0::python::PandasBlockObject*>(memo_ptr)->ext();
-    }
-
-    db0::object_model::pandas::Block &PyTypeManager::extractMutableBlock(ObjectPtr py_obj) const
-    {
-        if (!PandasBlock_Check(py_obj)) {
-            THROWF(db0::InputException) << "Expected a Block object" << THROWF_END;
-        }
-        return reinterpret_cast<db0::python::PandasBlockObject*>(py_obj)->modifyExt();
     }
     
     db0::object_model::ByteArray &PyTypeManager::extractMutableByteArray(ObjectPtr py_obj) const

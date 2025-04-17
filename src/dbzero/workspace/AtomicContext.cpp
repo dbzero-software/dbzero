@@ -6,7 +6,6 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/index/Index.hpp>
-#include <dbzero/object_model/pandas/Block.hpp>
 
 namespace db0
 
@@ -19,10 +18,6 @@ namespace db0
         PyToolkit::getTypeManager().extractObject(obj_ptr).detach();
     }
 
-    // DB0_BLOCK specialization
-    template <> void detachObject<TypeId::DB0_BLOCK, PyToolkit>(PyObjectPtr obj_ptr) {
-        PyToolkit::getTypeManager().extractBlock(obj_ptr).detach();
-    }
 
     // DB0_LIST specialization
     template <> void detachObject<TypeId::DB0_LIST, PyToolkit>(PyObjectPtr obj_ptr) {
@@ -54,7 +49,6 @@ namespace db0
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = detachObject<TypeId::MEMO_OBJECT, PyToolkit>;
-        functions[static_cast<int>(TypeId::DB0_BLOCK)] = detachObject<TypeId::DB0_BLOCK, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_LIST)] = detachObject<TypeId::DB0_LIST, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_INDEX)] = detachObject<TypeId::DB0_INDEX, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_SET)] = detachObject<TypeId::DB0_SET, PyToolkit>;
