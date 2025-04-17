@@ -18,8 +18,6 @@
 #include <dbzero/bindings/python/PyWorkspace.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
-#include <dbzero/bindings/python/Pandas/PandasBlock.hpp>
-#include <dbzero/bindings/python/Pandas/PandasDataFrame.hpp>
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
@@ -46,8 +44,6 @@ static PyMethodDef dbzero_methods[] =
     {"tuple", (PyCFunction)&py::PyAPI_makeTuple, METH_FASTCALL, "Create a new dbzero tuple instance"},
     {"set", (PyCFunction)&py::PyAPI_makeSet, METH_FASTCALL, "Create a new dbzero set instance"},
     {"dict", (PyCFunction)&py::PyAPI_makeDict, METH_VARARGS | METH_KEYWORDS, "Create a new dbzero dict instance"},
-    {"block", (PyCFunction)&py::makeBlock, METH_VARARGS | METH_KEYWORDS, "Create a new dbzero pandas block instance"},
-    {"dataframe", (PyCFunction)&py::makeDataFrame, METH_VARARGS | METH_KEYWORDS, "Create a new dbzero pandas dataframe instance"},
     {"bytearray", (PyCFunction)&py::PyAPI_makeByteArray, METH_FASTCALL, "Create a new dbzero bytearray instance"},
     {"get_raw_prefix_of", (PyCFunction)&py::PyAPI_getPrefixOf, METH_VARARGS, "Get prefix name of a specific dbzero object instance"},
     {"get_raw_current_prefix", &py::PyAPI_getCurrentPrefix, METH_VARARGS, "Get current prefix name & UUID as tuple"},
@@ -171,8 +167,6 @@ PyMODINIT_FUNC PyInit_dbzero_ce(void)
         &py::DictObjectType,
         &py::PyObjectTagManagerType, 
         &py::PySnapshotObjectType, 
-        &py::PandasBlockObjectType,
-        &py::PandasDataFrameObjectType,
         &py::PyObjectIterableType,
         &py::PyObjectIteratorType,
         &py::ByteArrayObjectType,

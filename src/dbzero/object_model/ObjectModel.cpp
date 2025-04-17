@@ -7,8 +7,6 @@
 #include <dbzero/object_model/set/Set.hpp>
 #include <dbzero/object_model/dict/Dict.hpp>
 #include <dbzero/object_model/tuple/Tuple.hpp>
-#include <dbzero/object_model/pandas/Block.hpp>
-#include <dbzero/object_model/pandas/Dataframe.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/index/Index.hpp>
@@ -23,9 +21,7 @@ namespace db0::object_model
 {
     
     std::function<void(db0::swine_ptr<Fixture> &, bool is_new, bool read_only, bool is_snapshot)> initializer()
-    {
-        using Block = db0::object_model::pandas::Block;
-        using DataFrame = db0::object_model::pandas::DataFrame;        
+    {       
         using TagIndex = db0::object_model::TagIndex;
         using ClassFactory = db0::object_model::ClassFactory;
         using EnumFactory = db0::object_model::EnumFactory;
@@ -38,7 +34,7 @@ namespace db0::object_model
         return [](db0::swine_ptr<Fixture> &fixture, bool is_new, bool read_only, bool is_snapshot)
         {
             // static GC0 bindings initialization
-            GC0::registerTypes<Class, Object, List, Set, Dict, Tuple, Block, DataFrame, Index, Enum, ByteArray>();
+            GC0::registerTypes<Class, Object, List, Set, Dict, Tuple, Index, Enum, ByteArray>();
             auto &oc = fixture->getObjectCatalogue();
             if (is_new) {
                 assert(!is_snapshot);
