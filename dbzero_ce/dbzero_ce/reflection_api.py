@@ -1,6 +1,7 @@
 from collections import namedtuple
 from enum import Enum
 import itertools
+import pathlib
 import typing
 import dbzero_ce as db0
 import inspect
@@ -142,38 +143,29 @@ class Query:
 
 
 def __import_from_file(file_path):    
-    if not os.path.isfile(file_path) and os.path.isfile(file_path + ".py"):
-        file_path = file_path + ".py"
-    
-    # register parent modules
-    path = file_path
-    has_module = []
-    while path != "":
-        path, tail = os.path.split(path)
-        has_module.append(os.path.isfile(os.path.join(path, "__init__.py")))
-        if path not in sys.path and len(has_module) > 1 and has_module[-2]:
-            sys.path.append(path)
-        if not tail:
-            break
-    
-    file_name = os.path.basename(file_path)
-    module_name, _ = os.path.splitext(file_name)
-    # Load the module from the file path
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    path_obj = pathlib.Path(file_path)
+    spec = importlib.util.spec_from_file_location(path_obj.stem, file_path)
+    assert spec
+    assert spec.loader
     module = importlib.util.module_from_spec(spec)
+    sys.modules[path_obj.stem] = module
     spec.loader.exec_module(module)
     return module
     
     
 def __import_module(module_or_file_name):
     try:
-        return importlib.import_module(module_or_file_name)
+        module = importlib.import_module(module_or_file_name)
+        sys.modules[module_or_file_name] = module
+        return module
     except Exception:
-        return __import_from_file(module_or_file_name)
+        __import_from_file(module_or_file_name)
+        path_obj = pathlib.Path(module_or_file_name)
+        return importlib.import_module(path_obj.stem)
     
     
 def import_model(module_or_file_name):
-    __import_module(module_or_file_name)
+    return __import_module(module_or_file_name)
     
     
 def get_queries(*module_names):
