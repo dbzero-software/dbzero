@@ -147,11 +147,11 @@ namespace db0
         assert(at >= m_address);
         assert(end <= this->m_address + this->size());
         
-        if (end == at) {
-            // no need to track empty ranges
+        if (end == at || m_diffs_overflow) {
+            // no need to track empty ranges or if overflowed
             return;
         }
-
+        
         // check overflow conditions
         if (m_diffs.size() == MAX_DIFF_RANGES || (end - m_address) >= std::numeric_limits<std::uint16_t>::max()) {
             // do not track more diffs as the limit is reached
@@ -216,12 +216,18 @@ namespace db0
         return result;
     }
     
+    std::uint64_t ResourceLock::getAddressOf(const void *ptr) const 
+    {
+        assert(ptr >= m_data.data() && ptr < m_data.data() + m_data.size());
+        return m_address + static_cast<const std::byte*>(ptr) - m_data.data();
+    }
+    
     bool ResourceLock::getDiffs(const void *buf, std::vector<std::uint16_t> &result) const
     {
         if (buf == &m_cow_zero) {
-            return db0::getDiffs(m_data.data(), this->size(), result);
+            return db0::getDiffs(m_data.data(), this->size(), result, 0, {}, &m_diffs);
         } else {
-            return db0::getDiffs(buf, m_data.data(), this->size(), result);
+            return db0::getDiffs(buf, m_data.data(), this->size(), result, 0, {}, &m_diffs);
         }
     }
     
@@ -235,7 +241,7 @@ namespace db0
         if (diff_ranges && diff_ranges->empty()) {
             diff_ranges = nullptr;
         }
-        if (diff_ranges && !diff_ranges->empty()) {
+        if (diff_ranges) {
             prepareDiffRanges(*diff_ranges);
         }
         
@@ -331,10 +337,10 @@ namespace db0
         if (diff_ranges && diff_ranges->empty()) {
             diff_ranges = nullptr;
         }
-        if (diff_ranges && !diff_ranges->empty()) {
+        if (diff_ranges) {
             prepareDiffRanges(*diff_ranges);
         }
-
+        
         assert(size <= std::numeric_limits<std::uint16_t>::max());
         if (!max_diff) {
             // by default flush as diff if less than 75% of the data differs

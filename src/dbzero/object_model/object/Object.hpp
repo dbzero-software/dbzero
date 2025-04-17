@@ -217,6 +217,8 @@ namespace db0::object_model
          * The overloaded incRef implementation is provided to also handle non-fully initialized objects
         */
         void incRef();
+        
+        void decRef();
 
         bool operator==(const Object &other) const;
         

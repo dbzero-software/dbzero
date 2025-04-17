@@ -253,6 +253,8 @@ namespace db0::object_model
         }
         
         // add field to the kv_index
+        // this operation must be registered as the potential silent mutation
+        onSilentMutation();
         XValue xvalue(field_id.getIndex(), storage_class, value);
         auto kv_index_ptr = addKV_First(xvalue);
         if (kv_index_ptr) {
@@ -634,13 +636,20 @@ namespace db0::object_model
     void Object::incRef()
     {
         if (hasInstance()) {
-            super_t::incRef();            
+            super_t::incRef();          
         } else {
             // incRef with the initializer
             m_init_manager.getInitializer(*this).incRef();
         }
     }
     
+    void Object::decRef()
+    {
+        // this operation is a potentially silent mutation
+        onSilentMutation();
+        super_t::decRef();
+    }
+
     bool Object::operator==(const Object &other) const
     {
         if (!hasInstance() || !other.hasInstance()) {
@@ -733,4 +742,13 @@ namespace db0::object_model
         m_flags.set(ObjectOptions::DEFUNCT);
     }
     
+    void Object::onSilentMutation()
+    {
+        if (!m_silent_mutation) {
+            // mark only the 1st byte of the object as modified (forced-diff)
+            modify(0, 1);
+            m_silent_mutation = true;
+        }
+    }
+
 }

@@ -58,7 +58,10 @@ namespace db0
                 std::memcpy(lhs_buffer, m_data.data(), m_lhs_size);
                 m_rhs->setDirty();
                 auto rhs_buffer = m_rhs->getBuffer(m_address + m_lhs_size);
-                std::memcpy(rhs_buffer, m_data.data() + m_lhs_size, m_rhs_size);                
+                std::memcpy(rhs_buffer, m_data.data() + m_lhs_size, m_rhs_size);
+                
+                m_diffs.clear();
+                m_diffs_overflow = false;
                 // reset the dirty flag
                 lock.commit_reset();
             }
@@ -81,7 +84,7 @@ namespace db0
     bool BoundaryLock::tryFlush(FlushMethod flush_method) {
         return _tryFlush(flush_method);
     }
-
+    
     void BoundaryLock::flush() {
         _tryFlush(FlushMethod::full);
     }

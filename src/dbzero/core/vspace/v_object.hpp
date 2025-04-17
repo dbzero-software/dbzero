@@ -169,7 +169,13 @@ namespace db0
         inline c_type &modify() {
             return v_this.modify();
         }
-
+        
+        // Mark specific range as modified
+        // NOTE: even if the range is not updated it will be forced-diff
+        void modify(std::size_t offset, std::size_t size) {
+            v_this.modify(offset, size);
+        }
+        
         inline std::uint64_t getAddress() const {
             return v_this.getAddress();
         }

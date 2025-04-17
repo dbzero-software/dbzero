@@ -125,6 +125,8 @@ namespace db0
                     std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
                 }
                 
+                m_diffs.clear();
+                m_diffs_overflow = false;
                 // reset the dirty flag
                 lock.commit_reset();
             }
@@ -184,9 +186,9 @@ namespace db0
     bool WideLock::getDiffs(const std::byte *&cow_ptr, void *buf, std::size_t size, std::vector<std::uint16_t> &result) const
     {
         if (cow_ptr == &m_cow_zero) {
-            return db0::getDiffs(buf, size, result);
+            return db0::getDiffs(buf, size, result, 0, {}, &m_diffs);
         } else {
-            auto has_diffs = db0::getDiffs(cow_ptr, buf, size, result);
+            auto has_diffs = db0::getDiffs(cow_ptr, buf, size, result, 0, {}, &m_diffs);
             cow_ptr += size;
             return has_diffs;
         }

@@ -232,6 +232,12 @@ namespace db0
             return *reinterpret_cast<ContainerT*>(m_mem_lock.m_buffer);
         }
         
+        void modify(std::size_t offset, std::size_t size)
+        {
+            auto &ref = modify();
+            m_mem_lock.modify((std::byte*)&ref + offset, size);
+        }
+
         const ContainerT& safeRef() const
         {
             assureInitialized();

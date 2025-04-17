@@ -21,7 +21,7 @@ namespace db0
         
         void *modify();
         // mark specific range as forced-dirty
-        void *modify(const void *at, std::size_t size);
+        void modify(void *at, std::size_t size);
         
         inline operator void *() const {
             return m_buffer;

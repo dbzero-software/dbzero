@@ -97,6 +97,9 @@ namespace db0
             return static_cast<std::byte*>(getBuffer()) + address - m_address;
         }
         
+        // Get the address within the ResourceLock's internal buffer
+        std::uint64_t getAddressOf(const void *) const;
+        
         // Try flushing using a specific method
         // @return true if the lock's data has been flushed (or not dirty)
         virtual bool tryFlush(FlushMethod) = 0;
@@ -199,9 +202,9 @@ namespace db0
         std::shared_ptr<ResourceLock> m_cow_lock;
         // the internally managed CoW's buffer
         std::vector<std::byte> m_cow_data;
-        // optional diff-ranges (offset + size)
-        // these ranges are relevant e.g. when marking the "silent" mutations
-        std::vector<std::pair<std::uint16_t, std::uint16_t> > m_diffs;
+        // optional diff-ranges (begin, end)
+        // these ranges are relevant e.g. when tracking the "silent" mutations
+        mutable std::vector<std::pair<std::uint16_t, std::uint16_t> > m_diffs;
         bool m_diffs_overflow = false;
         // special indicator of the zero-fill buffer
         static const std::byte m_cow_zero;
