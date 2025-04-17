@@ -35,6 +35,28 @@ namespace tests
         }    
     }
 
+    TEST_F( ResourceLockTest, testCalculateDPDiffWithRanges )
+    {
+        std::vector<std::uint8_t> bytes_1 = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+        std::vector<std::uint8_t> bytes_2 = { 0, 1, 2, 4, 4, 5, 7, 7, 7, 7 };
+        std::vector<std::uint8_t> bytes_3 = { 1, 2, 3, 4, 4, 5, 7, 7, 7, 7 };
+        std::vector<std::pair<std::uint16_t, std::uint16_t> > diff_ranges {
+            { 1, 2 }, { 1, 2 }, { 7, 10 }
+        };
+
+        {
+            std::vector<std::uint16_t> result;
+            ASSERT_TRUE(getDiffs(bytes_1.data(), bytes_2.data(), bytes_1.size(), result, 128, {}, &diff_ranges));
+            ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 1, 1, 1, 1, 2, 4 }));
+        }
+
+        {
+            std::vector<std::uint16_t> result;
+            ASSERT_TRUE(getDiffs(bytes_1.data(), bytes_3.data(), bytes_1.size(), result, 128, {}, &diff_ranges));
+            ASSERT_EQ(result, (std::vector<std::uint16_t> { 4, 2, 4 }));
+        }    
+    }
+
     TEST_F( ResourceLockTest, testCalculateDPDiffWhenMaxDiffExceeded )
     {
         std::vector<std::uint8_t> bytes_1 = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
@@ -67,7 +89,7 @@ namespace tests
         ASSERT_EQ(result[0], 0);
         ASSERT_EQ(result[1], 0);
     }
-
+    
     TEST_F( ResourceLockTest, testCalculateDPZeroDiff )
     {
         std::vector<std::uint8_t> bytes_1 = { 0, 0, 1, 3, 4, 0, 0, 0, 0, 9 };
@@ -83,6 +105,27 @@ namespace tests
             std::vector<std::uint16_t> result;
             ASSERT_TRUE(getDiffs(bytes_2.data(), bytes_2.size(), result, 128));
             ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 0, 0, 1, 4, 1, 1, 1, 1 }));
+        }
+    }
+
+    TEST_F( ResourceLockTest, testCalculateDPZeroDiffWithRanges )
+    {
+        std::vector<std::uint8_t> bytes_1 = { 0, 0, 1, 3, 4, 0, 0, 0, 0, 9 };
+        std::vector<std::uint8_t> bytes_2 = { 0, 1, 2, 4, 4, 0, 7, 0, 7, 0 };
+        std::vector<std::pair<std::uint16_t, std::uint16_t> > diff_ranges {
+            { 0, 2 }, { 6, 9 }
+        };
+
+        {
+            std::vector<std::uint16_t> result;
+            ASSERT_TRUE(getDiffs(bytes_1.data(), bytes_1.size(), result, 128, {}, &diff_ranges));
+            ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 0, 5, 1, 4 }));
+        }
+        
+        {
+            std::vector<std::uint16_t> result;
+            ASSERT_TRUE(getDiffs(bytes_2.data(), bytes_2.size(), result, 128, {}, &diff_ranges));
+            ASSERT_EQ(result, (std::vector<std::uint16_t> { 0, 0, 5, 1, 3 }));
         }
     }
     
@@ -101,6 +144,29 @@ namespace tests
         ASSERT_TRUE(getDiffs(bytes_2.data(), bytes_2.size(), result));
         ASSERT_EQ(result[0], 0);
         ASSERT_EQ(result[1], 0);
+    }
+
+    TEST_F( ResourceLockTest, testPrepareDiffRanges )
+    {
+        std::vector<std::pair<std::uint16_t, std::uint16_t>> diff_ranges_1 = {
+            { 0, 1 }, { 2, 4 }, { 3, 8 }, { 0, 1 }
+        };
+        std::vector<std::pair<std::uint16_t, std::uint16_t>> expected_1 = {
+            { 0, 1 }, { 2, 8 }
+        };
+
+        db0::prepareDiffRanges(diff_ranges_1);
+        ASSERT_EQ(diff_ranges_1, expected_1);
+
+        std::vector<std::pair<std::uint16_t, std::uint16_t>> diff_ranges_2 = {
+            { 150, 190 }, { 120, 180 }, { 0, 1 }, { 0, 1}, { 0, 1 }, { 1, 13 }, { 12, 20 }, { 0, 1 }, { 33, 50 }
+        };
+        std::vector<std::pair<std::uint16_t, std::uint16_t>> expected_2 = {
+            { 0, 20 }, { 33, 50 }, { 120, 190 }
+        };
+
+        db0::prepareDiffRanges(diff_ranges_2);
+        ASSERT_EQ(diff_ranges_2, expected_2);
     }
 
 }

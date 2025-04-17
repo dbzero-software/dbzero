@@ -66,7 +66,7 @@ namespace db0::object_model
     struct [[gnu::packed]] TypedIndexAddr
     {
         AddressT m_index_address = 0;
-        bindex::type m_type = bindex::empty;
+        bindex::type m_type = bindex::type::empty;
 
         TypedIndexAddr() = default;
 

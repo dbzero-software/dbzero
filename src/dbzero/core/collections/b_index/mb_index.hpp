@@ -68,16 +68,16 @@ namespace db0
          * actual size limit may be greater than SV_SIZE_LIMIT
          * @param memspace location where all index data should be placed
          */
-		MorphingBIndex(Memspace &memspace, bindex::type initial_type = bindex::empty, std::uint32_t SV_SIZE_LIMIT = 48)
+		MorphingBIndex(Memspace &memspace, bindex::type initial_type = bindex::type::empty, std::uint32_t SV_SIZE_LIMIT = 48)
 			: m_memspace_ptr(&memspace)
 			, m_sv_limit(suggestMaxSize(SV_SIZE_LIMIT))
 		{			
-			if (initial_type == bindex::empty) {
-				createNew<bindex::empty>();
-			} else if (initial_type == bindex::sorted_vector) {
-				createNew<bindex::sorted_vector>();
-			} else if (initial_type == bindex::bindex) {
-				createNew<bindex::bindex>();
+			if (initial_type == bindex::type::empty) {
+				createNew<bindex::type::empty>();
+			} else if (initial_type == bindex::type::sorted_vector) {
+				createNew<bindex::type::sorted_vector>();
+			} else if (initial_type == bindex::type::bindex) {
+				createNew<bindex::type::bindex>();
 			} else {
 				assert(false);
 				THROWF(db0::InternalException) << "not allowed as initial morphology:" << initial_type;
@@ -94,7 +94,7 @@ namespace db0
 			: m_memspace_ptr(&memspace)
 			, m_sv_limit(suggestMaxSize(SV_SIZE_LIMIT))
 		{
-		    createNew<bindex::itty>(key);
+		    createNew<bindex::type::itty>(key);
 		}
 		
         MorphingBIndex(MorphingBIndex &&other)
@@ -173,22 +173,22 @@ namespace db0
 			switch (final_size)
 			{
 				case 0:
-					return bindex::empty;
+					return bindex::type::empty;
 
 				case 1:
-					return bindex::itty;
+					return bindex::type::itty;
 
 				case 2:
-					return bindex::array_2;
+					return bindex::type::array_2;
 
 				case 3:
-					return bindex::array_3;
+					return bindex::type::array_3;
 
 				case 4:
-					return bindex::array_4;
+					return bindex::type::array_4;
 
 				default:
-					return (final_size <= m_sv_limit) ? bindex::sorted_vector : bindex::bindex;
+					return (final_size <= m_sv_limit) ? bindex::type::sorted_vector : bindex::type::bindex;
 			}
 		}
 		
@@ -199,7 +199,7 @@ namespace db0
 		{
 			bindex::type index_type = getIndexType();
 			// NOTE: we don't dongrade once type = bindex is reached
-			if (index_type == bindex::bindex) {
+			if (index_type == bindex::type::bindex) {
 				return index_type;
 			}
 			std::size_t final_size = m_interface.size() - key_count;
@@ -213,7 +213,7 @@ namespace db0
 		bindex::type getIndexTypeAfterInsertion(std::size_t unique_count)
         {
 			bindex::type index_type = getIndexType();
-			if (index_type == bindex::bindex) {
+			if (index_type == bindex::type::bindex) {
 				return index_type;
 			}
 			std::size_t final_size = m_interface.size() + unique_count;
@@ -238,25 +238,25 @@ namespace db0
         {
             bindex::type type = getIndexType();
             // if type is either v_bindex or v_sorted_vector then just erase (no morphing)
-            if (type==bindex::bindex || type==bindex::sorted_vector) {
+            if (type==bindex::type::bindex || type==bindex::type::sorted_vector) {
                 return m_interface.erase(item);
             } else {
                 // erase key if it exists in collection
                 if (m_interface.findExisting(item)) {
                     bindex::type type_after_erase = getIndexTypeAfterErase(1u);
-                    if (type_after_erase==bindex::empty) {
+                    if (type_after_erase==bindex::type::empty) {
                         // morph to empty_index (this will erase all elements)
                         morphToEmpty();
-                    } else if (type_after_erase==bindex::itty) {
+                    } else if (type_after_erase==bindex::type::itty) {
                         // morph to itty_index passing 1 element
-                        morphToAndErase<bindex::itty>(item);
-                    } else if (type_after_erase==bindex::array_2) {
+                        morphToAndErase<bindex::type::itty>(item);
+                    } else if (type_after_erase==bindex::type::array_2) {
                         // morph and insert unique
-                        morphToAndErase<bindex::array_2>(item);
-                    } else if (type_after_erase==bindex::array_3) {
-                        morphToAndErase<bindex::array_3>(item);
-                    } else if (type_after_erase==bindex::array_4) {
-                        morphToAndErase<bindex::array_4>(item);
+                        morphToAndErase<bindex::type::array_2>(item);
+                    } else if (type_after_erase==bindex::type::array_3) {
+                        morphToAndErase<bindex::type::array_3>(item);
+                    } else if (type_after_erase==bindex::type::array_4) {
+                        morphToAndErase<bindex::type::array_4>(item);
                     }
                 }
             }
@@ -290,7 +290,7 @@ namespace db0
 
             bindex::type type = getIndexType();
             // if type is either v_bindex or v_sorted_vector then just erase (no morphing)
-            if (type == bindex::bindex || type == bindex::sorted_vector) {
+            if (type == bindex::type::bindex || type == bindex::type::sorted_vector) {
                 return m_interface.bulkErase(begin, end, callback_ptr);
             } else {
                 // count the number of existing keys
@@ -298,7 +298,7 @@ namespace db0
                 // operation only makes sense if there're any elements to remove
                 if (key_count > 0) {
                     bindex::type type_after_erase = getIndexTypeAfterErase(key_count);
-                    if (type_after_erase == bindex::empty) {
+                    if (type_after_erase == bindex::type::empty) {
                         // morph to empty_index (this will erase all elements)
                         morphToEmpty();
 						if (callback_ptr) {
@@ -306,16 +306,16 @@ namespace db0
 								(*callback_ptr)(*it);
 							}
 						}
-                    } else if (type_after_erase==bindex::itty) {
+                    } else if (type_after_erase==bindex::type::itty) {
                         // morph to itty_index passing 1 element
-                        morphToAndErase<bindex::itty>(begin, end, callback_ptr);
-                    } else if (type_after_erase==bindex::array_2) {
+                        morphToAndErase<bindex::type::itty>(begin, end, callback_ptr);
+                    } else if (type_after_erase==bindex::type::array_2) {
                         // morph and insert unique
-                        morphToAndErase<bindex::array_2>(begin, end, callback_ptr);
-                    } else if (type_after_erase==bindex::array_3) {
-                        morphToAndErase<bindex::array_3>(begin, end, callback_ptr);
-                    } else if (type_after_erase==bindex::array_4) {
-                        morphToAndErase<bindex::array_4>(begin, end, callback_ptr);
+                        morphToAndErase<bindex::type::array_2>(begin, end, callback_ptr);
+                    } else if (type_after_erase==bindex::type::array_3) {
+                        morphToAndErase<bindex::type::array_3>(begin, end, callback_ptr);
+                    } else if (type_after_erase==bindex::type::array_4) {
+                        morphToAndErase<bindex::type::array_4>(begin, end, callback_ptr);
                     }
                 }
                 return key_count;
@@ -333,23 +333,23 @@ namespace db0
 			bool result = type_after_insertion > type;
             if (result) {
                 // just morph to variable length collection
-                if (type_after_insertion==bindex::bindex) {
-                    morphTo<bindex::bindex>();
-                } else if (type_after_insertion==bindex::sorted_vector) {
-                    morphTo<bindex::sorted_vector>();
+                if (type_after_insertion==bindex::type::bindex) {
+                    morphTo<bindex::type::bindex>();
+                } else if (type_after_insertion==bindex::type::sorted_vector) {
+                    morphTo<bindex::type::sorted_vector>();
                 } else {
                     // morphing to fixed size collection will require passing elements
-                    if (type_after_insertion==bindex::itty) {
+                    if (type_after_insertion==bindex::type::itty) {
                         // morph to itty_index passing this 1 element
-                        assert(type==bindex::empty);
-                        morphToAndInsert<bindex::itty>(item);
-                    } else if (type_after_insertion==bindex::array_2) {
+                        assert(type==bindex::type::empty);
+                        morphToAndInsert<bindex::type::itty>(item);
+                    } else if (type_after_insertion==bindex::type::array_2) {
                         // morph and insert unique
-                        morphToAndInsert<bindex::array_2>(item);
-                    } else if (type_after_insertion==bindex::array_3) {
-                        morphToAndInsert<bindex::array_3>(item);
-                    } else if (type_after_insertion==bindex::array_4) {
-                        morphToAndInsert<bindex::array_4>(item);
+                        morphToAndInsert<bindex::type::array_2>(item);
+                    } else if (type_after_insertion==bindex::type::array_3) {
+                        morphToAndInsert<bindex::type::array_3>(item);
+                    } else if (type_after_insertion==bindex::type::array_4) {
+                        morphToAndInsert<bindex::type::array_4>(item);
                     } else {
                         assert(false);
                     }
@@ -384,24 +384,24 @@ namespace db0
 			/// only morph when upgrade is necessary, do not degrade type when inserting
 			if (type_after_insertion > type) {
 				// just morph to variable length collection
-				if (type_after_insertion == bindex::bindex) {
-					morphTo<bindex::bindex>();
-				} else if (type_after_insertion == bindex::sorted_vector) {
-					morphTo<bindex::sorted_vector>();
+				if (type_after_insertion == bindex::type::bindex) {
+					morphTo<bindex::type::bindex>();
+				} else if (type_after_insertion == bindex::type::sorted_vector) {
+					morphTo<bindex::type::sorted_vector>();
 				} else {
 					// morphing to fixed size collection will require passing elements
 					std::size_t diff = 0;
-					if (type_after_insertion == bindex::itty) {
+					if (type_after_insertion == bindex::type::itty) {
 						// morph to itty_index passing this 1 element
-						assert(type==bindex::empty);
-						diff = morphToAndInsert<bindex::itty>(begin, end, callback_ptr);
-					} else if (type_after_insertion == bindex::array_2) {
+						assert(type==bindex::type::empty);
+						diff = morphToAndInsert<bindex::type::itty>(begin, end, callback_ptr);
+					} else if (type_after_insertion == bindex::type::array_2) {
 						// morph and insert unique
-						diff = morphToAndInsert<bindex::array_2>(begin, end, callback_ptr);
-					} else if (type_after_insertion==bindex::array_3) {
-						diff = morphToAndInsert<bindex::array_3>(begin, end, callback_ptr);
-					} else if (type_after_insertion==bindex::array_4) {
-						diff = morphToAndInsert<bindex::array_4>(begin, end, callback_ptr);
+						diff = morphToAndInsert<bindex::type::array_2>(begin, end, callback_ptr);
+					} else if (type_after_insertion==bindex::type::array_3) {
+						diff = morphToAndInsert<bindex::type::array_3>(begin, end, callback_ptr);
+					} else if (type_after_insertion==bindex::type::array_4) {
+						diff = morphToAndInsert<bindex::type::array_4>(begin, end, callback_ptr);
 					} else {
 						assert(false);
 					}
@@ -562,39 +562,39 @@ namespace db0
         {
 			bindex::type index_type = getIndexType();
 			switch (index_type) {
-				case bindex::empty : {
+				case bindex::type::empty : {
 					return joinable_const_iterator(
-					    nullIteratorRef<bindex::empty>(), m_interface.beginJoin(direction));
+					    nullIteratorRef<bindex::type::empty>(), m_interface.beginJoin(direction));
 				}
 					break;
-				case bindex::itty : {
+				case bindex::type::itty : {
 					return joinable_const_iterator(
-					    nullIteratorRef<bindex::itty>(), m_interface.beginJoin(direction));
+					    nullIteratorRef<bindex::type::itty>(), m_interface.beginJoin(direction));
 				}
 					break;
-				case bindex::array_2 : {
+				case bindex::type::array_2 : {
 					return joinable_const_iterator(
-					    nullIteratorRef<bindex::array_2>(), m_interface.beginJoin(direction));
+					    nullIteratorRef<bindex::type::array_2>(), m_interface.beginJoin(direction));
 				}
 					break;
-				case bindex::array_3 : {
+				case bindex::type::array_3 : {
 					return joinable_const_iterator(
-					    nullIteratorRef<bindex::array_3>(), m_interface.beginJoin(direction));
+					    nullIteratorRef<bindex::type::array_3>(), m_interface.beginJoin(direction));
 				}
 					break;
-				case bindex::array_4 : {
+				case bindex::type::array_4 : {
 					return joinable_const_iterator(
-					    nullIteratorRef<bindex::array_4>(), m_interface.beginJoin(direction));
+					    nullIteratorRef<bindex::type::array_4>(), m_interface.beginJoin(direction));
 				}
 					break;
-				case bindex::sorted_vector : {
+				case bindex::type::sorted_vector : {
 					return joinable_const_iterator(
-					    nullIteratorRef<bindex::sorted_vector>(), m_interface.beginJoin(direction));
+					    nullIteratorRef<bindex::type::sorted_vector>(), m_interface.beginJoin(direction));
 				}
 					break;
-				case bindex::bindex : {
+				case bindex::type::bindex : {
 					return joinable_const_iterator(
-					    nullIteratorRef<bindex::bindex>(), m_interface.beginJoin(direction));
+					    nullIteratorRef<bindex::type::bindex>(), m_interface.beginJoin(direction));
 				}
 					break;
 				default :
@@ -649,13 +649,13 @@ namespace db0
         /**
          * Create as specific morphology
          */
-        template <bindex::type I = bindex::empty, typename... T> void createNew(T&&... args) 
+        template <bindex::type I = bindex::type::empty, typename... T> void createNew(T&&... args) 
         {
             if (!isNull()) {
                 THROWF(db0::InternalException) 
 					<< "createNew can only be called on null instance of " << typeid(*this).name();
             }
-            m_morph.template create<I>(*m_memspace_ptr, std::forward<T>(args)...);
+            m_morph.template create<(int)I>(*m_memspace_ptr, std::forward<T>(args)...);
             m_interface = m_morph.getInterface();
         }
 
@@ -668,7 +668,7 @@ namespace db0
                 THROWF(db0::InternalException) 
 					<< "openExisting can only be called on null instance of " << typeid(*this).name();
             }
-            m_morph.template create<I>(std::make_pair(m_memspace_ptr, addr));
+            m_morph.template create<(int)I>(std::make_pair(m_memspace_ptr, addr));
             m_interface = m_morph.getInterface();
         }
 		
@@ -678,32 +678,32 @@ namespace db0
         void openExisting(AddrT addr, bindex::type index_type) 
         {
             switch (index_type) {
-                case bindex::empty : {
-                    openExisting<bindex::empty>(addr);
+                case bindex::type::empty : {
+                    openExisting<bindex::type::empty>(addr);
                 }
                     break;
-                case bindex::itty : {
-                    openExisting<bindex::itty>(addr);
+                case bindex::type::itty : {
+                    openExisting<bindex::type::itty>(addr);
                 }
                     break;
-                case bindex::array_2 : {
-                    openExisting<bindex::array_2>(addr);
+                case bindex::type::array_2 : {
+                    openExisting<bindex::type::array_2>(addr);
                 }
                     break;
-                case bindex::array_3 : {
-                    openExisting<bindex::array_3>(addr);
+                case bindex::type::array_3 : {
+                    openExisting<bindex::type::array_3>(addr);
                 }
                     break;
-                case bindex::array_4 : {
-                    openExisting<bindex::array_4>(addr);
+                case bindex::type::array_4 : {
+                    openExisting<bindex::type::array_4>(addr);
                 }
                     break;
-                case bindex::sorted_vector : {
-                    openExisting<bindex::sorted_vector>(addr);
+                case bindex::type::sorted_vector : {
+                    openExisting<bindex::type::sorted_vector>(addr);
                 }
                     break;
-                case bindex::bindex : {
-                    openExisting<bindex::bindex>(addr);
+                case bindex::type::bindex : {
+                    openExisting<bindex::type::bindex>(addr);
                 }
                     break;
                 default : {
@@ -716,8 +716,8 @@ namespace db0
 		/**
          * Helper member to provide null reference for type enum
          */
-		template <int I> static typename std::tuple_element<I, iterator_types>::type &nullIteratorRef() {
-			return *reinterpret_cast<typename std::tuple_element<I, iterator_types>::type*>(0);
+		template <bindex::type I> static typename std::tuple_element<(int)I, iterator_types>::type &nullIteratorRef() {
+			return *reinterpret_cast<typename std::tuple_element<(int)I, iterator_types>::type*>(0);
 		}
 
 		/**
@@ -752,7 +752,7 @@ namespace db0
         {
             bindex::type index_type = getIndexType();
             // make sure this is NOT performed on sorted_vector or bindex
-            if (index_type==bindex::sorted_vector || index_type==bindex::bindex) {
+            if (index_type==bindex::type::sorted_vector || index_type==bindex::type::bindex) {
                 assert(false);
                 THROWF(db0::InternalException) << "Operation not allowed";
             }
@@ -774,7 +774,7 @@ namespace db0
 		std::size_t morphToAndInsert(InputIterator begin, InputIterator end, CallbackT *callback_ptr = nullptr)
         {			
 			// make sure this is NOT performed on sorted_vector or bindex
-			assert(getIndexType() != bindex::sorted_vector && getIndexType() != bindex::bindex);
+			assert(getIndexType() != bindex::type::sorted_vector && getIndexType() != bindex::type::bindex);
 
 			item_t data[4];
 			item_t *placeholder = data;
@@ -807,24 +807,34 @@ namespace db0
             m_interface.destroy(*m_memspace_ptr);
             // .. and forward all items retained to new collection type (morph)
             switch (getIndexType()) {
-                case bindex::empty : {
-                    m_interface = m_morph.template morphTo<T, bindex::empty>(*m_memspace_ptr, begin, end);
+                case bindex::type::empty : {
+                    m_interface = m_morph.template morphTo<(int)T, (int)bindex::type::empty>(
+						*m_memspace_ptr, begin, end
+					);
                 }
                     break;
-                case bindex::itty : {
-                    m_interface = m_morph.template morphTo<T, bindex::itty>(*m_memspace_ptr, begin, end);
+                case bindex::type::itty : {
+                    m_interface = m_morph.template morphTo<(int)T, (int)bindex::type::itty>(
+						*m_memspace_ptr, begin, end
+					);
                 }
                     break;
-                case bindex::array_2 : {
-                    m_interface = m_morph.template morphTo<T, bindex::array_2>(*m_memspace_ptr, begin, end);
+                case bindex::type::array_2 : {
+                    m_interface = m_morph.template morphTo<(int)T, (int)bindex::type::array_2>(
+						*m_memspace_ptr, begin, end
+					);
                 }
                     break;
-                case bindex::array_3 : {
-                    m_interface = m_morph.template morphTo<T, bindex::array_3>(*m_memspace_ptr, begin, end);
+                case bindex::type::array_3 : {
+                    m_interface = m_morph.template morphTo<(int)T, (int)bindex::type::array_3>(
+						*m_memspace_ptr, begin, end
+					);
                 }
                     break;
-                case bindex::array_4 : {
-                    m_interface = m_morph.template morphTo<T, bindex::array_4>(*m_memspace_ptr, begin, end);
+                case bindex::type::array_4 : {
+                    m_interface = m_morph.template morphTo<(int)T, (int)bindex::type::array_4>(
+						*m_memspace_ptr, begin, end
+					);
                 }
                     break;
                 default :
@@ -836,7 +846,7 @@ namespace db0
         {
             bindex::type index_type = getIndexType();
             // make sure this is NOT performed on sorted_vector or bindex
-            if (index_type==bindex::sorted_vector || index_type==bindex::bindex) {
+            if (index_type==bindex::type::sorted_vector || index_type==bindex::type::bindex) {
                 assert(false);
                 THROWF(db0::InternalException) << "Operation not allowed";
             }
@@ -871,7 +881,7 @@ namespace db0
 			}
 
 			// make sure this is NOT performed on sorted_vector or bindex
-			assert(getIndexType() != bindex::sorted_vector && getIndexType() != bindex::bindex);
+			assert(getIndexType() != bindex::type::sorted_vector && getIndexType() != bindex::type::bindex);
 
 			item_t data[4];
 			item_t final_data[4];
@@ -906,18 +916,18 @@ namespace db0
 			m_interface.destroy(memspace);
 			bindex::type index_type = getIndexType();
 			// morph to empty_index (all data will be erased)
-			if (index_type==bindex::bindex) {
-				m_interface = m_morph.template morphTo<bindex::empty, bindex::bindex>(memspace);
-			} else if (index_type==bindex::sorted_vector) {
-				m_interface = m_morph.template morphTo<bindex::empty, bindex::sorted_vector>(memspace);
-			} else if (index_type==bindex::itty) {
-				m_interface = m_morph.template morphTo<bindex::empty, bindex::itty>(memspace);
-			} else if (index_type==bindex::array_2) {
-				m_interface = m_morph.template morphTo<bindex::empty, bindex::array_2>(memspace);
-			} else if (index_type==bindex::array_3) {
-				m_interface = m_morph.template morphTo<bindex::empty, bindex::array_3>(memspace);
-			} else if (index_type==bindex::array_4) {
-				m_interface = m_morph.template morphTo<bindex::empty, bindex::array_4>(memspace);
+			if (index_type == bindex::type::bindex) {
+				m_interface = m_morph.template morphTo<(int)bindex::type::empty, (int)bindex::type::bindex>(memspace);
+			} else if (index_type == bindex::type::sorted_vector) {
+				m_interface = m_morph.template morphTo<(int)bindex::type::empty, (int)bindex::type::sorted_vector>(memspace);
+			} else if (index_type == bindex::type::itty) {
+				m_interface = m_morph.template morphTo<(int)bindex::type::empty, (int)bindex::type::itty>(memspace);
+			} else if (index_type == bindex::type::array_2) {
+				m_interface = m_morph.template morphTo<(int)bindex::type::empty, (int)bindex::type::array_2>(memspace);
+			} else if (index_type == bindex::type::array_3) {
+				m_interface = m_morph.template morphTo<(int)bindex::type::empty, (int)bindex::type::array_3>(memspace);
+			} else if (index_type == bindex::type::array_4) {
+				m_interface = m_morph.template morphTo<(int)bindex::type::empty, (int)bindex::type::array_4>(memspace);
 			}
 		}
 
@@ -929,32 +939,32 @@ namespace db0
         {
 			Memspace &memspace = *m_memspace_ptr;
 			bindex::type index_type = getIndexType();
-			if (index_type==bindex::bindex) {
+			if (index_type == bindex::type::bindex) {
 				THROWF(db0::InternalException) << "Unable to morph from v_bindex (downgrade not supported)";
-			} else if (index_type==bindex::sorted_vector) {
+			} else if (index_type==bindex::type::sorted_vector) {
 				// copy from sorted vector (create bindex by copy)
 				auto old_interface = m_interface;
 				auto old_instance = m_morph.getInstance();
-				m_interface = m_morph.template morphToWithCopy<T, bindex::sorted_vector>();
+				m_interface = m_morph.template morphToWithCopy<(int)T, (int)bindex::type::sorted_vector>();
 				// destroy v-space instance
 				old_interface.destroy(memspace);
-			} else if (index_type==bindex::empty) {
+			} else if (index_type==bindex::type::empty) {
 				// create empty v_bindex
-				m_interface = m_morph.template morphTo<T, bindex::empty>(memspace);
+				m_interface = m_morph.template morphTo<(int)T, (int)bindex::type::empty>(memspace);
 			} else {
 				item_t data[4];
 				// pull all data from existing collection (max. 4 items)
 				std::size_t size = m_interface.copyAll(data);
 				// destroy existing v-space instance as new will be created right next
 				m_interface.destroy(memspace);
-				if (index_type==bindex::itty) {
-					m_interface = m_morph.template morphTo<T, bindex::itty>(memspace, data, data + size);
-				} else if (index_type==bindex::array_2) {
-					m_interface = m_morph.template morphTo<T, bindex::array_2>(memspace, data, data + size);
-				} else if (index_type==bindex::array_3) {
-					m_interface = m_morph.template morphTo<T, bindex::array_3>(memspace, data, data + size);
-				} else if (index_type==bindex::array_4) {
-					m_interface = m_morph.template morphTo<T, bindex::array_4>(memspace, data, data + size);
+				if (index_type == bindex::type::itty) {
+					m_interface = m_morph.template morphTo<(int)T, (int)bindex::type::itty>(memspace, data, data + size);
+				} else if (index_type == bindex::type::array_2) {
+					m_interface = m_morph.template morphTo<(int)T, (int)bindex::type::array_2>(memspace, data, data + size);
+				} else if (index_type == bindex::type::array_3) {
+					m_interface = m_morph.template morphTo<(int)T, (int)bindex::type::array_3>(memspace, data, data + size);
+				} else if (index_type == bindex::type::array_4) {
+					m_interface = m_morph.template morphTo<(int)T, (int)bindex::type::array_4>(memspace, data, data + size);
 				} else {
 					assert(false);
 				}

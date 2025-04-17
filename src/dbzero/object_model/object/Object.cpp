@@ -262,7 +262,7 @@ namespace db0::object_model
                 unrefMember(*fixture, old_value);
                 // in case of the IttyIndex updating an element changes the address
                 // which needs to be updated in the object
-                if (kv_index_ptr->getIndexType() == bindex::itty) {
+                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
                     modify().m_kv_address = kv_index_ptr->getAddress();
                 }
             } else {
@@ -685,8 +685,10 @@ namespace db0::object_model
             m_kv_index->commit();
         }
         super_t::commit();
+        // reset the silent-mutation flag
+        m_silent_mutation = false;
     }
-
+    
     void Object::unrefMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value) const {
         db0::object_model::unrefMember<LangToolkit>(fixture, type, value);
     }

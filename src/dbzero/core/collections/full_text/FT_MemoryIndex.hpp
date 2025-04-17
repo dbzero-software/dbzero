@@ -41,7 +41,7 @@ namespace db0
         }
 
         bindex::type getIndexType() const {
-            return bindex::empty;
+            return bindex::type::empty;
         }
         
         // static type ID for serializations

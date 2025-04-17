@@ -249,7 +249,7 @@ namespace db0
                         if (old_map_value != new_map_value) {
                             // Update list ptr in index
                             auto it = index.find(first_item.first);
-                            if (tag_index_ptr->getIndexType() == db0::bindex::empty) {
+                            if (tag_index_ptr->getIndexType() == db0::bindex::type::empty) {
                                 // remove empty inverted list completely
                                 index.erase(it);
                                 // notify callback on index erased

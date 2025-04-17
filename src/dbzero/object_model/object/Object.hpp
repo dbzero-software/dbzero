@@ -40,7 +40,9 @@ namespace db0::object_model
         KV_Address m_kv_address;
         // kv-index type must be stored separately from the address
         bindex::type m_kv_type;
-        
+        // reserved for future purposes (e.g. instance flags)
+        std::uint8_t m_reserved = 0;
+
         PosVT &pos_vt();
 
         const PosVT &pos_vt() const;
@@ -246,7 +248,7 @@ namespace db0::object_model
         inline bool isDefunct() const {
             return m_flags.test(ObjectOptions::DEFUNCT);
         }
-
+        
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
@@ -254,6 +256,10 @@ namespace db0::object_model
         mutable std::unique_ptr<KV_Index> m_kv_index;
         static thread_local ObjectInitializerManager m_init_manager;        
         mutable ObjectFlags m_flags;
+        // A flag indicating that object's silent mutation has already been reflected
+        // with the underlying MemLock / ResourceLock
+        // NOTE: by silent mutation we mean a mutation that does not change data (e.g. +refcount(+-1) + (refcount-1))
+        mutable bool m_silent_mutation = false;
         
         Object();
         Object(std::shared_ptr<Class>);
@@ -301,7 +307,10 @@ namespace db0::object_model
         // Retrieve a type by class-ref with a possible match (type_hint)
         static std::shared_ptr<Class> getTypeWithHint(const Fixture &, std::uint32_t class_ref, std::shared_ptr<Class> type_hint);
         
-        bool hasValidClassRef() const;              
+        bool hasValidClassRef() const;
+
+        // the member called to indicate the potentially silent mutation
+        void onSilentMutation();
     };
     
 }

@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cassert>
 #include <functional>
+#include <optional>
 #include <limits>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/serialization/mu_store.hpp>
@@ -39,12 +40,19 @@ namespace db0
     // NOTE that the leading elements 0, 0 indicate the 0-filled base buffer
     // @param max_diff the maximum acceptable diff in bytes (0 for default = size / 2)
     // @param max_size the maximum number of diff areas allowed to be stored in the result
+    // @param diff_ranges optional forced diff-ranges collected by the ResourceLock
     // @return false if the total volume of diff areas exceeds 50% threshold
     bool getDiffs(const void *, const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
-        std::size_t max_size = std::numeric_limits<std::uint16_t>::max());
+        std::optional<std::size_t> max_size = std::numeric_limits<std::uint16_t>::max(),
+        std::vector<std::pair<std::uint16_t, std::uint16_t>> *diff_ranges = nullptr);
+    
     // the getDiffs version comparing to all-zero buffer
     bool getDiffs(const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
-        std::size_t max_size = std::numeric_limits<std::uint16_t>::max());
+        std::optional<std::size_t> max_size = std::numeric_limits<std::uint16_t>::max(),
+        std::vector<std::pair<std::uint16_t, std::uint16_t>> *diff_ranges = nullptr);
+    
+    // Sort, de-duplicate and merge diff-ranges
+    void prepareDiffRanges(std::vector<std::pair<std::uint16_t, std::uint16_t>> &);
     
     /**
      * A ResourceLock is the foundation class for DP_Lock and BoundaryLock implementations    
@@ -56,6 +64,9 @@ namespace db0
     class ResourceLock: public std::enable_shared_from_this<ResourceLock>
     {
     public:
+        // the limit of forced diff-ranges per ResourceLock
+        static constexpr std::size_t MAX_DIFF_RANGES = 64;
+
         /**
          * @param storage_context
          * @param address the starting address in the storage
@@ -98,7 +109,7 @@ namespace db0
         virtual void flush() = 0;
 
         /**
-         * Clear the 'dirty' flag if it has been set, clear the MU-store
+         * Clear the 'dirty' flag if it has been set, clear diffs
          * @return true if the flag was set
         */
         bool resetDirtyFlag();
@@ -115,8 +126,13 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_RECYCLED;
         }
         
-        // Mark the entire lock as dirty        
+        // Mark lock as dirty without range specification
         void setDirty();
+
+        // Mark a specific range as forced-dirty
+        // it will be assumed dirty even if the data is not changed
+        // the range must fit within the lock's address range
+        void setDirty(std::uint64_t begin, std::uint64_t end);
 
         bool isCached() const;
 
@@ -156,7 +172,7 @@ namespace db0
         // get total memory usage of all ResourceLock instances
         // @return total size in bytes / total count
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
-        virtual bool isBoundaryLock() const = 0;        
+        virtual bool isBoundaryLock() const = 0;
 #endif
         
     protected:
@@ -170,7 +186,7 @@ namespace db0
             db0::RESOURCE_DIRTY,
             db0::RESOURCE_DIRTY,
             db0::RESOURCE_LOCK >;
-
+        
         StorageContext m_context;
         const std::uint64_t m_address;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
@@ -183,6 +199,10 @@ namespace db0
         std::shared_ptr<ResourceLock> m_cow_lock;
         // the internally managed CoW's buffer
         std::vector<std::byte> m_cow_data;
+        // optional diff-ranges (offset + size)
+        // these ranges are relevant e.g. when marking the "silent" mutations
+        std::vector<std::pair<std::uint16_t, std::uint16_t> > m_diffs;
+        bool m_diffs_overflow = false;
         // special indicator of the zero-fill buffer
         static const std::byte m_cow_zero;
         

@@ -5,7 +5,8 @@ namespace db0::bindex
 {
 
     // 4-bit index type
-    enum type {
+    enum class type: std::uint8_t
+    {
         empty  = 0,
         itty = 1 ,
         array_2 = 2 ,
@@ -16,5 +17,5 @@ namespace db0::bindex
         memory = 7,
         unknown = 8
     };
-
+    
 }
