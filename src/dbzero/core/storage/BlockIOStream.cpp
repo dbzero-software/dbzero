@@ -151,7 +151,7 @@ namespace db0
             THROWF(db0::InternalException) << "BlockIOStream unable to append to stream";
         }
         if (m_chunk_left_bytes) {
-            THROWF(db0::InternalException) << "BlockIOStream::beginChunk: chunk is not finished";
+            THROWF(db0::InternalException) << "BlockIOStream::addChunk: chunk is not finished";
         }
         
         write(&chunk_header, chunk_header.sizeOf(), address);

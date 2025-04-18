@@ -52,7 +52,7 @@ namespace db0
     BDevStorage::~BDevStorage()
     {
     }
-
+    
     DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, ChangeLogIOStream &change_log)
     {
         if (dram_io.getAccessType() == AccessType::READ_WRITE) {
@@ -67,6 +67,7 @@ namespace db0
 
     ChangeLogIOStream BDevStorage::init(ChangeLogIOStream &&io)
     {
+        // exhaust the change-log stream (position at the last chunk)
         while (io.readChangeLogChunk());
         return std::move(io);
     }
