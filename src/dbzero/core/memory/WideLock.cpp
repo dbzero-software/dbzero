@@ -53,9 +53,15 @@ namespace db0
     
     void WideLock::resLockFlush()
     {
+        auto &storage = m_context.m_storage_ref.get();
+        // data page size without the residual part
+        auto dp_size = static_cast<std::size_t>(this->size() / storage.getPageSize()) * storage.getPageSize();
+        assert(dp_size > 0);
+        assert(dp_size < this->size());
+        
         m_res_lock->setDirty();
-        auto res_lock_size = m_res_lock->size();
-        std::memcpy(m_res_lock->getBuffer(), m_data.data() + res_lock_size, this->size() - res_lock_size);
+        // copy the residual part only
+        std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
 
         if (!m_diffs.empty()) {
             auto res_begin = m_res_lock->getAddress();
@@ -72,7 +78,7 @@ namespace db0
                     m_res_lock->setDirty(res_begin + range.first, res_begin + range.second);
                 }
             }
-        }
+        }        
     }
 
     bool WideLock::_tryFlush(FlushMethod flush_method)
@@ -210,7 +216,7 @@ namespace db0
         auto offset = static_cast<std::byte*>(buf) - m_data.data();
         if (cow_ptr == &m_cow_zero) {
             return db0::getDiffs(buf, size, result, 0, {}, DiffRangeView(m_diffs, offset, offset + size));
-        } else {
+        } else {            
             auto has_diffs = db0::getDiffs(cow_ptr, buf, size, result, 0, {}, DiffRangeView(m_diffs, offset, offset + size));
             cow_ptr += size;
             return has_diffs;
