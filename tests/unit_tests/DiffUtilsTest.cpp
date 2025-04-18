@@ -167,4 +167,42 @@ namespace tests
         ASSERT_EQ(DiffRange(diff_ranges_2).getData(), expected_2);
     }
 
+    TEST_F( DiffUtilsTest, testDiffRangeView )
+    {
+        DiffRange diff_ranges(std::vector<std::pair<std::uint16_t, std::uint16_t>> {
+            { 0, 100 }, { 4090, 4200 }, { 900, 1024 }, { 2000, 3000 }, { 5111, 9000 } }
+        );
+
+        auto get_data = [&](const DiffRangeView &view) {
+            std::vector<std::pair<std::uint16_t, std::uint16_t>> result;
+            for (std::size_t i = 0; i < view.size(); ++i) {
+                result.push_back(view[i]);
+            }
+            return result;
+        };
+        
+        DiffRangeView view(diff_ranges, 0, 100);
+        ASSERT_EQ(get_data(view), (std::vector<std::pair<std::uint16_t, std::uint16_t>> { { 0, 100 } }));
+
+        view = DiffRangeView(diff_ranges, 0, 2000);
+        ASSERT_EQ((get_data(view)), (std::vector<std::pair<std::uint16_t, std::uint16_t>> { 
+            { 0, 100 }, { 900, 1024 } })
+        );
+        
+        view = DiffRangeView(diff_ranges, 0, 4090);
+        ASSERT_EQ((get_data(view)), (std::vector<std::pair<std::uint16_t, std::uint16_t>> { 
+            { 0, 100 }, { 900, 1024 }, { 2000, 3000 } })
+        );
+
+        view = DiffRangeView(diff_ranges, 0, 5200);
+        ASSERT_EQ((get_data(view)), (std::vector<std::pair<std::uint16_t, std::uint16_t>> { 
+            { 0, 100 }, { 900, 1024 }, { 2000, 3000 }, { 4090, 4200 }, { 5111, 5200 } })
+        );
+
+        view = DiffRangeView(diff_ranges, 4096, 8192);
+        ASSERT_EQ((get_data(view)), (std::vector<std::pair<std::uint16_t, std::uint16_t>> {
+            { 4096 - 4096, 4200 - 4096 }, { 5111 - 4096, 8192 - 4096 } })
+        );        
+    }
+    
 }

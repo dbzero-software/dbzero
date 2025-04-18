@@ -47,6 +47,8 @@ namespace db0
         std::shared_ptr<DP_Lock> m_res_lock;
         
         bool _tryFlush(FlushMethod);
+        
+        void resLockFlush();
     };
 
 }

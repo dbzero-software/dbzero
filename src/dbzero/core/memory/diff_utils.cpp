@@ -35,49 +35,14 @@ namespace db0
         m_normalized = true;
     }
 
+    bool DiffRange::empty() const {
+        return m_data.empty() && !m_overflow;
+    }
+
     bool DiffRange::isOverflow() const {
         return m_overflow;
     }
-    
-    DiffRangeView::DiffRangeView(const DiffRange &diff_range)
-        : m_diff_ranges(&diff_range.getData())
-    {
-    }
-    
-    std::size_t DiffRangeView::size() const
-    {
-        if (m_diff_ranges) {
-            return m_diff_ranges->size();
-        }
-        return 0;
-    }
-    
-    std::pair<std::uint16_t, std::uint16_t> DiffRangeView::operator[](std::size_t index) const
-    {
-        if (m_diff_ranges) {
-            assert(index < m_diff_ranges->size());
-            return (*m_diff_ranges)[index];
-        }
-        return { 0, 0 };
-    }
-
-    std::uint16_t DiffRangeView::sizeOf(std::size_t index) const 
-    {
-        if (m_diff_ranges) {
-            assert(index < m_diff_ranges->size());
-            return (*m_diff_ranges)[index].second - (*m_diff_ranges)[index].first;
-        }
-        return 0;
-    }
-
-    bool DiffRangeView::empty() const {
-        return !m_diff_ranges || m_diff_ranges->empty();
-    }
-
-    DiffRangeView::operator bool() const {
-        return m_diff_ranges && !m_diff_ranges->empty();
-    }
-
+        
     const std::vector<std::pair<std::uint16_t, std::uint16_t>> &DiffRange::getData() const
     {
         if (m_overflow) {
@@ -122,6 +87,86 @@ namespace db0
         // remove the rest of the ranges
         m_data.erase(++it, end);
         m_normalized = true;
+    }
+
+    DiffRangeView::DiffRangeView(const DiffRange &diff_range)
+        : m_diff_ranges(&diff_range.getData())
+        , m_size(m_diff_ranges->size())
+    {
+        // cannot create a view of an overflowed range
+        assert(!diff_range.isOverflow());
+    }
+    
+    DiffRangeView::DiffRangeView(const DiffRange &diff_range, std::uint16_t begin, std::uint16_t end)
+        : m_diff_ranges(&diff_range.getData())
+        , m_begin(begin)
+        , m_end(end)
+    {
+        // cannot create a view of an overflowed range
+        assert(!diff_range.isOverflow());
+        if (!m_diff_ranges->empty()) {
+            // using bisect navigate to nearest element
+            auto it_begin = std::lower_bound(m_diff_ranges->begin(), m_diff_ranges->end(), std::make_pair(begin, 0),
+                [](const std::pair<std::uint16_t, std::uint16_t> &a, const std::pair<std::uint16_t, std::uint16_t> &b) {
+                    return a.first < b.first;
+                }
+            );
+            
+            // refine the begin-iterator
+            if (it_begin != m_diff_ranges->begin()) {                
+                // check if the begin range is inside the diff range
+                if ((it_begin - 1)->second > begin) {
+                    --it_begin;
+                }
+            }
+
+            auto it_end = std::lower_bound(it_begin, m_diff_ranges->end(), std::make_pair(end, 0),
+                [](const std::pair<std::uint16_t, std::uint16_t> &a, const std::pair<std::uint16_t, std::uint16_t> &b) {
+                    return a.first < b.first;
+                }
+            );
+            
+            // refine the end-iterator
+            if (it_end != m_diff_ranges->end()) {
+                // check if the end range is inside the diff range
+                if (it_end->first < end) {
+                    ++it_end;
+                }
+            }
+
+            m_offset = std::distance(m_diff_ranges->begin(), it_begin);
+            m_size = std::distance(it_begin, it_end);
+        }
+    }
+    
+    std::pair<std::uint16_t, std::uint16_t> DiffRangeView::operator[](std::size_t index) const
+    {
+        if (m_diff_ranges) {
+            assert(index < m_size);
+            auto result = (*m_diff_ranges)[m_offset + index];
+            return { 
+                std::max(m_begin, result.first) - m_begin, 
+                std::min(m_end, result.second) - m_begin 
+            };
+        }
+        return { 0, 0 };
+    }
+
+    std::uint16_t DiffRangeView::sizeOf(std::size_t index) const 
+    {
+        if (m_diff_ranges) {
+            assert(index < m_size);
+            return (*this)[m_offset + index].second - (*this)[m_offset + index].first;
+        }
+        return 0;
+    }
+
+    bool DiffRangeView::empty() const {
+        return m_size == 0;
+    }
+
+    DiffRangeView::operator bool() const {
+        return m_size != 0;
     }
 
     bool getDiffs(const void *buf_1, const void *buf_2,

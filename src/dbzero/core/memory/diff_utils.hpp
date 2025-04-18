@@ -25,6 +25,8 @@ namespace db0
         const std::vector<std::pair<std::uint16_t, std::uint16_t>> &getData() const;
         
         bool isOverflow() const;
+
+        bool empty() const;
         
     private:
         std::vector<std::pair<std::uint16_t, std::uint16_t>> m_data;
@@ -46,7 +48,13 @@ namespace db0
         // Create a view of the entire range
         DiffRangeView(const DiffRange &);
         
-        std::size_t size() const;
+        // Create a view of the given range (sub-range)
+        // note that the reported sub-ranges will be provided as relative to the provided begin / end
+        DiffRangeView(const DiffRange &, std::uint16_t begin, std::uint16_t end);
+        
+        inline std::size_t size() const {
+            return m_size;
+        }
         
         std::pair<std::uint16_t, std::uint16_t> operator[](std::size_t index) const;
 
@@ -59,7 +67,11 @@ namespace db0
         
     private:
         // the normalized diff ranges
-        const std::vector<std::pair<std::uint16_t, std::uint16_t>> *m_diff_ranges = nullptr;        
+        const std::vector<std::pair<std::uint16_t, std::uint16_t>> *m_diff_ranges = nullptr;
+        std::size_t m_size;
+        std::size_t m_offset = 0;
+        std::uint16_t m_begin = 0;
+        std::uint16_t m_end = std::numeric_limits<std::uint16_t>::max();
     };
     
     // Calculate diff areas between the 2 binary buffers of the same size (e.g. DPs)
