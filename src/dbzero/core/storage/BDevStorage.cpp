@@ -312,15 +312,20 @@ namespace db0
             THROWF(db0::IOException) << "BDevStorage::flush error: read-only stream";
         }
         
-        // check if there're any modifications to be flushed 
+        // check if there're any modifications to be flushed
         if (m_sparse_pair.getChangeLogSize() == 0) {
             // no modifications to be flushed
             return false;
         }
         
+        // save metadata checkpoints before making any updates to the managed streams
+        // NOTE: the checkpoint is only saved after exceeding specific threshold of updates in the managed streams
+        auto state_num = m_sparse_pair.getMaxStateNum();
+        m_meta_io.checkAndAppend(state_num);
+        
         // Extract & flush sparse index change log first (on condition of any updates)
-        m_sparse_pair.extractChangeLog(m_dp_changelog_io);
-        m_dram_io.flushUpdates(m_sparse_pair.getMaxStateNum(), m_dram_changelog_io);
+        m_sparse_pair.extractChangeLog(m_dp_changelog_io);        
+        m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_dp_changelog_io.flush();
         // flush changelog AFTER all updates from dram_io have been flushed
         m_dram_changelog_io.flush();

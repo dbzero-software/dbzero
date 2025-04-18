@@ -127,18 +127,21 @@ namespace db0
         return true;
     }
 
-    void BlockIOStream::flushModified()
+    bool BlockIOStream::flushModified()
     {
-        if (m_modified) {
-            assert(m_access_type == AccessType::READ_WRITE);
-            // calculate combined checksum (data + header)
-            assert(m_block_header.m_next_block_address == m_cs_block_header.m_next_block_address);
-            if (m_checksums_enabled) {
-                m_cs_block_header.m_block_checksum = checksum(m_block_begin, m_block_end) ^ m_cs_block_header.calculateHeaderChecksum();
-            }
-            m_file.write(m_address, m_buffer.size(), m_block_begin);
-            m_modified = false;
+        if (!m_modified) {
+            return false;
         }
+        
+        assert(m_access_type == AccessType::READ_WRITE);
+        // calculate combined checksum (data + header)
+        assert(m_block_header.m_next_block_address == m_cs_block_header.m_next_block_address);
+        if (m_checksums_enabled) {
+            m_cs_block_header.m_block_checksum = checksum(m_block_begin, m_block_end) ^ m_cs_block_header.calculateHeaderChecksum();
+        }
+        m_file.write(m_address, m_buffer.size(), m_block_begin);
+        m_modified = false;
+        return true;
     }
 
     void BlockIOStream::addChunk(o_block_io_chunk_header chunk_header, std::uint64_t *address)
@@ -359,14 +362,14 @@ namespace db0
     }
 
     void BlockIOStream::flush()
-    {
+    {        
         // flush modified block to disk
-        flushModified();
-        if (m_access_type == AccessType::READ_WRITE) {
+        if (flushModified()) {
+            assert(m_access_type == AccessType::READ_WRITE);
             m_file.flush();
         }
     }
-
+    
     void BlockIOStream::close()
     {
         // mark end of the stream with 0-length chunk (unless already at the end of block and stream)

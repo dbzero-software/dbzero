@@ -203,8 +203,9 @@ namespace db0
         
         /**
          * Flush modified block to disk
+         * @return true if any modifications were flushed
         */
-        void flushModified();
+        bool flushModified();
 
         void write(const void *buffer, std::size_t size, std::uint64_t *address = nullptr);
 
