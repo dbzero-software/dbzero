@@ -77,7 +77,7 @@ namespace db0
                 } else {
                     assert(flush_method == FlushMethod::diff);
                     auto cow_ptr = getCowPtr();
-                    if (!cow_ptr) {
+                    if (!cow_ptr || m_diffs.isOverflow()) {
                         // unable to diff-flush (CoW data not available)
                         return false;
                     }
@@ -126,7 +126,6 @@ namespace db0
                 }
                 
                 m_diffs.clear();
-                m_diffs_overflow = false;
                 // reset the dirty flag
                 lock.commit_reset();
             }
@@ -186,12 +185,12 @@ namespace db0
     bool WideLock::getDiffs(const std::byte *&cow_ptr, void *buf, std::size_t size, std::vector<std::uint16_t> &result) const
     {
         if (cow_ptr == &m_cow_zero) {
-            return db0::getDiffs(buf, size, result, 0, {}, &m_diffs);
+            return db0::getDiffs(buf, size, result, 0, {});
         } else {
-            auto has_diffs = db0::getDiffs(cow_ptr, buf, size, result, 0, {}, &m_diffs);
+            auto has_diffs = db0::getDiffs(cow_ptr, buf, size, result, 0, {});
             cow_ptr += size;
             return has_diffs;
         }
     }
-
+    
 }

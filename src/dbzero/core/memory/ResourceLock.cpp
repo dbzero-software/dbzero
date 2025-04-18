@@ -96,8 +96,7 @@ namespace db0
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
-                m_diffs.clear();
-                m_diffs_overflow = false;
+                m_diffs.clear();                
                 lock.commit_reset();
                 // dirty flag successfully reset by this thread
                 return true;
@@ -147,23 +146,21 @@ namespace db0
         assert(at >= m_address);
         assert(end <= this->m_address + this->size());
         
-        if (end == at || m_diffs_overflow) {
-            // no need to track empty ranges or if overflowed
+        if (end == at) {
+            // no need to track empty ranges
             return;
         }
         
-        // check overflow conditions
-        if (m_diffs.size() == MAX_DIFF_RANGES || (end - m_address) >= std::numeric_limits<std::uint16_t>::max()) {
-            // do not track more diffs as the limit is reached
-            m_diffs_overflow = true;
-            m_diffs.clear();
-            return;            
+        // if unable to fit, then mark the entire lock as dirty
+        if ((end - m_address) >= std::numeric_limits<std::uint16_t>::max()) {
+            m_diffs.setOverflow();
+            return;
         }
         
-        m_diffs.emplace_back(at - m_address, end - m_address);
+        m_diffs.insert(at - m_address, end - m_address, MAX_DIFF_RANGES);
         setDirty();
     }
-
+    
 #ifndef NDEBUG
     std::pair<std::size_t, std::size_t> ResourceLock::getTotalMemoryUsage() 
     {
@@ -224,199 +221,17 @@ namespace db0
     
     bool ResourceLock::getDiffs(const void *buf, std::vector<std::uint16_t> &result) const
     {
+        if (m_diffs.isOverflow()) {
+            // unable to diff-flush, must write the entire page
+            return false;
+        }
         if (buf == &m_cow_zero) {
-            return db0::getDiffs(m_data.data(), this->size(), result, 0, {}, &m_diffs);
+            return db0::getDiffs(m_data.data(), this->size(), result, 0, {}, m_diffs);
         } else {
-            return db0::getDiffs(buf, m_data.data(), this->size(), result, 0, {}, &m_diffs);
+            return db0::getDiffs(buf, m_data.data(), this->size(), result, 0, {}, m_diffs);
         }
     }
     
-    bool getDiffs(const void *buf_1, const void *buf_2,
-        std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff, std::optional<std::size_t> max_size,
-        std::vector<std::pair<std::uint16_t, std::uint16_t>> *diff_ranges)
-    {
-        if (!max_size) {
-            max_size = std::numeric_limits<std::uint16_t>::max();
-        }
-        if (diff_ranges && diff_ranges->empty()) {
-            diff_ranges = nullptr;
-        }
-        if (diff_ranges) {
-            prepareDiffRanges(*diff_ranges);
-        }
-        
-        assert(size <= std::numeric_limits<std::uint16_t>::max());
-        if (!max_diff) {
-            // by default flush as diff if less than 75% of the data differs
-            max_diff = (size * 3) >> 2;
-        }
-        result.clear();
-        const std::uint8_t *it_1 = static_cast<const std::uint8_t *>(buf_1), *it_2 = static_cast<const std::uint8_t *>(buf_2);
-        auto it_base = it_1;
-        auto end = it_1 + size;
-        // exact number of bytes that differ
-        std::uint16_t diff_bytes = 0;
-        // estimated space occupied by the diff data
-        std::uint16_t diff_total = 0;
-
-        std::vector<std::pair<std::uint16_t, std::uint16_t> >::const_iterator it_diff;
-        const std::uint8_t *diff_start = nullptr;
-        if (diff_ranges) {
-            it_diff = diff_ranges->begin();
-            diff_start = it_base + it_diff->first;
-        }
-
-        for (;;) {
-            // total number of allowed diff areas exceeded
-            if (result.size() >= *max_size) {
-                return false;
-            }
-            std::uint16_t diff_len = 0;
-            while (it_1 != end) {
-                if (it_1 == diff_start) {
-                    assert(diff_ranges);
-                    auto skip = it_diff->second - it_diff->first;
-                    it_1 += skip;
-                    it_2 += skip;
-                    diff_len += skip;
-                    ++it_diff;
-                    if (it_diff != diff_ranges->end()) {
-                        diff_start = it_base + it_diff->first;                        
-                    } else {
-                        diff_start = nullptr;
-                    }
-                    continue;
-                }
-                if (*it_1 == *it_2) {
-                    break;
-                }
-                ++it_1;
-                ++it_2;
-                ++diff_len;                
-            }
-            
-            // account for the administrative space overhead (approximate)
-            diff_bytes += diff_len;
-            diff_total += diff_len + sizeof(std::uint16_t);
-            if (diff_total > max_diff) {
-                return false;
-            }
-            if (diff_len || it_1 != end) {
-                result.push_back(diff_len);
-            }
-            if (it_1 == end) {
-                break;
-            }
-            std::uint16_t sim_len = 0;
-            for (; it_1 != end && *it_1 == *it_2; ++it_1, ++it_2) {
-                if (it_1 == diff_start) {
-                    break;
-                }
-                ++sim_len;
-            }
-            // do not include the trailing similarity area
-            if (it_1 == end) {
-                break;
-            }
-            assert(sim_len);
-            result.push_back(sim_len);
-        }
-        // no diffs found
-        if (!diff_bytes) {
-            result.clear();
-        }
-        return true;
-    }
-    
-    bool getDiffs(const void *buf, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff,
-        std::optional<std::size_t> max_size, std::vector<std::pair<std::uint16_t, std::uint16_t> > *diff_ranges)
-    {
-        if (!max_size) {
-            max_size = std::numeric_limits<std::uint16_t>::max();
-        }        
-        if (diff_ranges && diff_ranges->empty()) {
-            diff_ranges = nullptr;
-        }
-        if (diff_ranges) {
-            prepareDiffRanges(*diff_ranges);
-        }
-        
-        assert(size <= std::numeric_limits<std::uint16_t>::max());
-        if (!max_diff) {
-            // by default flush as diff if less than 75% of the data differs
-            max_diff = (size * 3) >> 2;
-        }
-        result.clear();
-        const std::uint8_t *it_base = static_cast<const std::uint8_t *>(buf);
-        auto it = it_base;
-        auto end = it + size;
-        // estimated space occupied by the diff data
-        std::uint16_t diff_total = 0;
-        // include the zero-fill indicator (i.e. the 0, 0 elements)
-        result.push_back(0);
-        result.push_back(0);
-        std::vector<std::pair<std::uint16_t, std::uint16_t> >::const_iterator it_diff;
-        const std::uint8_t *diff_start = nullptr;
-        if (diff_ranges) {
-            it_diff = diff_ranges->begin();
-            diff_start = it_base + it_diff->first;
-        }
-
-        for (;;) {
-            // total number of allowed diff areas exceeded
-            if (result.size() >= *max_size) {
-                return false;
-            }
-            std::uint16_t diff_len = 0;
-            // identify non-zero bytes or forced-diff ranges
-            while (it != end) {
-                if (it == diff_start) {
-                    assert(diff_ranges);
-                    auto skip = it_diff->second - it_diff->first;
-                    it += skip;
-                    diff_len += skip;
-                    ++it_diff;
-                    if (it_diff != diff_ranges->end()) {
-                        diff_start = it_base + it_diff->first;                        
-                    } else {
-                        diff_start = nullptr;
-                    }
-                    continue;
-                }
-                if (!*it) {
-                    break;
-                }
-                ++diff_len;
-                ++it;
-            }
-            // account for the administrative space overhead (approximate)
-            diff_total += diff_len + sizeof(std::uint16_t);
-            if (diff_total > max_diff) {
-                return false;
-            }
-            if (diff_len || it != end) {
-                result.push_back(diff_len);
-            }
-            if (it == end) {
-                break;
-            }
-            std::uint16_t sim_len = 0;
-            for (; it != end && !*it; ++it) {
-                if (it == diff_start) {
-                    break;
-                }
-                ++sim_len;
-            }
-            // do not include the trailing similarity area
-            if (it == end) {
-                break;
-            }
-            assert(sim_len);
-            result.push_back(sim_len);
-        }
-        return true;
-    }
-
     bool ResourceLock::getDiffs(std::vector<std::uint16_t> &result) const
     {        
         auto cow_ptr = getCowPtr();
@@ -429,33 +244,6 @@ namespace db0
 
     std::size_t ResourceLock::getPageSize() const {
         return m_context.m_storage_ref.get().getPageSize();
-    }
-
-    void prepareDiffRanges(std::vector<std::pair<std::uint16_t, std::uint16_t>> &diff_ranges)
-    {
-        // sort ranges ascending
-        std::sort(diff_ranges.begin(), diff_ranges.end());
-        // then iterate over to merge overlapping ranges
-        auto it = diff_ranges.begin(), end = diff_ranges.end();
-        if (it == end) {
-            return;
-        }
-
-        auto next = it;
-        ++next;
-        for (; next != end; ++next) {
-            if (it->second >= next->first) {
-                // merge the ranges
-                it->second = std::max(it->second, next->second);
-            } else {
-                ++it;
-                if (it != next) {                 
-                    *it = *next;
-                }                
-            }
-        }
-        // remove the rest of the ranges
-        diff_ranges.erase(++it, end);
     }
 
 }

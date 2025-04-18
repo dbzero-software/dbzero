@@ -80,7 +80,7 @@ namespace db0
                 }
                 
                 m_diffs.clear();
-                m_diffs_overflow = false;
+                
                 // reset the dirty flag
                 lock.commit_reset();
             }

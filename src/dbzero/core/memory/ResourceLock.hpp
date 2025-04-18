@@ -12,6 +12,7 @@
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
 #include <dbzero/core/threading/Flags.hpp>
 #include <dbzero/core/utils/FixedList.hpp>
+#include "diff_utils.hpp"
 
 namespace db0
 
@@ -33,27 +34,7 @@ namespace db0
         // Flush using the full-DP write (always possible)
         full = 0x02
     };
-    
-    // Calculate diff areas between the 2 binary buffers of the same size (e.g. DPs)
-    // @param size size of the buffers
-    // @param result vector to hold size of diff / size of identical areas interleaved (totalling to size)
-    // NOTE that the leading elements 0, 0 indicate the 0-filled base buffer
-    // @param max_diff the maximum acceptable diff in bytes (0 for default = size / 2)
-    // @param max_size the maximum number of diff areas allowed to be stored in the result
-    // @param diff_ranges optional forced diff-ranges collected by the ResourceLock
-    // @return false if the total volume of diff areas exceeds 50% threshold
-    bool getDiffs(const void *, const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
-        std::optional<std::size_t> max_size = std::numeric_limits<std::uint16_t>::max(),
-        std::vector<std::pair<std::uint16_t, std::uint16_t>> *diff_ranges = nullptr);
-    
-    // the getDiffs version comparing to all-zero buffer
-    bool getDiffs(const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
-        std::optional<std::size_t> max_size = std::numeric_limits<std::uint16_t>::max(),
-        std::vector<std::pair<std::uint16_t, std::uint16_t>> *diff_ranges = nullptr);
-    
-    // Sort, de-duplicate and merge diff-ranges
-    void prepareDiffRanges(std::vector<std::pair<std::uint16_t, std::uint16_t>> &);
-    
+        
     /**
      * A ResourceLock is the foundation class for DP_Lock and BoundaryLock implementations    
      * it supposed to hold a single or multiple data pages in a specific state (read)
@@ -202,10 +183,9 @@ namespace db0
         std::shared_ptr<ResourceLock> m_cow_lock;
         // the internally managed CoW's buffer
         std::vector<std::byte> m_cow_data;
-        // optional diff-ranges (begin, end)
+        // Optional diff-ranges (begin, end)
         // these ranges are relevant e.g. when tracking the "silent" mutations
-        mutable std::vector<std::pair<std::uint16_t, std::uint16_t> > m_diffs;
-        bool m_diffs_overflow = false;
+        DiffRange m_diffs;
         // special indicator of the zero-fill buffer
         static const std::byte m_cow_zero;
         

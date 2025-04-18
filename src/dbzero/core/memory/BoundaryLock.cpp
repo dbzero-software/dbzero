@@ -61,7 +61,6 @@ namespace db0
                 std::memcpy(rhs_buffer, m_data.data() + m_lhs_size, m_rhs_size);
                 
                 m_diffs.clear();
-                m_diffs_overflow = false;
                 // reset the dirty flag
                 lock.commit_reset();
             }
