@@ -167,7 +167,12 @@ namespace db0
         AccessType getAccessType() const {
             return m_access_type;
         }
-
+        
+        // Get absolute file address of the current block / within-block offset
+        std::pair<std::uint64_t, std::uint32_t> getCurrentPos() const {
+            return { m_address, m_block_pos - m_block_begin };
+        }
+        
     protected:
         CFile &m_file;
         // file address of the current block

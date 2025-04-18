@@ -31,17 +31,19 @@ namespace db0
     {
     }
     
-    BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags)
+    BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags, 
+        std::optional<std::size_t> meta_io_step_size)
         : BaseStorage(access_type)
         , m_file(file_name, access_type, lock_flags)
         , m_config(readConfig())
         , m_dram_changelog_io(getChangeLogIOStream(m_config.m_dram_changelog_io_offset, access_type))
         , m_dp_changelog_io(init(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type)))
         , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))
+        , m_meta_io(init(getMetaIOStream(m_config.m_meta_io_offset, meta_io_step_size.value_or(DEFAULT_META_IO_STEP_SIZE),
+            access_type)))
         , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
         , m_sparse_index(m_sparse_pair.getSparseIndex())
-        , m_diff_index(m_sparse_pair.getDiffIndex())
-        , m_wal_io(readAll(getBlockIOStream(m_config.m_wal_offset, AccessType::READ_ONLY)))
+        , m_diff_index(m_sparse_pair.getDiffIndex())        
         , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), access_type))
     {
         if (m_access_type == AccessType::READ_ONLY) {
@@ -72,6 +74,13 @@ namespace db0
         return std::move(io);
     }
     
+    MetaIOStream BDevStorage::init(MetaIOStream &&io)
+    {
+        // exhaust the meta-log stream (position at the last chunk)
+        while (io.readMetaLog());
+        return std::move(io);
+    }
+
     o_prefix_config BDevStorage::readConfig() const
     {
         std::vector<char> buffer(CONFIG_BLOCK_SIZE);
@@ -112,12 +121,12 @@ namespace db0
 
         // cofigure offsets for all inner streams (even though they have not been materialized yet)
         config->m_dram_io_offset = next_block_offset();
-        config->m_wal_offset = next_block_offset();
         config->m_dram_changelog_io_offset = next_block_offset();
-        config->m_dp_changelog_io_offset = next_block_offset();        
+        config->m_dp_changelog_io_offset = next_block_offset();
+        config->m_meta_io_offset = next_block_offset();
         CFile::create(file_name, buffer);
         
-        // Create higher-order data structures        
+        // Create higher-order data structures
         {
             CFile file(file_name, AccessType::READ_WRITE);
             ChangeLogIOStream *dram_changelog_io_ptr = nullptr;
@@ -161,7 +170,7 @@ namespace db0
         }
         return result;
     }
-
+    
     void BDevStorage::read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags) const
     {
@@ -316,7 +325,7 @@ namespace db0
         // flush changelog AFTER all updates from dram_io have been flushed
         m_dram_changelog_io.flush();
         m_page_io.flush();
-        m_wal_io.flush();
+        m_meta_io.flush();
         m_file.flush();
         return true;
     }
@@ -329,8 +338,8 @@ namespace db0
         
         m_dram_io.close();
         m_dram_changelog_io.close();
-        m_dp_changelog_io.close();
-        m_wal_io.close();
+        m_dp_changelog_io.close();        
+        m_meta_io.close();
         m_file.close();
     }
     
@@ -338,6 +347,13 @@ namespace db0
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
     }
     
+    MetaIOStream BDevStorage::getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType access_type)
+    {
+        std::vector<const BlockIOStream *> managed_streams = { &m_dram_changelog_io, &m_dp_changelog_io };
+        return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), managed_streams,
+            access_type, MetaIOStream::ENABLE_CHECKSUMS, step_size };
+    }
+
     DRAM_IOStream BDevStorage::getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type, dram_page_size };
     }
@@ -349,10 +365,10 @@ namespace db0
     std::uint64_t BDevStorage::tail() const
     {
         // take max from the 4 underlying I/O streams
-        auto result = std::max(m_dram_io.tail(), m_wal_io.tail());
+        auto result = std::max(m_dram_io.tail(), m_meta_io.tail());
         result = std::max(result, m_dram_changelog_io.tail());
         result = std::max(result, m_dp_changelog_io.tail());
-        result = std::max(result, m_page_io.tail());
+        result = std::max(result, m_page_io.tail());        
 
         return result;
     }
@@ -370,7 +386,7 @@ namespace db0
 
         if (next_page_hint == 0) {
             // assign first page
-            auto address = std::max(m_dram_io.tail(), m_wal_io.tail());
+            auto address = std::max(m_dram_io.tail(), m_meta_io.tail());
             address = std::max(address, m_dram_changelog_io.tail());
             address = std::max(address, m_dp_changelog_io.tail());
             return { CONFIG_BLOCK_SIZE, m_file, m_config.m_page_size, m_config.m_block_size, address, 0,
@@ -405,9 +421,9 @@ namespace db0
     {
         // get tail from BlockIOStreams
         return [this]() -> std::uint64_t {
-            auto result = std::max(m_dram_io.tail(), m_wal_io.tail());
+            auto result = std::max(m_dram_io.tail(), m_meta_io.tail());
             result = std::max(result, m_dram_changelog_io.tail());
-            result = std::max(result, m_dp_changelog_io.tail());
+            result = std::max(result, m_dp_changelog_io.tail());            
             return result;
         };
     }
@@ -458,7 +474,7 @@ namespace db0
                 }
             }
             
-            m_wal_io.refresh();
+            m_meta_io.refresh();
         }
         while (m_dram_changelog_io.refresh());        
         return result;

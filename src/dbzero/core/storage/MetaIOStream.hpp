@@ -13,8 +13,10 @@ namespace db0
     {
         // the absolute file position in the managed stream
         std::uint64_t m_address = 0;
-        // the total stream size at this position (tell)
-        std::uint64_t m_size = 0;
+        // the within-block offset, location of the chunk
+        std::uint32_t m_chunk_pos = 0;
+
+        o_meta_item(std::pair<std::uint64_t, std::uint32_t> stream_pos);
     };
     
     // The single log item, possibly associated with multiple managed streams
@@ -48,6 +50,9 @@ namespace db0
     class MetaIOStream: public BlockIOStream
     {
     public:
+        // checksums disabled in this type of stream
+        static constexpr bool ENABLE_CHECKSUMS = false;
+        
         // @param step_size the cummulative change in the managed streams' size to be reflected in the meta stream
         MetaIOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size,
             std::function<std::uint64_t()> tail_function, const std::vector<const BlockIOStream*> &managed_streams,
@@ -57,13 +62,23 @@ namespace db0
         // Check the underlying managed streams and append the meta log if needed (step size is reached)
         void checkAndAppend(StateNumType state_num);
         
+        /**
+         * Read a single meta-log from the stream.
+         * The operation overwrites result of the previous read (unless nullptr is returned)        
+         * @return the meta-log or nullptr if end of the stream reached
+        */
+       const o_meta_log *readMetaLog();
+        
     private:
         const std::vector<const BlockIOStream*> m_managed_streams;
-        const std::size_t m_step_max_size;
-        std::size_t m_current_step_size = 0;
+        // stream sizes at the last meta log item (the last checkpoint)
+        std::vector<std::size_t> m_last_stream_sizes;
+        const std::size_t m_step_max_size;        
         // a temporary buffer for meta log items
-        std::vector<std::byte> m_buffer;
+        std::vector<char> m_buffer;
         
+        // check if more than m_step_max_size bytes were appended to the managed streams
+        bool checkAppend() const;
         void appendMetaLog(StateNumType state_num, const std::vector<o_meta_item> &meta_items);
     };
 

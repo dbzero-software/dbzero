@@ -13,6 +13,7 @@
 #include "BaseStorage.hpp"
 #include "DRAM_IOStream.hpp"
 #include "ChangeLogIOStream.hpp"
+#include "MetaIOStream.hpp"
 #include <dbzero/workspace/LockFlags.hpp>
 
 namespace db0
@@ -31,10 +32,12 @@ namespace db0
         std::uint32_t m_page_size;
         std::uint64_t m_dram_io_offset = 0;
         std::uint32_t m_dram_page_size;
-        std::uint64_t m_wal_offset = 0;
         std::uint64_t m_dram_changelog_io_offset = 0;
         // data pages change log
         std::uint64_t m_dp_changelog_io_offset = 0;
+        std::uint64_t m_meta_io_offset = 0;
+        // reserved for future use
+        std::array<std::uint64_t, 16> m_reserved = { 0, 0, 0, 0 };
 
         o_prefix_config(std::uint32_t block_size, std::uint32_t page_size, std::uint32_t dram_page_size);
     };
@@ -47,13 +50,16 @@ namespace db0
     {
     public:
         static constexpr std::uint32_t DEFAULT_PAGE_SIZE = 4096;
+        static constexpr std::size_t DEFAULT_META_IO_STEP_SIZE = 16 << 20;
 
         /**
          * Opens BDevStorage over an existing file
+         * @param meta_io_step_size - the size of the step in the MetaIOStream (16MB by default)
         */
-        BDevStorage(const std::string &file_name, AccessType = AccessType::READ_WRITE, LockFlags lock_flags = {});
+        BDevStorage(const std::string &file_name, AccessType = AccessType::READ_WRITE, LockFlags lock_flags = {},
+            std::optional<std::size_t> meta_io_step_size = {});
         ~BDevStorage();
-
+        
         /**
          * Create a new .db0 file
         */
@@ -119,12 +125,13 @@ namespace db0
         ChangeLogIOStream m_dp_changelog_io;
         // memory-mapped file I/O
         DRAM_IOStream m_dram_io;
+        // meta-stream keeps meta-data about the other streams
+        MetaIOStream m_meta_io;
         // SparseIndex + DiffIndex
         SparsePair m_sparse_pair;
         // DRAM-backed sparse index tree
-        SparseIndex &m_sparse_index;        
-        DiffIndex &m_diff_index;
-        BlockIOStream m_wal_io;
+        SparseIndex &m_sparse_index;    
+        DiffIndex &m_diff_index;        
         // the stream for storing & reading full-DPs and diff-encoded DPs
         Diff_IO m_page_io;
 #ifndef NDEBUG
@@ -133,8 +140,10 @@ namespace db0
 #endif        
                         
         static DRAM_IOStream init(DRAM_IOStream &&, ChangeLogIOStream &);
-
+        
         static ChangeLogIOStream init(ChangeLogIOStream &&);
+
+        static MetaIOStream init(MetaIOStream &&);
         
         /**
          * Calculates the total number of blocks stored in this file
@@ -143,10 +152,12 @@ namespace db0
         std::uint64_t getBlockCount(std::uint64_t file_size) const;
 
         BlockIOStream getBlockIOStream(std::uint64_t first_block_pos, AccessType);
-
+        
         DRAM_IOStream getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType);
 
         ChangeLogIOStream getChangeLogIOStream(std::uint64_t first_block_pos, AccessType);
+
+        MetaIOStream getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType);
         
         Diff_IO getPage_IO(std::uint64_t next_page_hint, AccessType);
         
