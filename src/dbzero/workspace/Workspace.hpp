@@ -109,9 +109,8 @@ namespace db0
         */
         std::pair<std::shared_ptr<Prefix>, std::shared_ptr<MetaAllocator> > openMemspace(const PrefixName &,
             bool &new_file_created, AccessType = AccessType::READ_WRITE, std::optional<std::size_t> page_size = {}, 
-            std::optional<std::size_t> slab_size = {},
-            std::optional<std::size_t> sparse_index_node_size = {},
-            std::optional<LockFlags> lock_flags = {});
+            std::optional<std::size_t> slab_size = {}, std::optional<std::size_t> sparse_index_node_size = {},
+            std::optional<LockFlags> lock_flags = {}, std::optional<std::size_t> meta_io_step_size = {});
         
         // Clear all internal in-memory caches
         void clearCache() const;
@@ -166,12 +165,14 @@ namespace db0
         swine_ptr<Fixture> tryGetFixtureEx(const PrefixName &, std::optional<AccessType> = AccessType::READ_WRITE,
             std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {}, 
             std::optional<std::size_t> sparse_index_node_size = {},
-            std::optional<bool> autocommit = {}, std::optional<LockFlags> lock_flags = {});
+            std::optional<bool> autocommit = {}, std::optional<LockFlags> lock_flags = {},
+            std::optional<std::size_t> meta_io_step_size = {});
         
         swine_ptr<Fixture> getFixtureEx(const PrefixName &, std::optional<AccessType> = AccessType::READ_WRITE,
             std::optional<std::size_t> page_size = {}, std::optional<std::size_t> slab_size = {}, 
             std::optional<std::size_t> sparse_index_node_size = {},
-            std::optional<bool> autocommit = {}, std::optional<LockFlags> lock_flags = {});
+            std::optional<bool> autocommit = {}, std::optional<LockFlags> lock_flags = {},
+            std::optional<std::size_t> meta_io_step_size = {});
         
         /**
          * Get existing fixture by UUID
@@ -196,15 +197,17 @@ namespace db0
          * Commit specific prefix (must be opened as read/write)
         */
         void commit(const PrefixName &);
-
+        
         /**
          * Open specific prefix and make it the default one
          * @param prefix_name
          * @param access_type
          * @param autocommit flag indicating if the prefix should be auto-committed
+         * @param meta_io_step_size the size of the step in the underlying MetaIOStream (16MB by default)
         */
         void open(const PrefixName &, AccessType access_type, std::optional<bool> autocommit = {},
-            std::optional<std::size_t> slab_size = {}, std::optional<LockFlags> default_lock_flags = {});
+            std::optional<std::size_t> slab_size = {}, std::optional<LockFlags> default_lock_flags = {}, 
+            std::optional<std::size_t> meta_io_step_size = {});
         
         bool drop(const PrefixName &, bool if_exists = true);
 

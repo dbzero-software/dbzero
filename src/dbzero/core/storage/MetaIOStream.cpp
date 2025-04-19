@@ -74,7 +74,7 @@ namespace db0
                 meta_items.emplace_back(m_managed_streams[i]->getStreamPos());
                 m_last_stream_sizes[i] = stream_size;
             }
-            appendMetaLog(state_num, meta_items);            
+            appendMetaLog(state_num, meta_items);
         }
     }
     
@@ -106,8 +106,12 @@ namespace db0
             for (std::size_t i = 0; i < m_managed_streams.size(); ++i, ++it) {
                 if (it == tail_log->getMetaItems().end()) {
                     THROWF(db0::IOException) << "MetaIOStream::setTailAll error: not enough meta items";
-                }                
+                }
                 m_managed_streams[i]->setStreamPos(it->m_address, it->m_stream_pos);
+                // exhaust the stream after setting the position
+                std::vector<char> tmp_buf;
+                // exhaust the stream
+                while (m_managed_streams[i]->readChunk(tmp_buf));
             }
         } else {
             // no tail item available, in such case simple exhaust all streams

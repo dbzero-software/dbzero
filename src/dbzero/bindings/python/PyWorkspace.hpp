@@ -19,7 +19,7 @@ namespace db0 {
 
 }
 
-namespace db0::object_model 
+namespace db0::object_model
 
 {
     
@@ -62,7 +62,9 @@ namespace db0::python
          * @param slab_size will only have effect for a newly created prefixes
         */
         void open(const std::string &prefix_name, AccessType, std::optional<bool> autocommit = {},
-            std::optional<std::size_t> slab_size = {}, ObjectPtr lock_flags = nullptr);
+            std::optional<std::size_t> slab_size = {}, ObjectPtr lock_flags = nullptr, 
+            std::optional<std::size_t> meta_io_step_size = {}
+        );
         
         db0::Workspace &getWorkspace() const;
         

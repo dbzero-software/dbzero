@@ -104,14 +104,17 @@ namespace db0::python
     PyObject *tryOpen(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         // prefix_name, open_mode, autocommit (bool)
-        static const char *kwlist[] = {"prefix_name", "open_mode", "autocommit", "slab_size", "lock_flags", NULL};
+        static const char *kwlist[] = {
+            "prefix_name", "open_mode", "autocommit", "slab_size", "lock_flags", "meta_io_step_size", NULL
+        };
         const char *prefix_name = nullptr;
         const char *open_mode = nullptr;
         PyObject *py_autocommit = nullptr;
         PyObject *py_slab_size = nullptr;
         PyObject *py_lock_flags = nullptr;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOO", const_cast<char**>(kwlist),
-            &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags))
+        PyObject *py_meta_io_step_size = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOO", const_cast<char**>(kwlist),
+            &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags, &py_meta_io_step_size))
         {
             PyErr_SetString(PyExc_TypeError, "Invalid arguments");
             return NULL;
@@ -144,12 +147,24 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid argument type: lock_flags");
             return NULL;
         }
+
+        std::optional<std::size_t> meta_io_step_size;
+        if (py_meta_io_step_size) {
+            if (!PyLong_Check(py_meta_io_step_size))    {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type: meta_io_step_size");
+                return NULL;
+            }
+            meta_io_step_size = PyLong_AsUnsignedLong(py_meta_io_step_size);
+        }
+
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
-        PyToolkit::getPyWorkspace().open(prefix_name, access_type, autocommit, slab_size, py_lock_flags);
+        PyToolkit::getPyWorkspace().open(
+            prefix_name, access_type, autocommit, slab_size, py_lock_flags, meta_io_step_size
+        );
         Py_RETURN_NONE;
     }
 
-    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs) 
+    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         return runSafe(tryOpen, self, args, kwargs);
@@ -159,7 +174,7 @@ namespace db0::python
     {        
         PyObject *py_path = nullptr;
         PyObject *py_config = nullptr;
-        PyObject *py_flags= nullptr;
+        PyObject *py_flags= nullptr;        
         // extract optional "path" string argument and "autcommit_interval" keyword argument
         static const char *kwlist[] = {"path", "config", "lock_flags", NULL};
         if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOO", const_cast<char**>(kwlist), &py_path, &py_config, &py_flags)) {
