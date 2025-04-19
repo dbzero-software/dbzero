@@ -466,6 +466,28 @@ namespace db0
         return true;
     }
     
+    std::pair<std::uint64_t, std::uint64_t> BlockIOStream::getStreamPos() const {
+        return { m_address, tell() };
+    }
+
+    void BlockIOStream::setStreamPos(std::uint64_t address, std::uint64_t stream_pos)
+    {
+        assert(!m_closed);
+        // flush any pending writes before reading
+        flush();
+        // Try reading the first full block
+        if ((address + m_block_size > m_file.size()) || !readBlock(address, m_block_begin)) {
+            THROWF(db0::InternalException) << "BlockIOStream unable to set position in stream";
+        }
+        
+        m_address = address;
+        m_block_num = stream_pos / m_block_size;
+        m_block_pos = m_block_begin + (stream_pos % m_block_size);
+        // this parameter is only used for writing
+        m_chunk_left_bytes = 0;    
+        m_eos = false;
+    }
+    
     std::uint64_t checksum(const void *begin, const void *end)
     {
         assert(((const char*)end - (const char*)begin) % 8 == 0);

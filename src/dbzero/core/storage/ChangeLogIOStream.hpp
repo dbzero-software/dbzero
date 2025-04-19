@@ -8,8 +8,9 @@ namespace db0
 
 {
 
-    struct ChangeLogData
+    class ChangeLogData
     {
+    public:
         RLE_SequenceBuilder<std::uint64_t> m_rle_builder;
         std::vector<std::uint64_t> m_change_log;
         
@@ -21,7 +22,11 @@ namespace db0
          * @param add_duplicates flag indicating if duplicates should be added to the change log
          * @param is_sorted flag indicating if the change log is already sorted         
         */
+        ChangeLogData(const std::vector<std::uint64_t> &change_log, bool rle_compress, bool add_duplicates, bool is_sorted);
         ChangeLogData(std::vector<std::uint64_t> &&change_log, bool rle_compress, bool add_duplicates, bool is_sorted);
+
+    private:
+        void initRLECompress(bool is_sorted, bool add_duplicates);
     };
     
     class [[gnu::packed]] o_change_log: public o_base<o_change_log, 0, false>

@@ -4,9 +4,9 @@ namespace db0
 
 {
 
-    o_meta_item::o_meta_item(std::pair<std::uint64_t, std::uint32_t> stream_pos)
+    o_meta_item::o_meta_item(std::pair<std::uint64_t, std::uint64_t> stream_pos)
         : m_address(stream_pos.first)
-        , m_chunk_pos(stream_pos.second)
+        , m_stream_pos(stream_pos.second)
     {
     }
 
@@ -71,13 +71,13 @@ namespace db0
             for (std::size_t i = 0; i < m_managed_streams.size(); ++i) {
                 auto stream_size = m_managed_streams[i]->tell();
                 // store current position of the managed stream
-                meta_items.emplace_back(m_managed_streams[i]->getCurrentPos());
+                meta_items.emplace_back(m_managed_streams[i]->getStreamPos());
                 m_last_stream_sizes[i] = stream_size;
             }
             appendMetaLog(state_num, meta_items);            
         }
     }
-
+    
     const o_meta_log *MetaIOStream::readMetaLog()
     {
         if (BlockIOStream::readChunk(m_buffer)) {

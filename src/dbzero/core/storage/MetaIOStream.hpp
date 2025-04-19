@@ -13,10 +13,10 @@ namespace db0
     {
         // the absolute file position in the managed stream
         std::uint64_t m_address = 0;
-        // the within-block offset, location of the chunk
-        std::uint32_t m_chunk_pos = 0;
-
-        o_meta_item(std::pair<std::uint64_t, std::uint32_t> stream_pos);
+        // the position in the managed stream (relative)
+        std::uint64_t m_stream_pos = 0;
+        
+        o_meta_item(std::pair<std::uint64_t, std::uint64_t> stream_pos);
     };
     
     // The single log item, possibly associated with multiple managed streams

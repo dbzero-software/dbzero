@@ -5,19 +5,33 @@ namespace db0
 
 {
 
-    ChangeLogData::ChangeLogData(std::vector<std::uint64_t> &&change_log, bool rle_compress, bool add_duplicates, bool is_sorted)        
+    ChangeLogData::ChangeLogData(const std::vector<std::uint64_t> &change_log, bool rle_compress,
+        bool add_duplicates, bool is_sorted)
+        : m_change_log(change_log)
+    {
+        if (rle_compress) {
+            initRLECompress(is_sorted, add_duplicates);
+        }        
+    }
+
+    ChangeLogData::ChangeLogData(std::vector<std::uint64_t> &&change_log, bool rle_compress, bool add_duplicates, bool is_sorted)
         : m_change_log(std::move(change_log))
     {
         if (rle_compress) {
-            if (!is_sorted) {
-                std::sort(m_change_log.begin(), m_change_log.end());
-            }
-            for (auto value: m_change_log) {
-                m_rle_builder.append(value, add_duplicates);
-            }
-        }
+            initRLECompress(is_sorted, add_duplicates);
+        }        
     }
-    
+
+    void ChangeLogData::initRLECompress(bool is_sorted, bool add_duplicates)
+    {    
+        if (!is_sorted) {
+            std::sort(m_change_log.begin(), m_change_log.end());
+        }
+        for (auto value: m_change_log) {
+            m_rle_builder.append(value, add_duplicates);
+        }        
+    }
+
     o_change_log::o_change_log(const ChangeLogData &data)
         : m_rle_compressed(!data.m_rle_builder.empty())
     {
@@ -120,12 +134,12 @@ namespace db0
     }
     
     const o_change_log &ChangeLogIOStream::appendChangeLog(ChangeLogData &&data)
-    {        
+    {
         auto size_of = o_change_log::measure(data);
         if (m_buffer.size() < size_of) {
             m_buffer.resize(size_of);
         }
-
+        
         o_change_log::__new(m_buffer.data(), data);
         // append change log as a separate chunk
         BlockIOStream::addChunk(size_of);

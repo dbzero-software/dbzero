@@ -168,11 +168,13 @@ namespace db0
             return m_access_type;
         }
         
-        // Get absolute file address of the current block / within-block offset
-        std::pair<std::uint64_t, std::uint32_t> getCurrentPos() const {
-            return { m_address, m_block_pos - m_block_begin };
-        }
-        
+        // Get absolute file address (of the block) and the relative address of the current position
+        std::pair<std::uint64_t, std::uint64_t> getStreamPos() const;
+                
+        // Set stream position for reading
+        // NOTE: only values returned by getStreamPos() can be used, otherwise the behavior is undefined
+        void setStreamPos(std::uint64_t address, std::uint64_t stream_pos);
+
     protected:
         CFile &m_file;
         // file address of the current block
