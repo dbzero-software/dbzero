@@ -43,7 +43,7 @@ namespace db0
             return buf - _buf;
         }
     };
-
+    
     // The MetaIOStream is used to annotate data (i.e. state numbers and the corresponding file positions)
     // in the underlying managed ChangeLogIOStream-s
     // the purpose is to speed-up retrieval and initialization of the streams for append

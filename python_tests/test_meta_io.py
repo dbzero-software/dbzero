@@ -6,6 +6,26 @@ from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton
 
 
+def test_open_with_meta_io(db0_metaio_fixture):
+    # create singleton with a list type member
+    root = MemoTestSingleton([])
+    prefix_name = db0.get_prefix_of(root).name
+    
+    steps = 10
+    step_size = 100
+
+    for _ in range(steps):
+        for _ in range(step_size):
+            root.value.append(MemoTestClass(123))
+        db0.commit()
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open(prefix_name, "r")
+    root = MemoTestSingleton()
+    assert len(root.value) == steps * step_size
+
+
 def test_refresh_with_meta_io_updates(db0_metaio_fixture):
     # create singleton with a list type member
     root = MemoTestSingleton([])
