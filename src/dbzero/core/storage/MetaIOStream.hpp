@@ -54,7 +54,7 @@ namespace db0
         static constexpr bool ENABLE_CHECKSUMS = false;
         
         // @param step_size the cummulative change in the managed streams' size to be reflected in the meta stream
-        MetaIOStream(CFile &m_file, const std::vector<const BlockIOStream*> &managed_streams, std::uint64_t begin, 
+        MetaIOStream(CFile &m_file, const std::vector<BlockIOStream*> &managed_streams, std::uint64_t begin,
             std::uint32_t block_size, std::function<std::uint64_t()> tail_function = {}, AccessType = AccessType::READ_WRITE, 
             bool maintain_checksums = false, std::size_t step_size = 16 << 20);
         
@@ -66,15 +66,22 @@ namespace db0
          * The operation overwrites result of the previous read (unless nullptr is returned)        
          * @return the meta-log or nullptr if end of the stream reached
         */
-       const o_meta_log *readMetaLog();
+        const o_meta_log *readMetaLog();
+        
+        // Read until the end of the stream and retrieve the last meta-log (if available)
+        const o_meta_log *tailMetaLog();
+        
+        // Set this add all underlying streams to end/tail positions
+        void setTailAll();
         
     private:
-        const std::vector<const BlockIOStream*> m_managed_streams;
+        const std::vector<BlockIOStream*> m_managed_streams;
         // stream sizes at the last meta log item (the last checkpoint)
         std::vector<std::size_t> m_last_stream_sizes;
         const std::size_t m_step_max_size;        
         // a temporary buffer for meta log items
         std::vector<char> m_buffer;
+        const o_meta_log *m_last_meta_log = nullptr;
         
         // check if more than m_step_max_size bytes were appended to the managed streams
         bool checkAppend() const;

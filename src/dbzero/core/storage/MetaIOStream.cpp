@@ -27,7 +27,7 @@ namespace db0
             (o_list<o_meta_item>::type(), meta_items);
     }
 
-    MetaIOStream::MetaIOStream(CFile &m_file, const std::vector<const BlockIOStream*> &managed_streams, 
+    MetaIOStream::MetaIOStream(CFile &m_file, const std::vector<BlockIOStream*> &managed_streams,
         std::uint64_t begin, std::uint32_t block_size, std::function<std::uint64_t()> tail_function,
         AccessType access_type, bool maintain_checksums, std::size_t step_size)
         : BlockIOStream(m_file, begin, block_size, tail_function, access_type, maintain_checksums)
@@ -43,8 +43,8 @@ namespace db0
         if (m_buffer.size() < size_of) {
             m_buffer.resize(size_of);
         }
-
-        o_meta_log::__new(m_buffer.data(), state_num, meta_items);
+        
+        m_last_meta_log = &o_meta_log::__new(m_buffer.data(), state_num, meta_items);
         // append meta-log item as a separate chunk
         BlockIOStream::addChunk(size_of);
         BlockIOStream::appendToChunk(m_buffer.data(), size_of);
@@ -81,9 +81,41 @@ namespace db0
     const o_meta_log *MetaIOStream::readMetaLog()
     {
         if (BlockIOStream::readChunk(m_buffer)) {
-            return &o_meta_log::__const_ref(m_buffer.data());            
+            m_last_meta_log = &o_meta_log::__const_ref(m_buffer.data());
+            return m_last_meta_log;
         } else {
             return nullptr;
+        }
+    }
+    
+    const o_meta_log *MetaIOStream::tailMetaLog()
+    {
+        auto meta_log = readMetaLog();
+        while (meta_log) {
+            m_last_meta_log = meta_log;
+            meta_log = readMetaLog();
+        }
+        return m_last_meta_log;
+    }
+    
+    void MetaIOStream::setTailAll() 
+    {
+        auto tail_log = tailMetaLog();
+        if (tail_log) {
+            auto it = tail_log->getMetaItems().begin();
+            for (std::size_t i = 0; i < m_managed_streams.size(); ++i, ++it) {
+                if (it == tail_log->getMetaItems().end()) {
+                    THROWF(db0::IOException) << "MetaIOStream::setTailAll error: not enough meta items";
+                }                
+                m_managed_streams[i]->setStreamPos(it->m_address, it->m_stream_pos);
+            }
+        } else {
+            // no tail item available, in such case simple exhaust all streams
+            for (std::size_t i = 0; i < m_managed_streams.size(); ++i) {
+                std::vector<char> tmp_buf;
+                // exhaust the stream
+                while (m_managed_streams[i]->readChunk(tmp_buf));
+            }
         }
     }
     

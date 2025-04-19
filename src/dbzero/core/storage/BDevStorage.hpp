@@ -123,10 +123,10 @@ namespace db0
         // data-page change log, each chunk corresponds to a separate data transaction
         // first element from each chunk represents the state number
         ChangeLogIOStream m_dp_changelog_io;
-        // memory-mapped file I/O
-        DRAM_IOStream m_dram_io;
         // meta-stream keeps meta-data about the other streams
         MetaIOStream m_meta_io;
+        // memory-mapped file I/O
+        DRAM_IOStream m_dram_io;
         // SparseIndex + DiffIndex
         SparsePair m_sparse_pair;
         // DRAM-backed sparse index tree
@@ -141,9 +141,7 @@ namespace db0
                         
         static DRAM_IOStream init(DRAM_IOStream &&, ChangeLogIOStream &);
         
-        static ChangeLogIOStream init(ChangeLogIOStream &&);
-
-        static MetaIOStream init(MetaIOStream &&);
+        static MetaIOStream init(MetaIOStream &&);        
         
         /**
          * Calculates the total number of blocks stored in this file

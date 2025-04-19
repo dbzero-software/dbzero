@@ -50,7 +50,7 @@ namespace tests
         CFile block_file(file_name_2, AccessType::READ_WRITE);
         
         BlockIOStream block_stream(block_file, 0, 4096, {}, AccessType::READ_WRITE);
-        std::vector<const BlockIOStream*> managed_streams = { &block_stream };
+        std::vector<BlockIOStream*> managed_streams = { &block_stream };
 
         MetaIOStream cut(meta_file, managed_streams, 0, 4096);
         auto tell_0 = cut.tell();
@@ -71,7 +71,7 @@ namespace tests
         CFile block_file(file_name_2, AccessType::READ_WRITE);
         
         BlockIOStream block_stream(block_file, 0, 4096, {}, AccessType::READ_WRITE);
-        std::vector<const BlockIOStream*> managed_streams = { &block_stream };
+        std::vector<BlockIOStream*> managed_streams = { &block_stream };
 
         // NOTE: configure very small step size (=128)
         MetaIOStream cut(meta_file, managed_streams, 0, 4096, {}, AccessType::READ_WRITE, false, 128);

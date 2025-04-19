@@ -37,10 +37,10 @@ namespace db0
         , m_file(file_name, access_type, lock_flags)
         , m_config(readConfig())
         , m_dram_changelog_io(getChangeLogIOStream(m_config.m_dram_changelog_io_offset, access_type))
-        , m_dp_changelog_io(init(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type)))
-        , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))
+        , m_dp_changelog_io(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type))
         , m_meta_io(init(getMetaIOStream(m_config.m_meta_io_offset, meta_io_step_size.value_or(DEFAULT_META_IO_STEP_SIZE),
             access_type)))
+        , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))            
         , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
         , m_sparse_index(m_sparse_pair.getSparseIndex())
         , m_diff_index(m_sparse_pair.getDiffIndex())        
@@ -55,32 +55,25 @@ namespace db0
     {
     }
     
-    DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, ChangeLogIOStream &change_log)
+    DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, ChangeLogIOStream &dram_change_log)
     {
         if (dram_io.getAccessType() == AccessType::READ_WRITE) {
             // simply exhaust the change-log stream
-            while (change_log.readChangeLogChunk());
+            while (dram_change_log.readChangeLogChunk());
         } else {
             // apply all changes from the change-log
-            dram_io.applyChanges(change_log);
+            dram_io.applyChanges(dram_change_log);
         }
         return std::move(dram_io);
-    }
-
-    ChangeLogIOStream BDevStorage::init(ChangeLogIOStream &&io)
-    {
-        // exhaust the change-log stream (position at the last chunk)
-        while (io.readChangeLogChunk());
-        return std::move(io);
     }
     
     MetaIOStream BDevStorage::init(MetaIOStream &&io)
     {
-        // exhaust the meta-log stream (position at the last chunk)
-        while (io.readMetaLog());
+        // exhaust the meta-log stream (position at the last item) and all managed streams
+        io.setTailAll();        
         return std::move(io);
     }
-
+    
     o_prefix_config BDevStorage::readConfig() const
     {
         std::vector<char> buffer(CONFIG_BLOCK_SIZE);
@@ -322,15 +315,15 @@ namespace db0
         // NOTE: the checkpoint is only saved after exceeding specific threshold of updates in the managed streams
         auto state_num = m_sparse_pair.getMaxStateNum();
         m_meta_io.checkAndAppend(state_num);
+        m_meta_io.flush();
         
         // Extract & flush sparse index change log first (on condition of any updates)
-        m_sparse_pair.extractChangeLog(m_dp_changelog_io);        
+        m_sparse_pair.extractChangeLog(m_dp_changelog_io);
         m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_dp_changelog_io.flush();
         // flush changelog AFTER all updates from dram_io have been flushed
         m_dram_changelog_io.flush();
         m_page_io.flush();
-        m_meta_io.flush();
         m_file.flush();
         return true;
     }
@@ -354,7 +347,8 @@ namespace db0
     
     MetaIOStream BDevStorage::getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType access_type)
     {
-        std::vector<const BlockIOStream *> managed_streams = { &m_dram_changelog_io, &m_dp_changelog_io };
+        // NOTE: currently only the dp-changelog stream is managed by the meta-io
+        std::vector<BlockIOStream *> managed_streams = { &m_dp_changelog_io };
         return { m_file, managed_streams, first_block_pos, m_config.m_block_size, getTailFunction(),
             access_type, MetaIOStream::ENABLE_CHECKSUMS, step_size 
         };

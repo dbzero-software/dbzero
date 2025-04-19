@@ -76,7 +76,7 @@ namespace db0
         }
         return nullptr;
     }
-
+    
     void DRAM_IOStream::updateDRAMPage(std::uint64_t address, std::unordered_set<std::size_t> *allocs_ptr, 
         const o_dram_chunk_header &header, void *bytes)
     {   
