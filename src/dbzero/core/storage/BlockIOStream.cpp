@@ -35,9 +35,6 @@ namespace db0
         if (access_type == AccessType::READ_WRITE && m_file.getAccessType() == AccessType::READ_ONLY) {
             THROWF(db0::InternalException) << "BlockIOStream unable to write to read-only file";
         }
-        if (!tail_function && access_type == AccessType::READ_WRITE) {
-            THROWF(db0::InternalException) << "BlockIOStream tail function must be provided in read/write mode";
-        }
         // Try reading the first full block
         if ((m_address + m_block_size > m_file.size()) || !readBlock(m_address, m_block_begin)) {
             // create a new block, overwrite incomplete blocks (process may have crashed when flushing)
@@ -83,7 +80,7 @@ namespace db0
         // take next block from end of file
         bool create_next_block = false;
         if (write && !m_block_header.hasNext()) {
-            m_block_header.setNext(m_tail_function());
+            m_block_header.setNext(nextAddress());
             create_next_block = true;
             assert(m_access_type == AccessType::READ_WRITE);
             m_modified = true;
@@ -487,6 +484,15 @@ namespace db0
         m_chunk_left_bytes = 0;    
         m_eos = false;
     }
+
+    std::uint64_t BlockIOStream::nextAddress() const
+    {
+        std::uint64_t next_address = tail();
+        if (m_tail_function) {
+            next_address = std::max(m_tail_function(), next_address);
+        }
+        return next_address;
+    }
     
     std::uint64_t checksum(const void *begin, const void *end)
     {
@@ -499,5 +505,5 @@ namespace db0
         }
         return checksum;
     }
-
+    
 }

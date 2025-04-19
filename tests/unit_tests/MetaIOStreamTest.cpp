@@ -34,12 +34,8 @@ namespace tests
     {
         std::vector<char> no_data;
         CFile::create(file_name_1, no_data);
-        CFile file(file_name_1, AccessType::READ_WRITE);
-        auto tail_function = [&]() {
-            return file.size(); 
-        };
-        
-        MetaIOStream cut(file, 0, 4096, tail_function, {});
+        CFile file(file_name_1, AccessType::READ_WRITE);        
+        MetaIOStream cut(file, {}, 0, 4096);
         ASSERT_TRUE(cut.eos());
         cut.close();        
     }
@@ -50,20 +46,13 @@ namespace tests
         CFile::create(file_name_1, no_data);
         CFile::create(file_name_2, no_data);
 
-        CFile meta_file(file_name_1, AccessType::READ_WRITE);
-        auto meta_tail_function = [&]() {
-            return meta_file.size();
-        };
-
+        CFile meta_file(file_name_1, AccessType::READ_WRITE);        
         CFile block_file(file_name_2, AccessType::READ_WRITE);
-        auto block_tail_function = [&]() {
-            return block_file.size();
-        };
         
-        BlockIOStream block_stream(block_file, 0, 4096, block_tail_function, AccessType::READ_WRITE);
+        BlockIOStream block_stream(block_file, 0, 4096, {}, AccessType::READ_WRITE);
         std::vector<const BlockIOStream*> managed_streams = { &block_stream };
 
-        MetaIOStream cut(meta_file, 0, 4096, meta_tail_function, managed_streams);
+        MetaIOStream cut(meta_file, managed_streams, 0, 4096);
         auto tell_0 = cut.tell();
         // no append because the managed stream was not written to
         cut.checkAndAppend(0);
@@ -79,26 +68,19 @@ namespace tests
         CFile::create(file_name_2, no_data);
 
         CFile meta_file(file_name_1, AccessType::READ_WRITE);
-        auto meta_tail_function = [&]() {
-            return meta_file.size();
-        };
-
         CFile block_file(file_name_2, AccessType::READ_WRITE);
-        auto block_tail_function = [&]() {
-            return block_file.size();
-        };
         
-        BlockIOStream block_stream(block_file, 0, 4096, block_tail_function, AccessType::READ_WRITE);
+        BlockIOStream block_stream(block_file, 0, 4096, {}, AccessType::READ_WRITE);
         std::vector<const BlockIOStream*> managed_streams = { &block_stream };
 
         // NOTE: configure very small step size (=128)
-        MetaIOStream cut(meta_file, 0, 4096, meta_tail_function, managed_streams, AccessType::READ_WRITE, false, 128);
+        MetaIOStream cut(meta_file, managed_streams, 0, 4096, {}, AccessType::READ_WRITE, false, 128);
         // write to the managed stream
         std::vector<char> data = randomPage(4096);
         block_stream.addChunk(data.size());
         block_stream.appendToChunk(data.data(), data.size());        
 
-        auto tell_0 = cut.tell();    
+        auto tell_0 = cut.tell();
         cut.checkAndAppend(0);
         // make sure someting was appended
         ASSERT_TRUE(cut.tell() > tell_0);

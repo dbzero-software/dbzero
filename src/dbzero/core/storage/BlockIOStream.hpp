@@ -74,14 +74,14 @@ namespace db0
          * @param m_file underlying file object
          * @param begin the stream's starting location/address
          * @param block_size single block size (including headers)
-         * @param tail_function required for read/write streams
+         * @param tail_function required for read/write streams when multiple streams occupy the same file
          * @param access_type either read/write or read-only
          * @param maintain_checksums if true then block-level checksums will be calculated and validated
         */
         BlockIOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size,
-            std::function<std::uint64_t()> tail_function, AccessType = AccessType::READ_WRITE, 
+            std::function<std::uint64_t()> tail_function = {}, AccessType = AccessType::READ_WRITE,
             bool maintain_checksums = false);
-
+        
         BlockIOStream(BlockIOStream &&);
         
         BlockIOStream(const BlockIOStream &) = delete;
@@ -250,6 +250,8 @@ namespace db0
          * @param chunk_size size of the chunk
         */
         void readFromChunk(std::uint64_t address, void *buffer, std::size_t chunk_size) const;
+
+        std::uint64_t nextAddress() const;
     };
 
 }

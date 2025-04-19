@@ -355,10 +355,11 @@ namespace db0
     MetaIOStream BDevStorage::getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType access_type)
     {
         std::vector<const BlockIOStream *> managed_streams = { &m_dram_changelog_io, &m_dp_changelog_io };
-        return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), managed_streams,
-            access_type, MetaIOStream::ENABLE_CHECKSUMS, step_size };
+        return { m_file, managed_streams, first_block_pos, m_config.m_block_size, getTailFunction(),
+            access_type, MetaIOStream::ENABLE_CHECKSUMS, step_size 
+        };
     }
-
+    
     DRAM_IOStream BDevStorage::getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type, dram_page_size };
     }

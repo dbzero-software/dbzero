@@ -54,10 +54,9 @@ namespace db0
         static constexpr bool ENABLE_CHECKSUMS = false;
         
         // @param step_size the cummulative change in the managed streams' size to be reflected in the meta stream
-        MetaIOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size,
-            std::function<std::uint64_t()> tail_function, const std::vector<const BlockIOStream*> &managed_streams,
-            AccessType = AccessType::READ_WRITE, bool maintain_checksums = false, 
-            std::size_t step_size = 16 << 20);
+        MetaIOStream(CFile &m_file, const std::vector<const BlockIOStream*> &managed_streams, std::uint64_t begin, 
+            std::uint32_t block_size, std::function<std::uint64_t()> tail_function = {}, AccessType = AccessType::READ_WRITE, 
+            bool maintain_checksums = false, std::size_t step_size = 16 << 20);
         
         // Check the underlying managed streams and append the meta log if needed (step size is reached)
         void checkAndAppend(StateNumType state_num);

@@ -27,8 +27,8 @@ namespace db0
             (o_list<o_meta_item>::type(), meta_items);
     }
 
-    MetaIOStream::MetaIOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size,
-        std::function<std::uint64_t()> tail_function, const std::vector<const BlockIOStream*> &managed_streams,
+    MetaIOStream::MetaIOStream(CFile &m_file, const std::vector<const BlockIOStream*> &managed_streams, 
+        std::uint64_t begin, std::uint32_t block_size, std::function<std::uint64_t()> tail_function,
         AccessType access_type, bool maintain_checksums, std::size_t step_size)
         : BlockIOStream(m_file, begin, block_size, tail_function, access_type, maintain_checksums)
         , m_managed_streams(managed_streams)

@@ -97,7 +97,7 @@ namespace db0
          * Note that checksums are always enabled for the ChangeLogStream
         */
         ChangeLogIOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size,
-            std::function<std::uint64_t()> tail_function, AccessType = AccessType::READ_WRITE);
+            std::function<std::uint64_t()> tail_function = {}, AccessType = AccessType::READ_WRITE);
         ChangeLogIOStream(BlockIOStream &&);
         
         /**

@@ -44,19 +44,16 @@ namespace tests
         std::vector<char> no_data;
         CFile::create(file_name, no_data);
         CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() { 
-            return file.size(); 
-        };
 
         {
-            BlockIOStream cut(file, 0, 4096, tail_function);
+            BlockIOStream cut(file, 0, 4096);
             cut.addChunk(11);
             cut.appendToChunk("hello world", 11);
             cut.close();
         }
         
         // read the chunk
-        BlockIOStream cut(file, 0, 4096, tail_function, AccessType::READ_ONLY);
+        BlockIOStream cut(file, 0, 4096, {}, AccessType::READ_ONLY);
         std::vector<char> buffer(11);
         auto size = cut.readChunk(buffer);
         ASSERT_EQ(size, 11);
@@ -68,19 +65,16 @@ namespace tests
         std::vector<char> no_data;
         CFile::create(file_name, no_data);
         CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() { 
-            return file.size(); 
-        };
 
         {
-            BlockIOStream cut(file, 0, 4096, tail_function);
+            BlockIOStream cut(file, 0, 4096);
             cut.addChunk(11);
             cut.appendToChunk("hello world", 11);
             cut.close();
         }
         
         // read the chunk
-        BlockIOStream cut(file, 0, 4096, tail_function, AccessType::READ_ONLY);
+        BlockIOStream cut(file, 0, 4096, {}, AccessType::READ_ONLY);
         std::vector<char> buffer;
         ASSERT_ANY_THROW(cut.readChunk(buffer, 10));
     }
@@ -90,18 +84,15 @@ namespace tests
         std::vector<char> no_data;
         CFile::create(file_name, no_data);
         CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() {
-            return file.size(); 
-        };
 
         {
-            BlockIOStream cut(file, 0, 4096, tail_function);
+            BlockIOStream cut(file, 0, 4096);
             cut.addChunk(11);
             cut.appendToChunk("hello world", 11);
             cut.close();
         }
         
-        BlockIOStream cut(file, 0, 4096, tail_function);
+        BlockIOStream cut(file, 0, 4096);
         // should throw because not at the end of stream
         ASSERT_ANY_THROW(cut.addChunk(11));
         cut.close();
@@ -112,12 +103,9 @@ namespace tests
         std::vector<char> no_data;
         CFile::create(file_name, no_data);
         CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() { 
-            return file.size(); 
-        };
 
         {
-            BlockIOStream cut(file, 0, 4096, tail_function);
+            BlockIOStream cut(file, 0, 4096);
             cut.addChunk(11);
             cut.appendToChunk("hello world", 11);
             cut.close();
@@ -125,7 +113,7 @@ namespace tests
         
         // append chunk to existing stream
         {
-            BlockIOStream cut(file, 0, 4096, tail_function);
+            BlockIOStream cut(file, 0, 4096);
             readAll(cut);
             cut.addChunk(11);
             cut.appendToChunk("hello world", 11);
@@ -133,7 +121,7 @@ namespace tests
         }
 
         // read the chunk
-        BlockIOStream cut(file, 0, 4096, tail_function, AccessType::READ_ONLY);
+        BlockIOStream cut(file, 0, 4096, {}, AccessType::READ_ONLY);
         std::vector<char> buffer;
         std::size_t size = 0;
         int count = 0;
@@ -150,21 +138,15 @@ namespace tests
         std::vector<char> no_data;
         CFile::create(file_name, no_data);
         CFile file(file_name, AccessType::READ_WRITE);
-        BlockIOStream *current_stream = nullptr;
-        auto tail_function = [&]() {
-            return current_stream->tail();
-        };
-
         auto page = randomPage(5099);
         {
-            BlockIOStream cut(file, 0, 4096, tail_function);
-            current_stream = &cut;
+            BlockIOStream cut(file, 0, 4096);            
             cut.addChunk(page.size());
             cut.appendToChunk(page.data(), page.size());
             cut.close();
         }
 
-        BlockIOStream cut(file, 0, 4096, tail_function, AccessType::READ_ONLY);
+        BlockIOStream cut(file, 0, 4096, {}, AccessType::READ_ONLY);
         std::vector<char> buffer;
         cut.readChunk(buffer, page.size());
         ASSERT_TRUE(equal(buffer, page));
@@ -231,12 +213,9 @@ namespace tests
         std::vector<char> no_data;
         CFile::create(file_name, no_data);
         CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() {
-            return file.size();
-        };
 
         // output stream
-        BlockIOStream out(file, 0, 4096, tail_function);
+        BlockIOStream out(file, 0, 4096);
         std::vector<std::pair<std::size_t, char> > in_chunks;
         bool data_valid = true;
         std::thread reader([&]() {
@@ -307,13 +286,10 @@ namespace tests
         std::vector<char> no_data;
         CFile::create(self.file_name, no_data);
         CFile file(self.file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() {
-            return file.size();
-        };
 
         // Create empty file first
         {
-            BlockIOStream out(file, 0, 4096, tail_function, AccessType::READ_WRITE, checksums);
+            BlockIOStream out(file, 0, 4096, {}, AccessType::READ_WRITE, checksums);
             out.flush();
             out.close();
         }
@@ -351,7 +327,7 @@ namespace tests
         
         // append chunks in multiple open/close cycles
         for (auto &chunk : chunk_data) {
-            BlockIOStream out(file, 0, 4096, tail_function, AccessType::READ_WRITE, checksums);
+            BlockIOStream out(file, 0, 4096, {}, AccessType::READ_WRITE, checksums);
             // read until end of stream           
             readAll(out);
             out.addChunk(chunk.first);
