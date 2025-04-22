@@ -350,4 +350,47 @@ namespace tests
         testReaderCanAccessChunksWrittenInMultipleCycles(*this, true);
     }
 
+    TEST_F( BlockIOStreamTest, testCanSaveAndThenRestoreStateWhenAppending )
+    {
+        std::vector<char> no_data;
+        CFile::create(file_name, no_data);
+        CFile file(file_name, AccessType::READ_WRITE);
+
+        BlockIOStream cut(file, 0, 4096);
+        std::pair<std::uint64_t, std::uint64_t> stream_pos;
+        // append some chunks, and remmber stream pos at chunk #8
+        for (int i = 0; i < 10; ++i) {
+            if (i == 7) {
+                stream_pos = cut.getStreamPos();
+                cut.addChunk(11);
+                cut.appendToChunk("hello world", 11);
+            } else {
+                auto page = randomPage(3189); 
+                cut.addChunk(page.size());
+                cut.appendToChunk(page.data(), page.size());
+            }                         
+        }
+        
+        BlockIOStream::State state;
+        cut.flush();
+        cut.saveState(state);
+        
+        // try reading chunk at the stored position
+        cut.setStreamPos(stream_pos.first, stream_pos.second);
+        std::vector<char> buffer;
+        auto size = cut.readChunk(buffer);
+        ASSERT_EQ(size, 11);
+        ASSERT_EQ(std::string(buffer.data(), buffer.size()), "hello world");
+
+        // restore state and continue appending
+        cut.restoreState(state);
+        ASSERT_TRUE(cut.eos());
+        for (int i = 0; i < 3; ++i) {
+            auto page = randomPage(3189); 
+            cut.addChunk(page.size());
+            cut.appendToChunk(page.data(), page.size());
+        }
+        cut.close();
+    }
+
 }

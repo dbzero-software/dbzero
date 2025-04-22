@@ -170,10 +170,24 @@ namespace db0
         
         // Get absolute file address (of the block) and the relative address of the current position
         std::pair<std::uint64_t, std::uint64_t> getStreamPos() const;
-                
+        
         // Set stream position for reading
         // NOTE: only values returned by getStreamPos() can be used, otherwise the behavior is undefined
         void setStreamPos(std::uint64_t address, std::uint64_t stream_pos);
+
+        struct State
+        {
+            std::uint64_t m_address;
+            std::uint64_t m_stream_pos;
+            std::size_t m_block_num;                     
+            bool m_eos;
+        };
+
+        // Temporarily save the stream's state, to be later restore with restoreState()
+        // NOTE: no mutations between saveState() and restoreState() are allowed, or the behavior is undefined
+        void saveState(State &) const;
+        
+        void restoreState(const State &);
 
     protected:
         CFile &m_file;
