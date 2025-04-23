@@ -34,7 +34,7 @@ namespace db0
         IndexType m_type;
         IndexDataType m_data_type = IndexDataType::Auto;
         // address of the actual index instance
-        std::uint64_t m_index_addr = 0;
+        Address m_index_addr = {};
         std::array<std::uint64_t, 2> m_reserved;
         
         o_index(IndexType, IndexDataType);
@@ -48,7 +48,7 @@ namespace db0
 
     template <typename T> std::shared_ptr<T> tryGetRangeTree(IndexBase &index)
     {
-        if (!index->m_index_addr) {
+        if (!index->m_index_addr.isValid()) {
             return nullptr;
         }
         assert(index->m_type == IndexType::RangeTree);

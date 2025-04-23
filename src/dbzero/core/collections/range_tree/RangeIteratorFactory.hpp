@@ -106,7 +106,7 @@ namespace db0
         }
         auto fixture_uuid = db0::serial::read<std::uint64_t>(iter, end);
         auto fixture = workspace.getFixture(fixture_uuid);
-        auto addr = db0::serial::read<std::uint64_t>(iter, end);
+        auto addr = db0::serial::read<Address>(iter, end);
         auto range = RT_Range<KeyT>::deserialize(iter, end);
         auto null_first = db0::serial::read<bool>(iter, end);
 

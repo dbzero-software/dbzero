@@ -52,7 +52,7 @@ namespace db0::object_model
         }
     }
     
-    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Tuple::Tuple(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
     {
     }
@@ -96,7 +96,7 @@ namespace db0::object_model
         return new (at_ptr) Tuple(fixture, tag_new_tuple(), size);
     }
     
-    Tuple *Tuple::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
+    Tuple *Tuple::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, Address address) {
         return new (at_ptr) Tuple(fixture, address);
     }
 

@@ -176,7 +176,7 @@ namespace db0
             v_this.modify(offset, size);
         }
         
-        inline std::uint64_t getAddress() const {
+        inline Address getAddress() const {
             return v_this.getAddress();
         }
 
@@ -219,7 +219,7 @@ namespace db0
             return v_this.isNull();
         }
                 
-        mptr myPtr(std::uint64_t address, FlagSet<AccessOptions> access_mode = {}) const {
+        mptr myPtr(Address address, FlagSet<AccessOptions> access_mode = {}) const {
             return v_this.getMemspace().myPtr(address, access_mode);
         }
 

@@ -20,7 +20,7 @@ namespace db0::object_model
         }
     }
     
-    ByteArray::ByteArray(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    ByteArray::ByteArray(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
     {
     }
@@ -142,7 +142,7 @@ namespace db0::object_model
         return !(*this == bytearray);
     }
     
-    ByteArray *ByteArray::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
+    ByteArray *ByteArray::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, Address address) {
         return new (at_ptr) ByteArray(fixture, address);
     }
 

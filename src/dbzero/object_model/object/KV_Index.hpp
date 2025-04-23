@@ -13,7 +13,7 @@ namespace db0::object_model
     {
         std::uint64_t m_addr;
     };
-
+    
     // Union of XValue & KV_Ptr
     union [[gnu::packed]] KV_Address
     {
@@ -21,9 +21,9 @@ namespace db0::object_model
         XValue as_value;
         
         KV_Address();
-        KV_Address(std::uint64_t);
+        KV_Address(Address);
 
-        operator std::uint64_t() const;
+        operator Address() const;
         operator bool () const;
         
         // binary compare

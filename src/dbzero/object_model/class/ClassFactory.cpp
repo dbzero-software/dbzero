@@ -230,9 +230,9 @@ namespace db0::object_model
     
     std::uint32_t ClassFactory::classRef(const Class &db0_class)
     {
-        auto address = db0::getPhysicalAddress(db0_class.getAddress());
-        assert(address <= std::numeric_limits<std::uint32_t>::max());
-        return static_cast<std::uint32_t>(address);
+        auto address = db0_class.getAddress();
+        assert(address.getOffset() <= std::numeric_limits<std::uint32_t>::max());
+        return static_cast<std::uint32_t>(address.getOffset());
     }
     
     ClassFactory::ClassItem ClassFactory::getTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const

@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
+#include <dbzero/core/memory/Address.hpp>
 #include <dbzero/core/memory/Memspace.hpp>
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/core/serialization/Fixed.hpp>
@@ -13,7 +14,7 @@ namespace db0
 {
     
     // SG-Tree node / head node pointers
-    template <class PtrT = std::uint64_t> struct [[gnu::packed]] tree_ptr_set
+    template <class PtrT = Address> struct [[gnu::packed]] tree_ptr_set
     {
         typedef PtrT pointer_type;
         PtrT parent;
@@ -40,7 +41,7 @@ namespace db0
     /**
      * Base container for SG-Tree nodes
      */
-    template <class ptr_set_t = tree_ptr_set<std::uint64_t> > struct [[gnu::packed]] sg_node_base
+    template <class ptr_set_t = tree_ptr_set<Address> > struct [[gnu::packed]] sg_node_base
         : public o_fixed<sg_node_base<ptr_set_t> >
     {
     public :
@@ -65,10 +66,10 @@ namespace db0
     /**
      * NOTICE: sg_tree object is the head node at the same time
      */
-    template <std::size_t match_size = 0, class ptr_set_t = tree_ptr_set<std::uint64_t> > struct [[gnu::packed]] sg_tree_data
+    template <std::size_t match_size = 0, class ptr_set_t = tree_ptr_set<Address> > struct [[gnu::packed]] sg_tree_data
         : public o_fixed<sg_tree_data<match_size, ptr_set_t> >
     {
-    public :
+    public:
         typedef o_fixed<sg_tree_data<match_size, ptr_set_t> > super_t;
         
         ptr_set_t ptr_set;
@@ -160,7 +161,7 @@ namespace db0
          * Create new, empty V-Space instance of the SG-Tree, no comparator required
          * @return address of the created instance
          */
-        static std::uint64_t createNew(db0::Memspace &memspace)
+        static Address createNew(db0::Memspace &memspace)
         {
             super sg_tree(memspace);
             // link to self
@@ -168,13 +169,13 @@ namespace db0
             sg_tree.modify().ptr_set.right = sg_tree.getAddress();
             return sg_tree.getAddress();
         }
-
+        
         class iterator : public node_ptr_t
         {
         public :
             iterator() = default;
 
-            iterator(Memspace &memspace, std::uint64_t address, MemLock &&mem_lock)
+            iterator(Memspace &memspace, Address address, MemLock &&mem_lock)
                 : node_ptr_t(memspace, address, std::move(mem_lock))
             {
             }
@@ -245,7 +246,7 @@ namespace db0
         }
         
         // This method allows constructing an iterator from a previously saved address
-        iterator beginFromAddress(std::uint64_t address) const {
+        iterator beginFromAddress(Address address) const {
             return node_ptr_t(this->getMemspace(), address);
         }
 
@@ -381,7 +382,7 @@ namespace db0
             node_ptr_t header = SG_Tree::get_header(node);
             v_sgtree _tree((ptr_t&)(header),_comp);
             SG_Tree::erase(
-                    header, node, _tree.modify().size--, *((std::uint32_t*)&_tree.modify().max_tree_size), _tree._alpha
+                header, node, _tree.modify().size--, *((std::uint32_t*)&_tree.modify().max_tree_size), _tree._alpha
             );
         }
 
@@ -422,7 +423,7 @@ namespace db0
                 this->modify().ptr_set.left = this->getAddress();
                 this->modify().ptr_set.right = this->getAddress();
                 // unlink head node from the root element
-                this->modify().ptr_set.parent = 0;
+                this->modify().ptr_set.parent = {};
                 this->modify().size = 0;
             }
         }
@@ -479,7 +480,7 @@ namespace db0
         bool destroyHeadNode(const node_ptr_t &head_node) const
         {
             auto ptr_root = head_node->ptr_set.parent;
-            if (!ptr_root || (ptr_root == head_node.getAddress())) {
+            if (!ptr_root.isValid() || (ptr_root == head_node.getAddress())) {
                 return false;
             }
 
@@ -488,17 +489,15 @@ namespace db0
             return true;
         }
 
-        void destroyNode(node_t &node, std::uint64_t ptr_head) const
+        void destroyNode(node_t &node, Address ptr_head) const
         {
             auto ptr_left = node->ptr_set.left;
-            if (ptr_left && (ptr_left!=ptr_head))
-            {
+            if (ptr_left.isValid() && (ptr_left != ptr_head)) {
                 node_t _left(this->getMemspace().myPtr(ptr_left));
-                destroyNode(_left,ptr_head);
+                destroyNode(_left, ptr_head);
             }
             auto ptr_right = node->ptr_set.right;
-            if (ptr_right && ptr_right!=ptr_head)
-            {
+            if (ptr_right.isValid() && ptr_right!=ptr_head) {
                 node_t _right(this->getMemspace().myPtr(ptr_right));
                 destroyNode(_right,ptr_head);
             }

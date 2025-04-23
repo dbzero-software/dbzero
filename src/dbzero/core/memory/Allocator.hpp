@@ -5,11 +5,12 @@
 #include <optional>
 #include <memory>
 #include <cassert>
+#include "Address.hpp"
 
 namespace db0
 
 {
-    
+        
     /**
      * The DB0 allocator interface
      * NOTE: allocators may return logical adddress which needs to be converted to physical one
@@ -25,14 +26,15 @@ namespace db0
          * Note that slot functionality is implementation specific and may not be supported by all allocators.
          * We use slots in special cases where objects needs to be allocated from a limited narrow address range
         */
-        virtual std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
+        virtual std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
             bool aligned = false, bool unique = false) = 0;
         
         /**
          * Free previously allocated address
+         * @param address the address previously returned by alloc (the memory offset part)
         */
         virtual void free(std::uint64_t address) = 0;
-
+        
         /**
          * Retrieve size of the range allocated under a specific address
          * 
@@ -64,29 +66,17 @@ namespace db0
          * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
          * @return the address of the range
         */
-        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false, 
+        Address alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false,
             bool unique = false);
-
+        
         // Check if the address is wihith the range managed by the allocator
         // (only applicable to limited allocators - e.g. SlabAllocator)
         virtual bool inRange(std::uint64_t address) const;
+                
+        void free(Address);        
+        std::size_t getAllocSize(Address) const;        
+        bool isAllocated(Address address) const;
+        bool inRange(Address address) const;
     };
-    
-    // Converts allocator's logical address into a physical one (by removing high 14 bits)
-    inline std::uint64_t getPhysicalAddress(std::uint64_t address) {
-        return address & 0x0003'FFFF'FFFF'FFFF;
-    }
-    
-    inline bool isPhysicalAddress(std::uint64_t address) {
-        return (address & 0xFFFC'0000'0000'0000) == 0;
-    }
-    
-    // extract the instance ID part from the physical address (high 14 bits)
-    inline std::uint16_t getInstanceId(std::uint64_t address) {
-        return address >> 50;
-    }
-    
-    // combine physical address & instance ID to form a logical address
-    std::uint64_t makeLogicalAddress(std::uint64_t address, std::uint16_t instance_id);
     
 }

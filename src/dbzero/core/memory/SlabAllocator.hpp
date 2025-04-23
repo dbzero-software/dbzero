@@ -67,7 +67,7 @@ namespace db0
 
         virtual ~SlabAllocator();
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
             bool aligned = false, bool unique = false) override;
         
         void free(std::uint64_t address) override;
@@ -132,7 +132,7 @@ namespace db0
         /**
          * Get address of the 1st allocation
         */
-        static std::uint64_t getFirstAddress();
+        static Address getFirstAddress();
 
         // SlabAllocator specific address conversions        
         inline std::uint64_t makeAbsolute(std::uint32_t relative) const {
@@ -143,9 +143,9 @@ namespace db0
             return absolute - m_begin_addr;
         }
         
-        // Try adjusting the address to make it unique        
+        // Try adjusting the address to make it unique
         // @return false if SlabAllocator was unable to make the address unique (counter overflow)
-        bool makeAddressUnique(std::uint64_t &address);
+        bool makeAddressUnique(Address &);
         
     private:
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;

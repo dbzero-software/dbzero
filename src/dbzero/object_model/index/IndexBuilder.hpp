@@ -45,8 +45,8 @@ namespace db0::object_model
         // and to handle callbacks from the range-tree index
         mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
 
-        // add to cache and return object address
-        std::uint64_t addToCache(ObjectPtr);
+        // add to cache and return object's address
+        Address addToCache(ObjectPtr);
     };
 
     template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder()
@@ -98,11 +98,11 @@ namespace db0::object_model
         m_object_cache.clear();
     }
     
-    template <typename KeyT> std::uint64_t IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
+    template <typename KeyT> Address IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
     {
         auto obj_addr = m_type_manager.extractObject(obj_ptr).getAddress();
-        if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
-            m_object_cache.emplace(obj_addr, obj_ptr);
+        if (m_object_cache.find(obj_addr.getOffset()) == m_object_cache.end()) {
+            m_object_cache.emplace(obj_addr.getOffset(), obj_ptr);
         }
         return obj_addr;
     }

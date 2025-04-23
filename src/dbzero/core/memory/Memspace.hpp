@@ -34,7 +34,7 @@ namespace db0
 
         void init(std::shared_ptr<Prefix> prefix, std::shared_ptr<Allocator> allocator);
 
-        inline mptr myPtr(std::uint64_t address, FlagSet<AccessOptions> access_mode = {}) {
+        inline mptr myPtr(Address address, FlagSet<AccessOptions> access_mode = {}) {
             return mptr(*this, address, access_mode);
         }
         
@@ -44,8 +44,10 @@ namespace db0
         }
         
         // Memspace::alloc implements the auto-align logic
-        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0, bool unique = false);
+        Address alloc(std::size_t size, std::uint32_t slot_num = 0, bool unique = false);
+        
         void free(std::uint64_t address);
+        void free(Address);
 
         inline Prefix &getPrefix() const {
             return *m_prefix;
@@ -100,6 +102,7 @@ namespace db0
         
         // Check if the address is valid (allocated) with the underlying allocator
         bool isAddressValid(std::uint64_t address) const;
+        bool isAddressValid(Address) const;
         
     protected:
         std::shared_ptr<Prefix> m_prefix;

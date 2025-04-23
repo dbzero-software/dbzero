@@ -46,7 +46,7 @@ namespace db0
         }
     };
     
-    std::optional<std::uint64_t> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+    std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
         bool aligned, bool unique) 
     {
         if (!slot_num) {
@@ -83,7 +83,7 @@ namespace db0
     std::size_t SlotAllocator::getAllocSize(std::uint64_t address) const {
         return m_allocator_ptr->getAllocSize(address);
     }
-
+    
     bool SlotAllocator::isAllocated(std::uint64_t address) const {
         return m_allocator_ptr->isAllocated(address);
     }

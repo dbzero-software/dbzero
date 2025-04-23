@@ -13,7 +13,7 @@ namespace db0
      * c_type - node container type
      * comp_t - node pointer comparer type
      */
-    template <typename T, class comp_t_, class ptr_set_t = tree_ptr_set<std::uint64_t> > class intrusive_node
+    template <typename T, class comp_t_, class ptr_set_t = tree_ptr_set<Address> > class intrusive_node
         : public v_object<T>
     {
     public :

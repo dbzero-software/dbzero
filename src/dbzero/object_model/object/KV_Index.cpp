@@ -9,12 +9,12 @@ namespace db0::object_model
         as_ptr.m_addr = 0;
     }
 
-    KV_Address::KV_Address(std::uint64_t addr) {
-        as_ptr.m_addr = addr;        
+    KV_Address::KV_Address(Address addr) {
+        as_ptr.m_addr = addr.getOffset();
     }
 
-    KV_Address::operator std::uint64_t() const {
-        return as_ptr.m_addr;
+    KV_Address::operator Address() const {
+        return Address(as_ptr.m_addr);
     }
     
     KV_Address::operator bool() const {

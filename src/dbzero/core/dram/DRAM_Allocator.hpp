@@ -25,7 +25,7 @@ namespace db0
          */
         void update(const std::unordered_set<std::size_t> &allocs);
 
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
             bool aligned = false, bool unique = false) override;
         
         void free(std::uint64_t address) override;
@@ -41,7 +41,7 @@ namespace db0
         /**
          * Get address of the 1st allocation
         */
-        std::uint64_t firstAlloc() const;
+        Address firstAlloc() const;
 
     private:
         static constexpr std::size_t FIRST_PAGE_ID = 1;

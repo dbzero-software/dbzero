@@ -21,8 +21,8 @@ namespace db0::object_model
 
     struct [[gnu::packed]] o_tag_index: public o_fixed<o_tag_index>
     {
-        std::uint64_t m_base_index_short_ptr = 0;
-        std::uint64_t m_base_index_long_ptr = 0;
+        Address m_base_index_short_ptr = {};
+        Address m_base_index_long_ptr = {};
         std::uint64_t m_reserved[4] = { 0, 0, 0, 0 };
     };
     
@@ -49,7 +49,8 @@ namespace db0::object_model
         virtual ~TagIndex();
         
         void addTag(ObjectPtr memo_ptr, ShortTagT tag_addr);
-
+        void addTag(ObjectPtr memo_ptr, Address tag_addr);
+        
         // add a tag using long identifier
         void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);
 
@@ -210,8 +211,8 @@ namespace db0::object_model
             if (memo.hasInstance()) {
                 auto object_addr = memo.getAddress();
                 // cache object locally
-                if (m_object_cache.find(object_addr) == m_object_cache.end()) {
-                    m_object_cache.emplace(object_addr, memo_ptr);
+                if (m_object_cache.find(object_addr.getOffset()) == m_object_cache.end()) {
+                    m_object_cache.emplace(object_addr.getOffset(), memo_ptr);
                 }
                 result = ActiveValueT(object_addr, nullptr);
             } else {

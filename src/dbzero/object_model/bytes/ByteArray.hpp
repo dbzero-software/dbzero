@@ -27,7 +27,7 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         friend super_t;
         
-        ByteArray(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        ByteArray(db0::swine_ptr<Fixture> &, Address address);
         ~ByteArray();
 
         static ByteArray *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
@@ -50,5 +50,5 @@ namespace db0::object_model
         ByteArray(db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
         ByteArray(tag_no_gc, db0::swine_ptr<Fixture> &, const ByteArray &);
     };
-
+    
 }

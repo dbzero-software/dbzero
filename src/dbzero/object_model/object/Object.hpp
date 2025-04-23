@@ -105,7 +105,7 @@ namespace db0::object_model
 
         Object(const Object &) = delete;
         Object(Object &&) = delete;
-        Object(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        Object(db0::swine_ptr<Fixture> &, Address);
         
         /* FIXME
         // Express-new constructor
@@ -136,9 +136,9 @@ namespace db0::object_model
         static Object *makeNull(void *at_ptr);
         
         // Unload the object stem, to retrieve its type and validate UUID / instance ID
-        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, Address);
         // Check if the unloadStem operation would be successful (withot actually performing it)
-        static bool checkUnloadStem(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static bool checkUnloadStem(db0::swine_ptr<Fixture> &, Address);
         
         // unload from stem with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exect object's type
@@ -146,7 +146,7 @@ namespace db0::object_model
         
         // unload from address with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exect object's type
-        static Object *unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type_hint);
+        static Object *unload(void *at_ptr, Address, std::shared_ptr<Class> type_hint);
 
         // Called to finalize adding members
         void endInit();
@@ -238,7 +238,7 @@ namespace db0::object_model
 
         void commit() const;
         
-        std::uint64_t getAddress() const;
+        Address getAddress() const;
 
         // NOTE: the operation is marked const because the dbzero state is not affected
         void setDefunct() const;

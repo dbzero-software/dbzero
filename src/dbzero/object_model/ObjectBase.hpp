@@ -49,7 +49,7 @@ namespace db0
             : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())            
         {
             if constexpr (Unique) {
-                this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
+                this->modify().m_header.m_instance_id = this->getAddress().getInstanceId();
             }
             addToGC0<T>(*fixture, this);
             m_gc_registered = true;
@@ -62,13 +62,13 @@ namespace db0
             , m_gc_registered(false)
         {
             if constexpr (Unique) {            
-                this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
+                this->modify().m_header.m_instance_id = this->getAddress().getInstanceId();
             }
         }
         
         // Open an existing instance
         struct tag_from_address {};
-        ObjectBase(tag_from_address, db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+        ObjectBase(tag_from_address, db0::swine_ptr<Fixture> &fixture, Address address)
             : has_fixture<BaseT>(typename has_fixture<BaseT>::tag_from_address(), fixture, address)        
         {
             m_gc_registered = tryAddToGC0<T>(*fixture, this);
@@ -98,7 +98,7 @@ namespace db0
                 m_gc_registered = false;
             }
         }
-
+        
         /**
          * Initialize the instance in place with a unique address
         */
@@ -107,7 +107,7 @@ namespace db0
             unregister();
             has_fixture<BaseT>::init(fixture, accessFlags(), std::forward<Args>(args)...);
             if constexpr (Unique) {
-                this->modify().m_header.m_instance_id = db0::getInstanceId(this->getAddress());
+                this->modify().m_header.m_instance_id = this->getAddress().getInstanceId();
             }
             m_gc_registered = tryAddToGC0<T>(*fixture, this);
         }
@@ -229,8 +229,8 @@ namespace db0
         // NOTE: newly created instance is not registered in GC0 because existing wrapper object will be reused
         T new_instance(tag_no_gc(), fixture, *static_cast<T*>(this));
         // move instance to a different cache (changing its address)
-        fixture->getLangCache().moveFrom(this->getFixture()->getLangCache(), this->getAddress(), 
-            new_instance.getAddress());
+        fixture->getLangCache().moveFrom(this->getFixture()->getLangCache(), this->getAddress().getOffset(), 
+            new_instance.getAddress().getOffset());
         // move instance to a different GC0 (preserving the same wrapper object)
         fixture->getGC0().moveFrom<T>(this->getFixture()->getGC0(), this);
         new_instance.m_gc_registered = true;
@@ -238,8 +238,8 @@ namespace db0
         if (atomic_ctx_ptr) {
             // move instance to a different atomic context (changing its address)
             assert(this->getFixture()->tryGetAtomicContext());
-            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), this->getAddress(), 
-                new_instance.getAddress());
+            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), this->getAddress().getOffset(),
+                new_instance.getAddress().getOffset());
         }
         
         this->destroy();

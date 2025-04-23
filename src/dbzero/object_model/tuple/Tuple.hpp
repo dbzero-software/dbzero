@@ -66,14 +66,14 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = const o_typed_item *;
 
-        explicit Tuple(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        explicit Tuple(db0::swine_ptr<Fixture> &, Address address);
         ~Tuple();
 
         ObjectSharedPtr getItem(std::size_t i) const;
         void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
         
         static Tuple *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::size_t size);
-        static Tuple *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static Tuple *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
 
         std::size_t count(ObjectPtr lang_value) const;
         std::size_t index(ObjectPtr lang_value) const;

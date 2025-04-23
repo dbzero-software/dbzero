@@ -87,9 +87,9 @@ namespace db0
         std::optional<std::uint32_t> evictOne(int *num_visited = nullptr);
         std::optional<std::uint32_t> findEmptySlot() const;
         
-        // Combine high 50 bits of the physical address with the fixture id
+        // Combine high 50 bits of the physical address (aka memory offset) with the fixture id
         inline std::uint64_t makeUID(std::uint16_t fixture_id, std::uint64_t address) const {
-            return (static_cast<std::uint64_t>(fixture_id) << 50) | db0::getPhysicalAddress(address);
+            return (static_cast<std::uint64_t>(fixture_id) << 50) | address;
         }
         
         void resize(std::size_t new_size);

@@ -32,7 +32,7 @@ namespace db0
             T v_space_object(memspace, std::forward<Args>(args)...);
             m_address = v_space_object.getAddress();
         }
-
+        
         db0_ptr(const T &v_space_object)
             : m_address(v_space_object.getAddress())
         {
@@ -44,7 +44,7 @@ namespace db0
         template<typename... Args>
         T create(db0::Memspace &memspace, Args&&... args)
         {
-            if (m_address) {
+            if (m_address.isValid()) {
                 THROWF(db0::InternalException) << "recreating of the v_object is not supported";
             }
 
@@ -58,7 +58,7 @@ namespace db0
         */
         T operator()(db0::Memspace &memspace) const
         {
-            if (!m_address) {
+            if (!m_address.isValid()) {
                 THROWF(db0::InternalException) << "Use of the uninitialized v_object";
             }
             return T(memspace.myPtr(m_address));
@@ -66,24 +66,24 @@ namespace db0
 
         std::shared_ptr<T> getSharedPtr(db0::Memspace &memspace) const
         {
-            if (!m_address){
+            if (!m_address.isValid()) {
                 THROWF(db0::InternalException) << "use of the uninitialized v_object";
             }            
             return std::shared_ptr<T>(new T(memspace.myPtr(m_address)));
         }
 
         bool isNull() const {
-            return !m_address;
+            return !m_address.isValid();
         }
 
         /**
          * Returns true if db0_ptr holds valid - not null - pointer.
          */
         explicit operator bool() const {
-            return !isNull();
+            return m_address.isValid();
         }
 
-        std::uint64_t getAddress() const {
+        Address getAddress() const {
             return m_address;
         }
 
@@ -118,12 +118,12 @@ namespace db0
         }
 
     protected:
-        std::uint64_t m_address = 0;        
+        Address m_address = {};
         friend class db0_unique_ptr<T>;
         friend struct db0_ptr_reinterpret_cast<T>;
         friend struct std::hash<db0::db0_ptr<T>>;
 
-        db0_ptr<T>(std::uint64_t address)
+        db0_ptr<T>(Address address)
             : m_address(address)
         {
         }
@@ -204,7 +204,7 @@ namespace db0
         db0_ptr<T> release()
         {
             auto result = db0_ptr<T>(this->m_address);
-            this->m_address = 0;
+            this->m_address = {};
             return result;
         }
 
@@ -215,7 +215,7 @@ namespace db0
         {
             if (this->m_address) {
                 this->destroy(memspace);
-                this->m_address = 0;
+                this->m_address = {};
             }
         }
 

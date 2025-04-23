@@ -12,11 +12,11 @@ namespace db0
 
 {
 
-    template <typename item_t, typename AddrT = std::uint64_t, typename item_comp_t = std::less<item_t> >
-    class v_bindex: public v_object<typename bindex_types<item_t, item_comp_t>::bindex_container>
+    template <typename item_t, typename AddrT = Address, typename item_comp_t = std::less<item_t> >
+    class v_bindex: public v_object<typename bindex_types<item_t, AddrT, item_comp_t>::bindex_container>
     {
         using self_t = v_bindex<item_t, AddrT, item_comp_t>;
-        using super_t = v_object<typename bindex_types<item_t, item_comp_t>::bindex_container>;
+        using super_t = v_object<typename bindex_types<item_t, AddrT, item_comp_t>::bindex_container>;
         using types_t = bindex_types<item_t, AddrT, item_comp_t>;
         using node_iterator = typename types_t::node_iterator;
         using node_stack = typename types_t::node_stack;

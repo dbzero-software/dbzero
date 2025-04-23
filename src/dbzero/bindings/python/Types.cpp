@@ -165,6 +165,7 @@ namespace db0::python
     }
     
     // MEMO_EXPIRED_REF specialization
+    /* FIXME:
     template <> PyObject *tryGetUUID<TypeId::MEMO_EXPIRED_REF>(PyObject *py_value) 
     {
         auto &expired_ref = *reinterpret_cast<MemoExpiredRef*>(py_value);
@@ -179,7 +180,8 @@ namespace db0::python
         object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
     }
-
+    */
+   
     void registerTryGetUUIDFunctions(std::vector<PyObject *(*)(PyObject*)> &functions)
     {
         functions.resize(static_cast<int>(TypeId::COUNT));

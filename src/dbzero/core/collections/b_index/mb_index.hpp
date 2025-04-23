@@ -606,10 +606,10 @@ namespace db0
 		/**
          * Member provided for v_object interface compatibility
          */
-		mptr myPtr(std::uint64_t address, FlagSet<AccessOptions> access_mode = {}) const {
+		mptr myPtr(Address address, FlagSet<AccessOptions> access_mode = {}) const {
 			return m_memspace_ptr->myPtr(address, access_mode);
 		}
-
+		
 		/**
 		 * Destroy existing instance
 		 */

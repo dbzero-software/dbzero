@@ -63,7 +63,7 @@ namespace db0::object_model
         std::copy(init_vars.begin(), init_vars.end(), std::inserter(m_init_vars, m_init_vars.end()));
     }
     
-    Class::Class(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Class::Class(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
         , m_uid(this->fetchUID())    
@@ -171,7 +171,7 @@ namespace db0::object_model
     
     bool Class::unloadSingleton(void *at) const
     {
-        if (!(*this)->m_singleton_address) {
+        if (!(*this)->m_singleton_address.asAddress()) {
             return false;
         }
         
@@ -394,11 +394,11 @@ namespace db0::object_model
         if (!isSingleton() || !isExistingSingleton()) {
             THROWF(db0::InternalException) << "Singleton object not found for class " << getTypeName();
         }
-        auto singleton_addr = (*this)->m_singleton_address;
+        Address singleton_addr = (*this)->m_singleton_address.asAddress();
         return {
             getFixture()->getUUID(),
             TypedAddress(StorageClass::OBJECT_REF, singleton_addr),
-            db0::getInstanceId(singleton_addr)
+            singleton_addr.getInstanceId()
         };
     }
     
@@ -407,7 +407,7 @@ namespace db0::object_model
         return {
             getFixture()->getUUID(),
             TypedAddress(StorageClass::DB0_CLASS, getAddress()),
-            db0::getInstanceId(getAddress())
+            getAddress().getInstanceId()
         };
     }
     
@@ -442,8 +442,8 @@ namespace db0::object_model
         }
     }
 
-    std::uint64_t Class::getSingletonAddress() const {
-        return (*this)->m_singleton_address;
+    Address Class::getSingletonAddress() const {
+        return (*this)->m_singleton_address.asAddress();
     }
     
     const std::unordered_set<std::string> &Class::getInitVars() const {

@@ -42,7 +42,7 @@ namespace db0
      * @tparam ItemT - fixed size item type (simple value or struct without pointers)
      * @tparam PtrT - type for inner pointers (V-Space)
      */
-    template <typename ItemT, typename PtrT = std::uint64_t> class v_bvector
+    template <typename ItemT, typename PtrT = Address> class v_bvector
         : public v_object<o_bvector<PtrT> >
     {
         using self_t = v_bvector<ItemT, PtrT>;
@@ -145,7 +145,7 @@ namespace db0
         ItemT &modifyItem(std::uint64_t index) 
         {
             if (!(index < size())) {
-                growBy((uint32_t)(index - size() + 1));
+                growBy((std::uint32_t)(index - size() + 1));
             }
             getDataBlock(getKey(0, index));
             return (*m_last_block).modify().modifyItem((std::size_t)(index & m_db_mask));
@@ -157,7 +157,7 @@ namespace db0
         ItemT modifyItem(std::uint64_t index, std::function<ItemT(ItemT &)> f) 
         {
             if (!(index < size())) {
-                growBy((uint32_t)(index - size() + 1));
+                growBy((std::uint32_t)(index - size() + 1));
             }
             // access within data block element (not thread safe)
             getDataBlock(getKey(0, index));
@@ -167,7 +167,7 @@ namespace db0
         void setItem(std::uint64_t index, const ItemT &item)
         {
             if (!(index < size())) {
-                growBy((uint32_t)(index - size() + 1));
+                growBy((std::uint32_t)(index - size() + 1));
             }
             // access within data block element (not thread safe)
             getDataBlock(getKey(0, index));
@@ -175,7 +175,7 @@ namespace db0
         }
 
         // threadsafe
-        ItemT getItem(uint64_t index) const 
+        ItemT getItem(std::uint64_t index) const 
         {
             assert (index < size());
             return getDataBlock(getKey(0,index))->getItem(index & m_db_mask);

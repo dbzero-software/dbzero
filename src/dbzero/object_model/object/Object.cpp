@@ -74,7 +74,7 @@ namespace db0::object_model
     {
     }
 
-    Object::Object(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)        
     {
     }
@@ -110,31 +110,31 @@ namespace db0::object_model
         return new (at_ptr) Object();
     }
     
-    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address)
     {
         db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-        // validate the instance ID if assigned        
-        auto instance_id = db0::getInstanceId(address);
-        if (instance_id && (instance_id != stem->m_header.m_instance_id)) {
-            THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
-        }        
+        // validate the instance ID if assigned
+        if (address.hasInstanceId()) {            
+            if (address.getInstanceId() != stem->m_header.m_instance_id) {
+                THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+            }        
+        }
         
         return stem;        
     }
     
-    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address)
     {
         if (fixture->isAddressValid(address)) {
             db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-            // validate the instance ID if assigned        
-            auto instance_id = db0::getInstanceId(address);
-            return !instance_id || instance_id == stem->m_header.m_instance_id;
+            // validate the instance ID if assigned
+            return !address.hasInstanceId() || address.getInstanceId() == stem->m_header.m_instance_id;
         }
         // the address no longer exists
         return false;
     }
     
-    Object *Object::unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type_hint)
+    Object *Object::unload(void *at_ptr, Address address, std::shared_ptr<Class> type_hint)
     {
         auto fixture = type_hint->getFixture();
         Object *object = new (at_ptr) Object(fixture, address);
@@ -712,7 +712,7 @@ namespace db0::object_model
         return fixture->get<ClassFactory>().getTypeByClassRef((*this)->m_class_ref).m_class;
     }
     
-    std::uint64_t Object::getAddress() const
+    Address Object::getAddress() const
     {
         assert(!isDefunct());
         if (!hasInstance()) {            

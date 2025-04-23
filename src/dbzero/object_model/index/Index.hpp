@@ -185,14 +185,14 @@ namespace db0::object_model
         void operator=(Index &&);
 
         bool hasRangeTree() const {
-            return (*this)->m_index_addr != 0;
+            return (*this)->m_index_addr.isValid();
         }
         
         template <typename T> std::shared_ptr<void> getRangeTreeRawPtr()
         {
             using RangeTreeT = db0::RangeTree<T, std::uint64_t>;
             if (!m_index) {
-                if ((*this)->m_index_addr) {
+                if ((*this)->m_index_addr.isValid()) {
                     // pull existing range tree
                     m_index = db0::make_shared_void<RangeTreeT>(this->myPtr((*this)->m_index_addr));                    
                 } else {
@@ -219,8 +219,8 @@ namespace db0::object_model
         {            
             using RangeTreeT = db0::RangeTree<T, std::uint64_t>;
             assert(!m_index);
-            assert(!(*this)->m_index_addr);
-            if (m_index || (*this)->m_index_addr) {
+            assert(!(*this)->m_index_addr.isValid());
+            if (m_index || (*this)->m_index_addr.isValid()) {
                 return;
             }
 

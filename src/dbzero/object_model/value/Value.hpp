@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <dbzero/core/metaprog/binary_cast.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0::object_model
 
@@ -10,6 +11,12 @@ namespace db0::object_model
     struct [[gnu::packed]] Value
     {
         Value() = default;
+
+        inline Value(Address address)
+            : m_store(address.m_value)
+        {
+        }
+
         inline Value(std::uint64_t value)
             : m_store(value)
         {
@@ -17,6 +24,10 @@ namespace db0::object_model
 
         template <typename T> inline T cast() const {
             return db0::binary_cast<T, std::uint64_t>()(m_store);
+        }
+
+        inline Address asAddress() const {
+            return Address(m_store);
         }
 
         bool operator==(const Value &other) const;

@@ -48,7 +48,7 @@ namespace db0
         /**
          * Within-prefix address of this object
         */
-        std::uint64_t m_address = 0;
+        Address m_address = {};
         Memspace *m_memspace_ptr = nullptr;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         // initial access flags (e.g. read / write / create)
@@ -62,12 +62,12 @@ namespace db0
     public:
         vtypeless() = default;
         
-        vtypeless(Memspace &, std::uint64_t address, FlagSet<AccessOptions>);
+        vtypeless(Memspace &, Address address, FlagSet<AccessOptions>);
 
         /**
          * Create mem-locked with specific flags (e.g. read/ write)
         */
-        vtypeless(Memspace &, std::uint64_t address, MemLock &&, std::uint16_t resource_flags,
+        vtypeless(Memspace &, Address address, MemLock &&, std::uint16_t resource_flags,
             FlagSet<AccessOptions>);
 
         vtypeless(const vtypeless& other);
@@ -100,14 +100,14 @@ namespace db0
         }
 
         inline bool isNull() const {
-            return (m_address == 0);
+            return !m_address.isValid();
         }
 
         inline operator bool() const {
-            return m_address != 0;
+            return m_address.isValid();
         }
 
-        inline std::uint64_t getAddress() const {
+        inline Address getAddress() const {
             return m_address;
         }
 
@@ -148,7 +148,7 @@ namespace db0
         template <typename T> const T *castTo() const {
             return reinterpret_cast<const T*>(m_mem_lock.m_buffer);
         }
-
+        
     private:
         inline void assertFlags() 
         {
@@ -169,12 +169,12 @@ namespace db0
 
         inline v_ptr() = default;
 
-        inline v_ptr(Memspace &memspace, std::uint64_t address, FlagSet<AccessOptions> access_mode = {})
+        inline v_ptr(Memspace &memspace, Address address, FlagSet<AccessOptions> access_mode = {})
             : vtypeless(memspace, address, access_mode)
         {
         }
 
-        inline v_ptr(Memspace &memspace, std::uint64_t address, MemLock &&lock, std::uint16_t resource_flags,
+        inline v_ptr(Memspace &memspace, Address address, MemLock &&lock, std::uint16_t resource_flags,
             FlagSet<AccessOptions> access_mode = {})
             : vtypeless(memspace, address, std::move(lock), resource_flags, access_mode)
         {
@@ -203,7 +203,7 @@ namespace db0
             (*this)->destroy(*m_memspace_ptr);
             m_mem_lock.release();
             m_memspace_ptr->free(m_address);
-            this->m_address = 0;
+            this->m_address = {};
             this->m_resource_flags = 0;
         }
         
@@ -221,7 +221,7 @@ namespace db0
                     // note that lock is getting updated, possibly copy-on-write is being performed
                     // NOTE: must extract physical address for mapRange                    
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
+                        m_address.getOffset(), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
                     // by calling MemLock::modify we mark the object's associated range as modified
                     m_mem_lock.modify();
                     lock.commit_set();
@@ -268,7 +268,7 @@ namespace db0
             // lock for create & write
             // NOTE: must extract physical address for mapRange
             auto mem_lock = memspace.getPrefix().mapRange(
-                getPhysicalAddress(address), size, access_mode | AccessOptions::write
+                address.getOffset(), size, access_mode | AccessOptions::write
             );
             // mark the entire writable area as modified
             mem_lock.modify();
@@ -310,7 +310,7 @@ namespace db0
                 if (lock.isLocked()) {
                     // NOTE: must extract physical address for mapRange
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::read);                        
+                        m_address.getOffset(), this->getSize(), m_access_mode | AccessOptions::read);
                     lock.commit_set();
                     break;
                 }

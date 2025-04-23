@@ -8,10 +8,8 @@ namespace db0::object_model
         return m_value == other.m_value;
     }
 
-    void TypedAddress::setAddress(std::uint64_t address)
-    {
-        assert((db0::getPhysicalAddress(address) >> 50) == 0);
-        m_value = (m_value & 0xFFFC000000000000) | db0::getPhysicalAddress(address);
+    void TypedAddress::setAddress(Address address) {    
+        m_value = (m_value & 0xFFFC000000000000) | address.getOffset();
     }
     
     void TypedAddress::setType(StorageClass type) {
