@@ -19,6 +19,8 @@ namespace db0
 
         Config(ObjectPtr py_config);
 
+        const ObjectSharedPtr& getRawConfig() const;
+
         template <typename T> std::optional<T> get(const std::string &key) const {
             return db0::get<T>(m_py_config.get(), key);
         }

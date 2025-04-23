@@ -75,6 +75,8 @@ namespace db0::python
         // stop threads as a separate function because it's not an API function
         void stopThreads();
 
+        const std::shared_ptr<db0::Config> &getConfig() const;
+
     private:
         std::shared_ptr<db0::Workspace> m_workspace;
         // optional DB0 config object
