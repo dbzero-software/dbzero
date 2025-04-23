@@ -191,6 +191,11 @@ namespace db0
         void saveState(State &) const;
         
         void restoreState(const State &);
+        
+        // Retrieve the stream's modified flag
+        bool modified() const {
+            return m_modified;
+        }
 
     protected:
         CFile &m_file;

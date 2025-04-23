@@ -121,7 +121,7 @@ namespace db0
         // @param end_state the first state number past the last state number to be included 
         //   in the change log (or up to the last state number if not specified)
         // @param f function to be called for each transaction's change log
-        virtual void fetchChangeLog(StateNumType begin_state, std::optional<StateNumType> end_state,
+        virtual void fetchChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
             std::function<void(StateNumType state_num, const o_change_log &)> f) const;
         
 #ifndef NDEBUG

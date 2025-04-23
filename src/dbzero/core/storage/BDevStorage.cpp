@@ -519,10 +519,52 @@ namespace db0
     }
 #endif
     
-    void BDevStorage::fetchChangeLog(StateNumType begin_state, std::optional<StateNumType> end_state,
+    void BDevStorage::fetchChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
         std::function<void(StateNumType state_num, const o_change_log &)> f) const
     {
+        if (m_dp_changelog_io.modified()) {
+            THROWF(db0::IOException) << "BDevStorage::fetchChangeLogs: dp-changelog is modified and needs to be flushed first";
+        }
+        auto &dp_changelog_io = const_cast<ChangeLogIOStream &>(m_dp_changelog_io);        
+        ChangeLogIOStream::State dp_state;
+        dp_changelog_io.saveState(dp_state);
 
+        {
+            std::vector<char> buf;
+            // try locating the nearest meta-log entry to position the dp-changelog
+            auto meta_log_ptr = m_meta_io.lowerBound(begin_state, buf);
+            if (meta_log_ptr) {
+                // the 1st meta-item is associated with tha dp_change_log
+                auto &item = *meta_log_ptr->getMetaItems().begin();
+                dp_changelog_io.setStreamPos(item.m_address, item.m_stream_pos);
+            } else {
+                // must scan starting from the beginning (head)
+                dp_changelog_io.setStreamPosHead();
+            }
+        }
+
+        try {
+            for (;;) {
+                auto change_log = dp_changelog_io.readChangeLogChunk();
+                if (!change_log) {
+                    // end of the stream reached
+                    break;
+                }
+                // first item of the change-log is the state number
+                auto state_num = *change_log->begin();
+                if (end_state && state_num >= *end_state) {
+                    // end of the range reached
+                    break;
+                }
+                if (state_num >= begin_state) {
+                    f(state_num, *change_log);
+                }
+            }
+        } catch (...) {
+            dp_changelog_io.restoreState(dp_state);            
+            throw;
+        }
+        dp_changelog_io.restoreState(dp_state);
     }
     
 }

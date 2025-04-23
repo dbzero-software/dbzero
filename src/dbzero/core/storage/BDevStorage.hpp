@@ -106,7 +106,7 @@ namespace db0
         // @return total bytes written / diff bytes written
         std::pair<std::size_t, std::size_t> getDiff_IOStats() const;
         
-        void fetchChangeLog(StateNumType begin_state, std::optional<StateNumType> end_state,
+        void fetchChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
             std::function<void(StateNumType, const o_change_log &)> f) const override;
         
 #ifndef NDEBUG
