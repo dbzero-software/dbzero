@@ -392,5 +392,30 @@ namespace tests
         }
         cut.close();
     }
+    
+    TEST_F( BlockIOStreamTest, testCanSetStreamPosHead )
+    {
+        std::vector<char> no_data;
+        CFile::create(file_name, no_data);
+        CFile file(file_name, AccessType::READ_WRITE);
+
+        BlockIOStream cut(file, 0, 4096);
+        cut.addChunk(11);
+        cut.appendToChunk("hello world", 11);
+
+        for (int i = 0; i < 10; ++i) {
+            auto page = randomPage(3189); 
+            cut.addChunk(page.size());
+            cut.appendToChunk(page.data(), page.size());            
+        }
+
+        // position at head and try reading the 1st chunk
+        cut.setStreamPosHead();
+        std::vector<char> buffer;
+        auto size = cut.readChunk(buffer);
+        ASSERT_EQ(size, 11);
+        ASSERT_EQ(std::string(buffer.data(), buffer.size()), "hello world");
+        cut.close();
+    }
 
 }

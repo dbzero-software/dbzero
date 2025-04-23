@@ -122,5 +122,34 @@ namespace db0
             }
         }
     }
+
+    const o_meta_log *MetaIOStream::lowerBound(StateNumType state_num, std::vector<char> &buf) const
+    {
+        State state;
+        saveState(state);
+        const_cast<MetaIOStream*>(this)->setStreamPosHead();
+        const o_meta_log *result = nullptr;
+        try {
+            while (true) {
+                auto meta_log = const_cast<MetaIOStream*>(this)->readMetaLog();
+                if (!meta_log || meta_log->m_state_num > state_num) {
+                    break;
+                }
+                if (buf.size() < meta_log->sizeOf()) {
+                    buf.resize(meta_log->sizeOf());
+                }
+                std::memcpy(buf.data(), meta_log, meta_log->sizeOf());
+                result = &o_meta_log::__const_ref(buf.data());
+                if (result->m_state_num == state_num) {
+                    break;
+                }
+            }
+        } catch (...) {
+            const_cast<MetaIOStream*>(this)->restoreState(state);
+            throw;
+        }
+        const_cast<MetaIOStream*>(this)->restoreState(state);
+        return result;
+    }
     
 }

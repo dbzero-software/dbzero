@@ -175,6 +175,9 @@ namespace db0
         // NOTE: only values returned by getStreamPos() can be used, otherwise the behavior is undefined
         void setStreamPos(std::uint64_t address, std::uint64_t stream_pos);
 
+        // Position the stream at its begin / head
+        void setStreamPosHead();
+
         struct State
         {
             std::uint64_t m_address;
@@ -182,7 +185,7 @@ namespace db0
             std::size_t m_block_num;                     
             bool m_eos;
         };
-
+        
         // Temporarily save the stream's state, to be later restore with restoreState()
         // NOTE: no mutations between saveState() and restoreState() are allowed, or the behavior is undefined
         void saveState(State &) const;
@@ -191,6 +194,8 @@ namespace db0
 
     protected:
         CFile &m_file;
+        // the stream's starting address
+        const std::uint64_t m_head;
         // file address of the current block
         std::uint64_t m_address;
         const std::uint32_t m_block_size;

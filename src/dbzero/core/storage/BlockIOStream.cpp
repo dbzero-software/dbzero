@@ -23,6 +23,7 @@ namespace db0
     BlockIOStream::BlockIOStream(CFile &file, std::uint64_t begin, std::uint32_t block_size,
         std::function<std::uint64_t()> tail_function, AccessType access_type, bool cs)
         : m_file(file)
+        , m_head(begin) 
         , m_address(begin)
         , m_block_size(block_size)
         , m_tail_function(tail_function)
@@ -58,6 +59,7 @@ namespace db0
     
     BlockIOStream::BlockIOStream(BlockIOStream &&other)
         : m_file(other.m_file)
+        , m_head(other.m_head)
         , m_address(other.m_address)
         , m_block_size(other.m_block_size)
         , m_tail_function(other.m_tail_function)
@@ -496,6 +498,10 @@ namespace db0
         m_chunk_left_bytes = 0;    
         m_eos = false;
     }
+    
+    void BlockIOStream::setStreamPosHead() {
+        setStreamPos(m_head, 0);
+    }
 
     std::uint64_t BlockIOStream::nextAddress() const
     {
@@ -523,7 +529,7 @@ namespace db0
         state.m_block_num = m_block_num;
         state.m_eos = m_eos;
     }
-
+    
     void BlockIOStream::restoreState(const State &state)
     {
         assert(!m_closed);

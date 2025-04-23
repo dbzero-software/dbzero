@@ -518,5 +518,11 @@ namespace db0
         m_dram_io.dramIOCheck(check_result);
     }
 #endif
+    
+    void BDevStorage::fetchChangeLog(StateNumType begin_state, std::optional<StateNumType> end_state,
+        std::function<void(StateNumType state_num, const o_change_log &)> f) const
+    {
 
+    }
+    
 }

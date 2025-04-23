@@ -74,6 +74,12 @@ namespace db0
         // Set this add all underlying streams to end/tail positions
         void setTailAll();
         
+        // Try locating an entry either equal or lower than the given state number
+        // @param state_num the state number to be located
+        // @param buf a meta-log persistency buffer
+        // @return the meta-log or nullptr if not found
+        const o_meta_log *lowerBound(StateNumType, std::vector<char> &buf) const;
+        
     private:
         const std::vector<BlockIOStream*> m_managed_streams;
         // stream sizes at the last meta log item (the last checkpoint)

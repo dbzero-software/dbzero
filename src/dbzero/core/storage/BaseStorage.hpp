@@ -5,12 +5,14 @@
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <functional>
 #include <unordered_map>
+#include <optional>
 
 namespace db0
 
 {
 
     class ProcessTimer;
+    struct o_change_log;
 
     /**
      * Defines the file-oriented storage interface
@@ -114,6 +116,14 @@ namespace db0
         virtual void beginCommit();
         virtual void endCommit();
         
+        // Retrieve the complete change log (i.e. DP updates) for each transaction from the given range
+        // @param begin_state the first state number to be included in the change log
+        // @param end_state the first state number past the last state number to be included 
+        //   in the change log (or up to the last state number if not specified)
+        // @param f function to be called for each transaction's change log
+        virtual void fetchChangeLog(StateNumType begin_state, std::optional<StateNumType> end_state,
+            std::function<void(StateNumType state_num, const o_change_log &)> f) const;
+        
 #ifndef NDEBUG
         // state number, file offset
         using DRAM_PageInfo = std::pair<std::uint64_t, std::uint64_t>;
@@ -131,5 +141,5 @@ namespace db0
     protected:
         AccessType m_access_type;
     };
-        
+           
 }

@@ -61,7 +61,7 @@ namespace tests
         block_stream.close();
     }
     
-    TEST_F( MetaIOStreamTest , testMetaIOStreamAppendAfteraStepLimitReached )
+    TEST_F( MetaIOStreamTest , testMetaIOLowerBound )
     {
         std::vector<char> no_data;
         CFile::create(file_name_1, no_data);
@@ -72,20 +72,32 @@ namespace tests
         
         BlockIOStream block_stream(block_file, 0, 4096, {}, AccessType::READ_WRITE);
         std::vector<BlockIOStream*> managed_streams = { &block_stream };
-
-        // NOTE: configure very small step size (=128)
+        
         MetaIOStream cut(meta_file, managed_streams, 0, 4096, {}, AccessType::READ_WRITE, false, 128);
-        // write to the managed stream
-        std::vector<char> data = randomPage(4096);
-        block_stream.addChunk(data.size());
-        block_stream.appendToChunk(data.data(), data.size());        
+        for (int i = 0; i < 100; i += 2) {
+            // write to the managed stream
+            std::vector<char> data = randomPage(250);
+            block_stream.addChunk(data.size());
+            block_stream.appendToChunk(data.data(), data.size());
+            cut.checkAndAppend(i);
+        }
 
-        auto tell_0 = cut.tell();
-        cut.checkAndAppend(0);
-        // make sure someting was appended
-        ASSERT_TRUE(cut.tell() > tell_0);
+        cut.flush();
+        std::vector<char> buffer;
+        auto meta_log_ptr = cut.lowerBound(7, buffer);
+        ASSERT_EQ(meta_log_ptr->m_state_num, 6);
+
+        meta_log_ptr = cut.lowerBound(98, buffer);
+        ASSERT_EQ(meta_log_ptr->m_state_num, 98);
+
+        meta_log_ptr = cut.lowerBound(99, buffer);
+        ASSERT_EQ(meta_log_ptr->m_state_num, 98);
+
+        meta_log_ptr = cut.lowerBound(150, buffer);
+        ASSERT_EQ(meta_log_ptr->m_state_num, 98);
+        
         cut.close();
         block_stream.close();
     }
-
+    
 }
