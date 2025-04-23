@@ -4,6 +4,7 @@ import time
 import dbzero_ce as db0
 import random
 from .memo_test_types import MemoTestClass
+from .conftest import DB0_DIR
 
 
 def test_db0_starts_autocommit_by_default(db0_fixture):
@@ -130,3 +131,25 @@ def test_list_items_append(db0_autocommit_fixture):
             assert random_int in list_1
         else:
             assert random_int not in list_1
+
+
+def test_autocommit_config(db0_fixture):
+    cfg = db0.get_config()
+    assert cfg['autocommit'] == True
+    assert cfg['autocommit_interval'] == 250
+
+    db0.close()
+    db0.init(DB0_DIR, config={'autocommit': False, 'autocommit_interval': 1000})
+    cfg = db0.get_config()
+    assert cfg['autocommit'] == False
+    assert cfg['autocommit_interval'] == 1000
+
+    db0.close()
+    db0.init(DB0_DIR, config={'autocommit': False})
+    cfg = db0.get_config()
+    assert cfg['autocommit'] == False
+    assert cfg['autocommit_interval'] == 250
+
+    db0.close()
+    with pytest.raises(Exception):
+        cfg = db0.get_config()

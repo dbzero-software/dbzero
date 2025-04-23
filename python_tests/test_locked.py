@@ -290,3 +290,20 @@ async def test_await_commit_multi_prefix(db0_fixture):
 
         for prefix in run_prefixes:
             assert db0.get_state_num(prefix, True) == state_nums[prefix]
+
+
+async def test_await_commit_autocommit_disabled(db0_no_autocommit):
+    prefix1 = db0.get_current_prefix().name
+    prefix2 = 'prefix2'
+    db0.open(prefix2)
+
+    db0.commit()
+    state1 = db0.get_state_num(prefix1)
+    state2 = db0.get_state_num(prefix2)
+
+    async with db0.locked(await_commit=True):
+        obj1 = MemoScopedClass(1, prefix1)
+        obj2 = MemoScopedClass(2, prefix2)
+
+    assert state1 == db0.get_state_num(prefix1, True)
+    assert state2 == db0.get_state_num(prefix2, True)

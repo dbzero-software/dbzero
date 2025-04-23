@@ -8,6 +8,11 @@ namespace db0
         : m_py_config(py_config)
     {
     }
+
+    const Config::ObjectSharedPtr& Config::getRawConfig() const
+    {
+        return m_py_config;
+    }
     
     // long specialization
     template <> std::optional<long> get<long>(typename LangToolkit::ObjectPtr py_dict, const std::string &key)
