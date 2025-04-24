@@ -39,7 +39,7 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         // full-text query iterator
-        using QueryIterator = FT_Iterator<std::uint64_t>;
+        using QueryIterator = FT_Iterator<Address>;
         // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
         
@@ -116,9 +116,9 @@ namespace db0::object_model
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
-        mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
+        mutable std::unordered_map<Address, ObjectSharedPtr> m_object_cache;
         // A cache for incomplete objects (not yet fully initialized)
-        mutable std::unordered_map<ObjectSharedPtr, std::uint64_t> m_active_cache;
+        mutable std::unordered_map<ObjectSharedPtr, Address> m_active_cache;
         // the associated fixture UUID (for validation purposes)
         const std::uint64_t m_fixture_uuid;
         
@@ -162,7 +162,7 @@ namespace db0::object_model
         std::optional<ShortTagT> tryAddShortTagFromTag(ObjectPtr) const;        
         std::optional<ShortTagT> tryAddShortTagFromMemo(ObjectPtr) const;
         
-        bool addIterator(ObjectPtr, db0::FT_IteratorFactory<std::uint64_t> &factory,
+        bool addIterator(ObjectPtr, db0::FT_IteratorFactory<Address> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
         
@@ -205,20 +205,20 @@ namespace db0::object_model
         }
         
         // prepare the active value only if it's not yet initialized
-        if (!result.first && !result.second) {
+        if (!result.first.isValid() && !result.second) {
             auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);            
             // NOTE: that memo object may not have address before fully initialized (before postInit)
             if (memo.hasInstance()) {
                 auto object_addr = memo.getAddress();
                 // cache object locally
-                if (m_object_cache.find(object_addr.getOffset()) == m_object_cache.end()) {
-                    m_object_cache.emplace(object_addr.getOffset(), memo_ptr);
+                if (m_object_cache.find(object_addr) == m_object_cache.end()) {
+                    m_object_cache.emplace(object_addr, memo_ptr);
                 }
                 result = ActiveValueT(object_addr, nullptr);
             } else {
-                auto it = m_active_cache.emplace(memo_ptr, 0);
+                auto it = m_active_cache.emplace(memo_ptr, Address());
                 // use the address placeholder for an active value
-                result = ActiveValueT(0, &(it.first->second));
+                result = ActiveValueT(Address(), &(it.first->second));
             }
         }
         

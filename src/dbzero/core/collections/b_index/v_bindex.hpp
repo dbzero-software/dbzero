@@ -503,10 +503,10 @@ namespace db0
         {
             // destroy all blocks with items
             for (auto it = m_index.begin(), end = m_index.end(); it != end; ++it) {
-                if (it->m_data.ptr_b_data) {
+                if (it->m_data.ptr_b_data.isValid()) {
                     data_vector data_buf(this->getMemspace().myPtr(it->m_data.ptr_b_data), m_item_destroy_func);
                     data_buf.destroy();
-                    it.modify().m_data.ptr_b_data = 0;
+                    it.modify().m_data.ptr_b_data = {};
                 }
             }
             // clear index next
@@ -889,7 +889,7 @@ namespace db0
             for (auto it = m_index.begin(), end = m_index.end(); it != end;) {
                 auto it_next = it;
                 ++it_next;
-                if (it->m_data.ptr_b_data) {
+                if (it->m_data.ptr_b_data.isValid()) {
                     data_vector data_buf(this->getMemspace().myPtr(it->m_data.ptr_b_data), m_item_destroy_func);
                     if (data_buf.empty()) {
                         m_index.erase(it);

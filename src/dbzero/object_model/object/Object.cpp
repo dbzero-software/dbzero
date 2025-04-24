@@ -330,7 +330,7 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         if (member.first == StorageClass::OBJECT_REF) {
             auto &class_factory = fixture->get<ClassFactory>();
-            return PyToolkit::unloadObject(fixture, member.second.cast<std::uint64_t>(), class_factory, lang_type);
+            return PyToolkit::unloadObject(fixture, member.second.asAddress(), class_factory, lang_type);
         }
         return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
     }

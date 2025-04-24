@@ -15,10 +15,10 @@ namespace db0
     // FT_BaseIndex provides common API for managing tag/type inverted lists
     // @tparam KeyT the tag / element's key type
     template <typename IndexKeyT>
-    class FT_BaseIndex: public InvertedIndex<IndexKeyT, std::uint64_t, std::uint64_t>
+    class FT_BaseIndex: public InvertedIndex<IndexKeyT, Address, Address>
     {
     public:
-        using super_t = InvertedIndex<IndexKeyT, std::uint64_t, std::uint64_t>;
+        using super_t = InvertedIndex<IndexKeyT, Address, Address>;
 
         FT_BaseIndex() = default;
         FT_BaseIndex(Memspace &, VObjectCache &);
@@ -31,12 +31,12 @@ namespace db0
          * Collect iterator associated with a specific key (e.g. tag/type)
          * @return false if no iterator collected (e.g. no such key)
         */
-        bool addIterator(FT_IteratorFactory<std::uint64_t> &, IndexKeyT key) const;
+        bool addIterator(FT_IteratorFactory<Address> &, IndexKeyT key) const;
 
         /**
          * @param key either tag or class identifier        
         */
-        std::unique_ptr<FT_Iterator<std::uint64_t> > makeIterator(IndexKeyT key, int direction = -1) const;
+        std::unique_ptr<FT_Iterator<Address> > makeIterator(IndexKeyT key, int direction = -1) const;
         
         /**
          * Match all elements from the user provided sequence
@@ -45,7 +45,7 @@ namespace db0
          * @param all to distinguish between all / any requirement
         */
         template <typename SequenceT>
-        bool beginFind(const SequenceT &key_sequence, FT_IteratorFactory<std::uint64_t> &factory, bool all) const
+        bool beginFind(const SequenceT &key_sequence, FT_IteratorFactory<Address> &factory, bool all) const
         {
             using ListT = typename super_t::ListT;
             bool result = false;
@@ -65,8 +65,8 @@ namespace db0
             // build query tree
             for (const auto &inverted_list: inverted_lists) {
                 // key inverted index
-                factory.add(std::unique_ptr<FT_Iterator<std::uint64_t> >(
-                    new FT_IndexIterator<ListT, std::uint64_t>(*inverted_list.second, -1, inverted_list.first))
+                factory.add(std::unique_ptr<FT_Iterator<Address> >(
+                    new FT_IndexIterator<ListT, Address>(*inverted_list.second, -1, inverted_list.first))
                 );
             }
             return result;
@@ -81,7 +81,7 @@ namespace db0
 
             TimeStats &operator+=(const TimeStats &);
         };
-
+        
         struct FlushStats
         {
             /// total number of inverted lists
@@ -93,14 +93,14 @@ namespace db0
         };
         
         // either of the elements is non-null
-        using ActiveValueT = std::pair<std::uint64_t, const std::uint64_t *>;
+        using ActiveValueT = std::pair<Address, const Address *>;
 
         // NOTE: values can be optionally stored as pointers due to lazy address evaluation
         // (may point to a placeholder where the actual value will be populated on flush)
         struct TagValueBuffer
         {
-            using ValueT = std::pair<IndexKeyT, std::uint64_t>;
-            using ValueRefT = std::pair<IndexKeyT, const std::uint64_t *>;
+            using ValueT = std::pair<IndexKeyT, Address>;
+            using ValueRefT = std::pair<IndexKeyT, const Address *>;
 
             // hash specializations
             template <typename T> struct ValueHash
@@ -110,8 +110,8 @@ namespace db0
                 }
             };
 
-            std::unordered_set<std::pair<IndexKeyT, std::uint64_t>, ValueHash<std::uint64_t> > m_values;
-            std::unordered_set<std::pair<IndexKeyT, const std::uint64_t *>, ValueHash<const std::uint64_t *> > m_value_refs;
+            std::unordered_set<std::pair<IndexKeyT, Address>, ValueHash<Address> > m_values;
+            std::unordered_set<std::pair<IndexKeyT, const Address *>, ValueHash<const Address *> > m_value_refs;
 
             void append(IndexKeyT key, ActiveValueT value);
 
@@ -122,9 +122,9 @@ namespace db0
             
             struct const_iterator
             {
-                typename std::unordered_set<std::pair<IndexKeyT, std::uint64_t> >::const_iterator m_values_it;
-                typename std::unordered_set<std::pair<IndexKeyT, std::uint64_t> >::const_iterator m_values_end;
-                typename std::unordered_set<std::pair<IndexKeyT, const std::uint64_t *> >::const_iterator m_value_refs_it;                
+                typename std::unordered_set<std::pair<IndexKeyT, Address> >::const_iterator m_values_it;
+                typename std::unordered_set<std::pair<IndexKeyT, Address> >::const_iterator m_values_end;
+                typename std::unordered_set<std::pair<IndexKeyT, const Address *> >::const_iterator m_value_refs_it;       
                 
                 struct tag_begin {};
                 const_iterator(const TagValueBuffer &, tag_begin);
@@ -135,7 +135,7 @@ namespace db0
                 bool operator!=(const const_iterator &) const;
                 bool operator==(const const_iterator &) const;
 
-                std::pair<IndexKeyT, std::uint64_t> operator*() const;
+                std::pair<IndexKeyT, Address> operator*() const;
             };
 
             const_iterator begin() const;
@@ -144,12 +144,12 @@ namespace db0
             void clear();
         };
         
-        class TagValueList: public std::vector<std::pair<IndexKeyT, std::uint64_t> >
+        class TagValueList: public std::vector<std::pair<IndexKeyT, Address> >
         {
         public:
             TagValueList(TagValueBuffer &&);
         };
-
+        
         /**
          * Batch operation builder should be used for bulk-loads and optimal performance
          */
@@ -217,7 +217,7 @@ namespace db0
              * @param index_insert_callback_ptr optional callback to be called for each new inverted list
              * @param index_erase_callback_ptr optional callback to be called for each removed inverted list
              */
-            using CallbackT = std::function<void(std::uint64_t)>;
+            using CallbackT = std::function<void(Address)>;
             using IndexCallbackT = std::function<void(IndexKeyT)>;
             FlushStats flush(CallbackT *insert_callback_ptr = nullptr, 
                 CallbackT *erase_callback_ptr = nullptr,

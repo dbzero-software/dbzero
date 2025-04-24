@@ -66,6 +66,7 @@ namespace db0::python
         return ObjectId_Check(py_object);
     }
 
+    /* FIXME: 
     PyObject *ObjectId_reduce(PyObject *self)
     {
         if (!ObjectId_Check(self)) {
@@ -85,7 +86,9 @@ namespace db0::python
         // Return a tuple with the object's constructor and its arguments
         return Py_BuildValue("(OO)", Py_TYPE(self), args);
     }
+    */
     
+    /* FIXME: implement
     int ObjectId_init(PyObject* self, PyObject* state)
     {
         if (!PyTuple_Check(state)) {
@@ -102,6 +105,7 @@ namespace db0::python
 
         return 0;
     }
+    */
     
     PyObject *ObjectId_richcompare(PyObject *self, PyObject *other, int op)
     {

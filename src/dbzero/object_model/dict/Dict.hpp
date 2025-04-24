@@ -30,7 +30,7 @@ namespace db0::object_model
     {
         // common object header
         o_unique_header m_header;
-        std::uint64_t m_index_ptr = 0;
+        Address m_index_ptr = {};
         std::uint64_t m_size = 0;
         std::uint64_t m_reserved[2] = {0, 0};
     };
@@ -47,7 +47,7 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = typename db0::v_bindex<dict_item>::const_iterator;
         
-        Dict(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        Dict(db0::swine_ptr<Fixture> &, Address);
         ~Dict();
         
         void operator=(Dict &&);
@@ -56,7 +56,7 @@ namespace db0::object_model
         void setItem(FixtureLock &, std::uint64_t key_hash, ObjectPtr key, ObjectPtr value);
         
         static Dict *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
-        static Dict *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static Dict *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
         
         bool has_item(int64_t hash, ObjectPtr obj) const;
         

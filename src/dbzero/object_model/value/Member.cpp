@@ -366,7 +366,7 @@ namespace db0::object_model
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_BYTES, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.cast<std::uint64_t>());
+        db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.asAddress());
         auto bytes_ptr = bytes->getBuffer();
         return PyBytes_FromStringAndSize(reinterpret_cast<const char *>(bytes_ptr), bytes->size());
     }

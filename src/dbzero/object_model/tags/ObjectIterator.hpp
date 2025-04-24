@@ -38,7 +38,7 @@ namespace db0::object_model
         ObjectIterator(db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&, std::shared_ptr<Class> = nullptr,
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
             const std::vector<FilterFunc> & = {}, const SliceDef & = {});
-                
+        
         /**
          * Retrieve next object from the iterator         
          * @return nullptr if end of iteration reached
@@ -82,7 +82,7 @@ namespace db0::object_model
         /**
          * Unload object by address (must be from this iterator)
         */
-        virtual ObjectSharedPtr unload(std::uint64_t address) const;
+        virtual ObjectSharedPtr unload(Address address) const;
     };
     
 }

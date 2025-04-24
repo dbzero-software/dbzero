@@ -369,7 +369,7 @@ namespace db0
         return *m_gc0_ptr;
     }
     
-    db0::GC0 &Fixture::createGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only)
+    db0::GC0 &Fixture::createGC0(db0::swine_ptr<Fixture> &fixture, Address address, bool read_only)
     {
         assert(!m_gc0_ptr);
         m_gc0_ptr = &addResource<db0::GC0>(fixture, address, read_only);

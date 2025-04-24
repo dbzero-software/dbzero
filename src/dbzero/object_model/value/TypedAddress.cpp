@@ -8,7 +8,7 @@ namespace db0::object_model
         return m_value == other.m_value;
     }
 
-    void TypedAddress::setAddress(Address address) {    
+    void TypedAddress::setAddress(Address address) {
         m_value = (m_value & 0xFFFC000000000000) | address.getOffset();
     }
     

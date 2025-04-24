@@ -28,7 +28,7 @@ namespace db0::object_model
     {
         // common object header
         o_unique_header m_header;
-        std::uint64_t m_index_ptr = 0;
+        Address m_index_ptr = {};
         std::uint64_t m_size = 0;
         std::uint64_t m_reserved[2] = {0, 0};
     };
@@ -44,7 +44,7 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = typename db0::v_bindex<set_item>::const_iterator;
         
-        explicit Set(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        explicit Set(db0::swine_ptr<Fixture> &, Address);
         ~Set();
 
         void operator=(Set &&);
@@ -54,7 +54,7 @@ namespace db0::object_model
         ObjectSharedPtr getItem(std::size_t i, ObjectPtr key_value) const;
         
         static Set *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
-        static Set *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static Set *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
 
         Set::ObjectSharedPtr pop();
         bool has_item(int64_t hash, PyObject * obj) const;

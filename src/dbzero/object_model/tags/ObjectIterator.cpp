@@ -49,7 +49,7 @@ namespace db0::object_model
                         ++it;
                     }
                 }
-                std::uint64_t addr;
+                Address addr;
                 m_slice.next(&addr);
                 auto obj_ptr = unload(addr);
                 // check filters if any                
@@ -68,7 +68,7 @@ namespace db0::object_model
         }
     }
     
-    ObjectIterator::ObjectSharedPtr ObjectIterator::unload(std::uint64_t address) const
+    ObjectIterator::ObjectSharedPtr ObjectIterator::unload(Address address) const
     {
         auto fixture = getFixture();
         if (m_type) {

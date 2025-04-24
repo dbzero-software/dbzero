@@ -59,8 +59,8 @@ namespace db0
         } else if (type_id == FTIteratorType::JoinAnd) {
             auto _iter = iter;
             auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
-            if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
-                return db0::FT_JoinANDIterator<std::uint64_t>::deserialize(workspace, iter, end);
+            if (key_type_id == db0::serial::typeId<Address>()) {
+                return db0::FT_JoinANDIterator<Address>::deserialize(workspace, iter, end);
             } else {
                 THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id
                     << THROWF_END;
@@ -68,8 +68,8 @@ namespace db0
         } else if (type_id == FTIteratorType::JoinOr) {
             auto _iter = iter;
             auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
-            if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
-                return db0::FT_JoinORXIterator<std::uint64_t>::deserialize(workspace, iter, end);
+            if (key_type_id == db0::serial::typeId<Address>()) {
+                return db0::FT_JoinORXIterator<Address>::deserialize(workspace, iter, end);
             } else {
                 THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id
                     << THROWF_END;
@@ -77,8 +77,8 @@ namespace db0
         } else if (type_id == FTIteratorType::JoinAndNot) {
             auto _iter = iter;
             auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
-            if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
-                return db0::FT_ANDNOTIterator<std::uint64_t>::deserialize(workspace, iter, end);
+            if (key_type_id == db0::serial::typeId<Address>()) {
+                return db0::FT_ANDNOTIterator<Address>::deserialize(workspace, iter, end);
             } else {
                 THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id
                     << THROWF_END;

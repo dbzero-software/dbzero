@@ -28,19 +28,19 @@ namespace db0
 
         // Add a new instance to cache
         // @return slot id the element was written to
-        void add(const Fixture &, std::uint64_t address, ObjectPtr);
+        void add(const Fixture &, Address, ObjectPtr);
         
         // Erase an instance from cache
         // @param expired_only if true, only expired instances will be removed
-        bool erase(const Fixture &, std::uint64_t address, bool expired_only = false);
+        bool erase(const Fixture &, Address, bool expired_only = false);
         
         // Try retrieving an existing instance from cache
         // nullptr will be returned if the instance has not been found in cache
-        ObjectSharedPtr get(const Fixture &, std::uint64_t address) const;
+        ObjectSharedPtr get(const Fixture &, Address) const;
 
         // Move instance from a different cache (changing its address)
-        void moveFrom(LangCache &other, const Fixture &src_fixture, std::uint64_t src_address,
-            const Fixture &dst_fixture, std::uint64_t dst_address);
+        void moveFrom(LangCache &other, const Fixture &src_fixture, Address src_address,
+            const Fixture &dst_fixture, Address dst_address);
 
         std::size_t size() const;
 
@@ -57,11 +57,12 @@ namespace db0
 
         std::uint16_t getFixtureId(const Fixture &fixture) const;
 
-        void add(std::uint16_t fixture_id, std::uint64_t address, ObjectPtr);
+        void add(std::uint16_t fixture_id, Address, ObjectPtr);
         
-        bool erase(std::uint16_t fixture_id, std::uint64_t address, bool expired_only = false);
+        bool erase(std::uint16_t fixture_id, Address, bool expired_only = false);
 
     private:
+        // UID + instance pair
         using CacheItem = std::pair<std::uint64_t, ObjectSharedPtr>;
         const std::size_t m_capacity;
         const std::uint32_t m_step;
@@ -75,21 +76,21 @@ namespace db0
         mutable std::vector<bool> m_visited;
         // instance UID to index in cache
         std::unordered_map<std::uint64_t, std::uint32_t> m_uid_to_index;
-
+        
         bool isFull() const;
-
-        ObjectSharedPtr get(std::uint16_t fixture_id, std::uint64_t address) const;
-
-        void moveFrom(LangCache &other, std::uint16_t src_fixture_id, std::uint64_t src_address,
-            std::uint16_t dst_fixture_id, std::uint64_t dst_address);
-
+        
+        ObjectSharedPtr get(std::uint16_t fixture_id, Address) const;
+        
+        void moveFrom(LangCache &other, std::uint16_t src_fixture_id, Address src_address,
+            std::uint16_t dst_fixture_id, Address dst_address);
+        
         // Try evicting one element from cache
         std::optional<std::uint32_t> evictOne(int *num_visited = nullptr);
         std::optional<std::uint32_t> findEmptySlot() const;
         
         // Combine high 50 bits of the physical address (aka memory offset) with the fixture id
-        inline std::uint64_t makeUID(std::uint16_t fixture_id, std::uint64_t address) const {
-            return (static_cast<std::uint64_t>(fixture_id) << 50) | address;
+        inline std::uint64_t makeUID(std::uint16_t fixture_id, Address address) const {
+            return (static_cast<std::uint64_t>(fixture_id) << 50) | address.getOffset();
         }
         
         void resize(std::size_t new_size);
@@ -104,13 +105,13 @@ namespace db0
         
         LangCacheView(const Fixture &, std::shared_ptr<LangCache>);
         
-        void add(std::uint64_t address, ObjectPtr);
+        void add(Address, ObjectPtr);
 
-        void erase(std::uint64_t address);
+        void erase(Address);
         
-        ObjectSharedPtr get(std::uint64_t address) const;
+        ObjectSharedPtr get(Address) const;
 
-        void moveFrom(LangCacheView &other, std::uint64_t src_address, std::uint64_t dst_address);
+        void moveFrom(LangCacheView &other, Address src_address, Address dst_address);
         
         // Erase all instances added via this view
         void clear(bool expired_only);
@@ -120,7 +121,7 @@ namespace db0
         std::shared_ptr<LangCache> m_cache_ptr;
         LangCache &m_cache;
         const std::uint16_t m_fixture_id;
-        std::unordered_set<std::uint64_t> m_objects;
+        std::unordered_set<Address> m_objects;
     };
     
 }

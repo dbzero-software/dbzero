@@ -14,7 +14,7 @@ namespace db0::object_model
     }
 
     KV_Address::operator Address() const {
-        return Address(as_ptr.m_addr);
+        return Address::fromOffset(as_ptr.m_addr);
     }
     
     KV_Address::operator bool() const {

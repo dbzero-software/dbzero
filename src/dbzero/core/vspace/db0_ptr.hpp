@@ -131,7 +131,7 @@ namespace db0
 
     template <typename T> struct db0_ptr_reinterpret_cast
     {
-        db0_ptr<T> operator()(std::uint64_t address) {
+        db0_ptr<T> operator()(Address address) {
             return db0_ptr<T>(address);
         }
     };
@@ -252,11 +252,9 @@ namespace std
 {
 
     // db0_ptr hash function
-    template <typename T> struct hash<db0::db0_ptr<T> >
-    {
-        std::size_t operator()(const db0::db0_ptr<T> &ptr) const
-        {
-            return std::hash<std::uint64_t>()(ptr.getAddress());
+    template <typename T> struct hash<db0::db0_ptr<T> > {
+        std::size_t operator()(const db0::db0_ptr<T> &ptr) const {
+            return std::hash<std::uint64_t>()(ptr.getAddress().getValue());
         }
     };
     

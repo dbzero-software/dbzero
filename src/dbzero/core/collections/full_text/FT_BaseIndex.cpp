@@ -39,7 +39,7 @@ namespace db0
     }
     
     template <typename IndexKeyT>
-    bool FT_BaseIndex<IndexKeyT>::addIterator(FT_IteratorFactory<std::uint64_t> &factory, IndexKeyT key) const
+    bool FT_BaseIndex<IndexKeyT>::addIterator(FT_IteratorFactory<Address> &factory, IndexKeyT key) const
     {
         using ListT = typename super_t::ListT;
         auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
@@ -411,7 +411,7 @@ namespace db0
     }
 
     template <typename IndexKeyT>
-    std::pair<IndexKeyT, std::uint64_t> FT_BaseIndex<IndexKeyT>::TagValueBuffer::const_iterator::operator*() const
+    std::pair<IndexKeyT, Address> FT_BaseIndex<IndexKeyT>::TagValueBuffer::const_iterator::operator*() const
     {
         if (m_values_it != m_values_end) {
             return *m_values_it;
@@ -422,7 +422,7 @@ namespace db0
     
     template <typename IndexKeyT>
     FT_BaseIndex<IndexKeyT>::TagValueList::TagValueList(TagValueBuffer &&buf)
-        : std::vector<std::pair<IndexKeyT, std::uint64_t> >(buf.m_values.begin(), buf.m_values.end())
+        : std::vector<std::pair<IndexKeyT, Address> >(buf.m_values.begin(), buf.m_values.end())
     {
         for (auto &item : buf.m_value_refs) {
             // NOTE: the 0x0 references may come from the defunct objects

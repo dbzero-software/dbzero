@@ -51,9 +51,9 @@ namespace db0
     {
         std::uint32_t m_max_block_size;
         // address of the underlying v_bindex
-        std::uint64_t m_rt_index_addr = 0;
+        Address m_rt_index_addr = {};
         // pointer to a single null-keys block instance
-        std::uint64_t m_rt_null_block_addr = 0;
+        Address m_rt_null_block_addr = {};
         // the total number of elements in the tree
         std::uint64_t m_size = 0;
 
@@ -104,7 +104,7 @@ namespace db0
             , m_index(memspace, other.m_index)
         {
             modify().m_rt_index_addr = m_index.getAddress();
-            if (other->m_rt_null_block_addr != 0) {
+            if (other->m_rt_null_block_addr.isValid()) {
                 NullBlockT null_block(other.myPtr(other->m_rt_null_block_addr));
                 NullBlockT new_null_block(memspace, null_block);
                 this->modify().m_rt_null_block_addr = new_null_block.getAddress();
@@ -209,7 +209,7 @@ namespace db0
             CallbackT *add_callback_ptr = nullptr)
         {
             // create the null block at the first null insert
-            if ((*this)->m_rt_null_block_addr == 0) {
+            if (!(*this)->m_rt_null_block_addr.isValid()) {
                 NullBlockT null_block(this->getMemspace());
                 this->modify().m_rt_null_block_addr = null_block.getAddress();
             }
@@ -228,7 +228,7 @@ namespace db0
             CallbackT *erase_callback_ptr = nullptr)
         {
             // exist if null block doesn't exist
-            if (!(*this)->m_rt_null_block_addr) {
+            if (!(*this)->m_rt_null_block_addr.isValid()) {
                 return;
             }
 
@@ -528,7 +528,7 @@ namespace db0
         */
         std::unique_ptr<NullBlockT> getNullBlock() const
         {
-            if ((*this)->m_rt_null_block_addr == 0) {
+            if (!(*this)->m_rt_null_block_addr.isValid()) {
                 return nullptr;
             }
             return std::make_unique<NullBlockT>(this->myPtr((*this)->m_rt_null_block_addr));
@@ -773,7 +773,7 @@ namespace db0
             }
         }
         // also iterate over null block if it exists
-        if ((*this)->m_rt_null_block_addr != 0) {
+        if ((*this)->m_rt_null_block_addr.isValid()) {
             NullBlockT null_block(this->myPtr((*this)->m_rt_null_block_addr));
             for (auto it = null_block.begin(), end = null_block.end(); it != end; ++it) {
                 f(*it);

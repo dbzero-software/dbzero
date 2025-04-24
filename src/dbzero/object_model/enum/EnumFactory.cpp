@@ -69,7 +69,7 @@ namespace db0::object_model
     {
     }
     
-    EnumFactory::EnumFactory(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    EnumFactory::EnumFactory(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_enum_maps(openEnumMaps((*this)->m_enum_map_ptrs, getMemspace()))
     {
@@ -195,7 +195,9 @@ namespace db0::object_model
     std::shared_ptr<Enum> EnumFactory::getEnumByUID(std::uint32_t enum_uid) const
     {
         // convert enum_uid to EnumPtr
-        auto enum_ptr = db0::db0_ptr_reinterpret_cast<Enum>()(getFixture()->makeAbsolute(enum_uid, Enum::SLOT_NUM));
+        auto enum_ptr = db0::db0_ptr_reinterpret_cast<Enum>()(
+            Address::fromOffset(getFixture()->makeAbsolute(enum_uid, Enum::SLOT_NUM))
+        );
         return getEnumByPtr(enum_ptr);
     }
     

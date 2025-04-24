@@ -13,7 +13,7 @@ namespace db0::object_model
         Value() = default;
 
         inline Value(Address address)
-            : m_store(address.m_value)
+            : m_store(address.getValue())
         {
         }
 
@@ -27,7 +27,7 @@ namespace db0::object_model
         }
 
         inline Address asAddress() const {
-            return Address(m_store);
+            return Address::fromValue(m_store);
         }
 
         bool operator==(const Value &other) const;

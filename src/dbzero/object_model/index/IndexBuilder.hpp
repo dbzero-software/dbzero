@@ -10,14 +10,14 @@ namespace db0::object_model
     /**
      * Wraps extends the RangeTree::Builder providing persistency cache for dbzero instances
     */
-    template <typename KeyT> class IndexBuilder: public RangeTree<KeyT, std::uint64_t>::Builder
+    template <typename KeyT> class IndexBuilder: public RangeTree<KeyT, Address>::Builder
     {
     public:
-        using RangeTreeT = RangeTree<KeyT, std::uint64_t>;
+        using RangeTreeT = RangeTree<KeyT, Address>;
         using LangToolkit = typename LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
-        using super_t = typename RangeTree<KeyT, std::uint64_t>::Builder;        
+        using super_t = typename RangeTree<KeyT, Address>::Builder;
 
         IndexBuilder();
         IndexBuilder(std::unordered_set<std::uint64_t> &&remove_null_values,
@@ -43,7 +43,7 @@ namespace db0::object_model
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the range-tree index
-        mutable std::unordered_map<std::uint64_t, ObjectSharedPtr> m_object_cache;
+        mutable std::unordered_map<Address, ObjectSharedPtr> m_object_cache;
 
         // add to cache and return object's address
         Address addToCache(ObjectPtr);
@@ -82,13 +82,13 @@ namespace db0::object_model
     
     template <typename KeyT> void IndexBuilder<KeyT>::flush(RangeTreeT &index)
     {
-        std::function<void(std::uint64_t)> add_callback = [&](std::uint64_t address) {
+        std::function<void(std::uint64_t)> add_callback = [&](Address address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
             m_type_manager.extractMutableObject(it->second.get()).incRef();
         };
         
-        std::function<void(std::uint64_t)> erase_callback = [&](std::uint64_t address) {
+        std::function<void(std::uint64_t)> erase_callback = [&](Address address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
             m_type_manager.extractMutableObject(it->second.get()).decRef();
@@ -101,8 +101,8 @@ namespace db0::object_model
     template <typename KeyT> Address IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
     {
         auto obj_addr = m_type_manager.extractObject(obj_ptr).getAddress();
-        if (m_object_cache.find(obj_addr.getOffset()) == m_object_cache.end()) {
-            m_object_cache.emplace(obj_addr.getOffset(), obj_ptr);
+        if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
+            m_object_cache.emplace(obj_addr, obj_ptr);
         }
         return obj_addr;
     }

@@ -36,7 +36,7 @@ namespace db0::object_model
         modify().m_ordered_values = m_ordered_values;
     }
     
-    Enum::Enum(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Enum::Enum(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_fixture_uuid(fixture->getUUID())
         , m_uid(this->fetchUID())
@@ -88,7 +88,7 @@ namespace db0::object_model
     std::uint32_t Enum::fetchUID() const
     {
         // return UID as relative address from the underlying SLOT
-        auto result = this->getFixture()->makeRelative(this->getAddress(), SLOT_NUM);
+        auto result = this->getFixture()->makeRelative(this->getAddress().getOffset(), SLOT_NUM);
         // relative address must not exceed SLOT size
         assert(result < std::numeric_limits<std::uint32_t>::max());
         return result;

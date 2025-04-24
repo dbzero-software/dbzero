@@ -11,19 +11,19 @@ namespace db0::object_model
 
 {
 
-    using SortedIterator = db0::SortedIterator<std::uint64_t>;
+    using SortedIterator = db0::SortedIterator<Address>;
     std::unique_ptr<SortedIterator> validated(std::unique_ptr<SortedIterator> &&sorted_iterator)
     {
-        if (sorted_iterator && sorted_iterator->keyTypeId() != typeid(std::uint64_t)) {
+        if (sorted_iterator && sorted_iterator->keyTypeId() != typeid(Address)) {
             throw std::runtime_error("Invalid sorted iterator");
         }
         return std::move(sorted_iterator);
     }
     
-    using QueryIterator = db0::FT_Iterator<std::uint64_t>;
+    using QueryIterator = db0::FT_Iterator<Address>;
     std::unique_ptr<QueryIterator> validated(std::unique_ptr<QueryIterator> &&query_iterator)
     {
-        if (query_iterator && query_iterator->keyTypeId() != typeid(std::uint64_t)) {
+        if (query_iterator && query_iterator->keyTypeId() != typeid(Address)) {
             throw std::runtime_error("Invalid query iterator");
         }
         return std::move(query_iterator);
@@ -92,7 +92,7 @@ namespace db0::object_model
     bool ObjectIterable::isSliced() const {
         return !m_slice_def.isDefault();
     }
-
+    
     std::unique_ptr<ObjectIterable::QueryIterator> ObjectIterable::beginFTQuery(
         std::vector<std::unique_ptr<QueryObserver> > &query_observers, int direction) const
     {
@@ -190,11 +190,11 @@ namespace db0::object_model
         auto &workspace = fixture_->getWorkspace();
         auto inner_type = db0::serial::read<std::uint8_t>(iter, end);
         if (inner_type == 1) {
-            query_iterator = db0::deserializeFT_Iterator<std::uint64_t>(workspace, iter, end);            
+            query_iterator = db0::deserializeFT_Iterator<Address>(workspace, iter, end);            
         } else if (inner_type == 2) {
-            sorted_iterator = db0::deserializeSortedIterator<std::uint64_t>(workspace, iter, end);            
+            sorted_iterator = db0::deserializeSortedIterator<Address>(workspace, iter, end);            
         } else if (inner_type == 3) {
-            factory = db0::deserializeIteratorFactory<std::uint64_t>(workspace, iter, end);            
+            factory = db0::deserializeIteratorFactory<Address>(workspace, iter, end);
         } else {
             THROWF(db0::InputException) << "Invalid object iterable" << THROWF_END;
         }

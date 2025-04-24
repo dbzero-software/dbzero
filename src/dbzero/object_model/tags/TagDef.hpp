@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <dbzero/object_model/LangConfig.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0::object_model
 
@@ -13,15 +14,16 @@ namespace db0::object_model
         using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using Address = db0::Address;
 
         std::uint64_t m_fixture_uuid;
-        std::uint64_t m_value;
+        Address m_address;
         // the tag associated @memo object
         ObjectSharedPtr m_object;
         
-        TagDef(std::uint64_t fixture_uuid, std::uint64_t value, ObjectPtr);
+        TagDef(std::uint64_t fixture_uuid, Address, ObjectPtr);
                 
-        static TagDef &makeNew(void *at_ptr, std::uint64_t fixture_uuid, std::uint64_t value, ObjectPtr);
+        static TagDef &makeNew(void *at_ptr, std::uint64_t fixture_uuid, Address, ObjectPtr);
 
         bool operator==(const TagDef &other) const;
         bool operator!=(const TagDef &other) const;

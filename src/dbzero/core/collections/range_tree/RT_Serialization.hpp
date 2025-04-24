@@ -33,7 +33,7 @@ namespace db0
         }
         
         auto fixture = snapshot.getFixture(db0::serial::read<std::uint64_t>(iter, end));
-        std::uint64_t addr = db0::serial::read<std::uint64_t>(iter, end);
+        auto addr = db0::serial::read<Address>(iter, end);
         bool asc = db0::serial::read<bool>(iter, end);
         bool null_first = db0::serial::read<bool>(iter, end);
         bool has_inner = db0::serial::read<bool>(iter, end);

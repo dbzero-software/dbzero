@@ -142,7 +142,7 @@ namespace db0
          * Create GC0 as a resource
         */
         db0::GC0 &createGC0(db0::swine_ptr<Fixture> &fixture);
-        db0::GC0 &createGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only);
+        db0::GC0 &createGC0(db0::swine_ptr<Fixture> &fixture, Address, bool read_only);
         
         // add commit or close handler (the actual operation identified by the boolean flag)
         void addCloseHandler(std::function<void(bool commit)>);

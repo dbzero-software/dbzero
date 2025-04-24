@@ -57,8 +57,7 @@ namespace db0::object_model
         LP_String m_prefix_name;
         db0_ptr<VFieldVector> m_members_ptr;
         ClassFlags m_flags;
-        // language specific class type
-        Value m_singleton_address = {};
+        Address m_singleton_address = {};
         const std::uint32_t m_base_class_ref;
         // unused, reserved for future purposes
         std::array<std::uint64_t, 4> m_reserved;

@@ -171,14 +171,15 @@ namespace db0::object_model
     
     bool Class::unloadSingleton(void *at) const
     {
-        if (!(*this)->m_singleton_address.asAddress()) {
+        if (!(*this)->m_singleton_address.isValid()) {
             return false;
         }
         
         auto fixture = getFixture();
         auto &class_factory = fixture->get<ClassFactory>();
         auto stem = Object::unloadStem(fixture, (*this)->m_singleton_address);
-        auto type = class_factory.getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(stem->m_class_ref)).m_class;
+        auto type = class_factory.getTypeByPtr(
+            db0::db0_ptr_reinterpret_cast<Class>()(ClassFactory::classRefToAddress(stem->m_class_ref))).m_class;
         // unload from stem
         Object::unload(at, std::move(stem), type);
         return true;
@@ -189,12 +190,12 @@ namespace db0::object_model
     }
     
     bool Class::isExistingSingleton() const {
-        return isSingleton() && (*this)->m_singleton_address;
+        return isSingleton() && (*this)->m_singleton_address.isValid();
     }
     
     void Class::setSingletonAddress(Object &object)
     {
-        assert(!(*this)->m_singleton_address);
+        assert(!(*this)->m_singleton_address.isValid());
         assert(isSingleton());
         // increment reference count in order to prevent singleton object from being destroyed
         object.incRef();
@@ -333,9 +334,8 @@ namespace db0::object_model
         super_t::detach();
     }
     
-    void Class::unlinkSingleton()
-    {
-        modify().m_singleton_address = 0;
+    void Class::unlinkSingleton() {
+        modify().m_singleton_address = {};
     }
     
     void Class::commit()
@@ -355,7 +355,7 @@ namespace db0::object_model
     std::uint32_t Class::fetchUID() const
     {
         // return UID as relative address from the underlying SLOT
-        auto result = this->getFixture()->makeRelative(this->getAddress(), SLOT_NUM);
+        auto result = this->getFixture()->makeRelative(this->getAddress().getOffset(), SLOT_NUM);
         // relative address must not exceed SLOT size
         assert(result < std::numeric_limits<std::uint32_t>::max());
         return result;
@@ -394,7 +394,7 @@ namespace db0::object_model
         if (!isSingleton() || !isExistingSingleton()) {
             THROWF(db0::InternalException) << "Singleton object not found for class " << getTypeName();
         }
-        Address singleton_addr = (*this)->m_singleton_address.asAddress();
+        Address singleton_addr = (*this)->m_singleton_address;
         return {
             getFixture()->getUUID(),
             TypedAddress(StorageClass::OBJECT_REF, singleton_addr),
@@ -443,7 +443,7 @@ namespace db0::object_model
     }
 
     Address Class::getSingletonAddress() const {
-        return (*this)->m_singleton_address.asAddress();
+        return (*this)->m_singleton_address;
     }
     
     const std::unordered_set<std::string> &Class::getInitVars() const {

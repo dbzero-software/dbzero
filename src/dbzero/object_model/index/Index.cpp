@@ -24,7 +24,7 @@ namespace db0::object_model
     {
     }
 
-    Index::Index(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Index::Index(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_builder(*this)
     {        
@@ -75,7 +75,7 @@ namespace db0::object_model
         return new (at_ptr) Index(fixture);
     }
 
-    Index *Index::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
+    Index *Index::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, Address address) {
         return new (at_ptr) Index(fixture, address);
     }
     

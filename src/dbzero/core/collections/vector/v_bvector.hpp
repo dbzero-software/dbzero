@@ -21,7 +21,7 @@ namespace db0
         // common dbzero object header
         db0::o_unique_header m_header;
         // root node pointer (may be data or pointers' block)
-        PtrT m_ptr_root = 0;
+        PtrT m_ptr_root = {};
         // number of items contained
         std::uint64_t m_size = 0;
         // page size hint
@@ -522,7 +522,7 @@ namespace db0
                 const auto h = std::get<1>(stack.top());
                 auto& i = std::get<2>(stack.top());
 
-                if (!root) {
+                if (!root.isValid()) {
                     stack.pop();
                     continue;
                 }
@@ -895,7 +895,7 @@ namespace db0
                 if (m_last_block && m_last_block_key==block_key) {
                     return *m_last_block;
                 }
-                if (!ptr_block) {
+                if (!ptr_block.isValid()) {
                     ptr_block = this->getBlockPtr(block_key, lock);
                 }
                 if (!lock.upgradeToUniqueLock()) {
@@ -1086,7 +1086,7 @@ namespace db0
                 /**
                  * @return number of elements allocated for this block
                  */
-                size_t size() const {
+                std::size_t size() const {
                     return (m_range.second - m_range.first);
                 }
 
@@ -1094,7 +1094,8 @@ namespace db0
                  * Bind user constructed data block here (must match actual b_class)
                  * @return pair of iterators which can be used to write data there (begin / end iterators)
                  */
-                std::pair<iterator, iterator> setBlock(DataBlockType &block) {
+                std::pair<iterator, iterator> setBlock(DataBlockType &block) 
+                {
                     ptr_block = block.getAddress();
                     iterator it_begin = block.modify().begin();
                     return std::pair<iterator, iterator>(it_begin, it_begin + size());
@@ -1547,7 +1548,7 @@ namespace db0
 
     private:
 #ifndef NDEBUG
-        static std::map<std::pair<const Memspace*, std::uint64_t>, int> m_instance_log;
+        static std::map<std::pair<const Memspace*, Address>, int> m_instance_log;
 
         // the code to detect multiple v_bvector instances (not allowed)
         void __add(bool move = false) {
@@ -1562,7 +1563,7 @@ namespace db0
         }
 
         void __remove() {
-            if (this->getAddress() == 0) {
+            if (!this->getAddress().isValid()) {
                 return;
             }
             auto key = std::make_pair(&this->getMemspace(), this->getAddress());
@@ -1584,7 +1585,7 @@ namespace db0
     
 #ifndef NDEBUG    
     template <typename ItemT, typename PtrT>
-    std::map<std::pair<const Memspace*, std::uint64_t>, int> v_bvector<ItemT, PtrT>::m_instance_log;
+    std::map<std::pair<const Memspace*, Address>, int> v_bvector<ItemT, PtrT>::m_instance_log;
 #endif
 
 }

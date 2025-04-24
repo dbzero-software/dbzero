@@ -31,7 +31,7 @@ namespace db0
         ValueT get(std::size_t index) const;
         void set(std::size_t index, ValueT value);
 
-        std::uint64_t getAddress() const;
+        Address getAddress() const;
 
         void detach() const;
 
@@ -102,7 +102,7 @@ namespace db0
         return m_page_size / sizeof(ValueT);
     }
 
-    template <typename ValueT> std::uint64_t LimitedVector<ValueT>::getAddress() const {
+    template <typename ValueT> Address LimitedVector<ValueT>::getAddress() const {
         return m_root.getAddress();
     }
 

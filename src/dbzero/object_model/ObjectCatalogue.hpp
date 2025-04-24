@@ -1,17 +1,20 @@
 #pragma once
 
+#include <typeinfo>
 #include <dbzero/core/serialization/string.hpp>
 #include <dbzero/core/collections/map/v_map.hpp>
-#include <typeinfo>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0::object_model
 
 {
 
-    class ObjectCatalogue: public db0::v_map<o_string, o_simple<std::uint64_t>, o_string::comp_t>
+    using Address = db0::Address;
+    
+    class ObjectCatalogue: public db0::v_map<o_string, o_simple<Address>, o_string::comp_t>
     {
     public:
-        using super_t = db0::v_map<o_string, o_simple<std::uint64_t>, o_string::comp_t>;
+        using super_t = db0::v_map<o_string, o_simple<Address>, o_string::comp_t>;
         using const_iterator = typename super_t::const_iterator;
 
         ObjectCatalogue(db0::Memspace &);

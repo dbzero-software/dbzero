@@ -30,15 +30,15 @@ namespace db0
         return cache.findOrCreate<db0::MorphingBIndex<KeyT> >(mb_addr, false, mb_addr, index_type);
     }
     
-    template <typename IndexKeyT = std::uint64_t, typename KeyT = std::uint64_t, typename ValueT = std::uint64_t>
-    class InvertedIndex: public db0::v_bindex<key_value<IndexKeyT, ValueT>, std::uint64_t>
+    template <typename IndexKeyT = std::uint64_t, typename KeyT = Address, typename ValueT = Address>
+    class InvertedIndex: public db0::v_bindex<key_value<IndexKeyT, ValueT>, Address>
     {
         mutable progressive_mutex m_mutex;
 
     public:
         using ListT = db0::MorphingBIndex<KeyT>;
         using MapItemT = key_value<IndexKeyT, ValueT>;
-        using super_t = db0::v_bindex<key_value<IndexKeyT, ValueT>, std::uint64_t>;
+        using super_t = db0::v_bindex<key_value<IndexKeyT, ValueT>, Address>;
         // convert inverted list to value
         using ValueFunctionT = std::function<ValueT(const ListT &)>;
         // extract inverted list address from value, pull through cache

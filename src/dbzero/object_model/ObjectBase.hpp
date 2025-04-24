@@ -229,8 +229,8 @@ namespace db0
         // NOTE: newly created instance is not registered in GC0 because existing wrapper object will be reused
         T new_instance(tag_no_gc(), fixture, *static_cast<T*>(this));
         // move instance to a different cache (changing its address)
-        fixture->getLangCache().moveFrom(this->getFixture()->getLangCache(), this->getAddress().getOffset(), 
-            new_instance.getAddress().getOffset());
+        fixture->getLangCache().moveFrom(this->getFixture()->getLangCache(), this->getAddress(), 
+            new_instance.getAddress());
         // move instance to a different GC0 (preserving the same wrapper object)
         fixture->getGC0().moveFrom<T>(this->getFixture()->getGC0(), this);
         new_instance.m_gc_registered = true;
@@ -238,8 +238,8 @@ namespace db0
         if (atomic_ctx_ptr) {
             // move instance to a different atomic context (changing its address)
             assert(this->getFixture()->tryGetAtomicContext());
-            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), this->getAddress().getOffset(),
-                new_instance.getAddress().getOffset());
+            atomic_ctx_ptr->moveFrom(*this->getFixture()->tryGetAtomicContext(), this->getAddress(),
+                new_instance.getAddress());
         }
         
         this->destroy();
