@@ -144,14 +144,17 @@ namespace db0
         using CapacityTreeT = SGB_Tree<CapacityItem, CapacityItem::CompT, CapacityItem::EqualT>;
         using SlabTreeT = SGB_Tree<SlabDef, SlabDef::CompT, SlabDef::EqualT>;
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false, bool unique = false) override;
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
+
+        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
         
-        void free(std::uint64_t address) override;
+        void free(Address) override;
 
-        std::size_t getAllocSize(std::uint64_t address) const override;
+        std::size_t getAllocSize(Address) const override;
 
-        bool isAllocated(std::uint64_t address) const override;
+        bool isAllocated(Address) const override;
             
         void commit() const override;
 
@@ -205,7 +208,7 @@ namespace db0
         /**
          * Get address of the 1st allocation (irrespective of whether it was performed by the MetaAllocator or not)
         */
-        std::uint64_t getFirstAddress() const;
+        Address getFirstAddress() const;
         
         SlabRecycler *getSlabRecyclerPtr() const;
         

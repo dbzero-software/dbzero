@@ -10,7 +10,8 @@ namespace db0::object_model
     {
     }
     
-    void OR_QueryObserverBuilder::add(std::unique_ptr<db0::FT_Iterator<Address> > &&query, ObjectSharedPtr decoration)
+    void OR_QueryObserverBuilder::add(std::unique_ptr<db0::FT_Iterator<UniqueAddress> > &&query, 
+        ObjectSharedPtr decoration)
     {
         if (query) {
             m_decorations[query->getUID()] = decoration;
@@ -18,23 +19,23 @@ namespace db0::object_model
         m_factory.add(std::move(query));
     }
     
-    std::pair<std::unique_ptr<db0::FT_Iterator<Address> >, std::unique_ptr<QueryObserver> >
+    std::pair<std::unique_ptr<db0::FT_Iterator<UniqueAddress> >, std::unique_ptr<QueryObserver> >
     OR_QueryObserverBuilder::release(int direction, bool lazy_init)
     {        
-        FT_JoinORXIterator<Address> *or_iterator_ptr;
+        FT_JoinORXIterator<UniqueAddress> *or_iterator_ptr;
         auto iterator = m_factory.releaseSpecial(direction, or_iterator_ptr, lazy_init);
         auto query_observer = std::unique_ptr<OR_QueryObserver>(new OR_QueryObserver(or_iterator_ptr, std::move(m_decorations)));
         return std::make_pair(std::move(iterator), std::move(query_observer));
     }
     
-    OR_QueryObserver::OR_QueryObserver(const FT_JoinORXIterator<Address> *iterator_ptr,
+    OR_QueryObserver::OR_QueryObserver(const FT_JoinORXIterator<UniqueAddress> *iterator_ptr,
         std::unordered_map<std::uint64_t, ObjectSharedPtr> &&decorations)
         : m_iterator_ptr(iterator_ptr)
         , m_decorations(std::move(decorations))
     {        
     }
     
-    OR_QueryObserver::OR_QueryObserver(const FT_JoinORXIterator<Address> *iterator_ptr,
+    OR_QueryObserver::OR_QueryObserver(const FT_JoinORXIterator<UniqueAddress> *iterator_ptr,
         const std::unordered_map<std::uint64_t, ObjectSharedPtr> &decorations)
         : m_iterator_ptr(iterator_ptr)
         , m_decorations(decorations)
@@ -55,9 +56,9 @@ namespace db0::object_model
     std::unique_ptr<QueryObserver> OR_QueryObserver::rebase(const FT_IteratorBase &new_base) const
     {
         return std::unique_ptr<QueryObserver>(new OR_QueryObserver(
-            reinterpret_cast<const FT_JoinORXIterator<Address> *>(new_base.find(m_iterator_ptr->getUID())),
+            reinterpret_cast<const FT_JoinORXIterator<UniqueAddress> *>(new_base.find(m_iterator_ptr->getUID())),
             m_decorations)
         );
     }
-
+    
 }

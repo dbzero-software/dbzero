@@ -76,7 +76,7 @@ namespace db0::python
     // Universal implementaton for both Workspace and WorkspaceView (aka Snapshot)
     shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &, PyObject *const *args, Py_ssize_t nargs);
     
-    shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, std::uint64_t address,
+    shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
         std::shared_ptr<db0::object_model::Class> expected_type = nullptr);
     
     /**

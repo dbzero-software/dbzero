@@ -88,14 +88,14 @@ namespace db0::python
         return *result;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
         TypeObjectPtr lang_class)
     {
         auto &class_factory = fixture->get<ClassFactory>();
         return unloadObject(fixture, address, class_factory, lang_class);
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
         const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr)
     {
         // try unloading from cache first
@@ -131,7 +131,7 @@ namespace db0::python
         return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, std::uint64_t address,
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
         std::shared_ptr<Class> type, TypeObjectPtr lang_class)
     {
         assert(lang_class);
@@ -152,7 +152,7 @@ namespace db0::python
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, std::uint64_t fixture_uuid,
-        std::uint64_t address)
+        Address address)
     {
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -171,11 +171,11 @@ namespace db0::python
         return unloadExpiredRef(fixture, weak_ref->m_fixture_uuid, weak_ref->m_address);
     }
     
-    bool PyToolkit::isObjectExpired(db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
+    bool PyToolkit::isObjectExpired(db0::swine_ptr<Fixture> &fixture, Address address) {
         return !Object::checkUnloadStem(fixture, address);
     }
 
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, Address address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -193,7 +193,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(list_object));
     }
 
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadByteArray(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadByteArray(db0::swine_ptr<Fixture> fixture, Address address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -211,7 +211,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(byte_array_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadIndex(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadIndex(db0::swine_ptr<Fixture> fixture, Address address)
     {        
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -230,7 +230,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(index_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> fixture, Address address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -249,7 +249,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(set_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadDict(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadDict(db0::swine_ptr<Fixture> fixture, Address address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -268,7 +268,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(dict_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> fixture, Address address)
     {
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();

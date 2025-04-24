@@ -332,11 +332,11 @@ namespace db0
                 }
             };
         };
-
-        using AllocSetT = db0::SGB_Tree<Alloc, Alloc::CompT, Alloc::EqualT, std::uint16_t, std::uint64_t>;
-        using BlankSetT = db0::SGB_Tree<Blank, Blank::CompT, Blank::EqualT, std::uint16_t, std::uint64_t>;
-        using AlignedBlankSetT = db0::SGB_Tree<Blank, Blank::AlignedCompT, Blank::EqualT, std::uint16_t, std::uint64_t>;
-        using StripeSetT = db0::SGB_Tree<Stripe, Stripe::CompT, Stripe::EqualT, std::uint16_t, std::uint64_t>;
+        
+        using AllocSetT = db0::SGB_Tree<Alloc, Alloc::CompT, Alloc::EqualT, std::uint16_t, Address>;
+        using BlankSetT = db0::SGB_Tree<Blank, Blank::CompT, Blank::EqualT, std::uint16_t, Address>;
+        using AlignedBlankSetT = db0::SGB_Tree<Blank, Blank::AlignedCompT, Blank::EqualT, std::uint16_t, Address>;
+        using StripeSetT = db0::SGB_Tree<Stripe, Stripe::CompT, Stripe::EqualT, std::uint16_t, Address>;
 
     public:
         // The bounds function returns the recommended bound (first)

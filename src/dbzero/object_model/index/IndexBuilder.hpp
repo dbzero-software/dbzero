@@ -10,19 +10,19 @@ namespace db0::object_model
     /**
      * Wraps extends the RangeTree::Builder providing persistency cache for dbzero instances
     */
-    template <typename KeyT> class IndexBuilder: public RangeTree<KeyT, Address>::Builder
+    template <typename KeyT> class IndexBuilder: public RangeTree<KeyT, UniqueAddress>::Builder
     {
     public:
-        using RangeTreeT = RangeTree<KeyT, Address>;
+        using RangeTreeT = RangeTree<KeyT, UniqueAddress>;
         using LangToolkit = typename LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
-        using super_t = typename RangeTree<KeyT, Address>::Builder;
+        using super_t = typename RangeTree<KeyT, UniqueAddress>::Builder;
 
         IndexBuilder();
-        IndexBuilder(std::unordered_set<std::uint64_t> &&remove_null_values,
-            std::unordered_set<std::uint64_t> &&add_null_values, 
-            std::unordered_map<std::uint64_t, ObjectSharedPtr> &&object_cache);
+        IndexBuilder(std::unordered_set<UniqueAddress> &&remove_null_values,
+            std::unordered_set<UniqueAddress> &&add_null_values, 
+            std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache);
         
         void add(KeyT key, ObjectPtr obj_ptr);
         void remove(KeyT key, ObjectPtr obj_ptr);
@@ -33,7 +33,7 @@ namespace db0::object_model
         // Flush and incRef to unique added objects
         void flush(RangeTreeT &index);
 
-        std::unordered_map<std::uint64_t, ObjectSharedPtr> &&releaseObjectCache() {
+        std::unordered_map<Address, ObjectSharedPtr> &&releaseObjectCache() {
             return std::move(m_object_cache);
         }
 
@@ -56,8 +56,8 @@ namespace db0::object_model
     }
     
     template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder(
-        std::unordered_set<std::uint64_t> &&remove_null_values, std::unordered_set<std::uint64_t> &&add_null_values, 
-        std::unordered_map<std::uint64_t, ObjectSharedPtr> &&object_cache)
+        std::unordered_set<UniqueAddress> &&remove_null_values, std::unordered_set<UniqueAddress> &&add_null_values, 
+        std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache)
         : super_t(std::move(remove_null_values), std::move(add_null_values))        
         , m_type_manager(LangToolkit::getTypeManager())
         , m_object_cache(std::move(object_cache))
@@ -82,13 +82,13 @@ namespace db0::object_model
     
     template <typename KeyT> void IndexBuilder<KeyT>::flush(RangeTreeT &index)
     {
-        std::function<void(std::uint64_t)> add_callback = [&](Address address) {
+        std::function<void(Address)> add_callback = [&](Address address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
             m_type_manager.extractMutableObject(it->second.get()).incRef();
         };
         
-        std::function<void(std::uint64_t)> erase_callback = [&](Address address) {
+        std::function<void(Address)> erase_callback = [&](Address address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
             m_type_manager.extractMutableObject(it->second.get()).decRef();

@@ -20,14 +20,14 @@ namespace db0::object_model
         OR_QueryObserverBuilder(bool is_exclusive = false);
 
         // Adds a decorated iterator
-        void add(std::unique_ptr<db0::FT_Iterator<Address> > &&, ObjectSharedPtr decoration);
+        void add(std::unique_ptr<db0::FT_Iterator<UniqueAddress> > &&, ObjectSharedPtr decoration);
         
         // Release query iterator + observer
-        std::pair<std::unique_ptr<db0::FT_Iterator<Address> >, std::unique_ptr<QueryObserver> > 
+        std::pair<std::unique_ptr<db0::FT_Iterator<UniqueAddress> >, std::unique_ptr<QueryObserver> > 
         release(int direction = -1, bool lazy_init = false);
 
     private:
-        db0::FT_OR_ORXIteratorFactory<Address> m_factory;
+        db0::FT_OR_ORXIteratorFactory<UniqueAddress> m_factory;
         // the mappings for decorations (must be complete)
         std::unordered_map<std::uint64_t, ObjectSharedPtr> m_decorations;
     };
@@ -43,15 +43,15 @@ namespace db0::object_model
     protected:
         friend class OR_QueryObserverBuilder;
 
-        OR_QueryObserver(const FT_JoinORXIterator<Address> *iterator_ptr,
+        OR_QueryObserver(const FT_JoinORXIterator<UniqueAddress> *iterator_ptr,
             std::unordered_map<std::uint64_t, ObjectSharedPtr> &&decorations);
         
-        OR_QueryObserver(const FT_JoinORXIterator<Address> *iterator_ptr,
+        OR_QueryObserver(const FT_JoinORXIterator<UniqueAddress> *iterator_ptr,
             const std::unordered_map<std::uint64_t, ObjectSharedPtr> &decorations);
 
     private:
         // the observed iterator
-        const FT_JoinORXIterator<Address> *m_iterator_ptr;
+        const FT_JoinORXIterator<UniqueAddress> *m_iterator_ptr;
         // the mappings for decorations (must be complete)
         std::unordered_map<std::uint64_t, ObjectSharedPtr> m_decorations;
     };

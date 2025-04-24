@@ -94,10 +94,10 @@ namespace db0::object_model
         const TagT *m_end;
     };
     
-    class NegFactory: public FT_IteratorFactory<Address>
+    class NegFactory: public FT_IteratorFactory<UniqueAddress>
     {
     public:
-        using QueryIterator = FT_Iterator<Address>;
+        using QueryIterator = FT_Iterator<UniqueAddress>;
         NegFactory(std::vector<std::unique_ptr<QueryIterator> > &neg_iterators)
             : m_neg_iterators(neg_iterators)
         {
@@ -399,7 +399,7 @@ namespace db0::object_model
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
         std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, bool no_result) const
     {
-        db0::FT_ANDIteratorFactory<Address> factory;
+        db0::FT_ANDIteratorFactory<UniqueAddress> factory;
         // the negated root-level query components
         std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
         if (nargs > 0 || type) {
@@ -434,11 +434,11 @@ namespace db0::object_model
             // put query iterator in the first position (for which the placeholder was added)
             neg_iterators[0] = std::move(query_iterator);
             // construct AND-not query iterator
-            return std::make_unique<FT_ANDNOTIterator<Address> >(std::move(neg_iterators), -1);
+            return std::make_unique<FT_ANDNOTIterator<UniqueAddress> >(std::move(neg_iterators), -1);
         }
     }
     
-    bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<Address> &factory,
+    bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<UniqueAddress> &factory,
         std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
     {
         using TypeId = db0::bindings::TypeId;
@@ -460,7 +460,7 @@ namespace db0::object_model
         // Memo instance is directly feed into the FT_FixedKeyIterator
         if (type_id == TypeId::MEMO_OBJECT) {
             auto addr = LangToolkit::getTypeManager().extractObject(arg).getAddress();
-            factory.add(std::make_unique<FT_FixedKeyIterator<Address> >(&addr, &addr + 1));
+            factory.add(std::make_unique<FT_FixedKeyIterator<UniqueAddress> >(&addr, &addr + 1));
             return true;
         }
         
@@ -484,11 +484,11 @@ namespace db0::object_model
             
             bool is_or_clause = (type_id == TypeId::LIST);
             // lists corresponds to OR operator, tuple - to AND
-            std::unique_ptr<FT_IteratorFactory<Address> > inner_factory;
+            std::unique_ptr<FT_IteratorFactory<UniqueAddress> > inner_factory;
             if (is_or_clause) {
-                inner_factory = std::make_unique<db0::FT_ORXIteratorFactory<Address> >();
+                inner_factory = std::make_unique<db0::FT_ORXIteratorFactory<UniqueAddress> >();
             } else {
-                inner_factory = std::make_unique<db0::FT_ANDIteratorFactory<Address> >();
+                inner_factory = std::make_unique<db0::FT_ANDIteratorFactory<UniqueAddress> >();
             }
             std::vector<std::unique_ptr<QueryIterator> > inner_neg_iterators;
             bool any = false;

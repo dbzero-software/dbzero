@@ -117,7 +117,7 @@ namespace db0
         /**
          * Get address of this object
         */
-        std::uint64_t getAddress() const {
+        AddressT getAddress() const {
             return super_t::getAddress();
         }
         
@@ -481,7 +481,7 @@ namespace db0
             return result;
         }
 
-        AddressT size() const {
+        std::uint64_t size() const {
             return super_t::getData()->m_sgb_size;
         }
 

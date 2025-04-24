@@ -8,7 +8,7 @@ namespace db0
     std::unordered_map<StorageClass, GCOps_ID> GC0::m_ops_map;
     bool GC0::m_initialized = false;
 
-    template <typename T> void dropByAddr(Memspace &memspace, uint64_t addr, const std::vector<GC_Ops> &ops)
+    template <typename T> void dropByAddr(Memspace &memspace, Address addr, const std::vector<GC_Ops> &ops)
     {
         assert(ops.size() > T::m_gc_ops_id);
         ops[T::m_gc_ops_id].dropByAddr(memspace, addr);

@@ -35,15 +35,15 @@ namespace db0::object_model
         using TypeObjectSharedPtr = LangToolkit::TypeObjectSharedPtr;
 
         // full-text query iterator (KeyT must be std::uint64_t)
-        using QueryIterator = FT_Iterator<Address>;
-        using SortedIterator = db0::SortedIterator<Address>;
-        using IteratorFactory = db0::IteratorFactory<Address>;
+        using QueryIterator = FT_Iterator<UniqueAddress>;
+        using SortedIterator = db0::SortedIterator<UniqueAddress>;
+        using IteratorFactory = db0::IteratorFactory<UniqueAddress>;
         // a common base for full-text and sorted iterators
         using BaseIterator = db0::FT_IteratorBase;
         using FilterFunc = std::function<bool(ObjectPtr)>;
         
         ObjectIterable(ObjectIterable &&) = default;
-
+        
         // Construct from a full-text query iterator
         ObjectIterable(db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, std::shared_ptr<Class> = nullptr, 
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},

@@ -23,7 +23,7 @@ namespace db0
     using TypedAddress = db0::object_model::TypedAddress;
     using GetTypedAddress = TypedAddress (*)(const void *);
     using StorageClass = db0::object_model::StorageClass;
-    using DropByAddrFunction = void (*)(db0::swine_ptr<Fixture> &, std::uint64_t);
+    using DropByAddrFunction = void (*)(db0::swine_ptr<Fixture> &, Address);
     using PreCommitFunction = void (*)(void *, bool revert);
     
     struct GC_Ops
@@ -151,8 +151,7 @@ namespace db0
         mutable std::mutex m_mutex;
         
         template <typename T> static void registerSingleType()
-        {
-            // auto storage_class = T::storageClass();
+        {            
             T::m_gc_ops_id = GCOps_ID(m_ops.size());
             m_ops.push_back(T::getGC_Ops());
             m_ops_map[T::storageClass()] = T::m_gc_ops_id;

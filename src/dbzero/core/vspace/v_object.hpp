@@ -105,7 +105,12 @@ namespace db0
             // placement new syntax
             c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::forward<Args>(args)...);
         }
-        
+
+        // Create new instance assigned unique address
+        // @return instance id
+        template <typename... Args>
+        std::uint16_t initUnique(Memspace &memspace, FlagSet<AccessOptions> access_mode, Args&&... args);
+
         // Construct from v-pointer
         v_object(ptr_t &&ptr)
             : v_this(std::move(ptr))

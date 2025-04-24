@@ -105,9 +105,11 @@ namespace db0
         template <typename... Args> void init(db0::swine_ptr<Fixture> &fixture, Args &&... args)
         {
             unregister();
-            has_fixture<BaseT>::init(fixture, accessFlags(), std::forward<Args>(args)...);
             if constexpr (Unique) {
-                this->modify().m_header.m_instance_id = this->getAddress().getInstanceId();
+                auto instance_id = has_fixture<BaseT>::initUnique(fixture, accessFlags(), std::forward<Args>(args)...);
+                this->modify().m_header.m_instance_id = instance_id;
+            } else {
+                has_fixture<BaseT>::init(fixture, accessFlags(), std::forward<Args>(args)...);
             }
             m_gc_registered = tryAddToGC0<T>(*fixture, this);
         }
@@ -153,6 +155,13 @@ namespace db0
 
         void moveTo(db0::swine_ptr<Fixture> &);
         
+        template <bool C = Unique, typename = std::enable_if_t<C> >
+        UniqueAddress getUniqueAddress() const
+        {
+            assert(hasInstance());
+            return UniqueAddress(this->getAddress(), (*this)->m_header.m_instance_id);
+        }
+
     protected:
         friend class db0::GC0;
 
@@ -197,7 +206,7 @@ namespace db0
             return { _CLS, static_cast<const T*>(vptr)->getAddress() };
         }
         
-        static void dropByAddr(db0::swine_ptr<Fixture> &fixture, std::uint64_t addr)
+        static void dropByAddr(db0::swine_ptr<Fixture> &fixture, Address addr)
         {
             // this code creates an instance which will be registered in GC0
             // and immediately unregistered, if its ref-count is 0 then it will get dropped

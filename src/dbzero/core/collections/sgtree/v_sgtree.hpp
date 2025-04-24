@@ -15,15 +15,12 @@ namespace db0
     
     // SG-Tree node / head node pointers
     template <class PtrT = Address> struct [[gnu::packed]] tree_ptr_set
-    {
-        typedef PtrT pointer_type;
-        PtrT parent;
-        PtrT left;
-        PtrT right;
+    {        
+        PtrT parent = {};
+        PtrT left = {};
+        PtrT right = {};
 
-        tree_ptr_set() {
-            memset(this, 0, sizeof(*this));
-        }
+        tree_ptr_set() = default;
 
         inline PtrT getLeft() const {
             return left;

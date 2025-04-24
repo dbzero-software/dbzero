@@ -22,20 +22,24 @@ namespace db0
         // initialize slot-specific allocator
         void setSlot(std::uint32_t slot_num, std::shared_ptr<SlabAllocator> slot_allocator);
         
-        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false, bool unique = false) override;
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
+            bool aligned = false) override;
+
+        // Unique allocations are not supported because of the limited slot's address space
+        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0, 
+            bool aligned = false) override;
         
-        void free(std::uint64_t address) override;
+        void free(Address) override;
 
-        std::size_t getAllocSize(std::uint64_t address) const override;
+        std::size_t getAllocSize(Address) const override;
 
-        bool isAllocated(std::uint64_t address) const override;
+        bool isAllocated(Address) const override;
                 
         void commit() const override;
 
         void detach() const override;
         
-        bool inRange(std::uint64_t address) const override;
+        bool inRange(Address) const override;
 
         std::shared_ptr<Allocator> getAllocator() const { return m_allocator; }
 

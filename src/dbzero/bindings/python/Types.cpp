@@ -103,6 +103,9 @@ namespace db0::python
         return get_fixture_of_functions[static_cast<int>(type_id)](object);
     }
 
+    template <typename T> PyObject *tryGetUUIDOf(T *self);
+    
+    /* FIXME:
     template <typename T> PyObject *tryGetUUIDOf(T *self)
     {
         auto &instance = self->ext();
@@ -119,6 +122,7 @@ namespace db0::python
         object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
     }
+    */
 
     // Serializable's UUID implementation
     PyObject *tryGetSerializableUUID(const db0::serial::Serializable *self)

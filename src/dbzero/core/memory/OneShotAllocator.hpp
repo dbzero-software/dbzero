@@ -12,23 +12,26 @@ namespace db0
     class OneShotAllocator: public Allocator
     {
     public:
-        OneShotAllocator(std::uint64_t addr, std::size_t size);
+        OneShotAllocator(Address addr, std::size_t size);
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false, bool unique = false) override;
-        
-        void free(std::uint64_t address) override;
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
 
-        std::size_t getAllocSize(std::uint64_t address) const override;
+        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
 
-        bool isAllocated(std::uint64_t address) const override;
+        void free(Address) override;
+
+        std::size_t getAllocSize(Address) const override;
+
+        bool isAllocated(Address) const override;
         
         void commit() const override;
 
         void detach() const override;
 
     private:
-        const std::uint64_t m_addr;
+        const Address m_addr;
         const std::size_t m_size;
         bool m_allocated = false;
     };

@@ -56,12 +56,10 @@ namespace db0
         }
     }
     
-    std::optional<std::uint64_t> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
-        bool aligned, bool unique)
+    std::optional<Address> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
         assert(slot_num == 0);
-        assert(size > 0);        
-        assert(!unique && "SlabAllocator does not support unique allocations");
+        assert(size > 0);
         // obtain relative address from the underlying CRDT allocator
         // auto-align when requested size > page_size
         auto relative = m_allocator.tryAlloc(size, (size > m_page_size) || aligned);
@@ -71,30 +69,27 @@ namespace db0
         return std::nullopt;
     }
     
-    void SlabAllocator::free(std::uint64_t address)
-    {
-        assert(db0::isPhysicalAddress(address));
+    void SlabAllocator::free(Address address) {
         m_allocator.free(makeRelative(address));
     }
     
-    std::size_t SlabAllocator::getAllocSize(std::uint64_t address) const 
-    {
-        assert(db0::isPhysicalAddress(address));
+    std::size_t SlabAllocator::getAllocSize(Address address) const {        
         return m_allocator.getAllocSize(makeRelative(address));
     }
     
-    bool SlabAllocator::isAllocated(std::uint64_t address) const 
+    bool SlabAllocator::isAllocated(Address address) const 
     {
         assert(db0::isPhysicalAddress(address));
         return m_allocator.isAllocated(makeRelative(address));
     }
 
-    std::uint64_t SlabAllocator::headerAddr(std::uint64_t begin_addr, std::uint32_t size) {
-        return begin_addr + size - o_slab_header::sizeOf();
+    Address SlabAllocator::headerAddr(Address begin_addr, std::uint32_t size) {
+        return Address::fromOffset(begin_addr + size - o_slab_header::sizeOf());
     }
     
-    std::size_t SlabAllocator::formatSlab(std::shared_ptr<Prefix> prefix, std::uint64_t begin_addr, std::uint32_t size, std::size_t page_size)
-    {   
+    std::size_t SlabAllocator::formatSlab(std::shared_ptr<Prefix> prefix, Address begin_addr, 
+        std::uint32_t size, std::size_t page_size)
+    {
         auto admin_size = calculateAdminSpaceSize(page_size);
         if (admin_size + ADMIN_SPAN() * page_size >= size) {
             THROWF(db0::InternalException) << "Slab size too small: " << size;
@@ -228,6 +223,7 @@ namespace db0
         m_allocator.detach();
     }
     
+    /* FIXME:
     bool SlabAllocator::makeAddressUnique(std::uint64_t &address)
     {
         // make sure high 14 bits are 0
@@ -244,6 +240,7 @@ namespace db0
         address = makeLogicalAddress(address, instance_id);        
         return true;
     }
+    */
     
     bool SlabAllocator::inRange(std::uint64_t address) const {
         return address >= m_begin_addr && address < m_begin_addr + m_slab_size;

@@ -25,14 +25,17 @@ namespace db0
          */
         void update(const std::unordered_set<std::size_t> &allocs);
 
-        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false, bool unique = false) override;
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
+            bool aligned = false) override;
         
-        void free(std::uint64_t address) override;
+        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
+        
+        void free(Address) override;
 
-        std::size_t getAllocSize(std::uint64_t address) const override;
+        std::size_t getAllocSize(Address) const override;
 
-        bool isAllocated(std::uint64_t address) const override;
+        bool isAllocated(Address) const override;
         
         void commit() const override;
 
@@ -50,5 +53,5 @@ namespace db0
         std::size_t m_next_page_id = FIRST_PAGE_ID;
         std::unordered_set<std::size_t> m_free_pages;
     };
-
+    
 }

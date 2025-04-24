@@ -368,7 +368,7 @@ namespace db0::object_model
         }
     }
     
-    std::unique_ptr<db0::SortedIterator<std::uint64_t> >
+    std::unique_ptr<db0::SortedIterator<UniqueAddress> >
     Index::sort(const ObjectIterable &iter, bool asc, bool null_first) const
     {
         assert(hasInstance());
@@ -377,7 +377,7 @@ namespace db0::object_model
             const_cast<Index*>(this)->flush(lock);
         }
 
-        std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort_iter;
+        std::unique_ptr<db0::SortedIterator<UniqueAddress> > sort_iter;
         if (iter.isSorted()) {
             // sort by additional criteria
             switch ((*this)->m_data_type) {
@@ -580,7 +580,7 @@ namespace db0::object_model
         const_cast<Builder&>(m_builder).rollback();
         if (hasRangeTree()) {
             auto fixture = this->getFixture();
-            auto unref_func = [&fixture](std::uint64_t obj_addr) {
+            auto unref_func = [&fixture](Address obj_addr) {
                 unrefMember<StorageClass::OBJECT_REF, LangToolkit>(fixture, obj_addr);
             };
             switch ((*this)->m_data_type) {

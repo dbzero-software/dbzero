@@ -633,8 +633,8 @@ namespace db0
         return meta_header.const_ref();
     }
     
-    std::optional<std::uint64_t> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
-        bool aligned, bool unique)
+    std::optional<Address> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+        bool aligned)
     {
         assert(slot_num == 0);
         assert(size > 0);
@@ -680,7 +680,7 @@ namespace db0
         }
     }
     
-    void MetaAllocator::free(std::uint64_t address)
+    void MetaAllocator::free(Address address)
     {        
         assert(m_deferred_free_ops.find(address) == m_deferred_free_ops.end());
         if (m_deferred_free) {
@@ -712,7 +712,7 @@ namespace db0
         }
     }
     
-    std::size_t MetaAllocator::getAllocSize(std::uint64_t address) const
+    std::size_t MetaAllocator::getAllocSize(Address address) const
     {        
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             THROWF(db0::InputException) << "Address " << address << " not found (pending deferred free)";
@@ -721,7 +721,7 @@ namespace db0
         return m_slab_manager->find(slab_id).m_slab->getAllocSize(address);
     }
     
-    bool MetaAllocator::isAllocated(std::uint64_t address) const
+    bool MetaAllocator::isAllocated(Address address) const
     {                
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             return false;
@@ -757,7 +757,7 @@ namespace db0
         return m_slab_manager->reserveNewSlab();
     }
     
-    std::uint64_t MetaAllocator::getFirstAddress() const {
+    Address MetaAllocator::getFirstAddress() const {
         return m_slab_manager->getFirstAddress();
     }
 

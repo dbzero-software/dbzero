@@ -4,7 +4,7 @@ namespace db0
 
 {
         
-    vtypeless::vtypeless(Memspace &memspace, std::uint64_t address, FlagSet<AccessOptions> access_mode)
+    vtypeless::vtypeless(Memspace &memspace, Address address, FlagSet<AccessOptions> access_mode)
         : m_address(address)        
         , m_memspace_ptr(&memspace)
         , m_access_mode(access_mode)
@@ -19,7 +19,7 @@ namespace db0
         *this = other;
     }
     
-    vtypeless::vtypeless(Memspace &memspace, std::uint64_t address, MemLock &&mem_lock, std::uint16_t resource_flags,
+    vtypeless::vtypeless(Memspace &memspace, Address address, MemLock &&mem_lock, std::uint16_t resource_flags,
         FlagSet<AccessOptions> access_mode)
         : m_address(address)
         , m_memspace_ptr(&memspace)

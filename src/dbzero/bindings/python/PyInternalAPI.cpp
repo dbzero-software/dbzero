@@ -87,6 +87,7 @@ namespace db0::python
         THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
     }
     
+    /* FIXME: 
     shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id,
         PyTypeObject *py_expected_type)
     {   
@@ -149,6 +150,7 @@ namespace db0::python
         
         THROWF(db0::InputException) << "Invalid object ID" << THROWF_END;
     }
+    */
     
     PyObject *fetchSingletonObject(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
     {        
@@ -553,7 +555,7 @@ namespace db0::python
     PyObject *tryGetAddress(PyObject *py_obj)
     {
         if (PyMemo_Check(py_obj)) {
-            return PyLong_FromUnsignedLongLong(reinterpret_cast<MemoObject*>(py_obj)->ext().getAddress());
+            return PyLong_FromUnsignedLongLong(reinterpret_cast<MemoObject*>(py_obj)->ext().getAddress().getValue());
         }
         
         // FIXME: implement for other dbzero types
@@ -633,7 +635,7 @@ namespace db0::python
         return py_obj;
     }
     
-    shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, std::uint64_t address,
+    shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
         std::shared_ptr<db0::object_model::Class> expected_type)
     {
         auto obj_ptr = lang_cache.get(address);
@@ -660,8 +662,8 @@ namespace db0::python
             return nullptr;
         }
 
-        std::uint64_t addr = type->getSingletonAddress();
-        if (!addr) {
+        auto addr = type->getSingletonAddress();
+        if (!addr.isValid()) {
             return nullptr;
         }
         

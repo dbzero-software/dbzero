@@ -49,7 +49,11 @@ namespace db0
         inline bool operator!=(const BlockItemT& other) const {
             return (m_key != other.m_key) || (m_value != other.m_value);
         }
-        
+
+        inline bool operator==(const BlockItemT& other) const {
+            return (m_key == other.m_key) && (m_value == other.m_value);
+        }
+
         // cast to value (required by the FT_Iterator implementations)
         inline operator ValueT() const {
             return m_value;

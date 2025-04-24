@@ -68,13 +68,16 @@ namespace db0
         virtual ~SlabAllocator();
         
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false, bool unique = false) override;
+            bool aligned = false) override;
+
+        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
+                
+        void free(Address) override;
+
+        std::size_t getAllocSize(Address) const override;
         
-        void free(std::uint64_t address) override;
-
-        std::size_t getAllocSize(std::uint64_t address) const override;
-
-        bool isAllocated(std::uint64_t address) const override;
+        bool isAllocated(Address) const override;
         
         void commit() const override;
 
@@ -87,7 +90,7 @@ namespace db0
          * 
          * @return the created slab's capacity in bytes
         */
-        static std::size_t formatSlab(std::shared_ptr<Prefix> prefix, std::uint64_t begin_addr, std::uint32_t size, 
+        static std::size_t formatSlab(std::shared_ptr<Prefix> prefix, Address begin_addr, std::uint32_t size,
             std::size_t page_size);
         
         const std::size_t getSlabSize() const;
@@ -142,11 +145,7 @@ namespace db0
         inline std::uint32_t makeRelative(std::uint64_t absolute) const {
             return absolute - m_begin_addr;
         }
-        
-        // Try adjusting the address to make it unique
-        // @return false if SlabAllocator was unable to make the address unique (counter overflow)
-        bool makeAddressUnique(Address &);
-        
+                
     private:
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
         using BlankSetT = db0::CRDT_Allocator::BlankSetT;
@@ -180,7 +179,7 @@ namespace db0
         const std::optional<std::size_t> m_initial_remaining_capacity;
         std::size_t m_initial_admin_size;        
         std::function<void(const SlabAllocator &)> m_on_close_handler;
-                
+        
         static std::uint64_t headerAddr(std::uint64_t begin_addr, std::uint32_t size);
     };
     

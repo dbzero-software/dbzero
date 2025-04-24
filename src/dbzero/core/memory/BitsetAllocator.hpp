@@ -21,16 +21,19 @@ namespace db0
          * @param alloc_size the allowed allocation size, typically equal data page size
          * @param direction either 1 or -1 (the direction in which the addresses are allocated)         
         */
-        BitsetAllocator(BitSetT &&bitset, std::uint64_t base_addr, std::size_t alloc_size, int direction);
+        BitsetAllocator(BitSetT &&bitset, Address base_addr, std::size_t alloc_size, int direction);
 
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false, bool unique = false) override;
-        
-        void free(std::uint64_t address) override;
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
 
-        std::size_t getAllocSize(std::uint64_t address) const override;
+        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
+
+        void free(Address) override;
+
+        std::size_t getAllocSize(Address) const override;
         
-        bool isAllocated(std::uint64_t address) const override;
+        bool isAllocated(Address) const override;
         
         void commit() const override;
 
@@ -41,7 +44,7 @@ namespace db0
 
         void clear();
 
-        std::uint64_t getBaseAddress() const {
+        Address getBaseAddress() const {
             return m_base_addr;
         }
         
@@ -62,7 +65,7 @@ namespace db0
     private:
         BitSetT m_bitset;
         const std::size_t m_alloc_size;
-        const std::uint64_t m_base_addr;
+        const Address m_base_addr;
         const int m_direction;
         // allocation shift to account for the direction (0 for forward direction)
         const std::size_t m_shift;
@@ -86,7 +89,7 @@ namespace db0
             int direction) const;            
     };
 
-    template <typename BitSetT> BitsetAllocator<BitSetT>::BitsetAllocator(BitSetT &&bitset, std::uint64_t base_addr,
+    template <typename BitSetT> BitsetAllocator<BitSetT>::BitsetAllocator(BitSetT &&bitset, Address base_addr,
         std::size_t alloc_size, int direction)
         : m_bitset(std::move(bitset))
         , m_alloc_size(alloc_size)
@@ -107,12 +110,11 @@ namespace db0
         }
     }
     
-    template <typename BitSetT> std::optional<std::uint64_t>
-    BitsetAllocator<BitSetT>::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique)
+    template <typename BitSetT> std::optional<Address>
+    BitsetAllocator<BitSetT>::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
         assert(slot_num == 0);
-        // all BitSetAllocator allocations are aligned
-        assert(!unique && "BitsetAllocator: unique address allocation not supported");
+        // all BitSetAllocator allocations are aligned        
         assert(size == m_alloc_size && "BitsetAllocator: invalid alloc size requested");
         auto index = m_bitset->firstIndexOf(false);
         if (index == m_bitset.npos) {
@@ -134,10 +136,10 @@ namespace db0
 
         m_bitset.modify().set(index, true);
         m_span = calculateSpan();        
-        return addressOf(index);
+        return Address::fromOffset(addressOf(index));
     }
 
-    template <typename BitSetT> void BitsetAllocator<BitSetT>::free(std::uint64_t address)
+    template <typename BitSetT> void BitsetAllocator<BitSetT>::free(Address address)
     {
         if (address % m_alloc_size != 0) {
             // do not dealloc sub-addresses
@@ -151,7 +153,7 @@ namespace db0
         m_span = calculateSpan();
     }
     
-    template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::getAllocSize(std::uint64_t address) const
+    template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::getAllocSize(Address address) const
     {
         auto inner_offset = address % m_alloc_size;
         auto index = indexOf(address - inner_offset);
@@ -162,7 +164,7 @@ namespace db0
         return m_alloc_size - inner_offset;
     }
 
-    template <typename BitSetT> bool BitsetAllocator<BitSetT>::isAllocated(std::uint64_t address) const
+    template <typename BitSetT> bool BitsetAllocator<BitSetT>::isAllocated(Address address) const
     {
         auto inner_offset = address % m_alloc_size;
         auto index = indexOf(address - inner_offset);

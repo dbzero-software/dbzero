@@ -39,7 +39,7 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         // full-text query iterator
-        using QueryIterator = FT_Iterator<Address>;
+        using QueryIterator = FT_Iterator<UniqueAddress>;
         // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
         
@@ -162,7 +162,7 @@ namespace db0::object_model
         std::optional<ShortTagT> tryAddShortTagFromTag(ObjectPtr) const;        
         std::optional<ShortTagT> tryAddShortTagFromMemo(ObjectPtr) const;
         
-        bool addIterator(ObjectPtr, db0::FT_IteratorFactory<Address> &factory,
+        bool addIterator(ObjectPtr, db0::FT_IteratorFactory<UniqueAddress> &factory,
             std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, 
             std::vector<std::unique_ptr<QueryObserver> > &query_observers) const;
         
