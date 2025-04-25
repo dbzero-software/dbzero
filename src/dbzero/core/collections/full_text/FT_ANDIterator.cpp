@@ -550,8 +550,14 @@ namespace db0
 
     template class FT_JoinANDIterator<std::uint64_t, false>;
     template class FT_JoinANDIterator<std::uint64_t, true>;
-    
+
+    template class FT_JoinANDIterator<UniqueAddress, false>;
+    template class FT_JoinANDIterator<UniqueAddress, true>;
+
     template class FT_ANDIteratorFactory<std::uint64_t, false>;
     template class FT_ANDIteratorFactory<std::uint64_t, true>;
+
+    template class FT_ANDIteratorFactory<UniqueAddress, false>;
+    template class FT_ANDIteratorFactory<UniqueAddress, true>;
 
 }

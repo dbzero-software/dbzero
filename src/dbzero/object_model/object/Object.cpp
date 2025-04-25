@@ -109,29 +109,36 @@ namespace db0::object_model
     Object *Object::makeNull(void *at_ptr) {
         return new (at_ptr) Object();
     }
-    
-    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address)
+
+    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, UniqueAddress address)
     {
         db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-        // validate the instance ID if assigned
-        if (address.hasInstanceId()) {            
-            if (address.getInstanceId() != stem->m_header.m_instance_id) {
-                THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
-            }        
-        }
+        // validate the instance ID        
+        if (address.getInstanceId() != stem->m_header.m_instance_id) {
+            THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+        }        
         
         return stem;        
     }
+
+    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address) {
+        // no instance ID validation
+        return db0::v_object<o_object>(db0::tag_verified(), fixture->myPtr(address));
+    }
     
-    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address)
+    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, UniqueAddress address)
     {
-        if (fixture->isAddressValid(address)) {
-            db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-            // validate the instance ID if assigned
-            return !address.hasInstanceId() || address.getInstanceId() == stem->m_header.m_instance_id;
+        if (!fixture->isAddressValid(address)) {
+            return false;
         }
-        // the address no longer exists
-        return false;
+
+        db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
+        // validate the instance ID
+        return address.getInstanceId() == stem->m_header.m_instance_id;
+    }
+
+    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address) {
+        return fixture->isAddressValid(address);
     }
     
     Object *Object::unload(void *at_ptr, Address address, std::shared_ptr<Class> type_hint)

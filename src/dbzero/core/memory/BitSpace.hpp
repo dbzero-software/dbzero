@@ -66,7 +66,7 @@ namespace db0
         std::shared_ptr<AllocatorT> m_bitset_allocator;
         
         // begin / end address of the bitset
-        static std::pair<std::uint64_t, std::uint64_t> bitsetAddr(std::uint64_t base_addr, std::size_t page_size, int direction)
+        static std::pair<Address, Address> bitsetAddr(Address base_addr, std::size_t page_size, int direction)
         {
             // align base address if necessary
             base_addr = alignWideRange(base_addr, BitSetT::sizeOf(), page_size, direction);

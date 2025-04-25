@@ -16,10 +16,8 @@ namespace db0
         no_cache    = 0x0008,
         // resource which should be kept in-memory
         no_flush    = 0x0010,
-        // request to allocate a unique address
-        unique      = 0x0020,
         // disable copy-on-write (e.g. when accessed as read-only)
-        no_cow      = 0x0040
+        no_cow      = 0x0020
     };
     
     /**

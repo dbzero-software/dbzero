@@ -21,7 +21,7 @@ namespace db0
 	 * IMPORTANT NOTICE: one has to store both type and pointer to use proper morphology
 	 * @tparam AddrT must be convertible to/from ItemT
 	*/
-	template <typename ItemT, typename AddrT = std::uint64_t, typename Compare = std::less<ItemT> >
+	template <typename ItemT, typename AddrT = Address, typename Compare = std::less<ItemT> >
 	class MorphingBIndex
     {
 	public :

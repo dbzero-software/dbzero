@@ -5,18 +5,17 @@ namespace db0
 
 {
 
-    std::optional<std::uint64_t> EmbeddedAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
-        bool aligned, bool unique)
+    std::optional<Address> EmbeddedAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
-        auto new_address = 4096 * ++m_count;
+        auto new_address = Address::fromOffset(4096 * ++m_count);
         m_allocations[new_address] = size;
         if (m_alloc_callback) {
-            m_alloc_callback(size, slot_num, aligned, unique, new_address);
+            m_alloc_callback(size, slot_num, aligned, new_address);
         }
         return new_address;
     }
     
-    void EmbeddedAllocator::free(std::uint64_t address)
+    void EmbeddedAllocator::free(Address address)
     {
         auto it = m_allocations.find(address);
         if (it == m_allocations.end()) {
@@ -25,7 +24,7 @@ namespace db0
         m_allocations.erase(it);        
     }
 
-    std::size_t EmbeddedAllocator::getAllocSize(std::uint64_t address) const
+    std::size_t EmbeddedAllocator::getAllocSize(Address address) const
     {
         auto it = m_allocations.find(address);
         if (it == m_allocations.end()) {
@@ -34,10 +33,10 @@ namespace db0
         return it->second;
     }
     
-    bool EmbeddedAllocator::isAllocated(std::uint64_t address) const {
+    bool EmbeddedAllocator::isAllocated(Address address) const {
         return m_allocations.find(address) != m_allocations.end();
     }
-
+    
     void EmbeddedAllocator::commit() const {
         // nothing to do
     }

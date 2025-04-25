@@ -29,7 +29,7 @@ namespace db0::object_model
     
     class [[gnu::packed]] o_object: public db0::o_base<o_object, 0, false>
     {
-    protected: 
+    protected:
         using super_t = db0::o_base<o_object, 0, false>;
 
     public:
@@ -137,8 +137,11 @@ namespace db0::object_model
         
         // Unload the object stem, to retrieve its type and validate UUID / instance ID
         static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, Address);
+        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, UniqueAddress);
+        
         // Check if the unloadStem operation would be successful (withot actually performing it)
         static bool checkUnloadStem(db0::swine_ptr<Fixture> &, Address);
+        static bool checkUnloadStem(db0::swine_ptr<Fixture> &, UniqueAddress);
         
         // unload from stem with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exect object's type

@@ -99,17 +99,17 @@ namespace db0
          * Create a new dbzero instance in the given memory space
         */       
         template <typename... Args>
-        void init(Memspace &memspace, FlagSet<AccessOptions> access_mode, Args&&... args)
+        void init(Memspace &memspace, Args&&... args)
         {
-            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...), access_mode);
+            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...));
             // placement new syntax
             c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::forward<Args>(args)...);
         }
-
+        
         // Create new instance assigned unique address
         // @return instance id
         template <typename... Args>
-        std::uint16_t initUnique(Memspace &memspace, FlagSet<AccessOptions> access_mode, Args&&... args);
+        std::uint16_t initUnique(Memspace &memspace, Args&&... args);
 
         // Construct from v-pointer
         v_object(ptr_t &&ptr)

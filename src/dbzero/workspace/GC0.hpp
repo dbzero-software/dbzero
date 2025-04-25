@@ -71,7 +71,7 @@ namespace db0
     public:
         using super_t = has_fixture<v_bvector<TypedAddress> >;
         GC0(db0::swine_ptr<Fixture> &);
-        GC0(db0::swine_ptr<Fixture> &, std::uint64_t address, bool read_only);
+        GC0(db0::swine_ptr<Fixture> &, Address address, bool read_only);
         ~GC0();
         
         // register instance with type specific ops, must be a known / registered type

@@ -44,12 +44,12 @@ namespace tests
     {        
         auto memspace = m_workspace.getMemspace(prefix_name);
         v_object<o_simple<int>> obj(memspace, 1);
-        ASSERT_TRUE(obj.getAddress() > 0);
+        ASSERT_TRUE(obj.getAddress().getOffset() > 0);
     }
 
     TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanPersistVObjects )
     {                
-        std::uint64_t address = 0;
+        Address address = {};
         {
             auto memspace = m_workspace.getMemspace(prefix_name);
             v_object<o_simple<int>> obj(memspace, 999);
@@ -67,7 +67,7 @@ namespace tests
 
     TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanStoreMultipleTransactions )
     {                
-        std::set<std::uint64_t> addresses;
+        std::set<Address> addresses;
         // perform 2 transactions
         for (int i = 0; i < 2; ++i)
         { 
@@ -91,7 +91,7 @@ namespace tests
     
     TEST_F( BaseWorkspaceTest , testSparseIndexCanReuseExpiredDataBlocks )
     {        
-        std::set<std::uint64_t> addresses;
+        std::set<Address> addresses;
         // perform 100 small transactions with disk commit of each        
         for (int i = 0; i < 100; ++i) {
             auto memspace = m_workspace.getMemspace(prefix_name);
@@ -112,7 +112,7 @@ namespace tests
     
     TEST_F( BaseWorkspaceTest , testDB0FileCanBeOpenedInReadOnlyMode )
     {        
-        std::set<std::uint64_t> addresses;
+        std::set<Address> addresses;
         // perform a few small transactions with disk commit of each
         for (int i = 0; i < 10; ++i)
         {
@@ -134,7 +134,7 @@ namespace tests
     
     TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanPersistVBVector )
     {        
-        std::uint64_t address = 0;
+        Address address = {};
         {
             auto memspace = m_workspace.getMemspace(prefix_name);
             db0::v_bvector<int> data_buf(memspace);
@@ -160,7 +160,7 @@ namespace tests
     
     TEST_F( BaseWorkspaceTest , testBaseWorkspaceCanPersistDeallocation )
     {        
-        std::uint64_t address = 0;
+        Address address = {};
         std::size_t alloc_size = 0;
 
         // First transaction to create a new instance

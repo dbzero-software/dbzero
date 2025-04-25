@@ -123,7 +123,7 @@ namespace db0
         // validate dynamic bounds if set
         if (m_direction > 0) {
             assert(m_shift == 0);
-            if (m_bounds_fn && m_base_addr + ((index + 1) * m_alloc_size) > m_bounds_fn()) {
+            if (m_bounds_fn && m_base_addr.getOffset() + ((index + 1) * m_alloc_size) > m_bounds_fn()) {
                 // address would exceed the bounds
                 return std::nullopt;
             }

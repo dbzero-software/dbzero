@@ -32,7 +32,7 @@ namespace db0
      * @tparam BaseT must be some v_object or derived class
      * @tparam _CLS the storage class
      * @tparam T the actual type of the object. T must implement the following optional operations (or specialzations): destroy, detach
-     * @tparam unique if true, the object will be created with a unique address (using AccessOptions::unique)
+     * @tparam unique if true, the object will be created with a unique address
      * and must contain the m_header as the first overlaid member and define static GCOps_ID m_gc_ops_id as its member (see GC0_Declare macro)
     */
     template <typename T, typename BaseT, StorageClass _CLS, bool Unique = true>
@@ -46,24 +46,19 @@ namespace db0
         
         // Create a new instance
         template <typename... Args> ObjectBase(db0::swine_ptr<Fixture> &fixture, Args &&... args)
-            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())            
+            : has_fixture<BaseT>()
         {
-            if constexpr (Unique) {
-                this->modify().m_header.m_instance_id = this->getAddress().getInstanceId();
-            }
+            initNew(fixture, std::forward<Args>(args)...);            
             addToGC0<T>(*fixture, this);
             m_gc_registered = true;
         }
-
+        
         // Create a new instance (no garbage collection)
         struct tag_no_gc {};
         template <typename... Args> ObjectBase(tag_no_gc, db0::swine_ptr<Fixture> &fixture, Args &&... args)
-            : has_fixture<BaseT>(fixture, std::forward<Args>(args)..., accessFlags())        
-            , m_gc_registered(false)
+            : has_fixture<BaseT>()            
         {
-            if constexpr (Unique) {            
-                this->modify().m_header.m_instance_id = this->getAddress().getInstanceId();
-            }
+            initNew(fixture, std::forward<Args>(args)...);            
         }
         
         // Open an existing instance
@@ -105,12 +100,7 @@ namespace db0
         template <typename... Args> void init(db0::swine_ptr<Fixture> &fixture, Args &&... args)
         {
             unregister();
-            if constexpr (Unique) {
-                auto instance_id = has_fixture<BaseT>::initUnique(fixture, accessFlags(), std::forward<Args>(args)...);
-                this->modify().m_header.m_instance_id = instance_id;
-            } else {
-                has_fixture<BaseT>::init(fixture, accessFlags(), std::forward<Args>(args)...);
-            }
+            initNew(fixture, std::forward<Args>(args)...);
             m_gc_registered = tryAddToGC0<T>(*fixture, this);
         }
         
@@ -162,15 +152,34 @@ namespace db0
             return UniqueAddress(this->getAddress(), (*this)->m_header.m_instance_id);
         }
 
+        // Get unique object's instance ID
+        template <bool C = Unique, typename = std::enable_if_t<C> >
+        std::uint16_t getInstanceId() const
+        {
+            assert(hasInstance());
+            return (*this)->m_header.m_instance_id;
+        }
+        
     protected:
         friend class db0::GC0;
 
+        template <typename... Args> void initNew(db0::swine_ptr<Fixture> &fixture, Args &&... args)
+        {        
+            assert(fixture);
+            if constexpr (Unique) {
+               auto instance_id = has_fixture<BaseT>::initUnique(fixture, std::forward<Args>(args)...);
+               this->modify().m_header.m_instance_id = instance_id;
+            } else {
+               has_fixture<BaseT>::init(fixture, std::forward<Args>(args)...);
+            }           
+        }
+        
         // member should be overridden for derived types which need pre-commit
         using PreCommitFunction = void (*)(void *, bool revert);
         static PreCommitFunction getPreCommitFunction() {
             return nullptr;
         }
-
+        
         // called from GC0 to bind GC_Ops for this type
         static GC_Ops getGC_Ops() {
             return { hasRefsOp, dropOp, detachOp, commitOp, getTypedAddress, dropByAddr, T::getPreCommitFunction() };
@@ -212,10 +221,6 @@ namespace db0
             // and immediately unregistered, if its ref-count is 0 then it will get dropped
             T instance(fixture, addr);
         }
-
-        static constexpr FlagSet<AccessOptions> accessFlags() {
-            return Unique ? FlagSet<AccessOptions> { AccessOptions::unique } : FlagSet<AccessOptions>();
-        }   
     };
     
     template <typename T, typename BaseT, StorageClass _CLS, bool Unique>

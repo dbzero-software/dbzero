@@ -33,7 +33,7 @@ namespace db0::object_model
         // Flush and incRef to unique added objects
         void flush(RangeTreeT &index);
 
-        std::unordered_map<Address, ObjectSharedPtr> &&releaseObjectCache() {
+        std::unordered_map<UniqueAddress, ObjectSharedPtr> &&releaseObjectCache() {
             return std::move(m_object_cache);
         }
 
@@ -43,12 +43,12 @@ namespace db0::object_model
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the range-tree index
-        mutable std::unordered_map<Address, ObjectSharedPtr> m_object_cache;
+        mutable std::unordered_map<UniqueAddress, ObjectSharedPtr> m_object_cache;
 
         // add to cache and return object's address
-        Address addToCache(ObjectPtr);
+        UniqueAddress addToCache(ObjectPtr);
     };
-
+    
     template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder()
         : super_t()
         , m_type_manager(LangToolkit::getTypeManager())
@@ -82,13 +82,13 @@ namespace db0::object_model
     
     template <typename KeyT> void IndexBuilder<KeyT>::flush(RangeTreeT &index)
     {
-        std::function<void(Address)> add_callback = [&](Address address) {
+        std::function<void(UniqueAddress)> add_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
             m_type_manager.extractMutableObject(it->second.get()).incRef();
         };
         
-        std::function<void(Address)> erase_callback = [&](Address address) {
+        std::function<void(UniqueAddress)> erase_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
             m_type_manager.extractMutableObject(it->second.get()).decRef();
@@ -98,9 +98,9 @@ namespace db0::object_model
         m_object_cache.clear();
     }
     
-    template <typename KeyT> Address IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
+    template <typename KeyT> UniqueAddress IndexBuilder<KeyT>::addToCache(ObjectPtr obj_ptr)
     {
-        auto obj_addr = m_type_manager.extractObject(obj_ptr).getAddress();
+        auto obj_addr = m_type_manager.extractObject(obj_ptr).getUniqueAddress();
         if (m_object_cache.find(obj_addr) == m_object_cache.end()) {
             m_object_cache.emplace(obj_addr, obj_ptr);
         }

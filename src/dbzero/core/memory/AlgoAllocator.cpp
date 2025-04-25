@@ -18,7 +18,7 @@ namespace db0
         assert(slot_num == 0);
         assert(!aligned && "AlgoAllocator: aligned allocation not supported");    
         assert(size == m_alloc_size && "AlgoAllocator: invalid alloc size requested");
-        return Address::fromOffset(m_address_pool_f(m_next_i++));
+        return m_address_pool_f(m_next_i++);
     }
     
     void AlgoAllocator::free(Address address) 
@@ -66,7 +66,7 @@ namespace db0
         auto offset = max_address % m_alloc_size;
         m_next_i = m_reverse_address_pool_f(max_address - offset) + 1;
     }
-        
+    
     void AlgoAllocator::commit() const
     {
     }

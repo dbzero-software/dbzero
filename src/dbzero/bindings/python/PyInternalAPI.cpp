@@ -225,7 +225,7 @@ namespace db0::python
         }
 
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
-        db0::freeBytes(*lock, address);
+        db0::freeBytes(*lock, Address::fromOffset(address));
         Py_RETURN_NONE;
     }
 
@@ -239,7 +239,7 @@ namespace db0::python
         }
 
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
-        std::string str_data = db0::readBytes(*lock, address);
+        std::string str_data = db0::readBytes(*lock, Address::fromOffset(address));
         return PyUnicode_FromString(str_data.c_str());
     }
     

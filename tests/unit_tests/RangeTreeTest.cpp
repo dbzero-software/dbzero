@@ -218,7 +218,7 @@ namespace tests
     {
         using RangeTreeT = RangeTree<int, std::uint64_t>;
         using ItemT = typename RangeTreeT::ItemT;
-            
+        
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
         IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
@@ -573,5 +573,5 @@ namespace tests
         
         ASSERT_EQ(values, (std::vector<std::uint64_t> { 3, 2 }));
     }
-
+    
 } 

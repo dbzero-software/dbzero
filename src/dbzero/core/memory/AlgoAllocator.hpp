@@ -11,9 +11,9 @@ namespace db0
     {
     public:
         // a function defining the address pool over the 0 - 2^32 integer space
-        using AddressPoolF = std::function<std::uint64_t(unsigned int)>;
+        using AddressPoolF = std::function<Address(unsigned int)>;
         // the reverse address pool function
-        using ReverseAddressPoolF = std::function<unsigned int(std::uint64_t)>;
+        using ReverseAddressPoolF = std::function<unsigned int(Address)>;
 
         AlgoAllocator(AddressPoolF f, ReverseAddressPoolF rf, std::size_t alloc_size);
 

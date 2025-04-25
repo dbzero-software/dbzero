@@ -26,13 +26,13 @@ namespace tests
 	{
         auto memspace = getMemspace();
         v_object<o_test_data> cut(memspace, 123);
-        ASSERT_TRUE(cut.getAddress() != 0);
+        ASSERT_TRUE(cut.getAddress().isValid());
 	}
-
+    
 	TEST_F( VObjectTest , testVObjectCanBePersistedAndRetrievedFromMemspace )
 	{
         auto memspace = getMemspace();
-        std::uint64_t address = 0;
+        Address address = {};
         {
             v_object<o_test_data> cut(memspace, 123);
             address = cut.getAddress();
@@ -45,7 +45,7 @@ namespace tests
 	TEST_F( VObjectTest , testVObjectCanBeModified )
 	{
         auto memspace = getMemspace();
-        std::uint64_t address = 0;
+        Address address = {};
         {
             v_object<o_test_data> cut(memspace, 123);
             cut.modify().m_value = 999;

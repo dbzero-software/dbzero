@@ -15,7 +15,7 @@ namespace db0
 	 * ItemT must be assignment compatible with AddrT
 	 * cast_functor - must be able to cast between ItemT and AddrT in both directions
 	 */
-	template <typename ItemT = std::uint64_t, typename AddrT = std::uint64_t, typename item_comp_t = std::less<ItemT>,
+	template <typename ItemT = std::uint64_t, typename AddrT = Address, typename item_comp_t = std::less<ItemT>,
         typename cast_functor = binary_cast<ItemT, AddrT> >
     class IttyIndex
 	{

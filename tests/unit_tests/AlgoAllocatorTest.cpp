@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/memory/AlgoAllocator.hpp>
+#include <dbzero/core/memory/Address.hpp>
 #include <utils/TestWorkspace.hpp>
 
 using namespace std;
@@ -8,16 +9,18 @@ namespace tests
 
 {
 
+    using Address = db0::Address;
+
     class AlgoAllocatorTests: public testing::Test
     {
     public:
         virtual void SetUp() override {
             // set up the address pool functions
-            m_pool_f = [](unsigned int i)->std::uint64_t { 
-                return i * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE); 
+            m_pool_f = [](unsigned int i) -> Address { 
+                return Address::fromOffset(i * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE));
             };
 
-            m_reverse_pool_f = [](std::uint64_t address)->unsigned int {
+            m_reverse_pool_f = [](Address address)->unsigned int {
                 if (address % (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE) != 0) {
                     THROWF(db0::InternalException) << "AlgoAllocatorTests: invalid address " << address;
                 }
@@ -55,9 +58,9 @@ namespace tests
             cut.alloc(PAGE_SIZE);            
         }
         // unaligned address is OK (inner address)
-        ASSERT_NO_THROW(cut.free(7 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE) + 13));
+        ASSERT_NO_THROW(cut.free(Address::fromOffset(7 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE) + 13)));
         // address out of range
-        ASSERT_ANY_THROW(cut.free(11 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE)));
+        ASSERT_ANY_THROW(cut.free(Address::fromOffset(11 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE))));
     }
 
     TEST_F( AlgoAllocatorTests , testAlgoAllocatorGetAllocSize )
@@ -66,11 +69,11 @@ namespace tests
         for (int i = 0;i < 10;++i) {
             cut.alloc(PAGE_SIZE);            
         }
-        ASSERT_EQ(PAGE_SIZE, cut.getAllocSize(0));
+        ASSERT_EQ(PAGE_SIZE, cut.getAllocSize(Address::fromOffset(0)));
         // inner address
-        ASSERT_EQ(PAGE_SIZE - 13, cut.getAllocSize(7 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE) + 13));
+        ASSERT_EQ(PAGE_SIZE - 13, cut.getAllocSize(Address::fromOffset(7 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE) + 13)));
         // address out of range
-        ASSERT_ANY_THROW(cut.getAllocSize(11 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE)));
+        ASSERT_ANY_THROW(cut.getAllocSize(Address::fromOffset(11 * (PAGE_SIZE + SLAB_SIZE * PAGE_SIZE))));
     }
-
+    
 }

@@ -88,7 +88,7 @@ namespace db0::object_model
     std::uint32_t Enum::fetchUID() const
     {
         // return UID as relative address from the underlying SLOT
-        auto result = this->getFixture()->makeRelative(this->getAddress().getOffset(), SLOT_NUM);
+        auto result = this->getFixture()->makeRelative(this->getAddress(), SLOT_NUM);
         // relative address must not exceed SLOT size
         assert(result < std::numeric_limits<std::uint32_t>::max());
         return result;

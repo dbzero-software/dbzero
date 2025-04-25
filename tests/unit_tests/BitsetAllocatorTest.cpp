@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <dbzero/core/memory/BitsetAllocator.hpp>
 #include <utils/TestWorkspace.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 using namespace std;
 
@@ -8,7 +9,10 @@ namespace tests
 
 {
 
-    class BitsetAllocatorTests: public testing::Test {
+    using Address = db0::Address;
+
+    class BitsetAllocatorTests: public testing::Test 
+    {
     public:
         virtual void SetUp() override {            
         }
@@ -26,7 +30,8 @@ namespace tests
         std::size_t page_size = 4096;
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         
-        db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), 0, page_size, 1);
+        auto base_addr = Address::fromOffset(0);
+        db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), base_addr, page_size, 1);
         auto ptr1 = cut.alloc(page_size);
         auto ptr2 = cut.alloc(page_size);
         ASSERT_NE(ptr1, ptr2);
@@ -36,8 +41,9 @@ namespace tests
     {        
         std::size_t page_size = 4096;
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-        
-        db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), 0, page_size, 1);
+                
+        auto base_addr = Address::fromOffset(0);
+        db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), base_addr, page_size, 1);
         auto ptr1 = cut.alloc(page_size);
         auto ptr2 = cut.alloc(page_size);
         cut.free(ptr2);
@@ -59,7 +65,8 @@ namespace tests
         std::size_t page_size = 4096;
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         
-        db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), 0, page_size, 1);
+        auto base_addr = Address::fromOffset(0);
+        db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), base_addr, page_size, 1);
         auto ptr1 = cut.alloc(page_size);
         std::size_t offset = 128;
         ASSERT_EQ(cut.getAllocSize(ptr1 + offset), page_size - offset);
@@ -71,11 +78,12 @@ namespace tests
         std::size_t page_size = 4096;
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
 
-        db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), page_size * 1024, page_size, -1);
+        auto base_addr = Address::fromOffset(page_size * 1024);
+        db0::BitsetAllocator<db0::VFixedBitset<123> > cut(db0::VFixedBitset<123>(memspace), base_addr, page_size, -1);
         auto ptr1 = cut.alloc(page_size);
-        ASSERT_EQ(ptr1, page_size * 1024 - page_size);
+        ASSERT_EQ(ptr1.getOffset(), page_size * 1024 - page_size);
         auto ptr2 = cut.alloc(page_size);
         ASSERT_TRUE(ptr2 < ptr1);
     }
-
+    
 }   

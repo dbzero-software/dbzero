@@ -11,12 +11,18 @@ namespace db0
     template <typename store_t> class [[gnu::packed]] AddressType
     {
     public:
+        using offset_t = store_t;
+
         // Construct as null / invalid
         AddressType() = default;
         
         // make address from offset
         static inline AddressType fromOffset(std::uint64_t offset) {
             return AddressType(offset);
+        }
+
+        static inline AddressType fromValue(std::uint64_t value) {
+            return AddressType(value);
         }
 
         inline bool isValid() const {
@@ -31,35 +37,40 @@ namespace db0
             return m_value;
         }
 
-        inline bool operator==(const Address& other) const {
+        inline bool operator==(const AddressType& other) const {
             return m_value == other.m_value;
         }
 
-        inline bool operator!=(const Address& other) const {
+        inline bool operator!=(const AddressType& other) const {
             return m_value != other.m_value;
         }
 
-        inline bool operator<(const Address& other) const {
+        inline bool operator<(const AddressType& other) const {
             return m_value < other.m_value;
         }
 
-        inline bool operator>(const Address& other) const {
+        inline bool operator>(const AddressType& other) const {
             return m_value > other.m_value;
         }
         
         // Offset cast
         inline operator store_t() const {
-            return m_store;
+            return m_value;
         }
 
-        Address operator+(std::uint64_t offset) const;
-        Address operator-(std::uint64_t offset) const;
+        inline AddressType operator+(std::uint64_t offset) const {
+            return AddressType(m_value + offset);
+        }
+
+        inline AddressType operator-(std::uint64_t offset) const {
+            return AddressType(m_value - offset);
+        }
         
     private:
         store_t m_value = 0;
         
-        inline AddressType(std::uint64_t offset)
-            : m_value(offset)
+        inline AddressType(std::uint64_t value)
+            : m_value(value)
         {            
         }
     };
@@ -85,7 +96,7 @@ namespace db0
         static inline UniqueAddress fromValue(std::uint64_t value) {
             return UniqueAddress(value);
         }
-
+        
         inline bool isValid() const {
             return m_value != 0; 
         }
@@ -115,7 +126,15 @@ namespace db0
             return m_value < other.m_value;
         }
 
+        inline bool operator<=(const UniqueAddress& other) const {
+            return m_value <= other.m_value;
+        }
+
         inline bool operator>(const UniqueAddress& other) const {
+            return m_value > other.m_value;
+        }
+
+        inline bool operator>=(const UniqueAddress& other) const {
             return m_value > other.m_value;
         }
 

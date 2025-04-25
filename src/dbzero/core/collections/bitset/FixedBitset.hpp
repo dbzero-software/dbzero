@@ -58,7 +58,7 @@ namespace db0
             return sizeof(o_fixed_bitset<BitN>);
         }
 
-        static void create(Memspace &memspace, std::uint64_t address)
+        static void create(Memspace &memspace, Address address)
         {
             // create at a specific v-space address
             auto at = MappedAddress {

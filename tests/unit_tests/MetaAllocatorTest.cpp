@@ -61,7 +61,7 @@ namespace tests
             4096, 4096 * 2, 4096 * 3 + slab_size * slab_count, 4096 * 4 + slab_size * slab_count
         };
         for (unsigned int i = 0; i < expected_addresses.size(); ++i) {
-            ASSERT_EQ(expected_addresses[i], f(i));
+            ASSERT_EQ(Address::fromOffset(expected_addresses[i]), f(i));
         }        
     }
 
@@ -75,7 +75,7 @@ namespace tests
             4096, 4096 * 2, 4096 * 3 + slab_size * slab_count, 4096 * 4 + slab_size * slab_count
         };
         for (unsigned int i = 0; i < expected_addresses.size(); ++i) {
-            ASSERT_EQ(rf(expected_addresses[i]), i);
+            ASSERT_EQ(rf(Address::fromOffset(expected_addresses[i])), i);
         }        
     }
     
@@ -96,7 +96,7 @@ namespace tests
         std::uint64_t last_address = 0;
         for (auto alloc_size: alloc_sizes) {
             auto ptr = cut.alloc(alloc_size);            
-            ASSERT_TRUE(ptr > last_address);
+            ASSERT_TRUE(ptr.getOffset() > last_address);
             last_address = ptr;
         }
     }
@@ -201,7 +201,7 @@ namespace tests
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
         SlabRecycler recycler;
         std::vector<std::size_t> alloc_sizes;
-        std::vector<std::uint64_t> addresses;
+        std::vector<Address> addresses;
         auto count = 10000;
         {
             MetaAllocator cut(m_prefix, &recycler);
@@ -227,7 +227,7 @@ namespace tests
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
         SlabRecycler recycler;
         std::vector<std::size_t> alloc_sizes;
-        std::vector<std::uint64_t> addresses;
+        std::vector<Address> addresses;
         auto count = 10000;
         {
             MetaAllocator cut(m_prefix, &recycler);
@@ -256,7 +256,7 @@ namespace tests
         srand(191231u);
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
         SlabRecycler recycler;
-        std::map<int, std::vector<std::uint64_t> > addr_map;
+        std::map<int, std::vector<Address> > addr_map;
         auto count = 10000;
         {
             // deferred free is disabled
@@ -310,13 +310,15 @@ namespace tests
 
     TEST_F( MetaAllocatorTests , testReservedPrivateSlab )
     {
+        using offset_t = typename Address::offset_t;
+
         srand(191231u);
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
         SlabRecycler recycler;
         MetaAllocator cut(m_prefix, &recycler);
-        auto private_slab = cut.reserveNewSlab();
+        auto private_slab = cut.reserveNewSlab();        
         std::pair<std::uint64_t, std::uint64_t> range {
-            private_slab->getAddress(), private_slab->getAddress() + private_slab->size()
+            private_slab->getAddress(), private_slab->getAddress() + static_cast<offset_t>(private_slab->size())
         };
 
         auto in_range = [&](std::uint64_t address) {

@@ -166,6 +166,7 @@ namespace db0
     {
     public :
         using container_t = ContainerT;
+        using self_t = v_ptr<ContainerT, SLOT_NUM>;
 
         inline v_ptr() = default;
 
@@ -260,30 +261,28 @@ namespace db0
             return get();
         }
         
-        static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode = {})
+        static self_t makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode = {})
         {
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
-            auto address = memspace.alloc(size, SLOT_NUM, access_mode[AccessOptions::unique]);
+            auto address = memspace.alloc(size, SLOT_NUM);
             // lock for create & write
             // NOTE: must extract physical address for mapRange
-            auto mem_lock = memspace.getPrefix().mapRange(
-                address.getOffset(), size, access_mode | AccessOptions::write
-            );
+            auto mem_lock = memspace.getPrefix().mapRange(address, size, access_mode | AccessOptions::write);
             // mark the entire writable area as modified
             mem_lock.modify();
             // mark as available for both write & read
-            return v_ptr<ContainerT>(
+            return self_t(
                 memspace, address, std::move(mem_lock),
                 db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE, access_mode
             );
         }
         
-        static v_ptr<ContainerT> makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode = {})
+        static self_t makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode = {})
         {            
             // mark the entire writable area as modified
             mapped_addr.m_mem_lock.modify();
-            return v_ptr<ContainerT>(memspace, mapped_addr.m_address,
+            return self_t(memspace, mapped_addr.m_address,
                 std::move(mapped_addr.m_mem_lock),
                 // mark as available for read & write
                 db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE, access_mode

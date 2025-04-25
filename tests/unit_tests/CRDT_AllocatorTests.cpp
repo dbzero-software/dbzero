@@ -10,14 +10,16 @@ using namespace std;
 namespace tests
 
 {
-    
-    class CRDT_AllocatorTests: public testing::Test 
+
+    using Address = db0::Address;
+
+    class CRDT_AllocatorTests: public testing::Test
     {
     public:
         CRDT_AllocatorTests()
             : m_memspace(m_workspace.getMemspace("my-test-prefix_1"))
             // configure bitspace to use the entire 4kb page - i.e. 0x8000 bits
-            , m_bitspace(m_memspace.getPrefixPtr(), 0, page_size)
+            , m_bitspace(m_memspace.getPrefixPtr(), Address::fromOffset(0), page_size)
         {
         }
 

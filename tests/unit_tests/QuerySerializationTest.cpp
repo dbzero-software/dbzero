@@ -19,11 +19,16 @@ namespace tests
 
     using namespace db0;
     using namespace db0::object_model;
+    using UniqueAddress = db0::UniqueAddress;
     
+    UniqueAddress makeUniqueAddr(std::uint64_t offset, std::uint16_t id) {
+        return UniqueAddress(Address::fromOffset(offset), id);
+    }
+
     class QuerySerializationTest: public FixtureTestBase
     {
     public:
-        using RangeTreeT = RangeTree<int, std::uint64_t>;
+        using RangeTreeT = RangeTree<int, UniqueAddress>;
         using ItemT = typename RangeTreeT::ItemT;
 
         void runTestCase(std::function<void(IndexBase &, std::shared_ptr<RangeTreeT>, FT_BaseIndex<std::uint64_t> &)> test)
@@ -51,9 +56,9 @@ namespace tests
             auto &ft_index = tag_index.getBaseIndexShort();
             {
                 auto batch_data = ft_index.beginBatchUpdate();
-                batch_data->addTags({4, nullptr}, std::vector<std::uint64_t> { 1, 2, 3 });
-                batch_data->addTags({3, nullptr}, std::vector<std::uint64_t> { 1, 2 });
-                batch_data->addTags({8, nullptr}, std::vector<std::uint64_t> { 1, 2 });
+                batch_data->addTags({ makeUniqueAddr(4, 1), nullptr }, std::vector<std::uint64_t> { 1, 2, 3 });
+                batch_data->addTags({ makeUniqueAddr(3, 1), nullptr }, std::vector<std::uint64_t> { 1, 2 });
+                batch_data->addTags({ makeUniqueAddr(8, 1), nullptr }, std::vector<std::uint64_t> { 1, 2 });
                 batch_data->flush();
             }
             test(index, rt, ft_index);

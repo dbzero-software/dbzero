@@ -5,9 +5,9 @@ namespace db0
 
 {
     
-    Address Allocator::alloc(std::size_t size, std::uint32_t slot_num, bool aligned, bool unique)
+    Address Allocator::alloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
-        auto result = tryAlloc(size, slot_num, aligned, unique);
+        auto result = tryAlloc(size, slot_num, aligned);
         if (!result) {
             THROWF(InternalException) << "Allocator: out of memory" << THROWF_END;
         }
@@ -17,7 +17,7 @@ namespace db0
     void Allocator::flush() const {
     }
     
-    bool Allocator::inRange(std::uint64_t address) const {
+    bool Allocator::inRange(Address) const {
         return true;
     }
     

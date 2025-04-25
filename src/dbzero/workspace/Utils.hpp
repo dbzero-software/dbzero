@@ -11,9 +11,9 @@ namespace db0
 
     std::uint64_t writeBytes(db0::swine_ptr<Fixture>, const char *data, std::size_t len);
 
-    void freeBytes(db0::swine_ptr<Fixture>, std::uint64_t address);
+    void freeBytes(db0::swine_ptr<Fixture>, Address);
 
-    std::string readBytes(db0::swine_ptr<Fixture>, std::uint64_t address);
+    std::string readBytes(db0::swine_ptr<Fixture>, Address);
 
 #endif
 

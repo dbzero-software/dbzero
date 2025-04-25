@@ -199,7 +199,7 @@ namespace db0::object_model
         assert(isSingleton());
         // increment reference count in order to prevent singleton object from being destroyed
         object.incRef();
-        modify().m_singleton_address = object.getAddress();
+        modify().m_singleton_address = object.getUniqueAddress();
     }
     
     void Class::refreshMemberCache() const
@@ -355,7 +355,7 @@ namespace db0::object_model
     std::uint32_t Class::fetchUID() const
     {
         // return UID as relative address from the underlying SLOT
-        auto result = this->getFixture()->makeRelative(this->getAddress().getOffset(), SLOT_NUM);
+        auto result = this->getFixture()->makeRelative(this->getAddress(), SLOT_NUM);
         // relative address must not exceed SLOT size
         assert(result < std::numeric_limits<std::uint32_t>::max());
         return result;
@@ -394,7 +394,8 @@ namespace db0::object_model
         if (!isSingleton() || !isExistingSingleton()) {
             THROWF(db0::InternalException) << "Singleton object not found for class " << getTypeName();
         }
-        Address singleton_addr = (*this)->m_singleton_address;
+
+        auto singleton_addr = (*this)->m_singleton_address;
         return {
             getFixture()->getUUID(),
             TypedAddress(StorageClass::OBJECT_REF, singleton_addr),
@@ -407,7 +408,8 @@ namespace db0::object_model
         return {
             getFixture()->getUUID(),
             TypedAddress(StorageClass::DB0_CLASS, getAddress()),
-            getAddress().getInstanceId()
+            // NOTE: no instance ID for class
+            0
         };
     }
     

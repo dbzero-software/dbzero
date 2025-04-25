@@ -12,15 +12,18 @@ namespace db0
 
 {
     
-    template <typename KeyT = std::uint64_t, typename ValueT = std::uint64_t>
-    ValueT addressOfMBIndex(const db0::MorphingBIndex<KeyT> &mb_index)
+    template <typename KeyT = UniqueAddress, typename ValueT = Address>
+    ValueT addressOfMBIndex(const db0::MorphingBIndex<KeyT> &mb_index);
+    /* FIXME:
     {
         // use high 4-bits for index type
         return mb_index.getAddress() | (static_cast<std::uint64_t>(mb_index.getIndexType()) << 60);
     }
-    
-    template <typename KeyT = std::uint64_t, typename ValueT = std::uint64_t>
-    std::shared_ptr<db0::MorphingBIndex<KeyT> > indexFromAddress(VObjectCache &cache, ValueT address)
+    */
+
+    template <typename KeyT = UniqueAddress, typename ValueT = Address>
+    std::shared_ptr<db0::MorphingBIndex<KeyT> > indexFromAddress(VObjectCache &cache, ValueT address);
+    /* FIXME:
     {
         // use high 4-bits for index type
         auto index_type = static_cast<db0::bindex::type>(address >> 60);
@@ -29,8 +32,9 @@ namespace db0
         // NOTE: MorphingBIndex does not provide detach functionality
         return cache.findOrCreate<db0::MorphingBIndex<KeyT> >(mb_addr, false, mb_addr, index_type);
     }
+    */
     
-    template <typename IndexKeyT = std::uint64_t, typename KeyT = Address, typename ValueT = Address>
+    template <typename IndexKeyT = std::uint64_t, typename KeyT = UniqueAddress, typename ValueT = Address>
     class InvertedIndex: public db0::v_bindex<key_value<IndexKeyT, ValueT>, Address>
     {
         mutable progressive_mutex m_mutex;

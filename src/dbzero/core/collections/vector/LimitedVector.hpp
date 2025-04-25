@@ -125,8 +125,8 @@ namespace db0
         assert(block_num < getMaxBlockCount());
         // return from cache if block is already loaded
         if (block_num >= m_cache.size() || !m_cache[block_num]) {
-            auto block_addr = m_root->get(block_num + 1);
-            if (!block_addr) {
+            auto block_addr = Address::fromOffset(m_root->get(block_num + 1));
+            if (!block_addr.isValid()) {
                 THROWF(db0::InternalException) << "LimitedVector: block " << block_num << " not allocated";
             }
             if (block_num >= m_cache.size()) {
@@ -150,12 +150,13 @@ namespace db0
             // data block is expected to occupy a full page
             assert(o_unbound_array<ValueT>::measure(getBlockSize()) == m_page_size);            
             // allocate new data block or pull existing
-            auto block_addr = m_root->get(block_num + 1);
+            auto block_addr = Address::fromOffset(m_root->get(block_num + 1));
             if (block_addr) {
                 m_cache[block_num] = db0::v_object<o_unbound_array<ValueT> >(m_memspace.myPtr(block_addr));
             } else {                
                 m_cache[block_num] = db0::v_object<o_unbound_array<ValueT> >(m_memspace, getBlockSize(), ValueT());
                 m_root.modify()[block_num + 1] = m_cache[block_num].getAddress();
+                // first element in the root block stores the total number of allocated blocks
                 ++m_root.modify()[0];
             }
         }

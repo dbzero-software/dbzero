@@ -204,5 +204,6 @@ namespace db0
     }
 
     template class FT_FixedKeyIterator<std::uint64_t>;
+    template class FT_FixedKeyIterator<UniqueAddress>;
 
 }

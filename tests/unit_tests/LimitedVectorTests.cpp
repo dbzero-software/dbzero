@@ -25,7 +25,7 @@ namespace tests
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");        
         LimitedVector<std::uint16_t> cut(memspace, memspace.getPageSize());
 
-        ASSERT_TRUE(cut.getAddress() != 0);
+        ASSERT_TRUE(cut.getAddress().isValid());
         ASSERT_EQ(memspace.getAllocator().getAllocSize(cut.getAddress()), memspace.getPageSize());
     }
 

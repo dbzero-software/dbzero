@@ -48,8 +48,7 @@ namespace db0
             fixture.take_weak();
         }
         
-        template <typename... Args> void init(db0::swine_ptr<Fixture> &fixture, 
-            FlagSet<AccessOptions> access_mode, Args &&... args)
+        template <typename... Args> void init(db0::swine_ptr<Fixture> &fixture, Args &&... args)
         {
             // must release existing weak ref
             Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
@@ -57,9 +56,24 @@ namespace db0
                 // release weak ref of the Fixture
                 db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
             }
-            BaseT::init(*fixture, access_mode, std::forward<Args>(args)...);
+            BaseT::init(*fixture, std::forward<Args>(args)...);
             // take weak ref of the Fixture
             fixture.take_weak();
+        }
+
+        template <typename... Args> 
+        std::uint16_t initUnique(db0::swine_ptr<Fixture> &fixture, Args &&... args)
+        {
+            // must release existing weak ref
+            Fixture *raw_ptr = reinterpret_cast<Fixture*>(this->v_this.getMemspacePtr());
+            if (raw_ptr) {
+                // release weak ref of the Fixture
+                db0::swine_ptr<Fixture>::release_weak(raw_ptr);                
+            }
+            auto result = BaseT::initUnique(*fixture, std::forward<Args>(args)...);
+            // take weak ref of the Fixture
+            fixture.take_weak();
+            return result;
         }
         
         ~has_fixture()

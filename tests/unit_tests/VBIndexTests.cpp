@@ -12,6 +12,8 @@ namespace tests
 
 {
 
+    using Address = db0::Address;
+    
     class VBIndexTests: public MemspaceTestBase
     {
     };
@@ -21,7 +23,7 @@ namespace tests
         auto memspace = getMemspace();
 
         db0::v_bindex<std::uint64_t> cut(memspace, memspace.getPageSize());
-        ASSERT_TRUE(cut.getAddress() != 0);
+        ASSERT_TRUE(cut.getAddress().isValid());
     }
 
     TEST_F( VBIndexTests , testVBIndexCanInsertOnDefaultMemspace )
@@ -36,7 +38,7 @@ namespace tests
     TEST_F( VBIndexTests , testVBIndexCanBePersisted )
     {        
         auto memspace = getMemspace();
-        std::uint64_t address = 0;
+        Address address = {};
         {
             db0::v_bindex<std::uint64_t> cut(memspace, memspace.getPageSize());
             cut.insert(1);

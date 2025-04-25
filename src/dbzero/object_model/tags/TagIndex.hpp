@@ -116,9 +116,9 @@ namespace db0::object_model
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
-        mutable std::unordered_map<Address, ObjectSharedPtr> m_object_cache;
+        mutable std::unordered_map<UniqueAddress, ObjectSharedPtr> m_object_cache;
         // A cache for incomplete objects (not yet fully initialized)
-        mutable std::unordered_map<ObjectSharedPtr, Address> m_active_cache;
+        mutable std::unordered_map<ObjectSharedPtr, UniqueAddress> m_active_cache;
         // the associated fixture UUID (for validation purposes)
         const std::uint64_t m_fixture_uuid;
         
@@ -209,16 +209,16 @@ namespace db0::object_model
             auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);            
             // NOTE: that memo object may not have address before fully initialized (before postInit)
             if (memo.hasInstance()) {
-                auto object_addr = memo.getAddress();
+                auto object_addr = memo.getUniqueAddress();
                 // cache object locally
                 if (m_object_cache.find(object_addr) == m_object_cache.end()) {
                     m_object_cache.emplace(object_addr, memo_ptr);
                 }
                 result = ActiveValueT(object_addr, nullptr);
             } else {
-                auto it = m_active_cache.emplace(memo_ptr, Address());
+                auto it = m_active_cache.emplace(memo_ptr, UniqueAddress());
                 // use the address placeholder for an active value
-                result = ActiveValueT(Address(), &(it.first->second));
+                result = ActiveValueT(UniqueAddress(), &(it.first->second));
             }
         }
         

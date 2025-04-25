@@ -383,13 +383,13 @@ namespace db0
     Snapshot &Fixture::getWorkspace() {
         return m_snapshot;
     }
-
-    std::uint64_t Fixture::makeRelative(std::uint64_t address, std::uint32_t slot_num) const {
+    
+    std::uint64_t Fixture::makeRelative(Address address, std::uint32_t slot_num) const {
         return m_slot_allocator.getSlot(slot_num).makeRelative(address);
     }
     
-    std::uint64_t Fixture::makeAbsolute(std::uint64_t address, std::uint32_t slot_num) const {
-        return m_slot_allocator.getSlot(slot_num).makeAbsolute(address);
+    Address Fixture::makeAbsolute(std::uint64_t offset, std::uint32_t slot_num) const {
+        return m_slot_allocator.getSlot(slot_num).makeAbsolute(offset);
     }
     
     bool Fixture::operator==(const Fixture &other) const {

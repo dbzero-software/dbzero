@@ -176,7 +176,7 @@ namespace db0::object_model
         }
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
-        ActiveValueT active_key = { Address(), nullptr };
+        ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_op_short = getBatchOperationShort(memo_ptr, active_key);
         // since it's less common, defer initialization until first occurence
         db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder *batch_op_long_ptr = nullptr;
@@ -230,14 +230,14 @@ namespace db0::object_model
     
     void TagIndex::addTag(ObjectPtr memo_ptr, ShortTagT tag)
     {
-        ActiveValueT active_key = { Address(), nullptr };
+        ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationShort(memo_ptr, active_key);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
     }
 
     void TagIndex::addTag(ObjectPtr memo_ptr, LongTagT tag)
     {
-        ActiveValueT active_key = { Address(), nullptr };
+        ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationLong(memo_ptr, active_key);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
     }
@@ -249,7 +249,7 @@ namespace db0::object_model
         }
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
-        ActiveValueT active_key = { Address(), nullptr };
+        ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationShort(memo_ptr, active_key);
         for (std::size_t i = 0; i < nargs; ++i) {
             auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
@@ -304,16 +304,16 @@ namespace db0::object_model
     
     void TagIndex::tryTagIncRef(ShortTagT tag_addr) const
     {
-        if (m_string_pool.isTokenAddr(tag_addr) && 
+        if (m_string_pool.isTokenAddr(Address::fromOffset(tag_addr)) && 
             m_inc_refed_tags.find(tag_addr) == m_inc_refed_tags.end()) 
         {
             m_string_pool.addRefByAddr(tag_addr);
-        }            
+        }
     }
-
+    
     void TagIndex::tryTagDecRef(ShortTagT tag_addr) const
     {
-        if (m_string_pool.isTokenAddr(tag_addr)) {
+        if (m_string_pool.isTokenAddr(Address::fromOffset(tag_addr))) {
             m_string_pool.unRefByAddr(tag_addr);
         }
     }
@@ -324,7 +324,7 @@ namespace db0::object_model
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
         // the purpose of callback is to incRef to objects when a new tag is assigned
-        std::function<void(Address)> add_tag_callback = [&](Address obj_addr) {
+        std::function<void(UniqueAddress)> add_tag_callback = [&](UniqueAddress obj_addr) {
             auto it = m_object_cache.find(obj_addr);
             assert(it != m_object_cache.end());
             type_manager.extractMutableObject(it->second.get()).incRef();
@@ -336,7 +336,7 @@ namespace db0::object_model
             tryTagIncRef(tag_addr);
         };
         
-        std::function<void(Address)> remove_tag_callback = [&](Address obj_addr) {
+        std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
             auto it = m_object_cache.find(obj_addr);
             assert(it != m_object_cache.end());
             type_manager.extractMutableObject(it->second.get()).decRef();
@@ -385,7 +385,7 @@ namespace db0::object_model
                 THROWF(db0::InternalException) << "Tags cannot be flushed before initialization of @memo objects" << THROWF_END;
             }
             
-            auto object_addr = memo.getAddress();
+            auto object_addr = memo.getUniqueAddress();
             assert(object_addr.isValid());
             // initialize active value with the actual object address
             item.second = object_addr;
@@ -457,9 +457,9 @@ namespace db0::object_model
             }
         }
         
-        // Memo instance is directly feed into the FT_FixedKeyIterator
+        // Memo instance is directly fed into the FT_FixedKeyIterator
         if (type_id == TypeId::MEMO_OBJECT) {
-            auto addr = LangToolkit::getTypeManager().extractObject(arg).getAddress();
+            auto addr = LangToolkit::getTypeManager().extractObject(arg).getUniqueAddress();
             factory.add(std::make_unique<FT_FixedKeyIterator<UniqueAddress> >(&addr, &addr + 1));
             return true;
         }
@@ -769,12 +769,12 @@ namespace db0::object_model
         
         auto split_result = split_factory.release();
         if (exclusive) {
-            db0::FT_ANDIteratorFactory<Address, true> factory;
+            db0::FT_ANDIteratorFactory<UniqueAddress, true> factory;
             factory.add(std::move(split_result.first));
             factory.add(std::move(query));
             return { factory.release(), std::move(split_result.second) };
         } else {
-            db0::FT_ANDIteratorFactory<Address, false> factory;
+            db0::FT_ANDIteratorFactory<UniqueAddress, false> factory;
             factory.add(std::move(split_result.first));
             factory.add(std::move(query));
             return { factory.release(), std::move(split_result.second) };

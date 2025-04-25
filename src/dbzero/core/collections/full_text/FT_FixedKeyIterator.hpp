@@ -1,5 +1,6 @@
 #include "FT_Iterator.hpp"
 #include <dbzero/core/utils/SortedArray.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0
 
@@ -66,5 +67,6 @@ namespace db0
     };
     
     extern template class FT_FixedKeyIterator<std::uint64_t>;
+    extern template class FT_FixedKeyIterator<UniqueAddress>;
     
 }

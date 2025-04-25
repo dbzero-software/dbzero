@@ -65,7 +65,7 @@ namespace tests
     
     TEST_F( WorkspaceTest , testFixtureSnapshotCanBeTaken )
     {
-        std::uint64_t address = 0;
+        Address address = {};
         // first transaction to create object
         {
             auto fixture = m_workspace.getFixture(prefix_name);
@@ -98,7 +98,7 @@ namespace tests
     
     TEST_F( WorkspaceTest , testFreeCanBePerformedBetweenTransactions )
     {        
-        std::uint64_t address = 0;
+        Address address = {};
         auto fixture = m_workspace.getFixture(prefix_name);
         // first transaction to create object
         {
@@ -127,7 +127,7 @@ namespace tests
     TEST_F( WorkspaceTest , testAllocFreeBetweenTransactionsIssue )
     {        
         auto fixture = m_workspace.getFixture(prefix_name);
-        std::vector<std::uint64_t> addresses;
+        std::vector<Address> addresses;
         std::vector<std::size_t> allocs = {
             33, 28, 4
         };
@@ -157,7 +157,7 @@ namespace tests
 
     TEST_F( WorkspaceTest , testTimeTravelQueries )
     {        
-        std::uint64_t address = 0;
+        Address address = {};
         // First transaction to create a new object
         {
             auto memspace = m_workspace.getFixture(prefix_name);
@@ -190,7 +190,7 @@ namespace tests
     
     TEST_F( WorkspaceTest , testTimeTravelWithPartialObjectModification )
     {                
-        std::uint64_t address = 0;
+        Address address = {};
         // first transaction to create object
         {
             auto memspace = m_workspace.getFixture(prefix_name);

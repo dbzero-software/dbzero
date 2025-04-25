@@ -27,7 +27,7 @@ namespace db0
     struct ScopedAllocBuf
     {
         SlabAllocator &m_allocator;
-        std::vector<std::uint64_t> m_pending_free;
+        std::vector<Address> m_pending_free;
         
         ScopedAllocBuf(SlabAllocator &allocator)
             : m_allocator(allocator)
@@ -41,18 +41,18 @@ namespace db0
             }
         }
 
-        void add(std::uint64_t addr) {
+        void add(Address addr) {
             m_pending_free.push_back(addr);
         }
     };
     
-    std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,bool aligned) 
+    std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned) 
     {
         if (!slot_num) {
-            return m_allocator_ptr->tryAlloc(size, 0, aligned, unique);
+            return m_allocator_ptr->tryAlloc(size, 0, aligned);
         }
         
-        return select(slot_num).tryAlloc(size, 0, aligned, false);
+        return select(slot_num).tryAlloc(size, 0, aligned);
     }
     
     void SlotAllocator::free(Address address) {
