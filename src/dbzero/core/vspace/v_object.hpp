@@ -101,15 +101,20 @@ namespace db0
         template <typename... Args>
         void init(Memspace &memspace, Args&&... args)
         {
-            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...));
-            // placement new syntax
+            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...));            
             c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::forward<Args>(args)...);
         }
         
         // Create new instance assigned unique address
         // @return instance id
         template <typename... Args>
-        std::uint16_t initUnique(Memspace &memspace, Args&&... args);
+        std::uint16_t initUnique(Memspace &memspace, Args&&... args)
+        {
+            std::uint16_t instance_id;
+            v_this = ptr_t::makeNewUnique(memspace, instance_id, c_type::measure(std::forward<Args>(args)...));
+            c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::forward<Args>(args)...);
+            return instance_id;
+        }
 
         // Construct from v-pointer
         v_object(ptr_t &&ptr)

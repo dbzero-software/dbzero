@@ -278,6 +278,34 @@ namespace db0
             );
         }
         
+        // Create a new instance using allocUnique functionality
+        static self_t makeNewUnique(Memspace &memspace, std::uint16_t &instance_id, std::size_t size, 
+            FlagSet<AccessOptions> access_mode = {})
+        {
+            // read not allowed for instance creation
+            assert(!access_mode[AccessOptions::read]);
+            auto unique_address = memspace.allocUnique(size, SLOT_NUM);
+            instance_id = unique_address.getInstanceId();
+            // lock for create & write
+            // NOTE: must extract physical address for mapRange
+            auto mem_lock = memspace.getPrefix().mapRange(
+                unique_address.getOffset(), size, access_mode | AccessOptions::write
+            );
+            // mark the entire writable area as modified
+            mem_lock.modify();
+            // mark as available for both write & read
+            return self_t(
+                memspace, unique_address, std::move(mem_lock),
+                db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE, access_mode
+            );
+        }
+
+        /**
+         * Create a new instance from the mapped address
+         * @param memspace the memspace to use
+         * @param mapped_addr the mapped address
+         * @param access_mode additional access mode flags
+        */        
         static self_t makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode = {})
         {            
             // mark the entire writable area as modified
