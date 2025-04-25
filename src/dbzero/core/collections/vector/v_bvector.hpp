@@ -27,6 +27,7 @@ namespace db0
         // page size hint
         std::uint32_t m_page_size;
 
+        o_bvector() = default;
         o_bvector(std::uint32_t page_size_hint)
             : m_page_size(page_size_hint)            
         {
@@ -60,15 +61,15 @@ namespace db0
         /**
          * New, empty instance of the data structure
          */
-        v_bvector(Memspace &mem, FlagSet<AccessOptions> access_mode = {})
-            : super_t(mem, mem.getPageSize(), access_mode)
+        v_bvector(Memspace &mem)
+            : super_t(mem, mem.getPageSize())
             , m_db_shift(data_container::shift(mem.getPageSize()))
             , m_db_mask(data_container::mask(mem.getPageSize()))
             , m_pb_shift(ptr_container::shift(mem.getPageSize()))
             , m_pb_mask(ptr_container::mask(mem.getPageSize()))
         {                 
-#ifndef NDEBUG            
-            this->__add();       
+#ifndef NDEBUG       
+            this->__add();
 #endif
         }
 
@@ -90,8 +91,8 @@ namespace db0
         {        
         }
         
-        v_bvector(const v_bvector &&other, FlagSet<AccessOptions> access_mode = {})
-            : super_t(std::move(other), access_mode)
+        v_bvector(const v_bvector &&other)
+            : super_t(std::move(other))
             , m_db_shift(other.m_db_shift)
             , m_db_mask(other.m_db_mask)
             , m_pb_shift(other.m_pb_shift)
@@ -131,12 +132,44 @@ namespace db0
         /**
          * Construct populated with values from a specific sequence
          */
-        template <class SequenceT> v_bvector(Memspace &mem, const SequenceT &in, FlagSet<AccessOptions> access_mode = {})
-            : v_bvector(mem, access_mode)
+        template <class SequenceT> v_bvector(Memspace &mem, const SequenceT &in)
+            : v_bvector(mem)
         {
             for (const auto &item: in) {
                 push_back(item);
             }
+        }
+
+        template <class SequenceT>
+        void init(Memspace &mem, const SequenceT &in)
+        {
+            super_t::init(mem);
+            for (const auto &item: in) {
+                push_back(item);
+            }            
+        }
+        
+        std::uint16_t initUnique(Memspace &mem)
+        {
+            auto page_size = mem.getPageSize();
+            auto result = super_t::initUnique(mem, page_size);
+            this->m_db_shift = data_container::shift(mem.getPageSize());
+            this->m_db_mask = data_container::mask(mem.getPageSize());
+            this->m_pb_shift = ptr_container::shift(mem.getPageSize());
+            this->m_pb_mask = ptr_container::mask(mem.getPageSize());
+#ifndef NDEBUG
+            this->__add();
+#endif
+            return result;
+        }
+        
+        template <class SequenceT> std::uint16_t initUnique(Memspace &mem, const SequenceT &in)
+        {
+            auto result = this->initUnique(mem);
+            for (const auto &item: in) {
+                push_back(item);
+            }
+            return result;
         }
 
         /**
@@ -558,10 +591,10 @@ namespace db0
     
     protected:
         mutable progressive_mutex m_mutex;
-        const std::uint32_t m_db_shift = 0;
-        const std::uint32_t m_db_mask = 0;
-        const std::uint32_t m_pb_shift = 0;
-        const std::uint32_t m_pb_mask = 0;
+        std::uint32_t m_db_shift = 0;
+        std::uint32_t m_db_mask = 0;
+        std::uint32_t m_pb_shift = 0;
+        std::uint32_t m_pb_mask = 0;
         // size class of the data block (0 = full size)        
         mutable std::optional<std::size_t> m_b_class;
         

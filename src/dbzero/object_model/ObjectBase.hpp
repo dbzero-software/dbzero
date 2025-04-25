@@ -39,6 +39,7 @@ namespace db0
     class ObjectBase: public has_fixture<BaseT>
     {
     public:
+        using self_t = ObjectBase<T, BaseT, _CLS, Unique>;
         using LangToolkit = db0::object_model::LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
 
@@ -58,7 +59,7 @@ namespace db0
         template <typename... Args> ObjectBase(tag_no_gc, db0::swine_ptr<Fixture> &fixture, Args &&... args)
             : has_fixture<BaseT>()            
         {
-            initNew(fixture, std::forward<Args>(args)...);            
+            initNew(fixture, std::forward<Args>(args)...);
         }
         
         // Open an existing instance

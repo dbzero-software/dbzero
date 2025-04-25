@@ -24,11 +24,11 @@ namespace db0::object_model
         : super_t(super_t::tag_from_address(), fixture, address)
     {
     }
-    
+        
     ByteArray::ByteArray(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const ByteArray &byte_array)
         : super_t(tag_no_gc(), fixture, byte_array)
     {
-    }
+    }    
     
     ByteArray::~ByteArray()
     {
