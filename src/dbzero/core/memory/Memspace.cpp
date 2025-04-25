@@ -134,6 +134,10 @@ namespace db0
         return getAllocatorForUpdate().alloc(size, slot_num, size > m_page_size);
     }
     
+    UniqueAddress Memspace::allocUnique(std::size_t size, std::uint32_t slot_num) {
+        return getAllocatorForUpdate().allocUnique(size, slot_num, size > m_page_size); 
+    }
+
     void Memspace::free(Address address) {
         getAllocatorForUpdate().free(address);
     }

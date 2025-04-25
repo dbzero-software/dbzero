@@ -25,10 +25,6 @@ namespace tests
         VObjectCache m_cache;
     };
     
-    UniqueAddress makeUniqueAddr(std::uint64_t offset, std::uint16_t id) {
-        return UniqueAddress(Address::fromOffset(offset), id);
-    }
-
 	TEST_F( FT_BaseIndexTest , testFT_BaseIndexCanBePopulatedWithBatchOpertionBuilder )
 	{
         FT_BaseIndex<std::uint64_t> cut(m_memspace, m_cache);

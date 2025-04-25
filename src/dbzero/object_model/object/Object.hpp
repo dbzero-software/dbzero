@@ -135,13 +135,10 @@ namespace db0::object_model
         // make null instance (e.g. after destroying the original one)
         static Object *makeNull(void *at_ptr);
         
-        // Unload the object stem, to retrieve its type and validate UUID / instance ID
-        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, Address);
-        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, UniqueAddress);
-        
-        // Check if the unloadStem operation would be successful (withot actually performing it)
-        static bool checkUnloadStem(db0::swine_ptr<Fixture> &, Address);
-        static bool checkUnloadStem(db0::swine_ptr<Fixture> &, UniqueAddress);
+        // Unload the object stem, to retrieve its type
+        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
+        // Check if the unloadStem operation would be successful (withot actually performing it)        
+        static bool checkUnloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
         
         // unload from stem with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exect object's type

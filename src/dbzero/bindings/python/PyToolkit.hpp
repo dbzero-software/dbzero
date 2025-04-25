@@ -98,10 +98,9 @@ namespace db0::python
         // Unload with type resolution
         // optionally may use specific lang class (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
-            TypeObjectPtr lang_class = nullptr);
-        
-        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address,
-            TypeObjectPtr lang_class = nullptr);
+            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0);
+        static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, TypeObjectPtr lang_class = nullptr,
+            std::uint16_t instance_id = 0);
         
         static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, const LongWeakRef &);
         static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, std::uint64_t fixture_uuid,

@@ -237,6 +237,10 @@ namespace db0::object_model
         return static_cast<std::uint32_t>(address.getOffset());
     }
     
+    Address ClassFactory::classRefToAddress(std::uint32_t class_ref) {
+        return Address::fromOffset(class_ref);
+    }
+    
     ClassFactory::ClassItem ClassFactory::getTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const
     {
         auto it_cached = m_ptr_cache.find(ptr);

@@ -109,36 +109,27 @@ namespace db0::object_model
     Object *Object::makeNull(void *at_ptr) {
         return new (at_ptr) Object();
     }
-
-    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, UniqueAddress address)
+    
+    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id) 
     {
         db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-        // validate the instance ID        
-        if (address.getInstanceId() != stem->m_header.m_instance_id) {
+        if (instance_id && stem->m_header.m_instance_id != instance_id) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
-        }        
-        
-        return stem;        
-    }
-
-    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address) {
-        // no instance ID validation
-        return db0::v_object<o_object>(db0::tag_verified(), fixture->myPtr(address));
+        }
+        return stem;
     }
     
-    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, UniqueAddress address)
+    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
     {
         if (!fixture->isAddressValid(address)) {
             return false;
         }
-
-        db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-        // validate the instance ID
-        return address.getInstanceId() == stem->m_header.m_instance_id;
-    }
-
-    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address) {
-        return fixture->isAddressValid(address);
+        // validate instance ID only if provided
+        if (instance_id) {
+            auto stem = db0::v_object<o_object>(db0::tag_verified(), fixture->myPtr(address));
+            return stem->m_header.m_instance_id == instance_id;
+        }
+        return true;
     }
     
     Object *Object::unload(void *at_ptr, Address address, std::shared_ptr<Class> type_hint)

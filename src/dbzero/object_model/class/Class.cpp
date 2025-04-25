@@ -398,8 +398,8 @@ namespace db0::object_model
         auto singleton_addr = (*this)->m_singleton_address;
         return {
             getFixture()->getUUID(),
-            TypedAddress(StorageClass::OBJECT_REF, singleton_addr),
-            singleton_addr.getInstanceId()
+            singleton_addr,
+            StorageClass::OBJECT_REF
         };
     }
     
@@ -407,9 +407,9 @@ namespace db0::object_model
     {
         return {
             getFixture()->getUUID(),
-            TypedAddress(StorageClass::DB0_CLASS, getAddress()),
-            // NOTE: no instance ID for class
-            0
+            // NOTICE: no instance ID for the class-ref
+            db0::UniqueAddress(this->getAddress(), std::numeric_limits<std::uint16_t>::max()),
+            StorageClass::DB0_CLASS
         };
     }
     

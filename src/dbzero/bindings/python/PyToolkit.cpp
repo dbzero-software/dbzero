@@ -87,27 +87,39 @@ namespace db0::python
         }
         return *result;
     }
-    
+            
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
-        TypeObjectPtr lang_class)
+        TypeObjectPtr lang_class, std::uint16_t instance_id)
     {
         auto &class_factory = fixture->get<ClassFactory>();
-        return unloadObject(fixture, address, class_factory, lang_class);
+        return unloadObject(fixture, address, class_factory, lang_class, instance_id);
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
-        const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr)
+        const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr, std::uint16_t instance_id)
     {
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
         
         if (obj_ptr) {
+            // only validate instance ID if provided
+            if (instance_id) {
+                // NOTE: we first must check if this is really a memo object
+                if (!isMemoObject(obj_ptr.get())) {
+                    THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+                }
+
+                if (reinterpret_cast<MemoObject*>(obj_ptr.get())->ext().getInstanceId() != instance_id) {
+                    THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+                }
+            }
+                   
             return obj_ptr;
         }
         
         // Unload from backend otherwise
-        auto stem = db0::object_model::Object::unloadStem(fixture, address);
+        auto stem = db0::object_model::Object::unloadStem(fixture, address, instance_id);
         auto [type, lang_type] = class_factory.getTypeByClassRef(stem->m_class_ref);
         
         if (!lang_type_ptr) {

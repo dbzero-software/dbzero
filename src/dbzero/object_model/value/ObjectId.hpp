@@ -3,6 +3,7 @@
 #include "StorageClass.hpp"
 #include "TypedAddress.hpp"
 #include <dbzero/core/utils/FlagSet.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0::object_model
 
@@ -11,9 +12,9 @@ namespace db0::object_model
     struct ObjectId
     {    
         std::uint64_t m_fixture_uuid;
-        // NOTE: typed address holds the physical address only
-        TypedAddress m_typed_addr;
-        std::uint16_t m_instance_id;
+        // NOTE: unique address combines memory offset + instance ID
+        db0::UniqueAddress m_address;
+        db0::StorageClass m_storage_class;
         
         // encodes with base-32 characters (no format prefix / suffix)
         // the buffer must be at least 'encodedSize' + 1 bytes long
@@ -33,7 +34,7 @@ namespace db0::object_model
         bool operator>=(const ObjectId &other) const;
 
         static constexpr std::size_t rawSize() {
-            return sizeof(m_fixture_uuid) + sizeof(m_typed_addr) + sizeof(m_instance_id);
+            return sizeof(m_fixture_uuid) + sizeof(m_address) + sizeof(m_storage_class);
         }
         
         static constexpr std::size_t encodedSize() {

@@ -21,10 +21,6 @@ namespace tests
     using namespace db0::object_model;
     using UniqueAddress = db0::UniqueAddress;
     
-    UniqueAddress makeUniqueAddr(std::uint64_t offset, std::uint16_t id) {
-        return UniqueAddress(Address::fromOffset(offset), id);
-    }
-
     class QuerySerializationTest: public FixtureTestBase
     {
     public:

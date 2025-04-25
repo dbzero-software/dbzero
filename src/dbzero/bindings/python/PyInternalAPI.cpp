@@ -86,17 +86,15 @@ namespace db0::python
 
         THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
     }
-    
-    /* FIXME: 
+        
     shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id,
         PyTypeObject *py_expected_type)
     {   
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
         
-        auto storage_class = object_id.m_typed_addr.getType();
-        // use logical address to access the object
-        auto addr = db0::makeLogicalAddress(object_id.m_typed_addr, object_id.m_instance_id);
+        auto storage_class = object_id.m_storage_class;        
+        auto addr = object_id.m_address;
         
         // validate pre-storage class first
         if (py_expected_type) {
@@ -113,18 +111,18 @@ namespace db0::python
             if (py_expected_type) {
                 // unload as MemoBase
                 if (PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
-                    return PyToolkit::unloadObject(fixture, addr, class_factory, py_expected_type);
+                    return PyToolkit::unloadObject(fixture, addr, class_factory, py_expected_type, addr.getInstanceId());
                 }
 
                 // in other cases the type must match the actual object type
                 auto expected_class = class_factory.getExistingType(py_expected_type);
-                auto result = PyToolkit::unloadObject(fixture, addr, class_factory);
+                auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
                 if (reinterpret_cast<MemoObject*>(result.get())->ext().getType() != *expected_class) {
                     THROWF(db0::InputException) << "Object type mismatch";
                 }
                 return result;
             } else {
-                return PyToolkit::unloadObject(fixture, addr, class_factory);
+                return PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             }
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             // unload by logical address
@@ -142,15 +140,14 @@ namespace db0::python
             // unload by logical address
             return PyToolkit::unloadIndex(fixture, addr);
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
-            auto &class_factory = fixture->get<ClassFactory>();            
-            auto class_ptr = class_factory.getTypeByClassRef(addr).m_class;
+            auto &class_factory = fixture->get<ClassFactory>();      
+            auto class_ptr = class_factory.getTypeByClassRef(addr.getOffset()).m_class;
             // return as a dbzero class instance
             return makeClass(class_ptr);
         }
         
         THROWF(db0::InputException) << "Invalid object ID" << THROWF_END;
-    }
-    */
+    }    
     
     PyObject *fetchSingletonObject(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
     {        
