@@ -103,9 +103,6 @@ namespace db0::python
         return get_fixture_of_functions[static_cast<int>(type_id)](object);
     }
 
-    template <typename T> PyObject *tryGetUUIDOf(T *self);
-    
-    /* FIXME:
     template <typename T> PyObject *tryGetUUIDOf(T *self)
     {
         auto &instance = self->ext();
@@ -113,16 +110,14 @@ namespace db0::python
         auto fixture = instance.getFixture();
         assert(fixture);
         object_id.m_fixture_uuid = fixture->getUUID();
-        object_id.m_instance_id = db0::getInstanceId(instance.getAddress());
-        object_id.m_typed_addr.setAddress(instance.getAddress());
-        object_id.m_typed_addr.setType(getStorageClass<T>());
+        object_id.m_address = instance.getUniqueAddress();        
+        object_id.m_storage_class = getStorageClass<T>();
 
         // return as base-32 string
         char buffer[ObjectId::encodedSize() + 1];
         object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
-    }
-    */
+    }    
 
     // Serializable's UUID implementation
     PyObject *tryGetSerializableUUID(const db0::serial::Serializable *self)
@@ -169,23 +164,20 @@ namespace db0::python
     }
     
     // MEMO_EXPIRED_REF specialization
-    /* FIXME:
     template <> PyObject *tryGetUUID<TypeId::MEMO_EXPIRED_REF>(PyObject *py_value) 
     {
         auto &expired_ref = *reinterpret_cast<MemoExpiredRef*>(py_value);
         db0::object_model::ObjectId object_id;
         object_id.m_fixture_uuid = expired_ref.getFixtureUUID();
-        object_id.m_instance_id = db0::getInstanceId(expired_ref.getAddress());
-        object_id.m_typed_addr.setAddress(db0::getPhysicalAddress(expired_ref.getAddress()));
-        object_id.m_typed_addr.setType(StorageClass::OBJECT_REF);
+        object_id.m_address = expired_ref.getUniqueAddress();        
+        object_id.m_storage_class = StorageClass::OBJECT_REF;
 
         // return as base-32 string
         char buffer[ObjectId::encodedSize() + 1];
         object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
-    }
-    */
-   
+    }    
+    
     void registerTryGetUUIDFunctions(std::vector<PyObject *(*)(PyObject*)> &functions)
     {
         functions.resize(static_cast<int>(TypeId::COUNT));

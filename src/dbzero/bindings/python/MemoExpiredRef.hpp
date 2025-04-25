@@ -10,17 +10,21 @@ namespace db0::python
 
 {
     
+    using Address = db0::Address;
+    using UniqueAddress = db0::UniqueAddress;
+    
     class MemoExpiredRef
-    {            
-        using Address = db0::Address;
+    {
         PyObject_HEAD
         std::uint64_t m_fixture_uuid;
-        Address m_address;
+        UniqueAddress m_address;
 
     public:
-        void init(std::uint64_t fixture_uuid, Address address);
+        void init(std::uint64_t fixture_uuid, UniqueAddress address);
 
         Address getAddress() const;
+        UniqueAddress getUniqueAddress() const;
+
         const std::uint64_t getFixtureUUID() const;
     };
     
@@ -28,6 +32,6 @@ namespace db0::python
     
     bool MemoExpiredRef_Check(PyObject *obj);    
     
-    shared_py_object<PyObject*> MemoExpiredRef_new(std::uint64_t fixture_uuid, Address);
+    shared_py_object<PyObject*> MemoExpiredRef_new(std::uint64_t fixture_uuid, UniqueAddress);
     
 }

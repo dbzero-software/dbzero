@@ -16,9 +16,9 @@ namespace db0::object_model
     {
         std::uint64_t m_fixture_uuid;
         // the full logical address (i.e. physical address + instance ID) of a memo object
-        Address m_address;
+        UniqueAddress m_address;
         
-        o_long_weak_ref(std::uint64_t fixture_uuid, Address);
+        o_long_weak_ref(std::uint64_t fixture_uuid, UniqueAddress);
     };
     
     class LongWeakRef: public db0::has_fixture<db0::v_object<o_long_weak_ref> >

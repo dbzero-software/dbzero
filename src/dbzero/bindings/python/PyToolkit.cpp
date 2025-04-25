@@ -164,7 +164,7 @@ namespace db0::python
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, std::uint64_t fixture_uuid,
-        Address address)
+        UniqueAddress address)
     {
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
@@ -183,10 +183,10 @@ namespace db0::python
         return unloadExpiredRef(fixture, weak_ref->m_fixture_uuid, weak_ref->m_address);
     }
     
-    bool PyToolkit::isObjectExpired(db0::swine_ptr<Fixture> &fixture, Address address) {
-        return !Object::checkUnloadStem(fixture, address);
+    bool PyToolkit::isObjectExpired(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id) {
+        return !Object::checkUnloadStem(fixture, address, instance_id);
     }
-
+    
     PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, Address address)
     {
         // try pulling from cache first

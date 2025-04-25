@@ -93,7 +93,7 @@ namespace db0::python
         
         // Check whether the object's reference is no longer available (i.e. expired)
         // NOTE: this works only for memo objects (also included the instance ID validation)
-        static bool isObjectExpired(db0::swine_ptr<Fixture> &, Address);
+        static bool isObjectExpired(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
         
         // Unload with type resolution
         // optionally may use specific lang class (e.g. MemoBase)
@@ -104,7 +104,7 @@ namespace db0::python
         
         static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, const LongWeakRef &);
         static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, std::uint64_t fixture_uuid,
-            Address address);
+            UniqueAddress address);
         
         // Unload with known type & lang class
         // note that lang_class may be a base of the actual type (e.g. MemoBase)

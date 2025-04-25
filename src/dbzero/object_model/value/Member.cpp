@@ -261,12 +261,12 @@ namespace db0::object_model
     {
         // NOTE: memo object can be extracted from the weak proxy
         const auto &obj = PyToolkit::getTypeManager().extractObject(obj_ptr);
-        if (storage_class == StorageClass::OBJECT_LONG_WEAK_REF) {    
+        if (storage_class == StorageClass::OBJECT_LONG_WEAK_REF) {
             LongWeakRef weak_ref(fixture, obj);
             return weak_ref.getAddress();
         } else {
             // short weak ref
-            return obj.getAddress();
+            return obj.getUniqueAddress();
         }
     }
     
@@ -472,8 +472,8 @@ namespace db0::object_model
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::OBJECT_WEAK_REF, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        auto address = value.asAddress();
-        if (PyToolkit::isObjectExpired(fixture, address)) {
+        auto address = value.asUniqueAddress();
+        if (PyToolkit::isObjectExpired(fixture, address.getAddress(), address.getInstanceId())) {
             // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
             return PyToolkit::unloadExpiredRef(fixture, fixture->getUUID(), address);
         } else {
@@ -488,7 +488,7 @@ namespace db0::object_model
         LongWeakRef weak_ref(fixture, value.asAddress());
         auto other_fixture = fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid);
         auto address = weak_ref->m_address;
-        if (PyToolkit::isObjectExpired(other_fixture, address)) {
+        if (PyToolkit::isObjectExpired(other_fixture, address.getAddress(), address.getInstanceId())) {
             // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
             return PyToolkit::unloadExpiredRef(fixture, weak_ref);
         } else {

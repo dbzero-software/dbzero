@@ -17,6 +17,11 @@ namespace db0::object_model
         {
         }
 
+        inline Value(UniqueAddress address)
+            : m_store(address.getValue())
+        {
+        }
+
         inline Value(std::uint64_t value)
             : m_store(value)
         {
@@ -28,6 +33,10 @@ namespace db0::object_model
 
         inline Address asAddress() const {
             return Address::fromValue(m_store);
+        }
+
+        inline UniqueAddress asUniqueAddress() const {
+            return UniqueAddress::fromValue(m_store);
         }
 
         bool operator==(const Value &other) const;

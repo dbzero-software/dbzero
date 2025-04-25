@@ -5,16 +5,20 @@ namespace db0::python
 
 {
     
-    void MemoExpiredRef::init(std::uint64_t fixture_uuid, Address address)
+    void MemoExpiredRef::init(std::uint64_t fixture_uuid, UniqueAddress address)
     {
         m_fixture_uuid = fixture_uuid;
         m_address = address;
     }
 
-    Address MemoExpiredRef::getAddress() const {
+    UniqueAddress MemoExpiredRef::getUniqueAddress() const {
         return m_address;
     }
     
+    Address MemoExpiredRef::getAddress() const {
+        return m_address.getAddress();
+    }
+
     const std::uint64_t MemoExpiredRef::getFixtureUUID() const {
         return m_fixture_uuid;
     }    
@@ -49,7 +53,7 @@ namespace db0::python
         return PyObject_TypeCheck(obj, &MemoExpiredRefType);
     }
     
-    shared_py_object<PyObject*> MemoExpiredRef_new(std::uint64_t fixture_uuid, Address address)
+    shared_py_object<PyObject*> MemoExpiredRef_new(std::uint64_t fixture_uuid, UniqueAddress address)
     {
         auto py_expired_ref = PyObject_New(MemoExpiredRef, &MemoExpiredRefType);
         if (!py_expired_ref) {
