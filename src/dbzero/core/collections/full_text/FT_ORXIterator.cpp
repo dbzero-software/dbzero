@@ -697,4 +697,9 @@ namespace db0
     template class FT_ORIteratorFactory<UniqueAddress>;
     template class FT_ORXIteratorFactory<UniqueAddress>;
 
+    template class FT_JoinORXIterator<std::uint64_t>;
+    template class FT_OR_ORXIteratorFactory<std::uint64_t>;
+    template class FT_ORIteratorFactory<std::uint64_t>;
+    template class FT_ORXIteratorFactory<std::uint64_t>;
+
 }

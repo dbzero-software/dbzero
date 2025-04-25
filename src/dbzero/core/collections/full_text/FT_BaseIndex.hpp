@@ -294,7 +294,10 @@ namespace db0
         std::weak_ptr<BatchOperation> m_batch_operation;
     };
 
-    extern template class FT_BaseIndex<std::uint64_t>;
-    extern template class FT_BaseIndex<db0::LongTagT>;
+    extern template class FT_BaseIndex<std::uint64_t, UniqueAddress>;
+    extern template class FT_BaseIndex<db0::LongTagT, UniqueAddress>;
+    
+    extern template class FT_BaseIndex<std::uint64_t, std::uint64_t>;
+    extern template class FT_BaseIndex<db0::LongTagT, std::uint64_t>;
 
 } 

@@ -6,6 +6,7 @@
 
 #include "FT_IteratorBase.hpp"
 #include <dbzero/core/serialization/Serializable.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0
 
@@ -164,6 +165,7 @@ namespace db0
         FT_Iterator(std::uint64_t uid);
 	};
     
+    extern template class FT_Iterator<UniqueAddress>;
     extern template class FT_Iterator<std::uint64_t>;
     extern template class FT_Iterator<int>;
     

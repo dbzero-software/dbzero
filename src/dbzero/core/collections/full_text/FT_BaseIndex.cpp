@@ -7,6 +7,15 @@ namespace db0
 
 {
 
+    template <typename T> bool is_valid(const T &value) {
+        return value;
+    }
+    
+    // is_valid specialization for UniqueAddress
+    template <> bool is_valid(const UniqueAddress &value) {
+        return value.isValid();
+    }
+
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::FT_BaseIndex(Memspace & memspace, VObjectCache &cache)
         : super_t(memspace, cache)
@@ -325,9 +334,9 @@ namespace db0
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::append(IndexKeyT tag, ActiveValueT value)
     {    
-        assert((value.first.isValid() || value.second) && "Either a value or value reference must be provided");
-        assert(!(value.first.isValid() && value.second) && "Both value and value reference cannot be provided");
-        if (value.first.isValid()) {
+        assert((is_valid(value.first) || value.second) && "Either a value or value reference must be provided");
+        assert(!(is_valid(value.first) && value.second) && "Both value and value reference cannot be provided");
+        if (is_valid(value.first)) {
             m_values.emplace(tag, value.first);
         } else {
             m_value_refs.emplace(tag, value.second);
@@ -337,9 +346,9 @@ namespace db0
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::remove(IndexKeyT tag, ActiveValueT value)
     {
-        assert((value.first.isValid() || value.second) && "Either a value or value reference must be provided");
-        assert(!(value.first.isValid() && value.second) && "Both value and value reference cannot be provided");
-        if (value.first.isValid()) {
+        assert((is_valid(value.first) || value.second) && "Either a value or value reference must be provided");
+        assert(!(is_valid(value.first) && value.second) && "Both value and value reference cannot be provided");
+        if (is_valid(value.first)) {
             auto it = m_values.find({tag, value.first});
             if (it != m_values.end()) {
                 m_values.erase(it);
@@ -354,7 +363,7 @@ namespace db0
         }
         return false;
     }
-
+    
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::empty() const
     {
@@ -438,7 +447,7 @@ namespace db0
         for (auto &item : buf.m_value_refs) {
             // NOTE: the 0x0 references may come from the defunct objects
             // and therefore mutest be ignored
-            if ((*item.second).isValid()) {
+            if (is_valid(*item.second)) {
                 this->emplace_back(item.first, *item.second);
             }
         }
@@ -446,7 +455,10 @@ namespace db0
         buf.m_value_refs.clear();
     }
     
-    template class FT_BaseIndex<std::uint64_t>;
-    template class FT_BaseIndex<db0::LongTagT>;
+    template class FT_BaseIndex<std::uint64_t, UniqueAddress>;
+    template class FT_BaseIndex<db0::LongTagT, UniqueAddress>;
+
+    template class FT_BaseIndex<std::uint64_t, std::uint64_t>;
+    template class FT_BaseIndex<db0::LongTagT, std::uint64_t>;
     
 }
