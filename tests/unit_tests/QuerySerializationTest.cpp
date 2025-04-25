@@ -39,7 +39,9 @@ namespace tests
             auto rt = std::make_shared<RangeTreeT>(*fixture, 8);
             index.modify().m_index_addr = rt->getAddress();
             std::vector<ItemT> values_1 {
-                { 99, 3 },  { 199, 5 }, { 13, 2 }, { 199, 7 }, { 142, 9}, { 152, 8}, { 27, 4 }
+                { 99, makeUniqueAddr(3, 1) },  { 199, makeUniqueAddr(5, 1) }, { 13, makeUniqueAddr(2, 1) }, 
+                { 199, makeUniqueAddr(7, 1) }, { 142, makeUniqueAddr(9, 1) }, { 152, makeUniqueAddr(8, 1) }, 
+                { 27, makeUniqueAddr(4, 1) }
             };
             
             rt->bulkInsert(values_1.begin(), values_1.end());
@@ -70,7 +72,7 @@ namespace tests
         auto test = [](IndexBase &index, std::shared_ptr<RangeTreeT> rt, FT_BaseIndex<std::uint64_t> &ft_index) {
             auto ft_query = ft_index.makeIterator(1);
             std::vector<std::uint64_t> values;
-            RT_SortIterator<int, std::uint64_t> cut(index, rt, std::move(ft_query));
+            RT_SortIterator<int, UniqueAddress> cut(index, rt, std::move(ft_query));
             std::vector<std::byte> buf;
             cut.serialize(buf);
             ASSERT_TRUE(buf.size() > 0);
@@ -84,7 +86,7 @@ namespace tests
             std::vector<std::byte> buf;
             auto ft_query = ft_index.makeIterator(1);
             std::vector<std::uint64_t> values;
-            RT_SortIterator<int, std::uint64_t> cut(index, rt, std::move(ft_query));
+            RT_SortIterator<int, UniqueAddress> cut(index, rt, std::move(ft_query));
             
             cut.serialize(buf);
             ASSERT_TRUE(buf.size() > 0);
@@ -95,7 +97,7 @@ namespace tests
                 auto iter_type = db0::serial::read<db0::SortedIteratorType>(iter, end);
                 ASSERT_EQ(iter_type, db0::SortedIteratorType::RT_Sort);
                 // deserialize-construct
-                auto cut = deserializeRT_SortIterator<int, std::uint64_t>(m_workspace, iter, end);
+                auto cut = deserializeRT_SortIterator<int, UniqueAddress>(m_workspace, iter, end);
                 // iterate to confirm it was deserialized correctly
                 std::vector<std::uint64_t> values;
                 while (!cut->isEnd()) {

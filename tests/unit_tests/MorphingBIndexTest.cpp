@@ -63,7 +63,7 @@ namespace tests
 	{
         auto memspace = getMemspace();
 
-		std::uint64_t addr;
+		Address addr;
 		bindex::type index_type;
 		{
 			index_t cut(memspace, bindex::type::empty);
