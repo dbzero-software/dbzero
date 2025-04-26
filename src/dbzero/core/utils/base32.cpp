@@ -73,7 +73,7 @@ namespace db0
         return ptr - out + 1;
     }
 
-    std::size_t base32_encode(std::uint8_t *in, std::size_t size, char *out) noexcept
+    std::size_t base32_encode(const std::uint8_t *in, std::size_t size, char *out) noexcept
     {
         static constexpr std::size_t etable_size = 12;
         // encoding table

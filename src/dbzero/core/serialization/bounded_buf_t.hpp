@@ -19,9 +19,7 @@ namespace db0
 		const_bounded_buf_t(const std::function<void()> &throw_func);
 
 		const_bounded_buf_t(const_bounded_buf_t &&other);
-
-		const_bounded_buf_t(const const_bounded_buf_t &other);
-
+		
 		const_bounded_buf_t(const std::function<void()> &throw_func, const std::byte *begin, const std::byte *end);
 
 		const_bounded_buf_t(const std::function<void()> &throw_func, const std::vector<std::byte> &buf);
@@ -30,7 +28,8 @@ namespace db0
 
 		void init(const std::vector<std::byte> &);
 
-		inline const std::byte *get() const {
+		inline const std::byte *get() const
+		{
 			if (begin >= end) {
 				m_throw_func();
 			}
@@ -45,8 +44,7 @@ namespace db0
 			return get();
 		}
 
-		inline operator const std::byte*()
-		{
+		inline operator const std::byte*() {
 			return get();
 		}
 
@@ -70,7 +68,8 @@ namespace db0
 			return *this;
 		}
 
-		void operator=(const const_bounded_buf_t &&other) {
+		void operator=(const const_bounded_buf_t &&other)
+		{
 			m_throw_func = other.m_throw_func;
 			begin = other.begin;
 			end = other.end;
@@ -82,8 +81,7 @@ namespace db0
          */
 		void operator=(const std::byte *)
 		{
-			if (begin != end)
-			{
+			if (begin != end) {
                 m_throw_func();
 			}
 		}
@@ -97,8 +95,7 @@ namespace db0
 			{
 			}
 
-			inline const_bounded_buf_t operator&()
-			{
+			inline const_bounded_buf_t operator&() {
 				return const_bounded_buf_t(buf.m_throw_func, buf.begin + offset,buf.end);
 			}
 
@@ -107,10 +104,9 @@ namespace db0
 			std::size_t offset;
 		};
 
-		inline const_ref_t operator[](std::size_t offset) const
+		inline const_ref_t operator[](std::size_t offset) const 
 		{
-			if (begin + offset > end)
-			{
+			if (begin + offset > end) {
 				m_throw_func();
 			}
 			return const_ref_t(*this, offset);
@@ -126,18 +122,17 @@ namespace db0
 	protected:
 		friend class const_ref_t;
 		std::reference_wrapper<std::function<void()> > m_throw_func;
-		const std::byte *begin;
-		const std::byte *end;
+		const std::byte *begin = 0;
+		const std::byte *end = 0;
 	};
-
+	
 	class bounded_buf_t: public const_bounded_buf_t
 	{
 		using super_t = const_bounded_buf_t;
 
 	public :
 		bounded_buf_t(const std::function<void()> &throw_func);
-		bounded_buf_t(bounded_buf_t &&other);
-		bounded_buf_t(const bounded_buf_t &other);
+		bounded_buf_t(bounded_buf_t &&other);		
 		bounded_buf_t(const std::function<void()> &throw_func, std::byte *begin, std::byte *end);
 		bounded_buf_t(const std::function<void()> &throw_func, std::vector<std::byte> &buf);
 	};

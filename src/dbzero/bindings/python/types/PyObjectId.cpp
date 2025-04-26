@@ -52,7 +52,7 @@ namespace db0::python
     PyObject *ObjectId_repr(PyObject *self)
     {
         // Format as base-32 string
-        char buffer[ObjectId::encodedSize() + 1];
+        char buffer[ObjectId::maxEncodedSize() + 1];
         auto py_object_id = reinterpret_cast<PyObjectId*>(self);
         py_object_id->m_object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
@@ -101,7 +101,7 @@ namespace db0::python
         object_id.m_storage_class = static_cast<db0::StorageClass>(PyLong_AsUnsignedLong(PyTuple_GetItem(state, 2)));
 
         return 0;
-    }    
+    }
     
     PyObject *ObjectId_richcompare(PyObject *self, PyObject *other, int op)
     {

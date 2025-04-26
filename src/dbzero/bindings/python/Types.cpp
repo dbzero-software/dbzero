@@ -114,10 +114,10 @@ namespace db0::python
         object_id.m_storage_class = getStorageClass<T>();
 
         // return as base-32 string
-        char buffer[ObjectId::encodedSize() + 1];
+        char buffer[ObjectId::maxEncodedSize() + 1];
         object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
-    }    
+    }
 
     // Serializable's UUID implementation
     PyObject *tryGetSerializableUUID(const db0::serial::Serializable *self)
@@ -173,10 +173,10 @@ namespace db0::python
         object_id.m_storage_class = StorageClass::OBJECT_REF;
 
         // return as base-32 string
-        char buffer[ObjectId::encodedSize() + 1];
+        char buffer[ObjectId::maxEncodedSize() + 1];
         object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
-    }    
+    }
     
     void registerTryGetUUIDFunctions(std::vector<PyObject *(*)(PyObject*)> &functions)
     {
