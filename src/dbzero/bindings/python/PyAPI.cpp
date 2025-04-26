@@ -26,6 +26,7 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
+#include <dbzero/workspace/Config.hpp>
 #include <dbzero/core/memory/CacheRecycler.hpp>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/memory/MetaAllocator.hpp>
@@ -203,7 +204,39 @@ namespace db0::python
             return NULL;
         }
 
-        PyToolkit::getPyWorkspace().initWorkspace(str_path, py_config, py_flags);
+        using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+        ObjectSharedPtr config_obj;
+        if(py_config) {
+            config_obj = ObjectSharedPtr(PyDict_Copy(py_config), false);
+        }
+        else {
+            config_obj = ObjectSharedPtr(PyDict_New(), false);
+        }
+        if(!config_obj) {
+            return nullptr;
+        }
+        
+        using DefaultValueFunction = PyObject*(*)();
+        const std::pair<const char*, const DefaultValueFunction> defaults[] = {
+            {"autocommit", []{ Py_RETURN_TRUE; }},
+            {"autocommit_interval", []{ return PyLong_FromLong(Workspace::DEFAULT_AUTOCOMMIT_INTERVAL_MS); }}
+        };
+        for(const auto &[key, value_function] : defaults) {
+            // Populate default values so then can be easily accessed with get_config
+            ObjectSharedPtr key_obj(PyUnicode_FromString(key), false);
+            if(!key) {
+                return nullptr;
+            }
+            ObjectSharedPtr value_obj(value_function(), false);
+            if(!value_obj) {
+                return nullptr;
+            }
+            if(!PyDict_SetDefault(config_obj.get(), key_obj.get(), value_obj.get())) {
+                return nullptr;
+            }
+        }
+
+        PyToolkit::getPyWorkspace().initWorkspace(str_path, config_obj.get(), py_flags);
         Py_RETURN_NONE;
     }
     
@@ -1273,6 +1306,18 @@ namespace db0::python
 
         PY_API_FUNC
         return runSafe(tryAwaitPrefixState, future, prefix, state);
+    }
+
+    PyObject *tryGetConfig()
+    {
+        auto config = PyToolkit::getPyWorkspace().getConfig()->getRawConfig();
+        return PyDict_Copy(config.get());
+    }
+
+    PyObject *PyAPI_getConfig(PyObject*, PyObject*)
+    {
+        PY_API_FUNC
+        return runSafe(tryGetConfig);
     }
 
 #ifndef NDEBUG

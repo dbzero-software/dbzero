@@ -1,6 +1,8 @@
 from collections import namedtuple
 from enum import Enum
 import itertools
+import pathlib
+import pkgutil
 import typing
 import dbzero_ce as db0
 import inspect
@@ -140,56 +142,78 @@ class Query:
     def execute(self, *args, **kwargs):
         return self.__function_obj(*args, **kwargs)
 
+def __import_from_directory(paths, submodule_search_locations):
+    # get all files in the directory
+    modules = []
+    for (dirpath, dirnames, filenames) in os.walk(paths):
+        for filename in filenames:
+            if filename.endswith(".py") and not filename.startswith("__"):
+                modules.append(__import_from_file(os.path.join(dirpath, filename), 
+                                                  submodule_search_locations))
+    return modules
 
-def __import_from_file(file_path):    
-    if not os.path.isfile(file_path) and os.path.isfile(file_path + ".py"):
-        file_path = file_path + ".py"
-    
-    # register parent modules
-    path = file_path
-    has_module = []
-    while path != "":
-        path, tail = os.path.split(path)
-        has_module.append(os.path.isfile(os.path.join(path, "__init__.py")))
-        if path not in sys.path and len(has_module) > 1 and has_module[-2]:
-            sys.path.append(path)
-        if not tail:
-            break
-    
-    file_name = os.path.basename(file_path)
-    module_name, _ = os.path.splitext(file_name)
-    # Load the module from the file path
-    spec = importlib.util.spec_from_file_location(module_name, file_path)
+
+
+def __import_from_file(file_path, submodule_search_locations):
+    path_obj = pathlib.Path(file_path)
+    spec = importlib.util.spec_from_file_location(path_obj.stem, file_path, submodule_search_locations=submodule_search_locations)
+    if spec is None:
+        raise ImportError(f"Cannot find module {path_obj.stem} in {file_path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[path_obj.stem] = module
     spec.loader.exec_module(module)
-    return module
+    path_obj = pathlib.Path(file_path)
+    return importlib.import_module(path_obj.stem)
     
-    
-def __import_module(module_or_file_name):
+
+def import_submodules(package, module):
+    if not hasattr(package, "__path__"):
+        return
+    for loader, module_name, is_pkg in pkgutil.iter_modules(package.__path__):
+        full_module_name = f"{package.__name__}.{module_name}"
+        submodule = importlib.import_module(full_module_name, module)
+        # Optionally inject public names from submodules into global namespace
+        for attr in dir(submodule):
+            if not attr.startswith('_'):
+                globals()[attr] = getattr(submodule, attr)
+
+def __import_module(module_or_file_name, package = None):
     try:
-        return importlib.import_module(module_or_file_name)
-    except Exception:
-        return __import_from_file(module_or_file_name)
+        module = importlib.import_module(module_or_file_name, package)
+        # Optionally import all public attributes
+        sys.modules[module_or_file_name] = module
+        import_submodules(module, package)
+        return [module]
+    except Exception as ex:
+        pass
+    submodule_search_locations = None
+    if package:
+        submodule_search_locations = [path[0] for path in os.walk(package) if not path[0].endswith("__pycache__")]
     
+    if os.path.isdir(module_or_file_name):
+        return __import_from_directory(module_or_file_name, submodule_search_locations)
+    else:
+        return [__import_from_file(module_or_file_name, package)]
+
     
-def import_model(module_or_file_name):
-    __import_module(module_or_file_name)
+def import_model(module_or_file_name, package=None):
+    __import_module(module_or_file_name, package)
     
     
 def get_queries(*module_names):
     # Dynamically import modules
     for name in module_names:
-        module = __import_module(name)
-        # Get all the functions from the module
-        functions = inspect.getmembers(module, inspect.isfunction)
-        # Iterate through each function and print its name with parameters
-        for function_name, function_obj in functions:
-            signature = inspect.signature(function_obj)
-            has_kwargs = any(
-                param.kind == inspect.Parameter.VAR_KEYWORD
-                for param in signature.parameters.values())
-            params = [param.name for param in signature.parameters.values() if param.kind != inspect.Parameter.VAR_KEYWORD]
-            yield Query(function_obj, function_name, params, has_kwargs)
+        modules = __import_module(name)
+        for module in modules:
+            # Get all the functions from the module
+            functions = inspect.getmembers(module, inspect.isfunction)
+            for function_name, function_obj in functions:
+                signature = inspect.signature(function_obj)
+                has_kwargs = any(
+                    param.kind == inspect.Parameter.VAR_KEYWORD
+                    for param in signature.parameters.values())
+                params = [param.name for param in signature.parameters.values() if param.kind != inspect.Parameter.VAR_KEYWORD]
+                yield Query(function_obj, function_name, params, has_kwargs)
 
 
 def is_private(name):

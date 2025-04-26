@@ -110,4 +110,11 @@ namespace db0::python
         }
     }
 
+    const std::shared_ptr<db0::Config> &PyWorkspace::getConfig() const
+    {
+        if (!m_workspace) {
+            THROWF(db0::InternalException) << "dbzero not initialized";
+        }
+        return m_config;
+    }
 }
