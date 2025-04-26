@@ -408,7 +408,7 @@ namespace db0::object_model
         return {
             getFixture()->getUUID(),
             // NOTICE: no instance ID for the class-ref
-            db0::UniqueAddress(this->getAddress(), std::numeric_limits<std::uint16_t>::max()),
+            db0::UniqueAddress(this->getAddress(), (1ULL << 14) - 1),
             StorageClass::DB0_CLASS
         };
     }
