@@ -14,7 +14,7 @@ namespace db0::object_model
     using SortedIterator = db0::SortedIterator<UniqueAddress>;
     std::unique_ptr<SortedIterator> validated(std::unique_ptr<SortedIterator> &&sorted_iterator)
     {
-        if (sorted_iterator && sorted_iterator->keyTypeId() != typeid(Address)) {
+        if (sorted_iterator && sorted_iterator->keyTypeId() != typeid(UniqueAddress)) {
             throw std::runtime_error("Invalid sorted iterator");
         }
         return std::move(sorted_iterator);
@@ -23,7 +23,7 @@ namespace db0::object_model
     using QueryIterator = db0::FT_Iterator<UniqueAddress>;
     std::unique_ptr<QueryIterator> validated(std::unique_ptr<QueryIterator> &&query_iterator)
     {
-        if (query_iterator && query_iterator->keyTypeId() != typeid(Address)) {
+        if (query_iterator && query_iterator->keyTypeId() != typeid(UniqueAddress)) {
             throw std::runtime_error("Invalid query iterator");
         }
         return std::move(query_iterator);

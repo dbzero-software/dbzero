@@ -140,12 +140,12 @@ namespace db0::object_model
         // Check if the unloadStem operation would be successful (withot actually performing it)        
         static bool checkUnloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
         
-        // unload from stem with a known type (possibly a base type)
+        // Unload from stem with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exect object's type
         static Object *unload(void *at_ptr, ObjectStem &&, std::shared_ptr<Class> type_hint);
         
-        // unload from address with a known type (possibly a base type)
-        // NOTE: unload works faster if type_hint is the exect object's type
+        // Unload from address with a known type (possibly a base type)
+        // NOTE: unload works faster if type_hint is the exact object's type
         static Object *unload(void *at_ptr, Address, std::shared_ptr<Class> type_hint);
 
         // Called to finalize adding members

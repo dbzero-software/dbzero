@@ -6,6 +6,7 @@
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/core/collections/full_text/FT_Serialization.hpp>
 #include <dbzero/core/collections/range_tree/RT_Serialization.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0::object_model
 
@@ -49,7 +50,7 @@ namespace db0::object_model
                         ++it;
                     }
                 }
-                Address addr;
+                db0::UniqueAddress addr;
                 m_slice.next(&addr);
                 auto obj_ptr = unload(addr);
                 // check filters if any                

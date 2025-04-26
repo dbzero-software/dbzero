@@ -32,9 +32,9 @@ namespace db0::object_model
         }
         
         inline Address getAddress() const {
-            return Address::fromOffset(m_value & 0x3FFFFFFFFFFFFF);
+            return Address::fromOffset(m_value & 0x3FFFFFFFFFFFF);
         }
-                
+        
         inline operator Address() const {
             return getAddress();
         }

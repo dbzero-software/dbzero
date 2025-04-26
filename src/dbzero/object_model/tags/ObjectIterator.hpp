@@ -79,9 +79,7 @@ namespace db0::object_model
         Decoration m_decoration;
         Slice m_slice;
         
-        /**
-         * Unload object by address (must be from this iterator)
-        */
+        // Unload object by address (must be from this iterator) skipping instance ID validation        
         virtual ObjectSharedPtr unload(Address address) const;
     };
     
