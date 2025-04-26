@@ -227,6 +227,10 @@ namespace db0::object_model
             }
         }
     }
+
+    void TagIndex::addTag(ObjectPtr memo_ptr, Address tag_addr) {
+        addTag(memo_ptr, tag_addr.getOffset());
+    }
     
     void TagIndex::addTag(ObjectPtr memo_ptr, ShortTagT tag)
     {

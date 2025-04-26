@@ -20,9 +20,6 @@ namespace db0
         
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t, 
             bool aligned = false) override;
-
-        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t,
-            bool aligned = false) override;
         
         void free(Address) override;
 
