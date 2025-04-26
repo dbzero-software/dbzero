@@ -257,6 +257,10 @@ namespace db0
         // internal "free" implementation which performs the dealloc instanly
         void _free(Address);
         void deferredFree(Address);
+        
+        // NOTE: instance ID will only be populated when unique = true
+        std::optional<Address> tryAllocImpl(std::size_t size, std::uint32_t slot_num,
+            bool aligned, bool unique, std::uint16_t &instance_id);
     };
     
 }

@@ -224,21 +224,30 @@ namespace db0
         m_allocator.detach();
     }
     
-    UniqueAddress SlabAllocator::tryMakeAddressUnique(Address address)
+    bool SlabAllocator::tryMakeAddressUnique(Address address, std::uint16_t &instance_id)
     {
         // make sure high 14 bits are 0
         assert((address.getOffset() >> 50) == 0 && "SlabAllocator: address space exhausted");
         auto page_id = makeRelative(address) >> m_page_shift;
-        std::uint16_t instance_id;
         if (!m_alloc_counter.atomicInc(page_id, instance_id)) {
             // makeAddressUnique failed due to counter overflow
-            return {};
+            return false;
         }
         assert(instance_id > 0);
         assert((instance_id >> 14) == 0);
         
-        return { address, instance_id };        
-    } 
+        return true;
+    }
+    
+    UniqueAddress SlabAllocator::tryMakeAddressUnique(Address address)
+    {
+        std::uint16_t instance_id;
+        if (!tryMakeAddressUnique(address, instance_id)) {
+            // unable to make the address unique
+            return {};
+        }
+        return { address, instance_id };
+    }
     
     bool SlabAllocator::inRange(Address address) const 
     {

@@ -31,8 +31,9 @@ namespace db0
         
         // Try allocating a unique, never repeating address
         // NOTE: this functionality is only supported by some allocators
+        // The default throwing implementation is provided
         virtual std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false) = 0;
+            bool aligned = false);
         
         /**
          * Free previously allocated address

@@ -69,9 +69,6 @@ namespace db0
         
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
             bool aligned = false) override;
-
-        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false) override;
                 
         void free(Address) override;
 
@@ -145,9 +142,10 @@ namespace db0
         inline std::uint32_t makeRelative(Address absolute) const {
             return absolute - m_begin_addr;
         }
-            
+        
+        bool tryMakeAddressUnique(Address, std::uint16_t &instance_id);
         UniqueAddress tryMakeAddressUnique(Address);
-
+        
     private:
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
         using BlankSetT = db0::CRDT_Allocator::BlankSetT;

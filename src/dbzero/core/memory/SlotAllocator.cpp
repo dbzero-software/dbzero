@@ -55,6 +55,15 @@ namespace db0
         return select(slot_num).tryAlloc(size, 0, aligned);
     }
     
+    std::optional<UniqueAddress> SlotAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num, bool aligned)
+    {
+        if (!slot_num) {
+            return m_allocator_ptr->tryAllocUnique(size, 0, aligned);
+        }
+        
+        return select(slot_num).tryAllocUnique(size, 0, aligned);
+    }
+    
     void SlotAllocator::free(Address address) {
         // can free from the general allocator
         m_allocator_ptr->free(address);

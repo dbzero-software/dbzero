@@ -636,9 +636,24 @@ namespace db0
         return meta_header.const_ref();
     }
     
-    /* FIXME: 
-    std::optional<Address> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
-        bool aligned)
+    std::optional<Address> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    {
+        std::uint16_t instance_id;
+        return tryAllocImpl(size, slot_num, aligned, false, instance_id);
+    }
+
+    std::optional<UniqueAddress> MetaAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num, bool aligned)
+    {
+        std::uint16_t instance_id;
+        auto addr = tryAllocImpl(size, slot_num, aligned, true, instance_id);
+        if (addr) {
+            return UniqueAddress(*addr, instance_id);
+        }
+        return {};
+    }
+    
+    std::optional<Address> MetaAllocator::tryAllocImpl(std::size_t size, std::uint32_t slot_num,
+        bool aligned, bool unique, std::uint16_t &instance_id)
     {
         assert(slot_num == 0);
         assert(size > 0);
@@ -653,12 +668,11 @@ namespace db0
                     if (!addr) {
                         break;
                     }
-
-                    if (!unique || slab.m_slab->makeAddressUnique(*addr)) {
-                        // NOTE: the returned address is logical
+                    
+                    if (!unique || slab.m_slab->tryMakeAddressUnique(*addr, instance_id)) {
                         return addr;
                     }
-                                     
+                
                     // unable to make the address unique, schedule for deferred free and try again
                     // NOTE: the allocation is lost
                     deferredFree(*addr);
@@ -682,8 +696,7 @@ namespace db0
                 is_new = true;
             }
         }
-    }
-    */
+    }    
     
     void MetaAllocator::free(Address address)
     {        
