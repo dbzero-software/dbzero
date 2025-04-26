@@ -68,9 +68,6 @@ namespace db0
             , m_pb_shift(ptr_container::shift(mem.getPageSize()))
             , m_pb_mask(ptr_container::mask(mem.getPageSize()))
         {                 
-#ifndef NDEBUG       
-            this->__add();
-#endif
         }
 
         v_bvector(mptr ptr)
@@ -80,9 +77,6 @@ namespace db0
             , m_pb_shift(ptr_container::shift((*this)->m_page_size))
             , m_pb_mask(ptr_container::mask((*this)->m_page_size))            
         {
-#ifndef NDEBUG
-            this->__add();
-#endif
         }
         
         // Compatibility constructor
@@ -98,15 +92,6 @@ namespace db0
             , m_pb_shift(other.m_pb_shift)
             , m_pb_mask(other.m_pb_mask)            
         {
-#ifndef NDEBUG            
-            this->__add(true);
-#endif            
-        }
-
-        ~v_bvector() {
-#ifndef NDEBUG
-            this->__remove();
-#endif
         }
         
         void operator=(v_bvector &&other)
@@ -116,17 +101,11 @@ namespace db0
             assert(this->m_pb_shift == other.m_pb_shift);
             assert(this->m_pb_mask == other.m_pb_mask);
 
-#ifndef NDEBUG
-            this->__remove();
-#endif
             // clean local cached objects first
             this->m_pb_cache.clear();
             this->m_last_block_key = {0, 0};
             this->m_last_block = nullptr;
             super_t::operator=(std::move(other));
-#ifndef NDEBUG
-            this->__add(true);
-#endif            
         }
 
         /**
@@ -157,12 +136,9 @@ namespace db0
             this->m_db_mask = data_container::mask(mem.getPageSize());
             this->m_pb_shift = ptr_container::shift(mem.getPageSize());
             this->m_pb_mask = ptr_container::mask(mem.getPageSize());
-#ifndef NDEBUG
-            this->__add();
-#endif
             return result;
         }
-        
+
         template <class SequenceT> std::uint16_t initUnique(Memspace &mem, const SequenceT &in)
         {
             auto result = this->initUnique(mem);
