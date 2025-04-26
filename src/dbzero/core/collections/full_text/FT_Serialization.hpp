@@ -38,13 +38,13 @@ namespace db0
             // detect underlying index type (complex type)
             auto _iter = iter;
             auto index_type_id = db0::serial::read<TypeIdType>(_iter, end);
-            if (index_type_id == db0::MorphingBIndex<std::uint64_t, std::uint64_t>::getSerialTypeId()) {
+            if (index_type_id == db0::MorphingBIndex<UniqueAddress>::getSerialTypeId()) {
                 auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);
                 auto index_key_type_id = db0::serial::read<TypeIdType>(_iter, end);
                 if (key_type_id == db0::serial::typeId<std::uint64_t>()) {
                     if constexpr (std::is_same_v<KeyT, std::uint64_t>) {
                         if (index_key_type_id == db0::serial::typeId<std::uint64_t>()) {
-                            return deserializeFT_IndexIterator<db0::MorphingBIndex<std::uint64_t, std::uint64_t>, KeyT, std::uint64_t>(workspace, iter, end);
+                            return deserializeFT_IndexIterator<db0::MorphingBIndex<UniqueAddress>, KeyT, std::uint64_t>(workspace, iter, end);
                         } else {
                             THROWF(db0::InternalException) << "Unsupported index key type ID: " << index_key_type_id
                                 << THROWF_END;
@@ -55,7 +55,7 @@ namespace db0
                 if (key_type_id == db0::serial::typeId<UniqueAddress>()) {
                     if constexpr (std::is_same_v<KeyT, UniqueAddress>) {
                         if (index_key_type_id == db0::serial::typeId<std::uint64_t>()) {
-                            return deserializeFT_IndexIterator<db0::MorphingBIndex<std::uint64_t, std::uint64_t>, KeyT, std::uint64_t>(workspace, iter, end);
+                            return deserializeFT_IndexIterator<db0::MorphingBIndex<UniqueAddress>, KeyT, std::uint64_t>(workspace, iter, end);
                         } else {
                             THROWF(db0::InternalException) << "Unsupported index key type ID: " << index_key_type_id
                                 << THROWF_END;
@@ -64,8 +64,8 @@ namespace db0
                 }
                 
                 THROWF(db0::InternalException) << "Unsupported key type ID: " << key_type_id << THROWF_END;                
-            } 
-            THROWF(db0::InternalException) << "Unsupported index type ID: " << index_type_id << THROWF_END;            
+            }
+            THROWF(db0::InternalException) << "Unsupported index type ID: " << index_type_id << THROWF_END;
         } else if (type_id == FTIteratorType::JoinAnd) {
             auto _iter = iter;
             auto key_type_id = db0::serial::read<TypeIdType>(_iter, end);

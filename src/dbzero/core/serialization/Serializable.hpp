@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <unordered_map>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0::serial
 
@@ -81,7 +82,7 @@ namespace db0::serial
             // !!! NOTE: do NOT modify order in this array as this would affect serialized type IDs
             using TypeList = std::tuple<
                 std::int8_t, std::int16_t, std::int32_t, std::int64_t, 
-                std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t, 
+                std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t, db0::Address, db0::UniqueAddress,
                 float, double, std::string>;
             // compile error: binary expression in operand of fold-expression
             std::apply([&](auto... type) {

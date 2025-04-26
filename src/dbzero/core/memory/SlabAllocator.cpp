@@ -242,11 +242,11 @@ namespace db0
     UniqueAddress SlabAllocator::tryMakeAddressUnique(Address address)
     {
         std::uint16_t instance_id;
-        if (!tryMakeAddressUnique(address, instance_id)) {
-            // unable to make the address unique
-            return {};
+        if (tryMakeAddressUnique(address, instance_id)) {
+            return { address, instance_id };
         }
-        return { address, instance_id };
+        // unable to make the address unique
+        return {};
     }
     
     bool SlabAllocator::inRange(Address address) const 

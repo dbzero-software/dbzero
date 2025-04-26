@@ -97,9 +97,11 @@ namespace tests
                 // iterate to confirm it was deserialized correctly
                 std::vector<std::uint64_t> values;
                 while (!cut->isEnd()) {
-                    std::uint64_t value;
+                    UniqueAddress value;
                     cut->next(&value);
-                    values.push_back(value); 
+                    ASSERT_EQ(value.getInstanceId(), 1);                    
+                    // compare offsets only
+                    values.push_back(value.getOffset());
                 }
 
                 ASSERT_EQ(values, (std::vector<std::uint64_t> { 4, 3, 8 }));

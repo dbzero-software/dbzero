@@ -228,11 +228,10 @@ namespace tests
         db0::SlabAllocator cut(m_memspace.getPrefixPtr(), begin_addr, size_, page_size);
 
         auto addr = cut.alloc(100);
-        auto addr1 = addr;
-        ASSERT_TRUE(cut.tryMakeAddressUnique(addr1).isValid());
-        auto addr2 = addr;
-        ASSERT_TRUE(cut.tryMakeAddressUnique(addr2).isValid());
-        ASSERT_NE(addr, addr1);
+        auto addr1 = cut.tryMakeAddressUnique(addr);
+        ASSERT_TRUE(addr1.isValid());
+        auto addr2 = cut.tryMakeAddressUnique(addr);
+        ASSERT_TRUE(addr2.isValid());        
         ASSERT_NE(addr1, addr2);
     }
     
