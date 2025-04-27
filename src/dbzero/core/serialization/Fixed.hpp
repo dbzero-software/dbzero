@@ -72,24 +72,24 @@ namespace db0
         /**
          * safe object reference (buffer bounds validated by buf_t)
          */
-        template<typename buf_t>
-        static T &__safe_ref(buf_t buf) {
-            // validate bounds
-            buf_t _buf = buf;
-            _buf += true_size_of<T>();
-            return __ref(buf);
+        template<typename buf_t> static T &__safe_ref(buf_t buf) 
+        {            
+            const std::byte *_buf = buf;
+            // validate bounds here
+            buf += true_size_of<T>();
+            return __ref(_buf);
+        }
+        
+        template <typename buf_t> static const T &__safe_const_ref(buf_t buf)
+        {            
+            const std::byte *_buf = buf;
+            // validate bounds here
+            buf += true_size_of<T>();
+            return __const_ref(_buf);
         }
 
-        template<typename buf_t>
-        static const T &__safe_const_ref(buf_t buf) {
-            // validate bounds
-            buf_t _buf = buf;
-            _buf += true_size_of<T>();
-            return __const_ref(buf);
-        }
-
-        template<typename buf_t>
-        static std::size_t safeSizeOf(buf_t buf) {
+        template <typename buf_t> static std::size_t safeSizeOf(buf_t buf) 
+        {
             // validate bounds
             size_t result = true_size_of<T>();
             buf += result;

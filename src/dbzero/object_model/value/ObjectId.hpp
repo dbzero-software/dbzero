@@ -36,11 +36,11 @@ namespace db0::object_model
         bool operator>=(const ObjectId &other) const;
 
         static constexpr std::size_t minSize() {
-            return sizeof(m_fixture_uuid) + sizeof(m_address) + 1;
+            return sizeof(m_fixture_uuid) + 2;
         }
 
         static constexpr std::size_t maxSize() {
-            return sizeof(m_fixture_uuid) + sizeof(m_address) + sizeof(std::uint32_t) + 1;
+            return sizeof(m_fixture_uuid) + sizeof(m_address) + sizeof(std::uint32_t) + 2;
         }
 
         static constexpr std::size_t maxEncodedSize() {

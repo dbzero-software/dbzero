@@ -28,7 +28,7 @@ namespace db0::object_model
         auto at = bytes.data(), end = bytes.data() + size;
         // read with bounds validation        
         auto fixture_uuid = db0::serial::readSimple<std::uint64_t>(at, end, m_throw_func); 
-        auto address = db0::serial::readSimple<db0::UniqueAddress>(at, end, m_throw_func);
+        auto address = UniqueAddress::fromValue(db0::serial::read<packed_int64>(at, end, m_throw_func));
         auto storage_class = db0::serial::read<db0::packed_int32>(at, end, m_throw_func).value();
         return { fixture_uuid, address, static_cast<db0::StorageClass>(storage_class) };
     }
@@ -39,7 +39,7 @@ namespace db0::object_model
         std::memset(bytes.data(), 0, bytes.size());
         auto at = bytes.data();
         db0::serial::writeSimple(at, m_fixture_uuid);
-        db0::serial::writeSimple(at, m_address);
+        db0::serial::write<db0::packed_int64>(at, m_address.getValue());        
         // NOTICE: store as packed int to allow more bytes in the future if needed
         db0::serial::write<db0::packed_int32>(at, static_cast<std::uint32_t>(m_storage_class));
         // encode actual bytes

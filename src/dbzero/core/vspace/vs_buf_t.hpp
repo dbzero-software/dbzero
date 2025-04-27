@@ -4,14 +4,14 @@
 #include <cstdint>
 #include <functional>
 #include <vector>
-#include <dbzero/core/utils/bounded_buf_t.hpp>
+#include <dbzero/core/serialization/bounded_buf_t.hpp>
 
 namespace db0
 
 {
     
     /**
-     * bounded_buf_t implementation for VSO object access
+     * bounded_buf_t implementation for v-object access
      * throws BadVSOAddressException
      */
     class vs_buf_t: public bounded_buf_t 

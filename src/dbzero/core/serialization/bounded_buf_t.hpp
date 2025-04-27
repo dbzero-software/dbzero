@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <vector>
 #include <functional>
+#include <cstdint>
 
 namespace db0
 
@@ -18,7 +19,7 @@ namespace db0
 	public :
 		const_bounded_buf_t(const std::function<void()> &throw_func);
 
-		const_bounded_buf_t(const_bounded_buf_t &&other);
+		const_bounded_buf_t(const const_bounded_buf_t &);
 		
 		const_bounded_buf_t(const std::function<void()> &throw_func, const std::byte *begin, const std::byte *end);
 
@@ -121,18 +122,18 @@ namespace db0
 
 	protected:
 		friend class const_ref_t;
-		std::reference_wrapper<std::function<void()> > m_throw_func;
+		std::reference_wrapper<const std::function<void()> > m_throw_func;
 		const std::byte *begin = 0;
 		const std::byte *end = 0;
 	};
-	
+
 	class bounded_buf_t: public const_bounded_buf_t
 	{
 		using super_t = const_bounded_buf_t;
 
 	public :
 		bounded_buf_t(const std::function<void()> &throw_func);
-		bounded_buf_t(bounded_buf_t &&other);		
+		bounded_buf_t(const bounded_buf_t &);
 		bounded_buf_t(const std::function<void()> &throw_func, std::byte *begin, std::byte *end);
 		bounded_buf_t(const std::function<void()> &throw_func, std::vector<std::byte> &buf);
 	};

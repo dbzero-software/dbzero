@@ -6,7 +6,7 @@
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/memory/Address.hpp>
 #include <dbzero/core/serialization/Types.hpp>
-#include <dbzero/core/utils/bounded_buf_t.hpp>
+#include <dbzero/core/serialization/bounded_buf_t.hpp>
 
 namespace db0::serial
 
