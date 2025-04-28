@@ -39,7 +39,7 @@ namespace db0
         return typeid(self_t);
     }
     
-    template <typename KeyT> bool FT_FixedKeyIterator<KeyT>::isEnd() const {
+    template <typename KeyT> bool FT_FixedKeyIterator<KeyT>::isEnd() const {        
         return m_current == m_keys.end();
     }
 
@@ -52,7 +52,11 @@ namespace db0
         if (m_direction > 0) {
             ++m_current;
         } else {
-            --m_current;
+            if (m_current == m_keys.begin()) {
+                m_current = m_keys.end();
+            } else {
+                --m_current;
+            }
         }
     }
 
