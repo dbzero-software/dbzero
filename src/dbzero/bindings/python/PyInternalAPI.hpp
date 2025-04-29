@@ -141,7 +141,7 @@ namespace db0::python
     
     PyObject *trySplitBy(PyObject *args, PyObject *kwargs);
     
-    PyObject *trySelectModified(const ObjectIterable &, StateNumType from_state,
+    PyObject *trySelectModCandidates(const ObjectIterable &, StateNumType from_state,
         std::optional<StateNumType> to_state);
     
 #ifndef NDEBUG

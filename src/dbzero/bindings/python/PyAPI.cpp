@@ -1273,7 +1273,7 @@ namespace db0::python
         return runSafe(tryAwaitPrefixState, future, prefix, state);
     }
             
-    PyObject *PyAPI_selectModified(PyObject *, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_selectModCandidates(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         PyObject *py_iter = nullptr;
@@ -1313,7 +1313,7 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid argument type";            
         }
         
-        return runSafe(trySelectModified, iter, from_state, to_state);
+        return runSafe(trySelectModCandidates, iter, from_state, to_state);
     }
     
     PyObject *tryGetConfig()

@@ -752,7 +752,7 @@ namespace db0::python
         return py_iter.steal();
     }
     
-    PyObject *trySelectModified(const ObjectIterable &iterable, StateNumType from_state,
+    PyObject *trySelectModCandidates(const ObjectIterable &iterable, StateNumType from_state,
         std::optional<StateNumType> to_state)
     {
         std::vector<std::unique_ptr<QueryObserver> > query_observers;
@@ -766,12 +766,12 @@ namespace db0::python
         }
         assert(to_state);
         auto &storage = fixture->getPrefix().getStorage();
-        auto result_query = db0::object_model::selectModified(
+        auto result_query = db0::object_model::selectModCandidates(
             iterable.beginFTQuery(query_observers, -1), storage, from_state, *to_state
         );
         auto py_iter = PyObjectIterableDefault_new();
         ObjectIterable::makeNew(&(py_iter.get())->modifyExt(), fixture, std::move(result_query), iterable.getType(),
-            iterable.getLangType(), std::move(query_observers), iterable.getFilters()
+            iterable.getLangType(), {}, iterable.getFilters()
         );
         return py_iter.steal();
     }

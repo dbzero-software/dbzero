@@ -96,3 +96,4 @@ def test_untag_instances_in_multiple_transactions(db0_fixture):
         db0.commit()
     
     assert repeats == 5
+    

@@ -171,7 +171,7 @@ namespace db0::python
 
     PyObject *PyAPI_getConfig(PyObject *, PyObject *);
 
-    PyObject *PyAPI_selectModified(PyObject *, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_selectModCandidates(PyObject *, PyObject *args, PyObject *kwargs);
     
 #ifndef NDEBUG
     PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *args);
