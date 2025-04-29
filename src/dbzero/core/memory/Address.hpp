@@ -82,15 +82,19 @@ namespace db0
     class [[gnu::packed]] UniqueAddress
     {
     public:
+        static constexpr std::size_t INSTANCE_ID_SHIFT = 14;
+        static constexpr std::size_t INSTANCE_ID_MASK = (1ULL << INSTANCE_ID_SHIFT) - 1;     
+        static constexpr std::size_t INSTANCE_ID_MAX = (1ULL << INSTANCE_ID_SHIFT) - 1;
+
         // Construct as null / invalid
         UniqueAddress() = default;
         
         inline UniqueAddress(Address address, std::uint16_t instance_id)
-            : m_value((address.getOffset() << 14) | static_cast<std::uint64_t>(instance_id))
+            : m_value((address.getOffset() << INSTANCE_ID_SHIFT) | static_cast<std::uint64_t>(instance_id))
         {
             assert(instance_id > 0);
             assert(address.getOffset() < (1ULL << 50));
-            assert(instance_id < (1ULL << 14));
+            assert(instance_id < (1ULL << INSTANCE_ID_SHIFT));
         }
         
         static inline UniqueAddress fromValue(std::uint64_t value) {
@@ -102,16 +106,16 @@ namespace db0
         }
         
         inline std::uint64_t getOffset() const {
-            return m_value >> 14; 
+            return m_value >> INSTANCE_ID_SHIFT; 
         }
 
         inline std::uint16_t getInstanceId() const {
-            assert(m_value & 0x3FFF);
-            return static_cast<std::uint16_t>(m_value & 0x3FFF); 
+            assert(m_value & INSTANCE_ID_MASK);
+            return static_cast<std::uint16_t>(m_value & INSTANCE_ID_MASK); 
         }
 
         bool hasInstanceId() const {
-            return (m_value & 0x3FFF) != 0;
+            return (m_value & INSTANCE_ID_MASK) != 0;
         }
 
         inline bool operator==(const UniqueAddress& other) const {

@@ -234,7 +234,7 @@ namespace db0
             return false;
         }
         assert(instance_id > 0);
-        assert((instance_id >> 14) == 0);
+        assert((instance_id <= UniqueAddress::INSTANCE_ID_MAX) == 0);
         
         return true;
     }

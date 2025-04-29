@@ -63,6 +63,8 @@ namespace db0
         const int m_direction;
         // the last joined key
         std::optional<KeyT> m_key;
+
+        KeyT _getKey() const;
     };
     
     extern template class FT_SpanIterator<std::uint64_t>;

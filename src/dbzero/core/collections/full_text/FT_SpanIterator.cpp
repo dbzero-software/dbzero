@@ -3,7 +3,44 @@
 namespace db0
 
 {
+
+    template <typename KeyT> std::uint64_t valueOf(KeyT key) {
+        return key;
+    }
+
+    template <> std::uint64_t valueOf(UniqueAddress key) {
+        return key.getOffset();
+    }
+
+    template <typename KeyT> std::uint64_t spanOf(KeyT key, unsigned int span_shift) {
+        return key >> span_shift;
+    }
+
+    // UniqueAddress specialization
+    template <> std::uint64_t spanOf(UniqueAddress key, unsigned int span_shift) {
+        return key.getOffset() >> span_shift;
+    }
+
+    template <typename KeyT> KeyT boundOf(KeyT key, unsigned int span_shift, int direction)
+    {
+        if (direction > 0) {
+            return (key >> span_shift) << span_shift; 
+        } else {
+            return (((key >> span_shift) + 1) << span_shift) - 1;
+        }
+    }
     
+    // UniqueAddress specialization
+    template <> UniqueAddress boundOf(UniqueAddress key, unsigned int span_shift, int direction) 
+    {
+        auto offset = boundOf(key.getOffset(), span_shift, direction);
+        if (direction > 0) {
+            return { Address::fromOffset(offset), 0 };
+        } else {
+            return { Address::fromOffset(offset), UniqueAddress::INSTANCE_ID_MAX };
+        }
+    }
+
     template <typename KeyT>
     FT_SpanIterator<KeyT>::FT_SpanIterator(std::unique_ptr<FT_Iterator<KeyT> > &&inner_it, unsigned int span_shift,
         int direction)
@@ -29,7 +66,7 @@ namespace db0
     void FT_SpanIterator<KeyT>::next(void *buf)
     {
         m_inner_it->next(buf);
-    }    
+    }
 
     template <typename KeyT> void FT_SpanIterator<KeyT>::operator++()
     {        
@@ -41,7 +78,11 @@ namespace db0
         m_inner_it->operator--();
     }
 
-    template <typename KeyT> KeyT FT_SpanIterator<KeyT>::getKey() const
+    template <typename KeyT> KeyT FT_SpanIterator<KeyT>::getKey() const {
+        return this->_getKey();
+    }
+    
+    template <typename KeyT> KeyT FT_SpanIterator<KeyT>::_getKey() const
     {
         if (m_key) {
             return *m_key;
@@ -50,21 +91,35 @@ namespace db0
     }
     
     template <typename KeyT>
-    std::unique_ptr<FT_IteratorBase> FT_SpanIterator<KeyT>::begin() const
-    {
-        throw std::runtime_error("Not implemented");
-    }    
+    std::unique_ptr<FT_IteratorBase> FT_SpanIterator<KeyT>::begin() const {
+        return std::make_unique<FT_SpanIterator<KeyT> >(m_inner_it->beginTyped(), m_span_shift, m_direction);
+    }
 
     template <typename KeyT>
-    std::unique_ptr<FT_Iterator<KeyT> > FT_SpanIterator<KeyT>::beginTyped(int direction) const
-    {
-        throw std::runtime_error("Not implemented");
+    std::unique_ptr<FT_Iterator<KeyT> > FT_SpanIterator<KeyT>::beginTyped(int direction) const {
+        return std::make_unique<FT_SpanIterator<KeyT> >(m_inner_it->beginTyped(), m_span_shift, m_direction);        
     }
     
     template <typename KeyT>
     bool FT_SpanIterator<KeyT>::join(KeyT join_key, int direction)
     {
-        return m_inner_it->join(join_key, direction);
+        // hold position within the same span
+        if (spanOf(join_key, m_span_shift) == spanOf(_getKey(), m_span_shift)) {
+            m_key = join_key;
+            return true;
+        }
+        
+        if (!m_inner_it->join(boundOf(join_key, m_span_shift, direction), direction)) {
+            m_key = {};
+            return false;
+        }
+
+        m_key = m_inner_it->getKey();
+        // if the join key is within the actual key's span then use it
+        if (spanOf(join_key, m_span_shift) == spanOf(*m_key, m_span_shift)) {
+            m_key = join_key;
+        }
+        return true;
     }
 
     template <typename KeyT>
