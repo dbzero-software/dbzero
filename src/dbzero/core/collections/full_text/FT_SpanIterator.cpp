@@ -1,4 +1,5 @@
 #include "FT_SpanIterator.hpp"
+#include <cstring>
 
 namespace db0
 
@@ -57,24 +58,27 @@ namespace db0
     }
 
     template <typename KeyT> 
-    bool FT_SpanIterator<KeyT>::isEnd() const
-    {
+    bool FT_SpanIterator<KeyT>::isEnd() const {
         return m_inner_it->isEnd();
     }
 
     template <typename KeyT> 
-    void FT_SpanIterator<KeyT>::next(void *buf)
+    void FT_SpanIterator<KeyT>::next(void *buf) 
     {
-        m_inner_it->next(buf);
+        if (m_key) {
+            std::memcpy(buf, &m_key.value(), sizeof(KeyT));
+            m_key = {};
+            m_inner_it->next();
+        } else {
+            m_inner_it->next(buf);
+        }
     }
 
-    template <typename KeyT> void FT_SpanIterator<KeyT>::operator++()
-    {        
+    template <typename KeyT> void FT_SpanIterator<KeyT>::operator++() {
         m_inner_it->operator++();
     }    
 
-    template <typename KeyT> void FT_SpanIterator<KeyT>::operator--()
-    {        
+    template <typename KeyT> void FT_SpanIterator<KeyT>::operator--() {
         m_inner_it->operator--();
     }
 
@@ -123,44 +127,56 @@ namespace db0
     }
 
     template <typename KeyT>
-    void FT_SpanIterator<KeyT>::joinBound(KeyT join_key)
-    {
+    void FT_SpanIterator<KeyT>::joinBound(KeyT join_key) {
         throw std::runtime_error("Not implemented");
     }
 
     template <typename KeyT>
-    std::pair<KeyT, bool> FT_SpanIterator<KeyT>::peek(KeyT join_key) const 
-    {
+    std::pair<KeyT, bool> FT_SpanIterator<KeyT>::peek(KeyT join_key) const {
         throw std::runtime_error("Not implemented");
     }
     
     template <typename KeyT>
-    bool FT_SpanIterator<KeyT>::isNextKeyDuplicated() const
-    {
+    bool FT_SpanIterator<KeyT>::isNextKeyDuplicated() const {
         throw std::runtime_error("Not implemented");
     }
     
     template <typename KeyT>
-    bool FT_SpanIterator<KeyT>::limitBy(KeyT key)
-    {
+    bool FT_SpanIterator<KeyT>::limitBy(KeyT key) {
         throw std::runtime_error("Not implemented");
     }
     
     template <typename KeyT>
-    void FT_SpanIterator<KeyT>::stop()
+    void FT_SpanIterator<KeyT>::stop() 
     {
-        throw std::runtime_error("Not implemented");
+        m_key = {};
+        m_inner_it->stop();
     }
-            
+    
     template <typename KeyT>
-    double FT_SpanIterator<KeyT>::compareToImpl(const FT_IteratorBase &it) const
+    double FT_SpanIterator<KeyT>::compareToImpl(const FT_IteratorBase &it) const 
     {
-        throw std::runtime_error("Not implemented");
+		if (this->typeId() == it.typeId()) {
+			return compareToImpl(reinterpret_cast<const self_t &>(it));
+		}
+		return 1.0;
     }
 
     template <typename KeyT>
-    std::ostream& FT_SpanIterator<KeyT>::dump(std::ostream&) const {
-        throw std::runtime_error("Not implemented");
+    double FT_SpanIterator<KeyT>::compareToImpl(const FT_SpanIterator<KeyT> &other) const
+    {
+        if (m_span_shift != other.m_span_shift) {
+            return 1.0;
+        }
+        return m_inner_it->compareTo(*other.m_inner_it);
+    }
+    
+    template <typename KeyT>
+    std::ostream& FT_SpanIterator<KeyT>::dump(std::ostream &os) const 
+    {
+        os << "SPAN[";
+        m_inner_it->dump(os) << "]";
+        return os;
     }
 
     template <typename KeyT>

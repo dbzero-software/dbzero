@@ -47,7 +47,7 @@ namespace db0
         void stop() override;
                 
         double compareToImpl(const FT_IteratorBase &it) const override;
-
+        
         std::ostream& dump(std::ostream&) const override;
 
         void getSignature(std::vector<std::byte>&) const override;
@@ -65,6 +65,8 @@ namespace db0
         std::optional<KeyT> m_key;
 
         KeyT _getKey() const;
+
+        double compareToImpl(const self_t &) const;
     };
     
     extern template class FT_SpanIterator<std::uint64_t>;
