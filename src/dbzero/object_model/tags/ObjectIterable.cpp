@@ -410,4 +410,12 @@ namespace db0::object_model
         m_lang_context = lang_context;
     }
 
+    std::shared_ptr<Class> ObjectIterable::getType() const {
+        return m_type;
+    }
+
+    ObjectIterable::TypeObjectPtr ObjectIterable::getLangType() const {
+        return m_lang_type.get();
+    }
+
 }

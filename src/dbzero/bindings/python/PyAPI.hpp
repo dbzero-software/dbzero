@@ -82,7 +82,7 @@ namespace db0::python
     /**
      * Get currently active state number associated with a specific prefix/file
     */
-    PyObject *getStateNum(PyObject *self, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_getStateNum(PyObject *self, PyObject *args, PyObject *kwargs);
     
     /**
      * Retrieve metrics of all active dbzero prefixes
@@ -120,7 +120,7 @@ namespace db0::python
     
     PyObject *makeEnum(PyObject *, PyObject *args, PyObject *kwargs);
     
-    PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_splitBy(PyObject *, PyObject *args, PyObject *kwargs);
     
     // implements db0.filter functionality
     PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs);
@@ -170,6 +170,8 @@ namespace db0::python
     PyObject *PyAPI_await_prefix_state(PyObject *, PyObject *args, PyObject *kwargs);
 
     PyObject *PyAPI_getConfig(PyObject *, PyObject *);
+
+    PyObject *PyAPI_selectModified(PyObject *, PyObject *args, PyObject *kwargs);
     
 #ifndef NDEBUG
     PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *args);

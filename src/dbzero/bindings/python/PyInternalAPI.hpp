@@ -18,11 +18,20 @@ namespace db0
 
 }
 
+namespace db0::object_model
+
+{
+
+    class ObjectIterable;
+    
+}
+
 namespace db0::python
 
 {   
         
     using ObjectId = db0::object_model::ObjectId;
+    using ObjectIterable = db0::object_model::ObjectIterable;
     
     /**
      * Extarct full object UUID from python args compatible with db0.open()
@@ -129,6 +138,11 @@ namespace db0::python
         const char *param_name);
     
     PyObject *tryMemoObject_open_singleton(PyTypeObject *, const Fixture &);
+    
+    PyObject *trySplitBy(PyObject *args, PyObject *kwargs);
+    
+    PyObject *trySelectModified(const ObjectIterable &, StateNumType from_state,
+        std::optional<StateNumType> to_state);
     
 #ifndef NDEBUG
     /**

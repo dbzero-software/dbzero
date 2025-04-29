@@ -68,6 +68,7 @@ namespace db0::object_model
         
         // Begin from the underlying full-text iterator (or fail if initialized from a sorted iterator)
         // collect "rebased" query observers
+        // NOTE: filters are not retained and must be handled separately
         std::unique_ptr<QueryIterator> beginFTQuery(std::vector<std::unique_ptr<QueryObserver> > &,
             int direction = -1) const;
         
@@ -103,6 +104,9 @@ namespace db0::object_model
             return m_filters;
         }
         
+        // Get type of the results if it was specified
+        std::shared_ptr<Class> getType() const;
+
         // Get associated language specific type of the results if it was specified
         TypeObjectPtr getLangType() const;
 

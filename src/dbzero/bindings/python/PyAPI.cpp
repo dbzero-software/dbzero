@@ -444,8 +444,8 @@ namespace db0::python
         fixture->refreshIfUpdated();
         return PyLong_FromLong(fixture->getPrefix().getStateNum(finalized == 1));
     }
-
-    PyObject *getStateNum(PyObject *, PyObject *args, PyObject *kwargs) 
+    
+    PyObject *PyAPI_getStateNum(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC        
         return runSafe(tryGetStateNum, args, kwargs);
@@ -770,43 +770,8 @@ namespace db0::python
     using ObjectIterator = db0::object_model::ObjectIterator;
     using QueryObserver = db0::object_model::QueryObserver;
     
-    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
-    splitBy(PyObject *py_tag_list, const ObjectIterable &iterable, bool exclusive)
-    {
-        std::vector<std::unique_ptr<QueryObserver> > query_observers;
-        auto query = iterable.beginFTQuery(query_observers, -1);
-        auto &tag_index = iterable.getFixture()->get<db0::object_model::TagIndex>();
-        auto result = tag_index.splitBy(py_tag_list, std::move(query), exclusive);
-        query_observers.push_back(std::move(result.second));
-        return { std::move(result.first), std::move(query_observers) };
-    }
     
-    PyObject *trySplitBy(PyObject *args, PyObject *kwargs)
-    {
-        // extract 2 object arguments
-        PyObject *py_tags = nullptr;
-        PyObject *py_query = nullptr;
-        int exclusive = true;
-        // tags, query, exclusive (bool)
-        static const char *kwlist[] = {"tags", "query", "exclusive", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", const_cast<char**>(kwlist), &py_tags, &py_query, &exclusive)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
-        }
-                
-        if (!PyObjectIterable_Check(py_query)) {
-            THROWF(db0::InputException) << "Invalid argument type";
-        }
-        
-        auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->modifyExt();
-        auto split_query = splitBy(py_tags, iter, exclusive);
-        auto py_iter = PyObjectIterableDefault_new();
-        iter.makeNew(&(py_iter.get())->modifyExt(), std::move(split_query.first), std::move(split_query.second),
-            iter.getFilters());
-        return py_iter.steal();
-    }
-    
-    PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) 
+    PyObject *PyAPI_splitBy(PyObject *, PyObject *args, PyObject *kwargs) 
     {
         PY_API_FUNC
         return runSafe(trySplitBy, args, kwargs);
@@ -1296,10 +1261,10 @@ namespace db0::python
         const char *prefix = nullptr;
         int state = 0;
         const char * const kwlist[] = {"future", "prefix", "state", nullptr};
-        if(!PyArg_ParseTupleAndKeywords(args, kwargs, "Osi:await_prefix_state", const_cast<char**>(kwlist), &future, &prefix, &state)) {
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Osi:await_prefix_state", const_cast<char**>(kwlist), &future, &prefix, &state)) {
             return nullptr;
         }
-        if(state <= 0) {
+        if (state <= 0) {
             PyErr_SetString(PyExc_ValueError, "state number have to be greater than 0");
             return nullptr;
         }
@@ -1307,7 +1272,50 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryAwaitPrefixState, future, prefix, state);
     }
+            
+    PyObject *PyAPI_selectModified(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PY_API_FUNC
+        PyObject *py_iter = nullptr;
+        PyObject *py_scope = nullptr;
+        const char * const kwlist[] = {"query", "scope", nullptr};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|", const_cast<char**>(kwlist), &py_iter, &py_scope)) {
+            return nullptr;
+        }
+        
+        if (!PyObjectIterable_Check(py_iter)) {
+            THROWF(db0::InputException) << "Invalid argument type";
+        }
+        
+        auto &iter = reinterpret_cast<PyObjectIterable*>(py_iter)->modifyExt();
+        // py_scope must be a tuple with 1st element int
+        // and 2nd element string
+        if (!py_scope || !PyTuple_Check(py_scope) || PyTuple_Size(py_scope) != 2) {
+            THROWF(db0::InputException) << "Invalid argument type";
+        }
 
+        assert(py_scope);
+        PyObject *py_from_state = PyTuple_GetItem(py_scope, 0);
+        PyObject *py_to_state = PyTuple_GetItem(py_scope, 1);
+
+        StateNumType from_state;
+        std::optional<StateNumType> to_state;
+
+        if (PyLong_Check(py_from_state)) {
+            from_state = PyLong_AsUnsignedLong(py_from_state);
+        } else {
+            THROWF(db0::InputException) << "Invalid argument type";            
+        }
+        
+        if (PyLong_Check(py_to_state)) {
+            to_state = PyLong_AsUnsignedLong(py_to_state);
+        } else if (py_to_state != Py_None) {
+            THROWF(db0::InputException) << "Invalid argument type";            
+        }
+        
+        return runSafe(trySelectModified, iter, from_state, to_state);
+    }
+    
     PyObject *tryGetConfig()
     {
         auto config = PyToolkit::getPyWorkspace().getConfig()->getRawConfig();
