@@ -36,8 +36,9 @@ namespace db0::python
     int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds);
     PyObject *PyAPI_MemoObject_getattro(MemoObject *self, PyObject *attr);
     int PyAPI_MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value);
-    // check for equal instances - i.e. if fixture and address are the same
-    bool isEqual(MemoObject *, MemoObject *);
+    
+    // check for same instances - i.e. if fixture and address are the same
+    bool isSame(MemoObject *, MemoObject *);
     
     // check if memo type has been marked as singleton
     bool PyMemoType_IsSingleton(PyTypeObject *type);

@@ -21,9 +21,7 @@ namespace db0::object_model
     std::unique_ptr<QueryIterator> selectModCandidates(std::unique_ptr<QueryIterator> &&query, const db0::BaseStorage &storage,
         StateNumType from_state, StateNumType to_state)
     {
-        // FIXME: log
-        std::cout << "scope = " << from_state << " - " << to_state << std::endl;
-        auto dp_size = storage.getPageSize();    
+        auto dp_size = storage.getPageSize();
         auto dp_shift = db0::getPageShift(dp_size);
 
         // The algorithm works as follows:
@@ -49,9 +47,7 @@ namespace db0::object_model
         for (auto dp_num: mutated_dps) {
             unique_dps.push_back(getDPBound(dp_num, dp_shift));
         }
-
-        // FIXME: log        
-        std::cout << "unique-dps size: " << unique_dps.size() << std::endl;
+        
         auto dp_iter = std::make_unique<FT_FixedKeyIterator<db0::UniqueAddress> >(
             unique_dps.data(), unique_dps.data() + unique_dps.size()
         );

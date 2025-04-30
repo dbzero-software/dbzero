@@ -309,14 +309,17 @@ namespace db0
             }
             
             std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
-            if (m_gc0_ptr) {
-                getGC0().commitAll();
-            }
-            
+            // NOTE: close handlers perform internal buffers flush (e.g. TagIndex)
+            // which may result in modifications (e.g. incRef)
+            // it's therefore important to perform this action before GC0::commitAll (which commits finalized objects)
             for (auto &commit: m_close_handlers) {
                 commit(true);
             }
             
+            if (m_gc0_ptr) {
+                getGC0().commitAll();
+            }
+                        
             // commit garbage collector's state
             // we check if gc0 exists because the unit-tests set up may not have it
             if (gc0_ctx) {

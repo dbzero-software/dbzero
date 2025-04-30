@@ -103,10 +103,10 @@ namespace db0
         for (auto &[prefix_name, memspace] : m_memspaces) {
             if (memspace.getAccessType() == AccessType::READ_WRITE) {
                 memspace.commit();
-            }            
-        }    
+            }
+        }
     }
-
+    
     bool BaseWorkspace::close(const PrefixName &prefix_name)
     {
         auto it = m_memspaces.find(prefix_name);

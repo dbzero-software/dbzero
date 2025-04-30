@@ -220,7 +220,7 @@ namespace db0::object_model
         
         void decRef();
 
-        bool operator==(const Object &other) const;
+        bool isSame(const Object &) const;
         
         /**
          * Move unreferenced object to a different prefix without changing the instance

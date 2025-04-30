@@ -97,3 +97,19 @@ def test_untag_instances_in_multiple_transactions(db0_fixture):
     
     assert repeats == 5
     
+    
+def test_commit_state_num_issue_1(db0_fixture, memo_tags):
+    """
+    Issue: the finalized state number was not reported correctly (showing old transaction number after commit)
+    Resolution: on commit, the TagIndex::flush was called AFTER GC0::commit - which caused setting incRef / modification
+    flag on objects which later resulted in missing dirty flags after actual mutations
+    """    
+    db0.commit()    
+    state_1 = db0.get_state_num(finalized = True)
+    state_pending = db0.get_state_num(finalized = False)
+    assert state_pending > state_1
+    obj_1 = next(iter(db0.find(MemoTestClass, "tag1")))
+    obj_1.value = 99999    
+    db0.commit()
+    state_2 = db0.get_state_num(finalized = True)
+    assert state_2 == state_pending    

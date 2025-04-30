@@ -647,8 +647,8 @@ namespace db0::object_model
         onSilentMutation();
         super_t::decRef();
     }
-
-    bool Object::operator==(const Object &other) const
+    
+    bool Object::isSame(const Object &other) const
     {
         if (!hasInstance() || !other.hasInstance()) {
             // compare objects without DB0 instance
