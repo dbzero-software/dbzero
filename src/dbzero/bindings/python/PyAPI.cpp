@@ -1,5 +1,6 @@
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyTagsAPI.hpp"
 #include "PyToolkit.hpp"
 #include "PyTypeManager.hpp"
 #include "PyWorkspace.hpp"
@@ -769,8 +770,7 @@ namespace db0::python
     using ObjectIterable = db0::object_model::ObjectIterable;
     using ObjectIterator = db0::object_model::ObjectIterator;
     using QueryObserver = db0::object_model::QueryObserver;
-    
-    
+        
     PyObject *PyAPI_splitBy(PyObject *, PyObject *args, PyObject *kwargs) 
     {
         PY_API_FUNC
@@ -1336,5 +1336,5 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 #endif
-    
+
 }

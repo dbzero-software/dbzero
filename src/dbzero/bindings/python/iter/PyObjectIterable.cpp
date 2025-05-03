@@ -2,6 +2,7 @@
 #include "PyObjectIterator.hpp"
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/PyTagsAPI.hpp>
 #include <dbzero/core/utils/base32.hpp>
 
 namespace db0::python
@@ -193,7 +194,7 @@ namespace db0::python
     bool PyObjectIterable_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyObjectIterableType;
     }
-
+    
     PyObject *PyAPI_find(PyObject *, PyObject* const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC

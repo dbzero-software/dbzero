@@ -98,14 +98,7 @@ namespace db0::python
      * Open dbzero singleton by its corresponding Python type
     */
     PyObject *fetchSingletonObject(db0::Snapshot &, PyTypeObject *py_type);
-    
-    /**
-     * Universal find implementation (works on Workspace or WorkspaceView)
-     * @param context - the optional context / scope to be attached to the result query
-     * @return PyObjectIterable
-    */
-    PyObject *findIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs, PyObject *context = nullptr);
-    
+        
     // Convert a serializable instance to bytes
     PyObject *trySerialize(PyObject *);
     
@@ -138,12 +131,7 @@ namespace db0::python
         const char *param_name);
     
     PyObject *tryMemoObject_open_singleton(PyTypeObject *, const Fixture &);
-    
-    PyObject *trySplitBy(PyObject *args, PyObject *kwargs);
-    
-    PyObject *trySelectModCandidates(const ObjectIterable &, StateNumType from_state,
-        std::optional<StateNumType> to_state);
-    
+        
 #ifndef NDEBUG
     /**
      * A test function to make an allocation and write random bytes into the current prefix

@@ -24,7 +24,7 @@ namespace db0::python
         
     using AccessType = db0::AccessType;
     using MemoObject = PyWrapper<db0::object_model::Object>;
-        
+    
     PyObject *PyAPI_wrapPyClass(PyObject *self, PyObject *, PyObject *kwargs);
     MemoObject *PyAPI_MemoObject_new(PyTypeObject *type, PyObject * = nullptr, PyObject * = nullptr);
     // create a memo object stub
@@ -61,5 +61,8 @@ namespace db0::python
     PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject* kwargs,  PyObject* exclude);
 
     PyObject *PyAPI_PyMemo_Check(PyObject *self, PyObject *const * args, Py_ssize_t nargs);
+    
+    // Compare 2 versions of the same memo object (e.g. from different snapshots)
+    PyObject *isSameVer(MemoObject *, MemoObject *);
     
 }

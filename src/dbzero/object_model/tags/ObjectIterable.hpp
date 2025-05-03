@@ -62,9 +62,9 @@ namespace db0::object_model
         virtual ~ObjectIterable() = default;
         
         // Start the iteration, possibly with the application of additional provided filters
-        ObjectIterator &makeIter(void *at_ptr, const std::vector<FilterFunc> & = {}) const;
+        virtual ObjectIterator &makeIter(void *at_ptr, const std::vector<FilterFunc> & = {}) const;
         // Make sliced iterable
-        ObjectIterable &makeSlice(void *at_ptr, const SliceDef &) const;
+        virtual ObjectIterable &makeSlice(void *at_ptr, const SliceDef &) const;
         
         // Begin from the underlying full-text iterator (or fail if initialized from a sorted iterator)
         // collect "rebased" query observers

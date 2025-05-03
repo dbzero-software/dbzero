@@ -172,7 +172,7 @@ namespace db0
     
     void BDevStorage::_read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags, unsigned int *chain_len) const
-    {        
+    {
         assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::read: size must be page-aligned");
@@ -194,7 +194,7 @@ namespace db0
             // query sparse index + diff index
             SparseIndexQuery query(m_sparse_index, m_diff_index, page_num, state_num);
             if (query.empty()) {
-                if (flags[AccessOptions::read]) {                    
+                if (flags[AccessOptions::read]) {
                     THROWF(db0::IOException) << "BDevStorage::read: page not found: " << page_num << ", state: " << state_num;
                 }
                  // if requested access is write-only then simply fill the misssing (new) page with 0

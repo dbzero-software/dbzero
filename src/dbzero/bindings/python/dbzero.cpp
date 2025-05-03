@@ -49,6 +49,7 @@ static PyMethodDef dbzero_methods[] =
     {"get_raw_current_prefix", &py::PyAPI_getCurrentPrefix, METH_VARARGS, "Get current prefix name & UUID as tuple"},
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
     {"_select_mod_candidates", (PyCFunction)&py::PyAPI_selectModCandidates, METH_VARARGS | METH_KEYWORDS, "Filter to return only objects which could potentially be modified within a specific scope"},
+    {"_split_by_snapshots", (PyCFunction)&py::PyAPI_splitBySnapshots, METH_FASTCALL, "Splits a given query to produce results from the 2 given snapshots (as a tuple)"},
     {"find", (PyCFunction)&py::PyAPI_find, METH_FASTCALL, ""},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
     {"get_state_num", (PyCFunction)&py::PyAPI_getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
