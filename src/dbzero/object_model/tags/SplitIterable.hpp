@@ -32,11 +32,14 @@ namespace db0::object_model
             std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {});
         
-        static ObjectIterable &makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, 
-            std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
-            const std::vector<FilterFunc> & = {});    
+        static ObjectIterable &makeNew(void *at_ptr, db0::swine_ptr<Fixture>, const std::vector<db0::swine_ptr<Fixture> > &split_fixtures, 
+            std::unique_ptr<QueryIterator> &&, std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, 
+            std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});
         
         ObjectIterator &makeIter(void *at_ptr, const std::vector<FilterFunc> & = {}) const override;
+        
+    private:
+        const std::vector<db0::swine_ptr<Fixture> > m_split_fixtures;
     };
     
 }

@@ -111,16 +111,8 @@ namespace db0::python
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     PyObject *getBuildFlags(PyObject *self, PyObject *args);
-    
-    // convert a db0::serial::Serializable to bytes
-    PyObject *pySerialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
-    
-    // convert bytes to instance (e.g. ObjectIterator)
-    PyObject *pyDeserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
-    
+        
     PyObject *makeEnum(PyObject *, PyObject *args, PyObject *kwargs);
-    
-    PyObject *PyAPI_splitBy(PyObject *, PyObject *args, PyObject *kwargs);
     
     // implements db0.filter functionality
     PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs);
@@ -170,9 +162,7 @@ namespace db0::python
     PyObject *PyAPI_await_prefix_state(PyObject *, PyObject *args, PyObject *kwargs);
 
     PyObject *PyAPI_getConfig(PyObject *, PyObject *);
-
-    PyObject *PyAPI_selectModCandidates(PyObject *, PyObject *args, PyObject *kwargs);
-    
+        
 #ifndef NDEBUG
     PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *args);
 

@@ -43,8 +43,8 @@ namespace db0::object_model
          * Retrieve next object from the iterator         
          * @return nullptr if end of iteration reached
         */
-        ObjectSharedPtr next();
-
+        virtual ObjectSharedPtr next();
+        
         inline unsigned int numDecorators() const {
             return m_decoration.size();
         }

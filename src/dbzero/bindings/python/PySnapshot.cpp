@@ -1,6 +1,7 @@
 #include "PySnapshot.hpp"
 #include "PyInternalAPI.hpp"
 #include "PyToolkit.hpp"
+#include "PyTagsAPI.hpp"
 
 namespace db0::python
 

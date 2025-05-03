@@ -39,12 +39,17 @@ namespace db0::python
      * @return PyObjectIterable
     */
     PyObject *findIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs, PyObject *context = nullptr);
-
-    PyObject *trySplitBy(PyObject *args, PyObject *kwargs);
+    
+    PyObject *PyAPI_splitBy(PyObject *, PyObject *args, PyObject *kwargs);
         
-    PyObject *trySelectModCandidates(const ObjectIterable &, StateNumType from_state,
-        std::optional<StateNumType> to_state);
+    PyObject *PyAPI_selectModCandidates(PyObject *, PyObject *args, PyObject *kwargs);
+
+    PyObject *PyAPI_splitBySnapshots(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
-    PyObject *trySplitBySnapshots(const ObjectIterable &, const std::vector<db0::Snapshot*> &snapshots);
+    // convert a db0::serial::Serializable to bytes
+    PyObject *PyAPI_serialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
+    // convert bytes to instance (e.g. ObjectIterator)
+    PyObject *PyAPI_deserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+
 }

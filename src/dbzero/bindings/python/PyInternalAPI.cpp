@@ -18,7 +18,6 @@
 #include <dbzero/object_model/tags/ObjectIterator.hpp>
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/object_model/tags/QueryObserver.hpp>
-#include <dbzero/object_model/tags/SelectModified.hpp>
 #include <dbzero/core/serialization/Serializable.hpp>
 #include <dbzero/core/memory/SlabAllocator.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
@@ -28,8 +27,6 @@
 #include <dbzero/bindings/python/collections/PySet.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
-#include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
-#include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
 
 namespace db0::python
 
@@ -256,50 +253,6 @@ namespace db0::python
         return fetchObject(fixture, object_id, py_expected_type);
     }
         
-    PyObject *trySerialize(PyObject *py_serializable)
-    {
-        using TypeId = db0::bindings::TypeId;
-        std::vector<std::byte> bytes;
-        auto type_id = PyToolkit::getTypeManager().getTypeId(py_serializable);
-        db0::serial::write(bytes, type_id);
-        
-        if (type_id == TypeId::OBJECT_ITERABLE) {
-            reinterpret_cast<PyObjectIterable*>(py_serializable)->ext().serialize(bytes);
-        } else {
-            THROWF(db0::InputException) << "Unsupported or non-serializable type: " 
-                << static_cast<int>(type_id) << THROWF_END;
-        }
-                
-        return PyBytes_FromStringAndSize(reinterpret_cast<const char*>(bytes.data()), bytes.size());
-    }
-    
-    PyObject *tryDeserialize(db0::Snapshot *workspace, PyObject *py_bytes)
-    {
-        using TypeId = db0::bindings::TypeId;
-
-        if (!PyBytes_Check(py_bytes)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type (expected bytes)");
-            return NULL;
-        }
-
-        Py_ssize_t size;
-        char *data = nullptr;
-        PyBytes_AsStringAndSize(py_bytes, &data, &size);
-        // extract bytes
-        std::vector<std::byte> bytes(size);
-        std::copy(data, data + size, reinterpret_cast<char*>(bytes.data()));
-        
-        auto fixture = workspace->getCurrentFixture();
-        auto iter = bytes.cbegin(), end = bytes.cend();
-        auto type_id = db0::serial::read<TypeId>(iter, end);
-        if (type_id == TypeId::OBJECT_ITERABLE) {
-            return PyToolkit::unloadObjectIterable(fixture, iter, end).steal();
-        } else {
-            THROWF(db0::InputException) << "Unsupported serialized type id: " 
-                << static_cast<int>(type_id) << THROWF_END;
-        }
-    }
-    
     PyObject *getSlabMetrics(const db0::SlabAllocator &slab)
     {        
         PyObject *py_dict = PyDict_New();

@@ -2,6 +2,7 @@
 #include "Memo.hpp"
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyTagsAPI.hpp"
 #include "PyObjectTagManager.hpp"
 #include "PySnapshot.hpp"
 #include "PyTagSet.hpp"
@@ -64,8 +65,8 @@ static PyMethodDef dbzero_methods[] =
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},
     {"to_dict", (PyCFunction)&py::toDict, METH_FASTCALL, "Serialize dbzero object as a Python dict"},
     {"build_flags", &py::getBuildFlags, METH_NOARGS, "Retrieve dbzero library build flags"},
-    {"serialize", (PyCFunction)&py::pySerialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
-    {"deserialize", (PyCFunction)&py::pyDeserialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
+    {"serialize", (PyCFunction)&py::PyAPI_serialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
+    {"deserialize", (PyCFunction)&py::PyAPI_deserialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
     {"make_enum", (PyCFunction)&py::makeEnum, METH_VARARGS | METH_KEYWORDS, "Define new or retrieve existing Enum type"},
     {"is_enum_value", (PyCFunction)&py::isEnumValue, METH_FASTCALL, "Check if parameter represents a dbzero enum value"},
     {"split_by", (PyCFunction)&py::PyAPI_splitBy, METH_VARARGS | METH_KEYWORDS, "Split query iterator by a given criteria"},

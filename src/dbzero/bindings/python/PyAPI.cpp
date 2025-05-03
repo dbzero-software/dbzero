@@ -661,28 +661,7 @@ namespace db0::python
 #endif  
         return PyUnicode_FromString(str_flags.str().c_str());
     }
-    
-    PyObject *pySerialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "serialize requires exactly 1 argument");
-            return NULL;
-        }
-        return runSafe(trySerialize, args[0]);
-    }
-    
-    PyObject *pyDeserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "deserialize requires exactly 1 argument");
-            return NULL;
-        }        
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        return runSafe(tryDeserialize, &workspace, args[0]);
-    }
-    
+        
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>() {
         return db0::object_model::StorageClass::OBJECT_REF;
     }
@@ -771,12 +750,6 @@ namespace db0::python
     using ObjectIterator = db0::object_model::ObjectIterator;
     using QueryObserver = db0::object_model::QueryObserver;
         
-    PyObject *PyAPI_splitBy(PyObject *, PyObject *args, PyObject *kwargs) 
-    {
-        PY_API_FUNC
-        return runSafe(trySplitBy, args, kwargs);
-    }
-    
     PyObject *isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
@@ -1272,50 +1245,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryAwaitPrefixState, future, prefix, state);
     }
-            
-    PyObject *PyAPI_selectModCandidates(PyObject *, PyObject *args, PyObject *kwargs)
-    {
-        PY_API_FUNC
-        PyObject *py_iter = nullptr;
-        PyObject *py_scope = nullptr;
-        const char * const kwlist[] = {"query", "scope", nullptr};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|", const_cast<char**>(kwlist), &py_iter, &py_scope)) {
-            return nullptr;
-        }
         
-        if (!PyObjectIterable_Check(py_iter)) {
-            THROWF(db0::InputException) << "Invalid argument type";
-        }
-        
-        auto &iter = reinterpret_cast<PyObjectIterable*>(py_iter)->modifyExt();
-        // py_scope must be a tuple with 1st element int
-        // and 2nd element string
-        if (!py_scope || !PyTuple_Check(py_scope) || PyTuple_Size(py_scope) != 2) {
-            THROWF(db0::InputException) << "Invalid argument type";
-        }
-
-        assert(py_scope);
-        PyObject *py_from_state = PyTuple_GetItem(py_scope, 0);
-        PyObject *py_to_state = PyTuple_GetItem(py_scope, 1);
-
-        StateNumType from_state;
-        std::optional<StateNumType> to_state;
-
-        if (PyLong_Check(py_from_state)) {
-            from_state = PyLong_AsUnsignedLong(py_from_state);
-        } else {
-            THROWF(db0::InputException) << "Invalid argument type";            
-        }
-        
-        if (PyLong_Check(py_to_state)) {
-            to_state = PyLong_AsUnsignedLong(py_to_state);
-        } else if (py_to_state != Py_None) {
-            THROWF(db0::InputException) << "Invalid argument type";            
-        }
-        
-        return runSafe(trySelectModCandidates, iter, from_state, to_state);
-    }
-    
     PyObject *tryGetConfig()
     {
         auto config = PyToolkit::getPyWorkspace().getConfig()->getRawConfig();
