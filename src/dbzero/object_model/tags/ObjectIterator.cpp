@@ -69,16 +69,21 @@ namespace db0::object_model
         }
     }
     
-    ObjectIterator::ObjectSharedPtr ObjectIterator::unload(Address address) const
+    ObjectIterator::ObjectSharedPtr ObjectIterator::unload(db0::swine_ptr<Fixture> &fixture, Address address) const
     {
-        auto fixture = getFixture();
+        // unload as typed if class is known
         if (m_type) {
-            // unload as typed if class is known
             return LangToolkit::unloadObject(fixture, address, m_type, m_lang_type.get());
         } else {
             // NOTE: lang type may be available even without the corresponding Class (e.g. MemoBase)
             return LangToolkit::unloadObject(fixture, address, m_class_factory, m_lang_type.get());
         }
+    }
+    
+    ObjectIterator::ObjectSharedPtr ObjectIterator::unload(Address address) const
+    {
+        auto fixture = getFixture();
+        return unload(fixture, address);
     }
         
 }

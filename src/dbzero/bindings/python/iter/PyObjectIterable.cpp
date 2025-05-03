@@ -16,7 +16,7 @@ namespace db0::python
     void PyObjectIterable_del(PyObjectIterable* self)
     {
         PY_API_FUNC
-        // destroy associated DB0 instance
+        // destroy associated db0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }

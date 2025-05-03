@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ObjectIterable.hpp"
+#include <vector>
 
 namespace db0::object_model
 
@@ -28,18 +29,30 @@ namespace db0::object_model
         /**
          * @param split_fixtures - a vector of fixtures to be used for the split
          */
-        SplitIterable(db0::swine_ptr<Fixture>, const std::vector<db0::swine_ptr<Fixture> > &split_fixtures, std::unique_ptr<QueryIterator> &&, 
+        SplitIterable(db0::swine_ptr<Fixture>, std::vector<db0::swine_ptr<Fixture> > &split_fixtures, std::unique_ptr<QueryIterator> &&, 
+            std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
+            const std::vector<FilterFunc> & = {});
+                
+        SplitIterable(db0::swine_ptr<Fixture>, std::vector<db0::swine_ptr<Fixture> > &split_fixtures, std::unique_ptr<SortedIterator> &&,
             std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {});
         
-        static ObjectIterable &makeNew(void *at_ptr, db0::swine_ptr<Fixture>, const std::vector<db0::swine_ptr<Fixture> > &split_fixtures, 
+        static SplitIterable &makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::vector<db0::swine_ptr<Fixture> > &split_fixtures,
             std::unique_ptr<QueryIterator> &&, std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, 
             std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {});
         
         ObjectIterator &makeIter(void *at_ptr, const std::vector<FilterFunc> & = {}) const override;
         
     private:
-        const std::vector<db0::swine_ptr<Fixture> > m_split_fixtures;
+        mutable std::vector<db0::weak_swine_ptr<Fixture> > m_split_fixtures;
+        
+        // iter constructor
+        SplitIterable(db0::swine_ptr<Fixture>, std::vector<db0::swine_ptr<Fixture> > &split_fixtures,
+            const ClassFactory &, std::unique_ptr<QueryIterator> &&, std::unique_ptr<SortedIterator> &&, std::shared_ptr<IteratorFactory>, 
+            std::vector<std::unique_ptr<QueryObserver> > &&, std::vector<FilterFunc> &&filters, std::shared_ptr<Class>, 
+            TypeObjectPtr lang_type, const SliceDef & = {});
+
+        void init(std::vector<db0::swine_ptr<Fixture> > &split_fixtures);
     };
     
 }

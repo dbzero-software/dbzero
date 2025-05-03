@@ -129,9 +129,12 @@ namespace db0::python
             std::vector<std::byte>::const_iterator end);
         
         static ObjectSharedPtr unloadByteArray(db0::swine_ptr<Fixture>, Address);
-
+        
         // Creates a new Python instance of EnumValue
         static ObjectSharedPtr makeEnumValue(const EnumValue &);
+        
+        // Create a tuple from a vector of objects
+        static ObjectSharedPtr makeTuple(const std::vector<ObjectSharedPtr> &);
         
         // generate UUID of a dbzero object
         static ObjectPtr getUUID(ObjectPtr py_object);

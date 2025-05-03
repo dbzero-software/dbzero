@@ -80,7 +80,8 @@ namespace db0::object_model
         Slice m_slice;
         
         // Unload object by address (must be from this iterator) skipping instance ID validation        
-        virtual ObjectSharedPtr unload(Address address) const;
+        virtual ObjectSharedPtr unload(Address) const;
+        ObjectSharedPtr unload(db0::swine_ptr<Fixture> &, Address) const;
     };
     
 }

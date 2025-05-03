@@ -565,5 +565,16 @@ namespace db0::python
     bool PyToolkit::isTag(ObjectPtr py_object) {
         return PyTag_Check(py_object);
     }
+    
+    PyToolkit::ObjectSharedPtr PyToolkit::makeTuple(const std::vector<ObjectSharedPtr> &values)
+    {
+        PyObject *result = PyTuple_New(values.size());
+        for (std::size_t i = 0; i < values.size(); ++i) {
+            auto item = values[i].get();
+            Py_INCREF(item);
+            PyTuple_SetItem(result, i, item);
+        }
+        return { result, false };
+    }
 
 }
