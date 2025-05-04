@@ -305,7 +305,7 @@ namespace db0::python
     {
         auto obj_iter = db0::object_model::ObjectIterator::deserialize(fixture, iter, end);
         auto py_iter = PyObjectIterableDefault_new();
-        ObjectIterable::makeNew(&(py_iter.get())->modifyExt(), std::move(*obj_iter));
+        py_iter->makeNew(std::move(*obj_iter));
         return shared_py_cast<PyObject*>(std::move(py_iter));
     }
     

@@ -23,6 +23,8 @@ namespace db0::object_model
         static constexpr std::size_t MAX_STOP() {
             return std::numeric_limits<std::size_t>::max();
         }
+        
+        SliceDef combineWith(const SliceDef &other) const;
     };
     
     class Slice

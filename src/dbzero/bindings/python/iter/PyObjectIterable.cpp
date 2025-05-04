@@ -69,7 +69,7 @@ namespace db0::python
         // getFixture to prevent segfault in case the associated context (e.g. snapshot) has been destroyed
         auto fixture = py_iterable->ext().getFixture();
         auto py_iter = PyObjectIteratorDefault_new();
-        py_iterable->ext().makeIter(&(py_iter.get()->modifyExt()));
+        py_iter->makeNew(py_iterable->ext());        
         return py_iter.steal();
     }
     
@@ -151,9 +151,9 @@ namespace db0::python
         if (py_iterable->ext().isSliced()) {
             THROWF(db0::InputException) << "Cannot slice an already sliced iterable (Operation not supported)";
         }
-
+        
         auto py_result = PyObjectIterableDefault_new();
-        py_iterable->ext().makeSlice(&(py_result.get()->modifyExt()), slice_def);
+        py_result->makeNew(py_iterable->ext(), slice_def);
         return py_result.steal();
     }
     

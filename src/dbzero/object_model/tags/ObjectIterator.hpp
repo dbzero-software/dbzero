@@ -39,6 +39,11 @@ namespace db0::object_model
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
             const std::vector<FilterFunc> & = {}, const SliceDef & = {});
         
+        // Construct iterator with additional filters
+        ObjectIterator(const ObjectIterable &, const std::vector<FilterFunc> & = {});
+                
+        virtual ~ObjectIterator() = default;
+
         /**
          * Retrieve next object from the iterator         
          * @return nullptr if end of iteration reached
@@ -54,8 +59,7 @@ namespace db0::object_model
         }
 
     protected:
-        friend class ObjectIterable;
-        std::unique_ptr<BaseIterator> m_base_iterator;
+        friend class ObjectIterable;        
         // iterator_ptr valid both in case of m_query_iterator and m_sorted_iterator
         BaseIterator *m_iterator_ptr = nullptr;
 
@@ -81,7 +85,7 @@ namespace db0::object_model
         
         // Unload object by address (must be from this iterator) skipping instance ID validation        
         virtual ObjectSharedPtr unload(Address) const;
-        ObjectSharedPtr unload(db0::swine_ptr<Fixture> &, Address) const;
+        ObjectSharedPtr unload(db0::swine_ptr<Fixture> &, Address) const;        
     };
     
 }

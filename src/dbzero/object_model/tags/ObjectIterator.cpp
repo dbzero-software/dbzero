@@ -32,6 +32,14 @@ namespace db0::object_model
     {
     }
     
+    ObjectIterator::ObjectIterator(const ObjectIterable &other, const std::vector<FilterFunc> &filters)
+        : ObjectIterable(other, filters)
+        , m_iterator_ptr(getIteratorPtr())
+        , m_decoration(std::move(m_query_observers))
+        , m_slice(m_iterator_ptr, m_slice_def)
+    {
+    }
+    
     ObjectIterator::Decoration::Decoration(std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
         : m_query_observers(std::move(query_observers))
         , m_decorators(m_query_observers.size())
@@ -85,5 +93,6 @@ namespace db0::object_model
         auto fixture = getFixture();
         return unload(fixture, address);
     }
-        
+
+
 }

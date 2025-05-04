@@ -29,8 +29,7 @@ namespace db0::python
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;
         auto query_iterator = tag_index.find(find_args.data(), find_args.size(), type, query_observers, no_result);
         auto iter_obj = PyObjectIterableDefault_new();
-        ObjectIterable::makeNew(&(iter_obj.get())->modifyExt(), fixture, std::move(query_iterator), type,
-            lang_type, std::move(query_observers));
+        iter_obj->makeNew(fixture, std::move(query_iterator), type, lang_type, std::move(query_observers));
         if (context) {
             (iter_obj.get())->ext().attachContext(context);
         }
@@ -73,8 +72,7 @@ namespace db0::python
         auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->modifyExt();
         auto split_query = splitBy(py_tags, iter, exclusive);
         auto py_iter = PyObjectIterableDefault_new();
-        iter.makeNew(&(py_iter.get())->modifyExt(), std::move(split_query.first), std::move(split_query.second),
-            iter.getFilters());
+        py_iter->makeNew(iter, std::move(split_query.first), std::move(split_query.second), iter.getFilters());
         return py_iter.steal();
     }
     
@@ -83,7 +81,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(trySplitBy, args, kwargs);
     }
-
+    
     PyObject *trySelectModCandidates(const ObjectIterable &iterable, StateNumType from_state,
         std::optional<StateNumType> to_state)
     {
@@ -102,8 +100,8 @@ namespace db0::python
             iterable.beginFTQuery(query_observers, -1), storage, from_state, *to_state
         );
         auto py_iter = PyObjectIterableDefault_new();
-        ObjectIterable::makeNew(&(py_iter.get())->modifyExt(), fixture, std::move(result_query), iterable.getType(),
-            iterable.getLangType(), {}, iterable.getFilters()
+        py_iter->makeNew(fixture, std::move(result_query), iterable.getType(), iterable.getLangType(), 
+            std::move(query_observers), iterable.getFilters()
         );
         return py_iter.steal();
     }
@@ -166,8 +164,8 @@ namespace db0::python
         }
 
         auto py_iter = PyObjectIterableDefault_new();
-        SplitIterable::makeNew(&(py_iter.get())->modifyExt(), fixture, split_fixtures, std::move(query), 
-            iter.getType(), iter.getLangType(), {}, iter.getFilters()
+        py_iter->makeNewAs<SplitIterable>(fixture, split_fixtures, std::move(query),  iter.getType(), iter.getLangType(), 
+            std::move(query_observers), iter.getFilters()
         );
         return py_iter.steal();
     }

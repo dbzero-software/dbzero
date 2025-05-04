@@ -795,7 +795,8 @@ namespace db0::python
         
         auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->modifyExt();
         auto py_iter = PyObjectIterableDefault_new();
-        iter.makeNewAppendFilters(&(py_iter.get())->modifyExt(), filters);
+        // create with added filters
+        py_iter->makeNew(iter, filters);
         return py_iter.steal();
     }
     

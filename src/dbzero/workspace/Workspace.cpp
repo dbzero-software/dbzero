@@ -242,7 +242,7 @@ namespace db0
     }
     
     Workspace::~Workspace()
-    {    
+    {
     }
     
     bool Workspace::close(const PrefixName &prefix_name)
@@ -289,11 +289,13 @@ namespace db0
         if (timer_ptr) {
             timer = std::make_unique<ProcessTimer>("Workspace::close", timer_ptr);
         }
-
+        
         // close associated workspace views
         for (auto &view_ptr : m_views) {
             if (auto ptr = view_ptr.lock()) {
-                ptr->close();
+                if (ptr) {
+                    ptr->close();
+                }
             }
         }
         m_views.clear();

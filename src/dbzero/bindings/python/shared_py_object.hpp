@@ -38,6 +38,10 @@ namespace db0::python
             return m_py_object;
         }
 
+        inline T operator->() const {
+            return m_py_object;
+        }
+        
         // bool cast
         inline operator bool() const {
             return m_py_object != nullptr;

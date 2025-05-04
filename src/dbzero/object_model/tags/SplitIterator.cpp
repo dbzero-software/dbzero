@@ -28,8 +28,9 @@ namespace db0::object_model
             m_split_fixtures.emplace_back(fixture);
         }
     }
-
-    ObjectIterator &SplitIterator::makeIter(void *at_ptr, const std::vector<FilterFunc> &filters) const
+    
+    /* FIXME: 
+    SplitIterator::SplitIterator(const SplitIterable &other, const std::vector<FilterFunc> &filters)
     {
         auto fixture = getFixture();
         std::vector<FilterFunc> new_filters(this->m_filters);
@@ -61,7 +62,8 @@ namespace db0::object_model
         return *new (at_ptr) SplitIterator(fixture, locked_fixtures, std::move(query_iterator), m_type, m_lang_type.get(),
             std::move(query_observers), new_filters, m_slice_def);
     }
-    
+    */
+        
     SplitIterator::ObjectSharedPtr SplitIterator::unload(Address address) const
     {
         if (m_temp.size() < m_split_fixtures.size()) {

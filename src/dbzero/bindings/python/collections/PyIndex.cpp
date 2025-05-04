@@ -144,7 +144,7 @@ namespace db0::python
         auto &iter = reinterpret_cast<PyObjectIterable*>(py_iter)->modifyExt();
         auto iter_sorted = index.sort(iter, asc, null_first);
         auto iter_obj = PyObjectIterableDefault_new();
-        iter.makeNew(&(iter_obj.get())->modifyExt(), std::move(iter_sorted), {}, iter.getFilters());
+        iter_obj->makeNew(iter, std::move(iter_sorted));
         return iter_obj.steal();
     }
     
@@ -159,7 +159,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryIndexObject_sort, py_index, args, kwargs);
     }
-
+    
     PyObject *tryIndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
         // optional low, optional high, optional null_first (boolean)
@@ -174,7 +174,7 @@ namespace db0::python
         // construct range iterator
         auto iter_factory = index.range(low, high, null_first);        
         auto py_iter_obj = PyObjectIterableDefault_new();
-        ObjectIterable::makeNew(&(py_iter_obj.get())->modifyExt(), index.getFixture(), std::move(iter_factory));
+        py_iter_obj->makeNew(index.getFixture(), std::move(iter_factory));
         return py_iter_obj.steal();
     }
 

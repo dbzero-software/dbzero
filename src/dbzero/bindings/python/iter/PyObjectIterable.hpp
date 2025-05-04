@@ -9,7 +9,7 @@ namespace db0::python
 {
 
     using ObjectIterable = db0::object_model::ObjectIterable;
-    using PyObjectIterable = PyWrapper<ObjectIterable, false>;
+    using PyObjectIterable = PySharedWrapper<ObjectIterable, false>;
     
     PyObjectIterable *PyObjectIterable_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<PyObjectIterable*> PyObjectIterableDefault_new();

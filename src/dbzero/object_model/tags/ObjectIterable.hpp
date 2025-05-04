@@ -59,13 +59,21 @@ namespace db0::object_model
             TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {});
         
+        // Construct with additional filters
+        ObjectIterable(const ObjectIterable &, const std::vector<FilterFunc> &);
+        
+        // Construct sliced
+        ObjectIterable(const ObjectIterable &, const SliceDef &);
+                
+        // Construct sorted
+        ObjectIterable(const ObjectIterable &, std::unique_ptr<SortedIterator> &&, std::vector<std::unique_ptr<QueryObserver> > && = {},
+            const std::vector<FilterFunc> & = {});
+        
+        ObjectIterable(const ObjectIterable &, std::unique_ptr<QueryIterator> &&, std::vector<std::unique_ptr<QueryObserver> > && = {},
+            const std::vector<FilterFunc> & = {});
+        
         virtual ~ObjectIterable() = default;
-        
-        // Start the iteration, possibly with the application of additional provided filters
-        virtual ObjectIterator &makeIter(void *at_ptr, const std::vector<FilterFunc> & = {}) const;
-        // Make sliced iterable
-        virtual ObjectIterable &makeSlice(void *at_ptr, const SliceDef &) const;
-        
+                
         // Begin from the underlying full-text iterator (or fail if initialized from a sorted iterator)
         // collect "rebased" query observers
         // NOTE: filters are not retained and must be handled separately
@@ -109,28 +117,6 @@ namespace db0::object_model
 
         // Get associated language specific type of the results if it was specified
         TypeObjectPtr getLangType() const;
-
-        static ObjectIterable &makeNew(void *at_ptr, ObjectIterable &&);
-
-        static ObjectIterable &makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::unique_ptr<QueryIterator> &&, 
-            std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
-            const std::vector<FilterFunc> & = {});
-
-        static ObjectIterable &makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::unique_ptr<SortedIterator> &&,
-            std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
-            const std::vector<FilterFunc> & = {});
-        
-        static ObjectIterable &makeNew(void *at_ptr, db0::swine_ptr<Fixture>, std::shared_ptr<IteratorFactory> factory, 
-            std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {}, 
-            const std::vector<FilterFunc> & = {});
-        
-        // Construct with additional filters
-        ObjectIterable &makeNewAppendFilters(void *at_ptr, const std::vector<FilterFunc> &) const;
-        // Construct sorted
-        ObjectIterable &makeNew(void *at_ptr, std::unique_ptr<SortedIterator> &&, std::vector<std::unique_ptr<QueryObserver> > && = {},
-            const std::vector<FilterFunc> & = {}) const;
-        ObjectIterable &makeNew(void *at_ptr, std::unique_ptr<QueryIterator> &&, std::vector<std::unique_ptr<QueryObserver> > && = {},
-            const std::vector<FilterFunc> & = {}) const;
         
         // NOTE: ObjectIterable might be related with a specific context / scope (e.g. snapshot)
         // to prevend context deletion before the query, it's important to attach it
@@ -144,7 +130,7 @@ namespace db0::object_model
         std::unique_ptr<SortedIterator> m_sorted_iterator;
         std::shared_ptr<IteratorFactory> m_factory;
         std::vector<std::unique_ptr<QueryObserver> > m_query_observers;
-        const std::vector<FilterFunc> m_filters;
+        std::vector<FilterFunc> m_filters;
         std::shared_ptr<Class> m_type = nullptr;
         TypeObjectSharedPtr m_lang_type = nullptr;
         const SliceDef m_slice_def = {};
@@ -156,7 +142,9 @@ namespace db0::object_model
             std::vector<FilterFunc> &&filters, std::shared_ptr<Class>, TypeObjectPtr lang_type, const SliceDef & = {});
         
         // get the base iterator, possibly initialized from the factory
-        const BaseIterator &getBaseIterator(std::unique_ptr<BaseIterator> &) const;
+        const BaseIterator &getBaseIterator(std::unique_ptr<BaseIterator> &) const;        
+        // retrieve pointer to the already initialized iterator
+        BaseIterator *getIteratorPtr() const;
     };
     
 }

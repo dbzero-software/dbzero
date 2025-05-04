@@ -1,5 +1,5 @@
 import dbzero_ce as db0
-from .dbzero_ce import _select_mod_candidates
+from .dbzero_ce import _select_mod_candidates, _split_by_snapshots
 
 
 def __prepare_context(context, query, from_state: int, to_state: int = None):
@@ -57,12 +57,16 @@ def select_modified(query, context, from_state: int, to_state: int = None, compa
         return []
 
     __prepare_context(context, query, from_state, to_state)
+    pre_snap, post_snap = context.pre_snap, context.post_snap
     query_data = db0.serialize(query)
-    pre_query = context.pre_snap.deserialize(query_data)
+    pre_query = pre_snap.deserialize(query_data)
     
-    post_query = context.post_snap.deserialize(query_data)
+    post_query = post_snap.deserialize(query_data)
     post_mod = _select_mod_candidates(post_query, (from_state, to_state))
     
     # NOTE: created objects are not reported (only the ones existing in the pre-snapshot)
-    # FIXME: must compare objects to identify modified
-    return context.post_snap.find(post_mod, pre_query)
+    # NOTE: _split_by_snapshots returns tuples from both pre- and post-snapshots
+    # return post_snap.find(post_mod, pre_query)
+    
+    # FIXME: 
+    return _split_by_snapshots(post_snap.find(post_mod, pre_query), post_snap, pre_snap)

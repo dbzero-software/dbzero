@@ -23,8 +23,6 @@ namespace db0::object_model
             std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {}, 
             const SliceDef & = {});
         
-        ObjectIterator &makeIter(void *at_ptr, const std::vector<FilterFunc> & = {}) const override;
-        
     protected:
         // unloads from all split fixtures (as a tuple)
         ObjectSharedPtr unload(Address) const override;

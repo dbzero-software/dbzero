@@ -55,10 +55,7 @@ namespace db0
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
 
     private:
-        bool m_closed = false;
-        std::shared_ptr<Workspace> m_workspace;
-        Workspace *m_workspace_ptr;
-        const std::optional<std::uint64_t> m_default_uuid;
+        bool m_closed = false;        
         // user requested state numbers by prefix name
         std::unordered_map<std::string, std::uint64_t> m_prefix_state_nums;
         // fixture snapshots by UUID
@@ -69,6 +66,9 @@ namespace db0
         mutable std::unordered_map<std::uint64_t, std::uint64_t> m_state_nums;
         // a WorkspaceView maintains a private LangCache instance
         std::shared_ptr<LangCache> m_lang_cache;
+        std::shared_ptr<Workspace> m_workspace;
+        Workspace *m_workspace_ptr;
+        const std::optional<std::uint64_t> m_default_uuid;
         
         WorkspaceView(std::shared_ptr<Workspace>, Workspace *workspace_ptr, std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
