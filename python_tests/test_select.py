@@ -45,12 +45,28 @@ def test_select_modified_does_not_include_created(db0_fixture, memo_tags):
         assert _obj != obj_x
 
 
+def test_select_modified_without_filter_returns_tuples(db0_fixture, memo_tags):
+    db0.commit()
+    # modify 1 object in a separate transaction
+    obj_1 = next(iter(db0.find(MemoTestClass, "tag1")))
+    obj_1.value = 99999
+    db0.commit()
+    state_2 = db0.get_state_num(finalized = True)
+    context = lambda: None
+    count = 0
+    for ver_1, ver_2 in db0.select_modified(db0.find(MemoTestClass), context, state_2):
+        assert ver_1.value is not None
+        assert ver_2.value is not None        
+        count += 1
+    
+    assert count > 0
+    
+    
 def test_select_modified_with_custom_filter(db0_fixture, memo_tags):
     def _compare(obj_1, obj_2):
         return obj_1.value == obj_2.value
     
     db0.commit()
-    state_1 = db0.get_state_num(finalized = True)
     # modify 1 object in a separate transaction
     obj_1 = next(iter(db0.find(MemoTestClass, "tag1")))
     obj_1.value = 99999
@@ -58,8 +74,6 @@ def test_select_modified_with_custom_filter(db0_fixture, memo_tags):
     state_2 = db0.get_state_num(finalized = True)
     context = lambda: None
     query = db0.select_modified(db0.find(MemoTestClass), context, state_2, compare_with = _compare)
-    for obj in query:
-        print(obj)    
     assert len(query) == 1
     assert next(iter(query)).value == 99999
     

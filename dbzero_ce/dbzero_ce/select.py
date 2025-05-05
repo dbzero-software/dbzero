@@ -66,13 +66,9 @@ class ModIterator:
 
 class ModIterable:
     def __init__(self, query, compare_with):
-        # FIXME: log
-        print("ModIterable")
-        for obj in query:
-            print(obj)        
         self.__query = query
         self.__compare_with = compare_with
-
+    
     def __iter__(self):
         return ModIterator(self.__query, self.__compare_with)
     
@@ -107,12 +103,9 @@ def select_modified(query, context, from_state: int, to_state: int = None, compa
     
     # NOTE: created objects are not reported (only the ones existing in the pre-snapshot)
     query = post_snap.find(post_mod, pre_query)
-    # if compare_with:
-    #     # NOTE: _split_by_snapshots returns tuples from both pre- and post-snapshots
-    #     return ModIterable(_split_by_snapshots(query, post_snap, pre_snap), compare_with)
+    if compare_with:
+        # NOTE: _split_by_snapshots returns tuples from both pre- and post-snapshots
+        return ModIterable(_split_by_snapshots(query, post_snap, pre_snap), compare_with)
     
-    # return query
-    
-    # FIXME: log
     return _split_by_snapshots(query, post_snap, pre_snap)
     

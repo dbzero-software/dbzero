@@ -130,8 +130,8 @@ namespace db0::python
         assert(py_scope);
         PyObject *py_from_state = PyTuple_GetItem(py_scope, 0);
         PyObject *py_to_state = PyTuple_GetItem(py_scope, 1);
-
-        StateNumType from_state;
+        
+        StateNumType from_state = 0;
         std::optional<StateNumType> to_state;
 
         if (PyLong_Check(py_from_state)) {
