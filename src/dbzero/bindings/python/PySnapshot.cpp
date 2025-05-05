@@ -28,13 +28,13 @@ namespace db0::python
     }
     
     void PyAPI_PySnapshot_del(PySnapshotObject* snapshot_obj)
-    {
+    {        
         // NOTE: it's safe to destroy without API lock (not a v_object)
-        // also API lock here would result in a deadlock
+        // also API lock here would result in a deadlock        
         snapshot_obj->destroy();
         Py_TYPE(snapshot_obj)->tp_free((PyObject*)snapshot_obj);
     }
-
+    
     PyTypeObject PySnapshotObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "Snapshot",

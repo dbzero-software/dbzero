@@ -1,4 +1,5 @@
 #include "SplitIterator.hpp"
+#include <dbzero/object_model/class/ClassFactory.hpp>
 
 namespace db0::object_model
 
@@ -22,62 +23,51 @@ namespace db0::object_model
         init(split_fixtures);
     }
     
+    SplitIterator::~SplitIterator()
+    {
+    }
+    
     void SplitIterator::init(std::vector<db0::swine_ptr<Fixture> > &split_fixtures)
     {
         for (auto &fixture : split_fixtures) {
             m_split_fixtures.emplace_back(fixture);
+            m_class_factories.emplace_back(&fixture->get<ClassFactory>());
         }
     }
     
-    /* FIXME: 
-    SplitIterator::SplitIterator(const SplitIterable &other, const std::vector<FilterFunc> &filters)
+    SplitIterator::SplitIterator(const SplitIterable &other)
+        : ObjectIterator(other)
+        , m_split_fixtures(other.m_split_fixtures)        
     {
-        auto fixture = getFixture();
-        std::vector<FilterFunc> new_filters(this->m_filters);
-        new_filters.insert(new_filters.end(), filters.begin(), filters.end());
-        
-        std::vector<db0::swine_ptr<Fixture> > locked_fixtures;
         for (auto &weak_fixture : m_split_fixtures) {
             auto fixture = weak_fixture.lock();
             if (!fixture) {
-                THROWF(db0::InputException) << "ObjectIterator is no longer accessible (prefix or snapshot closed)" << THROWF_END;
+                THROWF(db0::InputException)
+                    << "ObjectIterator is no longer accessible (prefix or snapshot closed)" << THROWF_END;
             }
-            locked_fixtures.emplace_back(fixture);
+            m_class_factories.emplace_back(&fixture->get<ClassFactory>());
         }
-
-        // no query observers for sorted iterator
-        if (m_sorted_iterator) {
-            auto sorted_iterator = beginSorted();
-            return *new (at_ptr) SplitIterator(fixture, locked_fixtures, std::move(sorted_iterator), m_type, 
-                m_lang_type.get(), {}, new_filters, m_slice_def);
-        }
-        
-        std::unique_ptr<QueryIterator> query_iterator;
-        // note that query observers are not collected for the sorted iterator
-        std::vector<std::unique_ptr<QueryObserver> > query_observers;
-        if (m_query_iterator || m_factory) {
-            query_iterator = beginFTQuery(query_observers, -1);
-        }
-        // query observers are not collected for the sorted iterator       
-        return *new (at_ptr) SplitIterator(fixture, locked_fixtures, std::move(query_iterator), m_type, m_lang_type.get(),
-            std::move(query_observers), new_filters, m_slice_def);
     }
-    */
-        
+    
     SplitIterator::ObjectSharedPtr SplitIterator::unload(Address address) const
-    {
-        if (m_temp.size() < m_split_fixtures.size()) {
+    {           
+        if (m_temp.size() != m_split_fixtures.size()) {
             m_temp.resize(m_split_fixtures.size());
-        }
+        }        
+        
         for (std::size_t i = 0; i < m_split_fixtures.size(); ++i) {
             auto fixture = m_split_fixtures[i].lock();
             if (!fixture) {
-                THROWF(db0::InputException) << "ObjectIterator is no longer accessible (prefix or snapshot closed)" << THROWF_END;
+                THROWF(db0::InputException)
+                    << "ObjectIterator is no longer accessible (prefix or snapshot closed)" << THROWF_END;
             }
-            m_temp[i] = ObjectIterator::unload(fixture, address);
+            
+            auto &class_factory = *m_class_factories[i];
+            // NOTE: unload using fixture-specific class factory
+            m_temp[i] = LangToolkit::unloadObject(fixture, address, class_factory, m_lang_type.get());
         }
         
-        return LangToolkit::makeTuple(m_temp);
+        return LangToolkit::makeTuple(std::move(m_temp));
     }
-
+    
 }

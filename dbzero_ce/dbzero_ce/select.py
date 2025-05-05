@@ -47,6 +47,47 @@ def select_deleted(query, context, from_state: int, to_state: int = None):
     )
 
 
+class ModIterator:
+    def __init__(self, query, compare_with):
+        self.__query = query
+        self.__compare_with = compare_with
+        self.__iter = iter(self.__query)
+    
+    def __iter__(self):
+        return ModIterator(self.__query, self.__compare_with)
+
+    def __next__(self):
+        while True:
+            obj_1, obj_2 = next(self.__iter)
+            if not self.__compare_with(obj_1, obj_2):
+                # return the latest version of the object if they differ
+                return obj_1
+
+
+class ModIterable:
+    def __init__(self, query, compare_with):
+        # FIXME: log
+        print("ModIterable")
+        for obj in query:
+            print(obj)        
+        self.__query = query
+        self.__compare_with = compare_with
+
+    def __iter__(self):
+        return ModIterator(self.__query, self.__compare_with)
+    
+    def __len__(self):
+        size = 0
+        my_iter = iter(self)
+        while True:
+            try:
+                next(my_iter)
+                size += 1
+            except StopIteration:
+                break
+        return size
+    
+
 def select_modified(query, context, from_state: int, to_state: int = None, compare_with = None):
     """
     Refines the query to include only objects which were modified within the given state range (scope)
@@ -65,8 +106,13 @@ def select_modified(query, context, from_state: int, to_state: int = None, compa
     post_mod = _select_mod_candidates(post_query, (from_state, to_state))
     
     # NOTE: created objects are not reported (only the ones existing in the pre-snapshot)
-    # NOTE: _split_by_snapshots returns tuples from both pre- and post-snapshots
-    # return post_snap.find(post_mod, pre_query)
+    query = post_snap.find(post_mod, pre_query)
+    # if compare_with:
+    #     # NOTE: _split_by_snapshots returns tuples from both pre- and post-snapshots
+    #     return ModIterable(_split_by_snapshots(query, post_snap, pre_snap), compare_with)
     
-    # FIXME: 
-    return _split_by_snapshots(post_snap.find(post_mod, pre_query), post_snap, pre_snap)
+    # return query
+    
+    # FIXME: log
+    return _split_by_snapshots(query, post_snap, pre_snap)
+    

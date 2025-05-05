@@ -7,6 +7,8 @@ namespace db0::object_model
 
 {
     
+    class ClassFactory;
+    
     class SplitIterator: public ObjectIterator
     {   
     public:
@@ -23,12 +25,18 @@ namespace db0::object_model
             std::vector<std::unique_ptr<QueryObserver> > && = {}, const std::vector<FilterFunc> & = {}, 
             const SliceDef & = {});
         
+        SplitIterator(const SplitIterable &);
+        
+        virtual ~SplitIterator();
+        
     protected:
         // unloads from all split fixtures (as a tuple)
         ObjectSharedPtr unload(Address) const override;
         
     private:
         mutable std::vector<db0::weak_swine_ptr<Fixture> > m_split_fixtures;
+        // split-fixture specific class factories (only valid with the split fixture)
+        mutable std::vector<const ClassFactory*> m_class_factories;
         // a temporary buffer for results
         mutable std::vector<ObjectSharedPtr> m_temp;
         

@@ -67,7 +67,7 @@ namespace db0::object_model
         , m_lang_type(lang_type)    
     {
     }
-    
+
     ObjectIterable::ObjectIterable(db0::swine_ptr<Fixture> fixture, const ClassFactory &class_factory,
         std::unique_ptr<QueryIterator> &&ft_query_iterator, std::unique_ptr<SortedIterator> &&sorted_iterator, 
         std::shared_ptr<IteratorFactory> factory, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
@@ -122,7 +122,7 @@ namespace db0::object_model
             m_query_iterator = other.beginFTQuery(m_query_observers, -1);
         } else if (other.m_sorted_iterator) {
             m_sorted_iterator = other.m_sorted_iterator->beginSorted();
-        }        
+        }
     }
 
     ObjectIterable::ObjectIterable(const ObjectIterable &other, std::unique_ptr<SortedIterator> &&sorted_iterator, 
@@ -133,11 +133,12 @@ namespace db0::object_model
         // NOTE: iterator factory not passed, it's use forbidden with sorted iterators
         , m_factory(nullptr)
         , m_query_observers(std::move(query_observers))
-        , m_filters(filters)
+        , m_filters(other.m_filters)
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
     {
+        m_filters.insert(m_filters.end(), filters.begin(), filters.end());
     }
     
     ObjectIterable::ObjectIterable(const ObjectIterable &other, std::unique_ptr<QueryIterator> &&query_iterator,
@@ -147,10 +148,15 @@ namespace db0::object_model
         , m_query_iterator(std::move(query_iterator))        
         , m_factory(other.m_factory)
         , m_query_observers(std::move(query_observers))
-        , m_filters(filters)
+        , m_filters(other.m_filters)
         , m_type(other.m_type)
         , m_lang_type(other.m_lang_type)
         , m_slice_def(other.m_slice_def)
+    {
+        m_filters.insert(m_filters.end(), filters.begin(), filters.end());
+    }
+    
+    ObjectIterable::~ObjectIterable()
     {
     }
     
@@ -359,7 +365,7 @@ namespace db0::object_model
     void ObjectIterable::attachContext(ObjectPtr lang_context) const {
         m_lang_context = lang_context;
     }
-
+    
     std::shared_ptr<Class> ObjectIterable::getType() const {
         return m_type;
     }
@@ -376,5 +382,9 @@ namespace db0::object_model
             return m_query_iterator.get();
         }
     }
-
+    
+    std::shared_ptr<ObjectIterator> ObjectIterable::iter() const {
+        return std::make_shared<ObjectIterator>(*this);
+    }
+    
 }

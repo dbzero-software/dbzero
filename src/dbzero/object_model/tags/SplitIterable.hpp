@@ -37,7 +37,12 @@ namespace db0::object_model
             std::shared_ptr<Class> = nullptr, TypeObjectPtr lang_type = nullptr, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {});
         
-    private:
+        virtual ~SplitIterable();
+        
+        std::shared_ptr<ObjectIterator> iter() const override;
+        
+    protected:
+        friend class SplitIterator;
         mutable std::vector<db0::weak_swine_ptr<Fixture> > m_split_fixtures;
         
         // iter constructor

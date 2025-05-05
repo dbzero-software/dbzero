@@ -577,4 +577,13 @@ namespace db0::python
         return { result, false };
     }
 
+    PyToolkit::ObjectSharedPtr PyToolkit::makeTuple(std::vector<ObjectSharedPtr> &&values)
+    {
+        PyObject *result = PyTuple_New(values.size());
+        for (std::size_t i = 0; i < values.size(); ++i) {
+            PyTuple_SetItem(result, i, values[i].steal());
+        }
+        return { result, false };
+    }
+    
 }

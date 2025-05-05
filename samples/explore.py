@@ -15,8 +15,6 @@ def values_of(obj, attr_names):
             # cast to MemoBase if a specific model type is not known (e.g. missing import)
             return db0.getattr_as(obj, attr_name, db0.MemoBase)
         except AttributeError as e:
-            # FIXME: log
-            print(e)
             return None
     return [db0.uuid(obj)] + [safe_attr(obj, attr_name) for attr_name in attr_names]
     
@@ -26,9 +24,6 @@ def values_of_memo_base(obj, attr_names):
         try:            
             return db0.getattr_as(obj, attr_name, db0.MemoBase)
         except AttributeError as e:
-            # FIXME: log
-            print(e)
-            print(db0.describe(obj))
             return None
     return [db0.uuid(obj)] + [safe_attr(obj, attr_name) for attr_name in attr_names]
 

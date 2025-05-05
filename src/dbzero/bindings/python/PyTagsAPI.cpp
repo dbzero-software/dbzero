@@ -162,7 +162,7 @@ namespace db0::python
             assert(fixture);
             split_fixtures.push_back(fixture);
         }
-
+        
         auto py_iter = PyObjectIterableDefault_new();
         py_iter->makeNewAs<SplitIterable>(fixture, split_fixtures, std::move(query),  iter.getType(), iter.getLangType(), 
             std::move(query_observers), iter.getFilters()

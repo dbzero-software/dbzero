@@ -18,8 +18,7 @@ namespace db0::python
     
     void PyObjectIterator_del(PyObjectIterator* self)
     {
-        PY_API_FUNC
-        // destroy associated DB0 instance
+        // destroy associated db0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
     }
@@ -77,7 +76,7 @@ namespace db0::python
     
     PyTypeObject PyObjectIteratorType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "ObjectIterator",
+        .tp_name = "ObjectIterator",        
         .tp_basicsize = PyObjectIterator::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObjectIterator_del,

@@ -83,7 +83,6 @@ namespace db0::object_model
         if (m_type) {
             return LangToolkit::unloadObject(fixture, address, m_type, m_lang_type.get());
         } else {
-            // NOTE: lang type may be available even without the corresponding Class (e.g. MemoBase)
             return LangToolkit::unloadObject(fixture, address, m_class_factory, m_lang_type.get());
         }
     }

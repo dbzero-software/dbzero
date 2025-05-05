@@ -72,8 +72,10 @@ namespace db0::object_model
         ObjectIterable(const ObjectIterable &, std::unique_ptr<QueryIterator> &&, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {});
         
-        virtual ~ObjectIterable() = default;
-                
+        virtual ~ObjectIterable();
+        
+        virtual std::shared_ptr<ObjectIterator> iter() const;
+
         // Begin from the underlying full-text iterator (or fail if initialized from a sorted iterator)
         // collect "rebased" query observers
         // NOTE: filters are not retained and must be handled separately

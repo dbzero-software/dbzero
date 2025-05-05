@@ -15,7 +15,6 @@ namespace db0::python
     
     void PyObjectIterable_del(PyObjectIterable* self)
     {
-        PY_API_FUNC
         // destroy associated db0 instance
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
@@ -69,7 +68,7 @@ namespace db0::python
         // getFixture to prevent segfault in case the associated context (e.g. snapshot) has been destroyed
         auto fixture = py_iterable->ext().getFixture();
         auto py_iter = PyObjectIteratorDefault_new();
-        py_iter->makeNew(py_iterable->ext());        
+        py_iter->makeNew(py_iterable->ext().iter());
         return py_iter.steal();
     }
     
@@ -177,7 +176,7 @@ namespace db0::python
     
     PyTypeObject PyObjectIterableType = {
         PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "ObjectIterable",
+        .tp_name = "ObjectIterable",        
         .tp_basicsize = PyObjectIterable::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObjectIterable_del,

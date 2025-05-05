@@ -32,12 +32,20 @@ namespace db0::object_model
     {
         init(split_fixtures);
     }
-
+    
+    SplitIterable::~SplitIterable()
+    {
+    }
+    
     void SplitIterable::init(std::vector<db0::swine_ptr<Fixture> > &split_fixtures)
     {
         for (auto &fixture : split_fixtures) {
             m_split_fixtures.emplace_back(fixture);
         }
     }
-        
+    
+    std::shared_ptr<ObjectIterator> SplitIterable::iter() const {
+        return std::make_shared<SplitIterator>(*this);
+    }
+    
 }
