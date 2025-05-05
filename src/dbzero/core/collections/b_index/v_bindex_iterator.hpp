@@ -223,7 +223,7 @@ namespace db0
                 return m_data_buf->front();
             }
 
-            inline item_t &modify() 
+            inline item_t &modify()
             {
                 assert(m_it_data);
                 auto index = m_data_buf->getItemIndex(m_it_data);
@@ -255,7 +255,7 @@ namespace db0
                 return false;
             }        
 
-            std::uint64_t getAddress() const {
+            Address getAddress() const {
                 return m_data_buf.getAddress();
             }
 

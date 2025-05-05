@@ -6,6 +6,7 @@
 #include "FT_IteratorBase.hpp"
 #include "FT_IteratorFactory.hpp"
 #include "IteratorGroup.hpp"
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0
 
@@ -181,11 +182,17 @@ namespace db0
             --(*it);
         }
     }
-    
+
     extern template class FT_JoinANDIterator<std::uint64_t, false>;
     extern template class FT_JoinANDIterator<std::uint64_t, true>;
 
+    extern template class FT_JoinANDIterator<UniqueAddress, false>;
+    extern template class FT_JoinANDIterator<UniqueAddress, true>;
+
     extern template class FT_ANDIteratorFactory<std::uint64_t, false>;
     extern template class FT_ANDIteratorFactory<std::uint64_t, true>;
+
+    extern template class FT_ANDIteratorFactory<UniqueAddress, false>;
+    extern template class FT_ANDIteratorFactory<UniqueAddress, true>;
 
 }

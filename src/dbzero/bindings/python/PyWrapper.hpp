@@ -96,6 +96,10 @@ namespace db0::python
             Shared<T>::makeNew(&super_t::modifyExt(), std::make_shared<T>(std::forward<Args>(args)...));
         }
         
+        template <typename AsType, typename... Args> void makeNewAs(Args &&...args) {
+            Shared<T>::makeNew(&super_t::modifyExt(), std::make_shared<AsType>(std::forward<Args>(args)...));
+        }
+
         void makeNew(std::shared_ptr<T> ptr) {
             // note, here we don't call modifyExt, as the instance is already created
             Shared<T>::makeNew((void*)&super_t::ext(), ptr);

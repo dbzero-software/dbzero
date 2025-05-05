@@ -12,6 +12,7 @@
 #include <dbzero/core/utils/FlagSet.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
+#include <dbzero/object_model/value/Value.hpp>
 #include <dbzero/workspace/GC0.hpp>
 
 namespace db0
@@ -56,8 +57,7 @@ namespace db0::object_model
         LP_String m_prefix_name;
         db0_ptr<VFieldVector> m_members_ptr;
         ClassFlags m_flags;
-        // language specific class type
-        std::uint64_t m_singleton_address = 0;
+        UniqueAddress m_singleton_address = {};
         const std::uint32_t m_base_class_ref;
         // unused, reserved for future purposes
         std::array<std::uint64_t, 4> m_reserved;
@@ -90,7 +90,7 @@ namespace db0::object_model
         };
         
         // Pull existing type
-        Class(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        Class(db0::swine_ptr<Fixture> &, Address address);
         ~Class();
 
         // set the model field names
@@ -145,7 +145,7 @@ namespace db0::object_model
 
         void setSingletonAddress(Object &);
 
-        std::uint64_t getSingletonAddress() const;
+        Address getSingletonAddress() const;
 
         void commit();
 

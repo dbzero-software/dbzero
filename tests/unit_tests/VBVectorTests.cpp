@@ -115,9 +115,9 @@ namespace tests
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         // create virtualized b-vector object
-        std::uint64_t ptr_vector = 0;
+        Address ptr_vector = {};
         {
-            v_bvector<b_item<>, std::uint64_t> cut(memspace);
+            v_bvector<b_item<>, Address> cut(memspace);
             for (int i = 0;i < 512;++i) {
                 cut.setItem(i, i);
             }
@@ -126,9 +126,9 @@ namespace tests
         }
         // iterate part of existing data structure
         {
-            v_bvector<b_item<>, std::uint64_t> _bv(memspace.myPtr(ptr_vector));
-            v_bvector<b_item<>, std::uint64_t>::const_iterator it0 = _bv.begin(129);
-            v_bvector<b_item<>, std::uint64_t>::const_iterator it1 = _bv.begin(214);
+            v_bvector<b_item<>, Address> _bv(memspace.myPtr(ptr_vector));
+            v_bvector<b_item<>, Address>::const_iterator it0 = _bv.begin(129);
+            v_bvector<b_item<>, Address>::const_iterator it1 = _bv.begin(214);
             auto i = 129;
             while (i < 193) {
                 ASSERT_EQ((*it0).m_key, i);
@@ -150,7 +150,7 @@ namespace tests
     TEST_F( VBVectorTests , LONG_testVBVectorInsertModifyAndPopBack) 
     {
         using item_type = b_item<>;
-        using b_vector_type = v_bvector<item_type, std::uint64_t>;
+        using b_vector_type = v_bvector<item_type, Address>;
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         // create b-vector object
         {
@@ -160,7 +160,7 @@ namespace tests
             cut.setItem(12, 44);
             ASSERT_EQ(13u, cut.size() );
         }        
-        std::uint64_t ptr_b_vector = 0;
+        Address ptr_b_vector = {};
         {
             b_vector_type cut(memspace);
             cut.setItem(28, 44);
@@ -260,7 +260,7 @@ namespace tests
             // pop_back all remaining items
             _bv.pop_back(1);
             ASSERT_EQ( 0u, _bv.size());
-            ASSERT_TRUE(_bv->m_ptr_root == 0u);
+            ASSERT_TRUE(_bv->m_ptr_root.getOffset() == 0u);
         }
     }
 
@@ -278,8 +278,7 @@ namespace tests
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         v_bvector<std::uint32_t> v(memspace);
-        for (int i = 7; i <= 16; ++i)
-        {
+        for (int i = 7; i <= 16; ++i) {
             v.push_back(i);
         }
 
@@ -289,8 +288,7 @@ namespace tests
         ASSERT_EQ(16, v.size());
 
         auto it = v.begin();
-        for (auto i = 1; i <=16; ++i, ++it)
-        {
+        for (auto i = 1; i <=16; ++i, ++it) {
             ASSERT_EQ(i, *it);
         }
     }
@@ -299,8 +297,7 @@ namespace tests
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         v_bvector<std::uint32_t> v(memspace);
-        for (int i = 13; i <= 16; ++i)
-        {
+        for (int i = 13; i <= 16; ++i) {
             v.push_back(i);
         }
 
@@ -310,8 +307,7 @@ namespace tests
         ASSERT_EQ(16, v.size());
 
         auto it = v.begin();
-        for (auto i = 1; i <=16; ++i, ++it)
-        {
+        for (auto i = 1; i <=16; ++i, ++it) {
             ASSERT_EQ(i, *it);
         }
     }
@@ -321,13 +317,11 @@ namespace tests
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         v_bvector<std::uint32_t> v(memspace);
 
-        for (int i = 1; i <= 3; ++i)
-        {
+        for (int i = 1; i <= 3; ++i) {
             v.push_back(i);
         }
 
-        for (int i = 11; i <= 16; ++i)
-        {
+        for (int i = 11; i <= 16; ++i) {
             v.push_back(i);
         }
 
@@ -335,11 +329,8 @@ namespace tests
         v.push_at(3, to_insert.begin(), to_insert.end());
 
         ASSERT_EQ(16, v.size());
-
         auto it = v.begin();
-
-        for(auto i = 1; i <=16; ++i, ++it)
-        {
+        for (auto i = 1; i <=16; ++i, ++it) {
             ASSERT_EQ(i, *it);
         }
     }
@@ -349,13 +340,11 @@ namespace tests
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         v_bvector<std::uint32_t> v(memspace);
 
-        for(int i = 1; i <= 4; ++i)
-        {
+        for (int i = 1; i <= 4; ++i) {
             v.push_back(i);
         }
 
-        for(int i = 14; i <= 16; ++i)
-        {
+        for (int i = 14; i <= 16; ++i) {
             v.push_back(i);
         }
 
@@ -363,11 +352,8 @@ namespace tests
         v.push_at(4, to_insert.begin(), to_insert.end());
 
         ASSERT_EQ(16, v.size());
-
         auto it = v.begin();
-
-        for(auto i = 1; i <=16; ++i, ++it)
-        {
+        for (auto i = 1; i <=16; ++i, ++it) {
             ASSERT_EQ(i, *it);
         }
     }
@@ -377,8 +363,7 @@ namespace tests
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         v_bvector<std::uint32_t> v(memspace);
 
-        for (int i = 1; i <= 9; ++i)
-        {
+        for (int i = 1; i <= 9; ++i) {
             v.push_back(i);
         }
 
@@ -386,14 +371,12 @@ namespace tests
         v.push_at(9, to_insert.begin(), to_insert.end());
 
         ASSERT_EQ(16, v.size());
-
         auto it = v.begin();
-        for(auto i = 1; i <=16; ++i, ++it)
-        {
+        for(auto i = 1; i <=16; ++i, ++it) {
             ASSERT_EQ(i, *it);
         }
     }
-
+    
     TEST_F( VBVectorTests , VBVectorPushAtQuickTest) 
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
@@ -739,7 +722,7 @@ namespace tests
     TEST_F( VBVectorTests, testVBVectorUseAfterClear )
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-        std::uint64_t addr = 0;
+        Address addr = {};
         {
             db0::v_bvector<int> cut(memspace);
             addr = cut.getAddress();
@@ -774,7 +757,7 @@ namespace tests
     TEST_F( VBVectorTests, testVBVectorGrowBy1AfterInstanceRelease )
     {
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
-        std::uint64_t addr = 0;
+        Address addr = {};
         {
             db0::v_bvector<int> cut(memspace);
             addr = cut.getAddress();

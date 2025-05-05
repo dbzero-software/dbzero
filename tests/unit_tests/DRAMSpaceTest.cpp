@@ -126,8 +126,8 @@ namespace tests
         DRAM_Allocator cut(allocs, 1);
         // call free to make sure all allocs have been taken
         for (auto addr: allocs) {
-            ASSERT_NO_THROW(cut.free(addr));
+            ASSERT_NO_THROW(cut.free(Address::fromOffset(addr)));
         }
     }
-
+    
 }

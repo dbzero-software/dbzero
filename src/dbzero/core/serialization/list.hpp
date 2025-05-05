@@ -47,13 +47,11 @@ namespace db0
         /** Measure empty list
          *
          */
-        static std::size_t measure()
-        {
+        static std::size_t measure() {
             return self_t::measureMembers();
         }
 
-        static std::size_t measure(const self_t &other)
-        {
+        static std::size_t measure(const self_t &other) {
             return other.sizeOf();
         }
 
@@ -69,8 +67,7 @@ namespace db0
             return meter;
         }
         
-        std::size_t sizeOf () const
-        {
+        std::size_t sizeOf () const {
             return static_cast<std::size_t>(size_of);
         }
         
@@ -85,13 +82,11 @@ namespace db0
             return meter;
         }
         
-        inline std::uint32_t size() const
-        {
+        inline std::uint32_t size() const {
             return this->count;
         }
         
-        bool empty() const
-        {
+        bool empty() const {
             return this->count==0;
         }
 
@@ -105,13 +100,11 @@ namespace db0
             {
             }
             
-            const T *operator->() const
-            {
+            const T *operator->() const {
                 return this->item;
             }
             
-            const T &operator*() const
-            {
+            const T &operator*() const {
                 return *this->item;
             }
             
@@ -121,13 +114,11 @@ namespace db0
                 return *this;
             }
             
-            bool operator==(const const_iterator &it) const
-            {
+            bool operator==(const const_iterator &it) const {
                 return (item==it.item);
             }
             
-            bool operator!=(const const_iterator &it) const
-            {
+            bool operator!=(const const_iterator &it) const {
                 return (item!=it.item);
             }
             
@@ -135,13 +126,11 @@ namespace db0
             const T *item = nullptr;
         };
         
-        const_iterator begin() const
-        {
+        const_iterator begin() const {
             return const_iterator(reinterpret_cast<const T*>(self_t::beginOfDynamicArea()));
         }
         
-        const_iterator end() const
-        {
+        const_iterator end() const {
             // past the end of data
             return const_iterator (reinterpret_cast<const T*>(self_t::beginOfMemberArea() + size_of));
         }

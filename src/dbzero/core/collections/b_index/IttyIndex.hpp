@@ -15,12 +15,10 @@ namespace db0
 	 * ItemT must be assignment compatible with AddrT
 	 * cast_functor - must be able to cast between ItemT and AddrT in both directions
 	 */
-	template <typename ItemT = std::uint64_t, typename AddrT = std::uint64_t, typename item_comp_t = std::less<ItemT>,
-        typename cast_functor = binary_cast<ItemT, AddrT> >
+	template <typename ItemT = std::uint64_t, typename AddrT = Address, typename item_comp_t = std::less<ItemT> >
     class IttyIndex
-	{
+	{		
 		item_comp_t m_compare;
-		cast_functor m_addr_cast;
 		ItemT m_value;
 	public:
 		using addr_t = AddrT;
@@ -60,7 +58,7 @@ namespace db0
          * NOTICE: no mptr constructor provided because resolving Memspace reference is not possible (hack)
          */
 		IttyIndex(std::pair<Memspace*, AddrT> addr)
-			: m_value(m_addr_cast(addr.second))
+			: m_value(binary_cast_one<ItemT, AddrT>()(addr.second))
 		{
 		}
 
@@ -71,7 +69,7 @@ namespace db0
 		
 		AddrT getAddress() const {
 			// return value as address
-			return m_addr_cast(m_value);
+			return binary_cast_one<AddrT, ItemT>()(m_value);
 		}
 
 		ItemT getValue() const {

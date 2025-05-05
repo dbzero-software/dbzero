@@ -113,7 +113,7 @@ namespace db0
         using StateNumT = typename super_t::StateNumT;
         
         DiffIndex(std::size_t node_size, std::vector<std::uint64_t> *change_log_ptr = nullptr);
-        DiffIndex(DRAM_Pair, AccessType, std::uint64_t address, std::vector<std::uint64_t> *change_log_ptr = nullptr);
+        DiffIndex(DRAM_Pair, AccessType, Address, std::vector<std::uint64_t> *change_log_ptr = nullptr);
 
         struct tag_create {};
         DiffIndex(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr);
@@ -132,7 +132,7 @@ namespace db0
         
         StateNumT getMaxStateNum() const;
 
-        std::uint64_t getIndexAddress() const;
+        Address getIndexAddress() const;
 
         void refresh();
     };

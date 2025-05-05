@@ -36,7 +36,7 @@ namespace db0::object_model
 
         EnumFactory(db0::swine_ptr<Fixture> &);
 
-        EnumFactory(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        EnumFactory(db0::swine_ptr<Fixture> &, Address address);
 
         /**
          * Get existing class (or raise exception if not found)

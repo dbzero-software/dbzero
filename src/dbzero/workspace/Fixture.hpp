@@ -38,7 +38,7 @@ namespace db0
 
     struct [[gnu::packed]] SlotDef
     {
-        std::uint64_t m_address = 0;
+        Address m_address = {};
         std::uint64_t m_size = 0;
     };
     
@@ -50,7 +50,7 @@ namespace db0
         // auto-generated fixture UUID
         std::uint64_t m_UUID;
         // address of the Object Catalogue
-        std::uint64_t m_object_catalogue_address = 0;
+        Address m_object_catalogue_address = {};
         // slot definitions
         SlotDef m_slots[8];
         db0::db0_ptr<StringPoolT> m_string_pool_ptr;
@@ -142,7 +142,7 @@ namespace db0
          * Create GC0 as a resource
         */
         db0::GC0 &createGC0(db0::swine_ptr<Fixture> &fixture);
-        db0::GC0 &createGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only);
+        db0::GC0 &createGC0(db0::swine_ptr<Fixture> &fixture, Address, bool read_only);
         
         // add commit or close handler (the actual operation identified by the boolean flag)
         void addCloseHandler(std::function<void(bool commit)>);
@@ -209,10 +209,10 @@ namespace db0
 
         Snapshot &getWorkspace();
 
-        // Converts address from a specific slot to relative one
-        std::uint64_t makeRelative(std::uint64_t address, std::uint32_t slot_num) const;
+        // Converts address from a specific slot to relative one (i.e. within-slot offset)
+        std::uint64_t makeRelative(Address address, std::uint32_t slot_num) const;
         // Converts a relative address back to absolute one
-        std::uint64_t makeAbsolute(std::uint64_t address, std::uint32_t slot_num) const;
+        Address makeAbsolute(std::uint64_t offset, std::uint32_t slot_num) const;
 
         inline AccessType getAccessType() const {
             return m_access_type;

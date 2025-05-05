@@ -99,13 +99,23 @@ namespace db0
          * Create a new dbzero instance in the given memory space
         */       
         template <typename... Args>
-        void init(Memspace &memspace, FlagSet<AccessOptions> access_mode, Args&&... args)
+        void init(Memspace &memspace, Args&&... args)
         {
-            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...), access_mode);
-            // placement new syntax
+            v_this = ptr_t::makeNew(memspace, c_type::measure(std::forward<Args>(args)...));            
             c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::forward<Args>(args)...);
         }
         
+        // Create new instance assigned unique address
+        // @return instance id
+        template <typename... Args>
+        std::uint16_t initUnique(Memspace &memspace, Args&&... args)
+        {
+            std::uint16_t instance_id;
+            v_this = ptr_t::makeNewUnique(memspace, instance_id, c_type::measure(std::forward<Args>(args)...));
+            c_type::__new(reinterpret_cast<std::byte*>(&v_this.modify()), std::forward<Args>(args)...);
+            return instance_id;
+        }
+
         // Construct from v-pointer
         v_object(ptr_t &&ptr)
             : v_this(std::move(ptr))
@@ -169,8 +179,14 @@ namespace db0
         inline c_type &modify() {
             return v_this.modify();
         }
-
-        inline std::uint64_t getAddress() const {
+        
+        // Mark specific range as modified
+        // NOTE: even if the range is not updated it will be forced-diff
+        void modify(std::size_t offset, std::size_t size) {
+            v_this.modify(offset, size);
+        }
+        
+        inline Address getAddress() const {
             return v_this.getAddress();
         }
 
@@ -213,7 +229,7 @@ namespace db0
             return v_this.isNull();
         }
                 
-        mptr myPtr(std::uint64_t address, FlagSet<AccessOptions> access_mode = {}) const {
+        mptr myPtr(Address address, FlagSet<AccessOptions> access_mode = {}) const {
             return v_this.getMemspace().myPtr(address, access_mode);
         }
 

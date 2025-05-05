@@ -13,17 +13,15 @@ namespace db0
     {
     }
     
-    std::optional<std::uint64_t> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
-        bool aligned, bool unique)
+    std::optional<Address> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
         assert(slot_num == 0);
-        assert(!aligned && "AlgoAllocator: aligned allocation not supported");
-        assert(!unique && "AlgoAllocator: unique allocation not supported");
+        assert(!aligned && "AlgoAllocator: aligned allocation not supported");    
         assert(size == m_alloc_size && "AlgoAllocator: invalid alloc size requested");
         return m_address_pool_f(m_next_i++);
     }
     
-    void AlgoAllocator::free(std::uint64_t address) 
+    void AlgoAllocator::free(Address address) 
     {
         if (address % m_alloc_size != 0) {
             // allow sub-allocations
@@ -37,8 +35,8 @@ namespace db0
             --m_next_i;
         }
     }
-
-    std::size_t AlgoAllocator::getAllocSize(std::uint64_t address) const 
+    
+    std::size_t AlgoAllocator::getAllocSize(Address address) const 
     {
         auto offset = address % m_alloc_size;
         auto i = m_reverse_address_pool_f(address - offset);
@@ -48,7 +46,7 @@ namespace db0
         return m_alloc_size - offset;
     }
     
-    bool AlgoAllocator::isAllocated(std::uint64_t address) const 
+    bool AlgoAllocator::isAllocated(Address address) const 
     {
         auto offset = address % m_alloc_size;
         auto i = m_reverse_address_pool_f(address - offset);
@@ -59,16 +57,16 @@ namespace db0
         m_next_i = 0;
     }
 
-    std::uint64_t AlgoAllocator::getRootAddress() const {
+    Address AlgoAllocator::getRootAddress() const {
         return m_address_pool_f(0);
     }
     
-    void AlgoAllocator::setMaxAddress(std::uint64_t max_address) 
+    void AlgoAllocator::setMaxAddress(Address max_address) 
     {
         auto offset = max_address % m_alloc_size;
         m_next_i = m_reverse_address_pool_f(max_address - offset) + 1;
     }
-        
+    
     void AlgoAllocator::commit() const
     {
     }

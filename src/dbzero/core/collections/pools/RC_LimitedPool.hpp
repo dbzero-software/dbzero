@@ -11,27 +11,27 @@ namespace db0::pools
     
     struct [[gnu::packed]] o_rc_limited_pool: public o_fixed<o_rc_limited_pool>
     {
-        std::uint64_t m_pool_map_address = 0;
+        Address m_pool_map_address = {};
 
-        o_rc_limited_pool(std::uint64_t pool_map_address)
+        o_rc_limited_pool(Address pool_map_address)
             : m_pool_map_address(pool_map_address)
         {            
         }
     };
-        
+    
     /**
      * Limited pool with in-memory lookup index and ref-counting
      * NOTE: limited pool items combine (using o_compose) map iterator's address + actual item (T)
      * the iterator is required to implement unRef by address
     */
     template <typename T, typename CompT, typename AddrT = std::uint32_t> class RC_LimitedPool
-        : public LimitedPool<db0::o_compose<std::uint64_t, T>, AddrT>
+        : public LimitedPool<db0::o_compose<Address, T>, AddrT>
         , public db0::v_object<o_rc_limited_pool>
     {
     public:
         using AddressT = AddrT;
-        using ItemT = o_compose<std::uint64_t, T>;
-        using LP_Type = LimitedPool<db0::o_compose<std::uint64_t, T>, AddrT>;
+        using ItemT = o_compose<Address, T>;
+        using LP_Type = LimitedPool<db0::o_compose<Address, T>, AddrT>;
 
         RC_LimitedPool(const Memspace &pool_memspace, Memspace &);
         RC_LimitedPool(const Memspace &pool_memspace, mptr);
@@ -200,7 +200,7 @@ namespace db0::pools
     template <typename T, typename CompT, typename AddressT>
     void RC_LimitedPool<T, CompT, AddressT>::addRefByAddr(AddressT address)
     {
-        auto it = m_pool_map.beginFromAddress(address);
+        auto it = m_pool_map.beginFromAddress(Address::fromOffset(address));
         assert(it != m_pool_map.end());
         ++it.modify().second().m_ref_count;
     }

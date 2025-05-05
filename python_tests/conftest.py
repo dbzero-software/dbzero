@@ -146,3 +146,21 @@ def memo_scoped_enum_tags():
         root.value.append(object)
         db0.tags(object).add(colors[i % 3])
     return { "Colors": Colors }
+
+
+@pytest.fixture()
+def db0_metaio_fixture():
+    """
+    DB0 scope for testing metaio (very small step size)
+    """    
+    if os.path.exists(DB0_DIR):
+        shutil.rmtree(DB0_DIR)
+    # create empty directory
+    os.mkdir(DB0_DIR)
+    db0.init(DB0_DIR, config = {"autocommit": False})
+    db0.open("my-test-prefix", meta_io_step_size=16)
+    yield db0
+    gc.collect()
+    db0.close()
+    if os.path.exists(DB0_DIR):
+        shutil.rmtree(DB0_DIR)

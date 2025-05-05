@@ -3,12 +3,13 @@
 #include "v_sgtree.hpp"
 #include <dbzero/core/serialization/Ext.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0
 
 {
 	
-    template <class data_t, class ptr_set_t = tree_ptr_set<std::uint64_t> >
+    template <class data_t, class ptr_set_t = tree_ptr_set<Address> >
     class [[gnu::packed]] o_sgtree_node
         : public o_ext<o_sgtree_node<data_t, ptr_set_t>, sg_node_base<ptr_set_t>, 0, false >
     {

@@ -472,5 +472,6 @@ namespace db0
     }
 
     template class FT_ANDNOTIterator<std::uint64_t>;
+    template class FT_ANDNOTIterator<UniqueAddress>;
     
 }

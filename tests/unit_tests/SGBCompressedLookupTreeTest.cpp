@@ -20,7 +20,7 @@ namespace tests
         SGB_CompressedLookupTreeTest()
             : m_memspace(m_workspace.getMemspace("my-test-prefix_1"))
             // configure bitspace to use the entire 4kb page - i.e. 0x8000 bits
-            , m_bitspace(m_memspace.getPrefixPtr(), 0, page_size)
+            , m_bitspace(m_memspace.getPrefixPtr(), Address::fromOffset(0), page_size)
         {
         }
         
@@ -78,7 +78,7 @@ namespace tests
         // compress uint64 to uint32
         SGB_CompressedLookupTree<std::uint64_t, std::uint32_t, CompressingTestHeader> cut(m_bitspace, 
             page_size, AccessType::READ_WRITE);
-        ASSERT_TRUE(cut.getAddress() != 0);
+        ASSERT_TRUE(cut.getAddress().isValid());
     }
     
     TEST_F( SGB_CompressedLookupTreeTest , testSGBCompressedLookupTreeCanCompressInsertedElements )

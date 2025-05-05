@@ -12,11 +12,11 @@ namespace db0
 
 {
 
-    template <typename item_t, typename AddrT = std::uint64_t, typename item_comp_t = std::less<item_t> >
-    class v_bindex: public v_object<typename bindex_types<item_t, item_comp_t>::bindex_container>
+    template <typename item_t, typename AddrT = Address, typename item_comp_t = std::less<item_t> >
+    class v_bindex: public v_object<typename bindex_types<item_t, AddrT, item_comp_t>::bindex_container>
     {
         using self_t = v_bindex<item_t, AddrT, item_comp_t>;
-        using super_t = v_object<typename bindex_types<item_t, item_comp_t>::bindex_container>;
+        using super_t = v_object<typename bindex_types<item_t, AddrT, item_comp_t>::bindex_container>;
         using types_t = bindex_types<item_t, AddrT, item_comp_t>;
         using node_iterator = typename types_t::node_iterator;
         using node_stack = typename types_t::node_stack;
@@ -503,10 +503,10 @@ namespace db0
         {
             // destroy all blocks with items
             for (auto it = m_index.begin(), end = m_index.end(); it != end; ++it) {
-                if (it->m_data.ptr_b_data) {
+                if (it->m_data.ptr_b_data.isValid()) {
                     data_vector data_buf(this->getMemspace().myPtr(it->m_data.ptr_b_data), m_item_destroy_func);
                     data_buf.destroy();
-                    it.modify().m_data.ptr_b_data = 0;
+                    it.modify().m_data.ptr_b_data = {};
                 }
             }
             // clear index next
@@ -889,7 +889,7 @@ namespace db0
             for (auto it = m_index.begin(), end = m_index.end(); it != end;) {
                 auto it_next = it;
                 ++it_next;
-                if (it->m_data.ptr_b_data) {
+                if (it->m_data.ptr_b_data.isValid()) {
                     data_vector data_buf(this->getMemspace().myPtr(it->m_data.ptr_b_data), m_item_destroy_func);
                     if (data_buf.empty()) {
                         m_index.erase(it);

@@ -181,7 +181,7 @@ namespace db0
         typename CompressedItemEqualT = std::equal_to<CompressedItemT> ,
         typename TreeHeaderT = db0::o_null,
         typename CapacityT = std::uint16_t,
-        typename AddressT = std::uint64_t >
+        typename AddressT = Address >
     class SGB_CompressedLookupTree: 
     protected SGB_LookupTreeBase<
         sgb_compressed_lookup_types<

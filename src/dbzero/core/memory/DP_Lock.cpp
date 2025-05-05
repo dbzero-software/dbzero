@@ -78,6 +78,9 @@ namespace db0
                         storage.writeDiffs(m_address, m_state_num, this->size(), m_data.data(), diffs);
                     }
                 }
+                
+                m_diffs.clear();
+                
                 // reset the dirty flag
                 lock.commit_reset();
             }

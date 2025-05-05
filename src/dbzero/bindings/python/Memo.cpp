@@ -305,7 +305,7 @@ namespace db0::python
         return 0;
     }
     
-    bool isEqual(MemoObject *lhs, MemoObject *rhs) {
+    bool isSame(MemoObject *lhs, MemoObject *rhs) {
         return lhs->ext() == rhs->ext();
     }
     
@@ -321,10 +321,12 @@ namespace db0::python
                 return obj_memo->ob_type->tp_base->tp_richcompare(reinterpret_cast<PyObject*>(memo_obj), other, op);
             }
         }
+        
         bool eq_result = false;
         if (PyMemo_Check(other)) {
-            eq_result = isEqual(memo_obj, reinterpret_cast<MemoObject*>(other));
+            eq_result = isSame(memo_obj, reinterpret_cast<MemoObject*>(other));
         }
+
         switch (op)
         {
             case Py_EQ:

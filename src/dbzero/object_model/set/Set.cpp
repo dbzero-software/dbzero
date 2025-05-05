@@ -49,7 +49,7 @@ namespace db0::object_model
         modify().m_size = set.size();
     }
 
-    Set::Set(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Set::Set(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_index(myPtr((*this)->m_index_ptr))
     {
@@ -179,7 +179,7 @@ namespace db0::object_model
         return new (at_ptr) Set(fixture);
     }
     
-    Set *Set::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
+    Set *Set::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, Address address) {
         return new (at_ptr) Set(fixture, address);
     }
     

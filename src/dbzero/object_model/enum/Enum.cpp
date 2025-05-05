@@ -36,7 +36,7 @@ namespace db0::object_model
         modify().m_ordered_values = m_ordered_values;
     }
     
-    Enum::Enum(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Enum::Enum(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_fixture_uuid(fixture->getUUID())
         , m_uid(this->fetchUID())

@@ -3,21 +3,24 @@
 #include "StorageClass.hpp"
 #include "TypedAddress.hpp"
 #include <dbzero/core/utils/FlagSet.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0::object_model
 
 {
 
-    struct ObjectId
+    class ObjectId
     {    
+    public:
         std::uint64_t m_fixture_uuid;
-        // NOTE: typed address holds the physical address only
-        TypedAddress m_typed_addr;
-        std::uint16_t m_instance_id;
+        // NOTE: unique address combines memory offset + instance ID
+        db0::UniqueAddress m_address;
+        // NOTE: encoded storage class member's size may vary between 1 and 5 bytes
+        db0::StorageClass m_storage_class;
         
         // encodes with base-32 characters (no format prefix / suffix)
-        // the buffer must be at least 'encodedSize' + 1 bytes long
-        void toBase32(char *buf) const;
+        // the buffer must be at least 'maxEncodedSize' + 1 bytes long
+        std::size_t toBase32(char *buf) const;
         static ObjectId fromBase32(const char *buf);
         
         bool operator==(const ObjectId &other) const;
@@ -32,16 +35,23 @@ namespace db0::object_model
 
         bool operator>=(const ObjectId &other) const;
 
-        static constexpr std::size_t rawSize() {
-            return sizeof(m_fixture_uuid) + sizeof(m_typed_addr) + sizeof(m_instance_id);
+        static constexpr std::size_t minSize() {
+            return sizeof(m_fixture_uuid) + 2;
+        }
+
+        static constexpr std::size_t maxSize() {
+            return sizeof(m_fixture_uuid) + sizeof(m_address) + sizeof(std::uint32_t) + 2;
+        }
+
+        static constexpr std::size_t maxEncodedSize() {
+            return (maxSize() * 8 - 1) / 5 + 1;
         }
         
-        static constexpr std::size_t encodedSize() {
-            return (rawSize() * 8 - 1) / 5 + 1;
-        }
-
         std::string toUUIDString() const;
-    };
 
+    private:
+        static std::function<void()> m_throw_func;
+    };
+    
 }
 

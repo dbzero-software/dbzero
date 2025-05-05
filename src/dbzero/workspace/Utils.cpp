@@ -12,13 +12,13 @@ namespace db0
         return obj.getAddress();
     }
 
-    void freeBytes(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
+    void freeBytes(db0::swine_ptr<Fixture> fixture, Address address)
     {
         db0::v_object<o_binary> obj(fixture->myPtr(address));
         obj.destroy();
     }
 
-    std::string readBytes(db0::swine_ptr<Fixture> fixture, std::uint64_t address)
+    std::string readBytes(db0::swine_ptr<Fixture> fixture, Address address)
     {
         db0::v_object<o_binary> obj(fixture->myPtr(address));
         return std::string(reinterpret_cast<const char*>(obj->getBuffer()), obj->size());

@@ -20,6 +20,14 @@ namespace db0
         return m_buffer;
     }
     
+    void MemLock::modify(void *at, std::size_t size)
+    {
+        assert(m_lock);
+        assert(m_buffer);
+        auto begin_addr = m_lock->getAddressOf(at);
+        m_lock->setDirty(begin_addr, begin_addr + size);
+    }
+    
     void MemLock::release()
     {        
         m_lock = nullptr;

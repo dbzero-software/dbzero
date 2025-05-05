@@ -309,14 +309,17 @@ namespace db0
             }
             
             std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
-            if (m_gc0_ptr) {
-                getGC0().commitAll();
-            }
-            
+            // NOTE: close handlers perform internal buffers flush (e.g. TagIndex)
+            // which may result in modifications (e.g. incRef)
+            // it's therefore important to perform this action before GC0::commitAll (which commits finalized objects)
             for (auto &commit: m_close_handlers) {
                 commit(true);
             }
             
+            if (m_gc0_ptr) {
+                getGC0().commitAll();
+            }
+                        
             // commit garbage collector's state
             // we check if gc0 exists because the unit-tests set up may not have it
             if (gc0_ctx) {
@@ -369,7 +372,7 @@ namespace db0
         return *m_gc0_ptr;
     }
     
-    db0::GC0 &Fixture::createGC0(db0::swine_ptr<Fixture> &fixture, std::uint64_t address, bool read_only)
+    db0::GC0 &Fixture::createGC0(db0::swine_ptr<Fixture> &fixture, Address address, bool read_only)
     {
         assert(!m_gc0_ptr);
         m_gc0_ptr = &addResource<db0::GC0>(fixture, address, read_only);
@@ -383,13 +386,13 @@ namespace db0
     Snapshot &Fixture::getWorkspace() {
         return m_snapshot;
     }
-
-    std::uint64_t Fixture::makeRelative(std::uint64_t address, std::uint32_t slot_num) const {
+    
+    std::uint64_t Fixture::makeRelative(Address address, std::uint32_t slot_num) const {
         return m_slot_allocator.getSlot(slot_num).makeRelative(address);
     }
     
-    std::uint64_t Fixture::makeAbsolute(std::uint64_t address, std::uint32_t slot_num) const {
-        return m_slot_allocator.getSlot(slot_num).makeAbsolute(address);
+    Address Fixture::makeAbsolute(std::uint64_t offset, std::uint32_t slot_num) const {
+        return m_slot_allocator.getSlot(slot_num).makeAbsolute(offset);
     }
     
     bool Fixture::operator==(const Fixture &other) const {

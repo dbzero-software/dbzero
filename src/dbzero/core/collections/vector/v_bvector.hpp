@@ -21,12 +21,13 @@ namespace db0
         // common dbzero object header
         db0::o_unique_header m_header;
         // root node pointer (may be data or pointers' block)
-        PtrT m_ptr_root = 0;
+        PtrT m_ptr_root = {};
         // number of items contained
         std::uint64_t m_size = 0;
         // page size hint
         std::uint32_t m_page_size;
 
+        o_bvector() = default;
         o_bvector(std::uint32_t page_size_hint)
             : m_page_size(page_size_hint)            
         {
@@ -42,7 +43,7 @@ namespace db0
      * @tparam ItemT - fixed size item type (simple value or struct without pointers)
      * @tparam PtrT - type for inner pointers (V-Space)
      */
-    template <typename ItemT, typename PtrT = std::uint64_t> class v_bvector
+    template <typename ItemT, typename PtrT = Address> class v_bvector
         : public v_object<o_bvector<PtrT> >
     {
         using self_t = v_bvector<ItemT, PtrT>;
@@ -60,16 +61,13 @@ namespace db0
         /**
          * New, empty instance of the data structure
          */
-        v_bvector(Memspace &mem, FlagSet<AccessOptions> access_mode = {})
-            : super_t(mem, mem.getPageSize(), access_mode)
+        v_bvector(Memspace &mem)
+            : super_t(mem, mem.getPageSize())
             , m_db_shift(data_container::shift(mem.getPageSize()))
             , m_db_mask(data_container::mask(mem.getPageSize()))
             , m_pb_shift(ptr_container::shift(mem.getPageSize()))
             , m_pb_mask(ptr_container::mask(mem.getPageSize()))
         {                 
-#ifndef NDEBUG            
-            this->__add();       
-#endif
         }
 
         v_bvector(mptr ptr)
@@ -79,9 +77,6 @@ namespace db0
             , m_pb_shift(ptr_container::shift((*this)->m_page_size))
             , m_pb_mask(ptr_container::mask((*this)->m_page_size))            
         {
-#ifndef NDEBUG
-            this->__add();
-#endif
         }
         
         // Compatibility constructor
@@ -90,22 +85,13 @@ namespace db0
         {        
         }
         
-        v_bvector(const v_bvector &&other, FlagSet<AccessOptions> access_mode = {})
-            : super_t(std::move(other), access_mode)
+        v_bvector(const v_bvector &&other)
+            : super_t(std::move(other))
             , m_db_shift(other.m_db_shift)
             , m_db_mask(other.m_db_mask)
             , m_pb_shift(other.m_pb_shift)
             , m_pb_mask(other.m_pb_mask)            
         {
-#ifndef NDEBUG            
-            this->__add(true);
-#endif            
-        }
-
-        ~v_bvector() {
-#ifndef NDEBUG
-            this->__remove();
-#endif
         }
         
         void operator=(v_bvector &&other)
@@ -115,28 +101,51 @@ namespace db0
             assert(this->m_pb_shift == other.m_pb_shift);
             assert(this->m_pb_mask == other.m_pb_mask);
 
-#ifndef NDEBUG
-            this->__remove();
-#endif
             // clean local cached objects first
             this->m_pb_cache.clear();
             this->m_last_block_key = {0, 0};
             this->m_last_block = nullptr;
             super_t::operator=(std::move(other));
-#ifndef NDEBUG
-            this->__add(true);
-#endif            
         }
 
         /**
          * Construct populated with values from a specific sequence
          */
-        template <class SequenceT> v_bvector(Memspace &mem, const SequenceT &in, FlagSet<AccessOptions> access_mode = {})
-            : v_bvector(mem, access_mode)
+        template <class SequenceT> v_bvector(Memspace &mem, const SequenceT &in)
+            : v_bvector(mem)
         {
             for (const auto &item: in) {
                 push_back(item);
             }
+        }
+
+        template <class SequenceT>
+        void init(Memspace &mem, const SequenceT &in)
+        {
+            super_t::init(mem);
+            for (const auto &item: in) {
+                push_back(item);
+            }            
+        }
+        
+        std::uint16_t initUnique(Memspace &mem)
+        {
+            auto page_size = mem.getPageSize();
+            auto result = super_t::initUnique(mem, page_size);
+            this->m_db_shift = data_container::shift(mem.getPageSize());
+            this->m_db_mask = data_container::mask(mem.getPageSize());
+            this->m_pb_shift = ptr_container::shift(mem.getPageSize());
+            this->m_pb_mask = ptr_container::mask(mem.getPageSize());
+            return result;
+        }
+
+        template <class SequenceT> std::uint16_t initUnique(Memspace &mem, const SequenceT &in)
+        {
+            auto result = this->initUnique(mem);
+            for (const auto &item: in) {
+                push_back(item);
+            }
+            return result;
         }
 
         /**
@@ -145,7 +154,7 @@ namespace db0
         ItemT &modifyItem(std::uint64_t index) 
         {
             if (!(index < size())) {
-                growBy((uint32_t)(index - size() + 1));
+                growBy((std::uint32_t)(index - size() + 1));
             }
             getDataBlock(getKey(0, index));
             return (*m_last_block).modify().modifyItem((std::size_t)(index & m_db_mask));
@@ -157,7 +166,7 @@ namespace db0
         ItemT modifyItem(std::uint64_t index, std::function<ItemT(ItemT &)> f) 
         {
             if (!(index < size())) {
-                growBy((uint32_t)(index - size() + 1));
+                growBy((std::uint32_t)(index - size() + 1));
             }
             // access within data block element (not thread safe)
             getDataBlock(getKey(0, index));
@@ -167,7 +176,7 @@ namespace db0
         void setItem(std::uint64_t index, const ItemT &item)
         {
             if (!(index < size())) {
-                growBy((uint32_t)(index - size() + 1));
+                growBy((std::uint32_t)(index - size() + 1));
             }
             // access within data block element (not thread safe)
             getDataBlock(getKey(0, index));
@@ -175,7 +184,7 @@ namespace db0
         }
 
         // threadsafe
-        ItemT getItem(uint64_t index) const 
+        ItemT getItem(std::uint64_t index) const 
         {
             assert (index < size());
             return getDataBlock(getKey(0,index))->getItem(index & m_db_mask);
@@ -522,7 +531,7 @@ namespace db0
                 const auto h = std::get<1>(stack.top());
                 auto& i = std::get<2>(stack.top());
 
-                if (!root) {
+                if (!root.isValid()) {
                     stack.pop();
                     continue;
                 }
@@ -558,10 +567,10 @@ namespace db0
     
     protected:
         mutable progressive_mutex m_mutex;
-        const std::uint32_t m_db_shift = 0;
-        const std::uint32_t m_db_mask = 0;
-        const std::uint32_t m_pb_shift = 0;
-        const std::uint32_t m_pb_mask = 0;
+        std::uint32_t m_db_shift = 0;
+        std::uint32_t m_db_mask = 0;
+        std::uint32_t m_pb_shift = 0;
+        std::uint32_t m_pb_mask = 0;
         // size class of the data block (0 = full size)        
         mutable std::optional<std::size_t> m_b_class;
         
@@ -895,7 +904,7 @@ namespace db0
                 if (m_last_block && m_last_block_key==block_key) {
                     return *m_last_block;
                 }
-                if (!ptr_block) {
+                if (!ptr_block.isValid()) {
                     ptr_block = this->getBlockPtr(block_key, lock);
                 }
                 if (!lock.upgradeToUniqueLock()) {
@@ -1086,7 +1095,7 @@ namespace db0
                 /**
                  * @return number of elements allocated for this block
                  */
-                size_t size() const {
+                std::size_t size() const {
                     return (m_range.second - m_range.first);
                 }
 
@@ -1094,7 +1103,8 @@ namespace db0
                  * Bind user constructed data block here (must match actual b_class)
                  * @return pair of iterators which can be used to write data there (begin / end iterators)
                  */
-                std::pair<iterator, iterator> setBlock(DataBlockType &block) {
+                std::pair<iterator, iterator> setBlock(DataBlockType &block) 
+                {
                     ptr_block = block.getAddress();
                     iterator it_begin = block.modify().begin();
                     return std::pair<iterator, iterator>(it_begin, it_begin + size());
@@ -1547,7 +1557,7 @@ namespace db0
 
     private:
 #ifndef NDEBUG
-        static std::map<std::pair<const Memspace*, std::uint64_t>, int> m_instance_log;
+        static std::map<std::pair<const Memspace*, Address>, int> m_instance_log;
 
         // the code to detect multiple v_bvector instances (not allowed)
         void __add(bool move = false) {
@@ -1562,7 +1572,7 @@ namespace db0
         }
 
         void __remove() {
-            if (this->getAddress() == 0) {
+            if (!this->getAddress().isValid()) {
                 return;
             }
             auto key = std::make_pair(&this->getMemspace(), this->getAddress());
@@ -1584,7 +1594,7 @@ namespace db0
     
 #ifndef NDEBUG    
     template <typename ItemT, typename PtrT>
-    std::map<std::pair<const Memspace*, std::uint64_t>, int> v_bvector<ItemT, PtrT>::m_instance_log;
+    std::map<std::pair<const Memspace*, Address>, int> v_bvector<ItemT, PtrT>::m_instance_log;
 #endif
 
 }

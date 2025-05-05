@@ -5,12 +5,14 @@
 #include <atomic>
 #include <cassert>
 #include <functional>
+#include <optional>
 #include <limits>
 #include <dbzero/core/memory/AccessOptions.hpp>
 #include <dbzero/core/serialization/mu_store.hpp>
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
 #include <dbzero/core/threading/Flags.hpp>
 #include <dbzero/core/utils/FixedList.hpp>
+#include "diff_utils.hpp"
 
 namespace db0
 
@@ -32,20 +34,7 @@ namespace db0
         // Flush using the full-DP write (always possible)
         full = 0x02
     };
-    
-    // Calculate diff areas between the 2 binary buffers of the same size (e.g. DPs)
-    // @param size size of the buffers
-    // @param result vector to hold size of diff / size of identical areas interleaved (totalling to size)
-    // NOTE that the leading elements 0, 0 indicate the 0-filled base buffer
-    // @param max_diff the maximum acceptable diff in bytes (0 for default = size / 2)
-    // @param max_size the maximum number of diff areas allowed to be stored in the result
-    // @return false if the total volume of diff areas exceeds 50% threshold
-    bool getDiffs(const void *, const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
-        std::size_t max_size = std::numeric_limits<std::uint16_t>::max());
-    // the getDiffs version comparing to all-zero buffer
-    bool getDiffs(const void *, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff = 0,
-        std::size_t max_size = std::numeric_limits<std::uint16_t>::max());
-    
+        
     /**
      * A ResourceLock is the foundation class for DP_Lock and BoundaryLock implementations    
      * it supposed to hold a single or multiple data pages in a specific state (read)
@@ -56,6 +45,9 @@ namespace db0
     class ResourceLock: public std::enable_shared_from_this<ResourceLock>
     {
     public:
+        // the limit of forced diff-ranges per ResourceLock
+        static constexpr std::size_t MAX_DIFF_RANGES = 64;
+
         /**
          * @param storage_context
          * @param address the starting address in the storage
@@ -86,6 +78,9 @@ namespace db0
             return static_cast<std::byte*>(getBuffer()) + address - m_address;
         }
         
+        // Get the address within the ResourceLock's internal buffer
+        std::uint64_t getAddressOf(const void *) const;
+        
         // Try flushing using a specific method
         // @return true if the lock's data has been flushed (or not dirty)
         virtual bool tryFlush(FlushMethod) = 0;
@@ -98,7 +93,7 @@ namespace db0
         virtual void flush() = 0;
 
         /**
-         * Clear the 'dirty' flag if it has been set, clear the MU-store
+         * Clear the 'dirty' flag if it has been set, clear diffs
          * @return true if the flag was set
         */
         bool resetDirtyFlag();
@@ -115,8 +110,13 @@ namespace db0
             return m_resource_flags & db0::RESOURCE_RECYCLED;
         }
         
-        // Mark the entire lock as dirty        
+        // Mark lock as dirty without range specification
         void setDirty();
+
+        // Mark a specific range as forced-dirty
+        // it will be assumed dirty even if the data is not changed
+        // the range must fit within the lock's address range
+        void setDirty(std::uint64_t begin, std::uint64_t end);
 
         bool isCached() const;
 
@@ -156,7 +156,7 @@ namespace db0
         // get total memory usage of all ResourceLock instances
         // @return total size in bytes / total count
         static std::pair<std::size_t, std::size_t> getTotalMemoryUsage();
-        virtual bool isBoundaryLock() const = 0;        
+        virtual bool isBoundaryLock() const = 0;
 #endif
         
     protected:
@@ -170,7 +170,7 @@ namespace db0
             db0::RESOURCE_DIRTY,
             db0::RESOURCE_DIRTY,
             db0::RESOURCE_LOCK >;
-
+        
         StorageContext m_context;
         const std::uint64_t m_address;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
@@ -183,6 +183,9 @@ namespace db0
         std::shared_ptr<ResourceLock> m_cow_lock;
         // the internally managed CoW's buffer
         std::vector<std::byte> m_cow_data;
+        // Optional diff-ranges (begin, end)
+        // these ranges are relevant e.g. when tracking the "silent" mutations
+        DiffRange m_diffs;
         // special indicator of the zero-fill buffer
         static const std::byte m_cow_zero;
         

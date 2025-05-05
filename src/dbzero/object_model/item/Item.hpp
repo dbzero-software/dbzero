@@ -35,29 +35,26 @@ namespace db0::object_model
     template <typename ValueT>
     union [[gnu::packed]] ValueT_Address
     {
-        std::uint64_t as_ptr;
+        std::uint64_t as_ptr = 0;
         ValueT as_value;
         
-        ValueT_Address() 
-            : as_ptr(0)
-        {            
-        }
+        ValueT_Address() = default;
 
-        ValueT_Address(std::uint64_t addr) 
-            : as_ptr(addr)
+        ValueT_Address(Address address)
+            : as_ptr(address.getValue())
         {
         }
 
-        operator std::uint64_t() const {
-            return as_ptr;
+        operator Address() const {
+            return Address::fromValue(as_ptr);
         }
-
+        
         operator bool () const {
             return as_ptr != 0;
         }
         
         // binary compare
-        bool operator!=(const ValueT_Address &other) const{
+        bool operator!=(const ValueT_Address &other) const {
             return memcmp(this, &other, sizeof(ValueT_Address)) != 0;
         }
     };
@@ -65,8 +62,8 @@ namespace db0::object_model
     template <typename AddressT, typename IndexT>
     struct [[gnu::packed]] TypedIndexAddr
     {
-        AddressT m_index_address = 0;
-        bindex::type m_type = bindex::empty;
+        AddressT m_index_address = {};
+        bindex::type m_type = bindex::type::empty;
 
         TypedIndexAddr() = default;
 

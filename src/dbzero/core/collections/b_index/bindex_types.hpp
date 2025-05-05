@@ -62,7 +62,7 @@ namespace db0
             bindex_node(Memspace &memspace, Memspace &other_memspace, const bindex_node &other)
                 : lo_bound(other.lo_bound)
             {
-                if (other.ptr_b_data) {
+                if (other.ptr_b_data.isValid()) {
                     data_vector other_dv(other_memspace.myPtr(other.ptr_b_data));
                     data_vector new_dv(memspace, other_dv);
                     ptr_b_data = new_dv.getAddress();
@@ -71,7 +71,7 @@ namespace db0
 
             void destroy(Memspace &memspace) const
             {
-                if (ptr_b_data) {
+                if (ptr_b_data.isValid()) {
                     data_vector dv(memspace.myPtr(ptr_b_data));
                     dv.destroy();
                 }
@@ -80,7 +80,7 @@ namespace db0
         public :
             item_t lo_bound;
             // data block (v_sorted_vector)
-            std::uint64_t ptr_b_data = 0;
+            Address ptr_b_data = {};
 
             struct get_key 
             {
@@ -127,7 +127,7 @@ namespace db0
             // common dbzero object header (not copied)
             db0::o_object_header m_header;
             // block index
-            std::uint64_t ptr_index = 0;
+            Address ptr_index = {};
             // total number of items contained
             std::uint64_t size = 0;
 

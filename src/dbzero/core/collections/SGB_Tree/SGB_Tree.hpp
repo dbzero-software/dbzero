@@ -117,7 +117,7 @@ namespace db0
         /**
          * Get address of this object
         */
-        std::uint64_t getAddress() const {
+        AddressT getAddress() const {
             return super_t::getAddress();
         }
         
@@ -481,7 +481,7 @@ namespace db0
             return result;
         }
 
-        AddressT size() const {
+        std::uint64_t size() const {
             return super_t::getData()->m_sgb_size;
         }
 
@@ -559,7 +559,10 @@ namespace db0
             // use the remaining capacity to initialize the root node
             auto offset = (*this)->trueSizeOf();
             // a mapped root address
-            auto root_address = MappedAddress { this->getAddress() + offset, mem_lock.getSubrange(offset) };
+            auto root_address = MappedAddress {
+                Address::fromOffset(this->getAddress() + offset), 
+                mem_lock.getSubrange(offset) 
+            };
             // create from the mapped address (no new alloc required)
             auto new_node = super_t::insert_equal(
                 ItemT(std::forward<Args>(args)...), residual_capacity, this->m_heap_comp, std::move(root_address)

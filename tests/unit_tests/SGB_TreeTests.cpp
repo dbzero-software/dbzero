@@ -18,7 +18,7 @@ namespace tests
         SGB_TreeTests()
             : m_memspace(m_workspace.getMemspace("my-test-prefix_1"))
             // configure bitspace to use the entire 4kb page - i.e. 0x8000 bits
-            , m_bitspace(m_memspace.getPrefixPtr(), 0, page_size)
+            , m_bitspace(m_memspace.getPrefixPtr(), Address::fromOffset(0), page_size)
         {
         }
         
@@ -531,7 +531,8 @@ namespace tests
         db0::TestWorkspace workspace(large_page_size);
         auto memspace = workspace.getMemspace("my-test-prefix_2");
 
-        db0::BitSpace<0x8000> bitspace(memspace.getPrefixPtr(), 0, large_page_size);
+        auto base_addr = Address::fromOffset(0);
+        db0::BitSpace<0x8000> bitspace(memspace.getPrefixPtr(), base_addr, large_page_size);
         // Note: CapacityT need to be upgraded to 32 bits to support large page sizes
         db0::SGB_Tree<std::uint64_t, std::less<std::uint64_t>, std::equal_to<std::uint64_t>, std::uint32_t> cut(bitspace, large_page_size);
         // let's insert 10 items

@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <functional>
 #include <dbzero/core/serialization/Fixed.hpp>
+#include <dbzero/core/memory/Address.hpp>
     
 namespace db0
 
@@ -23,10 +24,10 @@ namespace db0
         std::uint32_t m_page_size;
         // slab size in bytes
         std::uint32_t m_slab_size;
-        std::uint64_t m_slab_defs_ptr;
-        std::uint64_t m_capacity_items_ptr;
+        Address m_slab_defs_ptr;
+        Address m_capacity_items_ptr;
         
-        o_meta_header(std::uint32_t page_size, std::uint32_t slab_size, std::uint64_t slab_defs_ptr, std::uint64_t capacity_items_ptr)
+        o_meta_header(std::uint32_t page_size, std::uint32_t slab_size, Address slab_defs_ptr, Address capacity_items_ptr)
             : m_page_size(page_size)
             , m_slab_size(slab_size)
             , m_slab_defs_ptr(slab_defs_ptr)
@@ -144,14 +145,17 @@ namespace db0
         using CapacityTreeT = SGB_Tree<CapacityItem, CapacityItem::CompT, CapacityItem::EqualT>;
         using SlabTreeT = SGB_Tree<SlabDef, SlabDef::CompT, SlabDef::EqualT>;
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false, bool unique = false) override;
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
+
+        std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
         
-        void free(std::uint64_t address) override;
+        void free(Address) override;
 
-        std::size_t getAllocSize(std::uint64_t address) const override;
+        std::size_t getAllocSize(Address) const override;
 
-        bool isAllocated(std::uint64_t address) const override;
+        bool isAllocated(Address) const override;
             
         void commit() const override;
 
@@ -165,19 +169,19 @@ namespace db0
         */
         static std::size_t getSlabCount(std::size_t page_size, std::size_t slab_size);
 
-        static std::function<std::uint64_t(unsigned int)> getAddressPool(std::size_t offset, std::size_t page_size,
+        static std::function<Address(unsigned int)> getAddressPool(std::size_t offset, std::size_t page_size,
             std::size_t slab_size);
         
-        static std::function<unsigned int(std::uint64_t)> getReverseAddressPool(std::size_t offset, std::size_t page_size,
+        static std::function<unsigned int(Address)> getReverseAddressPool(std::size_t offset, std::size_t page_size,
             std::size_t slab_size);
 
-        static std::function<std::uint32_t(std::uint64_t)> getSlabIdFunction(std::size_t offset, std::size_t page_size,
+        static std::function<std::uint32_t(Address)> getSlabIdFunction(std::size_t offset, std::size_t page_size,
             std::size_t slab_size);
         
         /**
          * Calculate slab ID for the given address
         */
-        std::uint32_t getSlabId(std::uint64_t address) const;
+        std::uint32_t getSlabId(Address) const;
         
         unsigned int getSlabCount() const;
         
@@ -195,7 +199,7 @@ namespace db0
         /**
          * Open existing slab for private use (reserved slab)
         */
-        std::shared_ptr<SlabAllocator> openReservedSlab(std::uint64_t address, std::size_t size) const;
+        std::shared_ptr<SlabAllocator> openReservedSlab(Address, std::size_t size) const;
 
         /**
          * Close the allocator and flush all modifications with backed
@@ -205,7 +209,7 @@ namespace db0
         /**
          * Get address of the 1st allocation (irrespective of whether it was performed by the MetaAllocator or not)
         */
-        std::uint64_t getFirstAddress() const;
+        Address getFirstAddress() const;
         
         SlabRecycler *getSlabRecyclerPtr() const;
         
@@ -231,11 +235,11 @@ namespace db0
         std::unique_ptr<SlabManager> m_slab_manager;
         SlabRecycler *m_recycler_ptr;
         const bool m_deferred_free;
-        mutable std::unordered_set<std::uint64_t> m_deferred_free_ops;
-        std::function<std::uint32_t(std::uint64_t)> m_slab_id_function;
+        mutable std::unordered_set<Address> m_deferred_free_ops;
+        std::function<std::uint32_t(Address)> m_slab_id_function;
         // flag indicating if the atomic operation is in progress
         bool m_atomic = false;
-        std::vector<std::uint64_t> m_atomic_deferred_free_ops;
+        std::vector<Address> m_atomic_deferred_free_ops;
         
         /**
          * Reads header information from the prefix
@@ -251,8 +255,12 @@ namespace db0
         std::shared_ptr<SlabAllocator> getSlabAllocator(std::size_t min_capacity);
 
         // internal "free" implementation which performs the dealloc instanly
-        void _free(std::uint64_t address);
-        void deferredFree(std::uint64_t address);
+        void _free(Address);
+        void deferredFree(Address);
+        
+        // NOTE: instance ID will only be populated when unique = true
+        std::optional<Address> tryAllocImpl(std::size_t size, std::uint32_t slot_num,
+            bool aligned, bool unique, std::uint16_t &instance_id);
     };
     
 }

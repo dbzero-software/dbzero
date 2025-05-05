@@ -10,6 +10,19 @@ namespace db0::object_model
         return *this == SliceDef();
     }
     
+    SliceDef SliceDef::combineWith(const SliceDef &other) const
+    {
+        if (other.isDefault()) {
+            return *this;
+        }
+        if (isDefault()) {
+            return other;
+        }
+        // multiple slicing is not supported
+        THROWF(db0::InputException) 
+            << "Cannot slice an already sliced iterable (Operation not supported)" << THROWF_END;
+    }
+    
     Slice::Slice(BaseIterator *base_iterator, const SliceDef &slice_def)
         : m_slice_def(slice_def)
         , m_iterator_ptr(base_iterator)        

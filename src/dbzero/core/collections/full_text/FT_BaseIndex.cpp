@@ -7,39 +7,50 @@ namespace db0
 
 {
 
-    template <typename IndexKeyT>
-    FT_BaseIndex<IndexKeyT>::FT_BaseIndex(Memspace & memspace, VObjectCache &cache)
+    template <typename T> bool is_valid(const T &value) {
+        return value;
+    }
+    
+    // is_valid specialization for UniqueAddress
+    template <> bool is_valid(const UniqueAddress &value) {
+        return value.isValid();
+    }
+
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::FT_BaseIndex(Memspace & memspace, VObjectCache &cache)
         : super_t(memspace, cache)
     {
     }
 
-    template <typename IndexKeyT>
-    FT_BaseIndex<IndexKeyT>::FT_BaseIndex(mptr ptr, VObjectCache &cache)
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::FT_BaseIndex(mptr ptr, VObjectCache &cache)
         : super_t(ptr, cache)
     {
     }
     
-    template <typename IndexKeyT>
-    FT_BaseIndex<IndexKeyT>::FT_BaseIndex(FT_BaseIndex &&other)
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::FT_BaseIndex(FT_BaseIndex &&other)
         : super_t(std::move(other))        
     {
         assert(!other.m_batch_operation.lock());
     }
 
-    template <typename IndexKeyT>
-    std::unique_ptr<FT_Iterator<std::uint64_t> > FT_BaseIndex<IndexKeyT>::makeIterator(IndexKeyT key, int direction) const
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    std::unique_ptr<FT_Iterator<KeyT> > 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::makeIterator(IndexKeyT key, int direction) const
     {
         using ListT = typename super_t::ListT;
         auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
         if (!inverted_list_ptr) {
             return nullptr;
         }
-        return std::unique_ptr<FT_Iterator<std::uint64_t> >(
-            new FT_IndexIterator<ListT, std::uint64_t, IndexKeyT>(*inverted_list_ptr, direction, key));
+        return std::unique_ptr<FT_Iterator<KeyT> >(
+            new FT_IndexIterator<ListT, KeyT, IndexKeyT>(*inverted_list_ptr, direction, key)
+        );
     }
     
-    template <typename IndexKeyT>
-    bool FT_BaseIndex<IndexKeyT>::addIterator(FT_IteratorFactory<std::uint64_t> &factory, IndexKeyT key) const
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::addIterator(FT_IteratorFactory<KeyT> &factory, IndexKeyT key) const
     {
         using ListT = typename super_t::ListT;
         auto inverted_list_ptr = this->tryGetExistingInvertedList(key);
@@ -48,14 +59,15 @@ namespace db0
         }
         
         // key inverted index
-        factory.add(std::unique_ptr<FT_Iterator<std::uint64_t> >(
-            new FT_IndexIterator<ListT, std::uint64_t, IndexKeyT>(*inverted_list_ptr, -1, key))
+        factory.add(std::unique_ptr<FT_Iterator<KeyT> >(
+            new FT_IndexIterator<ListT, KeyT, IndexKeyT>(*inverted_list_ptr, -1, key))
         );
         return true;
     }
-
-    template <typename IndexKeyT>
-	std::shared_ptr<typename FT_BaseIndex<IndexKeyT>::BatchOperation> FT_BaseIndex<IndexKeyT>::getBatchOperation()
+    
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+	std::shared_ptr<typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation> 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::getBatchOperation()
     {
 		// either pull existing or create new BatchOperation instance
 		progressive_mutex::scoped_lock lock(mx);
@@ -80,25 +92,27 @@ namespace db0
 		return result;
 	}
 
-    template <typename IndexKeyT>
-	typename FT_BaseIndex<IndexKeyT>::BatchOperationBuilder FT_BaseIndex<IndexKeyT>::beginBatchUpdate() {
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+	typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperationBuilder 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::beginBatchUpdate() 
+    {
 		return getBatchOperation();
 	}
 
-    template <typename IndexKeyT>
-    FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::BatchOperationBuilder(std::shared_ptr<BatchOperation> batch_operation)
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperationBuilder::BatchOperationBuilder(std::shared_ptr<BatchOperation> batch_operation)
         : m_batch_operation(batch_operation)
     {
     }
 
-    template <typename IndexKeyT>
-    FT_BaseIndex<IndexKeyT>::BatchOperation::BatchOperation(FT_BaseIndex<IndexKeyT> &base_index)
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::BatchOperation(FT_BaseIndex<IndexKeyT, KeyT, IndexValueT> &base_index)
         : m_base_index_ptr(&base_index)        
     {
     }
 
-    template <typename IndexKeyT>
-	FT_BaseIndex<IndexKeyT>::BatchOperation::~BatchOperation() 
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+	FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::~BatchOperation() 
     {
         if (m_commit_called) {
             return;
@@ -108,25 +122,26 @@ namespace db0
             "Operation not completed properly/commit or rollback should be called");
 	}
 
-    template <typename IndexKeyT>
-	void FT_BaseIndex<IndexKeyT>::BatchOperation::cancel()
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+	void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::cancel()
     {
 		std::unique_lock<std::mutex> lock(m_mutex);
 		m_add_set.clear();
 		m_remove_set.clear();
 	}
     
-    template <typename IndexKeyT>
-    bool FT_BaseIndex<IndexKeyT>::BatchOperation::empty () const
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::empty () const
     {
         std::unique_lock<std::mutex> lock(m_mutex);
         return m_add_set.empty() && m_remove_set.empty();
     }
     
-    template <typename IndexKeyT>
-    typename FT_BaseIndex<IndexKeyT>::FlushStats FT_BaseIndex<IndexKeyT>::BatchOperation::flush(
-        std::function<void(std::uint64_t)> *insert_callback_ptr, 
-        std::function<void(std::uint64_t)> *erase_callback_ptr,
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::FlushStats 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::flush(
+        std::function<void(KeyT)> *insert_callback_ptr, 
+        std::function<void(KeyT)> *erase_callback_ptr,
         std::function<void(IndexKeyT)> *index_insert_callback_ptr, 
         std::function<void(IndexKeyT)> *index_erase_callback_ptr)
     {
@@ -139,7 +154,7 @@ namespace db0
 
         using TagIterator = db0::ConverterIteratorAdapter<typename TagRangesVector::iterator, GetIteratorPairFirst>;
         struct GetPairSecond {
-            std::uint64_t operator()(typename TagValueList::reference value) const {
+            KeyT operator()(typename TagValueList::reference value) const {
                 return value.second;
             }
         };
@@ -192,7 +207,7 @@ namespace db0
                     // NOTICE: only unique items are retained in index
                     // callback notified about unique items (objects)
                     std::pair<std::uint32_t, std::uint32_t> stats = tag_index_ptr->bulkInsertUnique(
-                        ValueIterator(range_first), 
+                        ValueIterator(range_first),
                         ValueIterator(range_last),
                         insert_callback_ptr
                     );
@@ -249,7 +264,7 @@ namespace db0
                         if (old_map_value != new_map_value) {
                             // Update list ptr in index
                             auto it = index.find(first_item.first);
-                            if (tag_index_ptr->getIndexType() == db0::bindex::empty) {
+                            if (tag_index_ptr->getIndexType() == db0::bindex::type::empty) {
                                 // remove empty inverted list completely
                                 index.erase(it);
                                 // notify callback on index erased
@@ -292,8 +307,8 @@ namespace db0
 		return stats;
 	}
     
-    template <typename IndexKeyT>
-    void FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::reset()
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperationBuilder::reset()
     {
         if (m_batch_operation) {
             m_batch_operation->cancel();
@@ -301,39 +316,39 @@ namespace db0
         m_batch_operation = nullptr;
     }
     
-    template <typename IndexKeyT>
-	FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::operator bool() const {
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+	FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperationBuilder::operator bool() const {
 		return (bool)m_batch_operation;
 	}
 
-    template <typename IndexKeyT>
-	bool FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::operator!() const {
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+	bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperationBuilder::operator!() const {
 		return !((bool)m_batch_operation);
 	}
 
-    template <typename IndexKeyT>
-    bool FT_BaseIndex<IndexKeyT>::BatchOperationBuilder::empty() const {
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperationBuilder::empty() const {
         return !m_batch_operation || m_batch_operation->empty();
     }
 
-    template <typename IndexKeyT>
-    void FT_BaseIndex<IndexKeyT>::TagValueBuffer::append(IndexKeyT tag, ActiveValueT value)
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::append(IndexKeyT tag, ActiveValueT value)
     {    
-        assert((value.first || value.second) && "Either a value or value reference must be provided");
-        assert(!(value.first && value.second) && "Both value and value reference cannot be provided");
-        if (value.first) {
+        assert((is_valid(value.first) || value.second) && "Either a value or value reference must be provided");
+        assert(!(is_valid(value.first) && value.second) && "Both value and value reference cannot be provided");
+        if (is_valid(value.first)) {
             m_values.emplace(tag, value.first);
         } else {
             m_value_refs.emplace(tag, value.second);
         }
     }
 
-    template <typename IndexKeyT>
-    bool FT_BaseIndex<IndexKeyT>::TagValueBuffer::remove(IndexKeyT tag, ActiveValueT value)
-    {    
-        assert((value.first || value.second) && "Either a value or value reference must be provided");
-        assert(!(value.first && value.second) && "Both value and value reference cannot be provided");
-        if (value.first) {
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::remove(IndexKeyT tag, ActiveValueT value)
+    {
+        assert((is_valid(value.first) || value.second) && "Either a value or value reference must be provided");
+        assert(!(is_valid(value.first) && value.second) && "Both value and value reference cannot be provided");
+        if (is_valid(value.first)) {
             auto it = m_values.find({tag, value.first});
             if (it != m_values.end()) {
                 m_values.erase(it);
@@ -348,48 +363,52 @@ namespace db0
         }
         return false;
     }
-
-    template <typename IndexKeyT>
-    bool FT_BaseIndex<IndexKeyT>::TagValueBuffer::empty() const
+    
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::empty() const
     {
         return m_values.empty() && m_value_refs.empty();
     }   
 
-    template <typename IndexKeyT>
-    void FT_BaseIndex<IndexKeyT>::TagValueBuffer::clear()
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::clear()
     {
         m_values.clear();
         m_value_refs.clear();
     }
     
-    template <typename IndexKeyT>
-    typename FT_BaseIndex<IndexKeyT>::TagValueBuffer::const_iterator FT_BaseIndex<IndexKeyT>::TagValueBuffer::begin() const {
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::begin() const 
+    {
         return { *this, typename const_iterator::tag_begin() };
     }
 
-    template <typename IndexKeyT>
-    typename FT_BaseIndex<IndexKeyT>::TagValueBuffer::const_iterator FT_BaseIndex<IndexKeyT>::TagValueBuffer::end() const {
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::end() const 
+    {
         return { *this, typename const_iterator::tag_end() };
     }
 
-    template <typename IndexKeyT>
-    FT_BaseIndex<IndexKeyT>::TagValueBuffer::const_iterator::const_iterator(const TagValueBuffer &buf, tag_begin)
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::const_iterator(const TagValueBuffer &buf, tag_begin)
         : m_values_it(buf.m_values.begin())
         , m_values_end(buf.m_values.end())
         , m_value_refs_it(buf.m_value_refs.begin())
     {
     }
 
-    template <typename IndexKeyT>
-    FT_BaseIndex<IndexKeyT>::TagValueBuffer::const_iterator::const_iterator(const TagValueBuffer &buf, tag_end)
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::const_iterator(const TagValueBuffer &buf, tag_end)
         : m_values_it(buf.m_values.end())
         , m_values_end(buf.m_values.end())
         , m_value_refs_it(buf.m_value_refs.end())
     {
     }
 
-    template <typename IndexKeyT>
-    void FT_BaseIndex<IndexKeyT>::TagValueBuffer::const_iterator::operator++()
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator++()
     {
         if (m_values_it != m_values_end) {
             ++m_values_it;
@@ -398,20 +417,21 @@ namespace db0
         }
     }
 
-    template <typename IndexKeyT>
-    bool FT_BaseIndex<IndexKeyT>::TagValueBuffer::const_iterator::operator!=(const const_iterator &other) const
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator!=(const const_iterator &other) const
     {
         return m_values_it != other.m_values_it || m_value_refs_it != other.m_value_refs_it;
     }
 
-    template <typename IndexKeyT>
-    bool FT_BaseIndex<IndexKeyT>::TagValueBuffer::const_iterator::operator==(const const_iterator &other) const
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator==(const const_iterator &other) const
     {
         return m_values_it == other.m_values_it && m_value_refs_it == other.m_value_refs_it;
     }
 
-    template <typename IndexKeyT>
-    std::pair<IndexKeyT, std::uint64_t> FT_BaseIndex<IndexKeyT>::TagValueBuffer::const_iterator::operator*() const
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    std::pair<IndexKeyT, KeyT> 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator*() const
     {
         if (m_values_it != m_values_end) {
             return *m_values_it;
@@ -420,14 +440,14 @@ namespace db0
         }
     }
     
-    template <typename IndexKeyT>
-    FT_BaseIndex<IndexKeyT>::TagValueList::TagValueList(TagValueBuffer &&buf)
-        : std::vector<std::pair<IndexKeyT, std::uint64_t> >(buf.m_values.begin(), buf.m_values.end())
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueList::TagValueList(TagValueBuffer &&buf)
+        : std::vector<std::pair<IndexKeyT, KeyT> >(buf.m_values.begin(), buf.m_values.end())
     {
         for (auto &item : buf.m_value_refs) {
             // NOTE: the 0x0 references may come from the defunct objects
             // and therefore mutest be ignored
-            if (*item.second) {
+            if (is_valid(*item.second)) {
                 this->emplace_back(item.first, *item.second);
             }
         }
@@ -435,7 +455,10 @@ namespace db0
         buf.m_value_refs.clear();
     }
     
-    template class FT_BaseIndex<std::uint64_t>;
-    template class FT_BaseIndex<db0::LongTagT>;
+    template class FT_BaseIndex<std::uint64_t, UniqueAddress>;
+    template class FT_BaseIndex<db0::LongTagT, UniqueAddress>;
+
+    template class FT_BaseIndex<std::uint64_t, std::uint64_t>;
+    template class FT_BaseIndex<db0::LongTagT, std::uint64_t>;
     
 }

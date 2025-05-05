@@ -2,6 +2,7 @@
 #include "Memo.hpp"
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyTagsAPI.hpp"
 #include "PyObjectTagManager.hpp"
 #include "PySnapshot.hpp"
 #include "PyTagSet.hpp"
@@ -50,7 +51,7 @@ static PyMethodDef dbzero_methods[] =
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
     {"find", (PyCFunction)&py::PyAPI_find, METH_FASTCALL, ""},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
-    {"get_state_num", (PyCFunction)&py::getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
+    {"get_state_num", (PyCFunction)&py::PyAPI_getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
     {"get_prefix_stats", (PyCFunction)&py::getPrefixStats, METH_VARARGS | METH_KEYWORDS, "Retrieve prefix specific statistics"},
     {"snapshot", (PyCFunction)&py::getSnapshot, METH_VARARGS | METH_KEYWORDS, "Get snapshot of dbzero state"},
     {"begin_atomic", (PyCFunction)&py::PyAPI_beginAtomic, METH_FASTCALL, "Opens a new atomic operation's context"},
@@ -62,11 +63,11 @@ static PyMethodDef dbzero_methods[] =
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},
     {"to_dict", (PyCFunction)&py::toDict, METH_FASTCALL, "Serialize dbzero object as a Python dict"},
     {"build_flags", &py::getBuildFlags, METH_NOARGS, "Retrieve dbzero library build flags"},
-    {"serialize", (PyCFunction)&py::pySerialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
-    {"deserialize", (PyCFunction)&py::pyDeserialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
+    {"serialize", (PyCFunction)&py::PyAPI_serialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
+    {"deserialize", (PyCFunction)&py::PyAPI_deserialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
     {"make_enum", (PyCFunction)&py::makeEnum, METH_VARARGS | METH_KEYWORDS, "Define new or retrieve existing Enum type"},
     {"is_enum_value", (PyCFunction)&py::isEnumValue, METH_FASTCALL, "Check if parameter represents a dbzero enum value"},
-    {"split_by", (PyCFunction)&py::splitBy, METH_VARARGS | METH_KEYWORDS, "Split query iterator by a given criteria"},
+    {"split_by", (PyCFunction)&py::PyAPI_splitBy, METH_VARARGS | METH_KEYWORDS, "Split query iterator by a given criteria"},
     {"filter", (PyCFunction)&py::filter, METH_VARARGS | METH_KEYWORDS, "Filter with a Python callable"},
     {"set_prefix", (PyCFunction)&py::setPrefix, METH_VARARGS | METH_KEYWORDS, "Allows dynamically specifying object's prefix during initialization"},
     {"get_slab_metrics", (PyCFunction)&py::getSlabMetrics, METH_NOARGS, "Retrieve slab metrics of the current prefix"},
@@ -90,9 +91,11 @@ static PyMethodDef dbzero_methods[] =
     {"wait", (PyCFunction)&py::PyAPI_wait, METH_VARARGS | METH_KEYWORDS, "Wait for desired prefix state number"},
     {"find_singleton", (PyCFunction)&py::PyAPI_findSingleton, METH_VARARGS | METH_KEYWORDS, "Try retrieving an existing singleton, possibly from a given prefix"},
     {"weak_proxy", (PyCFunction)&py::PyAPI_weakProxy, METH_FASTCALL, "Construct weak proxy from a db0 object"},
-    {"expired", (PyCFunction)&py::PyAPI_expired, METH_FASTCALL, "Check if the weak reference has expired"},
-    {"_await_prefix_state", (PyCFunction)&py::PyAPI_await_prefix_state, METH_VARARGS | METH_KEYWORDS, "Get notified about state number being reached"},
+    {"expired", (PyCFunction)&py::PyAPI_expired, METH_FASTCALL, "Check if the weak reference has expired"},    
     {"get_config", &py::PyAPI_getConfig, METH_NOARGS, "Get dbzero configuration, as passed to 'init' function"},
+    {"_await_prefix_state", (PyCFunction)&py::PyAPI_await_prefix_state, METH_VARARGS | METH_KEYWORDS, "Get notified about state number being reached"},    
+    {"_select_mod_candidates", (PyCFunction)&py::PyAPI_selectModCandidates, METH_VARARGS | METH_KEYWORDS, "Filter to return only objects which could potentially be modified within a specific scope"},
+    {"_split_by_snapshots", (PyCFunction)&py::PyAPI_splitBySnapshots, METH_FASTCALL, "Splits a given query to produce results from the 2 given snapshots (as a tuple)"},
 #ifndef NDEBUG
     {"dbg_write_bytes", &py::writeBytes, METH_VARARGS, "Debug function"},
     {"dbg_free_bytes", &py::freeBytes, METH_VARARGS, "Debug function"},

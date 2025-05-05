@@ -45,9 +45,9 @@ namespace db0
          * open either for read or read/write
          * @param address pass 0 to use the first assigned address
         */
-        SparseIndexBase(DRAM_Pair, AccessType, std::uint64_t address = 0, 
+        SparseIndexBase(DRAM_Pair, AccessType, Address address = {}, 
             std::vector<std::uint64_t> *change_log_ptr = nullptr);
-
+        
         // Create a new empty sparse index
         struct tag_create {};
         SparseIndexBase(tag_create, DRAM_Pair, std::vector<std::uint64_t> *change_log_ptr = nullptr);
@@ -121,7 +121,8 @@ namespace db0
         };
 
         // tree-level header type
-        struct [[gnu::packed]] o_sparse_index_header: o_fixed<o_sparse_index_header> {
+        struct [[gnu::packed]] o_sparse_index_header: o_fixed<o_sparse_index_header>
+        {
             PageNumT m_next_page_num = 0;
             StateNumT m_max_state_num = 0;
             // the extra-data slot currently used to store reference to the dff-index
@@ -143,7 +144,7 @@ namespace db0
 
         ConstItemIterator findLower(PageNumT, StateNumT) const;
 
-        std::uint64_t getIndexAddress() const;
+        Address getIndexAddress() const;
 
         void setExtraData(std::uint64_t);
 
@@ -165,7 +166,7 @@ namespace db0
         // first element is the state number
         std::vector<std::uint64_t> *m_change_log_ptr = nullptr;
         
-        IndexT openIndex(std::uint64_t address, AccessType access_type);
+        IndexT openIndex(Address, AccessType access_type);
         IndexT createIndex();
     };
 
@@ -182,7 +183,7 @@ namespace db0
     }
 
     template <typename ItemT, typename CompressedItemT>
-    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(DRAM_Pair dram_pair, AccessType access_type, std::uint64_t address,
+    SparseIndexBase<ItemT, CompressedItemT>::SparseIndexBase(DRAM_Pair dram_pair, AccessType access_type, Address address,
         std::vector<std::uint64_t> *change_log_ptr)
         : m_dram_prefix(dram_pair.first)
         , m_dram_allocator(dram_pair.second)
@@ -238,10 +239,10 @@ namespace db0
     
     template <typename ItemT, typename CompressedItemT>
     typename SparseIndexBase<ItemT, CompressedItemT>::IndexT
-    SparseIndexBase<ItemT, CompressedItemT>::openIndex(std::uint64_t address, AccessType access_type)
+    SparseIndexBase<ItemT, CompressedItemT>::openIndex(Address address, AccessType access_type)
     {
         assert(!m_dram_prefix->empty() && "SparseIndexBase::openIndex: DRAM prefix is empty");
-        if (!address) {
+        if (!address.isValid()) {
             address = m_dram_allocator->firstAlloc();
         }
         return IndexT(m_dram_space.myPtr(address), m_dram_prefix->getPageSize(), access_type);
@@ -378,7 +379,7 @@ namespace db0
     }
     
     template <typename ItemT, typename CompressedItemT>
-    std::uint64_t SparseIndexBase<ItemT, CompressedItemT>::getIndexAddress() const {
+    Address SparseIndexBase<ItemT, CompressedItemT>::getIndexAddress() const {
         return m_index.getAddress();
     }
     

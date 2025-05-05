@@ -45,7 +45,7 @@ namespace db0::object_model
 
         ClassFactory(db0::swine_ptr<Fixture> &);
 
-        ClassFactory(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        ClassFactory(db0::swine_ptr<Fixture> &, Address address);
         
         // Copy all cached type mappings from another ClassFactory
         void initWith(const ClassFactory &);
@@ -84,7 +84,9 @@ namespace db0::object_model
         // @param optional language specific type object if known
         ClassItem getTypeByPtr(ClassPtr, TypeObjectPtr lang_type = nullptr) const;
         ClassItem getTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type = nullptr) const;
+
         static std::uint32_t classRef(const Class &);
+        static Address classRefToAddress(std::uint32_t class_ref);
 
         void commit() const;
         

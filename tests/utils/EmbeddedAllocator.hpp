@@ -15,17 +15,17 @@ namespace db0
     class EmbeddedAllocator: public Allocator
     {
     public:
-        using AllocCallbackT = std::function<void(std::size_t, std::uint32_t, bool, bool, std::optional<std::uint64_t>)>;
+        using AllocCallbackT = std::function<void(std::size_t, std::uint32_t, bool, std::optional<Address>)>;
         EmbeddedAllocator() = default;
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t, 
-            bool aligned = false, bool unique = false) override;
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t, 
+            bool aligned = false) override;
         
-        void free(std::uint64_t address) override;
+        void free(Address) override;
 
-        std::size_t getAllocSize(std::uint64_t address) const override;
+        std::size_t getAllocSize(Address) const override;
 
-        bool isAllocated(std::uint64_t address) const override;
+        bool isAllocated(Address) const override;
 
         void commit() const override;
 
@@ -36,7 +36,7 @@ namespace db0
 
     private:
         unsigned int m_count = 0;
-        std::unordered_map<std::uint64_t, std::size_t> m_allocations;
+        std::unordered_map<Address, std::size_t> m_allocations;
         AllocCallbackT m_alloc_callback;
     };
     

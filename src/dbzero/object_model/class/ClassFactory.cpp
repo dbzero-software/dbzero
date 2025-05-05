@@ -73,7 +73,7 @@ namespace db0::object_model
         modify().m_class_ptr_index_ptr = m_class_ptr_index;
     }
     
-    ClassFactory::ClassFactory(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    ClassFactory::ClassFactory(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_class_maps(openClassMaps((*this)->m_class_map_ptrs, getMemspace()))
         , m_class_ptr_index((*this)->m_class_ptr_index_ptr(getMemspace()))
@@ -224,15 +224,21 @@ namespace db0::object_model
         return result;
     }
     
-    ClassFactory::ClassItem ClassFactory::getTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type) const {
-        return getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(class_ref), lang_type);
+    ClassFactory::ClassItem ClassFactory::getTypeByClassRef(std::uint32_t class_ref,
+        TypeObjectPtr lang_type) const 
+    {
+        return getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(classRefToAddress(class_ref)), lang_type);
     }
     
     std::uint32_t ClassFactory::classRef(const Class &db0_class)
     {
-        auto address = db0::getPhysicalAddress(db0_class.getAddress());
-        assert(address <= std::numeric_limits<std::uint32_t>::max());
-        return static_cast<std::uint32_t>(address);
+        auto address = db0_class.getAddress();
+        assert(address.getOffset() <= std::numeric_limits<std::uint32_t>::max());
+        return static_cast<std::uint32_t>(address.getOffset());
+    }
+    
+    Address ClassFactory::classRefToAddress(std::uint32_t class_ref) {
+        return Address::fromOffset(class_ref);
     }
     
     ClassFactory::ClassItem ClassFactory::getTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const

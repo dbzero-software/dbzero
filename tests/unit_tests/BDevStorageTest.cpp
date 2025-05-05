@@ -189,7 +189,7 @@ namespace tests
         ASSERT_FALSE(cut.tryFindMutation(1, 1, mutation_id));
         cut.close();
     }
-    
+
     TEST_F( BDevStorageTest , testSparseIndexIsProperlySerializedAfterUpdates )
     {
         srand(9142424u);
@@ -493,4 +493,73 @@ namespace tests
         cut.close();
     }
     
+    TEST_F( BDevStorageTest , testBDevStorageFetchChangeLogs )
+    {
+        srand(9142424u);
+        BDevStorage::create(file_name);
+        BDevStorage cut(file_name, AccessType::READ_WRITE, {}, 16);
+
+        std::vector<std::vector<std::uint64_t> > updates {
+            { 0, 1, 2, 3 },
+            { 14, 13, 10, 11, 12 },
+            { 21, 20 },
+            { 35, 30, 31, 32, 33, 34 },
+            { 43, 40, 44, 41, 42 },
+            { 50, 51, 52, 53 },
+            { 60, 61, 62, 63, 64 },
+            { 73, 72, 70, 71 },
+            { 80, 81, 82, 83 },
+            { 91, 90 }
+        };
+
+        StateNumType state_num = 1;
+        for (auto &page_nums: updates) {
+            std::vector<char> page(cut.getPageSize());
+            for (auto &page_num: page_nums) {
+                std::memset(page.data(), page_num, page.size());
+                cut.write(page_num * cut.getPageSize(), state_num, page.size(), page.data());
+            }
+            cut.flush();
+            ++state_num;
+        }
+
+        std::vector<std::pair<StateNumType, std::optional<StateNumType> > > state_ranges {
+            { 9, std::nullopt },
+            { 4, 10 },
+            { 8, 12 },
+            { 3, 7 }
+        };
+
+        std::vector<std::vector<StateNumType> > expected_state_nums {
+            { 9, 10 },
+            { 4, 5, 6, 7, 8, 9 },
+            { 8, 9, 10 },
+            { 3, 4, 5, 6 }
+        };
+
+        unsigned int range_id = 0;
+        for (auto range: state_ranges) {
+            // collect and validate change-logs
+            std::vector<StateNumType> state_nums;
+            cut.fetchChangeLogs(range.first, range.second, [&](StateNumType fetched_state_num, const o_change_log &cl) {
+                state_nums.push_back(fetched_state_num);
+                std::vector<std::uint64_t> page_nums;
+                auto it = cl.begin();
+                ASSERT_EQ(fetched_state_num, *it);            
+                ++it;
+                for (;it != cl.end(); ++it) {
+                    page_nums.push_back(*it);
+                }
+                auto sorted_updates = updates[fetched_state_num - 1];
+                std::sort(sorted_updates.begin(), sorted_updates.end());
+                ASSERT_EQ(page_nums, sorted_updates);
+            });
+            
+            ASSERT_EQ(state_nums, expected_state_nums[range_id]);
+            ++range_id;
+        }
+        
+        cut.close();
+    }
+
 }

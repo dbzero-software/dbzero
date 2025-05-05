@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include "FT_Iterator.hpp"
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0
 
@@ -140,5 +141,6 @@ namespace db0
     };
     
     extern template class FT_ANDNOTIterator<std::uint64_t>;
+    extern template class FT_ANDNOTIterator<UniqueAddress>;
        
 }

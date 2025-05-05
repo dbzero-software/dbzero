@@ -74,14 +74,14 @@ namespace db0
          * @param m_file underlying file object
          * @param begin the stream's starting location/address
          * @param block_size single block size (including headers)
-         * @param tail_function required for read/write streams
+         * @param tail_function required for read/write streams when multiple streams occupy the same file
          * @param access_type either read/write or read-only
          * @param maintain_checksums if true then block-level checksums will be calculated and validated
         */
         BlockIOStream(CFile &m_file, std::uint64_t begin, std::uint32_t block_size,
-            std::function<std::uint64_t()> tail_function, AccessType = AccessType::READ_WRITE, 
+            std::function<std::uint64_t()> tail_function = {}, AccessType = AccessType::READ_WRITE,
             bool maintain_checksums = false);
-
+        
         BlockIOStream(BlockIOStream &&);
         
         BlockIOStream(const BlockIOStream &) = delete;
@@ -167,9 +167,40 @@ namespace db0
         AccessType getAccessType() const {
             return m_access_type;
         }
+        
+        // Get absolute file address (of the block) and the relative address of the current position
+        std::pair<std::uint64_t, std::uint64_t> getStreamPos() const;
+        
+        // Set stream position for reading
+        // NOTE: only values returned by getStreamPos() can be used, otherwise the behavior is undefined
+        void setStreamPos(std::uint64_t address, std::uint64_t stream_pos);
+
+        // Position the stream at its begin / head
+        void setStreamPosHead();
+
+        struct State
+        {
+            std::uint64_t m_address;
+            std::uint64_t m_stream_pos;
+            std::size_t m_block_num;                     
+            bool m_eos;
+        };
+        
+        // Temporarily save the stream's state, to be later restore with restoreState()
+        // NOTE: no mutations between saveState() and restoreState() are allowed, or the behavior is undefined
+        void saveState(State &) const;
+        
+        void restoreState(const State &);
+        
+        // Retrieve the stream's modified flag
+        bool modified() const {
+            return m_modified;
+        }
 
     protected:
         CFile &m_file;
+        // the stream's starting address
+        const std::uint64_t m_head;
         // file address of the current block
         std::uint64_t m_address;
         const std::uint32_t m_block_size;
@@ -198,8 +229,9 @@ namespace db0
         
         /**
          * Flush modified block to disk
+         * @return true if any modifications were flushed
         */
-        void flushModified();
+        bool flushModified();
 
         void write(const void *buffer, std::size_t size, std::uint64_t *address = nullptr);
 
@@ -242,6 +274,8 @@ namespace db0
          * @param chunk_size size of the chunk
         */
         void readFromChunk(std::uint64_t address, void *buffer, std::size_t chunk_size) const;
+
+        std::uint64_t nextAddress() const;
     };
 
 }

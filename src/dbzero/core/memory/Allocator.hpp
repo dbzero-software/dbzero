@@ -5,6 +5,7 @@
 #include <optional>
 #include <memory>
 #include <cassert>
+#include "Address.hpp"
 
 namespace db0
 
@@ -25,26 +26,33 @@ namespace db0
          * Note that slot functionality is implementation specific and may not be supported by all allocators.
          * We use slots in special cases where objects needs to be allocated from a limited narrow address range
         */
-        virtual std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false, bool unique = false) = 0;
+        virtual std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
+            bool aligned = false) = 0;
+        
+        // Try allocating a unique, never repeating address
+        // NOTE: this functionality is only supported by some allocators
+        // The default throwing implementation is provided
+        virtual std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false);
         
         /**
          * Free previously allocated address
+         * @param address the address previously returned by alloc (the memory offset part)
         */
-        virtual void free(std::uint64_t address) = 0;
-
+        virtual void free(Address) = 0;
+        
         /**
          * Retrieve size of the range allocated under a specific address
          * 
          * @param address the address previously returned by alloc
          * @return the range size in bytes
         */
-        virtual std::size_t getAllocSize(std::uint64_t address) const = 0;
+        virtual std::size_t getAllocSize(Address) const = 0;
         
         /**
          * Check if the address is a valid allocation address with this allocator
          */
-        virtual bool isAllocated(std::uint64_t address) const = 0;
+        virtual bool isAllocated(Address) const = 0;
         
         /**
          * Prepare the allocator for the next transaction
@@ -64,29 +72,13 @@ namespace db0
          * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
          * @return the address of the range
         */
-        std::uint64_t alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false, 
-            bool unique = false);
-
+        Address alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false);
+        
+        UniqueAddress allocUnique(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false);
+        
         // Check if the address is wihith the range managed by the allocator
         // (only applicable to limited allocators - e.g. SlabAllocator)
-        virtual bool inRange(std::uint64_t address) const;
+        virtual bool inRange(Address) const;                
     };
-    
-    // Converts allocator's logical address into a physical one (by removing high 14 bits)
-    inline std::uint64_t getPhysicalAddress(std::uint64_t address) {
-        return address & 0x0003'FFFF'FFFF'FFFF;
-    }
-    
-    inline bool isPhysicalAddress(std::uint64_t address) {
-        return (address & 0xFFFC'0000'0000'0000) == 0;
-    }
-    
-    // extract the instance ID part from the physical address (high 14 bits)
-    inline std::uint16_t getInstanceId(std::uint64_t address) {
-        return address >> 50;
-    }
-    
-    // combine physical address & instance ID to form a logical address
-    std::uint64_t makeLogicalAddress(std::uint64_t address, std::uint16_t instance_id);
     
 }

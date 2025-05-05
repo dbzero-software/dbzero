@@ -6,6 +6,7 @@
 #include <dbzero/object_model/class/ClassFactory.hpp>
 #include <dbzero/core/collections/full_text/FT_Serialization.hpp>
 #include <dbzero/core/collections/range_tree/RT_Serialization.hpp>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0::object_model
 
@@ -31,6 +32,14 @@ namespace db0::object_model
     {
     }
     
+    ObjectIterator::ObjectIterator(const ObjectIterable &other, const std::vector<FilterFunc> &filters)
+        : ObjectIterable(other, filters)
+        , m_iterator_ptr(getIteratorPtr())
+        , m_decoration(std::move(m_query_observers))
+        , m_slice(m_iterator_ptr, m_slice_def)
+    {
+    }
+    
     ObjectIterator::Decoration::Decoration(std::vector<std::unique_ptr<QueryObserver> > &&query_observers)
         : m_query_observers(std::move(query_observers))
         , m_decorators(m_query_observers.size())
@@ -49,7 +58,7 @@ namespace db0::object_model
                         ++it;
                     }
                 }
-                std::uint64_t addr;
+                db0::UniqueAddress addr;
                 m_slice.next(&addr);
                 auto obj_ptr = unload(addr);
                 // check filters if any                
@@ -68,16 +77,21 @@ namespace db0::object_model
         }
     }
     
-    ObjectIterator::ObjectSharedPtr ObjectIterator::unload(std::uint64_t address) const
+    ObjectIterator::ObjectSharedPtr ObjectIterator::unload(db0::swine_ptr<Fixture> &fixture, Address address) const
     {
-        auto fixture = getFixture();
+        // unload as typed if class is known
         if (m_type) {
-            // unload as typed if class is known
             return LangToolkit::unloadObject(fixture, address, m_type, m_lang_type.get());
         } else {
-            // NOTE: lang type may be available even without the corresponding Class (e.g. MemoBase)
             return LangToolkit::unloadObject(fixture, address, m_class_factory, m_lang_type.get());
         }
     }
-        
+    
+    ObjectIterator::ObjectSharedPtr ObjectIterator::unload(Address address) const
+    {
+        auto fixture = getFixture();
+        return unload(fixture, address);
+    }
+
+
 }

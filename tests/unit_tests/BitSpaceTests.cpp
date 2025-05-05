@@ -19,8 +19,9 @@ namespace tests
 
         // initialize the bitspace
         std::size_t page_size = 4096;
+        auto base_addr = db0::Address::fromOffset(0);
         // configure bitspace to use the entire 4kb page - i.e. 0x8000 bits
-        db0::BitSpace<0x8000> bitspace(memspace.getPrefixPtr(), 0, page_size);
+        db0::BitSpace<0x8000> bitspace(memspace.getPrefixPtr(), base_addr, page_size);
         
         using ObjectT = db0::v_object<db0::o_binary>;
         ObjectT obj1(bitspace, page_size - db0::o_binary::sizeOfFixedPart());

@@ -98,6 +98,7 @@ namespace db0
         return false;
     }
 
+    template class IteratorGroup<UniqueAddress>;
     template class IteratorGroup<std::uint64_t>;
 
 }

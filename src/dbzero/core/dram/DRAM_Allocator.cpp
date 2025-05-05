@@ -43,23 +43,21 @@ namespace db0
         m_next_page_id = max_page_id;
     }
     
-    std::optional<std::uint64_t> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
-        bool aligned, bool unique)
-    {        
+    std::optional<Address> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    {
         assert(slot_num == 0);
-        assert(!aligned && "DRAM_Allocator: aligned allocation not supported");
-        assert(!unique && "DRAM_Allocator: unique allocation not supported");
+        assert(!aligned && "DRAM_Allocator: aligned allocation not supported");        
         assert(size == m_page_size && "DRAM_Allocator: invalid alloc size requested");
-        if (m_free_pages.empty()) {            
-            return m_next_page_id++ * m_page_size;
+        if (m_free_pages.empty()) {
+            return Address::fromOffset(m_next_page_id++ * m_page_size);
         }
         auto it = m_free_pages.begin();
         auto result = *it * m_page_size;
         m_free_pages.erase(it);
-        return result;
+        return Address::fromOffset(result);
     }
     
-    void DRAM_Allocator::free(std::uint64_t address)
+    void DRAM_Allocator::free(Address address)
     {
         auto page_id = address / m_page_size;
         if (page_id >= m_next_page_id) {
@@ -88,14 +86,14 @@ namespace db0
         m_free_pages.insert(page_id);
     }
 
-    std::size_t DRAM_Allocator::getAllocSize(std::uint64_t address) const
+    std::size_t DRAM_Allocator::getAllocSize(Address address) const
     {
         // address validity not checked here
         auto offset = address % m_page_size;
         return m_page_size - offset;    
     }
     
-    bool DRAM_Allocator::isAllocated(std::uint64_t address) const
+    bool DRAM_Allocator::isAllocated(Address address) const
     {
         auto page_id = address / m_page_size;
         if (page_id >= m_next_page_id) {
@@ -109,8 +107,8 @@ namespace db0
         return it == m_free_pages.end();
     }
     
-    std::uint64_t DRAM_Allocator::firstAlloc() const {
-        return FIRST_PAGE_ID * m_page_size;
+    Address DRAM_Allocator::firstAlloc() const {
+        return Address::fromOffset(FIRST_PAGE_ID * m_page_size);
     }
         
     void DRAM_Allocator::commit() const

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cassert>
 #include "config.hpp"
+#include "Address.hpp"
 #include <dbzero/core/exception/Exceptions.hpp>
 
 namespace db0
@@ -26,7 +27,7 @@ namespace db0
      * @param page_size the page size
      * @param direction either 1 or -1 (the direction in which the addresses are allocated)
     */
-    std::uint64_t alignAddress(std::uint64_t addr, std::size_t page_size, int direction);
+    Address alignAddress(Address addr, std::size_t page_size, int direction);
     
     /**
      * Apply the wide range alignment rules (i.e. align only if size > page_size / 2)
@@ -35,7 +36,7 @@ namespace db0
      * @param page_size the page size
      * @param direction either 1 or -1 (the direction in which the addresses are allocated)
     */
-    std::uint64_t alignWideRange(std::uint64_t addr, std::size_t size, std::size_t page_size, int direction = 1);
+    Address alignWideRange(Address addr, std::size_t size, std::size_t page_size, int direction = 1);
 
     template <typename StorageT> std::uint64_t findUniqueMutation(const StorageT &storage, std::uint64_t first_page, 
         std::uint64_t end_page, std::uint64_t state_num)

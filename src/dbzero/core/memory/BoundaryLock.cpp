@@ -56,15 +56,44 @@ namespace db0
                 m_lhs->setDirty();
                 auto lhs_buffer = m_lhs->getBuffer(m_address);
                 std::memcpy(lhs_buffer, m_data.data(), m_lhs_size);
+                                
                 m_rhs->setDirty();
                 auto rhs_buffer = m_rhs->getBuffer(m_address + m_lhs_size);
-                std::memcpy(rhs_buffer, m_data.data() + m_lhs_size, m_rhs_size);                
+                std::memcpy(rhs_buffer, m_data.data() + m_lhs_size, m_rhs_size);
+
+                // also apply forced-diff settings if available
+                if (!m_diffs.empty()) {
+                    if (m_diffs.isOverflow()) {
+                        // force-diff the entire range
+                        m_lhs->setDirty(m_address, m_address + m_lhs_size);
+                        m_rhs->setDirty(m_address + m_lhs_size, m_address + m_lhs_size + m_rhs_size);
+                    } else {
+                        // create view of the entire range
+                        DiffRangeView lhs_view(m_diffs, 0, m_lhs_size);
+                        // and apply all ranges
+                        for (std::size_t i = 0; i < lhs_view.size(); ++i) {
+                            auto range = lhs_view[i];
+                            // convert to absolute addresses
+                            m_lhs->setDirty(m_address + range.first, m_address + range.second);
+                        }
+                        
+                        DiffRangeView rhs_view(m_diffs, m_lhs_size, m_lhs_size + m_rhs_size);
+                        // and apply all ranges
+                        for (std::size_t i = 0; i < rhs_view.size(); ++i) {
+                            auto range = rhs_view[i];
+                            // convert to absolute addresses
+                            m_rhs->setDirty(m_address + m_lhs_size + range.first, m_address + m_lhs_size + range.second);
+                        }                        
+                    }
+                }
+                
+                m_diffs.clear();
                 // reset the dirty flag
                 lock.commit_reset();
             }
         }
     }
-
+    
     bool BoundaryLock::_tryFlush(FlushMethod flush_method)
     {
         if (flush_method == FlushMethod::diff) {
@@ -81,7 +110,7 @@ namespace db0
     bool BoundaryLock::tryFlush(FlushMethod flush_method) {
         return _tryFlush(flush_method);
     }
-
+    
     void BoundaryLock::flush() {
         _tryFlush(FlushMethod::full);
     }

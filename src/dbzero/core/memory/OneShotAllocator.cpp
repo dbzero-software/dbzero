@@ -6,18 +6,16 @@ namespace db0
 
 {
 
-    OneShotAllocator::OneShotAllocator(std::uint64_t addr, std::size_t size)
+    OneShotAllocator::OneShotAllocator(Address addr, std::size_t size)
         : m_addr(addr)        
         , m_size(size)
     {
     }
 
-    std::optional<std::uint64_t> OneShotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
-        bool aligned, bool unique)
+    std::optional<Address> OneShotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
     {
         assert(slot_num == 0);
-        assert(!aligned && "OneShotAllocator: aligned allocation not supported");
-        assert(!unique && "OneShotAllocator: unique allocation not supported");
+        assert(!aligned && "OneShotAllocator: aligned allocation not supported");        
         if (size != m_size || m_allocated) {
             return std::nullopt;
         }
@@ -25,7 +23,7 @@ namespace db0
         return m_addr;
     }
     
-    void OneShotAllocator::free(std::uint64_t address) 
+    void OneShotAllocator::free(Address address)
     {
         if (address != m_addr || !m_allocated) {
             THROWF(db0::BadAddressException) << "OneShotAllocator invalid address: " << address;
@@ -33,7 +31,7 @@ namespace db0
         m_allocated = false;
     }
     
-    std::size_t OneShotAllocator::getAllocSize(std::uint64_t address) const 
+    std::size_t OneShotAllocator::getAllocSize(Address address) const 
     {
         if (address != m_addr || !m_allocated) {
             THROWF(db0::BadAddressException) << "OneShotAllocator invalid address: " << address;
@@ -41,10 +39,10 @@ namespace db0
         return m_size;
     }
     
-    bool OneShotAllocator::isAllocated(std::uint64_t address) const {
+    bool OneShotAllocator::isAllocated(Address address) const {
         return (address == m_addr && m_allocated);
     }
-
+    
     void OneShotAllocator::commit() const {
         // nothing to do
     }

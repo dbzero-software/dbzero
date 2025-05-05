@@ -480,7 +480,7 @@ namespace db0
     std::unique_ptr<SortedIterator<ValueT> > RT_SortIterator<KeyT, ValueT>::beginSorted(
         std::unique_ptr<FT_Iterator<ValueT> > ft_query) const
     {
-        std::unique_ptr<SortedIterator<std::uint64_t> > nested_inner_it;
+        std::unique_ptr<SortedIterator<ValueT> > nested_inner_it;
         if (m_inner_it) {
             nested_inner_it = m_inner_it->beginSorted();
         }

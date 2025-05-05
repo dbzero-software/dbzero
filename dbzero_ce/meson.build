@@ -10,7 +10,8 @@ python_sources = [
     'dbzero_ce/reflection_api.py',
     'dbzero_ce/storage_api.py',
     'dbzero_ce/utilities.py',
-    'dbzero_ce/locked.py'
+    'dbzero_ce/locked.py',
+    'dbzero_ce/select.py'
 ]
 
 py3_inst.install_sources(

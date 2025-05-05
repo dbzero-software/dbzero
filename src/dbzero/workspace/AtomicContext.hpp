@@ -48,10 +48,10 @@ namespace db0
         AtomicContext(std::shared_ptr<Workspace> &, std::unique_lock<std::mutex> &&);
 
         // Register specific instance with the current transaction (for rollback/detach)
-        void add(std::uint64_t address, ObjectPtr);
+        void add(Address, ObjectPtr);
         
         // Try moving instance from a different AtomicContext
-        void moveFrom(AtomicContext &, std::uint64_t src_address, std::uint64_t dst_address);
+        void moveFrom(AtomicContext &, Address src_address, Address dst_address);
         
         void approve();
         void cancel();
@@ -63,7 +63,7 @@ namespace db0
         
     private:
         std::shared_ptr<Workspace> m_workspace;
-        std::unordered_map<std::uint64_t, ObjectSharedPtr> m_objects;        
+        std::unordered_map<Address, ObjectSharedPtr> m_objects;        
         
         // mutex / lock to prevent mutliple concurrent atomic operations
         // also acquired by the autocommit-thread to prevent auto-commit during atomic operation

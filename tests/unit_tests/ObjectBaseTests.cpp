@@ -39,10 +39,9 @@ namespace tests
         auto fixture = workspace.getFixture(prefix_name);
 
         std::vector<char> buf(sizeof(List));
-        auto &list = *List::makeNew((void*)buf.data(), fixture);
-        auto addr = list.getAddress();
-        // make sure the logical address differs from the physical one
-        ASSERT_NE(addr, db0::getPhysicalAddress(addr));
+        auto &list = *List::makeNew((void*)buf.data(), fixture);        
+        // make sure the logical (unique) address differs from the physical one
+        ASSERT_NE(list.getUniqueAddress().getValue(), list.getAddress().getValue());
         workspace.close();
     }
     

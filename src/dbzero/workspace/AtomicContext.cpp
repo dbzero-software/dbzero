@@ -125,14 +125,14 @@ namespace db0
         m_atomic_lock.unlock();
     }
     
-    void AtomicContext::add(std::uint64_t address, ObjectPtr lang_object)
+    void AtomicContext::add(Address address, ObjectPtr lang_object)
     {
         if (m_objects.find(address) == m_objects.end()) {
             m_objects.insert({address, lang_object});            
         }        
     }
 
-    void AtomicContext::moveFrom(AtomicContext &other, std::uint64_t src_address, std::uint64_t dst_address)
+    void AtomicContext::moveFrom(AtomicContext &other, Address src_address, Address dst_address)
     {
         auto it = other.m_objects.find(src_address);
         if (it != other.m_objects.end()) {
@@ -140,7 +140,7 @@ namespace db0
             other.m_objects.erase(it);
         }
     }
-
+    
     std::unique_lock<std::mutex> AtomicContext::lock() {
         return std::unique_lock<std::mutex>(m_atomic_mutex);
     }

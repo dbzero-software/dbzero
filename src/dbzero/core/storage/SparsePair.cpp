@@ -11,8 +11,8 @@ namespace db0
     }
     
     SparsePair::SparsePair(DRAM_Pair dram_pair, AccessType access_type)
-        : m_sparse_index(dram_pair, access_type, 0, &m_change_log)
-        , m_diff_index(dram_pair, access_type, m_sparse_index.getExtraData(), &m_change_log)
+        : m_sparse_index(dram_pair, access_type, Address::fromOffset(0), &m_change_log)
+        , m_diff_index(dram_pair, access_type, Address::fromOffset(m_sparse_index.getExtraData()), &m_change_log)
     {        
     }
     
@@ -21,9 +21,9 @@ namespace db0
         , m_diff_index(DiffIndex::tag_create(), dram_pair, &m_change_log)
     {
         // store the diff-index's address as extra data in the sparse index
-        m_sparse_index.setExtraData(m_diff_index.getIndexAddress());
+        m_sparse_index.setExtraData(m_diff_index.getIndexAddress().getOffset());
     }
-        
+    
     typename SparsePair::PageNumT SparsePair::getNextStoragePageNum() const {
         return std::max(m_sparse_index.getNextStoragePageNum(), m_diff_index.getNextStoragePageNum());
     }

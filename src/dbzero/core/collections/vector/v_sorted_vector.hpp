@@ -1141,7 +1141,7 @@ namespace db0
         }
         
 		bindex::type getIndexType() const {
-			return bindex::sorted_vector;
+			return bindex::type::sorted_vector;
 		}
 
     private:

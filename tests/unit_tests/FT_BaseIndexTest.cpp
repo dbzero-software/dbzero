@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <utils/TestBase.hpp>
+#include <dbzero/core/memory/Address.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
 
 namespace tests
@@ -7,6 +8,7 @@ namespace tests
 {
 
 	using namespace db0;
+    using UniqueAddress = db0::UniqueAddress;
 
     class FT_BaseIndexTest: public MemspaceTestBase
     {
@@ -27,8 +29,8 @@ namespace tests
 	{
         FT_BaseIndex<std::uint64_t> cut(m_memspace, m_cache);
         auto batch_data = cut.beginBatchUpdate();
-        batch_data->addTags({123, nullptr}, std::vector<std::uint64_t> { 1, 2, 3 });
-        batch_data->addTags({99, nullptr}, std::vector<std::uint64_t> { 4, 5 });
+        batch_data->addTags({ makeUniqueAddr(123, 1), nullptr }, std::vector<std::uint64_t> { 1, 2, 3 });
+        batch_data->addTags({ makeUniqueAddr(99, 1), nullptr }, std::vector<std::uint64_t> { 4, 5 });
         batch_data->flush();
 
         ASSERT_EQ(cut.size(), 5u);
@@ -40,15 +42,15 @@ namespace tests
         // initalize with some tags
         {
             auto batch_data = cut.beginBatchUpdate();
-            batch_data->addTags({123, nullptr}, std::vector<std::uint64_t> { 1, 2, 3 });
-            batch_data->addTags({99, nullptr}, std::vector<std::uint64_t> { 4, 5 });
+            batch_data->addTags({ makeUniqueAddr(123, 1), nullptr }, std::vector<std::uint64_t> { 1, 2, 3 });
+            batch_data->addTags({ makeUniqueAddr(99, 1), nullptr }, std::vector<std::uint64_t> { 4, 5 });
             batch_data->flush();
         }
 
         // remove some tags with batch operation
         {
             auto batch_data = cut.beginBatchUpdate();
-            batch_data->removeTags({123, nullptr}, std::vector<std::uint64_t> { 1, 2 });
+            batch_data->removeTags({ makeUniqueAddr(123, 1), nullptr }, std::vector<std::uint64_t> { 1, 2 });
             batch_data->flush();
         }
 
@@ -57,12 +59,12 @@ namespace tests
 
 	TEST_F( FT_BaseIndexTest , testFT_BaseIndexCanBeOpenedFromMemspace )
 	{        
-        std::uint64_t ft_base_index_addr = 0;
+        Address ft_base_index_addr = {};
         {
             FT_BaseIndex<std::uint64_t> cut(m_memspace, m_cache);
             auto batch_data = cut.beginBatchUpdate();
-            batch_data->addTags({123, nullptr}, std::vector<std::uint64_t> { 1, 2, 3 });
-            batch_data->addTags({99, nullptr}, std::vector<std::uint64_t> { 4, 5 });
+            batch_data->addTags({ makeUniqueAddr(123, 1), nullptr }, std::vector<std::uint64_t> { 1, 2, 3 });
+            batch_data->addTags({ makeUniqueAddr(99, 1), nullptr }, std::vector<std::uint64_t> { 4, 5 });
             batch_data->flush();
             ft_base_index_addr = cut.getAddress();
         }

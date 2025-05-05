@@ -22,12 +22,12 @@ namespace db0
          * @param direction either 1 or -1 (the direction in which the addresses are allocated)
          * @param offset allows generating shortened relative addresses (adequate for 32bit representation)
         */
-        BitSpace(std::shared_ptr<Prefix> prefix, std::uint64_t base_addr, std::size_t page_size, int direction = 1);
+        BitSpace(std::shared_ptr<Prefix> prefix, Address base_addr, std::size_t page_size, int direction = 1);
 
         /**
          * Initialize a new bitspace over specific prefix
         */
-        static void create(std::shared_ptr<Prefix>, std::uint64_t base_addr, std::size_t page_size, int direction = 1);
+        static void create(std::shared_ptr<Prefix>, Address base_addr, std::size_t page_size, int direction = 1);
 
         /// Get size (as the number of allocations) occupied by the allocated data
         std::size_t span() const {
@@ -41,7 +41,7 @@ namespace db0
             return BitSetT::sizeOf();
         }
 
-        std::uint64_t getBaseAddress() const {
+        Address getBaseAddress() const {
             return m_bitset_allocator->getBaseAddress();
         }
 
@@ -66,7 +66,7 @@ namespace db0
         std::shared_ptr<AllocatorT> m_bitset_allocator;
         
         // begin / end address of the bitset
-        static std::pair<std::uint64_t, std::uint64_t> bitsetAddr(std::uint64_t base_addr, std::size_t page_size, int direction)
+        static std::pair<Address, Address> bitsetAddr(Address base_addr, std::size_t page_size, int direction)
         {
             // align base address if necessary
             base_addr = alignWideRange(base_addr, BitSetT::sizeOf(), page_size, direction);
@@ -78,7 +78,7 @@ namespace db0
         }
     };
     
-    template <unsigned int BitN> BitSpace<BitN>::BitSpace(std::shared_ptr<Prefix> prefix, std::uint64_t base_addr,
+    template <unsigned int BitN> BitSpace<BitN>::BitSpace(std::shared_ptr<Prefix> prefix, Address base_addr,
         std::size_t page_size, int direction)
         : m_page_size(page_size)
         , m_internal_memspace(prefix, nullptr)
@@ -99,7 +99,7 @@ namespace db0
         m_bitset_allocator->clear();
     }
     
-    template <unsigned int BitN> void BitSpace<BitN>::create(std::shared_ptr<Prefix> prefix, std::uint64_t base_addr,
+    template <unsigned int BitN> void BitSpace<BitN>::create(std::shared_ptr<Prefix> prefix, Address base_addr,
         std::size_t page_size, int direction)
     {
         Memspace memspace(prefix, nullptr);

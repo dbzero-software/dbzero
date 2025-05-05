@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <functional>
 #include "AccessOptions.hpp"
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0
 
@@ -14,12 +15,12 @@ namespace db0
 	struct mptr
 	{
 		std::reference_wrapper<Memspace> m_memspace;
-		std::uint64_t m_address = 0;		
+		Address m_address = {};
 		FlagSet<AccessOptions> m_access_mode;
 
         mptr() = default;
 
-		inline mptr(Memspace &memspace, std::uint64_t address, FlagSet<AccessOptions> access_mode = {})
+		inline mptr(Memspace &memspace, Address address, FlagSet<AccessOptions> access_mode = {})
 			: m_memspace(memspace)
 			, m_address(address)
 			, m_access_mode(access_mode)

@@ -29,7 +29,7 @@ namespace db0::object_model
     
     class [[gnu::packed]] o_object: public db0::o_base<o_object, 0, false>
     {
-    protected: 
+    protected:
         using super_t = db0::o_base<o_object, 0, false>;
 
     public:
@@ -40,7 +40,9 @@ namespace db0::object_model
         KV_Address m_kv_address;
         // kv-index type must be stored separately from the address
         bindex::type m_kv_type;
-        
+        // reserved for future purposes (e.g. instance flags)
+        std::uint8_t m_reserved = 0;
+
         PosVT &pos_vt();
 
         const PosVT &pos_vt() const;
@@ -103,7 +105,7 @@ namespace db0::object_model
 
         Object(const Object &) = delete;
         Object(Object &&) = delete;
-        Object(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        Object(db0::swine_ptr<Fixture> &, Address);
         
         /* FIXME
         // Express-new constructor
@@ -133,18 +135,18 @@ namespace db0::object_model
         // make null instance (e.g. after destroying the original one)
         static Object *makeNull(void *at_ptr);
         
-        // Unload the object stem, to retrieve its type and validate UUID / instance ID
-        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, std::uint64_t address);
-        // Check if the unloadStem operation would be successful (withot actually performing it)
-        static bool checkUnloadStem(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        // Unload the object stem, to retrieve its type
+        static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
+        // Check if the unloadStem operation would be successful (withot actually performing it)        
+        static bool checkUnloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
         
-        // unload from stem with a known type (possibly a base type)
+        // Unload from stem with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exect object's type
         static Object *unload(void *at_ptr, ObjectStem &&, std::shared_ptr<Class> type_hint);
         
-        // unload from address with a known type (possibly a base type)
-        // NOTE: unload works faster if type_hint is the exect object's type
-        static Object *unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type_hint);
+        // Unload from address with a known type (possibly a base type)
+        // NOTE: unload works faster if type_hint is the exact object's type
+        static Object *unload(void *at_ptr, Address, std::shared_ptr<Class> type_hint);
 
         // Called to finalize adding members
         void endInit();
@@ -215,8 +217,10 @@ namespace db0::object_model
          * The overloaded incRef implementation is provided to also handle non-fully initialized objects
         */
         void incRef();
+        
+        void decRef();
 
-        bool operator==(const Object &other) const;
+        bool isSame(const Object &) const;
         
         /**
          * Move unreferenced object to a different prefix without changing the instance
@@ -234,7 +238,7 @@ namespace db0::object_model
 
         void commit() const;
         
-        std::uint64_t getAddress() const;
+        Address getAddress() const;
 
         // NOTE: the operation is marked const because the dbzero state is not affected
         void setDefunct() const;
@@ -246,7 +250,7 @@ namespace db0::object_model
         inline bool isDefunct() const {
             return m_flags.test(ObjectOptions::DEFUNCT);
         }
-
+        
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
@@ -254,6 +258,10 @@ namespace db0::object_model
         mutable std::unique_ptr<KV_Index> m_kv_index;
         static thread_local ObjectInitializerManager m_init_manager;        
         mutable ObjectFlags m_flags;
+        // A flag indicating that object's silent mutation has already been reflected
+        // with the underlying MemLock / ResourceLock
+        // NOTE: by silent mutation we mean a mutation that does not change data (e.g. +refcount(+-1) + (refcount-1))
+        mutable bool m_silent_mutation = false;
         
         Object();
         Object(std::shared_ptr<Class>);
@@ -301,7 +309,10 @@ namespace db0::object_model
         // Retrieve a type by class-ref with a possible match (type_hint)
         static std::shared_ptr<Class> getTypeWithHint(const Fixture &, std::uint32_t class_ref, std::shared_ptr<Class> type_hint);
         
-        bool hasValidClassRef() const;              
+        bool hasValidClassRef() const;
+
+        // the member called to indicate the potentially silent mutation
+        void onSilentMutation();
     };
     
 }

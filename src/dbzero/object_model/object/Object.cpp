@@ -74,7 +74,7 @@ namespace db0::object_model
     {
     }
 
-    Object::Object(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)        
     {
     }
@@ -110,31 +110,29 @@ namespace db0::object_model
         return new (at_ptr) Object();
     }
     
-    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id) 
     {
         db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-        // validate the instance ID if assigned        
-        auto instance_id = db0::getInstanceId(address);
-        if (instance_id && (instance_id != stem->m_header.m_instance_id)) {
+        if (instance_id && stem->m_header.m_instance_id != instance_id) {
             THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
-        }        
-        
-        return stem;        
-    }
-    
-    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
-    {
-        if (fixture->isAddressValid(address)) {
-            db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
-            // validate the instance ID if assigned        
-            auto instance_id = db0::getInstanceId(address);
-            return !instance_id || instance_id == stem->m_header.m_instance_id;
         }
-        // the address no longer exists
-        return false;
+        return stem;
     }
     
-    Object *Object::unload(void *at_ptr, std::uint64_t address, std::shared_ptr<Class> type_hint)
+    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
+    {
+        if (!fixture->isAddressValid(address)) {
+            return false;
+        }
+        // validate instance ID only if provided
+        if (instance_id) {
+            auto stem = db0::v_object<o_object>(db0::tag_verified(), fixture->myPtr(address));
+            return stem->m_header.m_instance_id == instance_id;
+        }
+        return true;
+    }
+    
+    Object *Object::unload(void *at_ptr, Address address, std::shared_ptr<Class> type_hint)
     {
         auto fixture = type_hint->getFixture();
         Object *object = new (at_ptr) Object(fixture, address);
@@ -253,6 +251,8 @@ namespace db0::object_model
         }
         
         // add field to the kv_index
+        // this operation must be registered as the potential silent mutation
+        onSilentMutation();
         XValue xvalue(field_id.getIndex(), storage_class, value);
         auto kv_index_ptr = addKV_First(xvalue);
         if (kv_index_ptr) {
@@ -262,7 +262,7 @@ namespace db0::object_model
                 unrefMember(*fixture, old_value);
                 // in case of the IttyIndex updating an element changes the address
                 // which needs to be updated in the object
-                if (kv_index_ptr->getIndexType() == bindex::itty) {
+                if (kv_index_ptr->getIndexType() == bindex::type::itty) {
                     modify().m_kv_address = kv_index_ptr->getAddress();
                 }
             } else {
@@ -328,7 +328,7 @@ namespace db0::object_model
         auto fixture = this->getFixture();
         if (member.first == StorageClass::OBJECT_REF) {
             auto &class_factory = fixture->get<ClassFactory>();
-            return PyToolkit::unloadObject(fixture, member.second.cast<std::uint64_t>(), class_factory, lang_type);
+            return PyToolkit::unloadObject(fixture, member.second.asAddress(), class_factory, lang_type);
         }
         return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
     }
@@ -634,14 +634,21 @@ namespace db0::object_model
     void Object::incRef()
     {
         if (hasInstance()) {
-            super_t::incRef();            
+            super_t::incRef();          
         } else {
             // incRef with the initializer
             m_init_manager.getInitializer(*this).incRef();
         }
     }
     
-    bool Object::operator==(const Object &other) const
+    void Object::decRef()
+    {
+        // this operation is a potentially silent mutation
+        onSilentMutation();
+        super_t::decRef();
+    }
+    
+    bool Object::isSame(const Object &other) const
     {
         if (!hasInstance() || !other.hasInstance()) {
             // compare objects without DB0 instance
@@ -685,8 +692,10 @@ namespace db0::object_model
             m_kv_index->commit();
         }
         super_t::commit();
+        // reset the silent-mutation flag
+        m_silent_mutation = false;
     }
-
+    
     void Object::unrefMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value) const {
         db0::object_model::unrefMember<LangToolkit>(fixture, type, value);
     }
@@ -701,7 +710,7 @@ namespace db0::object_model
         return fixture->get<ClassFactory>().getTypeByClassRef((*this)->m_class_ref).m_class;
     }
     
-    std::uint64_t Object::getAddress() const
+    Address Object::getAddress() const
     {
         assert(!isDefunct());
         if (!hasInstance()) {            
@@ -731,4 +740,13 @@ namespace db0::object_model
         m_flags.set(ObjectOptions::DEFUNCT);
     }
     
+    void Object::onSilentMutation()
+    {
+        if (!m_silent_mutation) {
+            // mark only the 1st byte of the object as modified (forced-diff)
+            modify(0, 1);
+            m_silent_mutation = true;
+        }
+    }
+
 }

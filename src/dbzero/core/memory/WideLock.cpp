@@ -7,12 +7,12 @@
 namespace db0
 
 {
-
+    
     WideLock::WideLock(StorageContext context, std::uint64_t address, std::size_t size, FlagSet<AccessOptions> access_mode,
         StateNumType read_state_num, StateNumType write_state_num, std::shared_ptr<DP_Lock> res_lock, std::shared_ptr<ResourceLock> cow_lock)
         : DP_Lock(tag_derived{}, context, address, size, access_mode, read_state_num, write_state_num, cow_lock)
         , m_res_lock(res_lock)
-    {        
+    {
         // initialzie the local buffer
         if (access_mode[AccessOptions::read]) {
             assert(read_state_num > 0);            
@@ -51,6 +51,36 @@ namespace db0
         _tryFlush(FlushMethod::full);
     }
     
+    void WideLock::resLockFlush()
+    {
+        auto &storage = m_context.m_storage_ref.get();
+        // data page size without the residual part
+        auto dp_size = static_cast<std::size_t>(this->size() / storage.getPageSize()) * storage.getPageSize();
+        assert(dp_size > 0);
+        assert(dp_size < this->size());
+        
+        m_res_lock->setDirty();
+        // copy the residual part only
+        std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
+
+        if (!m_diffs.empty()) {
+            auto res_begin = m_res_lock->getAddress();
+            if (m_diffs.isOverflow()) {
+                // force-diff the entire residual part
+                m_res_lock->setDirty(res_begin, res_begin + m_res_lock->size());
+            } else {
+                // create view of the residual part only
+                DiffRangeView diff_view(m_diffs, m_data.size(), this->size());
+                // and apply all ranges
+                for (std::size_t i = 0; i < diff_view.size(); ++i) {
+                    auto range = diff_view[i];
+                    // convert to absolute addresses
+                    m_res_lock->setDirty(res_begin + range.first, res_begin + range.second);
+                }
+            }
+        }        
+    }
+
     bool WideLock::_tryFlush(FlushMethod flush_method)
     {
         // no-flush flag is important for volatile locks (atomic operations)
@@ -77,10 +107,12 @@ namespace db0
                 } else {
                     assert(flush_method == FlushMethod::diff);
                     auto cow_ptr = getCowPtr();
-                    if (!cow_ptr) {
+                    if (!cow_ptr || m_diffs.isOverflow()) {
                         // unable to diff-flush (CoW data not available)
+                        // or the entire range must be forced to be diffed (overflow)
                         return false;
                     }
+
                     // write page-by-page using diff method (for DPs where diff method is applicable)
                     std::vector<std::uint16_t> diffs;
                     std::size_t unwritten_size = 0;
@@ -118,13 +150,13 @@ namespace db0
                         return false;                        
                     }
                 }
-
+                
+                // and the residual part into the res_lock (which may be flushed independently)
                 if (m_res_lock) {
-                    // and the residual part into the res_lock (which may be flushed independently)
-                    m_res_lock->setDirty();
-                    std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
+                    resLockFlush();
                 }
                 
+                m_diffs.clear();
                 // reset the dirty flag
                 lock.commit_reset();
             }
@@ -147,13 +179,7 @@ namespace db0
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
-                auto &storage = m_context.m_storage_ref.get();
-                auto dp_size = static_cast<std::size_t>(this->size() / storage.getPageSize()) * storage.getPageSize();
-                assert(dp_size > 0);
-                assert(dp_size < this->size());
-                // and the residual part into the res_lock (which may be flushed independently)
-                m_res_lock->setDirty();
-                std::memcpy(m_res_lock->getBuffer(), m_data.data() + dp_size, this->size() - dp_size);
+                resLockFlush();
                 // note the dirty flag is not reset here
                 break;
             }
@@ -170,7 +196,7 @@ namespace db0
     
     void WideLock::updateStateNum(StateNumType state_num, bool is_volatile, std::shared_ptr<DP_Lock> res_lock)
     {
-        DP_Lock::updateStateNum(state_num, is_volatile);        
+        DP_Lock::updateStateNum(state_num, is_volatile);
         // also need to update the residual lock
         m_res_lock = res_lock;        
     }
@@ -181,15 +207,20 @@ namespace db0
     }
 #endif
     
-    bool WideLock::getDiffs(const std::byte *&cow_ptr, void *buf, std::size_t size, std::vector<std::uint16_t> &result) const
+    bool WideLock::getDiffs(const std::byte *&cow_ptr, void *buf, std::size_t size,
+        std::vector<std::uint16_t> &result) const
     {
+        // unable to get diffs when overflow
+        assert(!m_diffs.isOverflow());
+        // NOTE: get forced diffs (views) from the specified range only
+        auto offset = static_cast<std::byte*>(buf) - m_data.data();
         if (cow_ptr == &m_cow_zero) {
-            return db0::getDiffs(buf, size, result);
-        } else {
-            auto has_diffs = db0::getDiffs(cow_ptr, buf, size, result);
+            return db0::getDiffs(buf, size, result, 0, {}, DiffRangeView(m_diffs, offset, offset + size));
+        } else {            
+            auto has_diffs = db0::getDiffs(cow_ptr, buf, size, result, 0, {}, DiffRangeView(m_diffs, offset, offset + size));
             cow_ptr += size;
             return has_diffs;
         }
     }
-
+    
 }

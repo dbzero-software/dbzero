@@ -47,7 +47,7 @@ namespace db0::object_model
         modify().m_index_ptr = m_index.getAddress();
     }
     
-    Dict::Dict(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Dict::Dict(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_index(myPtr((*this)->m_index_ptr))
     {
@@ -153,7 +153,7 @@ namespace db0::object_model
         return new (at_ptr) Dict(fixture);
     }
     
-    Dict *Dict::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::uint64_t address) {
+    Dict *Dict::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, Address address) {
         return new (at_ptr) Dict(fixture, address);
     }
     

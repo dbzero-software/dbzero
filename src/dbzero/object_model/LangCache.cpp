@@ -19,14 +19,14 @@ namespace db0
     {
     }
     
-    void LangCache::moveFrom(LangCache &other, const Fixture &src_fixture, std::uint64_t src_address,
-        const Fixture &dst_fixture, std::uint64_t dst_address)
+    void LangCache::moveFrom(LangCache &other, const Fixture &src_fixture, Address src_address,
+        const Fixture &dst_fixture, Address dst_address)
     {
         moveFrom(other, getFixtureId(src_fixture), src_address, getFixtureId(dst_fixture), dst_address);
     }
 
-    void LangCache::moveFrom(LangCache &other, std::uint16_t src_fixture_id, std::uint64_t src_address,
-        std::uint16_t dst_fixture_id, std::uint64_t dst_address)
+    void LangCache::moveFrom(LangCache &other, std::uint16_t src_fixture_id, Address src_address,
+        std::uint16_t dst_fixture_id, Address dst_address)
     {
         auto src_uid = makeUID(src_fixture_id, src_address);
         auto it = other.m_uid_to_index.find(src_uid);
@@ -49,7 +49,7 @@ namespace db0
         return m_fixture_to_id.addUnique(&fixture);
     }
     
-    void LangCache::add(const db0::Fixture &fixture, std::uint64_t address, ObjectPtr obj) {
+    void LangCache::add(const db0::Fixture &fixture, Address address, ObjectPtr obj) {
         add(getFixtureId(fixture), address, obj);
     }
 
@@ -64,7 +64,7 @@ namespace db0
         m_insert_hand = m_cache.begin() + insert_index;
     }
 
-    void LangCache::add(std::uint16_t fixture_id, std::uint64_t address, ObjectPtr obj)
+    void LangCache::add(std::uint16_t fixture_id, Address address, ObjectPtr obj)
     {
         auto uid = makeUID(fixture_id, address);
         std::optional<std::uint32_t> slot;
@@ -99,11 +99,11 @@ namespace db0
         ++m_size;
     }
 
-    bool LangCache::erase(const Fixture &fixture, std::uint64_t address, bool expired_only) {
+    bool LangCache::erase(const Fixture &fixture, Address address, bool expired_only) {
         return erase(getFixtureId(fixture), address, expired_only);
     }
     
-    bool LangCache::erase(std::uint16_t fixture_id, std::uint64_t address, bool expired_only)
+    bool LangCache::erase(std::uint16_t fixture_id, Address address, bool expired_only)
     {
         auto uid = makeUID(fixture_id, address);
         auto it = m_uid_to_index.find(uid);
@@ -135,11 +135,11 @@ namespace db0
         }
     }
     
-    LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, std::uint64_t address) const {
+    LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, Address address) const {
         return get(getFixtureId(fixture), address);
     }
     
-    LangCache::ObjectSharedPtr LangCache::get(std::uint16_t fixture_id, std::uint64_t address) const 
+    LangCache::ObjectSharedPtr LangCache::get(std::uint16_t fixture_id, Address address) const 
     {
         auto uid = makeUID(fixture_id, address);
         auto it = m_uid_to_index.find(uid);
@@ -226,23 +226,23 @@ namespace db0
     {
     }
     
-    void LangCacheView::add(std::uint64_t address, ObjectPtr obj)
+    void LangCacheView::add(Address address, ObjectPtr obj)
     {
         m_cache.add(m_fixture_id, address, obj);
         m_objects.insert(address);
     }
 
-    void LangCacheView::erase(std::uint64_t address)
+    void LangCacheView::erase(Address address)
     {
         m_cache.erase(m_fixture_id, address);
         m_objects.erase(address);
     }    
     
-    LangCacheView::ObjectSharedPtr LangCacheView::get(std::uint64_t address) const {
+    LangCacheView::ObjectSharedPtr LangCacheView::get(Address address) const {
         return m_cache.get(m_fixture_id, address);
     }
     
-    void LangCacheView::moveFrom(LangCacheView &other, std::uint64_t src_address, std::uint64_t dst_address)
+    void LangCacheView::moveFrom(LangCacheView &other, Address src_address, Address dst_address)
     {
         m_cache.moveFrom(other.m_cache, other.m_fixture_id, src_address, m_fixture_id, dst_address);
         other.m_objects.erase(src_address);
@@ -255,7 +255,7 @@ namespace db0
         if (expired_only) {
             // optimized clear when lang cache view size >> cache size
             if (m_objects.size() > m_cache.size() * 4) {                
-                std::unordered_set<std::uint64_t> non_expired_objects;
+                std::unordered_set<Address> non_expired_objects;
                 for (auto addr: m_objects) {
                     if (!m_cache.erase(m_fixture_id, addr, true)) {
                         non_expired_objects.insert(addr);
@@ -279,5 +279,5 @@ namespace db0
             m_objects.clear();
         }
     }
-
+    
 }

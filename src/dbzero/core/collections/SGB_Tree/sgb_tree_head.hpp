@@ -11,9 +11,9 @@ namespace db0
     template <class PtrT> struct [[gnu::packed]] sgb_tree_ptr_set
     {
         using pointer_type = PtrT;
-        PtrT parent = 0;
-        PtrT left = 0;
-        PtrT right = 0;
+        PtrT parent = {};
+        PtrT left = {};
+        PtrT right = {};
 
         sgb_tree_ptr_set() = default;
 
@@ -45,11 +45,11 @@ namespace db0
         // total number of node allocated bytes
         CapacityT m_capacity;
         // number of nodes in the SG-Tree (i.e. the number of allocated nodes)
-        AddressT size = 0;
-        AddressT max_tree_size = 0;
+        std::uint64_t size = 0;
+        std::uint64_t max_tree_size = 0;
         // number of elements in the SGB-Tree
-        AddressT m_sgb_size = 0;
-
+        std::uint64_t m_sgb_size = 0;
+        
         o_sgb_tree_head(CapacityT capacity)
             : m_capacity(capacity)
         {

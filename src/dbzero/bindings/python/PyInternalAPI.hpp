@@ -18,11 +18,20 @@ namespace db0
 
 }
 
+namespace db0::object_model
+
+{
+
+    class ObjectIterable;
+    
+}
+
 namespace db0::python
 
 {   
         
     using ObjectId = db0::object_model::ObjectId;
+    using ObjectIterable = db0::object_model::ObjectIterable;
     
     /**
      * Extarct full object UUID from python args compatible with db0.open()
@@ -76,7 +85,7 @@ namespace db0::python
     // Universal implementaton for both Workspace and WorkspaceView (aka Snapshot)
     shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &, PyObject *const *args, Py_ssize_t nargs);
     
-    shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, std::uint64_t address,
+    shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
         std::shared_ptr<db0::object_model::Class> expected_type = nullptr);
     
     /**
@@ -89,14 +98,7 @@ namespace db0::python
      * Open dbzero singleton by its corresponding Python type
     */
     PyObject *fetchSingletonObject(db0::Snapshot &, PyTypeObject *py_type);
-    
-    /**
-     * Universal find implementation (works on Workspace or WorkspaceView)
-     * @param context - the optional context / scope to be attached to the result query
-     * @return PyObjectIterable
-    */
-    PyObject *findIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs, PyObject *context = nullptr);
-    
+        
     // Convert a serializable instance to bytes
     PyObject *trySerialize(PyObject *);
     
@@ -129,7 +131,7 @@ namespace db0::python
         const char *param_name);
     
     PyObject *tryMemoObject_open_singleton(PyTypeObject *, const Fixture &);
-    
+        
 #ifndef NDEBUG
     /**
      * A test function to make an allocation and write random bytes into the current prefix

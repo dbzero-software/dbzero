@@ -54,9 +54,9 @@ namespace db0::python
     }
     
     template <> int64_t get_py_hash_impl<TypeId::MEMO_OBJECT>(PyObject *key) {
-        return reinterpret_cast<MemoObject*>(key)->ext().getAddress();
+        return reinterpret_cast<MemoObject*>(key)->ext().getAddress().getValue();
     }
-
+    
     std::int64_t get_py_hash_impl_for_simple_obj(PyObject *key) {
         return PyToolkit::getTypeManager().extractUInt64(key);
     }

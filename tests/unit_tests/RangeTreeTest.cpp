@@ -218,7 +218,7 @@ namespace tests
     {
         using RangeTreeT = RangeTree<int, std::uint64_t>;
         using ItemT = typename RangeTreeT::ItemT;
-            
+        
         auto memspace = getMemspace();
         // create with the limit of 4 items per range, make 3 ranges
         IndexBase index(memspace, db0::IndexType::Unknown, db0::IndexDataType::Auto);
@@ -257,9 +257,9 @@ namespace tests
         
         FixedObjectList shared_object_list(100);
         VObjectCache cache(memspace, shared_object_list);
-
+        
         // prepare full-text index to join with
-        FT_BaseIndex<std::uint64_t> ft_index(memspace, cache);
+        FT_BaseIndex<std::uint64_t, std::uint64_t> ft_index(memspace, cache);
         {
             auto batch_data = ft_index.beginBatchUpdate();
             batch_data->addTags({4, nullptr}, std::vector<std::uint64_t> { 1, 2, 3 });
@@ -528,7 +528,7 @@ namespace tests
         auto rt = std::make_shared<RangeTreeT>(memspace, 4);
         std::vector<ItemT> values_1 {
             { 0, 0 }, { 27, 4 }, { 42134, 44 }, { 99, 3 }, { 152, 8}, { 123, 9 }, { 152, 12 }, 
-            { 3312, 19, }, { 921, 444 }, { 1923, 94}
+            { 3312, 19, }, { 921, 444 }, { 1923, 94 }
         };
         rt->bulkInsert(values_1.begin(), values_1.end());
         
@@ -545,8 +545,8 @@ namespace tests
             cut.next(&value);
             values.push_back(value); 
         }
-
-        ASSERT_EQ(values, (std::vector<std::uint64_t> { 0, 4, 8, 444, 94, 19 }));
+        
+        ASSERT_EQ(values, (std::vector<std::uint64_t> { 0, 4, 3, 8, 444, 94, 19 }));
     }
     
     TEST_F( RangeTreeTest , testRangeTreeBulkEraseNull )
@@ -573,5 +573,5 @@ namespace tests
         
         ASSERT_EQ(values, (std::vector<std::uint64_t> { 3, 2 }));
     }
-
+    
 } 

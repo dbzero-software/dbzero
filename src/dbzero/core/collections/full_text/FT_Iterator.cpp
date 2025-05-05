@@ -9,6 +9,7 @@ namespace db0
         return typeid(key_t);
     }
     
+    template class db0::FT_Iterator<UniqueAddress>;
     template class db0::FT_Iterator<std::uint64_t>;    
     template class db0::FT_Iterator<int>;
 
@@ -65,4 +66,4 @@ namespace db0
         return 1u;
     }
 
-} // dbz namespace {
+} 

@@ -25,27 +25,29 @@ namespace db0
         return ((address + page_size - 1) / page_size) * page_size;
     }
     
-    std::function<std::uint64_t(unsigned int)> MetaAllocator::getAddressPool(std::size_t offset, std::size_t page_size, 
+    std::function<Address(unsigned int)> MetaAllocator::getAddressPool(std::size_t offset, std::size_t page_size, 
         std::size_t slab_size) 
     {
         auto slab_count = getSlabCount(page_size, slab_size);
         // make offset page-aligned
         offset = align(offset, page_size);
         // take the first 2 pages before a sequence of slabs
-        return [offset, slab_count, page_size, slab_size](unsigned int i) -> std::uint64_t {
+        return [offset, slab_count, page_size, slab_size](unsigned int i) -> Address {
             assert(2 * page_size + slab_size * slab_count < std::numeric_limits<std::uint32_t>::max());
-            return (std::uint64_t)(i / 2) * (2 * page_size + slab_size * slab_count) + offset + (std::uint64_t)(i % 2) * page_size;
+            return Address::fromOffset(
+                (std::uint64_t)(i / 2) * (2 * page_size + slab_size * slab_count) + offset + (std::uint64_t)(i % 2) * page_size
+            );
         };
     }
 
     // Construct the reverse address pool function
-    std::function<unsigned int(std::uint64_t)> MetaAllocator::getReverseAddressPool(std::size_t offset, std::size_t page_size, 
+    std::function<unsigned int(Address)> MetaAllocator::getReverseAddressPool(std::size_t offset, std::size_t page_size, 
         std::size_t slab_size) 
     {
         auto slab_count = getSlabCount(page_size, slab_size);
         // make offset page-aligned
         offset = align(offset, page_size);
-        return [offset, slab_count, page_size, slab_size](std::uint64_t addr) -> unsigned int {
+        return [offset, slab_count, page_size, slab_size](Address addr) -> unsigned int {
             auto x = 2 * ((addr - offset) / (2 * page_size + slab_size * slab_count));
             auto d = (addr - offset) % (2 * page_size + slab_size * slab_count);
             if (d % page_size != 0) {
@@ -56,14 +58,13 @@ namespace db0
         };
     }
     
-    std::function<std::uint32_t(std::uint64_t)> MetaAllocator::getSlabIdFunction(std::size_t offset, std::size_t page_size,
+    std::function<std::uint32_t(Address)> MetaAllocator::getSlabIdFunction(std::size_t offset, std::size_t page_size,
         std::size_t slab_size)
     {
         auto slab_count = getSlabCount(page_size, slab_size);
         offset = align(offset, page_size);
         auto block_size = 2 * page_size + slab_size * slab_count;
-        return [offset, page_size, slab_size, slab_count, block_size](std::uint64_t address) -> std::uint32_t {
-            assert(db0::isPhysicalAddress(address));
+        return [offset, page_size, slab_size, slab_count, block_size](Address address) -> std::uint32_t {
             auto block_id = (address - offset) / block_size;
             auto slab_num = (address - offset - block_id * block_size - 2 * page_size) / slab_size;
             return block_id * slab_count + slab_num;
@@ -71,16 +72,16 @@ namespace db0
     }
 
     // Get function to translate slab id to slab address
-    std::function<std::uint64_t(unsigned int)> getSlabAddressFunction(std::size_t offset, std::size_t page_size, std::size_t slab_size) 
+    std::function<Address(unsigned int)> getSlabAddressFunction(std::size_t offset, std::size_t page_size, std::size_t slab_size)
     {
         auto slab_count = MetaAllocator::getSlabCount(page_size, slab_size);
         // make offset page-aligned
         offset = align(offset, page_size);
         auto block_size = 2 * page_size + slab_size * slab_count;
-        return [offset, slab_count, page_size, slab_size, block_size](unsigned int i) -> std::uint64_t {
+        return [offset, slab_count, page_size, slab_size, block_size](unsigned int i) -> Address {
             auto block_id = i / slab_count;
             auto slab_num = i % slab_count;
-            return offset + block_id * block_size + 2 * page_size + slab_num * slab_size;
+            return Address::fromOffset(offset + block_id * block_size + 2 * page_size + slab_num * slab_size);
         };
     }
     
@@ -89,8 +90,8 @@ namespace db0
     public:    
         SlabManager(std::shared_ptr<Prefix> prefix, MetaAllocator::SlabTreeT &slab_defs, 
             MetaAllocator::CapacityTreeT &capacity_items, SlabRecycler *recycler, std::uint32_t slab_size, std::uint32_t page_size,
-            std::function<std::uint64_t(unsigned int)> address_func, 
-            std::function<std::uint32_t(std::uint64_t)> slab_id_func)
+            std::function<Address(unsigned int)> address_func, 
+            std::function<std::uint32_t(Address)> slab_id_func)
             : m_prefix(prefix)
             , m_slab_defs(slab_defs)
             , m_capacity_items(capacity_items)
@@ -322,7 +323,7 @@ namespace db0
         /**
          * Open existing slab which has been previously reserved
         */
-        std::shared_ptr<SlabAllocator> openReservedSlab(std::uint64_t address)
+        std::shared_ptr<SlabAllocator> openReservedSlab(Address address)
         {
             auto slab_id = m_slab_id_func(address);
             if (slab_id >= nextSlabId()) {
@@ -351,7 +352,7 @@ namespace db0
             return result;
         }
 
-        std::uint64_t getFirstAddress() const {
+        Address getFirstAddress() const {
             return m_slab_address_func(0) + SlabAllocator::getFirstAddress();
         }
 
@@ -422,8 +423,8 @@ namespace db0
         std::vector<std::shared_ptr<SlabAllocator> > m_reserved_slabs;
         FindResult m_active_slab;
         // address by allocation ID (from the algo-allocator)
-        std::function<std::uint64_t(unsigned int)> m_slab_address_func;
-        std::function<std::uint32_t(std::uint64_t)> m_slab_id_func;
+        std::function<Address(unsigned int)> m_slab_address_func;
+        std::function<std::uint32_t(Address)> m_slab_id_func;
         mutable std::optional<std::uint32_t> m_next_slab_id;
         
         CacheIterator unregisterSlab(CacheIterator it)
@@ -449,7 +450,7 @@ namespace db0
             return m_slabs.erase(it);
         }
         
-        FindResult openSlab(std::uint64_t address)
+        FindResult openSlab(Address address)
         {
             auto it = m_slabs.find(address);
             if (it != m_slabs.end()) {
@@ -578,14 +579,14 @@ namespace db0
         // iterate the slab-defs / capacity items trees to determine the max address assigned within the algo-space
         std::uint64_t max_addr = 0;
         for (auto it = m_slab_defs.cbegin_nodes(), end = m_slab_defs.cend_nodes(); it != end; ++it) {
-            max_addr = std::max(max_addr, it.getAddress());
+            max_addr = std::max(max_addr, it.getAddress().getOffset());
         }
         for (auto it = m_capacity_items.cbegin_nodes(), end = m_capacity_items.cend_nodes(); it != end; ++it) {
-            max_addr = std::max(max_addr, it.getAddress());
+            max_addr = std::max(max_addr, it.getAddress().getOffset());
         }
         // pass this address to the meta-space
         if (max_addr > 0) {
-            m_algo_allocator.setMaxAddress(max_addr);
+            m_algo_allocator.setMaxAddress(Address::fromOffset(max_addr));
         }
     }
     
@@ -604,9 +605,10 @@ namespace db0
     void MetaAllocator::formatPrefix(std::shared_ptr<Prefix> prefix, std::size_t page_size, std::size_t slab_size)
     {
         // create the meta-header and the address 0x0
-        OneShotAllocator one_shot(0, o_meta_header::sizeOf());
+        OneShotAllocator one_shot(Address::fromOffset(0), o_meta_header::sizeOf());
         Memspace memspace(Memspace::tag_from_reference(), prefix, one_shot);
-        v_object<o_meta_header> meta_header(memspace, page_size, slab_size, 0, 0);
+        auto null_addr = Address();
+        v_object<o_meta_header> meta_header(memspace, page_size, slab_size, null_addr, null_addr);
         auto offset = o_meta_header::sizeOf();
         // Construct the meta-space for the slab tree
         AlgoAllocator algo_allocator(
@@ -620,21 +622,38 @@ namespace db0
         CapacityTreeT capacity_items(meta_space, page_size);
         
         // and put their addresses in the header...
-        meta_header.modify().m_slab_defs_ptr = slab_defs.getAddress();
-        meta_header.modify().m_capacity_items_ptr = capacity_items.getAddress();
+        meta_header.modify().m_slab_defs_ptr = Address::fromOffset(slab_defs.getAddress());
+        meta_header.modify().m_capacity_items_ptr = Address::fromOffset(capacity_items.getAddress());
     }
     
     o_meta_header MetaAllocator::getMetaHeader(std::shared_ptr<Prefix> prefix)
     {
         // meta-header is located at the fixed address 0x0
-        OneShotAllocator one_shot(0, o_meta_header::sizeOf());
+        auto header_addr = Address::fromOffset(0);
+        OneShotAllocator one_shot(header_addr, o_meta_header::sizeOf());
         Memspace memspace(Memspace::tag_from_reference(), prefix, one_shot);
-        v_object<o_meta_header> meta_header(memspace.myPtr(0));
+        v_object<o_meta_header> meta_header(memspace.myPtr(header_addr));
         return meta_header.const_ref();
     }
     
-    std::optional<std::uint64_t> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
-        bool aligned, bool unique)
+    std::optional<Address> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    {
+        std::uint16_t instance_id;
+        return tryAllocImpl(size, slot_num, aligned, false, instance_id);
+    }
+
+    std::optional<UniqueAddress> MetaAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num, bool aligned)
+    {
+        std::uint16_t instance_id;
+        auto addr = tryAllocImpl(size, slot_num, aligned, true, instance_id);
+        if (addr) {
+            return UniqueAddress(*addr, instance_id);
+        }
+        return {};
+    }
+    
+    std::optional<Address> MetaAllocator::tryAllocImpl(std::size_t size, std::uint32_t slot_num,
+        bool aligned, bool unique, std::uint16_t &instance_id)
     {
         assert(slot_num == 0);
         assert(size > 0);
@@ -645,16 +664,15 @@ namespace db0
         for (;;) {
             if (slab.m_slab) {
                 for (;;) {
-                    auto addr = slab.m_slab->tryAlloc(size, 0, aligned, false);
+                    auto addr = slab.m_slab->tryAlloc(size, 0, aligned);
                     if (!addr) {
                         break;
                     }
-
-                    if (!unique || slab.m_slab->makeAddressUnique(*addr)) {
-                        // NOTE: the returned address is logical
+                    
+                    if (!unique || slab.m_slab->tryMakeAddressUnique(*addr, instance_id)) {
                         return addr;
                     }
-                                     
+                
                     // unable to make the address unique, schedule for deferred free and try again
                     // NOTE: the allocation is lost
                     deferredFree(*addr);
@@ -678,11 +696,10 @@ namespace db0
                 is_new = true;
             }
         }
-    }
+    }    
     
-    void MetaAllocator::free(std::uint64_t address)
-    {
-        address = db0::getPhysicalAddress(address);
+    void MetaAllocator::free(Address address)
+    {        
         assert(m_deferred_free_ops.find(address) == m_deferred_free_ops.end());
         if (m_deferred_free) {
             deferredFree(address);
@@ -691,9 +708,8 @@ namespace db0
         }
     }
 
-    void MetaAllocator::deferredFree(std::uint64_t address)
-    {
-        assert(db0::isPhysicalAddress(address));
+    void MetaAllocator::deferredFree(Address address)
+    {        
         if (m_atomic) {
             m_atomic_deferred_free_ops.push_back(address);
         } else {
@@ -701,9 +717,8 @@ namespace db0
         }
     }
     
-    void MetaAllocator::_free(std::uint64_t address)
-    {
-        assert(db0::isPhysicalAddress(address));
+    void MetaAllocator::_free(Address address)
+    {        
         auto slab_id = m_slab_id_function(address);
         auto slab = m_slab_manager->find(slab_id);
         slab.m_slab->free(address);
@@ -713,9 +728,8 @@ namespace db0
         }
     }
     
-    std::size_t MetaAllocator::getAllocSize(std::uint64_t address) const
-    {
-        address = db0::getPhysicalAddress(address);
+    std::size_t MetaAllocator::getAllocSize(Address address) const
+    {        
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             THROWF(db0::InputException) << "Address " << address << " not found (pending deferred free)";
         }
@@ -723,9 +737,8 @@ namespace db0
         return m_slab_manager->find(slab_id).m_slab->getAllocSize(address);
     }
     
-    bool MetaAllocator::isAllocated(std::uint64_t address) const
-    {        
-        address = db0::getPhysicalAddress(address);
+    bool MetaAllocator::isAllocated(Address address) const
+    {                
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             return false;
         }
@@ -733,7 +746,7 @@ namespace db0
         return m_slab_manager->find(slab_id).m_slab->isAllocated(address);
     }
 
-    std::uint32_t MetaAllocator::getSlabId(std::uint64_t address) const {
+    std::uint32_t MetaAllocator::getSlabId(Address address) const {
         return m_slab_id_function(address);
     }
 
@@ -760,11 +773,11 @@ namespace db0
         return m_slab_manager->reserveNewSlab();
     }
     
-    std::uint64_t MetaAllocator::getFirstAddress() const {
+    Address MetaAllocator::getFirstAddress() const {
         return m_slab_manager->getFirstAddress();
     }
 
-    std::shared_ptr<SlabAllocator> MetaAllocator::openReservedSlab(std::uint64_t address, std::size_t size) const
+    std::shared_ptr<SlabAllocator> MetaAllocator::openReservedSlab(Address address, std::size_t size) const
     {
         auto result = m_slab_manager->openReservedSlab(address);
         assert(result->size() == size);

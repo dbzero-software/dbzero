@@ -1055,7 +1055,7 @@ namespace db0::bindex::interface
         AddrT getAddress() const {
             return m_get_addr_ptr(m_ptr);
         }
-
+        
         void commit() const {
             m_commit_ptr(m_ptr);
         }

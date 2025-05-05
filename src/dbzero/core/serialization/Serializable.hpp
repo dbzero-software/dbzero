@@ -4,6 +4,9 @@
 #include <cstdint>
 #include <unordered_map>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/core/memory/Address.hpp>
+#include <dbzero/core/serialization/Types.hpp>
+#include <dbzero/core/serialization/bounded_buf_t.hpp>
 
 namespace db0::serial
 
@@ -53,6 +56,17 @@ namespace db0::serial
         v.insert(v.end(), p, p + sizeof(T));
     }
 
+    // write overlaid type, construct from args
+    template <typename T, typename... Args> void write(std::byte *&at, Args &&... args)
+    {        
+        auto &value = T::__new(at, std::forward<Args>(args)...);
+        at += value.sizeOf();
+    }
+
+    template <typename T> void writeSimple(std::byte *&at, T value) {
+        write<o_simple<T> >(at, value);
+    }
+
     template <typename T> void read(std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end, T &t)
     {
@@ -70,6 +84,32 @@ namespace db0::serial
         return t;
     }
 
+    // read overlaid type's value
+    template <typename T> const T &read(std::byte *&at)
+    {       
+        auto &value = T::__const_ref(at);        
+        at += value.sizeOf();
+        return value;        
+    }
+
+    // read with additional bounds validation
+    template <typename T>
+    const T &read(std::byte *&at, const std::byte *end, const std::function<void()> &throw_func)
+    {        
+        const_bounded_buf_t buf(throw_func, at, end);
+        auto &value = T::__safe_const_ref(buf);
+        at += value.sizeOf();
+        return value;       
+    }
+
+    template <typename T> T readSimple(std::byte *&at) {
+        return read<o_simple<T> >(at);
+    }
+    
+    template <typename T> T readSimple(std::byte *&at, const std::byte *end, const std::function<void()> &throw_func) {
+        return read<o_simple<T> >(at, end, throw_func);
+    }
+
     /**
      * Set or get a type ID for the purpose of serialization
     */
@@ -81,7 +121,7 @@ namespace db0::serial
             // !!! NOTE: do NOT modify order in this array as this would affect serialized type IDs
             using TypeList = std::tuple<
                 std::int8_t, std::int16_t, std::int32_t, std::int64_t, 
-                std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t, 
+                std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t, db0::Address, db0::UniqueAddress,
                 float, double, std::string>;
             // compile error: binary expression in operand of fold-expression
             std::apply([&](auto... type) {

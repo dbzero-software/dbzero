@@ -31,11 +31,11 @@ namespace db0
     
     WorkspaceView::WorkspaceView(std::shared_ptr<Workspace> workspace, Workspace *workspace_ptr, std::optional<std::uint64_t> state_num,
         const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums)
-        : m_workspace(workspace)
+        : m_prefix_state_nums(prefix_state_nums)
+        , m_lang_cache(std::make_shared<LangCache>())
+        , m_workspace(workspace)
         , m_workspace_ptr(workspace_ptr)        
         , m_default_uuid(workspace_ptr->getDefaultUUID())
-        , m_prefix_state_nums(prefix_state_nums)
-        , m_lang_cache(std::make_shared<LangCache>())
     {
         if (!state_num && m_default_uuid) {
             // freeze state number of the default fixture
@@ -186,7 +186,7 @@ namespace db0
     }
     
     void WorkspaceView::close(ProcessTimer *timer_ptr)
-    {
+    {        
         if (m_closed) {
             return;
         }

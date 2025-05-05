@@ -12,9 +12,9 @@ namespace db0
 {
 
     template <typename KeyT, typename ValueT> class RangeTreeBlock:
-    public v_bindex<BlockItemT<KeyT, ValueT>, std::uint64_t, typename BlockItemT<KeyT, ValueT>::CompT>
+    public v_bindex<BlockItemT<KeyT, ValueT>, Address, typename BlockItemT<KeyT, ValueT>::CompT>
     {
-        using super_t = v_bindex<BlockItemT<KeyT, ValueT>, std::uint64_t, typename BlockItemT<KeyT, ValueT>::CompT>;
+        using super_t = v_bindex<BlockItemT<KeyT, ValueT>, Address, typename BlockItemT<KeyT, ValueT>::CompT>;
     public:
         using PtrT = db0_ptr<RangeTreeBlock<KeyT, ValueT>>;
         using ItemT = BlockItemT<KeyT, ValueT>;

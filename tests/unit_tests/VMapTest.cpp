@@ -139,7 +139,7 @@ namespace tests
 	TEST_F( VMapTest , testVMapCanBePersisted )
 	{
         auto memspace = getMemspace();
-		std::uint64_t address = 0;
+		Address address = {};
 
 		{
 			v_map<o_simple<int>, o_string> v_map(memspace);
@@ -161,9 +161,9 @@ namespace tests
 		v_map.insert_equal(1, "one");
 		auto it = v_map.begin();
 		auto addr = it.getAddress();
-		ASSERT_NE(addr, 0u);
+		ASSERT_TRUE(addr.isValid());
 	}
-
+	
 	TEST_F( VMapTest , testVMapIteratorCanBeConstructedFromAddress )
 	{
         auto memspace = getMemspace();		

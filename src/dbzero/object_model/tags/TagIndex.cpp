@@ -94,10 +94,10 @@ namespace db0::object_model
         const TagT *m_end;
     };
     
-    class NegFactory: public FT_IteratorFactory<std::uint64_t>
+    class NegFactory: public FT_IteratorFactory<UniqueAddress>
     {
     public:
-        using QueryIterator = FT_Iterator<std::uint64_t>;
+        using QueryIterator = FT_Iterator<UniqueAddress>;
         NegFactory(std::vector<std::unique_ptr<QueryIterator> > &neg_iterators)
             : m_neg_iterators(neg_iterators)
         {
@@ -176,7 +176,7 @@ namespace db0::object_model
         }
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
-        ActiveValueT active_key = { 0, nullptr };
+        ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_op_short = getBatchOperationShort(memo_ptr, active_key);
         // since it's less common, defer initialization until first occurence
         db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder *batch_op_long_ptr = nullptr;
@@ -227,17 +227,21 @@ namespace db0::object_model
             }
         }
     }
+
+    void TagIndex::addTag(ObjectPtr memo_ptr, Address tag_addr) {
+        addTag(memo_ptr, tag_addr.getOffset());
+    }
     
     void TagIndex::addTag(ObjectPtr memo_ptr, ShortTagT tag)
     {
-        ActiveValueT active_key = { 0, nullptr };
+        ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationShort(memo_ptr, active_key);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
     }
 
     void TagIndex::addTag(ObjectPtr memo_ptr, LongTagT tag)
     {
-        ActiveValueT active_key = { 0, nullptr };
+        ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationLong(memo_ptr, active_key);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
     }
@@ -249,7 +253,7 @@ namespace db0::object_model
         }
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
-        ActiveValueT active_key = { 0, nullptr };
+        ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationShort(memo_ptr, active_key);
         for (std::size_t i = 0; i < nargs; ++i) {
             auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
@@ -304,16 +308,16 @@ namespace db0::object_model
     
     void TagIndex::tryTagIncRef(ShortTagT tag_addr) const
     {
-        if (m_string_pool.isTokenAddr(tag_addr) && 
+        if (m_string_pool.isTokenAddr(Address::fromOffset(tag_addr)) && 
             m_inc_refed_tags.find(tag_addr) == m_inc_refed_tags.end()) 
         {
             m_string_pool.addRefByAddr(tag_addr);
-        }            
+        }
     }
-
+    
     void TagIndex::tryTagDecRef(ShortTagT tag_addr) const
     {
-        if (m_string_pool.isTokenAddr(tag_addr)) {
+        if (m_string_pool.isTokenAddr(Address::fromOffset(tag_addr))) {
             m_string_pool.unRefByAddr(tag_addr);
         }
     }
@@ -324,7 +328,7 @@ namespace db0::object_model
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
         // the purpose of callback is to incRef to objects when a new tag is assigned
-        std::function<void(std::uint64_t)> add_tag_callback = [&](std::uint64_t obj_addr) {
+        std::function<void(UniqueAddress)> add_tag_callback = [&](UniqueAddress obj_addr) {
             auto it = m_object_cache.find(obj_addr);
             assert(it != m_object_cache.end());
             type_manager.extractMutableObject(it->second.get()).incRef();
@@ -336,12 +340,12 @@ namespace db0::object_model
             tryTagIncRef(tag_addr);
         };
         
-        std::function<void(std::uint64_t)> remove_tag_callback = [&](std::uint64_t obj_addr) {
+        std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
             auto it = m_object_cache.find(obj_addr);
             assert(it != m_object_cache.end());
             type_manager.extractMutableObject(it->second.get()).decRef();
         };
-
+        
         std::function<void(ShortTagT)> erase_index_callback = [&](ShortTagT tag_addr) {
             tryTagDecRef(tag_addr);
         };
@@ -385,8 +389,8 @@ namespace db0::object_model
                 THROWF(db0::InternalException) << "Tags cannot be flushed before initialization of @memo objects" << THROWF_END;
             }
             
-            auto object_addr = memo.getAddress();
-            assert(object_addr);
+            auto object_addr = memo.getUniqueAddress();
+            assert(object_addr.isValid());
             // initialize active value with the actual object address
             item.second = object_addr;
             // add object to cache
@@ -395,11 +399,11 @@ namespace db0::object_model
             }
         }
     }
-
+    
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,
         std::shared_ptr<const Class> type, std::vector<std::unique_ptr<QueryObserver> > &observers, bool no_result) const
     {
-        db0::FT_ANDIteratorFactory<std::uint64_t> factory;
+        db0::FT_ANDIteratorFactory<UniqueAddress> factory;
         // the negated root-level query components
         std::vector<std::unique_ptr<QueryIterator> > neg_iterators;
         if (nargs > 0 || type) {
@@ -410,7 +414,7 @@ namespace db0::object_model
             bool result = !no_result;
             // apply type filter if provided (unless type is a MemoBase)
             if (type) {
-                result &= m_base_index_short.addIterator(factory, type->getAddress());
+                result &= m_base_index_short.addIterator(factory, type->getAddress().getOffset());
             }
             
             while (result && (offset < nargs)) {
@@ -434,11 +438,11 @@ namespace db0::object_model
             // put query iterator in the first position (for which the placeholder was added)
             neg_iterators[0] = std::move(query_iterator);
             // construct AND-not query iterator
-            return std::make_unique<FT_ANDNOTIterator<std::uint64_t> >(std::move(neg_iterators), -1);
+            return std::make_unique<FT_ANDNOTIterator<UniqueAddress> >(std::move(neg_iterators), -1);
         }
     }
     
-    bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<std::uint64_t> &factory,
+    bool TagIndex::addIterator(ObjectPtr arg, db0::FT_IteratorFactory<UniqueAddress> &factory,
         std::vector<std::unique_ptr<QueryIterator> > &neg_iterators, std::vector<std::unique_ptr<QueryObserver> > &query_observers) const
     {
         using TypeId = db0::bindings::TypeId;
@@ -457,10 +461,10 @@ namespace db0::object_model
             }
         }
         
-        // Memo instance is directly feed into the FT_FixedKeyIterator
+        // Memo instance is directly fed into the FT_FixedKeyIterator
         if (type_id == TypeId::MEMO_OBJECT) {
-            auto addr = LangToolkit::getTypeManager().extractObject(arg).getAddress();
-            factory.add(std::make_unique<FT_FixedKeyIterator<std::uint64_t> >(&addr, &addr + 1));
+            auto addr = LangToolkit::getTypeManager().extractObject(arg).getUniqueAddress();
+            factory.add(std::make_unique<FT_FixedKeyIterator<UniqueAddress> >(&addr, &addr + 1));
             return true;
         }
         
@@ -484,11 +488,11 @@ namespace db0::object_model
             
             bool is_or_clause = (type_id == TypeId::LIST);
             // lists corresponds to OR operator, tuple - to AND
-            std::unique_ptr<FT_IteratorFactory<std::uint64_t> > inner_factory;
+            std::unique_ptr<FT_IteratorFactory<UniqueAddress> > inner_factory;
             if (is_or_clause) {
-                inner_factory = std::make_unique<db0::FT_ORXIteratorFactory<std::uint64_t> >();
+                inner_factory = std::make_unique<db0::FT_ORXIteratorFactory<UniqueAddress> >();
             } else {
-                inner_factory = std::make_unique<db0::FT_ANDIteratorFactory<std::uint64_t> >();
+                inner_factory = std::make_unique<db0::FT_ANDIteratorFactory<UniqueAddress> >();
             }
             std::vector<std::unique_ptr<QueryIterator> > inner_neg_iterators;
             bool any = false;
@@ -593,7 +597,7 @@ namespace db0::object_model
             return getShortTagFromEnumValue(*enum_value);
         }
     }
-
+    
     TagIndex::ShortTagT TagIndex::getShortTag(ObjectPtr py_arg, ObjectSharedPtr *alt_repr) const
     {
         auto type_id = LangToolkit::getTypeManager().getTypeId(py_arg);
@@ -609,7 +613,8 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::getShortTagFromTag(ObjectPtr py_arg) const
     {        
         assert(LangToolkit::isTag(py_arg));
-        return LangToolkit::getTypeManager().extractTag(py_arg).m_value;
+        // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
+        return LangToolkit::getTypeManager().extractTag(py_arg).m_address.getOffset();
     }
     
     TagIndex::ShortTagT TagIndex::getShortTagFromEnumValue(const EnumValue &enum_value, ObjectSharedPtr *alt_repr) const
@@ -645,7 +650,7 @@ namespace db0::object_model
     TagIndex::ShortTagT TagIndex::getShortTagFromClass(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isClassObject(py_arg));
-        return LangToolkit::getTypeManager().extractConstClass(py_arg)->getAddress();
+        return LangToolkit::getTypeManager().extractConstClass(py_arg)->getAddress().getOffset();
     }
     
     TagIndex::ShortTagT TagIndex::getShortTagFromFieldDef(ObjectPtr py_arg) const
@@ -702,8 +707,8 @@ namespace db0::object_model
             // must be added as long tag
             return std::nullopt;
         }
-        // mark the object as tag
-        return py_obj.getAddress();
+        // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
+        return py_obj.getAddress().getOffset();
     }
     
     std::optional<TagIndex::ShortTagT> TagIndex::tryAddShortTagFromTag(ObjectPtr py_arg) const
@@ -714,7 +719,8 @@ namespace db0::object_model
             // must be added as long tag
             return std::nullopt;
         }
-        return py_tag.m_value;
+        // NOTE: we use only the offset part as tag - to distinguish from enum and class tags (high bits)
+        return py_tag.m_address.getOffset();
     }
     
     bool TagIndex::isScopeIdentifier(ObjectPtr ptr) const {
@@ -767,12 +773,12 @@ namespace db0::object_model
         
         auto split_result = split_factory.release();
         if (exclusive) {
-            db0::FT_ANDIteratorFactory<std::uint64_t, true> factory;
+            db0::FT_ANDIteratorFactory<UniqueAddress, true> factory;
             factory.add(std::move(split_result.first));
             factory.add(std::move(query));
             return { factory.release(), std::move(split_result.second) };
         } else {
-            db0::FT_ANDIteratorFactory<std::uint64_t, false> factory;
+            db0::FT_ANDIteratorFactory<UniqueAddress, false> factory;
             factory.add(std::move(split_result.first));
             factory.add(std::move(query));
             return { factory.release(), std::move(split_result.second) };
@@ -956,14 +962,14 @@ namespace db0::object_model
     {
         assert(LangToolkit::isTag(py_arg));
         auto &py_tag = LangToolkit::getTypeManager().extractTag(py_arg);
-        return { py_tag.m_fixture_uuid, py_tag.m_value };
+        return { py_tag.m_fixture_uuid, py_tag.m_address.getOffset() };
     }
     
     LongTagT TagIndex::getLongTagFromMemo(ObjectPtr py_arg) const
     {
         assert(LangToolkit::isMemoObject(py_arg));
         auto &py_obj = LangToolkit::getTypeManager().extractObject(py_arg);
-        return { py_obj.getFixtureUUID(), py_obj.getAddress() };
+        return { py_obj.getFixtureUUID(), py_obj.getAddress().getOffset() };
     }
     
 }

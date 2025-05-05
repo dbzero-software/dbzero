@@ -38,7 +38,7 @@ namespace db0::pools
         // Check if the address is a pointential token's address
         // i.e. is the address within the pool's range
         // NOTE: the param address may be of different type than AddressT (higher range)
-        bool isTokenAddr(std::uint64_t address) const;
+        bool isTokenAddr(Address address) const;
 
         void close();
 
@@ -71,7 +71,7 @@ namespace db0::pools
     ResultT LimitedPool<T, AddressT>::fetch(AddressT address, MemLock &lock) const
     {
         // FIXME: mapRangeWeak optimization should be implemented
-        auto size = m_memspace.getAllocator().getAllocSize(address);
+        auto size = m_memspace.getAllocator().getAllocSize(Address::fromOffset(address));
         lock = m_memspace.getPrefix().mapRange(address, size, { AccessOptions::read });
 
         // cast to result type, persistency buffer managed by the caller
@@ -79,15 +79,15 @@ namespace db0::pools
     }
     
     template <typename T, typename AddressT> void LimitedPool<T, AddressT>::erase(AddressT address) {
-        m_memspace.free(address);
+        m_memspace.free(Address::fromOffset(address));
     }
     
     template <typename T, typename AddressT> void LimitedPool<T, AddressT>::close() {
         m_memspace = {};
     }
     
-    template <typename T, typename AddressT> bool LimitedPool<T, AddressT>::isTokenAddr(std::uint64_t address) const {
+    template <typename T, typename AddressT> bool LimitedPool<T, AddressT>::isTokenAddr(Address address) const {
         return m_memspace.getAllocator().inRange(address);
     }
-
+    
 }

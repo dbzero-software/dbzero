@@ -48,7 +48,7 @@ namespace db0
         /**
          * Within-prefix address of this object
         */
-        std::uint64_t m_address = 0;
+        Address m_address = {};
         Memspace *m_memspace_ptr = nullptr;
         mutable std::atomic<std::uint16_t> m_resource_flags = 0;
         // initial access flags (e.g. read / write / create)
@@ -62,12 +62,12 @@ namespace db0
     public:
         vtypeless() = default;
         
-        vtypeless(Memspace &, std::uint64_t address, FlagSet<AccessOptions>);
+        vtypeless(Memspace &, Address address, FlagSet<AccessOptions>);
 
         /**
          * Create mem-locked with specific flags (e.g. read/ write)
         */
-        vtypeless(Memspace &, std::uint64_t address, MemLock &&, std::uint16_t resource_flags,
+        vtypeless(Memspace &, Address address, MemLock &&, std::uint16_t resource_flags,
             FlagSet<AccessOptions>);
 
         vtypeless(const vtypeless& other);
@@ -100,14 +100,14 @@ namespace db0
         }
 
         inline bool isNull() const {
-            return (m_address == 0);
+            return !m_address.isValid();
         }
 
         inline operator bool() const {
-            return m_address != 0;
+            return m_address.isValid();
         }
 
-        inline std::uint64_t getAddress() const {
+        inline Address getAddress() const {
             return m_address;
         }
 
@@ -148,7 +148,7 @@ namespace db0
         template <typename T> const T *castTo() const {
             return reinterpret_cast<const T*>(m_mem_lock.m_buffer);
         }
-
+        
     private:
         inline void assertFlags() 
         {
@@ -166,15 +166,16 @@ namespace db0
     {
     public :
         using container_t = ContainerT;
+        using self_t = v_ptr<ContainerT, SLOT_NUM>;
 
         inline v_ptr() = default;
 
-        inline v_ptr(Memspace &memspace, std::uint64_t address, FlagSet<AccessOptions> access_mode = {})
+        inline v_ptr(Memspace &memspace, Address address, FlagSet<AccessOptions> access_mode = {})
             : vtypeless(memspace, address, access_mode)
         {
         }
 
-        inline v_ptr(Memspace &memspace, std::uint64_t address, MemLock &&lock, std::uint16_t resource_flags,
+        inline v_ptr(Memspace &memspace, Address address, MemLock &&lock, std::uint16_t resource_flags,
             FlagSet<AccessOptions> access_mode = {})
             : vtypeless(memspace, address, std::move(lock), resource_flags, access_mode)
         {
@@ -203,7 +204,7 @@ namespace db0
             (*this)->destroy(*m_memspace_ptr);
             m_mem_lock.release();
             m_memspace_ptr->free(m_address);
-            this->m_address = 0;
+            this->m_address = {};
             this->m_resource_flags = 0;
         }
         
@@ -221,7 +222,7 @@ namespace db0
                     // note that lock is getting updated, possibly copy-on-write is being performed
                     // NOTE: must extract physical address for mapRange                    
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
+                        m_address.getOffset(), this->getSize(), m_access_mode | AccessOptions::write | AccessOptions::read);
                     // by calling MemLock::modify we mark the object's associated range as modified
                     m_mem_lock.modify();
                     lock.commit_set();
@@ -232,6 +233,12 @@ namespace db0
             return *reinterpret_cast<ContainerT*>(m_mem_lock.m_buffer);
         }
         
+        void modify(std::size_t offset, std::size_t size)
+        {
+            auto &ref = modify();
+            m_mem_lock.modify((std::byte*)&ref + offset, size);
+        }
+
         const ContainerT& safeRef() const
         {
             assureInitialized();
@@ -254,30 +261,56 @@ namespace db0
             return get();
         }
         
-        static v_ptr<ContainerT> makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode = {})
+        static self_t makeNew(Memspace &memspace, std::size_t size, FlagSet<AccessOptions> access_mode = {})
         {
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
-            auto address = memspace.alloc(size, SLOT_NUM, access_mode[AccessOptions::unique]);
+            auto address = memspace.alloc(size, SLOT_NUM);
             // lock for create & write
             // NOTE: must extract physical address for mapRange
-            auto mem_lock = memspace.getPrefix().mapRange(
-                getPhysicalAddress(address), size, access_mode | AccessOptions::write
-            );
+            auto mem_lock = memspace.getPrefix().mapRange(address, size, access_mode | AccessOptions::write);
             // mark the entire writable area as modified
             mem_lock.modify();
             // mark as available for both write & read
-            return v_ptr<ContainerT>(
+            return self_t(
                 memspace, address, std::move(mem_lock),
                 db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE, access_mode
             );
         }
         
-        static v_ptr<ContainerT> makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode = {})
+        // Create a new instance using allocUnique functionality
+        static self_t makeNewUnique(Memspace &memspace, std::uint16_t &instance_id, std::size_t size, 
+            FlagSet<AccessOptions> access_mode = {})
+        {
+            // read not allowed for instance creation
+            assert(!access_mode[AccessOptions::read]);
+            auto unique_address = memspace.allocUnique(size, SLOT_NUM);
+            instance_id = unique_address.getInstanceId();
+            // lock for create & write
+            // NOTE: must extract physical address for mapRange
+            auto mem_lock = memspace.getPrefix().mapRange(
+                unique_address.getOffset(), size, access_mode | AccessOptions::write
+            );
+            // mark the entire writable area as modified
+            mem_lock.modify();
+            // mark as available for both write & read
+            return self_t(
+                memspace, unique_address, std::move(mem_lock),
+                db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE, access_mode
+            );
+        }
+
+        /**
+         * Create a new instance from the mapped address
+         * @param memspace the memspace to use
+         * @param mapped_addr the mapped address
+         * @param access_mode additional access mode flags
+        */        
+        static self_t makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode = {})
         {            
             // mark the entire writable area as modified
             mapped_addr.m_mem_lock.modify();
-            return v_ptr<ContainerT>(memspace, mapped_addr.m_address,
+            return self_t(memspace, mapped_addr.m_address,
                 std::move(mapped_addr.m_mem_lock),
                 // mark as available for read & write
                 db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE, access_mode
@@ -304,7 +337,7 @@ namespace db0
                 if (lock.isLocked()) {
                     // NOTE: must extract physical address for mapRange
                     m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
-                        getPhysicalAddress(m_address), this->getSize(), m_access_mode | AccessOptions::read);                        
+                        m_address.getOffset(), this->getSize(), m_access_mode | AccessOptions::read);
                     lock.commit_set();
                     break;
                 }

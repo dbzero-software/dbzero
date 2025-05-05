@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstring>
 #include <cassert>
+#include <algorithm>
 #include <dbzero/core/storage/BaseStorage.hpp>
 #include <dbzero/core/dram/DRAM_Prefix.hpp>
 #include "PrefixCache.hpp"
@@ -95,6 +96,7 @@ namespace db0
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
             if (lock.isLocked()) {
+                m_diffs.clear();                
                 lock.commit_reset();
                 // dirty flag successfully reset by this thread
                 return true;
@@ -105,7 +107,7 @@ namespace db0
     }
     
     void ResourceLock::discard() {
-        resetDirtyFlag();
+        resetDirtyFlag();        
     }
     
     void ResourceLock::resetNoFlush()
@@ -123,7 +125,8 @@ namespace db0
     {
         assert(other.size() == size());
         setDirty();
-        std::memcpy(m_data.data(), other.m_data.data(), m_data.size());        
+        std::memcpy(m_data.data(), other.m_data.data(), m_data.size());
+        m_diffs = other.m_diffs;    
         other.discard();
     }
     
@@ -136,6 +139,26 @@ namespace db0
                 m_context.m_cache_ref.get().append(shared_from_this());
             }
         }
+    }
+
+    void ResourceLock::setDirty(std::uint64_t at, std::uint64_t end)
+    {
+        assert(at >= m_address);
+        assert(end <= this->m_address + this->size());
+        
+        if (end == at) {
+            // no need to track empty ranges
+            return;
+        }
+        
+        // if unable to fit, then mark the entire lock as dirty
+        if ((end - m_address) >= std::numeric_limits<std::uint16_t>::max()) {
+            m_diffs.setOverflow();
+            return;
+        }
+        
+        m_diffs.insert(at - m_address, end - m_address, MAX_DIFF_RANGES);
+        setDirty();
     }
     
 #ifndef NDEBUG
@@ -179,7 +202,7 @@ namespace db0
     bool ResourceLock::hasCoWData() const {
         return m_cow_lock || !m_cow_data.empty() || m_access_mode[AccessOptions::create];
     }
-        
+    
     std::size_t ResourceLock::usedMem() const
     {
         std::size_t result = m_data.size() + sizeof(*this);
@@ -190,118 +213,23 @@ namespace db0
         return result;
     }
     
-    bool ResourceLock::getDiffs(const void *buf, std::vector<std::uint16_t> &result) const
+    std::uint64_t ResourceLock::getAddressOf(const void *ptr) const 
     {
-        if (buf == &m_cow_zero) {
-            return db0::getDiffs(m_data.data(), this->size(), result);
-        } else {
-            return db0::getDiffs(buf, m_data.data(), this->size(), result);
-        }
-    }
-
-    bool getDiffs(const void *buf_1, const void *buf_2,
-        std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff, std::size_t max_size)
-    {
-        assert(size <= std::numeric_limits<std::uint16_t>::max());
-        if (!max_diff) {
-            // by default flush as diff if less than 75% of the data differs
-            max_diff = (size * 3) >> 2;
-        }
-        result.clear();
-        const std::uint8_t *it_1 = static_cast<const std::uint8_t *>(buf_1), *it_2 = static_cast<const std::uint8_t *>(buf_2);
-        auto end = it_1 + size;
-        // exact number of bytes that differ
-        std::uint16_t diff_bytes = 0;
-        // estimated space occupied by the diff data
-        std::uint16_t diff_total = 0;
-        for (;;) {
-            // total number of allowed diff areas exceeded
-            if (result.size() >= max_size) {
-                return false;
-            }
-            std::uint16_t diff_len = 0;
-            for (; it_1 != end && *it_1 != *it_2; ++it_1, ++it_2) {
-                ++diff_len;
-            }
-            // account for the administrative space overhead (approximate)
-            diff_bytes += diff_len;
-            diff_total += diff_len + sizeof(std::uint16_t);
-            if (diff_total > max_diff) {
-                return false;
-            }
-            if (diff_len || it_1 != end) {
-                result.push_back(diff_len);
-            }
-            if (it_1 == end) {
-                break;
-            }
-            std::uint16_t sim_len = 0;
-            for (; it_1 != end && *it_1 == *it_2; ++it_1, ++it_2) {
-                ++sim_len;
-            }
-            // do not include the trailing similarity area
-            if (it_1 == end) {
-                break;
-            }
-            assert(sim_len);
-            result.push_back(sim_len);
-        }
-        // no diffs found
-        if (!diff_bytes) {
-            result.clear();
-        }
-        return true;
+        assert(ptr >= m_data.data() && ptr < m_data.data() + m_data.size());
+        return m_address + static_cast<const std::byte*>(ptr) - m_data.data();
     }
     
-    bool getDiffs(const void *buf, std::size_t size, std::vector<std::uint16_t> &result, std::size_t max_diff,
-        std::size_t max_size)
+    bool ResourceLock::getDiffs(const void *buf, std::vector<std::uint16_t> &result) const
     {
-        assert(size <= std::numeric_limits<std::uint16_t>::max());
-        if (!max_diff) {
-            // by default flush as diff if less than 75% of the data differs
-            max_diff = (size * 3) >> 2;
+        if (m_diffs.isOverflow()) {
+            // unable to diff-flush, must write the entire page
+            return false;
         }
-        result.clear();        
-        const std::uint8_t *it = static_cast<const std::uint8_t *>(buf);
-        auto end = it + size;
-        // estimated space occupied by the diff data
-        std::uint16_t diff_total = 0;
-        // include the zero-fill indicator (i.e. the 0, 0 elements)
-        result.push_back(0);
-        result.push_back(0);
-        for (;;) {
-            // total number of allowed diff areas exceeded
-            if (result.size() >= max_size) {
-                return false;
-            }
-            std::uint16_t diff_len = 0;
-            // identify non-zero bytes
-            for (; it != end && *it; ++it) {
-                ++diff_len;                
-            }
-            // account for the administrative space overhead (approximate)
-            diff_total += diff_len + sizeof(std::uint16_t);
-            if (diff_total > max_diff) {
-                return false;
-            }
-            if (diff_len || it != end) {
-                result.push_back(diff_len);
-            }
-            if (it == end) {
-                break;
-            }
-            std::uint16_t sim_len = 0;
-            for (; it != end && !*it; ++it) {
-                ++sim_len;
-            }
-            // do not include the trailing similarity area
-            if (it == end) {
-                break;
-            }
-            assert(sim_len);
-            result.push_back(sim_len);
+        if (buf == &m_cow_zero) {
+            return db0::getDiffs(m_data.data(), this->size(), result, 0, {}, m_diffs);
+        } else {
+            return db0::getDiffs(buf, m_data.data(), this->size(), result, 0, {}, m_diffs);
         }
-        return true;
     }
     
     bool ResourceLock::getDiffs(std::vector<std::uint16_t> &result) const
@@ -317,5 +245,5 @@ namespace db0
     std::size_t ResourceLock::getPageSize() const {
         return m_context.m_storage_ref.get().getPageSize();
     }
-    
+
 }

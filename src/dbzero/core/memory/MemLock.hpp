@@ -20,7 +20,9 @@ namespace db0
         MemLock(const MemLock &other) = default;
         
         void *modify();
-
+        // mark specific range as forced-dirty
+        void modify(void *at, std::size_t size);
+        
         inline operator void *() const {
             return m_buffer;
         }

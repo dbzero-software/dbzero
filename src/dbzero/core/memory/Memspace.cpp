@@ -129,16 +129,20 @@ namespace db0
         m_prefix->cancelAtomic();
     }
     
-    std::uint64_t Memspace::alloc(std::size_t size, std::uint32_t slot_num, bool unique) {
+    Address Memspace::alloc(std::size_t size, std::uint32_t slot_num) {
         // align if the alloc size > page size
-        return getAllocatorForUpdate().alloc(size, slot_num, size > m_page_size, unique);
+        return getAllocatorForUpdate().alloc(size, slot_num, size > m_page_size);
     }
     
-    void Memspace::free(std::uint64_t address) {
+    UniqueAddress Memspace::allocUnique(std::size_t size, std::uint32_t slot_num) {
+        return getAllocatorForUpdate().allocUnique(size, slot_num, size > m_page_size); 
+    }
+
+    void Memspace::free(Address address) {
         getAllocatorForUpdate().free(address);
     }
     
-    bool Memspace::isAddressValid(std::uint64_t address) const 
+    bool Memspace::isAddressValid(Address address) const 
     {
         assert(m_allocator_ptr);
         return m_allocator_ptr->isAllocated(address);

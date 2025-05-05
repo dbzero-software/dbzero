@@ -27,7 +27,7 @@ namespace db0
     struct ScopedAllocBuf
     {
         SlabAllocator &m_allocator;
-        std::vector<std::uint64_t> m_pending_free;
+        std::vector<Address> m_pending_free;
         
         ScopedAllocBuf(SlabAllocator &allocator)
             : m_allocator(allocator)
@@ -41,50 +41,39 @@ namespace db0
             }
         }
 
-        void add(std::uint64_t addr) {
+        void add(Address addr) {
             m_pending_free.push_back(addr);
         }
     };
     
-    std::optional<std::uint64_t> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
-        bool aligned, bool unique) 
+    std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned) 
     {
         if (!slot_num) {
-            return m_allocator_ptr->tryAlloc(size, 0, aligned, unique);
+            return m_allocator_ptr->tryAlloc(size, 0, aligned);
         }
         
-        // Unique allocations are not supported because of the limited slot's address space
-        assert(!unique && "slot-level unique allocations are not supported");
-        /* FIXME: below code can be used for a future implementation of slot-level unique allocations
-        if (unique) {
-            // allocate a unique address from a specific slot
-            auto &slot = getSlot(slot_num);
-            ScopedAllocBuf pending_free(slot);
-            for (;;) {
-                auto addr = slot.tryAlloc(size, 0, aligned, false);
-                if (!addr) {
-                    return std::nullopt;
-                }
-                if (slot.makeAddressUnique(*addr)) {
-                    return addr;
-                }
-                pending_free.add(*addr);
-            }
-        }
-        */
-        return select(slot_num).tryAlloc(size, 0, aligned, false);
+        return select(slot_num).tryAlloc(size, 0, aligned);
     }
     
-    void SlotAllocator::free(std::uint64_t address) {
+    std::optional<UniqueAddress> SlotAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num, bool aligned)
+    {
+        if (!slot_num) {
+            return m_allocator_ptr->tryAllocUnique(size, 0, aligned);
+        }
+        
+        return select(slot_num).tryAllocUnique(size, 0, aligned);
+    }
+    
+    void SlotAllocator::free(Address address) {
         // can free from the general allocator
         m_allocator_ptr->free(address);
     }
     
-    std::size_t SlotAllocator::getAllocSize(std::uint64_t address) const {
+    std::size_t SlotAllocator::getAllocSize(Address address) const {
         return m_allocator_ptr->getAllocSize(address);
     }
-
-    bool SlotAllocator::isAllocated(std::uint64_t address) const {
+    
+    bool SlotAllocator::isAllocated(Address address) const {
         return m_allocator_ptr->isAllocated(address);
     }
 
@@ -125,7 +114,7 @@ namespace db0
         return *m_slots[slot_num];
     }
     
-    bool SlotAllocator::inRange(std::uint64_t address) const {
+    bool SlotAllocator::inRange(Address address) const {
         return m_allocator_ptr->inRange(address);
     }
 

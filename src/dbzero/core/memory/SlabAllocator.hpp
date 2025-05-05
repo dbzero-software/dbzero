@@ -62,32 +62,32 @@ namespace db0
          * @param page_size the size of a single page used by the underlying BitSpace / BitSetAllocator
          * @param remaining_capacity the remaining capacity if known
         */
-        SlabAllocator(std::shared_ptr<Prefix> prefix, std::uint64_t begin_addr, std::uint32_t size, std::size_t page_size,
+        SlabAllocator(std::shared_ptr<Prefix> prefix, Address begin_addr, std::uint32_t size, std::size_t page_size,
             std::optional<std::size_t> remaining_capacity = {});
 
         virtual ~SlabAllocator();
         
-        std::optional<std::uint64_t> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false, bool unique = false) override;
+        std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false) override;
+                
+        void free(Address) override;
+
+        std::size_t getAllocSize(Address) const override;
         
-        void free(std::uint64_t address) override;
-
-        std::size_t getAllocSize(std::uint64_t address) const override;
-
-        bool isAllocated(std::uint64_t address) const override;
+        bool isAllocated(Address) const override;
         
         void commit() const override;
 
         void detach() const override;
         
-        bool inRange(std::uint64_t address) const override;
+        bool inRange(Address) const override;
         
         /**
          * Initialize a new allocator over a specific slab
          * 
          * @return the created slab's capacity in bytes
         */
-        static std::size_t formatSlab(std::shared_ptr<Prefix> prefix, std::uint64_t begin_addr, std::uint32_t size, 
+        static std::size_t formatSlab(std::shared_ptr<Prefix> prefix, Address begin_addr, std::uint32_t size,
             std::size_t page_size);
         
         const std::size_t getSlabSize() const;
@@ -125,27 +125,26 @@ namespace db0
         /**
          * Get the slab's address
         */
-        std::uint64_t getAddress() const;
+        Address getAddress() const;
 
         std::uint32_t size() const;
 
         /**
          * Get address of the 1st allocation
         */
-        static std::uint64_t getFirstAddress();
+        static Address getFirstAddress();
 
         // SlabAllocator specific address conversions        
-        inline std::uint64_t makeAbsolute(std::uint32_t relative) const {
-            return m_begin_addr + relative;
+        inline Address makeAbsolute(std::uint32_t relative) const {
+            return m_begin_addr + static_cast<typename Address::offset_t>(relative);
         }
 
-        inline std::uint32_t makeRelative(std::uint64_t absolute) const {
+        inline std::uint32_t makeRelative(Address absolute) const {
             return absolute - m_begin_addr;
         }
         
-        // Try adjusting the address to make it unique        
-        // @return false if SlabAllocator was unable to make the address unique (counter overflow)
-        bool makeAddressUnique(std::uint64_t &address);
+        bool tryMakeAddressUnique(Address, std::uint16_t &instance_id);
+        UniqueAddress tryMakeAddressUnique(Address);
         
     private:
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;
@@ -163,7 +162,7 @@ namespace db0
         }
         
         std::shared_ptr<Prefix> m_prefix;
-        const std::uint64_t m_begin_addr;
+        const Address m_begin_addr;
         const std::size_t m_page_size;
         const std::uint32_t m_page_shift;
         const std::uint32_t m_slab_size;
@@ -180,8 +179,8 @@ namespace db0
         const std::optional<std::size_t> m_initial_remaining_capacity;
         std::size_t m_initial_admin_size;        
         std::function<void(const SlabAllocator &)> m_on_close_handler;
-                
-        static std::uint64_t headerAddr(std::uint64_t begin_addr, std::uint32_t size);
+        
+        static Address headerAddr(Address begin_addr, std::uint32_t size);
     };
     
 }

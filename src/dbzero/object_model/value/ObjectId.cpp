@@ -1,50 +1,55 @@
 #include "ObjectId.hpp"
 #include <cstring>
 #include <dbzero/core/utils/base32.hpp>
+#include <dbzero/core/serialization/Serializable.hpp>
+#include <dbzero/core/serialization/packed_int.hpp>
 
 namespace db0::object_model
 
 {
-                    
+    
+    std::function<void()> ObjectId::m_throw_func = []() {
+        THROWF(db0::InputException) << "Invalid UUID";
+    };
+
     ObjectId ObjectId::fromBase32(const char *buf)
     {
-        if (strlen(buf) != encodedSize()) {
-            THROWF(db0::InputException) << "UUID string is not valid: " << buf;
+        if (strlen(buf) > maxEncodedSize()) {
+            THROWF(db0::InputException) << "Invalid UUID: " << buf;
         }
 
         // allocate +1 byte since decoded content might be up to 1 byte larger
-        std::array<std::uint8_t, rawSize() + 1> bytes;
-        if (db0::base32_decode(buf, bytes.data()) < rawSize()) {
-            THROWF(db0::InputException) << "UUID string is not valid (failed to decode): " << buf;
+        std::array<std::byte, maxSize() + 1> bytes;
+        auto size = db0::base32_decode(buf, reinterpret_cast<std::uint8_t*>(bytes.data()));   
+        if (size < minSize()) {
+            THROWF(db0::InputException) << "Invalid UUID: " << buf;
         }
         
-        std::uint8_t *ptr = bytes.data();
-        ObjectId obj;
-        obj.m_fixture_uuid = *reinterpret_cast<std::uint64_t*>(ptr);
-        ptr += sizeof(obj.m_fixture_uuid);
-        obj.m_typed_addr.m_value = *reinterpret_cast<std::uint64_t*>(ptr);
-        ptr += sizeof(obj.m_typed_addr.m_value);
-        obj.m_instance_id = *reinterpret_cast<std::uint16_t*>(ptr);
-        return obj;
+        auto at = bytes.data(), end = bytes.data() + size;
+        // read with bounds validation        
+        auto fixture_uuid = db0::serial::readSimple<std::uint64_t>(at, end, m_throw_func); 
+        auto address = UniqueAddress::fromValue(db0::serial::read<packed_int64>(at, end, m_throw_func));
+        auto storage_class = db0::serial::read<db0::packed_int32>(at, end, m_throw_func).value();
+        return { fixture_uuid, address, static_cast<db0::StorageClass>(storage_class) };
     }
     
-    void ObjectId::toBase32(char *buffer) const
-    {        
-        std::array<std::uint8_t, rawSize()> bytes;
+    std::size_t ObjectId::toBase32(char *buffer) const
+    {
+        std::array<std::byte, maxSize()> bytes;
         std::memset(bytes.data(), 0, bytes.size());
-        std::uint8_t *ptr = bytes.data();
-        *reinterpret_cast<std::uint64_t*>(ptr) = m_fixture_uuid;
-        ptr += sizeof(m_fixture_uuid);
-        *reinterpret_cast<std::uint64_t*>(ptr) = m_typed_addr.m_value;
-        ptr += sizeof(m_typed_addr.m_value);
-        *reinterpret_cast<std::uint16_t*>(ptr) = m_instance_id;
-        db0::base32_encode(bytes.data(), bytes.size(), buffer);
+        auto at = bytes.data();
+        db0::serial::writeSimple(at, m_fixture_uuid);
+        db0::serial::write<db0::packed_int64>(at, m_address.getValue());        
+        // NOTICE: store as packed int to allow more bytes in the future if needed
+        db0::serial::write<db0::packed_int32>(at, static_cast<std::uint32_t>(m_storage_class));
+        // encode actual bytes
+        return db0::base32_encode(reinterpret_cast<const std::uint8_t*>(bytes.data()), at - bytes.data(), buffer);
     }
     
     bool ObjectId::operator==(const ObjectId &other) const
     {        
-        return (m_fixture_uuid == other.m_fixture_uuid) && (m_typed_addr == other.m_typed_addr) 
-            && (m_instance_id == other.m_instance_id);
+        return (m_fixture_uuid == other.m_fixture_uuid) && (m_address == other.m_address) 
+            && (m_storage_class == other.m_storage_class);
     }
 
     bool ObjectId::operator!=(const ObjectId &other) const {
@@ -53,8 +58,8 @@ namespace db0::object_model
 
     bool ObjectId::operator<(const ObjectId &other) const
     {
-        return m_fixture_uuid < other.m_fixture_uuid || (m_fixture_uuid == other.m_fixture_uuid && m_typed_addr < other.m_typed_addr) || 
-            (m_fixture_uuid == other.m_fixture_uuid && m_typed_addr == other.m_typed_addr && m_instance_id < other.m_instance_id);
+        return m_fixture_uuid < other.m_fixture_uuid || (m_fixture_uuid == other.m_fixture_uuid && m_address < other.m_address) || 
+            (m_fixture_uuid == other.m_fixture_uuid && m_address == other.m_address && m_storage_class < other.m_storage_class);
     }
     
     bool ObjectId::operator<=(const ObjectId &other) const {
@@ -68,12 +73,12 @@ namespace db0::object_model
     bool ObjectId::operator>=(const ObjectId &other) const {
         return !(*this < other);
     }
-
+    
     std::string ObjectId::toUUIDString() const
     {
-        char buffer[encodedSize() + 1];
-        toBase32(buffer);
-        return std::string(buffer);
+        char buffer[maxEncodedSize() + 1];
+        auto size = toBase32(buffer);
+        return std::string(buffer, size);
     }
-
+    
 }

@@ -3,6 +3,7 @@
 #include <optional>
 #include <vector>
 #include <memory>
+#include <dbzero/core/memory/Address.hpp>
 
 namespace db0
 
@@ -62,6 +63,7 @@ namespace db0
         std::vector<GroupItem> m_group;
     };
 
+    extern template class IteratorGroup<UniqueAddress>;
     extern template class IteratorGroup<std::uint64_t>;
 
 }

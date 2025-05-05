@@ -8,8 +8,8 @@ namespace db0::python
 
 {
 
-    using ObjectIterator = db0::object_model::ObjectIterator;        
-    using PyObjectIterator = PyWrapper<ObjectIterator, false>;
+    using ObjectIterator = db0::object_model::ObjectIterator;
+    using PyObjectIterator = PySharedWrapper<ObjectIterator, false>;
     
     PyObjectIterator *PyObjectIterator_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<PyObjectIterator*> PyObjectIteratorDefault_new();

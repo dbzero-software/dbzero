@@ -8,9 +8,22 @@ namespace db0
 
 {
 
+    std::uint64_t checksum(const void *begin, const void *end)
+    {
+        assert(((const char*)end - (const char*)begin) % 8 == 0);
+        const std::uint64_t *int_begin = reinterpret_cast<const std::uint64_t *>(begin);
+        const std::uint64_t *int_end = reinterpret_cast<const std::uint64_t *>(end);
+        std::uint64_t checksum = 0;
+        for (; int_begin != int_end; ++int_begin) {
+            checksum ^= *int_begin;
+        }
+        return checksum;
+    }
+
     BlockIOStream::BlockIOStream(CFile &file, std::uint64_t begin, std::uint32_t block_size,
         std::function<std::uint64_t()> tail_function, AccessType access_type, bool cs)
         : m_file(file)
+        , m_head(begin) 
         , m_address(begin)
         , m_block_size(block_size)
         , m_tail_function(tail_function)
@@ -35,9 +48,6 @@ namespace db0
         if (access_type == AccessType::READ_WRITE && m_file.getAccessType() == AccessType::READ_ONLY) {
             THROWF(db0::InternalException) << "BlockIOStream unable to write to read-only file";
         }
-        if (!tail_function && access_type == AccessType::READ_WRITE) {
-            THROWF(db0::InternalException) << "BlockIOStream tail function must be provided in read/write mode";
-        }
         // Try reading the first full block
         if ((m_address + m_block_size > m_file.size()) || !readBlock(m_address, m_block_begin)) {
             // create a new block, overwrite incomplete blocks (process may have crashed when flushing)
@@ -49,6 +59,7 @@ namespace db0
     
     BlockIOStream::BlockIOStream(BlockIOStream &&other)
         : m_file(other.m_file)
+        , m_head(other.m_head)
         , m_address(other.m_address)
         , m_block_size(other.m_block_size)
         , m_tail_function(other.m_tail_function)
@@ -83,7 +94,7 @@ namespace db0
         // take next block from end of file
         bool create_next_block = false;
         if (write && !m_block_header.hasNext()) {
-            m_block_header.setNext(m_tail_function());
+            m_block_header.setNext(nextAddress());
             create_next_block = true;
             assert(m_access_type == AccessType::READ_WRITE);
             m_modified = true;
@@ -127,18 +138,21 @@ namespace db0
         return true;
     }
 
-    void BlockIOStream::flushModified()
+    bool BlockIOStream::flushModified()
     {
-        if (m_modified) {
-            assert(m_access_type == AccessType::READ_WRITE);
-            // calculate combined checksum (data + header)
-            assert(m_block_header.m_next_block_address == m_cs_block_header.m_next_block_address);
-            if (m_checksums_enabled) {
-                m_cs_block_header.m_block_checksum = checksum(m_block_begin, m_block_end) ^ m_cs_block_header.calculateHeaderChecksum();
-            }
-            m_file.write(m_address, m_buffer.size(), m_block_begin);
-            m_modified = false;
+        if (!m_modified) {
+            return false;
         }
+        
+        assert(m_access_type == AccessType::READ_WRITE);
+        // calculate combined checksum (data + header)
+        assert(m_block_header.m_next_block_address == m_cs_block_header.m_next_block_address);
+        if (m_checksums_enabled) {
+            m_cs_block_header.m_block_checksum = checksum(m_block_begin, m_block_end) ^ m_cs_block_header.calculateHeaderChecksum();
+        }
+        m_file.write(m_address, m_buffer.size(), m_block_begin);
+        m_modified = false;
+        return true;
     }
 
     void BlockIOStream::addChunk(o_block_io_chunk_header chunk_header, std::uint64_t *address)
@@ -151,7 +165,7 @@ namespace db0
             THROWF(db0::InternalException) << "BlockIOStream unable to append to stream";
         }
         if (m_chunk_left_bytes) {
-            THROWF(db0::InternalException) << "BlockIOStream::beginChunk: chunk is not finished";
+            THROWF(db0::InternalException) << "BlockIOStream::addChunk: chunk is not finished";
         }
         
         write(&chunk_header, chunk_header.sizeOf(), address);
@@ -361,12 +375,12 @@ namespace db0
     void BlockIOStream::flush()
     {
         // flush modified block to disk
-        flushModified();
-        if (m_access_type == AccessType::READ_WRITE) {
+        if (flushModified()) {
+            assert(m_access_type == AccessType::READ_WRITE);
             m_file.flush();
         }
     }
-
+    
     void BlockIOStream::close()
     {
         // mark end of the stream with 0-length chunk (unless already at the end of block and stream)
@@ -463,16 +477,75 @@ namespace db0
         return true;
     }
     
-    std::uint64_t checksum(const void *begin, const void *end)
-    {
-        assert(((const char*)end - (const char*)begin) % 8 == 0);
-        const std::uint64_t *int_begin = reinterpret_cast<const std::uint64_t *>(begin);
-        const std::uint64_t *int_end = reinterpret_cast<const std::uint64_t *>(end);
-        std::uint64_t checksum = 0;
-        for (; int_begin != int_end; ++int_begin) {
-            checksum ^= *int_begin;
-        }
-        return checksum;
+    std::pair<std::uint64_t, std::uint64_t> BlockIOStream::getStreamPos() const {
+        return { m_address, tell() };
     }
 
+    void BlockIOStream::setStreamPos(std::uint64_t address, std::uint64_t stream_pos)
+    {
+        assert(!m_closed);
+        // flush any pending writes before reading
+        flush();
+        // try reading a full block
+        if ((address + m_block_size > m_file.size()) || !readBlock(address, m_block_begin)) {
+            THROWF(db0::InternalException) << "BlockIOStream unable to set position in stream";
+        }
+        
+        m_address = address;
+        m_block_num = stream_pos / m_block_size;
+        m_block_pos = m_block_begin + (stream_pos % m_block_size);
+        // this parameter is only used for writing
+        m_chunk_left_bytes = 0;    
+        m_eos = false;
+    }
+    
+    void BlockIOStream::setStreamPosHead() {
+        setStreamPos(m_head, 0);
+    }
+
+    std::uint64_t BlockIOStream::nextAddress() const
+    {
+        std::uint64_t next_address = tail();
+        if (m_tail_function) {
+            next_address = std::max(m_tail_function(), next_address);
+        }
+        return next_address;
+    }
+    
+    void BlockIOStream::saveState(State &state) const
+    {
+        if (m_closed) {
+            THROWF(db0::InternalException) << "BlockIOStream::saveState: stream is closed";
+        }
+        if (m_modified) {
+            THROWF(db0::InternalException) << "BlockIOStream::saveState: stream is modified, must be flushed first";
+        }
+        if (m_chunk_left_bytes) {
+            THROWF(db0::InternalException) << "BlockIOStream::saveState: chunk is not finished";
+        }
+
+        state.m_address = m_address;
+        state.m_stream_pos = tell();        
+        state.m_block_num = m_block_num;
+        state.m_eos = m_eos;
+    }
+    
+    void BlockIOStream::restoreState(const State &state)
+    {
+        assert(!m_closed);
+        assert(!m_modified);
+        assert(!m_chunk_left_bytes);
+
+        m_address = state.m_address;
+        m_block_num = state.m_block_num;
+        m_block_pos = m_block_begin + (state.m_stream_pos % m_block_size);
+        m_eos = state.m_eos;
+        // this parameter is only used for writing
+        m_chunk_left_bytes = 0;
+        // try reading a full block
+        if ((m_address + m_block_size > m_file.size()) || !readBlock(m_address, m_block_begin)) {
+            THROWF(db0::InternalException) << "BlockIOStream unable to restore state";
+        }
+    }
+    
 }

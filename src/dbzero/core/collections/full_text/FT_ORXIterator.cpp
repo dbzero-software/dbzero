@@ -692,9 +692,14 @@ namespace db0
 		this->getSignature(m_joinable.begin(), m_joinable.end(), v);
 	}
 	
+    template class FT_JoinORXIterator<UniqueAddress>;
+    template class FT_OR_ORXIteratorFactory<UniqueAddress>;
+    template class FT_ORIteratorFactory<UniqueAddress>;
+    template class FT_ORXIteratorFactory<UniqueAddress>;
+
     template class FT_JoinORXIterator<std::uint64_t>;
     template class FT_OR_ORXIteratorFactory<std::uint64_t>;
-    template class FT_ORIteratorFactory<std::uint64_t>;    
+    template class FT_ORIteratorFactory<std::uint64_t>;
     template class FT_ORXIteratorFactory<std::uint64_t>;
 
 }

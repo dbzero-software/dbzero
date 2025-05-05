@@ -26,7 +26,7 @@ namespace tests
     TEST_F( VSpaceTests , testObjectInstanceCanBeRetrievedByAddress )
     {
         auto memspace = getMemspace();
-        std::uint64_t address = 0;
+        Address address = {};
         {
             db0::v_object<db0::o_simple<int> > cut(memspace, 123);
             address = cut.getAddress();

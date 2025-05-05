@@ -344,7 +344,12 @@ namespace db0
 	public :
 		FT_ORXIteratorFactory();
 	};
-    
+
+    extern template class FT_JoinORXIterator<UniqueAddress>;
+    extern template class FT_OR_ORXIteratorFactory<UniqueAddress>;
+    extern template class FT_ORIteratorFactory<UniqueAddress>;
+    extern template class FT_ORXIteratorFactory<UniqueAddress>;
+
     extern template class FT_JoinORXIterator<std::uint64_t>;
     extern template class FT_OR_ORXIteratorFactory<std::uint64_t>;
     extern template class FT_ORIteratorFactory<std::uint64_t>;

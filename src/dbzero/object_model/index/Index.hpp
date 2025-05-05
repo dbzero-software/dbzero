@@ -32,16 +32,16 @@ namespace db0::object_model
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeId = db0::bindings::TypeId;
-        using IteratorFactory = db0::IteratorFactory<std::uint64_t>;
+        using IteratorFactory = db0::IteratorFactory<UniqueAddress>;
         
-        Index(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        Index(db0::swine_ptr<Fixture> &, Address);
         Index(const Index &) = delete;
         ~Index();
         
         static Index *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         // make null instance (e.g. after destroying the original one)
         static Index *makeNull(void *at_ptr);
-        static Index *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static Index *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
         
         std::size_t size() const;
         void add(ObjectPtr key, ObjectPtr value);
@@ -51,7 +51,7 @@ namespace db0::object_model
          * Sort results of a specific object iterator from the same fixture
          * @param iter object iterator        
          */        
-        std::unique_ptr<db0::SortedIterator<std::uint64_t> > sort(const ObjectIterable &iter,
+        std::unique_ptr<db0::SortedIterator<UniqueAddress> > sort(const ObjectIterable &iter,
             bool asc, bool null_first) const;
         
         /**
@@ -185,14 +185,14 @@ namespace db0::object_model
         void operator=(Index &&);
 
         bool hasRangeTree() const {
-            return (*this)->m_index_addr != 0;
+            return (*this)->m_index_addr.isValid();
         }
         
         template <typename T> std::shared_ptr<void> getRangeTreeRawPtr()
         {
-            using RangeTreeT = db0::RangeTree<T, std::uint64_t>;
+            using RangeTreeT = db0::RangeTree<T, UniqueAddress>;
             if (!m_index) {
-                if ((*this)->m_index_addr) {
+                if ((*this)->m_index_addr.isValid()) {
                     // pull existing range tree
                     m_index = db0::make_shared_void<RangeTreeT>(this->myPtr((*this)->m_index_addr));                    
                 } else {
@@ -206,21 +206,21 @@ namespace db0::object_model
         }
 
         // Get existing or create a new range tree of a specific type
-        template <typename T> SharedPtrWrapper<typename db0::RangeTree<T, std::uint64_t> > getRangeTreePtr() {
+        template <typename T> SharedPtrWrapper<typename db0::RangeTree<T, UniqueAddress> > getRangeTreePtr() {
             return getRangeTreeRawPtr<T>();
         }
         
-        template <typename T> typename db0::RangeTree<T, std::uint64_t> &getRangeTree() {
+        template <typename T> typename db0::RangeTree<T, UniqueAddress> &getRangeTree() {
             return *getRangeTreePtr<T>();
         }
 
         // Construct range tree as a copy of an other one
-        template <typename T> void makeRangeTree(const typename  db0::RangeTree<T, std::uint64_t> &other)
+        template <typename T> void makeRangeTree(const typename  db0::RangeTree<T, UniqueAddress> &other)
         {            
-            using RangeTreeT = db0::RangeTree<T, std::uint64_t>;
+            using RangeTreeT = db0::RangeTree<T, UniqueAddress>;
             assert(!m_index);
-            assert(!(*this)->m_index_addr);
-            if (m_index || (*this)->m_index_addr) {
+            assert(!(*this)->m_index_addr.isValid());
+            if (m_index || (*this)->m_index_addr.isValid()) {
                 return;
             }
 
@@ -228,13 +228,13 @@ namespace db0::object_model
             this->modify().m_index_addr = new_range_tree.getAddress();            
         }
         
-        template <typename T> const typename db0::RangeTree<T, std::uint64_t> &getExistingRangeTree() const
+        template <typename T> const typename db0::RangeTree<T, UniqueAddress> &getExistingRangeTree() const
         {
             assert(hasRangeTree());
             return const_cast<Index*>(this)->getRangeTree<T>();
         }
 
-        template <typename T> SharedPtrWrapper<typename db0::RangeTree<T, std::uint64_t> > tryGetRangeTree() const
+        template <typename T> SharedPtrWrapper<typename db0::RangeTree<T, UniqueAddress> > tryGetRangeTree() const
         {
             if (hasRangeTree()) {
                 return const_cast<Index*>(this)->getRangeTreeRawPtr<T>();
@@ -245,18 +245,18 @@ namespace db0::object_model
         /**
          * Construct sorted query iterator from an unsorted full-text query iterator
         */
-        template <typename T> std::unique_ptr<RT_SortIterator<T, std::uint64_t> >
-        sortQuery(std::unique_ptr<db0::FT_Iterator<std::uint64_t> > &&query_iterator, bool asc, bool null_first) const 
+        template <typename T> std::unique_ptr<RT_SortIterator<T, UniqueAddress> >
+        sortQuery(std::unique_ptr<db0::FT_Iterator<UniqueAddress> > &&query_iterator, bool asc, bool null_first) const 
         {
-            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(
+            return std::make_unique<RT_SortIterator<T, UniqueAddress>>(
                 *this, tryGetRangeTree<T>(), std::move(query_iterator), asc, null_first
             );
         }
         
-        template <typename T> std::unique_ptr<RT_SortIterator<T, std::uint64_t> >
-        sortSortedQuery(std::unique_ptr<db0::SortedIterator<std::uint64_t> > &&sorted_iterator, bool asc, bool null_first) const 
+        template <typename T> std::unique_ptr<RT_SortIterator<T, UniqueAddress> >
+        sortSortedQuery(std::unique_ptr<db0::SortedIterator<UniqueAddress> > &&sorted_iterator, bool asc, bool null_first) const 
         {
-            return std::make_unique<RT_SortIterator<T, std::uint64_t>>(
+            return std::make_unique<RT_SortIterator<T, UniqueAddress>>(
                 *this, tryGetRangeTree<T>(), std::move(sorted_iterator), asc, null_first
             );
         }
@@ -268,13 +268,13 @@ namespace db0::object_model
             // we need to handle all-null case separately because provisional data type and range type may differ
             auto range_tree_ptr = tryGetRangeTree<T>();
             if (range_tree_ptr && range_tree_ptr->hasAnyNonNull()) {
-                return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(*this, range_tree_ptr, extractOptionalValue<T>(min),
+                return std::make_unique<RangeIteratorFactory<T, UniqueAddress>>(*this, range_tree_ptr, extractOptionalValue<T>(min),
                     min_inclusive, extractOptionalValue<T>(max), max_inclusive, null_first);
             } else {
                 auto &type_manager = LangToolkit::getTypeManager();
                 if ((null_first && type_manager.isNull(min)) || (!null_first && type_manager.isNull(max))) {
                     // return all null elements
-                    return std::make_unique<RangeIteratorFactory<T, std::uint64_t>>(*this, range_tree_ptr, RT_Range<T> {}, true);
+                    return std::make_unique<RangeIteratorFactory<T, UniqueAddress>>(*this, range_tree_ptr, RT_Range<T> {}, true);
                 }
                 // no results
                 return nullptr;

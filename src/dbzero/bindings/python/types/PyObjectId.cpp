@@ -52,7 +52,7 @@ namespace db0::python
     PyObject *ObjectId_repr(PyObject *self)
     {
         // Format as base-32 string
-        char buffer[ObjectId::encodedSize() + 1];
+        char buffer[ObjectId::maxEncodedSize() + 1];
         auto py_object_id = reinterpret_cast<PyObjectId*>(self);
         py_object_id->m_object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
@@ -65,7 +65,7 @@ namespace db0::python
     template <> bool Which_TypeCheck<PyObjectId>(PyObject *py_object) {
         return ObjectId_Check(py_object);
     }
-
+    
     PyObject *ObjectId_reduce(PyObject *self)
     {
         if (!ObjectId_Check(self)) {
@@ -78,13 +78,13 @@ namespace db0::python
         // Create a tuple containing the arguments needed to reconstruct the object
         PyObject *args = PyTuple_Pack(3,
             PyLong_FromUnsignedLongLong(object_id.m_fixture_uuid), 
-            PyLong_FromUnsignedLongLong(object_id.m_typed_addr.m_value),
-            PyLong_FromUnsignedLong(object_id.m_instance_id)            
+            PyLong_FromUnsignedLongLong(object_id.m_address.getValue()),
+            PyLong_FromUnsignedLong(static_cast<unsigned int>(object_id.m_storage_class))
         );
         
         // Return a tuple with the object's constructor and its arguments
         return Py_BuildValue("(OO)", Py_TYPE(self), args);
-    }
+    }    
     
     int ObjectId_init(PyObject* self, PyObject* state)
     {
@@ -97,8 +97,8 @@ namespace db0::python
         auto &object_id = py_object_id->m_object_id;
         // Set the object's attributes
         object_id.m_fixture_uuid = PyLong_AsUnsignedLongLong(PyTuple_GetItem(state, 0));
-        object_id.m_typed_addr = PyLong_AsUnsignedLongLong(PyTuple_GetItem(state, 1));
-        object_id.m_instance_id = PyLong_AsUnsignedLong(PyTuple_GetItem(state, 2));
+        object_id.m_address = db0::UniqueAddress::fromValue(PyLong_AsUnsignedLongLong(PyTuple_GetItem(state, 1)));
+        object_id.m_storage_class = static_cast<db0::StorageClass>(PyLong_AsUnsignedLong(PyTuple_GetItem(state, 2)));
 
         return 0;
     }

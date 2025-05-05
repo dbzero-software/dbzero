@@ -63,7 +63,7 @@ namespace db0::object_model
         std::copy(init_vars.begin(), init_vars.end(), std::inserter(m_init_vars, m_init_vars.end()));
     }
     
-    Class::Class(db0::swine_ptr<Fixture> &fixture, std::uint64_t address)
+    Class::Class(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
         , m_uid(this->fetchUID())    
@@ -171,14 +171,15 @@ namespace db0::object_model
     
     bool Class::unloadSingleton(void *at) const
     {
-        if (!(*this)->m_singleton_address) {
+        if (!(*this)->m_singleton_address.isValid()) {
             return false;
         }
         
         auto fixture = getFixture();
         auto &class_factory = fixture->get<ClassFactory>();
         auto stem = Object::unloadStem(fixture, (*this)->m_singleton_address);
-        auto type = class_factory.getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(stem->m_class_ref)).m_class;
+        auto type = class_factory.getTypeByPtr(
+            db0::db0_ptr_reinterpret_cast<Class>()(ClassFactory::classRefToAddress(stem->m_class_ref))).m_class;
         // unload from stem
         Object::unload(at, std::move(stem), type);
         return true;
@@ -189,16 +190,16 @@ namespace db0::object_model
     }
     
     bool Class::isExistingSingleton() const {
-        return isSingleton() && (*this)->m_singleton_address;
+        return isSingleton() && (*this)->m_singleton_address.isValid();
     }
     
     void Class::setSingletonAddress(Object &object)
     {
-        assert(!(*this)->m_singleton_address);
+        assert(!(*this)->m_singleton_address.isValid());
         assert(isSingleton());
         // increment reference count in order to prevent singleton object from being destroyed
         object.incRef();
-        modify().m_singleton_address = object.getAddress();
+        modify().m_singleton_address = object.getUniqueAddress();
     }
     
     void Class::refreshMemberCache() const
@@ -333,9 +334,8 @@ namespace db0::object_model
         super_t::detach();
     }
     
-    void Class::unlinkSingleton()
-    {
-        modify().m_singleton_address = 0;
+    void Class::unlinkSingleton() {
+        modify().m_singleton_address = {};
     }
     
     void Class::commit()
@@ -394,11 +394,12 @@ namespace db0::object_model
         if (!isSingleton() || !isExistingSingleton()) {
             THROWF(db0::InternalException) << "Singleton object not found for class " << getTypeName();
         }
+
         auto singleton_addr = (*this)->m_singleton_address;
         return {
             getFixture()->getUUID(),
-            TypedAddress(StorageClass::OBJECT_REF, singleton_addr),
-            db0::getInstanceId(singleton_addr)
+            singleton_addr,
+            StorageClass::OBJECT_REF
         };
     }
     
@@ -406,8 +407,9 @@ namespace db0::object_model
     {
         return {
             getFixture()->getUUID(),
-            TypedAddress(StorageClass::DB0_CLASS, getAddress()),
-            db0::getInstanceId(getAddress())
+            // NOTICE: no instance ID for the class-ref
+            db0::UniqueAddress(this->getAddress(), UniqueAddress::INSTANCE_ID_MAX),
+            StorageClass::DB0_CLASS
         };
     }
     
@@ -442,7 +444,7 @@ namespace db0::object_model
         }
     }
 
-    std::uint64_t Class::getSingletonAddress() const {
+    Address Class::getSingletonAddress() const {
         return (*this)->m_singleton_address;
     }
     

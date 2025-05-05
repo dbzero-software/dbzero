@@ -34,7 +34,7 @@ namespace db0::object_model
         using const_iterator = typename v_bvector<o_typed_item>::const_iterator;
         friend super_t;
         
-        List(db0::swine_ptr<Fixture> &, std::uint64_t address);
+        List(db0::swine_ptr<Fixture> &, Address);
         ~List();
 
         void append(FixtureLock &, ObjectPtr lang_value);
@@ -43,7 +43,7 @@ namespace db0::object_model
         void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
         
         static List *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
-        static List *unload(void *at_ptr, db0::swine_ptr<Fixture> &, std::uint64_t address);
+        static List *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
         List * copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const;
         size_t count(ObjectPtr lang_value) const;
         size_t index(ObjectPtr lang_value) const;

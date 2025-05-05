@@ -1,5 +1,6 @@
 #include "PyAPI.hpp"
 #include "PyInternalAPI.hpp"
+#include "PyTagsAPI.hpp"
 #include "PyToolkit.hpp"
 #include "PyTypeManager.hpp"
 #include "PyWorkspace.hpp"
@@ -105,14 +106,17 @@ namespace db0::python
     PyObject *tryOpen(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         // prefix_name, open_mode, autocommit (bool)
-        static const char *kwlist[] = {"prefix_name", "open_mode", "autocommit", "slab_size", "lock_flags", NULL};
+        static const char *kwlist[] = {
+            "prefix_name", "open_mode", "autocommit", "slab_size", "lock_flags", "meta_io_step_size", NULL
+        };
         const char *prefix_name = nullptr;
         const char *open_mode = nullptr;
         PyObject *py_autocommit = nullptr;
         PyObject *py_slab_size = nullptr;
         PyObject *py_lock_flags = nullptr;
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOO", const_cast<char**>(kwlist),
-            &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags))
+        PyObject *py_meta_io_step_size = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sOOOO", const_cast<char**>(kwlist),
+            &prefix_name, &open_mode, &py_autocommit, &py_slab_size, &py_lock_flags, &py_meta_io_step_size))
         {
             PyErr_SetString(PyExc_TypeError, "Invalid arguments");
             return NULL;
@@ -145,12 +149,24 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "Invalid argument type: lock_flags");
             return NULL;
         }
+
+        std::optional<std::size_t> meta_io_step_size;
+        if (py_meta_io_step_size) {
+            if (!PyLong_Check(py_meta_io_step_size))    {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type: meta_io_step_size");
+                return NULL;
+            }
+            meta_io_step_size = PyLong_AsUnsignedLong(py_meta_io_step_size);
+        }
+
         auto access_type = open_mode ? parseAccessType(open_mode) : db0::AccessType::READ_WRITE;
-        PyToolkit::getPyWorkspace().open(prefix_name, access_type, autocommit, slab_size, py_lock_flags);
+        PyToolkit::getPyWorkspace().open(
+            prefix_name, access_type, autocommit, slab_size, py_lock_flags, meta_io_step_size
+        );
         Py_RETURN_NONE;
     }
 
-    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs) 
+    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         return runSafe(tryOpen, self, args, kwargs);
@@ -160,7 +176,7 @@ namespace db0::python
     {        
         PyObject *py_path = nullptr;
         PyObject *py_config = nullptr;
-        PyObject *py_flags= nullptr;
+        PyObject *py_flags= nullptr;        
         // extract optional "path" string argument and "autcommit_interval" keyword argument
         static const char *kwlist[] = {"path", "config", "lock_flags", NULL};
         if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOO", const_cast<char**>(kwlist), &py_path, &py_config, &py_flags)) {
@@ -429,8 +445,8 @@ namespace db0::python
         fixture->refreshIfUpdated();
         return PyLong_FromLong(fixture->getPrefix().getStateNum(finalized == 1));
     }
-
-    PyObject *getStateNum(PyObject *, PyObject *args, PyObject *kwargs) 
+    
+    PyObject *PyAPI_getStateNum(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC        
         return runSafe(tryGetStateNum, args, kwargs);
@@ -645,28 +661,7 @@ namespace db0::python
 #endif  
         return PyUnicode_FromString(str_flags.str().c_str());
     }
-    
-    PyObject *pySerialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "serialize requires exactly 1 argument");
-            return NULL;
-        }
-        return runSafe(trySerialize, args[0]);
-    }
-    
-    PyObject *pyDeserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "deserialize requires exactly 1 argument");
-            return NULL;
-        }        
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
-        return runSafe(tryDeserialize, &workspace, args[0]);
-    }
-    
+        
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>() {
         return db0::object_model::StorageClass::OBJECT_REF;
     }
@@ -754,49 +749,7 @@ namespace db0::python
     using ObjectIterable = db0::object_model::ObjectIterable;
     using ObjectIterator = db0::object_model::ObjectIterator;
     using QueryObserver = db0::object_model::QueryObserver;
-    
-    std::pair<std::unique_ptr<TagIndex::QueryIterator>, std::vector<std::unique_ptr<QueryObserver> > >
-    splitBy(PyObject *py_tag_list, const ObjectIterable &iterable, bool exclusive)
-    {
-        std::vector<std::unique_ptr<QueryObserver> > query_observers;
-        auto query = iterable.beginFTQuery(query_observers, -1);
-        auto &tag_index = iterable.getFixture()->get<db0::object_model::TagIndex>();
-        auto result = tag_index.splitBy(py_tag_list, std::move(query), exclusive);
-        query_observers.push_back(std::move(result.second));
-        return { std::move(result.first), std::move(query_observers) };
-    }
-    
-    PyObject *trySplitBy(PyObject *args, PyObject *kwargs)
-    {
-        // extract 2 object arguments
-        PyObject *py_tags = nullptr;
-        PyObject *py_query = nullptr;
-        int exclusive = true;
-        // tags, query, exclusive (bool)
-        static const char *kwlist[] = {"tags", "query", "exclusive", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", const_cast<char**>(kwlist), &py_tags, &py_query, &exclusive)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
-        }
-                
-        if (!PyObjectIterable_Check(py_query)) {
-            THROWF(db0::InputException) << "Invalid argument type";
-        }
         
-        auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->modifyExt();
-        auto split_query = splitBy(py_tags, iter, exclusive);
-        auto py_iter = PyObjectIterableDefault_new();
-        iter.makeNew(&(py_iter.get())->modifyExt(), std::move(split_query.first), std::move(split_query.second),
-            iter.getFilters());
-        return py_iter.steal();
-    }
-    
-    PyObject *splitBy(PyObject *, PyObject *args, PyObject *kwargs) 
-    {
-        PY_API_FUNC
-        return runSafe(trySplitBy, args, kwargs);
-    }
-    
     PyObject *isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
@@ -842,7 +795,8 @@ namespace db0::python
         
         auto &iter = reinterpret_cast<PyObjectIterable*>(py_query)->modifyExt();
         auto py_iter = PyObjectIterableDefault_new();
-        iter.makeNewAppendFilters(&(py_iter.get())->modifyExt(), filters);
+        // create with added filters
+        py_iter->makeNew(iter, filters);
         return py_iter.steal();
     }
     
@@ -1281,10 +1235,10 @@ namespace db0::python
         const char *prefix = nullptr;
         int state = 0;
         const char * const kwlist[] = {"future", "prefix", "state", nullptr};
-        if(!PyArg_ParseTupleAndKeywords(args, kwargs, "Osi:await_prefix_state", const_cast<char**>(kwlist), &future, &prefix, &state)) {
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Osi:await_prefix_state", const_cast<char**>(kwlist), &future, &prefix, &state)) {
             return nullptr;
         }
-        if(state <= 0) {
+        if (state <= 0) {
             PyErr_SetString(PyExc_ValueError, "state number have to be greater than 0");
             return nullptr;
         }
@@ -1292,7 +1246,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryAwaitPrefixState, future, prefix, state);
     }
-
+        
     PyObject *tryGetConfig()
     {
         auto config = PyToolkit::getPyWorkspace().getConfig()->getRawConfig();
@@ -1313,5 +1267,5 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 #endif
-    
+
 }

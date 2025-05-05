@@ -59,7 +59,7 @@ namespace db0
         }
     };
     
-    template <typename item_t, int N, typename AddrT = std::uint64_t, typename item_comp_t = std::less<item_t> >
+    template <typename item_t, int N, typename AddrT = Address, typename item_comp_t = std::less<item_t> >
     class v_sorted_sequence
         : public db0::v_object<o_sorted_sequence<item_t, N, item_comp_t> >
     {

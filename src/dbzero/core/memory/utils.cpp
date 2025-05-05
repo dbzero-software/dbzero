@@ -26,14 +26,14 @@ namespace db0
         return page_size - 1;
     }
 
-    std::uint64_t alignAddress(std::uint64_t addr, std::size_t page_size, int direction)
+    Address alignAddress(Address addr, std::size_t page_size, int direction)
     {
         if (addr % page_size != 0)
             return addr - (addr % page_size) + (direction > 0 ? page_size : 0);
         return addr;
     }
 
-    std::uint64_t alignWideRange(std::uint64_t addr, std::size_t size, std::size_t page_size, int direction) {
+    Address alignWideRange(Address addr, std::size_t size, std::size_t page_size, int direction) {
         return size > (page_size << 1) ? alignAddress(addr, page_size, direction) : addr;
     }
 

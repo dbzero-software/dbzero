@@ -29,12 +29,8 @@ namespace tests
     {
         std::vector<char> no_data;
         CFile::create(file_name, no_data);
-        CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() { 
-            return file.size(); 
-        };
-        
-        ChangeLogIOStream cut(file, 0, 4096, tail_function);
+        CFile file(file_name, AccessType::READ_WRITE);        
+        ChangeLogIOStream cut(file, 0, 4096);        
         // chunk 1 (RLE)
         {
             std::vector<std::uint64_t> change_log = { 1, 2, 3, 4, 5 };
@@ -61,13 +57,10 @@ namespace tests
         std::vector<char> no_data;
         CFile::create(file_name, no_data);
         CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() { 
-            return file.size();
-        };
-        
+                
         // write some data
         {
-            ChangeLogIOStream cut(file, 0, 4096, tail_function);
+            ChangeLogIOStream cut(file, 0, 4096);
             // chunk 1 (uncompressed)
             {
                 std::vector<std::uint64_t> change_log = { 3, 4, 8 };
@@ -83,7 +76,7 @@ namespace tests
             cut.close();
         }
 
-        ChangeLogIOStream cut(file, 0, 4096, tail_function);
+        ChangeLogIOStream cut(file, 0, 4096);        
         // read all chunks
         while (cut.readChangeLogChunk());
 
@@ -155,11 +148,7 @@ namespace tests
 
         // Write some data
         CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() {
-            return file.size();
-        };
-        
-        ChangeLogIOStream stream(file, 0, 4096, tail_function);
+        ChangeLogIOStream stream(file, 0, 4096);        
         for (auto op: write_ops) {
             ChangeLogData data(std::move(op), false, false, false);
             stream.appendChangeLog(std::move(data));
@@ -174,13 +163,10 @@ namespace tests
         std::vector<char> no_data;
         CFile::create(file_name, no_data);
         CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() { 
-            return file.size();
-        };
-        
+
         // write some data
         {
-            ChangeLogIOStream cut(file, 0, 4096, tail_function);
+            ChangeLogIOStream cut(file, 0, 4096);
             // chunk 1 (uncompressed)
             {
                 std::vector<std::uint64_t> change_log = { 3, 4, 8 };
@@ -196,7 +182,7 @@ namespace tests
             cut.close();
         }
         
-        ChangeLogIOStream cut(file, 0, 4096, {}, AccessType::READ_ONLY);
+        ChangeLogIOStream cut(file, 0, 4096, {}, AccessType::READ_ONLY);        
         // read all chunks
         while (cut.readChangeLogChunk());
         bool refresh_result = cut.refresh();        
@@ -208,11 +194,7 @@ namespace tests
     {
         CFile::create(file_name, {});
         CFile file(file_name, AccessType::READ_WRITE);
-        auto tail_function = [&]() { 
-            return file.size();
-        };
-        
-        ChangeLogIOStream cut(file, 0, 4096, tail_function);
+        ChangeLogIOStream cut(file, 0, 4096);
         // append with RLE compression
         ChangeLogData cl_data(std::vector<std::uint64_t> { 0, 1}, true, false, false);
         auto &change_log = cut.appendChangeLog(std::move(cl_data));
@@ -223,5 +205,68 @@ namespace tests
         ASSERT_EQ(data, (std::vector<std::uint64_t> { 0, 1 }));
         cut.close();
     }
+    
+    TEST_F( ChangeLogIOStreamTest , testChangeLogIOSetStreamPos )
+    {
+        std::vector<char> no_data;
+        CFile::create(file_name, no_data);
 
+        std::vector<std::vector<std::uint64_t> > write_ops {
+            { 1, 2, 3, 4, 5 },
+            { 3, 4, 8 },
+            { 1, 2, 3, 4, 5 },
+            { 3, 4, 8 },
+            { 1, 2, 3, 4, 5 },
+            { 3, 4, 8 },
+            { 1, 2, 3, 4, 5 },
+            { 3, 4, 8 },
+            { 1, 2, 3, 4, 5 },
+            { 3, 4, 8 },
+            { 1, 2, 3, 4, 5 },
+            { 3, 4, 8 },
+            { 1, 2, 3, 4, 5 },
+            { 3, 4, 8 },
+            { 1, 2, 3, 4, 5 },
+            { 3, 4, 8 }
+        };
+
+        // Write some data
+        CFile file(file_name, AccessType::READ_WRITE);        
+        // saved stream positions
+        std::vector<std::pair<std::uint64_t, std::uint64_t> > pos_buf;
+        // corresponding change logs
+        std::vector<std::vector<char> > change_logs;
+        
+        ChangeLogIOStream cut(file, 0, 4096);        
+        int count = 0;
+        for (int i = 0; i < 500; ++i) {
+            for (auto op: write_ops) {
+                if (count % 10 == 0 || count == 17 || count == 7) {
+                    // position before write
+                    pos_buf.push_back(cut.getStreamPos());
+                }
+                
+                ChangeLogData data(op, false, false, false);
+                const auto &change_log = cut.appendChangeLog(std::move(data));
+                change_logs.emplace_back(change_log.sizeOf());
+                std::memcpy(change_logs.back().data(), &change_log, change_log.sizeOf());
+            }
+            ++count;
+        }
+        // flush before we can read back
+        cut.flush();
+        
+        // seek and compare results
+        for (int i = 0; i < (int)pos_buf.size(); ++i) {
+            cut.setStreamPos(pos_buf[i].first, pos_buf[i].second);
+            auto changelog_ptr = cut.readChangeLogChunk();
+            ASSERT_TRUE(changelog_ptr != nullptr);
+            ASSERT_EQ(changelog_ptr->sizeOf(), change_logs[i].size());
+            // binary compare
+            ASSERT_TRUE(equal(change_logs[i].data(), change_logs[i].data() + change_logs[i].size(), (char*)changelog_ptr));
+        }
+
+        cut.close();
+    }
+    
 }

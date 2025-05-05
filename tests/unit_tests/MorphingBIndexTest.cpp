@@ -45,7 +45,7 @@ namespace tests
 	{
 		auto memspace = getMemspace();
 
-		index_t cut(memspace, bindex::empty);
+		index_t cut(memspace, bindex::type::empty);
 		ASSERT_TRUE(cut.empty());
 	}
 
@@ -53,7 +53,7 @@ namespace tests
 	{
 		auto memspace = getMemspace();
 
-		index_t cut(memspace, bindex::empty);
+		index_t cut(memspace, bindex::type::empty);
 		insertUnique(cut, { 1234 } );
 		ASSERT_TRUE(!cut.empty());
 		ASSERT_EQ(bindex::type::itty, cut.getIndexType());
@@ -63,10 +63,10 @@ namespace tests
 	{
         auto memspace = getMemspace();
 
-		std::uint64_t addr;
+		Address addr;
 		bindex::type index_type;
 		{
-			index_t cut(memspace, bindex::empty);
+			index_t cut(memspace, bindex::type::empty);
 			insertUnique(cut, { 1234 } );
 			index_type = cut.getIndexType();
 			addr = cut.getAddress();
@@ -80,24 +80,24 @@ namespace tests
 	{
         auto memspace = getMemspace();
 
-		index_t cut(memspace, bindex::empty, 8);
-		ASSERT_EQ(bindex::empty, cut.getIndexType()); // 0 elements = empty
+		index_t cut(memspace, bindex::type::empty, 8);
+		ASSERT_EQ(bindex::type::empty, cut.getIndexType()); // 0 elements = empty
 		insertUnique(cut, { 1 });
-		ASSERT_EQ(bindex::itty, cut.getIndexType()); // 1 element = itty_index
+		ASSERT_EQ(bindex::type::itty, cut.getIndexType()); // 1 element = itty_index
 		insertUnique(cut, { 2 });
-		ASSERT_EQ(bindex::array_2, cut.getIndexType()); // 2 elements = array_2
+		ASSERT_EQ(bindex::type::array_2, cut.getIndexType()); // 2 elements = array_2
 		insertUnique(cut, { 3 });
-		ASSERT_EQ(bindex::array_3, cut.getIndexType()); // 3 elements = array_3
+		ASSERT_EQ(bindex::type::array_3, cut.getIndexType()); // 3 elements = array_3
 		insertUnique(cut, { 4 });
-		ASSERT_EQ(bindex::array_4, cut.getIndexType()); // 4 elements = array_4
+		ASSERT_EQ(bindex::type::array_4, cut.getIndexType()); // 4 elements = array_4
 		insertUnique(cut, { 5 });
-		ASSERT_EQ(bindex::sorted_vector, cut.getIndexType()); // 5 elements = sorted_vector
+		ASSERT_EQ(bindex::type::sorted_vector, cut.getIndexType()); // 5 elements = sorted_vector
 		insertUnique(cut, { 6 });
-		ASSERT_EQ(bindex::sorted_vector, cut.getIndexType()); // 6 elements = sorted_vector
+		ASSERT_EQ(bindex::type::sorted_vector, cut.getIndexType()); // 6 elements = sorted_vector
 		insertUnique(cut, { 7 });
-		ASSERT_EQ(bindex::sorted_vector, cut.getIndexType()); // 7 elements = sorted_vector
+		ASSERT_EQ(bindex::type::sorted_vector, cut.getIndexType()); // 7 elements = sorted_vector
 		insertUnique(cut, { 8 });
-		ASSERT_EQ(bindex::sorted_vector, cut.getIndexType()); // 8 elements = sorted_vector
+		ASSERT_EQ(bindex::type::sorted_vector, cut.getIndexType()); // 8 elements = sorted_vector
 		unsigned int sv_limit = cut.getSortedVectorSizeLimit();
 		log << "SV size limit:" << sv_limit << std::endl;
 		unsigned int i = 9;
@@ -108,7 +108,7 @@ namespace tests
 			++i;
 		}
 		insertUnique(cut, { i });
-		ASSERT_EQ(bindex::bindex, cut.getIndexType()); // > SV limit elements = bindex
+		ASSERT_EQ(bindex::type::bindex, cut.getIndexType()); // > SV limit elements = bindex
 	}
 
 	TEST_F( MorphingBIndexTest , testInsertUniqueWillIgnoreDuplicates )
@@ -129,10 +129,10 @@ namespace tests
         auto memspace = getMemspace();
 
 		index_t cut(memspace);
-		ASSERT_EQ(bindex::empty, cut.getIndexType());
+		ASSERT_EQ(bindex::type::empty, cut.getIndexType());
 		// adding 4 elements will cause jump to "array_4" from "empty"
 		insertUnique(cut, { 1, 2, 3, 4 });
-		ASSERT_EQ(bindex::array_4, cut.getIndexType());
+		ASSERT_EQ(bindex::type::array_4, cut.getIndexType());
 	}
 	
 	TEST_F( MorphingBIndexTest , testStorageSizeGrowsWithNumberOfElements )
@@ -328,7 +328,7 @@ namespace tests
 	{
 		auto memspace = getMemspace();
 
-		index_t cut(memspace, bindex::empty, 8);
+		index_t cut(memspace, bindex::type::empty, 8);
 		insertUnique(cut, { 0, 123, 9, 5, 15, 19923, 312, 311, 540, 1119, 912, 919992, 0, 1, 2, 34, 567, 89  });
 		auto it = cut.beginJoin(-1);
 		it.limitBy(10);
@@ -351,7 +351,7 @@ namespace tests
 	{
         auto memspace = getMemspace();
 
-		index_t cut(memspace, bindex::empty, 8);
+		index_t cut(memspace, bindex::type::empty, 8);
 		insertUnique(cut, { 0, 123, 9, 5, 15, 19923, 312, 311, 540, 1119, 912, 919992, 0, 1, 2, 34, 567, 89  });
 		auto it = cut.beginJoin(-1);
 		it.join(1000, -1);
@@ -399,34 +399,34 @@ namespace tests
     {
         auto memspace = getMemspace();
 
-        index_t cut(memspace, bindex::empty, 8);
+        index_t cut(memspace, bindex::type::empty, 8);
         insertUnique(cut, { 1 });
         insertUnique(cut, { 2 });
         insertUnique(cut, { 3 });
         insertUnique(cut, { 4 });
         insertUnique(cut, { 5 });
-        ASSERT_EQ (bindex::sorted_vector, cut.getIndexType());
+        ASSERT_EQ (bindex::type::sorted_vector, cut.getIndexType());
 
         erase(cut, { 5 });
         erase(cut, { 4 });
         // still sorted vector after erase
-        ASSERT_EQ (bindex::sorted_vector, cut.getIndexType());
+        ASSERT_EQ (bindex::type::sorted_vector, cut.getIndexType());
 
         insertUnique(cut, { 4 });
-        ASSERT_EQ (bindex::sorted_vector, cut.getIndexType());
+        ASSERT_EQ (bindex::type::sorted_vector, cut.getIndexType());
         insertUnique(cut, { 5 });
-        ASSERT_EQ (bindex::sorted_vector, cut.getIndexType());
+        ASSERT_EQ (bindex::type::sorted_vector, cut.getIndexType());
     }
 
 	TEST_F( MorphingBIndexTest , testBulkEraseWillRetainBIndexMorphology )
 	{
         auto memspace = getMemspace();
 
-		index_t cut(memspace, bindex::empty, 8);
+		index_t cut(memspace, bindex::type::empty, 8);
 		insertUnique(cut, { 0, 123, 9, 5, 15, 19923, 312, 311, 540, 1119  });
 		unsigned int i = 500;
 		// add elements to reach SV size limit
-		while (cut.getIndexType()!=bindex::bindex)
+		while (cut.getIndexType()!=bindex::type::bindex)
 		{
 			insertUnique(cut, { i });
 			++i;

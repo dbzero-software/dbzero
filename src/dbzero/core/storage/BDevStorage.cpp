@@ -31,17 +31,19 @@ namespace db0
     {
     }
     
-    BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags)
+    BDevStorage::BDevStorage(const std::string &file_name, AccessType access_type, LockFlags lock_flags, 
+        std::optional<std::size_t> meta_io_step_size)
         : BaseStorage(access_type)
         , m_file(file_name, access_type, lock_flags)
         , m_config(readConfig())
         , m_dram_changelog_io(getChangeLogIOStream(m_config.m_dram_changelog_io_offset, access_type))
-        , m_dp_changelog_io(init(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type)))
-        , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))
+        , m_dp_changelog_io(getChangeLogIOStream(m_config.m_dp_changelog_io_offset, access_type))
+        , m_meta_io(init(getMetaIOStream(m_config.m_meta_io_offset, meta_io_step_size.value_or(DEFAULT_META_IO_STEP_SIZE),
+            access_type)))
+        , m_dram_io(init(getDRAMIOStream(m_config.m_dram_io_offset, m_config.m_dram_page_size, access_type), m_dram_changelog_io))            
         , m_sparse_pair(m_dram_io.getDRAMPair(), access_type)
         , m_sparse_index(m_sparse_pair.getSparseIndex())
-        , m_diff_index(m_sparse_pair.getDiffIndex())
-        , m_wal_io(readAll(getBlockIOStream(m_config.m_wal_offset, AccessType::READ_ONLY)))
+        , m_diff_index(m_sparse_pair.getDiffIndex())        
         , m_page_io(getPage_IO(m_sparse_pair.getNextStoragePageNum(), access_type))
     {
         if (m_access_type == AccessType::READ_ONLY) {
@@ -52,22 +54,23 @@ namespace db0
     BDevStorage::~BDevStorage()
     {
     }
-
-    DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, ChangeLogIOStream &change_log)
+    
+    DRAM_IOStream BDevStorage::init(DRAM_IOStream &&dram_io, ChangeLogIOStream &dram_change_log)
     {
         if (dram_io.getAccessType() == AccessType::READ_WRITE) {
             // simply exhaust the change-log stream
-            while (change_log.readChangeLogChunk());
+            while (dram_change_log.readChangeLogChunk());
         } else {
             // apply all changes from the change-log
-            dram_io.applyChanges(change_log);
+            dram_io.applyChanges(dram_change_log);
         }
         return std::move(dram_io);
     }
-
-    ChangeLogIOStream BDevStorage::init(ChangeLogIOStream &&io)
+    
+    MetaIOStream BDevStorage::init(MetaIOStream &&io)
     {
-        while (io.readChangeLogChunk());
+        // exhaust the meta-log stream (position at the last item) and all managed streams
+        io.setTailAll();        
         return std::move(io);
     }
     
@@ -111,12 +114,12 @@ namespace db0
 
         // cofigure offsets for all inner streams (even though they have not been materialized yet)
         config->m_dram_io_offset = next_block_offset();
-        config->m_wal_offset = next_block_offset();
         config->m_dram_changelog_io_offset = next_block_offset();
-        config->m_dp_changelog_io_offset = next_block_offset();        
+        config->m_dp_changelog_io_offset = next_block_offset();
+        config->m_meta_io_offset = next_block_offset();
         CFile::create(file_name, buffer);
         
-        // Create higher-order data structures        
+        // Create higher-order data structures
         {
             CFile file(file_name, AccessType::READ_WRITE);
             ChangeLogIOStream *dram_changelog_io_ptr = nullptr;
@@ -160,7 +163,7 @@ namespace db0
         }
         return result;
     }
-
+    
     void BDevStorage::read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags) const
     {
@@ -169,7 +172,7 @@ namespace db0
     
     void BDevStorage::_read(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer,
         FlagSet<AccessOptions> flags, unsigned int *chain_len) const
-    {        
+    {
         assert(state_num > 0 && "BDevStorage::read: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::read: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::read: size must be page-aligned");
@@ -191,7 +194,7 @@ namespace db0
             // query sparse index + diff index
             SparseIndexQuery query(m_sparse_index, m_diff_index, page_num, state_num);
             if (query.empty()) {
-                if (flags[AccessOptions::read]) {                    
+                if (flags[AccessOptions::read]) {
                     THROWF(db0::IOException) << "BDevStorage::read: page not found: " << page_num << ", state: " << state_num;
                 }
                  // if requested access is write-only then simply fill the misssing (new) page with 0
@@ -302,20 +305,25 @@ namespace db0
             THROWF(db0::IOException) << "BDevStorage::flush error: read-only stream";
         }
         
-        // check if there're any modifications to be flushed 
+        // check if there're any modifications to be flushed
         if (m_sparse_pair.getChangeLogSize() == 0) {
             // no modifications to be flushed
             return false;
         }
         
+        // save metadata checkpoints before making any updates to the managed streams
+        // NOTE: the checkpoint is only saved after exceeding specific threshold of updates in the managed streams
+        auto state_num = m_sparse_pair.getMaxStateNum();
+        m_meta_io.checkAndAppend(state_num);
+        m_meta_io.flush();
+        
         // Extract & flush sparse index change log first (on condition of any updates)
         m_sparse_pair.extractChangeLog(m_dp_changelog_io);
-        m_dram_io.flushUpdates(m_sparse_pair.getMaxStateNum(), m_dram_changelog_io);
+        m_dram_io.flushUpdates(state_num, m_dram_changelog_io);
         m_dp_changelog_io.flush();
         // flush changelog AFTER all updates from dram_io have been flushed
         m_dram_changelog_io.flush();
         m_page_io.flush();
-        m_wal_io.flush();
         m_file.flush();
         return true;
     }
@@ -328,13 +336,22 @@ namespace db0
         
         m_dram_io.close();
         m_dram_changelog_io.close();
-        m_dp_changelog_io.close();
-        m_wal_io.close();
+        m_dp_changelog_io.close();        
+        m_meta_io.close();
         m_file.close();
     }
     
     BlockIOStream BDevStorage::getBlockIOStream(std::uint64_t first_block_pos, AccessType access_type) {
         return { m_file, first_block_pos, m_config.m_block_size, getTailFunction(), access_type };
+    }
+    
+    MetaIOStream BDevStorage::getMetaIOStream(std::uint64_t first_block_pos, std::size_t step_size, AccessType access_type)
+    {
+        // NOTE: currently only the dp-changelog stream is managed by the meta-io
+        std::vector<BlockIOStream *> managed_streams = { &m_dp_changelog_io };
+        return { m_file, managed_streams, first_block_pos, m_config.m_block_size, getTailFunction(),
+            access_type, MetaIOStream::ENABLE_CHECKSUMS, step_size 
+        };
     }
     
     DRAM_IOStream BDevStorage::getDRAMIOStream(std::uint64_t first_block_pos, std::uint32_t dram_page_size, AccessType access_type) {
@@ -348,10 +365,10 @@ namespace db0
     std::uint64_t BDevStorage::tail() const
     {
         // take max from the 4 underlying I/O streams
-        auto result = std::max(m_dram_io.tail(), m_wal_io.tail());
+        auto result = std::max(m_dram_io.tail(), m_meta_io.tail());
         result = std::max(result, m_dram_changelog_io.tail());
         result = std::max(result, m_dp_changelog_io.tail());
-        result = std::max(result, m_page_io.tail());
+        result = std::max(result, m_page_io.tail());        
 
         return result;
     }
@@ -369,7 +386,7 @@ namespace db0
 
         if (next_page_hint == 0) {
             // assign first page
-            auto address = std::max(m_dram_io.tail(), m_wal_io.tail());
+            auto address = std::max(m_dram_io.tail(), m_meta_io.tail());
             address = std::max(address, m_dram_changelog_io.tail());
             address = std::max(address, m_dp_changelog_io.tail());
             return { CONFIG_BLOCK_SIZE, m_file, m_config.m_page_size, m_config.m_block_size, address, 0,
@@ -404,9 +421,9 @@ namespace db0
     {
         // get tail from BlockIOStreams
         return [this]() -> std::uint64_t {
-            auto result = std::max(m_dram_io.tail(), m_wal_io.tail());
+            auto result = std::max(m_dram_io.tail(), m_meta_io.tail());
             result = std::max(result, m_dram_changelog_io.tail());
-            result = std::max(result, m_dp_changelog_io.tail());
+            result = std::max(result, m_dp_changelog_io.tail());            
             return result;
         };
     }
@@ -457,7 +474,7 @@ namespace db0
                 }
             }
             
-            m_wal_io.refresh();
+            m_meta_io.refresh();
         }
         while (m_dram_changelog_io.refresh());        
         return result;
@@ -501,5 +518,53 @@ namespace db0
         m_dram_io.dramIOCheck(check_result);
     }
 #endif
+    
+    void BDevStorage::fetchChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
+        std::function<void(StateNumType state_num, const o_change_log &)> f) const
+    {
+        if (m_dp_changelog_io.modified()) {
+            THROWF(db0::IOException) << "BDevStorage::fetchChangeLogs: dp-changelog is modified and needs to be flushed first";
+        }
+        auto &dp_changelog_io = const_cast<ChangeLogIOStream &>(m_dp_changelog_io);        
+        ChangeLogIOStream::State dp_state;
+        dp_changelog_io.saveState(dp_state);
 
+        {
+            std::vector<char> buf;
+            // try locating the nearest meta-log entry to position the dp-changelog
+            auto meta_log_ptr = m_meta_io.lowerBound(begin_state, buf);
+            if (meta_log_ptr) {
+                // the 1st meta-item is associated with tha dp_change_log
+                auto &item = *meta_log_ptr->getMetaItems().begin();
+                dp_changelog_io.setStreamPos(item.m_address, item.m_stream_pos);
+            } else {
+                // must scan starting from the beginning (head)
+                dp_changelog_io.setStreamPosHead();
+            }
+        }
+
+        try {
+            for (;;) {
+                auto change_log = dp_changelog_io.readChangeLogChunk();
+                if (!change_log) {
+                    // end of the stream reached
+                    break;
+                }
+                // first item of the change-log is the state number
+                auto state_num = *change_log->begin();
+                if (end_state && state_num >= *end_state) {
+                    // end of the range reached
+                    break;
+                }
+                if (state_num >= begin_state) {
+                    f(state_num, *change_log);
+                }
+            }
+        } catch (...) {
+            dp_changelog_io.restoreState(dp_state);            
+            throw;
+        }
+        dp_changelog_io.restoreState(dp_state);
+    }
+    
 }
