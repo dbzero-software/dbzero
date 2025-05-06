@@ -117,7 +117,7 @@ def test_allocator_alloc_unit_issue(db0_slab_size):
 @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
 def test_allocator_out_of_space_when_small_slab_size(db0_slab_size):
     """
-    Test was failing with: Allocator out of space    
+    Test was failing with: Allocator out of space
     Resolution: 
     """
     root = MemoTestSingleton([])
