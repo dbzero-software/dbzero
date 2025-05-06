@@ -156,9 +156,9 @@ namespace db0
         
         // the number of administrative area pages
         // we determined this number to reflect the number of underlying extensible collections
-        // and based on the assumption that each of them needs at least 1 page for expansion
-        static constexpr std::uint32_t ADMIN_SPAN() {            
-            return 5;
+        // and based on the assumption that each of them requires 2 DPs for expansion
+        static constexpr std::uint32_t ADMIN_SPAN() {
+            return 5 * 2;
         }
         
         std::shared_ptr<Prefix> m_prefix;
