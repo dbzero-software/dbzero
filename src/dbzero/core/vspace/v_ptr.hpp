@@ -148,7 +148,7 @@ namespace db0
         template <typename T> const T *castTo() const {
             return reinterpret_cast<const T*>(m_mem_lock.m_buffer);
         }
-        
+                
     private:
         inline void assertFlags() 
         {

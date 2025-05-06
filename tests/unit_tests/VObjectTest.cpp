@@ -56,4 +56,15 @@ namespace tests
         ASSERT_EQ(cut->m_value, 999);
 	}
 
+	TEST_F( VObjectTest , testVObjectSpan )
+	{
+        auto memspace = getMemspace();
+        v_object<o_binary> cut_1(memspace, 16);
+        // small object should have span = 1 (i.e. spanning 1 DP)
+        ASSERT_EQ(cut_1.span(), 1);
+        v_object<o_binary> cut_2(memspace, 4120);
+        // large object will span more tha 1DP
+        ASSERT_EQ(cut_2.span(), 2);
+	}
+
 }

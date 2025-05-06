@@ -103,6 +103,11 @@ namespace db0
         // Check if the address is valid (allocated) with the underlying allocator
         bool isAddressValid(Address) const;
         
+        // Calcuate page number for a specific address (not validated)
+        inline std::uint64_t getPageNum(Address address) const {
+            return address.getOffset() >> m_page_shift;
+        }
+        
     protected:
         std::shared_ptr<Prefix> m_prefix;
         BaseStorage *m_storage_ptr = nullptr;
@@ -112,7 +117,8 @@ namespace db0
         std::optional<std::uint64_t> m_derived_UUID;
         // flag indicating if the atomic operation is in progress
         bool m_atomic = false;
-        std::size_t m_page_size;
+        std::size_t m_page_size = 0;
+        unsigned int m_page_shift = 0;
                 
         inline Allocator &getAllocatorForUpdate() {
             assert(m_allocator_ptr);

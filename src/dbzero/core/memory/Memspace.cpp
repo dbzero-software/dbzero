@@ -1,5 +1,6 @@
 #include "Memspace.hpp"
 #include <dbzero/core/utils/ProcessTimer.hpp>
+#include <dbzero/core/memory/utils.hpp>
 
 namespace db0
 
@@ -12,6 +13,7 @@ namespace db0
         , m_allocator_ptr(m_allocator.get())
         , m_derived_UUID(uuid)
         , m_page_size(prefix->getPageSize())
+        , m_page_shift(getPageShift(m_page_size))
     {
     }
 
@@ -21,6 +23,7 @@ namespace db0
         , m_allocator_ptr(&allocator)
         , m_derived_UUID(uuid)
         , m_page_size(prefix->getPageSize())
+        , m_page_shift(getPageShift(m_page_size))
     {
     }
 

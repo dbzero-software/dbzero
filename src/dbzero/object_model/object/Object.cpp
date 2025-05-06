@@ -220,6 +220,12 @@ namespace db0::object_model
         assert(hasInstance());
         auto [type_id, storage_class] = recognizeType(**fixture, lang_value);
         
+        if (this->span() > 1) {
+            // NOTE: large objects i.e. with span > 1 must always be marked with a silent mutation flag
+            // this is because the actual change may be missed if performed on a different-then the 1st DP
+            onSilentMutation();
+        }
+
         assert(m_type);
         // find already existing field index
         auto [field_id, is_init_var] = m_type->findField(field_name);
@@ -743,7 +749,8 @@ namespace db0::object_model
     void Object::onSilentMutation()
     {
         if (!m_silent_mutation) {
-            // mark only the 1st byte of the object as modified (forced-diff)
+            // mark the 1st byte of the object as modified (forced-diff)
+            // this is always the 1st DP occupied by the object
             modify(0, 1);
             m_silent_mutation = true;
         }
