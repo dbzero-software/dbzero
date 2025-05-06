@@ -105,7 +105,8 @@ namespace db0
         
         // Calcuate page number for a specific address (not validated)
         inline std::uint64_t getPageNum(Address address) const {
-            return address.getOffset() >> m_page_shift;
+            // NOTE: m_page_shift is 0 if page size is not a power of 2
+            return m_page_shift ? (address.getOffset() >> m_page_shift) : (address.getOffset() / m_page_size);
         }
         
     protected:

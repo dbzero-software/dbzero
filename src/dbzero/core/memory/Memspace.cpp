@@ -13,7 +13,8 @@ namespace db0
         , m_allocator_ptr(m_allocator.get())
         , m_derived_UUID(uuid)
         , m_page_size(prefix->getPageSize())
-        , m_page_shift(getPageShift(m_page_size))
+        // NOTE: some memspaces may have a non-standard page size in which case m_page_shift will be 0
+        , m_page_shift(getPageShift(m_page_size, false))
     {
     }
 
@@ -23,10 +24,11 @@ namespace db0
         , m_allocator_ptr(&allocator)
         , m_derived_UUID(uuid)
         , m_page_size(prefix->getPageSize())
-        , m_page_shift(getPageShift(m_page_size))
+        // NOTE: some memspaces may have a non-standard page size in which case m_page_shift will be 0
+        , m_page_shift(getPageShift(m_page_size, false))
     {
     }
-
+    
     bool Memspace::operator==(const Memspace &other) const {
         return m_prefix == other.m_prefix;
     }
