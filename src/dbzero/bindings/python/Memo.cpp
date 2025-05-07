@@ -555,20 +555,25 @@ namespace db0::python
         PY_API_FUNC
         return reinterpret_cast<PyObject*>(runSafe(tryWrapPyClass, args, kwargs));
     }
-        
-    PyObject *PyAPI_PyMemo_Check(PyObject *self, PyObject *const * args, Py_ssize_t nargs) {
+    
+    PyObject *tryPyMemoCheck(PyObject *py_obj)
+    {
+        if (PyMemo_Check(py_obj) || (PyType_Check(py_obj) && PyMemoType_Check(reinterpret_cast<PyTypeObject*>(py_obj)))) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
+    }
+    
+    PyObject *PyAPI_PyMemo_Check(PyObject *self, PyObject *const * args, Py_ssize_t nargs)
+    {
         PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "is_memo requires 1 argument");
             return NULL;
         }
-        int is_memo = runSafe<-1>(PyMemo_Check, args[0]);
-        if(is_memo == -1){
-            return nullptr;
-        }
-        return PyBool_FromLong(is_memo);
+        return runSafe(tryPyMemoCheck, args[0]);
     }
-        
+    
     bool PyMemoType_IsSingleton(PyTypeObject *type) {
         return type->tp_new == reinterpret_cast<newfunc>(PyAPI_MemoObject_new_singleton);
     }

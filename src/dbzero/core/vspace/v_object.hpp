@@ -252,6 +252,16 @@ namespace db0
 
             v_this.detach();
         }
+        
+        // Calculate the number of DPs spanned by this object
+        // NOTE: even small objects may span more than 1 DP if are positioned on a boundary
+        // however allocators typically will avoid such situations
+        unsigned int span() const
+        {
+            auto first_dp = v_this.getMemspace().getPageNum(v_this.getAddress());
+            auto last_dp = v_this.getMemspace().getPageNum(v_this.getAddress() + v_this->sizeOf());
+            return last_dp - first_dp + 1;
+        }
 
     protected :
         // container reference

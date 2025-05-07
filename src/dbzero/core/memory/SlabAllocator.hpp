@@ -155,12 +155,17 @@ namespace db0
         using LimitedVectorT = LimitedVector<std::uint16_t>;
         
         // the number of administrative area pages
-        // we determined this number to reflect the number of underlying extensible collections
-        // and based on the assumption that each of them requires 2 DPs for expansion
+        // we determined this number to reflect the number of underlying collections        
         static constexpr std::uint32_t ADMIN_SPAN() {
-            return 5 * 2;
+            return 5;
         }
         
+        // this calculation is based on the assumption that each CRDT collection
+        // requires 2 DP margin to allow for its growth
+        static constexpr std::uint32_t ADMIN_MARGIN() {
+            return ADMIN_SPAN() * 2;
+        }
+            
         std::shared_ptr<Prefix> m_prefix;
         const Address m_begin_addr;
         const std::size_t m_page_size;
