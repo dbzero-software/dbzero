@@ -46,8 +46,12 @@ namespace db0::object_model
         bool operator<(std::uint32_t index) const;
 
         bool operator==(std::uint32_t index) const;
-
+        
+        // NOTE: index-only comparison
         bool operator==(const XValue &) const;
+        
+        // bitwise comparison
+        bool equalTo(const XValue &other) const;
     };
     
 }

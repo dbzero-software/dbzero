@@ -39,6 +39,8 @@ namespace db0::object_model
         // construct populated with a single element
         KV_Index(Memspace &, XValue);
         KV_Index(std::pair<Memspace*, KV_Address>, bindex::type);
+        
+        bool operator==(const KV_Index &other) const;
     };
     
 }

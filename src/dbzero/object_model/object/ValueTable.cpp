@@ -22,13 +22,11 @@ namespace db0::object_model
         o_unbound_array<Value>::__new(at, data.m_values);
     }
     
-    o_unbound_array<Value> &PosVT::values()
-    {
+    o_unbound_array<Value> &PosVT::values() {
         return getDynAfter(types(), o_unbound_array<Value>::type());
     }
 
-    const o_unbound_array<Value> &PosVT::values() const
-    {
+    const o_unbound_array<Value> &PosVT::values() const {
         return getDynAfter(types(), o_unbound_array<Value>::type());
     }
     
@@ -39,8 +37,7 @@ namespace db0::object_model
             (o_unbound_array<Value>::measure(this->size()));
     }
 
-    std::size_t PosVT::size() const
-    {
+    std::size_t PosVT::size() const {
         return types().size();
     }
     
@@ -71,19 +68,26 @@ namespace db0::object_model
         values()[index] = value;
     }
     
+    bool PosVT::operator==(const PosVT &other) const
+    {
+        // bitwise comparison
+        if (this->sizeOf() != other.sizeOf()) {
+            return false;
+        }
+        return std::memcmp(this, &other, this->sizeOf()) == 0;
+    }
+
     void PosVT::Data::clear()
     {
         m_types.clear();
         m_values.clear();
     }
     
-    bool PosVT::Data::empty() const
-    {
+    bool PosVT::Data::empty() const {
         return m_types.empty();
     }
     
-    std::size_t PosVT::Data::size() const
-    {
+    std::size_t PosVT::Data::size() const {
         return m_types.size();
     }
     
@@ -133,6 +137,15 @@ namespace db0::object_model
         auto &xval = this->xvalues()[pos];
         xval.m_type = type;
         xval.m_value = value;
+    }
+    
+    bool IndexVT::operator==(const IndexVT &other) const
+    {
+        // bitwise comparison
+        if (this->sizeOf() != other.sizeOf()) {
+            return false;
+        }
+        return std::memcmp(this, &other, this->sizeOf()) == 0;
     }
     
 }

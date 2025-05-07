@@ -85,8 +85,10 @@ namespace db0::object_model
          * Update element at a specific position / index
         */
         void set(unsigned int index, StorageClass, Value);
-    };
 
+        bool operator==(const PosVT &other) const;
+    };
+    
     /**
      * Indexed value table
     */
@@ -133,6 +135,8 @@ namespace db0::object_model
          * Update element at a specifc position
         */
         void set(unsigned int pos, StorageClass, Value);
+
+        bool operator==(const IndexVT &other) const;
     };
     
 }
