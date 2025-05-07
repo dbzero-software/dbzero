@@ -34,16 +34,16 @@ namespace db0
     {
         // For aligned allocations the begin address must be also aligned
         assert(m_begin_addr % m_page_size == 0);
-            
+        
         // apply dynamic bound on the CRDT allocator to not assign addresses overlapping with the admin space
-        // include ADMIN_SPAN bitspace allocations to allow margin for the admin space to grow
+        // include ADMIN_MARGIN bitspace allocations to allow margin for the admin space to grow
         // NOTE: CRDT allocator's dynamic bounds are specified as relative to the allocator's base address
         std::uint64_t bounds_base = makeRelative(m_bitspace.getBaseAddress());
-        auto admin_span_bytes = ADMIN_SPAN() << m_page_shift;
+        auto admin_margin_bytes = ADMIN_MARGIN() << m_page_shift;
         // returns recommended & hard bound
-        m_allocator.setDynamicBound([this, bounds_base, admin_span_bytes]() {
+        m_allocator.setDynamicBound([this, bounds_base, admin_margin_bytes]() {
             auto hard_bound = bounds_base - (m_bitspace.span() << m_page_shift);
-            return std::make_pair<std::uint32_t, std::uint32_t>(hard_bound - admin_span_bytes, hard_bound);
+            return std::make_pair<std::uint32_t, std::uint32_t>(hard_bound - admin_margin_bytes, hard_bound);
         });
         
         // provide CRDT allocator's dynamic bound to the bitspace (this is for address validation/ collision prevention purposes)
@@ -92,7 +92,7 @@ namespace db0
         std::uint32_t size, std::size_t page_size)
     {
         auto admin_size = calculateAdminSpaceSize(page_size);
-        if (admin_size + ADMIN_SPAN() * page_size >= size) {
+        if (admin_size + ADMIN_MARGIN() * page_size >= size) {
             THROWF(db0::InternalException) << "Slab size too small: " << size;
         }
 
@@ -114,7 +114,7 @@ namespace db0
         LimitedVector<std::uint16_t> alloc_counter(bitspace, page_size);
         alloc_counter.reserve(SLAB_BITSPACE_SIZE());        
         // calculate size initially available to CRTD allocator
-        std::uint32_t crdt_size = static_cast<std::uint32_t>(size - admin_size - ADMIN_SPAN() * page_size);
+        std::uint32_t crdt_size = static_cast<std::uint32_t>(size - admin_size - ADMIN_MARGIN() * page_size);
         assert(crdt_size > 0);
         
         // register the initial blank - associated with the relative address = 0
@@ -144,9 +144,9 @@ namespace db0
     const std::size_t SlabAllocator::getAdminSpaceSize(bool include_margin) const
     {
         auto result = m_begin_addr.getOffset() + m_slab_size - m_bitspace.getBaseAddress() + m_bitspace.span() * m_page_size;
-        // add +ADMIN_SPAN bitspace allocations to allow growth of the CRDT collections
+        // add +ADMIN_MARGIN bitspace allocations to allow growth of the CRDT collections
         if (include_margin) {
-            result += ADMIN_SPAN() * m_page_size;
+            result += ADMIN_MARGIN() * m_page_size;
         }
         return result;
     }
@@ -156,7 +156,7 @@ namespace db0
         auto result = BitSpace<SLAB_BITSPACE_SIZE()>::sizeOf() + o_slab_header::sizeOf();
         // round to full page size
         result = (result + page_size - 1) / page_size * page_size;
-        // add ADMIN_SPAN pages for CRDT types
+        // add ADMIN_SPAN pages for CRDT types (actual space initially occupied)
         result += page_size * ADMIN_SPAN();
         // include limited vector's reserved capacity
         result += LimitedVectorT::DP_REQ(SLAB_BITSPACE_SIZE(), page_size) * page_size;
@@ -164,7 +164,7 @@ namespace db0
     }
     
     std::size_t SlabAllocator::getMaxAllocSize() const {
-        return m_slab_size - calculateAdminSpaceSize(m_page_size) - ADMIN_SPAN() * m_page_size;
+        return m_slab_size - calculateAdminSpaceSize(m_page_size) - ADMIN_MARGIN() * m_page_size;
     }
     
     std::size_t SlabAllocator::getRemainingCapacity() const
