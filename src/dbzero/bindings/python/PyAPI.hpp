@@ -92,10 +92,8 @@ namespace db0::python
     /**
      * Get dbzero state snapshot
     */
-    PyObject *getSnapshot(PyObject *self, PyObject *args, PyObject *kwargs);
-
-    PyObject *beginAtomic(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
-    
+    PyObject *PyAPI_getSnapshot(PyObject *self, PyObject *args, PyObject *kwargs);
+        
     /**
      * Describe field layout and output other properties of a specific dbzero object instance
     */
@@ -111,7 +109,7 @@ namespace db0::python
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     PyObject *getBuildFlags(PyObject *self, PyObject *args);
-        
+    
     PyObject *makeEnum(PyObject *, PyObject *args, PyObject *kwargs);
     
     // implements db0.filter functionality

@@ -458,7 +458,7 @@ namespace db0::python
         return runSafe(tryGetPrefixStats, args, kwargs);
     }
     
-    PyObject *getSnapshot(PyObject *, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_getSnapshot(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         PyObject *py_object_1 = nullptr, *py_object_2 = nullptr;

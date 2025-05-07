@@ -1,7 +1,26 @@
 import pytest
 import dbzero_ce as db0
+from contextlib import ExitStack
 from .memo_test_types import MemoTestClass
 
+
+class SnapshotWindow:
+    """
+    A context manager that combines two other context managers.
+    """
+    def __init__(self, from_state, to_state = None):
+        self.pre_context = db0.snapshot(from_state - 1) if from_state > 1 else None
+        self.last_context = db0.snapshot(to_state)
+        self._exit_stack = ExitStack()
+
+    def __enter__(self):
+        pre_snapshot = self._exit_stack.enter_context(self.pre_context)
+        last_snapshot = self._exit_stack.enter_context(self.last_context)
+        return pre_snapshot, last_snapshot
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self._exit_stack.__exit__(exc_type, exc_value, traceback)
+    
 
 def test_select_new(db0_fixture, memo_tags):
     db0.commit()
@@ -10,10 +29,12 @@ def test_select_new(db0_fixture, memo_tags):
     db0.tags(obj_x).add("tag1")
     db0.commit()
     state_2 = db0.get_state_num(finalized = True)
-    # any python object can be used as a context
-    context = lambda: None
-    assert len(db0.select_new(db0.find(MemoTestClass), context, state_1)) == 11
-    assert len(db0.select_new(db0.find(MemoTestClass), context, state_2)) == 1
+    
+    with SnapshotWindow(state_1) as (pre_snap, last_snap):
+        assert len(db0.select_new(db0.find(MemoTestClass), pre_snap, last_snap)) == 11
+        
+    with SnapshotWindow(state_2) as (pre_snap, last_snap):
+        assert len(db0.select_new(db0.find(MemoTestClass), pre_snap, last_snap)) == 1
     
 
 def test_select_deleted(db0_fixture, memo_tags):
@@ -23,10 +44,12 @@ def test_select_deleted(db0_fixture, memo_tags):
     obj_x = next(iter(db0.find(MemoTestClass, "tag1")))
     db0.tags(obj_x).remove("tag1")
     db0.commit()
-    state_2 = db0.get_state_num(finalized = True)    
-    context = lambda: None
-    assert len(db0.select_deleted(db0.find(MemoTestClass, "tag1"), context, state_1)) == 0
-    assert len(db0.select_deleted(db0.find(MemoTestClass, "tag1"), context, state_2)) == 1
+    state_2 = db0.get_state_num(finalized = True)
+    with SnapshotWindow(state_1) as (pre_snap, last_snap):    
+        assert len(db0.select_deleted(db0.find(MemoTestClass, "tag1"), pre_snap, last_snap)) == 0
+    
+    with SnapshotWindow(state_2) as (pre_snap, last_snap):
+        assert len(db0.select_deleted(db0.find(MemoTestClass, "tag1"), pre_snap, last_snap)) == 1
 
 
 def test_select_modified_does_not_include_created(db0_fixture, memo_tags):
@@ -36,13 +59,15 @@ def test_select_modified_does_not_include_created(db0_fixture, memo_tags):
     db0.tags(obj_x).add("tag1")
     db0.commit()
     state_2 = db0.get_state_num(finalized = True)
-    context = lambda: None
-    assert len(db0.select_modified(db0.find(MemoTestClass), context, state_1)) == 0
-    # NOTE: there may be some number of false positives which we're unable to determine
-    assert len(db0.select_modified(db0.find(MemoTestClass), context, state_2)) <= 10
-    # but for sure, obj_x should not be in the result set
-    for _obj in db0.select_modified(db0.find(MemoTestClass), context, state_2):
-        assert _obj != obj_x
+    with SnapshotWindow(state_1) as (pre_snap, last_snap):
+        assert len(db0.select_modified(db0.find(MemoTestClass), pre_snap, last_snap)) == 0
+    
+    with SnapshotWindow(state_2) as (pre_snap, last_snap):
+        # NOTE: there may be some number of false positives which we're unable to determine
+        assert len(db0.select_modified(db0.find(MemoTestClass), pre_snap, last_snap)) <= 10
+        # but for sure, obj_x should not be in the result set
+        for _obj in db0.select_modified(db0.find(MemoTestClass), pre_snap, last_snap):
+            assert _obj != obj_x
 
 
 def test_select_modified_without_filter_returns_tuples(db0_fixture, memo_tags):
@@ -52,14 +77,14 @@ def test_select_modified_without_filter_returns_tuples(db0_fixture, memo_tags):
     obj_1.value = 99999
     db0.commit()
     state_2 = db0.get_state_num(finalized = True)
-    context = lambda: None
-    count = 0
-    for ver_1, ver_2 in db0.select_modified(db0.find(MemoTestClass), context, state_2):
-        assert ver_1.value is not None
-        assert ver_2.value is not None        
-        count += 1
-    
-    assert count > 0
+    with SnapshotWindow(state_2) as (pre_snap, last_snap):
+        count = 0
+        for ver_1, ver_2 in db0.select_modified(db0.find(MemoTestClass), pre_snap, last_snap):
+            assert ver_1.value is not None
+            assert ver_2.value is not None        
+            count += 1
+        
+        assert count > 0
     
     
 def test_select_modified_with_custom_filter(db0_fixture, memo_tags):
@@ -72,8 +97,8 @@ def test_select_modified_with_custom_filter(db0_fixture, memo_tags):
     obj_1.value = 99999
     db0.commit()
     state_2 = db0.get_state_num(finalized = True)
-    context = lambda: None
-    query = db0.select_modified(db0.find(MemoTestClass), context, state_2, compare_with = _compare)
-    assert len(query) == 1
-    assert next(iter(query)).value == 99999
+    with SnapshotWindow(state_2) as (pre_snap, last_snap):
+        query = db0.select_modified(db0.find(MemoTestClass), pre_snap, last_snap, compare_with = _compare)
+        assert len(query) == 1
+        assert next(iter(query)).value == 99999
     
