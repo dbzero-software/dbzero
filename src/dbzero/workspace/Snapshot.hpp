@@ -15,11 +15,11 @@ namespace db0
     class LangCache;
     class PrefixName;
     class ProcessTimer;
-
+    
     /**
      * Snapshot is a common interface for Workspace and WorkspaceView
     */
-    class Snapshot
+    class Snapshot: public std::enable_shared_from_this<Snapshot>
     {
     public:
         virtual ~Snapshot()= default;

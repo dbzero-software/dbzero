@@ -2,6 +2,8 @@
 #include "PyInternalAPI.hpp"
 #include "PyToolkit.hpp"
 #include "PyTagsAPI.hpp"
+#include "Memo.hpp"
+#include <dbzero/object_model/object/Object.hpp>
 
 namespace db0::python
 
@@ -58,10 +60,9 @@ namespace db0::python
     {  
         if (frozen && (state_num || !prefix_state_nums.empty())) {
             THROWF(db0::InputException) << "Frozen snapshot can only be taken for the head state (i.e. no state numbers can be requested)";
-        }
-        auto py_snapshot = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
-        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();        
-        std::shared_ptr<db0::WorkspaceView> workspace_view;
+        }        
+        auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
+        std::shared_ptr<db0::Snapshot> workspace_view;
         if (frozen) {
             workspace_view = workspace.getFrozenWorkspaceHeadView();
         } else {
@@ -71,6 +72,7 @@ namespace db0::python
             }
             workspace_view = workspace.getWorkspaceView(state_num, prefix_state_nums);
         }
+        auto py_snapshot = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
         py_snapshot->makeNew(workspace_view);
         return py_snapshot;
     }
@@ -146,14 +148,6 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryPySnapshot_exit, self, nullptr);
     }
-
-    db0::WorkspaceView *extractWorkspaceViewPtr(PySnapshotObject *snapshot)
-    {
-        if (snapshot == nullptr) {
-            return nullptr;
-        }
-        return &snapshot->modifyExt();
-    }
     
     template <> bool Which_TypeCheck<PySnapshotObject>(PyObject *py_object) {
         return PySnapshot_Check(py_object);
@@ -186,10 +180,34 @@ namespace db0::python
         return runSafe(tryDeserialize, &workspace, args[0]);
     }
     
-    PyObject *PyAPI_PySnapshot_close(PyObject *self, PyObject *args) 
+    PyObject *PyAPI_PySnapshot_close(PyObject *self, PyObject *args)
     {
         PY_API_FUNC
         return runSafe(tryPySnapshot_close, self, args);
     }
     
+    PyObject *tryGetSnapshotOf(MemoObject *memo)
+    {
+        auto fixture = memo->ext().getFixture();
+        auto workspace_view = fixture->getWorkspace().shared_from_this();
+        auto py_snapshot = PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
+        py_snapshot->makeNew(workspace_view);
+        return py_snapshot;
+    }
+    
+    PyObject *PyAPI_getSnapshotOf(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "get_snapshot_of requires exactly 1 argument");
+            return NULL;
+        }
+        
+        PyObject *py_arg = args[0];
+        if (!PyMemo_Check(py_arg)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type (must be a memo object)");
+            return NULL;
+        }
+        return runSafe(tryGetSnapshotOf, reinterpret_cast<MemoObject*>(py_arg));
+    }
+
 }

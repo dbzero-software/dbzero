@@ -54,6 +54,7 @@ static PyMethodDef dbzero_methods[] =
     {"get_state_num", (PyCFunction)&py::PyAPI_getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
     {"get_prefix_stats", (PyCFunction)&py::getPrefixStats, METH_VARARGS | METH_KEYWORDS, "Retrieve prefix specific statistics"},
     {"snapshot", (PyCFunction)&py::PyAPI_getSnapshot, METH_VARARGS | METH_KEYWORDS, "Get snapshot of dbzero state"},
+    {"get_snapshot_of", (PyCFunction)&py::PyAPI_getSnapshotOf, METH_FASTCALL, "Get snapshot associated with a specific object"},
     {"begin_atomic", (PyCFunction)&py::PyAPI_beginAtomic, METH_FASTCALL, "Opens a new atomic operation's context"},
     {"begin_locked", (PyCFunction)&py::PyAPI_beginLocked, METH_FASTCALL, "Enter a new locked section"},
     {"describe", &py::describeObject, METH_VARARGS, "Get dbzero object's description"},

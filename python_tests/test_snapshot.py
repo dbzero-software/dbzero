@@ -356,3 +356,32 @@ def test_out_of_context_object_access(db0_fixture):
     with pytest.raises(Exception):
         for obj in obj_list:
             assert obj.value == 123        
+
+
+def test_check_tags_assignment_in_transactions(db0_fixture):
+    obj = MemoTestClass(123)
+    db0.tags(obj).add("tag1")
+    db0.commit()
+    state_1 = db0.get_state_num(finalized=True)
+    db0.tags(obj).add("tag2")
+    db0.commit()
+    state_2 = db0.get_state_num(finalized=True)
+    
+    # NOTE: snapshots must be retained for the objects to be accessible
+    snap_1 = db0.snapshot(state_1)
+    snap_2 = db0.snapshot(state_2)
+    
+    # compare tags applied to 2 versions of the same object
+    ver_1 = snap_1.fetch(db0.uuid(obj))
+    ver_2 = snap_2.fetch(db0.uuid(obj))
+    
+    # check number of tags assigned to the object (might be from a snapshot)
+    def num_tags(obj, tag):
+        return len(db0.get_snapshot_of(obj).find(MemoTestClass, tag, obj))
+
+    assert num_tags(ver_1, "tag1") == 1
+    assert num_tags(ver_1, "tag2") == 0
+    
+    assert num_tags(ver_2, "tag1") == 1
+    assert num_tags(ver_2, "tag2") == 1
+    
