@@ -37,9 +37,6 @@ namespace db0::python
     PyObject *PyAPI_MemoObject_getattro(MemoObject *self, PyObject *attr);
     int PyAPI_MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value);
     
-    // check for same instances - i.e. if fixture and address are the same
-    bool isSame(MemoObject *, MemoObject *);
-    
     // check if memo type has been marked as singleton
     bool PyMemoType_IsSingleton(PyTypeObject *type);
     
@@ -62,7 +59,9 @@ namespace db0::python
 
     PyObject *PyAPI_PyMemo_Check(PyObject *self, PyObject *const * args, Py_ssize_t nargs);
     
-    // Compare 2 versions of the same memo object (e.g. from different snapshots)
-    PyObject *isSameVer(MemoObject *, MemoObject *);
-    
+    // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
+    // NOTE: ref-counts are not compared (only user-assigned members)
+    // @return true if objects are identical
+    PyObject *tryCompareMemo(MemoObject *, MemoObject *);
+
 }

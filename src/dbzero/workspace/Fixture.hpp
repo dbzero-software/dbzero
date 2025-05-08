@@ -152,7 +152,8 @@ namespace db0
         // Rollback uncommited contents from internal buffers
         void rollback();
         
-        void commit();
+        // @return true if the fixture state was changed (i.e. actual transaction was committed)
+        bool commit();
         
         void close(ProcessTimer * = nullptr);
         
@@ -296,7 +297,8 @@ namespace db0
         std::uint64_t getUUID(MetaAllocator &);
         
         // try commit if not closed yet
-        void tryCommit(std::unique_lock<std::shared_mutex> &, ProcessTimer * = nullptr);
+        // @return true if the underlying transaction's state number was changed
+        bool tryCommit(std::unique_lock<std::shared_mutex> &, ProcessTimer * = nullptr);
 
         static std::shared_ptr<SlabAllocator> openSlot(MetaAllocator &, const v_object<o_fixture> &, std::uint32_t slot_id);
         

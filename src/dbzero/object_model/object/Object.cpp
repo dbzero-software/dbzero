@@ -17,6 +17,20 @@ namespace db0::object_model
     GC0_Define(Object)
     thread_local ObjectInitializerManager Object::m_init_manager;
 
+    bool isEqual(const KV_Index *kv_ptr_1, const KV_Index *kv_ptr_2)
+    {
+        if (!kv_ptr_1) {
+            return !kv_ptr_2;
+        }
+
+        if (!kv_ptr_2) {
+            return false;
+        }
+
+        // item-wise comparison
+        return *kv_ptr_1 == *kv_ptr_2;
+    }
+
     o_object::o_object(std::uint32_t class_ref, std::uint32_t ref_count, const PosVT::Data &pos_vt_data,
         const XValue *index_vt_begin, const XValue *index_vt_end)
         : m_header(ref_count)
@@ -281,24 +295,10 @@ namespace db0::object_model
         }
     }
     
-    bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
-    {        
-        /* FIXME:
-        if (strcmp(field_name, "__cache__") == 0) {
-            if (!initialized()) {
-                THROWF(db0::InternalException)
-                    << "__cache__ members not allowed in __init__, please place them in __postinit__";
-            }
-            return bp::object(getMemberCache());
-        }
-        
-        if (strcmp(field_name, "__tags__") == 0) {
-            return bp::object(tags());
-        }
-        */
-
+    std::pair<FieldID, bool> Object::findField(const char *name) const
+    {
         if (isDropped()) {
-            // defunct objects should not be accessible
+            // defunct objects should not be accessed
             assert(!isDefunct());
             THROWF(db0::InputException) << "Object does not exist";
         }
@@ -310,8 +310,27 @@ namespace db0::object_model
         }
 
         assert(class_ptr);
-        auto [field_id, is_init_var] = class_ptr->findField(field_name);
+        return class_ptr->findField(name);
+    }
+
+    bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
+    {        
+        auto [field_id, is_init_var] = this->findField(field_name);
         return tryGetMemberAt(field_id, is_init_var, member);        
+    }
+    
+    std::optional<XValue> Object::tryGetX(const char *field_name) const
+    {
+        auto [field_id, is_init_var] = this->findField(field_name);
+        if (!field_id) {
+            return std::nullopt;
+        }
+
+        std::pair<StorageClass, Value> member;
+        if (!tryGetMemberAt(field_id, is_init_var, member)) {
+            return std::nullopt;
+        }
+        return XValue(field_id.getIndex(), member.first, member.second);
     }
     
     Object::ObjectSharedPtr Object::tryGet(const char *field_name) const
@@ -546,6 +565,10 @@ namespace db0::object_model
         return m_kv_index.get();
     }
 
+    bool Object::hasKV_Index() const {
+        return m_kv_index || (*this)->m_kv_address;
+    }
+    
     const KV_Index *Object::tryGetKV_Index() const
     {
         // if KV index address has changed, update the cached instance
@@ -593,7 +616,7 @@ namespace db0::object_model
         return result;
     }
     
-    void Object::forAll(std::function<void(const std::string &, const XValue &)> f) const
+    void Object::forAll(std::function<bool(const std::string &, const XValue &)> f) const
     {
         // visit pos-vt members first
         auto &obj_type = this->getType();
@@ -603,14 +626,18 @@ namespace db0::object_model
             auto value = values.begin();
             unsigned int index = 0;
             for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
-                f(obj_type.get(FieldID::fromIndex(index)).m_name, { index, *type, *value });
+                if (!f(obj_type.get(FieldID::fromIndex(index)).m_name, { index, *type, *value })) {
+                    return;
+                }
             }
         }
         // visit index-vt members next
         {
             auto &xvalues = (*this)->index_vt().xvalues();
             for (auto &xvalue: xvalues) {
-                f(obj_type.get(FieldID::fromIndex(xvalue.getIndex())).m_name, xvalue);
+                if (!f(obj_type.get(FieldID::fromIndex(xvalue.getIndex())).m_name, xvalue)) {
+                    return;
+                }
             }
         }
         // finally visit kv-index members
@@ -618,21 +645,23 @@ namespace db0::object_model
         if (kv_index_ptr) {
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
-                f(obj_type.get(FieldID::fromIndex((*it).getIndex())).m_name, *it);
+                if (!f(obj_type.get(FieldID::fromIndex((*it).getIndex())).m_name, *it)) {
+                    return;
+                }
             }
         }
     }
     
-    void Object::forAll(std::function<void(const std::string &, ObjectSharedPtr)> f) const
+    void Object::forAll(std::function<bool(const std::string &, ObjectSharedPtr)> f) const
     {
         auto fixture = this->getFixture();
-        forAll([&](const std::string &name, const XValue &xvalue) {
+        forAll([&](const std::string &name, const XValue &xvalue) -> bool {
             // all references convert to UUID
             auto py_member = unloadMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value);
             if (isReference(xvalue.m_type)) {
-                f(name, LangToolkit::getUUID(py_member.get()));
+                return f(name, LangToolkit::getUUID(py_member.get()));
             } else {
-                f(name, py_member);
+                return f(name, py_member);
             }
         });
     }
@@ -654,16 +683,57 @@ namespace db0::object_model
         super_t::decRef();
     }
     
-    bool Object::isSame(const Object &other) const
+    bool Object::equalTo(const Object &other) const
     {
         if (!hasInstance() || !other.hasInstance()) {
-            // compare objects without DB0 instance
-            return this == &other;
+            THROWF(db0::InputException) << "Object not initialized";
         }
-        if (this->getFixture()->getUUID() != other.getFixture()->getUUID()) {
+        
+        if (this->isDefunct() || other.isDefunct()) {
+            // defunct objects should not be compared
+            assert(!isDefunct());
+            THROWF(db0::InputException) << "Object does not exist";
+        }
+
+        if ((*this)->m_class_ref != other->m_class_ref) {
+            // different types
             return false;
         }
-        return this->getAddress() == other.getAddress();
+
+        if (this->getFixture()->getUUID() == other.getFixture()->getUUID() 
+            && this->getUniqueAddress() == other.getUniqueAddress()) 
+        {
+            // comparing 2 versions of the same object (fastest)
+            if (!((*this)->pos_vt() == other->pos_vt())) {
+                return false;
+            }
+            if (!((*this)->index_vt() == other->index_vt())) {
+                // FIMXE: log
+                std::cout << "Index-vt not equal" << std::endl;
+                return false;
+            }
+            if (!hasKV_Index() && !other.hasKV_Index()) {
+                return true;
+            }
+            return isEqual(this->tryGetKV_Index(), other.tryGetKV_Index());
+        }
+        
+        // field-wise compare otherwise (slower)
+        bool result = true;
+        this->forAll([&](const std::string &name, const XValue &xvalue) -> bool {
+            auto maybe_other_value = other.tryGetX(name.c_str());
+            if (!maybe_other_value) {
+                result = false;
+                return false;
+            }
+            
+            if (!xvalue.equalTo(*maybe_other_value)) {
+                result = false;
+                return false;
+            }
+            return true;
+        });
+        return result;
     }
     
     void Object::moveTo(db0::swine_ptr<Fixture> &) {

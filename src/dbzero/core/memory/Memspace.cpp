@@ -48,13 +48,15 @@ namespace db0
     std::size_t Memspace::getPageSize() const {
         return m_page_size;
     }
-        
-    void Memspace::commit(ProcessTimer *timer)
+    
+    bool Memspace::commit(ProcessTimer *timer)
     {       
         assert(m_prefix);
         // prepare the allocator for the next transaction
         getAllocatorForUpdate().commit();
-        m_prefix->commit(timer);
+        auto state_num = m_prefix->getStateNum(false);
+        auto new_state_num = m_prefix->commit(timer);
+        return new_state_num != state_num;
     }
     
     void Memspace::detach() const {

@@ -648,6 +648,7 @@ namespace db0::python
         PyObject *py_result = PyDict_New();
         memo_obj.ext().forAll([py_result](const std::string &key, ObjectSharedPtr py_value) {
             PyDict_SetItemString(py_result, key.c_str(), py_value.steal());
+            return true;
         });
         return py_result;
     }
@@ -1259,6 +1260,25 @@ namespace db0::python
         return runSafe(tryGetConfig);
     }
 
+    PyObject *PyAPI_compare(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PyObject *py_first = nullptr;
+        PyObject *py_second = nullptr;
+        PyObject *py_tags = nullptr;
+        static const char *kwlist[] = {"first", "second", "tags", NULL};
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|O", const_cast<char**>(kwlist), &py_first, &py_second, &py_tags)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        if (!PyMemo_Check(py_first) || !PyMemo_Check(py_second)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+        return runSafe(tryCompareMemo, reinterpret_cast<MemoObject*>(py_first), 
+            reinterpret_cast<MemoObject*>(py_second));
+    }
+    
 #ifndef NDEBUG
     PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *)
     {

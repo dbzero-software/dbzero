@@ -740,31 +740,42 @@ namespace db0::python
         PyErr_Clear();
         
         bool has_error = false;
-        memo_obj->ext().forAll([py_result, memo_obj, py_exclude, kwargs, &has_error](const std::string &key, PyTypes::ObjectSharedPtr) {
-            if (!has_error) {
-                auto key_obj = PyUnicode_FromString(key.c_str());
-                auto attr = PyAPI_MemoObject_getattro(memo_obj, key_obj);
-                if (!attr) {
-                    has_error = true;
-                    return;
-                }
-                
-                if (py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, key_obj) == 0) {
-                    PyObject *res = runSafe(tryLoad, attr, kwargs, nullptr);
-                    if (res == nullptr) {
-                        has_error = true;
-                    } else {
-                        PyDict_SetItemString(py_result, key.c_str(), res);
-                    }
-                }
-                Py_DECREF(attr);
-                Py_DECREF(key_obj);
+        memo_obj->ext().forAll([py_result, memo_obj, py_exclude, kwargs, &has_error](const std::string &key, PyTypes::ObjectSharedPtr) {            
+            auto key_obj = PyUnicode_FromString(key.c_str());
+            auto attr = PyAPI_MemoObject_getattro(memo_obj, key_obj);
+            if (!attr) {
+                has_error = true;
+                return false;
             }
+            
+            if (py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, key_obj) == 0) {
+                PyObject *res = runSafe(tryLoad, attr, kwargs, nullptr);
+                if (res == nullptr) {
+                    has_error = true;
+                } else {
+                    PyDict_SetItemString(py_result, key.c_str(), res);
+                }
+            }
+            Py_DECREF(attr);
+            Py_DECREF(key_obj);
+            return !has_error;
         });
         if (has_error) {
             return nullptr;
         }
         return py_result;
+    }
+    
+    PyObject *tryCompareMemo(MemoObject *py_memo_1, MemoObject *py_memo_2)
+    {
+        if (py_memo_1 == py_memo_2) {
+            Py_RETURN_TRUE;
+        }
+        
+        if (py_memo_1->ext().equalTo(py_memo_2->ext())) {
+            Py_RETURN_TRUE;
+        }
+        Py_RETURN_FALSE;
     }
     
 }

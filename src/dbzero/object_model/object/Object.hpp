@@ -205,10 +205,10 @@ namespace db0::object_model
         void destroy() const;
                 
         bool isSingleton() const;
-                    
-        // execute the function for all members
-        void forAll(std::function<void(const std::string &, const XValue &)>) const;
-        void forAll(std::function<void(const std::string &, ObjectSharedPtr)>) const;
+        
+        // execute the function for all members (until false is returned from the input lambda)
+        void forAll(std::function<bool(const std::string &, const XValue &)>) const;
+        void forAll(std::function<bool(const std::string &, ObjectSharedPtr)>) const;
         
         // get dbzero member / member names assigned to this object
         std::unordered_set<std::string> getMembers() const;
@@ -220,7 +220,10 @@ namespace db0::object_model
         
         void decRef();
 
-        bool isSame(const Object &) const;
+        // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
+        // NOTE: ref-counts are not compared (only user-assigned members)
+        // @return true if objects are identical
+        bool equalTo(const Object &) const;
         
         /**
          * Move unreferenced object to a different prefix without changing the instance
@@ -251,6 +254,11 @@ namespace db0::object_model
             return m_flags.test(ObjectOptions::DEFUNCT);
         }
         
+        std::pair<FieldID, bool> findField(const char *name) const;
+        
+        // Check if the 2 memo objects are of the same type
+        bool sameType(const Object &) const;
+
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
@@ -272,13 +280,7 @@ namespace db0::object_model
         void setType(std::shared_ptr<Class>);
         // adjusts to actual type if the type hint is a base class
         void setTypeWithHint(std::shared_ptr<Class> type_hint);
-        
-        // Pull existing reference from dbzero as a specific type (schema on read)
-        // DBZObject(db0::mptr ptr, std::shared_ptr<DBZClass> type);
-        
-        // Initialize as the same DB0 instance (only allowed for uninitialized instances)
-        // void operator=(const DBZObject &);
-        
+                
         // Try retrieving member either from DB0 values (initialized) or from the initialization buffer (not initialized yet)        
         bool tryGetMemberAt(FieldID, bool is_init_var, std::pair<StorageClass, Value> &) const;
         bool tryGetMember(const char *field_name, std::pair<StorageClass, Value> &) const;
@@ -310,6 +312,10 @@ namespace db0::object_model
         static std::shared_ptr<Class> getTypeWithHint(const Fixture &, std::uint32_t class_ref, std::shared_ptr<Class> type_hint);
         
         bool hasValidClassRef() const;
+        bool hasKV_Index() const;
+        
+        // try retrieving member as XValue
+        std::optional<XValue> tryGetX(const char *field_name) const;
 
         // the member called to indicate the potentially silent mutation
         void onSilentMutation();

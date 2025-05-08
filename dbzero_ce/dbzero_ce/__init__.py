@@ -10,3 +10,4 @@ from .connection import *
 from .utilities import taggify
 from .decorators import *
 from .select import *
+from .compare import *
