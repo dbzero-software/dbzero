@@ -94,7 +94,7 @@ static PyMethodDef dbzero_methods[] =
     {"weak_proxy", (PyCFunction)&py::PyAPI_weakProxy, METH_FASTCALL, "Construct weak proxy from a db0 object"},
     {"expired", (PyCFunction)&py::PyAPI_expired, METH_FASTCALL, "Check if the weak reference has expired"},    
     {"get_config", &py::PyAPI_getConfig, METH_NOARGS, "Get dbzero configuration, as passed to 'init' function"},
-    {"compare", (PyCFunction)&py::PyAPI_compare, METH_VARARGS | METH_KEYWORDS, "Binary-compare (shallow) 2 dbzero objects with optional tags' assignments check"},
+    {"_compare", (PyCFunction)&py::PyAPI_compare, METH_VARARGS | METH_KEYWORDS, "Binary-compare (shallow) 2 dbzero objects with optional tags' assignments check"},
     {"_await_prefix_state", (PyCFunction)&py::PyAPI_await_prefix_state, METH_VARARGS | METH_KEYWORDS, "Get notified about state number being reached"},    
     {"_select_mod_candidates", (PyCFunction)&py::PyAPI_selectModCandidates, METH_VARARGS | METH_KEYWORDS, "Filter to return only objects which could potentially be modified within a specific scope"},
     {"_split_by_snapshots", (PyCFunction)&py::PyAPI_splitBySnapshots, METH_FASTCALL, "Splits a given query to produce results from the 2 given snapshots (as a tuple)"},

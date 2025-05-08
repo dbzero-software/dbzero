@@ -96,3 +96,24 @@ def test_compare_instances_with_kv_index(db0_fixture):
     assert db0.compare(obj_1, obj_2) == True
     assert db0.compare(obj_1, obj_3) == False
     
+    
+def test_compare_same_object_but_different_tags(db0_fixture):
+    obj_1 = MemoTestClass(9999)
+    db0.commit()
+    snap_1 = db0.snapshot()
+    db0.tags(obj_1).add("tag_1")
+    db0.commit()
+    snap_2 = db0.snapshot()
+    db0.tags(obj_1).remove("tag_1")
+    db0.commit()
+    snap_3 = db0.snapshot()
+    
+    uuid = db0.uuid(obj_1)
+    # compare without tags
+    assert db0.compare(snap_1.fetch(uuid), snap_2.fetch(uuid)) == True    
+    # compare with missing tags
+    assert db0.compare(snap_1.fetch(uuid), snap_2.fetch(uuid), tags=["SOME-TAG"]) == True    
+    # compare with updated tags
+    assert db0.compare(snap_1.fetch(uuid), snap_2.fetch(uuid), tags=["tag_1"]) == False
+    assert db0.compare(snap_1.fetch(uuid), snap_3.fetch(uuid), tags=["tag_1"]) == True
+    
