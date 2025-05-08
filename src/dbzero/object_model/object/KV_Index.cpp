@@ -40,7 +40,7 @@ namespace db0::object_model
         : db0::MorphingBIndex<XValue, KV_Address>(*addr.first, addr.second, type)
     {
     }
-
+    
     bool KV_Index::operator==(const KV_Index &other) const
     {
         // the ordering and the actual key / values must be identical

@@ -688,12 +688,28 @@ namespace db0::object_model
         if (!hasInstance() || !other.hasInstance()) {
             THROWF(db0::InputException) << "Object not initialized";
         }
-        if (this->getFixture() == other.getFixture() && this->getUniqueAddress() == other.getUniqueAddress()) {
+        
+        if (this->isDefunct() || other.isDefunct()) {
+            // defunct objects should not be compared
+            assert(!isDefunct());
+            THROWF(db0::InputException) << "Object does not exist";
+        }
+
+        if ((*this)->m_class_ref != other->m_class_ref) {
+            // different types
+            return false;
+        }
+
+        if (this->getFixture()->getUUID() == other.getFixture()->getUUID() 
+            && this->getUniqueAddress() == other.getUniqueAddress()) 
+        {
             // comparing 2 versions of the same object (fastest)
             if (!((*this)->pos_vt() == other->pos_vt())) {
                 return false;
             }
             if (!((*this)->index_vt() == other->index_vt())) {
+                // FIMXE: log
+                std::cout << "Index-vt not equal" << std::endl;
                 return false;
             }
             if (!hasKV_Index() && !other.hasKV_Index()) {
@@ -701,7 +717,7 @@ namespace db0::object_model
             }
             return isEqual(this->tryGetKV_Index(), other.tryGetKV_Index());
         }
-                
+        
         // field-wise compare otherwise (slower)
         bool result = true;
         this->forAll([&](const std::string &name, const XValue &xvalue) -> bool {
