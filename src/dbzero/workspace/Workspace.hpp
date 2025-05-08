@@ -65,8 +65,9 @@ namespace db0
         
         /**
          * Commit all underlying read/write prefixes
+         * @return true if state was changed in at least one prefix
         */
-        void commit();
+        bool commit();
         
         /**
          * Flush any changes done to and close the memspace
@@ -190,13 +191,15 @@ namespace db0
             
         /**
          * Commit all underlying read/write prefixes
+         * @return true if state was changed in at least one prefix
         */
-        void commit();
+        bool commit();
         
         /**
          * Commit specific prefix (must be opened as read/write)
+         * @return true if state was changed in the prefix
         */
-        void commit(const PrefixName &);
+        bool commit(const PrefixName &);
         
         /**
          * Open specific prefix and make it the default one

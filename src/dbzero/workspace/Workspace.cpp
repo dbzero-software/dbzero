@@ -98,13 +98,15 @@ namespace db0
         return it->second;
     }
     
-    void BaseWorkspace::commit()
-    {        
+    bool BaseWorkspace::commit()
+    {   
+        bool result = false;     
         for (auto &[prefix_name, memspace] : m_memspaces) {
             if (memspace.getAccessType() == AccessType::READ_WRITE) {
-                memspace.commit();
+                result |= memspace.commit();
             }
         }
+        return result;
     }
     
     bool BaseWorkspace::close(const PrefixName &prefix_name)
@@ -460,13 +462,19 @@ namespace db0
         return m_fixture_catalog.getFixtureUUID(prefix_name);
     }
     
-    void Workspace::commit()
+    bool Workspace::commit()
     {
+        bool result = false;
         for (auto &[uuid, fixture] : m_fixtures) {
             if (fixture->getAccessType() == AccessType::READ_WRITE) {
-                fixture->commit();
+                result |= fixture->commit();
             }
         }
+        if (result) {
+            // invalidate the head view
+            m_head_view = {};
+        }
+        return result;
     }
     
     bool Workspace::refresh(bool if_updated)
@@ -499,7 +507,7 @@ namespace db0
         return BaseWorkspace::drop(prefix_name, if_exists);
     }
 
-    void Workspace::commit(const PrefixName &prefix_name)
+    bool Workspace::commit(const PrefixName &prefix_name)
     {
         auto fixture = findFixture(prefix_name);
         if (!fixture) {
@@ -508,7 +516,12 @@ namespace db0
         if (fixture->getAccessType() != AccessType::READ_WRITE) {
             THROWF(db0::InputException) << "Prefix: " << prefix_name << " is not opened as read/write";
         }         
-        fixture->commit();
+        auto result = fixture->commit();
+        if (result) {
+            // invalidate the head view
+            m_head_view = {};
+        }
+        return result;
     }
     
     db0::swine_ptr<Fixture> Workspace::getCurrentFixture()

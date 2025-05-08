@@ -64,8 +64,9 @@ namespace db0
         
         /**
          * Commit data with backend and immediately initiate a new transaction
+         * @return true if the transaction state number was changed
         */
-        void commit(ProcessTimer * = nullptr);
+        bool commit(ProcessTimer * = nullptr);
 
         // Detach memspace associated / owned resources (e.g. Allocator)
         void detach() const;

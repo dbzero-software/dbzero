@@ -274,7 +274,7 @@ namespace db0
         );
     }
     
-    void Fixture::commit()
+    bool Fixture::commit()
     {
         assert(getPrefixPtr());
         // pre-commit to prepare objects which require it (e.g. Index) for commit
@@ -287,15 +287,17 @@ namespace db0
         // Clear expired instances from cache so that they're not persisted
         m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
-        tryCommit(lock);
+        bool result = tryCommit(lock);
         m_updated = false;
         auto callbacks = collectStateReachedCallbacks();
         lock.unlock();
         executeStateReachedCallbacks(callbacks);
+        return result;
     }
     
-    void Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock, ProcessTimer *parent_timer)
+    bool Fixture::tryCommit(std::unique_lock<std::shared_mutex> &lock, ProcessTimer *parent_timer)
     {
+        bool result = false;
         m_commit_pending = true;
         try {
             std::unique_ptr<ProcessTimer> timer;
@@ -305,7 +307,7 @@ namespace db0
             auto prefix_ptr = getPrefixPtr();
             // prefix may not exist if fixture has already been closed
             if (!prefix_ptr) {
-                return;
+                return result;
             }
             
             std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
@@ -328,12 +330,13 @@ namespace db0
             m_string_pool.commit();
             m_object_catalogue.commit();
             m_v_object_cache.commit();
-            Memspace::commit(timer.get());                  
+            result = Memspace::commit(timer.get());
         } catch (...) {
             m_commit_pending = false;
             throw;
         }
         m_commit_pending = false;
+        return result;
     }
     
     Fixture::StateReachedCallbackList Fixture::onAutoCommit()

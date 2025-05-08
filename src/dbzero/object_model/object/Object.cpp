@@ -701,7 +701,7 @@ namespace db0::object_model
             }
             return isEqual(this->tryGetKV_Index(), other.tryGetKV_Index());
         }
-        
+                
         // field-wise compare otherwise (slower)
         bool result = true;
         this->forAll([&](const std::string &name, const XValue &xvalue) -> bool {
