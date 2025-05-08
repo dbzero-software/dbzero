@@ -41,4 +41,19 @@ namespace db0::object_model
     {
     }
 
+    bool KV_Index::operator==(const KV_Index &other) const
+    {
+        // the ordering and the actual key / values must be identical
+        auto it = this->beginJoin(1);
+        auto other_it = other.beginJoin(1);
+        while (!it.is_end() && !other_it.is_end()) {
+            if (!(*it).equalTo(*other_it)) {
+                return false;
+            }
+            ++it;
+            ++other_it;
+        }
+        return it.is_end() && other_it.is_end();
+    }
+
 }
