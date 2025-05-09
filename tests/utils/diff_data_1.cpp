@@ -1,4 +1,5 @@
 #include "diff_data_1.hpp"
+#include <tuple>
 
 namespace db0::tests
 
