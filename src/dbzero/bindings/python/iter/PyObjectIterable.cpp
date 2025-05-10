@@ -162,6 +162,16 @@ namespace db0::python
         return runSafe(tryPyObjectIterable_GetItemSlice, py_iterable, py_elem);
     }
     
+    int PyAPI_PyObjectIterable_bool(PyObjectIterable *py_iterable)
+    {
+        PY_API_FUNC
+        // check if the iterable is empty
+        if (py_iterable->ext().empty()) {
+            return 0; // False
+        }
+        return 1; // True
+    }
+
     static PyMappingMethods PyObjectIterable_as_mapping = {
         .mp_length = (lenfunc)PyAPI_PyObjectIterable_len,
         .mp_subscript = (binaryfunc)PyAPI_PyObjectIterable_GetItemSlice
@@ -174,19 +184,24 @@ namespace db0::python
         {NULL}
     };
     
+    static PyNumberMethods PyObjectIterable_as_number = {
+        .nb_bool = (inquiry)PyAPI_PyObjectIterable_bool
+    };
+
     PyTypeObject PyObjectIterableType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "ObjectIterable",        
         .tp_basicsize = PyObjectIterable::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyObjectIterable_del,
+        .tp_as_number = &PyObjectIterable_as_number,
         .tp_as_mapping = &PyObjectIterable_as_mapping,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero object iterable",
         .tp_iter = (getiterfunc)PyAPI_PyObjectIterable_iter,        
         .tp_methods = PyObjectIterable_methods,
         .tp_alloc = PyType_GenericAlloc,
-        .tp_new = (newfunc)PyObjectIterable_new,
+        .tp_new = (newfunc)PyObjectIterable_new,        
         .tp_free = PyObject_Free,        
     };
     

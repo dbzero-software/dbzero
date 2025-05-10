@@ -387,4 +387,29 @@ namespace db0::object_model
         return std::make_shared<ObjectIterator>(*this);
     }
     
+    bool ObjectIterable::empty() const
+    {
+        if (isNull()) {
+            return true;
+        }
+        
+        std::unique_ptr<ObjectIterator::QueryIterator> iter;
+        if (m_factory) {
+            iter = m_factory->createFTIterator();
+        } else if (m_query_iterator) {
+            iter = m_query_iterator->beginTyped(-1);
+        } else if (m_sorted_iterator) {
+            iter = m_sorted_iterator->beginFTQuery();
+        }
+         
+        if (iter) {
+            Slice slice(iter.get(), m_slice_def);            
+            while (!slice.isEnd()) {
+                slice.next();                
+                return false;
+            }        
+        }
+        return true;
+    }
+
 }
