@@ -13,18 +13,17 @@ namespace db0::object_model
     public:
         using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
+        using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
 
         TagSet(ObjectPtr const *args, std::size_t nargs, bool is_negated);
-        ~TagSet();
 
         bool isNegated() const;
         std::size_t size() const;
         
-        ObjectPtr const *getArgs() const;
+        const std::vector<ObjectSharedPtr> &getArgs() const;
         
     private:
-        ObjectPtr const *m_args;
-        const std::size_t m_nargs;
+        std::vector<ObjectSharedPtr> m_args;
         const bool m_is_negated;
     };
 

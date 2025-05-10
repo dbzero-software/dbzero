@@ -5,36 +5,22 @@ namespace db0::object_model
 {
 
     TagSet::TagSet(ObjectPtr const *args, std::size_t nargs, bool is_negated)
-        : m_args(args)
-        , m_nargs(nargs)
-        , m_is_negated(is_negated)
+        : m_is_negated(is_negated)
     {
-        // inc refs
-        for (std::size_t i = 0; i < m_nargs; ++i) {
-            LangToolkit::incRef(m_args[i]);
-        }
-    }
-
-    TagSet::~TagSet()
-    {
-        // dec refs
-        for (std::size_t i = 0; i < m_nargs; ++i) {
-            LangToolkit::decRef(m_args[i]);
+        for (auto arg = args; arg != args + nargs; ++arg) {
+            m_args.emplace_back(*arg);
         }
     }
     
-    bool TagSet::isNegated() const
-    {
+    bool TagSet::isNegated() const {
         return m_is_negated;
     }
     
-    std::size_t TagSet::size() const
-    {
-        return m_nargs;
+    std::size_t TagSet::size() const {
+        return m_args.size();
     }
     
-    TagSet::ObjectPtr const *TagSet::getArgs() const
-    {
+    const std::vector<TagSet::ObjectSharedPtr> &TagSet::getArgs() const {
         return m_args;
     }
     

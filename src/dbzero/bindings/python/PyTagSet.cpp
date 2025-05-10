@@ -16,13 +16,13 @@ namespace db0::python
         .tp_flags = Py_TPFLAGS_DEFAULT,        
         .tp_new = PyType_GenericNew,
     };
-
+    
     void PyAPI_PyTagSet_del(PyTagSet *py_tag_set)
-    {        
-        py_tag_set->m_tag_set.~TagSet();    
+    {      
+        py_tag_set->m_tag_set.~TagSet();
         PyObject_Del(py_tag_set);
     }
-    
+
     bool TagSet_Check(PyObject *obj) {
         return PyObject_TypeCheck(obj, &TagSetType);
     }

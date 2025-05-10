@@ -273,10 +273,10 @@ namespace db0::object_model
         } else {
             THROWF(db0::InputException) << "Invalid object iterable" << THROWF_END;
         }
-
-        bool is_sliced = db0::serial::read<std::uint8_t>(iter, end);        
-        std::remove_const<decltype(SliceDef::m_start)>::type start, stop;
-        std::remove_const<decltype(SliceDef::m_step)>::type step;
+        
+        bool is_sliced = db0::serial::read<std::uint8_t>(iter, end);
+        std::remove_const<decltype(SliceDef::m_start)>::type start = 0, stop = 0;
+        std::remove_const<decltype(SliceDef::m_step)>::type step = 1;
         if (is_sliced) {
             db0::serial::read(iter, end, start);
             db0::serial::read(iter, end, stop);

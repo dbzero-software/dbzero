@@ -537,13 +537,13 @@ namespace db0::object_model
             std::vector<std::unique_ptr<QueryIterator> > inner_neg_iterators;
             if (tag_set.isNegated()) {
                 NegFactory neg_factory(neg_iterators);
-                for (auto it = tag_set.getArgs(), end = it + tag_set.size(); it != end; ++it) {
-                    addIterator(*it, neg_factory, inner_neg_iterators, query_observers);
+                for (auto &arg: tag_set.getArgs()) {
+                    addIterator(arg.get(), neg_factory, inner_neg_iterators, query_observers);
                 }
             } else {
                 // just add as regular iterators
-                for (auto it = tag_set.getArgs(), end = it + tag_set.size(); it != end; ++it) {
-                    addIterator(*it, factory, inner_neg_iterators, query_observers);
+                for (auto &arg: tag_set.getArgs()) {
+                    addIterator(arg.get(), factory, inner_neg_iterators, query_observers);
                 }
             }
             if (!inner_neg_iterators.empty()) {
