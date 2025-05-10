@@ -167,3 +167,9 @@ class MemoSingletonWithMigrations:
     def migrate__(self):
         self.__ix_orders = db0.index()
     
+    
+@db0.memo()
+class MemoClassForTags:
+    def __init__(self, value):
+        self.value = value
+    
