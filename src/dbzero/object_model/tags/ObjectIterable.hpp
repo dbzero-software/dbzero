@@ -64,7 +64,7 @@ namespace db0::object_model
         
         // Construct sliced
         ObjectIterable(const ObjectIterable &, const SliceDef &);
-                
+         
         // Construct sorted
         ObjectIterable(const ObjectIterable &, std::unique_ptr<SortedIterator> &&, std::vector<std::unique_ptr<QueryObserver> > && = {},
             const std::vector<FilterFunc> & = {});
@@ -124,6 +124,8 @@ namespace db0::object_model
         // to prevend context deletion before the query, it's important to attach it
         // otherwise a segfault might happen when query iterated over, after closing the context
         void attachContext(ObjectPtr) const;
+
+        bool empty() const;
         
     protected:
         mutable db0::weak_swine_ptr<Fixture> m_fixture;
