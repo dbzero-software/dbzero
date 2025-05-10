@@ -167,13 +167,13 @@ namespace db0::python
     PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *args);
 
     PyObject *getResourceLockUsage(PyObject *, PyObject *);
-#endif
 
-#ifndef NDEBUG
     // For a specific prefix, extract page num -> state num mapping related with its DRAM_Prefix
     PyObject *getDRAM_IOMap(PyObject *, PyObject *args, PyObject *kwargs);
-#endif
 
+    PyObject *PyAPI_throwFromCommit(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+#endif
+    
     template <typename T> db0::object_model::StorageClass getStorageClass();
 
     template <> db0::object_model::StorageClass getStorageClass<MemoObject>();

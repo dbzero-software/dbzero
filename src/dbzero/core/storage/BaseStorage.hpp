@@ -112,7 +112,7 @@ namespace db0
         virtual std::uint64_t getLastUpdated() const;
         
         // beginCommit / endCommit should be called to indicate the start and end of 
-        // transaction data flushing. This might be relevant e.g. to determine if diff-writes should be allowed
+        // transaction data flushing. This might be relevant for some storage implementations
         virtual void beginCommit();
         virtual void endCommit();
         
@@ -137,7 +137,11 @@ namespace db0
         
         virtual void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const;
         virtual void dramIOCheck(std::vector<DRAM_CheckResult> &) const;
+                
+        // Activate throw from commit after specific number of operations (for testing purposes)
+        virtual void setThrowFromCommit(unsigned int *op_count_ref);        
 #endif        
+
     protected:
         AccessType m_access_type;
     };

@@ -85,7 +85,11 @@ namespace db0
             std::function<void(std::uint64_t updated_page_num, StateNumType state_num)> f = {}) override;
         
         bool flush(ProcessTimer * = nullptr) override;
+        
+        void beginCommit() override;
 
+        void endCommit() override;
+        
         void close() override;
         
         std::size_t getPageSize() const override;
@@ -112,6 +116,9 @@ namespace db0
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
+        void setThrowFromCommit(unsigned int *throw_op_count_ptr) override;
+        
+        void checkThrowFromCommit();
 #endif
 
     protected:
@@ -140,6 +147,9 @@ namespace db0
 #ifndef NDEBUG
         // total number of bytes from mutated data pages
         std::uint64_t m_page_io_raw_bytes = 0;
+        // a pointer to the shared throw counter
+        bool m_commit_pending = false;
+        unsigned int *m_throw_op_count_ptr = nullptr;
 #endif        
                         
         static DRAM_IOStream init(DRAM_IOStream &&, ChangeLogIOStream &);

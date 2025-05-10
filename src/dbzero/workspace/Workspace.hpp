@@ -282,6 +282,11 @@ namespace db0
         // End a specific locked section, callback will be notified with all mutated fixtures
         void endLocked(unsigned int, std::function<void(const std::string &prefix_name, std::uint64_t state_num)> callback);
         
+#ifndef NDEBUG
+        // Activate throw from Storage::commit after specific number of operations (for testing purposes)
+        void setThrowFromCommit(unsigned int op_count);
+#endif
+        
     protected:
         friend class WorkspaceView;
         
@@ -311,6 +316,10 @@ namespace db0
         std::unordered_set<unsigned int> m_locked_section_ids;
         // log of prefixes closed inside locked sections
         std::unordered_map<unsigned int, std::vector<std::pair<std::string, std::uint64_t> > > m_locked_section_log;
+#ifndef NDEBUG
+        // see setThrowFromCommit
+        unsigned int m_throw_op_count = 0;
+#endif                
         
         void forEachMemspace(std::function<bool(Memspace &)> callback) override;
         
