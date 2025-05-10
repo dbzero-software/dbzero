@@ -38,7 +38,7 @@ namespace db0::object_model
         std::uint64_t as_ptr = 0;
         ValueT as_value;
         
-        ValueT_Address() = default;
+        ValueT_Address(){};
 
         ValueT_Address(Address address)
             : as_ptr(address.getValue())
