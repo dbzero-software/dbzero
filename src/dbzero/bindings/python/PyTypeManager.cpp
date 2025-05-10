@@ -99,6 +99,17 @@ namespace db0::python
         for (auto &str: m_string_pool) {
             delete str;
         }
+        if (!Py_IsInitialized()) {
+            for (auto &pair: m_type_cache) {
+                pair.second.steal();
+            }
+            for (auto &obj: m_enum_cache) {
+                obj.steal();                
+            }        
+            m_py_bad_prefix_error.steal();        
+            m_py_class_not_found_error.steal();        
+            m_py_reference_error.steal();
+        }
     }
     
     PyTypeManager::TypeId PyTypeManager::getTypeId(TypeObjectPtr py_type) const
