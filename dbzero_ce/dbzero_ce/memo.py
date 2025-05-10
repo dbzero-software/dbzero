@@ -1,6 +1,6 @@
 import inspect
 import dis
-from .dbzero_ce import wrap_memo_type
+from .dbzero_ce import wrap_memo_type, set_prefix
 
 
 def migration(func):
@@ -34,7 +34,7 @@ def memo(cls=None, **kwargs):
         if not hasattr(from_type, "__init__") or from_type.__init__ == object.__init__:
             return None
 
-        def assemble_code(code, stop_instr, ret_instr):        
+        def assemble_code(code, post_code, stop_instr, ret_instr):
             # Now create a new code object
             new_code = py_types.CodeType(
                 code.co_argcount, # Number of arguments
@@ -44,7 +44,7 @@ def memo(cls=None, **kwargs):
                 code.co_stacksize,
                 code.co_flags,
                 # execute up to the stop instruction + return instruction
-                code.co_code[:stop_instr.offset] + code.co_code[ret_instr.offset:],
+                code.co_code[:stop_instr.offset] + post_code.co_code[ret_instr.offset:],
                 code.co_consts,
                 code.co_names,
                 code.co_varnames,
@@ -61,8 +61,11 @@ def memo(cls=None, **kwargs):
             # Create a new function with the modified bytecode
             return py_types.FunctionType(new_code, from_type.__init__.__globals__)
         
-        # get the indices of first "CALL" and the last "RETURN_VALUE" instructions
-        def find_call_ret_instructions(instructions):
+        def template_func(self, prefix = None):
+            return set_prefix(prefix)
+        
+        # get index of the first "CALL" instruction
+        def find_call_instr(instructions):
             attr_stack = []
             call_instr, ret_instr = None, None
             # process up to 10 instructions
@@ -70,24 +73,28 @@ def memo(cls=None, **kwargs):
                 if instr.opname in ["LOAD_GLOBAL", "LOAD_FAST", "LOAD_ATTR"]:
                     attr_stack.append(instr.argval)
                 # this is a likely call to db0.set_prefix
-                elif instr.opname == "CALL":                    
+                elif instr.opname == "CALL":
                     if "set_prefix" in attr_stack:
-                        call_instr = instr
-                    break
-            
+                        return instr
+            return None
+        
+        # get index of the last "RETURN_VALUE" instruction
+        def find_ret_instr(instructions):
             for instr in reversed(instructions):
                 if instr.opname == "RETURN_VALUE":
-                    ret_instr = instr
-                    break
-            
-            return call_instr, ret_instr
-        
+                    return instr
+                
+            return None
+                
         init_func = from_type.__init__
-        call_, ret_ = find_call_ret_instructions(list(dis.get_instructions(init_func)))
+        # NOTE: return instructions are fetched from the template_func
+        call_ = find_call_instr(list(dis.get_instructions(init_func)))
+        ret_ = find_ret_instr(list(dis.get_instructions(template_func)))
         # unable to identify the relevant instructions
         if call_ is None or ret_ is None:
             return None
         
+        # Extract default values for arguments
         default_args = []
         default_kwargs = {}
         px_map = {}
@@ -98,7 +105,9 @@ def memo(cls=None, **kwargs):
                 default_args.append(param.default)
                 default_kwargs[param.name] = param.default
         
-        dyn_func = assemble_code(init_func.__code__, call_, ret_)
+        # assemble the callable
+        dyn_func = assemble_code(init_func.__code__, template_func.__code__, call_, ret_)
+        
         # this wrapper is required to populate default arguments
         def dyn_wrapper(*args, **kwargs):
             min_kw = len(default_args) + 1

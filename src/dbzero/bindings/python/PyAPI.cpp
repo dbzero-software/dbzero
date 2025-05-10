@@ -808,7 +808,7 @@ namespace db0::python
     }
     
     PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
-    {        
+    {
         PY_API_FUNC
                 
         // extract object / prefix name (can be None)
@@ -835,6 +835,9 @@ namespace db0::python
                 if (reinterpret_cast<MemoObject*>(py_object)->ext().hasInstance()) {
                     PyErr_SetString(PyExc_TypeError, "Unable to change scope of an existing singleton instance");
                     return NULL;
+                }
+                if (prefix_name) {
+                    return PyUnicode_FromString(prefix_name);
                 }
                 Py_RETURN_NONE;
             } else {

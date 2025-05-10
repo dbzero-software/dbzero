@@ -73,7 +73,7 @@ namespace db0::python
         // otherwise either retrieve static scope or just the default fixture
         fixture_uuid = decor.getFixtureUUID();
     }
-
+    
     db0::swine_ptr<Fixture> tryGetFixture(const std::string &px_name, std::uint64_t fixture_uuid,
         AccessType access_type)
     {

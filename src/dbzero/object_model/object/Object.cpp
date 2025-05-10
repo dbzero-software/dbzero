@@ -215,14 +215,14 @@ namespace db0::object_model
         assert(!hasInstance());
         auto &initializer = m_init_manager.getInitializer(*this);
         auto fixture = initializer.getFixture();
-        auto &db0_class = initializer.getClass();
+        auto &type = initializer.getClass();
         auto [type_id, storage_class] = recognizeType(*fixture, obj_ptr);
         
         // find already existing field index
-        auto [field_id, is_init_var] = db0_class.findField(field_name);
+        auto [field_id, is_init_var] = type.findField(field_name);
         if (!field_id) {
             // update class definition
-            field_id = db0_class.addField(field_name);
+            field_id = type.addField(field_name);
         }
         
         // register a member with the initializer

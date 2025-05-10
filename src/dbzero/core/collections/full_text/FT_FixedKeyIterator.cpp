@@ -29,10 +29,10 @@ namespace db0
         } else {
             std::vector<KeyT> sorted(begin, end);
             std::sort(sorted.begin(), sorted.end());
-            return std::move(sorted);
+            return sorted;
         }
     }
-
+    
     template <typename KeyT> 
     const std::type_info &FT_FixedKeyIterator<KeyT>::FT_FixedKeyIterator::typeId() const
     {
