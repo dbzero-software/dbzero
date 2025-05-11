@@ -765,7 +765,8 @@ namespace db0
     bool Workspace::isMutable() const {
         return true;
     }
-    
+
+#ifndef NDEBUG    
     void Workspace::setCrashFromCommit(unsigned int op_count) 
     {
         m_throw_op_count = op_count;
@@ -773,5 +774,6 @@ namespace db0
             item.second->getPrefix().getStorage().setCrashFromCommit(&m_throw_op_count);
         }
     }
+#endif    
     
 }

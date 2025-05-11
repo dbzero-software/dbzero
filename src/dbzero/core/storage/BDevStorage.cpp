@@ -583,12 +583,18 @@ namespace db0
         dp_changelog_io.restoreState(dp_state);
     }
     
-    void BDevStorage::beginCommit() {
+    void BDevStorage::beginCommit() 
+    {
+#ifndef NDEBUG        
         m_commit_pending = true;
+#endif        
     }
     
-    void BDevStorage::endCommit() {
+    void BDevStorage::endCommit() 
+    {
+#ifndef NDEBUG        
         m_commit_pending = false;
+#endif        
     }
         
 }
