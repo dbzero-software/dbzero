@@ -7,6 +7,18 @@ from .memo_test_types import MemoTestClass
 import json
 
 
+@db0.memo
+class MemoWithInvalidUUID:
+    def __init__(self):
+        self.my_uuid = db0.uuid(self)
+
+
+@db0.memo
+class MemoWithUUID:
+    def __init__(self):
+        self.my_uuid = db0.uuid(db0.materialized(self))
+
+    
 def test_uuid_of_memo_object(db0_fixture):
     object_1 = MemoTestClass(123)
     assert db0.uuid(object_1) is not None
@@ -84,4 +96,20 @@ def test_fetch_tuple_by_uuid(db0_fixture):
     object_1 = db0.tuple([1, 2, 3])
     object_2 = db0.fetch(db0.uuid(object_1))
     assert object_1 == object_2
+    
+    
+def test_uuid_issue_1(db0_fixture):
+    """
+    Issue: https://github.com/wskozlowski/dbzero_ce/issues/171
+    Resolution: added validation and exception "Cannot get UUID of an uninitialized object"
+    """
+    with pytest.raises(Exception) as excinfo:
+        _ = MemoWithInvalidUUID()
+        assert "UUID" in str(excinfo.value)
+    
+    obj_1 = MemoWithUUID()
+    obj_2 = MemoWithUUID()
+    assert obj_1.my_uuid != obj_2.my_uuid
+    assert db0.uuid(obj_1) == obj_1.my_uuid
+    assert db0.uuid(obj_2) == obj_2.my_uuid
     
