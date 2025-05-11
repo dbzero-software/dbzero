@@ -88,10 +88,20 @@ namespace db0::python
     
     PyObject *tryListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
     {
-        // FIXME: this operation should be immutable
-        db0::FixtureLock lock(py_src_list->ext().getFixture());
+        // check for index
+        if (PyLong_Check(elem)) {
+            auto index = PyLong_AsLong(elem);
+            if (index < 0) {
+                index += py_src_list->ext().size();
+            }
+            return py_src_list->ext().getItem(index).steal();            
+        }
+
         // Check if the key is a slice object
         if (PySlice_Check(elem)) {
+            // FIXME: this operation should be immutable
+            db0::FixtureLock lock(py_src_list->ext().getFixture());
+
             Py_ssize_t start, stop, step;
             PySlice_GetIndices(elem, py_src_list->ext().size(), &start, &stop, &step);
             auto py_list = makeListInternal(nullptr, nullptr, 0);
@@ -110,11 +120,9 @@ namespace db0::python
 
             return py_list;
         }
-        auto index = PyLong_AsLong(elem);
-        if (index < 0) {
-            index += py_src_list->ext().size();
-        }
-        return py_src_list->ext().getItem(index).steal();
+        
+        THROWF(db0::InputException) 
+            << "Invalid index type: " << Py_TYPE(elem)->tp_name << THROWF_END;
     }
     
     PyObject *PyAPI_ListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
