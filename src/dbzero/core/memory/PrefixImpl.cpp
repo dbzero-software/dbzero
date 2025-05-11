@@ -295,11 +295,13 @@ namespace db0
         if (parent_timer) {
             timer = std::make_unique<ProcessTimer>("Prefix::commit", parent_timer);
         }
+        m_storage_ptr->beginCommit();
         m_cache.commit(timer.get());
         if (m_storage_ptr->flush(timer.get())) {
             // increment state number only if there were any changes
             ++m_head_state_num;
         }
+        m_storage_ptr->endCommit();
         return m_head_state_num;
     }
     

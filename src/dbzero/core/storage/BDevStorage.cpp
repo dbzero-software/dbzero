@@ -249,6 +249,7 @@ namespace db0
                 m_sparse_index.emplace(page_num, state_num, storage_page_id);
                 #ifndef NDEBUG
                 m_page_io_raw_bytes += m_config.m_page_size;
+                checkCrashFromCommit();
                 #endif
             }
         }
@@ -279,7 +280,7 @@ namespace db0
         if (query.leftLessThan(max_len)) {
             // append as diff-page (NOTE: diff-writes are only appended)
             auto storage_page_num = m_page_io.appendDiff(buffer, { page_num, state_num }, diff_data);
-            m_diff_index.insert(page_num, state_num, storage_page_num);        
+            m_diff_index.insert(page_num, state_num, storage_page_num);
         } else {
             // full-DP write
             auto storage_page_num = m_page_io.append(buffer);
@@ -288,6 +289,7 @@ namespace db0
         
         #ifndef NDEBUG
         m_page_io_raw_bytes += m_config.m_page_size;
+        checkCrashFromCommit();
         #endif
     }
     
@@ -517,6 +519,20 @@ namespace db0
     void BDevStorage::dramIOCheck(std::vector<DRAM_CheckResult> &check_result) const {
         m_dram_io.dramIOCheck(check_result);
     }
+
+    void BDevStorage::setCrashFromCommit(unsigned int *throw_op_count_ptr) {
+        this->m_throw_op_count_ptr = throw_op_count_ptr;
+    }
+    
+    void BDevStorage::checkCrashFromCommit()
+    {
+        if (m_throw_op_count_ptr && *m_throw_op_count_ptr > 0) {
+            if (!--(*m_throw_op_count_ptr)) {
+                // terminate the process abruptly
+                std::terminate();
+            }
+        }
+    }
 #endif
     
     void BDevStorage::fetchChangeLogs(StateNumType begin_state, std::optional<StateNumType> end_state,
@@ -567,4 +583,12 @@ namespace db0
         dp_changelog_io.restoreState(dp_state);
     }
     
+    void BDevStorage::beginCommit() {
+        m_commit_pending = true;
+    }
+    
+    void BDevStorage::endCommit() {
+        m_commit_pending = false;
+    }
+        
 }

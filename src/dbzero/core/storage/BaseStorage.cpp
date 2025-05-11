@@ -47,6 +47,10 @@ namespace db0
     void BaseStorage::dramIOCheck(std::vector<DRAM_CheckResult> &) const
     {        
     }
+
+    void BaseStorage::setCrashFromCommit(unsigned int *)
+    {
+    }
 #endif        
 
     void BaseStorage::beginCommit() {
