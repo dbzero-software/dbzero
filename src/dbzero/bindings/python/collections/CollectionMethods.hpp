@@ -29,6 +29,11 @@ namespace db0::python
             return NULL;
         }
         PyObject *iterator = PyObject_GetIter(args[0]);
+        if (!iterator) {
+            PyErr_SetString(PyExc_TypeError, "extend() argument must be iterable.");
+            return NULL;
+        }
+        
         PyObject *item;
         db0::FixtureLock lock(py_obj->ext().getFixture());
         auto &obj = py_obj->modifyExt();

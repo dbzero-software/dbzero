@@ -174,6 +174,11 @@ namespace db0::python
         if (PyObject_Length(args) == 1) {
             PyObject * arg1 = PyTuple_GetItem(args, 0);
             PyObject *iterator = PyObject_GetIter(arg1);
+            if (!iterator) {
+                PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
+                return NULL;
+            }
+
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
                 if (PyDict_Check(arg1)) {
@@ -193,6 +198,10 @@ namespace db0::python
         }
         if (kwargs != NULL && PyObject_Length(kwargs) > 0) {
             PyObject *iterator = PyObject_GetIter(kwargs);
+            if (!iterator) {
+                PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
+                return NULL;
+            }
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
                 DictObject_SetItem(dict_object, elem, PyDict_GetItem(kwargs, elem));
@@ -217,7 +226,10 @@ namespace db0::python
         db0::object_model::Dict::makeNew(&dict, *lock);
         
         // if args
-        DictObject_update(py_dict.get(), args, kwargs);
+        if (!DictObject_update(py_dict.get(), args, kwargs)) {            
+            return nullptr;
+        }
+
         // register newly created dict with py-object cache        
         fixture->getLangCache().add(dict.getAddress(), py_dict.get());
         return py_dict;
@@ -260,11 +272,17 @@ namespace db0::python
     
     PyObject *tryDictObject_fromKeys(PyObject *const *args, Py_ssize_t nargs)
     {
+        PyObject *iterator = PyObject_GetIter(args[0]);
+        if (!iterator) {
+            PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
+            return NULL;
+        }
+
         // make actual dbzero instance, use default fixture
         auto py_dict = DictDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         db0::object_model::Dict::makeNew(&py_dict.get()->modifyExt(), *lock);
-        PyObject *iterator = PyObject_GetIter(args[0]);
+        
         PyObject *elem;
         PyObject *value = Py_None;
         if (nargs == 2) {
@@ -421,10 +439,15 @@ namespace db0::python
     bool DictObject_Check(PyObject *object) {
         return Py_TYPE(object) == &DictObjectType;        
     }
-        
+    
     PyObject *tryLoadDict(PyObject *py_dict, PyObject *kwargs)
     {   
         PyObject *iterator = PyObject_GetIter(py_dict);
+        if (!iterator) {
+            PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
+            return NULL;
+        }
+
         PyObject *elem;
         PyObject *py_result = PyDict_New();
         while ((elem = PyIter_Next(iterator))) {

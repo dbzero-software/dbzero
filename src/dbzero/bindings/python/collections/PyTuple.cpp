@@ -68,34 +68,32 @@ namespace db0::python
         {NULL}
     };
     
-    PyObject *tryPyAPI_TupleObject_rq(TupleObject *tuple_obj, TupleObject *other, int op)
+    PyObject *tryTupleObject_rq(TupleObject *tuple_obj, TupleObject *other, int op)
     {
         if (TupleObject_Check(other)) {
             TupleObject * other_tuple = (TupleObject*)other;
-            switch (op)
-            {
-            case Py_EQ:
-                return PyBool_fromBool(tuple_obj->ext() == other_tuple->ext());
-            case Py_NE:
-                return PyBool_fromBool(tuple_obj->ext() != other_tuple->ext());
-            default:
-                Py_RETURN_NOTIMPLEMENTED;
+            switch (op) {
+                case Py_EQ:
+                    return PyBool_fromBool(tuple_obj->ext() == other_tuple->ext());
+                case Py_NE:
+                    return PyBool_fromBool(tuple_obj->ext() != other_tuple->ext());
+                default:
+                    Py_RETURN_NOTIMPLEMENTED;
             }
         } else {
             PyObject *iterator = PyObject_GetIter(other);
-            if (iterator == NULL) {
+            if (!iterator) {
                 PyErr_SetString(PyExc_TypeError, "argument must be an iterable");
                 return NULL;
             }
-            switch (op)
-            {
-            case Py_EQ:
-                return PyBool_fromBool(has_all_elements_same(tuple_obj, iterator));
-            case Py_NE:
-                return PyBool_fromBool(!has_all_elements_same(tuple_obj, iterator));
-            default:
-                Py_RETURN_NOTIMPLEMENTED;
-            }            
+            switch (op) {
+                case Py_EQ:
+                    return PyBool_fromBool(has_all_elements_same(tuple_obj, iterator));
+                case Py_NE:
+                    return PyBool_fromBool(!has_all_elements_same(tuple_obj, iterator));
+                default:
+                    Py_RETURN_NOTIMPLEMENTED;
+            }
             Py_DECREF(iterator);
             Py_RETURN_TRUE;
         }
@@ -104,7 +102,7 @@ namespace db0::python
     PyObject *PyAPI_TupleObject_rq(TupleObject *tuple_obj, TupleObject *other, int op)
     {
         PY_API_FUNC
-        return runSafe(tryPyAPI_TupleObject_rq, tuple_obj, other, op);
+        return runSafe(tryTupleObject_rq, tuple_obj, other, op);
     }
     
     PyTypeObject TupleObjectType = {
@@ -167,7 +165,7 @@ namespace db0::python
             fixture->getLangCache().add(tuple.getAddress(), py_tuple.get()); 
             return py_tuple;
         }
-
+        
         shared_py_object<PyObject*> iterator = {PyObject_GetIter(args[0]), false};
         if (!iterator) {
             return nullptr;

@@ -345,7 +345,7 @@ namespace db0::python
     {
         auto py_iterator = PyObject_GetIter(py_object);
         if (!py_iterator) {
-            THROWF(db0::InputException) << "Unable to get iterator for object" << THROWF_END;
+            THROWF(db0::InputException) << "Unable to get iterator" << THROWF_END;
         }
         return { py_iterator, false };
     }

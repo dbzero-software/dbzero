@@ -18,7 +18,7 @@ namespace db0::python
     PyTypeObject SetIteratorObjectType = GetIteratorType<SetIteratorObject>("dbzero_ce.SetObjectIterator",
         "dbzero typed query object iterator");
     
-    SetIteratorObject *SetObject_iter(SetObject *self)
+    SetIteratorObject *PyAPI_SetObject_iter(SetObject *self)
     {
         PY_API_FUNC
         return makeIterator<SetIteratorObject,db0::object_model::SetIterator>(
@@ -38,32 +38,34 @@ namespace db0::python
         .sq_contains = (objobjproc)SetObject_HasItem
     };
     
-    static PyMethodDef SetObject_methods[] = {
-        {"add", (PyCFunction)SetObject_add, METH_FASTCALL, "Add an item to the set."},
-        {"isdisjoint", (PyCFunction)SetObject_isdisjoint, METH_FASTCALL, "Return True if the set has no elements in common with other."},
-        {"issubset", (PyCFunction)SetObject_issubset, METH_FASTCALL, "Test whether every element in the set is in other."},
-        {"issuperset", (PyCFunction)SetObject_issuperset, METH_FASTCALL, "Test whether every element of other is in set."},
-        {"copy", (PyCFunction)SetObject_copy, METH_NOARGS, "Returns copy of set."},
-        {"union", (PyCFunction)SetObject_union, METH_FASTCALL, "Returns union of sets"},
-        {"intersection", (PyCFunction)SetObject_intersection_func, METH_FASTCALL, "Returns difference of sets"},
-        {"difference", (PyCFunction)SetObject_difference_func, METH_FASTCALL, "Returns difference of sets"},
-        {"symmetric_difference", (PyCFunction)SetObject_symmetric_difference_func, METH_FASTCALL, "Returns difference of sets"},
-        {"remove", (PyCFunction)SetObject_remove, METH_FASTCALL, "Remove an item to the set. Throws when item not found."},
-        {"discard", (PyCFunction)SetObject_discard, METH_FASTCALL, "Discar an item to the set."},
-        {"pop", (PyCFunction)SetObject_pop, METH_FASTCALL, "Pop an element from set."},
-        {"clear", (PyCFunction)SetObject_clear, METH_FASTCALL, "Clear all items from set."},
+    static PyMethodDef SetObject_methods[] = 
+    {
+        {"add", (PyCFunction)PyAPI_SetObject_add, METH_FASTCALL, "Add an item to the set."},
+        {"isdisjoint", (PyCFunction)PyAPI_SetObject_isdisjoint, METH_FASTCALL, "Return True if the set has no elements in common with other."},
+        {"issubset", (PyCFunction)PyAPI_SetObject_issubset, METH_FASTCALL, "Test whether every element in the set is in other."},
+        {"issuperset", (PyCFunction)PyAPI_SetObject_issuperset, METH_FASTCALL, "Test whether every element of other is in set."},
+        {"copy", (PyCFunction)PyAPI_SetObject_copy, METH_NOARGS, "Returns copy of set."},
+        {"union", (PyCFunction)PyAPI_SetObject_union, METH_FASTCALL, "Returns union of sets"},
+        {"intersection", (PyCFunction)PyAPI_SetObject_intersection_func, METH_FASTCALL, "Returns difference of sets"},
+        {"difference", (PyCFunction)PyAPI_SetObject_difference_func, METH_FASTCALL, "Returns difference of sets"},
+        {"symmetric_difference", (PyCFunction)PyAPI_SetObject_symmetric_difference_func, METH_FASTCALL, "Returns difference of sets"},
+        {"remove", (PyCFunction)PyAPI_SetObject_remove, METH_FASTCALL, "Remove an item to the set. Throws when item not found."},
+        {"discard", (PyCFunction)PyAPI_SetObject_discard, METH_FASTCALL, "Discar an item to the set."},
+        {"pop", (PyCFunction)PyAPI_SetObject_pop, METH_FASTCALL, "Pop an element from set."},
+        {"clear", (PyCFunction)PyAPI_SetObject_clear, METH_FASTCALL, "Clear all items from set."},
         {NULL}
     };
 
-    static PyNumberMethods SetObject_as_num = {
-        .nb_subtract = (binaryfunc)SetObject_difference_binary,
-        .nb_and = (binaryfunc)SetObject_intersection_binary,
-        .nb_xor = (binaryfunc)SetObject_symmetric_difference_binary,
-        .nb_or = (binaryfunc)SetObject_union_binary,
-        .nb_inplace_subtract = (binaryfunc)SetObject_difference_in_place,
-        .nb_inplace_and = (binaryfunc)SetObject_intersection_in_place,
-        .nb_inplace_xor = (binaryfunc)SetObject_symmetric_difference_in_place,
-        .nb_inplace_or = (binaryfunc)SetObject_update,
+    static PyNumberMethods SetObject_as_num = 
+    {
+        .nb_subtract = (binaryfunc)PyAPI_SetObject_difference_binary,
+        .nb_and = (binaryfunc)PyAPI_SetObject_intersection_binary,
+        .nb_xor = (binaryfunc)PyAPI_SetObject_symmetric_difference_binary,
+        .nb_or = (binaryfunc)PyAPI_SetObject_union_binary,
+        .nb_inplace_subtract = (binaryfunc)PyAPI_SetObject_difference_in_place,
+        .nb_inplace_and = (binaryfunc)PyAPI_SetObject_intersection_in_place,
+        .nb_inplace_xor = (binaryfunc)PyAPI_SetObject_symmetric_difference_in_place,
+        .nb_inplace_or = (binaryfunc)PyAPI_SetObject_update,
     };
 
     Py_ssize_t SetObject_len(SetObject *set_obj)
@@ -102,12 +104,11 @@ namespace db0::python
             auto it1End = self->ext().end();
             auto it2End = other->ext().end();
 
-            while(it1 != it1End)
-            {
-                if(it2 == it2End) {
+            while (it1 != it1End) {
+                if (it2 == it2End) {
                     Py_RETURN_FALSE;
                 }
-                if(*it1 == *it2){
+                if (*it1 == *it2) {
                     ++it1;
                 }
                 ++it2;
@@ -116,6 +117,10 @@ namespace db0::python
             PyObject *other = args[0];
             if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) Py_RETURN_TRUE;
             PyObject *iterator = PyObject_GetIter(self);
+            if (!iterator) {
+                PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+                return NULL;
+            }
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
                 if (!PySequence_Contains(other, elem)) {                    
@@ -130,13 +135,13 @@ namespace db0::python
         Py_RETURN_TRUE;
     }
 
-    PyObject *SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_SetObject_issubset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC        
         return runSafe(SetObject_issubsetInternal, self, args, nargs);
     }
 
-    PyObject * SetObject_issupersetInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *SetObject_issupersetInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "issuperset() takes exactly one argument");
@@ -150,6 +155,10 @@ namespace db0::python
             PyObject *other = args[0];
             if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) Py_RETURN_TRUE;
             PyObject *iterator = PyObject_GetIter(other);
+            if (!iterator) {
+                PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+                return NULL;
+            }
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
                 auto hash = get_py_hash(elem);  
@@ -165,50 +174,54 @@ namespace db0::python
         Py_RETURN_TRUE;
     }
 
-    PyObject * SetObject_issuperset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject * PyAPI_SetObject_issuperset(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC        
         return runSafe(SetObject_issupersetInternal, self, args, nargs);
     }
 
-    static PyObject *SetObject_rq(SetObject *set_obj, PyObject *other, int op) 
-    {
-        PY_API_FUNC
+    PyObject *trySetObject_rq(SetObject *set_obj, PyObject *other, int op)
+    {        
         PyObject** args = &other;    
-        switch (op)
-        {
-        case Py_EQ:
-            if (SetObject_len(set_obj) != getLenPyObjectOrSet(other)) {
-                Py_RETURN_FALSE;
+        switch (op) {
+            case Py_EQ:
+                if (SetObject_len(set_obj) != getLenPyObjectOrSet(other)) {
+                    Py_RETURN_FALSE;
+                }
+                return PyBool_fromBool(has_all_elements_in_collection(set_obj, other));
+            case Py_NE:
+                if (SetObject_len(set_obj) != getLenPyObjectOrSet(other)) {
+                    Py_RETURN_TRUE;
+                }
+                return PyBool_fromBool(!has_all_elements_in_collection(set_obj, other));
+            case Py_LE:  // Test whether every element in the set is in other.
+                return SetObject_issubsetInternal(set_obj, args, 1);
+            case Py_LT:{  // Test whether the set is a proper subset of other, that is, set <= other and set != other.
+                if (SetObject_len(set_obj) == getLenPyObjectOrSet(other)) {
+                    Py_RETURN_FALSE;
+                }
+                return SetObject_issubsetInternal(set_obj, args, 1);
             }
-            return PyBool_fromBool(has_all_elements_in_collection(set_obj, other));
-        case Py_NE:
-            if (SetObject_len(set_obj) != getLenPyObjectOrSet(other)) {
-                Py_RETURN_TRUE;
+            case Py_GE:  // Test whether every element in the set is in other.
+                return SetObject_issupersetInternal(set_obj, args, 1);
+            case Py_GT:{  // Test whether the set is a proper superset of other, that is, set >= other and set != other.
+                if (SetObject_len(set_obj) == getLenPyObjectOrSet(other)) {
+                    Py_RETURN_FALSE;
+                }
+                return SetObject_issupersetInternal(set_obj, args, 1);
             }
-            return PyBool_fromBool(!has_all_elements_in_collection(set_obj, other));
-        case Py_LE:  // Test whether every element in the set is in other.
-            return SetObject_issubsetInternal(set_obj, args, 1);
-        case Py_LT:{  // Test whether the set is a proper subset of other, that is, set <= other and set != other.
-            if (SetObject_len(set_obj) == getLenPyObjectOrSet(other)) {
-                Py_RETURN_FALSE;
-            }
-            return SetObject_issubsetInternal(set_obj, args, 1);
-        }
-        case Py_GE:  // Test whether every element in the set is in other.
-            return SetObject_issupersetInternal(set_obj, args, 1);
-        case Py_GT:{  // Test whether the set is a proper superset of other, that is, set >= other and set != other.
-            if (SetObject_len(set_obj) == getLenPyObjectOrSet(other)) {
-                Py_RETURN_FALSE;
-            }
-            return SetObject_issupersetInternal(set_obj, args, 1);
-        }
-        default:
-            Py_RETURN_NOTIMPLEMENTED;
+            default:
+                Py_RETURN_NOTIMPLEMENTED;
         }
         Py_RETURN_NOTIMPLEMENTED;
     }
     
+    PyObject *PyAPI_SetObject_rq(SetObject *set_obj, PyObject *other, int op)
+    {
+        PY_API_FUNC
+        return runSafe(trySetObject_rq, set_obj, other, op);
+    }
+
     PyTypeObject SetObjectType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "Set",
@@ -219,8 +232,8 @@ namespace db0::python
         .tp_as_sequence = &SetObject_sq,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero set collection object",
-        .tp_richcompare = (richcmpfunc)SetObject_rq,
-        .tp_iter = (getiterfunc)SetObject_iter,
+        .tp_richcompare = (richcmpfunc)PyAPI_SetObject_rq,
+        .tp_iter = (getiterfunc)PyAPI_SetObject_iter,
         .tp_methods = SetObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)SetObject_new,
@@ -243,7 +256,7 @@ namespace db0::python
         Py_TYPE(set_obj)->tp_free((PyObject*)set_obj);
     }
 
-    PyObject *SetObject_add(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_SetObject_add(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         if (nargs != 1) {
@@ -266,6 +279,9 @@ namespace db0::python
         db0::object_model::Set::makeNew(&set, *lock);
         if (nargs == 1) {
             PyObject *iterator = PyObject_GetIter(args[0]);
+            if (!iterator) {                
+                return nullptr;
+            }
             PyObject *item;
             while ((item = PyIter_Next(iterator))) {
                 auto hash = get_py_hash(item);
@@ -295,7 +311,7 @@ namespace db0::python
         return Py_TYPE(object) == &SetObjectType;        
     }
 
-    PyObject * SetObject_isdisjoint(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_SetObject_isdisjoint(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         if (nargs != 1) {
@@ -311,8 +327,7 @@ namespace db0::python
             auto it1End = self->ext().end();
             auto it2End = other->ext().end();
 
-            while(it1 != it1End && it2 != it2End)
-            {
+            while(it1 != it1End && it2 != it2End) {
                 if(*it1 == *it2) Py_RETURN_FALSE;
                 if(*it1 < *it2) { ++it1; }
                 else { ++it2; }
@@ -321,6 +336,10 @@ namespace db0::python
             PyObject *other = args[0];
             if (SetObject_len(self) == 0 || PyObject_Length(other) == 0) Py_RETURN_TRUE;
             PyObject *iterator = PyObject_GetIter(other);
+            if (!iterator) {
+                PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+                return NULL;
+            }
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
                 auto hash = get_py_hash(elem);  
@@ -346,33 +365,39 @@ namespace db0::python
         return py_set.steal();
     }
 
-    PyObject *SetObject_copy(SetObject *py_src_set)
+    PyObject *PyAPI_SetObject_copy(SetObject *py_src_set)
     {   
         PY_API_FUNC        
         return SetObject_copyInternal(py_src_set);
     }
     
-    PyObject * SetObject_union_binary(SetObject *self, PyObject * obj) 
-    {
-        PY_API_FUNC
-        return SetObject_union(self, &obj, 1);
+    PyObject *PyAPI_SetObject_union_binary(SetObject *self, PyObject * obj) {        
+        return PyAPI_SetObject_union(self, &obj, 1);
     }
 
-    PyObject *SetObject_union(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_SetObject_union(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     { 
+        PY_API_FUNC
         if (nargs == 0) {
             PyErr_SetString(PyExc_TypeError, "union() takes more than 0 arguments");
             return NULL;
-        }        
+        }
+
         db0::FixtureLock lock(self->ext().getFixture());
         SetObject *copy = (SetObject* )SetObject_copyInternal(self);
-        for (Py_ssize_t i =0; i < nargs; ++i) {
+        for (Py_ssize_t i = 0; i < nargs; ++i) {
             if (SetObject_Check(args[i])) {
                 SetObject *other = (SetObject* )args[i];
                 copy->modifyExt().insert(other->ext());
             } else {
                 PyObject * elem;
                 PyObject *iterator = PyObject_GetIter(args[i]);
+                if (!iterator) {
+                    Py_DECREF(copy);
+                    PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+                    return NULL;
+                }
+
                 auto &set_impl = copy->modifyExt();
                 while ((elem = PyIter_Next(iterator))) {
                     auto hash = get_py_hash(elem);
@@ -384,7 +409,7 @@ namespace db0::python
         }
         return copy;
     }
-
+    
     void SetObject_intersectionInternal(FixtureLock &fixture, SetObject * set_obj, PyObject *it1, PyObject *elem1, 
         PyObject *it2, PyObject *elem2)
     {
@@ -415,11 +440,11 @@ namespace db0::python
         return SetObject_intersectionInternal(fixture, set_obj, it1, elem1, it2, elem2);
     }
     
-    PyObject *SetObject_intersection_binary(SetObject *self, PyObject * obj) {
-        return SetObject_intersection_func(self, &obj, 1);
+    PyObject *PyAPI_SetObject_intersection_binary(SetObject *self, PyObject * obj) {
+        return PyAPI_SetObject_intersection_func(self, &obj, 1);
     }
 
-    PyObject *SetObject_intersection_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_SetObject_intersection_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
     { 
         PY_API_FUNC
         if (nargs == 0) {
@@ -430,9 +455,22 @@ namespace db0::python
         SetObject *set_obj = makeSet(nullptr, nullptr, 0);
         PyObject *elem1, *elem2, *it2;
         PyObject *it1 = PyObject_GetIter((PyObject*)self);
+        if (!it1) {
+            Py_DECREF(set_obj);
+            PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+            return NULL;
+        }
+
         db0::FixtureLock lock(self->ext().getFixture());
         for (Py_ssize_t i = 0; i < nargs; ++i) {
             it2 = PyObject_GetIter(args[i]);
+            if (!it2) {
+                Py_DECREF(it1);
+                Py_DECREF(set_obj);
+                PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+                return NULL;
+            }
+
             elem1 = PyIter_Next(it1);
             elem2 = PyIter_Next(it2);
             set_obj = makeSet(nullptr, nullptr, 0);
@@ -440,16 +478,23 @@ namespace db0::python
             Py_DECREF(it1);
             Py_DECREF(it2);
             it1 = PyObject_GetIter((PyObject*)set_obj);
+            if (!it1) {
+                Py_DECREF(set_obj);
+                PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+                return NULL;
+            }
         }
         return set_obj;
     }
 
-    void SetObject_differenceInternal(FixtureLock &fixture, SetObject * set_result, SetObject *set_input, 
-    PyObject * ob, bool symmetric)
+    bool SetObject_differenceInternal(FixtureLock &fixture, SetObject * set_result, SetObject *set_input,
+        PyObject *ob, bool symmetric)
     {
         PyObject *it = PyObject_GetIter((PyObject*)set_input);
+        if (!it) {
+            return false;
+        }
         PyObject *item;
-        std::list<size_t> hashes;
         auto &set_impl = set_result->modifyExt();
         while ((item = PyIter_Next(it))) {
             if (!PySequence_Contains(ob, item)) {
@@ -459,8 +504,12 @@ namespace db0::python
 
             Py_DECREF(item);
         }
-        if(symmetric){
+        if (symmetric) {
+            Py_DECREF(it);
             it = PyObject_GetIter(ob);
+            if (!it) {
+                THROWF(db0::InputException) <<  "argument must be a sequence or set";
+            }
             while ((item = PyIter_Next(it))) {
                 if (!PySequence_Contains((PyObject*)set_input, item)) {
                     auto hash = get_py_hash(item);
@@ -470,9 +519,10 @@ namespace db0::python
             }
         }
         Py_DECREF(it);
+        return true;
     }
 
-    PyObject * SetObject_differenceInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric)
+    PyObject *SetObject_differenceInternal(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric)
     {
         if (nargs == 0) {
             PyErr_SetString(PyExc_TypeError, "difference() takes more than 0 arguments");
@@ -481,24 +531,31 @@ namespace db0::python
         SetObject *set_obj = makeSet(nullptr, nullptr, 0);
         db0::FixtureLock lock(self->ext().getFixture());
         for (Py_ssize_t i = 0; i < nargs; ++i) {
+            Py_DECREF(set_obj);
             set_obj = makeSet(nullptr, nullptr, 0);
-            SetObject_differenceInternal(lock, set_obj, self, args[i], symmetric);            
+            if (!SetObject_differenceInternal(lock, set_obj, self, args[i], symmetric)) {
+                Py_DECREF(set_obj);
+                PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+                return NULL;
+            }
             self = set_obj;
         }
         return set_obj;
     }
     
-    PyObject * SetObject_difference(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric) {
+    PyObject *SetObject_difference(SetObject *self, PyObject *const *args, Py_ssize_t nargs, bool symmetric) {
         return SetObject_differenceInternal(self, args, nargs, symmetric);
     }
-
-    PyObject *SetObject_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs) {
+    
+    PyObject *PyAPI_SetObject_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs)
+    {
         PY_API_FUNC
         return runSafe(SetObject_difference, self, args, nargs, false);
     }
 
-    PyObject *SetObject_symmetric_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs) 
+    PyObject *PyAPI_SetObject_symmetric_difference_func(SetObject *self, PyObject *const *args, Py_ssize_t nargs) 
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "symmetric_difference() takes exacly 1 argument");
             return NULL;
@@ -506,21 +563,20 @@ namespace db0::python
         return SetObject_difference(self, args, nargs, true);
     }
     
-    PyObject *SetObject_difference_binary(SetObject *self, PyObject * obj) 
+    PyObject *PyAPI_SetObject_difference_binary(SetObject *self, PyObject * obj) 
     {
         PY_API_FUNC
         return SetObject_difference(self, &obj, 1, false);
     }
 
-    PyObject *SetObject_symmetric_difference_binary(SetObject *self, PyObject * obj) 
+    PyObject *PyAPI_SetObject_symmetric_difference_binary(SetObject *self, PyObject * obj)
     { 
         PY_API_FUNC
         return SetObject_difference(self, &obj, 1, true);
     }
 
     PyObject *SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs, bool throw_ex)
-    {
-        PY_API_FUNC
+    {        
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "remove() takes exactly one argument");
             return NULL;
@@ -534,15 +590,19 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs) {
+    PyObject *PyAPI_SetObject_remove(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs) 
+    {
+        PY_API_FUNC
         return SetObject_remove(set_obj, args, nargs, true);
     }
 
-    PyObject *SetObject_discard(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs) {
+    PyObject *PyAPI_SetObject_discard(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs) 
+    {
+        PY_API_FUNC
         return SetObject_remove(set_obj, args, nargs, false);
     }
 
-    PyObject *SetObject_pop(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_SetObject_pop(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         auto obj = set_obj->modifyExt().pop();
@@ -553,17 +613,22 @@ namespace db0::python
         return obj.steal();
     }
     
-    PyObject *SetObject_clear(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_SetObject_clear(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC        
         set_obj->modifyExt().clear();
         Py_RETURN_NONE;
     }
     
-    PyObject *SetObject_update(SetObject *self, PyObject * ob)
+    PyObject *PyAPI_SetObject_update(SetObject *self, PyObject * ob)
     {
         PY_API_FUNC
         PyObject* it = PyObject_GetIter(ob);
+        if (!it) {
+            PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+            return NULL;
+        }
+
         PyObject* item;
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
@@ -587,10 +652,14 @@ namespace db0::python
         }
     }
 
-    PyObject *SetObject_intersection_in_place(SetObject *self, PyObject * ob)
+    PyObject *PyAPI_SetObject_intersection_in_place(SetObject *self, PyObject * ob)
     {
         PY_API_FUNC
         PyObject* it = PyObject_GetIter(self);
+        if (!it) {
+            PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+            return NULL;
+        }
         PyObject* item;
         std::list<std::pair<size_t, PyObject*>> hashes_and_items;
         while ((item = PyIter_Next(it))) {
@@ -610,10 +679,14 @@ namespace db0::python
         return self;
     }
 
-    PyObject *SetObject_difference_in_place(SetObject *self, PyObject * ob)
+    PyObject *PyAPI_SetObject_difference_in_place(SetObject *self, PyObject * ob)
     {
         PY_API_FUNC
         PyObject* it = PyObject_GetIter(ob);
+        if (!it) {
+            PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+            return NULL;
+        }
         PyObject* item;
         std::list<size_t> hashes;
         auto &set_impl = self->modifyExt();
@@ -628,12 +701,17 @@ namespace db0::python
         return self;
     }
 
-    PyObject *SetObject_symmetric_difference_in_place(SetObject *self, PyObject * ob)
+    PyObject *PyAPI_SetObject_symmetric_difference_in_place(SetObject *self, PyObject * ob)
     {
         PY_API_FUNC
+        PyObject* it = PyObject_GetIter(ob);
+        if (!it) {
+            PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+            return NULL;
+        }
         std::list<std::pair<size_t, PyObject*>> hashes_and_items_to_remove;
         std::list<PyObject *> items_to_add;
-        PyObject* it = PyObject_GetIter(ob);
+
         PyObject* item;
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
@@ -659,9 +737,14 @@ namespace db0::python
         return self;
     }
 
-    PyObject *tryLoadSet(PyObject *set, PyObject *kwargs) {
-    
+    PyObject *tryLoadSet(PyObject *set, PyObject *kwargs)
+    {    
         PyObject *iterator = PyObject_GetIter(set);
+        if (!iterator) {
+            PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
+            return NULL;
+        }
+        
         PyObject *elem;
         PyObject *py_result = PySet_New(nullptr);
         while ((elem = PyIter_Next(iterator))) {
