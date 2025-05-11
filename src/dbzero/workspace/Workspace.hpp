@@ -284,7 +284,7 @@ namespace db0
         
 #ifndef NDEBUG
         // Activate throw from Storage::commit after specific number of operations (for testing purposes)
-        void setThrowFromCommit(unsigned int op_count);
+        void setCrashFromCommit(unsigned int op_count);
 #endif
         
     protected:
@@ -317,7 +317,7 @@ namespace db0
         // log of prefixes closed inside locked sections
         std::unordered_map<unsigned int, std::vector<std::pair<std::string, std::uint64_t> > > m_locked_section_log;
 #ifndef NDEBUG
-        // see setThrowFromCommit
+        // see setCrashFromCommit
         unsigned int m_throw_op_count = 0;
 #endif                
         

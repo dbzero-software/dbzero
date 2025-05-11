@@ -48,7 +48,7 @@ namespace db0
     {        
     }
 
-    void BaseStorage::setThrowFromCommit(unsigned int *)
+    void BaseStorage::setCrashFromCommit(unsigned int *)
     {
     }
 #endif        

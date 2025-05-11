@@ -116,9 +116,9 @@ namespace db0
 #ifndef NDEBUG
         void getDRAM_IOMap(std::unordered_map<std::uint64_t, DRAM_PageInfo> &) const override;
         void dramIOCheck(std::vector<DRAM_CheckResult> &) const override;
-        void setThrowFromCommit(unsigned int *throw_op_count_ptr) override;
+        void setCrashFromCommit(unsigned int *throw_op_count_ptr) override;
         
-        void checkThrowFromCommit();
+        void checkCrashFromCommit();
 #endif
 
     protected:

@@ -1290,13 +1290,13 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *tryThrowFromCommit(unsigned int op_count)
+    PyObject *tryCrashFromCommit(unsigned int op_count)
     {
-        PyToolkit::getPyWorkspace().getWorkspace().setThrowFromCommit(op_count);
+        PyToolkit::getPyWorkspace().getWorkspace().setCrashFromCommit(op_count);
         Py_RETURN_NONE;
     }
     
-    PyObject *PyAPI_throwFromCommit(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_crashFromCommit(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         if (nargs != 1) {
@@ -1310,7 +1310,7 @@ namespace db0::python
         }
 
         auto op_count = PyLong_AsUnsignedLong(args[0]);
-        return runSafe(tryThrowFromCommit, op_count);
+        return runSafe(tryCrashFromCommit, op_count);
     }
 
 #endif

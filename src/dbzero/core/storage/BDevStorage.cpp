@@ -249,7 +249,7 @@ namespace db0
                 m_sparse_index.emplace(page_num, state_num, storage_page_id);
                 #ifndef NDEBUG
                 m_page_io_raw_bytes += m_config.m_page_size;
-                checkThrowFromCommit();
+                checkCrashFromCommit();
                 #endif
             }
         }
@@ -289,7 +289,7 @@ namespace db0
         
         #ifndef NDEBUG
         m_page_io_raw_bytes += m_config.m_page_size;
-        checkThrowFromCommit();
+        checkCrashFromCommit();
         #endif
     }
     
@@ -520,15 +520,16 @@ namespace db0
         m_dram_io.dramIOCheck(check_result);
     }
 
-    void BDevStorage::setThrowFromCommit(unsigned int *throw_op_count_ptr) {
+    void BDevStorage::setCrashFromCommit(unsigned int *throw_op_count_ptr) {
         this->m_throw_op_count_ptr = throw_op_count_ptr;
     }
-
-    void BDevStorage::checkThrowFromCommit()
+    
+    void BDevStorage::checkCrashFromCommit()
     {
         if (m_throw_op_count_ptr && *m_throw_op_count_ptr > 0) {
             if (!--(*m_throw_op_count_ptr)) {
-                THROWF(db0::InternalException) << "BDevStorage::checkThrowFromCommit: throwing from commit";
+                // terminate the process abruptly
+                std::terminate();
             }
         }
     }
