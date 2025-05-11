@@ -10,9 +10,12 @@ namespace db0::python
     
     template <typename PyCollection>
     bool has_all_elements_same(PyCollection *collection, PyObject *iterator)
-    {        
+    {
         PyObject *lh, *rh;
         PyObject *py_collection_iter = PyObject_GetIter(collection);
+        if (!py_collection_iter) {
+            THROWF(db0::InputException) <<  "argument must be an iterable";
+        }
         while ((rh = PyIter_Next(iterator))) {
             lh = PyIter_Next(py_collection_iter);
             if (lh == nullptr) {                
@@ -36,6 +39,9 @@ namespace db0::python
     {        
         PyObject* elem;
         PyObject* iterator = PyObject_GetIter(object);
+        if (!iterator) {
+            THROWF(db0::InputException) <<  "argument must be an iterable";
+        }
         while ((elem = PyIter_Next(iterator))) {
             if (!sequenceContainsItem(collection, elem)) {
                 Py_DECREF(elem);                

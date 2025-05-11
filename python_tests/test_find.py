@@ -276,3 +276,13 @@ def test_use_not_operator_with_find(db0_fixture, memo_tags):
     assert db0.find("tag1")
     # yields no results
     assert not db0.find("no-such-tag")
+
+
+def test_find_issue_1(db0_fixture):
+    """
+    Issue: https://github.com/wskozlowski/dbzero_ce/issues/298
+    """        
+    query_object = MemoTestClass("test")
+    query_object2 = MemoTestClass("test")
+    db0.tags(query_object2).add(db0.as_tag(query_object))
+    assert len(list(db0.find(query_object))) == 1

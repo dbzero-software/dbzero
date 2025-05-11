@@ -45,7 +45,7 @@ namespace db0::python
         PY_API_FUNC
         return ListObject_copy(py_src_list);
     }
-
+    
     PyObject *PyAPI_ListObject_multiply(ListObject *list_obj, PyObject *elem)
     {
         PY_API_FUNC
@@ -53,8 +53,11 @@ namespace db0::python
         auto list_obj_copy = (ListObject *)ListObject_copy(list_obj);
         PyObject * obj_list = (PyObject *)list_obj;
         PyObject** args = &obj_list;
-        for(int i = 1; i< elems; ++i){
-            ObjectT_extend<ListObject>(list_obj_copy, args, 1);
+        for (int i = 1; i< elems; ++i) {
+            if (!ObjectT_extend<ListObject>(list_obj_copy, args, 1)) {
+                Py_DECREF(list_obj_copy);
+                return NULL;
+            }
         }
 
         return list_obj_copy;
@@ -68,7 +71,10 @@ namespace db0::python
         auto &list = py_list->modifyExt();
         db0::object_model::List::makeNew(&list, *lock);
         if (nargs == 1) {
-            ObjectT_extend<ListObject>(py_list, args, nargs);
+            if (!ObjectT_extend<ListObject>(py_list, args, nargs)) {
+                Py_DECREF(py_list);
+                return nullptr;
+            }
         }
         // register newly created list with py-object cache
         fixture->getLangCache().add(list.getAddress(), py_list);
@@ -156,7 +162,10 @@ namespace db0::python
         PyObject * obj_list = (PyObject *)list_obj_rh;
         PyObject** args = &obj_list;
         ListObject *lh_copy = (ListObject *)ListObject_copy(list_obj_lh);
-        ObjectT_extend<ListObject>(lh_copy, args, 1);
+        if (!ObjectT_extend<ListObject>(lh_copy, args, 1)) {
+            Py_DECREF(lh_copy);
+            return NULL;
+        }
         return lh_copy;
     }
     
@@ -184,35 +193,42 @@ namespace db0::python
         {NULL}
     };
 
-    static PyObject *PyAPI_ListObject_rq(ListObject *list_obj, PyObject *other, int op) 
-    {
-        PY_API_FUNC
+    PyObject *tryListObject_rq(ListObject *list_obj, PyObject *other, int op)
+    {        
         if (ListObject_Check(other)) {
             ListObject * other_list = (ListObject*) other;
-            switch (op)
-            {
-            case Py_EQ:
-                return PyBool_fromBool(list_obj->ext() == other_list->ext());
-            case Py_NE:
-                return PyBool_fromBool(list_obj->ext() != other_list->ext());
-            default:
-                Py_RETURN_NOTIMPLEMENTED;
+            switch (op) {
+                case Py_EQ:
+                    return PyBool_fromBool(list_obj->ext() == other_list->ext());
+                case Py_NE:
+                    return PyBool_fromBool(list_obj->ext() != other_list->ext());
+                default:
+                    Py_RETURN_NOTIMPLEMENTED;
             }
         } else {
             PyObject *iterator = PyObject_GetIter(other);
-            switch (op)
-            {
-            case Py_EQ:
-                return PyBool_fromBool(has_all_elements_same(list_obj, iterator));
-            case Py_NE:
-                return PyBool_fromBool(!has_all_elements_same(list_obj, iterator));
-            default:
-                Py_RETURN_NOTIMPLEMENTED;
+            if (!iterator) {
+                PyErr_SetString(PyExc_TypeError, "argument must be a sequence");
+                return NULL;
+            }
+            switch (op) {
+                case Py_EQ:
+                    return PyBool_fromBool(has_all_elements_same(list_obj, iterator));
+                case Py_NE:
+                    return PyBool_fromBool(!has_all_elements_same(list_obj, iterator));
+                default:
+                    Py_RETURN_NOTIMPLEMENTED;
             }
 
             Py_DECREF(iterator);
             Py_RETURN_TRUE;
         }
+    }
+    
+    PyObject *PyAPI_ListObject_rq(ListObject *list_obj, PyObject *other, int op)
+    {
+        PY_API_FUNC
+        return runSafe(tryListObject_rq, list_obj, other, op);
     }
 
     PyTypeObject ListObjectType = {
@@ -255,7 +271,7 @@ namespace db0::python
     bool ListObject_Check(PyObject *object) {
         return Py_TYPE(object) == &ListObjectType;
     }
-
+    
     shared_py_object<ListObject*> makeDB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs) {
         return makeDB0ListInternal(fixture, args, nargs);
     }

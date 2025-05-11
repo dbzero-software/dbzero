@@ -116,6 +116,9 @@ namespace db0::object_model
         PyObjectPtr obj_ptr, StorageClass)
     {
         auto list_ptr = db0::python::makeDB0List(fixture, &obj_ptr, 1);
+        if (!list_ptr) {
+            THROWF(db0::InputException) << "Failed to create list" << THROWF_END;
+        }
         list_ptr.get()->modifyExt().modify().incRef();
         return list_ptr.get()->ext().getAddress();
     }
@@ -125,6 +128,9 @@ namespace db0::object_model
         PyObjectPtr obj_ptr, StorageClass)
     {
         auto set = db0::python::makeDB0Set(fixture, &obj_ptr, 1);
+        if (!set) {
+            THROWF(db0::InputException) << "Failed to create set" << THROWF_END;
+        }
         set.get()->modifyExt().incRef();
         return set.get()->ext().getAddress();
     }
@@ -133,10 +139,14 @@ namespace db0::object_model
     template <> Value createMember<TypeId::DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
-        PyObject* args = PyTuple_New(1);
+        PyObject *args = PyTuple_New(1);
         Py_INCREF(obj_ptr);
         PyTuple_SetItem(args, 0, obj_ptr);
         auto dict = db0::python::makeDB0Dict(fixture, args, nullptr);
+        Py_DECREF(args);
+        if (!dict) {
+            THROWF(db0::InputException) << "Failed to create dict" << THROWF_END;
+        }
         dict.get()->modifyExt().incRef();
         return dict.get()->ext().getAddress();
     }

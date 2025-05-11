@@ -102,10 +102,13 @@ namespace db0::python
         assert(get_fixture_of_functions[static_cast<int>(type_id)]);
         return get_fixture_of_functions[static_cast<int>(type_id)](object);
     }
-
+    
     template <typename T> PyObject *tryGetUUIDOf(T *self)
     {
         auto &instance = self->ext();
+        if (!instance.hasInstance()) {
+            THROWF(db0::InputException) << "Cannot get UUID of an uninitialized object";
+        }
         db0::object_model::ObjectId object_id;
         auto fixture = instance.getFixture();
         assert(fixture);

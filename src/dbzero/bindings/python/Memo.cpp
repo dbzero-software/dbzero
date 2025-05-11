@@ -693,6 +693,14 @@ namespace db0::python
         PyObject *signatue = PyObject_CallMethod(inspec_module, "signature", "O", method);
         PyObject *parameters = PyObject_GetAttrString(signatue, "parameters");
         PyObject *iterator = PyObject_GetIter(parameters);
+        if (!iterator) {
+            Py_DECREF(inspec_module);
+            Py_DECREF(signatue);
+            Py_DECREF(parameters);
+            PyErr_SetString(PyExc_RuntimeError, "Failed to get iterator");            
+            return nullptr;
+        }
+        
         PyObject *elem;
         PyObject *py_result = PyDict_New();
         while ((elem = PyIter_Next(iterator))) {
@@ -721,8 +729,11 @@ namespace db0::python
             
             PyObject * result;
             if (kwargs != nullptr) {
+                PyObject *method_kwargs = getKwargsForMethod(load_method, kwargs);
+                if (!method_kwargs) {                    
+                    return nullptr;
+                }
                 PyObject *args = PyTuple_New(0);
-                PyObject * method_kwargs = getKwargsForMethod(load_method, kwargs);
                 result = PyObject_Call(load_method, args, method_kwargs);
                 Py_DECREF(args);
             } else {
