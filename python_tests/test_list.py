@@ -429,3 +429,17 @@ def test_list_drop_issue_1(db0_fixture):
     db0.commit()
     # list should NOT be dropped (since python reference is still accessible)
     assert list(db0.fetch(list_uuid)) == [1, 2, 3, 0, 1, 2, 3, 4]
+    
+    
+def test_list_index_access_issue_1(db0_fixture):
+    """
+    Issue: the access by-index was requesting read-write access to the underlying prefix
+    Error: the test was failing with: Cannot modify read-only prefix: my-test-prefix
+    """
+    px_name = db0.get_current_prefix().name
+    _ = MemoTestSingleton([1, 2, 3])
+    db0.close()
+    db0.init(DB0_DIR)
+    db0.open(px_name, "r")
+    root = MemoTestSingleton()
+    assert root.value[0] == 1
