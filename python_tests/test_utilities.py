@@ -7,3 +7,5 @@ def test_taggify():
     assert list(db0.taggify("A.Kowalski", max_len = None)) == ['A', 'KOWALSKI']
     assert list(db0.taggify("15-593", max_len = 2)) == ['15', '59']
     assert list(db0.taggify("15-593", max_len = None)) == ['15', '593']
+    assert list(db0.taggify("Zażółć Gęślą Jaźń", suffix=True)) == ['OLC', 'SLA', 'AZN']
+    assert list(db0.taggify("ab ba", suffix=True)) == ['AB', 'BA']
