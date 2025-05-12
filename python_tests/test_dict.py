@@ -319,6 +319,7 @@ def test_unpack_tuple_element(db0_fixture):
     assert b == b"bytes"
     assert c == "first"
 
+
 def test_clear_unref_keys_and_values(db0_fixture):
     my_dict = db0.dict()
     key = MemoTestClass("key")
@@ -473,3 +474,11 @@ def test_dict_raises_key_error(db0_fixture, make_dict):
     dict_1 = make_dict([("item", 2), ("item_2", 3)])
     with pytest.raises(KeyError):
         dict_1['item_3']
+        
+        
+def test_pydict_with_db0_tuples_as_keys(db0_no_autocommit):
+    py_dict = {}
+    t1 = db0.tuple(["first", 1])
+    with pytest.raises(Exception) as ex:
+        py_dict[t1] = MemoTestClass(1)
+    assert "unhashable" in str(ex.value)
