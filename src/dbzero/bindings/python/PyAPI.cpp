@@ -295,11 +295,11 @@ namespace db0::python
         PyToolkit::getPyWorkspace().stopThreads();
         Py_RETURN_NONE;
     }
-
+    
     PyObject *tryClose(const char *prefix_name)
     {
         if (prefix_name) {
-            PyToolkit::getPyWorkspace().getWorkspace().close(prefix_name);
+            PyToolkit::getPyWorkspace().getWorkspace().close(db0::PrefixName(prefix_name));
         } else {
             PyToolkit::getPyWorkspace().close();
         }
