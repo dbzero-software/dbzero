@@ -17,12 +17,13 @@ namespace db0
         using ObjectPtr = LangToolkit::ObjectPtr;
         using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
 
-        Config(ObjectPtr py_config);
+        Config(ObjectPtr lang_config);
+        ~Config();
 
         const ObjectSharedPtr& getRawConfig() const;
 
         template <typename T> std::optional<T> get(const std::string &key) const {
-            return db0::get<T>(m_py_config.get(), key);
+            return db0::get<T>(m_lang_config.get(), key);
         }
 
         template <typename T> T get(const std::string &key, T default_value) const {
@@ -31,7 +32,7 @@ namespace db0
         }
     
     private:
-        ObjectSharedPtr m_py_config;
+        ObjectSharedPtr m_lang_config;
     };
     
 }

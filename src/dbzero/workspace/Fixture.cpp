@@ -156,7 +156,7 @@ namespace db0
         }
     }
     
-    void Fixture::close(ProcessTimer *timer_ptr)
+    void Fixture::close(bool as_defunct, ProcessTimer *timer_ptr)
     {
         std::unique_ptr<ProcessTimer> timer;
         if (timer_ptr) {
@@ -164,8 +164,8 @@ namespace db0
         }
         
         // clear cache to destroy object instances supported by the cache
-        // this has to be done before commit (to not commit unrefereced objects)        
-        m_lang_cache.clear(true);
+        // this has to be done before commit (to not commit unrefereced objects)
+        m_lang_cache.clear(true, as_defunct);
         
         // auto-commit before closing
         if (m_access_type == AccessType::READ_WRITE) {

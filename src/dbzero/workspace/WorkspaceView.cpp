@@ -176,7 +176,7 @@ namespace db0
         if (it != m_name_uuids.end()) {
             auto it_fixture = m_fixtures.find(it->second);
             if (it_fixture != m_fixtures.end()) {
-                it_fixture->second->close();
+                it_fixture->second->close(false);
                 m_fixtures.erase(it_fixture);
                 return true;
             }
@@ -185,7 +185,7 @@ namespace db0
         return false;
     }
     
-    void WorkspaceView::close(ProcessTimer *timer_ptr)
+    void WorkspaceView::close(bool as_defunct, ProcessTimer *timer_ptr)
     {        
         if (m_closed) {
             return;
@@ -198,8 +198,12 @@ namespace db0
         
         auto it = m_fixtures.begin(), end = m_fixtures.end();
         while (it != end) {
-            it->second->close();
+            it->second->close(as_defunct, timer.get());
             it = m_fixtures.erase(it);
+        }
+
+        if (as_defunct) {
+            m_lang_cache->clearDefunct();
         }
         m_lang_cache = nullptr;
         m_closed = true;

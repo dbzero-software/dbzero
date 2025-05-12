@@ -208,6 +208,9 @@ namespace db0::python
 
         // return base type of Memo Type object instance or nullptr if base class is not MemoObjec
         static TypeObjectPtr getBaseMemoType(TypeObjectPtr py_object);
+        
+        // Check the interpreter's status (e.g. returned false if Python is defunct)
+        static bool isValid();
 
     private:
         static PyWorkspace m_py_workspace;

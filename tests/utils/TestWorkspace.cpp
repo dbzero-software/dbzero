@@ -60,18 +60,18 @@ namespace db0
 
         auto it = m_fixtures.find(it_uuid->second);
         if (it != m_fixtures.end()) {
-            it->second->close();
+            it->second->close(false);
             m_fixtures.erase(it);
             return true;
         }
         return false;
     }
     
-    void TestWorkspace::close(ProcessTimer *)
+    void TestWorkspace::close(bool as_defunct, ProcessTimer *)
     {
         m_current_fixture = nullptr;
         for (auto &fixture: m_fixtures) {
-            fixture.second->close();
+            fixture.second->close(as_defunct);
         }
         m_fixtures.clear();
     }

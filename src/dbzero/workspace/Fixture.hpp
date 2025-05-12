@@ -155,7 +155,7 @@ namespace db0
         // @return true if the fixture state was changed (i.e. actual transaction was committed)
         bool commit();
         
-        void close(ProcessTimer * = nullptr);
+        void close(bool as_defunct, ProcessTimer * = nullptr);
         
         inline GC0 *tryGetGC0() const {
             return m_gc0_ptr;

@@ -99,11 +99,11 @@ namespace db0
         ++m_size;
     }
 
-    bool LangCache::erase(const Fixture &fixture, Address address, bool expired_only) {
+    bool LangCache::erase(const Fixture &fixture, Address address, bool expired_only, bool as_defunct) {
         return erase(getFixtureId(fixture), address, expired_only);
     }
-    
-    bool LangCache::erase(std::uint16_t fixture_id, Address address, bool expired_only)
+
+    bool LangCache::erase(std::uint16_t fixture_id, Address address, bool expired_only, bool as_defunct)
     {
         auto uid = makeUID(fixture_id, address);
         auto it = m_uid_to_index.find(uid);
@@ -119,6 +119,10 @@ namespace db0
 
         // need to remove from the map first because destroy may trigger erase from GC0        
         m_uid_to_index.erase(it);
+        if (as_defunct) {
+            // just release the pointer since Python is defunct
+            m_cache[slot_id].second.steal();
+        }
         m_cache[slot_id] = {};
         --m_size;
         return true;
@@ -132,6 +136,18 @@ namespace db0
                 item = {};
                 --m_size;
             }
+        }
+    }
+    
+    void LangCache::clearDefunct()
+    {
+        for (auto &item: m_cache) {
+            if (item.second) {
+                m_uid_to_index.erase(item.first);
+                // just release the pointer since Python is defunct
+                item.second.steal();
+                --m_size;
+            }            
         }
     }
     
@@ -249,7 +265,7 @@ namespace db0
         m_objects.insert(dst_address);
     }
     
-    void LangCacheView::clear(bool expired_only)
+    void LangCacheView::clear(bool expired_only, bool as_defunct)
     {
         // erase expired objects only
         if (expired_only) {
@@ -257,7 +273,7 @@ namespace db0
             if (m_objects.size() > m_cache.size() * 4) {                
                 std::unordered_set<Address> non_expired_objects;
                 for (auto addr: m_objects) {
-                    if (!m_cache.erase(m_fixture_id, addr, true)) {
+                    if (!m_cache.erase(m_fixture_id, addr, true, as_defunct)) {
                         non_expired_objects.insert(addr);
                     }
                 }
@@ -265,7 +281,7 @@ namespace db0
             } else {
                 auto it = m_objects.begin();
                 while (it != m_objects.end()) {
-                    if (m_cache.erase(m_fixture_id, *it, true)) {
+                    if (m_cache.erase(m_fixture_id, *it, true, as_defunct)) {
                         it = m_objects.erase(it);
                     } else {
                         ++it;
@@ -274,7 +290,7 @@ namespace db0
             }
         } else {
             for (auto addr: m_objects) {
-                m_cache.erase(m_fixture_id, addr, false);
+                m_cache.erase(m_fixture_id, addr, false, as_defunct);
             }
             m_objects.clear();
         }

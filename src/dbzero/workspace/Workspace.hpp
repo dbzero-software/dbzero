@@ -84,7 +84,7 @@ namespace db0
          * Close all prefixes, commit all data from read/write prefixes
         */
         void close(ProcessTimer * = nullptr);
-
+        
         CacheRecycler &getCacheRecycler() {
             return m_cache_recycler;
         }
@@ -215,11 +215,13 @@ namespace db0
         bool drop(const PrefixName &, bool if_exists = true);
 
         bool close(const PrefixName &) override;
-
+        
         /**
          * Close all prefixes, commit all data from read/write prefixes
+         * @param as_defunct if true (i.e. Python interpreter is already shut down) then close without releasing any
+         * language specific resources
         */
-        void close(ProcessTimer * = nullptr) override;
+        void close(bool as_defunct = false, ProcessTimer * = nullptr) override;
         
         std::shared_ptr<LangCache> getLangCache() const override;
 

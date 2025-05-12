@@ -75,7 +75,7 @@ namespace db0
     bool BaseWorkspace::hasMemspace(const PrefixName &prefix_name) const {
         return m_prefix_catalog.exists(m_prefix_catalog.getFileName(prefix_name).string());
     }
-
+    
     Memspace &BaseWorkspace::getMemspace(const PrefixName &prefix_name, AccessType access_type, 
         std::optional<std::size_t> page_size, std::optional<std::size_t> slab_size, 
         std::optional<std::size_t> sparse_index_node_size)
@@ -261,7 +261,7 @@ namespace db0
                 });
                                 
                 bool is_default = (it->second == m_default_fixture);
-                it->second->close();
+                it->second->close(false);
                 m_fixtures.erase(it);
 
                 if (is_default) {
@@ -285,7 +285,7 @@ namespace db0
         m_workspace_threads = nullptr;
     }
     
-    void Workspace::close(ProcessTimer *timer_ptr)
+    void Workspace::close(bool as_defunct, ProcessTimer *timer_ptr)
     {    
         std::unique_ptr<ProcessTimer> timer;
         if (timer_ptr) {
@@ -296,7 +296,7 @@ namespace db0
         for (auto &view_ptr : m_views) {
             if (auto ptr = view_ptr.lock()) {
                 if (ptr) {
-                    ptr->close();
+                    ptr->close(as_defunct);
                 }
             }
         }
@@ -306,9 +306,14 @@ namespace db0
         m_shared_object_list.clear();
         auto it = m_fixtures.begin();
         while (it != m_fixtures.end()) {
-            it->second->close(timer.get());
+            it->second->close(as_defunct, timer.get());
             it = m_fixtures.erase(it);
         }
+        
+        if (as_defunct) {
+            m_lang_cache->clearDefunct();
+        }
+
         m_default_fixture = {};
         m_current_prefix_history.clear();
         BaseWorkspace::close(timer.get());

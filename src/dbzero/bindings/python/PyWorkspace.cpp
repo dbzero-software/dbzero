@@ -21,6 +21,11 @@ namespace db0::python
     
     PyWorkspace::~PyWorkspace()
     {
+        if (m_workspace) {
+            // NOTE close as defunct if python interpreter is no longer running
+            m_workspace->close(!PyToolkit::isValid());
+            m_workspace = nullptr;
+        }
     }
     
     void PyWorkspace::open(const std::string &prefix_name, AccessType access_type, std::optional<bool> autocommit,
