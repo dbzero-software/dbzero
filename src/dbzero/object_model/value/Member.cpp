@@ -249,6 +249,16 @@ namespace db0::object_model
         return enum_value.getUID().asULong();
     }
     
+    // ENUM value-repr specialization (serialized member)
+    template <> Value createMember<TypeId::DB0_ENUM_VALUE_REPR, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr, StorageClass)
+    {
+        auto &enum_value_repr = PyToolkit::getTypeManager().extractEnumValueRepr(obj_ptr);
+        // convert enum value-repr to enum value
+        auto enum_value = fixture->get<EnumFactory>().getEnumValue(enum_value_repr);
+        return enum_value.getUID().asULong();
+    }
+
     template <> Value createMember<TypeId::BOOLEAN, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
@@ -308,6 +318,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::BYTES)] = createMember<TypeId::BYTES, PyToolkit>; 
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = createMember<TypeId::OBJECT_ITERABLE, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
+        functions[static_cast<int>(TypeId::DB0_ENUM_VALUE_REPR)] = createMember<TypeId::DB0_ENUM_VALUE_REPR, PyToolkit>;
         functions[static_cast<int>(TypeId::BOOLEAN)] = createMember<TypeId::BOOLEAN, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_BYTES_ARRAY)] = createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_WEAK_PROXY)] = createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>;

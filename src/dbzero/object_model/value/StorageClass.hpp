@@ -43,8 +43,6 @@ namespace db0::object_model
        DB0_TUPLE = 17,
        // string value encoded in 64 bits
        STR64 = 18,
-    //    DB0_BLOCK = 19,
-    //    DB0_PANDAS_DATAFRAME = 20,
        DB0_CLASS = 21,
        DB0_INDEX = 22,
        DB0_BYTES = 23,
@@ -141,13 +139,15 @@ namespace db0
     using StorageClass = db0::object_model::StorageClass;
     
     // This version is valid for all cases except for OBJECT_WEAK_REF
-    inline StorageClass getStorageClass(PreStorageClass pre_storage_class) {
+    inline StorageClass getStorageClass(PreStorageClass pre_storage_class) 
+    {
         assert(pre_storage_class != PreStorageClass::OBJECT_WEAK_REF);
         return static_cast<StorageClass>(static_cast<int>(pre_storage_class));
     }
     
     // Get the closest pre-storage class
-    inline PreStorageClass getPreStorageClass(StorageClass storage_class) {
+    inline PreStorageClass getPreStorageClass(StorageClass storage_class) 
+    {
         if (storage_class == StorageClass::OBJECT_LONG_WEAK_REF) {
             return PreStorageClass::OBJECT_WEAK_REF;
         }

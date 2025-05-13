@@ -313,6 +313,15 @@ namespace db0::object_model
         return enum_->get(enum_value_repr.m_str_repr.c_str());
     }
     
+    EnumValue EnumFactory::getEnumValue(const EnumValueRepr &enum_value_repr)
+    {
+        auto enum_value = tryGetEnumValue(enum_value_repr);
+        if (!enum_value) {
+            THROWF(db0::InputException) << "Unable to get EnumValue of: " << enum_value_repr.m_str_repr;            
+        }
+        return *enum_value;
+    }
+    
     EnumFactory::ObjectSharedPtr EnumFactory::tryGetEnumLangValue(const EnumValueRepr &enum_value_repr)
     {
         const auto &enum_type_def = enum_value_repr.getEnumTypeDef();
