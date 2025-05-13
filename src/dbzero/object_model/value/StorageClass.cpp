@@ -30,6 +30,8 @@ namespace db0::object_model
         addMapping(TypeId::DB0_INDEX, PreStorageClass::DB0_INDEX);
         addMapping(TypeId::OBJECT_ITERABLE, PreStorageClass::DB0_SERIALIZED);
         addMapping(TypeId::DB0_ENUM_VALUE, PreStorageClass::DB0_ENUM_VALUE);
+        // NOTE: enum value-reprs are converted to materialized enums on storage
+        addMapping(TypeId::DB0_ENUM_VALUE_REPR, PreStorageClass::DB0_ENUM_VALUE);
         addMapping(TypeId::BOOLEAN, PreStorageClass::BOOLEAN);
         addMapping(TypeId::DB0_BYTES_ARRAY, PreStorageClass::DB0_BYTES_ARRAY);
         // Note: DB0_WEAK_PROXY by default maps to OBJECT_WEAK_REF but can also be OBJECT_LONG_WEAK_REF which needs to be checked
@@ -45,6 +47,7 @@ namespace db0::object_model
         
         auto int_id = static_cast<std::size_t>(type_id);
         if (int_id < m_storage_class_map.size()) {
+            assert(m_storage_class_map[int_id] != PreStorageClass::INVALID);
             return m_storage_class_map[int_id];
         }
         THROWF(db0::InputException)

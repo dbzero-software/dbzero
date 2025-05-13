@@ -84,6 +84,7 @@ namespace db0::object_model
         
         // Try converting EnumValueRepr to this EnumFactory's associated EnumValue
         std::optional<EnumValue> tryGetEnumValue(const EnumValueRepr &);
+        EnumValue getEnumValue(const EnumValueRepr &);
         // try converting to enum's related language specific object
         ObjectSharedPtr tryGetEnumLangValue(const EnumValueRepr &);
 

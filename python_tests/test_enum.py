@@ -221,4 +221,11 @@ def test_using_db0_enum_as_python_dict_keys(db0_fixture):
     assert d[obj_1.value] == "red"
     assert d[obj_2.value] == "green"
     assert d[obj_3.value] == "blue"
-    
+
+
+def function_with_enum_as_default(color=ColorsEnum.RED):
+    return MemoTestClass(color)
+
+def test_enum_as_default_function_arguments(db0_fixture):    
+    obj = function_with_enum_as_default()
+    assert obj.value == ColorsEnum.RED
