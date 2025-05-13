@@ -32,7 +32,7 @@ namespace db0
         
         // Erase an instance from cache
         // @param expired_only if true, only expired instances will be removed
-        bool erase(const Fixture &, Address, bool expired_only = false);
+        bool erase(const Fixture &, Address, bool expired_only = false, bool as_defunct = false);
         
         // Try retrieving an existing instance from cache
         // nullptr will be returned if the instance has not been found in cache
@@ -51,6 +51,9 @@ namespace db0
         // this is to avoid instance duplication in the program (e.g. when later being fetched by UUID)
         void clear(bool expired_only);
         
+        // Release all cached instances (cannot be deleted since Python interpreter is no longer available)
+        void clearDefunct();
+        
     protected:
         friend class LangCacheView;
         mutable db0::auto_map<const Fixture*, std::uint16_t> m_fixture_to_id;
@@ -59,7 +62,7 @@ namespace db0
 
         void add(std::uint16_t fixture_id, Address, ObjectPtr);
         
-        bool erase(std::uint16_t fixture_id, Address, bool expired_only = false);
+        bool erase(std::uint16_t fixture_id, Address, bool expired_only = false, bool as_defunct = false);
 
     private:
         // UID + instance pair
@@ -114,8 +117,8 @@ namespace db0
         void moveFrom(LangCacheView &other, Address src_address, Address dst_address);
         
         // Erase all instances added via this view
-        void clear(bool expired_only);
-
+        void clear(bool expired_only, bool as_defunct = false);
+        
     private:
         const Fixture &m_fixture;
         std::shared_ptr<LangCache> m_cache_ptr;

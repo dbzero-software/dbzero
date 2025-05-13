@@ -3,6 +3,8 @@ import dbzero_ce as db0
 from .memo_test_types import MemoTestClass, MemoDataPxClass, MemoTestSingleton, MemoClassForTags
 from .conftest import DB0_DIR, DATA_PX
 import itertools
+from datetime import datetime
+
 
 @db0.memo()
 class DifferentClassForTags:
@@ -286,3 +288,58 @@ def test_find_issue_1(db0_fixture):
     query_object2 = MemoTestClass("test")
     db0.tags(query_object2).add(db0.as_tag(query_object))
     assert len(list(db0.find(query_object))) == 1
+    
+    
+@db0.memo
+class Attribute:
+    def __init__(self, name, value):
+        self.create_date = datetime.now()
+        self.last_update = datetime.now()
+        self.name = name
+        self.value = value
+        self.note_index = db0.index()
+        self.tags = set()
+
+    def tag_object(self, tags):
+        for tag in tags:
+            if tag not in self.tags:
+                self.tags.add(tag)
+                db0.tags(self).add(tag)
+        self.update_time()
+
+    def untag_object(self, tags):
+        for tag in tags:
+            if tag in self.tags:
+                self.tags.remove(tag)
+                db0.tags(self).remove(tag)
+            self.update_time()
+
+    def add_note(self, note):
+        self.note_index.add(note.create_date, note)
+        self.update_time()
+
+    def update_time(self):
+        self.last_update = datetime.now()
+        
+    
+def test_tagging_and_untagging_in_single_commit_breaks_tag_search_issue2(db0_fixture):
+    """
+    Issue: https://github.com/wskozlowski/dbzero_ce/issues/184
+    """
+    obj = Attribute("1", "1")
+    assert obj.name == "1"
+    assert obj.value == "1"
+    obj.tag_object(["object", "tag1", "tag1_1"])
+    old_tag_list = set(obj.tags)
+    db0.commit()
+    obj = [x for x in db0.find(Attribute, "object")][0]
+    db0.commit()
+    obj.untag_object(["object", "tag1", "tag1_1"])
+    empty_tag_list = set(obj.tags)
+    assert len(empty_tag_list) == 0
+    obj.tag_object(["object", "tag1", "tag1_1"])
+    db0.commit()
+    new_tag_list = set(obj.tags)
+    assert old_tag_list == new_tag_list
+    objs = [x for x in db0.find(Attribute, "object")]
+    assert len(objs) != 0

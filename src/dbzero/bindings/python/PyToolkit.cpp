@@ -576,7 +576,7 @@ namespace db0::python
         }
         return { result, false };
     }
-
+    
     PyToolkit::ObjectSharedPtr PyToolkit::makeTuple(std::vector<ObjectSharedPtr> &&values)
     {
         PyObject *result = PyTuple_New(values.size());
@@ -586,4 +586,8 @@ namespace db0::python
         return { result, false };
     }
     
+    bool PyToolkit::isValid() {
+        return Py_IsInitialized();
+    }
+
 }

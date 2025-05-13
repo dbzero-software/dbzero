@@ -41,7 +41,12 @@ namespace db0
         
         virtual bool close(const PrefixName &prefix_name) = 0;
         
-        virtual void close(ProcessTimer * = nullptr) = 0;
+        /**
+         * Close all prefixes, commit all data from read/write prefixes
+         * @param as_defunct if true (i.e. Python interpreter is already shut down) then close without releasing any
+         * language specific resources
+        */
+        virtual void close(bool as_defunct = false, ProcessTimer * = nullptr) = 0;
         
         virtual std::shared_ptr<LangCache> getLangCache() const = 0;
         

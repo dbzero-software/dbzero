@@ -30,6 +30,10 @@ namespace tests
             m_workspace.close();
             drop(file_name);
         }
+        
+        PrefixName getPrefixName() const {
+            return prefix_name;
+        }
 
     protected:
         Workspace m_workspace;        
@@ -37,20 +41,20 @@ namespace tests
     
     TEST_F( WorkspaceTest , testWorkspaceCanCreateNewFixture )
     {
-        auto fixture = m_workspace.getFixture(prefix_name);
+        auto fixture = m_workspace.getFixture(getPrefixName());
         ASSERT_NE(fixture, nullptr);
     }
     
     TEST_F( WorkspaceTest , testCanAccessLimitedStringPool )
     {
-        auto fixture = m_workspace.getFixture(prefix_name);
+        auto fixture = m_workspace.getFixture(getPrefixName());
         auto ptr = fixture->getLimitedStringPool().addRef("test");
         ASSERT_NE(ptr.m_value, 0);
     }
     
     TEST_F( WorkspaceTest , testFixtureCanBeAccessedByUUID )
     {        
-        auto fixture = m_workspace.getFixture(prefix_name);
+        auto fixture = m_workspace.getFixture(getPrefixName());
         auto fx2 = m_workspace.getFixture(fixture->getUUID());
 
         ASSERT_EQ(fixture, fx2);
@@ -68,7 +72,7 @@ namespace tests
         Address address = {};
         // first transaction to create object
         {
-            auto fixture = m_workspace.getFixture(prefix_name);
+            auto fixture = m_workspace.getFixture(getPrefixName());
             v_object<o_TT> obj(*fixture);
             address = obj.getAddress();
             fixture->commit();
@@ -79,7 +83,7 @@ namespace tests
         std::shared_ptr<WorkspaceView> workspace_view;
         for (int i = 0; i < 10; ++i)
         {
-            auto fixture = m_workspace.getFixture(prefix_name);
+            auto fixture = m_workspace.getFixture(getPrefixName());
             v_object<o_TT> obj(fixture->myPtr(address));
             obj.modify().a = i + 1;
             fixture->commit();
@@ -99,7 +103,7 @@ namespace tests
     TEST_F( WorkspaceTest , testFreeCanBePerformedBetweenTransactions )
     {        
         Address address = {};
-        auto fixture = m_workspace.getFixture(prefix_name);
+        auto fixture = m_workspace.getFixture(getPrefixName());
         // first transaction to create object
         {
             v_object<o_TT> obj(*fixture);
@@ -114,7 +118,7 @@ namespace tests
 
     TEST_F( WorkspaceTest , testObjectInstanceCanBeModifiedBetweenTransactions )
     {        
-        auto fixture = m_workspace.getFixture(prefix_name);
+        auto fixture = m_workspace.getFixture(getPrefixName());
         // create object and keep instance across multiple transactions
         v_object<o_TT> obj(*fixture);
         fixture->commit();
@@ -126,7 +130,7 @@ namespace tests
 
     TEST_F( WorkspaceTest , testAllocFreeBetweenTransactionsIssue )
     {        
-        auto fixture = m_workspace.getFixture(prefix_name);
+        auto fixture = m_workspace.getFixture(getPrefixName());
         std::vector<Address> addresses;
         std::vector<std::size_t> allocs = {
             33, 28, 4
@@ -141,7 +145,7 @@ namespace tests
     
     TEST_F( WorkspaceTest , testAllocFromTypeSlotThenFree )
     {        
-        auto fixture = m_workspace.getFixture(prefix_name);
+        auto fixture = m_workspace.getFixture(getPrefixName());
         auto addr = fixture->alloc(100, Fixture::TYPE_SLOT_NUM);
         ASSERT_TRUE(addr);
         // get alloc size does not require providing slot number
@@ -164,7 +168,7 @@ namespace tests
             v_object<o_simple<int>> obj(*memspace, 999);
             address = obj.getAddress();            
             (*memspace).commit();
-            m_workspace.close(prefix_name);
+            m_workspace.close(getPrefixName());
         }
         
         // state_num + expected value
@@ -176,7 +180,7 @@ namespace tests
             obj.modify() = i + 1;
             state_log.emplace_back(memspace->getPrefix().getStateNum(), obj->value());
             (*memspace).commit();
-            m_workspace.close(prefix_name);
+            m_workspace.close(getPrefixName());
         }
         
         // now go back to specific transactions and validate object state
@@ -184,7 +188,7 @@ namespace tests
             auto memspace = m_workspace.getFixture(prefix_name, AccessType::READ_ONLY)->getSnapshot(m_workspace, log.first);
             v_object<o_simple<int>> obj((*memspace).myPtr(address));
             ASSERT_EQ(obj->value(), log.second);
-            m_workspace.close(prefix_name);
+            m_workspace.close(getPrefixName());
         }
     }
     
@@ -193,18 +197,18 @@ namespace tests
         Address address = {};
         // first transaction to create object
         {
-            auto memspace = m_workspace.getFixture(prefix_name);
+            auto memspace = m_workspace.getFixture(getPrefixName());
             v_object<o_TT> obj(*memspace);
             address = obj.getAddress();
             (*memspace).commit();
-            m_workspace.close(prefix_name);
+            m_workspace.close(getPrefixName());
         }
         
         // state_num + values
         std::vector<std::pair<std::uint64_t, std::pair<int, int> > > state_log;
         // perform 10 object modifications in 10 transactions
         for (int i = 0; i < 10; ++i) {
-            auto memspace = m_workspace.getFixture(prefix_name);
+            auto memspace = m_workspace.getFixture(getPrefixName());
             v_object<o_TT> obj((*memspace).myPtr(address));
             // either modify a or b
             if (i % 2 == 0) {
@@ -216,17 +220,17 @@ namespace tests
             }
             
             (*memspace).commit();
-            m_workspace.close(prefix_name);
+            m_workspace.close(getPrefixName());
         }
         
         // now, go back to specific transactions and validate object state
         // note that read-only mode is used to access transactions
         for (auto &log: state_log) {
-            auto memspace = m_workspace.getFixture(prefix_name, AccessType::READ_ONLY)->getSnapshot(m_workspace, log.first);
+            auto memspace = m_workspace.getFixture(getPrefixName(), AccessType::READ_ONLY)->getSnapshot(m_workspace, log.first);
             v_object<o_TT> obj((*memspace).myPtr(address));
             ASSERT_EQ(obj->a, log.second.first);
             ASSERT_EQ(obj->b, log.second.second);
-            m_workspace.close(prefix_name);
+            m_workspace.close(getPrefixName());
         }
     }
     
@@ -234,7 +238,7 @@ namespace tests
     TEST_F( WorkspaceTest , testMemoryUsageOverTime )
     {
         m_workspace.setCacheSize(1u << 20);
-        auto fixture = m_workspace.getFixture(prefix_name);
+        auto fixture = m_workspace.getFixture(getPrefixName());
         for (int i = 0; i < 1000; ++i) {
             std::vector<db0::v_object<db0::o_binary> > objects;
             for (int j = 0; j < 250; ++j) {

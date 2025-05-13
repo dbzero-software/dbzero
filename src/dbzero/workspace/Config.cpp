@@ -4,41 +4,49 @@ namespace db0
 
 {
     
-    Config::Config(ObjectPtr py_config)
-        : m_py_config(py_config)
+    Config::Config(ObjectPtr lang_config)
+        : m_lang_config(lang_config)
     {
     }
 
-    const Config::ObjectSharedPtr& Config::getRawConfig() const
+    Config::~Config()
     {
-        return m_py_config;
+        // NOTE: language interpreter may be invalid at this point
+        if (!LangToolkit::isValid()) {
+            // just drop the pointer without releasing
+            m_lang_config.steal();
+        }
+    }
+    
+    const Config::ObjectSharedPtr& Config::getRawConfig() const {
+        return m_lang_config;
     }
     
     // long specialization
-    template <> std::optional<long> get<long>(typename LangToolkit::ObjectPtr py_dict, const std::string &key)
+    template <> std::optional<long> get<long>(typename LangToolkit::ObjectPtr lang_dict, const std::string &key)
     {
-        if (!py_dict) {
+        if (!lang_dict) {
             return std::nullopt;
         }
-        return LangToolkit::getLong(py_dict, key);
+        return LangToolkit::getLong(lang_dict, key);
     }
 
     // bool specialization
-    template <> std::optional<bool> get<bool>(typename LangToolkit::ObjectPtr py_dict, const std::string &key)
+    template <> std::optional<bool> get<bool>(typename LangToolkit::ObjectPtr lang_dict, const std::string &key)
     {
-        if (!py_dict) {
+        if (!lang_dict) {
             return std::nullopt;
         }
-        return LangToolkit::getBool(py_dict, key);
+        return LangToolkit::getBool(lang_dict, key);
     }
 
     // string specialization
-    template <> std::optional<std::string> get<std::string>(typename LangToolkit::ObjectPtr py_dict, const std::string &key)
+    template <> std::optional<std::string> get<std::string>(typename LangToolkit::ObjectPtr lang_dict, const std::string &key)
     {
-        if (!py_dict) {
+        if (!lang_dict) {
             return std::nullopt;
         }
-        return LangToolkit::getString(py_dict, key);
+        return LangToolkit::getString(lang_dict, key);
     }
 
 }

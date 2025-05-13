@@ -2,6 +2,7 @@
 #include <iostream>
 #include <filesystem>
 #include <dbzero/core/exception/Exceptions.hpp>
+#include <dbzero/bindings/python/PyToolkit.hpp>
 
 PyObject *getKwargs(db0::LockFlags lock_flags)
 {
@@ -47,12 +48,15 @@ namespace db0
         Py_DECREF(pModule);
         Py_DECREF(str);
     }
-
+    
     InterProcessLock::~InterProcessLock()
     {
-        PyObject_CallMethod(m_lock, "release", NULL);
-        if (m_lock != NULL) {
-            Py_DECREF(m_lock);
+        // NOTE: python interpreter may be destroyed before this destructor is called
+        if (db0::python::PyToolkit::isValid()) {
+            PyObject_CallMethod(m_lock, "release", NULL);
+            if (m_lock != NULL) {
+                Py_DECREF(m_lock);
+            }
         }
     }
 
