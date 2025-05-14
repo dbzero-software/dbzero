@@ -443,3 +443,14 @@ def test_list_index_access_issue_1(db0_fixture):
     db0.open(px_name, "r")
     root = MemoTestSingleton()
     assert root.value[0] == 1
+
+
+def test_list_pop_while_iteration(db0_fixture):
+    """
+    Issue: https://github.com/wskozlowski/dbzero_ce/issues/252
+    The test was failing with: segmentation fault
+    """
+    cut = db0.list([0, 1, 2, 3, 4])
+    for i in cut:
+        cut.pop()
+    assert len(cut) == 2

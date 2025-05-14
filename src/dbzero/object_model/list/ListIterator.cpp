@@ -6,16 +6,24 @@ namespace db0::object_model
 {
 
     ListIterator::ListIterator(List::const_iterator iterator, const List *ptr, ObjectPtr lang_list_ptr)
-        : PyObjectIterator<ListIterator, List>(iterator, ptr, lang_list_ptr)
+        : BaseIterator<ListIterator, List>(iterator, ptr, lang_list_ptr)
     {
     }
     
-    ListIterator::ObjectSharedPtr ListIterator::next() 
+    ListIterator::ObjectSharedPtr ListIterator::next()
     {
+        auto fixture = m_collection->getFixture();
         auto [storage_class, value] = *m_iterator;
         ++m_iterator;
-        auto fixture = m_collection->getFixture();
+        ++m_index;        
         return unloadMember<LangToolkit>(fixture, storage_class, value);
+    }
+    
+    void ListIterator::restore()
+    {
+        m_index = std::min(m_index, this->m_collection->size());
+        // NOTE: may set the iterator as end
+        m_iterator = this->m_collection->begin(m_index);
     }
 
 }

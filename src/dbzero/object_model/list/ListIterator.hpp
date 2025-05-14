@@ -1,20 +1,33 @@
-#include <dbzero/bindings/python/PyToolkit.hpp>
+#pragma once
+
+#include <memory>
 #include "List.hpp"
-#include <dbzero/object_model/iterators/PyObjectIterator.hpp>
-#include<memory>
+#include <dbzero/bindings/python/PyToolkit.hpp>
+#include <dbzero/object_model/iterators/BaseIterator.hpp>
+
 
 namespace db0::object_model
 
 {
 
-    /**
-     * Wraps full-text index iterator to retrieve sequence of well-known type objects
-    */
-    class ListIterator : public PyObjectIterator<ListIterator, List>
+    class ListIterator : public BaseIterator<ListIterator, List>
     {
     public:
         ObjectSharedPtr next() override;
-        ListIterator(List::const_iterator iterator, const List *ptr, ObjectPtr lang_list_ptr);
-    };
+        
+        // try restoring the iterator after the related collection is modified
+        // NOTE: may render the iterator as end
+        void restore();
 
+    protected:
+        friend class List;
+
+        // NOTE: list iterator is always created from index = 0
+        ListIterator(List::const_iterator iterator, const List *ptr, ObjectPtr lang_list_ptr);
+
+    private:
+        // index required to refresh the iterator after related collection is modified
+        std::uint64_t m_index = 0;
+    };
+    
 }

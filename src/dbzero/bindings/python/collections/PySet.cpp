@@ -13,7 +13,7 @@ namespace db0::python
 
 {
 
-    using SetIteratorObject = PyWrapper<db0::object_model::SetIterator, false>;
+    using SetIteratorObject = PySharedWrapper<db0::object_model::SetIterator, false>;
 
     PyTypeObject SetIteratorObjectType = GetIteratorType<SetIteratorObject>("dbzero_ce.SetObjectIterator",
         "dbzero typed query object iterator");

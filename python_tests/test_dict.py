@@ -482,3 +482,19 @@ def test_pydict_with_db0_tuples_as_keys(db0_no_autocommit):
     with pytest.raises(Exception) as ex:
         py_dict[t1] = MemoTestClass(1)
     assert "unhashable" in str(ex.value)
+
+
+@pytest.mark.skip()
+def test_dict_del_by_key(db0_no_autocommit):
+    cut = db0.dict({"a": 1, "b": 2, "c": 3, "d": 4, "e": 5})
+    del cut["a"]
+    assert len(cut) == 4
+    
+
+def test_dict_del_items_while_iterating_over(db0_no_autocommit):
+    cut = db0.dict({"a": 1, "b": 2, "c": 3, "d": 4, "e": 5})
+    keys = iter(list(cut.keys()))
+    for item in cut.items():
+        cut.pop(next(keys))
+    
+    assert len(cut) > 0

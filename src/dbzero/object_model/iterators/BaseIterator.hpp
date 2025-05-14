@@ -1,32 +1,29 @@
-#include <dbzero/bindings/python/PyToolkit.hpp>
-#include <dbzero/workspace/Config.hpp>
+#pragma once
+
 #include <memory>
+#include <dbzero/workspace/Config.hpp>
 
 namespace db0::object_model
 
 {
 
     /**
-     * Wraps full-text index iterator to retrieve sequence of well-known type objects
-    */   
+     * Base type for implementing collection specific iterators
+     * @tparam ClassT the implemented iterator type
+     * @tparam CollectionT the underlyging related collection type
+    */
     template<typename ClassT, typename CollectionT>
-    class PyObjectIterator
+    class BaseIterator
     {
     public:
-        using ThisType = PyObjectIterator<ClassT, CollectionT>;
+        using ThisType = BaseIterator<ClassT, CollectionT>;
         using LangToolkit = db0::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using IteratorT = typename CollectionT::const_iterator;
         virtual ObjectSharedPtr next() = 0;
         
-        static PyObjectIterator *makeNew(void *at_ptr, IteratorT iterator, const CollectionT *ptr,
-            ObjectPtr lang_collection_ptr)
-        {        
-            return new (at_ptr) ClassT(iterator, ptr, lang_collection_ptr);
-        }
-        
-        PyObjectIterator(IteratorT iterator, const CollectionT *ptr, ObjectPtr lang_collection_ptr)
+        BaseIterator(IteratorT iterator, const CollectionT *ptr, ObjectPtr lang_collection_ptr)
             : m_iterator(iterator)
             , m_collection(ptr)
             , m_lang_collection_shared_ptr(lang_collection_ptr)

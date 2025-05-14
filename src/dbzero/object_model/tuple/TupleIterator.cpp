@@ -1,11 +1,12 @@
 #include "TupleIterator.hpp"
 #include <dbzero/object_model/value/Member.hpp>
+
 namespace db0::object_model
 
 {
 
     TupleIterator::TupleIterator(Tuple::const_iterator iterator, const Tuple *ptr, ObjectPtr lang_tuple_ptr)
-        : PyObjectIterator<TupleIterator, Tuple>(iterator, ptr, lang_tuple_ptr)
+        : BaseIterator<TupleIterator, Tuple>(iterator, ptr, lang_tuple_ptr)
     {
     }
     

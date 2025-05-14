@@ -15,6 +15,7 @@
 #include <dbzero/core/memory/VObjectCache.hpp>
 #include <dbzero/core/storage/Storage0.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
+#include <dbzero/core/utils/weak_vector.hpp>
 #include "Fixture.hpp"
 #include <filesystem>
 #include "PrefixCatalog.hpp"
@@ -309,7 +310,7 @@ namespace db0
         std::unique_ptr<WorkspaceThreads> m_workspace_threads;
         std::shared_ptr<Config> m_config;
         // associated workspace views (some of which may already be deleted)
-        mutable std::list<std::weak_ptr<WorkspaceView> > m_views;
+        mutable db0::weak_vector<WorkspaceView> m_views;
         // the designated "head" view with the prolonged lifetime
         mutable std::weak_ptr<WorkspaceView> m_head_view;
         std::function<void(db0::swine_ptr<Fixture> &, bool is_new)> m_on_open_callback;        

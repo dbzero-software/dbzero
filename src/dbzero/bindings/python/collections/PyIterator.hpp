@@ -21,14 +21,16 @@ namespace db0::python
         // calls destructor of ext object
         self->destroy();
         Py_TYPE(self)->tp_free((PyObject*)self);
-    }   
+    } 
     
     template <typename IteratorObjectT, typename IteratorModelT, typename IteratorT, typename ObjectT>
     IteratorObjectT *makeIterator(PyTypeObject& typeObject, IteratorT iterator, const ObjectT *ptr, PyObject *collection_ptr)
-    {        
-        auto iterator_object = IteratorObject_new<IteratorObjectT>(&typeObject, NULL, NULL);
-        IteratorModelT::makeNew(&iterator_object->modifyExt(), iterator, ptr, collection_ptr);
-        return iterator_object;
+    {
+        assert(ptr);
+        auto iter = (*ptr).getIterator(collection_ptr);
+        auto py_iter = IteratorObject_new<IteratorObjectT>(&typeObject, NULL, NULL);
+        py_iter->makeNew(iter);
+        return py_iter;
     }
     
     template <typename IteratorObjectT>

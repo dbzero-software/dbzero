@@ -8,6 +8,7 @@
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/object_model/item/Item.hpp>
+#include <dbzero/core/utils/weak_vector.hpp>
 
 namespace db0 {
 
@@ -23,6 +24,7 @@ namespace db0::object_model
     using TypedItem_Address = ValueT_Address<o_typed_item>;
     using SetIndex = CollectionIndex<o_typed_item, TypedItem_Address>;
     using set_item = db0::key_value<std::uint64_t, TypedIndexAddr<TypedItem_Address, SetIndex>>;
+    class SetIterator;
     
     struct [[gnu::packed]] o_set: public db0::o_fixed<o_set>
     {
@@ -76,15 +78,24 @@ namespace db0::object_model
         const_iterator end() const;
         
         void unrefMembers() const;
+        
+        std::shared_ptr<SetIterator> getIterator(ObjectPtr lang_set) const;
 
+    protected:
+        friend class SetIterator;
+        const_iterator find(std::uint64_t key_hash) const;
+        
     private:
         db0::v_bindex<set_item> m_index;
+        mutable db0::weak_vector<SetIterator> m_iterators;
 
         // new sets can only be created via factory members
         explicit Set(db0::swine_ptr<Fixture> &);
         explicit Set(tag_no_gc, db0::swine_ptr<Fixture> &, const Set &);
         
         void append(db0::swine_ptr<Fixture> &, std::size_t key, ObjectPtr lang_value);
+
+        void restoreIterators();
     };
     
 }

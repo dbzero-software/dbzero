@@ -1,4 +1,5 @@
 #include "Tuple.hpp"
+#include "TupleIterator.hpp"
 #include <dbzero/object_model/value.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/object.hpp>
@@ -173,4 +174,8 @@ namespace db0::object_model
         super_t::moveTo(fixture);
     }
     
+    std::shared_ptr<TupleIterator> Tuple::getIterator(ObjectPtr lang_tuple) const {
+        return std::shared_ptr<TupleIterator>(new TupleIterator(begin(), this, lang_tuple));
+    }
+
 }

@@ -1,4 +1,5 @@
 #include "DictIterator.hpp"
+#include "Dict.hpp"
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 #include <dbzero/workspace/Workspace.hpp>
@@ -8,34 +9,40 @@ namespace db0::object_model
 
 {
 
-    void DictIterator::setJoinIterator()
-    {
-        if (m_iterator != m_collection->end()) {
-            auto [key, address] = *m_iterator;
-            auto fixture = m_collection->getFixture();
-            auto index = address.getIndex(m_collection->getMemspace());
-            m_index = index;
-            m_join_iterator = m_index.beginJoin(1);
-        }
-    }
-    
     DictIterator::DictIterator(
         Dict::const_iterator iterator, const Dict * ptr, ObjectPtr lang_dict, IteratorType type)
-        : PyObjectIterator<DictIterator, Dict>(iterator, ptr, lang_dict)
+        : BaseIterator<DictIterator, Dict>(iterator, ptr, lang_dict)
         , m_type(type) 
     {
         setJoinIterator();
     }
-
+    
+    void DictIterator::setJoinIterator()
+    {    
+        if (m_iterator != m_collection->end()) {
+            auto [key, address] = *m_iterator;
+            m_current_hash = key;
+            auto fixture = m_collection->getFixture();
+            m_index = address.getIndex(m_collection->getMemspace());            
+            m_join_iterator = m_index.beginJoin(1);
+            assert(!m_join_iterator.is_end());
+            m_current_key = *m_join_iterator;
+        } else {
+            m_is_end = true;
+        }
+    }
+    
     void DictIterator::iterNext()
     {
         ++m_join_iterator;
         if (m_join_iterator.is_end()) {
             ++m_iterator;
             setJoinIterator();
+        } else {
+            m_current_key = *m_join_iterator;
         }
     }
-
+    
     DictIterator::DictItem DictIterator::nextItem()
     {
         auto fixture = m_collection->getFixture();
@@ -63,10 +70,10 @@ namespace db0::object_model
         iterNext();
         return key;
     }
-
+    
     DictIterator::ObjectSharedPtr DictIterator::next()
     {        
-        switch (m_type){
+        switch (m_type) {
             case VALUES: {
                 return nextValue();
             }
@@ -87,4 +94,30 @@ namespace db0::object_model
         }
     }
     
+    void DictIterator::restore()
+    {
+        // restore as end
+        if (m_is_end) {
+            m_iterator = m_collection->end();
+            return;
+        }
+        m_iterator = m_collection->find(m_current_hash);
+        if (m_iterator == m_collection->end()) {
+            m_is_end = true;
+            return;
+        }
+        
+        auto [key, address] = *m_iterator;
+        m_current_hash = key;
+        auto fixture = m_collection->getFixture();
+        m_index = address.getIndex(m_collection->getMemspace());
+        m_join_iterator = m_index.beginJoin(1);
+        if (m_join_iterator.join(m_current_key)) {
+            m_current_key = *m_join_iterator;
+        } else {
+            ++m_iterator;
+            setJoinIterator();
+        }
+    }
+
 }

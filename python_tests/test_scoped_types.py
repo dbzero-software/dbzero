@@ -254,3 +254,13 @@ def test_get_prefix_of_works_for_types(db0_fixture):
     obj = ScopedDataClass(42)
     assert db0.get_prefix_of(obj) == db0.get_prefix_of(ScopedDataClass)
     
+
+@db0.memo
+class MemoScopedSingletonDynScopeDef:
+    def __init__(self, value, prefix="dyn-scope-px"):
+        db0.set_prefix(self, prefix)
+        self.value = value
+    
+def test_singleton_dynamic_scope_may_have_default_value(db0_fixture):
+    root = MemoScopedSingletonDynScopeDef([])    
+    assert db0.get_prefix_of(root).name == "dyn-scope-px"

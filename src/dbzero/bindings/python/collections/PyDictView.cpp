@@ -10,15 +10,14 @@
 namespace db0::python
 
 {
-
-    using DictIteratorObject = PyWrapper<db0::object_model::DictIterator, false>;
-
+        
     DictIteratorObject *DictViewObject_iter(DictViewObject *self)
     {
         PY_API_FUNC
-        auto dict_iterator_object = IteratorObject_new<DictIteratorObject>(&DictIteratorObjectType, NULL, NULL);        
-        self->ext().begin(&dict_iterator_object->modifyExt());
-        return dict_iterator_object;
+        auto iter = self->ext().getIterator();
+        auto py_iter = IteratorObject_new<DictIteratorObject>(&DictIteratorObjectType, NULL, NULL);
+        py_iter->makeNew(iter);
+        return py_iter;
     }
     
     Py_ssize_t DictViewObject_len(DictViewObject *dict_obj) 

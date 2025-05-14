@@ -10,7 +10,7 @@ namespace db0::python
 
 {
     
-    using TupleIteratorObject = PyWrapper<db0::object_model::TupleIterator, false>;
+    using TupleIteratorObject = PySharedWrapper<db0::object_model::TupleIterator, false>;
 
     PyTypeObject TupleIteratorObjectType = GetIteratorType<TupleIteratorObject>("dbzero_ce.TupleIterator",
                                                                               "dbzero tuple iterator");
