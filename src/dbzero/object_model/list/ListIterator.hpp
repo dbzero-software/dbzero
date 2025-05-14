@@ -14,6 +14,9 @@ namespace db0::object_model
     {
     public:
         ObjectSharedPtr next() override;
+        
+    protected:
+        friend class List;
         ListIterator(List::const_iterator iterator, const List *ptr, ObjectPtr lang_list_ptr);
     };
     

@@ -1,12 +1,12 @@
 
 #include "Dict.hpp"
+#include "DictIterator.hpp"
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/object_model/value.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/object_model/value/Member.hpp>
-
 
 namespace db0::object_model
 
@@ -255,6 +255,10 @@ namespace db0::object_model
                 unrefMember<LangToolkit>(fixture, storage_class_2, value_2);
             }
         }
+    }
+
+    std::shared_ptr<DictIterator> Dict::getIterator(ObjectPtr lang_dict) const {
+        return std::shared_ptr<DictIterator>(new DictIterator(m_index.begin(), this, lang_dict));
     }
 
 }

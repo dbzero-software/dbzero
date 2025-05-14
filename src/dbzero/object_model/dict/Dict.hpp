@@ -25,6 +25,7 @@ namespace db0::object_model
     // holds key-value pairs (references to db0 members) associated with a given hash
     using DictIndex = CollectionIndex<o_pair_item, PairItem_Address>;
     using dict_item = db0::key_value<std::uint64_t, TypedIndexAddr<PairItem_Address, DictIndex> >;
+    class DictIterator;
     
     struct [[gnu::packed]] o_dict: public db0::o_fixed<o_dict>
     {
@@ -80,6 +81,8 @@ namespace db0::object_model
         void unrefMembers() const;
 
         void destroy() const;
+
+        std::shared_ptr<DictIterator> getIterator(ObjectPtr lang_dict) const;
 
     private:
         db0::v_bindex<dict_item> m_index;

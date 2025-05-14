@@ -13,10 +13,13 @@ namespace db0::object_model
     class TupleIterator : public BaseIterator<TupleIterator, Tuple>
     {
     public:
-        ObjectSharedPtr next() override;
-        TupleIterator(Tuple::const_iterator iterator, const Tuple *ptr, ObjectPtr lang_tuple_ptr);
+        ObjectSharedPtr next() override;        
 
         bool is_end() const;
+
+    protected:
+        friend class Tuple;
+        TupleIterator(Tuple::const_iterator iterator, const Tuple *ptr, ObjectPtr lang_tuple_ptr);
     };
     
 }

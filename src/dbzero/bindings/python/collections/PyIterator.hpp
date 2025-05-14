@@ -25,9 +25,11 @@ namespace db0::python
     
     template <typename IteratorObjectT, typename IteratorModelT, typename IteratorT, typename ObjectT>
     IteratorObjectT *makeIterator(PyTypeObject& typeObject, IteratorT iterator, const ObjectT *ptr, PyObject *collection_ptr)
-    {        
+    {
+        assert(ptr);
+        auto iter = (*ptr).getIterator(collection_ptr);
         auto py_iter = IteratorObject_new<IteratorObjectT>(&typeObject, NULL, NULL);
-        py_iter->template makeNewAs<IteratorModelT>(iterator, ptr, collection_ptr);
+        py_iter->makeNew(iter);
         return py_iter;
     }
     

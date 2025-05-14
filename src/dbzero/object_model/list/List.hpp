@@ -64,7 +64,9 @@ namespace db0::object_model
         void destroy() const;
 
         void clearMembers() const;
-        
+
+        std::shared_ptr<ListIterator> getIterator(ObjectPtr lang_list) const;
+
     private:        
         // new lists can only be created via factory members
         List(db0::swine_ptr<Fixture> &);

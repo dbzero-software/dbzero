@@ -1,4 +1,5 @@
 #include "Set.hpp"
+#include "SetIterator.hpp"
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/object_model/value.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -273,6 +274,10 @@ namespace db0::object_model
                 ++it;
             }
         }
+    }
+
+    std::shared_ptr<SetIterator> Set::getIterator(ObjectPtr lang_set) const {
+        return std::shared_ptr<SetIterator>(new SetIterator(m_index.begin(), this, lang_set));
     }
 
 }

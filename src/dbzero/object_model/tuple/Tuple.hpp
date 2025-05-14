@@ -20,6 +20,7 @@ namespace db0::object_model
 {
 
     using Fixture = db0::Fixture;
+    class TupleIterator;
     
     class [[gnu::packed]] o_tuple: public o_base<o_tuple, 0, false>
     {
@@ -90,6 +91,8 @@ namespace db0::object_model
         const o_typed_item *end() const;
 
         void moveTo(db0::swine_ptr<Fixture> &);
+
+        std::shared_ptr<TupleIterator> getIterator(ObjectPtr lang_tuple) const;
 
     private:
         // new Tuples can only be created via factory members

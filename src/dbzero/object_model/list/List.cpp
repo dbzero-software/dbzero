@@ -4,6 +4,7 @@
 #include <dbzero/object_model/object.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/utils/ProcessTimer.hpp>
+#include "ListIterator.hpp"
 
 namespace db0::object_model
 
@@ -196,6 +197,14 @@ namespace db0::object_model
             auto [storage_class, value] = elem;
             unrefMember<LangToolkit>(fixture, storage_class, value);
         }
+    }
+    
+    std::shared_ptr<ListIterator> List::getIterator(ObjectPtr lang_list) const
+    {
+        auto iter = std::shared_ptr<ListIterator>(new ListIterator(super_t::begin(), this, lang_list));
+        // NOTE: we keep weak reference to the iterator to be able to invalidate / refresh it after list changes
+        m_iterators.push_back(iter);
+        return iter;
     }
 
 }

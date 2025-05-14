@@ -8,15 +8,20 @@
 namespace db0::object_model
 
 {
-
+    
     class SetIterator : public BaseIterator<SetIterator, Set>
     {
+    public:
+        ObjectSharedPtr next() override;        
+
+    protected:
+        friend class Set;
+        SetIterator(Set::const_iterator iterator, const Set * ptr, ObjectPtr lang_set_ptr);
+
+    private:
         SetIndex::joinable_const_iterator m_join_iterator;
         SetIndex m_index;
         void setJoinIterator();
-    public:
-        ObjectSharedPtr next() override;
-        SetIterator(Set::const_iterator iterator, const Set * ptr, ObjectPtr lang_set_ptr);
     };
     
 }

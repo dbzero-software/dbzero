@@ -18,8 +18,6 @@ namespace db0::object_model
     class DictIterator : public BaseIterator<DictIterator, Dict>
     {
     public:
-        DictIterator(Dict::const_iterator iterator, const Dict *, ObjectPtr lang_dict_ptr,
-            IteratorType type = IteratorType::KEYS);
 
         struct DictItem
         {
@@ -38,7 +36,13 @@ namespace db0::object_model
         DictItem nextItem();
         ObjectSharedPtr nextValue();
         ObjectSharedPtr nextKey();
-        
+
+    protected: 
+        friend class Dict;
+        friend class DictView;
+        DictIterator(Dict::const_iterator iterator, const Dict *, ObjectPtr lang_dict_ptr,
+            IteratorType type = IteratorType::KEYS);
+
     private:
         DictIndex::joinable_const_iterator m_join_iterator;
         IteratorType m_type = IteratorType::KEYS;

@@ -1,4 +1,5 @@
 #include "DictView.hpp"
+#include "DictIterator.hpp"
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 #include <dbzero/workspace/Workspace.hpp>
@@ -15,10 +16,11 @@ namespace db0::object_model
     {
     }
     
-    std::shared_ptr<DictIterator> DictView::begin() const
+    std::shared_ptr<DictIterator> DictView::getIterator() const
     {
-        return std::make_shared<DictIterator>(
-            m_collection->begin(), m_collection, m_lang_dict_shared_ptr.get(), m_type);
+        return std::shared_ptr<DictIterator>(new DictIterator(
+            m_collection->begin(), m_collection, m_lang_dict_shared_ptr.get(), m_type)
+        );
     }
     
     std::size_t DictView::size() const {

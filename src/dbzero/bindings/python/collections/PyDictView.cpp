@@ -14,7 +14,7 @@ namespace db0::python
     DictIteratorObject *DictViewObject_iter(DictViewObject *self)
     {
         PY_API_FUNC
-        auto iter = self->ext().begin();
+        auto iter = self->ext().getIterator();
         auto py_iter = IteratorObject_new<DictIteratorObject>(&DictIteratorObjectType, NULL, NULL);
         py_iter->makeNew(iter);
         return py_iter;
