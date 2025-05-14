@@ -48,8 +48,8 @@ class Connection:
         if init_prefix is not None:
             db0.open(init_prefix, "rw" if cls.read_write else "r")
         
-        # for client apps the private fq-cache prefix should be opened as default one
-        if cls.client_app:
+        # for read-only client apps the private fq-cache prefix should be opened as default one
+        if cls.client_app and not cls.read_write:
             db0.init_fast_query(prefix=f"__fq_cache/{cls.client_app}")        
         cls.__is_initialized = True
     

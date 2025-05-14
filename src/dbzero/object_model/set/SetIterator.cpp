@@ -1,11 +1,12 @@
 #include "SetIterator.hpp"
 #include <dbzero/object_model/value/Member.hpp>
+
 namespace db0::object_model
 
 {
 
     SetIterator::SetIterator(Set::const_iterator iterator, const Set *ptr, ObjectPtr lang_set_ptr)
-        : PyObjectIterator<SetIterator, Set>(iterator, ptr, lang_set_ptr)
+        : BaseIterator<SetIterator, Set>(iterator, ptr, lang_set_ptr)
     {
         setJoinIterator();
     }

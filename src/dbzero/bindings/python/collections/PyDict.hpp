@@ -1,12 +1,14 @@
 #pragma once
 
 #include <dbzero/object_model/dict/Dict.hpp>
+#include <dbzero/object_model/dict/DictIterator.hpp>
 
 namespace db0::python 
 
 {
     
     using DictObject = PyWrapper<db0::object_model::Dict>;
+    using DictIteratorObject = PySharedWrapper<db0::object_model::DictIterator, false>;
 
     DictObject *DictObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<DictObject*> DictDefaultObject_new();

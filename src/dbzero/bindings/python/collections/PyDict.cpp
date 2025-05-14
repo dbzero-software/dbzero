@@ -12,9 +12,7 @@
 namespace db0::python
 
 {
-
-    using DictIteratorObject = PyWrapper<db0::object_model::DictIterator, false>;
-
+    
     PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "dbzero dict iterator");
     
     DictIteratorObject *PyAPI_DictObject_iter(DictObject *self)

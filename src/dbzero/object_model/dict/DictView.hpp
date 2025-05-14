@@ -18,7 +18,7 @@ namespace db0::object_model
 
         DictView(const Dict *dict, ObjectPtr lang_dict, IteratorType type);
 
-        DictIterator *begin(void *at_ptr) const;
+        std::shared_ptr<DictIterator> begin() const;
         std::size_t size() const;
 
         static DictView *makeNew(void *at_ptr, const Dict *, ObjectPtr lang_dict, 

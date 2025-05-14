@@ -1,24 +1,22 @@
 #pragma once
-#include <dbzero/bindings/python/PyToolkit.hpp>
+
+#include <memory>
 #include "Set.hpp"
-#include <dbzero/object_model/iterators/PyObjectIterator.hpp>
-#include<memory>
+#include <dbzero/bindings/python/PyToolkit.hpp>
+#include <dbzero/object_model/iterators/BaseIterator.hpp>
 
 namespace db0::object_model
 
 {
 
-    /**
-     * Wraps full-text index iterator to retrieve sequence of well-known type objects
-    */
-    class SetIterator : public PyObjectIterator<SetIterator, Set>
+    class SetIterator : public BaseIterator<SetIterator, Set>
     {
-            SetIndex::joinable_const_iterator m_join_iterator;
-            SetIndex m_index;
-            void setJoinIterator();
-        public:
-            ObjectSharedPtr next() override;
-            SetIterator(Set::const_iterator iterator, const Set * ptr, ObjectPtr lang_set_ptr);
+        SetIndex::joinable_const_iterator m_join_iterator;
+        SetIndex m_index;
+        void setJoinIterator();
+    public:
+        ObjectSharedPtr next() override;
+        SetIterator(Set::const_iterator iterator, const Set * ptr, ObjectPtr lang_set_ptr);
     };
     
 }

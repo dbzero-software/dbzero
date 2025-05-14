@@ -6,7 +6,7 @@ namespace db0::object_model
 {
 
     ListIterator::ListIterator(List::const_iterator iterator, const List *ptr, ObjectPtr lang_list_ptr)
-        : PyObjectIterator<ListIterator, List>(iterator, ptr, lang_list_ptr)
+        : BaseIterator<ListIterator, List>(iterator, ptr, lang_list_ptr)
     {
     }
     

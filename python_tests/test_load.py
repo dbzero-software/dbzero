@@ -188,3 +188,11 @@ def test_load_can_load_keys_in_db0_dict(db0_fixture):
 
     loaded = db0.load(test_dict)
     assert loaded == {"RED": "red"}
+
+
+def test_load_set_of_tuples_issue1(db0_fixture):
+    """
+    Issue: https://github.com/wskozlowski/dbzero_ce/issues/223
+    """
+    obj = db0.set([(1,2), (2,3)])
+    assert {(1,2), (2,3)} == db0.load(obj)    

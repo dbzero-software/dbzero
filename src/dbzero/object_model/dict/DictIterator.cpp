@@ -8,6 +8,14 @@ namespace db0::object_model
 
 {
 
+    DictIterator::DictIterator(
+        Dict::const_iterator iterator, const Dict * ptr, ObjectPtr lang_dict, IteratorType type)
+        : BaseIterator<DictIterator, Dict>(iterator, ptr, lang_dict)
+        , m_type(type) 
+    {
+        setJoinIterator();
+    }
+
     void DictIterator::setJoinIterator()
     {
         if (m_iterator != m_collection->end()) {
@@ -19,14 +27,6 @@ namespace db0::object_model
         }
     }
     
-    DictIterator::DictIterator(
-        Dict::const_iterator iterator, const Dict * ptr, ObjectPtr lang_dict, IteratorType type)
-        : PyObjectIterator<DictIterator, Dict>(iterator, ptr, lang_dict)
-        , m_type(type) 
-    {
-        setJoinIterator();
-    }
-
     void DictIterator::iterNext()
     {
         ++m_join_iterator;
@@ -63,10 +63,10 @@ namespace db0::object_model
         iterNext();
         return key;
     }
-
+    
     DictIterator::ObjectSharedPtr DictIterator::next()
     {        
-        switch (m_type){
+        switch (m_type) {
             case VALUES: {
                 return nextValue();
             }

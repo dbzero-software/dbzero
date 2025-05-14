@@ -1,9 +1,9 @@
 #pragma once
 
-#include <dbzero/bindings/python/PyToolkit.hpp>
+#include <memory>
 #include "Dict.hpp"
-#include <dbzero/object_model/iterators/PyObjectIterator.hpp>
-#include<memory>
+#include <dbzero/bindings/python/PyToolkit.hpp>
+#include <dbzero/object_model/iterators/BaseIterator.hpp>
 
 namespace db0::object_model
 
@@ -15,10 +15,7 @@ namespace db0::object_model
         KEYS = 2
     };
     
-    /**
-     * Wraps full-text index iterator to retrieve sequence of well-known type objects
-    */
-    class DictIterator : public PyObjectIterator<DictIterator, Dict>
+    class DictIterator : public BaseIterator<DictIterator, Dict>
     {
     public:
         DictIterator(Dict::const_iterator iterator, const Dict *, ObjectPtr lang_dict_ptr,

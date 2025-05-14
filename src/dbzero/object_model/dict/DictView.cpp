@@ -15,12 +15,12 @@ namespace db0::object_model
     {
     }
     
-    DictIterator *DictView::begin(void *at_ptr) const
+    std::shared_ptr<DictIterator> DictView::begin() const
     {
-        return new (at_ptr) DictIterator(
+        return std::make_shared<DictIterator>(
             m_collection->begin(), m_collection, m_lang_dict_shared_ptr.get(), m_type);
     }
-
+    
     std::size_t DictView::size() const {
         return m_collection->size();
     }

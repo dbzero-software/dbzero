@@ -1,16 +1,16 @@
-#include <dbzero/bindings/python/PyToolkit.hpp>
+#pragma once
+
+#include <memory>
 #include "Tuple.hpp"
-#include <dbzero/object_model/iterators/PyObjectIterator.hpp>
-#include<memory>
+#include <dbzero/bindings/python/PyToolkit.hpp>
+#include <dbzero/object_model/iterators/BaseIterator.hpp>
+
 
 namespace db0::object_model
 
 {
 
-    /**
-     * Wraps full-text index iterator to retrieve sequence of well-known type objects
-    */
-    class TupleIterator : public PyObjectIterator<TupleIterator, Tuple>
+    class TupleIterator : public BaseIterator<TupleIterator, Tuple>
     {
     public:
         ObjectSharedPtr next() override;
