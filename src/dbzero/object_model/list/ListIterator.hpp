@@ -15,9 +15,19 @@ namespace db0::object_model
     public:
         ObjectSharedPtr next() override;
         
+        // try restoring the iterator after the related collection is modified
+        // NOTE: may render the iterator as end
+        void restore();
+
     protected:
         friend class List;
+
+        // NOTE: list iterator is always created from index = 0
         ListIterator(List::const_iterator iterator, const List *ptr, ObjectPtr lang_list_ptr);
+
+    private:
+        // index required to refresh the iterator after related collection is modified
+        std::uint64_t m_index = 0;
     };
     
 }

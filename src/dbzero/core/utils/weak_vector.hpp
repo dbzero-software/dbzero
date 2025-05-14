@@ -54,6 +54,10 @@ namespace db0
             }
         }
 
+        bool empty() const {
+            return m_data.empty();
+        }
+
     private:
         std::vector<std::weak_ptr<T> > m_data;        
     };

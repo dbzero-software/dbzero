@@ -445,7 +445,6 @@ def test_list_index_access_issue_1(db0_fixture):
     assert root.value[0] == 1
 
 
-@pytest.mark.skip()
 def test_list_pop_while_iteration(db0_fixture):
     """
     Issue: https://github.com/wskozlowski/dbzero_ce/issues/252

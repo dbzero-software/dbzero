@@ -76,6 +76,9 @@ namespace db0::object_model
         // the associated iterator
         // which must be invalidated / refreshed on any collection modification
         mutable db0::weak_vector<ListIterator> m_iterators;
+
+        // try restoring all associated iterators
+        void restoreIterators();
     };
     
 }

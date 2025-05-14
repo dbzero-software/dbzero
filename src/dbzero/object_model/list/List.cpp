@@ -60,6 +60,7 @@ namespace db0::object_model
         v_bvector::push_back(
             createListItem<LangToolkit>(*fixture, type_id, lang_value, storage_class)
         );
+        restoreIterators();
     }
     
     List::ObjectSharedPtr List::getItem(std::size_t i) const
@@ -83,6 +84,7 @@ namespace db0::object_model
         auto [storage_class, value] = (*this)[i];
         auto member = unloadMember<LangToolkit>(*fixture, storage_class, value);
         this->swapAndPop(fixture, {i});
+        restoreIterators();
         return member;
     }
 
@@ -167,11 +169,14 @@ namespace db0::object_model
     {
         clearMembers();
         v_bvector<o_typed_item>::clear();
+        restoreIterators();
     }
 
-    void List::swapAndPop(FixtureLock &, const std::vector<uint64_t> &element_numbers) {
+    void List::swapAndPop(FixtureLock &, const std::vector<std::uint64_t> &element_numbers) 
+    {
         // FIXME: drop items
         v_bvector<o_typed_item>::swapAndPop(element_numbers);
+        restoreIterators();
     }
     
     void List::moveTo(db0::swine_ptr<Fixture> &fixture) 
@@ -205,6 +210,16 @@ namespace db0::object_model
         // NOTE: we keep weak reference to the iterator to be able to invalidate / refresh it after list changes
         m_iterators.push_back(iter);
         return iter;
+    }
+    
+    void List::restoreIterators()
+    {
+        if (m_iterators.empty()) {
+            return;
+        }
+        m_iterators.forEach([](ListIterator &iter) {
+            iter.restore();
+        });
     }
 
 }
