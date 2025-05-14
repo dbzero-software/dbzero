@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unordered_set>
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/core/collections/vector/v_bvector.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
@@ -7,6 +8,7 @@
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/object_model/item/Item.hpp>    
 #include <dbzero/workspace/GC0.hpp>
+#include <dbzero/core/utils/weak_vector.hpp>
     
 namespace db0
 
@@ -20,9 +22,10 @@ namespace db0::object_model
 
 {
 
+    class ListIterator;
     using Fixture = db0::Fixture;
     void dropList(void *vptr);
-    
+        
     class List: public db0::ObjectBase<List, v_bvector<o_typed_item>, StorageClass::DB0_LIST>
     {
         GC0_Declare
@@ -67,6 +70,10 @@ namespace db0::object_model
         List(db0::swine_ptr<Fixture> &);
         List(db0::swine_ptr<Fixture> &, const List &);
         List(tag_no_gc, db0::swine_ptr<Fixture> &, const List &);
+        
+        // the associated iterator
+        // which must be invalidated / refreshed on any collection modification
+        mutable db0::weak_vector<ListIterator> m_iterators;
     };
     
 }

@@ -293,13 +293,10 @@ namespace db0
         }
         
         // close associated workspace views
-        for (auto &view_ptr : m_views) {
-            if (auto ptr = view_ptr.lock()) {
-                if (ptr) {
-                    ptr->close(as_defunct);
-                }
-            }
-        }
+        m_views.forEach([as_defunct](WorkspaceView &view) {
+            view.close(as_defunct);
+        });
+
         m_views.clear();
         // stop all workspace threads first
         stopThreads();
@@ -723,11 +720,7 @@ namespace db0
         if (!state_num && prefix_state_nums.empty()) {
             return getWorkspaceHeadView();
         }
-
-        // clean-up expired views
-        m_views.remove_if([](const std::weak_ptr<WorkspaceView> &view) {
-            return view.expired();
-        });
+        
         auto workspace_view = std::shared_ptr<WorkspaceView>(
             new WorkspaceView(const_cast<Workspace&>(*this), state_num, prefix_state_nums));
         m_views.push_back(workspace_view);
@@ -749,10 +742,6 @@ namespace db0
         if (!result) {
             result = std::shared_ptr<WorkspaceView>(new WorkspaceView(const_cast<Workspace&>(*this)));
             m_head_view = result;
-            // clean-up expired views
-            m_views.remove_if([](const std::weak_ptr<WorkspaceView> &view) {
-                return view.expired();
-            });
             m_views.push_back(result);
         }
         return result;
