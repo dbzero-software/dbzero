@@ -1,4 +1,5 @@
 #include "SetIterator.hpp"
+#include "Set.hpp"
 #include <dbzero/object_model/value/Member.hpp>
 
 namespace db0::object_model
@@ -15,9 +16,14 @@ namespace db0::object_model
     {
         if (m_iterator != m_collection->end()) {
             auto [key, address] = *m_iterator;
+            m_current_hash = key;
             auto fixture = m_collection->getFixture();
             m_index = address.getIndex(m_collection->getMemspace());
             m_join_iterator = m_index.beginJoin(1);
+            assert(!m_join_iterator.is_end());
+            m_current_key = *m_join_iterator;
+        } else {
+            m_is_end = true;
         }
     }
     
@@ -34,6 +40,32 @@ namespace db0::object_model
             setJoinIterator();
         }
         return member;
+    }
+
+    void SetIterator::restore()
+    {
+        // restore as end
+        if (m_is_end) {
+            m_iterator = m_collection->end();
+            return;
+        }
+        m_iterator = m_collection->find(m_current_hash);
+        if (m_iterator == m_collection->end()) {
+            m_is_end = true;
+            return;
+        }
+        
+        auto [key, address] = *m_iterator;
+        m_current_hash = key;
+        auto fixture = m_collection->getFixture();
+        m_index = address.getIndex(m_collection->getMemspace());
+        m_join_iterator = m_index.beginJoin(1);
+        if (m_join_iterator.join(m_current_key)) {
+            m_current_key = *m_join_iterator;
+        } else {
+            ++m_iterator;
+            setJoinIterator();
+        }
     }
 
 }

@@ -68,6 +68,7 @@ namespace db0::object_model
         super_t::operator=(std::move(other));
         m_index = std::move(other.m_index);
         assert(!other.hasInstance());
+        restoreIterators();
     }
 
     void Set::insert(const Set &set)
@@ -83,10 +84,13 @@ namespace db0::object_model
                 ++it;
             }
         }
+        restoreIterators();
     }
 
-    void Set::append(db0::FixtureLock &lock, std::size_t key, ObjectPtr lang_value) {
+    void Set::append(db0::FixtureLock &lock, std::size_t key, ObjectPtr lang_value) 
+    {
         append(*lock, key, lang_value);
+        restoreIterators();
     }
     
     void Set::append(db0::swine_ptr<Fixture> &fixture, std::size_t key, ObjectPtr lang_value)
@@ -103,10 +107,12 @@ namespace db0::object_model
             storage_class = db0::getStorageClass(pre_storage_class);
         }
         
+        bool is_modified = false;
         if (iter == m_index.end()) {
             ++modify().m_size;
             auto set_it = createSetItem<LangToolkit>(fixture, key, type_id, lang_value, storage_class);            
             m_index.insert(set_it);
+            is_modified = true;
         } else {
             auto item = getItem(key, lang_value);
             if (item == nullptr) {                
@@ -119,8 +125,13 @@ namespace db0::object_model
                     // auto new_typed_index = TypedIndex<TypedItem_Address, SetIndex>(new_address, bindex.getIndexType());
                     m_index.erase(iter);
                     m_index.insert({key, bindex});
-                }            
+                }
+                is_modified = true;                
             }
+        }
+
+        if (is_modified) {
+            restoreIterators();
         }
     }
     
@@ -134,7 +145,7 @@ namespace db0::object_model
         auto bindex = address.getIndex(this->getMemspace());
 
         auto it = bindex.beginJoin(1);
-        auto fixture = this->getFixture(); 
+        auto fixture = this->getFixture();        
         while (!it.is_end()) {
             auto [storage_class, value] = *it;
             auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
@@ -147,6 +158,7 @@ namespace db0::object_model
                     bindex.erase(*it);
                 }
                 --modify().m_size;
+                restoreIterators();
                 return true;
             }
             ++it;
@@ -211,6 +223,7 @@ namespace db0::object_model
             bindex.erase(*it);
         }
         --modify().m_size;
+        restoreIterators();
         return member;
     }
     
@@ -238,8 +251,9 @@ namespace db0::object_model
         unrefMembers();
         m_index.clear();
         modify().m_size = 0; 
+        restoreIterators();
     }
-
+    
     Set::const_iterator Set::begin() const {
         return m_index.begin();
     }
@@ -276,8 +290,25 @@ namespace db0::object_model
         }
     }
 
-    std::shared_ptr<SetIterator> Set::getIterator(ObjectPtr lang_set) const {
-        return std::shared_ptr<SetIterator>(new SetIterator(m_index.begin(), this, lang_set));
+    std::shared_ptr<SetIterator> Set::getIterator(ObjectPtr lang_set) const 
+    {
+        auto iter = std::shared_ptr<SetIterator>(new SetIterator(m_index.begin(), this, lang_set));
+        m_iterators.push_back(iter);
+        return iter;
     }
 
+    void Set::restoreIterators()
+    {
+        if (m_iterators.cleanup()) {
+            return;
+        }
+        m_iterators.forEach([](SetIterator &iter) {
+            iter.restore();
+        });
+    }
+    
+    Set::const_iterator Set::find(std::uint64_t key_hash) const {
+        return m_index.find(key_hash);
+    }
+    
 }

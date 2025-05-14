@@ -8,6 +8,7 @@
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/object_model/item/Item.hpp>
+#include <dbzero/core/utils/weak_vector.hpp>
 
 namespace db0 {
 
@@ -80,14 +81,21 @@ namespace db0::object_model
         
         std::shared_ptr<SetIterator> getIterator(ObjectPtr lang_set) const;
 
+    protected:
+        friend class SetIterator;
+        const_iterator find(std::uint64_t key_hash) const;
+        
     private:
         db0::v_bindex<set_item> m_index;
+        mutable db0::weak_vector<SetIterator> m_iterators;
 
         // new sets can only be created via factory members
         explicit Set(db0::swine_ptr<Fixture> &);
         explicit Set(tag_no_gc, db0::swine_ptr<Fixture> &, const Set &);
         
         void append(db0::swine_ptr<Fixture> &, std::size_t key, ObjectPtr lang_value);
+
+        void restoreIterators();
     };
     
 }
