@@ -8,6 +8,7 @@
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/object_model/item/Pair.hpp>
+#include <dbzero/core/utils/weak_vector.hpp>
 
 namespace db0 {
 
@@ -75,24 +76,31 @@ namespace db0::object_model
 
         void detach() const;
 
-        const_iterator begin() const;
-        const_iterator end() const;
-        
         void unrefMembers() const;
 
         void destroy() const;
 
         std::shared_ptr<DictIterator> getIterator(ObjectPtr lang_dict) const;
 
+        const_iterator begin() const;
+        const_iterator end() const;
+
+    protected:
+        friend class DictIterator;
+        const_iterator find(std::uint64_t key_hash) const;
+
     private:
         db0::v_bindex<dict_item> m_index;
-        
+        mutable db0::weak_vector<DictIterator> m_iterators;
+
         // new dicts can only be created via factory members
         explicit Dict(db0::swine_ptr<Fixture> &);
         explicit Dict(db0::swine_ptr<Fixture> &fixture, const Dict &);
         explicit Dict(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Dict &);
-
+        
         void initWith(const Dict &);
+
+        void restoreIterators();
     };
     
 }

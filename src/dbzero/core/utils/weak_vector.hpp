@@ -21,10 +21,15 @@ namespace db0
         }
 
         // remove expired weak pointers
-        void cleanup()
+        // @return true if the vector is empty after cleanup
+        bool cleanup()
         {
+            if (m_data.empty()) {
+                return true;
+            }
             m_data.erase(std::remove_if(m_data.begin(), m_data.end(),
                 [](const std::weak_ptr<T> &ptr) { return ptr.expired(); }), m_data.end());
+            return m_data.empty();
         }
 
         // get the size of the vector

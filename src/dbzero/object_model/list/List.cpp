@@ -214,7 +214,7 @@ namespace db0::object_model
     
     void List::restoreIterators()
     {
-        if (m_iterators.empty()) {
+        if (m_iterators.cleanup()) {
             return;
         }
         m_iterators.forEach([](ListIterator &iter) {

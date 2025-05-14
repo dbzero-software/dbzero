@@ -53,14 +53,6 @@ namespace db0::object_model
     {
     }
 
-    void Dict::operator=(Dict &&other)
-    {
-        clear();
-        super_t::operator=(std::move(other));
-        m_index = std::move(other.m_index);
-        assert(!other.hasInstance());
-    }
-    
     Dict::Dict(db0::swine_ptr<Fixture> &fixture, const Dict &dict)
         : super_t(fixture)
         , m_index(*fixture)
@@ -79,6 +71,15 @@ namespace db0::object_model
     {
         // unregister needs to be called before destruction of members
         unregister();
+    }
+
+    void Dict::operator=(Dict &&other)
+    {
+        clear();
+        super_t::operator=(std::move(other));
+        m_index = std::move(other.m_index);
+        assert(!other.hasInstance());
+        restoreIterators();
     }
     
     void Dict::initWith(const Dict &dict)
@@ -126,6 +127,7 @@ namespace db0::object_model
                 it.modifyItem().value.m_type = bindex.getIndexType();
             }
         }
+        restoreIterators();
     }
     
     Dict::ObjectSharedPtr Dict::getItem(std::uint64_t key_hash, ObjectPtr key_value) const
@@ -190,6 +192,7 @@ namespace db0::object_model
         }
         --modify().m_size;
         unrefMember<LangToolkit>(fixture, storage_class, value);
+        restoreIterators();
         return member;
     }
 
@@ -210,7 +213,8 @@ namespace db0::object_model
     {
         unrefMembers();
         m_index.clear();
-        modify().m_size = 0; 
+        modify().m_size = 0;
+        restoreIterators();
     }
     
     void Dict::commit() const
@@ -256,9 +260,26 @@ namespace db0::object_model
             }
         }
     }
-
-    std::shared_ptr<DictIterator> Dict::getIterator(ObjectPtr lang_dict) const {
-        return std::shared_ptr<DictIterator>(new DictIterator(m_index.begin(), this, lang_dict));
+    
+    std::shared_ptr<DictIterator> Dict::getIterator(ObjectPtr lang_dict) const
+    {
+        auto iter = std::shared_ptr<DictIterator>(new DictIterator(m_index.begin(), this, lang_dict));
+        m_iterators.push_back(iter);
+        return iter;
+    }
+    
+    void Dict::restoreIterators()
+    {
+        if (m_iterators.cleanup()) {
+            return;
+        }
+        m_iterators.forEach([](DictIterator &iter) {
+            iter.restore();
+        });
+    }
+    
+    Dict::const_iterator Dict::find(std::uint64_t key_hash) const {
+        return m_index.find(key_hash);
     }
 
 }
