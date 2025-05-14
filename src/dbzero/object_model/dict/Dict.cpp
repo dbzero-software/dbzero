@@ -159,11 +159,25 @@ namespace db0::object_model
         return new (at_ptr) Dict(fixture, address);
     }
     
-    bool Dict::has_item(int64_t hash, ObjectPtr obj) const
+    bool Dict::has_item(std::int64_t key_hash, ObjectPtr key_value) const
     {   
-        // FIXME: this API should NOT be used directly here
-        auto item = getItem(hash, obj);
-        return item != nullptr;
+        auto fixture = this->getFixture();
+        auto iter = m_index.find(key_hash);
+        if (iter != m_index.end()) {
+            auto [key, address] = *iter;            
+            auto bindex = address.getIndex(*fixture);
+            auto it = bindex.beginJoin(1);
+            while (!it.is_end()) {
+                auto [storage_class, value] = (*it).m_first;
+                auto member = unloadMember<LangToolkit>(fixture, storage_class, value);                
+                if (LangToolkit::compare(key_value, member.get())) {
+                    // a matching key was found
+                    return true;
+                }
+                ++it;
+            }
+        }
+        return false;
     }
 
     Dict *Dict::copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const {

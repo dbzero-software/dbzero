@@ -227,12 +227,28 @@ namespace db0::object_model
         return member;
     }
     
-    bool Set::has_item(int64_t hash, ObjectPtr obj) const
+    bool Set::has_item(std::int64_t hash_key, ObjectPtr key_value) const
     {
-        auto item = getItem(hash, obj);
-        return item != nullptr;
+        auto iter = m_index.find(hash_key);
+        if (iter == m_index.end()) {
+            return false;
+        }
+        
+        auto [key, address] = *iter;        
+        auto fixture = this->getFixture(); 
+        auto bindex = address.getIndex(*fixture);
+        auto it = bindex.beginJoin(1);        
+        while (!it.is_end()) {
+            auto [storage_class, value] = *it;
+            auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+            if (LangToolkit::compare(key_value, member.get())) {
+                return true;
+            }
+            ++it;
+        }
+        return false;
     }
-
+    
     void Set::moveTo(db0::swine_ptr<Fixture> &fixture) 
     {
         assert(hasInstance());
