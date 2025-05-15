@@ -31,6 +31,7 @@ namespace db0::python
     
     bool ListObject_Check(PyObject *);
     
-    PyObject *tryLoadPyList(PyObject *py_list, PyObject *kwargs);
-    PyObject *tryLoadList(ListObject *list, PyObject *kwargs);
+    PyObject *tryLoadPyList(PyObject *py_list, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr = nullptr);
+    PyObject *tryLoadList(ListObject *list, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr = nullptr);
+    
 }

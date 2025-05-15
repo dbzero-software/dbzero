@@ -1039,7 +1039,9 @@ namespace db0::python
         }
         
         PY_API_FUNC
-        return runSafe(tryLoad, py_object, kwargs, py_exclude);
+        // laod stack to detect circular references
+        std::unordered_set<const void*> load_stack;
+        return runSafe(tryLoad, py_object, kwargs, py_exclude, &load_stack);
     }
     
     PyObject *PyAPI_hash(PyObject *self, PyObject *const *args, Py_ssize_t nargs)

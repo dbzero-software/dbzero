@@ -281,28 +281,30 @@ namespace db0::python
         PY_API_FUNC
         return makeListInternal(self, args, nargs);        
     }
-
-    PyObject *tryLoadList(ListObject *list, PyObject *kwargs) {
     
+    PyObject *tryLoadList(ListObject *list, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
+    {    
         auto &list_obj = list->ext();
         PyObject *result = PyList_New(list_obj.size());
         for (std::size_t i = 0; i < list_obj.size(); ++i) {
-            auto res = runSafe(tryLoad, list_obj.getItem(i).get(), kwargs, nullptr);
+            auto res = tryLoad(list_obj.getItem(i).get(), kwargs, nullptr, load_stack_ptr);
             if (res == nullptr) {
+                Py_DECREF(result);
                 return nullptr;
-            }
+            }            
             PyList_SetItem(result, i, res);
         }
         return result;
     }
     
-    PyObject *tryLoadPyList(PyObject *py_list, PyObject *kwargs)
+    PyObject *tryLoadPyList(PyObject *py_list, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {
         Py_ssize_t size = PyList_Size(py_list);        
         PyObject *result = PyList_New(size);
         for (int i = 0; i < size; ++i) {
-            auto res = runSafe(tryLoad, PyList_GetItem(py_list, i), kwargs, nullptr);
+            auto res = tryLoad(PyList_GetItem(py_list, i), kwargs, nullptr, load_stack_ptr);
             if (res == nullptr) {
+                Py_DECREF(result);
                 return nullptr;
             }
             PyList_SetItem(result, i, res);

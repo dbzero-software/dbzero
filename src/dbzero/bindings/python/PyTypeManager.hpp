@@ -161,7 +161,7 @@ namespace db0::python
         // error associated with missing / invalid type accessed (e.g. missing import)
         mutable ObjectSharedPtr m_py_class_not_found_error;
         // invalid reference error - e.g. UUID or weak proxy expired
-        mutable ObjectSharedPtr m_py_reference_error;
+        mutable ObjectSharedPtr m_py_reference_error;        
         // identified reference to a MemoBase type
         TypeObjectPtr m_memo_base_type = nullptr;
         std::unordered_set<TypeId> m_dbzero_type_ids;

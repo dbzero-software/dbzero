@@ -29,8 +29,8 @@ namespace db0::python
     bool TupleObject_Check(PyObject *);
     
     // Unload db0.Tuple instance to memory
-    PyObject *tryLoadTuple(TupleObject *, PyObject *kwargs);
+    PyObject *tryLoadTuple(TupleObject *, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr = nullptr);
     // Unload Python tuple instance to memory (in case it contains db0 objects)
-    PyObject *tryLoadPyTuple(PyObject *, PyObject *kwargs);
+    PyObject *tryLoadPyTuple(PyObject *, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr = nullptr);
     
 }

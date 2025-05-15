@@ -438,7 +438,7 @@ namespace db0::python
         return Py_TYPE(object) == &DictObjectType;        
     }
     
-    PyObject *tryLoadDict(PyObject *py_dict, PyObject *kwargs)
+    PyObject *tryLoadDict(PyObject *py_dict, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {   
         PyObject *iterator = PyObject_GetIter(py_dict);
         if (!iterator) {
@@ -449,30 +449,47 @@ namespace db0::python
         PyObject *elem;
         PyObject *py_result = PyDict_New();
         while ((elem = PyIter_Next(iterator))) {
-            auto key = runSafe(tryLoad, elem, kwargs, nullptr);
-            if(key == nullptr) {
+            auto key = tryLoad(elem, kwargs, nullptr, load_stack_ptr);
+            if (key == nullptr) {
+                Py_DECREF(iterator);
+                Py_DECREF(elem);
+                Py_DECREF(py_result);
                 return nullptr;
             }
             if (PyDict_Check(py_dict)) {
-                auto result = runSafe(tryLoad, PyDict_GetItem(py_dict, elem), kwargs, nullptr);
-                if(result == nullptr) {
-                    return nullptr;
+                auto result = tryLoad(
+                    PyDict_GetItem(py_dict, elem), kwargs, nullptr, load_stack_ptr
+                );
+                if (result == nullptr) {
+                    Py_DECREF(iterator);
+                    Py_DECREF(elem);
+                    Py_DECREF(py_result);
+                    return nullptr;                                    
                 }
                 
                 PyDict_SetItem(py_result, key, result);
             } else if (DictObject_Check(py_dict)) {
-                auto result = runSafe(tryLoad, PyAPI_DictObject_GetItem((DictObject*)py_dict, elem), kwargs, nullptr);
-                if(result == nullptr) {
+                auto result = tryLoad(
+                    PyAPI_DictObject_GetItem((DictObject*)py_dict, elem), kwargs, nullptr, load_stack_ptr
+                );
+                if (result == nullptr) {
+                    Py_DECREF(iterator);
+                    Py_DECREF(elem);
+                    Py_DECREF(py_result);
                     return nullptr;
                 }
                 PyDict_SetItem(py_result, key, result);
             } else {
+                Py_DECREF(key);
+                Py_DECREF(iterator);
+                Py_DECREF(elem);
+                Py_DECREF(py_result);
                 throw std::runtime_error("Unknown type");
-            }     
+            }
             Py_DECREF(elem);
-        }            
+        }           
         Py_DECREF(iterator);
         return py_result;
     }
-
+    
 }

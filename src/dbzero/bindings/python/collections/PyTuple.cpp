@@ -219,13 +219,14 @@ namespace db0::python
         return Py_TYPE(object) == &TupleObjectType;        
     }
     
-    PyObject *tryLoadTuple(TupleObject *py_tuple, PyObject *kwargs)
+    PyObject *tryLoadTuple(TupleObject *py_tuple, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {
         auto &tuple_obj = py_tuple->ext();
         PyObject *result = PyTuple_New(tuple_obj.size());
         for (std::size_t i = 0; i < tuple_obj.size(); ++i) {
-            auto res = tryLoad(tuple_obj.getItem(i).get(), kwargs);
-            if(res == nullptr) {
+            auto res = tryLoad(tuple_obj.getItem(i).get(), kwargs, nullptr, load_stack_ptr);
+            if (res == nullptr) {
+                Py_DECREF(result);
                 return nullptr;
             }
             PyTuple_SetItem(result, i, res);
@@ -233,13 +234,14 @@ namespace db0::python
         return result;
     }
     
-    PyObject *tryLoadPyTuple(PyObject *py_tuple, PyObject *kwargs)
+    PyObject *tryLoadPyTuple(PyObject *py_tuple, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {
         Py_ssize_t size = PyTuple_Size(py_tuple);        
         PyObject *result = PyTuple_New(size);
         for (int i = 0; i < size; ++i) {
-            auto res = tryLoad(PyTuple_GetItem(py_tuple, i), kwargs);
-            if (result == nullptr) {
+            auto res = tryLoad(PyTuple_GetItem(py_tuple, i), kwargs, nullptr, load_stack_ptr);
+            if (res == nullptr) {
+                Py_DECREF(result);
                 return nullptr;
             }
             PyTuple_SetItem(result, i, res);

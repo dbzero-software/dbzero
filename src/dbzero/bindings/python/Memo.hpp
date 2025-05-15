@@ -55,8 +55,9 @@ namespace db0::python
     // type ignored for non-memo members
     PyObject *tryGetAttrAs(MemoObject *, PyObject *attr, PyTypeObject *);
     
-    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject* kwargs,  PyObject* exclude);
-
+    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject* kwargs,  PyObject* exclude,
+        std::unordered_set<const void*> *load_stack_ptr = nullptr);
+    
     PyObject *PyAPI_PyMemo_Check(PyObject *self, PyObject *const * args, Py_ssize_t nargs);
     
     // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
