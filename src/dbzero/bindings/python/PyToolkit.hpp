@@ -10,7 +10,9 @@
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 
-#define PY_API_FUNC auto __api_lock = db0::python::PyToolkit::lockApi();
+#define PY_API_FUNC PyThreadState *__save = PyEval_SaveThread(); \
+auto __api_lock = db0::python::PyToolkit::lockApi(); \
+PyEval_RestoreThread(__save);
 
 namespace db0
 
