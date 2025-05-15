@@ -32,6 +32,21 @@ namespace db0::python
 
 {
     
+    LoadGuard::LoadGuard(std::unordered_set<const void*> *load_stack_ptr, const void *arg_ptr)
+        : m_load_stack_ptr(load_stack_ptr)         
+    {
+        if (m_load_stack_ptr && m_load_stack_ptr->insert(arg_ptr).second) {
+            m_arg_ptr = arg_ptr;
+        }
+    }
+    
+    LoadGuard::~LoadGuard()
+    {
+        if (m_load_stack_ptr && m_arg_ptr) {
+            m_load_stack_ptr->erase(m_arg_ptr);
+        }            
+    }
+
     ObjectId extractObjectId(PyObject *args)
     {
         // extact ObjectId from args
@@ -84,7 +99,7 @@ namespace db0::python
 
         THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
     }
-        
+    
     shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id,
         PyTypeObject *py_expected_type)
     {   
@@ -506,8 +521,15 @@ namespace db0::python
         return py_type;
     }
     
-    PyObject *tryLoad(PyObject *py_obj, PyObject* kwargs, PyObject *py_exclude)
+    PyObject *tryLoad(PyObject *py_obj, PyObject* kwargs, PyObject *py_exclude,
+        std::unordered_set<const void*> *load_stack_ptr)
     {
+        LoadGuard _load_guard(load_stack_ptr, py_obj);
+        if (!_load_guard) {
+            PyErr_SetString(PyExc_RecursionError, "Recursive loading detected");
+            return nullptr;
+        }
+        
         using TypeId = db0::bindings::TypeId;
         auto &type_manager = PyToolkit::getTypeManager();
         auto type_id = type_manager.getTypeId(py_obj);
@@ -519,23 +541,23 @@ namespace db0::python
 
         // FIXME: implement for other types
         if (type_id == TypeId::DB0_TUPLE) {
-            return tryLoadTuple(reinterpret_cast<TupleObject*>(py_obj), kwargs);
+            return tryLoadTuple(reinterpret_cast<TupleObject*>(py_obj), kwargs, load_stack_ptr);
         } else if (type_id == TypeId::TUPLE) {
             // regular Python tuple
-            return tryLoadPyTuple(py_obj, kwargs);
+            return tryLoadPyTuple(py_obj, kwargs, load_stack_ptr);
         } else if (type_id == TypeId::DB0_LIST) {
-            return tryLoadList(reinterpret_cast<ListObject*>(py_obj), kwargs);
+            return tryLoadList(reinterpret_cast<ListObject*>(py_obj), kwargs, load_stack_ptr);
         } else if (type_id == TypeId::LIST) {
             // regular Python list
-            return tryLoadPyList(py_obj, kwargs);
+            return tryLoadPyList(py_obj, kwargs, load_stack_ptr);
         } else if (type_id == TypeId::DB0_DICT || type_id == TypeId::DICT) {
-            return tryLoadDict(py_obj, kwargs);
+            return tryLoadDict(py_obj, kwargs, load_stack_ptr);
         } else if (type_id == TypeId::DB0_SET || type_id == TypeId::SET) {
-            return tryLoadSet(py_obj, kwargs);
+            return tryLoadSet(py_obj, kwargs, load_stack_ptr);
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
             return tryLoadEnumValue(reinterpret_cast<PyEnumValue*>(py_obj));
         } else if (type_id == TypeId::MEMO_OBJECT) {
-            return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), kwargs, py_exclude);
+            return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), kwargs, py_exclude, load_stack_ptr);
         } else {
             THROWF(db0::InputException) << "Unload not implemented for type: " 
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;

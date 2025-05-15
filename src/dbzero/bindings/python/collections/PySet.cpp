@@ -736,8 +736,8 @@ namespace db0::python
         Py_DECREF(it);        
         return self;
     }
-
-    PyObject *tryLoadSet(PyObject *set, PyObject *kwargs)
+    
+    PyObject *tryLoadSet(PyObject *set, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {    
         PyObject *iterator = PyObject_GetIter(set);
         if (!iterator) {
@@ -748,13 +748,16 @@ namespace db0::python
         PyObject *elem;
         PyObject *py_result = PySet_New(nullptr);
         while ((elem = PyIter_Next(iterator))) {
-            auto result = runSafe(tryLoad, elem, kwargs, nullptr);
-            if(result == nullptr) {
+            auto result = tryLoad(elem, kwargs, nullptr, load_stack_ptr);
+            if (result == nullptr) {
+                Py_DECREF(iterator);
+                Py_DECREF(elem);
+                Py_DECREF(py_result);
                 return nullptr;
             }
             PySet_Add(py_result, result);
             Py_DECREF(elem);
-        }            
+        }
         Py_DECREF(iterator);
         return py_result;
     }

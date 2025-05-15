@@ -33,6 +33,23 @@ namespace db0::python
     using ObjectId = db0::object_model::ObjectId;
     using ObjectIterable = db0::object_model::ObjectIterable;
     
+    class LoadGuard
+    {
+    public:
+        // Validate if the argument has not been used on the load stack
+        LoadGuard(std::unordered_set<const void*> *load_stack_ptr, const void *arg_ptr);
+        ~LoadGuard();
+
+        // check if the argument was validated correctly
+        operator bool() const {
+            return m_arg_ptr != nullptr;
+        }
+
+    private:
+        std::unordered_set<const void*> *m_load_stack_ptr;
+        const void *m_arg_ptr = nullptr;
+    };
+    
     /**
      * Extarct full object UUID from python args compatible with db0.open()
     */
@@ -120,7 +137,9 @@ namespace db0::python
     PyTypeObject *tryGetType(PyObject *py_obj);
     
     // Load dbzero object to memory
-    PyObject *tryLoad(PyObject *, PyObject*, PyObject *py_exlude = nullptr);
+    // @param load_stack_ptr - required to track and avoid circular references
+    PyObject *tryLoad(PyObject *, PyObject*, PyObject *py_exlude = nullptr, 
+        std::unordered_set<const void*> *load_stack_ptr = nullptr);
     
     PyObject *getMaterializedMemoObject(PyObject *py_obj);
     

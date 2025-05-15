@@ -36,6 +36,6 @@ namespace db0::python
         
     extern PyTypeObject DictIteratorObjectType;
 
-    PyObject *tryLoadDict(PyObject *py_dict, PyObject *kwargs);
+    PyObject *tryLoadDict(PyObject *py_dict, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr = nullptr);
     
 }

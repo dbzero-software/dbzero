@@ -716,11 +716,10 @@ namespace db0::python
         return py_result;
     }
     
-    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude)
-    {
-        PyObject *py_result = PyDict_New();
+    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude, std::unordered_set<const void*> *load_stack_ptr)
+    {        
         auto load_method = tryMemoObject_getattro(memo_obj, PyUnicode_FromString("__load__"));
-                
+        PyObject *py_result = PyDict_New();
         if (load_method) {
             if (py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot exlude values when __load__ is implemented");
@@ -743,7 +742,7 @@ namespace db0::python
                 return result;
             }
             Py_DECREF(load_method);
-            return runSafe(tryLoad, result, kwargs, nullptr);
+            return tryLoad(result, kwargs, nullptr, load_stack_ptr);
         }
         
         // reset Python error
@@ -751,7 +750,9 @@ namespace db0::python
         PyErr_Clear();
         
         bool has_error = false;
-        memo_obj->ext().forAll([py_result, memo_obj, py_exclude, kwargs, &has_error](const std::string &key, PyTypes::ObjectSharedPtr) {            
+        memo_obj->ext().forAll([py_result, memo_obj, py_exclude, kwargs, &has_error, load_stack_ptr]
+            (const std::string &key, PyTypes::ObjectSharedPtr)
+        {            
             auto key_obj = PyUnicode_FromString(key.c_str());
             auto attr = PyAPI_MemoObject_getattro(memo_obj, key_obj);
             if (!attr) {
@@ -760,7 +761,7 @@ namespace db0::python
             }
             
             if (py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, key_obj) == 0) {
-                PyObject *res = runSafe(tryLoad, attr, kwargs, nullptr);
+                PyObject *res = tryLoad(attr, kwargs, nullptr, load_stack_ptr);
                 if (res == nullptr) {
                     has_error = true;
                 } else {

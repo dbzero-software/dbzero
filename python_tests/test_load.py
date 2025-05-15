@@ -1,7 +1,7 @@
 import pytest
 import dbzero_ce as db0
 from .memo_test_types import (MemoTestClass, MemoTestThreeParamsClass, MemoTestCustomLoadClass, 
-                              MemoTestCustomLoadClassWithParams)
+                              MemoTestCustomLoadClassWithParams, MemoTestSingleton)
 
 
 def test_load_py_string():  
@@ -196,3 +196,17 @@ def test_load_set_of_tuples_issue1(db0_fixture):
     """
     obj = db0.set([(1,2), (2,3)])
     assert {(1,2), (2,3)} == db0.load(obj)    
+
+
+def test_load_cyclic_graph_issue1(db0_fixture):
+    """
+    Issue: https://github.com/wskozlowski/dbzero_ce/issues/338
+    """
+    root = MemoTestSingleton({})
+    root.value["a"] = MemoTestClass(123)
+    root.value["b"] = MemoTestClass({})
+    root.value["b"].value["x"] = MemoTestClass(456)
+    root.value["c"] = root
+    
+    with pytest.raises(RecursionError):
+        db0.load(root)
