@@ -16,7 +16,6 @@ namespace db0::python
     void PyAPI_DictObject_del(DictObject* self);
     Py_ssize_t PyAPI_DictObject_len(DictObject *);
     PyObject *PyAPI_DictObject_GetItem(DictObject *dict_obj, PyObject *key);
-    int DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value);
     PyObject *PyAPI_DictObject_clear(DictObject *set_obj);
     PyObject *PyAPI_DictObject_copy(DictObject *set_obj);
     PyObject *PyAPI_DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs);
@@ -29,8 +28,8 @@ namespace db0::python
     PyObject *PyAPI_DictObject_items(DictObject *dict_obj);
     void PyAPI_DictObject_del(DictObject* dict_obj);
     extern PyTypeObject DictObjectType;
-    
-    shared_py_object<DictObject*> makeDB0Dict(db0::swine_ptr<Fixture> &, PyObject *args, PyObject *kwargs);
+        
+    shared_py_object<DictObject*> tryMake_DB0Dict(db0::swine_ptr<Fixture> &, PyObject *args, PyObject *kwargs);
     DictObject *PyAPI_makeDict(PyObject *, PyObject*, PyObject*);
     bool DictObject_Check(PyObject *);
         

@@ -203,7 +203,7 @@ namespace db0::object_model
         super_t::destroy();
     }
 
-    Set::ObjectSharedPtr Set::pop()
+    Set::ObjectSharedPtr Set::pop(FixtureLock &)
     {
         auto iter = m_index.begin();
         if (iter == m_index.end()) {
@@ -261,8 +261,8 @@ namespace db0::object_model
     std::size_t Set::size() const { 
         return (*this)->m_size;
     }
-
-    void Set::clear()
+    
+    void Set::clear(FixtureLock &)
     {
         unrefMembers();
         m_index.clear();

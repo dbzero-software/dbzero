@@ -15,23 +15,37 @@ namespace db0::python
     PyTypeObject TupleIteratorObjectType = GetIteratorType<TupleIteratorObject>("dbzero_ce.TupleIterator",
                                                                               "dbzero tuple iterator");
 
-    TupleIteratorObject *PyAPI_TupleObject_iter(TupleObject *self)
-    {
-        PY_API_FUNC
+    TupleIteratorObject *tryTupleObject_iter(TupleObject *self)
+    {        
         return makeIterator<TupleIteratorObject,db0::object_model::TupleIterator>(
             TupleIteratorObjectType, self->ext().begin(), &self->ext(), self
         );
     }
-    
-    PyObject *PyAPI_TupleObject_GetItem(TupleObject *tuple_obj, Py_ssize_t i)
+
+    TupleIteratorObject *PyAPI_TupleObject_iter(TupleObject *self)
     {
-        PY_API_FUNC        
+        PY_API_FUNC
+        return runSafe(tryTupleObject_iter, self);
+    }
+
+    PyObject *tryTupleObject_GetItem(TupleObject *tuple_obj, Py_ssize_t i)
+    {        
         if (static_cast<std::size_t>(i) >= tuple_obj->ext().getData()->size()) {
             PyErr_SetString(PyExc_IndexError, "tuple index out of range");
             return NULL;
         }
         tuple_obj->ext().getFixture()->refreshIfUpdated();
         return tuple_obj->ext().getItem(i).steal();
+    }
+
+    PyObject *PyAPI_TupleObject_GetItem(TupleObject *tuple_obj, Py_ssize_t i)
+    {
+        PY_API_FUNC        
+        return runSafe(tryTupleObject_GetItem, tuple_obj, i);
+    }
+
+    PyObject *tryTupleObject_count(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs) {
+        return PyLong_FromLong(tuple_obj->ext().count(args[0]));        
     }
 
     PyObject *PyAPI_TupleObject_count(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs)
@@ -41,8 +55,11 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "count() takes one argument.");
             return NULL;
         }
-        auto index = PyLong_FromLong(tuple_obj->ext().count(args[0]));
-        return index;
+        return runSafe(tryTupleObject_count, tuple_obj, args, nargs);
+    }
+
+    PyObject *tryTupleObject_index(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs) {
+        return PyLong_FromLong(tuple_obj->ext().index(args[0]));        
     }
 
     PyObject *PyAPI_TupleObject_index(TupleObject *tuple_obj, PyObject *const *args, Py_ssize_t nargs)
@@ -52,8 +69,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "index() takes one argument.");
             return NULL;
         }
-        auto index = PyLong_FromLong(tuple_obj->ext().index(args[0]));
-        return index;
+        return runSafe(tryTupleObject_index, tuple_obj, args, nargs);
     }
 
     static PySequenceMethods TupleObject_sq = {
@@ -139,14 +155,19 @@ namespace db0::python
         Py_TYPE(tuple_obj)->tp_free((PyObject*)tuple_obj);
     }
 
-    Py_ssize_t PyAPI_TupleObject_len(TupleObject *tuple_obj)
-    {
-        PY_API_FUNC
+    Py_ssize_t tryTupleObject_len(TupleObject *tuple_obj)
+    {        
         tuple_obj->ext().getFixture()->refreshIfUpdated();
         return tuple_obj->ext().getData()->size();
     }
+
+    Py_ssize_t PyAPI_TupleObject_len(TupleObject *tuple_obj)
+    {
+        PY_API_FUNC
+        return runSafe(tryTupleObject_len, tuple_obj);
+    }
     
-    shared_py_object<TupleObject*> makeDB0Tuple(db0::swine_ptr<Fixture> &fixture, PyObject *const *args,
+    shared_py_object<TupleObject*> tryMake_DB0Tuple(db0::swine_ptr<Fixture> &fixture, PyObject *const *args,
         Py_ssize_t nargs)
     {
         if (nargs > 1) {
@@ -208,11 +229,16 @@ namespace db0::python
         return py_tuple;
     }
     
+    shared_py_object<TupleObject*> tryMake_DB0TupleInternal(PyObject *const *args, Py_ssize_t nargs)
+    {
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+        return tryMake_DB0Tuple(fixture, args, nargs);
+    }
+
     PyObject *PyAPI_makeTuple(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return runSafe(makeDB0Tuple, fixture, args, nargs).steal();
+        PY_API_FUNC        
+        return runSafe(tryMake_DB0TupleInternal, args, nargs).steal();
     }
     
     bool TupleObject_Check(PyObject *object) {

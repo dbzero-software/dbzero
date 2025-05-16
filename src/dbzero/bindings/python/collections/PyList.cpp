@@ -15,22 +15,21 @@ namespace db0::python
 
     PyTypeObject ListIteratorObjectType = GetIteratorType<ListIteratorObject>("dbzero_ce.ListIterator",
                                                                               "dbzero list iterator");
-    
-    ListIteratorObject *PyAPI_ListObject_iter(ListObject *self)
-    {
-        PY_API_FUNC
+
+    ListIteratorObject *tryListObject_iter(ListObject *self)
+    {        
         return makeIterator<ListIteratorObject, db0::object_model::ListIterator>(
             ListIteratorObjectType, self->ext().begin(), &self->ext(), self
         );
     }
-    
-    PyObject *ListObject_GetItem(ListObject *list_obj, Py_ssize_t i)
-    {        
-        list_obj->ext().getFixture()->refreshIfUpdated();
-        return list_obj->ext().getItem(i).steal();
+
+    ListIteratorObject *PyAPI_ListObject_iter(ListObject *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryListObject_iter, self);
     }
-    
-    PyObject *ListObject_copy(ListObject *py_src_list)
+        
+    PyObject *tryListObject_copy(ListObject *py_src_list)
     {
         // make actual dbzero instance, use default fixture
         auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
@@ -43,18 +42,17 @@ namespace db0::python
     PyObject *PyAPI_ListObject_copy(ListObject *py_src_list)
     {
         PY_API_FUNC
-        return ListObject_copy(py_src_list);
+        return runSafe(tryListObject_copy, py_src_list);
     }
-    
-    PyObject *PyAPI_ListObject_multiply(ListObject *list_obj, PyObject *elem)
-    {
-        PY_API_FUNC
+
+    PyObject *tryListObject_multiply(ListObject *list_obj, PyObject *elem)
+    {        
         auto elems = PyLong_AsLong(elem);
-        auto list_obj_copy = (ListObject *)ListObject_copy(list_obj);
+        auto list_obj_copy = (ListObject *)tryListObject_copy(list_obj);
         PyObject * obj_list = (PyObject *)list_obj;
         PyObject** args = &obj_list;
         for (int i = 1; i< elems; ++i) {
-            if (!ObjectT_extend<ListObject>(list_obj_copy, args, 1)) {
+            if (!tryObjectT_extend<ListObject>(list_obj_copy, args, 1)) {
                 Py_DECREF(list_obj_copy);
                 return NULL;
             }
@@ -62,8 +60,14 @@ namespace db0::python
 
         return list_obj_copy;
     }
+
+    PyObject *PyAPI_ListObject_multiply(ListObject *list_obj, PyObject *elem)
+    {
+        PY_API_FUNC
+        return runSafe(tryListObject_multiply, list_obj, elem);
+    }
     
-    shared_py_object<ListObject*> makeDB0ListInternal(db0::swine_ptr<Fixture> &fixture,
+    shared_py_object<ListObject*> tryMake_DB0ListInternal(db0::swine_ptr<Fixture> &fixture,
         PyObject *const *args, Py_ssize_t nargs)
     {
         auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
@@ -71,7 +75,7 @@ namespace db0::python
         auto &list = py_list->modifyExt();
         db0::object_model::List::makeNew(&list, *lock);
         if (nargs == 1) {
-            if (!ObjectT_extend<ListObject>(py_list, args, nargs)) {
+            if (!tryObjectT_extend<ListObject>(py_list, args, nargs)) {
                 Py_DECREF(py_list);
                 return nullptr;
             }
@@ -81,7 +85,7 @@ namespace db0::python
         return { py_list, false };
     }
 
-    ListObject *makeListInternal(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    ListObject *tryMake_ListInternal(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {        
         if (nargs != 1 && nargs != 0) {
             PyErr_SetString(PyExc_TypeError, "list() takes exactly one or zero argument");
@@ -89,7 +93,7 @@ namespace db0::python
         }
 
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return makeDB0ListInternal(fixture, args, nargs).steal();
+        return tryMake_DB0ListInternal(fixture, args, nargs).steal();
     }
     
     PyObject *tryListObject_GetItemSlice(ListObject *py_src_list, PyObject *elem)
@@ -110,7 +114,7 @@ namespace db0::python
 
             Py_ssize_t start, stop, step;
             PySlice_GetIndices(elem, py_src_list->ext().size(), &start, &stop, &step);
-            auto py_list = makeListInternal(nullptr, nullptr, 0);
+            auto py_list = tryMake_ListInternal(nullptr, nullptr, 0);
             auto compare = [step](Py_ssize_t i, Py_ssize_t stop) {
                 if (step > 0) {
                     return i < stop; 
@@ -136,15 +140,24 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryListObject_GetItemSlice, py_src_list, elem);
     }
-    
-    PyObject *PyAPI_ListObject_clear(ListObject *py_list)
-    {
-        PY_API_FUNC
+
+    PyObject *tryListObject_clear(ListObject *py_list)
+    {        
         db0::FixtureLock lock(py_list->ext().getFixture());
         py_list->modifyExt().clear(lock);
         Py_RETURN_NONE;
     }
-    
+
+    PyObject *PyAPI_ListObject_clear(ListObject *py_list)
+    {
+        PY_API_FUNC
+        return runSafe(tryListObject_clear, py_list);
+    }
+
+    PyObject *tryListObject_count(ListObject *py_list, PyObject *const *args, Py_ssize_t nargs) {
+        return PyLong_FromLong(py_list->ext().count(args[0]));      
+    }
+
     PyObject *PyAPI_ListObject_count(ListObject *py_list, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC    
@@ -152,21 +165,26 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "count() takes one argument.");
             return NULL;
         }
-        return PyLong_FromLong(py_list->ext().count(args[0]));        
+        return runSafe(tryListObject_count, py_list, args, nargs);
+    }
+
+    PyObject *tryListObject_add(ListObject *list_obj_lh, ListObject *list_obj_rh)
+    {        
+        //make copy of first list
+        PyObject * obj_list = (PyObject *)list_obj_rh;
+        PyObject** args = &obj_list;
+        ListObject *lh_copy = (ListObject *)tryListObject_copy(list_obj_lh);
+        if (!tryObjectT_extend<ListObject>(lh_copy, args, 1)) {
+            Py_DECREF(lh_copy);
+            return NULL;
+        }
+        return lh_copy;
     }
     
     PyObject *PyAPI_ListObject_add(ListObject *list_obj_lh, ListObject *list_obj_rh)
     {
         PY_API_FUNC
-        //make copy of first list
-        PyObject * obj_list = (PyObject *)list_obj_rh;
-        PyObject** args = &obj_list;
-        ListObject *lh_copy = (ListObject *)ListObject_copy(list_obj_lh);
-        if (!ObjectT_extend<ListObject>(lh_copy, args, 1)) {
-            Py_DECREF(lh_copy);
-            return NULL;
-        }
-        return lh_copy;
+        return runSafe(tryListObject_add, list_obj_lh, list_obj_rh);
     }
     
     static PySequenceMethods ListObject_sq = getPySequenceMehods<ListObject>();
@@ -272,14 +290,14 @@ namespace db0::python
         return Py_TYPE(object) == &ListObjectType;
     }
     
-    shared_py_object<ListObject*> makeDB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs) {
-        return makeDB0ListInternal(fixture, args, nargs);
+    shared_py_object<ListObject*> tryMake_DB0List(db0::swine_ptr<Fixture> &fixture, PyObject *const *args, Py_ssize_t nargs) {
+        return tryMake_DB0ListInternal(fixture, args, nargs);
     }
     
     PyObject *PyAPI_makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
-        return makeListInternal(self, args, nargs);        
+        return runSafe(tryMake_ListInternal, self, args, nargs);
     }
     
     PyObject *tryLoadList(ListObject *list, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)

@@ -58,10 +58,10 @@ namespace db0::object_model
         static Set *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
         static Set *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
 
-        Set::ObjectSharedPtr pop();
+        Set::ObjectSharedPtr pop(FixtureLock &);
         bool has_item(int64_t hash, PyObject * obj) const;
         
-        void clear();
+        void clear(FixtureLock &);
         void insert(const Set &set);
         void moveTo(db0::swine_ptr<Fixture> &);
 

@@ -21,12 +21,11 @@ namespace db0::python
     PyObject *PyAPI_ListObject_count(ListObject *list_obj, PyObject *const *args, Py_ssize_t nargs);
     // python list as number methods
     PyObject *PyAPI_ListObject_multiply(ListObject *list_obj, PyObject *elem);
-    PyObject *PyAPI_ListObject_GetItem(ListObject *list_obj, Py_ssize_t i);
     
     extern PyTypeObject ListObjectType;
     
     // construct from a Python list (or empty)
-    shared_py_object<ListObject*> makeDB0List(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
+    shared_py_object<ListObject*> tryMake_DB0List(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PyAPI_makeList(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
     bool ListObject_Check(PyObject *);

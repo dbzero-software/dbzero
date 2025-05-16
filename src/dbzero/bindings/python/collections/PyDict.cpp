@@ -24,7 +24,7 @@ namespace db0::python
         );
     }
     
-    PyObject *DictObject_GetItem(DictObject *py_dict, PyObject *py_key)
+    PyObject *tryDictObject_GetItem(DictObject *py_dict, PyObject *py_key)
     {
         const auto &dict_obj = py_dict->ext();
         dict_obj.getFixture()->refreshIfUpdated();
@@ -52,10 +52,10 @@ namespace db0::python
     PyObject *PyAPI_DictObject_GetItem(DictObject *dict_obj, PyObject *key)
     {
         PY_API_FUNC
-        return runSafe(DictObject_GetItem, dict_obj, key);
+        return runSafe(tryDictObject_GetItem, dict_obj, key);
     }
     
-    int DictObject_SetItem(DictObject *py_dict, PyObject *py_key, PyObject *value)
+    int tryDictObject_SetItem(DictObject *py_dict, PyObject *py_key, PyObject *value)
     {
         auto key = migratedKey(py_dict->ext(), py_key);
         auto hash = get_py_hash(key.get());
@@ -75,10 +75,10 @@ namespace db0::python
     int PyAPI_DictObject_SetItem(DictObject *dict_obj, PyObject *key, PyObject *value)
     {
         PY_API_FUNC
-        return runSafe<-1>(DictObject_SetItem, dict_obj, key, value);
+        return runSafe<-1>(tryDictObject_SetItem, dict_obj, key, value);
     }
 
-    Py_ssize_t DictObject_len(DictObject *dict_obj)
+    Py_ssize_t tryDictObject_len(DictObject *dict_obj)
     {        
         dict_obj->ext().getFixture()->refreshIfUpdated();
         return dict_obj->ext().size();
@@ -87,10 +87,10 @@ namespace db0::python
     Py_ssize_t PyAPI_DictObject_len(DictObject *dict_obj)
     {
         PY_API_FUNC
-        return runSafe(DictObject_len, dict_obj);
+        return runSafe(tryDictObject_len, dict_obj);
     }
     
-    int DictObject_HasItem(DictObject *py_dict, PyObject *py_key)
+    int tryDictObject_HasItem(DictObject *py_dict, PyObject *py_key)
     {        
         auto key = migratedKey(py_dict->ext(), py_key);
         py_dict->ext().getFixture()->refreshIfUpdated();
@@ -101,7 +101,7 @@ namespace db0::python
     int PyAPI_DictObject_HasItem(DictObject *dict_obj, PyObject *key)
     {
         PY_API_FUNC
-        return runSafe(DictObject_HasItem, dict_obj, key);
+        return runSafe<-1>(tryDictObject_HasItem, dict_obj, key);
     }
     
     void PyAPI_DictObject_del(DictObject* dict_obj)
@@ -115,7 +115,7 @@ namespace db0::python
     static PySequenceMethods DictObject_seq = {
         .sq_contains = (objobjproc)PyAPI_DictObject_HasItem
     };
-
+    
     static PyMappingMethods DictObject_mp = {
         .mp_length = (lenfunc)PyAPI_DictObject_len,
         .mp_subscript = (binaryfunc)PyAPI_DictObject_GetItem,
@@ -161,7 +161,7 @@ namespace db0::python
         return { DictObject_new(&DictObjectType, NULL, NULL), false };
     }
     
-    PyObject *DictObject_update(DictObject *dict_object, PyObject* args, PyObject* kwargs)
+    PyObject *tryDictObject_update(DictObject *dict_object, PyObject* args, PyObject* kwargs)
     {
         auto arg_len = PyObject_Length(args);
         if (arg_len > 1) {
@@ -180,15 +180,15 @@ namespace db0::python
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
                 if (PyDict_Check(arg1)) {
-                    DictObject_SetItem(dict_object, elem, PyDict_GetItem(arg1, elem));
+                    tryDictObject_SetItem(dict_object, elem, PyDict_GetItem(arg1, elem));
                 } else if (DictObject_Check(arg1)) {
-                    DictObject_SetItem(dict_object, elem, DictObject_GetItem((DictObject*)arg1, elem));
+                    tryDictObject_SetItem(dict_object, elem, tryDictObject_GetItem((DictObject*)arg1, elem));
                 } else {
                     if (PyObject_Length(elem) != 2) {
                         PyErr_SetString(PyExc_ValueError, "dictionary update sequence element #0 has length 1; 2 is required");
                         return NULL;
                     }
-                    DictObject_SetItem(dict_object, PyTuple_GetItem(elem,0), PyTuple_GetItem(elem,1));
+                    tryDictObject_SetItem(dict_object, PyTuple_GetItem(elem,0), PyTuple_GetItem(elem,1));
                 }                
                 Py_DECREF(elem);
             }            
@@ -202,7 +202,7 @@ namespace db0::python
             }
             PyObject *elem;
             while ((elem = PyIter_Next(iterator))) {
-                DictObject_SetItem(dict_object, elem, PyDict_GetItem(kwargs, elem));
+                tryDictObject_SetItem(dict_object, elem, PyDict_GetItem(kwargs, elem));
                 Py_DECREF(elem);
             }
             Py_DECREF(iterator);
@@ -213,18 +213,18 @@ namespace db0::python
     PyObject *PyAPI_DictObject_update(DictObject *dict_object, PyObject* args, PyObject* kwargs)
     {
         PY_API_FUNC
-        return runSafe(DictObject_update, dict_object, args, kwargs);
+        return runSafe(tryDictObject_update, dict_object, args, kwargs);
     }
     
-    shared_py_object<DictObject*> makeDB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args, PyObject *kwargs)
-    {
+    shared_py_object<DictObject*> tryMake_DB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args, PyObject *kwargs)
+    {        
         auto py_dict = DictDefaultObject_new();
         db0::FixtureLock lock(fixture);
         auto &dict = py_dict.get()->modifyExt();
         db0::object_model::Dict::makeNew(&dict, *lock);
         
         // if args
-        if (!DictObject_update(py_dict.get(), args, kwargs)) {            
+        if (!tryDictObject_update(py_dict.get(), args, kwargs)) {            
             return nullptr;
         }
 
@@ -232,24 +232,29 @@ namespace db0::python
         fixture->getLangCache().add(dict.getAddress(), py_dict.get());
         return py_dict;
     }
+
+    shared_py_object<DictObject*> tryMake_DB0DictInternal(PyObject *args, PyObject *kwargs)
+    {
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
+        return tryMake_DB0Dict(fixture, args, kwargs);        
+    }
     
     DictObject *PyAPI_makeDict(PyObject *, PyObject* args, PyObject* kwargs)
     {
-        PY_API_FUNC
-        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture();
-        return runSafe(makeDB0Dict, fixture, args, kwargs).steal();
+        PY_API_FUNC        
+        return runSafe(tryMake_DB0DictInternal, args, kwargs).steal();
     }
     
-    PyObject *DictObject_clear(DictObject *dict_obj)
+    PyObject *tryDictObject_clear(DictObject *dict_obj)
     {
         dict_obj->modifyExt().clear();
         Py_RETURN_NONE;
     }
-
+    
     PyObject *PyAPI_DictObject_clear(DictObject *dict_obj)
     {
         PY_API_FUNC
-        return runSafe(DictObject_clear, dict_obj);
+        return runSafe(tryDictObject_clear, dict_obj);
     }
 
     PyObject *tryDictObject_copy(DictObject *py_src_dict)
@@ -287,9 +292,9 @@ namespace db0::python
             value = args[1];
         }
         while ((elem = PyIter_Next(iterator))) {
-            DictObject_SetItem(py_dict.get(), elem, value);
+            tryDictObject_SetItem(py_dict.get(), elem, value);
         }
-
+        
         lock->getLangCache().add(py_dict.get()->ext().getAddress(), py_dict.get());
         return py_dict.steal();
     }
@@ -315,7 +320,7 @@ namespace db0::python
         auto elem = migratedKey(dict_object->ext(), py_elem);
         auto hash = get_py_hash(elem.get());
         if (dict_object->ext().has_item(hash, elem.get())) {
-            return DictObject_GetItem(dict_object, elem.get());
+            return tryDictObject_GetItem(dict_object, elem.get());
         }
         PyObject *value = Py_None;
         if (nargs == 2) {
@@ -385,9 +390,9 @@ namespace db0::python
         auto elem = migratedKey(dict_object->ext(), py_elem);
         auto hash = get_py_hash(elem.get());
         if (!dict_object->ext().has_item(hash, elem.get())) {
-            DictObject_SetItem(dict_object, elem.get(), value);
+            tryDictObject_SetItem(dict_object, elem.get(), value);
         }
-        return DictObject_GetItem(dict_object, elem.get());
+        return tryDictObject_GetItem(dict_object, elem.get());
     }
 
     PyObject *PyAPI_DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 

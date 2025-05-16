@@ -10,24 +10,33 @@
 namespace db0::python
 
 {
-        
-    DictIteratorObject *DictViewObject_iter(DictViewObject *self)
-    {
-        PY_API_FUNC
+
+    DictIteratorObject *tryDictViewObject_iter(DictViewObject *self)
+    {        
         auto iter = self->ext().getIterator();
         auto py_iter = IteratorObject_new<DictIteratorObject>(&DictIteratorObjectType, NULL, NULL);
         py_iter->makeNew(iter);
         return py_iter;
     }
-    
-    Py_ssize_t DictViewObject_len(DictViewObject *dict_obj) 
+
+    DictIteratorObject *PyAPI_DictViewObject_iter(DictViewObject *self)
     {
-        PY_API_FUNC        
+        PY_API_FUNC
+        return runSafe(tryDictViewObject_iter, self);
+    }
+
+    Py_ssize_t tryDictViewObject_len(DictViewObject *dict_obj) {        
         return dict_obj->ext().size();
     }
 
+    Py_ssize_t PyAPI_DictViewObject_len(DictViewObject *dict_obj)
+    {
+        PY_API_FUNC        
+        return runSafe(tryDictViewObject_len, dict_obj);
+    }
+
     static PyMappingMethods DictViewObject_mp = {
-        .mp_length = (lenfunc)DictViewObject_len,
+        .mp_length = (lenfunc)PyAPI_DictViewObject_len,
     };
     
     static PyMethodDef DictViewObject_methods[] = {
@@ -39,11 +48,11 @@ namespace db0::python
         .tp_name = "Dict",
         .tp_basicsize = DictViewObject::sizeOf(),
         .tp_itemsize = 0,
-        .tp_dealloc = (destructor)DictViewObject_del,
+        .tp_dealloc = (destructor)PyAPI_DictViewObject_del,
         .tp_as_mapping = &DictViewObject_mp,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero dict collection object",
-        .tp_iter = (getiterfunc)DictViewObject_iter,
+        .tp_iter = (getiterfunc)PyAPI_DictViewObject_iter,
         .tp_methods = DictViewObject_methods,        
         .tp_alloc = PyType_GenericAlloc,
         .tp_new = (newfunc)DictViewObject_new,
@@ -62,7 +71,7 @@ namespace db0::python
         return DictViewObject_new(&DictViewObjectType, NULL, NULL);
     }
     
-    void DictViewObject_del(DictViewObject* dict_obj)
+    void PyAPI_DictViewObject_del(DictViewObject* dict_obj)
     {
         PY_API_FUNC
         // destroy associated DB0 Dict instance

@@ -23,7 +23,7 @@ namespace db0::python
     
     extern PyTypeObject TupleObjectType;
         
-    shared_py_object<TupleObject*> makeDB0Tuple(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
+    shared_py_object<TupleObject*> tryMake_DB0Tuple(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PyAPI_makeTuple(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
     bool TupleObject_Check(PyObject *);
