@@ -8,6 +8,14 @@ namespace db0::python
 {
 
     template<typename ObjectT>
+    PyObject *tryObjectT_append(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    {
+        db0::FixtureLock lock(py_obj->ext().getFixture());
+        py_obj->modifyExt().append(lock, args[0]);
+        Py_RETURN_NONE;
+    }
+
+    template<typename ObjectT>
     PyObject *PyAPI_ObjectT_append(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
@@ -15,25 +23,19 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "append() takes exactly one argument");
             return NULL;
         }
-        
-        db0::FixtureLock lock(py_obj->ext().getFixture());
-        py_obj->modifyExt().append(lock, args[0]);
-        Py_RETURN_NONE;
+
+        return runSafe(tryObjectT_append<ObjectT>, py_obj, args, nargs);
     }
     
     template<typename ObjectT>
-    PyObject *ObjectT_extend(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
-    {
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "extend() takes one argument.");
-            return NULL;
-        }
+    PyObject *tryObjectT_extend(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    {   
         PyObject *iterator = PyObject_GetIter(args[0]);
         if (!iterator) {
             PyErr_SetString(PyExc_TypeError, "extend() argument must be iterable.");
             return NULL;
         }
-        
+
         PyObject *item;
         db0::FixtureLock lock(py_obj->ext().getFixture());
         auto &obj = py_obj->modifyExt();
@@ -50,18 +52,36 @@ namespace db0::python
     PyObject *PyAPI_ObjectT_extend(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
-        return ObjectT_extend(py_obj, args, nargs);
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "extend() takes one argument.");
+            return NULL;
+        }
+        return runSafe(tryObjectT_extend<ObjectT>, py_obj, args, nargs);
     }
-    
+
     template <typename ObjectT>
-    int PyAPI_ObjectT_SetItem(ObjectT *py_obj, Py_ssize_t i, PyObject *value)
-    {
-        PY_API_FUNC
+    int tryObjectT_SetItem(ObjectT *py_obj, Py_ssize_t i, PyObject *value)
+    {        
         db0::FixtureLock lock(py_obj->ext().getFixture());
         py_obj->modifyExt().setItem(lock, i, value);
         return 0;
     }
-    
+
+    template <typename ObjectT>
+    int PyAPI_ObjectT_SetItem(ObjectT *py_obj, Py_ssize_t i, PyObject *value)
+    {
+        PY_API_FUNC
+        return runSafe(tryObjectT_SetItem<ObjectT>, py_obj, i, value);
+    }
+
+    template <typename ObjectT>
+    PyObject* tryObjectT_Insert(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    {        
+        db0::FixtureLock lock(py_obj->ext().getFixture());
+        py_obj->modifyExt().setItem(lock, PyLong_AsLong(args[0]), args[1]);
+        Py_RETURN_NONE;
+    }
+
     template <typename ObjectT>
     PyObject* PyAPI_ObjectT_Insert(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {        
@@ -74,25 +94,35 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "insert() takes an integer as first argument");
             return NULL;
         }
-        db0::FixtureLock lock(py_obj->ext().getFixture());
-        py_obj->modifyExt().setItem(lock, PyLong_AsLong(args[0]), args[1]);
-        Py_RETURN_NONE;
+        return runSafe(tryObjectT_Insert<ObjectT>, py_obj, args, nargs);
     }
-    
+
+    template <typename ObjectT>
+    PyObject *tryObjectT_GetItem(ObjectT *py_obj, Py_ssize_t i)
+    {        
+        py_obj->ext().getFixture()->refreshIfUpdated();
+        return py_obj->ext().getItem(i).steal();
+    }
+
     template <typename ObjectT>
     PyObject *PyAPI_ObjectT_GetItem(ObjectT *py_obj, Py_ssize_t i)
     {
         PY_API_FUNC
-        py_obj->ext().getFixture()->refreshIfUpdated();
-        return py_obj->ext().getItem(i).steal();
+        return runSafe(tryObjectT_GetItem<ObjectT>, py_obj, i);
     }
-    
+
+    template<typename ObjectT>
+    Py_ssize_t tryObjectT_len(ObjectT *py_obj)
+    {        
+        py_obj->ext().getFixture()->refreshIfUpdated();
+        return py_obj->ext().size();
+    }
+
     template<typename ObjectT>
     Py_ssize_t PyAPI_ObjectT_len(ObjectT *py_obj)
     {
         PY_API_FUNC
-        py_obj->ext().getFixture()->refreshIfUpdated();
-        return py_obj->ext().size();
+        return runSafe(tryObjectT_len<ObjectT>, py_obj);
     }
 
     template<typename ObjectT>
@@ -105,9 +135,8 @@ namespace db0::python
     }
 
     template<typename ObjectT>
-    PyObject *PyAPI_ObjectT_pop(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *tryObjectT_pop(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        PY_API_FUNC
         std::size_t index;
         if (nargs == 0) {
             index = py_obj->ext().size() -1;
@@ -117,8 +146,25 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "pop() takes zero or one argument.");
             return NULL;
         }
+
         db0::FixtureLock lock(py_obj->ext().getFixture());
         return py_obj->modifyExt().pop(lock, index).steal();
+    }
+    
+    template<typename ObjectT>
+    PyObject *PyAPI_ObjectT_pop(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    {
+        PY_API_FUNC
+        return runSafe(tryObjectT_pop<ObjectT>, py_obj, args, nargs);
+    }
+
+    template <typename ObjectT>
+    PyObject *tryObjectT_remove(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    {
+        auto index = py_obj->ext().index(args[0]);
+        db0::FixtureLock lock(py_obj->ext().getFixture());
+        py_obj->modifyExt().swapAndPop(lock, {index});
+        Py_RETURN_NONE;
     }
 
     template <typename ObjectT>
@@ -129,12 +175,15 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "remove() takes one argument.");
             return NULL;
         }
-        auto index = py_obj->ext().index(args[0]);
-        db0::FixtureLock lock(py_obj->ext().getFixture());
-        py_obj->modifyExt().swapAndPop(lock, {index});
-        Py_RETURN_NONE;
+        return runSafe(tryObjectT_remove<ObjectT>, py_obj, args, nargs);
     }
     
+    template <typename ObjectT>
+    PyObject *tryObjectT_index(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
+    {
+        return PyLong_FromLong(py_obj->ext().index(args[0]));        
+    }
+
     template <typename ObjectT>
     PyObject *PyAPI_ObjectT_index(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
@@ -143,8 +192,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "index() takes one argument.");
             return NULL;
         }
-        auto index = PyLong_FromLong(py_obj->ext().index(args[0]));
-        return index;
+        return runSafe(tryObjectT_index<ObjectT>, py_obj, args, nargs);
     }
     
     // Checks if the key migration (to a different prefix) is required

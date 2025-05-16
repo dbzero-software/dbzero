@@ -41,7 +41,7 @@ namespace db0::python
     PyObject *PyAPI_SetObject_update(SetObject *self, PyObject * ob);
     PyObject *PyAPI_SetObject_intersection_in_place(SetObject *self, PyObject * ob);
 
-    shared_py_object<SetObject*> makeDB0Set(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
+    shared_py_object<SetObject*> tryMake_DB0Set(db0::swine_ptr<Fixture> &, PyObject *const *args, Py_ssize_t nargs);
     SetObject *PyAPI_makeSet(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
     bool SetObject_Check(PyObject *);

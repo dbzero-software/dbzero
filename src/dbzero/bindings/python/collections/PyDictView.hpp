@@ -11,8 +11,8 @@ namespace db0::python
     
     DictViewObject *DictViewObject_new(PyTypeObject *type, PyObject *, PyObject *);
     DictViewObject *DictViewDefaultObject_new();
-    void DictViewObject_del(DictViewObject* self);
-    Py_ssize_t DictViewObject_len(DictViewObject *);
+    void PyAPI_DictViewObject_del(DictViewObject* self);
+    Py_ssize_t PyAPI_DictViewObject_len(DictViewObject *);
     extern PyTypeObject DictViewObjectType;
     
     bool DictViewObject_Check(PyObject *);

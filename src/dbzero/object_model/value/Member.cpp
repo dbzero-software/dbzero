@@ -115,7 +115,7 @@ namespace db0::object_model
     template <> Value createMember<TypeId::LIST, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
-        auto list_ptr = db0::python::makeDB0List(fixture, &obj_ptr, 1);
+        auto list_ptr = db0::python::tryMake_DB0List(fixture, &obj_ptr, 1);
         if (!list_ptr) {
             THROWF(db0::InputException) << "Failed to create list" << THROWF_END;
         }
@@ -127,7 +127,7 @@ namespace db0::object_model
     template <> Value createMember<TypeId::SET, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
-        auto set = db0::python::makeDB0Set(fixture, &obj_ptr, 1);
+        auto set = db0::python::tryMake_DB0Set(fixture, &obj_ptr, 1);
         if (!set) {
             THROWF(db0::InputException) << "Failed to create set" << THROWF_END;
         }
@@ -142,7 +142,7 @@ namespace db0::object_model
         PyObject *args = PyTuple_New(1);
         Py_INCREF(obj_ptr);
         PyTuple_SetItem(args, 0, obj_ptr);
-        auto dict = db0::python::makeDB0Dict(fixture, args, nullptr);
+        auto dict = db0::python::tryMake_DB0Dict(fixture, args, nullptr);
         Py_DECREF(args);
         if (!dict) {
             THROWF(db0::InputException) << "Failed to create dict" << THROWF_END;
@@ -155,11 +155,11 @@ namespace db0::object_model
     template <> Value createMember<TypeId::TUPLE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
-        auto tuple = db0::python::makeDB0Tuple(fixture, &obj_ptr, 1);
+        auto tuple = db0::python::tryMake_DB0Tuple(fixture, &obj_ptr, 1);
         tuple.get()->modifyExt().incRef();
         return tuple.get()->ext().getAddress();
     }
-
+    
     // DATETIME with TIMEZONE specialization
     template <> Value createMember<TypeId::DATETIME_TZ, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)

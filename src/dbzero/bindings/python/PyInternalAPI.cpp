@@ -559,7 +559,7 @@ namespace db0::python
         } else if (type_id == TypeId::MEMO_OBJECT) {
             return tryLoadMemo(reinterpret_cast<MemoObject*>(py_obj), kwargs, py_exclude, load_stack_ptr);
         } else {
-            THROWF(db0::InputException) << "Unload not implemented for type: " 
+            THROWF(db0::InputException) << "__load__ not implemented for type: " 
                 << Py_TYPE(py_obj)->tp_name << THROWF_END;
         }
     }

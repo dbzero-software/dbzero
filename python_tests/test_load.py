@@ -137,7 +137,7 @@ def test_load_exlude_doesnt_work_with_added_load_method(db0_fixture):
 
     with pytest.raises(AttributeError) as ex:
          db0.load(memo, exclude = ["value_1"])
-    assert "Cannot exlude values when __load__ is implemented" in str(ex.value)
+    assert "Cannot exclude values when __load__ is implemented" in str(ex.value)
 
 
 def test_load_exlude_only_supports_list(db0_fixture):
