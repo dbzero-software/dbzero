@@ -1,0 +1,40 @@
+FROM python:3.10-bullseye
+# Install dependencies and clean up
+RUN apt-get update && apt-get install -y \
+    cmake \
+    psmisc \
+    python3-pip \
+    python3-dbg \
+    gdb \
+    screen \
+    rsync \
+    meson \
+    ninja-build \
+    python3-venv \
+    gettext-base \
+    valgrind \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages
+RUN pip3 install --break-system-packages --no-cache-dir build
+
+RUN ulimit -c unlimited
+# RUN mkdir -p "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
+# RUN chmod 777 "$(cat /proc/sys/kernel/core_pattern | sed 's/%.*//')"
+
+# Copy application files and install Python requirements
+COPY requirements.txt /usr/src/dbzero/
+RUN pip3 install --break-system-packages --no-cache-dir -r /usr/src/dbzero/requirements.txt --upgrade
+
+COPY . /usr/src/dbzero
+WORKDIR /usr/src/dbzero
+
+# Build and install
+RUN python3 scripts/generate_meson.py ./src/dbzero/ core
+RUN python3 scripts/generate_meson_tests.py tests/ 
+#RUN ./build.sh
+# WORKDIR /usr/src/dbzero/build/debug/
+# RUN meson install
+
+#WORKDIR /usr/src/dbzero
