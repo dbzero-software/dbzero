@@ -606,10 +606,10 @@ namespace db0::python
         }
         
         // report kv-index members
-        PyObject *py_kv_index = PyDict_New();
+        auto py_kv_index = Py_OWN(PyDict_New());
         for (auto &item: field_layout.m_kv_index_fields) {
             auto type_name = db0::to_string(item.second);
-            PyDict_SetItem(py_kv_index, PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
+            PyDict_SetItem(*py_kv_index, PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
         }
         
         auto py_result = Py_OWN(PyDict_New());
@@ -625,13 +625,13 @@ namespace db0::python
     
     PyObject *MemoObject_DescribeObject(MemoObject *self)
     {        
-        auto py_field_layout = MemoObject_GetFieldLayout(self);
-        PyObject *py_result = PyDict_New();
-        PyDict_SetItemString(py_result, "field_layout", py_field_layout);
-        PyDict_SetItemString(py_result, "uuid", tryGetUUID(self));
-        PyDict_SetItemString(py_result, "type", PyUnicode_FromString(self->ext().getType().getName().c_str()));
-        PyDict_SetItemString(py_result, "size_of", PyLong_FromLong(self->ext()->sizeOf()));
-        return py_result;
+        auto py_field_layout = Py_OWN(MemoObject_GetFieldLayout(self));
+        auto py_result = Py_OWN(PyDict_New());
+        PyDict_SetItemString(*py_result, "field_layout", py_field_layout);
+        PyDict_SetItemString(*py_result, "uuid", tryGetUUID(self));
+        PyDict_SetItemString(*py_result, "type", PyUnicode_FromString(self->ext().getType().getName().c_str()));
+        PyDict_SetItemString(*py_result, "size_of", PyLong_FromLong(self->ext()->sizeOf()));
+        return py_result.steal();
     }
     
     PyObject *tryMemoObject_str(MemoObject *self)

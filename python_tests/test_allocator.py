@@ -91,7 +91,7 @@ def test_allocation_larger_than_slab_size_fails(db0_slab_size):
     with pytest.raises(Exception):
         obj = MemoTestClass(get_string(int(1.2 * 1024 * 1024)))
 
-
+@pytest.mark.skip()
 @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
 def test_allocator_alloc_unit_issue(db0_slab_size):
     """

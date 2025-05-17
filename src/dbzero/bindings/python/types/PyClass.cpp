@@ -60,15 +60,15 @@ namespace db0::python
     PyObject *tryGetClassAttributes(const db0::object_model::Class &type)
     {
         auto members = type.getMembers();
-        PyObject *py_list = PyList_New(0);
+        auto py_list = Py_OWN(PyList_New(0));
         for (auto [name, index]: members) {
             // name, index
-            PyObject *py_tuple = PyTuple_Pack(2, PyUnicode_FromString(name.c_str()), PyLong_FromUnsignedLong(index));
-            PyList_Append(py_list, py_tuple);
+            auto py_tuple = Py_OWN(PyTuple_Pack(2, PyUnicode_FromString(name.c_str()), PyLong_FromUnsignedLong(index)));
+            PyList_Append(*py_list, py_tuple);
         }
-        return py_list;
+        return py_list.steal();
     }
-
+    
     PyObject *tryGetAttributes(PyObject *self) {
         return tryGetClassAttributes(reinterpret_cast<ClassObject*>(self)->ext());
     }

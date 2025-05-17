@@ -11,25 +11,38 @@ namespace db0::python
     template <typename T = PyObject *> 
     int PyList_SetItem(PyObject *, Py_ssize_t index, shared_py_object<T> item);
 
+    template <typename T = PyObject *> 
+    int PyList_Append(PyObject *, shared_py_object<T> item);
+
     template <typename T = PyObject *>
     int PyTuple_SetItem(PyObject *, Py_ssize_t index, shared_py_object<T> item);
 
     template <typename K = PyObject *, typename V = PyObject *>
     int PyDict_SetItem(PyObject *, shared_py_object<K> key, shared_py_object<V> val);
 
+    template <typename K = PyObject *, typename V = PyObject *>
+    PyObject *PyDict_SetDefault(PyObject *, shared_py_object<K> key, shared_py_object<V> val);
+
     template <typename T = PyObject *>
     int PyDict_SetItemString(PyObject *, const char *key, shared_py_object<T> val);
 
     template <typename T = PyObject *>
     int PySet_Add(PyObject *, shared_py_object<T> key);
-
-    template <typename T = PyObject *> 
+    
+    template <typename T = PyObject *>
     int PyList_SetItem(PyObject *self, Py_ssize_t index, shared_py_object<T> item)
     {
         assert(item.get() != nullptr);
         return PyList_SetItem(self, index, item.steal());
     }
     
+    template <typename T = PyObject *>
+    int PyList_Append(PyObject *self, shared_py_object<T> item)
+    {
+        assert(item.get() != nullptr);
+        return PyList_Append(self, item.steal());
+    }
+
     template <typename T = PyObject *> 
     int PyTuple_SetItem(PyObject *self, Py_ssize_t index, shared_py_object<T> item)
     {
@@ -44,6 +57,15 @@ namespace db0::python
         assert(val.get() != nullptr);
         // NOTE: Python API does NOT steal the value reference
         return PyDict_SetItem(self, key.steal(), *val);
+    }
+    
+    template <typename K = PyObject *, typename V = PyObject *>
+    PyObject *PyDict_SetDefault(PyObject *self, shared_py_object<K> key, shared_py_object<V> val)
+    {
+        assert(key.get() != nullptr);
+        assert(val.get() != nullptr);
+        // NOTE: Python API does NOT steal the value reference
+        return PyDict_SetDefault(self, key.steal(), *val);
     }
 
     template <typename T = PyObject *>

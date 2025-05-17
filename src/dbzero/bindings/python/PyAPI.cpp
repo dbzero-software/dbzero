@@ -56,20 +56,19 @@ namespace db0::python
         auto dram_prefix_size = DRAM_Prefix::getTotalMemoryUsage().first;
 #endif        
         
-        PyObject* dict = PyDict_New();
-        if (dict == NULL) {
-            PyErr_SetString(PyExc_MemoryError, "Failed to create a dictionary.");
-            return NULL;
+        auto dict = Py_OWN(PyDict_New());
+        if (!dict) {
+            return nullptr;
         }
         
-        PyDict_SetItemString(dict, "size", PyLong_FromLong(cache_recycler.size()));
-        PyDict_SetItemString(dict, "capacity", PyLong_FromLong(cache_recycler.getCapacity()));
-        PyDict_SetItemString(dict, "deferred_free_count", PyLong_FromLong(deferred_free_count));
-        PyDict_SetItemString(dict, "lang_cache_size", PyLong_FromLong(lang_cache_size));
+        PyDict_SetItemString(*dict, "size", Py_OWN(PyLong_FromLong(cache_recycler.size())));
+        PyDict_SetItemString(*dict, "capacity", Py_OWN(PyLong_FromLong(cache_recycler.getCapacity())));
+        PyDict_SetItemString(*dict, "deferred_free_count", Py_OWN(PyLong_FromLong(deferred_free_count)));
+        PyDict_SetItemString(*dict, "lang_cache_size", Py_OWN(PyLong_FromLong(lang_cache_size)));
 #ifndef NDEBUG
-        PyDict_SetItemString(dict, "dram_prefix_size", PyLong_FromLong(dram_prefix_size));
+        PyDict_SetItemString(*dict, "dram_prefix_size", Py_OWN(PyLong_FromLong(dram_prefix_size)));
 #endif        
-        return dict;
+        return dict.steal();
     }
     
     PyObject *getLangCacheStats(PyObject *, PyObject *)
@@ -77,15 +76,14 @@ namespace db0::python
         PY_API_FUNC
         auto lang_cache = PyToolkit::getPyWorkspace().getWorkspace().getLangCache();
         
-        PyObject* dict = PyDict_New();
-        if (dict == NULL) {
-            PyErr_SetString(PyExc_MemoryError, "Failed to create a dictionary.");
-            return NULL;
+        auto dict = Py_OWN(PyDict_New());
+        if (!dict) {        
+            return nullptr;
         }
         
-        PyDict_SetItemString(dict, "size", PyLong_FromLong(lang_cache->size()));
-        PyDict_SetItemString(dict, "capacity", PyLong_FromLong(lang_cache->getCapacity()));
-        return dict;
+        PyDict_SetItemString(*dict, "size", Py_OWN(PyLong_FromLong(lang_cache->size())));
+        PyDict_SetItemString(*dict, "capacity", Py_OWN(PyLong_FromLong(lang_cache->getCapacity())));
+        return dict.steal();
     }
     
     PyObject *PyAPI_clearCache(PyObject *, PyObject *)
@@ -209,13 +207,13 @@ namespace db0::python
 
         using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
         ObjectSharedPtr config_obj;
-        if(py_config) {
-            config_obj = ObjectSharedPtr(PyDict_Copy(py_config), false);
+        if (py_config) {
+            config_obj = Py_OWN(PyDict_Copy(py_config));
         }
         else {
-            config_obj = ObjectSharedPtr(PyDict_New(), false);
+            config_obj = Py_OWN(PyDict_New());
         }
-        if(!config_obj) {
+        if (!config_obj) {
             return nullptr;
         }
         
@@ -224,22 +222,22 @@ namespace db0::python
             {"autocommit", []{ Py_RETURN_TRUE; }},
             {"autocommit_interval", []{ return PyLong_FromLong(Workspace::DEFAULT_AUTOCOMMIT_INTERVAL_MS); }}
         };
-        for(const auto &[key, value_function] : defaults) {
+        for (const auto &[key, value_function] : defaults) {
             // Populate default values so then can be easily accessed with get_config
-            ObjectSharedPtr key_obj(PyUnicode_FromString(key), false);
-            if(!key) {
+            auto key_obj = Py_OWN(PyUnicode_FromString(key));
+            if (!key) {
                 return nullptr;
             }
-            ObjectSharedPtr value_obj(value_function(), false);
-            if(!value_obj) {
+            auto value_obj = Py_OWN(value_function());
+            if (!value_obj) {
                 return nullptr;
             }
-            if(!PyDict_SetDefault(config_obj.get(), key_obj.get(), value_obj.get())) {
+            if (!PyDict_SetDefault(*config_obj, key_obj, value_obj)) {
                 return nullptr;
             }
         }
-
-        PyToolkit::getPyWorkspace().initWorkspace(str_path, config_obj.get(), py_flags);
+        
+        PyToolkit::getPyWorkspace().initWorkspace(str_path, *config_obj, py_flags);
         Py_RETURN_NONE;
     }
     
@@ -650,12 +648,12 @@ namespace db0::python
         }
         
         auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
-        PyObject *py_result = PyDict_New();
+        auto py_result = Py_OWN(PyDict_New());
         memo_obj.ext().forAll([py_result](const std::string &key, ObjectSharedPtr py_value) {
-            PyDict_SetItemString(py_result, key.c_str(), py_value.steal());
+            PyDict_SetItemString(*py_result, key.c_str(), py_value);
             return true;
         });
-        return py_result;
+        return py_result.steal();
     }
     
     PyObject *getBuildFlags(PyObject *, PyObject *)
@@ -881,19 +879,19 @@ namespace db0::python
     PyObject *tryGetMutablePrefixes()
     {
         using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
-        ObjectSharedPtr list(PyList_New(0), false);
-        if(!list) {
+        auto list = Py_OWN(PyList_New(0));
+        if (!list) {
             return nullptr;
         }
         PyToolkit::getPyWorkspace().getWorkspace().forEachFixture([&list](const Fixture &fixture) {
-            if(fixture.getAccessType() == AccessType::READ_WRITE) {
-                ObjectSharedPtr prefix(Py_BuildValue("sK", fixture.getPrefix().getName().c_str(), fixture.getUUID()), false);
-                if(!prefix) {
-                    list = ObjectSharedPtr();
+            if (fixture.getAccessType() == AccessType::READ_WRITE) {
+                auto prefix = Py_OWN(Py_BuildValue("sK", fixture.getPrefix().getName().c_str(), fixture.getUUID()));
+                if (!prefix) {
+                    list = nullptr;
                     return false;
                 }
-                if(PyList_Append(list.get(), prefix.get()) == -1) {
-                    list = ObjectSharedPtr();
+                if (PyList_Append(*list, *prefix) == -1) {
+                    list = nullptr;
                     return false;
                 }
             }
@@ -902,7 +900,7 @@ namespace db0::python
         return list.steal();
     }
 
-    PyObject *PyAPI_getMutablePrefixes(PyObject *, PyObject *) 
+    PyObject *PyAPI_getMutablePrefixes(PyObject *, PyObject *)
     {
         PY_API_FUNC
         return runSafe(tryGetMutablePrefixes);
