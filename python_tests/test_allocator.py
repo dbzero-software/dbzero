@@ -92,7 +92,6 @@ def test_allocation_larger_than_slab_size_fails(db0_slab_size):
         obj = MemoTestClass(get_string(int(1.2 * 1024 * 1024)))
 
 
-@pytest.mark.skip()
 @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
 def test_allocator_alloc_unit_issue(db0_slab_size):
     """
@@ -108,6 +107,8 @@ def test_allocator_alloc_unit_issue(db0_slab_size):
 
     # append to random lists
     count = 0
+    # FIXME: log
+    # for _ in range(50000):    
     for _ in range(50000):
         str = test_strings[count % len(test_strings)]
         buf[test_ints[count % len(test_ints)]].append(MemoTestClass(str))

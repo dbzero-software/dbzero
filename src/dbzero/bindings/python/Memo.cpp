@@ -379,7 +379,7 @@ namespace db0::python
             return nullptr;            
         }
 
-        return PyDict_GetItem(*modules_dict, module_name);
+        return Py_NEW(PyDict_GetItem(*modules_dict, module_name));
     }
     
     // Copy a python dict
@@ -725,11 +725,10 @@ namespace db0::python
         auto py_result = Py_OWN(PyDict_New());
         while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
             if (PyDict_Contains(kwargs, *elem) == 1) {
-                auto py_item = Py_OWN(PyDict_GetItem(kwargs, *elem));
-                PyDict_SetItem(*py_result, elem, py_item);                
-            }            
+                PyDict_SetItem(*py_result, elem, Py_BORROW(PyDict_GetItem(kwargs, *elem)));
+            }
         }
-
+        
         return py_result.steal();
     }
     

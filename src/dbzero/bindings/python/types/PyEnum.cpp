@@ -3,6 +3,7 @@
 #include <dbzero/bindings/python/Utils.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
@@ -124,14 +125,14 @@ namespace db0::python
     PyObject *getEnumValuesRepr(PyEnum *self)
     {
         auto &values = self->ext().getValueDefs();
-        auto py_tuple = PyTuple_New(values.size());
+        auto py_tuple = Py_OWN(PyTuple_New(values.size()));
         unsigned int index = 0;
         auto enum_type_def = self->ext().m_enum_type_def;
         for (auto &value: values) {
-            PyTuple_SET_ITEM(py_tuple, index, makePyEnumValueRepr(enum_type_def, value.c_str()).steal());
+            PyTuple_SetItem(*py_tuple, index, makePyEnumValueRepr(enum_type_def, value.c_str()));
             ++index;
         }
-        return py_tuple;
+        return py_tuple.steal();
     }
     
     PyObject *tryGetEnumValues(PyEnum *self)
@@ -149,15 +150,15 @@ namespace db0::python
         }
                 
         auto enum_values = enum_->getValues();
-        auto py_tuple = PyTuple_New(enum_values.size());
+        auto py_tuple = Py_OWN(PyTuple_New(enum_values.size()));
         unsigned int index = 0;
         for (auto &value: enum_values) {
-            PyTuple_SET_ITEM(py_tuple, index, enum_->getLangValue(value).steal());
+            PyTuple_SetItem(*py_tuple, index, enum_->getLangValue(value));
             ++index;
         }
-        return py_tuple;
+        return py_tuple.steal();
     }
-
+    
     PyObject *PyAPI_getEnumValues(PyEnum *self)
     {
         PY_API_FUNC

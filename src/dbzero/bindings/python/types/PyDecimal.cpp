@@ -1,5 +1,6 @@
 #include "PyDecimal.hpp"
 #include <dbzero/bindings/python/types/ByteUtils.hpp>
+#include <dbzero/bindings/python/shared_py_object.hpp>
 
 namespace db0::python
 
@@ -30,7 +31,6 @@ namespace db0::python
     
     PyObject *uint64ToPyDecimal(std::uint64_t decimal)
     {
-
         PyObject *decimal_type = getDecimalClass();
         auto numerator = get_bytes(decimal, 0, 57);
         std::int64_t exponent = get_bytes(decimal, 57, 6);
@@ -42,80 +42,67 @@ namespace db0::python
         if (is_negative) {
             numerator = -numerator;
         }
-        PyObject *numerator_py = PyLong_FromLong(numerator);
-        PyObject* decimal_value = PyObject_CallFunctionObjArgs(decimal_type, numerator_py, NULL);
-        PyObject* decimal_result = PyObject_CallMethod(decimal_value, "scaleb", "l", exponent);
-        Py_DECREF(decimal_value);
-        Py_DECREF(numerator_py);
-        // check if error set
-        if (PyErr_Occurred()) {
-            THROWF(db0::InputException) << "Error occurred while converting numerator to long." << THROWF_END;
+        auto numerator_py = Py_OWN(PyLong_FromLong(numerator));
+        if (!numerator_py) {
+            return nullptr;
         }
-        return decimal_result;
-    }
-
-    std::int64_t decimalToIntegral(PyObject *decimal)
-    {
-        auto decimal_integral = PyObject_CallMethod(decimal, "to_integral_value", nullptr);
-        PyObject* intValue = PyObject_CallFunctionObjArgs((PyObject*)&PyLong_Type, decimal_integral, NULL);
-        if (PyErr_Occurred()) {
-            THROWF(db0::InputException) << "Error occurred while converting numerator to long." << THROWF_END;
+        auto decimal_value = Py_OWN(PyObject_CallFunctionObjArgs(decimal_type, *numerator_py, NULL));
+        if (!decimal_value) {
+            return nullptr;
         }
-
-        auto result = PyLong_AsLong(intValue);
-        Py_DECREF(decimal_integral);
-        Py_DECREF(intValue);
-        return result;
-
+        auto decimal_result = Py_OWN(PyObject_CallMethod(*decimal_value, "scaleb", "l", exponent));
+        if (!decimal_result) {
+            return nullptr;
+        }
+        return decimal_result.steal();
     }
-
+    
     std::uint64_t decimal_tuple_to_uint64(PyObject *as_tuple, int max_lenght)
     {
         if (!as_tuple || !PyTuple_Check(as_tuple)) {
             THROWF(db0::InputException) << "Invalid type of object. Tuple expected" << THROWF_END;
         }
         std::uint64_t decimal = 0;
-        auto iterator = PyObject_GetIter(as_tuple);
+        auto iterator = Py_OWN(PyObject_GetIter(as_tuple));
         if (!iterator) {
             THROWF(db0::InputException) << "Invalid type of object. Tuple expected" << THROWF_END;
         }
 
-        while (auto item = PyIter_Next(iterator)) {
-            if (max_lenght == 0) {
-                Py_DECREF(item);
+        while (auto item = Py_OWN(PyIter_Next(*iterator))) {
+            if (max_lenght == 0) {                
                 break;
             }
             decimal *= 10;
-            auto value = PyLong_AsLong(item);
-            Py_DECREF(item);
+            auto value = PyLong_AsLong(*item);            
             decimal += value;
-            max_lenght--;
+            --max_lenght;
         }
-        Py_DECREF(iterator);
         return decimal;
     }
 
-    std::uint64_t pyDecimalToUint64(PyObject *py_datetime)
+    std::uint64_t pyDecimalToUint64(PyObject *py_decimal)
     {
-        // check if decimal is 0
-        if (PyObject_IsTrue(PyObject_CallMethod(py_datetime, "is_zero", nullptr))){
+        // check if decimal is 0        
+        auto is_zero = Py_OWN(PyObject_CallMethod(py_decimal, "is_zero", nullptr));        
+        if (!is_zero) {
+            THROWF(db0::InputException) << "is_zero failed" << THROWF_END;
+        }
+        if (PyObject_IsTrue(*is_zero)) {
             return 0;
         }
-
-        PyObject *as_tuple = PyObject_CallMethod(py_datetime, "as_tuple", nullptr);
-        auto exponent_obj = PyTuple_GetItem(as_tuple, 2);
-        auto exponent = PyLong_AsLongLong(exponent_obj);
-        exponent = abs(exponent);
+        
+        auto as_tuple = Py_OWN(PyObject_CallMethod(py_decimal, "as_tuple", nullptr));
+        if (!as_tuple) {
+            THROWF(db0::InputException) << "as_tuple failed" << THROWF_END;
+        }
+        
+        auto exponent = abs(PyLong_AsLongLong(PyTuple_GetItem(*as_tuple, 2)));        
         if (exponent > 63) {
-            Py_DECREF(as_tuple);
             THROWF(db0::InputException) << "Decimal out of range." << THROWF_END;            
         }
-
-        auto sign_obj = PyTuple_GetItem(as_tuple, 0);
-        auto is_negative = PyObject_IsTrue(sign_obj);
-        Py_DECREF(sign_obj);
-
-        auto number_tuple_object = PyTuple_GetItem(as_tuple, 1);
+        
+        auto is_negative = PyObject_IsTrue(PyTuple_GetItem(*as_tuple, 0));
+        auto number_tuple_object = PyTuple_GetItem(*as_tuple, 1);
         auto number_lenght = PyTuple_Size(number_tuple_object);
 
         if (number_lenght > 17) {
@@ -124,18 +111,8 @@ namespace db0::python
                 THROWF(db0::InputException) << "Decimal out of range." << THROWF_END;
             }
         }
-
-        std::uint64_t integer_value = 0;
-        try {
-            integer_value = decimal_tuple_to_uint64(number_tuple_object, 17); 
-        } catch (...) {
-            Py_DECREF(number_tuple_object);
-            Py_DECREF(as_tuple);
-            throw;
-        }
-
-        Py_DECREF(number_tuple_object);
-        Py_DECREF(as_tuple);
+        
+        std::uint64_t integer_value = decimal_tuple_to_uint64(number_tuple_object, 17);
         
         std::uint64_t decimal = 0;
         set_bytes(decimal, 0, 57, integer_value);

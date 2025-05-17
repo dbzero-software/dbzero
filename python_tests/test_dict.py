@@ -253,17 +253,14 @@ def test_dict_items_in(db0_no_autocommit):
     # insert 1000 random items
     for i in range(100):
         dict_1[i] = i
-    assert len(dict_1) == 100
-    now = datetime.datetime.now()
+    assert len(dict_1) == 100    
     for i in range(100000):
         random_int = random.randint(0, 300)
         if random_int < 100:
             assert random_int in dict_1
         else:
             assert random_int not in dict_1
-    end = datetime.datetime.now()
-    print("Elapsed time: ", end - now)
-
+    
 
 def test_dict_insert_mixed_types_issue_1(db0_fixture):
     """
@@ -347,8 +344,7 @@ def test_pop_unref_and_values(db0_fixture):
     db0.clear_cache()
     db0.commit()
     with pytest.raises(Exception):
-        db0.fetch(uuid_value)
-    print("HERE 10")
+        db0.fetch(uuid_value)    
     with pytest.raises(Exception):
         db0.fetch(uuid_key)
 

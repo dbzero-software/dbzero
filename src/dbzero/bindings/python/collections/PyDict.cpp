@@ -179,16 +179,16 @@ namespace db0::python
             ObjectSharedPtr elem;
             while ((elem = Py_OWN(PyIter_Next(iterator.get())))) {
                 if (PyDict_Check(arg1)) {
-                    tryDictObject_SetItem(dict_object, elem.get(), PyDict_GetItem(arg1, elem.get()));
+                    tryDictObject_SetItem(dict_object, elem.get(), PyDict_GetItem(arg1, *elem));
                 } else if (DictObject_Check(arg1)) {
-                    tryDictObject_SetItem(dict_object, elem.get(), tryDictObject_GetItem((DictObject*)arg1, elem.get()));
+                    tryDictObject_SetItem(dict_object, elem.get(), tryDictObject_GetItem((DictObject*)arg1, *elem));
                 } else {
-                    if (PyObject_Length(elem.get()) != 2) {
+                    if (PyObject_Length(*elem) != 2) {
                         PyErr_SetString(PyExc_ValueError, "dictionary update sequence element #0 has length 1; 2 is required");
                         return NULL;
                     }
-                    tryDictObject_SetItem(dict_object, PyTuple_GetItem(elem.get(), 0), PyTuple_GetItem(elem.get(), 1));
-                }                
+                    tryDictObject_SetItem(dict_object, PyTuple_GetItem(elem.get(), 0), PyTuple_GetItem(*elem, 1));
+                }
             }
         }
         if (kwargs != NULL && PyObject_Length(kwargs) > 0) {
@@ -198,8 +198,8 @@ namespace db0::python
                 return NULL;
             }
             ObjectSharedPtr elem;
-            while ((elem = Py_OWN(PyIter_Next(iterator.get())))) {
-                tryDictObject_SetItem(dict_object, elem.get(), PyDict_GetItem(kwargs, elem.get()));
+            while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+                tryDictObject_SetItem(dict_object, *elem, PyDict_GetItem(kwargs, *elem));
             }
         }
         Py_RETURN_NONE;
@@ -448,28 +448,28 @@ namespace db0::python
         
         ObjectSharedPtr elem;
         auto py_result = Py_OWN(PyDict_New());
-        while ((elem = Py_OWN(PyIter_Next(iterator.get())))) {
-            auto key = Py_OWN(tryLoad(elem.get(), kwargs, nullptr, load_stack_ptr));
+        while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+            auto key = Py_OWN(tryLoad(*elem, kwargs, nullptr, load_stack_ptr));
             if (!key) {
                 return nullptr;
             }
             if (PyDict_Check(py_dict)) {
                 auto result = Py_OWN(tryLoad(
-                    PyDict_GetItem(py_dict, elem.get()), kwargs, nullptr, load_stack_ptr)
+                    PyDict_GetItem(py_dict, *elem), kwargs, nullptr, load_stack_ptr)
                 );                
                 if (!result) {
                     return nullptr;                                    
                 }
                 
-                PyDict_SetItem(py_result.get(), key.get(), result.get());
+                PyDict_SetItem(*py_result, *key, *result);
             } else if (DictObject_Check(py_dict)) {
                 auto result = Py_OWN(tryLoad(
-                    PyAPI_DictObject_GetItem((DictObject*)py_dict, elem.get()), kwargs, nullptr, load_stack_ptr)
+                    PyAPI_DictObject_GetItem((DictObject*)py_dict, *elem), kwargs, nullptr, load_stack_ptr)
                 );
                 if (!result) {
                     return nullptr;
                 }
-                PyDict_SetItem(py_result.get(), key.get(), result.get());
+                PyDict_SetItem(*py_result, *key, *result);
             } else {
                 THROWF(db0::InputException) << "Invalid argument type";                
             }

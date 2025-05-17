@@ -318,23 +318,20 @@ def test_can_get_index(db0_fixture, make_list):
 
 
 @pytest.mark.parametrize("make_list", list_test_params)
-def test_list_can_remove(db0_fixture, make_list):
-    try:
-        list_1 = make_list()
-        for i in range(5):
-            list_1.append(i)
-        list_1.remove(3)
-        assert len(list_1) == 4
-        assert list_1 == [0, 1, 2, 4]
-        list_1 = make_list()
-        for i in range(5):
-            list_1.append(str(i))
-            
-        list_1.remove("3")
-        assert len(list_1) == 4
-        assert list_1 == ["0", "1", "2", "4"]
-    except Exception as ex:
-        print(ex)
+def test_list_can_remove(db0_fixture, make_list):    
+    list_1 = make_list()
+    for i in range(5):
+        list_1.append(i)
+    list_1.remove(3)
+    assert len(list_1) == 4
+    assert list_1 == [0, 1, 2, 4]
+    list_1 = make_list()
+    for i in range(5):
+        list_1.append(str(i))
+        
+    list_1.remove("3")
+    assert len(list_1) == 4
+    assert list_1 == ["0", "1", "2", "4"]
 
 
 @pytest.mark.parametrize("make_list", list_test_params)

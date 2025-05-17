@@ -440,12 +440,13 @@ namespace db0::python
         if (!py_dict) {
             THROWF(db0::MemoryException) << "Out of memory";
         }
+        
         // page_info = std::pair<std::uint64_t, std::uint64_t>
         for (const auto &[page_num, page_info] : dram_io_map) {
-            PyObject *py_page_info = PyTuple_New(2);
-            PyTuple_SetItem(py_page_info, 0, PyLong_FromUnsignedLongLong(page_info.first));
-            PyTuple_SetItem(py_page_info, 1, PyLong_FromUnsignedLongLong(page_info.second));
-            PyDict_SetItem(py_dict.get(), PyLong_FromUnsignedLongLong(page_num), py_page_info);
+            auto py_page_info = Py_OWN(PyTuple_New(2));
+            PyTuple_SetItem(*py_page_info, 0, PyLong_FromUnsignedLongLong(page_info.first));
+            PyTuple_SetItem(*py_page_info, 1, PyLong_FromUnsignedLongLong(page_info.second));
+            PyDict_SetItem(*py_dict, Py_OWN(PyLong_FromUnsignedLongLong(page_num)), py_page_info);
         }
         return py_dict.steal();
     }

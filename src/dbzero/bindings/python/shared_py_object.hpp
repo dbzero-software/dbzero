@@ -6,6 +6,8 @@
 // take ownership of a PyObject (exception-safe)
 #define Py_OWN(ptr) db0::python::shared_py_object<decltype(ptr)>(ptr, false)
 #define Py_BORROW(ptr) db0::python::shared_py_object<decltype(ptr)>(ptr, true)
+// converts a borrowed reference to a new reference
+#define Py_NEW(ptr) Py_INCREF(ptr), ptr
 
 namespace db0::python
 

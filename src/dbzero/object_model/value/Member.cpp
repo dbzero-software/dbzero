@@ -330,21 +330,33 @@ namespace db0::object_model
     {
         db0::v_object<db0::o_string> string_ref(fixture->myPtr(value.asAddress()));
         auto str_ptr = string_ref->get();
-        return PyUnicode_FromStringAndSize(str_ptr.get_raw(), str_ptr.size());
+        auto result = Py_OWN(PyUnicode_FromStringAndSize(str_ptr.get_raw(), str_ptr.size()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to string" << THROWF_END;
+        }
+        return result;
     }
-
+    
     // INT64 specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::INT64, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return PyLong_FromLong(value.cast<std::int64_t>());
+        auto result = Py_OWN(PyLong_FromLong(value.cast<std::int64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to int64" << THROWF_END;
+        }
+        return result;
     }
 
     // FLOAT specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::FP_NUMERIC64, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return PyFloat_FromDouble(value.cast<double>());
+        auto result = Py_OWN(PyFloat_FromDouble(value.cast<double>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to float" << THROWF_END;
+        }
+        return result;
     }
 
     // OBJECT_REF specialization
@@ -389,49 +401,77 @@ namespace db0::object_model
     {
         db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.asAddress());
         auto bytes_ptr = bytes->getBuffer();
-        return PyBytes_FromStringAndSize(reinterpret_cast<const char *>(bytes_ptr), bytes->size());
+        auto result = Py_OWN(PyBytes_FromStringAndSize(reinterpret_cast<const char *>(bytes_ptr), bytes->size()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to bytes" << THROWF_END;
+        }
+        return result;
     }
     
     // DATETIME specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATETIME, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyDatetime(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyDatetime(value.cast<std::uint64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Datetime" << THROWF_END;
+        }
+        return result;
     }
 
     // DATETIME with TZ specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATETIME_TZ, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyDatetimeWithTZ(value.cast<std::uint64_t>());
+        auto result = db0::python::uint64ToPyDatetimeWithTZ(value.cast<std::uint64_t>());
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Datetime with TZ" << THROWF_END;
+        }
+        return result;
     }
 
     // DATE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATE, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyDate(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyDate(value.cast<std::uint64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Date" << THROWF_END;
+        }
+        return result;
     }
 
     // Time specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::TIME, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyTime(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyTime(value.cast<std::uint64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Time" << THROWF_END;
+        }
+        return result;
     }
 
     // Time with Timezone specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::TIME_TZ, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyTimeWithTz(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyTimeWithTz(value.cast<std::uint64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Time with TZ" << THROWF_END;
+        }
+        return result;
     }
 
     // DECIMAL specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DECIMAL, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyDecimal(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyDecimal(value.cast<std::uint64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Decimal" << THROWF_END;
+        }
+        return result;
     }
 
     // NONE specialization

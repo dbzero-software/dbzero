@@ -2,6 +2,7 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
@@ -230,16 +231,15 @@ namespace db0::python
             // only perform tuple translation if needed
             if (isMigrateRrequired(collection, key)) {
                 auto size = PyTuple_Size(key);
-                auto py_tuple = PyTuple_New(size);
+                auto py_tuple = Py_OWN(PyTuple_New(size));
                 for (int i = 0; i < size; ++i) {
-                    auto item = PyTuple_GetItem(key, i);                    
-                    PyTuple_SET_ITEM(py_tuple, i, migratedKey(collection, item).steal());
+                    PyTuple_SetItem(*py_tuple, i, migratedKey(collection, PyTuple_GetItem(key, i)));
                 }
-                return shared_py_object<PyObject*>(py_tuple);
+                return py_tuple;
             }
         }
         // no translation needed
-        return key;
+        return Py_BORROW(key);
     }
     
 }

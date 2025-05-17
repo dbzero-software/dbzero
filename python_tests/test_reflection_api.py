@@ -111,7 +111,7 @@ class TestClassPropertiesAndImmutables:
         return self.__value
 
     def normal_method(self):
-        print("normal method")
+        pass
 
 def test_memo_class_get_properties(db0_fixture):
     obj = MemoTestClassPropertiesAndImmutables(123)

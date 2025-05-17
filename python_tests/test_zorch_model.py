@@ -127,16 +127,13 @@ def test_create_task_with_requirements(db0_fixture):
 
 
 def test_create_10k_tasks(db0_fixture):
-    start = datetime.now()
     tasks = [Task("etl", "etl") for i in range(10000)]
-    # print duration in milliseconds
-    print("Duration: ", (datetime.now() - start).microseconds / 1000)
+    assert len(tasks) == 10000
 
 
 def test_push_tasks_into_zorch_model(db0_fixture):
     zorch = Zorch()
-    task_count = 100
-    start = datetime.now()    
+    task_count = 100    
     for i in range(task_count):
         key = f"some task key_{i}"
         # 1. check for dupicates
@@ -160,12 +157,7 @@ def test_push_tasks_into_zorch_model(db0_fixture):
         # 5. mark task as ready / root
         db0.tags(task).add("ready", "root")
     
-    db0.commit()
-    end = datetime.now()
-    # print duration in milliseconds
-    print("Duration: ", (end - start).total_seconds())
-    # push tasks / sec
-    print("Push tasks / sec: ", task_count / (end - start).total_seconds())
+    db0.commit()    
 
 
 def test_atomic_push_tasks_find_runnable_pods(db0_fixture):    

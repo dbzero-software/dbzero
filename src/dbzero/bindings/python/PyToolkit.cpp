@@ -24,6 +24,7 @@
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
@@ -484,10 +485,10 @@ namespace db0::python
     {
         if (!PyDict_Check(py_dict)) {
             THROWF(db0::InputException) << "Invalid type of object. Dictionary expected" << THROWF_END;
-        }        
-        return PyDict_GetItemString(py_dict, key.c_str());
+        }
+        return Py_NEW(PyDict_GetItemString(py_dict, key.c_str()));
     }
-
+    
     std::optional<long> PyToolkit::getLong(ObjectPtr py_object, const std::string &key)
     {
         auto py_value = Py_OWN(getValue(py_object, key));
@@ -564,22 +565,20 @@ namespace db0::python
     
     PyToolkit::ObjectSharedPtr PyToolkit::makeTuple(const std::vector<ObjectSharedPtr> &values)
     {
-        PyObject *result = PyTuple_New(values.size());
+        auto result = Py_OWN(PyTuple_New(values.size()));
         for (std::size_t i = 0; i < values.size(); ++i) {
-            auto item = values[i].get();
-            Py_INCREF(item);
-            PyTuple_SetItem(result, i, item);
+            PyTuple_SetItem(*result, i, values[i]);
         }
-        return { result, false };
+        return result;
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::makeTuple(std::vector<ObjectSharedPtr> &&values)
     {
-        PyObject *result = PyTuple_New(values.size());
+        auto result = Py_OWN(PyTuple_New(values.size()));
         for (std::size_t i = 0; i < values.size(); ++i) {
-            PyTuple_SetItem(result, i, values[i].steal());
+            PyTuple_SetItem(*result, i, values[i]);
         }
-        return { result, false };
+        return result;
     }
     
     bool PyToolkit::isValid() {
