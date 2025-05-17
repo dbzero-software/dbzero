@@ -23,6 +23,8 @@ namespace db0::python
 
 {
     
+    using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         auto &decor = MemoTypeDecoration::get(py_type);
@@ -698,105 +700,96 @@ namespace db0::python
     
     PyObject *getKwargsForMethod(PyObject* method, PyObject* kwargs)
     {
-        PyObject *inspec_module = PyImport_ImportModule("inspect");
-        PyObject *signatue = PyObject_CallMethod(inspec_module, "signature", "O", method);
-        PyObject *parameters = PyObject_GetAttrString(signatue, "parameters");
-        PyObject *iterator = PyObject_GetIter(parameters);
+        auto inspect_module = Py_OWN(PyImport_ImportModule("inspect"));
+        if (!inspect_module) {
+            return nullptr;
+        }
+        auto signature = Py_OWN(PyObject_CallMethod(*inspect_module, "signature", "O", method));
+        if (!signature) {
+            return nullptr;
+        }
+
+        auto parameters = Py_OWN(PyObject_GetAttrString(*signature, "parameters"));
+        if (!parameters) {
+            PyErr_SetString(PyExc_RuntimeError, "Failed to get parameters");
+            return nullptr;
+        }
+
+        auto iterator = Py_OWN(PyObject_GetIter(*parameters));
         if (!iterator) {
-            Py_DECREF(inspec_module);
-            Py_DECREF(signatue);
-            Py_DECREF(parameters);
             PyErr_SetString(PyExc_RuntimeError, "Failed to get iterator");            
             return nullptr;
         }
         
-        PyObject *elem;
-        PyObject *py_result = PyDict_New();
-        while ((elem = PyIter_Next(iterator))) {
-            if (PyDict_Contains(kwargs, elem) == 1) {
-                auto py_item = PyDict_GetItem(kwargs, elem);
-                PyDict_SetItem(py_result, elem, py_item);
-                Py_DECREF(py_item);
-            }
-            Py_DECREF(elem);
+        ObjectSharedPtr elem;
+        auto py_result = Py_OWN(PyDict_New());
+        while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+            if (PyDict_Contains(kwargs, *elem) == 1) {
+                auto py_item = Py_OWN(PyDict_GetItem(kwargs, *elem));
+                PyDict_SetItem(*py_result, elem, py_item);                
+            }            
         }
-        Py_DECREF(iterator);
-        Py_DECREF(parameters);
-        Py_DECREF(signatue);
-        Py_DECREF(inspec_module);
-        return py_result;
+
+        return py_result.steal();
     }
     
     PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude, 
         std::unordered_set<const void*> *load_stack_ptr)
     {
-        auto load_method = tryMemoObject_getattro(memo_obj, PyUnicode_FromString("__load__"));
-        PyObject *py_result = PyDict_New();
+        auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, PyUnicode_FromString("__load__")));        
         if (load_method) {
             if (py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot exclude values when __load__ is implemented");
-                Py_DECREF(load_method);
-                Py_DECREF(py_result);
                 return nullptr;
             }
             
-            PyObject *result;
+            ObjectSharedPtr result;
             if (kwargs != nullptr) {
-                PyObject *method_kwargs = getKwargsForMethod(load_method, kwargs);
+                auto method_kwargs = Py_OWN(getKwargsForMethod(*load_method, kwargs));
                 if (!method_kwargs) {
-                    Py_DECREF(load_method);
-                    Py_DECREF(py_result);
                     return nullptr;
                 }
-                PyObject *args = PyTuple_New(0);
-                result = PyObject_Call(load_method, args, method_kwargs);
-                Py_DECREF(args);
-                Py_DECREF(method_kwargs);
+                auto args = Py_OWN(PyTuple_New(0));
+                result = Py_OWN(PyObject_Call(*load_method, *args, *method_kwargs));
             } else {
-                result = PyObject_CallObject(load_method, nullptr);
+                result = Py_OWN(PyObject_CallObject(*load_method, nullptr));
             }
-            if (result == nullptr) {
-                Py_DECREF(load_method);
-                Py_DECREF(py_result);
+            if (!result) {
                 return nullptr;
             }
-            Py_DECREF(load_method);
-            return tryLoad(result, kwargs, nullptr, load_stack_ptr);
+            return tryLoad(*result, kwargs, nullptr, load_stack_ptr);
         }
         
         // reset Python error
         // FIXME: optimization opportunity if we're able to eliminate error message formatting
         PyErr_Clear();
         
+        auto py_result = Py_OWN(PyDict_New());
         bool has_error = false;
-        memo_obj->ext().forAll([py_result, memo_obj, py_exclude, kwargs, &has_error, load_stack_ptr]
+        memo_obj->ext().forAll([&py_result, memo_obj, py_exclude, kwargs, &has_error, load_stack_ptr]
             (const std::string &key, PyTypes::ObjectSharedPtr)
         {
-            auto key_obj = PyUnicode_FromString(key.c_str());
-            auto attr = PyAPI_MemoObject_getattro(memo_obj, key_obj);
+            auto key_obj = Py_OWN(PyUnicode_FromString(key.c_str()));
+            auto attr = Py_OWN(PyAPI_MemoObject_getattro(memo_obj, *key_obj));
             if (!attr) {
                 has_error = true;
                 return false;
             }
             
-            if (py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, key_obj) == 0) {
-                PyObject *res = tryLoad(attr, kwargs, nullptr, load_stack_ptr);
-                if (res == nullptr) {
+            if (py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, *key_obj) == 0) {
+                auto res = Py_OWN(tryLoad(*attr, kwargs, nullptr, load_stack_ptr));
+                if (!res) {
                     has_error = true;
                 } else {
-                    PyDict_SetItemString(py_result, key.c_str(), res);
-                    Py_DECREF(res);
+                    PyDict_SetItemString(*py_result, key.c_str(), res);                    
                 }
             }
-            Py_DECREF(attr);
-            Py_DECREF(key_obj);
             return !has_error;
         });
-        if (has_error) {
-            Py_DECREF(py_result);
+        if (has_error) {            
             return nullptr;
         }
-        return py_result;
+        return py_result.steal();
     }
     
     PyObject *tryCompareMemo(MemoObject *py_memo_1, MemoObject *py_memo_2)
