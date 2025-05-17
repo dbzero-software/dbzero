@@ -4,12 +4,14 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/Utils.hpp>
 
 namespace db0::python
 
 {
     
+    using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
     using TupleIteratorObject = PySharedWrapper<db0::object_model::TupleIterator, false>;
 
     PyTypeObject TupleIteratorObjectType = GetIteratorType<TupleIteratorObject>("dbzero_ce.TupleIterator",
@@ -97,20 +99,19 @@ namespace db0::python
                     Py_RETURN_NOTIMPLEMENTED;
             }
         } else {
-            PyObject *iterator = PyObject_GetIter(other);
+            auto iterator = Py_OWN(PyObject_GetIter(other));
             if (!iterator) {
                 PyErr_SetString(PyExc_TypeError, "argument must be an iterable");
-                return NULL;
+                return nullptr;
             }
             switch (op) {
                 case Py_EQ:
-                    return PyBool_fromBool(has_all_elements_same(tuple_obj, iterator));
+                    return PyBool_fromBool(has_all_elements_same(tuple_obj, *iterator));
                 case Py_NE:
-                    return PyBool_fromBool(!has_all_elements_same(tuple_obj, iterator));
+                    return PyBool_fromBool(!has_all_elements_same(tuple_obj, *iterator));
                 default:
                     Py_RETURN_NOTIMPLEMENTED;
-            }
-            Py_DECREF(iterator);
+            }            
             Py_RETURN_TRUE;
         }
     }
@@ -180,52 +181,45 @@ namespace db0::python
         db0::FixtureLock lock(fixture);
         auto &tuple = py_tuple.get()->modifyExt();
 
-        if (nargs == 0)
-        {
+        if (nargs == 0) {
             db0::object_model::Tuple::makeNew(&tuple, *lock, 0);
             fixture->getLangCache().add(tuple.getAddress(), py_tuple.get()); 
             return py_tuple;
         }
         
-        shared_py_object<PyObject*> iterator = {PyObject_GetIter(args[0]), false};
+        auto iterator = Py_OWN(PyObject_GetIter(args[0]));
         if (!iterator) {
             return nullptr;
         }
 
         Py_ssize_t length = PyObject_Length(args[0]);
-        if (length == -1)
-        {
+        if (length == -1) {
             // We are dealing with generator-like object
             PyErr_Clear();
-            std::vector<shared_py_object<PyObject*>> values;
-            while (PyObject *item = PyIter_Next(iterator.get())) {
-                values.emplace_back(item, false);
+            std::vector<ObjectSharedPtr> values;
+            while (auto item = Py_OWN(PyIter_Next(*iterator))) {
+                values.push_back(item);
             }
-            if (PyErr_Occurred())
-            {
+            if (PyErr_Occurred()) {
                 return nullptr; // Error from PyIter_Next
             }
             db0::object_model::Tuple::makeNew(&tuple, *lock, values.size());
             for (std::size_t index = 0; index != values.size(); ++index) {
-                tuple.setItem(lock, index, values[index].get());
+                tuple.setItem(lock, index, values[index]);
             }
-        }
-        else
-        {
+        } else {
             db0::object_model::Tuple::makeNew(&tuple, *lock, length);
             int index = 0;
-            while (PyObject *item = PyIter_Next(iterator.get())) {
-                tuple.setItem(lock, index++, item);            
-                Py_DECREF(item);
+            while (auto item = Py_OWN(PyIter_Next(*iterator))) {
+                tuple.setItem(lock, index++, item);                
             }
-            if (PyErr_Occurred())
-            {
+            if (PyErr_Occurred()) {
                 return nullptr; // Error from PyIter_Next
             }
         }
 
         // register newly created tuple with py-object cache
-        fixture->getLangCache().add(tuple.getAddress(), py_tuple.get());        
+        fixture->getLangCache().add(tuple.getAddress(), *py_tuple);
         return py_tuple;
     }
     
@@ -248,31 +242,33 @@ namespace db0::python
     PyObject *tryLoadTuple(TupleObject *py_tuple, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {
         auto &tuple_obj = py_tuple->ext();
-        PyObject *result = PyTuple_New(tuple_obj.size());
+        auto py_result = Py_OWN(PyTuple_New(tuple_obj.size()));
+        if (!py_result) {
+            return nullptr;
+        }
+
         for (std::size_t i = 0; i < tuple_obj.size(); ++i) {
-            auto res = tryLoad(tuple_obj.getItem(i).get(), kwargs, nullptr, load_stack_ptr);
-            if (res == nullptr) {
-                Py_DECREF(result);
+            auto res = Py_OWN(tryLoad(tuple_obj.getItem(i).get(), kwargs, nullptr, load_stack_ptr));
+            if (!res) {                
                 return nullptr;
             }
-            PyTuple_SetItem(result, i, res);
+            PyTuple_SetItem(*py_result, i, res);
         }
-        return result;
+        return py_result.steal();
     }
     
     PyObject *tryLoadPyTuple(PyObject *py_tuple, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {
         Py_ssize_t size = PyTuple_Size(py_tuple);        
-        PyObject *result = PyTuple_New(size);
+        auto py_result = Py_OWN(PyTuple_New(size));
         for (int i = 0; i < size; ++i) {
-            auto res = tryLoad(PyTuple_GetItem(py_tuple, i), kwargs, nullptr, load_stack_ptr);
-            if (res == nullptr) {
-                Py_DECREF(result);
+            auto res = Py_OWN(tryLoad(PyTuple_GetItem(py_tuple, i), kwargs, nullptr, load_stack_ptr));
+            if (!res) {                
                 return nullptr;
             }
-            PyTuple_SetItem(result, i, res);
+            PyTuple_SetItem(*py_result, i, res);
         }
-        return result;
+        return py_result.steal();
     }
     
 }

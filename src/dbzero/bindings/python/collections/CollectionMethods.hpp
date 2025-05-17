@@ -7,6 +7,8 @@ namespace db0::python
 
 {
 
+    using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+    
     template<typename ObjectT>
     PyObject *tryObjectT_append(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
@@ -30,24 +32,22 @@ namespace db0::python
     template<typename ObjectT>
     PyObject *tryObjectT_extend(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {   
-        PyObject *iterator = PyObject_GetIter(args[0]);
+        auto iterator = Py_OWN(PyObject_GetIter(args[0]));
         if (!iterator) {
             PyErr_SetString(PyExc_TypeError, "extend() argument must be iterable.");
-            return NULL;
+            return nullptr;
         }
 
-        PyObject *item;
+        ObjectSharedPtr item;
         db0::FixtureLock lock(py_obj->ext().getFixture());
         auto &obj = py_obj->modifyExt();
-        while ((item = PyIter_Next(iterator))) {
-            obj.append(lock, item);            
-            Py_DECREF(item);
+        while ((item = Py_OWN(PyIter_Next(*iterator)))) {
+            obj.append(lock, item);
         }
-
-        Py_DECREF(iterator);
+        
         Py_RETURN_NONE;
     }
-    
+
     template<typename ObjectT>
     PyObject *PyAPI_ObjectT_extend(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {

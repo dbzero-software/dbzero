@@ -58,13 +58,13 @@ namespace db0::object_model
         v_bvector::setItem(i, std::byte(type_manager.extractInt64(lang_value)));
     }
 
-    void ByteArray::append(FixtureLock &, ObjectPtr lang_value)
+    void ByteArray::append(FixtureLock &, ObjectSharedPtr lang_value)
     {
         using TypeId = db0::bindings::TypeId;
         auto &type_manager = LangToolkit::getTypeManager();
-        v_bvector::push_back(std::byte(type_manager.extractInt64(lang_value)));
+        v_bvector::push_back(std::byte(type_manager.extractInt64(*lang_value)));
     }
-
+    
     std::size_t ByteArray::count(std::byte value) const
     {
         std::size_t count = 0;

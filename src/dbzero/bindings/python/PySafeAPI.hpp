@@ -11,6 +11,9 @@ namespace db0::python
     template <typename T = PyObject *> 
     int PyList_SetItem(PyObject *, Py_ssize_t index, shared_py_object<T> item);
 
+    template <typename T = PyObject *>
+    int PyTuple_SetItem(PyObject *, Py_ssize_t index, shared_py_object<T> item);
+
     template <typename K = PyObject *, typename V = PyObject *>
     int PyDict_SetItem(PyObject *, shared_py_object<K> key, shared_py_object<V> val);
 
@@ -25,6 +28,13 @@ namespace db0::python
     {
         assert(item.get() != nullptr);
         return PyList_SetItem(self, index, item.steal());
+    }
+    
+    template <typename T = PyObject *> 
+    int PyTuple_SetItem(PyObject *self, Py_ssize_t index, shared_py_object<T> item)
+    {
+        assert(item.get() != nullptr);
+        return PyTuple_SetItem(self, index, item.steal());
     }
 
     template <typename K = PyObject *, typename V = PyObject *>

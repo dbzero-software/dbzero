@@ -34,7 +34,7 @@ namespace db0::object_model
         ObjectSharedPtr getItem(std::size_t i) const;
         std::byte getByte(std::size_t i) const;
         void setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value);
-        void append(FixtureLock &, ObjectPtr lang_value);
+        void append(FixtureLock &, ObjectSharedPtr lang_value);
 
         std::size_t count(std::byte value) const;
         std::size_t count(const std::byte *value, std::size_t size) const;

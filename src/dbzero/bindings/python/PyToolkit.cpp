@@ -58,12 +58,11 @@ namespace db0::python
     
     std::optional<std::string> PyToolkit::tryGetModuleName(TypeObjectPtr py_type)
     {
-        auto py_module_name = PyObject_GetAttrString(reinterpret_cast<ObjectPtr>(py_type), "__module__");
+        auto py_module_name = Py_OWN(PyObject_GetAttrString(reinterpret_cast<ObjectPtr>(py_type), "__module__"));
         if (!py_module_name) {
             return std::nullopt;
         }
-        auto result = std::string(PyUnicode_AsUTF8(py_module_name));
-        Py_DECREF(py_module_name);
+        auto result = std::string(PyUnicode_AsUTF8(*py_module_name));
         if (result == "__main__") {
             // for Memo types we can determine the actual module name from the file name
             // (if stored with the type decoration)
@@ -414,13 +413,12 @@ namespace db0::python
         PyObject *ptype, *pvalue, *ptraceback;
         PyErr_Fetch(&ptype, &pvalue, &ptraceback);
         PyErr_NormalizeException(&ptype, &pvalue, &ptraceback);
-        PyObject *pstr = PyObject_Str(pvalue);
-        std::string result = PyUnicode_AsUTF8(pstr);
-        Py_DECREF(pstr);
+        auto pstr = Py_OWN(PyObject_Str(pvalue));
         Py_XDECREF(ptype);
         Py_XDECREF(pvalue);
         Py_XDECREF(ptraceback);
-        return result;
+
+        return PyUnicode_AsUTF8(*pstr);
     }
     
     std::uint64_t PyToolkit::getFixtureUUID(ObjectPtr py_object)
@@ -492,42 +490,40 @@ namespace db0::python
 
     std::optional<long> PyToolkit::getLong(ObjectPtr py_object, const std::string &key)
     {
-        auto py_value = getValue(py_object, key);
+        auto py_value = Py_OWN(getValue(py_object, key));
         if (!py_value) {
             return std::nullopt;
-        }
-        // NOTE: no Py_DECREF due to borrowed reference
-        if (!PyLong_Check(py_value)) {                        
-            THROWF(db0::InputException) << "Invalid type of: " << key << ". Integer expected but got: " 
-                << Py_TYPE(py_value)->tp_name << THROWF_END;
         }        
-        return PyLong_AsLong(py_value);
+
+        if (!PyLong_Check(*py_value)) {
+            THROWF(db0::InputException) << "Invalid type of: " << key << ". Integer expected but got: " 
+                << Py_TYPE(*py_value)->tp_name << THROWF_END;
+        }
+        return PyLong_AsLong(*py_value);
     }
 
     std::optional<bool> PyToolkit::getBool(ObjectPtr py_object, const std::string &key)
     {
-        auto py_value = getValue(py_object, key);
+        auto py_value = Py_OWN(getValue(py_object, key));
         if (!py_value) {
             return std::nullopt;
-        }
-        // NOTE: no Py_DECREF due to borrowed reference
-        if (!PyBool_Check(py_value)) {            
+        }        
+        if (!PyBool_Check(*py_value)) {
             THROWF(db0::InputException) << "Invalid type of: " << key << ". Boolean expected" << THROWF_END;
         }
-        return PyObject_IsTrue(py_value);
+        return PyObject_IsTrue(*py_value);
     }
     
     std::optional<std::string> PyToolkit::getString(ObjectPtr py_object, const std::string &key)
     {
-        auto py_value = getValue(py_object, key);
+        auto py_value = Py_OWN(getValue(py_object, key));
         if (!py_value) {
             return std::nullopt;
-        }
-        // NOTE: no Py_DECREF due to borrowed reference
-        if (!PyUnicode_Check(py_value)) {            
+        }        
+        if (!PyUnicode_Check(*py_value)) {
             THROWF(db0::InputException) << "Invalid type of: " << key << ". String expected" << THROWF_END;
         }
-        return std::string(PyUnicode_AsUTF8(py_value));
+        return std::string(PyUnicode_AsUTF8(*py_value));
     }
     
     bool PyToolkit::compare(ObjectPtr py_object1, ObjectPtr py_object2) {

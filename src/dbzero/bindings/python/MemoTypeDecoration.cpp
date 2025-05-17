@@ -59,13 +59,11 @@ namespace db0::python
     std::string MemoTypeDecoration::getDynPrefix(PyObject *args, PyObject *kwargs) const
     {
         assert(m_py_dyn_prefix_callable);
-        PyObject *py_result = PyObject_Call(m_py_dyn_prefix_callable.get(), args, kwargs);
-        if (!py_result || py_result == Py_None) {
+        auto py_result = Py_OWN(PyObject_Call(*m_py_dyn_prefix_callable, args, kwargs));
+        if (!py_result || py_result.get() == Py_None) {
             return "";
         }
-        std::string prefix = PyUnicode_AsUTF8(py_result);
-        Py_DECREF(py_result);
-        return prefix;
+        return PyUnicode_AsUTF8(*py_result);
     }
     
     void MemoTypeDecoration::close() {

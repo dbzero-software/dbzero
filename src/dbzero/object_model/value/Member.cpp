@@ -9,6 +9,8 @@
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
 #include <dbzero/object_model/bytes/ByteArray.hpp>
 #include <dbzero/object_model/value/long_weak_ref.hpp>
+// FIXME: remove Python dependency
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::object_model
 
@@ -139,11 +141,9 @@ namespace db0::object_model
     template <> Value createMember<TypeId::DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
-        PyObject *args = PyTuple_New(1);
-        Py_INCREF(obj_ptr);
-        PyTuple_SetItem(args, 0, obj_ptr);
-        auto dict = db0::python::tryMake_DB0Dict(fixture, args, nullptr);
-        Py_DECREF(args);
+        auto args = Py_OWN(PyTuple_New(1));
+        PyTuple_SetItem(*args, 0, Py_BORROW(obj_ptr));
+        auto dict = db0::python::tryMake_DB0Dict(fixture, *args, nullptr);
         if (!dict) {
             THROWF(db0::InputException) << "Failed to create dict" << THROWF_END;
         }

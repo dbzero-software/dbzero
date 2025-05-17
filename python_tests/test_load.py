@@ -57,8 +57,6 @@ def test_load_memo_db0_types(db0_fixture):
     list = ["1", 2 , Colors.GREEN]
     memo2 = MemoTestClass("string")
     memo = MemoTestThreeParamsClass(t1, list, memo2)
-    # FIXME: log
-    print(db0.load(memo))
     assert db0.load(memo) == {
         "value_1": ("RED", "GREEN"),
         "value_2": ["1", 2, "GREEN"],

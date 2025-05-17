@@ -40,7 +40,7 @@ namespace db0::object_model
         List(db0::swine_ptr<Fixture> &, Address);
         ~List();
 
-        void append(FixtureLock &, ObjectPtr lang_value);
+        void append(FixtureLock &, ObjectSharedPtr lang_value);
         ObjectSharedPtr getItem(std::size_t i) const;
         ObjectSharedPtr pop(FixtureLock &, std::size_t index);
         void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);

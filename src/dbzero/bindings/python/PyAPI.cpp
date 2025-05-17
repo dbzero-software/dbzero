@@ -39,6 +39,8 @@ namespace db0::python
 
 {
 
+    using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+
     PyObject *getCacheStats(PyObject *, PyObject *)
     {
         PY_API_FUNC
@@ -615,15 +617,18 @@ namespace db0::python
         }
 
         PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
-        PyObject *py_dict = PyDict_New();
-        if (PyMemoType_Check(py_type)) {
-            MemoType_get_info(py_type, py_dict);
-            return py_dict;
+        auto py_dict = Py_OWN(PyDict_New());
+        if (!py_dict) {
+            return nullptr;
         }
 
-        Py_DECREF(py_dict);
+        if (PyMemoType_Check(py_type)) {
+            MemoType_get_info(py_type, *py_dict);
+            return py_dict.steal();
+        }
+        
         PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-        return NULL;
+        return nullptr;
     }
     
     PyObject *negTags(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
@@ -1171,67 +1176,61 @@ namespace db0::python
     PyObject *tryAwaitPrefixState(PyObject *future, const char *prefix, int state)
     {
         db0::swine_ptr<Fixture> fixture = PyToolkit::getPyWorkspace().getWorkspace().tryFindFixture(prefix);
-        if(!fixture) {
+        if (!fixture) {
             PyErr_SetString(PyExc_RuntimeError, "await_prefix_state() requires prefix to be opened");
             return nullptr;
         }
-        if(fixture->getAccessType() != AccessType::READ_WRITE) {
+        if (fixture->getAccessType() != AccessType::READ_WRITE) {
             PyErr_SetString(PyExc_RuntimeError, "await_prefix_state() requires read-write access to prefix");
             return nullptr;
         }
 
-
         class StateReachedCallback : public StateReachedCallbackBase
         {
-            PyObject* m_future;
+            ObjectSharedPtr m_future;
 
         public:
             explicit StateReachedCallback(PyObject *future)
-            : m_future(future)
-            {
-                Py_INCREF(m_future);
+                : m_future(Py_BORROW(future))
+            {                
             }
 
             virtual ~StateReachedCallback()
             {
-                // This cleanup should never be done from another thread
-                if(m_future) {
-                    // First we should check if the python is closing
-                    // We can't use the API after finalization has started
-                    if(!Py_IsInitialized()) {
-                        Py_DECREF(m_future);
-                    }
+                // First we should check if the python is closing
+                // We can't use the API after finalization has started
+                if (!Py_IsInitialized()) {
+                    m_future.steal();
                 }
             }
 
             virtual void execute() override
-            {
-                PyObject *loop = nullptr, *future_set_result = nullptr, *handle = nullptr;
+            {                
                 PyGILState_STATE gstate = PyGILState_Ensure();
-
-                loop = PyObject_CallMethod(m_future, "get_loop", nullptr);
-                // loop can be null when the process is closing
-                if(loop) {
-                    future_set_result = PyObject_GetAttrString(m_future, "set_result");
-                    handle = PyObject_CallMethod(loop, "call_soon_threadsafe", "OO", future_set_result, Py_None);
+                
+                {
+                    auto loop = Py_OWN(PyObject_CallMethod(*m_future, "get_loop", nullptr));
+                    ObjectSharedPtr future_set_result, handle;
+                    // loop can be null when the process is closing
+                    if (loop) {
+                        future_set_result = Py_OWN(PyObject_GetAttrString(*m_future, "set_result"));
+                        if (future_set_result) {
+                            handle = Py_OWN(PyObject_CallMethod(
+                                *loop, "call_soon_threadsafe", "OO", *future_set_result, Py_None)
+                            );
+                        }
+                    }
                 }
-
+                
                 // We want to avoid 'leaking' exceptions into the main thread
                 // The kind of errors that can occur here are related to use of python API when runtime finalization has started
                 PyErr_Clear();
-
-                Py_XDECREF(handle);
-                Py_XDECREF(future_set_result);
-                Py_XDECREF(loop);
-
-                Py_DECREF(m_future);
+                
                 m_future = nullptr;
-
                 PyGILState_Release(gstate);
             }
         };
         fixture->registerPrefixStateReachedCallback(state, std::make_unique<StateReachedCallback>(future));
-
         Py_RETURN_NONE;
     }
     
@@ -1252,7 +1251,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryAwaitPrefixState, future, prefix, state);
     }
-        
+
     PyObject *tryGetConfig()
     {
         auto config = PyToolkit::getPyWorkspace().getConfig()->getRawConfig();

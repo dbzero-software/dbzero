@@ -18,34 +18,33 @@ namespace db0::python
 
     // HELPER METHODS
 
-    std::pair<int, int> get_utc_offset(PyObject* tzinfo, PyObject* datetime_instance) {
+    std::pair<int, int> get_utc_offset(PyObject* tzinfo, PyObject* datetime_instance) 
+    {
         if (!tzinfo || !PyObject_HasAttrString(tzinfo, "utcoffset")) {
             PyErr_Print();
             throw std::runtime_error("tzinfo must have a utcoffset method.");
         }
 
         // Call tzinfo.utcoffset(datetime_instance)
-        PyObject* offset = PyObject_CallMethod(tzinfo, "utcoffset", "O", datetime_instance);
-        if (!offset) {
-            PyErr_Print();
-            throw std::runtime_error("Error occurred while calling utcoffset.");
+        auto offset = Py_OWN(PyObject_CallMethod(tzinfo, "utcoffset", "O", datetime_instance));
+        if (!offset) {            
+            THROWF(db0::InputException) << "Failed to call utcoffset method.";
         }
 
         // Ensure the result is a timedelta object
-        if (!PyDelta_Check(offset)) {
-            Py_DECREF(offset);
-            throw std::runtime_error("utcoffset must return a timedelta object.");
+        if (!PyDelta_Check(*offset)) {
+            THROWF(db0::InputException) << "utcoffset must return a timedelta object.";
         }
 
         // Extract the total seconds from the timedelta object and return as hours
-        auto hours = PyDateTime_DELTA_GET_SECONDS(offset)/3600;
-        auto days = PyDateTime_DELTA_GET_DAYS(offset);
+        auto hours = PyDateTime_DELTA_GET_SECONDS(*offset)/3600;
+        auto days = PyDateTime_DELTA_GET_DAYS(*offset);
         return std::make_pair(days, hours);
     }
 
-    PyObject * get_tz_info(PyObject * py_datetime)
+    PyObject *get_tz_info(PyObject * py_datetime)
     {
-        if(((PyDateTime_DateTime *)(py_datetime))->hastzinfo){
+        if (((PyDateTime_DateTime *)(py_datetime))->hastzinfo) {
             return ((PyDateTime_DateTime *)(py_datetime))->tzinfo;
         }
         Py_RETURN_NONE;
@@ -132,20 +131,29 @@ namespace db0::python
         auto tz_days = get_bytes(datetime, 7, 1);
         auto tz_hours = get_bytes(datetime, 0, 7);
         tz_hours= tz_hours & 0x3F;
-        auto result = PyDateTime_FromDateAndTime(year, month, day, hour, minute, second, miliseconds*1000);
+        auto result = Py_OWN(PyDateTime_FromDateAndTime(year, month, day, hour, minute, second, miliseconds*1000));
+        if (!result) {
+            return nullptr;
+        }
+
         if (tz_days == 1){
             tz_days = -tz_days;
         }
-        auto offset = PyDelta_FromDSU(tz_days, tz_hours*3600, 0);
-        auto tzinfo = PyTimeZone_FromOffset(offset);
-        Py_DECREF(offset);
-        ((PyDateTime_DateTime *)(result))->hastzinfo = 1;
-        ((PyDateTime_DateTime *)(result))->tzinfo = tzinfo;
-        return result;
+        auto offset = Py_OWN(PyDelta_FromDSU(tz_days, tz_hours*3600, 0));
+        if (!offset) {
+            return nullptr;
+        }
+        auto tzinfo = Py_OWN(PyTimeZone_FromOffset(*offset));
+        if (!tzinfo) {
+            return nullptr;
+        }
+
+        ((PyDateTime_DateTime *)(result.get()))->hastzinfo = 1;
+        ((PyDateTime_DateTime *)(result.get()))->tzinfo = tzinfo.steal();
+        return result.steal();
     }
 
     // DATE
-
 
     PyObject *uint64ToPyDate(std::uint64_t date)
     {
@@ -201,10 +209,10 @@ namespace db0::python
         auto timezone = get_tz_info(py_time);
         std::pair<int,int> offset = {0,0};
         if (timezone == Py_None){
-            throw std::runtime_error("Datetime with timezone must have tzinfo");
+            THROWF(db0::InputException) << "Datetime with timezone must have tzinfo";            
         }
-        offset = get_utc_offset(timezone, py_time);
 
+        offset = get_utc_offset(timezone, py_time);
         auto tz_days = offset.first;
         // tz_days can only by -1 or 0 so use 1 to indicate -1 to save bites
         if(tz_days != -1 && tz_days != 0){
@@ -225,7 +233,6 @@ namespace db0::python
         return time_components;
     }
 
-
     PyObject *uint64ToPyTimeWithTz(std::uint64_t time)
     {
         init_datetime();
@@ -236,16 +243,21 @@ namespace db0::python
         auto tz_days = get_bytes(time, 42, 1);
         auto tz_hours = get_bytes(time, 43, 7);
         tz_hours= tz_hours & 0x3F;
-        auto result = PyTime_FromTime(hour, minute, second, microseconds);
+        auto result = Py_OWN(PyTime_FromTime(hour, minute, second, microseconds));
         if (tz_days == 1){
             tz_days = -tz_days;
         }
-        auto offset = PyDelta_FromDSU(tz_days, tz_hours*3600, 0);
-        auto tzinfo = PyTimeZone_FromOffset(offset);
-        Py_DECREF(offset);
-        ((PyDateTime_DateTime *)(result))->hastzinfo = 1;
-        ((PyDateTime_DateTime *)(result))->tzinfo = tzinfo;
-        return result;
+        auto offset = Py_OWN(PyDelta_FromDSU(tz_days, tz_hours*3600, 0));
+        if (!offset) {
+            return nullptr;
+        }
+        auto tzinfo = Py_OWN(PyTimeZone_FromOffset(*offset));
+        if (!tzinfo) {
+            return nullptr;
+        }
+        ((PyDateTime_DateTime *)(result.get()))->hastzinfo = 1;
+        ((PyDateTime_DateTime *)(result.get()))->tzinfo = tzinfo.steal();
+        return result.steal();
     }
-
+    
 }
