@@ -91,26 +91,27 @@ def test_allocation_larger_than_slab_size_fails(db0_slab_size):
     with pytest.raises(Exception):
         obj = MemoTestClass(get_string(int(1.2 * 1024 * 1024)))
 
-# FIXME: python 3.13
-# @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
-# def test_allocator_alloc_unit_issue(db0_slab_size):
-#     """
-#     Test was failing with: Allocator out of space    
-#     Resolution: 
-#     """
-#     root = MemoTestSingleton([])
-#     buf = root.value
-#     for _ in range(10000):
-#         buf.append([])
-    
-#     from .data_for_tests import test_strings, test_ints
 
-#     # append to random lists
-#     count = 0
-#     for _ in range(50000):
-#         str = test_strings[count % len(test_strings)]
-#         buf[test_ints[count % len(test_ints)]].append(MemoTestClass(str))
-#         count += 1
+@pytest.mark.skip()
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
+def test_allocator_alloc_unit_issue(db0_slab_size):
+    """
+    Test was failing with: Allocator out of space
+    Resolution: 
+    """
+    root = MemoTestSingleton([])
+    buf = root.value
+    for _ in range(10000):
+        buf.append([])
+    
+    from .data_for_tests import test_strings, test_ints
+
+    # append to random lists
+    count = 0
+    for _ in range(50000):
+        str = test_strings[count % len(test_strings)]
+        buf[test_ints[count % len(test_ints)]].append(MemoTestClass(str))
+        count += 1
 
 
 @pytest.mark.stress_test

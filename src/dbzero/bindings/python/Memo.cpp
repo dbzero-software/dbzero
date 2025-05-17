@@ -367,13 +367,17 @@ namespace db0::python
 
     PyObject *findModule(PyObject *module_name)
     {
-        PyObject *sys_module = PyImport_ImportModule("sys");
-        PyObject *modules_dict = PyObject_GetAttrString(sys_module, "modules");
-        auto result = PyDict_GetItem(modules_dict, module_name);
+        auto sys_module = Py_OWN(PyImport_ImportModule("sys"));
+        if (!sys_module) {
+            return nullptr;            
+        }
 
-        Py_DECREF(sys_module);
-        Py_DECREF(modules_dict);
-        return result;
+        auto modules_dict = Py_OWN(PyObject_GetAttrString(*sys_module, "modules"));
+        if (!modules_dict) {
+            return nullptr;            
+        }
+
+        return PyDict_GetItem(*modules_dict, module_name);
     }
     
     // Copy a python dict
@@ -395,8 +399,8 @@ namespace db0::python
         std::vector<Migration> &&migrations)
     {
         Py_INCREF(py_class);
-        PyObject *py_module = findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__"));
-        if (!py_module || !PyModule_Check(py_module)) {
+        auto py_module = Py_OWN(findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__")));
+        if (!py_module || !PyModule_Check(*py_module)) {
             Py_DECREF(py_class);
             THROWF(db0::InternalException) << "Type related module not found: " << py_class->tp_name;
         }
@@ -419,7 +423,9 @@ namespace db0::python
         auto &type_manager = PyToolkit::getTypeManager();
         char *data = new char[sizeof(PyHeapTypeObject) + sizeof(MemoTypeDecoration)];
         PyHeapTypeObject *ht_new_type = new (data) PyHeapTypeObject();
+        // NOTE: pass py_modue since this 
         new (data + sizeof(PyHeapTypeObject)) MemoTypeDecoration(
+            py_module,
             type_manager.getPooledString(prefix_name), 
             type_manager.getPooledString(type_id),
             type_manager.getPooledString(file_name),
@@ -462,7 +468,7 @@ namespace db0::python
         
         if (PyType_Ready(new_type) < 0) {
             PyErr_SetString(PyExc_RuntimeError, "Failed to initialize new memo type");
-            return NULL;
+            return nullptr;
         }
 
         if (PyType_Type.tp_str == py_class->tp_str) {
@@ -477,14 +483,13 @@ namespace db0::python
         PyToolkit::getTypeManager().addMemoType(new_type, type_id);
         Py_INCREF(new_type);
         // register new type with the module where the original type was located
-        PyModule_AddObject(py_module, type_name, reinterpret_cast<PyObject*>(new_type));
+        PyModule_AddObject(*py_module, type_name, reinterpret_cast<PyObject*>(new_type));
 
         // add class fields class member to access memo type information
-        PyObject *py_class_fields = PyClassFields_create(new_type);
-        if (PyDict_SetItemString(new_type->tp_dict, "__fields__", py_class_fields) < 0) {
-            Py_DECREF(py_class_fields);
+        auto py_class_fields = Py_OWN(PyClassFields_create(new_type));
+        if (PyDict_SetItemString(new_type->tp_dict, "__fields__", py_class_fields) < 0) {            
             PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
-            return NULL;
+            return nullptr;
         }
         
         return new_type;
@@ -585,17 +590,17 @@ namespace db0::python
         auto &index_vt = field_layout.m_index_vt_fields;
         
         // report pos-vt members
-        PyObject *py_pos_vt = PyList_New(pos_vt.size());
-        for (std::size_t i = 0; i < pos_vt.size(); ++i) {        
+        auto py_pos_vt = Py_OWN(PyList_New(pos_vt.size()));
+        for (std::size_t i = 0; i < pos_vt.size(); ++i) {
             auto type_name = db0::to_string(pos_vt[i]);
-            PyList_SET_ITEM(py_pos_vt, i, PyUnicode_FromString(type_name.c_str()));
+            PyList_SetItem(py_pos_vt.get(), i, PyUnicode_FromString(type_name.c_str()));
         }
         
         // report index-vt members
-        PyObject *py_index_vt = PyDict_New();
+        auto py_index_vt = Py_OWN(PyDict_New());
         for (auto &item: index_vt) {
             auto type_name = db0::to_string(item.second);
-            PyDict_SetItem(py_index_vt, PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
+            PyDict_SetItem(py_index_vt.get(), PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
         }
         
         // report kv-index members
@@ -604,12 +609,16 @@ namespace db0::python
             auto type_name = db0::to_string(item.second);
             PyDict_SetItem(py_kv_index, PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
         }
+        
+        auto py_result = Py_OWN(PyDict_New());
+        if (!py_result) {
+            return nullptr;
+        }
 
-        PyObject *py_result = PyDict_New();
-        PyDict_SetItemString(py_result, "pos_vt", py_pos_vt);
-        PyDict_SetItemString(py_result, "index_vt", py_index_vt);
-        PyDict_SetItemString(py_result, "kv_index", py_kv_index);
-        return py_result;
+        PyDict_SetItemString(*py_result, "pos_vt", py_pos_vt);
+        PyDict_SetItemString(*py_result, "index_vt", py_index_vt);
+        PyDict_SetItemString(*py_result, "kv_index", py_kv_index);
+        return py_result.steal();
     }
     
     PyObject *MemoObject_DescribeObject(MemoObject *self)

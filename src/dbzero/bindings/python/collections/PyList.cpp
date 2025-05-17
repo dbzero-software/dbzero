@@ -28,33 +28,32 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryListObject_iter, self);
     }
-        
-    PyObject *tryListObject_copy(ListObject *py_src_list)
+    
+    shared_py_object<ListObject*> tryListObject_copy(ListObject *py_src_list)
     {
         // make actual dbzero instance, use default fixture
-        auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
+        auto py_list = Py_OWN(ListObject_new(&ListObjectType, NULL, NULL));
         db0::FixtureLock lock(py_src_list->ext().getFixture());
         py_src_list->ext().copy(&py_list->modifyExt(), *lock);
-        lock->getLangCache().add(py_list->ext().getAddress(), py_list);
+        lock->getLangCache().add(py_list->ext().getAddress(), py_list.get());
         return py_list;
     }
 
     PyObject *PyAPI_ListObject_copy(ListObject *py_src_list)
     {
         PY_API_FUNC
-        return runSafe(tryListObject_copy, py_src_list);
+        return runSafe(tryListObject_copy, py_src_list).steal();
     }
 
-    PyObject *tryListObject_multiply(ListObject *list_obj, PyObject *elem)
+    shared_py_object<ListObject*> tryListObject_multiply(ListObject *list_obj, PyObject *elem)
     {        
         auto elems = PyLong_AsLong(elem);
-        auto list_obj_copy = (ListObject *)tryListObject_copy(list_obj);
+        auto list_obj_copy = tryListObject_copy(list_obj);
         PyObject * obj_list = (PyObject *)list_obj;
         PyObject** args = &obj_list;
         for (int i = 1; i< elems; ++i) {
-            if (!tryObjectT_extend<ListObject>(list_obj_copy, args, 1)) {
-                Py_DECREF(list_obj_copy);
-                return NULL;
+            if (!tryObjectT_extend<ListObject>(list_obj_copy.get(), args, 1)) {
+                return nullptr;
             }
         }
 
@@ -64,27 +63,26 @@ namespace db0::python
     PyObject *PyAPI_ListObject_multiply(ListObject *list_obj, PyObject *elem)
     {
         PY_API_FUNC
-        return runSafe(tryListObject_multiply, list_obj, elem);
+        return runSafe(tryListObject_multiply, list_obj, elem).steal();
     }
     
     shared_py_object<ListObject*> tryMake_DB0ListInternal(db0::swine_ptr<Fixture> &fixture,
         PyObject *const *args, Py_ssize_t nargs)
     {
-        auto py_list = ListObject_new(&ListObjectType, NULL, NULL);
+        auto py_list = Py_OWN(ListObject_new(&ListObjectType, NULL, NULL));
         db0::FixtureLock lock(fixture);
         auto &list = py_list->modifyExt();
         db0::object_model::List::makeNew(&list, *lock);
         if (nargs == 1) {
-            if (!tryObjectT_extend<ListObject>(py_list, args, nargs)) {
-                Py_DECREF(py_list);
+            if (!tryObjectT_extend<ListObject>(py_list.get(), args, nargs)) {                
                 return nullptr;
             }
         }
         // register newly created list with py-object cache
-        fixture->getLangCache().add(list.getAddress(), py_list);
-        return { py_list, false };
+        fixture->getLangCache().add(list.getAddress(), py_list.get());
+        return py_list;
     }
-
+    
     ListObject *tryMake_ListInternal(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {        
         if (nargs != 1 && nargs != 0) {
@@ -167,24 +165,24 @@ namespace db0::python
         }
         return runSafe(tryListObject_count, py_list, args, nargs);
     }
-
-    PyObject *tryListObject_add(ListObject *list_obj_lh, ListObject *list_obj_rh)
+    
+    shared_py_object<ListObject*> tryListObject_add(ListObject *list_obj_lh, ListObject *list_obj_rh)
     {        
         //make copy of first list
         PyObject * obj_list = (PyObject *)list_obj_rh;
         PyObject** args = &obj_list;
-        ListObject *lh_copy = (ListObject *)tryListObject_copy(list_obj_lh);
-        if (!tryObjectT_extend<ListObject>(lh_copy, args, 1)) {
-            Py_DECREF(lh_copy);
-            return NULL;
+        auto lh_copy = tryListObject_copy(list_obj_lh);
+        if (!tryObjectT_extend<ListObject>(lh_copy.get(), args, 1)) {
+            return nullptr;
         }
+
         return lh_copy;
     }
     
     PyObject *PyAPI_ListObject_add(ListObject *list_obj_lh, ListObject *list_obj_rh)
     {
         PY_API_FUNC
-        return runSafe(tryListObject_add, list_obj_lh, list_obj_rh);
+        return runSafe(tryListObject_add, list_obj_lh, list_obj_rh).steal();
     }
     
     static PySequenceMethods ListObject_sq = getPySequenceMehods<ListObject>();
@@ -224,21 +222,20 @@ namespace db0::python
                     Py_RETURN_NOTIMPLEMENTED;
             }
         } else {
-            PyObject *iterator = PyObject_GetIter(other);
+            auto iterator = Py_OWN(PyObject_GetIter(other));
             if (!iterator) {
                 PyErr_SetString(PyExc_TypeError, "argument must be a sequence");
-                return NULL;
+                return nullptr;
             }
             switch (op) {
                 case Py_EQ:
-                    return PyBool_fromBool(has_all_elements_same(list_obj, iterator));
+                    return PyBool_fromBool(has_all_elements_same(list_obj, iterator.get()));
                 case Py_NE:
-                    return PyBool_fromBool(!has_all_elements_same(list_obj, iterator));
+                    return PyBool_fromBool(!has_all_elements_same(list_obj, iterator.get()));
                 default:
                     Py_RETURN_NOTIMPLEMENTED;
             }
-
-            Py_DECREF(iterator);
+            
             Py_RETURN_TRUE;
         }
     }
@@ -303,31 +300,29 @@ namespace db0::python
     PyObject *tryLoadList(ListObject *list, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {    
         auto &list_obj = list->ext();
-        PyObject *result = PyList_New(list_obj.size());
+        auto py_result = Py_OWN(PyList_New(list_obj.size()));
         for (std::size_t i = 0; i < list_obj.size(); ++i) {
-            auto res = tryLoad(list_obj.getItem(i).get(), kwargs, nullptr, load_stack_ptr);
-            if (res == nullptr) {
-                Py_DECREF(result);
+            auto res = Py_OWN(tryLoad(list_obj.getItem(i).get(), kwargs, nullptr, load_stack_ptr));
+            if (!res) {
                 return nullptr;
-            }            
-            PyList_SetItem(result, i, res);
+            }
+            PyList_SetItem(py_result.get(), i, res);
         }
-        return result;
+        return py_result.steal();
     }
     
     PyObject *tryLoadPyList(PyObject *py_list, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {
-        Py_ssize_t size = PyList_Size(py_list);        
-        PyObject *result = PyList_New(size);
+        Py_ssize_t size = PyList_Size(py_list);
+        auto py_result = Py_OWN(PyList_New(size));
         for (int i = 0; i < size; ++i) {
-            auto res = tryLoad(PyList_GetItem(py_list, i), kwargs, nullptr, load_stack_ptr);
-            if (res == nullptr) {
-                Py_DECREF(result);
+            auto res = Py_OWN(tryLoad(PyList_GetItem(py_list, i), kwargs, nullptr, load_stack_ptr));
+            if (!res) {
                 return nullptr;
             }
-            PyList_SetItem(result, i, res);
+            PyList_SetItem(py_result.get(), i, res);
         }
-        return result;
+        return py_result.steal();
     }
-
+    
 }

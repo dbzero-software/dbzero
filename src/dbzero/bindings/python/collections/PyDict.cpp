@@ -13,6 +13,7 @@ namespace db0::python
 
 {
     
+    using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
     PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "dbzero dict iterator");
     
     DictIteratorObject *PyAPI_DictObject_iter(DictObject *self)
@@ -31,18 +32,16 @@ namespace db0::python
         auto key = migratedKey(dict_obj, py_key);
         auto hash = get_py_hash(key.get());
         if (hash == -1) {
-            auto py_str = PyObject_Str(py_key);
-            auto str_name =  PyUnicode_AsUTF8(py_str);
-            Py_DECREF(py_str);
+            auto py_str = Py_OWN(PyObject_Str(py_key));
+            auto str_name =  PyUnicode_AsUTF8(py_str.get());            
             auto error_message = "Cannot get hash for key: " + std::string(str_name);
             PyErr_SetString(PyExc_KeyError, error_message.c_str());
             return NULL;
         }
         auto item_ptr = dict_obj.getItem(hash, key.get());
         if (item_ptr == nullptr) {
-            auto py_str = PyObject_Str(py_key);
-            auto str_name =  PyUnicode_AsUTF8(py_str);
-            Py_DECREF(py_str);
+            auto py_str = Py_OWN(PyObject_Str(py_key));
+            auto str_name =  PyUnicode_AsUTF8(py_str.get());
             PyErr_SetString(PyExc_KeyError,str_name);
             return NULL;
         }
@@ -171,41 +170,37 @@ namespace db0::python
         
         if (PyObject_Length(args) == 1) {
             PyObject * arg1 = PyTuple_GetItem(args, 0);
-            PyObject *iterator = PyObject_GetIter(arg1);
+            auto iterator = Py_OWN(PyObject_GetIter(arg1));
             if (!iterator) {
                 PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
                 return NULL;
             }
 
-            PyObject *elem;
-            while ((elem = PyIter_Next(iterator))) {
+            ObjectSharedPtr elem;
+            while ((elem = Py_OWN(PyIter_Next(iterator.get())))) {
                 if (PyDict_Check(arg1)) {
-                    tryDictObject_SetItem(dict_object, elem, PyDict_GetItem(arg1, elem));
+                    tryDictObject_SetItem(dict_object, elem.get(), PyDict_GetItem(arg1, elem.get()));
                 } else if (DictObject_Check(arg1)) {
-                    tryDictObject_SetItem(dict_object, elem, tryDictObject_GetItem((DictObject*)arg1, elem));
+                    tryDictObject_SetItem(dict_object, elem.get(), tryDictObject_GetItem((DictObject*)arg1, elem.get()));
                 } else {
-                    if (PyObject_Length(elem) != 2) {
+                    if (PyObject_Length(elem.get()) != 2) {
                         PyErr_SetString(PyExc_ValueError, "dictionary update sequence element #0 has length 1; 2 is required");
                         return NULL;
                     }
-                    tryDictObject_SetItem(dict_object, PyTuple_GetItem(elem,0), PyTuple_GetItem(elem,1));
+                    tryDictObject_SetItem(dict_object, PyTuple_GetItem(elem.get(), 0), PyTuple_GetItem(elem.get(), 1));
                 }                
-                Py_DECREF(elem);
-            }            
-            Py_DECREF(iterator);
+            }
         }
         if (kwargs != NULL && PyObject_Length(kwargs) > 0) {
-            PyObject *iterator = PyObject_GetIter(kwargs);
+            auto iterator = Py_OWN(PyObject_GetIter(kwargs));
             if (!iterator) {
                 PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
                 return NULL;
             }
-            PyObject *elem;
-            while ((elem = PyIter_Next(iterator))) {
-                tryDictObject_SetItem(dict_object, elem, PyDict_GetItem(kwargs, elem));
-                Py_DECREF(elem);
+            ObjectSharedPtr elem;
+            while ((elem = Py_OWN(PyIter_Next(iterator.get())))) {
+                tryDictObject_SetItem(dict_object, elem.get(), PyDict_GetItem(kwargs, elem.get()));
             }
-            Py_DECREF(iterator);
         }
         Py_RETURN_NONE;
     }
@@ -445,56 +440,42 @@ namespace db0::python
     
     PyObject *tryLoadDict(PyObject *py_dict, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {   
-        PyObject *iterator = PyObject_GetIter(py_dict);
+        auto iterator = Py_OWN(PyObject_GetIter(py_dict));
         if (!iterator) {
             PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
             return NULL;
         }
-
-        PyObject *elem;
-        PyObject *py_result = PyDict_New();
-        while ((elem = PyIter_Next(iterator))) {
-            auto key = tryLoad(elem, kwargs, nullptr, load_stack_ptr);
-            if (key == nullptr) {
-                Py_DECREF(iterator);
-                Py_DECREF(elem);
-                Py_DECREF(py_result);
+        
+        ObjectSharedPtr elem;
+        auto py_result = Py_OWN(PyDict_New());
+        while ((elem = Py_OWN(PyIter_Next(iterator.get())))) {
+            auto key = Py_OWN(tryLoad(elem.get(), kwargs, nullptr, load_stack_ptr));
+            if (!key) {
                 return nullptr;
             }
             if (PyDict_Check(py_dict)) {
-                auto result = tryLoad(
-                    PyDict_GetItem(py_dict, elem), kwargs, nullptr, load_stack_ptr
-                );
-                if (result == nullptr) {
-                    Py_DECREF(iterator);
-                    Py_DECREF(elem);
-                    Py_DECREF(py_result);
+                auto result = Py_OWN(tryLoad(
+                    PyDict_GetItem(py_dict, elem.get()), kwargs, nullptr, load_stack_ptr)
+                );                
+                if (!result) {
                     return nullptr;                                    
                 }
                 
-                PyDict_SetItem(py_result, key, result);
+                PyDict_SetItem(py_result.get(), key.get(), result.get());
             } else if (DictObject_Check(py_dict)) {
-                auto result = tryLoad(
-                    PyAPI_DictObject_GetItem((DictObject*)py_dict, elem), kwargs, nullptr, load_stack_ptr
+                auto result = Py_OWN(tryLoad(
+                    PyAPI_DictObject_GetItem((DictObject*)py_dict, elem.get()), kwargs, nullptr, load_stack_ptr)
                 );
-                if (result == nullptr) {
-                    Py_DECREF(iterator);
-                    Py_DECREF(elem);
-                    Py_DECREF(py_result);
+                if (!result) {
                     return nullptr;
                 }
-                PyDict_SetItem(py_result, key, result);
+                PyDict_SetItem(py_result.get(), key.get(), result.get());
             } else {
-                Py_DECREF(key);
-                Py_DECREF(iterator);
-                Py_DECREF(elem);
-                Py_DECREF(py_result);
-                throw std::runtime_error("Unknown type");
+                THROWF(db0::InputException) << "Invalid argument type";                
             }
-            Py_DECREF(elem);
-        }           
-        Py_DECREF(iterator);
-        return py_result;
+        }
+        
+        return py_result.steal();
     }
     
 }

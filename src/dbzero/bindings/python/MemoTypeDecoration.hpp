@@ -25,8 +25,10 @@ namespace db0::python
     class MemoTypeDecoration
     {   
     public:     
-        MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name,
-            std::vector<std::string> &&init_vars, shared_py_object<PyObject*> py_dyn_prefix_callable,
+        MemoTypeDecoration(shared_py_object<PyObject*> py_module,
+            const char *prefix_name, const char *type_id, 
+            const char *file_name, std::vector<std::string> &&init_vars, 
+            shared_py_object<PyObject*> py_dyn_prefix_callable,
             std::vector<Migration> &&migrations);
         
         // get decoration of a given memo type
@@ -77,6 +79,8 @@ namespace db0::python
             std::function<bool(Migration &)> callback) const;
         
     private:
+        // module where the type is defined
+        shared_py_object<PyObject*> m_py_module;
         const char *m_prefix_name_ptr = 0;
         const char *m_type_id = 0;
         const char *m_file_name = 0;

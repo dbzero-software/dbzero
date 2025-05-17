@@ -3,6 +3,10 @@
 #include <Python.h>
 #include <iostream>
 
+// take ownership of a PyObject (exception-safe)
+#define Py_OWN(ptr) db0::python::shared_py_object<decltype(ptr)>(ptr, false)
+#define Py_BORROW(ptr) db0::python::shared_py_object<decltype(ptr)>(ptr, true)
+
 namespace db0::python
 
 {
@@ -41,14 +45,21 @@ namespace db0::python
         inline T operator->() const {
             return m_py_object;
         }
-        
+
+        // same as operator->, but we assume non-null has been pre-verified (safer for debugging)
+        inline T operator*() const
+        {
+            assert(m_py_object != nullptr);
+            return m_py_object;
+        }
+
         // bool cast
         inline operator bool() const {
             return m_py_object != nullptr;
         }
         
         // 'steal' a reference from the shared object
-        inline T steal() 
+        inline T steal()
         {
             auto result = m_py_object;
             m_py_object = nullptr;
@@ -63,13 +74,14 @@ namespace db0::python
             return m_py_object != other.m_py_object;
         }
 
-        void operator=(const shared_py_object &other)
+        shared_py_object<T> &operator=(const shared_py_object &other)
         {
             this->~shared_py_object();
             m_py_object = other.m_py_object;
             if (m_py_object) {
                 Py_INCREF(m_py_object);
             }
+            return *this;
         }
         
         void reset()

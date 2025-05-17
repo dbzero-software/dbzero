@@ -9,6 +9,7 @@
 #include "shared_py_object.hpp"
 #include <type_traits>
 #include "PyToolkit.hpp"
+#include "PySafeAPI.hpp"
     
 namespace db0
 

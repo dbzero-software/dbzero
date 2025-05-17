@@ -45,12 +45,20 @@ def test_load_memo_types(db0_fixture):
     assert db0.load(memo) == {"value": "string"}
 
 
+def test_load_db0_list(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])        
+    cut = ["1", 2 , Colors.GREEN]
+    assert db0.load(cut) == ["1", 2, "GREEN"]
+
+
 def test_load_memo_db0_types(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     t1 = (Colors.RED, Colors.GREEN)
     list = ["1", 2 , Colors.GREEN]
     memo2 = MemoTestClass("string")
     memo = MemoTestThreeParamsClass(t1, list, memo2)
+    # FIXME: log
+    print(db0.load(memo))
     assert db0.load(memo) == {
         "value_1": ("RED", "GREEN"),
         "value_2": ["1", 2, "GREEN"],

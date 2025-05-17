@@ -420,6 +420,8 @@ namespace db0::python
     }
     
     PyObject *PyEnumValue_str(PyEnumValue *self) {
+        // FIXME: log
+        std::cout << "Loading enum value: " << self->ext().m_str_repr << std::endl;        
         return PyUnicode_FromString(self->ext().m_str_repr.c_str());
     }
     
@@ -446,6 +448,8 @@ namespace db0::python
     }
     
     PyObject *tryLoadEnumValue(PyEnumValue *py_enum_value) {
+        // FIXME: log
+        std::cout << "Loading enum value" << std::endl;
         // load as string
         return PyEnumValue_str(py_enum_value);        
     }
