@@ -41,7 +41,7 @@ jobs:
           name: wheelhouse
         retention-days: 1
 
-    build:
+  tests:
 
     runs-on: ubuntu-latest
     strategy:
@@ -57,4 +57,12 @@ jobs:
       - name: Get package from previous job
         uses: actions/download-artifact@v4
         with:
-          name: homework_final
+          name: wheelhouse
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: install package
+        run: |
+          pip install wheelhouse/*.whl
+      - name: Run tests
+      - run: ./run_tests.sh
