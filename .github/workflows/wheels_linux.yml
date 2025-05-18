@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
-
+        # python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.12"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -34,3 +34,7 @@ jobs:
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_ARCHS_LINUX: x86_64 aarch64
           CIBW_ARCHS_WINDOWS: ${{ matrix.architecture }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          path: wheelhouse/*.whl
