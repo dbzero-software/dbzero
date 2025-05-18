@@ -1,4 +1,4 @@
-name: build
+name: build linux packages
 on:
   push:
     tags:
@@ -38,3 +38,23 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           path: wheelhouse/*.whl
+          name: wheelhouse
+        retention-days: 1
+
+    build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Get package from previous job
+        uses: actions/download-artifact@v4
+        with:
+          name: homework_final
