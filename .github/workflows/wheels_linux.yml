@@ -19,7 +19,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-    steps:
       - uses: actions/checkout@v3
       - run: python3 scripts/generate_meson.py ./src/dbzero/ core
       - run: python3 scripts/generate_meson_tests.py tests/
