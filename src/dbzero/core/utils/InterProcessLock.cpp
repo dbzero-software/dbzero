@@ -3,91 +3,82 @@
 #include <filesystem>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/bindings/python/PyToolkit.hpp>
-
-PyObject *getKwargs(db0::LockFlags lock_flags)
-{
-    PyObject *keywords = PyDict_New();
-    PyDict_SetItemString(keywords, "blocking", PyBool_FromLong(lock_flags.m_blocking));
-    PyDict_SetItemString(keywords, "timeout", PyLong_FromLong(lock_flags.m_timeout));
-    return keywords;
-}
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0
 
 {
 
+    PyObject *getKwargs(db0::LockFlags lock_flags)
+    {
+        auto keywords = Py_OWN(PyDict_New());
+        PyDict_SetItemString(*keywords, "blocking", Py_OWN(PyBool_FromLong(lock_flags.m_blocking)));
+        PyDict_SetItemString(*keywords, "timeout", Py_OWN(PyLong_FromLong(lock_flags.m_timeout)));
+        return keywords.steal();
+    }
+    
     InterProcessLock::InterProcessLock(const std::string & lockPath, LockFlags lock_flags)
         : m_lock_flags(lock_flags)
         , m_lockPath(lockPath)
     {
-        PyObject *pName = PyUnicode_DecodeFSDefault("fasteners");
-        PyObject *pModule = PyImport_Import(pName);
-        Py_DECREF(pName);
-        if (pModule == NULL) {    
+        auto pName = Py_OWN(PyUnicode_DecodeFSDefault("fasteners"));
+        auto pModule = Py_OWN(PyImport_Import(*pName));
+        if (!pModule) {
             THROWF(db0::InternalException) << "Failed to load fasteners module";        
         }
 
-        PyObject *pInterLock = PyObject_GetAttrString(pModule, "InterProcessLock");
-        if (pInterLock == NULL) {
+        auto pInterLock = Py_OWN(PyObject_GetAttrString(*pModule, "InterProcessLock"));
+        if (!pInterLock) {
             THROWF(db0::InternalException) << "Failed to load InterProcessLock class";        
         }
-
+        
         if (m_lock_flags.m_force_unlock) {
             // remove lock file
             std::remove(m_lockPath.c_str());
         }
-        PyObject * str = PyUnicode_FromString(m_lockPath.c_str());
-        PyObject *args = PyTuple_Pack(1, str);
-        m_lock = PyObject_CallObject(pInterLock, args);
-        Py_DECREF(args);
-        if (m_lock == NULL) {
+        auto args = Py_OWN(PySafeTuple_Pack(Py_OWN(PyUnicode_FromString(m_lockPath.c_str()))));
+        m_lock = Py_OWN(PyObject_CallObject(*pInterLock, *args));
+        if (!m_lock) {
             THROWF(db0::InternalException) << "Failed to create InterProcessLock object";        
         }
+
         assureLocked();
-        Py_DECREF(pInterLock);
-        Py_DECREF(pModule);
-        Py_DECREF(str);
     }
     
     InterProcessLock::~InterProcessLock()
     {
         // NOTE: python interpreter may be destroyed before this destructor is called
         if (db0::python::PyToolkit::isValid()) {
-            PyObject_CallMethod(m_lock, "release", NULL);
-            if (m_lock != NULL) {
-                Py_DECREF(m_lock);
-            }
+            auto res = Py_OWN(PyObject_CallMethod(*m_lock, "release", NULL));
+            m_lock = nullptr;
+        } else {
+            // just drop the reference since python interpreter is already destroyed
+            m_lock.steal();
         }
     }
 
-    bool InterProcessLock::is_locked() const
+    bool InterProcessLock::isLocked() const
     {
-        PyObject * result = PyObject_CallMethod(m_lock, "exists", NULL);
-        if (result == NULL) {
+        auto result = Py_OWN(PyObject_CallMethod(*m_lock, "exists", NULL));
+        if (!result) {
             THROWF(db0::InternalException) << "Failed to check if lock exists";
         }
-        return PyLong_AsLong(result) != 0;
+        return PyLong_AsLong(*result) != 0;
     }
     
     void InterProcessLock::assureLocked()
     {
-        PyObject *keywords = getKwargs(m_lock_flags);
-        PyObject* aquire = PyObject_GetAttrString(m_lock, "acquire");
-        if (aquire == NULL) {
+        auto keywords = Py_OWN(getKwargs(m_lock_flags));
+        auto aquire = Py_OWN(PyObject_GetAttrString(*m_lock, "acquire"));
+        if (!aquire) {
             THROWF(db0::InternalException) << "Failed to get acquire method";
         }
 
-        PyObject *args = Py_BuildValue("()");
-        PyObject *result = PyObject_Call(aquire, args, keywords);
-        auto result_str = PyLong_AsLong(result);
-        if (result_str == 0) {
+        auto args = Py_OWN(Py_BuildValue("()"));
+        auto result = Py_OWN(PyObject_Call(*aquire, *args, *keywords));        
+        if (!PyLong_AsLong(*result)) {
             THROWF(db0::InternalException) << "Failed to aquire lock of: " << m_lockPath;
         }
-        
-        Py_DECREF(keywords);
-        Py_DECREF(args);
-        Py_DECREF(result);
-        Py_DECREF(aquire);
     }
 
 }

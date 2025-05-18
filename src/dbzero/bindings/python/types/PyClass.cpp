@@ -17,19 +17,24 @@ namespace db0::python
     
     static PyMethodDef ClassObject_methods[] = 
     {
-        {"is_known_type", (PyCFunction)&PyClass_has_type, METH_NOARGS, "Check if the corresponding Python type exists"},
+        {"is_known_type", (PyCFunction)&PyAPI_PyClass_has_type, METH_NOARGS, "Check if the corresponding Python type exists"},
         {"type", (PyCFunction)&PyClass_type, METH_NOARGS, "Retrieve associated Python type"},
         {"get_attributes", (PyCFunction)&PyClass_get_attributes, METH_NOARGS, "Get memo class attributes"},
         {"type_info", (PyCFunction)&PyClass_type_info, METH_NOARGS, "Get memo class type information"},
         {NULL}
     };
-    
-    PyObject *PyClass_has_type(PyObject *self, PyObject *)
-    {
-        PY_API_FUNC
+
+    PyObject *tryPyClass_has_type(PyObject *self)
+    {        
         auto fixture = reinterpret_cast<ClassObject*>(self)->ext().getFixture();
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
-        return class_factory.hasLangType(reinterpret_cast<ClassObject*>(self)->ext()) ? Py_True : Py_False;
+        return PyBool_fromBool(class_factory.hasLangType(reinterpret_cast<ClassObject*>(self)->ext()));
+    }
+
+    PyObject *PyAPI_PyClass_has_type(PyObject *self, PyObject *)
+    {
+        PY_API_FUNC
+        return runSafe(tryPyClass_has_type, self);
     }
     
     PyTypeObject *tryPyClassType(PyObject *self)
@@ -63,7 +68,8 @@ namespace db0::python
         auto py_list = Py_OWN(PyList_New(0));
         for (auto [name, index]: members) {
             // name, index
-            auto py_tuple = Py_OWN(PyTuple_Pack(2, PyUnicode_FromString(name.c_str()), PyLong_FromUnsignedLong(index)));
+            auto py_tuple = Py_OWN(PySafeTuple_Pack(Py_OWN(PyUnicode_FromString(name.c_str())), 
+                Py_OWN(PyLong_FromUnsignedLong(index))));
             PyList_Append(*py_list, py_tuple);
         }
         return py_list.steal();
@@ -110,26 +116,24 @@ namespace db0::python
     }
 
     PyObject *tryGetTypeInfo(const db0::object_model::Class &type)
-    {
-        PyObject *py_tuple = nullptr;
+    {        
         if (type.isSingleton()) {
             // name, module, memo_uuid, is_singleton, singleton_uuid
-            py_tuple = PyTuple_Pack(5,
-                PyUnicode_FromString(type.getTypeName().c_str()),
-                PyUnicode_FromString(type.getModuleName().c_str()),
-                PyUnicode_FromString(type.getClassId().toUUIDString().c_str()),
-                type.isSingleton() ? Py_True : Py_False,
-                getSingletonUUID(type)
+            return PySafeTuple_Pack(
+                Py_OWN(PyUnicode_FromString(type.getTypeName().c_str())),
+                Py_OWN(PyUnicode_FromString(type.getModuleName().c_str())),
+                Py_OWN(PyUnicode_FromString(type.getClassId().toUUIDString().c_str())),
+                Py_OWN(PyBool_fromBool(type.isSingleton())),
+                Py_OWN(getSingletonUUID(type))
             );
         } else {
             // name, module, memo_uuid
-            py_tuple = PyTuple_Pack(3,
-                PyUnicode_FromString(type.getTypeName().c_str()), 
-                PyUnicode_FromString(type.getModuleName().c_str()),
-                PyUnicode_FromString(type.getClassId().toUUIDString().c_str())
+            return PySafeTuple_Pack(
+                Py_OWN(PyUnicode_FromString(type.getTypeName().c_str())),
+                Py_OWN(PyUnicode_FromString(type.getModuleName().c_str())),
+                Py_OWN(PyUnicode_FromString(type.getClassId().toUUIDString().c_str()))
             );
-        }
-        return py_tuple;
+        }        
     }
     
 }

@@ -497,7 +497,7 @@ namespace db0::python
 #endif
 
     bool hasKWArg(PyObject *kwargs, const char *name) {
-        return kwargs && PyDict_Contains(kwargs, PyUnicode_FromString(name));
+        return kwargs && PyDict_Contains(kwargs, *Py_OWN(PyUnicode_FromString(name)));
     }
     
     PyObject *tryGetAddress(PyObject *py_obj)

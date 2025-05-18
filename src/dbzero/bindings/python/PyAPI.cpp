@@ -571,7 +571,7 @@ namespace db0::python
         return runSafe(tryRenameField, args);
     }
     
-    PyObject *isSingleton(PyObject *, PyObject *args)
+    PyObject *PyAPI_isSingleton(PyObject *, PyObject *args)
     {
         PY_API_FUNC
         PyObject *py_object;
@@ -585,7 +585,7 @@ namespace db0::python
             return NULL;
         }
 
-        return (reinterpret_cast<MemoObject*>(py_object)->ext().isSingleton()) ? Py_True : Py_False;
+        return PyBool_fromBool(reinterpret_cast<MemoObject*>(py_object)->ext().isSingleton());
     }
 
     PyObject *getRefCount(PyObject *, PyObject *args)
@@ -656,7 +656,7 @@ namespace db0::python
         return py_result.steal();
     }
     
-    PyObject *getBuildFlags(PyObject *, PyObject *)
+    PyObject *PyAPI_getBuildFlags(PyObject *, PyObject *)
     {
         PY_API_FUNC
         std::stringstream str_flags;
@@ -748,13 +748,13 @@ namespace db0::python
             return runSafe(tryMakeEnumFromType, self, py_type, enum_values, type_id, prefix_name);
         }
     }
-
+    
     using TagIndex = db0::object_model::TagIndex;
     using ObjectIterable = db0::object_model::ObjectIterable;
     using ObjectIterator = db0::object_model::ObjectIterator;
     using QueryObserver = db0::object_model::QueryObserver;
-        
-    PyObject *isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    
+    PyObject *PyAPI_isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         if (nargs != 1) {
@@ -763,7 +763,7 @@ namespace db0::python
         }
         
         // NOTE: to Python programs EnumValue / EnuValueRepr should not be differentiable
-        return (PyEnumValue_Check(args[0]) || PyEnumValueRepr_Check(args[0])) ? Py_True : Py_False;
+        return PyBool_fromBool(PyEnumValue_Check(args[0]) || PyEnumValueRepr_Check(args[0]));
     }
     
     PyObject *tryFilterBy(PyObject *args, PyObject *kwargs)
@@ -810,7 +810,7 @@ namespace db0::python
         return runSafe(tryFilterBy, args, kwargs);
     }
     
-    PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
                 

@@ -258,7 +258,7 @@ namespace db0::object_model
         auto enum_value = fixture->get<EnumFactory>().getEnumValue(enum_value_repr);
         return enum_value.getUID().asULong();
     }
-
+    
     template <> Value createMember<TypeId::BOOLEAN, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
@@ -341,22 +341,14 @@ namespace db0::object_model
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::INT64, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        auto result = Py_OWN(PyLong_FromLong(value.cast<std::int64_t>()));
-        if (!result) {
-            THROWF(db0::InputException) << "Failed to convert to int64" << THROWF_END;
-        }
-        return result;
+        return Py_OWN(PyLong_FromLong(value.cast<std::int64_t>()));
     }
-
+    
     // FLOAT specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::FP_NUMERIC64, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        auto result = Py_OWN(PyFloat_FromDouble(value.cast<double>()));
-        if (!result) {
-            THROWF(db0::InputException) << "Failed to convert to float" << THROWF_END;
-        }
-        return result;
+        return Py_OWN(PyFloat_FromDouble(value.cast<double>()));
     }
 
     // OBJECT_REF specialization
@@ -387,7 +379,7 @@ namespace db0::object_model
     {
         return PyToolkit::unloadSet(fixture, value.asAddress());
     }
-
+    
     // DB0_DICT specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_DICT, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
@@ -519,7 +511,7 @@ namespace db0::object_model
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::BOOLEAN, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-         return value.cast<std::uint64_t>() ? Py_True : Py_False;
+         return Py_OWN(db0::python::PyBool_fromBool(value.cast<std::uint64_t>()));
     }
     
     // DB0_BYTES_ARRAY specialization

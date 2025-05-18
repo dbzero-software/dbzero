@@ -107,8 +107,6 @@ def test_allocator_alloc_unit_issue(db0_slab_size):
 
     # append to random lists
     count = 0
-    # FIXME: log
-    # for _ in range(50000):    
     for _ in range(50000):
         str = test_strings[count % len(test_strings)]
         buf[test_ints[count % len(test_ints)]].append(MemoTestClass(str))

@@ -11,19 +11,21 @@ namespace db0
     class InterProcessLock
     {
     public:
+        using ObjectSharedPtr = db0::python::PyTypes::ObjectSharedPtr;
+
         InterProcessLock(const std::string &lockPath, LockFlags lock_flags);
         ~InterProcessLock();
 
-        bool is_locked() const;
+        bool isLocked() const;
         
         // Assure that the lock is acquired. 
         // This can be occured when lock file is removed by another process
         void assureLocked();
 
     private:
-        PyObject* m_lock = nullptr;
+        ObjectSharedPtr m_lock = nullptr;
         LockFlags m_lock_flags;
-        const std::string & m_lockPath;
+        const std::string m_lockPath;
     };
 
 }

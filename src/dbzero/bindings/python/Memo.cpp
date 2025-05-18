@@ -499,8 +499,8 @@ namespace db0::python
     
     PyTypeObject *tryWrapPyClass(PyObject *args, PyObject *kwargs)
     {
-        PyObject* class_obj;
-        PyObject *singleton = Py_False;
+        PyObject *class_obj = nullptr;
+        PyObject *py_singleton = nullptr;
         PyObject *py_prefix_name = nullptr;
         PyObject *py_type_id = nullptr;
         PyObject *py_file_name = nullptr;
@@ -511,14 +511,14 @@ namespace db0::python
         
         static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", "py_init_vars", 
             "py_dyn_prefix", "py_migrations", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOO", const_cast<char**>(kwlist), &class_obj, &singleton,
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
             &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations))
         {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
         }
         
-        bool is_singleton = PyObject_IsTrue(singleton);
+        bool is_singleton = py_singleton && PyObject_IsTrue(py_singleton);
         const char *prefix_name = py_prefix_name ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
@@ -595,21 +595,23 @@ namespace db0::python
         auto py_pos_vt = Py_OWN(PyList_New(pos_vt.size()));
         for (std::size_t i = 0; i < pos_vt.size(); ++i) {
             auto type_name = db0::to_string(pos_vt[i]);
-            PyList_SetItem(py_pos_vt.get(), i, PyUnicode_FromString(type_name.c_str()));
+            PyList_SetItem(*py_pos_vt, i, Py_OWN(PyUnicode_FromString(type_name.c_str())));
         }
         
         // report index-vt members
         auto py_index_vt = Py_OWN(PyDict_New());
         for (auto &item: index_vt) {
             auto type_name = db0::to_string(item.second);
-            PyDict_SetItem(py_index_vt.get(), PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
+            PyDict_SetItem(*py_index_vt, Py_OWN(PyLong_FromLong(item.first)), 
+                Py_OWN(PyUnicode_FromString(type_name.c_str())));
         }
         
         // report kv-index members
         auto py_kv_index = Py_OWN(PyDict_New());
         for (auto &item: field_layout.m_kv_index_fields) {
             auto type_name = db0::to_string(item.second);
-            PyDict_SetItem(*py_kv_index, PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
+            PyDict_SetItem(*py_kv_index, Py_OWN(PyLong_FromLong(item.first)), 
+                Py_OWN(PyUnicode_FromString(type_name.c_str())));
         }
         
         auto py_result = Py_OWN(PyDict_New());
@@ -628,9 +630,9 @@ namespace db0::python
         auto py_field_layout = Py_OWN(MemoObject_GetFieldLayout(self));
         auto py_result = Py_OWN(PyDict_New());
         PyDict_SetItemString(*py_result, "field_layout", py_field_layout);
-        PyDict_SetItemString(*py_result, "uuid", tryGetUUID(self));
-        PyDict_SetItemString(*py_result, "type", PyUnicode_FromString(self->ext().getType().getName().c_str()));
-        PyDict_SetItemString(*py_result, "size_of", PyLong_FromLong(self->ext()->sizeOf()));
+        PyDict_SetItemString(*py_result, "uuid", Py_OWN(tryGetUUID(self)));
+        PyDict_SetItemString(*py_result, "type", Py_OWN(PyUnicode_FromString(self->ext().getType().getName().c_str())));
+        PyDict_SetItemString(*py_result, "size_of", Py_OWN(PyLong_FromLong(self->ext()->sizeOf())));
         return py_result.steal();
     }
     
@@ -640,14 +642,14 @@ namespace db0::python
         auto &memo = self->ext();
         str << "<" << Py_TYPE(self)->tp_name;
         if (memo.hasInstance()) {
-            str << " instance uuid=" << PyUnicode_AsUTF8(tryGetUUID(self));
+            str << " instance uuid=" << PyUnicode_AsUTF8(*Py_OWN(tryGetUUID(self)));
         } else {
             str << " (uninitialized)";
         }
         str << ">";
         return PyUnicode_FromString(str.str().c_str());
     }
-
+    
     PyObject *MemoObject_str(MemoObject *self)
     {
         PY_API_FUNC
@@ -657,8 +659,8 @@ namespace db0::python
     void MemoType_get_info(PyTypeObject *type, PyObject *dict)
     {                      
         auto &decor = MemoTypeDecoration::get(type);
-        PyDict_SetItemString(dict, "singleton", PyBool_FromLong(PyMemoType_IsSingleton(type)));
-        PyDict_SetItemString(dict, "prefix", PyUnicode_FromString(decor.getPrefixName()));
+        PyDict_SetItemString(dict, "singleton", Py_OWN(PyBool_FromLong(PyMemoType_IsSingleton(type))));
+        PyDict_SetItemString(dict, "prefix", Py_OWN(PyUnicode_FromString(decor.getPrefixName())));
     }
     
     void MemoType_close(PyTypeObject *type)
@@ -732,10 +734,10 @@ namespace db0::python
         return py_result.steal();
     }
     
-    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude, 
+    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude,
         std::unordered_set<const void*> *load_stack_ptr)
     {
-        auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, PyUnicode_FromString("__load__")));        
+        auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, *Py_OWN(PyUnicode_FromString("__load__"))));
         if (load_method) {
             if (py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot exclude values when __load__ is implemented");

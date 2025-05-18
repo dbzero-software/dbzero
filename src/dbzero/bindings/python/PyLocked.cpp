@@ -3,6 +3,7 @@
 #include "PyInternalAPI.hpp"
 #include "PySafeAPI.hpp"
 #include <dbzero/workspace/FixtureThreads.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
@@ -84,7 +85,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryPyLocked_close, reinterpret_cast<PyLocked*>(self));
     }
-
+    
     PyObject *tryPyLocked_get_mutation_log(PyLocked *self)
     {   
         // list of tuples: prefix name / state number       
@@ -96,8 +97,8 @@ namespace db0::python
 
         unsigned int i = 0;
         for (const auto &item: mutation_log) {
-            auto tuple = Py_OWN(PyTuple_Pack(2, PyUnicode_FromString(item.first.c_str()), 
-                PyLong_FromUnsignedLongLong(item.second))
+            auto tuple = Py_OWN(PySafeTuple_Pack(Py_OWN(PyUnicode_FromString(item.first.c_str())), 
+                Py_OWN(PyLong_FromUnsignedLongLong(item.second)))
             );
             if (!tuple) {
                 return nullptr;

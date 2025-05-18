@@ -21,7 +21,7 @@ namespace db0::python
             : m_py_object(py_object)
         {
             if (m_py_object && incref) {
-                Py_INCREF(py_object);                
+                Py_INCREF(py_object);
             }
         }
         
@@ -32,7 +32,13 @@ namespace db0::python
                 Py_INCREF(m_py_object);
             }
         }
-        
+
+        shared_py_object(shared_py_object &&other)
+            : m_py_object(other.m_py_object)
+        {
+            other.m_py_object = nullptr;
+        }
+
         inline ~shared_py_object()
         {
             if (m_py_object) {                
@@ -85,7 +91,15 @@ namespace db0::python
             }
             return *this;
         }
-        
+
+        shared_py_object<T> &operator=(shared_py_object &&other)
+        {
+            this->~shared_py_object();
+            m_py_object = other.m_py_object;
+            other.m_py_object = nullptr;
+            return *this;
+        }
+
         void reset()
         {
             if (m_py_object) {

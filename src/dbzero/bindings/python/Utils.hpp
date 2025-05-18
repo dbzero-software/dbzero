@@ -50,6 +50,4 @@ namespace db0::python
         return true;
     }
     
-    PyObject * PyBool_fromBool(bool value);
-
 }
