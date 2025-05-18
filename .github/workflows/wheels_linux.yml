@@ -37,8 +37,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          path: wheelhouse/*.whl
-          name: wheelhouse
+          path: dist/*.whl
+          name: wheels
           retention-days: 1
 
   tests:
@@ -58,7 +58,7 @@ jobs:
       - name: Get package from previous job
         uses: actions/download-artifact@v4
         with:
-          name: wheelhouse
+          name: wheels
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
