@@ -22,7 +22,9 @@ namespace db0::python
         auto py_list = Py_OWN(PyList_New(0));
         // prefix name / UUID pairs
         for (auto [name, uuid]: data) {
-            auto py_tuple = Py_OWN(PySafeTuple_Pack(Py_OWN(PyUnicode_FromString(name.c_str())), Py_OWN(PyLong_FromUnsignedLongLong(uuid))));
+            auto py_tuple = Py_OWN(PySafeTuple_Pack(Py_OWN(PyUnicode_FromString(name.c_str())), 
+                Py_OWN(PyLong_FromUnsignedLongLong(uuid)))
+            );
             PyList_Append(*py_list, py_tuple);
         }
         return py_list.steal();

@@ -447,8 +447,8 @@ namespace db0::python
         // page_info = std::pair<std::uint64_t, std::uint64_t>
         for (const auto &[page_num, page_info] : dram_io_map) {
             auto py_page_info = Py_OWN(PyTuple_New(2));
-            PyTuple_SetItem(*py_page_info, 0, PyLong_FromUnsignedLongLong(page_info.first));
-            PyTuple_SetItem(*py_page_info, 1, PyLong_FromUnsignedLongLong(page_info.second));
+            PyTuple_SetItem(*py_page_info, 0, Py_OWN(PyLong_FromUnsignedLongLong(page_info.first)));
+            PyTuple_SetItem(*py_page_info, 1, Py_OWN(PyLong_FromUnsignedLongLong(page_info.second)));
             PyDict_SetItem(*py_dict, Py_OWN(PyLong_FromUnsignedLongLong(page_num)), py_page_info);
         }
         return py_dict.steal();
@@ -475,9 +475,9 @@ namespace db0::python
             }
 
             auto &check_result = dram_check_results[i];
-            PyDict_SetItemString(py_check_result.get(), "addr", PyLong_FromUnsignedLongLong(check_result.m_address));
-            PyDict_SetItemString(py_check_result.get(), "page_num", PyLong_FromUnsignedLongLong(check_result.m_page_num));
-            PyDict_SetItemString(py_check_result.get(), "exp_page_num", PyLong_FromUnsignedLongLong(check_result.m_expected_page_num));
+            PyDict_SetItemString(*py_check_result, "addr", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_address)));
+            PyDict_SetItemString(*py_check_result, "page_num", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_page_num)));
+            PyDict_SetItemString(*py_check_result, "exp_page_num", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_expected_page_num)));
             PyList_SetItem(*py_check_results, i, py_check_result);
         }
 

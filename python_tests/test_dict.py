@@ -4,6 +4,7 @@ import datetime
 import dbzero_ce as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedSingleton, MemoScopedClass, MonthTag, DATA_PX
+from decimal import Decimal
 
 
 def test_can_create_dict(db0_fixture):
@@ -494,3 +495,18 @@ def test_dict_del_items_while_iterating_over(db0_no_autocommit):
         cut.pop(next(keys))
     
     assert len(cut) > 0
+    
+    
+def test_dict_pop_tuple_keys(db0_no_autocommit):
+    keys = [(MemoTestClass(i), Decimal(i)) for i in range(100)]
+    cut = db0.dict({k: "value" for k in keys})
+    assert len(cut) == 100
+    
+    to_remove =  [21, 7, 48, 23, 24, 98, 12, 58, 79, 39, 17, 81, 36, 89, 72, 6, 54, 97, 
+                  8, 50, 77, 34, 0, 62, 14, 44, 95, 86, 73, 18, 45, 53, 84, 38, 64, 60, 
+                  68, 28, 75, 40, 22, 49, 85, 63, 2, 15, 4, 66, 16, 80]
+    for index in to_remove:
+        cut.pop(keys[index])
+
+    assert len(cut) == 50
+    

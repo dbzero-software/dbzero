@@ -15,14 +15,19 @@ namespace db0::python
     
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
     PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "dbzero dict iterator");
-    
-    DictIteratorObject *PyAPI_DictObject_iter(DictObject *self)
-    {
-        PY_API_FUNC
+
+    DictIteratorObject *tryDictObject_iter(DictObject *self)
+    {        
         self->ext().getFixture()->refreshIfUpdated();
         return makeIterator<DictIteratorObject, db0::object_model::DictIterator>(
             DictIteratorObjectType, self->ext().begin(), &self->ext(), self
         );
+    }
+
+    DictIteratorObject *PyAPI_DictObject_iter(DictObject *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryDictObject_iter, self);
     }
     
     PyObject *tryDictObject_GetItem(DictObject *py_dict, PyObject *py_key)
@@ -30,22 +35,23 @@ namespace db0::python
         const auto &dict_obj = py_dict->ext();
         dict_obj.getFixture()->refreshIfUpdated();
         auto key = migratedKey(dict_obj, py_key);
-        auto hash = get_py_hash(key.get());
+        auto hash = get_py_hash(*key);
         if (hash == -1) {
             auto py_str = Py_OWN(PyObject_Str(py_key));
-            auto str_name =  PyUnicode_AsUTF8(py_str.get());            
+            auto str_name =  PyUnicode_AsUTF8(*py_str);            
             auto error_message = "Cannot get hash for key: " + std::string(str_name);
             PyErr_SetString(PyExc_KeyError, error_message.c_str());
-            return NULL;
+            return nullptr;
         }
-        auto item_ptr = dict_obj.getItem(hash, key.get());
-        if (item_ptr == nullptr) {
+
+        auto item = dict_obj.getItem(hash, *key);
+        if (!item) {
             auto py_str = Py_OWN(PyObject_Str(py_key));
-            auto str_name =  PyUnicode_AsUTF8(py_str.get());
-            PyErr_SetString(PyExc_KeyError,str_name);
-            return NULL;
+            auto str_name =  PyUnicode_AsUTF8(*py_str);
+            PyErr_SetString(PyExc_KeyError, str_name);
+            return nullptr;
         }
-        return item_ptr.steal();
+        return item.steal();
     }
     
     PyObject *PyAPI_DictObject_GetItem(DictObject *dict_obj, PyObject *key)
@@ -57,17 +63,17 @@ namespace db0::python
     int tryDictObject_SetItem(DictObject *py_dict, PyObject *py_key, PyObject *value)
     {
         auto key = migratedKey(py_dict->ext(), py_key);
-        auto hash = get_py_hash(key.get());
+        auto hash = get_py_hash(*key);
         if (hash == -1) {            
             // set PyError
             std::stringstream _str;
-            _str << "Unable to find hash function for key of type: " << Py_TYPE(key.get())->tp_name;
+            _str << "Unable to find hash function for key of type: " << Py_TYPE(*key)->tp_name;
             PyErr_SetString(PyExc_TypeError, _str.str().c_str());
             return -1;
         }
         
         db0::FixtureLock lock(py_dict->ext().getFixture());
-        py_dict->modifyExt().setItem(lock, hash, key.get(), value);
+        py_dict->modifyExt().setItem(lock, hash, *key, value);
         return 0;
     }
     
@@ -93,8 +99,8 @@ namespace db0::python
     {        
         auto key = migratedKey(py_dict->ext(), py_key);
         py_dict->ext().getFixture()->refreshIfUpdated();
-        auto hash = get_py_hash(key.get());
-        return py_dict->ext().has_item(hash, key.get());
+        auto hash = get_py_hash(*key);
+        return py_dict->ext().has_item(hash, *key);
     }
 
     int PyAPI_DictObject_HasItem(DictObject *dict_obj, PyObject *key)
@@ -199,7 +205,7 @@ namespace db0::python
             }
             ObjectSharedPtr elem;
             while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
-                tryDictObject_SetItem(dict_object, *elem, PyDict_GetItem(kwargs, *elem));
+                tryDictObject_SetItem(dict_object, *elem, *Py_BORROW(PyDict_GetItem(kwargs, *elem)));
             }
         }
         Py_RETURN_NONE;
@@ -224,7 +230,7 @@ namespace db0::python
         }
 
         // register newly created dict with py-object cache        
-        fixture->getLangCache().add(dict.getAddress(), py_dict.get());
+        fixture->getLangCache().add(dict.getAddress(), *py_dict);
         return py_dict;
     }
 
@@ -270,10 +276,10 @@ namespace db0::python
     
     PyObject *tryDictObject_fromKeys(PyObject *const *args, Py_ssize_t nargs)
     {
-        PyObject *iterator = PyObject_GetIter(args[0]);
+        auto iterator = Py_OWN(PyObject_GetIter(args[0]));
         if (!iterator) {
             PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
-            return NULL;
+            return nullptr;
         }
 
         // make actual dbzero instance, use default fixture
@@ -281,13 +287,13 @@ namespace db0::python
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         db0::object_model::Dict::makeNew(&py_dict.get()->modifyExt(), *lock);
         
-        PyObject *elem;
-        PyObject *value = Py_None;
+        ObjectSharedPtr elem;
+        auto value = Py_BORROW(Py_None);
         if (nargs == 2) {
             value = args[1];
         }
-        while ((elem = PyIter_Next(iterator))) {
-            tryDictObject_SetItem(py_dict.get(), elem, value);
+        while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+            tryDictObject_SetItem(*py_dict, *elem, *value);
         }
         
         lock->getLangCache().add(py_dict.get()->ext().getAddress(), py_dict.get());
@@ -314,15 +320,14 @@ namespace db0::python
         PyObject *py_elem = args[0];
         auto elem = migratedKey(dict_object->ext(), py_elem);
         auto hash = get_py_hash(elem.get());
-        if (dict_object->ext().has_item(hash, elem.get())) {
-            return tryDictObject_GetItem(dict_object, elem.get());
+        if (dict_object->ext().has_item(hash, *elem)) {
+            return tryDictObject_GetItem(dict_object, *elem);
         }
-        PyObject *value = Py_None;
+        auto value = Py_BORROW((PyObject*)Py_None);
         if (nargs == 2) {
-            value = args[1];
+            value = Py_BORROW((PyObject*)args[1]);
         }
-        Py_INCREF(value);
-        return value;
+        return value.steal();
     }
     
     PyObject *PyAPI_DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
@@ -347,14 +352,14 @@ namespace db0::python
         if (nargs == 2) {
             value = args[1];
         }
+
         auto elem = migratedKey(dict_object->ext(), py_elem);
-        auto hash = get_py_hash(elem.get());
-        if (dict_object->ext().has_item(hash, elem.get())) {
-            auto obj = dict_object->modifyExt().pop(hash, elem.get());
-            return obj.steal();
+        auto hash = get_py_hash(*elem);
+        if (dict_object->ext().has_item(hash, *elem)) {
+            return dict_object->modifyExt().pop(hash, *elem).steal();
         }
         if (value == nullptr) {
-            PyErr_SetString(PyExc_KeyError, "item");
+            PyErr_SetString(PyExc_KeyError, "not found");
             return NULL;
         }
         
@@ -378,18 +383,18 @@ namespace db0::python
     PyObject *tryDictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
         PyObject *py_elem = args[0];
-        PyObject *value = Py_None;
-        if(nargs == 2){
-            value = args[1];
+        auto value = Py_BORROW((PyObject*)Py_None);
+        if (nargs == 2) {
+            value = Py_BORROW((PyObject*)args[1]);
         }
         auto elem = migratedKey(dict_object->ext(), py_elem);
-        auto hash = get_py_hash(elem.get());
-        if (!dict_object->ext().has_item(hash, elem.get())) {
-            tryDictObject_SetItem(dict_object, elem.get(), value);
+        auto hash = get_py_hash(*elem);
+        if (!dict_object->ext().has_item(hash, *elem)) {
+            tryDictObject_SetItem(dict_object, *elem, *value);
         }
-        return tryDictObject_GetItem(dict_object, elem.get());
+        return tryDictObject_GetItem(dict_object, *elem);
     }
-
+    
     PyObject *PyAPI_DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
     {
         PY_API_FUNC        

@@ -37,7 +37,7 @@ namespace db0::python
         int is_negative = get_bytes(decimal, 63, 1);
         exponent = -exponent;
         if (decimal == 0) {
-            return PyObject_CallFunctionObjArgs(decimal_type, PyLong_FromLong(0), NULL);
+            return PyObject_CallFunctionObjArgs(decimal_type, *Py_OWN(PyLong_FromLong(0)), NULL);
         }
         if (is_negative) {
             numerator = -numerator;

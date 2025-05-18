@@ -190,6 +190,7 @@ namespace db0::object_model
         if (iter == m_index.end()) {
             return nullptr;
         }
+
         auto [key, address] = *iter;
         auto bindex = address.getIndex(this->getMemspace());
         auto it = bindex.beginJoin(1);
@@ -199,17 +200,23 @@ namespace db0::object_model
         if (bindex.size() == 1) {
             m_index.erase(iter);
             bindex.destroy();
-            auto [key_storage_class, key_value] = (*it).m_first;
+            auto [key_storage_class, key_value] = (*it).m_first;            
             unrefMember<LangToolkit>(fixture, key_storage_class, key_value);
         } else {
+            // NOTE: morping-bindex address my be subject to change on erase
             bindex.erase(*it);
+            auto new_address = bindex.getAddress();
+            if (new_address != address.m_index_address) {
+                iter.modifyItem().value.m_index_address = new_address;
+                iter.modifyItem().value.m_type = bindex.getIndexType();
+            }            
         }
         --modify().m_size;
         unrefMember<LangToolkit>(fixture, storage_class, value);
         restoreIterators();
         return member;
     }
-
+    
     void Dict::moveTo(db0::swine_ptr<Fixture> &fixture)
     {
         if (this->size() > 0) {

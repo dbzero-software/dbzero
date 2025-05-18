@@ -272,11 +272,11 @@ namespace db0::python
         }
         
         auto dict_object = DictDefaultObject_new();
-        // retrieve actual dbzero instance        
+        // retrieve actual dbzero instance
         db0::object_model::Dict::unload(&(dict_object.get())->modifyExt(), fixture, address);
     
         // add list object to cache
-        lang_cache.add(address, dict_object.get());
+        lang_cache.add(address, *dict_object);
         return shared_py_cast<PyObject*>(std::move(dict_object));
     }
     
@@ -336,49 +336,46 @@ namespace db0::python
         return PyUnicode_Check(py_object);
     }
 
-    bool PyToolkit::isSequence(ObjectPtr py_object)
-    {
+    bool PyToolkit::isSequence(ObjectPtr py_object) {
         return PySequence_Check(py_object);
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::getIterator(ObjectPtr py_object)
     {
-        auto py_iterator = PyObject_GetIter(py_object);
+        auto py_iterator = Py_OWN(PyObject_GetIter(py_object));
         if (!py_iterator) {
             THROWF(db0::InputException) << "Unable to get iterator" << THROWF_END;
         }
-        return { py_iterator, false };
+        return py_iterator;
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::next(ObjectPtr py_object)
     {
-        auto py_next = PyIter_Next(py_object);
+        auto py_next = Py_OWN(PyIter_Next(py_object));
         if (!py_next) {
             // StopIteration exception raised
             PyErr_Clear();
         }
 
-        return { py_next, false };
+        return py_next;
     }
 
     std::size_t PyToolkit::length(ObjectPtr py_object)
     {
         Py_ssize_t size = PySequence_Length(py_object);
-        if(size < 0)
-        {
+        if (size < 0) {
             THROWF(db0::InputException) << "Unable to get sequence length" << THROWF_END;
         }
         return size;
     }
-
+    
     PyToolkit::ObjectSharedPtr PyToolkit::getItem(ObjectPtr py_object, std::size_t i)
     {
-        ObjectPtr item = PySequence_GetItem(py_object, i);
-        if (!item)
-        {
-            THROWF(db0::InputException) << "Unable to get sequence item at index " << i << THROWF_END;
+        auto item = Py_OWN(PySequence_GetItem(py_object, i));
+        if (!item) {
+            THROWF(db0::InputException) << "Unable to get sequence item at index ";
         }
-        return { item, false };
+        return item;
     }
     
     bool PyToolkit::isSingleton(TypeObjectPtr py_type) {
@@ -474,7 +471,7 @@ namespace db0::python
     }
 
     void PyToolkit::setError(ObjectPtr err_obj, std::uint64_t err_value) {
-        PyErr_SetObject(err_obj, PyLong_FromUnsignedLongLong(err_value));
+        PyErr_SetObject(err_obj, *Py_OWN(PyLong_FromUnsignedLongLong(err_value)));
     }
 
     unsigned int PyToolkit::getRefCount(ObjectPtr obj) {
