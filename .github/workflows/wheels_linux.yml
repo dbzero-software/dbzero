@@ -39,7 +39,7 @@ jobs:
         with:
           path: wheelhouse/*.whl
           name: wheelhouse
-        retention-days: 1
+          retention-days: 1
 
   tests:
 
