@@ -185,7 +185,7 @@ namespace db0::object_model
     }
     
     Dict::ObjectSharedPtr Dict::pop(int64_t hash, ObjectPtr obj)
-    {
+    {        
         auto iter = m_index.find(hash);
         if (iter == m_index.end()) {
             return nullptr;
@@ -194,14 +194,18 @@ namespace db0::object_model
         auto [key, address] = *iter;
         auto bindex = address.getIndex(this->getMemspace());
         auto it = bindex.beginJoin(1);
+        auto [key_storage_class, key_value] = (*it).m_first;
         auto [storage_class, value] = (*it).m_second;
-        auto fixture = this->getFixture();
+        auto fixture = this->getFixture();        
+        
         auto member = unloadMember<LangToolkit>(fixture, storage_class, value);
+
+        unrefMember<LangToolkit>(fixture, key_storage_class, key_value);
+        unrefMember<LangToolkit>(fixture, storage_class, value);
+        
         if (bindex.size() == 1) {
-            m_index.erase(iter);
             bindex.destroy();
-            auto [key_storage_class, key_value] = (*it).m_first;            
-            unrefMember<LangToolkit>(fixture, key_storage_class, key_value);
+            m_index.erase(iter);            
         } else {
             // NOTE: morping-bindex address my be subject to change on erase
             bindex.erase(*it);
@@ -212,9 +216,8 @@ namespace db0::object_model
             }            
         }
         --modify().m_size;
-        unrefMember<LangToolkit>(fixture, storage_class, value);
         restoreIterators();
-        return member;
+        return member;        
     }
     
     void Dict::moveTo(db0::swine_ptr<Fixture> &fixture)

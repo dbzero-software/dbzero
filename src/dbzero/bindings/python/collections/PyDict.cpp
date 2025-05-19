@@ -352,18 +352,19 @@ namespace db0::python
         if (nargs == 2) {
             value = args[1];
         }
-
+        
         auto elem = migratedKey(dict_object->ext(), py_elem);
         auto hash = get_py_hash(*elem);
-        if (dict_object->ext().has_item(hash, *elem)) {
+        if (dict_object->ext().has_item(hash, *elem)) {            
             return dict_object->modifyExt().pop(hash, *elem).steal();
         }
+
         if (value == nullptr) {
             PyErr_SetString(PyExc_KeyError, "not found");
             return NULL;
         }
         
-        return value;
+        return value;        
     }
     
     PyObject *PyAPI_DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 

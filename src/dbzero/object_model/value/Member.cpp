@@ -212,10 +212,10 @@ namespace db0::object_model
         PyObjectPtr obj_ptr, StorageClass)
     {
         auto size = PyBytes_GET_SIZE(obj_ptr);
-        auto *str = PyBytes_AsString(obj_ptr);
-        return createBytesMember(fixture, reinterpret_cast<std::byte *>(str), size);
+        auto safe_str = PyBytes_AsString(obj_ptr);
+        return createBytesMember(fixture, reinterpret_cast<std::byte *>(safe_str), size);
     }
-
+    
     // NONE specialization
     template <> Value createMember<TypeId::NONE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)

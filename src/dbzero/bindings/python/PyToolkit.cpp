@@ -293,9 +293,9 @@ namespace db0::python
         auto tuple_object = TupleDefaultObject_new();
         // retrieve actual dbzero instance        
         db0::object_model::Tuple::unload(&(tuple_object.get())->modifyExt(), fixture, address);
-
+        
         // add list object to cache
-        lang_cache.add(address, tuple_object.get());
+        lang_cache.add(address, *tuple_object);
         return shared_py_cast<PyObject*>(std::move(tuple_object));
     }
     

@@ -5,8 +5,8 @@ namespace db0::python
 
 {
 
-    PyObject * getDecimalClass();
-    PyObject * uint64ToPyDecimal(std::uint64_t datetime);
-    std::uint64_t pyDecimalToUint64(PyObject *py_datetime);
+    PyObject *getDecimalClass();
+    PyObject *uint64ToPyDecimal(std::uint64_t);
+    std::uint64_t pyDecimalToUint64(PyObject *);
     
 }

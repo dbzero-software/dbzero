@@ -510,3 +510,30 @@ def test_dict_pop_tuple_keys(db0_no_autocommit):
 
     assert len(cut) == 50
     
+    
+def test_dict_pop_complex_objects(db0_no_autocommit):
+    keys = [(MemoTestClass(i), Decimal(i)) for i in range(100)]
+    cut = db0.dict({k: MemoTestClass(MemoTestClass(k)) for k in keys})
+    assert len(cut) == 100
+    
+    to_remove =  [21, 7, 48, 23, 24, 98, 12, 58, 79, 39, 17, 81, 36, 89, 72, 6, 54, 97, 
+                  8, 50, 77, 34, 0, 62, 14, 44, 95, 86, 73, 18, 45, 53, 84, 38, 64, 60, 
+                  68, 28, 75, 40, 22, 49, 85, 63, 2, 15, 4, 66, 16, 80]
+    removed = []
+    for index in to_remove:
+        removed.append(cut.pop(keys[index]))
+    
+    assert len(cut) == 50
+    for item in removed:
+        assert isinstance(item, MemoTestClass)
+        assert isinstance(item.value, MemoTestClass)        
+    
+
+def test_dict_pop_issue1(db0_no_autocommit):
+    """
+    Issue: this test was causing segfault once in a while
+    Resolution: bug in db0.hash implementation for db0.Tuple (retrieving a pointer to a temporary object)
+    """
+    cut = db0.dict([((0, Decimal(i)), 0) for i in range(50)])
+    for key in cut.keys():
+        _ = db0.hash(key)

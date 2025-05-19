@@ -25,8 +25,8 @@ namespace db0::python
         auto bytes_value = PyBytes_AsString(key);
         return std::hash<std::string>{}(bytes_value);
     }
-
-    template <> int64_t get_py_hash_impl<TypeId::TUPLE>(PyObject *key) 
+    
+    template <> int64_t get_py_hash_impl<TypeId::TUPLE>(PyObject *key)
     {
         auto tuple_size = PyTuple_Size(key);
         int64_t hash = 0;
@@ -36,15 +36,14 @@ namespace db0::python
         }
         return hash;
     }
-
-    template <> int64_t get_py_hash_impl<TypeId::DB0_TUPLE>(PyObject *key) 
+    
+    template <> int64_t get_py_hash_impl<TypeId::DB0_TUPLE>(PyObject *key)
     {
         TupleObject *tuple_obj = reinterpret_cast<TupleObject*>(key);
         std::int64_t hash = 0;
         for (std::size_t i = 0; i < tuple_obj->ext().getData()->size(); ++i) {
-            tuple_obj->ext().getFixture()->refreshIfUpdated();
-            auto *item = tuple_obj->ext().getItem(i).get();
-            hash ^= get_py_hash(item);
+            auto item = tuple_obj->ext().getItem(i);
+            hash ^= get_py_hash(*item);
         }
         return hash;
     }

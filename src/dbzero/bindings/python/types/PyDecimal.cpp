@@ -9,7 +9,7 @@ namespace db0::python
     static PyObject *decimal_module = nullptr;
     static PyObject *decimal_class = nullptr;
 
-    PyObject *getDecimalClass() 
+    PyObject *getDecimalClass()
     {
         if (decimal_class == nullptr) {
             if (decimal_module == nullptr) {
@@ -73,30 +73,21 @@ namespace db0::python
                 break;
             }
             decimal *= 10;
-            auto value = PyLong_AsLong(*item);            
+            auto value = PyLong_AsLong(*item);
             decimal += value;
             --max_lenght;
         }
         return decimal;
     }
-
+    
     std::uint64_t pyDecimalToUint64(PyObject *py_decimal)
-    {
-        // check if decimal is 0        
-        auto is_zero = Py_OWN(PyObject_CallMethod(py_decimal, "is_zero", nullptr));        
-        if (!is_zero) {
-            THROWF(db0::InputException) << "is_zero failed" << THROWF_END;
-        }
-        if (PyObject_IsTrue(*is_zero)) {
-            return 0;
-        }
-        
+    {   
         auto as_tuple = Py_OWN(PyObject_CallMethod(py_decimal, "as_tuple", nullptr));
         if (!as_tuple) {
             THROWF(db0::InputException) << "as_tuple failed" << THROWF_END;
         }
         
-        auto exponent = abs(PyLong_AsLongLong(PyTuple_GetItem(*as_tuple, 2)));        
+        auto exponent = abs(PyLong_AsLongLong(PyTuple_GetItem(*as_tuple, 2)));
         if (exponent > 63) {
             THROWF(db0::InputException) << "Decimal out of range." << THROWF_END;            
         }

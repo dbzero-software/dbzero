@@ -50,10 +50,10 @@ namespace db0::object_model
         auto [key, value] = *m_join_iterator;
         
         iterNext();
-        return {  
+        return {
             unloadMember<LangToolkit>(fixture, key),
             unloadMember<LangToolkit>(fixture, value)
-        };        
+        };
     }
     
     DictIterator::ObjectSharedPtr DictIterator::nextValue()
