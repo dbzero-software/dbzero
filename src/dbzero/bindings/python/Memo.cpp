@@ -251,7 +251,7 @@ namespace db0::python
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr));
         
-        if (member) {
+        if (member.get()) {
             return member.steal();
         }
         
@@ -693,7 +693,7 @@ namespace db0::python
     {
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGetAs(PyUnicode_AsUTF8(attr), py_type);
-        if (member) {
+        if (member.get()) {
             return member.steal();
         }
 
@@ -725,7 +725,7 @@ namespace db0::python
         
         ObjectSharedPtr elem;
         auto py_result = Py_OWN(PyDict_New());
-        while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+        Py_FOR(elem, iterator) {
             if (PyDict_Contains(kwargs, *elem) == 1) {
                 PyDict_SetItem(*py_result, elem, Py_BORROW(PyDict_GetItem(kwargs, *elem)));
             }
@@ -738,7 +738,7 @@ namespace db0::python
         std::unordered_set<const void*> *load_stack_ptr)
     {
         auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, *Py_OWN(PyUnicode_FromString("__load__"))));
-        if (load_method) {
+        if (load_method.get()) {
             if (py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot exclude values when __load__ is implemented");
                 return nullptr;

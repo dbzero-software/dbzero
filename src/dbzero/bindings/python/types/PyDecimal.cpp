@@ -1,6 +1,7 @@
 #include "PyDecimal.hpp"
 #include <dbzero/bindings/python/types/ByteUtils.hpp>
 #include <dbzero/bindings/python/shared_py_object.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
@@ -68,7 +69,7 @@ namespace db0::python
             THROWF(db0::InputException) << "Invalid type of object. Tuple expected" << THROWF_END;
         }
 
-        while (auto item = Py_OWN(PyIter_Next(*iterator))) {
+        Py_FOR(item, iterator) {
             if (max_lenght == 0) {                
                 break;
             }

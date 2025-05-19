@@ -50,7 +50,7 @@ namespace db0::python
     {
         auto &iter = iter_obj->modifyExt();
         auto py_item = iter.next();
-        if (py_item) {
+        if (py_item.get()) {
             if (iter.numDecorators() > 0) {
                 return decoratedItem(py_item.steal(), iter.getDecorators());
             } else {

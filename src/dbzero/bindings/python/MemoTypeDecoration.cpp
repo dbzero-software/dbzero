@@ -53,7 +53,7 @@ namespace db0::python
     }
     
     bool MemoTypeDecoration::hasDynPrefix() const {
-        return m_py_dyn_prefix_callable;
+        return m_py_dyn_prefix_callable.get() != nullptr;
     }
     
     std::string MemoTypeDecoration::getDynPrefix(PyObject *args, PyObject *kwargs) const

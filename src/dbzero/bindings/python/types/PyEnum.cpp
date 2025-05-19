@@ -67,7 +67,7 @@ namespace db0::python
     PyObject *tryPyEnum_getattro(PyEnum *self, PyObject *attr)
     {   
         auto obj_ptr = tryPyEnum_getenum(self, attr);
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             return obj_ptr.steal();
         }
                 

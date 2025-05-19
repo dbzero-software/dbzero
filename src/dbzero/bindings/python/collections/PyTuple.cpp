@@ -31,12 +31,12 @@ namespace db0::python
     }
 
     PyObject *tryTupleObject_GetItem(TupleObject *tuple_obj, Py_ssize_t i)
-    {        
+    {   
+        tuple_obj->ext().getFixture()->refreshIfUpdated();     
         if (static_cast<std::size_t>(i) >= tuple_obj->ext().getData()->size()) {
             PyErr_SetString(PyExc_IndexError, "tuple index out of range");
             return NULL;
-        }
-        tuple_obj->ext().getFixture()->refreshIfUpdated();
+        }        
         return tuple_obj->ext().getItem(i).steal();
     }
 
@@ -197,7 +197,7 @@ namespace db0::python
             // We are dealing with generator-like object
             PyErr_Clear();
             std::vector<ObjectSharedPtr> values;
-            while (auto item = Py_OWN(PyIter_Next(*iterator))) {
+            Py_FOR(item, iterator) {
                 values.push_back(item);
             }
             if (PyErr_Occurred()) {
@@ -210,7 +210,7 @@ namespace db0::python
         } else {
             db0::object_model::Tuple::makeNew(&tuple, *lock, length);
             int index = 0;
-            while (auto item = Py_OWN(PyIter_Next(*iterator))) {
+            Py_FOR(item, iterator) {
                 tuple.setItem(lock, index++, item);                
             }
             if (PyErr_Occurred()) {
@@ -248,7 +248,7 @@ namespace db0::python
         }
 
         for (std::size_t i = 0; i < tuple_obj.size(); ++i) {
-            auto res = Py_OWN(tryLoad(tuple_obj.getItem(i).get(), kwargs, nullptr, load_stack_ptr));
+            auto res = Py_OWN(tryLoad(*tuple_obj.getItem(i), kwargs, nullptr, load_stack_ptr));
             if (!res) {                
                 return nullptr;
             }

@@ -183,7 +183,7 @@ namespace db0::python
             }
 
             ObjectSharedPtr elem;
-            while ((elem = Py_OWN(PyIter_Next(iterator.get())))) {
+            Py_FOR(elem, iterator) {            
                 if (PyDict_Check(arg1)) {
                     tryDictObject_SetItem(dict_object, elem.get(), PyDict_GetItem(arg1, *elem));
                 } else if (DictObject_Check(arg1)) {
@@ -204,7 +204,7 @@ namespace db0::python
                 return NULL;
             }
             ObjectSharedPtr elem;
-            while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+            Py_FOR(elem, iterator) {            
                 tryDictObject_SetItem(dict_object, *elem, *Py_BORROW(PyDict_GetItem(kwargs, *elem)));
             }
         }
@@ -292,7 +292,7 @@ namespace db0::python
         if (nargs == 2) {
             value = args[1];
         }
-        while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+        Py_FOR(elem, iterator) {     
             tryDictObject_SetItem(*py_dict, *elem, *value);
         }
         
@@ -454,7 +454,7 @@ namespace db0::python
         
         ObjectSharedPtr elem;
         auto py_result = Py_OWN(PyDict_New());
-        while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+        Py_FOR(elem, iterator) {        
             auto key = Py_OWN(tryLoad(*elem, kwargs, nullptr, load_stack_ptr));
             if (!key) {
                 return nullptr;

@@ -6,8 +6,8 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/bindings/python/PyHash.hpp>
-
 
 namespace db0::python
 
@@ -137,7 +137,7 @@ namespace db0::python
                 return nullptr;
             }
             ObjectSharedPtr elem;
-            while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+            Py_FOR(elem, iterator) {            
                 if (!PySequence_Contains(other, *elem)) {
                     Py_RETURN_FALSE;
                 }                                
@@ -175,7 +175,7 @@ namespace db0::python
             }
             
             ObjectSharedPtr elem;
-            while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+            Py_FOR(elem, iterator) {            
                 auto hash = get_py_hash(*elem);
                 if (!self->ext().has_item(hash, *elem)) {
                     Py_RETURN_FALSE;
@@ -304,7 +304,7 @@ namespace db0::python
                 return nullptr;
             }
             ObjectSharedPtr item;
-            while ((item = Py_OWN(PyIter_Next(*iterator)))) {
+            Py_FOR(item, iterator) {            
                 auto hash = get_py_hash(*item);
                 set.append(lock, hash, item);
             }
@@ -359,7 +359,7 @@ namespace db0::python
             }
 
             ObjectSharedPtr elem;
-            while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+            Py_FOR(elem, iterator) {            
                 auto hash = get_py_hash(*elem);
                 if (self->ext().has_item(hash, *elem)) {
                     Py_RETURN_FALSE;
@@ -417,7 +417,7 @@ namespace db0::python
                 
                 auto &set_impl = py_copy->modifyExt();
                 ObjectSharedPtr elem;
-                while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+                Py_FOR(elem, iterator) {
                     auto hash = get_py_hash(*elem);
                     set_impl.append(lock, hash, *elem);                                        
                 }
@@ -487,9 +487,9 @@ namespace db0::python
             elem1 = Py_OWN(PyIter_Next(*it1));
             elem2 = Py_OWN(PyIter_Next(*it2));
             set_obj = Py_OWN(tryMake_Set(nullptr, nullptr, 0));
-            trySetObject_intersectionInternal(lock, *set_obj, *it1, elem1.get(), *it2, elem2.get());
+            trySetObject_intersectionInternal(lock, *set_obj, *it1, *elem1, *it2, *elem2);
             it1 = Py_OWN(PyObject_GetIter(*set_obj));
-            if (!it1) {                
+            if (!it1) {
                 PyErr_SetString(PyExc_TypeError, "argument must be a sequence or set");
                 return nullptr;
             }
@@ -518,7 +518,7 @@ namespace db0::python
 
         ObjectSharedPtr item;
         auto &set_impl = set_result->modifyExt();
-        while ((item = Py_OWN(PyIter_Next(*it)))) {
+        Py_FOR(item, it) {        
             if (!PySequence_Contains(ob, *item)) {
                 auto hash = get_py_hash(*item);
                 set_impl.append(fixture, hash, item);
@@ -530,7 +530,7 @@ namespace db0::python
             if (!it) {
                 THROWF(db0::InputException) <<  "argument must be a sequence or set";
             }
-            while ((item = Py_OWN(PyIter_Next(*it)))) {
+            Py_FOR(item, it) {            
                 if (!PySequence_Contains((PyObject*)set_input, *item)) {
                     auto hash = get_py_hash(*item);
                     set_impl.append(fixture, hash, item);
@@ -665,7 +665,7 @@ namespace db0::python
         ObjectSharedPtr item;
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
-        while ((item = Py_OWN(PyIter_Next(*it)))) {
+        Py_FOR(item, it) {
             auto hash = get_py_hash(*item);
             set_impl.append(lock, hash, *item);            
         }
@@ -699,7 +699,7 @@ namespace db0::python
 
         ObjectSharedPtr item;
         std::vector<std::pair<size_t, ObjectSharedPtr> > hashes_and_items;
-        while ((item = Py_OWN(PyIter_Next(*it)))) {
+        Py_FOR(item, it) {        
             if (!sequenceContainsItem(ob, *item)) {
                 auto hash = get_py_hash(*item);
                 hashes_and_items.push_back({hash, item});
@@ -732,7 +732,7 @@ namespace db0::python
         ObjectSharedPtr item;        
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
-        while ((item = Py_OWN(PyIter_Next(*it)))) {
+        Py_FOR(item, it) {        
             auto hash = get_py_hash(*item);
             set_impl.remove(lock, hash, *item);                    
         }
@@ -760,7 +760,7 @@ namespace db0::python
         ObjectSharedPtr item;
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
-        while ((item = Py_OWN(PyIter_Next(*it)))) {
+        Py_FOR(item, it) {
             auto hash = get_py_hash(*item);
             if (set_impl.has_item(hash, *item)) {
                 auto hash = get_py_hash(*item);
@@ -799,8 +799,8 @@ namespace db0::python
         if (!py_result) {
             return nullptr;
         }
-
-        while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+        
+        Py_FOR(elem, iterator) {        
             auto result = Py_OWN(tryLoad(*elem, kwargs, nullptr, load_stack_ptr));
             if (!result) {
                 return nullptr;

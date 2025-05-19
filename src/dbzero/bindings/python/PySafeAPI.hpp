@@ -135,3 +135,6 @@ namespace db0::python
     }
 
 }
+
+// exception-safe iteration
+#define Py_FOR(item, iterator) for (auto item = Py_OWN(PyIter_Next(*iterator)); item.get(); item = Py_OWN(PyIter_Next(*iterator)))

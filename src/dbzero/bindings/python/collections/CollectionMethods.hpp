@@ -38,11 +38,11 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "extend() argument must be iterable.");
             return nullptr;
         }
-
+        
         ObjectSharedPtr item;
         db0::FixtureLock lock(py_obj->ext().getFixture());
         auto &obj = py_obj->modifyExt();
-        while ((item = Py_OWN(PyIter_Next(*iterator)))) {
+        Py_FOR(item, iterator) {
             obj.append(lock, item);
         }
         

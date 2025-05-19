@@ -60,10 +60,9 @@ namespace db0::python
             assert(m_py_object != nullptr);
             return m_py_object;
         }
-
-        // bool cast
-        inline operator bool() const {
-            return m_py_object != nullptr;
+        
+        inline bool operator!() const {
+            return m_py_object == nullptr;
         }
         
         // 'steal' a reference from the shared object

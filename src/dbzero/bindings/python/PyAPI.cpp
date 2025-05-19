@@ -1210,9 +1210,9 @@ namespace db0::python
                     auto loop = Py_OWN(PyObject_CallMethod(*m_future, "get_loop", nullptr));
                     ObjectSharedPtr future_set_result, handle;
                     // loop can be null when the process is closing
-                    if (loop) {
+                    if (loop.get()) {
                         future_set_result = Py_OWN(PyObject_GetAttrString(*m_future, "set_result"));
-                        if (future_set_result) {
+                        if (future_set_result.get()) {
                             handle = Py_OWN(PyObject_CallMethod(
                                 *loop, "call_soon_threadsafe", "OO", *future_set_result, Py_None)
                             );

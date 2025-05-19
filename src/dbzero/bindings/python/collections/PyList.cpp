@@ -123,7 +123,7 @@ namespace db0::python
 
             auto &list = py_list->modifyExt();
             for (Py_ssize_t i = start; compare(i, stop); i += step) {
-                list.append(lock, py_src_list->ext().getItem(i).steal());
+                list.append(lock, py_src_list->ext().getItem(i));
             }
 
             return py_list;
@@ -302,11 +302,11 @@ namespace db0::python
         auto &list_obj = list->ext();
         auto py_result = Py_OWN(PyList_New(list_obj.size()));
         for (std::size_t i = 0; i < list_obj.size(); ++i) {
-            auto res = Py_OWN(tryLoad(list_obj.getItem(i).get(), kwargs, nullptr, load_stack_ptr));
+            auto res = Py_OWN(tryLoad(*list_obj.getItem(i), kwargs, nullptr, load_stack_ptr));
             if (!res) {
                 return nullptr;
             }
-            PyList_SetItem(py_result.get(), i, res);
+            PyList_SetItem(*py_result, i, res);
         }
         return py_result.steal();
     }
@@ -320,7 +320,7 @@ namespace db0::python
             if (!res) {
                 return nullptr;
             }
-            PyList_SetItem(py_result.get(), i, res);
+            PyList_SetItem(*py_result, i, res);
         }
         return py_result.steal();
     }

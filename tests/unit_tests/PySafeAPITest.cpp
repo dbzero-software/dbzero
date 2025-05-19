@@ -23,7 +23,8 @@ namespace tests
         Py_Initialize();
         for (int i = 0; i < 1000; ++i) {
             auto tuple = createTuple();
-            ASSERT_TRUE(tuple);
+            ASSERT_TRUE(tuple.get());
+            ASSERT_TRUE(!!tuple);
             ASSERT_EQ(PyTuple_Size(*tuple), 2);
             ASSERT_EQ(PyUnicode_AsUTF8(PyTuple_GetItem(*tuple, 0)), std::string("first"));
             ASSERT_EQ(PyUnicode_AsUTF8(PyTuple_GetItem(*tuple, 1)), std::string("second"));

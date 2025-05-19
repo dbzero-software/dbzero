@@ -584,7 +584,7 @@ namespace db0::object_model
     void unrefObjectBase(db0::swine_ptr<Fixture> &fixture, Address address)
     {
         auto obj_ptr = fixture->getLangCache().get(address);
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             db0::FixtureLock lock(fixture);
             // decref cached instance via language specific wrapper type
             auto lang_wrapper = LangToolkit::template getWrapperTypeOf<T>(obj_ptr.get());

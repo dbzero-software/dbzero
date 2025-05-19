@@ -3,6 +3,7 @@
 #include <iostream>
 #include <mutex>
 #include "PyToolkit.hpp"
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
@@ -11,15 +12,16 @@ namespace db0::python
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
 
     template <typename PyCollection>
-    bool has_all_elements_same(PyCollection *collection, PyObject *iterator)
+    bool has_all_elements_same(PyCollection *collection, PyObject *iter)
     {        
         auto py_collection_iter = Py_OWN(PyObject_GetIter(collection));
         if (!py_collection_iter) {
             THROWF(db0::InputException) <<  "argument must be an iterable";
         }
-
-        ObjectSharedPtr lh, rh;
-        while ((rh = Py_OWN(PyIter_Next(iterator)))) {
+        
+        auto iterator = Py_BORROW(iter);
+        ObjectSharedPtr lh;
+        Py_FOR(rh, iterator) {
             lh = Py_OWN(PyIter_Next(*py_collection_iter));
             if (!lh) {
                 return false;
@@ -40,9 +42,9 @@ namespace db0::python
         if (!iterator) {
             THROWF(db0::InputException) <<  "argument must be an iterable";
         }
-
+        
         ObjectSharedPtr elem;
-        while ((elem = Py_OWN(PyIter_Next(*iterator)))) {
+        Py_FOR(elem, iterator) {        
             if (!sequenceContainsItem(collection, *elem)) {                
                 return false;
             }            

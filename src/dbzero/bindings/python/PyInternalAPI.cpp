@@ -594,7 +594,7 @@ namespace db0::python
         std::shared_ptr<db0::object_model::Class> expected_type)
     {
         auto obj_ptr = lang_cache.get(address);
-        if (obj_ptr && expected_type) {
+        if (obj_ptr.get() && expected_type) {
             if (!PyMemo_Check(obj_ptr.get())) {
                 THROWF(db0::InputException) << "Invalid object type: " << PyToolkit::getTypeName(obj_ptr.get()) << " (Memo expected)";
             }
@@ -626,7 +626,7 @@ namespace db0::python
         auto &lang_cache = fixture.getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, addr);
         
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             return obj_ptr.steal();
         }
         

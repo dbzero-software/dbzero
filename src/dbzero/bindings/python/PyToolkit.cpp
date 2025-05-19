@@ -102,7 +102,7 @@ namespace db0::python
         auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
         
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             // only validate instance ID if provided
             if (instance_id) {
                 // NOTE: we first must check if this is really a memo object
@@ -151,7 +151,7 @@ namespace db0::python
         auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
         
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             return obj_ptr;
         }
         
@@ -170,7 +170,7 @@ namespace db0::python
         auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
         
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             return obj_ptr;
         }
         
@@ -192,7 +192,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
@@ -210,7 +210,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
@@ -228,7 +228,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
@@ -247,7 +247,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
@@ -266,7 +266,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
@@ -285,7 +285,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
