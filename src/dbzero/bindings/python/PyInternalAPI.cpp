@@ -271,10 +271,10 @@ namespace db0::python
     PyObject *getSlabMetrics(const db0::SlabAllocator &slab)
     {
         auto py_dict = Py_OWN(PyDict_New());
-        PyDict_SetItemString(*py_dict, "size", Py_OWN(PyLong_FromUnsignedLong(slab.getSlabSize())));
-        PyDict_SetItemString(*py_dict, "admin_space_size", Py_OWN(PyLong_FromUnsignedLong(slab.getAdminSpaceSize(true))));
-        PyDict_SetItemString(*py_dict, "remaining_capacity", Py_OWN(PyLong_FromUnsignedLong(slab.getRemainingCapacity())));
-        PyDict_SetItemString(*py_dict, "max_alloc_size", Py_OWN(PyLong_FromUnsignedLong(slab.getMaxAllocSize())));
+        PySafeDict_SetItemString(*py_dict, "size", Py_OWN(PyLong_FromUnsignedLong(slab.getSlabSize())));
+        PySafeDict_SetItemString(*py_dict, "admin_space_size", Py_OWN(PyLong_FromUnsignedLong(slab.getAdminSpaceSize(true))));
+        PySafeDict_SetItemString(*py_dict, "remaining_capacity", Py_OWN(PyLong_FromUnsignedLong(slab.getRemainingCapacity())));
+        PySafeDict_SetItemString(*py_dict, "max_alloc_size", Py_OWN(PyLong_FromUnsignedLong(slab.getMaxAllocSize())));
         return py_dict.steal();
     }
 
@@ -285,7 +285,7 @@ namespace db0::python
         auto get_slab_metrics = [py_dict](const db0::SlabAllocator &slab, std::uint32_t slab_id) {
             // report remaining capacity as dict item
             auto py_slab_id = Py_OWN(PyLong_FromUnsignedLong(slab_id));
-            PyDict_SetItem(*py_dict, py_slab_id, Py_OWN(getSlabMetrics(slab)));
+            PySafeDict_SetItem(*py_dict, py_slab_id, Py_OWN(getSlabMetrics(slab)));
         };
         fixture->forAllSlabs(get_slab_metrics);
         return py_dict.steal();
@@ -386,32 +386,32 @@ namespace db0::python
             return nullptr;
         }
         
-        PyDict_SetItemString(*stats_dict, "name", Py_OWN(PyUnicode_FromString(fixture->getPrefix().getName().c_str())));
-        PyDict_SetItemString(*stats_dict, "uuid", Py_OWN(PyLong_FromLong(fixture->getUUID())));
-        PyDict_SetItemString(*stats_dict, "dp_size", Py_OWN(PyLong_FromLong(fixture->getPrefix().getPageSize())));
+        PySafeDict_SetItemString(*stats_dict, "name", Py_OWN(PyUnicode_FromString(fixture->getPrefix().getName().c_str())));
+        PySafeDict_SetItemString(*stats_dict, "uuid", Py_OWN(PyLong_FromLong(fixture->getUUID())));
+        PySafeDict_SetItemString(*stats_dict, "dp_size", Py_OWN(PyLong_FromLong(fixture->getPrefix().getPageSize())));
 
         auto gc0_dict = Py_OWN(PyDict_New());
         if (!gc0_dict) {
             return nullptr;
         }
-        PyDict_SetItemString(*gc0_dict, "size", Py_OWN(PyLong_FromLong(fixture->getGC0().size())));
-        PyDict_SetItemString(*stats_dict, "gc0", gc0_dict);
+        PySafeDict_SetItemString(*gc0_dict, "size", Py_OWN(PyLong_FromLong(fixture->getGC0().size())));
+        PySafeDict_SetItemString(*stats_dict, "gc0", gc0_dict);
 
         auto sp_dict = Py_OWN(PyDict_New());
         if (!sp_dict) {
             return nullptr;
         }
-        PyDict_SetItemString(*sp_dict, "size", Py_OWN(PyLong_FromLong(fixture->getLimitedStringPool().size())));
-        PyDict_SetItemString(*stats_dict, "string_pool", sp_dict);
+        PySafeDict_SetItemString(*sp_dict, "size", Py_OWN(PyLong_FromLong(fixture->getLimitedStringPool().size())));
+        PySafeDict_SetItemString(*stats_dict, "string_pool", sp_dict);
 
         auto cache_dict = Py_OWN(PyDict_New());
         if (!cache_dict) {
             return nullptr;
         }
         fixture->getPrefix().getStats([&](const std::string &name, std::uint64_t value) {
-            PyDict_SetItemString(*cache_dict, name.c_str(), Py_OWN(PyLong_FromUnsignedLongLong(value)));
+            PySafeDict_SetItemString(*cache_dict, name.c_str(), Py_OWN(PyLong_FromUnsignedLongLong(value)));
         });
-        PyDict_SetItemString(*stats_dict, "cache", cache_dict);
+        PySafeDict_SetItemString(*stats_dict, "cache", cache_dict);
         return stats_dict.steal();
     }
     
@@ -424,13 +424,13 @@ namespace db0::python
         }
         auto dirty_size = fixture->getPrefix().getDirtySize();
         // report uncommited data size independently
-        PyDict_SetItemString(*stats_dict, "dp_size_uncommited", Py_OWN(PyLong_FromUnsignedLongLong(dirty_size)));
+        PySafeDict_SetItemString(*stats_dict, "dp_size_uncommited", Py_OWN(PyLong_FromUnsignedLongLong(dirty_size)));
         auto stats_callback = [&](const std::string &name, std::uint64_t value) {
             if (name == "dp_size_total") {
                 // also include dirty locks stored in-memory
                 value += dirty_size;
             }
-            PyDict_SetItemString(*stats_dict, name.c_str(), Py_OWN(PyLong_FromUnsignedLongLong(value)));
+            PySafeDict_SetItemString(*stats_dict, name.c_str(), Py_OWN(PyLong_FromUnsignedLongLong(value)));
         };
         fixture->getPrefix().getStorage().getStats(stats_callback);
         return stats_dict.steal();
@@ -447,9 +447,9 @@ namespace db0::python
         // page_info = std::pair<std::uint64_t, std::uint64_t>
         for (const auto &[page_num, page_info] : dram_io_map) {
             auto py_page_info = Py_OWN(PyTuple_New(2));
-            PyTuple_SetItem(*py_page_info, 0, Py_OWN(PyLong_FromUnsignedLongLong(page_info.first)));
-            PyTuple_SetItem(*py_page_info, 1, Py_OWN(PyLong_FromUnsignedLongLong(page_info.second)));
-            PyDict_SetItem(*py_dict, Py_OWN(PyLong_FromUnsignedLongLong(page_num)), py_page_info);
+            PySafeTuple_SetItem(*py_page_info, 0, Py_OWN(PyLong_FromUnsignedLongLong(page_info.first)));
+            PySafeTuple_SetItem(*py_page_info, 1, Py_OWN(PyLong_FromUnsignedLongLong(page_info.second)));
+            PySafeDict_SetItem(*py_dict, Py_OWN(PyLong_FromUnsignedLongLong(page_num)), py_page_info);
         }
         return py_dict.steal();
     }
@@ -475,13 +475,13 @@ namespace db0::python
             }
 
             auto &check_result = dram_check_results[i];
-            PyDict_SetItemString(*py_check_result, "addr", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_address)));
-            PyDict_SetItemString(*py_check_result, "page_num", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_page_num)));
-            PyDict_SetItemString(*py_check_result, "exp_page_num", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_expected_page_num)));
-            PyList_SetItem(*py_check_results, i, py_check_result);
+            PySafeDict_SetItemString(*py_check_result, "addr", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_address)));
+            PySafeDict_SetItemString(*py_check_result, "page_num", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_page_num)));
+            PySafeDict_SetItemString(*py_check_result, "exp_page_num", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_expected_page_num)));
+            PySafeList_SetItem(*py_check_results, i, py_check_result);
         }
 
-        PyDict_SetItemString(*py_dict, "dram_io_discrepancies", py_check_results);
+        PySafeDict_SetItemString(*py_dict, "dram_io_discrepancies", py_check_results);
         return py_dict.steal();
     }
     

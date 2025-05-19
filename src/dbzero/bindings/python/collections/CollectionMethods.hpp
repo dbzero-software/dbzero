@@ -233,7 +233,7 @@ namespace db0::python
                 auto size = PyTuple_Size(key);
                 auto py_tuple = Py_OWN(PyTuple_New(size));
                 for (int i = 0; i < size; ++i) {
-                    PyTuple_SetItem(*py_tuple, i, migratedKey(collection, PyTuple_GetItem(key, i)));
+                    PySafeTuple_SetItem(*py_tuple, i, migratedKey(collection, PyTuple_GetItem(key, i)));
                 }
                 return py_tuple;
             }

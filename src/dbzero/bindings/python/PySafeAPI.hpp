@@ -9,25 +9,25 @@ namespace db0::python
 
     // The ownership-safe db0 counterparts of Python API functions
     template <typename T = PyObject *> 
-    int PyList_SetItem(PyObject *, Py_ssize_t index, shared_py_object<T> item);
+    int PySafeList_SetItem(PyObject *, Py_ssize_t index, shared_py_object<T> item);
 
     template <typename T = PyObject *> 
-    int PyList_Append(PyObject *, shared_py_object<T> item);
+    int PySafeList_Append(PyObject *, shared_py_object<T> item);
 
     template <typename T = PyObject *>
-    int PyTuple_SetItem(PyObject *, Py_ssize_t index, shared_py_object<T> item);
+    int PySafeTuple_SetItem(PyObject *, Py_ssize_t index, shared_py_object<T> item);
 
     template <typename K = PyObject *, typename V = PyObject *>
-    int PyDict_SetItem(PyObject *, shared_py_object<K> key, shared_py_object<V> val);
+    int PySafeDict_SetItem(PyObject *, shared_py_object<K> key, shared_py_object<V> val);
 
     template <typename K = PyObject *, typename V = PyObject *>
-    PyObject *PyDict_SetDefault(PyObject *, shared_py_object<K> key, shared_py_object<V> val);
+    PyObject *PySafeDict_SetDefault(PyObject *, shared_py_object<K> key, shared_py_object<V> val);
 
     template <typename T = PyObject *>
-    int PyDict_SetItemString(PyObject *, const char *key, shared_py_object<T> val);
+    int PySafeDict_SetItemString(PyObject *, const char *key, shared_py_object<T> val);
 
     template <typename T = PyObject *>
-    int PySet_Add(PyObject *, shared_py_object<T> key);
+    int PySafeSet_Add(PyObject *, shared_py_object<T> key);
 
     template <typename T = PyObject *>
     PyObject *PySafeTuple_Pack(shared_py_object<T> item);
@@ -47,57 +47,54 @@ namespace db0::python
         shared_py_object<T4> item4, shared_py_object<T5> item5);
     
     PyObject * PyBool_fromBool(bool);
-
+    
     template <typename T = PyObject *>
-    int PyList_SetItem(PyObject *self, Py_ssize_t index, shared_py_object<T> item)
+    int PySafeList_SetItem(PyObject *self, Py_ssize_t index, shared_py_object<T> item)
     {
         assert(item.get() != nullptr);
         return PyList_SetItem(self, index, item.steal());
     }
     
     template <typename T = PyObject *>
-    int PyList_Append(PyObject *self, shared_py_object<T> item)
+    int PySafeList_Append(PyObject *self, shared_py_object<T> item)
     {
         assert(item.get() != nullptr);
         return PyList_Append(self, item.steal());
     }
-
+    
     template <typename T = PyObject *> 
-    int PyTuple_SetItem(PyObject *self, Py_ssize_t index, shared_py_object<T> item)
+    int PySafeTuple_SetItem(PyObject *self, Py_ssize_t index, shared_py_object<T> item)
     {
         assert(item.get() != nullptr);
         return PyTuple_SetItem(self, index, item.steal());
     }
-
+    
     template <typename K = PyObject *, typename V = PyObject *>
-    int PyDict_SetItem(PyObject *self, shared_py_object<K> key, shared_py_object<V> val)
+    int PySafeDict_SetItem(PyObject *self, shared_py_object<K> key, shared_py_object<V> val)
     {
-        assert(key.get() != nullptr);
-        assert(val.get() != nullptr);
+        assert(key.get() != nullptr);        
         // NOTE: Python API does NOT steal the value reference
         return PyDict_SetItem(self, key.steal(), *val);
     }
     
     template <typename K = PyObject *, typename V = PyObject *>
-    PyObject *PyDict_SetDefault(PyObject *self, shared_py_object<K> key, shared_py_object<V> val)
+    PyObject *PySafeDict_SetDefault(PyObject *self, shared_py_object<K> key, shared_py_object<V> val)
     {
         assert(key.get() != nullptr);
-        assert(val.get() != nullptr);
         // NOTE: Python API does NOT steal the value reference
         return PyDict_SetDefault(self, key.steal(), *val);
     }
 
     template <typename T = PyObject *>
-    int PyDict_SetItemString(PyObject *self, const char *key, shared_py_object<T> val)
+    int PySafeDict_SetItemString(PyObject *self, const char *key, shared_py_object<T> val)
     {
-        assert(key);
-        assert(val.get() != nullptr);
+        assert(key);        
         // NOTE: Python API does NOT steal the value reference
         return PyDict_SetItemString(self, key, *val);
     }
-
+    
     template <typename T = PyObject *>
-    int PySet_Add(PyObject *self, shared_py_object<T> key)
+    int PySafeSet_Add(PyObject *self, shared_py_object<T> key)
     {
         assert(key.get() != nullptr);
         return PySet_Add(self, key.steal());

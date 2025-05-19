@@ -12,8 +12,8 @@ namespace db0
     PyObject *getKwargs(db0::LockFlags lock_flags)
     {
         auto keywords = Py_OWN(PyDict_New());
-        PyDict_SetItemString(*keywords, "blocking", Py_OWN(PyBool_FromLong(lock_flags.m_blocking)));
-        PyDict_SetItemString(*keywords, "timeout", Py_OWN(PyLong_FromLong(lock_flags.m_timeout)));
+        PySafeDict_SetItemString(*keywords, "blocking", Py_OWN(PyBool_FromLong(lock_flags.m_blocking)));
+        PySafeDict_SetItemString(*keywords, "timeout", Py_OWN(PyLong_FromLong(lock_flags.m_timeout)));
         return keywords.steal();
     }
     

@@ -61,12 +61,12 @@ namespace db0::python
             return nullptr;
         }
         
-        PyDict_SetItemString(*dict, "size", Py_OWN(PyLong_FromLong(cache_recycler.size())));
-        PyDict_SetItemString(*dict, "capacity", Py_OWN(PyLong_FromLong(cache_recycler.getCapacity())));
-        PyDict_SetItemString(*dict, "deferred_free_count", Py_OWN(PyLong_FromLong(deferred_free_count)));
-        PyDict_SetItemString(*dict, "lang_cache_size", Py_OWN(PyLong_FromLong(lang_cache_size)));
+        PySafeDict_SetItemString(*dict, "size", Py_OWN(PyLong_FromLong(cache_recycler.size())));
+        PySafeDict_SetItemString(*dict, "capacity", Py_OWN(PyLong_FromLong(cache_recycler.getCapacity())));
+        PySafeDict_SetItemString(*dict, "deferred_free_count", Py_OWN(PyLong_FromLong(deferred_free_count)));
+        PySafeDict_SetItemString(*dict, "lang_cache_size", Py_OWN(PyLong_FromLong(lang_cache_size)));
 #ifndef NDEBUG
-        PyDict_SetItemString(*dict, "dram_prefix_size", Py_OWN(PyLong_FromLong(dram_prefix_size)));
+        PySafeDict_SetItemString(*dict, "dram_prefix_size", Py_OWN(PyLong_FromLong(dram_prefix_size)));
 #endif        
         return dict.steal();
     }
@@ -81,8 +81,8 @@ namespace db0::python
             return nullptr;
         }
         
-        PyDict_SetItemString(*dict, "size", Py_OWN(PyLong_FromLong(lang_cache->size())));
-        PyDict_SetItemString(*dict, "capacity", Py_OWN(PyLong_FromLong(lang_cache->getCapacity())));
+        PySafeDict_SetItemString(*dict, "size", Py_OWN(PyLong_FromLong(lang_cache->size())));
+        PySafeDict_SetItemString(*dict, "capacity", Py_OWN(PyLong_FromLong(lang_cache->getCapacity())));
         return dict.steal();
     }
     
@@ -232,7 +232,7 @@ namespace db0::python
             if (!value_obj) {
                 return nullptr;
             }
-            if (!PyDict_SetDefault(*config_obj, key_obj, value_obj)) {
+            if (!PySafeDict_SetDefault(*config_obj, key_obj, value_obj)) {
                 return nullptr;
             }
         }
@@ -650,7 +650,7 @@ namespace db0::python
         auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
         auto py_result = Py_OWN(PyDict_New());
         memo_obj.ext().forAll([py_result](const std::string &key, ObjectSharedPtr py_value) {
-            PyDict_SetItemString(*py_result, key.c_str(), py_value);
+            PySafeDict_SetItemString(*py_result, key.c_str(), py_value);
             return true;
         });
         return py_result.steal();
@@ -890,7 +890,7 @@ namespace db0::python
                     list = nullptr;
                     return false;
                 }
-                if (PyList_Append(*list, *prefix) == -1) {
+                if (PySafeList_Append(*list, prefix) == -1) {
                     list = nullptr;
                     return false;
                 }

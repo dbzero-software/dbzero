@@ -387,13 +387,13 @@ namespace db0::python
     {
         PyObject *key, *value;
         Py_ssize_t pos = 0;
-        PyObject *new_dict = PyDict_New();
+        auto new_dict = Py_OWN(PyDict_New());
 
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            PyDict_SetItem(new_dict, key, value);
+            PyDict_SetItem(*new_dict, key, value);
         }
-
-        return new_dict;
+        
+        return new_dict.steal();
     }
     
     PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name,
@@ -489,7 +489,7 @@ namespace db0::python
 
         // add class fields class member to access memo type information
         auto py_class_fields = Py_OWN(PyClassFields_create(new_type));
-        if (PyDict_SetItemString(new_type->tp_dict, "__fields__", py_class_fields) < 0) {            
+        if (PySafeDict_SetItemString(new_type->tp_dict, "__fields__", py_class_fields) < 0) {            
             PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
             return nullptr;
         }
@@ -595,14 +595,14 @@ namespace db0::python
         auto py_pos_vt = Py_OWN(PyList_New(pos_vt.size()));
         for (std::size_t i = 0; i < pos_vt.size(); ++i) {
             auto type_name = db0::to_string(pos_vt[i]);
-            PyList_SetItem(*py_pos_vt, i, Py_OWN(PyUnicode_FromString(type_name.c_str())));
+            PySafeList_SetItem(*py_pos_vt, i, Py_OWN(PyUnicode_FromString(type_name.c_str())));
         }
         
         // report index-vt members
         auto py_index_vt = Py_OWN(PyDict_New());
         for (auto &item: index_vt) {
             auto type_name = db0::to_string(item.second);
-            PyDict_SetItem(*py_index_vt, Py_OWN(PyLong_FromLong(item.first)), 
+            PySafeDict_SetItem(*py_index_vt, Py_OWN(PyLong_FromLong(item.first)), 
                 Py_OWN(PyUnicode_FromString(type_name.c_str())));
         }
         
@@ -610,7 +610,7 @@ namespace db0::python
         auto py_kv_index = Py_OWN(PyDict_New());
         for (auto &item: field_layout.m_kv_index_fields) {
             auto type_name = db0::to_string(item.second);
-            PyDict_SetItem(*py_kv_index, Py_OWN(PyLong_FromLong(item.first)), 
+            PySafeDict_SetItem(*py_kv_index, Py_OWN(PyLong_FromLong(item.first)), 
                 Py_OWN(PyUnicode_FromString(type_name.c_str())));
         }
         
@@ -619,9 +619,9 @@ namespace db0::python
             return nullptr;
         }
 
-        PyDict_SetItemString(*py_result, "pos_vt", py_pos_vt);
-        PyDict_SetItemString(*py_result, "index_vt", py_index_vt);
-        PyDict_SetItemString(*py_result, "kv_index", py_kv_index);
+        PySafeDict_SetItemString(*py_result, "pos_vt", py_pos_vt);
+        PySafeDict_SetItemString(*py_result, "index_vt", py_index_vt);
+        PySafeDict_SetItemString(*py_result, "kv_index", py_kv_index);
         return py_result.steal();
     }
     
@@ -629,10 +629,10 @@ namespace db0::python
     {        
         auto py_field_layout = Py_OWN(MemoObject_GetFieldLayout(self));
         auto py_result = Py_OWN(PyDict_New());
-        PyDict_SetItemString(*py_result, "field_layout", py_field_layout);
-        PyDict_SetItemString(*py_result, "uuid", Py_OWN(tryGetUUID(self)));
-        PyDict_SetItemString(*py_result, "type", Py_OWN(PyUnicode_FromString(self->ext().getType().getName().c_str())));
-        PyDict_SetItemString(*py_result, "size_of", Py_OWN(PyLong_FromLong(self->ext()->sizeOf())));
+        PySafeDict_SetItemString(*py_result, "field_layout", py_field_layout);
+        PySafeDict_SetItemString(*py_result, "uuid", Py_OWN(tryGetUUID(self)));
+        PySafeDict_SetItemString(*py_result, "type", Py_OWN(PyUnicode_FromString(self->ext().getType().getName().c_str())));
+        PySafeDict_SetItemString(*py_result, "size_of", Py_OWN(PyLong_FromLong(self->ext()->sizeOf())));
         return py_result.steal();
     }
     
@@ -659,8 +659,8 @@ namespace db0::python
     void MemoType_get_info(PyTypeObject *type, PyObject *dict)
     {                      
         auto &decor = MemoTypeDecoration::get(type);
-        PyDict_SetItemString(dict, "singleton", Py_OWN(PyBool_FromLong(PyMemoType_IsSingleton(type))));
-        PyDict_SetItemString(dict, "prefix", Py_OWN(PyUnicode_FromString(decor.getPrefixName())));
+        PySafeDict_SetItemString(dict, "singleton", Py_OWN(PyBool_FromLong(PyMemoType_IsSingleton(type))));
+        PySafeDict_SetItemString(dict, "prefix", Py_OWN(PyUnicode_FromString(decor.getPrefixName())));
     }
     
     void MemoType_close(PyTypeObject *type)
@@ -727,7 +727,7 @@ namespace db0::python
         auto py_result = Py_OWN(PyDict_New());
         Py_FOR(elem, iterator) {
             if (PyDict_Contains(kwargs, *elem) == 1) {
-                PyDict_SetItem(*py_result, elem, Py_BORROW(PyDict_GetItem(kwargs, *elem)));
+                PySafeDict_SetItem(*py_result, elem, Py_BORROW(PyDict_GetItem(kwargs, *elem)));
             }
         }
         
@@ -782,7 +782,7 @@ namespace db0::python
                 if (!res) {
                     has_error = true;
                 } else {
-                    PyDict_SetItemString(*py_result, key.c_str(), res);                    
+                    PySafeDict_SetItemString(*py_result, key.c_str(), res);                    
                 }
             }
             return !has_error;

@@ -564,7 +564,7 @@ namespace db0::python
     {
         auto result = Py_OWN(PyTuple_New(values.size()));
         for (std::size_t i = 0; i < values.size(); ++i) {
-            PyTuple_SetItem(*result, i, values[i]);
+            PySafeTuple_SetItem(*result, i, values[i]);
         }
         return result;
     }
@@ -573,7 +573,7 @@ namespace db0::python
     {
         auto result = Py_OWN(PyTuple_New(values.size()));
         for (std::size_t i = 0; i < values.size(); ++i) {
-            PyTuple_SetItem(*result, i, values[i]);
+            PySafeTuple_SetItem(*result, i, values[i]);
         }
         return result;
     }

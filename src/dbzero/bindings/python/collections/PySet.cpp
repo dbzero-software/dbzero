@@ -806,7 +806,7 @@ namespace db0::python
                 return nullptr;
             }
             
-            PySet_Add(*py_result, result);
+            PySafeSet_Add(*py_result, result);
         }
         return py_result.steal();
     }

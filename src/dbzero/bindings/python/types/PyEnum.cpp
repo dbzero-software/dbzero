@@ -129,7 +129,7 @@ namespace db0::python
         unsigned int index = 0;
         auto enum_type_def = self->ext().m_enum_type_def;
         for (auto &value: values) {
-            PyTuple_SetItem(*py_tuple, index, makePyEnumValueRepr(enum_type_def, value.c_str()));
+            PySafeTuple_SetItem(*py_tuple, index, makePyEnumValueRepr(enum_type_def, value.c_str()));
             ++index;
         }
         return py_tuple.steal();
@@ -153,7 +153,7 @@ namespace db0::python
         auto py_tuple = Py_OWN(PyTuple_New(enum_values.size()));
         unsigned int index = 0;
         for (auto &value: enum_values) {
-            PyTuple_SetItem(*py_tuple, index, enum_->getLangValue(value));
+            PySafeTuple_SetItem(*py_tuple, index, enum_->getLangValue(value));
             ++index;
         }
         return py_tuple.steal();

@@ -103,7 +103,7 @@ namespace db0::python
             if (!tuple) {
                 return nullptr;
             }
-            PyList_SetItem(*mutation_log_list, i, tuple);
+            PySafeList_SetItem(*mutation_log_list, i, tuple);
             ++i;
         }
         return mutation_log_list.steal();

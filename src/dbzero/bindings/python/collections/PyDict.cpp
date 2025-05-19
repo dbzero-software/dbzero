@@ -467,15 +467,15 @@ namespace db0::python
                     return nullptr;                                    
                 }
                 
-                PyDict_SetItem(*py_result, *key, *result);
+                PySafeDict_SetItem(*py_result, key, result);
             } else if (DictObject_Check(py_dict)) {
                 auto result = Py_OWN(tryLoad(
-                    PyAPI_DictObject_GetItem((DictObject*)py_dict, *elem), kwargs, nullptr, load_stack_ptr)
+                    tryDictObject_GetItem((DictObject*)py_dict, *elem), kwargs, nullptr, load_stack_ptr)
                 );
                 if (!result) {
                     return nullptr;
                 }
-                PyDict_SetItem(*py_result, *key, *result);
+                PySafeDict_SetItem(*py_result, key, result);
             } else {
                 THROWF(db0::InputException) << "Invalid argument type";                
             }

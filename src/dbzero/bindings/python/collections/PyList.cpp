@@ -306,7 +306,7 @@ namespace db0::python
             if (!res) {
                 return nullptr;
             }
-            PyList_SetItem(*py_result, i, res);
+            PySafeList_SetItem(*py_result, i, res);
         }
         return py_result.steal();
     }
@@ -320,7 +320,7 @@ namespace db0::python
             if (!res) {
                 return nullptr;
             }
-            PyList_SetItem(*py_result, i, res);
+            PySafeList_SetItem(*py_result, i, res);
         }
         return py_result.steal();
     }

@@ -142,7 +142,7 @@ namespace db0::object_model
         PyObjectPtr obj_ptr, StorageClass)
     {
         auto args = Py_OWN(PyTuple_New(1));
-        PyTuple_SetItem(*args, 0, Py_BORROW(obj_ptr));
+        PySafeTuple_SetItem(*args, 0, Py_BORROW(obj_ptr));
         auto dict = db0::python::tryMake_DB0Dict(fixture, *args, nullptr);
         if (!dict) {
             THROWF(db0::InputException) << "Failed to create dict" << THROWF_END;

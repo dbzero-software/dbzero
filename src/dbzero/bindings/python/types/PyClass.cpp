@@ -70,7 +70,7 @@ namespace db0::python
             // name, index
             auto py_tuple = Py_OWN(PySafeTuple_Pack(Py_OWN(PyUnicode_FromString(name.c_str())), 
                 Py_OWN(PyLong_FromUnsignedLong(index))));
-            PyList_Append(*py_list, py_tuple);
+            PySafeList_Append(*py_list, py_tuple);
         }
         return py_list.steal();
     }

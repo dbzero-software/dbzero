@@ -252,7 +252,7 @@ namespace db0::python
             if (!res) {                
                 return nullptr;
             }
-            PyTuple_SetItem(*py_result, i, res);
+            PySafeTuple_SetItem(*py_result, i, res);
         }
         return py_result.steal();
     }
@@ -266,7 +266,7 @@ namespace db0::python
             if (!res) {                
                 return nullptr;
             }
-            PyTuple_SetItem(*py_result, i, res);
+            PySafeTuple_SetItem(*py_result, i, res);
         }
         return py_result.steal();
     }

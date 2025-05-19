@@ -54,7 +54,7 @@ namespace db0::python
             return nullptr;
         }
         
-        PyTuple_SetItem(*py_args, 0, Py_BORROW(py_self));
+        PySafeTuple_SetItem(*py_args, 0, Py_BORROW(py_self));
         auto kwargs = Py_OWN(PyDict_New());
         if (!kwargs) {
             return nullptr;
