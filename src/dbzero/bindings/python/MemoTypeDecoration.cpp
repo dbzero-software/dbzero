@@ -58,7 +58,7 @@ namespace db0::python
     
     std::string MemoTypeDecoration::getDynPrefix(PyObject *args, PyObject *kwargs) const
     {
-        assert(m_py_dyn_prefix_callable);
+        assert(m_py_dyn_prefix_callable.get());
         auto py_result = Py_OWN(PyObject_Call(*m_py_dyn_prefix_callable, args, kwargs));
         if (!py_result || py_result.get() == Py_None) {
             return "";
