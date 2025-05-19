@@ -269,26 +269,26 @@ namespace db0::python
     }
         
     PyObject *getSlabMetrics(const db0::SlabAllocator &slab)
-    {        
-        PyObject *py_dict = PyDict_New();
-        PyDict_SetItemString(py_dict, "size", PyLong_FromUnsignedLong(slab.getSlabSize()));
-        PyDict_SetItemString(py_dict, "admin_space_size", PyLong_FromUnsignedLong(slab.getAdminSpaceSize(true)));
-        PyDict_SetItemString(py_dict, "remaining_capacity", PyLong_FromUnsignedLong(slab.getRemainingCapacity()));
-        PyDict_SetItemString(py_dict, "max_alloc_size", PyLong_FromUnsignedLong(slab.getMaxAllocSize()));
-        return py_dict;
+    {
+        auto py_dict = Py_OWN(PyDict_New());
+        PySafeDict_SetItemString(*py_dict, "size", Py_OWN(PyLong_FromUnsignedLong(slab.getSlabSize())));
+        PySafeDict_SetItemString(*py_dict, "admin_space_size", Py_OWN(PyLong_FromUnsignedLong(slab.getAdminSpaceSize(true))));
+        PySafeDict_SetItemString(*py_dict, "remaining_capacity", Py_OWN(PyLong_FromUnsignedLong(slab.getRemainingCapacity())));
+        PySafeDict_SetItemString(*py_dict, "max_alloc_size", Py_OWN(PyLong_FromUnsignedLong(slab.getMaxAllocSize())));
+        return py_dict.steal();
     }
 
     PyObject *tryGetSlabMetrics(db0::Workspace *workspace)
     {
         auto fixture = workspace->getCurrentFixture();        
-        PyObject *py_dict = PyDict_New();
+        auto py_dict = Py_OWN(PyDict_New());
         auto get_slab_metrics = [py_dict](const db0::SlabAllocator &slab, std::uint32_t slab_id) {
             // report remaining capacity as dict item
-            PyObject *py_slab_id = PyLong_FromUnsignedLong(slab_id);
-            PyDict_SetItem(py_dict, py_slab_id, getSlabMetrics(slab));
+            auto py_slab_id = Py_OWN(PyLong_FromUnsignedLong(slab_id));
+            PySafeDict_SetItem(*py_dict, py_slab_id, Py_OWN(getSlabMetrics(slab)));
         };
         fixture->forAllSlabs(get_slab_metrics);
-        return py_dict;
+        return py_dict.steal();
     }
 
     PyObject *trySetCacheSize(db0::Workspace *workspace, std::size_t new_cache_size) 
@@ -381,73 +381,77 @@ namespace db0::python
     PyObject *tryGetPrefixStats(PyObject *args, PyObject *kwargs)
     {
         auto fixture = getPrefixFromArgs(args, kwargs, "prefix");
-        auto stats_dict = PyDict_New();
+        auto stats_dict = Py_OWN(PyDict_New());
         if (!stats_dict) {
-            THROWF(db0::MemoryException) << "Out of memory";
+            return nullptr;
         }
         
-        PyDict_SetItemString(stats_dict, "name", PyUnicode_FromString(fixture->getPrefix().getName().c_str()));
-        PyDict_SetItemString(stats_dict, "uuid", PyLong_FromLong(fixture->getUUID()));
-        PyDict_SetItemString(stats_dict, "dp_size", PyLong_FromLong(fixture->getPrefix().getPageSize()));
-        auto gc0_dict = PyDict_New();
+        PySafeDict_SetItemString(*stats_dict, "name", Py_OWN(PyUnicode_FromString(fixture->getPrefix().getName().c_str())));
+        PySafeDict_SetItemString(*stats_dict, "uuid", Py_OWN(PyLong_FromLong(fixture->getUUID())));
+        PySafeDict_SetItemString(*stats_dict, "dp_size", Py_OWN(PyLong_FromLong(fixture->getPrefix().getPageSize())));
+
+        auto gc0_dict = Py_OWN(PyDict_New());
         if (!gc0_dict) {
-            THROWF(db0::MemoryException) << "Out of memory";
+            return nullptr;
         }
-        PyDict_SetItemString(gc0_dict, "size", PyLong_FromLong(fixture->getGC0().size()));
-        PyDict_SetItemString(stats_dict, "gc0", gc0_dict);
-        auto sp_dict = PyDict_New();
+        PySafeDict_SetItemString(*gc0_dict, "size", Py_OWN(PyLong_FromLong(fixture->getGC0().size())));
+        PySafeDict_SetItemString(*stats_dict, "gc0", gc0_dict);
+
+        auto sp_dict = Py_OWN(PyDict_New());
         if (!sp_dict) {
-            THROWF(db0::MemoryException) << "Out of memory";
+            return nullptr;
         }
-        PyDict_SetItemString(sp_dict, "size", PyLong_FromLong(fixture->getLimitedStringPool().size()));
-        PyDict_SetItemString(stats_dict, "string_pool", sp_dict);
-        auto cache_dict = PyDict_New();
+        PySafeDict_SetItemString(*sp_dict, "size", Py_OWN(PyLong_FromLong(fixture->getLimitedStringPool().size())));
+        PySafeDict_SetItemString(*stats_dict, "string_pool", sp_dict);
+
+        auto cache_dict = Py_OWN(PyDict_New());
         if (!cache_dict) {
-            THROWF(db0::MemoryException) << "Out of memory";
+            return nullptr;
         }
         fixture->getPrefix().getStats([&](const std::string &name, std::uint64_t value) {
-            PyDict_SetItemString(cache_dict, name.c_str(), PyLong_FromUnsignedLongLong(value));
+            PySafeDict_SetItemString(*cache_dict, name.c_str(), Py_OWN(PyLong_FromUnsignedLongLong(value)));
         });
-        PyDict_SetItemString(stats_dict, "cache", cache_dict);
-        return stats_dict;
+        PySafeDict_SetItemString(*stats_dict, "cache", cache_dict);
+        return stats_dict.steal();
     }
     
     PyObject *tryGetStorageStats(PyObject *args, PyObject *kwargs)
     {
         auto fixture = getPrefixFromArgs(args, kwargs, "prefix");
-        auto stats_dict = PyDict_New();
+        auto stats_dict = Py_OWN(PyDict_New());
         if (!stats_dict) {
-            THROWF(db0::MemoryException) << "Out of memory";
+            return nullptr;
         }
         auto dirty_size = fixture->getPrefix().getDirtySize();
         // report uncommited data size independently
-        PyDict_SetItemString(stats_dict, "dp_size_uncommited", PyLong_FromUnsignedLongLong(dirty_size));
+        PySafeDict_SetItemString(*stats_dict, "dp_size_uncommited", Py_OWN(PyLong_FromUnsignedLongLong(dirty_size)));
         auto stats_callback = [&](const std::string &name, std::uint64_t value) {
             if (name == "dp_size_total") {
                 // also include dirty locks stored in-memory
                 value += dirty_size;
             }
-            PyDict_SetItemString(stats_dict, name.c_str(), PyLong_FromUnsignedLongLong(value));
+            PySafeDict_SetItemString(*stats_dict, name.c_str(), Py_OWN(PyLong_FromUnsignedLongLong(value)));
         };
         fixture->getPrefix().getStorage().getStats(stats_callback);
-        return stats_dict;
+        return stats_dict.steal();
     }
     
 #ifndef NDEBUG
     PyObject *formatDRAM_IOMap(const std::unordered_map<std::uint64_t, std::pair<std::uint64_t, std::uint64_t> > &dram_io_map)
     {        
-        PyObject *py_dict = PyDict_New();
+        auto py_dict = Py_OWN(PyDict_New());
         if (!py_dict) {
             THROWF(db0::MemoryException) << "Out of memory";
         }
+        
         // page_info = std::pair<std::uint64_t, std::uint64_t>
         for (const auto &[page_num, page_info] : dram_io_map) {
-            PyObject *py_page_info = PyTuple_New(2);
-            PyTuple_SetItem(py_page_info, 0, PyLong_FromUnsignedLongLong(page_info.first));
-            PyTuple_SetItem(py_page_info, 1, PyLong_FromUnsignedLongLong(page_info.second));
-            PyDict_SetItem(py_dict, PyLong_FromUnsignedLongLong(page_num), py_page_info);
+            auto py_page_info = Py_OWN(PyTuple_New(2));
+            PySafeTuple_SetItem(*py_page_info, 0, Py_OWN(PyLong_FromUnsignedLongLong(page_info.first)));
+            PySafeTuple_SetItem(*py_page_info, 1, Py_OWN(PyLong_FromUnsignedLongLong(page_info.second)));
+            PySafeDict_SetItem(*py_dict, Py_OWN(PyLong_FromUnsignedLongLong(page_num)), py_page_info);
         }
-        return py_dict;
+        return py_dict.steal();
     }
     
     PyObject *tryGetDRAM_IOMap(const Fixture &fixture)
@@ -456,27 +460,29 @@ namespace db0::python
 
         std::unordered_map<std::uint64_t, DRAM_PageInfo> dram_io_map;
         fixture.getPrefix().getStorage().getDRAM_IOMap(dram_io_map);
-        auto py_dict = formatDRAM_IOMap(dram_io_map);
+        auto py_dict = Py_OWN(formatDRAM_IOMap(dram_io_map));
         std::vector<db0::BaseStorage::DRAM_CheckResult> dram_check_results;
         fixture.getPrefix().getStorage().dramIOCheck(dram_check_results);
-        PyObject *py_check_results = PyList_New(dram_check_results.size());
+        auto py_check_results = Py_OWN(PyList_New(dram_check_results.size()));
         if (!py_check_results) {
             THROWF(db0::MemoryException) << "Out of memory";
         }
+        
         for (std::size_t i = 0; i < dram_check_results.size(); ++i) {
-            PyObject *py_check_result = PyDict_New();
+            auto py_check_result = Py_OWN(PyDict_New());
             if (!py_check_result) {
                 THROWF(db0::MemoryException) << "Out of memory";
             }
+
             auto &check_result = dram_check_results[i];
-            PyDict_SetItemString(py_check_result, "addr", PyLong_FromUnsignedLongLong(check_result.m_address));
-            PyDict_SetItemString(py_check_result, "page_num", PyLong_FromUnsignedLongLong(check_result.m_page_num));
-            PyDict_SetItemString(py_check_result, "exp_page_num", PyLong_FromUnsignedLongLong(check_result.m_expected_page_num));
-            PyList_SetItem(py_check_results, i, py_check_result);
+            PySafeDict_SetItemString(*py_check_result, "addr", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_address)));
+            PySafeDict_SetItemString(*py_check_result, "page_num", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_page_num)));
+            PySafeDict_SetItemString(*py_check_result, "exp_page_num", Py_OWN(PyLong_FromUnsignedLongLong(check_result.m_expected_page_num)));
+            PySafeList_SetItem(*py_check_results, i, py_check_result);
         }
 
-        PyDict_SetItemString(py_dict, "dram_io_discrepancies", py_check_results);
-        return py_dict;
+        PySafeDict_SetItemString(*py_dict, "dram_io_discrepancies", py_check_results);
+        return py_dict.steal();
     }
     
     PyObject *tryGetDRAM_IOMapFromFile(const char *file_name)
@@ -491,7 +497,7 @@ namespace db0::python
 #endif
 
     bool hasKWArg(PyObject *kwargs, const char *name) {
-        return kwargs && PyDict_Contains(kwargs, PyUnicode_FromString(name));
+        return kwargs && PyDict_Contains(kwargs, *Py_OWN(PyUnicode_FromString(name)));
     }
     
     PyObject *tryGetAddress(PyObject *py_obj)
@@ -588,7 +594,7 @@ namespace db0::python
         std::shared_ptr<db0::object_model::Class> expected_type)
     {
         auto obj_ptr = lang_cache.get(address);
-        if (obj_ptr && expected_type) {
+        if (obj_ptr.get() && expected_type) {
             if (!PyMemo_Check(obj_ptr.get())) {
                 THROWF(db0::InputException) << "Invalid object type: " << PyToolkit::getTypeName(obj_ptr.get()) << " (Memo expected)";
             }
@@ -620,7 +626,7 @@ namespace db0::python
         auto &lang_cache = fixture.getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, addr);
         
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             return obj_ptr.steal();
         }
         

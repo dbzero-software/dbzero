@@ -454,16 +454,13 @@ def test_set_items_in(db0_no_autocommit):
     # insert 1000 random items
     for i in range(100):
         set_1.add(i)
-    assert len(set_1) == 100
-    now = datetime.datetime.now()
+    assert len(set_1) == 100    
     for i in range(1000000):
         random_int = random.randint(0, 300)
         if random_int < 100:
             assert random_int in set_1
         else:
-            assert random_int not in set_1
-    end = datetime.datetime.now()
-    print("Elapsed time: ", end - now)
+            assert random_int not in set_1    
 
 
 def test_set_as_member(db0_fixture):

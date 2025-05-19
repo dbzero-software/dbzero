@@ -105,16 +105,11 @@ namespace db0::python
             }            
         }
         
-        auto tags_obj = PyObjectTagManager_new(&PyObjectTagManagerType, NULL, NULL);
-        try {
-            ObjectTagManager::makeNew(&tags_obj->modifyExt(), args, nargs);
-        } catch (const std::exception &e) {
-            Py_DECREF(tags_obj);
-            throw;
-        }
-        return tags_obj;
+        auto tags_obj = Py_OWN(PyObjectTagManager_new(&PyObjectTagManagerType, NULL, NULL));        
+        ObjectTagManager::makeNew(&tags_obj->modifyExt(), args, nargs);
+        return tags_obj.steal();
     }
-
+    
     PyObjectTagManager *makeObjectTagManager(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC

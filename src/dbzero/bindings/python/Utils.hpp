@@ -3,56 +3,53 @@
 #include <iostream>
 #include <mutex>
 #include "PyToolkit.hpp"
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
 {
     
+    using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+
     template <typename PyCollection>
-    bool has_all_elements_same(PyCollection *collection, PyObject *iterator)
-    {
-        PyObject *lh, *rh;
-        PyObject *py_collection_iter = PyObject_GetIter(collection);
+    bool has_all_elements_same(PyCollection *collection, PyObject *iter)
+    {        
+        auto py_collection_iter = Py_OWN(PyObject_GetIter(collection));
         if (!py_collection_iter) {
             THROWF(db0::InputException) <<  "argument must be an iterable";
         }
-        while ((rh = PyIter_Next(iterator))) {
-            lh = PyIter_Next(py_collection_iter);
-            if (lh == nullptr) {                
+        
+        auto iterator = Py_BORROW(iter);
+        ObjectSharedPtr lh;
+        Py_FOR(rh, iterator) {
+            lh = Py_OWN(PyIter_Next(*py_collection_iter));
+            if (!lh) {
                 return false;
             }
-            if (PyObject_RichCompareBool(lh, rh, Py_NE) == 1){
-                Py_DECREF(lh);
-                Py_DECREF(rh);                
+
+            if (PyObject_RichCompareBool(*lh, *rh, Py_NE) == 1) {
                 return false;
             }
-            Py_DECREF(lh);
-            Py_DECREF(rh);
         }
-        lh = PyIter_Next(py_collection_iter);
-        Py_DECREF(py_collection_iter);        
-        return lh == nullptr;
+        lh = Py_OWN(PyIter_Next(*py_collection_iter));        
+        return lh.get() == nullptr;
     }
     
     template <typename PyCollection>
     bool has_all_elements_in_collection(PyCollection *collection, PyObject *object)
-    {        
-        PyObject* elem;
-        PyObject* iterator = PyObject_GetIter(object);
+    {                
+        auto iterator = Py_OWN(PyObject_GetIter(object));
         if (!iterator) {
             THROWF(db0::InputException) <<  "argument must be an iterable";
         }
-        while ((elem = PyIter_Next(iterator))) {
-            if (!sequenceContainsItem(collection, elem)) {
-                Py_DECREF(elem);                
+        
+        ObjectSharedPtr elem;
+        Py_FOR(elem, iterator) {        
+            if (!sequenceContainsItem(collection, *elem)) {                
                 return false;
-            }
-            Py_DECREF(elem);
-        }
-        Py_DECREF(iterator);        
+            }            
+        }        
         return true;
     }
     
-    PyObject * PyBool_fromBool(bool value);
-
 }

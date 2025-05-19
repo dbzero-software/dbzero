@@ -13,15 +13,21 @@ namespace db0::python
 
 {
     
+    using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
     PyTypeObject DictIteratorObjectType = GetIteratorType<DictIteratorObject>("dbzero_ce.DictIterator", "dbzero dict iterator");
-    
-    DictIteratorObject *PyAPI_DictObject_iter(DictObject *self)
-    {
-        PY_API_FUNC
+
+    DictIteratorObject *tryDictObject_iter(DictObject *self)
+    {        
         self->ext().getFixture()->refreshIfUpdated();
         return makeIterator<DictIteratorObject, db0::object_model::DictIterator>(
             DictIteratorObjectType, self->ext().begin(), &self->ext(), self
         );
+    }
+
+    DictIteratorObject *PyAPI_DictObject_iter(DictObject *self)
+    {
+        PY_API_FUNC
+        return runSafe(tryDictObject_iter, self);
     }
     
     PyObject *tryDictObject_GetItem(DictObject *py_dict, PyObject *py_key)
@@ -29,24 +35,23 @@ namespace db0::python
         const auto &dict_obj = py_dict->ext();
         dict_obj.getFixture()->refreshIfUpdated();
         auto key = migratedKey(dict_obj, py_key);
-        auto hash = get_py_hash(key.get());
+        auto hash = get_py_hash(*key);
         if (hash == -1) {
-            auto py_str = PyObject_Str(py_key);
-            auto str_name =  PyUnicode_AsUTF8(py_str);
-            Py_DECREF(py_str);
+            auto py_str = Py_OWN(PyObject_Str(py_key));
+            auto str_name =  PyUnicode_AsUTF8(*py_str);            
             auto error_message = "Cannot get hash for key: " + std::string(str_name);
             PyErr_SetString(PyExc_KeyError, error_message.c_str());
-            return NULL;
+            return nullptr;
         }
-        auto item_ptr = dict_obj.getItem(hash, key.get());
-        if (item_ptr == nullptr) {
-            auto py_str = PyObject_Str(py_key);
-            auto str_name =  PyUnicode_AsUTF8(py_str);
-            Py_DECREF(py_str);
-            PyErr_SetString(PyExc_KeyError,str_name);
-            return NULL;
+
+        auto item = dict_obj.getItem(hash, *key);
+        if (!item) {
+            auto py_str = Py_OWN(PyObject_Str(py_key));
+            auto str_name =  PyUnicode_AsUTF8(*py_str);
+            PyErr_SetString(PyExc_KeyError, str_name);
+            return nullptr;
         }
-        return item_ptr.steal();
+        return item.steal();
     }
     
     PyObject *PyAPI_DictObject_GetItem(DictObject *dict_obj, PyObject *key)
@@ -58,17 +63,17 @@ namespace db0::python
     int tryDictObject_SetItem(DictObject *py_dict, PyObject *py_key, PyObject *value)
     {
         auto key = migratedKey(py_dict->ext(), py_key);
-        auto hash = get_py_hash(key.get());
+        auto hash = get_py_hash(*key);
         if (hash == -1) {            
             // set PyError
             std::stringstream _str;
-            _str << "Unable to find hash function for key of type: " << Py_TYPE(key.get())->tp_name;
+            _str << "Unable to find hash function for key of type: " << Py_TYPE(*key)->tp_name;
             PyErr_SetString(PyExc_TypeError, _str.str().c_str());
             return -1;
         }
         
         db0::FixtureLock lock(py_dict->ext().getFixture());
-        py_dict->modifyExt().setItem(lock, hash, key.get(), value);
+        py_dict->modifyExt().setItem(lock, hash, *key, value);
         return 0;
     }
     
@@ -94,8 +99,8 @@ namespace db0::python
     {        
         auto key = migratedKey(py_dict->ext(), py_key);
         py_dict->ext().getFixture()->refreshIfUpdated();
-        auto hash = get_py_hash(key.get());
-        return py_dict->ext().has_item(hash, key.get());
+        auto hash = get_py_hash(*key);
+        return py_dict->ext().has_item(hash, *key);
     }
 
     int PyAPI_DictObject_HasItem(DictObject *dict_obj, PyObject *key)
@@ -171,41 +176,37 @@ namespace db0::python
         
         if (PyObject_Length(args) == 1) {
             PyObject * arg1 = PyTuple_GetItem(args, 0);
-            PyObject *iterator = PyObject_GetIter(arg1);
+            auto iterator = Py_OWN(PyObject_GetIter(arg1));
             if (!iterator) {
                 PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
                 return NULL;
             }
 
-            PyObject *elem;
-            while ((elem = PyIter_Next(iterator))) {
+            ObjectSharedPtr elem;
+            Py_FOR(elem, iterator) {            
                 if (PyDict_Check(arg1)) {
-                    tryDictObject_SetItem(dict_object, elem, PyDict_GetItem(arg1, elem));
+                    tryDictObject_SetItem(dict_object, elem.get(), PyDict_GetItem(arg1, *elem));
                 } else if (DictObject_Check(arg1)) {
-                    tryDictObject_SetItem(dict_object, elem, tryDictObject_GetItem((DictObject*)arg1, elem));
+                    tryDictObject_SetItem(dict_object, elem.get(), tryDictObject_GetItem((DictObject*)arg1, *elem));
                 } else {
-                    if (PyObject_Length(elem) != 2) {
+                    if (PyObject_Length(*elem) != 2) {
                         PyErr_SetString(PyExc_ValueError, "dictionary update sequence element #0 has length 1; 2 is required");
                         return NULL;
                     }
-                    tryDictObject_SetItem(dict_object, PyTuple_GetItem(elem,0), PyTuple_GetItem(elem,1));
-                }                
-                Py_DECREF(elem);
-            }            
-            Py_DECREF(iterator);
+                    tryDictObject_SetItem(dict_object, PyTuple_GetItem(elem.get(), 0), PyTuple_GetItem(*elem, 1));
+                }
+            }
         }
         if (kwargs != NULL && PyObject_Length(kwargs) > 0) {
-            PyObject *iterator = PyObject_GetIter(kwargs);
+            auto iterator = Py_OWN(PyObject_GetIter(kwargs));
             if (!iterator) {
                 PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
                 return NULL;
             }
-            PyObject *elem;
-            while ((elem = PyIter_Next(iterator))) {
-                tryDictObject_SetItem(dict_object, elem, PyDict_GetItem(kwargs, elem));
-                Py_DECREF(elem);
+            ObjectSharedPtr elem;
+            Py_FOR(elem, iterator) {            
+                tryDictObject_SetItem(dict_object, *elem, *Py_BORROW(PyDict_GetItem(kwargs, *elem)));
             }
-            Py_DECREF(iterator);
         }
         Py_RETURN_NONE;
     }
@@ -229,7 +230,7 @@ namespace db0::python
         }
 
         // register newly created dict with py-object cache        
-        fixture->getLangCache().add(dict.getAddress(), py_dict.get());
+        fixture->getLangCache().add(dict.getAddress(), *py_dict);
         return py_dict;
     }
 
@@ -275,10 +276,10 @@ namespace db0::python
     
     PyObject *tryDictObject_fromKeys(PyObject *const *args, Py_ssize_t nargs)
     {
-        PyObject *iterator = PyObject_GetIter(args[0]);
+        auto iterator = Py_OWN(PyObject_GetIter(args[0]));
         if (!iterator) {
             PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
-            return NULL;
+            return nullptr;
         }
 
         // make actual dbzero instance, use default fixture
@@ -286,13 +287,13 @@ namespace db0::python
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
         db0::object_model::Dict::makeNew(&py_dict.get()->modifyExt(), *lock);
         
-        PyObject *elem;
-        PyObject *value = Py_None;
+        ObjectSharedPtr elem;
+        auto value = Py_BORROW(Py_None);
         if (nargs == 2) {
             value = args[1];
         }
-        while ((elem = PyIter_Next(iterator))) {
-            tryDictObject_SetItem(py_dict.get(), elem, value);
+        Py_FOR(elem, iterator) {     
+            tryDictObject_SetItem(*py_dict, *elem, *value);
         }
         
         lock->getLangCache().add(py_dict.get()->ext().getAddress(), py_dict.get());
@@ -319,15 +320,14 @@ namespace db0::python
         PyObject *py_elem = args[0];
         auto elem = migratedKey(dict_object->ext(), py_elem);
         auto hash = get_py_hash(elem.get());
-        if (dict_object->ext().has_item(hash, elem.get())) {
-            return tryDictObject_GetItem(dict_object, elem.get());
+        if (dict_object->ext().has_item(hash, *elem)) {
+            return tryDictObject_GetItem(dict_object, *elem);
         }
-        PyObject *value = Py_None;
+        auto value = Py_BORROW((PyObject*)Py_None);
         if (nargs == 2) {
-            value = args[1];
+            value = Py_BORROW((PyObject*)args[1]);
         }
-        Py_INCREF(value);
-        return value;
+        return value.steal();
     }
     
     PyObject *PyAPI_DictObject_get(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
@@ -352,18 +352,19 @@ namespace db0::python
         if (nargs == 2) {
             value = args[1];
         }
+        
         auto elem = migratedKey(dict_object->ext(), py_elem);
-        auto hash = get_py_hash(elem.get());
-        if (dict_object->ext().has_item(hash, elem.get())) {
-            auto obj = dict_object->modifyExt().pop(hash, elem.get());
-            return obj.steal();
+        auto hash = get_py_hash(*elem);
+        if (dict_object->ext().has_item(hash, *elem)) {            
+            return dict_object->modifyExt().pop(hash, *elem).steal();
         }
+
         if (value == nullptr) {
-            PyErr_SetString(PyExc_KeyError, "item");
+            PyErr_SetString(PyExc_KeyError, "not found");
             return NULL;
         }
         
-        return value;
+        return value;        
     }
     
     PyObject *PyAPI_DictObject_pop(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
@@ -383,18 +384,18 @@ namespace db0::python
     PyObject *tryDictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs)
     {
         PyObject *py_elem = args[0];
-        PyObject *value = Py_None;
-        if(nargs == 2){
-            value = args[1];
+        auto value = Py_BORROW((PyObject*)Py_None);
+        if (nargs == 2) {
+            value = Py_BORROW((PyObject*)args[1]);
         }
         auto elem = migratedKey(dict_object->ext(), py_elem);
-        auto hash = get_py_hash(elem.get());
-        if (!dict_object->ext().has_item(hash, elem.get())) {
-            tryDictObject_SetItem(dict_object, elem.get(), value);
+        auto hash = get_py_hash(*elem);
+        if (!dict_object->ext().has_item(hash, *elem)) {
+            tryDictObject_SetItem(dict_object, *elem, *value);
         }
-        return tryDictObject_GetItem(dict_object, elem.get());
+        return tryDictObject_GetItem(dict_object, *elem);
     }
-
+    
     PyObject *PyAPI_DictObject_setDefault(DictObject *dict_object, PyObject *const *args, Py_ssize_t nargs) 
     {
         PY_API_FUNC        
@@ -445,56 +446,42 @@ namespace db0::python
     
     PyObject *tryLoadDict(PyObject *py_dict, PyObject *kwargs, std::unordered_set<const void*> *load_stack_ptr)
     {   
-        PyObject *iterator = PyObject_GetIter(py_dict);
+        auto iterator = Py_OWN(PyObject_GetIter(py_dict));
         if (!iterator) {
             PyErr_SetString(PyExc_TypeError, "argument must be a sequence or dict");
             return NULL;
         }
-
-        PyObject *elem;
-        PyObject *py_result = PyDict_New();
-        while ((elem = PyIter_Next(iterator))) {
-            auto key = tryLoad(elem, kwargs, nullptr, load_stack_ptr);
-            if (key == nullptr) {
-                Py_DECREF(iterator);
-                Py_DECREF(elem);
-                Py_DECREF(py_result);
+        
+        ObjectSharedPtr elem;
+        auto py_result = Py_OWN(PyDict_New());
+        Py_FOR(elem, iterator) {        
+            auto key = Py_OWN(tryLoad(*elem, kwargs, nullptr, load_stack_ptr));
+            if (!key) {
                 return nullptr;
             }
             if (PyDict_Check(py_dict)) {
-                auto result = tryLoad(
-                    PyDict_GetItem(py_dict, elem), kwargs, nullptr, load_stack_ptr
-                );
-                if (result == nullptr) {
-                    Py_DECREF(iterator);
-                    Py_DECREF(elem);
-                    Py_DECREF(py_result);
+                auto result = Py_OWN(tryLoad(
+                    PyDict_GetItem(py_dict, *elem), kwargs, nullptr, load_stack_ptr)
+                );                
+                if (!result) {
                     return nullptr;                                    
                 }
                 
-                PyDict_SetItem(py_result, key, result);
+                PySafeDict_SetItem(*py_result, key, result);
             } else if (DictObject_Check(py_dict)) {
-                auto result = tryLoad(
-                    PyAPI_DictObject_GetItem((DictObject*)py_dict, elem), kwargs, nullptr, load_stack_ptr
+                auto result = Py_OWN(tryLoad(
+                    tryDictObject_GetItem((DictObject*)py_dict, *elem), kwargs, nullptr, load_stack_ptr)
                 );
-                if (result == nullptr) {
-                    Py_DECREF(iterator);
-                    Py_DECREF(elem);
-                    Py_DECREF(py_result);
+                if (!result) {
                     return nullptr;
                 }
-                PyDict_SetItem(py_result, key, result);
+                PySafeDict_SetItem(*py_result, key, result);
             } else {
-                Py_DECREF(key);
-                Py_DECREF(iterator);
-                Py_DECREF(elem);
-                Py_DECREF(py_result);
-                throw std::runtime_error("Unknown type");
+                THROWF(db0::InputException) << "Invalid argument type";                
             }
-            Py_DECREF(elem);
-        }           
-        Py_DECREF(iterator);
-        return py_result;
+        }
+        
+        return py_result.steal();
     }
     
 }

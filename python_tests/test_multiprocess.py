@@ -92,8 +92,6 @@ os.mkdir(DB0_DIR)
 db0.init(DB0_DIR)
 db0.open("my-test-prefix")
 {setup_script}
-# FIXME log
-print("After setup script")
 print({value_to_hash})
 gc.collect()
 db0.close()

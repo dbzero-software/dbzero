@@ -74,23 +74,23 @@ namespace db0::object_model
         return unloadMember<LangToolkit>(fixture, storage_class, value);
     }
     
-    void Tuple::setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value)
+    void Tuple::setItem(FixtureLock &fixture, std::size_t i, ObjectSharedPtr lang_value)
     {
         // FIXME: is this method allowed ? (since tuples are immutable in Python)
         if (i >= getData()->size()) {
             THROWF(db0::InputException) << "Index out of range: " << i;
         }
         // recognize type ID from language specific object
-        auto type_id = LangToolkit::getTypeManager().getTypeId(lang_value);
+        auto type_id = LangToolkit::getTypeManager().getTypeId(*lang_value);
         auto pre_storage_class = TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
         StorageClass storage_class;
         if (pre_storage_class == PreStorageClass::OBJECT_WEAK_REF) {
-            storage_class = db0::getStorageClass(pre_storage_class, *fixture, lang_value);
+            storage_class = db0::getStorageClass(pre_storage_class, *fixture, *lang_value);
         } else {
             storage_class = db0::getStorageClass(pre_storage_class);
         }
         
-        modify().items()[i] = createTupleItem<LangToolkit>(*fixture, type_id, lang_value, storage_class);
+        modify().items()[i] = createTupleItem<LangToolkit>(*fixture, type_id, *lang_value, storage_class);
     }
     
     Tuple *Tuple::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::size_t size) {

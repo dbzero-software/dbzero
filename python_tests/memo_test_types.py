@@ -154,7 +154,7 @@ class MemoTestClassPropertiesAndImmutables:
         return self.__value
 
     def normal_method(self):
-        print("normal method")
+        pass
     
 
 @db0.memo(singleton=True)

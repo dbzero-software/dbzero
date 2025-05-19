@@ -18,8 +18,9 @@ namespace db0::python
         PyObject *py_bytes)
     {
         auto size = PyBytes_GET_SIZE(py_bytes);
-        auto *str = PyBytes_AsString(py_bytes);
-        std::byte * bytes = reinterpret_cast<std::byte *>(str);
+        // this is a pointer to an internal buffer, needs not to be deallocated
+        auto safe_str = PyBytes_AsString(py_bytes);
+        std::byte *bytes = reinterpret_cast<std::byte *>(safe_str);
         db0::object_model::ByteArray::makeNew(&bytearray_object->modifyExt(), fixture, bytes, size);        
     }
     
@@ -30,18 +31,18 @@ namespace db0::python
             bytes_str[i] = static_cast<char>(bytearray_obj->ext().getByte(i));
         }
         bytes_str[bytearray_obj->ext().size()] = '\0';
-        auto result = PyBytes_FromStringAndSize(bytes_str, bytearray_obj->ext().size());
+        auto result = Py_OWN(PyBytes_FromStringAndSize(bytes_str, bytearray_obj->ext().size()));
         delete [] bytes_str;
-        return result;
+        return result.steal();
     }
 
-    PyObject *callMethod(const char * name,  ByteArrayObject *object_inst, PyObject* args, PyObject* kwargs)
+    PyObject *callMethod(const char * name, ByteArrayObject *object_inst, PyObject* args, PyObject* kwargs)
     {
-        auto py_obj = asPyObject(object_inst);
-        auto *function = PyObject_GetAttrString(py_obj, name);
-        return PyObject_Call(function, args, kwargs);
+        auto py_obj = Py_OWN(asPyObject(object_inst));
+        auto function = Py_OWN(PyObject_GetAttrString(*py_obj, name));
+        return PyObject_Call(*function, args, kwargs);
     }
-
+    
     PyObject *ByteArray_CallMethod(const char * name, ByteArrayObject *object_inst, PyObject* args, PyObject* kwargs)
     {
         auto py_obj = callMethod(name, object_inst, args, kwargs);
@@ -124,8 +125,9 @@ namespace db0::python
             return PyLong_FromLong(object_inst->ext().count(byte));
         } else if (PyBytes_Check(arg)){
             auto size = PyBytes_GET_SIZE(arg);
-            auto *str = PyBytes_AsString(arg);
-            return PyLong_FromLong(object_inst->ext().count(reinterpret_cast<std::byte *>(str), size));
+            // this is a pointer to an internal buffer, needs not to be deallocated
+            auto safe_str = PyBytes_AsString(arg);
+            return PyLong_FromLong(object_inst->ext().count(reinterpret_cast<std::byte *>(safe_str), size));
         } else if (ByteArrayObject_Check(arg)) {
             auto py_array = reinterpret_cast<ByteArrayObject *>(arg);
             return PyLong_FromLong(object_inst->ext().count(py_array->ext(), py_array->ext().size()));

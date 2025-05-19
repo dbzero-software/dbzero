@@ -15,7 +15,7 @@ class ScopedDataClass:
 class ScopedColor:
     pass
 
-#FIXME: python 3.13
+# FIXME: python 3.13
 # @db0.memo(prefix=None)
 # class DataClass:
 #     def __init__(self, value):

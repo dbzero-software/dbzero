@@ -45,6 +45,12 @@ def test_load_memo_types(db0_fixture):
     assert db0.load(memo) == {"value": "string"}
 
 
+def test_load_db0_list(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])        
+    cut = ["1", 2 , Colors.GREEN]
+    assert db0.load(cut) == ["1", 2, "GREEN"]
+
+
 def test_load_memo_db0_types(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     t1 = (Colors.RED, Colors.GREEN)

@@ -2,11 +2,14 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
 {
 
+    using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+    
     template<typename ObjectT>
     PyObject *tryObjectT_append(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
@@ -30,24 +33,22 @@ namespace db0::python
     template<typename ObjectT>
     PyObject *tryObjectT_extend(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {   
-        PyObject *iterator = PyObject_GetIter(args[0]);
+        auto iterator = Py_OWN(PyObject_GetIter(args[0]));
         if (!iterator) {
             PyErr_SetString(PyExc_TypeError, "extend() argument must be iterable.");
-            return NULL;
+            return nullptr;
         }
-
-        PyObject *item;
+        
+        ObjectSharedPtr item;
         db0::FixtureLock lock(py_obj->ext().getFixture());
         auto &obj = py_obj->modifyExt();
-        while ((item = PyIter_Next(iterator))) {
-            obj.append(lock, item);            
-            Py_DECREF(item);
+        Py_FOR(item, iterator) {
+            obj.append(lock, item);
         }
-
-        Py_DECREF(iterator);
+        
         Py_RETURN_NONE;
     }
-    
+
     template<typename ObjectT>
     PyObject *PyAPI_ObjectT_extend(ObjectT *py_obj, PyObject *const *args, Py_ssize_t nargs)
     {
@@ -230,16 +231,15 @@ namespace db0::python
             // only perform tuple translation if needed
             if (isMigrateRrequired(collection, key)) {
                 auto size = PyTuple_Size(key);
-                auto py_tuple = PyTuple_New(size);
+                auto py_tuple = Py_OWN(PyTuple_New(size));
                 for (int i = 0; i < size; ++i) {
-                    auto item = PyTuple_GetItem(key, i);                    
-                    PyTuple_SET_ITEM(py_tuple, i, migratedKey(collection, item).steal());
+                    PySafeTuple_SetItem(*py_tuple, i, migratedKey(collection, PyTuple_GetItem(key, i)));
                 }
-                return shared_py_object<PyObject*>(py_tuple);
+                return py_tuple;
             }
         }
         // no translation needed
-        return key;
+        return Py_BORROW(key);
     }
     
 }

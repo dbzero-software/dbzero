@@ -24,6 +24,7 @@
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
@@ -58,12 +59,11 @@ namespace db0::python
     
     std::optional<std::string> PyToolkit::tryGetModuleName(TypeObjectPtr py_type)
     {
-        auto py_module_name = PyObject_GetAttrString(reinterpret_cast<ObjectPtr>(py_type), "__module__");
+        auto py_module_name = Py_OWN(PyObject_GetAttrString(reinterpret_cast<ObjectPtr>(py_type), "__module__"));
         if (!py_module_name) {
             return std::nullopt;
         }
-        auto result = std::string(PyUnicode_AsUTF8(py_module_name));
-        Py_DECREF(py_module_name);
+        auto result = std::string(PyUnicode_AsUTF8(*py_module_name));
         if (result == "__main__") {
             // for Memo types we can determine the actual module name from the file name
             // (if stored with the type decoration)
@@ -102,7 +102,7 @@ namespace db0::python
         auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
         
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             // only validate instance ID if provided
             if (instance_id) {
                 // NOTE: we first must check if this is really a memo object
@@ -151,7 +151,7 @@ namespace db0::python
         auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
         
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             return obj_ptr;
         }
         
@@ -170,7 +170,7 @@ namespace db0::python
         auto &lang_cache = fixture->getLangCache();
         auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
         
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             return obj_ptr;
         }
         
@@ -192,7 +192,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
@@ -210,7 +210,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
@@ -228,7 +228,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
@@ -247,7 +247,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
@@ -266,17 +266,17 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
         
         auto dict_object = DictDefaultObject_new();
-        // retrieve actual dbzero instance        
+        // retrieve actual dbzero instance
         db0::object_model::Dict::unload(&(dict_object.get())->modifyExt(), fixture, address);
     
         // add list object to cache
-        lang_cache.add(address, dict_object.get());
+        lang_cache.add(address, *dict_object);
         return shared_py_cast<PyObject*>(std::move(dict_object));
     }
     
@@ -285,7 +285,7 @@ namespace db0::python
         // try pulling from cache first
         auto &lang_cache = fixture->getLangCache();
         auto object_ptr = lang_cache.get(address);
-        if (object_ptr) {
+        if (object_ptr.get()) {
             // return from cache
             return object_ptr;
         }
@@ -293,9 +293,9 @@ namespace db0::python
         auto tuple_object = TupleDefaultObject_new();
         // retrieve actual dbzero instance        
         db0::object_model::Tuple::unload(&(tuple_object.get())->modifyExt(), fixture, address);
-
+        
         // add list object to cache
-        lang_cache.add(address, tuple_object.get());
+        lang_cache.add(address, *tuple_object);
         return shared_py_cast<PyObject*>(std::move(tuple_object));
     }
     
@@ -336,49 +336,46 @@ namespace db0::python
         return PyUnicode_Check(py_object);
     }
 
-    bool PyToolkit::isSequence(ObjectPtr py_object)
-    {
+    bool PyToolkit::isSequence(ObjectPtr py_object) {
         return PySequence_Check(py_object);
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::getIterator(ObjectPtr py_object)
     {
-        auto py_iterator = PyObject_GetIter(py_object);
+        auto py_iterator = Py_OWN(PyObject_GetIter(py_object));
         if (!py_iterator) {
             THROWF(db0::InputException) << "Unable to get iterator" << THROWF_END;
         }
-        return { py_iterator, false };
+        return py_iterator;
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::next(ObjectPtr py_object)
     {
-        auto py_next = PyIter_Next(py_object);
+        auto py_next = Py_OWN(PyIter_Next(py_object));
         if (!py_next) {
             // StopIteration exception raised
             PyErr_Clear();
         }
 
-        return { py_next, false };
+        return py_next;
     }
 
     std::size_t PyToolkit::length(ObjectPtr py_object)
     {
         Py_ssize_t size = PySequence_Length(py_object);
-        if(size < 0)
-        {
+        if (size < 0) {
             THROWF(db0::InputException) << "Unable to get sequence length" << THROWF_END;
         }
         return size;
     }
-
+    
     PyToolkit::ObjectSharedPtr PyToolkit::getItem(ObjectPtr py_object, std::size_t i)
     {
-        ObjectPtr item = PySequence_GetItem(py_object, i);
-        if (!item)
-        {
-            THROWF(db0::InputException) << "Unable to get sequence item at index " << i << THROWF_END;
+        auto item = Py_OWN(PySequence_GetItem(py_object, i));
+        if (!item) {
+            THROWF(db0::InputException) << "Unable to get sequence item at index ";
         }
-        return { item, false };
+        return item;
     }
     
     bool PyToolkit::isSingleton(TypeObjectPtr py_type) {
@@ -414,13 +411,12 @@ namespace db0::python
         PyObject *ptype, *pvalue, *ptraceback;
         PyErr_Fetch(&ptype, &pvalue, &ptraceback);
         PyErr_NormalizeException(&ptype, &pvalue, &ptraceback);
-        PyObject *pstr = PyObject_Str(pvalue);
-        std::string result = PyUnicode_AsUTF8(pstr);
-        Py_DECREF(pstr);
+        auto pstr = Py_OWN(PyObject_Str(pvalue));
         Py_XDECREF(ptype);
         Py_XDECREF(pvalue);
         Py_XDECREF(ptraceback);
-        return result;
+
+        return PyUnicode_AsUTF8(*pstr);
     }
     
     std::uint64_t PyToolkit::getFixtureUUID(ObjectPtr py_object)
@@ -475,7 +471,7 @@ namespace db0::python
     }
 
     void PyToolkit::setError(ObjectPtr err_obj, std::uint64_t err_value) {
-        PyErr_SetObject(err_obj, PyLong_FromUnsignedLongLong(err_value));
+        PyErr_SetObject(err_obj, *Py_OWN(PyLong_FromUnsignedLongLong(err_value)));
     }
 
     unsigned int PyToolkit::getRefCount(ObjectPtr obj) {
@@ -486,48 +482,46 @@ namespace db0::python
     {
         if (!PyDict_Check(py_dict)) {
             THROWF(db0::InputException) << "Invalid type of object. Dictionary expected" << THROWF_END;
-        }        
-        return PyDict_GetItemString(py_dict, key.c_str());
+        }
+        return Py_NEW(PyDict_GetItemString(py_dict, key.c_str()));
     }
-
+    
     std::optional<long> PyToolkit::getLong(ObjectPtr py_object, const std::string &key)
     {
-        auto py_value = getValue(py_object, key);
+        auto py_value = Py_OWN(getValue(py_object, key));
         if (!py_value) {
             return std::nullopt;
-        }
-        // NOTE: no Py_DECREF due to borrowed reference
-        if (!PyLong_Check(py_value)) {                        
-            THROWF(db0::InputException) << "Invalid type of: " << key << ". Integer expected but got: " 
-                << Py_TYPE(py_value)->tp_name << THROWF_END;
         }        
-        return PyLong_AsLong(py_value);
+
+        if (!PyLong_Check(*py_value)) {
+            THROWF(db0::InputException) << "Invalid type of: " << key << ". Integer expected but got: " 
+                << Py_TYPE(*py_value)->tp_name << THROWF_END;
+        }
+        return PyLong_AsLong(*py_value);
     }
 
     std::optional<bool> PyToolkit::getBool(ObjectPtr py_object, const std::string &key)
     {
-        auto py_value = getValue(py_object, key);
+        auto py_value = Py_OWN(getValue(py_object, key));
         if (!py_value) {
             return std::nullopt;
-        }
-        // NOTE: no Py_DECREF due to borrowed reference
-        if (!PyBool_Check(py_value)) {            
+        }        
+        if (!PyBool_Check(*py_value)) {
             THROWF(db0::InputException) << "Invalid type of: " << key << ". Boolean expected" << THROWF_END;
         }
-        return PyObject_IsTrue(py_value);
+        return PyObject_IsTrue(*py_value);
     }
     
     std::optional<std::string> PyToolkit::getString(ObjectPtr py_object, const std::string &key)
     {
-        auto py_value = getValue(py_object, key);
+        auto py_value = Py_OWN(getValue(py_object, key));
         if (!py_value) {
             return std::nullopt;
-        }
-        // NOTE: no Py_DECREF due to borrowed reference
-        if (!PyUnicode_Check(py_value)) {            
+        }        
+        if (!PyUnicode_Check(*py_value)) {
             THROWF(db0::InputException) << "Invalid type of: " << key << ". String expected" << THROWF_END;
         }
-        return std::string(PyUnicode_AsUTF8(py_value));
+        return std::string(PyUnicode_AsUTF8(*py_value));
     }
     
     bool PyToolkit::compare(ObjectPtr py_object1, ObjectPtr py_object2) {
@@ -568,22 +562,20 @@ namespace db0::python
     
     PyToolkit::ObjectSharedPtr PyToolkit::makeTuple(const std::vector<ObjectSharedPtr> &values)
     {
-        PyObject *result = PyTuple_New(values.size());
+        auto result = Py_OWN(PyTuple_New(values.size()));
         for (std::size_t i = 0; i < values.size(); ++i) {
-            auto item = values[i].get();
-            Py_INCREF(item);
-            PyTuple_SetItem(result, i, item);
+            PySafeTuple_SetItem(*result, i, values[i]);
         }
-        return { result, false };
+        return result;
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::makeTuple(std::vector<ObjectSharedPtr> &&values)
     {
-        PyObject *result = PyTuple_New(values.size());
+        auto result = Py_OWN(PyTuple_New(values.size()));
         for (std::size_t i = 0; i < values.size(); ++i) {
-            PyTuple_SetItem(result, i, values[i].steal());
+            PySafeTuple_SetItem(*result, i, values[i]);
         }
-        return { result, false };
+        return result;
     }
     
     bool PyToolkit::isValid() {

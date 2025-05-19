@@ -1,9 +1,10 @@
 #include "DictIterator.hpp"
+#include <cassert>
 #include "Dict.hpp"
 #include <dbzero/object_model/tuple/Tuple.hpp>
 #include <dbzero/object_model/value/Member.hpp>
 #include <dbzero/workspace/Workspace.hpp>
-#include <cassert>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::object_model
 
@@ -47,28 +48,28 @@ namespace db0::object_model
     {
         auto fixture = m_collection->getFixture();
         auto [key, value] = *m_join_iterator;
-
-        DictItem dict_item(
-            unloadMember<LangToolkit>(fixture, key).get(),
-            unloadMember<LangToolkit>(fixture, value).get());
+        
         iterNext();
-        return dict_item;
+        return {
+            unloadMember<LangToolkit>(fixture, key),
+            unloadMember<LangToolkit>(fixture, value)
+        };
     }
     
     DictIterator::ObjectSharedPtr DictIterator::nextValue()
-    {
-        auto fixture = m_collection->getFixture();
-        auto value = unloadMember<LangToolkit>(fixture, (*m_join_iterator).m_second);
+    {        
+        auto value = (*m_join_iterator).m_second;        
         iterNext();
-        return value;
+        auto fixture = m_collection->getFixture();
+        return unloadMember<LangToolkit>(fixture, value);        
     }
 
     DictIterator::ObjectSharedPtr DictIterator::nextKey() 
     {
-        auto fixture = m_collection->getFixture();
-        auto key = unloadMember<LangToolkit>(fixture, (*m_join_iterator).m_first);
+        auto key = (*m_join_iterator).m_first;
         iterNext();
-        return key;
+        auto fixture = m_collection->getFixture();
+        return unloadMember<LangToolkit>(fixture, key);        
     }
     
     DictIterator::ObjectSharedPtr DictIterator::next()
@@ -83,8 +84,8 @@ namespace db0::object_model
             }
             
             case ITEMS: {
-                DictItem item = nextItem();
-                return ObjectSharedPtr(PyTuple_Pack(2, item.key.get(), item.value.get()), false);
+                auto item = nextItem();
+                return Py_OWN(PySafeTuple_Pack(item.key, item.value));
             }
             
             default: {

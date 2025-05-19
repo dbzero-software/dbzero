@@ -68,7 +68,7 @@ namespace db0::object_model
                         break;
                     }
                 }
-                if (obj_ptr) {
+                if (obj_ptr.get()) {
                     return obj_ptr;
                 }
             } else {

@@ -101,25 +101,25 @@ namespace db0::python
     
     PyObject *renameField(PyObject *self, PyObject *args);
 
-    PyObject *isSingleton(PyObject *self, PyObject *args);
+    PyObject *PyAPI_isSingleton(PyObject *self, PyObject *args);
 
     PyObject *getRefCount(PyObject *self, PyObject *args);
     
     // convert to a Python dict
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
-    PyObject *getBuildFlags(PyObject *self, PyObject *args);
+    PyObject *PyAPI_getBuildFlags(PyObject *self, PyObject *args);
     
     PyObject *makeEnum(PyObject *, PyObject *args, PyObject *kwargs);
     
     // implements db0.filter functionality
     PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs);
     
-    PyObject *isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
     PyObject *getTypeInfo(PyObject *self, PyObject *args);
     
-    PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_setPrefix(PyObject *self, PyObject *args, PyObject *kwargs);
     
     PyObject *getSlabMetrics(PyObject *self, PyObject *args);
     

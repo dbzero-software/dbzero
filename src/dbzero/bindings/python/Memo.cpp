@@ -23,6 +23,8 @@ namespace db0::python
 
 {
     
+    using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         auto &decor = MemoTypeDecoration::get(py_type);
@@ -249,7 +251,7 @@ namespace db0::python
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGet(PyUnicode_AsUTF8(attr));
         
-        if (member) {
+        if (member.get()) {
             return member.steal();
         }
         
@@ -367,13 +369,17 @@ namespace db0::python
 
     PyObject *findModule(PyObject *module_name)
     {
-        PyObject *sys_module = PyImport_ImportModule("sys");
-        PyObject *modules_dict = PyObject_GetAttrString(sys_module, "modules");
-        auto result = PyDict_GetItem(modules_dict, module_name);
+        auto sys_module = Py_OWN(PyImport_ImportModule("sys"));
+        if (!sys_module) {
+            return nullptr;            
+        }
 
-        Py_DECREF(sys_module);
-        Py_DECREF(modules_dict);
-        return result;
+        auto modules_dict = Py_OWN(PyObject_GetAttrString(*sys_module, "modules"));
+        if (!modules_dict) {
+            return nullptr;            
+        }
+
+        return Py_NEW(PyDict_GetItem(*modules_dict, module_name));
     }
     
     // Copy a python dict
@@ -381,13 +387,13 @@ namespace db0::python
     {
         PyObject *key, *value;
         Py_ssize_t pos = 0;
-        PyObject *new_dict = PyDict_New();
+        auto new_dict = Py_OWN(PyDict_New());
 
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            PyDict_SetItem(new_dict, key, value);
+            PyDict_SetItem(*new_dict, key, value);
         }
-
-        return new_dict;
+        
+        return new_dict.steal();
     }
     
     PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name,
@@ -395,8 +401,8 @@ namespace db0::python
         std::vector<Migration> &&migrations)
     {
         Py_INCREF(py_class);
-        PyObject *py_module = findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__"));
-        if (!py_module || !PyModule_Check(py_module)) {
+        auto py_module = Py_OWN(findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__")));
+        if (!py_module || !PyModule_Check(*py_module)) {
             Py_DECREF(py_class);
             THROWF(db0::InternalException) << "Type related module not found: " << py_class->tp_name;
         }
@@ -419,7 +425,9 @@ namespace db0::python
         auto &type_manager = PyToolkit::getTypeManager();
         char *data = new char[sizeof(PyHeapTypeObject) + sizeof(MemoTypeDecoration)];
         PyHeapTypeObject *ht_new_type = new (data) PyHeapTypeObject();
+        // NOTE: pass py_modue since this 
         new (data + sizeof(PyHeapTypeObject)) MemoTypeDecoration(
+            py_module,
             type_manager.getPooledString(prefix_name), 
             type_manager.getPooledString(type_id),
             type_manager.getPooledString(file_name),
@@ -462,7 +470,7 @@ namespace db0::python
         
         if (PyType_Ready(new_type) < 0) {
             PyErr_SetString(PyExc_RuntimeError, "Failed to initialize new memo type");
-            return NULL;
+            return nullptr;
         }
 
         if (PyType_Type.tp_str == py_class->tp_str) {
@@ -477,14 +485,13 @@ namespace db0::python
         PyToolkit::getTypeManager().addMemoType(new_type, type_id);
         Py_INCREF(new_type);
         // register new type with the module where the original type was located
-        PyModule_AddObject(py_module, type_name, reinterpret_cast<PyObject*>(new_type));
+        PyModule_AddObject(*py_module, type_name, reinterpret_cast<PyObject*>(new_type));
 
         // add class fields class member to access memo type information
-        PyObject *py_class_fields = PyClassFields_create(new_type);
-        if (PyDict_SetItemString(new_type->tp_dict, "__fields__", py_class_fields) < 0) {
-            Py_DECREF(py_class_fields);
+        auto py_class_fields = Py_OWN(PyClassFields_create(new_type));
+        if (PySafeDict_SetItemString(new_type->tp_dict, "__fields__", py_class_fields) < 0) {            
             PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
-            return NULL;
+            return nullptr;
         }
         
         return new_type;
@@ -492,8 +499,8 @@ namespace db0::python
     
     PyTypeObject *tryWrapPyClass(PyObject *args, PyObject *kwargs)
     {
-        PyObject* class_obj;
-        PyObject *singleton = Py_False;
+        PyObject *class_obj = nullptr;
+        PyObject *py_singleton = nullptr;
         PyObject *py_prefix_name = nullptr;
         PyObject *py_type_id = nullptr;
         PyObject *py_file_name = nullptr;
@@ -504,14 +511,14 @@ namespace db0::python
         
         static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", "py_init_vars", 
             "py_dyn_prefix", "py_migrations", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOO", const_cast<char**>(kwlist), &class_obj, &singleton,
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
             &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations))
         {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
         }
         
-        bool is_singleton = PyObject_IsTrue(singleton);
+        bool is_singleton = py_singleton && PyObject_IsTrue(py_singleton);
         const char *prefix_name = py_prefix_name ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
@@ -585,42 +592,48 @@ namespace db0::python
         auto &index_vt = field_layout.m_index_vt_fields;
         
         // report pos-vt members
-        PyObject *py_pos_vt = PyList_New(pos_vt.size());
-        for (std::size_t i = 0; i < pos_vt.size(); ++i) {        
+        auto py_pos_vt = Py_OWN(PyList_New(pos_vt.size()));
+        for (std::size_t i = 0; i < pos_vt.size(); ++i) {
             auto type_name = db0::to_string(pos_vt[i]);
-            PyList_SET_ITEM(py_pos_vt, i, PyUnicode_FromString(type_name.c_str()));
+            PySafeList_SetItem(*py_pos_vt, i, Py_OWN(PyUnicode_FromString(type_name.c_str())));
         }
         
         // report index-vt members
-        PyObject *py_index_vt = PyDict_New();
+        auto py_index_vt = Py_OWN(PyDict_New());
         for (auto &item: index_vt) {
             auto type_name = db0::to_string(item.second);
-            PyDict_SetItem(py_index_vt, PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
+            PySafeDict_SetItem(*py_index_vt, Py_OWN(PyLong_FromLong(item.first)), 
+                Py_OWN(PyUnicode_FromString(type_name.c_str())));
         }
         
         // report kv-index members
-        PyObject *py_kv_index = PyDict_New();
+        auto py_kv_index = Py_OWN(PyDict_New());
         for (auto &item: field_layout.m_kv_index_fields) {
             auto type_name = db0::to_string(item.second);
-            PyDict_SetItem(py_kv_index, PyLong_FromLong(item.first), PyUnicode_FromString(type_name.c_str()));
+            PySafeDict_SetItem(*py_kv_index, Py_OWN(PyLong_FromLong(item.first)), 
+                Py_OWN(PyUnicode_FromString(type_name.c_str())));
+        }
+        
+        auto py_result = Py_OWN(PyDict_New());
+        if (!py_result) {
+            return nullptr;
         }
 
-        PyObject *py_result = PyDict_New();
-        PyDict_SetItemString(py_result, "pos_vt", py_pos_vt);
-        PyDict_SetItemString(py_result, "index_vt", py_index_vt);
-        PyDict_SetItemString(py_result, "kv_index", py_kv_index);
-        return py_result;
+        PySafeDict_SetItemString(*py_result, "pos_vt", py_pos_vt);
+        PySafeDict_SetItemString(*py_result, "index_vt", py_index_vt);
+        PySafeDict_SetItemString(*py_result, "kv_index", py_kv_index);
+        return py_result.steal();
     }
     
     PyObject *MemoObject_DescribeObject(MemoObject *self)
     {        
-        auto py_field_layout = MemoObject_GetFieldLayout(self);
-        PyObject *py_result = PyDict_New();
-        PyDict_SetItemString(py_result, "field_layout", py_field_layout);
-        PyDict_SetItemString(py_result, "uuid", tryGetUUID(self));
-        PyDict_SetItemString(py_result, "type", PyUnicode_FromString(self->ext().getType().getName().c_str()));
-        PyDict_SetItemString(py_result, "size_of", PyLong_FromLong(self->ext()->sizeOf()));
-        return py_result;
+        auto py_field_layout = Py_OWN(MemoObject_GetFieldLayout(self));
+        auto py_result = Py_OWN(PyDict_New());
+        PySafeDict_SetItemString(*py_result, "field_layout", py_field_layout);
+        PySafeDict_SetItemString(*py_result, "uuid", Py_OWN(tryGetUUID(self)));
+        PySafeDict_SetItemString(*py_result, "type", Py_OWN(PyUnicode_FromString(self->ext().getType().getName().c_str())));
+        PySafeDict_SetItemString(*py_result, "size_of", Py_OWN(PyLong_FromLong(self->ext()->sizeOf())));
+        return py_result.steal();
     }
     
     PyObject *tryMemoObject_str(MemoObject *self)
@@ -629,14 +642,14 @@ namespace db0::python
         auto &memo = self->ext();
         str << "<" << Py_TYPE(self)->tp_name;
         if (memo.hasInstance()) {
-            str << " instance uuid=" << PyUnicode_AsUTF8(tryGetUUID(self));
+            str << " instance uuid=" << PyUnicode_AsUTF8(*Py_OWN(tryGetUUID(self)));
         } else {
             str << " (uninitialized)";
         }
         str << ">";
         return PyUnicode_FromString(str.str().c_str());
     }
-
+    
     PyObject *MemoObject_str(MemoObject *self)
     {
         PY_API_FUNC
@@ -646,8 +659,8 @@ namespace db0::python
     void MemoType_get_info(PyTypeObject *type, PyObject *dict)
     {                      
         auto &decor = MemoTypeDecoration::get(type);
-        PyDict_SetItemString(dict, "singleton", PyBool_FromLong(PyMemoType_IsSingleton(type)));
-        PyDict_SetItemString(dict, "prefix", PyUnicode_FromString(decor.getPrefixName()));
+        PySafeDict_SetItemString(dict, "singleton", Py_OWN(PyBool_FromLong(PyMemoType_IsSingleton(type))));
+        PySafeDict_SetItemString(dict, "prefix", Py_OWN(PyUnicode_FromString(decor.getPrefixName())));
     }
     
     void MemoType_close(PyTypeObject *type)
@@ -680,7 +693,7 @@ namespace db0::python
     {
         memo_obj->ext().getFixture()->refreshIfUpdated();
         auto member = memo_obj->ext().tryGetAs(PyUnicode_AsUTF8(attr), py_type);
-        if (member) {
+        if (member.get()) {
             return member.steal();
         }
 
@@ -689,105 +702,95 @@ namespace db0::python
     
     PyObject *getKwargsForMethod(PyObject* method, PyObject* kwargs)
     {
-        PyObject *inspec_module = PyImport_ImportModule("inspect");
-        PyObject *signatue = PyObject_CallMethod(inspec_module, "signature", "O", method);
-        PyObject *parameters = PyObject_GetAttrString(signatue, "parameters");
-        PyObject *iterator = PyObject_GetIter(parameters);
+        auto inspect_module = Py_OWN(PyImport_ImportModule("inspect"));
+        if (!inspect_module) {
+            return nullptr;
+        }
+        auto signature = Py_OWN(PyObject_CallMethod(*inspect_module, "signature", "O", method));
+        if (!signature) {
+            return nullptr;
+        }
+
+        auto parameters = Py_OWN(PyObject_GetAttrString(*signature, "parameters"));
+        if (!parameters) {
+            PyErr_SetString(PyExc_RuntimeError, "Failed to get parameters");
+            return nullptr;
+        }
+
+        auto iterator = Py_OWN(PyObject_GetIter(*parameters));
         if (!iterator) {
-            Py_DECREF(inspec_module);
-            Py_DECREF(signatue);
-            Py_DECREF(parameters);
             PyErr_SetString(PyExc_RuntimeError, "Failed to get iterator");            
             return nullptr;
         }
         
-        PyObject *elem;
-        PyObject *py_result = PyDict_New();
-        while ((elem = PyIter_Next(iterator))) {
-            if (PyDict_Contains(kwargs, elem) == 1) {
-                auto py_item = PyDict_GetItem(kwargs, elem);
-                PyDict_SetItem(py_result, elem, py_item);
-                Py_DECREF(py_item);
+        ObjectSharedPtr elem;
+        auto py_result = Py_OWN(PyDict_New());
+        Py_FOR(elem, iterator) {
+            if (PyDict_Contains(kwargs, *elem) == 1) {
+                PySafeDict_SetItem(*py_result, elem, Py_BORROW(PyDict_GetItem(kwargs, *elem)));
             }
-            Py_DECREF(elem);
         }
-        Py_DECREF(iterator);
-        Py_DECREF(parameters);
-        Py_DECREF(signatue);
-        Py_DECREF(inspec_module);
-        return py_result;
+        
+        return py_result.steal();
     }
     
-    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude, 
+    PyObject *tryLoadMemo(MemoObject *memo_obj, PyObject *kwargs, PyObject *py_exclude,
         std::unordered_set<const void*> *load_stack_ptr)
     {
-        auto load_method = tryMemoObject_getattro(memo_obj, PyUnicode_FromString("__load__"));
-        PyObject *py_result = PyDict_New();
-        if (load_method) {
+        auto load_method = Py_OWN(tryMemoObject_getattro(memo_obj, *Py_OWN(PyUnicode_FromString("__load__"))));
+        if (load_method.get()) {
             if (py_exclude != nullptr && py_exclude != Py_None && PySequence_Check(py_exclude)) {
                 PyErr_SetString(PyExc_AttributeError, "Cannot exclude values when __load__ is implemented");
-                Py_DECREF(load_method);
-                Py_DECREF(py_result);
                 return nullptr;
             }
             
-            PyObject *result;
+            ObjectSharedPtr result;
             if (kwargs != nullptr) {
-                PyObject *method_kwargs = getKwargsForMethod(load_method, kwargs);
+                auto method_kwargs = Py_OWN(getKwargsForMethod(*load_method, kwargs));
                 if (!method_kwargs) {
-                    Py_DECREF(load_method);
-                    Py_DECREF(py_result);
                     return nullptr;
                 }
-                PyObject *args = PyTuple_New(0);
-                result = PyObject_Call(load_method, args, method_kwargs);
-                Py_DECREF(args);
-                Py_DECREF(method_kwargs);
+                auto args = Py_OWN(PyTuple_New(0));
+                result = Py_OWN(PyObject_Call(*load_method, *args, *method_kwargs));
             } else {
-                result = PyObject_CallObject(load_method, nullptr);
+                result = Py_OWN(PyObject_CallObject(*load_method, nullptr));
             }
-            if (result == nullptr) {
-                Py_DECREF(load_method);
-                Py_DECREF(py_result);
+            if (!result) {
                 return nullptr;
             }
-            Py_DECREF(load_method);
-            return tryLoad(result, kwargs, nullptr, load_stack_ptr);
+            return tryLoad(*result, kwargs, nullptr, load_stack_ptr);
         }
         
         // reset Python error
         // FIXME: optimization opportunity if we're able to eliminate error message formatting
         PyErr_Clear();
         
+        auto py_result = Py_OWN(PyDict_New());
         bool has_error = false;
-        memo_obj->ext().forAll([py_result, memo_obj, py_exclude, kwargs, &has_error, load_stack_ptr]
+        memo_obj->ext().forAll([&py_result, memo_obj, py_exclude, kwargs, &has_error, load_stack_ptr]
             (const std::string &key, PyTypes::ObjectSharedPtr)
         {
-            auto key_obj = PyUnicode_FromString(key.c_str());
-            auto attr = PyAPI_MemoObject_getattro(memo_obj, key_obj);
+            auto key_obj = Py_OWN(PyUnicode_FromString(key.c_str()));
+            auto attr = Py_OWN(PyAPI_MemoObject_getattro(memo_obj, *key_obj));
             if (!attr) {
                 has_error = true;
                 return false;
             }
             
-            if (py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, key_obj) == 0) {
-                PyObject *res = tryLoad(attr, kwargs, nullptr, load_stack_ptr);
-                if (res == nullptr) {
+            if (py_exclude == nullptr || py_exclude == Py_None || PySequence_Contains(py_exclude, *key_obj) == 0) {
+                auto res = Py_OWN(tryLoad(*attr, kwargs, nullptr, load_stack_ptr));
+                if (!res) {
                     has_error = true;
                 } else {
-                    PyDict_SetItemString(py_result, key.c_str(), res);
-                    Py_DECREF(res);
+                    PySafeDict_SetItemString(*py_result, key.c_str(), res);                    
                 }
             }
-            Py_DECREF(attr);
-            Py_DECREF(key_obj);
             return !has_error;
         });
-        if (has_error) {
-            Py_DECREF(py_result);
+        if (has_error) {            
             return nullptr;
         }
-        return py_result;
+        return py_result.steal();
     }
     
     PyObject *tryCompareMemo(MemoObject *py_memo_1, MemoObject *py_memo_2)

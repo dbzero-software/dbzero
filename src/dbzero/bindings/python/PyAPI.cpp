@@ -39,6 +39,8 @@ namespace db0::python
 
 {
 
+    using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+
     PyObject *getCacheStats(PyObject *, PyObject *)
     {
         PY_API_FUNC
@@ -54,20 +56,19 @@ namespace db0::python
         auto dram_prefix_size = DRAM_Prefix::getTotalMemoryUsage().first;
 #endif        
         
-        PyObject* dict = PyDict_New();
-        if (dict == NULL) {
-            PyErr_SetString(PyExc_MemoryError, "Failed to create a dictionary.");
-            return NULL;
+        auto dict = Py_OWN(PyDict_New());
+        if (!dict) {
+            return nullptr;
         }
         
-        PyDict_SetItemString(dict, "size", PyLong_FromLong(cache_recycler.size()));
-        PyDict_SetItemString(dict, "capacity", PyLong_FromLong(cache_recycler.getCapacity()));
-        PyDict_SetItemString(dict, "deferred_free_count", PyLong_FromLong(deferred_free_count));
-        PyDict_SetItemString(dict, "lang_cache_size", PyLong_FromLong(lang_cache_size));
+        PySafeDict_SetItemString(*dict, "size", Py_OWN(PyLong_FromLong(cache_recycler.size())));
+        PySafeDict_SetItemString(*dict, "capacity", Py_OWN(PyLong_FromLong(cache_recycler.getCapacity())));
+        PySafeDict_SetItemString(*dict, "deferred_free_count", Py_OWN(PyLong_FromLong(deferred_free_count)));
+        PySafeDict_SetItemString(*dict, "lang_cache_size", Py_OWN(PyLong_FromLong(lang_cache_size)));
 #ifndef NDEBUG
-        PyDict_SetItemString(dict, "dram_prefix_size", PyLong_FromLong(dram_prefix_size));
+        PySafeDict_SetItemString(*dict, "dram_prefix_size", Py_OWN(PyLong_FromLong(dram_prefix_size)));
 #endif        
-        return dict;
+        return dict.steal();
     }
     
     PyObject *getLangCacheStats(PyObject *, PyObject *)
@@ -75,15 +76,14 @@ namespace db0::python
         PY_API_FUNC
         auto lang_cache = PyToolkit::getPyWorkspace().getWorkspace().getLangCache();
         
-        PyObject* dict = PyDict_New();
-        if (dict == NULL) {
-            PyErr_SetString(PyExc_MemoryError, "Failed to create a dictionary.");
-            return NULL;
+        auto dict = Py_OWN(PyDict_New());
+        if (!dict) {        
+            return nullptr;
         }
         
-        PyDict_SetItemString(dict, "size", PyLong_FromLong(lang_cache->size()));
-        PyDict_SetItemString(dict, "capacity", PyLong_FromLong(lang_cache->getCapacity()));
-        return dict;
+        PySafeDict_SetItemString(*dict, "size", Py_OWN(PyLong_FromLong(lang_cache->size())));
+        PySafeDict_SetItemString(*dict, "capacity", Py_OWN(PyLong_FromLong(lang_cache->getCapacity())));
+        return dict.steal();
     }
     
     PyObject *PyAPI_clearCache(PyObject *, PyObject *)
@@ -207,13 +207,13 @@ namespace db0::python
 
         using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
         ObjectSharedPtr config_obj;
-        if(py_config) {
-            config_obj = ObjectSharedPtr(PyDict_Copy(py_config), false);
+        if (py_config) {
+            config_obj = Py_OWN(PyDict_Copy(py_config));
         }
         else {
-            config_obj = ObjectSharedPtr(PyDict_New(), false);
+            config_obj = Py_OWN(PyDict_New());
         }
-        if(!config_obj) {
+        if (!config_obj) {
             return nullptr;
         }
         
@@ -222,22 +222,22 @@ namespace db0::python
             {"autocommit", []{ Py_RETURN_TRUE; }},
             {"autocommit_interval", []{ return PyLong_FromLong(Workspace::DEFAULT_AUTOCOMMIT_INTERVAL_MS); }}
         };
-        for(const auto &[key, value_function] : defaults) {
+        for (const auto &[key, value_function] : defaults) {
             // Populate default values so then can be easily accessed with get_config
-            ObjectSharedPtr key_obj(PyUnicode_FromString(key), false);
-            if(!key) {
+            auto key_obj = Py_OWN(PyUnicode_FromString(key));
+            if (!key) {
                 return nullptr;
             }
-            ObjectSharedPtr value_obj(value_function(), false);
-            if(!value_obj) {
+            auto value_obj = Py_OWN(value_function());
+            if (!value_obj) {
                 return nullptr;
             }
-            if(!PyDict_SetDefault(config_obj.get(), key_obj.get(), value_obj.get())) {
+            if (!PySafeDict_SetDefault(*config_obj, key_obj, value_obj)) {
                 return nullptr;
             }
         }
-
-        PyToolkit::getPyWorkspace().initWorkspace(str_path, config_obj.get(), py_flags);
+        
+        PyToolkit::getPyWorkspace().initWorkspace(str_path, *config_obj, py_flags);
         Py_RETURN_NONE;
     }
     
@@ -571,7 +571,7 @@ namespace db0::python
         return runSafe(tryRenameField, args);
     }
     
-    PyObject *isSingleton(PyObject *, PyObject *args)
+    PyObject *PyAPI_isSingleton(PyObject *, PyObject *args)
     {
         PY_API_FUNC
         PyObject *py_object;
@@ -585,7 +585,7 @@ namespace db0::python
             return NULL;
         }
 
-        return (reinterpret_cast<MemoObject*>(py_object)->ext().isSingleton()) ? Py_True : Py_False;
+        return PyBool_fromBool(reinterpret_cast<MemoObject*>(py_object)->ext().isSingleton());
     }
 
     PyObject *getRefCount(PyObject *, PyObject *args)
@@ -615,15 +615,18 @@ namespace db0::python
         }
 
         PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
-        PyObject *py_dict = PyDict_New();
-        if (PyMemoType_Check(py_type)) {
-            MemoType_get_info(py_type, py_dict);
-            return py_dict;
+        auto py_dict = Py_OWN(PyDict_New());
+        if (!py_dict) {
+            return nullptr;
         }
 
-        Py_DECREF(py_dict);
+        if (PyMemoType_Check(py_type)) {
+            MemoType_get_info(py_type, *py_dict);
+            return py_dict.steal();
+        }
+        
         PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-        return NULL;
+        return nullptr;
     }
     
     PyObject *negTags(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
@@ -645,15 +648,15 @@ namespace db0::python
         }
         
         auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
-        PyObject *py_result = PyDict_New();
+        auto py_result = Py_OWN(PyDict_New());
         memo_obj.ext().forAll([py_result](const std::string &key, ObjectSharedPtr py_value) {
-            PyDict_SetItemString(py_result, key.c_str(), py_value.steal());
+            PySafeDict_SetItemString(*py_result, key.c_str(), py_value);
             return true;
         });
-        return py_result;
+        return py_result.steal();
     }
     
-    PyObject *getBuildFlags(PyObject *, PyObject *)
+    PyObject *PyAPI_getBuildFlags(PyObject *, PyObject *)
     {
         PY_API_FUNC
         std::stringstream str_flags;
@@ -745,13 +748,13 @@ namespace db0::python
             return runSafe(tryMakeEnumFromType, self, py_type, enum_values, type_id, prefix_name);
         }
     }
-
+    
     using TagIndex = db0::object_model::TagIndex;
     using ObjectIterable = db0::object_model::ObjectIterable;
     using ObjectIterator = db0::object_model::ObjectIterator;
     using QueryObserver = db0::object_model::QueryObserver;
-        
-    PyObject *isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    
+    PyObject *PyAPI_isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         if (nargs != 1) {
@@ -760,7 +763,7 @@ namespace db0::python
         }
         
         // NOTE: to Python programs EnumValue / EnuValueRepr should not be differentiable
-        return (PyEnumValue_Check(args[0]) || PyEnumValueRepr_Check(args[0])) ? Py_True : Py_False;
+        return PyBool_fromBool(PyEnumValue_Check(args[0]) || PyEnumValueRepr_Check(args[0]));
     }
     
     PyObject *tryFilterBy(PyObject *args, PyObject *kwargs)
@@ -807,7 +810,7 @@ namespace db0::python
         return runSafe(tryFilterBy, args, kwargs);
     }
     
-    PyObject *setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
                 
@@ -876,19 +879,19 @@ namespace db0::python
     PyObject *tryGetMutablePrefixes()
     {
         using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
-        ObjectSharedPtr list(PyList_New(0), false);
-        if(!list) {
+        auto list = Py_OWN(PyList_New(0));
+        if (!list) {
             return nullptr;
         }
         PyToolkit::getPyWorkspace().getWorkspace().forEachFixture([&list](const Fixture &fixture) {
-            if(fixture.getAccessType() == AccessType::READ_WRITE) {
-                ObjectSharedPtr prefix(Py_BuildValue("sK", fixture.getPrefix().getName().c_str(), fixture.getUUID()), false);
-                if(!prefix) {
-                    list = ObjectSharedPtr();
+            if (fixture.getAccessType() == AccessType::READ_WRITE) {
+                auto prefix = Py_OWN(Py_BuildValue("sK", fixture.getPrefix().getName().c_str(), fixture.getUUID()));
+                if (!prefix) {
+                    list = nullptr;
                     return false;
                 }
-                if(PyList_Append(list.get(), prefix.get()) == -1) {
-                    list = ObjectSharedPtr();
+                if (PySafeList_Append(*list, prefix) == -1) {
+                    list = nullptr;
                     return false;
                 }
             }
@@ -897,7 +900,7 @@ namespace db0::python
         return list.steal();
     }
 
-    PyObject *PyAPI_getMutablePrefixes(PyObject *, PyObject *) 
+    PyObject *PyAPI_getMutablePrefixes(PyObject *, PyObject *)
     {
         PY_API_FUNC
         return runSafe(tryGetMutablePrefixes);
@@ -1171,67 +1174,61 @@ namespace db0::python
     PyObject *tryAwaitPrefixState(PyObject *future, const char *prefix, int state)
     {
         db0::swine_ptr<Fixture> fixture = PyToolkit::getPyWorkspace().getWorkspace().tryFindFixture(prefix);
-        if(!fixture) {
+        if (!fixture) {
             PyErr_SetString(PyExc_RuntimeError, "await_prefix_state() requires prefix to be opened");
             return nullptr;
         }
-        if(fixture->getAccessType() != AccessType::READ_WRITE) {
+        if (fixture->getAccessType() != AccessType::READ_WRITE) {
             PyErr_SetString(PyExc_RuntimeError, "await_prefix_state() requires read-write access to prefix");
             return nullptr;
         }
 
-
         class StateReachedCallback : public StateReachedCallbackBase
         {
-            PyObject* m_future;
+            ObjectSharedPtr m_future;
 
         public:
             explicit StateReachedCallback(PyObject *future)
-            : m_future(future)
-            {
-                Py_INCREF(m_future);
+                : m_future(Py_BORROW(future))
+            {                
             }
 
             virtual ~StateReachedCallback()
             {
-                // This cleanup should never be done from another thread
-                if(m_future) {
-                    // First we should check if the python is closing
-                    // We can't use the API after finalization has started
-                    if(!Py_IsInitialized()) {
-                        Py_DECREF(m_future);
-                    }
+                // First we should check if the python is closing
+                // We can't use the API after finalization has started
+                if (!Py_IsInitialized()) {
+                    m_future.steal();
                 }
             }
 
             virtual void execute() override
-            {
-                PyObject *loop = nullptr, *future_set_result = nullptr, *handle = nullptr;
+            {                
                 PyGILState_STATE gstate = PyGILState_Ensure();
-
-                loop = PyObject_CallMethod(m_future, "get_loop", nullptr);
-                // loop can be null when the process is closing
-                if(loop) {
-                    future_set_result = PyObject_GetAttrString(m_future, "set_result");
-                    handle = PyObject_CallMethod(loop, "call_soon_threadsafe", "OO", future_set_result, Py_None);
+                
+                {
+                    auto loop = Py_OWN(PyObject_CallMethod(*m_future, "get_loop", nullptr));
+                    ObjectSharedPtr future_set_result, handle;
+                    // loop can be null when the process is closing
+                    if (loop.get()) {
+                        future_set_result = Py_OWN(PyObject_GetAttrString(*m_future, "set_result"));
+                        if (future_set_result.get()) {
+                            handle = Py_OWN(PyObject_CallMethod(
+                                *loop, "call_soon_threadsafe", "OO", *future_set_result, Py_None)
+                            );
+                        }
+                    }
                 }
-
+                
                 // We want to avoid 'leaking' exceptions into the main thread
                 // The kind of errors that can occur here are related to use of python API when runtime finalization has started
                 PyErr_Clear();
-
-                Py_XDECREF(handle);
-                Py_XDECREF(future_set_result);
-                Py_XDECREF(loop);
-
-                Py_DECREF(m_future);
+                
                 m_future = nullptr;
-
                 PyGILState_Release(gstate);
             }
         };
         fixture->registerPrefixStateReachedCallback(state, std::make_unique<StateReachedCallback>(future));
-
         Py_RETURN_NONE;
     }
     
@@ -1252,7 +1249,7 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryAwaitPrefixState, future, prefix, state);
     }
-        
+
     PyObject *tryGetConfig()
     {
         auto config = PyToolkit::getPyWorkspace().getConfig()->getRawConfig();

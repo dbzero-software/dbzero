@@ -4,6 +4,7 @@ import datetime
 import dbzero_ce as db0
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedSingleton, MemoScopedClass, MonthTag, DATA_PX
+from decimal import Decimal
 
 
 def test_can_create_dict(db0_fixture):
@@ -253,17 +254,14 @@ def test_dict_items_in(db0_no_autocommit):
     # insert 1000 random items
     for i in range(100):
         dict_1[i] = i
-    assert len(dict_1) == 100
-    now = datetime.datetime.now()
+    assert len(dict_1) == 100    
     for i in range(100000):
         random_int = random.randint(0, 300)
         if random_int < 100:
             assert random_int in dict_1
         else:
             assert random_int not in dict_1
-    end = datetime.datetime.now()
-    print("Elapsed time: ", end - now)
-
+    
 
 def test_dict_insert_mixed_types_issue_1(db0_fixture):
     """
@@ -347,8 +345,7 @@ def test_pop_unref_and_values(db0_fixture):
     db0.clear_cache()
     db0.commit()
     with pytest.raises(Exception):
-        db0.fetch(uuid_value)
-    print("HERE 10")
+        db0.fetch(uuid_value)    
     with pytest.raises(Exception):
         db0.fetch(uuid_key)
 
@@ -498,3 +495,45 @@ def test_dict_del_items_while_iterating_over(db0_no_autocommit):
         cut.pop(next(keys))
     
     assert len(cut) > 0
+    
+    
+def test_dict_pop_tuple_keys(db0_no_autocommit):
+    keys = [(MemoTestClass(i), Decimal(i)) for i in range(100)]
+    cut = db0.dict({k: "value" for k in keys})
+    assert len(cut) == 100
+    
+    to_remove =  [21, 7, 48, 23, 24, 98, 12, 58, 79, 39, 17, 81, 36, 89, 72, 6, 54, 97, 
+                  8, 50, 77, 34, 0, 62, 14, 44, 95, 86, 73, 18, 45, 53, 84, 38, 64, 60, 
+                  68, 28, 75, 40, 22, 49, 85, 63, 2, 15, 4, 66, 16, 80]
+    for index in to_remove:
+        cut.pop(keys[index])
+
+    assert len(cut) == 50
+    
+    
+def test_dict_pop_complex_objects(db0_no_autocommit):
+    keys = [(MemoTestClass(i), Decimal(i)) for i in range(100)]
+    cut = db0.dict({k: MemoTestClass(MemoTestClass(k)) for k in keys})
+    assert len(cut) == 100
+    
+    to_remove =  [21, 7, 48, 23, 24, 98, 12, 58, 79, 39, 17, 81, 36, 89, 72, 6, 54, 97, 
+                  8, 50, 77, 34, 0, 62, 14, 44, 95, 86, 73, 18, 45, 53, 84, 38, 64, 60, 
+                  68, 28, 75, 40, 22, 49, 85, 63, 2, 15, 4, 66, 16, 80]
+    removed = []
+    for index in to_remove:
+        removed.append(cut.pop(keys[index]))
+    
+    assert len(cut) == 50
+    for item in removed:
+        assert isinstance(item, MemoTestClass)
+        assert isinstance(item.value, MemoTestClass)        
+    
+
+def test_dict_pop_issue1(db0_no_autocommit):
+    """
+    Issue: this test was causing segfault once in a while
+    Resolution: bug in db0.hash implementation for db0.Tuple (retrieving a pointer to a temporary object)
+    """
+    cut = db0.dict([((0, Decimal(i)), 0) for i in range(50)])
+    for key in cut.keys():
+        _ = db0.hash(key)

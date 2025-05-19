@@ -21,16 +21,10 @@ namespace db0::object_model
 
         struct DictItem
         {
-            DictItem(ObjectPtr p_key, ObjectPtr p_value) 
-                : key(p_key)
-                , value(p_value) 
-            {
-            }
-
             ObjectSharedPtr key;
             ObjectSharedPtr value;
         };
-
+        
         ObjectSharedPtr next() override;
 
         DictItem nextItem();

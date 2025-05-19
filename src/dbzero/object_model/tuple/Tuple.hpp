@@ -71,7 +71,7 @@ namespace db0::object_model
         ~Tuple();
 
         ObjectSharedPtr getItem(std::size_t i) const;
-        void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
+        void setItem(FixtureLock &, std::size_t i, ObjectSharedPtr lang_value);
         
         static Tuple *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::size_t size);
         static Tuple *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);

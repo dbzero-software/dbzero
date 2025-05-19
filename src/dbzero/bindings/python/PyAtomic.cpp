@@ -45,15 +45,10 @@ namespace db0::python
     PyAtomic *PyAPI_tryBeginAtomic(PyObject *self, std::unique_lock<std::mutex> &&lock)
     {
         PY_API_FUNC
-        auto py_object = PyAtomic_new(&PyAtomicType, NULL, NULL);
-        try {            
-            auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
-            db0::AtomicContext::makeNew(&py_object->modifyExt(), workspace_ptr, std::move(lock));
-            return py_object;
-        } catch (...) {        
-            Py_DECREF(py_object);
-            throw;
-        }
+        auto py_object = Py_OWN(PyAtomic_new(&PyAtomicType, NULL, NULL));        
+        auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
+        db0::AtomicContext::makeNew(&py_object->modifyExt(), workspace_ptr, std::move(lock));
+        return py_object.steal();
     }
     
     PyObject *PyAPI_beginAtomic(PyObject *self, PyObject *const *, Py_ssize_t nargs)

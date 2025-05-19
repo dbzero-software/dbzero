@@ -7,6 +7,7 @@
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include "PyToolkit.hpp"
 #include <dbzero/bindings/python/types/PyClass.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
@@ -18,13 +19,15 @@ namespace db0::python
         fixture_catalog.refresh();
         auto data = fixture_catalog.getData();
         // return as python list of tuples
-        PyObject *py_list = PyList_New(0);
+        auto py_list = Py_OWN(PyList_New(0));
         // prefix name / UUID pairs
         for (auto [name, uuid]: data) {
-            PyObject *py_tuple = PyTuple_Pack(2, PyUnicode_FromString(name.c_str()), PyLong_FromUnsignedLongLong(uuid));            
-            PyList_Append(py_list, py_tuple);
+            auto py_tuple = Py_OWN(PySafeTuple_Pack(Py_OWN(PyUnicode_FromString(name.c_str())), 
+                Py_OWN(PyLong_FromUnsignedLongLong(uuid)))
+            );
+            PySafeList_Append(*py_list, py_tuple);
         }
-        return py_list;
+        return py_list.steal();
     }
     
     PyObject *getSingletonUUID(const db0::object_model::Class &type)
@@ -40,11 +43,11 @@ namespace db0::python
         assert(fixture);
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // collect class info as tuples
-        PyObject *py_list = PyList_New(0);
+        auto py_list = Py_OWN(PyList_New(0));
         class_factory.forAll([&](const db0::object_model::Class &type) {
-            PyList_Append(py_list, tryGetTypeInfo(type));
+            PySafeList_Append(*py_list, Py_OWN(tryGetTypeInfo(type)));
         });
-        return py_list;
+        return py_list.steal();
     }
     
     PyObject *tryGetMemoClasses(const char *prefix_name, std::uint64_t prefix_uuid)

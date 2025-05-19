@@ -4,6 +4,7 @@
 #include <dbzero/bindings/python/Memo.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/bindings/python/PyAPI.hpp>
 #include <dbzero/bindings/python/Types.hpp>
@@ -76,15 +77,15 @@ namespace db0::python
         auto py_object_id = reinterpret_cast<PyObjectId*>(self);
         auto &object_id = py_object_id->m_object_id;
         // Create a tuple containing the arguments needed to reconstruct the object
-        PyObject *args = PyTuple_Pack(3,
-            PyLong_FromUnsignedLongLong(object_id.m_fixture_uuid), 
-            PyLong_FromUnsignedLongLong(object_id.m_address.getValue()),
-            PyLong_FromUnsignedLong(static_cast<unsigned int>(object_id.m_storage_class))
+        auto args = Py_OWN(PySafeTuple_Pack(
+            Py_OWN(PyLong_FromUnsignedLongLong(object_id.m_fixture_uuid)),
+            Py_OWN(PyLong_FromUnsignedLongLong(object_id.m_address.getValue())),
+            Py_OWN(PyLong_FromUnsignedLong(static_cast<unsigned int>(object_id.m_storage_class))))
         );
         
         // Return a tuple with the object's constructor and its arguments
-        return Py_BuildValue("(OO)", Py_TYPE(self), args);
-    }    
+        return Py_BuildValue("(OO)", Py_TYPE(self), *args);
+    }
     
     int ObjectId_init(PyObject* self, PyObject* state)
     {

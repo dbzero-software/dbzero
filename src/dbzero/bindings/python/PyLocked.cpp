@@ -1,7 +1,9 @@
 #include "PyLocked.hpp"
 #include "PyToolkit.hpp"
 #include "PyInternalAPI.hpp"
+#include "PySafeAPI.hpp"
 #include <dbzero/workspace/FixtureThreads.hpp>
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::python
 
@@ -46,22 +48,17 @@ namespace db0::python
     PyLocked *PyAPI_tryBeginLocked(PyObject *self)
     {
         PY_API_FUNC
-        auto py_object = PyLocked_new(&PyLockedType, NULL, NULL);
-        try {
-            auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
-            {
-                // this lock is to prevent auto-commit starvation which might
-                // happen in a heavy load situation when locked sections are created indefinitely
-                // owning the LockedCoontext's shared mutex
-                auto ac_lock = db0::AutoCommitThread::preventAutoCommit();
-            }
-            auto shared_lock = db0::LockedContext::lockShared();
-            db0::LockedContext::makeNew(&py_object->modifyExt(), workspace_ptr, std::move(shared_lock));
-            return py_object;
-        } catch (...) {
-            Py_DECREF(py_object);
-            throw;
+        auto py_object = Py_OWN(PyLocked_new(&PyLockedType, NULL, NULL));        
+        auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
+        {
+            // this lock is to prevent auto-commit starvation which might
+            // happen in a heavy load situation when locked sections are created indefinitely
+            // owning the LockedCoontext's shared mutex
+            auto ac_lock = db0::AutoCommitThread::preventAutoCommit();
         }
+        auto shared_lock = db0::LockedContext::lockShared();
+        db0::LockedContext::makeNew(&py_object->modifyExt(), workspace_ptr, std::move(shared_lock));
+        return py_object.steal();
     }
     
     PyObject *PyAPI_beginLocked(PyObject *self, PyObject *const *, Py_ssize_t nargs)
@@ -88,27 +85,28 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryPyLocked_close, reinterpret_cast<PyLocked*>(self));
     }
-
+    
     PyObject *tryPyLocked_get_mutation_log(PyLocked *self)
     {   
         // list of tuples: prefix name / state number       
         auto mutation_log = self->ext().getMutationLog();
-        auto mutation_log_list = PyList_New(mutation_log.size());
+        auto mutation_log_list = Py_OWN(PyList_New(mutation_log.size()));
         if (!mutation_log_list) {
-            return NULL;
+            return nullptr;
         }
 
         unsigned int i = 0;
         for (const auto &item: mutation_log) {
-            auto tuple = PyTuple_Pack(2, PyUnicode_FromString(item.first.c_str()), PyLong_FromUnsignedLongLong(item.second));
+            auto tuple = Py_OWN(PySafeTuple_Pack(Py_OWN(PyUnicode_FromString(item.first.c_str())), 
+                Py_OWN(PyLong_FromUnsignedLongLong(item.second)))
+            );
             if (!tuple) {
-                Py_DECREF(mutation_log_list);
-                return NULL;
+                return nullptr;
             }
-            PyList_SET_ITEM(mutation_log_list, i, tuple);
+            PySafeList_SetItem(*mutation_log_list, i, tuple);
             ++i;
         }
-        return mutation_log_list;
+        return mutation_log_list.steal();
     }
     
     PyObject *PyAPI_PyLocked_get_mutation_log(PyObject *self, PyObject *)
@@ -116,5 +114,5 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryPyLocked_get_mutation_log, reinterpret_cast<PyLocked*>(self));
     }
-
+    
 }

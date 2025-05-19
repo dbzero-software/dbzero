@@ -87,9 +87,9 @@ namespace db0::object_model
         restoreIterators();
     }
 
-    void Set::append(db0::FixtureLock &lock, std::size_t key, ObjectPtr lang_value) 
+    void Set::append(db0::FixtureLock &lock, std::size_t key, ObjectSharedPtr lang_value) 
     {
-        append(*lock, key, lang_value);
+        append(*lock, key, *lang_value);
         restoreIterators();
     }
     
@@ -110,7 +110,7 @@ namespace db0::object_model
         bool is_modified = false;
         if (iter == m_index.end()) {
             ++modify().m_size;
-            auto set_it = createSetItem<LangToolkit>(fixture, key, type_id, lang_value, storage_class);            
+            auto set_it = createSetItem<LangToolkit>(fixture, key, type_id, lang_value, storage_class);
             m_index.insert(set_it);
             is_modified = true;
         } else {

@@ -19,7 +19,7 @@ namespace db0::object_model
 
     ForwardIterator::ObjectSharedPtr ForwardIterator::operator*() const
     {
-        assert(m_current_item);
+        assert(m_current_item.get());
         return m_current_item;
     }
     

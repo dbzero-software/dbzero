@@ -9,6 +9,8 @@
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
 #include <dbzero/object_model/bytes/ByteArray.hpp>
 #include <dbzero/object_model/value/long_weak_ref.hpp>
+// FIXME: remove Python dependency
+#include <dbzero/bindings/python/PySafeAPI.hpp>
 
 namespace db0::object_model
 
@@ -139,11 +141,9 @@ namespace db0::object_model
     template <> Value createMember<TypeId::DICT, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
-        PyObject *args = PyTuple_New(1);
-        Py_INCREF(obj_ptr);
-        PyTuple_SetItem(args, 0, obj_ptr);
-        auto dict = db0::python::tryMake_DB0Dict(fixture, args, nullptr);
-        Py_DECREF(args);
+        auto args = Py_OWN(PyTuple_New(1));
+        PySafeTuple_SetItem(*args, 0, Py_BORROW(obj_ptr));
+        auto dict = db0::python::tryMake_DB0Dict(fixture, *args, nullptr);
         if (!dict) {
             THROWF(db0::InputException) << "Failed to create dict" << THROWF_END;
         }
@@ -212,10 +212,10 @@ namespace db0::object_model
         PyObjectPtr obj_ptr, StorageClass)
     {
         auto size = PyBytes_GET_SIZE(obj_ptr);
-        auto *str = PyBytes_AsString(obj_ptr);
-        return createBytesMember(fixture, reinterpret_cast<std::byte *>(str), size);
+        auto safe_str = PyBytes_AsString(obj_ptr);
+        return createBytesMember(fixture, reinterpret_cast<std::byte *>(safe_str), size);
     }
-
+    
     // NONE specialization
     template <> Value createMember<TypeId::NONE, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
@@ -258,7 +258,7 @@ namespace db0::object_model
         auto enum_value = fixture->get<EnumFactory>().getEnumValue(enum_value_repr);
         return enum_value.getUID().asULong();
     }
-
+    
     template <> Value createMember<TypeId::BOOLEAN, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
@@ -330,21 +330,25 @@ namespace db0::object_model
     {
         db0::v_object<db0::o_string> string_ref(fixture->myPtr(value.asAddress()));
         auto str_ptr = string_ref->get();
-        return PyUnicode_FromStringAndSize(str_ptr.get_raw(), str_ptr.size());
+        auto result = Py_OWN(PyUnicode_FromStringAndSize(str_ptr.get_raw(), str_ptr.size()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to string" << THROWF_END;
+        }
+        return result;
     }
-
+    
     // INT64 specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::INT64, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return PyLong_FromLong(value.cast<std::int64_t>());
+        return Py_OWN(PyLong_FromLong(value.cast<std::int64_t>()));
     }
-
+    
     // FLOAT specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::FP_NUMERIC64, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return PyFloat_FromDouble(value.cast<double>());
+        return Py_OWN(PyFloat_FromDouble(value.cast<double>()));
     }
 
     // OBJECT_REF specialization
@@ -375,7 +379,7 @@ namespace db0::object_model
     {
         return PyToolkit::unloadSet(fixture, value.asAddress());
     }
-
+    
     // DB0_DICT specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_DICT, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
@@ -389,49 +393,77 @@ namespace db0::object_model
     {
         db0::v_object<db0::o_binary> bytes = fixture->myPtr(value.asAddress());
         auto bytes_ptr = bytes->getBuffer();
-        return PyBytes_FromStringAndSize(reinterpret_cast<const char *>(bytes_ptr), bytes->size());
+        auto result = Py_OWN(PyBytes_FromStringAndSize(reinterpret_cast<const char *>(bytes_ptr), bytes->size()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to bytes" << THROWF_END;
+        }
+        return result;
     }
     
     // DATETIME specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATETIME, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyDatetime(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyDatetime(value.cast<std::uint64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Datetime" << THROWF_END;
+        }
+        return result;
     }
 
     // DATETIME with TZ specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATETIME_TZ, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyDatetimeWithTZ(value.cast<std::uint64_t>());
+        auto result = db0::python::uint64ToPyDatetimeWithTZ(value.cast<std::uint64_t>());
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Datetime with TZ" << THROWF_END;
+        }
+        return result;
     }
 
     // DATE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATE, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyDate(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyDate(value.cast<std::uint64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Date" << THROWF_END;
+        }
+        return result;
     }
 
     // Time specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::TIME, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyTime(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyTime(value.cast<std::uint64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Time" << THROWF_END;
+        }
+        return result;
     }
 
     // Time with Timezone specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::TIME_TZ, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyTimeWithTz(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyTimeWithTz(value.cast<std::uint64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Time with TZ" << THROWF_END;
+        }
+        return result;
     }
 
     // DECIMAL specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DECIMAL, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        return db0::python::uint64ToPyDecimal(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyDecimal(value.cast<std::uint64_t>()));
+        if (!result) {
+            THROWF(db0::InputException) << "Failed to convert to Decimal" << THROWF_END;
+        }
+        return result;
     }
 
     // NONE specialization
@@ -479,7 +511,7 @@ namespace db0::object_model
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::BOOLEAN, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-         return value.cast<std::uint64_t>() ? Py_True : Py_False;
+         return Py_OWN(db0::python::PyBool_fromBool(value.cast<std::uint64_t>()));
     }
     
     // DB0_BYTES_ARRAY specialization
@@ -552,7 +584,7 @@ namespace db0::object_model
     void unrefObjectBase(db0::swine_ptr<Fixture> &fixture, Address address)
     {
         auto obj_ptr = fixture->getLangCache().get(address);
-        if (obj_ptr) {
+        if (obj_ptr.get()) {
             db0::FixtureLock lock(fixture);
             // decref cached instance via language specific wrapper type
             auto lang_wrapper = LangToolkit::template getWrapperTypeOf<T>(obj_ptr.get());

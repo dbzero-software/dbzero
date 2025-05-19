@@ -16,10 +16,13 @@ namespace db0::python
         return type->tp_init == reinterpret_cast<initproc>(PyAPI_MemoObject_init);
     }
     
-    MemoTypeDecoration::MemoTypeDecoration(const char *prefix_name, const char *type_id, const char *file_name,
-        std::vector<std::string> &&init_vars, shared_py_object<PyObject*> py_dyn_prefix_callable,
+    MemoTypeDecoration::MemoTypeDecoration(shared_py_object<PyObject*> py_module,
+        const char *prefix_name, const char *type_id, const char *file_name, 
+        std::vector<std::string> &&init_vars, 
+        shared_py_object<PyObject*> py_dyn_prefix_callable,
         std::vector<Migration> &&migrations)
-        : m_prefix_name_ptr(prefix_name)
+        : m_py_module(py_module)
+        , m_prefix_name_ptr(prefix_name)
         , m_type_id(type_id)
         , m_file_name(file_name)
         , m_init_vars(std::move(init_vars))
@@ -50,19 +53,17 @@ namespace db0::python
     }
     
     bool MemoTypeDecoration::hasDynPrefix() const {
-        return m_py_dyn_prefix_callable;
+        return m_py_dyn_prefix_callable.get() != nullptr;
     }
     
     std::string MemoTypeDecoration::getDynPrefix(PyObject *args, PyObject *kwargs) const
     {
-        assert(m_py_dyn_prefix_callable);
-        PyObject *py_result = PyObject_Call(m_py_dyn_prefix_callable.get(), args, kwargs);
-        if (!py_result || py_result == Py_None) {
+        assert(m_py_dyn_prefix_callable.get());
+        auto py_result = Py_OWN(PyObject_Call(*m_py_dyn_prefix_callable, args, kwargs));
+        if (!py_result || py_result.get() == Py_None) {
             return "";
         }
-        std::string prefix = PyUnicode_AsUTF8(py_result);
-        Py_DECREF(py_result);
-        return prefix;
+        return PyUnicode_AsUTF8(*py_result);
     }
     
     void MemoTypeDecoration::close() {

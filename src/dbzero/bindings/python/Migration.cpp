@@ -1,4 +1,5 @@
 #include "Migration.hpp"
+#include "PySafeAPI.hpp"
 
 namespace db0::python
 
@@ -48,14 +49,18 @@ namespace db0::python
     
     PyObject *Migration::exec(PyObject *py_self) const
     {
-        PyObject *args = PyTuple_New(1);
-        Py_INCREF(py_self);
-        PyTuple_SetItem(args, 0, py_self);
-        PyObject *kwargs = PyDict_New();
-        PyObject *result = PyObject_Call(m_migrate.get(), args, kwargs);
-        Py_DECREF(args);
-        Py_DECREF(kwargs);        
-        return result;
+        auto py_args = Py_OWN(PyTuple_New(1));
+        if (!py_args) {
+            return nullptr;
+        }
+        
+        PySafeTuple_SetItem(*py_args, 0, Py_BORROW(py_self));
+        auto kwargs = Py_OWN(PyDict_New());
+        if (!kwargs) {
+            return nullptr;
+        }
+        
+        return PyObject_Call(*m_migrate, *py_args, *kwargs);
     }
     
 }

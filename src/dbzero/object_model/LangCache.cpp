@@ -131,7 +131,7 @@ namespace db0
     void LangCache::clear(bool expired_only)
     {
         for (auto &item: m_cache) {
-            if (item.second && (!expired_only || LangToolkit::getRefCount(item.second.get()) == 1)) {
+            if (item.second.get() && (!expired_only || LangToolkit::getRefCount(item.second.get()) == 1)) {
                 m_uid_to_index.erase(item.first);
                 item = {};
                 --m_size;
@@ -142,7 +142,7 @@ namespace db0
     void LangCache::clearDefunct()
     {
         for (auto &item: m_cache) {
-            if (item.second) {
+            if (item.second.get()) {
                 m_uid_to_index.erase(item.first);
                 // just release the pointer since Python is defunct
                 item.second.steal();
@@ -187,7 +187,7 @@ namespace db0
                 }
             }
             // only cache-owned objects can be evicted
-            if (m_evict_hand->second) {
+            if (m_evict_hand->second.get()) {
                 if (m_visited[m_evict_hand - m_cache.begin()]) {
                     // visited but not evicted
                     if (num_visited) {
