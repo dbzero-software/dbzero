@@ -35,7 +35,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           path: dist/*
-          name: wheels
+          name: wheel_${{ matrix.python-version }}
 
   tests:
 
@@ -53,7 +53,7 @@ jobs:
       - name: Get package from previous job
         uses: actions/download-artifact@v4
         with:
-          name: wheels
+          name: wheel_${{ matrix.python-version }}
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
