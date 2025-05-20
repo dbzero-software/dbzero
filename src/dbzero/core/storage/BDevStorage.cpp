@@ -226,7 +226,7 @@ namespace db0
     }
     
     void BDevStorage::write(std::uint64_t address, StateNumType state_num, std::size_t size, void *buffer)
-    {        
+    {
         assert(state_num > 0 && "BDevStorage::write: state number must be > 0");
         assert((address % m_config.m_page_size == 0) && "BDevStorage::write: address must be page-aligned");
         assert((size % m_config.m_page_size == 0) && "BDevStorage::write: size must be page-aligned");
@@ -316,6 +316,7 @@ namespace db0
         // save metadata checkpoints before making any updates to the managed streams
         // NOTE: the checkpoint is only saved after exceeding specific threshold of updates in the managed streams
         auto state_num = m_sparse_pair.getMaxStateNum();
+
         m_meta_io.checkAndAppend(state_num);
         m_meta_io.flush();
         
@@ -327,6 +328,8 @@ namespace db0
         m_dram_changelog_io.flush();
         m_page_io.flush();
         m_file.flush();
+        // commit to collect future updates correctly
+        m_sparse_pair.commit();
         return true;
     }
     
@@ -434,7 +437,7 @@ namespace db0
     {
         if (m_access_type != AccessType::READ_ONLY) {
             THROWF(db0::IOException) << "BDevStorage::refresh allowed only in read-only mode";
-        }        
+        }
         return m_dram_changelog_io.refresh();
     }
     
