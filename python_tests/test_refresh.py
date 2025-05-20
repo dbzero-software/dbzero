@@ -458,7 +458,7 @@ def test_wait_for_updates(db0_fixture):
 def test_refresh_issue1(db0_slab_size):
     """
     Issue: process blocked on refresh attempt
-    Reason: 
+    Reason: missing SparsePair.commit() call when finishing a transaction
     """    
     px_name = db0.get_current_prefix().name
     expected_values = ["first string", "second string"]
