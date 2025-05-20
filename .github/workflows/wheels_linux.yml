@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # python-version: ["3.10", "3.11", "3.12", "3.13"]
-        python-version: ["3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -44,8 +43,7 @@ jobs:
     needs: build
     strategy:
       matrix:
-        # python-version: ["3.10", "3.11", "3.12", "3.13"]
-        python-version: ["3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -66,3 +64,6 @@ jobs:
       - name: Run tests
         run: |
           ./run_tests.sh
+      - name: Run stress tests
+        run: |
+          ./run_stress_tests.sh
