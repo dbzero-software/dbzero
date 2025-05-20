@@ -23,8 +23,6 @@ jobs:
       - run: python3 scripts/generate_meson_tests.py tests/
       - run: git config --global user.email "you@example.com"
       - run: git config --global user.name "Your Name"
-      - run: python3 --version
-      - run: g++ --version
       - run: rm .gitignore
       - run: git add . && git commit -m "Update meson files"
       - run: pip install build
@@ -37,7 +35,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          path: dist/
+          path: dist/*
           name: wheels
 
   tests:
@@ -61,11 +59,10 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-      - run: ls -la wheels
-      - run: ls -la dist
+      - run: ls -la
       - name: install package
         run: |
-          pip3 install `ls dist/`
+          pip3 install dbzeroce-0.0.1*.whl
       - name: Run tests
         run: |
           ./run_tests.sh
