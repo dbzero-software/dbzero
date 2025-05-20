@@ -134,6 +134,8 @@ namespace db0
 
         Address getIndexAddress() const;
 
+        void commit();
+        
         void refresh();
     };
 

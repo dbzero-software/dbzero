@@ -192,7 +192,11 @@ namespace db0
     void DiffIndex::refresh() {
         super_t::refresh();
     }
-        
+    
+    void DiffIndex::commit() {
+        super_t::commit();
+    }
+
     DiffIndex::StateNumT DiffIndex::findLower(PageNumT page_num, StateNumT state_num) const
     {        
         auto item = super_t::lookup(page_num, state_num);

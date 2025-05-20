@@ -266,7 +266,11 @@ namespace db0
         std::size_t size() const {
             return super_t::size();
         }
-        
+
+        void commit() {
+            super_t::commit();
+        }
+
         template <typename KeyT> ConstItemIterator findLower(const KeyT &key) const
         {
             auto node = base_t::lower_equal_bound(key);

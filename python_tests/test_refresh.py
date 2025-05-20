@@ -1,4 +1,5 @@
 import pytest
+import random
 import multiprocessing
 import time
 import dbzero_ce as db0
@@ -451,3 +452,68 @@ def test_wait_for_updates(db0_fixture):
 
     p.terminate()
     p.join()
+
+
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 * 1024 * 1024}], indirect=True)
+def test_refresh_issue1(db0_slab_size):
+    """
+    Issue: process blocked on refresh attempt
+    Reason: missing SparsePair.commit() call when finishing a transaction
+    """    
+    px_name = db0.get_current_prefix().name
+    expected_values = ["first string", "second string"]
+        
+    rand_ints = [350, 480, 343, 475, 871, 493, 550, 723, 342, 236, 110, 585, 633, 54, 797, 478, 850, 716, 1021, 
+                 136, 248, 879, 151, 249, 15, 717, 773, 625, 738, 731, 955, 280, 208, 730, 754, 982, 281, 221, 
+                 549, 501, 282, 307, 551, 472, 509, 761, 78, 735, 744, 450, 388, 645, 577, 706, 417, 78, 849, 
+                 873, 904, 534, 945, 985, 431, 725, 826, 49, 64, 766, 32, 460, 971, 766, 390, 990, 899, 835, 
+                 16, 570, 190, 573, 54, 642, 840, 817, 924, 793, 634, 889, 835, 250, 676, 1006, 819, 322, 
+                 373, 278, 895, 767, 380, 442]                 
+    
+    index = 0
+    root = MemoTestSingleton([])
+    for _ in range(10000):
+        str_len = rand_ints[index]
+        root.value.append(''.join("A" for i in range(str_len)))
+        index += 1
+        if index == len(rand_ints):
+            index = 0
+    db0.close()
+    
+    def make_small_update():
+        time.sleep(0.25)
+        db0.init(DB0_DIR)
+        db0.open(px_name, "rw")
+        note = MemoTestClass(expected_values[0])
+        db0.tags(note).add("tag")
+        db0.commit()                
+        time.sleep(0.25)
+        if 'D' in db0.build_flags():            
+            db0.dbg_start_logs()
+        note.value = expected_values[1]
+        db0.close()
+    
+    p = multiprocessing.Process(target=make_small_update)
+    p.start()
+    
+    db0.init(DB0_DIR)
+    db0.open(px_name, "r")
+    
+    for i in range(2):
+        state_num = db0.get_state_num(px_name)    
+        # refresh until 2 transactions are detected
+        max_repeat = 5
+        if i == 1 and 'D' in db0.build_flags():
+            db0.dbg_start_logs()
+        
+        while db0.get_state_num(px_name) == state_num:
+            assert max_repeat > 0
+            db0.refresh()
+            time.sleep(0.1)
+            max_repeat -= 1
+        assert next(iter(db0.find(MemoTestClass))).value == expected_values[i]
+        max_repeat -= 1
+    
+    p.join()
+    
+        

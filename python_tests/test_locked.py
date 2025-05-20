@@ -1,7 +1,7 @@
 import pytest
 import random
 import asyncio
-from .memo_test_types import MemoTestClass, MemoScopedClass
+from .memo_test_types import MemoTestClass, MemoScopedClass, MemoTestSingleton
 import dbzero_ce as db0
 
 
