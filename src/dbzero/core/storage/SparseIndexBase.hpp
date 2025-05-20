@@ -95,6 +95,8 @@ namespace db0
         // Get the total number of data page descriptors stored in the index
         std::size_t size() const;
 
+        void commit();
+
     protected:
         friend class SparsePair;
 
@@ -211,7 +213,7 @@ namespace db0
     
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::update(PageNumT page_num, StateNumT state_num, std::uint64_t storage_page_num)
-    {        
+    {   
         // update tree header if necessary
         if (storage_page_num >= m_next_page_num) {
             m_next_page_num = storage_page_num + 1;
@@ -335,12 +337,12 @@ namespace db0
     
     template <typename ItemT, typename CompressedItemT>
     void SparseIndexBase<ItemT, CompressedItemT>::refresh()
-    {        
+    {                
         m_next_page_num = m_index.treeHeader().m_next_page_num;
         m_max_state_num = m_index.treeHeader().m_max_state_num;
-        m_index.detach();        
+        m_index.detach();
     }
-        
+    
     template <typename ItemT, typename CompressedItemT>
     std::string SparseIndexBase<ItemT, CompressedItemT>::BlockHeader::toString(const CompressedItemT &item) const {
         return item.toString();
@@ -387,6 +389,11 @@ namespace db0
     typename SparseIndexBase<ItemT, CompressedItemT>::ConstItemIterator    
     SparseIndexBase<ItemT, CompressedItemT>::findLower(PageNumT page_num, StateNumT state_num) const {
         return m_index.findLower(std::make_pair(page_num, state_num));
+    }
+
+    template <typename ItemT, typename CompressedItemT>
+    void SparseIndexBase<ItemT, CompressedItemT>::commit() {
+        m_index.commit();        
     }
     
 }       

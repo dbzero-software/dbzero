@@ -278,8 +278,7 @@ namespace db0::python
     int PyAPI_MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value)
     {
         PY_API_FUNC
-        // assign value to a DB0 attribute
-        Py_XINCREF(value);
+        // assign value to a DB0 attribute        
         try {
             // must materialize the object before setting as an attribute
             if (!db0::object_model::isMaterialized(value)) {
@@ -295,15 +294,12 @@ namespace db0::python
                 self->ext().setPreInit(PyUnicode_AsUTF8(attr), value);
             }
         } catch (const std::exception &e) {
-            Py_XDECREF(value);
             PyErr_SetString(PyExc_AttributeError, e.what());
             return -1;
-        } catch (...) {
-            Py_XDECREF(value);
+        } catch (...) {            
             PyErr_SetString(PyExc_AttributeError, "Unknown exception");
             return -1;
         }
-        Py_XDECREF(value);
         return 0;
     }
     

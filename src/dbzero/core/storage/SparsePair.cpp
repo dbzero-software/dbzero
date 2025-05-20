@@ -73,4 +73,10 @@ namespace db0
         return m_change_log.empty() ? 0 : m_change_log.size() - 1;
     }
 
+    void SparsePair::commit()
+    {
+        m_sparse_index.commit();
+        m_diff_index.commit();
+    }
+    
 }

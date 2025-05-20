@@ -372,6 +372,7 @@ namespace db0
             , m_lock(fixture->m_commit_mutex)
         {
             if (fixture->getAccessType() != AccessType::READ_WRITE) {
+                assert(false);
                 THROWF(db0::InputException) << "Cannot modify read-only prefix: " << fixture->getPrefix().getName();
             }
         }

@@ -56,6 +56,8 @@ namespace db0
         
         std::size_t getChangeLogSize() const;
 
+        void commit();
+
     private:
         // change log contains the list of updates (modified items / page numbers)
         // first element is the state number
