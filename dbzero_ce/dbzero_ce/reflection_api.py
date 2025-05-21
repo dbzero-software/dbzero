@@ -266,24 +266,49 @@ class CallableType(Enum):
 def get_callables(obj: object, include_properties = False) -> typing.Iterable[typing.Tuple[str, CallableType]]:
     _type = db0.get_type(obj)
 
-    callable_parameters = [param_name for param_name, is_callable in get_properties(obj) if is_callable]
-    for attr_name in dir(_type):
-        if is_private(attr_name):
-            continue
+    callable_attrs = [attr_name for attr_name in dir(_type) \
+                      if not is_private(attr_name) and callable(getattr(_type, attr_name))]
+
+    print('callable_attrs')
+    print(callable_attrs)
+
+    queries = []
+    for attr_name in list(callable_attrs):
+        # First, find all 'queries' and all associated 'complete' actions and filter them out
         attr = getattr(obj, attr_name)
-        if not callable(attr):
-            continue
         if db0.is_immutable_query(attr):
-            yield attr_name, CallableType.QUERY
-            continue
-        if attr_name in callable_parameters:
+            queries.append(attr_name)
+            callable_attrs.remove(attr_name)
+            if db0.has_complete_action(attr):
+                try:
+                    callable_attrs.remove(db0.get_complete_action_name(attr))
+                except ValueError:
+                    pass
+    
+    callable_properties = {param_name for param_name, is_callable in get_properties(obj) if is_callable}
+
+    properties = []
+    actions = []
+    mutators = []
+    for attr_name in callable_attrs:
+        if attr_name in callable_properties:
             if include_properties:
-                yield attr_name, CallableType.PROPERTY
+                properties.append(attr_name)
             continue
+
+        attr = getattr(obj, attr_name)
         params = inspect.getfullargspec(attr)
         if check_params_not_equal(params, 0):
-            yield attr_name, CallableType.ACTION
-            continue
-        yield attr_name, CallableType.MUTATOR
-        continue
-        
+            actions.append(attr_name)
+        else:
+            mutators.append(attr_name)
+
+    def _yield_attrs(callable_attrs, attrs_type):
+        return ((attr, attrs_type) for attr in callable_attrs)
+
+    return itertools.chain(
+        _yield_attrs(properties, CallableType.PROPERTY),
+        _yield_attrs(queries, CallableType.QUERY),
+        _yield_attrs(actions, CallableType.ACTION),
+        _yield_attrs(mutators, CallableType.MUTATOR)
+    )
