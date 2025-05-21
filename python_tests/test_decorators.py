@@ -107,3 +107,51 @@ def test_is_fulltext():
     def foo_inmutale():
         return 42
     assert not db0.is_fulltext(foo_inmutale)
+
+
+class CompleteWithTest:
+    @db0.complete_with('complete_action')
+    def before_query(self, param):
+        pass
+
+    def complete_action(self, hash, param):
+        pass
+
+    @db0.complete_with('complete_missing_action')
+    def before_bad_query(self, param):
+        pass
+
+@db0.complete_with('complete_with_action')
+def complete_with_query(param):
+    pass
+
+def complete_with_action(param):
+    pass
+
+def test_complete_with():
+    assert db0.has_complete_action(CompleteWithTest.before_query)
+    assert db0.get_complete_action_name(CompleteWithTest.before_query) == 'complete_action'
+    assert db0.get_complete_action(CompleteWithTest.before_query) == CompleteWithTest.complete_action
+
+    assert db0.has_complete_action(CompleteWithTest.before_bad_query)
+    with pytest.raises(AttributeError):
+        db0.get_complete_action(CompleteWithTest.before_bad_query)
+
+    assert db0.has_complete_action(complete_with_query)
+    assert db0.get_complete_action_name(complete_with_query) == 'complete_with_action'
+    assert db0.get_complete_action(complete_with_query) == complete_with_action
+
+    class InnerClass:
+        @db0.complete_with('action')
+        def query(self, param):
+            pass
+
+        def action(self, has, param):
+            pass
+
+    obj = InnerClass()
+    assert db0.has_complete_action(obj.query)
+    assert db0.get_complete_action(obj.query) == obj.action
+    assert db0.has_complete_action(InnerClass.query)
+    with pytest.raises(RuntimeError):
+        db0.get_complete_action(InnerClass.query)

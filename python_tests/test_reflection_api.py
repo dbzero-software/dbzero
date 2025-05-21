@@ -148,23 +148,33 @@ class CallablesTestClass:
     def immutable_property(self):
         pass
 
+    @db0.immutable
+    @db0.complete_with('complete_two_stage_action')
+    def begin_two_stage_action(self, param):
+        pass
+
+    def complete_two_stage_action(self, hash, param):
+        pass
+
 
 def test_class_get_callables():
     obj = CallablesTestClass()
     result = list(db0.get_callables(obj))
-    assert len(result) == 3
-    assert ("immutable_query", CallableType.QUERY) in result
-    assert ("action", CallableType.ACTION) in result
-    assert ("mutator", CallableType.MUTATOR) in result
-
-    result = list(db0.get_callables(obj, True))
     assert len(result) == 4
     assert ("immutable_query", CallableType.QUERY) in result
     assert ("action", CallableType.ACTION) in result
     assert ("mutator", CallableType.MUTATOR) in result
+    assert ("begin_two_stage_action", CallableType.QUERY) in result
+
+    result = list(db0.get_callables(obj, True))
+    assert len(result) == 5
+    assert ("immutable_query", CallableType.QUERY) in result
+    assert ("action", CallableType.ACTION) in result
+    assert ("mutator", CallableType.MUTATOR) in result
     assert ("immutable_property", CallableType.PROPERTY) in result
+    assert ("begin_two_stage_action", CallableType.QUERY) in result
 
-
+@db0.memo
 class CallablesMemoTestClass:
     # query
     @db0.immutable
