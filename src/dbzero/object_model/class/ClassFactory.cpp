@@ -316,7 +316,7 @@ namespace db0::object_model
     bool ClassFactory::hasLangType(const Class &type) const
     {
         auto it_cached = m_ptr_cache.find(ClassPtr(type));
-        return it_cached != m_ptr_cache.end() && it_cached->second.m_lang_type;
+        return it_cached != m_ptr_cache.end() && it_cached->second.m_lang_type.get();
     }
     
     ClassFactory::TypeObjectPtr ClassFactory::tryFindLangType(const Class &_class) const

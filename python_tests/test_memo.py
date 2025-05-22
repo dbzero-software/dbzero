@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, TriColor
+from .memo_test_types import MemoTestClass, TriColor, MemoTestSingleton
 
 
 class RegularPyClass:
@@ -79,3 +79,28 @@ def test_memo_property_decorator_issue1(db0_fixture):
     assert test_obj.value == 3
     del test_obj.value
     assert not hasattr(test_obj, "_value")
+
+    
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
+def test_memo_gc_issue1(db0_slab_size):
+    """
+    Issue: this test was causing a segfault on gc.collect() in Python 3.13, but not on earlier versions
+    Resolution:
+    """
+    import gc
+    from .data_for_tests import test_strings
+    
+    # gc.set_debug(gc.DEBUG_STATS)
+    count = 0    
+    for _ in range(50000):
+        str = test_strings[count % len(test_strings)]        
+        obj = MemoTestClass(str)
+        # del obj
+        count += 1        
+    
+    # db0.clear_cache()
+    # FIXME: log
+    print("Before gc.collect()")
+    
+    # gc.collect()
+    

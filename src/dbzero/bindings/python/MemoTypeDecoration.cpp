@@ -16,6 +16,20 @@ namespace db0::python
         return type->tp_init == reinterpret_cast<initproc>(PyAPI_MemoObject_init);
     }
     
+    MemoTypeDecoration::MemoTypeDecoration(MemoTypeDecoration &&other)
+        : m_py_module(std::move(other.m_py_module))
+        , m_prefix_name_ptr(other.m_prefix_name_ptr)
+        , m_type_id(other.m_type_id)
+        , m_file_name(other.m_file_name)
+        , m_init_vars(std::move(other.m_init_vars))        
+        , m_py_dyn_prefix_callable(std::move(other.m_py_dyn_prefix_callable))
+        , m_migrations(std::move(other.m_migrations))
+    {
+        m_fixture_uuid.store(other.m_fixture_uuid.load());
+        other.m_fixture_uuid = 0;
+        init();
+    }
+    
     MemoTypeDecoration::MemoTypeDecoration(shared_py_object<PyObject*> py_module,
         const char *prefix_name, const char *type_id, const char *file_name, 
         std::vector<std::string> &&init_vars, 
@@ -29,6 +43,26 @@ namespace db0::python
         , m_py_dyn_prefix_callable(std::move(py_dyn_prefix_callable))
         , m_migrations(std::move(migrations))
     {
+        init();
+    }
+    
+    MemoTypeDecoration &MemoTypeDecoration::operator=(MemoTypeDecoration &&other)
+    {
+        m_py_module = std::move(other.m_py_module);
+        m_prefix_name_ptr = other.m_prefix_name_ptr;
+        m_type_id = other.m_type_id;
+        m_file_name = other.m_file_name;
+        m_init_vars = std::move(other.m_init_vars);
+        m_py_dyn_prefix_callable = std::move(other.m_py_dyn_prefix_callable);
+        m_migrations = std::move(other.m_migrations);
+        m_fixture_uuid.store(other.m_fixture_uuid.load());
+        other.m_fixture_uuid = 0;
+        init();
+        return *this;
+    }
+    
+    void MemoTypeDecoration::init()
+    {
         for (auto &migration: m_migrations) {
             for (auto &var: migration.m_vars) {
                 if (m_ix_migrations.find(var) != m_ix_migrations.end()) {
@@ -38,10 +72,12 @@ namespace db0::python
             }
         }
     }
-    
+
     std::uint64_t MemoTypeDecoration::getFixtureUUID(std::optional<AccessType> access_type)
     {
         if (m_prefix_name_ptr && !m_fixture_uuid) {
+            // FIXME: log
+            std::cout << "Resolving fixture UUID for prefix: " << m_prefix_name_ptr << std::endl;
             if (!access_type) {
                 access_type = AccessType::READ_WRITE;
             }    
@@ -98,4 +134,10 @@ namespace db0::python
         return !m_migrations.empty();
     }
 
+    MemoTypeDecoration &MemoTypeDecoration::get(PyTypeObject *type)
+    {
+        assert(PyMemoType_Check(type) && "Invalid type (expected memo type)");
+        return PyToolkit::getTypeManager().getMemoTypeDecoration(type);
+    }
+    
 }

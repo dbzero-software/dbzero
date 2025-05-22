@@ -535,12 +535,11 @@ namespace db0::python
     std::unique_lock<std::recursive_mutex> PyToolkit::lockApi() {
         return std::unique_lock<std::recursive_mutex>(m_api_mutex);
     }
-
-    PyToolkit::TypeObjectPtr PyToolkit::getBaseType(TypeObjectPtr py_object)
-    {
+    
+    PyToolkit::TypeObjectPtr PyToolkit::getBaseType(TypeObjectPtr py_object) {
         return py_object->tp_base;
     }
-
+    
     PyToolkit::TypeObjectPtr PyToolkit::getBaseMemoType(TypeObjectPtr py_memo_type)
     {
         assert(isMemoType(py_memo_type));
@@ -550,7 +549,7 @@ namespace db0::python
             return nullptr;
         }
         auto memo_base_type = getBaseType(base_py_type);
-        if(isMemoType(memo_base_type)) {
+        if (memo_base_type && isMemoType(memo_base_type)) {
             return memo_base_type;
         }
         return nullptr;

@@ -302,8 +302,8 @@ namespace db0::python
         }
         return getPooledString(std::string(str));
     }
-    
-    void PyTypeManager::addMemoType(TypeObjectPtr type, const char *type_id)
+
+    void PyTypeManager::addMemoType(TypeObjectPtr type, const char *type_id, MemoTypeDecoration &&decoration)
     {        
         // register type with up to 4 key variants
         for (unsigned int i = 0; i < 4; ++i) {
@@ -316,6 +316,8 @@ namespace db0::python
         if (type_id && std::string(type_id) == "Division By Zero/dbzero_ce/MemoBase") {
             m_memo_base_type = type;
         }
+        // register the type with the registry
+        m_type_registry[type] = std::move(decoration);
     }
     
     PyTypeManager::TypeObjectPtr PyTypeManager::findType(const std::string &variant_name) const
@@ -419,7 +421,7 @@ namespace db0::python
         }
         for (auto &memo_type: m_type_cache) {
             MemoType_close(memo_type.second.get());
-        }
+        }        
     }
     
     PyTypeManager::ObjectPtr PyTypeManager::getBadPrefixError() const {
@@ -487,6 +489,15 @@ namespace db0::python
     {
         assert(PyTag_Check(py_tag));
         return reinterpret_cast<PyTag*>(py_tag)->ext();
+    }
+    
+    MemoTypeDecoration &PyTypeManager::getMemoTypeDecoration(TypeObjectPtr py_type)
+    {
+        auto it = m_type_registry.find(py_type);
+        if (it == m_type_registry.end()) {
+            THROWF(db0::InputException) << "Not a registered memo type: " << PyToolkit::getTypeName(py_type) << THROWF_END;
+        }
+        return it->second;
     }
 
 }

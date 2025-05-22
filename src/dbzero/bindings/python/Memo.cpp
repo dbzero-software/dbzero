@@ -22,34 +22,46 @@
 namespace db0::python
 
 {
-    
+
     using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+    
+    // @return type name / full type name (tp_name)
+    std::pair<std::string, std::string> getMemoTypeName(shared_py_object<PyTypeObject*> py_class)
+    {
+        std::stringstream str;
+        str << "Memo_" << (*py_class)->tp_name;
+        auto type_name = str.str();
+        auto full_type_name = std::string("dbzero_ce.") + type_name;
+        return { type_name, full_type_name };
+    }
 
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
-    {
+    {        
         auto &decor = MemoTypeDecoration::get(py_type);
         // NOTE: read-only fixture access is sufficient here since objects are lazy-initialized
         // i.e. the actual dbzero instance is created on postInit
         // this is also important for dynamically scoped clases (where read/write access may not be possible on default fixture)
+
         auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         // find py type associated dbzero class with the ClassFactory
         auto type = class_factory.tryGetOrCreateType(py_type);
-        // if type cannot be retrieved due to access mode then deferr this operation (fallback)
-        if (!type) {
+        MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
+        
+        // if type cannot be retrieved due to access mode then deferr this operation (fallback)        
+        if (type) {            
+            // prepare a new DB0 instance of a known DB0 class
+            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type);
+        } else {
             auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
                 auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
                 return class_factory.getOrCreateType(py_type);
             };
             MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
             // prepare a new DB0 instance of a known DB0 class
-            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), std::move(type_initializer));
-            return memo_obj;
+            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), std::move(type_initializer));            
         }
-
-        MemoObject *memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-        // prepare a new DB0 instance of a known DB0 class
-        db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type);
+        
         return memo_obj;
     }
     
@@ -150,20 +162,20 @@ namespace db0::python
     void MemoObject_del(MemoObject* memo_obj)
     {
         PY_API_FUNC
-        // destroy associated DB0 Object instance
-        memo_obj->destroy();        
+        // destroy associated db0 Object instance
+        memo_obj->destroy();
         Py_TYPE(memo_obj)->tp_free((PyObject*)memo_obj);
     }
     
     int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds)
     {
-        PY_API_FUNC
-        // the instance may already exist (e.g. if this is a singleton)
+        PY_API_FUNC        
+        // the instance may already exist (e.g. if this is a singleton)        
         if (!self->ext().hasInstance()) {
             auto py_type = Py_TYPE(self);
             auto base_type = py_type->tp_base;
             
-            // invoke tp_init from base type (wrapped pyhon class)
+            // invoke tp_init from base type (wrapped pyhon class)            
             if (base_type->tp_init((PyObject*)self, args, kwds) < 0) {
                 // mark object as defunct
                 self->ext().setDefunct();
@@ -188,7 +200,7 @@ namespace db0::python
                 // Unrecognized error
                 PyErr_Restore(ptype, pvalue, ptraceback);
                 return -1;
-            }
+            }            
             
             // invoke post-init on associated dbzero object
             auto &object = self->modifyExt();
@@ -205,6 +217,7 @@ namespace db0::python
     
     void MemoObject_drop(MemoObject* memo_obj)
     {
+        /* FIXME: log
         // since objects are destroyed by GC0 drop is only responsible for marking
         // singletons as unreferenced
         if (memo_obj->ext().isSingleton()) {
@@ -231,6 +244,7 @@ namespace db0::python
         db0::object_model::Object::makeNull((void*)(&memo_obj->ext()));
         // remove instance from the lang cache
         lang_cache.erase(obj_addr);
+        */
     }
     
     PyObject *tryMemoObject_getattro(MemoObject *memo_obj, PyObject *attr)
@@ -299,7 +313,8 @@ namespace db0::python
         } catch (...) {            
             PyErr_SetString(PyExc_AttributeError, "Unknown exception");
             return -1;
-        }
+        }        
+        
         return 0;
     }
     
@@ -345,24 +360,6 @@ namespace db0::python
         return reinterpret_cast<PyTypeObject *>(obj);
     }
     
-    std::pair<const char*, const char*> createWrappedTypeName(const char *py_type_name) 
-    {
-        const char *type_name = nullptr, *full_type_name = nullptr;
-        {
-            std::stringstream str;
-            str << "Memo_" << py_type_name;            
-            type_name = PyToolkit::getTypeManager().getPooledString(str.str());
-        }
-
-        {
-            std::stringstream str;
-            str << "dbzero_ce." << type_name;
-            full_type_name = PyToolkit::getTypeManager().getPooledString(str.str());
-        }
-
-        return { type_name, full_type_name };
-    }
-
     PyObject *findModule(PyObject *module_name)
     {
         auto sys_module = Py_OWN(PyImport_ImportModule("sys"));
@@ -386,43 +383,79 @@ namespace db0::python
         auto new_dict = Py_OWN(PyDict_New());
 
         while (PyDict_Next(dict, &pos, &key, &value)) {
-            PyDict_SetItem(*new_dict, key, value);
+            PySafeDict_SetItem(*new_dict, Py_BORROW(key), Py_BORROW(value));
         }
         
         return new_dict.steal();
     }
     
-    PyTypeObject *wrapPyType(PyTypeObject *py_class, bool is_singleton, const char *prefix_name,
+    static PyType_Slot MemoType_common_slots[] = {
+        {Py_tp_new, (void *)PyAPI_MemoObject_new},        
+        {Py_tp_dealloc, (void *)MemoObject_del},
+        {Py_tp_init, (void *)PyAPI_MemoObject_init},
+        {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro},
+        {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro},
+        {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq},
+        {0, 0}  
+    };
+    
+    PyObject *PyMemoType_FromSpec(PyTypeObject *base_class, const char *tp_name, bool is_singleton)
+    {
+        // fill-in type specific slots first
+        std::vector<PyType_Slot> slots;
+        // fill-in common slots first
+        for (auto &slot : MemoType_common_slots) {
+            if (!slot.slot && !slot.pfunc) {
+                break;
+            }
+            slots.push_back(slot);
+        }
+        
+        if (is_singleton) {
+            slots.push_back({Py_tp_new, (void *)PyAPI_MemoObject_new_singleton});
+        } else {
+            slots.push_back({Py_tp_new, (void *)PyAPI_MemoObject_new});
+        }
+        // end with a sentinel        
+        slots.push_back({0, 0});
+
+        auto type_spec = PyType_Spec {
+            .name = tp_name,
+            .basicsize = MemoObject::sizeOf(),
+            .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE) & ~(Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_MANAGED_DICT),
+            .slots = slots.data()
+        };
+
+        auto bases = Py_OWN(PySafeTuple_Pack(Py_BORROW(base_class)));
+        return PyType_FromSpecWithBases(&type_spec, *bases);
+    }
+    
+    PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, const char *prefix_name,
         const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
         std::vector<Migration> &&migrations)
     {
-        Py_INCREF(py_class);
-        auto py_module = Py_OWN(findModule(PyObject_GetAttrString((PyObject*)py_class, "__module__")));
-        if (!py_module || !PyModule_Check(*py_module)) {
-            Py_DECREF(py_class);
-            THROWF(db0::InternalException) << "Type related module not found: " << py_class->tp_name;
+        auto py_class = Py_BORROW(base_class);
+        auto py_module = Py_OWN(findModule(*Py_OWN(PyObject_GetAttrString((PyObject*)*py_class, "__module__"))));
+        if (!py_module || !PyModule_Check(*py_module)) {            
+            THROWF(db0::InternalException) << "Type related module not found: " << (*py_class)->tp_name;
         }
         
-        if (py_class->tp_dict == nullptr) {
-            Py_DECREF(py_class);
-            THROWF(db0::InternalException) << "Type has no tp_dict: " << py_class->tp_name;
+        if ((*py_class)->tp_dict == nullptr) {
+            THROWF(db0::InternalException) << "Type has no tp_dict: " << (*py_class)->tp_name;
         }
 
-        if (py_class->tp_itemsize != 0) {
-            Py_DECREF(py_class);
-            THROWF(db0::InternalException) << "Variable-length types not supported: " << py_class->tp_name;                        
+        if ((*py_class)->tp_itemsize != 0) {
+            THROWF(db0::InternalException) << "Variable-length types not supported: " << (*py_class)->tp_name;
         }
         
-        // Create a new python type which inherits after dbzero_ce.Object (tp_base)
-        // implements methods from py_class and overrides the following methods:
-        // __init__, __getattr__, __setattr__, __delattr__, __getattribute__
+        auto [type_name, full_type_name] = getMemoTypeName(py_class);
+        auto new_type = Py_OWN(PyMemoType_FromSpec(base_class, full_type_name.c_str(), is_singleton));
+        if (!new_type) {
+            return nullptr;
+        }
         
-        // 3.9.x compatible PyTypeObject
         auto &type_manager = PyToolkit::getTypeManager();
-        char *data = new char[sizeof(PyHeapTypeObject) + sizeof(MemoTypeDecoration)];
-        PyHeapTypeObject *ht_new_type = new (data) PyHeapTypeObject();
-        // NOTE: pass py_modue since this 
-        new (data + sizeof(PyHeapTypeObject)) MemoTypeDecoration(
+        auto type_info = MemoTypeDecoration(
             py_module,
             type_manager.getPooledString(prefix_name), 
             type_manager.getPooledString(type_id),
@@ -432,68 +465,59 @@ namespace db0::python
             std::move(migrations)
         );
         
-        // Construct base type as a copy of the original type
-        PyTypeObject *base_type = new PyTypeObject(*py_class);
-        Py_INCREF(base_type);
+        // add to memo type registry
+        PyToolkit::getTypeManager().addMemoType((PyTypeObject*)new_type.get(), type_id, std::move(type_info));
+        // register new type with the module where the original type was located
+        PySafeModule_AddObject(*py_module, type_name.c_str(), new_type);
 
-        *ht_new_type = *reinterpret_cast<PyHeapTypeObject*>(py_class);
-        PyTypeObject *new_type = (PyTypeObject*)ht_new_type;
-        auto [type_name, full_type_name] = createWrappedTypeName(py_class->tp_name);
-        new_type->tp_name = full_type_name;
+        // Construct base type as a copy of the original type
+        // FIXME: log
+        /*
+        
         // remove Py_TPFLAGS_READY flag so that the type can be initialized by the PyType_Ready
         new_type->tp_flags = py_class->tp_flags & ~Py_TPFLAGS_READY;
-        // extend basic size with pointer to a dbzero object instance
-        new_type->tp_basicsize = py_class->tp_basicsize + sizeof(db0::object_model::Object);
-        // distinguish between singleton and non-singleton types
-        new_type->tp_new = is_singleton ? reinterpret_cast<newfunc>(PyAPI_MemoObject_new_singleton) : reinterpret_cast<newfunc>(PyAPI_MemoObject_new);
-        new_type->tp_dealloc = reinterpret_cast<destructor>(MemoObject_del);
-        // override the init function
-        new_type->tp_init = reinterpret_cast<initproc>(PyAPI_MemoObject_init);
+        // extend basic size with pointer to a dbzero object instance                        
+        // distinguish between singleton and non-singleton types        
+        
         // make copy of the types dict
-        new_type->tp_dict = copyDict(py_class->tp_dict);
+        // FIXME: log
+        // new_type->tp_dict = copyDict(py_class->tp_dict);
         // getattr / setattr are obsolete
         new_type->tp_getattr = 0;
         new_type->tp_setattr = 0;
         // redirect to Memo_ functions
-        new_type->tp_getattro = reinterpret_cast<getattrofunc>(PyAPI_MemoObject_getattro);
-        new_type->tp_setattro = reinterpret_cast<setattrofunc>(PyAPI_MemoObject_setattro);
         // set original class (copy) as a base class
-        new_type->tp_base = base_type;
-        new_type->tp_richcompare = (richcmpfunc)PyAPI_MemoObject_rq;
-        // method resolution order, tp_mro and tp_bases are filled in by PyType_Ready
-        new_type->tp_mro = 0;
-        new_type->tp_bases = 0;
-        
-        if (PyType_Ready(new_type) < 0) {
-            PyErr_SetString(PyExc_RuntimeError, "Failed to initialize new memo type");
-            return nullptr;
-        }
+        // new_type->tp_base = base_type;
+        // FIXME: log
+        new_type->tp_base = 0;
+        */
 
-        if (PyType_Type.tp_str == py_class->tp_str) {
-            new_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
-            base_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
-        }
+        // if (PyType_Ready(new_type) < 0) {
+        //     PyErr_SetString(PyExc_RuntimeError, "Failed to initialize new memo type");
+        //     return nullptr;
+        // }
 
-        if (PyType_Type.tp_repr == py_class->tp_repr) {
-            new_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
-            base_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
-        }
-        PyToolkit::getTypeManager().addMemoType(new_type, type_id);
-        Py_INCREF(new_type);
-        // register new type with the module where the original type was located
-        PyModule_AddObject(*py_module, type_name, reinterpret_cast<PyObject*>(new_type));
+        // if (PyType_Type.tp_str == py_class->tp_str) {
+        //     new_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
+        //     base_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
+        // }
 
+        // if (PyType_Type.tp_repr == py_class->tp_repr) {
+        //     new_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
+        //     base_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
+        // }
+                
         // add class fields class member to access memo type information
-        auto py_class_fields = Py_OWN(PyClassFields_create(new_type));
-        if (PySafeDict_SetItemString(new_type->tp_dict, "__fields__", py_class_fields) < 0) {            
-            PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
-            return nullptr;
-        }
+        // auto py_class_fields = Py_OWN(PyClassFields_create(new_type));
+        // if (PySafeDict_SetItemString(new_type->tp_dict, "__fields__", py_class_fields) < 0) {            
+        //     PyErr_SetString(PyExc_RuntimeError, "Failed to set __fields__");
+        //     return nullptr;
+        // }
         
-        return new_type;
+        return new_type.steal();
     }
     
-    PyTypeObject *tryWrapPyClass(PyObject *args, PyObject *kwargs)
+    PyObject *tryWrapPyClass(PyObject *args, PyObject *kwargs)
     {
         PyObject *class_obj = nullptr;
         PyObject *py_singleton = nullptr;
