@@ -376,8 +376,8 @@ namespace db0::python
         {Py_tp_getattro, (void *)PyAPI_MemoObject_getattro},
         {Py_tp_setattro, (void *)PyAPI_MemoObject_setattro},
         {Py_tp_richcompare, (void *)PyAPI_MemoObject_rq},
-        {Py_tp_hash, (void *)PyAPI_MemoHash},
-        {0, 0}  
+        {Py_tp_hash, (void *)PyAPI_MemoHash},        
+        {0, 0}
     };
     
     PyTypeObject *PyMemoType_FromSpec(PyTypeObject *base_class, const char *tp_name, bool is_singleton)
@@ -411,6 +411,17 @@ namespace db0::python
         auto tp_result = Py_OWN((PyTypeObject*)PyType_FromSpecWithBases(&type_spec, *bases));
         (*tp_result)->tp_dict = copyDict(base_class->tp_dict);
         
+        // replace default __str__ and __repr__ implementations
+        if (base_class->tp_str == PyType_Type.tp_str) {
+            (*tp_result)->tp_str = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str);
+            base_class->tp_str = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str);
+        }
+
+        if (base_class->tp_repr == PyType_Type.tp_repr) {
+            (*tp_result)->tp_repr = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str);
+            base_class->tp_repr = reinterpret_cast<reprfunc>(PyAPI_MemoObject_str);
+        }
+
         return tp_result.steal();
     }
     
@@ -453,17 +464,7 @@ namespace db0::python
         PyToolkit::getTypeManager().addMemoType(*new_type, type_id, std::move(type_info));
         // register new type with the module where the original type was located
         PySafeModule_AddObject(*py_module, type_name.c_str(), new_type);
-        
-        // if (PyType_Type.tp_str == py_class->tp_str) {
-        //     new_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
-        //     base_type->tp_str = reinterpret_cast<reprfunc>(MemoObject_str);
-        // }
-
-        // if (PyType_Type.tp_repr == py_class->tp_repr) {
-        //     new_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
-        //     base_type->tp_repr = reinterpret_cast<reprfunc>(MemoObject_str);
-        // }
-        
+                
         // add class fields class member to access memo type information
         auto py_class_fields = Py_OWN(PyClassFields_create(*new_type));
         if (PySafeDict_SetItemString((*new_type)->tp_dict, "__fields__", py_class_fields) < 0) {
@@ -496,7 +497,7 @@ namespace db0::python
         }
         
         bool is_singleton = py_singleton && PyObject_IsTrue(py_singleton);
-        const char *prefix_name = py_prefix_name ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
+        const char *prefix_name = (py_prefix_name && py_prefix_name != Py_None) ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
         std::vector<std::string> init_vars;
@@ -627,7 +628,7 @@ namespace db0::python
         return PyUnicode_FromString(str.str().c_str());
     }
     
-    PyObject *MemoObject_str(MemoObject *self)
+    PyObject *PyAPI_MemoObject_str(MemoObject *self)
     {
         PY_API_FUNC
         return runSafe(tryMemoObject_str, self);

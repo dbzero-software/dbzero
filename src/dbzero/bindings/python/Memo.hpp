@@ -44,7 +44,7 @@ namespace db0::python
     PyObject *MemoObject_GetFieldLayout(MemoObject *);
     
     PyObject *MemoObject_DescribeObject(MemoObject *);
-    PyObject *MemoObject_str(MemoObject *);
+    PyObject *PyAPI_MemoObject_str(MemoObject *);
     
     void MemoType_get_info(PyTypeObject *type, PyObject *dict);
     void MemoType_close(PyTypeObject *type);
