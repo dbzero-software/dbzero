@@ -402,14 +402,16 @@ namespace db0::python
 
         auto type_spec = PyType_Spec {
             .name = tp_name,
-            .basicsize = MemoObject::sizeOf(),
-            .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE) & ~(Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_MANAGED_DICT),            
+            .basicsize = MemoObject::sizeOf(),            
+            .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE) & ~(Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_MANAGED_DICT),
             .slots = slots.data()
         };
         
         auto bases = Py_OWN(PySafeTuple_Pack(Py_BORROW(base_class)));
         auto tp_result = Py_OWN((PyTypeObject*)PyType_FromSpecWithBases(&type_spec, *bases));
         (*tp_result)->tp_dict = copyDict(base_class->tp_dict);
+        // disable weak-refs (important for Python 3.11.x)
+        (*tp_result)->tp_weaklistoffset = 0;
         
         // replace default __str__ and __repr__ implementations
         if (base_class->tp_str == PyType_Type.tp_str) {
