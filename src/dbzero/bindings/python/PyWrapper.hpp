@@ -9,6 +9,10 @@ namespace db0::python
 
 {
 
+    struct __PyTypeMould {
+        PyObject_HEAD
+    };
+    
     /**
      * Adds a mixed-in (but dynamically initialized)
      * member of type T into the PyObject struct.
@@ -35,7 +39,7 @@ namespace db0::python
         }
 
         static constexpr std::size_t sizeOf() {
-            return sizeof(PyObject) + sizeof(T);
+            return sizeof(__PyTypeMould) + sizeof(T);
         }
         
         void destroy() {

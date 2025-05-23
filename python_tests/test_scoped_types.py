@@ -15,11 +15,10 @@ class ScopedDataClass:
 class ScopedColor:
     pass
 
-# FIXME: python 3.13
-# @db0.memo(prefix=None)
-# class DataClass:
-#     def __init__(self, value):
-#         self.value = value
+@db0.memo(prefix=None)
+class DataClass:
+    def __init__(self, value):
+        self.value = value
 
 
 def test_get_type_info_from_scoped_class(db0_fixture):
@@ -30,11 +29,11 @@ def test_get_type_info_from_scoped_class(db0_fixture):
 def test_create_scoped_class_instance(db0_fixture):
     obj = ScopedDataClass(42)
     assert db0.get_prefix_of(obj) != db0.get_current_prefix()
-        
-#FIXME: python 3.13
-# def test_class_with_null_prefix_is_no_scoped(db0_fixture):
-#     obj = DataClass(42)
-#     assert db0.get_prefix_of(obj) == db0.get_current_prefix()
+    
+    
+def test_class_with_null_prefix_is_no_scoped(db0_fixture):
+    obj = DataClass(42)
+    assert db0.get_prefix_of(obj) == db0.get_current_prefix()
     
 
 def test_scoped_type_creation_does_not_change_current_prefix(db0_fixture):

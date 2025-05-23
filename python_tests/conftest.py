@@ -21,7 +21,7 @@ def db0_fixture():
     os.mkdir(DB0_DIR)
     db0.init(DB0_DIR)
     db0.open("my-test-prefix")
-    yield db0
+    yield db0    
     gc.collect()
     db0.close()
     if os.path.exists(DB0_DIR):
@@ -34,7 +34,7 @@ def db0_no_default_fixture():
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR)    
+    db0.init(DB0_DIR)
     yield db0
     gc.collect()
     db0.close()
@@ -53,7 +53,7 @@ def db0_slab_size(request):
     os.mkdir(DB0_DIR)
     db0.init(DB0_DIR, config = {"autocommit": request.param.get("autocommit", True)})
     db0.open("my-test-prefix", slab_size=request.param["slab_size"])
-    yield db0 
+    yield db0     
     gc.collect()
     db0.close()
     if os.path.exists(DB0_DIR):
@@ -71,7 +71,7 @@ def db0_autocommit_fixture(request):
     os.mkdir(DB0_DIR)
     db0.init(DB0_DIR, config = {"autocommit": True, "autocommit_interval": request.param})
     db0.open("my-test-prefix")
-    yield db0
+    yield db0    
     gc.collect()
     db0.close()
     if os.path.exists(DB0_DIR):

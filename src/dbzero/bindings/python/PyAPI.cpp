@@ -1131,8 +1131,7 @@ namespace db0::python
         
         // retrieve static prefix name
         if (!prefix_name) {
-            MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-            prefix_name = decor.tryGetPrefixName();
+            prefix_name = MemoTypeDecoration::get((PyTypeObject*)py_type).tryGetPrefixName();
         }
         
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();

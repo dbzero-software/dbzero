@@ -30,6 +30,9 @@ namespace db0::python
     int PySafeSet_Add(PyObject *, shared_py_object<T> key);
 
     template <typename T = PyObject *>
+    int PySafeModule_AddObject(PyObject *, const char *name, shared_py_object<T> obj);
+
+    template <typename T = PyObject *>
     PyObject *PySafeTuple_Pack(shared_py_object<T> item);
 
     template <typename T1 = PyObject *, typename T2 = PyObject *>
@@ -129,6 +132,13 @@ namespace db0::python
         shared_py_object<T4> item4, shared_py_object<T5> item5)
     {
         return PyTuple_Pack(5, *item1, *item2, *item3, *item4, *item5);
+    }
+
+    template <typename T>
+    int PySafeModule_AddObject(PyObject *self, const char *name, shared_py_object<T> obj)
+    {
+        assert(obj.get() != nullptr);
+        return PyModule_AddObject(self, name, (PyObject*)obj.steal());
     }
 
 }

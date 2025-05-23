@@ -164,7 +164,7 @@ namespace db0::object_model
         // number of non-null initializer instances
         std::size_t m_total_count = 0;
     };
-
+    
     template <typename... Args>
     void ObjectInitializerManager::addInitializer(Object &object, Args&& ...args)
     {

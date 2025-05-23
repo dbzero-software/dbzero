@@ -52,8 +52,13 @@ namespace db0::python
         return PyToolkit::getTypeManager().extractEnumValue(key).getPermHash();        
     }
     
-    template <> int64_t get_py_hash_impl<TypeId::MEMO_OBJECT>(PyObject *key) {
-        return reinterpret_cast<MemoObject*>(key)->ext().getAddress().getValue();
+    template <> int64_t get_py_hash_impl<TypeId::MEMO_OBJECT>(PyObject *key) 
+    {
+        auto &obj = reinterpret_cast<MemoObject*>(key)->ext();
+        if (!obj.hasInstance()) {
+            THROWF(db0::InputException) << "Memo object is not initialized" << THROWF_END;
+        }
+        return obj.getAddress().getValue();
     }
     
     std::int64_t get_py_hash_impl_for_simple_obj(PyObject *key) {
@@ -104,5 +109,5 @@ namespace db0::python
         }
         return func_ptr(key);
     }
-        
+    
 }

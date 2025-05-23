@@ -116,11 +116,11 @@ namespace db0::python
     {
     public:
         inline shared_py_object() = default;
-        inline shared_py_object(PyTypeObject *py_type)
+        inline shared_py_object(PyTypeObject *py_type, bool incref = true)
             : m_py_type(py_type)
         {
             // only heap types need to be incref-ed
-            if (m_py_type && m_py_type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
+            if (m_py_type && m_py_type->tp_flags & Py_TPFLAGS_HEAPTYPE && incref) {
                 Py_INCREF(py_type);
             }
         }
@@ -131,6 +131,12 @@ namespace db0::python
             if (m_py_type && m_py_type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
                 Py_INCREF(m_py_type);
             }
+        }
+        
+        shared_py_object(shared_py_object &&other)
+            : m_py_type(other.m_py_type)
+        {
+            other.m_py_type = nullptr;
         }
 
         inline ~shared_py_object()
@@ -144,25 +150,39 @@ namespace db0::python
             return m_py_type;
         }
 
-        // bool cast
-        inline operator bool() const {
-            return m_py_type != nullptr;
+        inline PyTypeObject *operator*() const
+        {
+            assert(m_py_type != nullptr);
+            return m_py_type;
         }
         
-        inline PyTypeObject* steal() 
+        inline bool operator!() const {
+            return m_py_type == nullptr;
+        }
+
+        inline PyTypeObject* steal()
         {
             auto result = m_py_type;
             m_py_type = nullptr;
             return result;
         }
 
-        void operator=(const shared_py_object &other)
+        shared_py_object &operator=(const shared_py_object &other)
         {
             this->~shared_py_object();
             m_py_type = other.m_py_type;
             if (m_py_type && m_py_type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
                 Py_INCREF(m_py_type);
             }
+            return *this;
+        }
+
+        shared_py_object &operator=(shared_py_object &&other)
+        {
+            this->~shared_py_object();
+            m_py_type = other.m_py_type;
+            other.m_py_type = nullptr;
+            return *this;
         }
 
     private:
