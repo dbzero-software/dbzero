@@ -8,16 +8,16 @@ namespace db0::python
     PyClassFields *PyClassFields_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PyClassFields*>(type->tp_alloc(type, 0));
     }
-
+    
     PyClassFields *PyClassFieldsDefault_new() {
         return PyClassFields_new(&PyClassFieldsType, NULL, NULL);
     }
-
+    
     PyClassFields *PyClassFields_create(PyTypeObject *memo_type)
     {
-        auto py_class_fields = PyClassFieldsDefault_new();
+        auto py_class_fields = Py_OWN(PyClassFieldsDefault_new());
         py_class_fields->modifyExt().init(memo_type);
-        return py_class_fields;
+        return py_class_fields.steal();
     }
 
     PyFieldDef *PyFieldDef_new(PyTypeObject *type, PyObject *, PyObject *) {

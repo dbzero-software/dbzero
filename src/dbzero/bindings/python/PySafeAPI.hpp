@@ -138,7 +138,7 @@ namespace db0::python
     int PySafeModule_AddObject(PyObject *self, const char *name, shared_py_object<T> obj)
     {
         assert(obj.get() != nullptr);
-        return PyModule_AddObject(self, name, obj.steal());
+        return PyModule_AddObject(self, name, (PyObject*)obj.steal());
     }
 
 }

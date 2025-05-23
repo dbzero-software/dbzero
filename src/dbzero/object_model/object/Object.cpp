@@ -70,13 +70,13 @@ namespace db0::object_model
     {
     }
 
-    Object::Object(std::shared_ptr<Class> db0_class) 
+    Object::Object(std::shared_ptr<Class> db0_class)
     {
         // prepare for initialization
         m_init_manager.addInitializer(*this, db0_class);
     }
 
-    Object::Object(TypeInitializer &&type_initializer)        
+    Object::Object(TypeInitializer &&type_initializer)
     {
         // prepare for initialization
         m_init_manager.addInitializer(*this, std::move(type_initializer));
@@ -92,7 +92,7 @@ namespace db0::object_model
         : super_t(super_t::tag_from_address(), fixture, address)        
     {
     }
-    
+
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
         : super_t(super_t::tag_from_stem(), fixture, std::move(stem))
         , m_type(type)        

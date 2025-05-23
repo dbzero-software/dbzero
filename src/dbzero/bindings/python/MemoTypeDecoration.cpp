@@ -73,11 +73,18 @@ namespace db0::python
         }
     }
 
+    MemoTypeDecoration::~MemoTypeDecoration()
+    {
+        if (!Py_IsInitialized()) {
+            // discard unreachable Python objects
+            m_py_module.steal();
+            m_py_dyn_prefix_callable.steal();            
+        }
+    }
+    
     std::uint64_t MemoTypeDecoration::getFixtureUUID(std::optional<AccessType> access_type)
     {
         if (m_prefix_name_ptr && !m_fixture_uuid) {
-            // FIXME: log
-            std::cout << "Resolving fixture UUID for prefix: " << m_prefix_name_ptr << std::endl;
             if (!access_type) {
                 access_type = AccessType::READ_WRITE;
             }    
@@ -101,11 +108,7 @@ namespace db0::python
         }
         return PyUnicode_AsUTF8(*py_result);
     }
-    
-    void MemoTypeDecoration::close() {
-        m_fixture_uuid = 0;
-    }
-    
+        
     const char *MemoTypeDecoration::getPrefixName() const {
         return m_prefix_name_ptr ? m_prefix_name_ptr : "";
     }
@@ -140,4 +143,8 @@ namespace db0::python
         return PyToolkit::getTypeManager().getMemoTypeDecoration(type);
     }
     
+    void MemoTypeDecoration::close() {
+        m_fixture_uuid = 0;
+    }
+
 }

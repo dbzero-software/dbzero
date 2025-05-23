@@ -9,7 +9,7 @@ class MemberCycleFoundation():
     def __init__(self):
         self.field_0 = 1
     
-    
+
 @db0.memo
 class MemberCycleBaseClass(MemberCycleFoundation):
     def __init__(self):
@@ -23,7 +23,7 @@ class MemberCycleBaseClass(MemberCycleFoundation):
         for k, v in {"a": 1, "b": 2}.items():
             self.my_dict[k] = v
     
-    
+
 @db0.memo
 class MemberCycleSubClass(MemberCycleBaseClass):
     def __init__(self, value):

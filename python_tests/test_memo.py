@@ -90,17 +90,12 @@ def test_memo_gc_issue1(db0_slab_size):
     import gc
     from .data_for_tests import test_strings
     
-    # gc.set_debug(gc.DEBUG_STATS)
-    count = 0    
+    count = 0
     for _ in range(50000):
         str = test_strings[count % len(test_strings)]        
         obj = MemoTestClass(str)
-        # del obj
+        del obj
         count += 1        
     
-    # db0.clear_cache()
-    # FIXME: log
-    print("Before gc.collect()")
-    
-    # gc.collect()
+    gc.collect()
     

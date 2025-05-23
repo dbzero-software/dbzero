@@ -35,6 +35,8 @@ namespace db0::python
             shared_py_object<PyObject*> py_dyn_prefix_callable,
             std::vector<Migration> &&migrations);
         
+        ~MemoTypeDecoration();
+        
         // get decoration of a given memo type
         static MemoTypeDecoration &get(PyTypeObject *);
         
@@ -69,8 +71,6 @@ namespace db0::python
         // resolve dynamic prefix from the callable
         std::string getDynPrefix(PyObject *args, PyObject *kwargs) const;
         
-        void close();
-
         // Check if there're any migrations defined for this type
         bool hasMigrations() const;
         
@@ -79,6 +79,8 @@ namespace db0::python
             std::function<bool(Migration &)> callback) const;
         
         MemoTypeDecoration &operator=(MemoTypeDecoration &&);
+        
+        void close();
         
     private:
         // module where the type is defined

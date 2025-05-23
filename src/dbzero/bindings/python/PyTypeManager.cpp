@@ -419,9 +419,10 @@ namespace db0::python
             PyEnum *py_enum = reinterpret_cast<PyEnum*>(obj.get());
             py_enum->modifyExt().close();
         }
-        for (auto &memo_type: m_type_cache) {
-            MemoType_close(memo_type.second.get());
-        }        
+        
+        for (auto &item: m_type_registry) {
+            item.second.close();
+        }
     }
     
     PyTypeManager::ObjectPtr PyTypeManager::getBadPrefixError() const {
