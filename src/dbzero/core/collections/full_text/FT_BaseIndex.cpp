@@ -125,7 +125,7 @@ namespace db0
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
 	void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::cancel()
     {
-		std::unique_lock<std::mutex> lock(m_mutex);
+		std::unique_lock<std::recursive_mutex> lock(m_mutex);
 		m_add_set.clear();
 		m_remove_set.clear();
 	}
@@ -133,7 +133,7 @@ namespace db0
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::empty () const
     {
-        std::unique_lock<std::mutex> lock(m_mutex);
+        std::unique_lock<std::recursive_mutex> lock(m_mutex);
         return m_add_set.empty() && m_remove_set.empty();
     }
     
@@ -291,7 +291,7 @@ namespace db0
 			// 1. lock whole object for write while performing commit
 			progressive_mutex::scoped_unique_lock book_lock(m_base_index_ptr->mx);
 			// 2. lock this BatchOperation object
-			std::unique_lock<std::mutex> lock(m_mutex);
+			std::unique_lock<std::recursive_mutex> lock(m_mutex);
             m_commit_called = true;
             // add tags
             {

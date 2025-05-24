@@ -321,7 +321,7 @@ namespace db0::object_model
             m_string_pool.unRefByAddr(tag_addr);
         }
     }
-
+    
     void TagIndex::flush() const
     {
         auto &type_manager = LangToolkit::getTypeManager();
@@ -354,6 +354,7 @@ namespace db0::object_model
         if (!m_batch_operation_short.empty()) {
             m_batch_operation_short->flush(&add_tag_callback, &remove_tag_callback, 
                 &add_index_callback, &erase_index_callback);
+            assert(m_batch_operation_short.empty());
         }
         
         std::function<void(LongTagT)> add_long_index_callback = [&](LongTagT long_tag_addr) {
@@ -365,18 +366,19 @@ namespace db0::object_model
             tryTagDecRef(long_tag_addr[0]);
             tryTagDecRef(long_tag_addr[1]);
         };
-
+        
         // flush all long tags' updates
         if (!m_batch_operation_long.empty()) {
             m_batch_operation_long->flush(&add_tag_callback, &remove_tag_callback, 
                 &add_long_index_callback, &erase_long_index_callback);
+            assert(m_batch_operation_long->empty());
         }
 
         m_object_cache.clear();
         m_active_cache.clear();        
         m_inc_refed_tags.clear();
     }
-
+    
     void TagIndex::buildActiveValues() const
     {
         for (auto &item: m_active_cache) {

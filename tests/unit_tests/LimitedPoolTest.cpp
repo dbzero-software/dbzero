@@ -119,7 +119,6 @@ namespace tests
         ASSERT_EQ(cut->sizeOf(), 14);
     }
     
-    /* FIXME: log
     TEST_F( LimitedPoolTest , testLimitedStringPoolAddingEmptyTokens )
     {
         using PoolT = db0::pools::RC_LimitedStringPool;
@@ -134,16 +133,21 @@ namespace tests
             }
             return token;
         };
-
+        
         std::vector<std::string> tokens;
-        for (int i = 0; i < 250000; ++i) {
+        for (int i = 0; i < 1000; ++i) {
             tokens.push_back(generate_token(24));
         }
 
         PoolT cut(memspace, memspace);
         std::vector<db0::LP_String> addresses;
         std::unordered_map<std::string, db0::LP_String> address_map;
+        int count = 0;
         for (const auto &token : tokens) {
+            ++count;
+            if (count % 1000 == 0) {
+                std::cout << "Processed " << count << " tokens" << std::endl;
+            }
             addresses.push_back(cut.addRef(token));
             auto it = address_map.find(token);
             if (it == address_map.end()) {
@@ -159,7 +163,6 @@ namespace tests
             auto fetched = cut.fetch(addr);
             ASSERT_EQ(fetched, token) << "Token mismatch for: " << token;
         }
-    }
-    */
+    }    
     
 }
