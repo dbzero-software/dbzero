@@ -22,7 +22,7 @@ namespace db0
     }
 
     void CacheRecycler::adjustSize(std::unique_lock<std::mutex> &, std::size_t requested_release_size)
-    {
+    {                  
         // calculate size to be released from the dirty locks
         // so that they occupy <50% of the cache
         // NOTE: this has to be done before actual size adjustment

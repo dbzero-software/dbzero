@@ -121,14 +121,14 @@ namespace db0
 
         virtual void forEachMemspace(std::function<bool(Memspace &)> callback);
 
+        // try releasing a specific volume of dirty locks
+        virtual void onFlushDirty(std::size_t limit);
+
     private:
         mutable CacheRecycler m_cache_recycler;
         SlabRecycler m_slab_recycler;
         // memspace by name
         std::unordered_map<std::string, Memspace> m_memspaces;
-
-        // try releasing a specific volume of dirty locks
-        void onFlushDirty(std::size_t limit);
     };
 
     class WorkspaceThreads;
@@ -328,6 +328,8 @@ namespace db0
         
         // @return false if unable to handle this event at this time
         bool onCacheFlushed(bool threshold_reached) const override;
+
+        void onFlushDirty(std::size_t limit) override;
 
         std::shared_ptr<WorkspaceView> getWorkspaceHeadView() const;
     };

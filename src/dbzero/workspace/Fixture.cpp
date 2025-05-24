@@ -148,12 +148,28 @@ namespace db0
     void Fixture::addRollbackHandler(std::function<void()> f) {
         m_rollback_handlers.push_back(f);
     }
-    
+
+    void Fixture::addFlushHandler(std::function<void()> f) {
+        m_flush_handlers.push_back(f);
+    }
+
     void Fixture::rollback()
     {
-        for (auto &rollback: m_rollback_handlers) {
-            rollback();
+        for (auto &handler: m_rollback_handlers) {
+            handler();
         }
+    }
+    
+    void Fixture::flush()
+    {
+        // NOTE: prevent cleanups during commit to avoid unwanted side-effects
+        if (m_commit_pending) {
+            return;
+        }
+
+        for (auto &handler: m_flush_handlers) {
+            handler();
+        }        
     }
     
     void Fixture::close(bool as_defunct, ProcessTimer *timer_ptr)

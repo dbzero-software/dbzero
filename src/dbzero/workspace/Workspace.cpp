@@ -685,6 +685,10 @@ namespace db0
         m_lang_cache->clear(true);
     }
     
+    void Workspace::onFlushDirty(std::size_t limit) {
+        BaseWorkspace::onFlushDirty(limit);
+    }
+    
     bool Workspace::onCacheFlushed(bool threshold_reached) const
     {
         if (!BaseWorkspace::onCacheFlushed(threshold_reached)) {
@@ -696,7 +700,7 @@ namespace db0
                 return false;
             }
         }
-
+        
         if (!threshold_reached) {
             // additionally erase the entire LangCache to attempt reaching the flush objective            
             m_lang_cache->clear(true);

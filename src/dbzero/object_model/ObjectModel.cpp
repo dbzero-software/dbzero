@@ -70,7 +70,11 @@ namespace db0::object_model
                 fixture->addRollbackHandler([&]() {
                     tag_index.rollback();                    
                 });
-
+                
+                fixture->addFlushHandler([&]() {
+                    tag_index.flush();
+                });
+                
                 // register resources with the object catalogue
                 oc.addUnique(tag_index);
                 oc.addUnique(class_factory);
@@ -116,6 +120,10 @@ namespace db0::object_model
                     tag_index.rollback();                    
                 });
                 
+                fixture->addFlushHandler([&]() {
+                    tag_index.flush();
+                });
+
                 if (fixture->getAccessType() == db0::AccessType::READ_WRITE) {
                     // execute GC0::collect when opening an existing fixture as read-write
                     fixture->getGC0().collect();

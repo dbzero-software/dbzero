@@ -282,3 +282,25 @@ def test_tag_remove_then_add_in_single_transaction(db0_fixture):
     db0.commit()
     objs = [x for x in db0.find(MemoTestClass, "object")]
     assert len(objs) > 0
+
+
+@pytest.mark.stress_test
+def test_add_250k_tags_low_cache(db0_no_autocommit):
+    # limit cache size for cache recycler testing
+    db0.set_cache_size(256 << 10)
+    def random_tag(max_length=24):
+        import random
+        import string
+        return ''.join(random.choices(string.ascii_letters + string.digits, k=max_length))
+    
+    obj = MemoTestClass(0)
+    for i in range(100):
+        last_tags = [random_tag() for _ in range(1000)]
+        db0.tags(obj).add(last_tags)        
+        print(f"Next batch done: {i + 1}000 tags added")
+        
+    db0.commit()
+    
+    for tag in last_tags:
+        assert len(list(db0.find(tag))) == 1, f"Tag {tag} not found after adding 250k tags"
+    
