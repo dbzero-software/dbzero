@@ -2,6 +2,7 @@
 #include "Memo.hpp"
 #include "MemoExpiredRef.hpp"
 #include "PyInternalAPI.hpp"
+#include "Types.hpp"
 #include <dbzero/bindings/python/collections/PyList.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/collections/PyIndex.hpp>
@@ -324,7 +325,7 @@ namespace db0::python
         if (!PyUnicode_Check(py_object)) {
             // unable to resolve as tag
             THROWF(db0::InputException) << "Unable to resolve object as tag";
-        }        
+        }
         return string_pool.toAddress(string_pool.add(inc_ref, PyUnicode_AsUTF8(py_object)));
     }
 
@@ -391,7 +392,7 @@ namespace db0::python
     }
 
     PyToolkit::ObjectPtr PyToolkit::getUUID(ObjectPtr py_object) {
-        return db0::python::getUUID(nullptr, &py_object, 1);
+        return db0::python::tryGetUUID(py_object);
     }
     
     bool PyToolkit::isEnumValue(ObjectPtr py_object) {

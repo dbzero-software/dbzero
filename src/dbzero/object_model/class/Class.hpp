@@ -209,7 +209,7 @@ namespace db0::object_model
         // member field definitions
         VFieldVector m_members;
         std::shared_ptr<Class> m_base_class_ptr;
-        mutable std::vector<Member> m_member_cache;
+        mutable std::vector<std::unique_ptr<Member> > m_member_cache;
         // Field by-name index (cache)
         // values: field id / assigned on initialization flag
         mutable std::unordered_map<std::string, std::pair<FieldID, bool> > m_index;

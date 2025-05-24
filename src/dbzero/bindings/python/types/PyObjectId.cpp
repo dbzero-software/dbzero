@@ -33,21 +33,15 @@ namespace db0::python
         .tp_init = reinterpret_cast<initproc>(ObjectId_init),        
         .tp_new = PyType_GenericNew,
     };
-    
-    PyObject *getUUID(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+        
+    PyObject *PyAPI_getUUID(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "Invalid number of arguments");
             return NULL;
         }
-        PyObject *py_arg = args[0];
-        return runSafe(tryGetUUID, py_arg);
-    }
-    
-    PyObject *PyAPI_getUUID(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
-        return getUUID(self, args, nargs);
+        return runSafe(tryGetUUID, args[0]);
     }
     
     PyObject *ObjectId_repr(PyObject *self)

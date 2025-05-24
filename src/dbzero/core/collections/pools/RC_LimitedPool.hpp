@@ -65,7 +65,7 @@ namespace db0::pools
          * @return true if found, false otherwise
         */
         template <typename KeyT> bool find(const KeyT &, AddressT &) const;
-
+        
         std::size_t size() const;
 
         void commit() const;
@@ -116,7 +116,7 @@ namespace db0::pools
     {
     }
     
-    template <typename T, typename CompT, typename AddressT> template <typename KeyT> 
+    template <typename T, typename CompT, typename AddressT> template <typename KeyT>
     bool RC_LimitedPool<T, CompT, AddressT>::find(const KeyT &key, AddressT &address) const
     {
         auto it = m_pool_map.find(key);
@@ -198,19 +198,22 @@ namespace db0::pools
     }
     
     template <typename T, typename CompT, typename AddressT>
-    void RC_LimitedPool<T, CompT, AddressT>::addRefByAddr(AddressT address)
+    void RC_LimitedPool<T, CompT, AddressT>::addRefByAddr(AddressT addr)
     {
-        auto it = m_pool_map.beginFromAddress(Address::fromOffset(address));
+        MemLock lock;
+        auto it_addr = LP_Type::template fetch<const ItemT&>(addr, lock).m_first;
+        auto it = m_pool_map.beginFromAddress(it_addr);
         assert(it != m_pool_map.end());
         ++it.modify().second().m_ref_count;
     }
-
+    
     template <typename T, typename CompT, typename AddressT>
     void RC_LimitedPool<T, CompT, AddressT>::unRefByAddr(AddressT addr)
     {
         MemLock lock;
         auto it_addr = LP_Type::template fetch<const ItemT&>(addr, lock).m_first;
         auto it = m_pool_map.beginFromAddress(it_addr);
+        assert(it != m_pool_map.end());
         unRefItem(it);
     }
     

@@ -119,7 +119,7 @@ namespace db0::python
     
     void MemoTypeDecoration::forAllMigrations(const std::unordered_set<std::string> &available_members,
         std::function<bool(Migration &)> callback) const
-    {
+    {        
         // invoke migrations for all missing members, in order of initialization
         for (auto &init_var: m_init_vars) {
             if (available_members.find(init_var) == available_members.end()) {

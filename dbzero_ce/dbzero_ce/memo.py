@@ -151,7 +151,7 @@ def memo(cls=None, **kwargs):
                 if hasattr(attr, '_db0_migration'):
                     yield (attr, list(dis_assig(attr)))
     
-    def wrap(cls_):        
+    def wrap(cls_):
         # note that we use the dyn_prefix mechanism only for singletons
         is_singleton = kwargs.get("singleton", False)
         return wrap_memo_type(cls_, py_file = getfile(cls_), py_init_vars = list(dis_init_assig(cls_)), \

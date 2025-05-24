@@ -118,5 +118,48 @@ namespace tests
         db0::v_object<db0::o_string> cut(memspace, "serving_temps");
         ASSERT_EQ(cut->sizeOf(), 14);
     }
+    
+    /* FIXME: log
+    TEST_F( LimitedPoolTest , testLimitedStringPoolAddingEmptyTokens )
+    {
+        using PoolT = db0::pools::RC_LimitedStringPool;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
 
+        auto generate_token = [](int max_len) -> std::string {
+            static const char *chars = "abcdefghijklmnopqrstuvwxyz";
+            std::string token;
+            int len = rand() % max_len;
+            for (int i = 0; i < len; ++i) {
+                token += chars[rand() % (sizeof(chars) - 1)];
+            }
+            return token;
+        };
+
+        std::vector<std::string> tokens;
+        for (int i = 0; i < 250000; ++i) {
+            tokens.push_back(generate_token(24));
+        }
+
+        PoolT cut(memspace, memspace);
+        std::vector<db0::LP_String> addresses;
+        std::unordered_map<std::string, db0::LP_String> address_map;
+        for (const auto &token : tokens) {
+            addresses.push_back(cut.addRef(token));
+            auto it = address_map.find(token);
+            if (it == address_map.end()) {
+                address_map[token] = addresses.back();
+            } else {
+                ASSERT_EQ(it->second, addresses.back());
+            }
+        }
+                
+        cut.commit();
+        for (const auto [token, addr]: address_map) {
+            ASSERT_TRUE(addr);
+            auto fetched = cut.fetch(addr);
+            ASSERT_EQ(fetched, token) << "Token mismatch for: " << token;
+        }
+    }
+    */
+    
 }
