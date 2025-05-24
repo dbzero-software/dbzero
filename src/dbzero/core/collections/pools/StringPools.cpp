@@ -22,7 +22,7 @@ namespace db0::pools
         return super_t::add(inc_ref, value);
     }
 
-    RC_LimitedStringPool::PtrT RC_LimitedStringPool::addRef(const char *value) {        
+    RC_LimitedStringPool::PtrT RC_LimitedStringPool::addRef(const char *value) {
         return super_t::addRef(value);
     }
 

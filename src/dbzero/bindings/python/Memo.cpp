@@ -644,7 +644,7 @@ namespace db0::python
     }
     
     void MemoType_close(PyTypeObject *type) {
-        MemoTypeDecoration::get(type).close();         
+        MemoTypeDecoration::get(type).close();
     }
     
     PyObject *MemoObject_set_prefix(MemoObject *py_obj, const char *prefix_name)

@@ -38,7 +38,7 @@ namespace db0::python
     extern PyTypeObject ObjectIdType;
     
     // retrieve UUID of a dbzero object
-    PyObject *getUUID(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_getUUID(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     PyObject *PyAPI_getUUID(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     bool ObjectId_Check(PyObject *obj);
     
