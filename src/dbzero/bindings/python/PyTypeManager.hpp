@@ -9,6 +9,7 @@
 #include <dbzero/bindings/TypeId.hpp>
 #include "PyTypes.hpp"
 #include <dbzero/bindings/python/types/PyEnumType.hpp>
+#include <dbzero/bindings/python/MemoTypeDecoration.hpp>
 
 namespace db0::object_model {
 
@@ -38,6 +39,8 @@ namespace db0::python
 
 {
     
+    class MemoTypeDecoration;
+
     /**
      * The class dedicated to recognition of Python types
      */
@@ -117,8 +120,9 @@ namespace db0::python
         /**
          * Called with each new memo type
         */
-        void addMemoType(TypeObjectPtr, const char *type_id);
-
+        void addMemoType(TypeObjectPtr, const char *type_id, MemoTypeDecoration &&);
+        MemoTypeDecoration &getMemoTypeDecoration(TypeObjectPtr);
+        
         // Called to register each newly created db0.enum type
         void addEnum(PyEnum *);
 
@@ -151,11 +155,13 @@ namespace db0::python
         
     private:
         std::vector<std::string*> m_string_pool;
+        // the registry of memo types, used for retrieving type decorators
+        std::unordered_map<TypeObjectPtr, MemoTypeDecoration> m_type_registry;
         std::unordered_map<TypeId, ObjectPtr> m_py_type_map;
         std::unordered_map<ObjectPtr, TypeId> m_id_map;
         // lang types by name variant
         // note that this cache may contain types not present in the ClassFactory yet
-        std::unordered_map<std::string, TypeObjectSharedPtr> m_type_cache;
+        std::unordered_map<std::string, TypeObjectSharedPtr> m_type_cache;        
         std::vector<ObjectSharedPtr> m_enum_cache;
         mutable ObjectSharedPtr m_py_bad_prefix_error;
         // error associated with missing / invalid type accessed (e.g. missing import)

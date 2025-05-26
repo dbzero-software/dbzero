@@ -588,7 +588,7 @@ namespace db0::python
         return PyBool_fromBool(reinterpret_cast<MemoObject*>(py_object)->ext().isSingleton());
     }
 
-    PyObject *getRefCount(PyObject *, PyObject *args)
+    PyObject *PyAPI_getRefCount(PyObject *, PyObject *args)
     {
         PY_API_FUNC        
         PyObject *py_object;
@@ -600,7 +600,7 @@ namespace db0::python
         return runSafe(tryGetRefCount, py_object);
     }
     
-    PyObject *getTypeInfo(PyObject *self, PyObject *args)
+    PyObject *PyAPI_getTypeInfo(PyObject *self, PyObject *args)
     {
         PY_API_FUNC
         PyObject *py_object;
@@ -906,7 +906,7 @@ namespace db0::python
         return runSafe(tryGetMutablePrefixes);
     }
     
-    PyObject *getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         // extract optional prefix_name or prefix_uuid
@@ -927,7 +927,7 @@ namespace db0::python
         return runSafe(tryGetStorageStats, args, kwargs);
     }
     
-    PyObject *getAttributes(PyObject *self, PyObject *args)
+    PyObject *PyAPI_getAttributes(PyObject *self, PyObject *args)
     {
         PY_API_FUNC
         PyTypeObject *py_type;
@@ -944,7 +944,7 @@ namespace db0::python
         return runSafe(tryGetAttributes, py_type);
     }
     
-    PyObject *getAttrAs(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_getAttrAs(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         // memo object, attribute name, type
@@ -1131,8 +1131,7 @@ namespace db0::python
         
         // retrieve static prefix name
         if (!prefix_name) {
-            MemoTypeDecoration &decor = *reinterpret_cast<MemoTypeDecoration*>((char*)py_type + sizeof(PyHeapTypeObject));
-            prefix_name = decor.tryGetPrefixName();
+            prefix_name = MemoTypeDecoration::get((PyTypeObject*)py_type).tryGetPrefixName();
         }
         
         auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();

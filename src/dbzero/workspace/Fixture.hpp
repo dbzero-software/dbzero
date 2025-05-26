@@ -148,6 +148,7 @@ namespace db0
         void addCloseHandler(std::function<void(bool commit)>);
         void addDetachHandler(std::function<void()>);
         void addRollbackHandler(std::function<void()>);
+        void addFlushHandler(std::function<void()>);
 
         // Rollback uncommited contents from internal buffers
         void rollback();
@@ -157,6 +158,9 @@ namespace db0
         
         void close(bool as_defunct, ProcessTimer * = nullptr);
         
+        // Flush internal buffers of the associated resources (to free up memory)
+        void flush();
+
         inline GC0 *tryGetGC0() const {
             return m_gc0_ptr;
         }
@@ -293,6 +297,8 @@ namespace db0
         std::vector<std::function<void(bool)> > m_close_handlers;
         std::vector<std::function<void()> > m_detach_handlers;
         std::vector<std::function<void()> > m_rollback_handlers;
+        // flush handlers, to release some memory on resource exhaustion
+        std::vector<std::function<void()> > m_flush_handlers;
         
         std::uint64_t getUUID(MetaAllocator &);
         
@@ -371,7 +377,7 @@ namespace db0
             : m_fixture(fixture)
             , m_lock(fixture->m_commit_mutex)
         {
-            if (fixture->getAccessType() != AccessType::READ_WRITE) {                
+            if (fixture->getAccessType() != AccessType::READ_WRITE) {
                 THROWF(db0::InputException) << "Cannot modify read-only prefix: " << fixture->getPrefix().getName();
             }
         }

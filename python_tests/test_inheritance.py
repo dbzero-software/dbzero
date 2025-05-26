@@ -12,7 +12,6 @@ class BaseClass:
     def base_method(self):
         return self.base_value        
 
-
 @memo
 class DerivedClass(BaseClass):
     def __init__(self, base_value, value):

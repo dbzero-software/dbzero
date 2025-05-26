@@ -25,18 +25,20 @@ namespace db0::python
     class MemoTypeDecoration
     {   
     public:     
+        MemoTypeDecoration() = default;
+
+        MemoTypeDecoration(MemoTypeDecoration &&);
+
         MemoTypeDecoration(shared_py_object<PyObject*> py_module,
             const char *prefix_name, const char *type_id, 
             const char *file_name, std::vector<std::string> &&init_vars, 
             shared_py_object<PyObject*> py_dyn_prefix_callable,
             std::vector<Migration> &&migrations);
         
+        ~MemoTypeDecoration();
+        
         // get decoration of a given memo type
-        static inline MemoTypeDecoration &get(PyTypeObject *type)
-        {
-            assert(PyMemoType_Check(type) && "Invalid type (expected memo type)");
-            return *reinterpret_cast<MemoTypeDecoration*>((char*)type + sizeof(PyHeapTypeObject));    
-        }
+        static MemoTypeDecoration &get(PyTypeObject *);
         
         // @return nullptr if no file name is set
         inline const char *tryGetFileName() const {
@@ -69,14 +71,16 @@ namespace db0::python
         // resolve dynamic prefix from the callable
         std::string getDynPrefix(PyObject *args, PyObject *kwargs) const;
         
-        void close();
-
         // Check if there're any migrations defined for this type
         bool hasMigrations() const;
         
         // Identify applicable migrations and invoke callbacks in member-initialization order
         void forAllMigrations(const std::unordered_set<std::string> &available_members,
             std::function<bool(Migration &)> callback) const;
+        
+        MemoTypeDecoration &operator=(MemoTypeDecoration &&);
+        
+        void close();
         
     private:
         // module where the type is defined
@@ -85,7 +89,7 @@ namespace db0::python
         const char *m_type_id = 0;
         const char *m_file_name = 0;
         // variables potentially asignable during the type initialization
-        const std::vector<std::string> m_init_vars;
+        std::vector<std::string> m_init_vars;
         // resolved fixture UUID (initialized by the process)
         std::atomic<std::uint64_t> m_fixture_uuid = 0;
         // dynamic prefix callable
@@ -93,6 +97,8 @@ namespace db0::python
         std::vector<Migration> m_migrations;
         // by-name migrations' index
         std::unordered_map<std::string, Migration*> m_ix_migrations;
+
+        void init();
     };
     
 }

@@ -36,6 +36,7 @@ namespace db0::python
     int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds);
     PyObject *PyAPI_MemoObject_getattro(MemoObject *self, PyObject *attr);
     int PyAPI_MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value);
+    Py_hash_t PyAPI_MemoHash(PyObject *);
     
     // check if memo type has been marked as singleton
     bool PyMemoType_IsSingleton(PyTypeObject *type);
@@ -43,7 +44,7 @@ namespace db0::python
     PyObject *MemoObject_GetFieldLayout(MemoObject *);
     
     PyObject *MemoObject_DescribeObject(MemoObject *);
-    PyObject *MemoObject_str(MemoObject *);
+    PyObject *PyAPI_MemoObject_str(MemoObject *);
     
     void MemoType_get_info(PyTypeObject *type, PyObject *dict);
     void MemoType_close(PyTypeObject *type);

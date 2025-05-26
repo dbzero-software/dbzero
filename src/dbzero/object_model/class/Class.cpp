@@ -103,7 +103,7 @@ namespace db0::object_model
         // NOTE: we start field IDs from 1
         auto next_field_id = FieldID::fromIndex(m_members.size());
         m_members.emplace_back(getFixture()->getLimitedStringPool(), name);
-        m_member_cache.emplace_back(next_field_id, name);
+        m_member_cache.emplace_back(new Member(next_field_id, name));
         m_index[name] = { next_field_id, is_init_var };
         return next_field_id;
     }
@@ -129,7 +129,7 @@ namespace db0::object_model
     {
         auto index = field_id.getIndex();
         if (index < m_member_cache.size()) {
-            return &m_member_cache[index];
+            return m_member_cache[index].get();
         }
         
         if (index >= m_member_cache.size()) {
@@ -137,7 +137,7 @@ namespace db0::object_model
             refreshMemberCache();            
         }
         if (index < m_member_cache.size()) {
-            return &m_member_cache[index];
+            return m_member_cache[index].get();
         }
         return nullptr;
     }
@@ -209,12 +209,13 @@ namespace db0::object_model
             return;
         }
         
-        // fetch all members into cache
+        // Fetch all members into cache
         unsigned int index = m_member_cache.size();
-        auto &string_pool = getFixture()->getLimitedStringPool();
+        auto fixture = getFixture();
+        auto &string_pool = fixture->getLimitedStringPool();
         for (auto it = m_members.begin(index), end = m_members.end(); it != end; ++it, ++index) {
-            m_member_cache.emplace_back(FieldID::fromIndex(index), string_pool.fetch(it->m_name));
-            auto field_name = m_member_cache.back().m_name;
+            auto field_name = string_pool.fetch(it->m_name);
+            m_member_cache.emplace_back(new Member(FieldID::fromIndex(index), field_name));
             bool is_init_var = m_init_vars.find(field_name) != m_init_vars.end();
             m_index[field_name] = { FieldID::fromIndex(index), is_init_var };
         }
@@ -296,7 +297,7 @@ namespace db0::object_model
         // FIXME: implement get type fields
         return getNameVariant(_class.getTypeId(), _class.getTypeName(), _class.tryGetModuleName(), std::nullopt, variant_id);
     }
-
+    
     void Class::renameField(const char *from_name, const char *to_name)
     {
         assert(from_name);
@@ -321,7 +322,7 @@ namespace db0::object_model
         m_members.modifyItem(field_id.getIndex()).m_name = string_pool.addRef(to_name);
         // 2. update in member's cache
         refreshMemberCache();
-        m_member_cache[field_id.getIndex()].m_name = to_name;
+        m_member_cache[field_id.getIndex()]->m_name = to_name;
         // 3. update in the in-memory index
         m_index.erase(from_name);
         auto is_init_var = m_init_vars.find(to_name) != m_init_vars.end();
@@ -414,7 +415,7 @@ namespace db0::object_model
     }
     
     std::unordered_map<std::string, std::uint32_t> Class::getMembers() const
-    {
+    {        
         refreshMemberCache();
         std::unordered_map<std::string, std::uint32_t> result;
         for (auto &item: m_index) {

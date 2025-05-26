@@ -158,7 +158,7 @@ namespace db0
         protected :
             friend FT_BaseIndex;
             
-            mutable std::mutex m_mutex;
+            mutable std::recursive_mutex m_mutex;
             FT_BaseIndex *m_base_index_ptr;            
             TagValueBuffer m_add_set;
             TagValueBuffer m_remove_set;
@@ -178,7 +178,7 @@ namespace db0
              */
             template <typename SequenceT> void addTags(ActiveValueT value, const SequenceT &tags_or_types)
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
+                std::lock_guard<std::recursive_mutex> lock(m_mutex);
                 m_commit_called = false;
                 for (auto key: tags_or_types) {
                     _addTag(value, key);
@@ -188,14 +188,14 @@ namespace db0
             // Add a single tag
             void addTag(ActiveValueT value, IndexKeyT tag)
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
+                std::lock_guard<std::recursive_mutex> lock(m_mutex);
                 m_commit_called = false;
                 _addTag(value, tag);                
             }
 
             void removeTag(ActiveValueT value, IndexKeyT tag)
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
+                std::lock_guard<std::recursive_mutex> lock(m_mutex);
                 m_commit_called = false;
                 _removeTag(value, tag);                
             }
@@ -203,7 +203,7 @@ namespace db0
             template <typename SequenceT>
             void removeTags(ActiveValueT value, const SequenceT &tags_or_types)
             {
-                std::lock_guard<std::mutex> lock(m_mutex);
+                std::lock_guard<std::recursive_mutex> lock(m_mutex);
                 m_commit_called = false;
                 for (auto key: tags_or_types) {
                     _removeTag(value, key);

@@ -103,7 +103,7 @@ namespace db0::python
 
     PyObject *PyAPI_isSingleton(PyObject *self, PyObject *args);
 
-    PyObject *getRefCount(PyObject *self, PyObject *args);
+    PyObject *PyAPI_getRefCount(PyObject *self, PyObject *args);
     
     // convert to a Python dict
     PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs);
@@ -117,7 +117,7 @@ namespace db0::python
     
     PyObject *PyAPI_isEnumValue(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
-    PyObject *getTypeInfo(PyObject *self, PyObject *args);
+    PyObject *PyAPI_getTypeInfo(PyObject *self, PyObject *args);
     
     PyObject *PyAPI_setPrefix(PyObject *self, PyObject *args, PyObject *kwargs);
     
@@ -129,15 +129,15 @@ namespace db0::python
 
     PyObject *PyAPI_getMutablePrefixes(PyObject *, PyObject *);
     
-    PyObject *getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs);
     
     PyObject *getPrefixStats(PyObject *self, PyObject *args, PyObject *kwargs);
     
     PyObject *getStorageStats(PyObject *, PyObject *args, PyObject *kwargs);
 
-    PyObject *getAttributes(PyObject *self, PyObject *args);
+    PyObject *PyAPI_getAttributes(PyObject *self, PyObject *args);
     
-    PyObject *getAttrAs(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_getAttrAs(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
     
     PyObject *PyAPI_getAddress(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 

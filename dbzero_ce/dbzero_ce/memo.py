@@ -163,7 +163,7 @@ def memo(cls=None, **kwargs):
     if cls is None:
         # We're called with parens.
         return wrap
-        
+    
     # We're called as @memo without parens.
     return wrap(cls, **kwargs)
 
