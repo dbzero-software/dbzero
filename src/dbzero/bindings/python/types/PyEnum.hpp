@@ -63,6 +63,7 @@ namespace db0::python
     shared_py_object<PyObject*> migratedEnumValue(db0::swine_ptr<Fixture> &, PyEnumValue *);
     
     PyObject *tryLoadEnumValue(PyEnumValue *);
+    PyObject *PyAPI_PyEnumValue_Check(PyObject *self, PyObject *const * args, Py_ssize_t nargs);
     
 }
 
