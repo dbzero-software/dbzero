@@ -100,7 +100,7 @@ def test_enum_type_cannot_be_redefined(db0_fixture):
 
 
 def test_enum_values_order_is_preserved(db0_fixture):
-    NewColors = db0.enum("Colors", ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"])
+    NewColors = db0.enum("NewColors", ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"])
     assert list(NewColors.values()) == [NewColors.ONE, NewColors.TWO, NewColors.THREE, NewColors.FOUR, NewColors.FIVE, 
                                         NewColors.SIX, NewColors.SEVEN, NewColors.EIGHT, NewColors.NINE, NewColors.TEN]
     
