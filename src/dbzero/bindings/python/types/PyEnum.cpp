@@ -405,6 +405,14 @@ namespace db0::python
         auto enum_def = EnumFullDef {enum_name, "", user_enum_values, type_id };
         auto enum_ = type_manager.tryFindEnum(enum_def);
         if (enum_.get()) {
+            // validate if the definitions are matching
+            if (reinterpret_cast<PyEnum*>(*enum_)->ext().m_enum_type_def->m_enum_def != enum_def) {
+                std::stringstream _str;
+                _str << "Enum type already defined with different values: " << enum_def.m_name
+                     << " in module " << enum_def.m_module_name;
+                PyErr_SetString(PyExc_RuntimeError, _str.str().c_str());
+                return NULL;
+            }
             // enum already exists
             return enum_.steal();
         }

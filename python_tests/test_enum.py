@@ -92,10 +92,17 @@ def test_enum_value_repr(db0_fixture):
     assert repr(Colors.RED) == "<EnumValue Colors.RED>"
 
 
+def test_enum_type_cannot_be_redefined(db0_fixture):
+    Colors1 = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    # exception because type "Colors" is being redefined
+    with pytest.raises(Exception):
+        Colors = db0.enum("Colors", ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"])
+
+
 def test_enum_values_order_is_preserved(db0_fixture):
-    Colors = db0.enum("Colors", ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"])
-    assert list(Colors.values()) == [Colors.ONE, Colors.TWO, Colors.THREE, Colors.FOUR, Colors.FIVE, Colors.SIX,
-        Colors.SEVEN, Colors.EIGHT, Colors.NINE, Colors.TEN]
+    NewColors = db0.enum("Colors", ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"])
+    assert list(NewColors.values()) == [NewColors.ONE, NewColors.TWO, NewColors.THREE, NewColors.FOUR, NewColors.FIVE, 
+                                        NewColors.SIX, NewColors.SEVEN, NewColors.EIGHT, NewColors.NINE, NewColors.TEN]
     
 
 def test_load_enum_value(db0_fixture):
