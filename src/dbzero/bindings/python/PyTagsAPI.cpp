@@ -5,6 +5,7 @@
 #include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterable.hpp>
 #include <dbzero/bindings/python/iter/PyObjectIterator.hpp>
+#include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/object_model/tags/SelectModified.hpp>
 #include <dbzero/workspace/Snapshot.hpp>
 #include <dbzero/workspace/Workspace.hpp>
@@ -208,6 +209,10 @@ namespace db0::python
         
         if (type_id == TypeId::OBJECT_ITERABLE) {
             reinterpret_cast<PyObjectIterable*>(py_serializable)->ext().serialize(bytes);
+        } else if (type_id == TypeId::DB0_ENUM_VALUE) {
+            reinterpret_cast<PyEnumValue*>(py_serializable)->ext().serialize(bytes);
+        } else if (type_id == TypeId::DB0_ENUM_VALUE_REPR) {
+            reinterpret_cast<PyEnumValueRepr*>(py_serializable)->ext().serialize(bytes);
         } else {
             THROWF(db0::InputException) << "Unsupported or non-serializable type: " 
                 << static_cast<int>(type_id) << THROWF_END;
@@ -246,13 +251,17 @@ namespace db0::python
         auto iter = bytes.cbegin(), end = bytes.cend();
         auto type_id = db0::serial::read<TypeId>(iter, end);
         if (type_id == TypeId::OBJECT_ITERABLE) {
-            return PyToolkit::unloadObjectIterable(fixture, iter, end).steal();
+            return PyToolkit::deserializeObjectIterable(fixture, iter, end).steal();
+        } else if (type_id == TypeId::DB0_ENUM_VALUE) {
+            return PyToolkit::deserializeEnumValue(fixture, iter, end).steal();
+        } else if (type_id == TypeId::DB0_ENUM_VALUE_REPR) {
+            return PyToolkit::deserializeEnumValueRepr(fixture, iter, end).steal();
         } else {
             THROWF(db0::InputException) << "Unsupported serialized type id: " 
                 << static_cast<int>(type_id) << THROWF_END;
         }
     }
-        
+    
     PyObject *PyAPI_deserialize(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC

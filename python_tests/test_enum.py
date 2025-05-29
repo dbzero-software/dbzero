@@ -229,3 +229,44 @@ def function_with_enum_as_default(color=ColorsEnum.RED):
 def test_enum_as_default_function_arguments(db0_fixture):    
     obj = function_with_enum_as_default()
     assert obj.value == ColorsEnum.RED
+
+
+def test_enum_value_serialize(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    # this will serialize a concrete, materialized enum value
+    bytes = db0.serialize(Colors.RED)
+    assert len(bytes) > 0
+
+
+def test_enum_value_deserialize(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    # this will serialize a concrete, materialized enum value
+    bytes = db0.serialize(Colors.RED), db0.serialize(Colors.GREEN), db0.serialize(Colors.BLUE)
+    assert db0.deserialize(bytes[0]) == Colors.RED
+    assert db0.deserialize(bytes[1]) == Colors.GREEN
+    assert db0.deserialize(bytes[2]) == Colors.BLUE
+    
+
+def get_repr_func(color=ColorsEnum.RED):
+    # NOTE: this function by default returns the enum value repr (since the default argument is evaluated before db0 is initialized)
+    return color
+    
+def test_enum_value_repr_serialize(db0_fixture):
+    # this will serialize as enumvalue-repr
+    bytes = db0.serialize(get_repr_func())
+    assert len(bytes) > 0
+
+
+def test_enum_value_repr_deserialize(db0_fixture):
+    # this will serialize as enumvalue-repr
+    bytes = db0.serialize(get_repr_func())
+    red = ColorsEnum.RED
+    assert db0.deserialize(bytes) == red
+        
+
+def test_enum_value_repr_deserialize_as_repr(db0_fixture):
+    # this will serialize as enumvalue-repr
+    bytes = db0.serialize(get_repr_func())
+    # NOTICE: this will be deserialized as repr because enum value has not been created yet
+    assert db0.deserialize(bytes) == ColorsEnum.RED
+    

@@ -130,6 +130,9 @@ namespace db0::python
          * Try finding Python type by a given name variant
         */
         TypeObjectPtr findType(const std::string &variant_name) const;
+        std::shared_ptr<EnumTypeDef> tryFindEnumTypeDef(const std::string &variant_name) const;
+        std::shared_ptr<EnumTypeDef> tryFindEnumTypeDef(const EnumDef &) const;
+        std::shared_ptr<EnumTypeDef> findEnumTypeDef(const EnumDef &) const;
 
         bool isNull(ObjectPtr) const;
 
@@ -162,7 +165,8 @@ namespace db0::python
         // lang types by name variant
         // note that this cache may contain types not present in the ClassFactory yet
         std::unordered_map<std::string, TypeObjectSharedPtr> m_type_cache;        
-        std::vector<ObjectSharedPtr> m_enum_cache;
+        // lang enums by name variant
+        std::unordered_map<std::string, ObjectSharedPtr> m_enum_cache;
         mutable ObjectSharedPtr m_py_bad_prefix_error;
         // error associated with missing / invalid type accessed (e.g. missing import)
         mutable ObjectSharedPtr m_py_class_not_found_error;

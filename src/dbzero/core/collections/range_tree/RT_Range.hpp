@@ -28,7 +28,8 @@ namespace db0
 
         void serialize(std::vector<std::byte> &v) const;
 
-        static RT_Range<KeyT> deserialize(std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end);
+        static RT_Range<KeyT> deserialize(std::vector<std::byte>::const_iterator &iter, 
+            std::vector<std::byte>::const_iterator end);
     };
 
     template <typename KeyT>
@@ -72,7 +73,8 @@ namespace db0
     }
     
     template <typename KeyT>
-    RT_Range<KeyT> RT_Range<KeyT>::deserialize(std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
+    RT_Range<KeyT> RT_Range<KeyT>::deserialize(std::vector<std::byte>::const_iterator &iter, 
+        std::vector<std::byte>::const_iterator end)
     {
         bool has_min = db0::serial::read<bool>(iter, end);
         std::optional<KeyT> min;

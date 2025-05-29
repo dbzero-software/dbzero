@@ -396,13 +396,13 @@ namespace db0::python
     bool PyEnumValueRepr_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyEnumValueReprType;        
     }
-
+    
     PyObject *tryMakeEnum(PyObject *, const std::string &enum_name,
         const std::vector<std::string> &user_enum_values, const char *type_id, const char *prefix_name)
     {
         auto py_enum = PyEnumDefault_new();
         // use empty module name since it's unknown
-        PyEnumData::makeNew(&py_enum->modifyExt(), EnumDef {enum_name, "", user_enum_values, type_id }, prefix_name);
+        PyEnumData::makeNew(&py_enum->modifyExt(), EnumFullDef {enum_name, "", user_enum_values, type_id }, prefix_name);
         PyToolkit::getTypeManager().addEnum(py_enum);
         return py_enum;
     }
@@ -416,7 +416,7 @@ namespace db0::python
     shared_py_object<PyEnumValue*> makePyEnumValue(const EnumValue &enum_value)
     {
         auto py_enum_value = PyEnumValueDefault_new();
-        py_enum_value.get()->modifyExt() = enum_value;
+        py_enum_value->makeNew(enum_value);
         return py_enum_value;
     }
     
@@ -439,10 +439,11 @@ namespace db0::python
         return PyUnicode_FromFormat("<EnumValue ???.%s>", self->ext().m_str_repr.c_str());
     }
     
-    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(std::shared_ptr<EnumTypeDef> enum_type_def, const char *value)
+    shared_py_object<PyEnumValueRepr*> makePyEnumValueRepr(std::shared_ptr<EnumTypeDef> enum_type_def, 
+        const char *str_value)
     {
         auto py_enum_value = PyEnumValueReprDefault_new();
-        EnumValueRepr::makeNew(&py_enum_value.get()->modifyExt(), enum_type_def, value);
+        EnumValueRepr::makeNew(&py_enum_value.get()->modifyExt(), enum_type_def, str_value);
         return py_enum_value;
     }
     

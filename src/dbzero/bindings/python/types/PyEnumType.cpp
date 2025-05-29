@@ -8,7 +8,7 @@ namespace db0::python
 
 {
     
-    PyEnumData::PyEnumData(const EnumDef &enum_def, const char *prefix_name)
+    PyEnumData::PyEnumData(const EnumFullDef &enum_def, const char *prefix_name)
         : m_enum_type_def(std::make_shared<EnumTypeDef>(enum_def, prefix_name))
         , m_fixture_uuid(tryGetFixtureUUID(prefix_name))
     {
@@ -95,7 +95,7 @@ namespace db0::python
         
     }
     
-    void PyEnumData::makeNew(void *at_ptr, const EnumDef &enum_def, const char *prefix_name) {
+    void PyEnumData::makeNew(void *at_ptr, const EnumFullDef &enum_def, const char *prefix_name) {
         new(at_ptr) PyEnumData(enum_def, prefix_name);
     }
     
@@ -181,6 +181,17 @@ namespace db0::python
             // fixture UUID = 0 represents the default fixture
             return 0;
         }
+    }
+    
+    std::optional<std::string> getEnumKeyVariant(const EnumDef &enum_def, int variant_id)
+    {
+        return db0::object_model::getEnumKeyVariant(enum_def.m_type_id,
+            enum_def.m_name, enum_def.m_module_name, enum_def.m_hash, variant_id
+        );
+    }
+    
+    std::optional<std::string> getEnumKeyVariant(const PyEnumData &enum_data, int variant_id) {
+        return getEnumKeyVariant(enum_data.m_enum_type_def->m_enum_def, variant_id);
     }
 
 }

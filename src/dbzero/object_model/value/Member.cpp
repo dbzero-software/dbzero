@@ -472,7 +472,7 @@ namespace db0::object_model
     {
         Py_RETURN_NONE;
     }
-
+    
     // DB0_TUPLE specialization
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_TUPLE, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
@@ -491,7 +491,7 @@ namespace db0::object_model
         auto iter = buffer.cbegin(), end = buffer.cend();
         auto type_id = db0::serial::read<TypeId>(iter, end);
         if (type_id == TypeId::OBJECT_ITERABLE) {
-            return PyToolkit::unloadObjectIterable(fixture, iter, end);
+            return PyToolkit::deserializeObjectIterable(fixture, iter, end);
         } else {
             THROWF(db0::InputException) << "Unsupported serialized type id: " 
                 << static_cast<int>(type_id) << THROWF_END;

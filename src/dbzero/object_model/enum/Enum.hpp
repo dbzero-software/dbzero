@@ -84,7 +84,7 @@ namespace db0::object_model
         // Retrieve all enum defined values ordered by index
         std::vector<EnumValue> getValues() const;
         
-        const EnumDef &getEnumDef() const;
+        const EnumFullDef &getEnumDef() const;
         std::optional<std::string> getTypeID() const;
         
         // Fetch specific enum value's string representation
@@ -107,18 +107,16 @@ namespace db0::object_model
         mutable std::unordered_map<std::string, ObjectSharedPtr> m_cache;
         // cache by ordinal values
         mutable std::unordered_map<unsigned int, ObjectSharedPtr> m_ord_cache;
-        const EnumDef m_enum_def;
+        const EnumFullDef m_enum_def;
         
         std::uint32_t fetchUID() const;
         
-        EnumDef makeEnumDef() const;
-        EnumDef makeEnumDef(const std::string &name, const std::string &module_name, const std::vector<std::string> &values, 
-            const char *type_id);
+        EnumFullDef makeEnumDef() const;
     };
     
     std::optional<std::string> getEnumKeyVariant(std::optional<std::string> type_id, std::optional<std::string> enum_name,
-        std::optional<std::string> module_name, const std::vector<std::string> &values, int variant_id);
-
+        std::optional<std::string> module_name, std::uint32_t hash, int variant_id);
+    
 }
 
 namespace std

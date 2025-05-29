@@ -66,7 +66,7 @@ static PyMethodDef dbzero_methods[] =
     {"build_flags", &py::PyAPI_getBuildFlags, METH_NOARGS, "Retrieve dbzero library build flags"},
     {"serialize", (PyCFunction)&py::PyAPI_serialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
     {"deserialize", (PyCFunction)&py::PyAPI_deserialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
-    {"make_enum", (PyCFunction)&py::makeEnum, METH_VARARGS | METH_KEYWORDS, "Define new or retrieve existing Enum type"},
+    {"make_enum", (PyCFunction)&py::PyAPI_makeEnum, METH_VARARGS | METH_KEYWORDS, "Define new or retrieve existing Enum type"},
     {"is_enum_value", (PyCFunction)&py::PyAPI_isEnumValue, METH_FASTCALL, "Check if parameter represents a dbzero enum value"},
     {"split_by", (PyCFunction)&py::PyAPI_splitBy, METH_VARARGS | METH_KEYWORDS, "Split query iterator by a given criteria"},
     {"filter", (PyCFunction)&py::filter, METH_VARARGS | METH_KEYWORDS, "Filter with a Python callable"},

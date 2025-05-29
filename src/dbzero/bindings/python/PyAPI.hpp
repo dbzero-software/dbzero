@@ -110,7 +110,7 @@ namespace db0::python
 
     PyObject *PyAPI_getBuildFlags(PyObject *self, PyObject *args);
     
-    PyObject *makeEnum(PyObject *, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_makeEnum(PyObject *, PyObject *args, PyObject *kwargs);
     
     // implements db0.filter functionality
     PyObject *filter(PyObject *, PyObject *args, PyObject *kwargs);

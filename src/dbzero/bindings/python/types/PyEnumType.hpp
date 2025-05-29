@@ -25,6 +25,7 @@ namespace db0::python
 
     using Enum = db0::object_model::Enum;
     using EnumDef = db0::object_model::EnumDef;
+    using EnumFullDef = db0::object_model::EnumFullDef;
     using EnumTypeDef = db0::object_model::EnumTypeDef;
     
     // must store EnumDef for deferred creation
@@ -33,11 +34,11 @@ namespace db0::python
     public:
         using Snapshot = db0::Snapshot;
         using EnumFactory = db0::object_model::EnumFactory;
-
-        // shared_ptr to be able to associated this element with EnumValueRepre elemenst
+        
+        // shared_ptr to be able to associated this element with EnumValueRepr elemenst
         std::shared_ptr<EnumTypeDef> m_enum_type_def;
 
-        PyEnumData(const EnumDef &, const char *prefix_name);
+        PyEnumData(const EnumFullDef &, const char *prefix_name);
         
         // tryCreate may fail if enum is first accessed and prefix is not opened for read/write
         Enum *tryCreate();
@@ -59,7 +60,7 @@ namespace db0::python
         
         std::size_t size() const;
         
-        static void makeNew(void *at_ptr, const EnumDef &enum_def, const char *prefix_name);
+        static void makeNew(void *at_ptr, const EnumFullDef &enum_def, const char *prefix_name);
 
     private:
         // enum specific fixture UUID (for scoped enums) or 0 to use the current fixture
@@ -76,5 +77,8 @@ namespace db0::python
     };
     
     using PyEnum = PyWrapper<PyEnumData, false>;
+    
+    std::optional<std::string> getEnumKeyVariant(const EnumDef &, int variant_id);
+    std::optional<std::string> getEnumKeyVariant(const PyEnumData &, int variant_id);
 
 }

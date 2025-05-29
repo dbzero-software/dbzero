@@ -94,7 +94,7 @@ namespace db0::object_model
         return result;
     }
     
-    const EnumDef &Enum::getEnumDef() const {
+    const EnumFullDef &Enum::getEnumDef() const {
         return m_enum_def;
     }
     
@@ -184,7 +184,7 @@ namespace db0::object_model
     }
     
     std::optional<std::string> getEnumKeyVariant(std::optional<std::string> type_id, std::optional<std::string> enum_name,
-        std::optional<std::string> module_name, const std::vector<std::string> &values, int variant_id)
+        std::optional<std::string> module_name, std::uint32_t hash, int variant_id)
     {
         switch (variant_id) {
             case 0: {                
@@ -205,7 +205,7 @@ namespace db0::object_model
             break;
 
             case 2: {
-                // variant 2. name + fields
+                // variant 2. name + values (hash)
                 // std::stringstream _str;
                 // _str << "cls:" << _class.getTypeName() << "." << db0::python::getTypeFields(lang_class);
                 // return _str.str();
@@ -213,7 +213,7 @@ namespace db0::object_model
             break;
 
             case 3: {
-                // variant 3. module + fields
+                // variant 3. module + values (hash)
                 // std::stringstream _str;
                 // _str << "pkg:" << _class.getModuleName() << "." << db0::python::getTypeFields(lang_class);
                 // return _str.str();
@@ -263,7 +263,7 @@ namespace db0::object_model
         return m_values.size();
     }
     
-    EnumDef Enum::makeEnumDef() const
+    EnumFullDef Enum::makeEnumDef() const
     {
         std::vector<std::string> values;
         for (auto value: m_ordered_values) {
