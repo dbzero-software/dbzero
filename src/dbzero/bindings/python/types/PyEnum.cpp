@@ -42,10 +42,10 @@ namespace db0::python
     }
     
     shared_py_object<PyObject*> tryPyEnum_getenum(PyEnum *self, PyObject *attr)
-    {
-        auto &enum_ = self->ext();
-        if (enum_.exists()) {
-            return enum_.get().tryGetLangValue(PyUnicode_AsUTF8(attr));
+    {        
+        auto &enum_data = self->ext();
+        if (enum_data.exists()) {
+            return enum_data.get().tryGetLangValue(PyUnicode_AsUTF8(attr));
         } else {
             if (PyToolkit::getPyWorkspace().hasWorkspace()) {
                 // note that enum is created on demand
@@ -57,8 +57,8 @@ namespace db0::python
             
             // if unable to create (e.g. prefix not accessible for read/write or Worspace unavailable) then
             // return a value placeholder
-            if (enum_.hasValue(PyUnicode_AsUTF8(attr))) {                        
-                return makePyEnumValueRepr(enum_.m_enum_type_def, PyUnicode_AsUTF8(attr)).steal();
+            if (enum_data.hasValue(PyUnicode_AsUTF8(attr))) {
+                return makePyEnumValueRepr(enum_data.m_enum_type_def, PyUnicode_AsUTF8(attr)).steal();
             }
             return nullptr;
         }
@@ -400,11 +400,21 @@ namespace db0::python
     PyObject *tryMakeEnum(PyObject *, const std::string &enum_name,
         const std::vector<std::string> &user_enum_values, const char *type_id, const char *prefix_name)
     {
-        auto py_enum = PyEnumDefault_new();
+        auto &type_manager = PyToolkit::getTypeManager();
         // use empty module name since it's unknown
-        PyEnumData::makeNew(&py_enum->modifyExt(), EnumFullDef {enum_name, "", user_enum_values, type_id }, prefix_name);
-        PyToolkit::getTypeManager().addEnum(py_enum);
-        return py_enum;
+        auto enum_def = EnumFullDef {enum_name, "", user_enum_values, type_id };
+        auto enum_ = type_manager.tryFindEnum(enum_def);
+        if (enum_.get()) {
+            // enum already exists
+            return enum_.steal();
+        }
+        
+        // create a new enum instance
+        auto py_enum = Py_OWN(PyEnumDefault_new());
+        // use empty module name since it's unknown
+        py_enum->makeNew(enum_def, prefix_name);
+        PyToolkit::getTypeManager().addEnum(*py_enum);
+        return py_enum.steal();
     }
     
     PyObject *tryMakeEnumFromType(PyObject *self, PyTypeObject *py_type, const std::vector<std::string> &enum_values,

@@ -130,10 +130,12 @@ namespace db0::python
          * Try finding Python type by a given name variant
         */
         TypeObjectPtr findType(const std::string &variant_name) const;
+        ObjectSharedPtr tryFindEnum(const std::string &variant_name) const;
+        ObjectSharedPtr tryFindEnum(const EnumDef &) const;        
         std::shared_ptr<EnumTypeDef> tryFindEnumTypeDef(const std::string &variant_name) const;
         std::shared_ptr<EnumTypeDef> tryFindEnumTypeDef(const EnumDef &) const;
         std::shared_ptr<EnumTypeDef> findEnumTypeDef(const EnumDef &) const;
-
+        
         bool isNull(ObjectPtr) const;
 
         // Execute specific lambda for all memo types (language specific wrappers)

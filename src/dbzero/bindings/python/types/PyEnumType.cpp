@@ -89,16 +89,12 @@ namespace db0::python
         return *enum_ptr;
     }
     
-    void PyEnumData::close() {
+    void PyEnumData::close()
+    {
         m_enum_cache.clear();
-        m_fixture_uuid = std::nullopt;
+        m_fixture_uuid = std::nullopt;        
+    }
         
-    }
-    
-    void PyEnumData::makeNew(void *at_ptr, const EnumFullDef &enum_def, const char *prefix_name) {
-        new(at_ptr) PyEnumData(enum_def, prefix_name);
-    }
-    
     bool PyEnumData::hasValue(const char *value) const
     {
         assert(value);

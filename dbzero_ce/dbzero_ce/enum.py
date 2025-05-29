@@ -1,9 +1,9 @@
-from .dbzero_ce import make_enum
+from .dbzero_ce import _make_enum
 
 
 def enum(cls=None, *args, **kwargs):
     def wrap(cls_):
-        return make_enum(cls_, **kwargs)
+        return _make_enum(cls_, **kwargs)
     
     # See if we're being called as @enum or @enum().
     if cls is None:
@@ -12,7 +12,7 @@ def enum(cls=None, *args, **kwargs):
 
     if isinstance(cls, str):
         # enum called as a regular function.
-        return make_enum(cls, *args, **kwargs)
+        return _make_enum(cls, *args, **kwargs)
     
     # We're called as @enum without parens.
     return wrap(cls, **kwargs)

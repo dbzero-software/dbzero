@@ -59,9 +59,7 @@ namespace db0::python
         const std::vector<std::string> &getValueDefs() const;
         
         std::size_t size() const;
-        
-        static void makeNew(void *at_ptr, const EnumFullDef &enum_def, const char *prefix_name);
-
+            
     private:
         // enum specific fixture UUID (for scoped enums) or 0 to use the current fixture
         mutable std::optional<std::uint64_t> m_fixture_uuid;

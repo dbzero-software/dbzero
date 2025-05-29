@@ -98,8 +98,9 @@ namespace db0::object_model
         
     private:
         const std::uint64_t m_fixture_uuid;
-        const std::uint32_t m_uid;
-        RC_LimitedStringPool &m_string_pool;
+        const std::uint32_t m_uid;     
+        // NOTE: string-pool reference only available with the corresponding Fixture
+        RC_LimitedStringPool &m_string_pool_ref;
         db0::v_bindex<LP_String> m_values;
         // values in order defined by the user
         db0::v_bvector<LP_String> m_ordered_values;
@@ -112,8 +113,10 @@ namespace db0::object_model
         std::uint32_t fetchUID() const;
         
         EnumFullDef makeEnumDef() const;
+        
+        const RC_LimitedStringPool &getStringPool(db0::swine_ptr<Fixture> &lock) const;
     };
-    
+
     std::optional<std::string> getEnumKeyVariant(std::optional<std::string> type_id, std::optional<std::string> enum_name,
         std::optional<std::string> module_name, std::uint32_t hash, int variant_id);
     
