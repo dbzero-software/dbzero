@@ -45,6 +45,10 @@ namespace db0::python
         void destroy() {
             ext().~T();
         }
+        
+        template <typename... Args> void makeNew(Args &&...args) {
+            new ((void*)&modifyExt()) T(std::forward<Args>(args)...);
+        }
     };
     
     template <typename T> struct Shared

@@ -29,7 +29,7 @@ namespace db0::object_model
             case 1 : 
             case 2 : {
                 return getEnumKeyVariant(db0::getOptionalString(type_id), enum_def.m_name,
-                    enum_def.m_module_name, enum_def.m_values, variant_id);
+                    enum_def.m_module_name, enum_def.m_hash, variant_id);
             }
             break;
 
@@ -47,7 +47,7 @@ namespace db0::object_model
         }
         return std::nullopt;
     }
-
+    
     bool tryFindByKey(const VEnumMap &enum_map, const char *key, EnumPtr &result)
     {
         auto it = enum_map.find(key);
@@ -108,7 +108,7 @@ namespace db0::object_model
         return tryGetOrCreateEnum(enum_type_def.m_enum_def);
     }
     
-    std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumDef &enum_def)
+    std::shared_ptr<Enum> EnumFactory::tryGetOrCreateEnum(const EnumFullDef &enum_def)
     {
         auto ptr = tryFindEnumPtr(enum_def);
         if (ptr) {
@@ -141,7 +141,7 @@ namespace db0::object_model
         return this->getEnum(enum_ptr, enum_);
     }
 
-    std::shared_ptr<Enum> EnumFactory::getOrCreateEnum(const EnumDef &enum_def)
+    std::shared_ptr<Enum> EnumFactory::getOrCreateEnum(const EnumFullDef &enum_def)
     {
         auto enum_ = tryGetOrCreateEnum(enum_def);
         if (!enum_) {
@@ -152,7 +152,7 @@ namespace db0::object_model
         }
         return enum_;
     }
-
+    
     std::shared_ptr<Enum> EnumFactory::getOrCreateEnum(const EnumTypeDef &enum_type_def)
     {        
         auto enum_ = tryGetOrCreateEnum(enum_type_def);
@@ -170,9 +170,19 @@ namespace db0::object_model
         }
         return enum_;
     }
+
+    std::shared_ptr<Enum> EnumFactory::getExistingEnum(const EnumDef &enum_def, const char *prefix_name) const
+    {
+        auto enum_ = tryGetExistingEnum(enum_def, prefix_name);
+        if (!enum_) {
+            THROWF(db0::InputException) << "Enum not found: " << enum_def;
+        }
+        return enum_;
+    }
     
     std::shared_ptr<Enum> EnumFactory::tryGetExistingEnum(const EnumTypeDef &enum_type_def) const
     {                
+        // FIXME: handle scoped enums (with prefix defined)
         auto ptr = tryFindEnumPtr(enum_type_def.m_enum_def);
         if (!ptr) {
             return nullptr;
@@ -180,6 +190,16 @@ namespace db0::object_model
         return getEnumByPtr(ptr);
     }
     
+    std::shared_ptr<Enum> EnumFactory::tryGetExistingEnum(const EnumDef &enum_def, const char *) const
+    {
+        // FIXME: handle scoped enums (with prefix defined)
+        auto ptr = tryFindEnumPtr(enum_def);
+        if (!ptr) {
+            return nullptr;
+        }
+        return getEnumByPtr(ptr);
+    }
+
     std::shared_ptr<Enum> EnumFactory::getEnumByPtr(EnumPtr ptr) const
     {
         auto it_cached = m_ptr_cache.find(ptr);

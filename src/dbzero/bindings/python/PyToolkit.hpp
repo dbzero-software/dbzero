@@ -122,18 +122,23 @@ namespace db0::python
         static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture>, Address);
 
         static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture>, Address);
-
+        
         // Unload dbzero block instance
         static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, Address);
         
         // Unload from serialized bytes
-        static ObjectSharedPtr unloadObjectIterable(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
+        static ObjectSharedPtr deserializeObjectIterable(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
+            std::vector<std::byte>::const_iterator end);
+        static ObjectSharedPtr deserializeEnumValue(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
+            std::vector<std::byte>::const_iterator end);
+        static ObjectSharedPtr deserializeEnumValueRepr(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
         
         static ObjectSharedPtr unloadByteArray(db0::swine_ptr<Fixture>, Address);
         
         // Creates a new Python instance of EnumValue
         static ObjectSharedPtr makeEnumValue(const EnumValue &);
+        static ObjectSharedPtr makeEnumValueRepr(std::shared_ptr<EnumTypeDef> type_def, const char *str_value);
         
         // Create a tuple from a vector of objects
         static ObjectSharedPtr makeTuple(const std::vector<ObjectSharedPtr> &);

@@ -300,7 +300,7 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(tuple_object));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadObjectIterable(db0::swine_ptr<Fixture> fixture,
+    PyToolkit::ObjectSharedPtr PyToolkit::deserializeObjectIterable(db0::swine_ptr<Fixture> fixture,
         std::vector<std::byte>::const_iterator &iter, 
         std::vector<std::byte>::const_iterator end)
     {
@@ -308,6 +308,21 @@ namespace db0::python
         auto py_iter = PyObjectIterableDefault_new();
         py_iter->makeNew(std::move(*obj_iter));
         return shared_py_cast<PyObject*>(std::move(py_iter));
+    }
+    
+    PyToolkit::ObjectSharedPtr PyToolkit::deserializeEnumValue(db0::swine_ptr<Fixture> fixture,
+        std::vector<std::byte>::const_iterator &iter, 
+        std::vector<std::byte>::const_iterator end)
+    {
+        auto &snapshot = fixture->getWorkspace();
+        return db0::object_model::EnumValue::deserialize(snapshot, iter, end);
+    }
+
+    PyToolkit::ObjectSharedPtr PyToolkit::deserializeEnumValueRepr(db0::swine_ptr<Fixture> fixture,
+        std::vector<std::byte>::const_iterator &iter, 
+        std::vector<std::byte>::const_iterator end)
+    {
+        return db0::object_model::EnumValueRepr::deserialize(fixture, iter, end);
     }
     
     std::uint64_t PyToolkit::getTagFromString(ObjectPtr py_object, db0::pools::RC_LimitedStringPool &string_pool)
@@ -405,6 +420,10 @@ namespace db0::python
     
     PyToolkit::ObjectSharedPtr PyToolkit::makeEnumValue(const EnumValue &value) {
         return shared_py_cast<PyObject*>(makePyEnumValue(value));
+    }
+    
+    PyToolkit::ObjectSharedPtr PyToolkit::makeEnumValueRepr(std::shared_ptr<EnumTypeDef> type_def, const char *str_value) {
+        return shared_py_cast<PyObject*>(makePyEnumValueRepr(type_def, str_value));
     }
     
     std::string PyToolkit::getLastError()

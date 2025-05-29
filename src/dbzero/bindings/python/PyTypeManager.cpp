@@ -103,8 +103,8 @@ namespace db0::python
             for (auto &pair: m_type_cache) {
                 pair.second.steal();
             }
-            for (auto &obj: m_enum_cache) {
-                obj.steal();                
+            for (auto &pair: m_enum_cache) {
+                pair.second.steal(); 
             }        
             m_py_bad_prefix_error.steal();        
             m_py_class_not_found_error.steal();        
@@ -309,7 +309,7 @@ namespace db0::python
         for (unsigned int i = 0; i < 4; ++i) {
             auto variant_name = db0::object_model::getNameVariant(type, type_id, i);
             if (variant_name) {
-                m_type_cache.insert({*variant_name, TypeObjectSharedPtr(type)});
+                m_type_cache[*variant_name] = TypeObjectSharedPtr(type);
             }
         }
         // identify the MemoBase Type
@@ -407,16 +407,28 @@ namespace db0::python
         return reinterpret_cast<PyFieldDef*>(py_object)->modifyExt();
     }
 
-    void PyTypeManager::addEnum(PyEnum *py_enum) {
-        m_enum_cache.push_back(reinterpret_cast<PyObject*>(py_enum));
+    void PyTypeManager::addEnum(PyEnum *py_enum)
+    {
+        auto &enum_data = py_enum->ext();
+        // register type with up to 4 key variants
+        for (unsigned int i = 0; i < 4; ++i) {
+            auto variant_name = getEnumKeyVariant(enum_data, i);
+            if (variant_name) {
+                auto it = m_enum_cache.find(*variant_name);
+                if (it != m_enum_cache.end()) {                    
+                    THROWF(db0::InputException) << "Enum with name '" << *variant_name << "' already exists" << THROWF_END;
+                }
+                m_enum_cache[*variant_name] = ObjectSharedPtr(py_enum);
+            }
+        }
     }
     
     void PyTypeManager::close()
-    {
+    {        
         // close Enum's but don't remove from cache
         // this is to allow future creation / retrieval of dbzero enums while keeping python objects alive
-        for (auto &obj : m_enum_cache) {
-            PyEnum *py_enum = reinterpret_cast<PyEnum*>(obj.get());
+        for (auto &item : m_enum_cache) {
+            PyEnum *py_enum = reinterpret_cast<PyEnum*>(item.second.get());
             py_enum->modifyExt().close();
         }
         
@@ -501,4 +513,57 @@ namespace db0::python
         return it->second;
     }
 
+    PyTypeManager::ObjectSharedPtr PyTypeManager::tryFindEnum(const std::string &variant_name) const
+    {
+        auto it = m_enum_cache.find(variant_name);
+        if (it != m_enum_cache.end()) {
+            return it->second;
+        }
+        return nullptr;
+    }
+
+    PyTypeManager::ObjectSharedPtr PyTypeManager::tryFindEnum(const EnumDef &enum_def) const
+    {
+        // try finding by all key variants
+        for (unsigned int i = 0; i < 4; ++i) {
+            auto variant_name = getEnumKeyVariant(enum_def, i);
+            if (variant_name) {
+                auto result = tryFindEnum(*variant_name);
+                if (result.get()) {
+                    return result;
+                }
+            }
+        }
+        return nullptr;
+    }
+    
+    std::shared_ptr<EnumTypeDef> PyTypeManager::tryFindEnumTypeDef(const std::string &variant_name) const
+    {   
+        auto result = tryFindEnum(variant_name);
+        if (!result) {
+            return nullptr;
+        }
+
+        return reinterpret_cast<PyEnum*>(*result)->ext().m_enum_type_def;
+    }
+    
+    std::shared_ptr<EnumTypeDef> PyTypeManager::tryFindEnumTypeDef(const EnumDef &enum_def) const
+    {
+        auto result = tryFindEnum(enum_def);
+        if (!result) {
+            return nullptr;
+        }
+
+        return reinterpret_cast<PyEnum*>(*result)->ext().m_enum_type_def;
+    }
+    
+    std::shared_ptr<EnumTypeDef> PyTypeManager::findEnumTypeDef(const EnumDef &enum_def) const
+    {
+        auto result = tryFindEnumTypeDef(enum_def);
+        if (!result) {
+            THROWF(db0::InputException) << "Enum type not found: " << enum_def << THROWF_END;
+        }
+        return result;
+    }
+    
 }

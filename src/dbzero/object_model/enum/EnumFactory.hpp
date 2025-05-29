@@ -43,23 +43,25 @@ namespace db0::object_model
          * @param lang_type the language specific type object (e.g. Python class)
          * @param typeid the user assigned type ID (optional)
         */
-        std::shared_ptr<Enum> getExistingEnum(const EnumTypeDef &) const;
+        std::shared_ptr<Enum> getExistingEnum(const EnumTypeDef &) const;        
+        std::shared_ptr<Enum> getExistingEnum(const EnumDef &, const char *prefix_name = nullptr) const;
         
         /**
          * A non-throwing version of getExistingType
          * @return nullptr if the class is not found
         */
         std::shared_ptr<Enum> tryGetExistingEnum(const EnumTypeDef &) const;
+        std::shared_ptr<Enum> tryGetExistingEnum(const EnumDef &, const char *prefix_name = nullptr) const;
         
         /**
          * Get existing or create a new dbzero enum instance
          * @param enum_def enum definition
          * @param type_id optional user assigned type ID
         */
-        std::shared_ptr<Enum> getOrCreateEnum(const EnumDef &);
+        std::shared_ptr<Enum> getOrCreateEnum(const EnumFullDef &);
         std::shared_ptr<Enum> getOrCreateEnum(const EnumTypeDef &);
         
-        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumDef &);
+        std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumFullDef &);
         std::shared_ptr<Enum> tryGetOrCreateEnum(const EnumTypeDef &);
         
         // reference the dbzero object model's enum by its pointer

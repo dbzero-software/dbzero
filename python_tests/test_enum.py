@@ -92,10 +92,17 @@ def test_enum_value_repr(db0_fixture):
     assert repr(Colors.RED) == "<EnumValue Colors.RED>"
 
 
+def test_enum_type_cannot_be_redefined(db0_fixture):
+    Colors1 = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    # exception because type "Colors" is being redefined
+    with pytest.raises(Exception):
+        Colors = db0.enum("Colors", ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"])
+
+
 def test_enum_values_order_is_preserved(db0_fixture):
-    Colors = db0.enum("Colors", ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"])
-    assert list(Colors.values()) == [Colors.ONE, Colors.TWO, Colors.THREE, Colors.FOUR, Colors.FIVE, Colors.SIX,
-        Colors.SEVEN, Colors.EIGHT, Colors.NINE, Colors.TEN]
+    NewColors = db0.enum("NewColors", ["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"])
+    assert list(NewColors.values()) == [NewColors.ONE, NewColors.TWO, NewColors.THREE, NewColors.FOUR, NewColors.FIVE, 
+                                        NewColors.SIX, NewColors.SEVEN, NewColors.EIGHT, NewColors.NINE, NewColors.TEN]
     
 
 def test_load_enum_value(db0_fixture):
@@ -229,3 +236,44 @@ def function_with_enum_as_default(color=ColorsEnum.RED):
 def test_enum_as_default_function_arguments(db0_fixture):    
     obj = function_with_enum_as_default()
     assert obj.value == ColorsEnum.RED
+
+
+def test_enum_value_serialize(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    # this will serialize a concrete, materialized enum value
+    bytes = db0.serialize(Colors.RED)
+    assert len(bytes) > 0
+
+
+def test_enum_value_deserialize(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    # this will serialize a concrete, materialized enum value
+    bytes = db0.serialize(Colors.RED), db0.serialize(Colors.GREEN), db0.serialize(Colors.BLUE)
+    assert db0.deserialize(bytes[0]) == Colors.RED
+    assert db0.deserialize(bytes[1]) == Colors.GREEN
+    assert db0.deserialize(bytes[2]) == Colors.BLUE
+    
+
+def get_repr_func(color=ColorsEnum.RED):
+    # NOTE: this function by default returns the enum value repr (since the default argument is evaluated before db0 is initialized)
+    return color
+    
+def test_enum_value_repr_serialize(db0_fixture):
+    # this will serialize as enumvalue-repr
+    bytes = db0.serialize(get_repr_func())
+    assert len(bytes) > 0
+
+
+def test_enum_value_repr_deserialize(db0_fixture):
+    # this will serialize as enumvalue-repr
+    bytes = db0.serialize(get_repr_func())
+    red = ColorsEnum.RED
+    assert db0.deserialize(bytes) == red
+        
+
+def test_enum_value_repr_deserialize_as_repr(db0_fixture):
+    # this will serialize as enumvalue-repr
+    bytes = db0.serialize(get_repr_func())
+    # NOTICE: this will be deserialized as repr because enum value has not been created yet
+    assert db0.deserialize(bytes) == ColorsEnum.RED
+    

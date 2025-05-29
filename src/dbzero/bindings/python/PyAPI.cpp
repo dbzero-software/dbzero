@@ -690,7 +690,7 @@ namespace db0::python
         return db0::object_model::StorageClass::DB0_INDEX;
     }
     
-    PyObject *makeEnum(PyObject *self, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_makeEnum(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         // extract string and list

@@ -14,6 +14,7 @@ namespace db0::python
     using EnumValue = db0::object_model::EnumValue;
     using EnumValueRepr = db0::object_model::EnumValueRepr;
     using EnumDef = db0::object_model::EnumDef;
+    using EnumFullDef = db0::object_model::EnumFullDef;
     using EnumTypeDef = db0::object_model::EnumTypeDef;
     using Enum = db0::object_model::Enum;
     using PyEnumValue = PyWrapper<EnumValue, false>;
@@ -62,7 +63,7 @@ namespace db0::python
     shared_py_object<PyObject*> migratedEnumValue(db0::swine_ptr<Fixture> &, PyEnumValue *);
     
     PyObject *tryLoadEnumValue(PyEnumValue *);
-
+    
 }
 
 

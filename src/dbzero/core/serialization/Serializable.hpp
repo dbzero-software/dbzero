@@ -63,6 +63,15 @@ namespace db0::serial
         at += value.sizeOf();
     }
 
+    // append overlaid type, construct from args
+    template <typename T, typename... Args> void emplaceBack(std::vector<std::byte> &v, Args &&... args)
+    {
+        auto size_of = T::measure(std::forward<Args>(args)...);
+        v.resize(v.size() + size_of);
+        std::byte *at = v.data() + v.size() - size_of;
+        write<T>(at, std::forward<Args>(args)...);
+    }
+    
     template <typename T> void writeSimple(std::byte *&at, T value) {
         write<o_simple<T> >(at, value);
     }
@@ -101,7 +110,16 @@ namespace db0::serial
         at += value.sizeOf();
         return value;       
     }
-
+    
+    template <typename T>
+    const T &pop(std::vector<std::byte>::const_iterator &iter, std::vector<std::byte>::const_iterator end)
+    {
+        const_bounded_buf_t buf([]() { THROWF(db0::InputException) << "Buffer underflow"; }, &(*iter), &(*end));
+        auto &value = T::__safe_const_ref(buf);
+        iter += value.sizeOf();
+        return value;
+    }
+    
     template <typename T> T readSimple(std::byte *&at) {
         return read<o_simple<T> >(at);
     }

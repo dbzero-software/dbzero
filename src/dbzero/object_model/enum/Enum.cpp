@@ -5,7 +5,7 @@ namespace db0::object_model
 {
 
     GC0_Define(Enum)
-
+    
     o_enum::o_enum(Memspace &memspace)
         : m_values(memspace)
         , m_ordered_values(memspace)
@@ -17,20 +17,20 @@ namespace db0::object_model
         : super_t(fixture, *fixture)
         , m_fixture_uuid(fixture->getUUID())
         , m_uid(this->fetchUID())
-        , m_string_pool(fixture->getLimitedStringPool())
+        , m_string_pool_ref(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
         , m_ordered_values((*this)->m_ordered_values(*fixture))
         , m_enum_def(name, module_name, values, type_id)
     {
         for (auto &value: values) {
-            auto value_ref = m_string_pool.addRef(value);
+            auto value_ref = m_string_pool_ref.addRef(value);
             m_values.insert(value_ref);
             m_ordered_values.push_back(value_ref);
         }
-        modify().m_name = m_string_pool.addRef(name);
-        modify().m_module_name = m_string_pool.addRef(module_name);
+        modify().m_name = m_string_pool_ref.addRef(name);
+        modify().m_module_name = m_string_pool_ref.addRef(module_name);
         if (type_id) {
-            modify().m_type_id = m_string_pool.addRef(type_id);
+            modify().m_type_id = m_string_pool_ref.addRef(type_id);
         }
         modify().m_values = m_values;
         modify().m_ordered_values = m_ordered_values;
@@ -40,7 +40,7 @@ namespace db0::object_model
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_fixture_uuid(fixture->getUUID())
         , m_uid(this->fetchUID())
-        , m_string_pool(fixture->getLimitedStringPool())
+        , m_string_pool_ref(fixture->getLimitedStringPool())
         , m_values((*this)->m_values(*fixture))
         , m_ordered_values((*this)->m_ordered_values(*fixture))
         , m_enum_def(makeEnumDef())
@@ -63,7 +63,8 @@ namespace db0::object_model
     {
         assert(value);
         decltype(LP_String::m_value) value_id;
-        if (!m_string_pool.find(value, value_id)) {
+        db0::swine_ptr<Fixture> lock;
+        if (!getStringPool(lock).find(value, value_id)) {
             return LP_String();
         }
         if (m_values.find(value_id) == m_values.end()) {
@@ -76,7 +77,8 @@ namespace db0::object_model
     {
         assert(value);
         decltype(LP_String::m_value) value_id;
-        if (!m_string_pool.find(value, value_id)) {
+        db0::swine_ptr<Fixture> lock;
+        if (!getStringPool(lock).find(value, value_id)) {
             THROWF(db0::InputException) << "Enum value not found: " << value;
         }
         if (m_values.find(value_id) == m_values.end()) {
@@ -94,7 +96,7 @@ namespace db0::object_model
         return result;
     }
     
-    const EnumDef &Enum::getEnumDef() const {
+    const EnumFullDef &Enum::getEnumDef() const {
         return m_enum_def;
     }
     
@@ -120,15 +122,17 @@ namespace db0::object_model
         if (m_values.find(enum_value_uid.m_value) == m_values.end()) {
             THROWF(db0::InputException) << "Enum value not found by UID: " << enum_value_uid.asULong();
         }
-        return { this->getFixture(), enum_value_uid.m_enum_uid, enum_value_uid.m_value,
-            m_string_pool.fetch(enum_value_uid.m_value) };
+        auto fixture = this->getFixture();
+        return { fixture, enum_value_uid.m_enum_uid, enum_value_uid.m_value,
+            getStringPool(fixture).fetch(enum_value_uid.m_value) };
     }
     
     std::vector<EnumValue> Enum::getValues() const
     {
         std::vector<EnumValue> values;
+        auto fixture = this->getFixture();
         for (auto value: m_ordered_values) {
-            values.push_back({ this->getFixture(), m_uid, value, m_string_pool.fetch(value) });
+            values.push_back({ fixture, m_uid, value, getStringPool(fixture).fetch(value) });
         }
         return values;
     }
@@ -177,14 +181,15 @@ namespace db0::object_model
         auto it_cache = m_ord_cache.find(at);
         if (it_cache == m_ord_cache.end()) {
             // retieve by name
-            auto lang_value = getLangValue(m_string_pool.fetch(m_ordered_values[at]).c_str());
+            db0::swine_ptr<Fixture> lock;
+            auto lang_value = getLangValue(getStringPool(lock).fetch(m_ordered_values[at]).c_str());
             it_cache = m_ord_cache.insert({at, lang_value}).first;
         }
         return it_cache->second.get();
     }
     
     std::optional<std::string> getEnumKeyVariant(std::optional<std::string> type_id, std::optional<std::string> enum_name,
-        std::optional<std::string> module_name, const std::vector<std::string> &values, int variant_id)
+        std::optional<std::string> module_name, std::uint32_t hash, int variant_id)
     {
         switch (variant_id) {
             case 0: {                
@@ -205,7 +210,7 @@ namespace db0::object_model
             break;
 
             case 2: {
-                // variant 2. name + fields
+                // variant 2. name + values (hash)
                 // std::stringstream _str;
                 // _str << "cls:" << _class.getTypeName() << "." << db0::python::getTypeFields(lang_class);
                 // return _str.str();
@@ -213,7 +218,7 @@ namespace db0::object_model
             break;
 
             case 3: {
-                // variant 3. module + fields
+                // variant 3. module + values (hash)
                 // std::stringstream _str;
                 // _str << "pkg:" << _class.getModuleName() << "." << db0::python::getTypeFields(lang_class);
                 // return _str.str();
@@ -229,18 +234,23 @@ namespace db0::object_model
         return std::nullopt;
     }
 
-    std::string Enum::getName() const {
-        return m_string_pool.fetch((*this)->m_name);
+    std::string Enum::getName() const 
+    {
+        db0::swine_ptr<Fixture> lock;
+        return getStringPool(lock).fetch((*this)->m_name);
     }
     
-    std::string Enum::getModuleName() const {
-        return m_string_pool.fetch((*this)->m_module_name);
+    std::string Enum::getModuleName() const 
+    {
+        db0::swine_ptr<Fixture> lock;
+        return getStringPool(lock).fetch((*this)->m_module_name);
     }
 
     std::optional<std::string> Enum::getTypeID() const 
     {
         if ((*this)->m_type_id) {
-            return m_string_pool.fetch((*this)->m_type_id);
+            db0::swine_ptr<Fixture> lock;
+            return getStringPool(lock).fetch((*this)->m_type_id);
         }
         return std::nullopt;
     }
@@ -262,14 +272,24 @@ namespace db0::object_model
     std::size_t Enum::size() const {
         return m_values.size();
     }
-    
-    EnumDef Enum::makeEnumDef() const
+
+    EnumFullDef Enum::makeEnumDef() const
     {
         std::vector<std::string> values;
+        db0::swine_ptr<Fixture> lock;
         for (auto value: m_ordered_values) {
-            values.push_back(m_string_pool.fetch(value));
+            values.push_back(getStringPool(lock).fetch(value));
         }
         return { getName(), getModuleName(), values, getTypeID() };
+    }
+    
+    const RC_LimitedStringPool &Enum::getStringPool(db0::swine_ptr<Fixture> &lock) const
+    {
+        // must lock the Fixture while accessing the string pool
+        if (!lock) {
+            lock = this->getFixture();
+        }
+        return m_string_pool_ref;
     }
 
 }

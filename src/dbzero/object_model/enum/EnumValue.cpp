@@ -2,10 +2,39 @@
 #include <dbzero/workspace/Fixture.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
 #include <dbzero/object_model/enum/Enum.hpp>
+#include <dbzero/workspace/Snapshot.hpp>
 
 namespace db0::object_model
 
 {
+
+    o_enum_value_repr::o_enum_value_repr(const EnumDef &enum_def, const char *str_repr, const char *prefix_name)
+    {
+        arrangeMembers()
+            (o_enum_def::type(), enum_def)
+            (o_string::type(), str_repr)
+            (o_nullable_string::type(), prefix_name);
+    }
+
+    std::size_t o_enum_value_repr::measure(const EnumDef &enum_def, const char *str_repr, const char *prefix_name)
+    {
+        return measureMembers()
+            (o_enum_def::type(), enum_def)
+            (o_string::type(), str_repr)
+            (o_nullable_string::type(), prefix_name);            
+    }
+
+    const o_enum_def &o_enum_value_repr::enum_def() const {
+        return this->getDynFirst(o_enum_def::type());
+    }
+
+    const o_string &o_enum_value_repr::str_repr() const {
+        return this->getDynAfter(this->enum_def(), o_string::type());   
+    }
+
+    const o_nullable_string &o_enum_value_repr::prefix_name() const {
+        return this->getDynAfter(this->str_repr(), o_nullable_string::type());
+    }
 
     EnumValue_UID::EnumValue_UID(std::uint32_t enum_uid, LP_String value)
         : m_enum_uid(enum_uid)  
@@ -59,6 +88,44 @@ namespace db0::object_model
         return m_enum_type_def != other.m_enum_type_def || m_str_repr != other.m_str_repr;
     }
     
+    void EnumValueRepr::serialize(std::vector<std::byte> &buffer) const
+    {
+        db0::serial::emplaceBack<o_enum_value_repr>(buffer, m_enum_type_def->m_enum_def, m_str_repr.c_str(),
+            m_enum_type_def->getPrefixNamePtr());
+        // stop byte (sentinel)
+        db0::serial::write<std::uint8_t>(buffer, 0);    
+    }
+    
+    ObjectSharedPtr EnumValueRepr::deserialize(db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end)
+    {
+        auto &enum_value_repr = db0::serial::pop<o_enum_value_repr>(iter, end);
+        auto sentinel = db0::serial::read<std::uint8_t>(iter, end);
+        if (sentinel != 0) {
+            THROWF(db0::InputException) << "Invalid sentinel byte for EnumValue deserialization";
+        }
+        
+        auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
+        const char *prefix_name = nullptr;
+        std::string str_prefix_name;
+        if (!enum_value_repr.prefix_name().isNull()) {
+            str_prefix_name = enum_value_repr.prefix_name().extract();
+            prefix_name = str_prefix_name.c_str();
+        }
+        
+        auto enum_def = enum_value_repr.enum_def().get();
+        auto _enum = enum_factory.tryGetExistingEnum(enum_def, prefix_name);
+        auto str_repr = enum_value_repr.str_repr().extract();
+        if (_enum) {            
+            return _enum->getLangValue(str_repr.c_str());
+        } else {
+            // enum does not exist (yet)? 
+            // we must deserialize as enum value representation
+            auto &type_manager = LangToolkit::getTypeManager();
+            return LangToolkit::makeEnumValueRepr(type_manager.findEnumTypeDef(enum_def), str_repr.c_str());
+        }
+    }
+    
     bool EnumValue::operator==(const EnumValue &other) const
     {
         using EnumFactory = db0::object_model::EnumFactory;
@@ -85,7 +152,52 @@ namespace db0::object_model
     std::int64_t EnumValue::getPermHash() const {
         return std::hash<std::string>{}(m_str_repr);
     }
+    
+    void EnumValue::serialize(std::vector<std::byte> &buffer) const
+    {
+        // NOTE: both enum value + enum def needs to be serialized
+        // for fallback resolution in case the client has no access to a specific prefix
+        // but has a reference to the enum type in its scope
+        db0::serial::emplaceBack<o_enum_value>(buffer, *this);
+        auto &enum_factory = m_fixture->get<db0::object_model::EnumFactory>(); 
+        auto _enum = enum_factory.getEnumByUID(m_enum_uid);
+        _enum->getEnumDef().serialize(buffer);
+        // stop byte (sentinel)
+        db0::serial::write<std::uint8_t>(buffer, 0);
+    }
+    
+    EnumValue::ObjectSharedPtr EnumValue::deserialize(Snapshot &workspace, std::vector<std::byte>::const_iterator &iter,
+        std::vector<std::byte>::const_iterator end)
+    {
+        auto &enum_value = db0::serial::pop<o_enum_value>(iter, end);
+        auto &enum_def = db0::serial::pop<o_enum_def>(iter, end);
+        auto sentinel = db0::serial::read<std::uint8_t>(iter, end);    
+        if (sentinel != 0) {
+            THROWF(db0::InputException) << "Invalid sentinel byte for EnumValue deserialization";
+        }
 
+        auto fixture = workspace.getFixture(enum_value.m_fixture_uuid);
+        auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
+        auto _enum = enum_factory.getEnumByUID(enum_value.m_enum_uid);
+        return _enum->getLangValue(enum_value.getUID());
+    }
+    
+    o_enum_value::o_enum_value(std::uint64_t fixture_uuid, std::uint32_t enum_uid, LP_String value)
+        : m_fixture_uuid(fixture_uuid)
+        , m_enum_uid(enum_uid)
+        , m_value(value)
+    {
+    }
+    
+    o_enum_value::o_enum_value(const EnumValue &enum_value)
+        : o_enum_value(enum_value.m_fixture->getUUID(), enum_value.m_enum_uid, enum_value.m_value)
+    {
+    }
+
+    EnumValue_UID o_enum_value::getUID() const {
+        return { m_enum_uid, m_value };
+    }
+    
 } 
 
 namespace std
