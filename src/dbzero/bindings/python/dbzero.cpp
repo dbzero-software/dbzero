@@ -88,6 +88,7 @@ static PyMethodDef dbzero_methods[] =
     {"as_tag", (PyCFunction)&py::PyAPI_as_tag, METH_FASTCALL, "Returns tag of a @db0.memo object"},
     {"materialized", (PyCFunction)&py::PyAPI_materialized, METH_FASTCALL, "Returns a materialized version of a @db0.memo object"},
     {"is_memo", (PyCFunction)&py::PyAPI_PyMemo_Check, METH_FASTCALL, "Checks if passed object is memo type"},
+    {"is_enum_value", (PyCFunction)&py::PyAPI_PyEnumValue_Check, METH_FASTCALL, "Checks if passed object is a db0 enum value"},
     {"wait", (PyCFunction)&py::PyAPI_wait, METH_VARARGS | METH_KEYWORDS, "Wait for desired prefix state number"},
     {"find_singleton", (PyCFunction)&py::PyAPI_findSingleton, METH_VARARGS | METH_KEYWORDS, "Try retrieving an existing singleton, possibly from a given prefix"},
     {"weak_proxy", (PyCFunction)&py::PyAPI_weakProxy, METH_FASTCALL, "Construct weak proxy from a db0 object"},

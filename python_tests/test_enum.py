@@ -277,3 +277,13 @@ def test_enum_value_repr_deserialize_as_repr(db0_fixture):
     # NOTICE: this will be deserialized as repr because enum value has not been created yet
     assert db0.deserialize(bytes) == ColorsEnum.RED
     
+    
+def test_is_enum_value(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    assert db0.is_enum_value(Colors.RED)
+    assert db0.is_enum_value(TriColor.RED)
+    assert db0.is_enum_value(get_repr_func())
+    obj = MemoTestClass(Colors.RED)
+    assert not db0.is_enum_value(obj)
+    
+    
