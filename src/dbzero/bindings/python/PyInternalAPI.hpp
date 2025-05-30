@@ -178,5 +178,7 @@ namespace db0::python
     PyObject *tryGetDRAM_IOMapFromFile(const char *file_name);
 #endif    
 
+    PyObject *tryAssign(PyObject *targets, PyObject *key_values);
+
 }
 

@@ -94,6 +94,7 @@ static PyMethodDef dbzero_methods[] =
     {"weak_proxy", (PyCFunction)&py::PyAPI_weakProxy, METH_FASTCALL, "Construct weak proxy from a db0 object"},
     {"expired", (PyCFunction)&py::PyAPI_expired, METH_FASTCALL, "Check if the weak reference has expired"},    
     {"get_config", &py::PyAPI_getConfig, METH_NOARGS, "Get dbzero configuration, as passed to 'init' function"},
+    {"assign", (PyCFunction)&py::PyAPI_assign, METH_VARARGS | METH_KEYWORDS, "Assign multiple attributes in a single operation (non-atomic)"},
     {"_make_enum", (PyCFunction)&py::PyAPI_makeEnum, METH_VARARGS | METH_KEYWORDS, "Define new or retrieve existing Enum type"},
     {"_compare", (PyCFunction)&py::PyAPI_compare, METH_VARARGS | METH_KEYWORDS, "Binary-compare (shallow) 2 dbzero objects with optional tags' assignments check"},
     {"_await_prefix_state", (PyCFunction)&py::PyAPI_await_prefix_state, METH_VARARGS | METH_KEYWORDS, "Get notified about state number being reached"},    
