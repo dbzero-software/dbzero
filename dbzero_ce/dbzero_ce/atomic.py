@@ -1,4 +1,4 @@
-from .dbzero_ce import begin_atomic
+from .dbzero_ce import begin_atomic, assign
 
 
 class AtomicManager:
@@ -16,3 +16,8 @@ class AtomicManager:
     
 def atomic():
     return AtomicManager()
+
+
+def atomic_assign(*args, **kwargs):
+    with atomic():
+        assign(*args, **kwargs)

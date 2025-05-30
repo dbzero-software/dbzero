@@ -659,5 +659,51 @@ namespace db0::python
         lang_cache.add(addr, memo_obj);
         return memo_obj;
     }
-    
+
+    PyObject *tryAssign(PyObject *targets, PyObject *key_values)
+    {
+        using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
+
+        auto num_targets = PyTuple_Size(targets);
+        for (Py_ssize_t i = 0; i < num_targets; ++i) {
+            auto target = PyTuple_GetItem(targets, i);
+
+            auto items = Py_OWN(PyDict_Items(key_values));
+            if (!items) {
+                return nullptr;
+            }
+            
+            auto iter = Py_OWN(PyObject_GetIter(*items));
+            if (!iter) {
+                return nullptr;
+            }
+
+            ObjectSharedPtr item;
+            Py_FOR(item, iter) {
+                // item is a tuple of (key, value)
+                if (!PyTuple_Check(*item) || PyTuple_Size(*item) != 2) {
+                    PyErr_SetString(PyExc_TypeError, "Dictionary items must be tuples of (key, value)");
+                    return nullptr;
+                }
+
+                PyObject *key = PyTuple_GetItem(*item, 0);
+                PyObject *value = PyTuple_GetItem(*item, 1);
+                
+                // invoke __setattr__ on object
+                if (!PyUnicode_Check(key)) {
+                    PyErr_SetString(PyExc_TypeError, "Dictionary keys must be strings");
+                    return nullptr;
+                }
+
+                // set the attribute on the object
+                if (PyObject_SetAttr(target, key, value) < 0) {
+                    PyErr_Format(PyExc_RuntimeError, "Failed to set attribute '%s'", PyUnicode_AsUTF8(key));
+                    return nullptr;
+                }
+            }
+        }
+
+        Py_RETURN_NONE;
+    }
+
 }
