@@ -29,13 +29,13 @@ namespace py = db0::python;
     
 static PyMethodDef dbzero_methods[] = 
 {
-    {"init", (PyCFunction)&py::init, METH_VARARGS | METH_KEYWORDS, "Initialize dbzero CE workspace at a specific root path"},
-    {"open", (PyCFunction)&py::open, METH_VARARGS | METH_KEYWORDS, "Open or create a prefix for read or read/write"},
+    {"init", (PyCFunction)&py::PyAPI_init, METH_VARARGS | METH_KEYWORDS, "Initialize dbzero CE workspace at a specific root path"},
+    {"open", (PyCFunction)&py::PyAPI_open, METH_VARARGS | METH_KEYWORDS, "Open or create a prefix for read or read/write"},
     {"close", &py::PyAPI_close, METH_VARARGS, ""},
-    {"drop", &py::drop, METH_VARARGS, "Drop prefix (if exists)"},
+    {"drop", &py::PyAPI_drop, METH_VARARGS, "Drop prefix (if exists)"},
     {"commit", &py::PyAPI_commit, METH_VARARGS, "Commit data to disk / persistent storage"},
-    {"fetch", (PyCFunction)&py::fetch, METH_FASTCALL, "Retrieve dbzero object instance by its UUID or type (in case of a singleton)"},
-    {"delete", &py::del, METH_VARARGS, "Delete dbzero object and the corresponding Python instance"},
+    {"fetch", (PyCFunction)&py::PyAPI_fetch, METH_VARARGS | METH_KEYWORDS, "Retrieve dbzero object instance by its UUID or type (in case of a singleton)"},
+    {"delete", &py::PyAPI_del, METH_VARARGS, "Delete dbzero object and the corresponding Python instance"},
     {"wrap_memo_type", (PyCFunction)&py::PyAPI_wrapPyClass, METH_VARARGS | METH_KEYWORDS, "Wraps a memo type for use with dbzero"},
     {"get_type_info", &py::PyAPI_getTypeInfo, METH_VARARGS, "Get dbzero type information"},
     {"uuid", (PyCFunction)&py::PyAPI_getUUID, METH_FASTCALL, "Get unique object ID"},

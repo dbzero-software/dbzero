@@ -309,9 +309,13 @@ namespace db0::python
         for (unsigned int i = 0; i < 4; ++i) {
             auto variant_name = db0::object_model::getNameVariant(type, type_id, i);
             if (variant_name) {
+                if (m_type_cache.find(*variant_name) != m_type_cache.end()) {
+                    THROWF(db0::InputException) << "Memo type: '" << *variant_name << "' already exists" << THROWF_END;
+                }
                 m_type_cache[*variant_name] = TypeObjectSharedPtr(type);
             }
         }
+        
         // identify the MemoBase Type
         if (type_id && std::string(type_id) == "Division By Zero/dbzero_ce/MemoBase") {
             m_memo_base_type = type;

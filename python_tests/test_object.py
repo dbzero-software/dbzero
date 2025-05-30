@@ -458,8 +458,8 @@ def test_object_fetch_as_memo_base(db0_fixture):
     uuid_1 = db0.uuid(obj_1)
     del obj_1
     db0.clear_cache()
-    db0.commit()    
-    obj_2 = db0.fetch(db0.MemoBase, uuid_1)
+    db0.commit()
+    obj_2 = db0.fetch(uuid_1, db0.MemoBase)
     assert obj_2.value == 123
     
 

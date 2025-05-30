@@ -36,24 +36,24 @@ namespace db0::python
     /**    
      * Fetch dbzero object instance by its ID or type (in case of a singleton)
      */
-    PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_fetch(PyObject *, PyObject *args, PyObject *kwargs);
 
     /**
      * Initialize dbzero Python bindings
     */    
-    PyObject *init(PyObject *self, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_init(PyObject *self, PyObject *args, PyObject *kwargs);
     
     /**
      * Opens or creates a prefix for read or read/write
     */
-    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs);
+    PyObject *PyAPI_open(PyObject *self, PyObject *args, PyObject *kwargs);
     
-    PyObject *drop(PyObject *self, PyObject *args);
+    PyObject *PyAPI_drop(PyObject *self, PyObject *args);
     
     PyObject *PyAPI_commit(PyObject *self, PyObject *args);
 
     PyObject *PyAPI_close(PyObject *self, PyObject *args);
-        
+    
     /**
      * Constructs a dbzero list instance
     */
@@ -72,7 +72,7 @@ namespace db0::python
     /**
      * Delete specific dbzero object instance
     */
-    PyObject *del(PyObject *self, PyObject *args);
+    PyObject *PyAPI_del(PyObject *self, PyObject *args);
     
     /**
      * Refresh all open fixtures to update to the latest changes

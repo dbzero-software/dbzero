@@ -62,41 +62,25 @@ namespace db0::python
         return *reinterpret_cast<ObjectId*>(py_object_id);
     }
     
-    shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &snapshot, PyObject *const *args, Py_ssize_t nargs)
+    shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &snapshot, PyObject *py_id, PyTypeObject *type_arg,
+        const char *prefix_name)
     {
-        if (nargs < 1 || nargs > 2) {
-            PyErr_SetString(PyExc_TypeError, "fetch requires 1 or 2 arguments");
-            return NULL;
-        }
-
-        PyTypeObject *type_arg = nullptr;
-        PyObject *uuid_arg = nullptr;
-        if (nargs == 1) {
-            uuid_arg = args[0];
-        } else {
-            if (!PyType_Check(args[0])) {
-                PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-                return nullptr;
-            }
-            type_arg = reinterpret_cast<PyTypeObject*>(args[0]);
-            uuid_arg = args[1];
-        }
-        
-        // decode ObjectId from string
-        if (PyUnicode_Check(uuid_arg)) {
-            auto uuid = PyUnicode_AsUTF8(uuid_arg);
+        assert(py_id);
+        if (PyUnicode_Check(py_id)) {
+            // fetch by UUID        
+            auto uuid = PyUnicode_AsUTF8(py_id);
             return fetchObject(snapshot, ObjectId::fromBase32(uuid), type_arg);
         }
-        
-        if (PyType_Check(uuid_arg)) {
-            auto uuid_type = reinterpret_cast<PyTypeObject*>(uuid_arg);
+
+        if (PyType_Check(py_id)) {
+            auto id_type = reinterpret_cast<PyTypeObject*>(py_id);
             // check if type_arg is exact or a base of uuid_arg
-            if (type_arg && !isBase(uuid_type, reinterpret_cast<PyTypeObject*>(type_arg))) {
+            if (type_arg && !isBase(id_type, reinterpret_cast<PyTypeObject*>(type_arg))) {
                 THROWF(db0::InputException) << "Type mismatch";                                
             }
-            return fetchSingletonObject(snapshot, uuid_type);
+            return fetchSingletonObject(snapshot, id_type, prefix_name);
         }
-
+        
         THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
     }
     
@@ -179,17 +163,23 @@ namespace db0::python
         type->unloadSingleton(&memo_obj->modifyExt());
         return memo_obj;
     }
-
-    PyObject *fetchSingletonObject(db0::Snapshot &snapshot, PyTypeObject *py_type)
+    
+    PyObject *fetchSingletonObject(db0::Snapshot &snapshot, PyTypeObject *py_type, const char *prefix_name)
     {
         if (!PyMemoType_Check(py_type)) {
             THROWF(db0::InternalException) << "Memo type expected for: " << py_type->tp_name << THROWF_END;
         }
         
-        // get either curren fixture or a scope-related fixture
+        // get either current, scope-related or user requested fixture
         auto maybe_access_type = snapshot.tryGetAccessType();
-        auto fixture = snapshot.getFixture(MemoTypeDecoration::get(py_type).getFixtureUUID(maybe_access_type), 
-            maybe_access_type);
+        db0::swine_ptr<Fixture> fixture;
+        if (prefix_name) {
+            // try to get fixture by prefix name
+            fixture = snapshot.getFixture(prefix_name, maybe_access_type);
+        } else {
+            fixture = snapshot.getFixture(MemoTypeDecoration::get(py_type).getFixtureUUID(maybe_access_type), 
+                maybe_access_type);
+        }
         return fetchSingletonObject(fixture, py_type);
     }
     

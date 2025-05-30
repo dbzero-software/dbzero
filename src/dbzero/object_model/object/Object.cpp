@@ -15,7 +15,7 @@ namespace db0::object_model
 {
     
     GC0_Define(Object)
-    thread_local ObjectInitializerManager Object::m_init_manager;
+    ObjectInitializerManager Object::m_init_manager;
 
     bool isEqual(const KV_Index *kv_ptr_1, const KV_Index *kv_ptr_2)
     {
