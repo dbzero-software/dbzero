@@ -110,8 +110,6 @@ namespace db0::object_model
         mutable std::vector<XValue> m_values;
         // number of m_values already sorted
         mutable std::size_t m_sorted_size = 0;
-        // key to be assigned to instance post-initialization
-        std::optional<std::string> m_instance_key;
         std::uint32_t m_ref_count = 0;
         mutable db0::swine_ptr<Fixture> m_fixture;
         mutable TypeInitializer m_type_initializer;

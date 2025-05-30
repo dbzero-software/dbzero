@@ -8,23 +8,7 @@
 namespace db0::python
 
 {
-    
-    static PyMethodDef PySnapshot_methods[] = 
-    {
-        {"fetch", (PyCFunction)&PyAPI_PySnapshot_fetch, METH_FASTCALL, "Fetch dbzero object instance by its ID or type (in case of a singleton)"},
-        {"find", (PyCFunction)&PyAPI_PySnapshot_find, METH_FASTCALL, ""},
-        {"deserialize", (PyCFunction)&PyAPI_PySnapshot_deserialize, METH_FASTCALL, "Deserialize from bytes within the snapshot's context"},
-        {"close", &PyAPI_PySnapshot_close, METH_NOARGS, "Close dbzero snapshot"},
-        {"get_state_num", (PyCFunction)&PyAPI_PySnapshot_GetStateNum, METH_VARARGS | METH_KEYWORDS, "Get state number of the snapshot"},
-        {"__enter__", &PyAPI_PySnapshot_enter, METH_NOARGS, "Enter dbzero snapshot context"},
-        {"__exit__", &PyAPI_PySnapshot_exit, METH_VARARGS, "Exit dbzero snapshot's context"},
-        {NULL}
-    };
-    
-    PySnapshotObject *PySnapshot_new(PyTypeObject *type, PyObject *, PyObject *) {
-        return reinterpret_cast<PySnapshotObject*>(type->tp_alloc(type, 0));
-    }
-    
+        
     PySnapshotObject *PySnapshotDefault_new() {
         return PySnapshot_new(&PySnapshotObjectType, NULL, NULL);
     }
@@ -36,21 +20,7 @@ namespace db0::python
         snapshot_obj->destroy();
         Py_TYPE(snapshot_obj)->tp_free((PyObject*)snapshot_obj);
     }
-    
-    PyTypeObject PySnapshotObjectType = {
-        PyVarObject_HEAD_INIT(NULL, 0)
-        .tp_name = "Snapshot",
-        .tp_basicsize = PySnapshotObject::sizeOf(),
-        .tp_itemsize = 0,
-        .tp_dealloc = (destructor)PyAPI_PySnapshot_del,
-        .tp_flags = Py_TPFLAGS_DEFAULT,
-        .tp_doc = "dbzero state snapshot object",
-        .tp_methods = PySnapshot_methods,
-        .tp_alloc = PyType_GenericAlloc,
-        .tp_new = (newfunc)PySnapshot_new,
-        .tp_free = PyObject_Free,
-    };
-    
+        
     bool PySnapshot_Check(PyObject *object) {
         return Py_TYPE(object) == &PySnapshotObjectType;
     }
@@ -77,7 +47,7 @@ namespace db0::python
         return py_snapshot;
     }
     
-    PyObject* tryPySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+    PyObject* tryPySnapshot_fetch(PyObject *self, PyObject *py_id, PyTypeObject *type, const char *prefix_name)
     {
         if (!PySnapshot_Check(self)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
@@ -85,9 +55,9 @@ namespace db0::python
         }
 
         auto &snapshot = reinterpret_cast<PySnapshotObject*>(self)->modifyExt();
-        return tryFetchFrom(snapshot, args, nargs).steal();
+        return tryFetchFrom(snapshot, py_id, type, prefix_name).steal();
     }
-
+    
     PyObject *tryPySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         if (!PySnapshot_Check(self)) {
@@ -118,10 +88,30 @@ namespace db0::python
         return runSafe(tryGetStateNum, snapshot, args, kwargs);
     }
 
-    PyObject *PyAPI_PySnapshot_fetch(PyObject *self, PyObject *const *args, Py_ssize_t nargs) 
+    PyObject *PyAPI_PySnapshot_fetch(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
-        return runSafe(tryPySnapshot_fetch, self, args, nargs);
+
+        static const char *kwlist[] = { "id", "type", "prefix", NULL };
+        PyObject *py_id = nullptr;
+        PyObject *py_type = nullptr;
+        const char *prefix_name = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|Os", const_cast<char**>(kwlist), &py_id, &py_type, &prefix_name)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+            return NULL;
+        }
+
+        // NOTE: for backwards compatibility, swap parameters if one is a type and the other is UUID
+        if (py_id && py_type && PyType_Check(py_id) && PyUnicode_Check(py_type)) {
+            std::swap(py_id, py_type);
+        }
+
+        if (py_type && !PyType_Check(py_type)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type: type");
+            return NULL;
+        }
+
+        return runSafe(tryPySnapshot_fetch, self, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name);
     }
 
     PyObject *PyAPI_PySnapshot_find(PyObject *self, PyObject *const *args, Py_ssize_t nargs) 
@@ -208,6 +198,36 @@ namespace db0::python
             return NULL;
         }
         return runSafe(tryGetSnapshotOf, reinterpret_cast<MemoObject*>(py_arg));
+    }
+    
+    static PyMethodDef PySnapshot_methods[] = 
+    {
+        {"fetch", (PyCFunction)&PyAPI_PySnapshot_fetch, METH_VARARGS | METH_KEYWORDS, "Fetch dbzero object instance by its ID or type (in case of a singleton)"},
+        {"find", (PyCFunction)&PyAPI_PySnapshot_find, METH_FASTCALL, ""},
+        {"deserialize", (PyCFunction)&PyAPI_PySnapshot_deserialize, METH_FASTCALL, "Deserialize from bytes within the snapshot's context"},
+        {"close", &PyAPI_PySnapshot_close, METH_NOARGS, "Close dbzero snapshot"},
+        {"get_state_num", (PyCFunction)&PyAPI_PySnapshot_GetStateNum, METH_VARARGS | METH_KEYWORDS, "Get state number of the snapshot"},
+        {"__enter__", &PyAPI_PySnapshot_enter, METH_NOARGS, "Enter dbzero snapshot context"},
+        {"__exit__", &PyAPI_PySnapshot_exit, METH_VARARGS, "Exit dbzero snapshot's context"},
+        {NULL}
+    };
+
+    PyTypeObject PySnapshotObjectType = {
+        PyVarObject_HEAD_INIT(NULL, 0)
+        .tp_name = "Snapshot",
+        .tp_basicsize = PySnapshotObject::sizeOf(),
+        .tp_itemsize = 0,
+        .tp_dealloc = (destructor)PyAPI_PySnapshot_del,
+        .tp_flags = Py_TPFLAGS_DEFAULT,
+        .tp_doc = "dbzero state snapshot object",
+        .tp_methods = PySnapshot_methods,
+        .tp_alloc = PyType_GenericAlloc,
+        .tp_new = (newfunc)PySnapshot_new,
+        .tp_free = PyObject_Free,
+    };
+
+    PySnapshotObject *PySnapshot_new(PyTypeObject *type, PyObject *, PyObject *) {
+        return reinterpret_cast<PySnapshotObject*>(type->tp_alloc(type, 0));
     }
 
 }

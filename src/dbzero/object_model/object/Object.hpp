@@ -264,7 +264,7 @@ namespace db0::object_model
         std::shared_ptr<Class> m_type;
         // local kv-index instance cache (created at first use)
         mutable std::unique_ptr<KV_Index> m_kv_index;
-        static thread_local ObjectInitializerManager m_init_manager;        
+        static ObjectInitializerManager m_init_manager;
         mutable ObjectFlags m_flags;
         // A flag indicating that object's silent mutation has already been reflected
         // with the underlying MemLock / ResourceLock

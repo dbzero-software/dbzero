@@ -93,14 +93,34 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    shared_py_object<PyObject*> tryFetch(PyObject *const *args, Py_ssize_t nargs) {
-        return tryFetchFrom(PyToolkit::getPyWorkspace().getWorkspace(), args, nargs);
+    shared_py_object<PyObject*> tryFetch(PyObject *py_id, PyTypeObject *type, const char *prefix_name) {
+        return tryFetchFrom(PyToolkit::getPyWorkspace().getWorkspace(), py_id, type, prefix_name);
     }
     
-    PyObject *fetch(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_fetch(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
-        return runSafe(tryFetch, args, nargs).steal();
+
+        static const char *kwlist[] = { "id", "type", "prefix", NULL };
+        PyObject *py_id = nullptr;
+        PyObject *py_type = nullptr;
+        const char *prefix_name = nullptr;
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|Os", const_cast<char**>(kwlist), &py_id, &py_type, &prefix_name)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid arguments");
+            return NULL;
+        }
+
+        // NOTE: for backwards compatibility, swap parameters if one is a type and the other is UUID
+        if (py_id && py_type && PyType_Check(py_id) && PyUnicode_Check(py_type)) {
+            std::swap(py_id, py_type);
+        }
+
+        if (py_type && !PyType_Check(py_type)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type: type");
+            return NULL;
+        }
+        
+        return runSafe(tryFetch, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name).steal();
     }
 
     PyObject *tryOpen(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -166,7 +186,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
-    PyObject *open(PyObject *self, PyObject *args, PyObject *kwargs)
+    PyObject *PyAPI_open(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
         return runSafe(tryOpen, self, args, kwargs);
@@ -241,7 +261,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *init(PyObject *self, PyObject *args, PyObject *kwargs) 
+    PyObject *PyAPI_init(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC        
         return runSafe(tryInit, self, args, kwargs);
@@ -261,7 +281,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *drop(PyObject *self, PyObject *args) 
+    PyObject *PyAPI_drop(PyObject *self, PyObject *args)
     {
         PY_API_FUNC
         return runSafe(tryDrop, self, args);
@@ -412,7 +432,7 @@ namespace db0::python
         Py_RETURN_NONE;
     }
     
-    PyObject *del(PyObject *self, PyObject *args) 
+    PyObject *PyAPI_del(PyObject *self, PyObject *args) 
     {
         PY_API_FUNC        
         return runSafe(tryDel, self, args);

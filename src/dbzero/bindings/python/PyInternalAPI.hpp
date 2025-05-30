@@ -101,7 +101,8 @@ namespace db0::python
     }
     
     // Universal implementaton for both Workspace and WorkspaceView (aka Snapshot)
-    shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &, PyObject *const *args, Py_ssize_t nargs);
+    shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &, PyObject *py_uuid, PyTypeObject *type = nullptr,
+        const char *prefix_name = nullptr);
     
     shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
         std::shared_ptr<db0::object_model::Class> expected_type = nullptr);
@@ -115,8 +116,9 @@ namespace db0::python
     /**
      * Open dbzero singleton by its corresponding Python type
     */
-    PyObject *fetchSingletonObject(db0::Snapshot &, PyTypeObject *py_type);
-        
+    PyObject *fetchSingletonObject(db0::Snapshot &, PyTypeObject *py_type, 
+        const char *prefix_name = nullptr);
+    
     // Convert a serializable instance to bytes
     PyObject *trySerialize(PyObject *);
     

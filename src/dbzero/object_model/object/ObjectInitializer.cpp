@@ -48,12 +48,11 @@ namespace db0::object_model
     void ObjectInitializer::close() {
         m_manager.closeAt(m_loc);
     }
-
+    
     void ObjectInitializer::reset()
     {
         m_closed = true;
-        m_object_ptr = nullptr;
-        m_instance_key = {};        
+        m_object_ptr = nullptr;        
         m_class = nullptr;        
         m_values.clear();
         m_sorted_size = 0;

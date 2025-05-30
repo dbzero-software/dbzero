@@ -72,3 +72,4 @@ def test_find_singleton(db0_fixture):
 
 def test_singleton_with_migrations(db0_fixture):
     obj_1 = MemoSingletonWithMigrations(123)
+    
