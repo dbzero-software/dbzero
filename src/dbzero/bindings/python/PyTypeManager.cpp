@@ -302,9 +302,11 @@ namespace db0::python
         }
         return getPooledString(std::string(str));
     }
-
+    
     void PyTypeManager::addMemoType(TypeObjectPtr type, const char *type_id, MemoTypeDecoration &&decoration)
-    {        
+    {
+        // register the type with the registry first (this allows retrieving type decoration)
+        m_type_registry[type] = std::move(decoration);
         // register type with up to 4 key variants
         for (unsigned int i = 0; i < 4; ++i) {
             auto variant_name = db0::object_model::getNameVariant(type, type_id, i);
@@ -322,8 +324,6 @@ namespace db0::python
         if (type_id && std::string(type_id) == "Division By Zero/dbzero_ce/MemoBase") {
             m_memo_base_type = type;
         }
-        // register the type with the registry
-        m_type_registry[type] = std::move(decoration);
     }
     
     PyTypeManager::TypeObjectPtr PyTypeManager::findType(const std::string &variant_name) const
