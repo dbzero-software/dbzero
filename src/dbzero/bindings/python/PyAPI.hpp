@@ -173,7 +173,7 @@ namespace db0::python
     // For a specific prefix, extract page num -> state num mapping related with its DRAM_Prefix
     PyObject *getDRAM_IOMap(PyObject *, PyObject *args, PyObject *kwargs);
 
-    PyObject *PyAPI_crashFromCommit(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+    PyObject *PyAPI_crashFromCommit(PyObject *self, PyObject *const *args, Py_ssize_t nargs);    
 #endif
     
     template <typename T> db0::object_model::StorageClass getStorageClass();

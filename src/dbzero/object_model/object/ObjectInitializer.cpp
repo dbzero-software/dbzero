@@ -175,7 +175,7 @@ namespace db0::object_model
         }
 
         // divide values into index-encoded and position-encoded
-        // index representes the number of pos-vt elements
+        // index represents the number of pos-vt elements
         auto index = count;
         auto it = m_values.begin() + index - 1;
         // below rule allows pos-vt to be created with at fill rate of at least 50%
@@ -185,17 +185,25 @@ namespace db0::object_model
         }
         
         if (index > 0) {
+            auto size = it->getIndex() + 1;
             // copy pos-vt elements if such exist
             auto &types = data.m_types;
             auto &values = data.m_values;
-            types.reserve(index);
-            values.reserve(index);
+            types.reserve(size);
+            values.reserve(size);
             for (auto it = m_values.begin(), end = m_values.begin() + index; it != end; ++it) {
+                // fill will missing elements until reaching the index
+                while (types.size() < it->getIndex()) {
+                    types.push_back(StorageClass::UNDEFINED);
+                    values.emplace_back();
+                }
+                // set the actual value
                 types.push_back(it->m_type);
                 values.push_back(it->m_value);
             }
+            assert(types.size() == size);
         }
-
+        
         return { &*(m_values.begin() + index), &*(m_values.begin() + count) };
     }
 

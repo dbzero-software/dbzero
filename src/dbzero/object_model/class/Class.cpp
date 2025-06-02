@@ -421,6 +421,7 @@ namespace db0::object_model
         for (auto &item: m_index) {
             result[item.first] = item.second.first.getIndex();
         }
+
         return result;
     }
     
