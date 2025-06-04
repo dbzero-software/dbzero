@@ -491,22 +491,18 @@ namespace db0::python
         return fixture->get<db0::object_model::EnumFactory>().migrateEnumLangValue(enum_value);        
     }
     
-    PyObject *tryPyEnumValueCheck(PyObject *py_obj)
-    {
-        if (PyEnumValue_Check(py_obj) || PyEnumValueRepr_Check(py_obj)) {
-            Py_RETURN_TRUE;
-        }
-        Py_RETURN_FALSE;
+    PyObject *tryIsEnum(PyObject *arg) {
+        return PyBool_fromBool(PyEnum_Check(arg));
     }
 
-    PyObject *PyAPI_PyEnumValue_Check(PyObject *self, PyObject *const * args, Py_ssize_t nargs)
+    PyObject *PyAPI_isEnum(PyObject *, PyObject *const * args, Py_ssize_t nargs)
     {
         PY_API_FUNC
         if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "is_enum_value requires 1 argument");
+            PyErr_SetString(PyExc_TypeError, "isEnum requires exactly 1 argument");
             return NULL;
         }
-        return runSafe(tryPyEnumValueCheck, args[0]);
+        return runSafe(tryIsEnum, args[0]);
     }
-    
+
 }

@@ -268,10 +268,7 @@ def get_callables(obj: object, include_properties = False) -> typing.Iterable[ty
 
     callable_attrs = [attr_name for attr_name in dir(_type) \
                       if not is_private(attr_name) and callable(getattr(_type, attr_name))]
-
-    print('callable_attrs')
-    print(callable_attrs)
-
+    
     queries = []
     for attr_name in list(callable_attrs):
         # First, find all 'queries' and all associated 'complete' actions and filter them out

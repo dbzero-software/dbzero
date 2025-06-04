@@ -286,4 +286,9 @@ def test_is_enum_value(db0_fixture):
     obj = MemoTestClass(Colors.RED)
     assert not db0.is_enum_value(obj)
     
-    
+
+def test_is_enum_value(db0_fixture):
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
+    assert db0.is_enum(Colors)
+    assert db0.is_enum(TriColor)
+    assert not db0.is_enum(MemoTestClass)
