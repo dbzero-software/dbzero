@@ -148,9 +148,12 @@ namespace db0
     void Fixture::addFlushHandler(std::function<void()> f) {
         m_flush_handlers.push_back(f);
     }
-
-    void Fixture::addMutationHandler(MutationHandler handler) {
+    
+    void Fixture::addMutationHandler(MutationHandler handler)
+    {
         m_mutation_handlers.push_back(handler);
+        // initialize the handler
+        handler(MutationOp::INIT, m_mutation_log.size(), {});
     }
 
     void Fixture::rollback()

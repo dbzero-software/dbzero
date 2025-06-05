@@ -6,13 +6,17 @@ namespace db0
 
 {
 
-    MutationLog::MutationLog(int locked_sections)
-    {
-        if (locked_sections > 0) {
-            m_mutation_flags.resize(locked_sections, -1);
-        }
+    MutationLog::MutationLog(int locked_sections) {
+        init(locked_sections);
     }
     
+    void MutationLog::init(int size)
+    {
+        if (size > 0) {
+            m_mutation_flags.resize(size, -1);
+        }
+    }
+
     void MutationLog::onDirty()
     {
         if (!m_mutation_flags.empty() && !m_all_mutation_flags_set) {
@@ -59,28 +63,28 @@ namespace db0
         m_all_mutation_flags_set = false;
     }
 
+    std::size_t MutationLog::size() const {
+        return m_mutation_flags.size();
+    }
+
     MutationHandler MutationLog::getHandler()
     {
-        return [this](MutationOp op, unsigned int locked_section_id,
-            std::function<void(unsigned int)> callback) -> bool 
+        return [this](MutationOp op, unsigned int int_value, std::function<void(unsigned int)> callback) -> bool 
         {
             switch (op) {
+                case MutationOp::INIT:
+                    this->init(int_value); // as size
+                    break;
                 case MutationOp::BEGIN_LOCKED:
-                // FIXME: log
-                std::cout << "handler / BEGIN_LOCKED: " << locked_section_id << std::endl;
-                    beginLocked(locked_section_id);                    
+                    this->beginLocked(int_value);
                     break;
                 case MutationOp::END_LOCKED:
-                // FIXME: log
-                std::cout << "handler / END_LOCKED: " << locked_section_id << std::endl;
-                    return endLocked(locked_section_id);
+                    return this->endLocked(int_value);
                     break;
                 case MutationOp::END_ALL_LOCKED:
-                // FIXME: log
-                std::cout << "handler / END_ALL_LOCKED" << std::endl;
-                    endAllLocked(callback);                    
+                    this->endAllLocked(callback);
                     break;                    
-            }            
+            }
             return false;
         };
     }
