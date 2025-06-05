@@ -26,9 +26,7 @@ namespace db0
         std::vector<std::pair<std::string, std::uint64_t> > getMutationLog() const;
 
         void close();
-        
-        static void makeNew(void *, std::shared_ptr<Workspace> &, std::shared_lock<std::shared_mutex> &&);
-        
+                    
         static std::shared_lock<std::shared_mutex> lockShared();
         static std::unique_lock<std::shared_mutex> lockUnique();
 
