@@ -150,7 +150,8 @@ namespace db0
         void addDetachHandler(std::function<void()>);
         void addRollbackHandler(std::function<void()>);
         void addFlushHandler(std::function<void()>);
-
+        void addMutationHandler(MutationHandler);
+        
         // Rollback uncommited contents from internal buffers
         void rollback();
         
@@ -300,6 +301,7 @@ namespace db0
         std::vector<std::function<void()> > m_rollback_handlers;
         // flush handlers, to release some memory on resource exhaustion
         std::vector<std::function<void()> > m_flush_handlers;
+        std::vector<MutationHandler> m_mutation_handlers;
         
         std::uint64_t getUUID(MetaAllocator &);
         

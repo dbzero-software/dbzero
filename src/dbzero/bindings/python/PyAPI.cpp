@@ -930,12 +930,25 @@ namespace db0::python
     {
         PY_API_FUNC
         // extract optional prefix_name or prefix_uuid
+        PyObject *py_prefix_name = nullptr;
         const char *prefix_name = nullptr;
         std::uint64_t prefix_uuid = 0;
         static const char *kwlist[] = {"prefix_name", "prefix_uuid", NULL};
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|sK", const_cast<char**>(kwlist), &prefix_name, &prefix_uuid)) {
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OK", const_cast<char**>(kwlist), &py_prefix_name, &prefix_uuid)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
+        }
+
+        if (py_prefix_name && py_prefix_name != Py_None) {
+            if (!PyUnicode_Check(py_prefix_name)) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type: prefix_name");
+                return NULL;
+            }
+            prefix_name = PyUnicode_AsUTF8(py_prefix_name);
+            if (!prefix_name) {
+                PyErr_SetString(PyExc_TypeError, "Unable to extract prefix name");
+                return NULL;
+            }
         }
 
         return runSafe(tryGetMemoClasses, prefix_name, prefix_uuid);

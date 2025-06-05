@@ -255,9 +255,13 @@ namespace db0
             auto it = m_fixtures.find(*uuid);
             if (it != m_fixtures.end()) {
                 auto &fixture = *(it->second);
+                std::unordered_set<unsigned int> callback_log;
                 fixture.endAllLocked([&](unsigned int locked_section_id) {
-                    // log prefixes closed inside the locked section
-                    m_locked_section_log[locked_section_id].emplace_back(fixture.getPrefix().getName(), fixture.getStateNum());
+                    if (callback_log.find(locked_section_id) == callback_log.end()) {
+                        // log prefixes closed inside the locked section
+                        m_locked_section_log[locked_section_id].emplace_back(fixture.getPrefix().getName(), fixture.getStateNum());
+                        callback_log.insert(locked_section_id);
+                    }
                 });
                                 
                 bool is_default = (it->second == m_default_fixture);

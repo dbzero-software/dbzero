@@ -225,6 +225,7 @@ namespace db0::object_model
                     (*batch_op_long_ptr)->addTag(active_key, long_tag);
                 }
             }
+            m_mutation_log.onDirty();
         }
     }
 
@@ -237,6 +238,7 @@ namespace db0::object_model
         ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationShort(memo_ptr, active_key);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
+        m_mutation_log.onDirty();
     }
 
     void TagIndex::addTag(ObjectPtr memo_ptr, LongTagT tag)
@@ -244,6 +246,7 @@ namespace db0::object_model
         ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationLong(memo_ptr, active_key);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
+        m_mutation_log.onDirty();
     }
     
     void TagIndex::removeTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
@@ -268,6 +271,7 @@ namespace db0::object_model
             }
 
             batch_operation->removeTag(active_key, getShortTag(type_id, args[i]));
+            m_mutation_log.onDirty();
         }
     }
     
@@ -292,7 +296,7 @@ namespace db0::object_model
         m_base_index_short.clear();
         m_base_index_long.clear();    
     }
-
+    
     void TagIndex::close()
     {
         if (m_batch_operation_short) {
@@ -973,5 +977,9 @@ namespace db0::object_model
         auto &py_obj = LangToolkit::getTypeManager().extractObject(py_arg);
         return { py_obj.getFixtureUUID(), py_obj.getAddress().getOffset() };
     }
-    
+ 
+    MutationHandler TagIndex::getMutationHandler() const {
+        return m_mutation_log.getHandler();
+    }
+
 }

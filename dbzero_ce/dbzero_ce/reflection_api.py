@@ -109,8 +109,13 @@ class MemoMetaClass:
     
 
 def get_memo_classes(prefix: PrefixMetaData = None):
-    for memo_class in (_get_memo_classes(prefix.name, prefix.uuid) if prefix is not None else _get_memo_classes()):
-        yield MemoMetaClass(*memo_class)
+    if type(prefix) is str:
+        # fallback to prefix name
+        for memo_class in (_get_memo_classes(prefix) if prefix is not None else _get_memo_classes()):
+            yield MemoMetaClass(*memo_class)
+    else:
+        for memo_class in (_get_memo_classes(prefix.name, prefix.uuid) if prefix is not None else _get_memo_classes()):
+            yield MemoMetaClass(*memo_class)
 
 
 def get_memo_class(class_uuid):

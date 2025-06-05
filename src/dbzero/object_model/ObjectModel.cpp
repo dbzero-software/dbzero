@@ -74,6 +74,8 @@ namespace db0::object_model
                 fixture->addFlushHandler([&]() {
                     tag_index.flush();
                 });
+
+                fixture->addMutationHandler(tag_index.getMutationHandler());
                 
                 // register resources with the object catalogue
                 oc.addUnique(tag_index);
@@ -124,6 +126,8 @@ namespace db0::object_model
                     tag_index.flush();
                 });
 
+                fixture->addMutationHandler(tag_index.getMutationHandler());
+                
                 if (fixture->getAccessType() == db0::AccessType::READ_WRITE) {
                     // execute GC0::collect when opening an existing fixture as read-write
                     fixture->getGC0().collect();

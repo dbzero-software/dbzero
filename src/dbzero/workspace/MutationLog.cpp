@@ -1,5 +1,6 @@
 #include "MutationLog.hpp"
 #include <cassert>
+#include <iostream>
 
 namespace db0
 
@@ -58,4 +59,30 @@ namespace db0
         m_all_mutation_flags_set = false;
     }
 
+    MutationHandler MutationLog::getHandler()
+    {
+        return [this](MutationOp op, unsigned int locked_section_id,
+            std::function<void(unsigned int)> callback) -> bool 
+        {
+            switch (op) {
+                case MutationOp::BEGIN_LOCKED:
+                // FIXME: log
+                std::cout << "handler / BEGIN_LOCKED: " << locked_section_id << std::endl;
+                    beginLocked(locked_section_id);                    
+                    break;
+                case MutationOp::END_LOCKED:
+                // FIXME: log
+                std::cout << "handler / END_LOCKED: " << locked_section_id << std::endl;
+                    return endLocked(locked_section_id);
+                    break;
+                case MutationOp::END_ALL_LOCKED:
+                // FIXME: log
+                std::cout << "handler / END_ALL_LOCKED" << std::endl;
+                    endAllLocked(callback);                    
+                    break;                    
+            }            
+            return false;
+        };
+    }
+    
 }

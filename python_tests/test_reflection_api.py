@@ -61,15 +61,15 @@ def test_get_memo_classes_by_current_prefix(db0_fixture):
     assert len(list(db0.get_memo_classes(prefix))) > 0
 
 
-def test_get_memo_classes_by_prefix_uuid(db0_fixture):
+def test_get_memo_classes_by_prefix_uuid_only(db0_fixture):
     _ = MemoTestClass(123)
-    count = sum([len(list(db0.get_memo_classes(prefix_uuid=uuid))) for _, uuid in db0.get_prefixes()])
+    count = sum([len(list(db0.get_memo_classes(db0.PrefixMetaData(None, uuid)))) for _, uuid in db0.get_prefixes()])
     assert count > 0
 
 
-def test_get_memo_classes_by_prefix_name_and_uuid(db0_fixture):
+def test_get_memo_classes_by_prefix_metadata(db0_fixture):
     _ = MemoTestClass(123)
-    count = sum([len(list(db0.get_memo_classes(prefix_name=name, prefix_uuid=uuid))) for name, uuid in db0.get_prefixes()])
+    count = sum([len(list(db0.get_memo_classes(px) for px in db0.get_prefixes()))])
     assert count > 0
 
 
