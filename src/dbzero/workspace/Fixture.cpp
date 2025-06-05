@@ -38,12 +38,8 @@ namespace db0
         , m_string_pool(openLimitedStringPool(*this, *meta))
         , m_object_catalogue(openObjectCatalogue(*meta))
         , m_v_object_cache(*this, shared_object_list)
+        , m_mutation_log(locked_sections)
     {
-        // initialize locked sections        
-        if (locked_sections > 0) {
-            m_mutation_flags.resize(locked_sections, -1);
-        }
-        
         // set-up slots with the allocator
         m_slot_allocator.setSlot(TYPE_SLOT_NUM, openSlot(*this, *meta, TYPE_SLOT_NUM));
     }
@@ -252,7 +248,7 @@ namespace db0
         {
             std::unique_lock<std::mutex> lock(m_update_watch_mtx);
             // collect locked-section mutations            
-            onDirty();
+            m_mutation_log.onDirty();
             m_updated = true;
         }
         m_update_watch_cv.notify_all();
@@ -516,52 +512,6 @@ namespace db0
         return true;
     }
 
-    void Fixture::beginLocked(unsigned int locked_section_id)
-    {        
-        if (locked_section_id >= m_mutation_flags.size()) {
-            m_mutation_flags.resize(locked_section_id + 1, -1);
-        }
-        m_mutation_flags[locked_section_id] = 0;
-        m_all_mutation_flags_set = false;
-    }
-    
-    bool Fixture::endLocked(unsigned int locked_section_id)
-    {
-        assert(locked_section_id < m_mutation_flags.size());
-        auto result = m_mutation_flags[locked_section_id];
-        m_mutation_flags[locked_section_id] = -1;
-        // clean-up released slots
-        while (!m_mutation_flags.empty() && m_mutation_flags.back() == -1) {
-            m_mutation_flags.pop_back();
-        }
-
-        return result;
-    }
-    
-    void Fixture::endAllLocked(std::function<void(unsigned int)> callback)
-    {
-        for (unsigned int i = 0; i < m_mutation_flags.size(); ++i) {
-            if (m_mutation_flags[i] == 1) {
-                callback(i);
-            }
-        }
-        m_mutation_flags.clear();
-        m_all_mutation_flags_set = false;
-    }
-    
-    void Fixture::onDirty()
-    {
-        if (!m_mutation_flags.empty() && !m_all_mutation_flags_set) {
-            // set all flags to "true" where not released
-            for (auto &flag: m_mutation_flags) {
-                if (flag == 0) {
-                    flag = 1;
-                }
-            }
-            m_all_mutation_flags_set = true;
-        }
-    }
-
     void Fixture::registerPrefixStateReachedCallback(StateNumType state_num, std::unique_ptr<StateReachedCallbackBase> &&callback)
     {
         std::unique_lock lock(m_commit_mutex);
@@ -601,6 +551,18 @@ namespace db0
         for(const auto &callback : callbacks) {
             callback->execute();
         }
+    }
+
+    void Fixture::beginLocked(unsigned int locked_section_id) {
+        m_mutation_log.beginLocked(locked_section_id);
+    }
+
+    bool Fixture::endLocked(unsigned int locked_section_id) {
+        return m_mutation_log.endLocked(locked_section_id);
+    }
+    
+    void Fixture::endAllLocked(std::function<void(unsigned int)> callback) {
+        m_mutation_log.endAllLocked(callback);
     }
     
 }

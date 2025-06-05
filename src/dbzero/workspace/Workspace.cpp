@@ -479,6 +479,15 @@ namespace db0
         return result;
     }
     
+    void Workspace::flush()
+    {
+        for (auto &[uuid, fixture] : m_fixtures) {
+            if (fixture->getAccessType() == AccessType::READ_WRITE) {
+                fixture->flush();
+            }
+        }
+    }
+
     bool Workspace::refresh(bool if_updated)
     {        
         bool refreshed = false;

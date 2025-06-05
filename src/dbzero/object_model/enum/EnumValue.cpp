@@ -170,7 +170,7 @@ namespace db0::object_model
         std::vector<std::byte>::const_iterator end)
     {
         auto &enum_value = db0::serial::pop<o_enum_value>(iter, end);
-        auto &enum_def = db0::serial::pop<o_enum_def>(iter, end);
+        db0::serial::pop<o_enum_def>(iter, end);
         auto sentinel = db0::serial::read<std::uint8_t>(iter, end);    
         if (sentinel != 0) {
             THROWF(db0::InputException) << "Invalid sentinel byte for EnumValue deserialization";

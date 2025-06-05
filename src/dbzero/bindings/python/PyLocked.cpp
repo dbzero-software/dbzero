@@ -45,11 +45,10 @@ namespace db0::python
         .tp_free = PyObject_Free,
     };
     
-    PyLocked *PyAPI_tryBeginLocked(PyObject *self)
-    {
-        PY_API_FUNC
+    PyLocked *tryBeginLocked(PyObject *self)
+    {   
+        auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();        
         auto py_object = Py_OWN(PyLocked_new(&PyLockedType, NULL, NULL));        
-        auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
         {
             // this lock is to prevent auto-commit starvation which might
             // happen in a heavy load situation when locked sections are created indefinitely
@@ -57,7 +56,7 @@ namespace db0::python
             auto ac_lock = db0::AutoCommitThread::preventAutoCommit();
         }
         auto shared_lock = db0::LockedContext::lockShared();
-        db0::LockedContext::makeNew(&py_object->modifyExt(), workspace_ptr, std::move(shared_lock));
+        py_object->makeNew(workspace_ptr, std::move(shared_lock));        
         return py_object.steal();
     }
     
@@ -67,7 +66,8 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "beginLocked allows no arguments");
             return NULL;
         }
-        return runSafe(PyAPI_tryBeginLocked, self);
+        PY_API_FUNC
+        return runSafe(tryBeginLocked, self);
     }
 
     bool PyLocked_Check(PyObject *object) {

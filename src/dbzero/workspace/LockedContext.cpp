@@ -10,7 +10,7 @@ namespace db0
     LockedContext::LockedContext(std::shared_ptr<Workspace> &workspace, std::shared_lock<std::shared_mutex> &&lock)
         : m_workspace(workspace)
         , m_locked_section_id(m_workspace->beginLocked())
-        , m_lock(std::move(lock))        
+        , m_lock(std::move(lock))
     {
     }
     
@@ -29,10 +29,6 @@ namespace db0
 
     std::unique_lock<std::shared_mutex> LockedContext::lockUnique() {
         return std::unique_lock<std::shared_mutex>(m_locked_mutex);
-    }
-
-    void LockedContext::makeNew(void *at, std::shared_ptr<Workspace> &workspace, std::shared_lock<std::shared_mutex> &&lock) {
-        new (at) LockedContext(workspace, std::move(lock));
     }
     
     std::vector<std::pair<std::string, std::uint64_t> > LockedContext::getMutationLog() const {

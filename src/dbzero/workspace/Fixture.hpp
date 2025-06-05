@@ -11,6 +11,7 @@
 #include <dbzero/core/vspace/db0_ptr.hpp>
 #include "ResourceManager.hpp"
 #include "DependencyWrapper.hpp"
+#include "MutationLog.hpp"
     
 #include <dbzero/core/memory/swine_ptr.hpp>
 #include <dbzero/core/collections/full_text/FT_BaseIndex.hpp>
@@ -315,16 +316,13 @@ namespace db0
         friend class Workspace;
         mutable std::shared_mutex m_commit_mutex;
         mutable std::mutex m_close_mutex;
-        // locked-section specific mutation flags (-1 = released)
-        std::vector<char> m_mutation_flags;
-        // the flag for additional speedup
-        bool m_all_mutation_flags_set = false;
-        
+        mutable MutationLog m_mutation_log;
+
         void beginLocked(unsigned int locked_section_id);
         bool endLocked(unsigned int locked_section_id);
         // ends all locked sections, invokes callback for all mutated ones
         void endAllLocked(std::function<void(unsigned int)> callback);
-
+        
         using StateReachedCallbackList = std::vector<std::unique_ptr<StateReachedCallbackBase>>;
         std::map<StateNumType, StateReachedCallbackList> m_state_num_callbacks;
 
@@ -346,10 +344,7 @@ namespace db0
          * Called by the AutoCommitThread
          * @return the list of callbacks to be executed when committing process was completed
         */
-        StateReachedCallbackList onAutoCommit();        
-
-        // collect prefix-level mutation flags (for locked sections)
-        void onDirty();
+        StateReachedCallbackList onAutoCommit();
     };
     
     template <typename T, typename ResultT, typename... Args> ResultT &Fixture::addResourceAs(Args&&... args)

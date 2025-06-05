@@ -307,3 +307,24 @@ async def test_await_commit_autocommit_disabled(db0_no_autocommit):
 
     assert state1 == db0.get_state_num(prefix1, True)
     assert state2 == db0.get_state_num(prefix2, True)
+
+
+def test_assign_tags_in_locked_section(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    obj = MemoTestClass(951)
+    with db0.locked() as lock:
+        db0.tags(obj).add('test_tag')
+    
+    mutation_log = lock.get_mutation_log()
+    assert px_name in [name for name, _ in mutation_log]
+
+
+def test_add_to_index_in_locked_section(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    obj = MemoTestClass(951)
+    index = db0.index()
+    with db0.locked() as lock:
+        index.add(123, obj)        
+    
+    mutation_log = lock.get_mutation_log()
+    assert px_name in [name for name, _ in mutation_log]

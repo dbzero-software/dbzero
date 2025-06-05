@@ -13,7 +13,7 @@ import sys
 
 from .decorators import check_params_not_equal
 from .storage_api import PrefixMetaData
-from .dbzero_ce import get_raw_memo_classes
+from .dbzero_ce import _get_memo_classes
 
 
 AttributeInfo = namedtuple("AttributeInfo", ["name"])
@@ -109,7 +109,7 @@ class MemoMetaClass:
     
 
 def get_memo_classes(prefix: PrefixMetaData = None):
-    for memo_class in (get_raw_memo_classes(prefix.name, prefix.uuid) if prefix is not None else get_raw_memo_classes()):
+    for memo_class in (_get_memo_classes(prefix.name, prefix.uuid) if prefix is not None else _get_memo_classes()):
         yield MemoMetaClass(*memo_class)
 
 

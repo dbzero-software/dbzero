@@ -202,6 +202,9 @@ namespace db0
         */
         bool commit(const PrefixName &);
         
+        // Flush from any internal write buffers (e.g. tags / index updates)
+        void flush();
+        
         /**
          * Open specific prefix and make it the default one
          * @param prefix_name
