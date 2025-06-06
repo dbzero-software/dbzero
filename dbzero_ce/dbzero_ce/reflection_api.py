@@ -200,11 +200,11 @@ def __import_module(module_or_file_name, package = None):
     else:
         return [__import_from_file(module_or_file_name, package)]
 
-    
+
 def import_model(module_or_file_name, package=None):
-    __import_module(module_or_file_name, package)
-    
-    
+    importlib.import_module(module_or_file_name, package)
+
+
 def get_queries(*module_names):
     # Dynamically import modules
     for name in module_names:
