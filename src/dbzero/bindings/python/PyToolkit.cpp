@@ -236,7 +236,7 @@ namespace db0::python
         
         auto index_object = IndexDefaultObject_new();
         // retrieve actual dbzero instance
-        db0::object_model::Index::unload(&(index_object.get())->modifyExt(), fixture, address);
+        index_object->makeNew(fixture, address);        
 
         // add list object to cache
         lang_cache.add(address, index_object.get());

@@ -10,6 +10,7 @@
 #include <dbzero/core/collections/range_tree/RangeIteratorFactory.hpp>
 #include <dbzero/core/utils/shared_void.hpp>
 #include <dbzero/workspace/GC0.hpp>
+#include <dbzero/workspace/MutationLog.hpp>
 #include <dbzero/core/exception/AbstractException.hpp>
 #include <dbzero/object_model/object_header.hpp>
 #include "IndexBuilder.hpp"
@@ -34,15 +35,13 @@ namespace db0::object_model
         using TypeId = db0::bindings::TypeId;
         using IteratorFactory = db0::IteratorFactory<UniqueAddress>;
         
+        // null instance constructor
+        Index();
+        Index(db0::swine_ptr<Fixture> &);
         Index(db0::swine_ptr<Fixture> &, Address);
         Index(const Index &) = delete;
         ~Index();
-        
-        static Index *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
-        // make null instance (e.g. after destroying the original one)
-        static Index *makeNull(void *at_ptr);
-        static Index *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
-        
+                
         std::size_t size() const;
         void add(ObjectPtr key, ObjectPtr value);
         void remove(ObjectPtr key, ObjectPtr value);
@@ -87,7 +86,7 @@ namespace db0::object_model
         friend struct Builder;
         void preCommit(bool revert);
         static void preCommitOp(void *, bool revert);
-        
+
         template <typename T> static constexpr IndexDataType dataTypeOf()
         {
             if constexpr (std::is_same_v<T, std::int64_t>) {
@@ -167,6 +166,8 @@ namespace db0::object_model
         };
         
         Builder m_builder;
+        mutable MutationLog m_mutation_log;
+        unsigned int m_mutation_handler_id = 0;
 
         // check if there's any unflushed data in the internal buffers
         bool isDirty() const;
@@ -176,10 +177,7 @@ namespace db0::object_model
     private: 
         // actual index instance (must be cast to a specific type)
         mutable std::shared_ptr<void> m_index;
-        
-        // null instance constructor
-        Index();
-        Index(db0::swine_ptr<Fixture> &);
+
         Index(tag_no_gc, db0::swine_ptr<Fixture> &, const Index &);
         
         void operator=(Index &&);

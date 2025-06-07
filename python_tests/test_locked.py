@@ -319,13 +319,12 @@ def test_assign_tags_in_locked_section(db0_fixture):
     assert px_name in [name for name, _ in mutation_log]
 
 
-# FIXME: failing
-# def test_add_to_index_in_locked_section(db0_fixture):
-#     px_name = db0.get_current_prefix().name
-#     obj = MemoTestClass(951)
-#     index = db0.index()
-#     with db0.locked() as lock:
-#         index.add(123, obj)        
+def test_add_to_index_in_locked_section(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    obj = MemoTestClass(951)
+    index = db0.index()
+    with db0.locked() as lock:
+        index.add(123, obj)        
     
-#     mutation_log = lock.get_mutation_log()
-#     assert px_name in [name for name, _ in mutation_log]
+    mutation_log = lock.get_mutation_log()
+    assert px_name in [name for name, _ in mutation_log]

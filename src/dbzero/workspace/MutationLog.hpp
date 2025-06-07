@@ -26,6 +26,8 @@ namespace db0
         
         void init(int size);
 
+        MutationLog &operator=(const MutationLog &&);
+
         // collect prefix-level mutation flags (for locked sections)
         void onDirty();
 
