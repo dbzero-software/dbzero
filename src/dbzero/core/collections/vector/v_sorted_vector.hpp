@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <list>
+#include <cstring>
 #include <dbzero/core/collections/vector/joinable_const_iterator.hpp>
 #include <dbzero/core/utils/heap.hpp>
 #include <dbzero/core/serialization/Base.hpp>
