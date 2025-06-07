@@ -149,11 +149,23 @@ namespace db0
         m_flush_handlers.push_back(f);
     }
     
-    void Fixture::addMutationHandler(MutationHandler handler)
+    unsigned int Fixture::addMutationHandler(MutationHandler handler)
     {
-        m_mutation_handlers.push_back(handler);
+        unsigned int result = 1;
+        if (!m_mutation_handlers.empty()) {
+            // find the next available handler ID
+            result = m_mutation_handlers.rbegin()->first + 1;
+        }
+        
         // initialize the handler
         handler(MutationOp::INIT, m_mutation_log.size(), {});
+        m_mutation_handlers.emplace(result, std::move(handler));
+        assert(result > 0);
+        return result;
+    }
+    
+    void Fixture::removeMutationHandler(unsigned int handler_id) {
+        m_mutation_handlers.erase(handler_id);        
     }
 
     void Fixture::rollback()
@@ -560,20 +572,20 @@ namespace db0
         }
     }
 
-    void Fixture::beginLocked(unsigned int locked_section_id) 
+    void Fixture::beginLocked(unsigned int locked_section_id)
     {
         m_mutation_log.beginLocked(locked_section_id);
         // also begin locked with registered handlers (e.g. TagIndex)
-        for (auto &handler: m_mutation_handlers) {
+        for (auto [id, handler]: m_mutation_handlers) {
             handler(MutationOp::BEGIN_LOCKED, locked_section_id, {});
         }
     }
     
-    bool Fixture::endLocked(unsigned int locked_section_id) 
+    bool Fixture::endLocked(unsigned int locked_section_id)
     {
         bool result = m_mutation_log.endLocked(locked_section_id);
         // also end locked with registered handlers (e.g. TagIndex)
-        for (auto &handler: m_mutation_handlers) {
+        for (auto [id, handler]: m_mutation_handlers) {
             result |= handler(MutationOp::END_LOCKED, locked_section_id, {});
         }
         return result;
@@ -582,7 +594,7 @@ namespace db0
     void Fixture::endAllLocked(std::function<void(unsigned int)> callback)
     {
         m_mutation_log.endAllLocked(callback);
-        for (auto &handler: m_mutation_handlers) {
+        for (auto [id, handler]: m_mutation_handlers) {
             handler(MutationOp::END_ALL_LOCKED, 0, callback);
         }
     }

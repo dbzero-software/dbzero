@@ -69,7 +69,7 @@ namespace db0::python
         // make actual dbzero instance, use default fixture
         auto index_object = IndexDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
-        db0::object_model::Index::makeNew(&index_object.get()->modifyExt(), *lock);
+        index_object->makeNew(*lock);        
         // register newly created index with py-object cache
         lock->getLangCache().add(index_object.get()->ext().getAddress(), index_object.get());
         return index_object.steal();

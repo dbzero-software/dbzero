@@ -140,9 +140,10 @@ namespace db0::python
         // create a null placeholder in place of the original instance to mark as deleted
         auto &lang_cache = ptr->ext().getFixture()->getLangCache();
         ptr->destroy();
-        ExtT::makeNull((void*)(&ptr->ext()));
+        // make null instance (no construction arguments provided)
+        ptr->makeNew();        
         // remove instance from the lang cache
         lang_cache.erase(ptr->ext().getAddress());
-    }    
+    }
     
 }

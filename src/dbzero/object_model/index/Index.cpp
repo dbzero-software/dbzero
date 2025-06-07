@@ -17,22 +17,26 @@ namespace db0::object_model
         : m_builder(*this)
     {
     }
-
+    
     Index::Index(db0::swine_ptr<Fixture> &fixture)
         : super_t(fixture, IndexType::RangeTree, IndexDataType::Auto)
         , m_builder(*this)
+        // NOTE: register the mutation handler for supporting "locked" sections
+        , m_mutation_handler_id(fixture->addMutationHandler(m_mutation_log.getHandler()))
     {
     }
 
     Index::Index(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
-        , m_builder(*this)
+        , m_builder(*this)        
+        , m_mutation_handler_id(fixture->addMutationHandler(m_mutation_log.getHandler()))
     {        
     }
     
     Index::Index(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Index &other)
         : super_t(tag_no_gc(), fixture, *other.getData())
         , m_builder(*this)
+        , m_mutation_handler_id(fixture->addMutationHandler(m_mutation_log.getHandler()))
     {
         if (other.hasRangeTree()) {
             switch ((*this)->m_data_type) {
@@ -65,18 +69,19 @@ namespace db0::object_model
         // in case of index we need to unregister first because otherwise
         // it may trigger discard of unflushed data (which has to be performed before destruction of 'builder')
         unregister();
+        // unregister the mutation handler        
+        if (m_mutation_handler_id > 0) {
+            auto fixture = this->tryGetFixture();
+            if (fixture) {
+                fixture->removeMutationHandler(m_mutation_handler_id);
+                m_mutation_handler_id = 0;
+            }
+        }
+        
         // after unregister object might still have unflushed data, we need to flush them
         if (hasInstance() && isDirty()) {
             _flush();
-        }
-    }
-    
-    Index *Index::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
-        return new (at_ptr) Index(fixture);
-    }
-
-    Index *Index::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, Address address) {
-        return new (at_ptr) Index(fixture, address);
+        }        
     }
     
     Index::Builder::Builder(Index &index)
@@ -301,6 +306,7 @@ namespace db0::object_model
                     << " does not allow adding key type: " 
                     << LangToolkit::getTypeName(key) << THROWF_END;
         }
+        m_mutation_log.onDirty();
     }
     
     void Index::remove(ObjectPtr key, ObjectPtr value)
@@ -334,7 +340,8 @@ namespace db0::object_model
                     << static_cast<std::uint16_t>(m_builder.getDataType())
                     << " does not allow keys of type: " 
                     << LangToolkit::getTypeName(key) << THROWF_END;
-        }            
+        }
+        m_mutation_log.onDirty();
     }
 
     std::unique_ptr<Index::IteratorFactory> Index::range(ObjectPtr min, ObjectPtr max, bool null_first) const
@@ -454,6 +461,7 @@ namespace db0::object_model
                     << "Unsupported index data type: " 
                     << static_cast<std::uint16_t>(m_builder.getDataType()) << THROWF_END;
         }
+        m_mutation_log.onDirty();
     }
     
     // extract optional value
@@ -512,13 +520,21 @@ namespace db0::object_model
                     << "Unsupported index data type: " 
                     << static_cast<std::uint16_t>(m_builder.getDataType()) << THROWF_END;
         }
+        m_mutation_log.onDirty();
     }
     
     void Index::moveTo(db0::swine_ptr<Fixture> &fixture)
     {
         assert(hasInstance());
+        if (m_mutation_handler_id > 0) {
+            // remove the mutation handler from the old fixture
+            getFixture()->removeMutationHandler(m_mutation_handler_id);
+            m_mutation_handler_id = 0;
+        }
         this->_flush();
         super_t::moveTo(fixture);
+        // register the mutation handler for the new fixture
+        m_mutation_handler_id = fixture->addMutationHandler(m_mutation_log.getHandler());
     }
     
     void Index::operator=(Index &&other)
@@ -527,6 +543,9 @@ namespace db0::object_model
         super_t::operator=(std::move(other));
         m_index = std::move(other.m_index);
         other.m_index = nullptr;
+        m_mutation_log = std::move(other.m_mutation_log);
+        m_mutation_handler_id = other.m_mutation_handler_id;
+        other.m_mutation_handler_id = 0;
         assert(!other.hasInstance());
         // if m_index exists then also must have a range tree
         assert(!m_index || hasRangeTree());
@@ -614,8 +633,4 @@ namespace db0::object_model
         super_t::destroy();
     }
     
-    Index *Index::makeNull(void *at_ptr) {
-        return new (at_ptr) Index();
-    }
-
 }

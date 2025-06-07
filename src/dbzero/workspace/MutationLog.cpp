@@ -16,6 +16,13 @@ namespace db0
             m_mutation_flags.resize(size, -1);
         }
     }
+    
+    MutationLog &MutationLog::operator=(const MutationLog &&other)
+    {
+        m_mutation_flags = std::move(other.m_mutation_flags);
+        m_all_mutation_flags_set = other.m_all_mutation_flags_set;
+        return *this;
+    }
 
     void MutationLog::onDirty()
     {
