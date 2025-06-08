@@ -64,7 +64,7 @@ namespace tests
 		std::string str_dump = _str0.str();
 
 		// test bulk erase sorted
-		bool addr_changed;
+		bool addr_changed = false;
 		data_buf.bulkEraseSorted(erase_buf.begin(), erase_buf.end(), addr_changed);
 		it0 = data_buf->begin();
 		it1 = data_buf->begin();
@@ -86,7 +86,7 @@ namespace tests
 		v_sorted_vector<int> data_buf(memspace, 8);
 		int data[] = { 0, 1, 2, 3, 9, 26, 4, 19, 33, 912, 8, 55, 65, 99 };
 		for (auto  i=0u; (i < sizeof(data)/sizeof(int)) ; ++i) {
-			bool addr_changed;
+			bool addr_changed = false;
 			data_buf.insert(data[i],addr_changed);
 		}
 		// dump

@@ -19,13 +19,14 @@ namespace db0::object_model
     GC0_Define(Class)
     
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
-        const VFieldVector &members, const char *type_id, const char *prefix_name, ClassFlags flags, 
+        const VFieldVector &members, const Schema &schema, const char *type_id, const char *prefix_name, ClassFlags flags,
         const std::uint32_t base_class_ref)
         : m_uuid(db0::make_UUID())
         , m_name(string_pool.addRef(name))
         , m_type_id(type_id ? string_pool.addRef(type_id) : LP_String())
         , m_prefix_name(prefix_name ? string_pool.addRef(prefix_name) : LP_String())
         , m_members_ptr(members)
+        , m_schema_ptr(schema)
         , m_flags(flags)
         , m_base_class_ref(base_class_ref)
     {
@@ -49,12 +50,14 @@ namespace db0::object_model
     Class::Class(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
         const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags flags, 
         std::shared_ptr<Class> base_class)
-        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, prefix_name,
-                  flags, base_class ? ClassFactory::classRef(*base_class) : 0)
-        , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
+        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), Schema(*fixture), 
+            type_id, prefix_name, flags, base_class ? ClassFactory::classRef(*base_class) : 0)
+        , m_members((*this)->m_members_ptr(*fixture))
+        , m_schema((*this)->m_schema_ptr(*fixture))
         , m_base_class_ptr(base_class)
         , m_uid(this->fetchUID())
     {
+        m_schema.postInit(getTotalFunc());
         // copy all init vars from base class
         if (m_base_class_ptr) {        
             const auto &base_init_vars = m_base_class_ptr->getInitVars();
@@ -65,9 +68,11 @@ namespace db0::object_model
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
-        , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
-        , m_uid(this->fetchUID())    
+        , m_members((*this)->m_members_ptr(*fixture))
+        , m_schema((*this)->m_schema_ptr(*fixture))
+        , m_uid(this->fetchUID())
     {
+        m_schema.postInit(getTotalFunc());
         // initialize base class if such exists
         if ((*this)->m_base_class_ref) {
             auto fixture = this->getFixture();
@@ -332,6 +337,7 @@ namespace db0::object_model
     void Class::detach()
     {
         m_members.detach();
+        m_schema.detach();
         super_t::detach();
     }
     
@@ -342,6 +348,7 @@ namespace db0::object_model
     void Class::commit()
     {
         m_members.commit();        
+        m_schema.commit();
         super_t::commit();
     }
 
@@ -454,4 +461,12 @@ namespace db0::object_model
         return m_init_vars;
     }
 
+    std::function<unsigned int()> Class::getTotalFunc() const
+    {
+        return [this]() {
+            // NOTE: -1 because Class is also referenced (+1) by the ClassFactory
+            return this->getRefCount() - 1;
+        };
+    }
+    
 }

@@ -14,6 +14,7 @@
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/object_model/value/Value.hpp>
 #include <dbzero/workspace/GC0.hpp>
+#include "Schema.hpp"
 
 namespace db0
 
@@ -56,6 +57,7 @@ namespace db0::object_model
         // optional scoped-class prefix
         LP_String m_prefix_name;
         db0_ptr<VFieldVector> m_members_ptr;
+        db0_ptr<Schema> m_schema_ptr;
         ClassFlags m_flags;
         UniqueAddress m_singleton_address = {};
         const std::uint32_t m_base_class_ref;
@@ -63,7 +65,7 @@ namespace db0::object_model
         std::array<std::uint64_t, 4> m_reserved;
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name, const VFieldVector &,
-            const char *type_id, const char *prefix_name, ClassFlags, const std::uint32_t);
+            const Schema &, const char *type_id, const char *prefix_name, ClassFlags, const std::uint32_t);
     };
     
     // NOTE: Class type uses SLOT_NUM = TYPE_SLOT_NUM
@@ -208,6 +210,7 @@ namespace db0::object_model
     private:
         // member field definitions
         VFieldVector m_members;
+        Schema m_schema;
         std::shared_ptr<Class> m_base_class_ptr;
         mutable std::vector<std::unique_ptr<Member> > m_member_cache;
         // Field by-name index (cache)
@@ -223,6 +226,9 @@ namespace db0::object_model
          * Load changes to the internal cache
         */
         void refreshMemberCache() const;
+        
+        // A function to retrieve the total number of instances of the schema
+        std::function<unsigned int()> getTotalFunc() const;
     };
     
     // retrieve one of 4 possible type name variants

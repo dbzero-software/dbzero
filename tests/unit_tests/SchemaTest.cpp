@@ -257,4 +257,79 @@ namespace tests
         ASSERT_EQ(cut.getType(0).first, TypeId::INTEGER);
     }
 
+    TEST_F( SchemaTest , testSchemaEvolutionSwapSecondary )
+    {
+        using TypeId = Schema::TypeId;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        unsigned int total = 0;
+        auto get_total = [&]() -> unsigned int {
+            return total;
+        };
+
+        Schema cut(memspace, get_total);
+        cut.add(0, TypeId::NONE);        
+        cut.add(0, TypeId::NONE);
+        cut.add(0, TypeId::NONE);
+        cut.add(0, TypeId::INTEGER);
+        total += 4;
+        cut.flush();
+        cut.add(0, TypeId::FLOAT);        
+        cut.add(0, TypeId::FLOAT);
+        total += 2;
+        ASSERT_EQ(cut.getType(0).second, TypeId::FLOAT);
+    }
+
+    TEST_F( SchemaTest , testSchemaEvolutionSwapPrimaryWithExtra )
+    {
+        using TypeId = Schema::TypeId;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        unsigned int total = 0;
+        auto get_total = [&]() -> unsigned int {
+            return total;
+        };
+
+        Schema cut(memspace, get_total);
+        cut.add(0, TypeId::NONE);        
+        cut.add(0, TypeId::NONE);
+        cut.add(0, TypeId::NONE);
+        cut.add(0, TypeId::INTEGER);
+        total += 4;
+        cut.flush();
+        cut.add(0, TypeId::FLOAT);
+        cut.add(0, TypeId::FLOAT);
+        cut.add(0, TypeId::FLOAT);
+        cut.add(0, TypeId::FLOAT);
+        total += 4;
+        ASSERT_EQ(cut.getType(0).first, TypeId::FLOAT);
+        ASSERT_EQ(cut.getType(0).second, TypeId::NONE);
+    }
+
+    TEST_F( SchemaTest , testSchemaEvolutionSwapPrimaryAndSecondaryWithExtra )
+    {
+        using TypeId = Schema::TypeId;
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        unsigned int total = 0;
+        auto get_total = [&]() -> unsigned int {
+            return total;
+        };
+
+        Schema cut(memspace, get_total);
+        cut.add(0, TypeId::NONE);        
+        cut.add(0, TypeId::NONE);
+        cut.add(0, TypeId::INTEGER);
+        total += 4;
+        cut.flush();
+        cut.add(0, TypeId::FLOAT);
+        cut.add(0, TypeId::FLOAT);
+        cut.remove(0, TypeId::NONE);
+        cut.remove(0, TypeId::INTEGER);
+        cut.add(0, TypeId::FLOAT);
+        cut.add(0, TypeId::DATETIME);
+        cut.add(0, TypeId::DATETIME);
+        cut.add(0, TypeId::FLOAT);
+        total += 2;
+        ASSERT_EQ(cut.getType(0).first, TypeId::FLOAT);
+        ASSERT_EQ(cut.getType(0).second, TypeId::DATETIME);
+    }
+
 }

@@ -153,28 +153,51 @@ namespace db0::object_model
             m_secondary_type = o_type_item(m_primary_type_id, primary_count);            
             m_primary_type_id = temp;            
         }
-        
-        // pruning rule (for swapping extra types)
-        if (m_total_extra > m_secondary_type.m_count) {
-            // FIXME: implement 
-            throw std::runtime_error("Swap extra not implemented yet");
-        }
-    }
 
-    Schema::Schema(Memspace &memspace, total_func get_total)
-        : super_t(memspace)
-        , m_get_total(get_total)
-    {    
-    }
-    
-    Schema::Schema::Schema(mptr ptr, total_func get_total)
-        : super_t(ptr)
-        , m_get_total(get_total)
-    {    
-    }
-    
-    Schema::~Schema()
-    {        
+        // pruning rule (for swapping extra types)
+        if (m_total_extra <= m_secondary_type.m_count || !m_type_vector_ptr) {
+            return;
+        }
+
+        if (!type_vector) {
+            type_vector = m_type_vector_ptr(memspace);
+        }
+        
+        o_type_item max_item, second_max_item;
+        for (auto &type_item : type_vector) {
+            if (type_item.m_count > second_max_item.m_count) {
+                second_max_item = type_item;
+            }
+            if (second_max_item.m_count > max_item.m_count) {
+                std::swap(max_item, second_max_item);
+            }
+        }
+        
+        // swap primary type ID
+        bool addr_changed = false;
+        if (max_item.m_count > primary_count) {            
+            type_vector.erase(max_item, addr_changed);
+            if (primary_count) {
+                if (!!m_secondary_type) {
+                    type_vector.insert(m_secondary_type, addr_changed);
+                }
+                m_secondary_type = o_type_item(m_primary_type_id, primary_count);                
+            }
+            m_primary_type_id = max_item.m_type_id;
+            max_item = second_max_item;
+        }
+
+        // swap secondary type ID
+        if (max_item.m_count > m_secondary_type.m_count) {            
+            type_vector.erase(max_item, addr_changed);
+            if (!!m_secondary_type) {
+                type_vector.insert(m_secondary_type, addr_changed);
+            }
+            m_secondary_type = max_item;
+        }
+        if (addr_changed) {
+            m_type_vector_ptr = db0::db0_ptr<TypeVector>(type_vector);
+        }
     }
 
     class Schema::Builder
@@ -315,7 +338,42 @@ namespace db0::object_model
 
         std::unordered_map<std::pair<unsigned int, TypeId>, int, Hash> m_updates;
     };
+
+    Schema::Schema()
+        : super_t()        
+    {
+    }
+
+    Schema::Schema(Memspace &memspace, total_func get_total)
+        : super_t(memspace)
+        , m_get_total(get_total)
+    {    
+        if (!m_get_total) {
+            m_get_total = []() -> std::uint32_t {
+                THROWF(db0::InputException) << "Total count function is not set!" << THROWF_END;
+            };
+        }
+    }
     
+    Schema::Schema::Schema(mptr ptr, total_func get_total)
+        : super_t(ptr)
+        , m_get_total(get_total)
+    {    
+        if (!m_get_total) {
+            m_get_total = []() -> std::uint32_t {
+                THROWF(db0::InputException) << "Total count function is not set!" << THROWF_END;
+            };
+        }
+    }
+    
+    Schema::~Schema() {
+        assert((!m_builder || m_builder->empty()) && "Schema builder is not empty, flush it before destruction!");
+    }
+
+    void Schema::postInit(total_func get_total) {
+        m_get_total = get_total;
+    }
+        
     Schema::Builder &Schema::getBuilder()
     {
         if (!m_builder) {
@@ -379,6 +437,18 @@ namespace db0::object_model
             m_builder->flush(*this);
         }
         m_builder = nullptr;        
+    }
+
+    db0::Address Schema::getAddress() const {
+        return super_t::getAddress();
+    }
+
+    void Schema::detach() const {
+        super_t::detach();
+    }
+
+    void Schema::commit() const {
+        super_t::commit();
     }
 
 }

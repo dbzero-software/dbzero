@@ -801,7 +801,7 @@ namespace db0
                     data.pop_front();
                 }
                 // never compact data block
-                bool addr_changed;
+                bool addr_changed = false;
                 std::size_t erase_count = m_data_buf.bulkEraseSorted(buf.begin(), buf.end(), addr_changed, callback_ptr);
                 if (addr_changed) {
                     m_it_node.modify().m_data.ptr_b_data = m_data_buf.getAddress();
@@ -846,7 +846,7 @@ namespace db0
             std::size_t bulkErase(std::function<bool(KeyT)> f, CallbackT *callback_ptr = nullptr)
             {
                 // never compact data block
-                bool addr_changed;
+                bool addr_changed = false;
                 std::size_t erase_count = m_data_buf.bulkErase(f, addr_changed, callback_ptr);
                 if (addr_changed) {
                     m_it_node.modify().m_data.ptr_b_data = m_data_buf.getAddress();

@@ -78,13 +78,19 @@ namespace db0::object_model
         using TypeId = db0::bindings::TypeId;
         using super_t = db0::v_bvector<o_schema>;
         using total_func = std::function<std::uint32_t()>;
-
+        
+        // as null instsance
+        Schema();
+        
         // @param total_func - a function that returns the total number of instance occurrences in the schema
         // it is required for the primary type ID occurrence calculation / only invoked on need-to-know basis
-        Schema(Memspace &, total_func);
-        Schema(mptr, total_func);
+        // it is mandatory but can be configured later with postInit()
+        Schema(Memspace &, total_func = {});
+        Schema(mptr, total_func = {});
         ~Schema();
         
+        void postInit(total_func);
+
         // add occurrence of a specicifc type (as a specific field ID)
         void add(unsigned int field_id, TypeId);
         void remove(unsigned int field_id, TypeId);
@@ -96,7 +102,11 @@ namespace db0::object_model
         std::pair<TypeId, TypeId> getType(unsigned int field_id) const;
         // get all types from the most to least common for a given field ID
         std::vector<TypeId> getAllTypes(unsigned int field_id) const;
-        
+                
+        db0::Address getAddress() const;
+        void detach() const;
+        void commit() const;
+
     private:
         class Builder;
         friend class Builder;

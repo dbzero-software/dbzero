@@ -770,7 +770,7 @@ namespace db0
             // erase element
             this->modify().eraseAt(index, m_item_destroy_func);
             // compact vector if necessary (shrinking state only)
-            addr_changed = compactShrinking();
+            addr_changed |= compactShrinking();
         }
 
         /**
@@ -792,7 +792,7 @@ namespace db0
         {
             eraseItem(it_item);
             // compact vector if necessary (shrinking state only)
-            was_addr_changed = compactShrinking();
+            was_addr_changed |= compactShrinking();
         }
 
         /**
@@ -817,14 +817,14 @@ namespace db0
         {
             this->modify().pop_front(count, m_item_destroy_func);
             // compact vector if necessary ( shrinking state only )
-            addr_changed = compactShrinking();
+            addr_changed |= compactShrinking();
         }
 
         void pop_back(int count, bool &addr_changed) 
         {
             this->modify().pop_back(count, m_item_destroy_func);
             // compact vector if necessary ( shrinking state only )
-            addr_changed = compactShrinking();
+            addr_changed |= compactShrinking();
         }
         
         bool empty() const {
@@ -842,9 +842,9 @@ namespace db0
          * grow vector if necessary
          * @return inserted item iterator
          */
-        iterator insert(const data_t &data, bool &was_addr_changed, std::optional<std::uint32_t> max_size = {})
+        iterator insert(const data_t &data, bool &addr_changed, std::optional<std::uint32_t> max_size = {})
         {
-            was_addr_changed = growVector((*this)->m_size + 1, max_size);
+            addr_changed |= growVector((*this)->m_size + 1, max_size);
             return this->modify().insert(data);
         }
         
@@ -895,7 +895,7 @@ namespace db0
         std::pair<iterator,bool> insertUnique(const data_t &data, bool &addr_changed, 
             std::optional<std::uint32_t> max_size = {})
         {
-            addr_changed = growVector((*this)->m_size + 1, max_size);
+            addr_changed |= growVector((*this)->m_size + 1, max_size);
             return this->modify().insertUnique(data);
         }
         
@@ -971,21 +971,21 @@ namespace db0
         }
 
         template <class InputIterator>
-        std::size_t bulkEraseSorted(InputIterator it, InputIterator it_end, bool &was_addr_changed, CallbackT *callback_ptr = nullptr)
+        std::size_t bulkEraseSorted(InputIterator it, InputIterator it_end, bool &addr_changed, CallbackT *callback_ptr = nullptr)
         {
             auto erase_count = this->modify().bulkEraseSorted(it, it_end, m_item_destroy_func, callback_ptr);
-            was_addr_changed = compactShrinking();
+            addr_changed |= compactShrinking();
             return erase_count;
         }
 
         template <typename KeyT>
-        std::size_t bulkErase(std::function<bool(KeyT)> f, bool &was_addr_changed, CallbackT *callback_ptr = nullptr)
+        std::size_t bulkErase(std::function<bool(KeyT)> f, bool &addr_changed, CallbackT *callback_ptr = nullptr)
         {
             auto erase_count = this->modify().bulkErase(f, m_item_destroy_func, callback_ptr);
-            was_addr_changed = compactShrinking();
+            addr_changed |= compactShrinking();
             return erase_count;
         }
-
+        
         /**
          * Sorts element before erasing, if your elements are already sorted then better use bulkEraseSorted
          */
