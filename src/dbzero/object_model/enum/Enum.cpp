@@ -202,21 +202,24 @@ namespace db0::object_model
 
             case 1: {
                 // type & module name are required
-                assert(enum_name && module_name);
-                std::stringstream _str;
-                _str << "enum:" << *enum_name << ".pkg:" << *module_name;
-                return _str.str();                
+                if (enum_name && module_name) {
+                    std::stringstream _str;
+                    _str << "enum:" << *enum_name << ".pkg:" << *module_name;
+                    return _str.str();                
+                }
             }
             break;
 
             case 2: {
                 // variant 2. name + values (hash)
-                // std::stringstream _str;
-                // _str << "cls:" << _class.getTypeName() << "." << db0::python::getTypeFields(lang_class);
-                // return _str.str();
+                if (enum_name && hash) {
+                    std::stringstream _str;
+                    _str << "enum:" << *enum_name << "#:" << hash;
+                    return _str.str();
+                }
             }
             break;
-
+            
             case 3: {
                 // variant 3. module + values (hash)
                 // std::stringstream _str;
@@ -233,8 +236,8 @@ namespace db0::object_model
         }
         return std::nullopt;
     }
-
-    std::string Enum::getName() const 
+    
+    std::string Enum::getName() const
     {
         db0::swine_ptr<Fixture> lock;
         return getStringPool(lock).fetch((*this)->m_name);

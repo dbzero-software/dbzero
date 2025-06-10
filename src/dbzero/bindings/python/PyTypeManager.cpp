@@ -412,7 +412,7 @@ namespace db0::python
         }
         return reinterpret_cast<PyFieldDef*>(py_object)->modifyExt();
     }
-
+    
     void PyTypeManager::addEnum(PyEnum *py_enum)
     {
         auto &enum_data = py_enum->ext();

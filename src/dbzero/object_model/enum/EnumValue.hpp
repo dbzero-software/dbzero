@@ -41,14 +41,13 @@ namespace db0::object_model
         const o_nullable_string &prefix_name() const;
 
         static std::size_t measure(const EnumDef &, const char *str_repr, const char *prefix_name = nullptr); 
-
+        
         template <typename T> static std::size_t safeSizeOf(T at)
         {
-            auto buf = at + sizeOfMembers(at);
-            buf += o_enum_def::safeSizeOf(buf);
-            buf += o_string::safeSizeOf(buf);
-            buf += o_nullable_string::safeSizeOf(buf);
-            return buf - at;
+            return sizeOfMembers(at)
+                (o_enum_def::type())
+                (o_string::type())
+                (o_nullable_string::type());
         }   
     };
     

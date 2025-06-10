@@ -68,14 +68,13 @@ namespace db0::object_model
         static std::size_t measure(const char *name, const char *module_name, std::uint32_t hash, 
             const char *type_id = nullptr);
         static std::size_t measure(const EnumDef &);
-            
+        
         template <typename T> static std::size_t safeSizeOf(T buf)
         {
-            auto at = buf + sizeOfMembers(buf);
-            at += o_string::safeSizeOf(at);
-            at += o_string::safeSizeOf(at);
-            at += o_nullable_string::safeSizeOf(at);
-            return at - buf;
+            return sizeOfMembers(buf)
+                (o_string::type())
+                (o_string::type())
+                (o_nullable_string::type());
         }
         
         EnumDef get() const;
@@ -117,6 +116,7 @@ namespace std
 
 {
 
+    ostream &operator<<(ostream &, const db0::object_model::o_enum_def &);
     ostream &operator<<(ostream &, const db0::object_model::EnumDef &);
     ostream &operator<<(ostream &, const db0::object_model::EnumFullDef &);
     ostream &operator<<(ostream &, const db0::object_model::EnumTypeDef &);
