@@ -65,5 +65,7 @@ namespace db0::python
     // NOTE: ref-counts are not compared (only user-assigned members)
     // @return true if objects are identical
     PyObject *tryCompareMemo(MemoObject *, MemoObject *);
+
+    PyObject *PyAPI_getSchema(PyObject *, PyObject *const *args, Py_ssize_t nargs);
     
 }

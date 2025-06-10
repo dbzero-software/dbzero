@@ -90,6 +90,7 @@ static PyMethodDef dbzero_methods[] =
     {"expired", (PyCFunction)&py::PyAPI_expired, METH_FASTCALL, "Check if the weak reference has expired"},    
     {"get_config", &py::PyAPI_getConfig, METH_NOARGS, "Get dbzero configuration, as passed to 'init' function"},
     {"assign", (PyCFunction)&py::PyAPI_assign, METH_VARARGS | METH_KEYWORDS, "Assign multiple attributes in a single operation (non-atomic)"},
+    {"get_schema", (PyCFunction)&py::PyAPI_getSchema, METH_FASTCALL, "Get deduced schema of a memo object"},
     {"_get_prefixes", &py::getPrefixes, METH_NOARGS, "Get the list of prefixes accessible from the current context"},
     {"_get_mutable_prefixes", &py::PyAPI_getMutablePrefixes, METH_NOARGS, "Get the list of prefixes opened with write access"},
     {"_get_memo_classes", (PyCFunction)&py::PyAPI_getMemoClasses, METH_VARARGS | METH_KEYWORDS, "Get the list of memo classes from a specific prefix"},

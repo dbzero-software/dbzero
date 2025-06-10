@@ -789,4 +789,23 @@ namespace db0::python
         return runSafe(get_py_hash_impl<TypeId::MEMO_OBJECT>, self);
     }
     
+    PyObject *tryGetSchema(PyObject *py_memo)
+    {
+        if (!PyMemo_Check(py_memo)) {
+            PyErr_SetString(PyExc_TypeError, "Expected a Memo object");
+            return nullptr;
+        }        
+    }
+    
+    PyObject *PyAPI_getSchema(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {        
+        if (nargs != 1) {            
+            PyErr_SetString(PyExc_TypeError, "getSchema requires exactly 1 argument");            
+            return NULL;
+        }
+
+        PY_API_FUNC
+        return runSafe(tryGetSchema, args[0]);
+    }
+
 }
