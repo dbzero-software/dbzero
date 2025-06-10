@@ -200,25 +200,24 @@ def __import_module(module_or_file_name, package = None):
     else:
         return [__import_from_file(module_or_file_name, package)]
 
-    
+
 def import_model(module_or_file_name, package=None):
-    __import_module(module_or_file_name, package)
-    
-    
+    return importlib.import_module(module_or_file_name, package)
+
+
 def get_queries(*module_names):
     # Dynamically import modules
     for name in module_names:
-        modules = __import_module(name)
-        for module in modules:
-            # Get all the functions from the module
-            functions = inspect.getmembers(module, inspect.isfunction)
-            for function_name, function_obj in functions:
-                signature = inspect.signature(function_obj)
-                has_kwargs = any(
-                    param.kind == inspect.Parameter.VAR_KEYWORD
-                    for param in signature.parameters.values())
-                params = [param.name for param in signature.parameters.values() if param.kind != inspect.Parameter.VAR_KEYWORD]
-                yield Query(function_obj, function_name, params, has_kwargs)
+        module = importlib.import_module(name)
+        # Get all the functions from the module
+        functions = inspect.getmembers(module, inspect.isfunction)
+        for function_name, function_obj in functions:
+            signature = inspect.signature(function_obj)
+            has_kwargs = any(
+                param.kind == inspect.Parameter.VAR_KEYWORD
+                for param in signature.parameters.values())
+            params = [param.name for param in signature.parameters.values() if param.kind != inspect.Parameter.VAR_KEYWORD]
+            yield Query(function_obj, function_name, params, has_kwargs)
 
 
 def is_private(name):

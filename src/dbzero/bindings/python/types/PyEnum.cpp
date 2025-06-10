@@ -368,19 +368,19 @@ namespace db0::python
     PyTypeObject PyEnumValueReprType = {
         PyVarObject_HEAD_INIT(NULL, 0)
         .tp_name = "dbzero_ce.EnumValueRepr",
-        .tp_basicsize = PyEnumValue::sizeOf(),
+        .tp_basicsize = PyEnumValueRepr::sizeOf(),
         .tp_itemsize = 0,
-        .tp_dealloc = (destructor)PyEnumValue_del,
+        .tp_dealloc = (destructor)PyEnumValueRepr_del,
         .tp_repr = reinterpret_cast<reprfunc>(PyEnumValueRepr_repr),
         .tp_str = reinterpret_cast<reprfunc>(PyEnumValueRepr_str),        
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "Enum value object",
         .tp_richcompare = (richcmpfunc)PyAPI_EnumValueRepr_rq,
         .tp_alloc = PyType_GenericAlloc,
-        .tp_new = (newfunc)PyEnumValue_new,
+        .tp_new = (newfunc)PyEnumValueRepr_new,
         .tp_free = PyObject_Free,
     };
-
+    
     bool PyEnum_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyEnumType;        
     }
