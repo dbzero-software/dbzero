@@ -182,6 +182,13 @@ namespace db0::object_model
 namespace std
 
 {
+ 
+    ostream &operator<<(ostream &os, const db0::object_model::o_enum_def &enum_def)
+    {
+        return os << "o_enum_def {" << enum_def.name() << ", module_name: " << enum_def.module_name() 
+            << ", hash: " << enum_def.m_hash 
+            << ", type_id: " << (enum_def.type_id().isNull() ? "null" : enum_def.type_id().extract()) << "}";
+    }
     
     ostream &operator<<(ostream &os, const db0::object_model::EnumDef &enum_def) {
         return os << "EnumDef {" << enum_def.m_name << ", module_name: " << enum_def.m_module_name << "}";

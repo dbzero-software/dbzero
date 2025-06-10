@@ -292,3 +292,13 @@ def test_is_enum_value(db0_fixture):
     assert db0.is_enum(Colors)
     assert db0.is_enum(TriColor)
     assert not db0.is_enum(MemoTestClass)
+
+
+def get_repr_values_func(color=ColorsEnum):
+    return color.values()
+    
+def test_enum_value_repr_destruct_issue_1(db0_fixture):
+    expected_values = {"RED", "GREEN", "BLUE"}
+    for _ in range(100):
+        for value in get_repr_values_func():
+            assert str(value) in expected_values

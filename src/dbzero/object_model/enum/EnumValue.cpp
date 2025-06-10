@@ -98,13 +98,13 @@ namespace db0::object_model
     
     ObjectSharedPtr EnumValueRepr::deserialize(db0::swine_ptr<Fixture> &fixture, std::vector<std::byte>::const_iterator &iter,
         std::vector<std::byte>::const_iterator end)
-    {
+    {        
         auto &enum_value_repr = db0::serial::pop<o_enum_value_repr>(iter, end);
         auto sentinel = db0::serial::read<std::uint8_t>(iter, end);
         if (sentinel != 0) {
             THROWF(db0::InputException) << "Invalid sentinel byte for EnumValue deserialization";
         }
-        
+                
         auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
         const char *prefix_name = nullptr;
         std::string str_prefix_name;
@@ -154,7 +154,7 @@ namespace db0::object_model
     }
     
     void EnumValue::serialize(std::vector<std::byte> &buffer) const
-    {
+    {        
         // NOTE: both enum value + enum def needs to be serialized
         // for fallback resolution in case the client has no access to a specific prefix
         // but has a reference to the enum type in its scope
@@ -171,11 +171,11 @@ namespace db0::object_model
     {
         auto &enum_value = db0::serial::pop<o_enum_value>(iter, end);
         db0::serial::pop<o_enum_def>(iter, end);
-        auto sentinel = db0::serial::read<std::uint8_t>(iter, end);    
+        auto sentinel = db0::serial::read<std::uint8_t>(iter, end);
         if (sentinel != 0) {
             THROWF(db0::InputException) << "Invalid sentinel byte for EnumValue deserialization";
         }
-
+        
         auto fixture = workspace.getFixture(enum_value.m_fixture_uuid);
         auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
         auto _enum = enum_factory.getEnumByUID(enum_value.m_enum_uid);
