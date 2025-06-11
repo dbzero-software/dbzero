@@ -6,6 +6,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
+#include "Schema.hpp"
 
 DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON")
 
@@ -467,6 +468,51 @@ namespace db0::object_model
             // NOTE: -1 because Class is also referenced (+1) by the ClassFactory
             return this->getRefCount() - 1;
         };
+    }
+
+    const Schema &Class::getSchema() const {
+        return m_schema;
+    }
+    
+    void Class::getSchema(std::function<void(const std::string &field_name, SchemaTypeId primary_type,
+        const std::vector<SchemaTypeId> &all_types)> callback) const
+    {
+        this->refreshMemberCache();
+        for (auto &member: m_member_cache) {
+            try {
+                callback(member->m_name, m_schema.getPrimaryType(member->m_field_id), 
+                    m_schema.getAllTypes(member->m_field_id)
+                );
+            } catch (const db0::InputException &) {
+                // report as UNKNOWN type if the field ID is not found in the schema
+                callback(member->m_name, SchemaTypeId::UNDEFINED, {});
+            }
+        }
+    }
+    
+    void Class::updateSchema(const std::vector<StorageClass> &types, bool add)
+    {
+        for (unsigned int index = 0; index < types.size(); ++index) {
+            if (types[index] != StorageClass::UNDEFINED) {
+                if (add) {
+                    m_schema.add(index, getSchemaTypeId(types[index]));
+                } else {
+                    m_schema.remove(index, getSchemaTypeId(types[index]));
+                }                
+            }
+        }
+    }
+    
+    void Class::updateSchema(const XValue *begin, const XValue *end, bool add)
+    {
+        // collect field IDs and types        
+        for (auto it = begin; it != end; ++it) {
+            if (add) {
+                m_schema.add(it->getIndex(), getSchemaTypeId(it->m_type));
+            } else {
+                m_schema.remove(it->getIndex(), getSchemaTypeId(it->m_type));
+            }
+        }
     }
     
 }

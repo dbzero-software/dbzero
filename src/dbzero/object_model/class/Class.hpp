@@ -13,6 +13,7 @@
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/object_model/value/Value.hpp>
+#include <dbzero/object_model/value/XValue.hpp>
 #include <dbzero/workspace/GC0.hpp>
 #include "Schema.hpp"
 
@@ -184,6 +185,19 @@ namespace db0::object_model
         // Get initialization variables identified by static code analysis
         // note that the result includes also all base class init vars
         const std::unordered_set<std::string> &getInitVars() const;
+
+        const Schema &getSchema() const;
+        
+        // Collect schema with a callback function
+        // NOTE: type is the primary / most likely type for the field
+        // NOTE: possible types (all_types) are reported from the most likely / common to least likely
+        void getSchema(std::function<void(const std::string &field_name, SchemaTypeId primary_type,
+            const std::vector<SchemaTypeId> &all_types)>) const;
+        
+        // Add or remove from schema positionally encoded field types
+        void updateSchema(const std::vector<StorageClass> &types, bool add = true);
+        // Add or remove from schema index-encoded field types
+        void updateSchema(const XValue *begin, const XValue *end, bool add = true);
         
     protected:
         friend class ClassFactory;

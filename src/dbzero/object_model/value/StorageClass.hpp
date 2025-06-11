@@ -127,7 +127,10 @@ namespace db0::object_model
         
         void addMapping(TypeId, PreStorageClass);
     };
-        
+    
+    // Get storage class / type name for schema reporting purposes
+    std::string getTypeName(StorageClass);
+    
 }
 
 namespace db0

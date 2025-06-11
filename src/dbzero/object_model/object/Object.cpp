@@ -176,6 +176,8 @@ namespace db0::object_model
                 index_vt_data.first, index_vt_data.second);
             // reference associated class
             m_type->incRef();
+            m_type->updateSchema(pos_vt_data.m_types);
+            m_type->updateSchema(index_vt_data.first, index_vt_data.second);
             
             // bind singleton address (now that instance exists)
             if (m_type->isSingleton()) {

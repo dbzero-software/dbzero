@@ -28,8 +28,7 @@ namespace tests
     }
 
     TEST_F( SchemaTest , testSchemaExceptionWhenUnknownFieldId )
-    {   
-        using TypeId = Schema::TypeId;
+    {           
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");             
         auto get_total = []() -> unsigned int {
             return 0;
@@ -40,42 +39,39 @@ namespace tests
     }
 
     TEST_F( SchemaTest , testSchemaAddPrimaryTypeId )
-    {   
-        using TypeId = Schema::TypeId;
+    {           
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         auto get_total = []() -> unsigned int {
             return 0;
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::STRING);
-        ASSERT_EQ(cut.getType(0).first, TypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::STRING);
     }
     
     TEST_F( SchemaTest , testSchemaAddSecondaryTypeId )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         auto get_total = []() -> unsigned int {
             return 0;
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::INTEGER);
-        cut.add(0, TypeId::STRING);
-        ASSERT_EQ(cut.getType(0).first, TypeId::STRING);
-        ASSERT_EQ(cut.getType(0).second, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::INT);
+        cut.add(0, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::INT);
     }
 
     TEST_F( SchemaTest , testSchemaAddMoreTypeIds )
-    {   
-        using TypeId = Schema::TypeId;
-        auto memspace = m_workspace.getMemspace("my-test-prefix_1");             
-        std::vector<TypeId> typeIds = {
-            TypeId::STRING, TypeId::INTEGER, TypeId::DATETIME,  TypeId::FLOAT,
-            TypeId::DATETIME, TypeId::INTEGER, TypeId::FLOAT, TypeId::INTEGER, TypeId::FLOAT, 
-            TypeId::FLOAT
+    {       
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        std::vector<SchemaTypeId> typeIds = {
+            SchemaTypeId::STRING, SchemaTypeId::INT, SchemaTypeId::DATETIME,  SchemaTypeId::FLOAT,
+            SchemaTypeId::DATETIME, SchemaTypeId::INT, SchemaTypeId::FLOAT, SchemaTypeId::INT, SchemaTypeId::FLOAT,
+            SchemaTypeId::FLOAT
         };
         auto get_total = []() -> unsigned int {
             return 0;
@@ -86,156 +82,148 @@ namespace tests
             cut.add(0, typeId);
         }
 
-        ASSERT_EQ(cut.getAllTypes(0), std::vector<TypeId>({
-            TypeId::FLOAT, TypeId::INTEGER, TypeId::DATETIME, TypeId::STRING
+        ASSERT_EQ(cut.getAllTypes(0), std::vector<SchemaTypeId>({
+            SchemaTypeId::FLOAT, SchemaTypeId::INT, SchemaTypeId::DATETIME, SchemaTypeId::STRING
         }));
     }
 
     TEST_F( SchemaTest , testSchemaRemoveWithoutFlush )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         auto get_total = []() -> unsigned int {
             return 0;
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::INTEGER);
-        cut.remove(0, TypeId::STRING);
-        cut.remove(0, TypeId::STRING);
-        ASSERT_EQ(cut.getType(0).first, TypeId::INTEGER);
-        ASSERT_EQ(cut.getType(0).second, TypeId::UNKNOWN);        
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::INT);
+        cut.remove(0, SchemaTypeId::STRING);
+        cut.remove(0, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::INT);
+        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::UNDEFINED);
     }
 
     TEST_F( SchemaTest , testSchemaAddRemoveMultipleFieldIDs )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         auto get_total = []() -> unsigned int {
             return 0;
         };
 
         Schema cut(memspace, get_total);
-        std::vector<std::pair<unsigned int, TypeId>> fieldIds = {
-            {0, TypeId::STRING}, {1, TypeId::INTEGER}, {4, TypeId::DATETIME},
-            {1, TypeId::FLOAT}, {0, TypeId::STRING}, {1, TypeId::INTEGER},
-            {4, TypeId::INTEGER}, {0, TypeId::FLOAT}, {0, TypeId::DATETIME}
+        std::vector<std::pair<unsigned int, SchemaTypeId>> fieldIds = {
+            {0, SchemaTypeId::STRING}, {1, SchemaTypeId::INT}, {4, SchemaTypeId::DATETIME},
+            {1, SchemaTypeId::FLOAT}, {0, SchemaTypeId::STRING}, {1, SchemaTypeId::INT},
+            {4, SchemaTypeId::INT}, {0, SchemaTypeId::FLOAT}, {0, SchemaTypeId::DATETIME}
         };
 
         for (const auto &type_info : fieldIds) {
             cut.add(type_info.first, type_info.second);
         }
-        ASSERT_NE(cut.getType(0).first, TypeId::UNKNOWN);
-        ASSERT_EQ(cut.getType(1).first, TypeId::INTEGER);
-        ASSERT_EQ(cut.getType(1).second, TypeId::FLOAT);
-        ASSERT_NE(cut.getType(4).first, TypeId::UNKNOWN);
+        ASSERT_NE(cut.getType(0).first, SchemaTypeId::UNDEFINED);
+        ASSERT_EQ(cut.getType(1).first, SchemaTypeId::INT);
+        ASSERT_EQ(cut.getType(1).second, SchemaTypeId::FLOAT);
+        ASSERT_NE(cut.getType(4).first, SchemaTypeId::UNDEFINED);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionUpdatePrimary )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         auto get_total = []() -> unsigned int {
             return 0;
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
         cut.flush();
-        cut.add(0, TypeId::STRING);
-        ASSERT_EQ(cut.getType(0).first, TypeId::STRING);
-        ASSERT_EQ(cut.getType(0).second, TypeId::UNKNOWN);
+        cut.add(0, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::UNDEFINED);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionAddSecondary )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         auto get_total = []() -> unsigned int {
             return 0;
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
         cut.flush();
-        cut.add(0, TypeId::INTEGER);
-        ASSERT_EQ(cut.getType(0).first, TypeId::STRING);
-        ASSERT_EQ(cut.getType(0).second, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::INT);
+        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::INT);
     }
-
+    
     TEST_F( SchemaTest , testSchemaEvolutionUpdateSecondary )
-    {
-        using TypeId = Schema::TypeId;
+    {       
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         auto get_total = []() -> unsigned int {
             return 0;
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
         cut.flush();
-        cut.add(0, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::INT);
         cut.flush();
-        cut.add(0, TypeId::INTEGER);
-        ASSERT_EQ(cut.getType(0).first, TypeId::STRING);
-        ASSERT_EQ(cut.getType(0).second, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::INT);
+        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::STRING);
+        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::INT);
     }
     
     TEST_F( SchemaTest , testSchemaEvolutionAddExtra )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         auto get_total = []() -> unsigned int {
             return 0;
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::INTEGER);
-        cut.add(0, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::INT);
+        cut.add(0, SchemaTypeId::INT);
         cut.flush();
-        cut.add(0, TypeId::FLOAT);
-        ASSERT_EQ(cut.getAllTypes(0), std::vector<TypeId>({
-            TypeId::STRING, TypeId::INTEGER, TypeId::FLOAT
+        cut.add(0, SchemaTypeId::FLOAT);
+        ASSERT_EQ(cut.getAllTypes(0), std::vector<SchemaTypeId>({
+            SchemaTypeId::STRING, SchemaTypeId::INT, SchemaTypeId::FLOAT
         }));
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionUpdateExtra )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1"); 
         auto get_total = []() -> unsigned int {
             return 0;
         };
              
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::STRING);
-        cut.add(0, TypeId::INTEGER);
-        cut.add(0, TypeId::INTEGER);
-        cut.add(0, TypeId::INTEGER);
-        cut.add(0, TypeId::FLOAT);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::INT);
+        cut.add(0, SchemaTypeId::INT);
+        cut.add(0, SchemaTypeId::INT);
+        cut.add(0, SchemaTypeId::FLOAT);
         cut.flush();
-        cut.add(0, TypeId::FLOAT);
-        cut.add(0, TypeId::DATETIME);
-        ASSERT_EQ(cut.getAllTypes(0), std::vector<TypeId>({
-            TypeId::STRING, TypeId::INTEGER, TypeId::FLOAT, TypeId::DATETIME
+        cut.add(0, SchemaTypeId::FLOAT);
+        cut.add(0, SchemaTypeId::DATETIME);
+        ASSERT_EQ(cut.getAllTypes(0), std::vector<SchemaTypeId>({
+            SchemaTypeId::STRING, SchemaTypeId::INT, SchemaTypeId::FLOAT, SchemaTypeId::DATETIME
         }));
     }
     
     TEST_F( SchemaTest , testSchemaEvolutionSwapPrimary )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         unsigned int total = 0;
         auto get_total = [&]() -> unsigned int {
@@ -243,23 +231,22 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::NONE);
+        cut.add(0, SchemaTypeId::NONE);
         ++total;
-        cut.add(0, TypeId::NONE);
+        cut.add(0, SchemaTypeId::NONE);
         ++total;
-        cut.add(0, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::INT);
         ++total;
         cut.flush();
-        cut.add(0, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::INT);
         ++total;
-        cut.add(0, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::INT);
         ++total;
-        ASSERT_EQ(cut.getType(0).first, TypeId::INTEGER);
+        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::INT);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionSwapSecondary )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         unsigned int total = 0;
         auto get_total = [&]() -> unsigned int {
@@ -267,21 +254,20 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::NONE);        
-        cut.add(0, TypeId::NONE);
-        cut.add(0, TypeId::NONE);
-        cut.add(0, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::NONE);        
+        cut.add(0, SchemaTypeId::NONE);
+        cut.add(0, SchemaTypeId::NONE);
+        cut.add(0, SchemaTypeId::INT);
         total += 4;
         cut.flush();
-        cut.add(0, TypeId::FLOAT);        
-        cut.add(0, TypeId::FLOAT);
+        cut.add(0, SchemaTypeId::FLOAT);        
+        cut.add(0, SchemaTypeId::FLOAT);
         total += 2;
-        ASSERT_EQ(cut.getType(0).second, TypeId::FLOAT);
+        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::FLOAT);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionSwapPrimaryWithExtra )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         unsigned int total = 0;
         auto get_total = [&]() -> unsigned int {
@@ -289,24 +275,23 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::NONE);        
-        cut.add(0, TypeId::NONE);
-        cut.add(0, TypeId::NONE);
-        cut.add(0, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::NONE);        
+        cut.add(0, SchemaTypeId::NONE);
+        cut.add(0, SchemaTypeId::NONE);
+        cut.add(0, SchemaTypeId::INT);
         total += 4;
         cut.flush();
-        cut.add(0, TypeId::FLOAT);
-        cut.add(0, TypeId::FLOAT);
-        cut.add(0, TypeId::FLOAT);
-        cut.add(0, TypeId::FLOAT);
+        cut.add(0, SchemaTypeId::FLOAT);
+        cut.add(0, SchemaTypeId::FLOAT);
+        cut.add(0, SchemaTypeId::FLOAT);
+        cut.add(0, SchemaTypeId::FLOAT);
         total += 4;
-        ASSERT_EQ(cut.getType(0).first, TypeId::FLOAT);
-        ASSERT_EQ(cut.getType(0).second, TypeId::NONE);
+        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::FLOAT);
+        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::NONE);
     }
 
     TEST_F( SchemaTest , testSchemaEvolutionSwapPrimaryAndSecondaryWithExtra )
-    {
-        using TypeId = Schema::TypeId;
+    {        
         auto memspace = m_workspace.getMemspace("my-test-prefix_1");
         unsigned int total = 0;
         auto get_total = [&]() -> unsigned int {
@@ -314,22 +299,22 @@ namespace tests
         };
 
         Schema cut(memspace, get_total);
-        cut.add(0, TypeId::NONE);        
-        cut.add(0, TypeId::NONE);
-        cut.add(0, TypeId::INTEGER);
+        cut.add(0, SchemaTypeId::NONE);        
+        cut.add(0, SchemaTypeId::NONE);
+        cut.add(0, SchemaTypeId::INT);
         total += 4;
         cut.flush();
-        cut.add(0, TypeId::FLOAT);
-        cut.add(0, TypeId::FLOAT);
-        cut.remove(0, TypeId::NONE);
-        cut.remove(0, TypeId::INTEGER);
-        cut.add(0, TypeId::FLOAT);
-        cut.add(0, TypeId::DATETIME);
-        cut.add(0, TypeId::DATETIME);
-        cut.add(0, TypeId::FLOAT);
+        cut.add(0, SchemaTypeId::FLOAT);
+        cut.add(0, SchemaTypeId::FLOAT);
+        cut.remove(0, SchemaTypeId::NONE);
+        cut.remove(0, SchemaTypeId::INT);
+        cut.add(0, SchemaTypeId::FLOAT);
+        cut.add(0, SchemaTypeId::DATETIME);
+        cut.add(0, SchemaTypeId::DATETIME);
+        cut.add(0, SchemaTypeId::FLOAT);
         total += 2;
-        ASSERT_EQ(cut.getType(0).first, TypeId::FLOAT);
-        ASSERT_EQ(cut.getType(0).second, TypeId::DATETIME);
+        ASSERT_EQ(cut.getType(0).first, SchemaTypeId::FLOAT);
+        ASSERT_EQ(cut.getType(0).second, SchemaTypeId::DATETIME);
     }
-
+    
 }

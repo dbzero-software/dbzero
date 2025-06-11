@@ -5,13 +5,13 @@ namespace db0::object_model
 
 {
 
-    o_type_item::o_type_item(TypeId type_id, std::uint32_t count)
+    o_type_item::o_type_item(SchemaTypeId type_id, std::uint32_t count)
         : m_type_id(type_id)
         , m_count(count)
     {        
     }
 
-    o_type_item::o_type_item(TypeId type_id, int count)
+    o_type_item::o_type_item(SchemaTypeId type_id, int count)
         : m_type_id(type_id)
     {
         assert(count >= 0);
@@ -19,10 +19,10 @@ namespace db0::object_model
     }
 
     bool o_type_item::operator!() const {
-        return (m_type_id == TypeId::UNKNOWN || m_count == 0);
+        return (m_type_id == SchemaTypeId::UNDEFINED || m_count == 0);
     }
 
-    o_type_item &o_type_item::operator=(std::tuple<unsigned int, TypeId, int> item)
+    o_type_item &o_type_item::operator=(std::tuple<unsigned int, SchemaTypeId, int> item)
     {
         m_type_id = std::get<1>(item);
         assert(std::get<2>(item) >= 0);
@@ -31,8 +31,8 @@ namespace db0::object_model
     }
     
     o_schema::o_schema(
-        Memspace &memspace, std::vector<std::tuple<unsigned int, TypeId, int> >::const_iterator begin,
-        std::vector<std::tuple<unsigned int, TypeId, int> >::const_iterator end)
+        Memspace &memspace, std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
+        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end)
         : m_primary_type_id(std::get<1>(*begin))
     {
         assert(begin != end);
@@ -58,16 +58,16 @@ namespace db0::object_model
         }
     }
     
-    std::pair<o_schema::TypeId, o_schema::TypeId> o_schema::getType() const {
+    std::pair<SchemaTypeId, SchemaTypeId> o_schema::getType() const {
         return { m_primary_type_id, m_secondary_type.m_type_id };
     }
 
-    std::vector<o_schema::TypeId> o_schema::getAllTypes(Memspace &memspace) const 
+    std::vector<SchemaTypeId> o_schema::getAllTypes(Memspace &memspace) const
     {
-        std::vector<TypeId> result;
-        if (m_primary_type_id == TypeId::UNKNOWN) {
+        std::vector<SchemaTypeId> result;
+        if (m_primary_type_id == SchemaTypeId::UNDEFINED) {
             return result;
-        }    
+        }
         result.push_back(m_primary_type_id);
         if (!m_secondary_type) {
             return result;
@@ -91,8 +91,8 @@ namespace db0::object_model
     }
 
     void o_schema::update(Memspace &memspace,
-        std::vector<std::tuple<unsigned int, TypeId, int> >::const_iterator begin,
-        std::vector<std::tuple<unsigned int, TypeId, int> >::const_iterator end,
+        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
+        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end,
         const total_func &get_total)
     {
         // NOTE: primary type is not counted
@@ -203,8 +203,6 @@ namespace db0::object_model
     class Schema::Builder
     {
     public:
-        using TypeId = Schema::TypeId;
-
         Builder(const Schema &schema)
             : m_schema(schema)
             , m_primary_type_cache(schema, true)
@@ -212,7 +210,7 @@ namespace db0::object_model
         {
         }
         
-        void collect(unsigned int field_id, TypeId type_id, int update)
+        void collect(unsigned int field_id, SchemaTypeId type_id, int update)
         {
             assert(update != 0);
             // note: primary types are not counted
@@ -254,7 +252,7 @@ namespace db0::object_model
         {
             // collect the updates and flush with the schema
             // field ID, type ID, update count
-            std::vector<std::tuple<unsigned int, TypeId, int> > sorted_updates;
+            std::vector<std::tuple<unsigned int, SchemaTypeId, int> > sorted_updates;
             // collect from secondary type updates
             for (unsigned int field_id = 0; field_id < m_secondary_updates.size(); ++field_id) {                
                 sorted_updates.emplace_back(field_id, m_secondary_type_cache.get(field_id), m_secondary_updates[field_id]);
@@ -294,11 +292,10 @@ namespace db0::object_model
     private:
         const Schema &m_schema;
         // the secondary type ID occurrence count updates
-        std::vector<int> m_secondary_updates;        
+        std::vector<int> m_secondary_updates;     
 
-        struct TypeCache: public std::vector<TypeId>
-        {
-            using TypeId = Schema::TypeId;
+        struct TypeCache: public std::vector<SchemaTypeId>
+        {            
             const Schema &m_schema;
             const bool m_primary;
 
@@ -308,13 +305,13 @@ namespace db0::object_model
             {
             }
 
-            TypeId get(unsigned int field_id)
+            SchemaTypeId get(unsigned int field_id)
             {
                 if (field_id >= this->size()) {
-                    this->resize(field_id + 1, TypeId::UNKNOWN);
+                    this->resize(field_id + 1, SchemaTypeId::UNDEFINED);
                 }
                 auto result = (*this)[field_id];
-                if (result == TypeId::UNKNOWN && field_id < m_schema.size()) {
+                if (result == SchemaTypeId::UNDEFINED && field_id < m_schema.size()) {
                     if (m_primary) {
                         (*this)[field_id] = m_schema[field_id].m_primary_type_id;
                     } else {
@@ -331,12 +328,12 @@ namespace db0::object_model
 
         struct Hash
         {
-            std::size_t operator()(const std::pair<unsigned int, TypeId> &key) const {
-                return std::hash<unsigned int>()(key.first) ^ std::hash<TypeId>()(key.second);
+            std::size_t operator()(const std::pair<unsigned int, SchemaTypeId> &key) const {
+                return std::hash<unsigned int>()(key.first) ^ std::hash<SchemaTypeId>()(key.second);
             }
         };
 
-        std::unordered_map<std::pair<unsigned int, TypeId>, int, Hash> m_updates;
+        std::unordered_map<std::pair<unsigned int, SchemaTypeId>, int, Hash> m_updates;
     };
 
     Schema::Schema()
@@ -382,15 +379,15 @@ namespace db0::object_model
         return *m_builder;
     }
 
-    void Schema::add(unsigned int field_id, TypeId type_id) {
+    void Schema::add(unsigned int field_id, SchemaTypeId type_id) {
         getBuilder().collect(field_id, type_id, 1);
     }
 
-    void Schema::remove(unsigned int field_id, TypeId type_id) {
+    void Schema::remove(unsigned int field_id, SchemaTypeId type_id) {
         getBuilder().collect(field_id, type_id, -1);
     }
 
-    std::pair<Schema::TypeId, Schema::TypeId> Schema::getType(unsigned int field_id) const
+    std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(unsigned int field_id) const
     {
         if (m_builder && !m_builder->empty()) {
             m_builder->flush(*const_cast<Schema *>(this));
@@ -402,7 +399,11 @@ namespace db0::object_model
         return (*this)[field_id].getType();
     }
 
-    std::vector<Schema::TypeId> Schema::getAllTypes(unsigned int field_id) const
+    std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(FieldID field_id) const {
+        return getType(field_id.getIndex());
+    }
+
+    std::vector<SchemaTypeId> Schema::getAllTypes(unsigned int field_id) const
     {
         if (m_builder && !m_builder->empty()) {
             m_builder->flush(*const_cast<Schema *>(this));
@@ -413,10 +414,14 @@ namespace db0::object_model
         }
         return (*this)[field_id].getAllTypes(this->getMemspace());
     }
+    
+    std::vector<SchemaTypeId> Schema::getAllTypes(FieldID field_id) const {
+        return getAllTypes(field_id.getIndex());
+    }
 
     void Schema::update(unsigned int field_id,
-        std::vector<std::tuple<unsigned int, TypeId, int> >::const_iterator begin,
-        std::vector<std::tuple<unsigned int, TypeId, int> >::const_iterator end)
+        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
+        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end)
     {
         if (field_id >= this->size()) {
             // fill-in empty slots
@@ -449,6 +454,68 @@ namespace db0::object_model
 
     void Schema::commit() const {
         super_t::commit();
+    }
+
+    SchemaTypeId Schema::getPrimaryType(unsigned int field_id) const
+    {
+        auto type_pair = getType(field_id);
+        if (type_pair.first == SchemaTypeId::UNDEFINED || type_pair.first == SchemaTypeId::NONE) {
+            return type_pair.second;
+        }
+        return type_pair.first;
+    }
+
+    SchemaTypeId Schema::getPrimaryType(FieldID field_id) const {
+        return getPrimaryType(field_id.getIndex());
+    }
+
+    SchemaTypeId getSchemaTypeId(StorageClass storage_class)
+    {
+        switch (storage_class) {
+            case StorageClass::POOLED_STRING:
+            case StorageClass::STR64:
+                return SchemaTypeId::STRING;
+            case StorageClass::DB0_SERIALIZED:
+                return SchemaTypeId::BYTES;
+            case StorageClass::OBJECT_LONG_WEAK_REF:
+                return SchemaTypeId::WEAK_REF;
+            default:
+                // for all other storage classes, there's 1-1 mapping
+                return static_cast<SchemaTypeId>(storage_class);
+        }
+    }
+    
+    std::string getTypeName(SchemaTypeId type_id)
+    {
+        switch (type_id) {
+            case SchemaTypeId::UNDEFINED: return "UNDEFINED";
+            case SchemaTypeId::NONE: return "None";
+            case SchemaTypeId::STRING: return "str";
+            case SchemaTypeId::INT: return "int";
+            case SchemaTypeId::TIMESTAMP: return "timestamp";
+            case SchemaTypeId::FLOAT: return "float";
+            case SchemaTypeId::DATE: return "Date";
+            case SchemaTypeId::DATETIME: return "DateTime";
+            case SchemaTypeId::DATETIME_TZ: return "DateTimeTZ";
+            case SchemaTypeId::TIME: return "Time";
+            case SchemaTypeId::TIME_TZ: return "TimeTZ";
+            case SchemaTypeId::DECIMAL: return "Decimal";
+            case SchemaTypeId::OBJECT: return "Object";
+            case SchemaTypeId::LIST: return "List";
+            case SchemaTypeId::DICT: return "Dict";
+            case SchemaTypeId::SET: return "Set";
+            case SchemaTypeId::TUPLE: return "Tuple";
+            case SchemaTypeId::CLASS: return "Class";
+            case SchemaTypeId::INDEX: return "index";
+            case SchemaTypeId::BYTES: return "Bytes";
+            case SchemaTypeId::BYTES_ARRAY: return "BytesArray";
+            case SchemaTypeId::ENUM_TYPE: return "EnumType";
+            case SchemaTypeId::ENUM: return "Enum";
+            case SchemaTypeId::BOOLEAN: return "bool";
+            case SchemaTypeId::WEAK_REF: return "WeakProxy";
+            default:
+                return "!INVALID";
+        }
     }
 
 }

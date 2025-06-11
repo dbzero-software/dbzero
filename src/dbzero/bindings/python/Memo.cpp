@@ -19,6 +19,7 @@
 #include <dbzero/bindings/python/types/PyObjectId.hpp>
 #include <dbzero/bindings/python/types/PyClass.hpp>
 #include <dbzero/bindings/python/types/PyClassFields.hpp>
+#include <dbzero/bindings/TypeId.hpp>
 
 namespace db0::python
 
@@ -789,23 +790,53 @@ namespace db0::python
         return runSafe(get_py_hash_impl<TypeId::MEMO_OBJECT>, self);
     }
     
-    PyObject *tryGetSchema(PyObject *py_memo)
+    PyObject *tryGetSchema(PyTypeObject *py_type)
     {
-        if (!PyMemo_Check(py_memo)) {
-            PyErr_SetString(PyExc_TypeError, "Expected a Memo object");
+        using SchemaTypeId = db0::object_model::SchemaTypeId;
+        
+        if (!PyMemoType_Check(py_type)) {
+            PyErr_SetString(PyExc_TypeError, "Expected a memo type");
             return nullptr;
-        }        
+        }
+        
+        auto &decor = MemoTypeDecoration::get(py_type);
+        auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(decor.getFixtureUUID(), AccessType::READ_ONLY);
+        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+        // find py type associated dbzero class with the ClassFactory
+        auto type = class_factory.getExistingType(py_type);
+
+        auto py_schema = Py_OWN(PyDict_New());
+        type->getSchema([&](const std::string &key, SchemaTypeId primary_type, const std::vector<SchemaTypeId> &all_types) {
+            auto py_key = Py_OWN(PyUnicode_FromString(key.c_str()));
+            auto primary_type_name = getTypeName(primary_type);
+            auto py_schema_item = Py_OWN(PyDict_New());
+            PySafeDict_SetItemString(*py_schema_item, "primary_type", Py_OWN(PyUnicode_FromString(primary_type_name.c_str())));
+            auto py_all_types = Py_OWN(PyList_New(all_types.size()));
+            for (std::size_t i = 0; i < all_types.size(); ++i) {
+                auto type_name = getTypeName(all_types[i]);
+                PySafeList_SetItem(*py_all_types, i, Py_OWN(PyUnicode_FromString(type_name.c_str())));            
+            }
+            PySafeDict_SetItemString(*py_schema_item, "all_types", py_all_types);
+            PySafeDict_SetItem(*py_schema, py_key, py_schema_item);
+        });
+        
+        return py_schema.steal();
     }
     
     PyObject *PyAPI_getSchema(PyObject *, PyObject *const *args, Py_ssize_t nargs)
     {        
         if (nargs != 1) {            
-            PyErr_SetString(PyExc_TypeError, "getSchema requires exactly 1 argument");            
+            PyErr_SetString(PyExc_TypeError, "get_schema requires exactly 1 argument");            
+            return NULL;
+        }
+
+        if (!PyType_Check(args[0])) {
+            PyErr_SetString(PyExc_TypeError, "get_schema: type expected");
             return NULL;
         }
 
         PY_API_FUNC
-        return runSafe(tryGetSchema, args[0]);
+        return runSafe(tryGetSchema, reinterpret_cast<PyTypeObject*>(args[0]));
     }
 
 }
