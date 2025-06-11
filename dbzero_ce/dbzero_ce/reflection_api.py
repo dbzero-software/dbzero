@@ -16,8 +16,45 @@ from .storage_api import PrefixMetaData
 from .dbzero_ce import _get_memo_classes
 
 
-AttributeInfo = namedtuple("AttributeInfo", ["name"])
-MethodInfo = namedtuple("MethodInfo", ["name", "signature"])
+_CallableParams = namedtuple("CallableParams", ["params", "has_args", "has_kwargs"])
+def _get_callable_params(parameters):
+    params = []
+    has_args = True
+    has_kwargs = True
+    for param in parameters.values():
+        if param.kind == inspect.Parameter.VAR_POSITIONAL:
+            has_args = True
+        elif param.kind == inspect.Parameter.VAR_KEYWORD:
+            has_kwargs = True
+        else:
+            params.append(param)
+
+    return _CallableParams(params, has_args, has_kwargs)
+
+
+class AttributeInfo:
+    def __init__(self, name: str, cls: type):
+        self.name = name
+        self.cls = cls
+
+
+class MethodInfo(inspect.Signature):
+    def __init__(self, name: str, signature: inspect.Signature, cls: type):
+        super().__init__(signature.parameters.values(), return_annotation=signature.return_annotation)
+        self.name = name
+        self.cls = cls
+        callable_params = _get_callable_params(self.parameters)
+        self.__params = [MethodParam(param, self) for param in callable_params.params]
+
+    def get_params(self):
+        return self.__params
+
+
+class MethodParam(inspect.Parameter):
+    def __init__(self, param: inspect.Parameter, method: MethodInfo):
+        super().__init__(param.name, param.kind, default=param.default, annotation=param.annotation)
+        self.method = method
+
 
 class MemoMetaClass:
     def __init__(self, name, module, class_uuid, is_singleton=False, instance_uuid=None):
@@ -66,8 +103,9 @@ class MemoMetaClass:
         """
         get_attributes works for known and unknown types
         """
+        memo_type = self.get_type()
         for attr in self.get_class().get_attributes():
-            yield AttributeInfo(attr[0])
+            yield AttributeInfo(attr[0], memo_type)
     
     def get_methods(self):
         """
@@ -76,11 +114,12 @@ class MemoMetaClass:
         def is_private(name):
             return name.startswith("_")
         
+        memo_type = self.get_type()
         for attr_name in dir(self.get_type()):
             attr = getattr(self.get_type(), attr_name)
             if callable(attr) and not isinstance(attr, staticmethod) and not isinstance(attr, classmethod) \
                 and not is_private(attr_name):                
-                yield MethodInfo(attr_name, inspect.signature(attr))
+                yield MethodInfo(attr_name, inspect.signature(attr), memo_type)
     
     def all(self, snapshot=None, as_memo_base=False):
         if not as_memo_base and self.get_class().is_known_type():
@@ -121,31 +160,44 @@ def get_memo_classes(prefix: PrefixMetaData = None):
 def get_memo_class(class_uuid):
     return MemoMetaClass(*db0.fetch(class_uuid).type_info())
 
-    
-class Query:
-    def __init__(self, function_obj, name, params, has_kwargs):
-        self.__function_obj = function_obj
+
+class Query(inspect.Signature):
+    def __init__(self, name: str, function_obj: typing.Callable):
+        signature = inspect.signature(function_obj)
+        super().__init__(signature.parameters.values(), return_annotation=signature.return_annotation)
         self.__name = name
-        self.__params = params
-        self.__has_kwargs = has_kwargs
+        self.__function_obj = function_obj
+        callable_params = _get_callable_params(signature.parameters)
+        self.__params = [QueryParam(param, self) for param in callable_params.params]
+        self.__has_kwargs = callable_params.has_kwargs
 
     @property
     def name(self):
         return self.__name
-    
+
     @property
-    def params(self):
-        return self.__params
-    
+    def function_object(self):
+        return self.__function_obj
+
     @property
     def has_kwargs(self):
         return self.__has_kwargs
-    
+
+    @property
     def has_params(self):
         return len(self.__params) > 0 or self.__has_kwargs
+
+    def get_params(self):
+        return self.__params
     
     def execute(self, *args, **kwargs):
         return self.__function_obj(*args, **kwargs)
+
+class QueryParam(inspect.Parameter):
+    def __init__(self, param: inspect.Parameter, query: Query):
+        super().__init__(param.name, param.kind, default=param.default, annotation=param.annotation)
+        self.query = query
+
 
 def __import_from_directory(paths, submodule_search_locations):
     # get all files in the directory
@@ -212,12 +264,7 @@ def get_queries(*module_names):
         # Get all the functions from the module
         functions = inspect.getmembers(module, inspect.isfunction)
         for function_name, function_obj in functions:
-            signature = inspect.signature(function_obj)
-            has_kwargs = any(
-                param.kind == inspect.Parameter.VAR_KEYWORD
-                for param in signature.parameters.values())
-            params = [param.name for param in signature.parameters.values() if param.kind != inspect.Parameter.VAR_KEYWORD]
-            yield Query(function_obj, function_name, params, has_kwargs)
+            yield Query(function_name, function_obj)
 
 
 def is_private(name):
@@ -232,8 +279,8 @@ def get_methods(obj):
     for attr_name in dir(_type):
         attr = getattr(_type, attr_name)
         if callable(attr) and not isinstance(attr, staticmethod) and not isinstance(attr, classmethod) \
-            and not is_private(attr_name):                
-            yield MethodInfo(attr_name, inspect.signature(attr))
+            and not is_private(attr_name):
+            yield MethodInfo(attr_name, inspect.signature(attr), _type)
 
 
 def get_properties(obj):
