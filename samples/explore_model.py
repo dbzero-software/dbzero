@@ -21,7 +21,7 @@ def __main__():
             for memo_class in db0.get_memo_classes(prefix):
                 attr_names = [attr.name for attr in memo_class.get_attributes()]
                 # extract only zero-argument methods (self not counted)                
-                methods = list(meth for meth in memo_class.get_methods() if len(meth.signature.parameters) == 1)                
+                methods = list(meth for meth in memo_class.get_methods() if len(meth.parameters) == 1)                
                 for obj in memo_class.all():
                     print(values_of(obj, attr_names, methods))
     except Exception as e:

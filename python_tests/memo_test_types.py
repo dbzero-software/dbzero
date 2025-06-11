@@ -21,6 +21,9 @@ class MemoTestClassWithMethods:
 
     def get_value_plus(self, other):
         return self.value + other
+
+    def many_args_method(self, param1, /, param2, *args, param3, **kwargs):
+        pass
         
     
 @db0.memo(prefix=DATA_PX)
