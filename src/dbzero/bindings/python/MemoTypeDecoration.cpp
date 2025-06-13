@@ -21,8 +21,8 @@ namespace db0::python
         , m_prefix_name_ptr(other.m_prefix_name_ptr)
         , m_type_id(other.m_type_id)
         , m_file_name(other.m_file_name)
-        , m_init_vars(std::move(other.m_init_vars))        
-        , m_py_dyn_prefix_callable(std::move(other.m_py_dyn_prefix_callable))
+        , m_init_vars(std::move(other.m_init_vars))
+        , m_py_dyn_prefix_callable(other.m_py_dyn_prefix_callable)
         , m_migrations(std::move(other.m_migrations))
     {
         m_fixture_uuid.store(other.m_fixture_uuid.load());
@@ -40,7 +40,7 @@ namespace db0::python
         , m_type_id(type_id)
         , m_file_name(file_name)
         , m_init_vars(std::move(init_vars))
-        , m_py_dyn_prefix_callable(std::move(py_dyn_prefix_callable))
+        , m_py_dyn_prefix_callable(py_dyn_prefix_callable)
         , m_migrations(std::move(migrations))
     {
         init();
@@ -53,7 +53,7 @@ namespace db0::python
         m_type_id = other.m_type_id;
         m_file_name = other.m_file_name;
         m_init_vars = std::move(other.m_init_vars);
-        m_py_dyn_prefix_callable = std::move(other.m_py_dyn_prefix_callable);
+        m_py_dyn_prefix_callable = other.m_py_dyn_prefix_callable;
         m_migrations = std::move(other.m_migrations);
         m_fixture_uuid.store(other.m_fixture_uuid.load());
         other.m_fixture_uuid = 0;
@@ -72,7 +72,7 @@ namespace db0::python
             }
         }
     }
-
+    
     MemoTypeDecoration::~MemoTypeDecoration()
     {
         if (!Py_IsInitialized()) {
@@ -108,7 +108,7 @@ namespace db0::python
         }
         return PyUnicode_AsUTF8(*py_result);
     }
-        
+    
     const char *MemoTypeDecoration::getPrefixName() const {
         return m_prefix_name_ptr ? m_prefix_name_ptr : "";
     }
