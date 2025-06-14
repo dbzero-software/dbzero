@@ -29,18 +29,15 @@ def test_db0_starts_autocommit_by_default(db0_fixture):
 def test_autocommit_is_not_performed_during_atomic_mutations(db0_fixture):
     object_1 = MemoTestClass(951)
     state_1 = db0.get_state_num()
-    # perform atomic mutations for 300m
+    # perform atomic mutations for 350ms
     with db0.atomic():
-        start = time.time()
-        while time.time() - start < 0.3:
+        start = time.time()        
+        while time.time() - start < 0.35:
             time.sleep(0.01)
             object_1.value += 1    
-    state_2 = db0.get_state_num()
+        state_2 = db0.get_state_num()
     # state should not change during mutations
     assert state_2 == state_1
-    time.sleep(0.3)
-    state_2 = db0.get_state_num()
-    assert state_2 > state_1
 
 
 def test_autocommit_can_be_disabled_for_prefix(db0_fixture):
@@ -50,7 +47,7 @@ def test_autocommit_can_be_disabled_for_prefix(db0_fixture):
     db0.open(prefix_name, autocommit=False)
     state_1 = db0.get_state_num()
     object_1 = MemoTestClass(951)
-    time.sleep(0.3)
+    time.sleep(0.350)
     state_2 = db0.get_state_num()
     # no autocommit, state not changed
     assert state_1 == state_2

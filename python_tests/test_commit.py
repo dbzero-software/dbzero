@@ -112,4 +112,4 @@ def test_commit_state_num_issue_1(db0_fixture, memo_tags):
     obj_1.value = 99999    
     db0.commit()
     state_2 = db0.get_state_num(finalized = True)
-    assert state_2 == state_pending    
+    assert state_2 == state_pending
