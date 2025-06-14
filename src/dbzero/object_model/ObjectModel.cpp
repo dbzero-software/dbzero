@@ -47,7 +47,12 @@ namespace db0::object_model
                 auto &class_factory = fixture->addResource<ClassFactory>(fixture);
                 auto &enum_factory = fixture->addResource<EnumFactory>(fixture);
                 auto &tag_index = fixture->addResource<TagIndex>(
-                    *fixture, class_factory, enum_factory, fixture->getLimitedStringPool(), fixture->getVObjectCache()
+                    *fixture, 
+                    class_factory, 
+                    enum_factory, 
+                    fixture->getLimitedStringPool(), 
+                    fixture->getVObjectCache(),
+                    fixture->addMutationHandler()
                 );
                 
                 // flush from tag index on fixture commit (or close on close)
@@ -74,9 +79,7 @@ namespace db0::object_model
                 fixture->addFlushHandler([&]() {
                     tag_index.flush();
                 });
-
-                fixture->addMutationHandler(tag_index.getMutationHandler());
-                
+                                
                 // register resources with the object catalogue
                 oc.addUnique(tag_index);
                 oc.addUnique(class_factory);
@@ -98,7 +101,8 @@ namespace db0::object_model
                     class_factory,
                     enum_factory,
                     fixture->getLimitedStringPool(), 
-                    fixture->getVObjectCache()
+                    fixture->getVObjectCache(),
+                    fixture->addMutationHandler()
                 );
                 
                 // flush from tag index on fixture commit (or close on close)
@@ -125,9 +129,7 @@ namespace db0::object_model
                 fixture->addFlushHandler([&]() {
                     tag_index.flush();
                 });
-
-                fixture->addMutationHandler(tag_index.getMutationHandler());
-                
+                                
                 if (fixture->getAccessType() == db0::AccessType::READ_WRITE) {
                     // execute GC0::collect when opening an existing fixture as read-write
                     fixture->getGC0().collect();

@@ -43,8 +43,10 @@ namespace db0::object_model
         // string tokens and classes are represented as short tags
         using ShortTagT = std::uint64_t;
         
-        TagIndex(Memspace &memspace, const ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &);
-        TagIndex(mptr, const ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &);
+        TagIndex(Memspace &memspace, const ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &,
+            std::shared_ptr<MutationLog> mutation_log);
+        TagIndex(mptr, const ClassFactory &, EnumFactory &, RC_LimitedStringPool &, VObjectCache &,
+            std::shared_ptr<MutationLog> mutation_log);
         
         virtual ~TagIndex();
         
@@ -99,8 +101,6 @@ namespace db0::object_model
         void addDefunct(ObjectPtr memo_ptr) const;
         
         void clear();
-
-        MutationHandler getMutationHandler() const;
         
     private:
         using TypeId = db0::bindings::TypeId;
@@ -123,7 +123,7 @@ namespace db0::object_model
         mutable std::unordered_map<ObjectSharedPtr, UniqueAddress> m_active_cache;
         // the associated fixture UUID (for validation purposes)
         const std::uint64_t m_fixture_uuid;
-        mutable MutationLog m_mutation_log;
+        mutable std::shared_ptr<MutationLog> m_mutation_log;
         
         template <typename BaseIndexT, typename BatchOperationT>
         BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result);

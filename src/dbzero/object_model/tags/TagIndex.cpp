@@ -124,30 +124,34 @@ namespace db0::object_model
         std::vector<std::unique_ptr<QueryIterator> > &m_neg_iterators;
     };
 
-    TagIndex::TagIndex(Memspace &memspace, const ClassFactory &class_factory, EnumFactory &enum_factory,
-        RC_LimitedStringPool &string_pool, VObjectCache &cache)
+    TagIndex::TagIndex(Memspace &memspace, const ClassFactory &class_factory, EnumFactory &enum_factory, 
+        RC_LimitedStringPool &string_pool, VObjectCache &cache, std::shared_ptr<MutationLog> mutation_log)
         : db0::v_object<o_tag_index>(memspace)        
         , m_string_pool(string_pool)
         , m_enum_factory(enum_factory)
         , m_base_index_short(memspace, cache)
         , m_base_index_long(memspace, cache)        
         , m_fixture_uuid(enum_factory.getFixture()->getUUID())
+        , m_mutation_log(mutation_log)
     {
+        assert(mutation_log);
         modify().m_base_index_short_ptr = m_base_index_short.getAddress();
         modify().m_base_index_long_ptr = m_base_index_long.getAddress();
     }
     
     TagIndex::TagIndex(mptr ptr, const ClassFactory &class_factory, EnumFactory &enum_factory,
-        RC_LimitedStringPool &string_pool, VObjectCache &cache)
+        RC_LimitedStringPool &string_pool, VObjectCache &cache, std::shared_ptr<MutationLog> mutation_log)
         : db0::v_object<o_tag_index>(ptr)        
         , m_string_pool(string_pool)
         , m_enum_factory(enum_factory)
         , m_base_index_short(myPtr((*this)->m_base_index_short_ptr), cache)
         , m_base_index_long(myPtr((*this)->m_base_index_long_ptr), cache)
         , m_fixture_uuid(enum_factory.getFixture()->getUUID())
+        , m_mutation_log(mutation_log)
     {
+        assert(mutation_log);
     }
-
+    
     TagIndex::~TagIndex()
     {
         assert(
@@ -224,8 +228,8 @@ namespace db0::object_model
                     auto long_tag = getLongTag(arg);
                     (*batch_op_long_ptr)->addTag(active_key, long_tag);
                 }
-            }
-            m_mutation_log.onDirty();
+            }            
+            m_mutation_log->onDirty();            
         }
     }
 
@@ -237,16 +241,16 @@ namespace db0::object_model
     {
         ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationShort(memo_ptr, active_key);
-        batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
-        m_mutation_log.onDirty();
+        batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));        
+        m_mutation_log->onDirty();        
     }
 
     void TagIndex::addTag(ObjectPtr memo_ptr, LongTagT tag)
     {
         ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationLong(memo_ptr, active_key);
-        batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));
-        m_mutation_log.onDirty();
+        batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));        
+        m_mutation_log->onDirty();        
     }
     
     void TagIndex::removeTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
@@ -270,8 +274,8 @@ namespace db0::object_model
                 continue;
             }
 
-            batch_operation->removeTag(active_key, getShortTag(type_id, args[i]));
-            m_mutation_log.onDirty();
+            batch_operation->removeTag(active_key, getShortTag(type_id, args[i]));            
+            m_mutation_log->onDirty();            
         }
     }
     
@@ -978,8 +982,4 @@ namespace db0::object_model
         return { py_obj.getFixtureUUID(), py_obj.getAddress().getOffset() };
     }
  
-    MutationHandler TagIndex::getMutationHandler() const {
-        return m_mutation_log.getHandler();
-    }
-
 }
