@@ -166,8 +166,7 @@ namespace db0::object_model
         };
         
         Builder m_builder;
-        mutable MutationLog m_mutation_log;
-        unsigned int m_mutation_handler_id = 0;
+        mutable std::shared_ptr<MutationLog> m_mutation_log;        
 
         // check if there's any unflushed data in the internal buffers
         bool isDirty() const;
@@ -181,7 +180,7 @@ namespace db0::object_model
         Index(tag_no_gc, db0::swine_ptr<Fixture> &, const Index &);
         
         void operator=(Index &&);
-
+        
         bool hasRangeTree() const {
             return (*this)->m_index_addr.isValid();
         }
@@ -283,7 +282,7 @@ namespace db0::object_model
         void addNull(ObjectPtr);
         void removeNull(ObjectPtr);
 
-        template <typename T> std::optional<T> extractOptionalValue(ObjectPtr value) const;
+        template <typename T> std::optional<T> extractOptionalValue(ObjectPtr value) const;    
     };
 
     // extract optional value specializations

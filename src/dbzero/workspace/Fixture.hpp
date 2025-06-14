@@ -151,9 +151,9 @@ namespace db0
         void addDetachHandler(std::function<void()>);
         void addRollbackHandler(std::function<void()>);
         void addFlushHandler(std::function<void()>);
-        // @return the handler ID for unregistering later (> 0)
-        unsigned int addMutationHandler(MutationHandler);
-        void removeMutationHandler(unsigned int handler_id);
+
+        // @return the mutation log to be held / updated by the client object (e.g. Index)
+        std::shared_ptr<MutationLog> addMutationHandler();
         
         // Rollback uncommited contents from internal buffers
         void rollback();
@@ -304,7 +304,7 @@ namespace db0
         std::vector<std::function<void()> > m_rollback_handlers;
         // flush handlers, to release some memory on resource exhaustion
         std::vector<std::function<void()> > m_flush_handlers;
-        std::map<unsigned int, MutationHandler> m_mutation_handlers;
+        std::list<std::shared_ptr<MutationLog> > m_mutation_handlers;
         
         std::uint64_t getUUID(MetaAllocator &);
         
