@@ -6,15 +6,17 @@ namespace db0
 
 {
 
-    MutationLog::MutationLog(int locked_sections) {
-        init(locked_sections);
+    MutationLog::MutationLog(int locked_sections)
+    {
+        if (locked_sections > 0) {
+            m_mutation_flags.resize(locked_sections, -1);
+        }        
     }
     
-    void MutationLog::init(int size)
-    {
-        if (size > 0) {
-            m_mutation_flags.resize(size, -1);
-        }
+    MutationLog::MutationLog(const MutationLog &other)
+        : m_mutation_flags(other.m_mutation_flags)
+        , m_all_mutation_flags_set(other.m_all_mutation_flags_set)
+    {    
     }
     
     MutationLog &MutationLog::operator=(const MutationLog &&other)
@@ -26,7 +28,7 @@ namespace db0
 
     void MutationLog::onDirty()
     {
-        if (!m_mutation_flags.empty() && !m_all_mutation_flags_set) {
+        if (!m_all_mutation_flags_set && !m_mutation_flags.empty()) {
             // set all flags to "true" where not released
             for (auto &flag: m_mutation_flags) {
                 if (flag == 0) {
@@ -36,9 +38,24 @@ namespace db0
             m_all_mutation_flags_set = true;
         }
     }
+    
+    void MutationLog::add(const MutationLog &other)
+    {
+        if (other.size() > m_mutation_flags.size()) {
+            m_mutation_flags.resize(other.m_mutation_flags.size(), -1);
+        }
 
+        unsigned int index = 0;
+        for (auto flag: other.m_mutation_flags) {
+            if (m_mutation_flags[index] < flag) {
+                m_mutation_flags[index] = flag;
+            }
+            ++index;
+        }
+    }
+    
     void MutationLog::beginLocked(unsigned int locked_section_id)
-    {        
+    {
         if (locked_section_id >= m_mutation_flags.size()) {
             m_mutation_flags.resize(locked_section_id + 1, -1);
         }
@@ -72,28 +89,6 @@ namespace db0
 
     std::size_t MutationLog::size() const {
         return m_mutation_flags.size();
-    }
-
-    MutationHandler MutationLog::getHandler()
-    {
-        return [this](MutationOp op, unsigned int int_value, std::function<void(unsigned int)> callback) -> bool 
-        {
-            switch (op) {
-                case MutationOp::INIT:
-                    this->init(int_value); // as size
-                    break;
-                case MutationOp::BEGIN_LOCKED:
-                    this->beginLocked(int_value);
-                    break;
-                case MutationOp::END_LOCKED:
-                    return this->endLocked(int_value);
-                    break;
-                case MutationOp::END_ALL_LOCKED:
-                    this->endAllLocked(callback);
-                    break;                    
-            }
-            return false;
-        };
     }
     
 }

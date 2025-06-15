@@ -158,7 +158,7 @@ namespace tests
         }
                 
         cut.commit();
-        for (const auto [token, addr]: address_map) {
+        for (const auto &[token, addr]: address_map) {
             ASSERT_TRUE(addr);
             auto fetched = cut.fetch(addr);
             ASSERT_EQ(fetched, token) << "Token mismatch for: " << token;

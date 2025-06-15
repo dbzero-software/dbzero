@@ -281,11 +281,13 @@ namespace db0
     
     StateNumType PrefixImpl::getStateNum(bool finalized) const
     {
+        // NOTE: must apply atomic operation adjustment
+        int adjust = m_atomic ? -1 : 0;
         if (finalized) {
             // in case of read/write prefixes the head state number is never finalized
-            return m_access_type == AccessType::READ_WRITE ? m_head_state_num - 1 : m_head_state_num;
+            return (m_access_type == AccessType::READ_WRITE) ? (m_head_state_num - 1 + adjust):(m_head_state_num + adjust);
         } else {
-            return m_head_state_num;
+            return m_head_state_num + adjust;
         }
     }
     

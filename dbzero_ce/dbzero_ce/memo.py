@@ -52,7 +52,8 @@ def memo(cls=None, **kwargs):
                 code.co_name,
                 code.co_qualname,
                 code.co_firstlineno,
-                code.co_linetable,
+                # co_linetable (empty since this is a dynamically generated code)
+                b'',
                 code.co_exceptiontable,
                 code.co_freevars,
                 code.co_cellvars,
@@ -62,7 +63,7 @@ def memo(cls=None, **kwargs):
             return py_types.FunctionType(new_code, from_type.__init__.__globals__)
         
         def template_func(self, prefix = None):
-            return set_prefix(prefix)
+            return set_prefix(self, prefix)
         
         # get index of the first "CALL" instruction
         def find_call_instr(instructions):
@@ -85,7 +86,7 @@ def memo(cls=None, **kwargs):
                     return instr
                 
             return None
-                
+        
         init_func = from_type.__init__
         # NOTE: return instructions are fetched from the template_func
         call_ = find_call_instr(list(dis.get_instructions(init_func)))
@@ -107,7 +108,7 @@ def memo(cls=None, **kwargs):
         
         # assemble the callable
         dyn_func = assemble_code(init_func.__code__, template_func.__code__, call_, ret_)
-        
+                                        
         # this wrapper is required to populate default arguments
         def dyn_wrapper(*args, **kwargs):
             min_kw = len(default_args) + 1
@@ -115,7 +116,7 @@ def memo(cls=None, **kwargs):
                 min_kw = min(min_kw, px_map[kw])
             
             # populate default args and kwargs
-            all_kwargs = { **kwargs, **{ k: v for k, v in default_kwargs.items() if k not in kwargs and px_map[k] > min_kw } }
+            all_kwargs = { **kwargs, **{ k: v for k, v in default_kwargs.items() if k not in kwargs and px_map[k] > min_kw } }            
             return dyn_func(None, *args, *default_args[len(args):min_kw - 1], **all_kwargs)
         
         return dyn_wrapper

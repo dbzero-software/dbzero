@@ -2,6 +2,7 @@
 import pytest
 import dbzero_ce as db0
 import multiprocessing
+import inspect
 from dbzero_ce.reflection_api import CallableType
 from .conftest import DB0_DIR
 from .memo_test_types import MemoTestClass, MemoTestSingleton, MemoTestClassPropertiesAndImmutables, MemoTestClassWithMethods
@@ -251,7 +252,7 @@ def test_get_memo_class_by_uuid(db0_fixture):
 def test_get_methods(db0_fixture):
     obj = MemoTestClassWithMethods(123)    
     methods = list(db0.get_methods(obj))
-    assert len(methods) == 3    
+    assert len(methods) == 4
     
     
 def test_get_all_instances_of_known_type_from_snapshot(db0_fixture, memo_tags):
@@ -301,3 +302,30 @@ def test_get_mutable_prefixes(db0_fixture):
     result = names(db0.get_mutable_prefixes())
     assert set(names(db0.get_mutable_prefixes())) == {'prefix4', 'prefix3'}
     assert len(result) == len(set(result))
+
+
+def test_method_info_class(db0_fixture):
+    obj = MemoTestClassWithMethods(123)
+    method = db0.MethodInfo('many_args_method', inspect.signature(obj.many_args_method), type(obj))
+
+    assert method.name == 'many_args_method'
+    assert method.cls is MemoTestClassWithMethods
+    params = method.get_params()
+    assert all(isinstance(param, db0.MethodParam) for param in params)
+    assert all(param.method is method for param in params)
+    assert [param.name for param in params] == ['param1', 'param2', 'param3']
+
+
+def test_query_class(db0_fixture):
+    def query_function(param1, /, param2, *args, param3, **kwargs):
+        pass
+
+    query = db0.Query('query_function', query_function)
+    assert query.name == 'query_function'
+    assert query.function_object is query_function
+    assert query.has_params is True
+    assert query.has_kwargs is True
+    params = query.get_params()
+    assert all(isinstance(param, db0.QueryParam) for param in params)
+    assert all(param.query is query for param in params)
+    assert [param.name for param in params] == ['param1', 'param2', 'param3']

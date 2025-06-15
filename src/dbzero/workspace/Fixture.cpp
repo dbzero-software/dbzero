@@ -45,7 +45,7 @@ namespace db0
     }
     
     Fixture::~Fixture()
-    {        
+    {
     }
     
     StringPoolT Fixture::openLimitedStringPool(Memspace &memspace, MetaAllocator &meta)
@@ -149,25 +149,13 @@ namespace db0
         m_flush_handlers.push_back(f);
     }
     
-    unsigned int Fixture::addMutationHandler(MutationHandler handler)
+    std::shared_ptr<MutationLog> Fixture::addMutationHandler()
     {
-        unsigned int result = 1;
-        if (!m_mutation_handlers.empty()) {
-            // find the next available handler ID
-            result = m_mutation_handlers.rbegin()->first + 1;
-        }
-        
-        // initialize the handler
-        handler(MutationOp::INIT, m_mutation_log.size(), {});
-        m_mutation_handlers.emplace(result, std::move(handler));
-        assert(result > 0);
+        auto result = std::make_shared<MutationLog>(m_mutation_log.size());
+        m_mutation_handlers.push_back(result);
         return result;
     }
     
-    void Fixture::removeMutationHandler(unsigned int handler_id) {
-        m_mutation_handlers.erase(handler_id);        
-    }
-
     void Fixture::rollback()
     {
         for (auto &handler: m_rollback_handlers) {
@@ -576,8 +564,8 @@ namespace db0
     {
         m_mutation_log.beginLocked(locked_section_id);
         // also begin locked with registered handlers (e.g. TagIndex)
-        for (auto [id, handler]: m_mutation_handlers) {
-            handler(MutationOp::BEGIN_LOCKED, locked_section_id, {});
+        for (auto handler: m_mutation_handlers) {
+            handler->beginLocked(locked_section_id);            
         }
     }
     
@@ -585,8 +573,16 @@ namespace db0
     {
         bool result = m_mutation_log.endLocked(locked_section_id);
         // also end locked with registered handlers (e.g. TagIndex)
-        for (auto [id, handler]: m_mutation_handlers) {
-            result |= handler(MutationOp::END_LOCKED, locked_section_id, {});
+        auto it = m_mutation_handlers.begin();
+        while (it != m_mutation_handlers.end()) {
+            result |= (*it)->endLocked(locked_section_id);
+            // remove unreferenced handlers
+            if ((*it).use_count() == 1) {
+                m_mutation_log.add(**it);
+                it = m_mutation_handlers.erase(it);
+            } else {                
+                ++it;
+            }
         }
         return result;
     }
@@ -594,8 +590,15 @@ namespace db0
     void Fixture::endAllLocked(std::function<void(unsigned int)> callback)
     {
         m_mutation_log.endAllLocked(callback);
-        for (auto [id, handler]: m_mutation_handlers) {
-            handler(MutationOp::END_ALL_LOCKED, 0, callback);
+        auto it = m_mutation_handlers.begin();
+        while (it != m_mutation_handlers.end()) {
+            (*it)->endAllLocked(callback);
+            // remove unreferenced handlers
+            if ((*it).use_count() == 1) {
+                it = m_mutation_handlers.erase(it);
+            } else {                
+                ++it;
+            }
         }
     }
     

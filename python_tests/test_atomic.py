@@ -485,3 +485,9 @@ def test_atomic_infinite_loop_issue_2(db0_no_autocommit):
             db0.tags(object).add("tag1")
     
     assert len(list(db0.find("tag1"))) > 0
+
+
+def test_atomic_context_does_not_increase_state_num(db0_fixture):
+    state_1 = db0.get_state_num()
+    with db0.atomic():
+        assert db0.get_state_num() == state_1

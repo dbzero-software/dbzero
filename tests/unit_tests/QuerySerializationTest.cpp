@@ -50,7 +50,8 @@ namespace tests
             // prepare full-text index to join with
             using TagIndex = db0::object_model::TagIndex;
             auto &tag_index = fixture->addResource<TagIndex>(
-                *fixture, class_factory, enum_factory, fixture->getLimitedStringPool(), cache);
+                *fixture, class_factory, enum_factory, fixture->getLimitedStringPool(), cache, fixture->addMutationHandler()
+            );
             auto &ft_index = tag_index.getBaseIndexShort();
             {
                 auto batch_data = ft_index.beginBatchUpdate();

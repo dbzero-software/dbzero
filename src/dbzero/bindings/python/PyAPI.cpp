@@ -833,7 +833,7 @@ namespace db0::python
     PyObject *PyAPI_setPrefix(PyObject *self, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
-                
+
         // extract object / prefix name (can be None)
         PyObject *py_object = nullptr;
         const char *prefix_name = nullptr;
@@ -844,10 +844,10 @@ namespace db0::python
         }
         
         // in case of the "None" target just return prefix name
-        if (!py_object || py_object == Py_None) {
+        if (!py_object || py_object == Py_None) {            
             if (prefix_name) {
                 return PyUnicode_FromString(prefix_name);
-            }                
+            }
             Py_RETURN_NONE;
         }
         
@@ -869,9 +869,9 @@ namespace db0::python
         }
         
         PyErr_SetString(PyExc_TypeError, "Invalid object type");
-        return NULL;
+        return NULL;        
     }
-
+    
     PyObject *getSlabMetrics(PyObject *, PyObject *)
     {
         PY_API_FUNC

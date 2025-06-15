@@ -38,7 +38,7 @@ namespace db0::python
     }
 
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
-    {        
+    {
         auto &decor = MemoTypeDecoration::get(py_type);
         // NOTE: read-only fixture access is sufficient here since objects are lazy-initialized
         // i.e. the actual dbzero instance is created on postInit
@@ -170,7 +170,7 @@ namespace db0::python
     
     int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds)
     {
-        PY_API_FUNC        
+        PY_API_FUNC
         // the instance may already exist (e.g. if this is a singleton)        
         if (!self->ext().hasInstance()) {
             auto py_type = Py_TYPE(self);
