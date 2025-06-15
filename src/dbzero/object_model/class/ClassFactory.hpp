@@ -88,6 +88,8 @@ namespace db0::object_model
         static std::uint32_t classRef(const Class &);
         static Address classRefToAddress(std::uint32_t class_ref);
 
+        void flush() const;
+        
         void commit() const;
         
         void detach() const;

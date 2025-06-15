@@ -335,7 +335,7 @@ namespace db0::object_model
         m_index[to_name] = { field_id, is_init_var };
     }
     
-    void Class::detach()
+    void Class::detach() const
     {
         m_members.detach();
         m_schema.detach();
@@ -346,7 +346,11 @@ namespace db0::object_model
         modify().m_singleton_address = {};
     }
     
-    void Class::commit()
+    void Class::flush() const {
+        m_schema.flush();
+    }
+    
+    void Class::commit() const
     {
         m_members.commit();        
         m_schema.commit();
@@ -515,4 +519,32 @@ namespace db0::object_model
         }
     }
     
+    void Class::updateSchema(FieldID field_id, StorageClass old_type, StorageClass new_type)
+    {
+        if (old_type == new_type) {
+            // type not changed, nothing to do
+            return;
+        }
+        auto old_schema_type_id = getSchemaTypeId(old_type);
+        auto new_schema_type_id = getSchemaTypeId(new_type);
+        if (old_schema_type_id == new_schema_type_id) {
+            // type not changed, nothing to do
+            return;
+        }
+        m_schema.remove(field_id.getIndex(), old_schema_type_id);
+        m_schema.add(field_id.getIndex(), new_schema_type_id);
+    }
+    
+    void Class::addToSchema(FieldID field_id, StorageClass type) {
+        m_schema.add(field_id.getIndex(), getSchemaTypeId(type));
+    }
+
+    void Class::removeFromSchema(FieldID field_id, StorageClass type) {
+        m_schema.remove(field_id.getIndex(), getSchemaTypeId(type));
+    }
+
+    void Class::removeFromSchema(const XValue &value) {        
+        m_schema.remove(value.getIndex(), getSchemaTypeId(value.m_type));
+    }
+
 }

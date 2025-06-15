@@ -93,7 +93,10 @@ namespace db0::object_model
             std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end
         );
 
-        // get primary & secondary type for a given field ID
+        // evaluate primary type based on the current collection size
+        SchemaTypeId getPrimaryType(std::uint32_t collection_size) const;
+
+        // get last known primary & secondary type for a given field ID
         std::pair<SchemaTypeId, SchemaTypeId> getType() const;
 
         // get all types from the most to least common
@@ -102,8 +105,14 @@ namespace db0::object_model
         void update(Memspace &memspace,
             std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
             std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end,
-            const total_func &get_total
+            std::uint32_t collection_size
         );
+
+        // Update to reflect the collection size change only
+        void update(Memspace &, std::uint32_t collection_size);
+
+    private:
+        void update(Memspace &, TypeVector &, std::uint32_t collection_size);
     };
     
     class Schema: protected db0::v_bvector<o_schema>
@@ -129,7 +138,7 @@ namespace db0::object_model
         void remove(unsigned int field_id, SchemaTypeId);
 
         // flush updates from the associated builder
-        void flush();
+        void flush() const;
 
         // Get primary / most likely type (avoids returning None if other types are present)
         // NOTE that it may be TypeID::UNKNOWN
@@ -147,21 +156,26 @@ namespace db0::object_model
         db0::Address getAddress() const;
         void detach() const;
         void commit() const;
-
+        
     private:
         class Builder;
         friend class Builder;
-        std::unique_ptr<Builder> m_builder;
+        mutable std::unique_ptr<Builder> m_builder;
+        mutable std::uint32_t m_last_collection_size = 0;
         total_func m_get_total;
-
-        Builder &getBuilder();
-
+        
+        Builder &getBuilder() const;
+        
         // batch update a specific field's statistics
         // field ID, type ID, update count
-        void update(unsigned int field_id,             
+        void update(unsigned int field_id,
             std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
-            std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end
+            std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end, 
+            std::uint32_t collection_size
         );
+        
+        // Update to reflect the collection size change only
+        void update(std::uint32_t collection_size);
     };
     
 }

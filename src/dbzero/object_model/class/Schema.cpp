@@ -93,7 +93,7 @@ namespace db0::object_model
     void o_schema::update(Memspace &memspace,
         std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
         std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end,
-        const total_func &get_total)
+        std::uint32_t collection_size)
     {
         // NOTE: primary type is not counted
         assert(begin != end);
@@ -145,8 +145,20 @@ namespace db0::object_model
             }
         }
 
+        // Reorder the primary, secondary and possibly extra types
+        update(memspace, type_vector, collection_size);
+    }
+    
+    void o_schema::update(Memspace &memspace, std::uint32_t collection_size)
+    {
+        TypeVector type_vector;
+        update(memspace, type_vector, collection_size);
+    }
+
+    void o_schema::update(Memspace &memspace, TypeVector &type_vector, std::uint32_t collection_size)
+    {
         // try swapping primary / secondary and extra types
-        auto primary_count = get_total() - m_secondary_type.m_count - m_total_extra;
+        auto primary_count = collection_size - m_secondary_type.m_count - m_total_extra;
         if (m_secondary_type.m_count > primary_count) {
             // swap primary / secondary
             auto temp = m_secondary_type.m_type_id;
@@ -199,11 +211,21 @@ namespace db0::object_model
             m_type_vector_ptr = db0::db0_ptr<TypeVector>(type_vector);
         }
     }
+    
+    SchemaTypeId o_schema::getPrimaryType(std::uint32_t collection_size) const
+    {
+        auto primary_count = collection_size - m_secondary_type.m_count - m_total_extra;
+        if (primary_count >= m_secondary_type.m_count) {
+            return m_primary_type_id;
+        } else {            
+            return m_secondary_type.m_type_id;
+        }    
+    }
 
     class Schema::Builder
     {
     public:
-        Builder(const Schema &schema)
+        Builder(Schema &schema)
             : m_schema(schema)
             , m_primary_type_cache(schema, true)
             , m_secondary_type_cache(schema, false)
@@ -248,7 +270,7 @@ namespace db0::object_model
                 std::all_of(m_secondary_updates.begin(), m_secondary_updates.end(), [](int count) { return count == 0; });
         }
 
-        void flush(Schema &schema)
+        void flush(std::uint32_t collection_size)
         {
             // collect the updates and flush with the schema
             // field ID, type ID, update count
@@ -279,10 +301,10 @@ namespace db0::object_model
                 while (it != end && std::get<0>(*it) == field_id) {
                     ++it;
                 }
-                schema.update(field_id, it_begin, it);
+                m_schema.update(field_id, it_begin, it, collection_size);
                 it_begin = it;
             }
-
+            
             m_secondary_updates.clear();
             m_updates.clear();
             m_primary_type_cache.clear();
@@ -290,7 +312,7 @@ namespace db0::object_model
         }
 
     private:
-        const Schema &m_schema;
+        Schema &m_schema;
         // the secondary type ID occurrence count updates
         std::vector<int> m_secondary_updates;     
 
@@ -370,11 +392,11 @@ namespace db0::object_model
     void Schema::postInit(total_func get_total) {
         m_get_total = get_total;
     }
-        
-    Schema::Builder &Schema::getBuilder()
+    
+    Schema::Builder &Schema::getBuilder() const
     {
         if (!m_builder) {
-            m_builder = std::make_unique<Builder>(*this);
+            m_builder = std::make_unique<Builder>(const_cast<Schema &>(*this));
         }
         return *m_builder;
     }
@@ -389,10 +411,7 @@ namespace db0::object_model
 
     std::pair<SchemaTypeId, SchemaTypeId> Schema::getType(unsigned int field_id) const
     {
-        if (m_builder && !m_builder->empty()) {
-            m_builder->flush(*const_cast<Schema *>(this));
-        }
-
+        flush();
         if (field_id >= this->size()) {
             THROWF(db0::InputException) << "Unknown / invalid field ID: " << field_id;
         }
@@ -405,10 +424,7 @@ namespace db0::object_model
 
     std::vector<SchemaTypeId> Schema::getAllTypes(unsigned int field_id) const
     {
-        if (m_builder && !m_builder->empty()) {
-            m_builder->flush(*const_cast<Schema *>(this));
-        }
-
+        flush();
         if (field_id >= this->size()) {
             THROWF(db0::InputException) << "Unknown / invalid field ID: " << field_id;
         }
@@ -421,7 +437,8 @@ namespace db0::object_model
 
     void Schema::update(unsigned int field_id,
         std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator begin,
-        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end)
+        std::vector<std::tuple<unsigned int, SchemaTypeId, int> >::const_iterator end,
+        std::uint32_t collection_size)
     {
         if (field_id >= this->size()) {
             // fill-in empty slots
@@ -432,16 +449,39 @@ namespace db0::object_model
             this->emplace_back(this->getMemspace(), begin, end);
             assert(this->size() == (field_id + 1));
         } else {
-            modifyItem(field_id).update(this->getMemspace(), begin, end, m_get_total);
+            modifyItem(field_id).update(this->getMemspace(), begin, end, collection_size);
         }
     }
-
-    void Schema::flush()
+    
+    void Schema::update(std::uint32_t collection_size)
+    {
+        // modify only items affected by the collection size change
+        unsigned int field_id = 0;
+        for (const auto &item : *this) {
+            if (item.getPrimaryType(collection_size) != item.m_primary_type_id) {
+                // reflect collection size change
+                modifyItem(field_id).update(this->getMemspace(), collection_size);
+            }
+            ++field_id;
+        }
+        m_last_collection_size = collection_size;
+    }
+    
+    void Schema::flush() const
     {
         if (m_builder && !m_builder->empty()) {
-            m_builder->flush(*this);
+            m_last_collection_size = m_get_total ? m_get_total() : 0;
+            m_builder->flush(m_last_collection_size);
+        } else {
+            // if accessed as read/write then reflect the collection size change
+            if (this->getMemspace().getAccessType() == AccessType::READ_WRITE) {
+                auto collection_size = m_get_total ? m_get_total() : 0;
+                if (m_last_collection_size != collection_size) {
+                    const_cast<Schema &>(*this).update(collection_size);
+                }
+            }
         }
-        m_builder = nullptr;        
+        m_builder = nullptr;
     }
 
     db0::Address Schema::getAddress() const {
@@ -451,8 +491,10 @@ namespace db0::object_model
     void Schema::detach() const {
         super_t::detach();
     }
-
-    void Schema::commit() const {
+    
+    void Schema::commit() const 
+    {
+        flush();
         super_t::commit();
     }
 

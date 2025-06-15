@@ -72,6 +72,7 @@ namespace db0::object_model
                 });
                 
                 fixture->addFlushHandler([&]() {
+                    class_factory.flush();
                     tag_index.flush();
                 });
 
@@ -123,9 +124,10 @@ namespace db0::object_model
                 });
                 
                 fixture->addFlushHandler([&]() {
+                    class_factory.flush();
                     tag_index.flush();
                 });
-
+                
                 fixture->addMutationHandler(tag_index.getMutationHandler());
                 
                 if (fixture->getAccessType() == db0::AccessType::READ_WRITE) {
