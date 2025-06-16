@@ -78,8 +78,13 @@ namespace db0::python
         
         // Recognize Python type of a specific object instance as TypeId (may return TypeId::UNKNOWN)
         TypeId getTypeId(ObjectPtr object_instance) const;
-
         TypeId getTypeId(TypeObjectPtr py_type) const;
+        
+        // Retrieve a Python type object by TypeId (note that a dbzero extension type may be returned)
+        // to return a native type use getTypeObject(asNative(TypeId))
+        ObjectSharedPtr getTypeObject(TypeId) const;
+        // If the mapping is not found, returns Py_None
+        ObjectSharedPtr tryGetTypeObject(TypeId) const;
         
         /**
          * Extracts reference to DB0 object from a memo object
@@ -162,7 +167,7 @@ namespace db0::python
         std::vector<std::string*> m_string_pool;
         // the registry of memo types, used for retrieving type decorators
         std::unordered_map<TypeObjectPtr, MemoTypeDecoration> m_type_registry;
-        std::unordered_map<TypeId, ObjectPtr> m_py_type_map;
+        std::unordered_map<TypeId, ObjectSharedPtr> m_py_type_map;
         std::unordered_map<ObjectPtr, TypeId> m_id_map;
         // lang types by name variant
         // note that this cache may contain types not present in the ClassFactory yet
@@ -190,7 +195,7 @@ namespace db0::python
         m_py_type_map[py_type_id] = reinterpret_cast<ObjectPtr>(py_type);
         m_id_map[reinterpret_cast<ObjectPtr>(py_type)] = py_type_id;
     }
-
+    
     template <typename T> void PyTypeManager::addStaticdbzeroType(T py_type, TypeId py_type_id)
     {
         addStaticType(py_type, py_type_id);

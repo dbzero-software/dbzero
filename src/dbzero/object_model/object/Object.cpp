@@ -300,6 +300,8 @@ namespace db0::object_model
                 }
                 m_type->addToSchema(field_id, storage_class);
             }
+        } else {
+            m_type->addToSchema(field_id, storage_class);
         }
     }
     

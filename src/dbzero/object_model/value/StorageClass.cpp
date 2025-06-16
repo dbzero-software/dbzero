@@ -8,7 +8,11 @@ namespace db0::object_model
     
     StorageClassMapper::StorageClassMapper()
     {
+        m_type_id_map.reserve(static_cast<std::size_t>(PreStorageClass::COUNT));
         addMapping(TypeId::NONE, PreStorageClass::NONE);
+        addMapping(TypeId::STRING, PreStorageClass::STRING_REF);
+        addReverseMapping(PreStorageClass::POOLED_STRING, TypeId::STRING);
+        addReverseMapping(PreStorageClass::STR64, TypeId::STRING);
         addMapping(TypeId::FLOAT, PreStorageClass::FP_NUMERIC64);
         addMapping(TypeId::INTEGER, PreStorageClass::INT64);
         addMapping(TypeId::DATETIME, PreStorageClass::DATETIME);
@@ -61,6 +65,27 @@ namespace db0::object_model
             m_storage_class_map.push_back(PreStorageClass::INVALID);
         }
         m_storage_class_map[int_id] = storage_class;
+        addReverseMapping(storage_class, type_id);
+    }
+
+    void StorageClassMapper::addReverseMapping(PreStorageClass storage_class, TypeId type_id)
+    {
+        auto int_storage_class = static_cast<unsigned int>(storage_class);
+        if (m_type_id_map.size() <= int_storage_class) {
+            m_type_id_map.resize(int_storage_class + 1, TypeId::UNKNOWN);
+        }
+        m_type_id_map[int_storage_class] = type_id;
+    }
+
+    StorageClassMapper::TypeId StorageClassMapper::getTypeId(PreStorageClass storage_class) const
+    {
+        auto int_storage_class = static_cast<unsigned int>(storage_class);
+        if (int_storage_class < m_type_id_map.size()) {
+            assert(m_type_id_map[int_storage_class] != TypeId::UNKNOWN);
+            return m_type_id_map[int_storage_class];
+        }
+        THROWF(db0::InputException)
+            << "Type ID unknown for storage class: " << static_cast<int>(storage_class) << THROWF_END;
     }
     
     bool isReference(StorageClass type)

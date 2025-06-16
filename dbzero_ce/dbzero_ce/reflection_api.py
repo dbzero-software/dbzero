@@ -121,6 +121,9 @@ class MemoMetaClass:
                 and not is_private(attr_name):                
                 yield MethodInfo(attr_name, inspect.signature(attr), memo_type)
     
+    def get_schema(self):
+        return db0.get_schema(self.get_type())
+    
     def all(self, snapshot=None, as_memo_base=False):
         if not as_memo_base and self.get_class().is_known_type():
             if snapshot is not None:

@@ -1,5 +1,6 @@
 #include "Schema.hpp"
 #include <vector>
+#include <dbzero/object_model/value/TypeUtils.hpp>
 
 namespace db0::object_model
 
@@ -513,7 +514,7 @@ namespace db0::object_model
 
     SchemaTypeId getSchemaTypeId(StorageClass storage_class)
     {
-        switch (storage_class) {
+        switch (storage_class) {            
             case StorageClass::POOLED_STRING:
             case StorageClass::STR64:
                 return SchemaTypeId::STRING;
@@ -525,6 +526,15 @@ namespace db0::object_model
                 // for all other storage classes, there's 1-1 mapping
                 return static_cast<SchemaTypeId>(storage_class);
         }
+    }
+    
+    db0::bindings::TypeId getTypeId(SchemaTypeId schema_type_id)
+    {        
+        // NOTE: types are directly mappable
+        auto storage_class = static_cast<StorageClass>(schema_type_id);
+        // NOTE: types also directly mappable
+        auto pre_storage_class = static_cast<PreStorageClass>(storage_class);
+        return TypeUtils::m_storage_class_mapper.getTypeId(pre_storage_class);        
     }
     
     std::string getTypeName(SchemaTypeId type_id)

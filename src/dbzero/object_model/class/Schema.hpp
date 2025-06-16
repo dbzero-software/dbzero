@@ -27,7 +27,7 @@ namespace db0::object_model
         DATETIME_TZ = static_cast<int>(StorageClass::DATETIME_TZ),
         TIME = static_cast<int>(StorageClass::TIME),
         TIME_TZ = static_cast<int>(StorageClass::TIME_TZ),
-        DECIMAL = static_cast<int>(StorageClass::DECIMAL),        
+        DECIMAL = static_cast<int>(StorageClass::DECIMAL),
         OBJECT = static_cast<int>(StorageClass::OBJECT_REF),
         LIST = static_cast<int>(StorageClass::DB0_LIST),
         DICT = static_cast<int>(StorageClass::DB0_DICT),
@@ -43,9 +43,12 @@ namespace db0::object_model
         WEAK_REF = static_cast<int>(StorageClass::OBJECT_WEAK_REF),
     };
     
-    SchemaTypeId getSchemaTypeId(StorageClass storage_class);
+    SchemaTypeId getSchemaTypeId(StorageClass);
+    
+    // converto to a common type ID
+    db0::bindings::TypeId getTypeId(SchemaTypeId);
     std::string getTypeName(SchemaTypeId);
-
+    
     struct [[gnu::packed]] o_type_item: public db0::o_fixed<o_type_item>
     {        
         SchemaTypeId m_type_id = SchemaTypeId::UNDEFINED;

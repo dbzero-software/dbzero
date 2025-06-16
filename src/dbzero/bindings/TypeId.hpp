@@ -55,5 +55,8 @@ namespace db0::bindings
         // unrecognized type
         UNKNOWN = std::numeric_limits<std::uint16_t>::max()
     };
-        
+    
+    // Converts to a native Python type ID
+    TypeId asNative(TypeId);
+    
 }

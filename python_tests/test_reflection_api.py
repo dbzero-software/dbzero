@@ -1,4 +1,3 @@
-
 import pytest
 import dbzero_ce as db0
 import multiprocessing
@@ -329,3 +328,9 @@ def test_query_class(db0_fixture):
     assert all(isinstance(param, db0.QueryParam) for param in params)
     assert all(param.query is query for param in params)
     assert [param.name for param in params] == ['param1', 'param2', 'param3']
+
+
+def test_discover_schema(db0_fixture):
+    _ = MemoTestClass(123)
+    for meta_class in db0.get_memo_classes():        
+        assert meta_class.get_schema() is not None

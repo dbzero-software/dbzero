@@ -806,15 +806,15 @@ namespace db0::python
         auto type = class_factory.getExistingType(py_type);
 
         auto py_schema = Py_OWN(PyDict_New());
+        auto &type_manager = PyToolkit::getTypeManager();
         type->getSchema([&](const std::string &key, SchemaTypeId primary_type, const std::vector<SchemaTypeId> &all_types) {
-            auto py_key = Py_OWN(PyUnicode_FromString(key.c_str()));
-            auto primary_type_name = getTypeName(primary_type);
+            auto py_key = Py_OWN(PyUnicode_FromString(key.c_str()));            
             auto py_schema_item = Py_OWN(PyDict_New());
-            PySafeDict_SetItemString(*py_schema_item, "primary_type", Py_OWN(PyUnicode_FromString(primary_type_name.c_str())));
+            PySafeDict_SetItemString(*py_schema_item, "primary_type", type_manager.tryGetTypeObject(asNative(getTypeId(primary_type))));
             auto py_all_types = Py_OWN(PyList_New(all_types.size()));
             for (std::size_t i = 0; i < all_types.size(); ++i) {
-                auto type_name = getTypeName(all_types[i]);
-                PySafeList_SetItem(*py_all_types, i, Py_OWN(PyUnicode_FromString(type_name.c_str())));            
+                auto type_obj = type_manager.tryGetTypeObject(asNative(getTypeId(all_types[i])));
+                PySafeList_SetItem(*py_all_types, i, type_obj);
             }
             PySafeDict_SetItemString(*py_schema_item, "all_types", py_all_types);
             PySafeDict_SetItem(*py_schema, py_key, py_schema_item);

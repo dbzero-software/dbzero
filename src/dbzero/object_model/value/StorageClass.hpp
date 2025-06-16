@@ -55,7 +55,8 @@ namespace db0::object_model
        BOOLEAN = 28,
        // weak reference to other (Memo) instance on the same prefix
        OBJECT_WEAK_REF = 29,
-            
+       COUNT = 31,
+    
        // invalid / reserved value, never used in objects
        INVALID = std::numeric_limits<std::uint8_t>::max()
     };
@@ -121,11 +122,15 @@ namespace db0::object_model
         StorageClassMapper();
         // Get storage class corresponding to a specifc common language model type ID
         PreStorageClass getPreStorageClass(TypeId) const;
+        TypeId getTypeId(PreStorageClass) const;
         
     private:
         std::vector<PreStorageClass> m_storage_class_map;
+        std::vector<TypeId> m_type_id_map;   
         
         void addMapping(TypeId, PreStorageClass);
+        // adds reverse mapping only
+        void addReverseMapping(PreStorageClass, TypeId);
     };
     
     // Get storage class / type name for schema reporting purposes
