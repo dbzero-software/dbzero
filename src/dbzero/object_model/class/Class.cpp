@@ -350,6 +350,10 @@ namespace db0::object_model
         m_schema.flush();
     }
     
+    void Class::rollback() {
+        m_schema.rollback();
+    }
+
     void Class::commit() const
     {
         m_members.commit();        
@@ -546,5 +550,5 @@ namespace db0::object_model
     void Class::removeFromSchema(const XValue &value) {        
         m_schema.remove(value.getIndex(), getSchemaTypeId(value.m_type));
     }
-
+    
 }

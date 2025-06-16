@@ -36,7 +36,7 @@ namespace db0::python
         auto full_type_name = std::string("dbzero_ce.") + type_name;
         return { type_name, full_type_name };
     }
-
+    
     MemoObject *tryMemoObject_new(PyTypeObject *py_type, PyObject *, PyObject *)
     {
         auto &decor = MemoTypeDecoration::get(py_type);

@@ -143,6 +143,9 @@ namespace db0::object_model
         // flush updates from the associated builder
         void flush() const;
 
+        // discard all updates not yet flushed to the schema
+        void rollback();
+
         // Get primary / most likely type (avoids returning None if other types are present)
         // NOTE that it may be TypeID::UNKNOWN
         SchemaTypeId getPrimaryType(unsigned int field_id) const;

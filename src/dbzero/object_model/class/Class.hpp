@@ -156,6 +156,7 @@ namespace db0::object_model
         void renameField(const char *from_name, const char *to_name);
 
         void flush() const;
+        void rollback();
         
         void commit() const;
 

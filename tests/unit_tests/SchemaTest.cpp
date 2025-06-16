@@ -336,5 +336,27 @@ namespace tests
         total -= 2;
         ASSERT_EQ(cut.getType(0).first, SchemaTypeId::INT);
     }
-    
+
+    TEST_F( SchemaTest , testSchemaEvolutionIssue1 )
+    {        
+        auto memspace = m_workspace.getMemspace("my-test-prefix_1");
+        unsigned int total = 0;
+        auto get_total = [&]() -> unsigned int {
+            return total;
+        };
+        
+        Schema cut(memspace, get_total);
+        cut.add(0, SchemaTypeId::NONE);
+        total += 1;
+        cut.flush();
+        cut.remove(0, SchemaTypeId::NONE);        
+        cut.add(0, SchemaTypeId::STRING);
+        cut.add(0, SchemaTypeId::INT);
+        total += 1;
+        cut.flush();
+        
+        ASSERT_NE(cut.getType(0).first, SchemaTypeId::NONE);
+        ASSERT_NE(cut.getType(0).second, SchemaTypeId::NONE);
+    }
+
 }

@@ -485,7 +485,7 @@ namespace db0::object_model
             auto &values = (*this)->pos_vt().values();
             auto value = values.begin();
             unsigned int index = 0;
-            for (auto type = types.begin(); type != types.end(); ++type, ++value) {
+            for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
                 unrefMember(fixture, *type, *value);
                 class_ref.removeFromSchema(FieldID::fromIndex(index), *type);
             }

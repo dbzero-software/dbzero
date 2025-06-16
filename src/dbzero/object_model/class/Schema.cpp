@@ -149,7 +149,7 @@ namespace db0::object_model
         // Reorder the primary, secondary and possibly extra types
         update(memspace, type_vector, collection_size);
     }
-    
+
     void o_schema::update(Memspace &memspace, std::uint32_t collection_size)
     {
         TypeVector type_vector;
@@ -163,8 +163,14 @@ namespace db0::object_model
         if (m_secondary_type.m_count > primary_count) {
             // swap primary / secondary
             auto temp = m_secondary_type.m_type_id;
-            m_secondary_type = o_type_item(m_primary_type_id, primary_count);            
-            m_primary_type_id = temp;            
+            auto temp_count = m_secondary_type.m_count;
+            if (primary_count > 0) {
+                m_secondary_type = o_type_item(m_primary_type_id, primary_count);            
+            } else {
+                m_secondary_type = o_type_item();
+            }
+            m_primary_type_id = temp;
+            primary_count = temp_count;
         }
 
         // pruning rule (for swapping extra types)
@@ -188,7 +194,7 @@ namespace db0::object_model
         
         // swap primary type ID
         bool addr_changed = false;
-        if (max_item.m_count > primary_count) {            
+        if (max_item.m_count > primary_count) {
             type_vector.erase(max_item, addr_changed);
             if (primary_count) {
                 if (!!m_secondary_type) {
@@ -468,6 +474,10 @@ namespace db0::object_model
         m_last_collection_size = collection_size;
     }
     
+    void Schema::rollback() {
+        m_builder = nullptr;
+    }
+    
     void Schema::flush() const
     {
         if (m_builder && !m_builder->empty()) {
@@ -493,12 +503,12 @@ namespace db0::object_model
         super_t::detach();
     }
     
-    void Schema::commit() const 
+    void Schema::commit() const
     {
         flush();
         super_t::commit();
     }
-
+    
     SchemaTypeId Schema::getPrimaryType(unsigned int field_id) const
     {
         auto type_pair = getType(field_id);

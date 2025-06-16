@@ -73,7 +73,8 @@ namespace db0::object_model
                 });
 
                 fixture->addRollbackHandler([&]() {
-                    tag_index.rollback();                    
+                    class_factory.rollback();
+                    tag_index.rollback();                
                 });
                 
                 fixture->addFlushHandler([&]() {
@@ -124,6 +125,7 @@ namespace db0::object_model
                 });
                 
                 fixture->addRollbackHandler([&]() {
+                    class_factory.rollback();
                     tag_index.rollback();                    
                 });
                 

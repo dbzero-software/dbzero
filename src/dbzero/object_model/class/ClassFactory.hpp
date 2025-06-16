@@ -90,6 +90,9 @@ namespace db0::object_model
 
         void flush() const;
         
+        // discard all changes stored in the internal flush buffers (e.g. schema updates)
+        void rollback();
+        
         void commit() const;
         
         void detach() const;

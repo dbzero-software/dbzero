@@ -583,14 +583,14 @@ namespace db0::python
         }
         return it->second;
     }
-
+    
     PyTypeManager::ObjectSharedPtr PyTypeManager::tryGetTypeObject(TypeId type_id) const
     {
         auto it = m_py_type_map.find(type_id);
         if (it != m_py_type_map.end()) {
             return it->second;
         }
-        return Py_BORROW(Py_None);        
+        return Py_BORROW(Py_None);
     }
 
 }

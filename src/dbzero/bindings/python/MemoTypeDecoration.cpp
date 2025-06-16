@@ -13,7 +13,7 @@ namespace db0::python
     }
     
     bool PyMemoType_Check(PyTypeObject *type) {
-        return type->tp_init == reinterpret_cast<initproc>(PyAPI_MemoObject_init);
+        return type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del);
     }
     
     MemoTypeDecoration::MemoTypeDecoration(MemoTypeDecoration &&other)

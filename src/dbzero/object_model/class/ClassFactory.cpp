@@ -276,6 +276,14 @@ namespace db0::object_model
         }
     }
 
+    void ClassFactory::rollback()
+    {
+        // flush from class specific schema builders
+        for (auto &item: m_ptr_cache) {
+            item.second.m_class->rollback();
+        }
+    }
+    
     void ClassFactory::commit() const
     {
         for (auto &item: m_ptr_cache) {
