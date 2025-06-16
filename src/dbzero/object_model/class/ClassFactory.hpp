@@ -88,6 +88,11 @@ namespace db0::object_model
         static std::uint32_t classRef(const Class &);
         static Address classRefToAddress(std::uint32_t class_ref);
 
+        void flush() const;
+        
+        // discard all changes stored in the internal flush buffers (e.g. schema updates)
+        void rollback();
+        
         void commit() const;
         
         void detach() const;

@@ -323,6 +323,8 @@ namespace db0::python
         // identify the MemoBase Type
         if (type_id && std::string(type_id) == "Division By Zero/dbzero_ce/MemoBase") {
             m_memo_base_type = type;
+            // register the type with mappings
+            addStaticdbzeroType(m_memo_base_type, TypeId::MEMO_OBJECT);
         }
     }
     
@@ -572,4 +574,23 @@ namespace db0::python
         return result;
     }
     
+    PyTypeManager::ObjectSharedPtr PyTypeManager::getTypeObject(TypeId type_id) const
+    {
+        auto it = m_py_type_map.find(type_id);
+        if (it == m_py_type_map.end()) {
+            THROWF(db0::InputException) 
+                << "Type with id: " << (int)type_id << " could not be resolved" << THROWF_END;
+        }
+        return it->second;
+    }
+    
+    PyTypeManager::ObjectSharedPtr PyTypeManager::tryGetTypeObject(TypeId type_id) const
+    {
+        auto it = m_py_type_map.find(type_id);
+        if (it != m_py_type_map.end()) {
+            return it->second;
+        }
+        return Py_BORROW(Py_None);
+    }
+
 }

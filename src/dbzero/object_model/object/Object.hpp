@@ -171,22 +171,6 @@ namespace db0::object_model
         }
         
         Class &getType();
-
-        /* FIXME:
-        // Get reference to the instance-specific cache (e.g. for storing transformed fields)
-        std::shared_ptr<DB0Cache> getMemberCache() const;
-
-        // Pull instance from dbzero and assign type
-        static std::shared_ptr<DBZObject> __ref(std::uint64_t dbz_addr, std::shared_ptr<DBZClass>);
-
-        static std::shared_ptr<DBZObject> __ref(db0::long_ptr, std::shared_ptr<DBZClass>);
-
-        static std::shared_ptr<DBZObject> __ref(DBZObjectPtr, std::shared_ptr<DBZClass>);
-
-        // Set instance key
-        // @return true if instance already exists (in such case pull existing instance)
-        bool hasKey(const char *str_key);
-        */
         
         db0::swine_ptr<Fixture> tryGetFixture() const;
 
@@ -297,7 +281,7 @@ namespace db0::object_model
 
         const KV_Index *tryGetKV_Index() const;   
         
-        void dropMembers() const;
+        void dropMembers(Class &) const;
 
         void unrefMember(db0::swine_ptr<Fixture> &, StorageClass, Value) const;
         void unrefMember(db0::swine_ptr<Fixture> &, XValue) const;

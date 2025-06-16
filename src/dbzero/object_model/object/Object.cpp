@@ -176,6 +176,8 @@ namespace db0::object_model
                 index_vt_data.first, index_vt_data.second);
             // reference associated class
             m_type->incRef();
+            m_type->updateSchema(pos_vt_data.m_types);
+            m_type->updateSchema(index_vt_data.first, index_vt_data.second);
             
             // bind singleton address (now that instance exists)
             if (m_type->isSingleton()) {
@@ -255,9 +257,11 @@ namespace db0::object_model
         assert(!(storage_class == StorageClass::OBJECT_REF && value.cast<std::uint64_t>() == 0));
         if (field_id.getIndex() < (*this)->pos_vt().size()) {
             auto &pos_vt = modify().pos_vt();
-            unrefMember(*fixture, pos_vt.types()[field_id.getIndex()], pos_vt.values()[field_id.getIndex()]);
+            auto old_storage_class = pos_vt.types()[field_id.getIndex()];    
+            unrefMember(*fixture, old_storage_class, pos_vt.values()[field_id.getIndex()]);
             // update attribute stored in the positional value-table
             pos_vt.set(field_id.getIndex(), storage_class, value);
+            m_type->updateSchema(field_id, old_storage_class, storage_class);
             return;
         }
         
@@ -265,8 +269,10 @@ namespace db0::object_model
         unsigned int index_vt_pos;
         if ((*this)->index_vt().find(field_id.getIndex(), index_vt_pos)) {
             auto &index_vt = modify().index_vt();
+            auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
             unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
             index_vt.set(index_vt_pos, storage_class, value);
+            m_type->updateSchema(field_id, old_storage_class, storage_class);
             return;
         }
         
@@ -285,13 +291,17 @@ namespace db0::object_model
                 if (kv_index_ptr->getIndexType() == bindex::type::itty) {
                     modify().m_kv_address = kv_index_ptr->getAddress();
                 }
+                m_type->updateSchema(field_id, old_value.m_type, storage_class);
             } else {
                 if (kv_index_ptr->insert(xvalue)) {
                     // type or address of the kv-index has changed which needs to be reflected
                     modify().m_kv_address = kv_index_ptr->getAddress();
                     modify().m_kv_type = kv_index_ptr->getIndexType();
                 }
+                m_type->addToSchema(field_id, storage_class);
             }
+        } else {
+            m_type->addToSchema(field_id, storage_class);
         }
     }
     
@@ -460,22 +470,24 @@ namespace db0::object_model
             m_type = unloadType();
         }
     }
-
+    
     bool Object::isSingleton() const {
         return getType().isSingleton();
     }
     
-    void Object::dropMembers() const
+    void Object::dropMembers(Class &class_ref) const
     {
         auto fixture = this->getFixture();
-        assert(fixture);
+        assert(fixture);        
         // drop pos-vt members first
         {
             auto &types = (*this)->pos_vt().types();
             auto &values = (*this)->pos_vt().values();
             auto value = values.begin();
-            for (auto type = types.begin(); type != types.end(); ++type, ++value) {
+            unsigned int index = 0;
+            for (auto type = types.begin(); type != types.end(); ++type, ++value, ++index) {
                 unrefMember(fixture, *type, *value);
+                class_ref.removeFromSchema(FieldID::fromIndex(index), *type);
             }
         }
         // drop index-vt members next
@@ -483,6 +495,7 @@ namespace db0::object_model
             auto &xvalues = (*this)->index_vt().xvalues();
             for (auto &xvalue: xvalues) {
                 unrefMember(fixture, xvalue);
+                class_ref.removeFromSchema(xvalue);
             }
         }
         // finally drop kv-index members
@@ -491,8 +504,9 @@ namespace db0::object_model
             auto it = kv_index_ptr->beginJoin(1);
             for (;!it.is_end(); ++it) {
                 unrefMember(fixture, *it);
+                class_ref.removeFromSchema(*it);
             }
-        }        
+        }
     }
     
     void Object::unSingleton()
@@ -509,13 +523,15 @@ namespace db0::object_model
     void Object::destroy() const
     {
         if (hasInstance()) {
-            dropMembers();
-            // dereference associated class (may require unloading)
-            if (m_type) {
-                m_type->decRef();            
-            } else {
-                std::const_pointer_cast<Class>(unloadType())->decRef();
+            // associated class type (may require unloading)
+            auto type = m_type;
+            if (!type) {
+                // retrieve type from the initializer
+                type = std::const_pointer_cast<Class>(unloadType());
             }
+            dropMembers(*type);
+            // dereference associated class
+            type->decRef();
         }
         super_t::destroy();
     }

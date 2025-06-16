@@ -73,10 +73,12 @@ namespace db0::object_model
                 });
 
                 fixture->addRollbackHandler([&]() {
-                    tag_index.rollback();                    
+                    class_factory.rollback();
+                    tag_index.rollback();                
                 });
                 
                 fixture->addFlushHandler([&]() {
+                    class_factory.flush();
                     tag_index.flush();
                 });
                                 
@@ -123,13 +125,14 @@ namespace db0::object_model
                 });
                 
                 fixture->addRollbackHandler([&]() {
+                    class_factory.rollback();
                     tag_index.rollback();                    
                 });
                 
                 fixture->addFlushHandler([&]() {
+                    class_factory.flush();
                     tag_index.flush();
                 });
-                                
                 if (fixture->getAccessType() == db0::AccessType::READ_WRITE) {
                     // execute GC0::collect when opening an existing fixture as read-write
                     fixture->getGC0().collect();

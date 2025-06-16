@@ -13,7 +13,9 @@
 #include <dbzero/bindings/python/PyToolkit.hpp>
 #include <dbzero/object_model/ObjectBase.hpp>
 #include <dbzero/object_model/value/Value.hpp>
+#include <dbzero/object_model/value/XValue.hpp>
 #include <dbzero/workspace/GC0.hpp>
+#include "Schema.hpp"
 
 namespace db0
 
@@ -56,6 +58,7 @@ namespace db0::object_model
         // optional scoped-class prefix
         LP_String m_prefix_name;
         db0_ptr<VFieldVector> m_members_ptr;
+        db0_ptr<Schema> m_schema_ptr;
         ClassFlags m_flags;
         UniqueAddress m_singleton_address = {};
         const std::uint32_t m_base_class_ref;
@@ -63,7 +66,7 @@ namespace db0::object_model
         std::array<std::uint64_t, 4> m_reserved;
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name, const VFieldVector &,
-            const char *type_id, const char *prefix_name, ClassFlags, const std::uint32_t);
+            const Schema &, const char *type_id, const char *prefix_name, ClassFlags, const std::uint32_t);
     };
     
     // NOTE: Class type uses SLOT_NUM = TYPE_SLOT_NUM
@@ -115,11 +118,6 @@ namespace db0::object_model
         
         const Member &get(const char *name) const;
 
-        /* FIXME: review & implement
-        // Clear the type book (tags) and instance map (registered instances)
-        void clear();        
-        */
-
         /**
          * Try unloading the associated singleton instance, possibly from a specific workspace view
         */
@@ -146,9 +144,7 @@ namespace db0::object_model
         void setSingletonAddress(Object &);
 
         Address getSingletonAddress() const;
-
-        void commit();
-
+        
         std::string getTypeName() const;
 
         std::optional<std::string> tryGetModuleName() const;
@@ -159,10 +155,15 @@ namespace db0::object_model
         */
         void renameField(const char *from_name, const char *to_name);
 
+        void flush() const;
+        void rollback();
+        
+        void commit() const;
+
         /**
          * Class must implement detach since it has v_bvector as a member
         */
-        void detach();
+        void detach() const;
 
         bool operator!=(const Class &rhs) const;
 
@@ -182,13 +183,32 @@ namespace db0::object_model
         // Get initialization variables identified by static code analysis
         // note that the result includes also all base class init vars
         const std::unordered_set<std::string> &getInitVars() const;
+
+        const Schema &getSchema() const;
+        
+        // Collect schema with a callback function
+        // NOTE: type is the primary / most likely type for the field
+        // NOTE: possible types (all_types) are reported from the most likely / common to least likely
+        void getSchema(std::function<void(const std::string &field_name, SchemaTypeId primary_type,
+            const std::vector<SchemaTypeId> &all_types)>) const;
+        
+        // Add or remove from schema positionally encoded field types
+        void updateSchema(const std::vector<StorageClass> &types, bool add = true);
+        // Add or remove from schema index-encoded field types
+        void updateSchema(const XValue *begin, const XValue *end, bool add = true);
+        // Update type of a single field occurrence
+        void updateSchema(FieldID, StorageClass old_type, StorageClass new_type);
+        // Add a single field occurrence to the schema
+        void addToSchema(FieldID, StorageClass type);
+        void removeFromSchema(FieldID, StorageClass type);
+        void removeFromSchema(const XValue &);
         
     protected:
         friend class ClassFactory;
         friend ClassPtr;
         friend class Object;
         friend super_t;
-                
+        
         // dbzero class instances should only be created by the ClassFactory
         // construct a new dbzero class
         // NOTE: module name may not be available in some contexts (e.g. classes defined in notebooks)
@@ -208,6 +228,7 @@ namespace db0::object_model
     private:
         // member field definitions
         VFieldVector m_members;
+        Schema m_schema;
         std::shared_ptr<Class> m_base_class_ptr;
         mutable std::vector<std::unique_ptr<Member> > m_member_cache;
         // Field by-name index (cache)
@@ -223,6 +244,9 @@ namespace db0::object_model
          * Load changes to the internal cache
         */
         void refreshMemberCache() const;
+        
+        // A function to retrieve the total number of instances of the schema
+        std::function<unsigned int()> getTotalFunc() const;
     };
     
     // retrieve one of 4 possible type name variants

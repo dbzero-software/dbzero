@@ -1348,13 +1348,12 @@ namespace db0::python
 
     PyObject *PyAPI_assign(PyObject *, PyObject *args, PyObject *kwargs)
     {
-        PY_API_FUNC
-
         if (!PyDict_Check(kwargs)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
 
+        PY_API_FUNC
         return runSafe(tryAssign, args, kwargs);
     }
     

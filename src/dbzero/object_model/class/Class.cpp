@@ -6,6 +6,7 @@
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/value/ObjectId.hpp>
 #include <dbzero/object_model/value/StorageClass.hpp>
+#include "Schema.hpp"
 
 DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON")
 
@@ -19,13 +20,14 @@ namespace db0::object_model
     GC0_Define(Class)
     
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
-        const VFieldVector &members, const char *type_id, const char *prefix_name, ClassFlags flags, 
+        const VFieldVector &members, const Schema &schema, const char *type_id, const char *prefix_name, ClassFlags flags,
         const std::uint32_t base_class_ref)
         : m_uuid(db0::make_UUID())
         , m_name(string_pool.addRef(name))
         , m_type_id(type_id ? string_pool.addRef(type_id) : LP_String())
         , m_prefix_name(prefix_name ? string_pool.addRef(prefix_name) : LP_String())
         , m_members_ptr(members)
+        , m_schema_ptr(schema)
         , m_flags(flags)
         , m_base_class_ref(base_class_ref)
     {
@@ -49,12 +51,14 @@ namespace db0::object_model
     Class::Class(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
         const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags flags, 
         std::shared_ptr<Class> base_class)
-        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), type_id, prefix_name,
-                  flags, base_class ? ClassFactory::classRef(*base_class) : 0)
-        , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
+        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), Schema(*fixture), 
+            type_id, prefix_name, flags, base_class ? ClassFactory::classRef(*base_class) : 0)
+        , m_members((*this)->m_members_ptr(*fixture))
+        , m_schema((*this)->m_schema_ptr(*fixture))
         , m_base_class_ptr(base_class)
         , m_uid(this->fetchUID())
     {
+        m_schema.postInit(getTotalFunc());
         // copy all init vars from base class
         if (m_base_class_ptr) {        
             const auto &base_init_vars = m_base_class_ptr->getInitVars();
@@ -65,9 +69,11 @@ namespace db0::object_model
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
-        , m_members(myPtr((*this)->m_members_ptr.getAddress()))        
-        , m_uid(this->fetchUID())    
+        , m_members((*this)->m_members_ptr(*fixture))
+        , m_schema((*this)->m_schema_ptr(*fixture))
+        , m_uid(this->fetchUID())
     {
+        m_schema.postInit(getTotalFunc());
         // initialize base class if such exists
         if ((*this)->m_base_class_ref) {
             auto fixture = this->getFixture();
@@ -329,9 +335,10 @@ namespace db0::object_model
         m_index[to_name] = { field_id, is_init_var };
     }
     
-    void Class::detach()
+    void Class::detach() const
     {
         m_members.detach();
+        m_schema.detach();
         super_t::detach();
     }
     
@@ -339,9 +346,18 @@ namespace db0::object_model
         modify().m_singleton_address = {};
     }
     
-    void Class::commit()
+    void Class::flush() const {
+        m_schema.flush();
+    }
+    
+    void Class::rollback() {
+        m_schema.rollback();
+    }
+
+    void Class::commit() const
     {
         m_members.commit();        
+        m_schema.commit();
         super_t::commit();
     }
 
@@ -454,4 +470,85 @@ namespace db0::object_model
         return m_init_vars;
     }
 
+    std::function<unsigned int()> Class::getTotalFunc() const
+    {
+        return [this]() {
+            // NOTE: -1 because Class is also referenced (+1) by the ClassFactory
+            return this->getRefCount() - 1;
+        };
+    }
+
+    const Schema &Class::getSchema() const {
+        return m_schema;
+    }
+    
+    void Class::getSchema(std::function<void(const std::string &field_name, SchemaTypeId primary_type,
+        const std::vector<SchemaTypeId> &all_types)> callback) const
+    {
+        this->refreshMemberCache();
+        for (auto &member: m_member_cache) {
+            try {
+                callback(member->m_name, m_schema.getPrimaryType(member->m_field_id), 
+                    m_schema.getAllTypes(member->m_field_id)
+                );
+            } catch (const db0::InputException &) {
+                // report as UNKNOWN type if the field ID is not found in the schema
+                callback(member->m_name, SchemaTypeId::UNDEFINED, {});
+            }
+        }
+    }
+    
+    void Class::updateSchema(const std::vector<StorageClass> &types, bool add)
+    {
+        for (unsigned int index = 0; index < types.size(); ++index) {
+            if (types[index] != StorageClass::UNDEFINED) {
+                if (add) {
+                    m_schema.add(index, getSchemaTypeId(types[index]));
+                } else {
+                    m_schema.remove(index, getSchemaTypeId(types[index]));
+                }                
+            }
+        }
+    }
+    
+    void Class::updateSchema(const XValue *begin, const XValue *end, bool add)
+    {
+        // collect field IDs and types        
+        for (auto it = begin; it != end; ++it) {
+            if (add) {
+                m_schema.add(it->getIndex(), getSchemaTypeId(it->m_type));
+            } else {
+                m_schema.remove(it->getIndex(), getSchemaTypeId(it->m_type));
+            }
+        }
+    }
+    
+    void Class::updateSchema(FieldID field_id, StorageClass old_type, StorageClass new_type)
+    {
+        if (old_type == new_type) {
+            // type not changed, nothing to do
+            return;
+        }
+        auto old_schema_type_id = getSchemaTypeId(old_type);
+        auto new_schema_type_id = getSchemaTypeId(new_type);
+        if (old_schema_type_id == new_schema_type_id) {
+            // type not changed, nothing to do
+            return;
+        }
+        m_schema.remove(field_id.getIndex(), old_schema_type_id);
+        m_schema.add(field_id.getIndex(), new_schema_type_id);
+    }
+    
+    void Class::addToSchema(FieldID field_id, StorageClass type) {
+        m_schema.add(field_id.getIndex(), getSchemaTypeId(type));
+    }
+
+    void Class::removeFromSchema(FieldID field_id, StorageClass type) {
+        m_schema.remove(field_id.getIndex(), getSchemaTypeId(type));
+    }
+
+    void Class::removeFromSchema(const XValue &value) {        
+        m_schema.remove(value.getIndex(), getSchemaTypeId(value.m_type));
+    }
+    
 }

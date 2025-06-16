@@ -268,6 +268,22 @@ namespace db0::object_model
         return it_cached->second;
     }
     
+    void ClassFactory::flush() const
+    {
+        // flush from class specific schema builders
+        for (auto &item: m_ptr_cache) {
+            item.second.m_class->flush();
+        }
+    }
+
+    void ClassFactory::rollback()
+    {
+        // flush from class specific schema builders
+        for (auto &item: m_ptr_cache) {
+            item.second.m_class->rollback();
+        }
+    }
+    
     void ClassFactory::commit() const
     {
         for (auto &item: m_ptr_cache) {
@@ -279,7 +295,7 @@ namespace db0::object_model
         m_class_ptr_index.commit();
         super_t::commit();
     }
-
+    
     void ClassFactory::detach() const
     {
         for (auto &class_map: m_class_maps) {
