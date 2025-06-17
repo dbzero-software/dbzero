@@ -1,16 +1,20 @@
 import pytest
 import dbzero_ce as db0
 from contextlib import ExitStack
-from .memo_test_types import MemoTestClass
+from .memo_test_types import MemoTestClass, MemoDataPxClass, DATA_PX
 
 
 class SnapshotWindow:
     """
     A context manager that combines two other context managers.
     """
-    def __init__(self, from_state, to_state = None):
-        self.pre_context = db0.snapshot(from_state - 1) if from_state > 1 else None
-        self.last_context = db0.snapshot(to_state)
+    def __init__(self, from_state, to_state = None, prefix = None):
+        if prefix:
+            self.pre_context = db0.snapshot({prefix: from_state - 1}) if from_state > 1 else None
+            self.last_context = db0.snapshot({prefix: to_state})
+        else:
+            self.pre_context = db0.snapshot(from_state - 1) if from_state > 1 else None
+            self.last_context = db0.snapshot(to_state)            
         self._exit_stack = ExitStack()
 
     def __enter__(self):
@@ -101,4 +105,34 @@ def test_select_modified_with_custom_filter(db0_fixture, memo_tags):
         query = db0.select_modified(db0.find(MemoTestClass), pre_snap, last_snap, compare_with = _compare)
         assert len(query) == 1
         assert next(iter(query)).value == 99999
+    
+    
+def test_select_new_miltiple_prefixes(db0_fixture, memo_tags):
+    db0.commit()
+    state_1 = db0.get_state_num(finalized = True)
+    obj_x = MemoTestClass(9999)
+    db0.tags(obj_x).add("tag1")
+    db0.commit()
+    state_2 = db0.get_state_num(finalized = True)
+
+    with SnapshotWindow(state_1) as (pre_snap, last_snap):
+        assert len(db0.select_new(db0.find(MemoTestClass), pre_snap, last_snap)) == 11
+
+    with SnapshotWindow(state_2) as (pre_snap, last_snap):
+        assert len(db0.select_new(db0.find(MemoTestClass), pre_snap, last_snap)) == 1
+    obj_x = MemoDataPxClass(9999)
+    db0.commit()
+
+    state_1 = db0.get_state_num(DATA_PX, finalized = True)
+    snap_1 = db0.snapshot()
+    obj_x = MemoDataPxClass(9999)
+    db0.tags(obj_x).add("tag1")
+    db0.commit()
+    state_2 = db0.get_state_num(DATA_PX, finalized = True)
+    snap_2 = db0.snapshot()
+
+    assert len(db0.select_new(db0.find(MemoDataPxClass), snap_1, snap_2)) == 1
+
+    with SnapshotWindow(state_1, state_2, DATA_PX) as (pre_snap, last_snap):
+        assert len(db0.select_new(db0.find(MemoDataPxClass), pre_snap, last_snap)) == 1
     
