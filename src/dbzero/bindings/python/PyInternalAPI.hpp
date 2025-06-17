@@ -66,6 +66,10 @@ namespace db0::python
     */
     shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, 
         PyTypeObject *py_expected_type = nullptr);
+
+    // Check if object exists with optional type validation
+    bool isExistingObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, 
+        PyTypeObject *py_expected_type = nullptr);
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name);
     
@@ -102,6 +106,8 @@ namespace db0::python
     
     // Universal implementaton for both Workspace and WorkspaceView (aka Snapshot)
     shared_py_object<PyObject*> tryFetchFrom(db0::Snapshot &, PyObject *py_uuid, PyTypeObject *type = nullptr,
+        const char *prefix_name = nullptr);    
+    PyObject *tryExistsIn(db0::Snapshot &snapshot, PyObject *py_id, PyTypeObject *type_arg,
         const char *prefix_name = nullptr);
     
     shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
@@ -111,13 +117,18 @@ namespace db0::python
      * Open dbzero object by UUID     
      * @param py_expected_type - expected Python type of the object
     */    
-    shared_py_object<PyObject*> fetchObject(db0::Snapshot &, ObjectId object_id, PyTypeObject *py_expected_type = nullptr);
-
+    shared_py_object<PyObject*> fetchObject(db0::Snapshot &, ObjectId object_id, 
+        PyTypeObject *py_expected_type = nullptr);
+    bool isExistingObject(db0::Snapshot &, ObjectId object_id,
+        PyTypeObject *py_expected_type = nullptr);
+    
     /**
      * Open dbzero singleton by its corresponding Python type
     */
     PyObject *fetchSingletonObject(db0::Snapshot &, PyTypeObject *py_type, 
-        const char *prefix_name = nullptr);
+        const char *prefix_name = nullptr);        
+    // Check if a singleton instance exists
+    bool isExistingSingleton(db0::Snapshot &, PyTypeObject *py_type, const char *prefix_name = nullptr);
     
     // Convert a serializable instance to bytes
     PyObject *trySerialize(PyObject *);

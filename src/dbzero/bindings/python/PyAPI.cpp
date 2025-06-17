@@ -96,18 +96,18 @@ namespace db0::python
     shared_py_object<PyObject*> tryFetch(PyObject *py_id, PyTypeObject *type, const char *prefix_name) {
         return tryFetchFrom(PyToolkit::getPyWorkspace().getWorkspace(), py_id, type, prefix_name);
     }
-    
-    PyObject *PyAPI_fetch(PyObject *, PyObject *args, PyObject *kwargs)
-    {
-        PY_API_FUNC
 
+    PyObject* tryExists(PyObject *py_id, PyTypeObject *type, const char *prefix_name) {
+        return tryExistsIn(PyToolkit::getPyWorkspace().getWorkspace(), py_id, type, prefix_name);
+    }
+
+    bool tryParseFetchArgs(PyObject *, PyObject *args, PyObject *kwargs, PyObject *&py_id,
+        PyObject *&py_type, const char *&prefix_name)
+    {
         static const char *kwlist[] = { "id", "type", "prefix", NULL };
-        PyObject *py_id = nullptr;
-        PyObject *py_type = nullptr;
-        const char *prefix_name = nullptr;
         if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|Os", const_cast<char**>(kwlist), &py_id, &py_type, &prefix_name)) {
             PyErr_SetString(PyExc_TypeError, "Invalid arguments");
-            return NULL;
+            return false;
         }
 
         // NOTE: for backwards compatibility, swap parameters if one is a type and the other is UUID
@@ -117,10 +117,38 @@ namespace db0::python
 
         if (py_type && !PyType_Check(py_type)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type: type");
+            return false;
+        }
+        return true;
+    }
+    
+    PyObject *PyAPI_fetch(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PyObject *py_id = nullptr;
+        PyObject *py_type = nullptr;
+        const char *prefix_name = nullptr;
+        if (!tryParseFetchArgs(nullptr, args, kwargs, py_id, py_type, prefix_name)) {
+            // error already set in tryParseFetchArgs
+            return NULL;
+        }
+
+        PY_API_FUNC        
+        return runSafe(tryFetch, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name).steal();
+    }
+
+    PyObject *PyAPI_exists(PyObject *, PyObject *args, PyObject *kwargs)
+    {
+        PyObject *py_id = nullptr;
+        PyObject *py_type = nullptr;
+        const char *prefix_name = nullptr;
+        // takes same arguments as fetch
+        if (!tryParseFetchArgs(nullptr, args, kwargs, py_id, py_type, prefix_name)) {
+            // error already set in tryParseFetchArgs
             return NULL;
         }
         
-        return runSafe(tryFetch, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name).steal();
+        PY_API_FUNC
+        return runSafe(tryExists, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name);
     }
 
     PyObject *tryOpen(PyObject *self, PyObject *args, PyObject *kwargs)

@@ -165,6 +165,7 @@ namespace db0::object_model
         */
         void detach() const;
 
+        bool operator==(const Class &rhs) const;
         bool operator!=(const Class &rhs) const;
 
         std::uint32_t getUID() const { return m_uid; }

@@ -37,7 +37,9 @@ namespace db0::python
      * Fetch dbzero object instance by its ID or type (in case of a singleton)
      */
     PyObject *PyAPI_fetch(PyObject *, PyObject *args, PyObject *kwargs);
-
+    // Similar to PyAPI_fetch, but only returns a flag True / False if object can be fetched
+    PyObject *PyAPI_exists(PyObject *, PyObject *args, PyObject *kwargs);
+    
     /**
      * Initialize dbzero Python bindings
     */    

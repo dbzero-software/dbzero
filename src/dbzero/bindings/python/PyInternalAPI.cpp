@@ -83,6 +83,89 @@ namespace db0::python
         
         THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
     }
+
+    PyObject *tryExistsIn(db0::Snapshot &snapshot, PyObject *py_id, PyTypeObject *type_arg,
+        const char *prefix_name)
+    {
+        assert(py_id);
+        if (PyUnicode_Check(py_id)) {
+            // exists by UUID
+            auto uuid = PyUnicode_AsUTF8(py_id);
+            return PyBool_fromBool(isExistingObject(snapshot, ObjectId::fromBase32(uuid), type_arg));
+        }
+
+        if (PyType_Check(py_id)) {
+            auto id_type = reinterpret_cast<PyTypeObject*>(py_id);
+            // check if type_arg is exact or a base of uuid_arg
+            if (type_arg && !isBase(id_type, reinterpret_cast<PyTypeObject*>(type_arg))) {
+                THROWF(db0::InputException) << "Type mismatch";                                
+            }
+            return PyBool_fromBool(isExistingSingleton(snapshot, id_type, prefix_name));
+        }
+        
+        THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
+    }
+
+    bool checkObjectIdType(const ObjectId &object_id, PyTypeObject *py_expected_type)
+    {
+        if (py_expected_type) {
+            auto type_id = PyToolkit::getTypeManager().getTypeId(py_expected_type);
+            auto pre_storage_class = db0::object_model::TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
+            if (pre_storage_class != db0::getPreStorageClass(object_id.m_storage_class)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    bool isExistingObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id, PyTypeObject *py_expected_type)
+    {
+        using ClassFactory = db0::object_model::ClassFactory;
+        using Class = db0::object_model::Class;
+
+        // validate pre-storage class first
+        if (py_expected_type && !checkObjectIdType(object_id, py_expected_type)) {
+            return false;
+        }
+
+        auto storage_class = object_id.m_storage_class;
+        auto addr = object_id.m_address;
+        if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
+            auto &class_factory = fixture->get<ClassFactory>();
+            // validate type if requested
+            if (py_expected_type) {
+                // no type validation required for MemoBase
+                if (PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
+                    return PyToolkit::isExistingObject(fixture, addr, addr.getInstanceId());
+                }
+                
+                // in other cases the type must match the actual object type
+                auto expected_class = class_factory.getExistingType(py_expected_type);
+                auto result = PyToolkit::tryUnloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
+                if (!result.get()) {
+                    return false;
+                }
+                return reinterpret_cast<MemoObject*>(result.get())->ext().getType() == *expected_class;
+            } else {
+                return PyToolkit::isExistingObject(fixture, addr, addr.getInstanceId());
+            }
+        } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
+            return PyToolkit::isExistingList(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            
+            return PyToolkit::isExistingDict(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_SET) {            
+            return PyToolkit::isExistingSet(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {            
+            return PyToolkit::isExistingTuple(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {            
+            return PyToolkit::isExistingIndex(fixture, addr);
+        } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
+            auto &class_factory = fixture->get<ClassFactory>();
+            return !!class_factory.tryGetTypeByClassRef(addr.getOffset()).m_class;
+        }
+
+        return false;
+    }
     
     shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id,
         PyTypeObject *py_expected_type)
@@ -90,18 +173,13 @@ namespace db0::python
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
         
-        auto storage_class = object_id.m_storage_class;        
-        auto addr = object_id.m_address;
-        
         // validate pre-storage class first
-        if (py_expected_type) {
-            auto type_id = PyToolkit::getTypeManager().getTypeId(py_expected_type);
-            auto pre_storage_class = db0::object_model::TypeUtils::m_storage_class_mapper.getPreStorageClass(type_id);
-            if (pre_storage_class != db0::getPreStorageClass(storage_class)) {
-                THROWF(db0::InputException) << "Object ID type mismatch";
-            }
+        if (py_expected_type && !checkObjectIdType(object_id, py_expected_type)) {
+            THROWF(db0::InputException) << "Object ID type mismatch";            
         }
         
+        auto storage_class = object_id.m_storage_class;
+        auto addr = object_id.m_address;
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
             auto &class_factory = fixture->get<ClassFactory>();
             // validate type if requested
@@ -121,20 +199,15 @@ namespace db0::python
             } else {
                 return PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             }
-        } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
-            // unload by logical address
+        } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {            
             return PyToolkit::unloadList(fixture, addr);
-        } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {
-            // unload by logical address
+        } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            
             return PyToolkit::unloadDict(fixture, addr);
-        } else if (storage_class == db0::object_model::StorageClass::DB0_SET) {
-            // unload by logical address
+        } else if (storage_class == db0::object_model::StorageClass::DB0_SET) {            
             return PyToolkit::unloadSet(fixture, addr);
-        } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {
-            // unload by logical address
+        } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {            
             return PyToolkit::unloadTuple(fixture, addr);
-        } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {
-            // unload by logical address
+        } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {            
             return PyToolkit::unloadIndex(fixture, addr);
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = fixture->get<ClassFactory>();      
@@ -144,7 +217,7 @@ namespace db0::python
         }
         
         THROWF(db0::InputException) << "Invalid object ID" << THROWF_END;
-    }    
+    }
     
     PyObject *fetchSingletonObject(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
     {        
@@ -257,7 +330,15 @@ namespace db0::python
         // open from specific fixture
         return fetchObject(fixture, object_id, py_expected_type);
     }
-        
+
+    bool isExistingObject(db0::Snapshot &snapshot, ObjectId object_id, PyTypeObject *py_expected_type)
+    {        
+        auto fixture = snapshot.getFixture(object_id.m_fixture_uuid, AccessType::READ_ONLY);
+        assert(fixture);
+        fixture->refreshIfUpdated();        
+        return isExistingObject(fixture, object_id, py_expected_type);
+    }
+    
     PyObject *getSlabMetrics(const db0::SlabAllocator &slab)
     {
         auto py_dict = Py_OWN(PyDict_New());

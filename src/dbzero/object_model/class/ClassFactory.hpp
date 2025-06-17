@@ -78,12 +78,18 @@ namespace db0::object_model
         {
             std::shared_ptr<Class> m_class;    
             TypeObjectSharedPtr m_lang_type;
-        };
 
+            bool operator!() const {
+                return !m_class;
+            }
+        };
+        
         // reference the dbzero object model's class by its pointer
         // @param optional language specific type object if known
         ClassItem getTypeByPtr(ClassPtr, TypeObjectPtr lang_type = nullptr) const;
         ClassItem getTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type = nullptr) const;
+        // May return invalid ClassItem if the class is not found
+        ClassItem tryGetTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type = nullptr) const;
 
         static std::uint32_t classRef(const Class &);
         static Address classRefToAddress(std::uint32_t class_ref);

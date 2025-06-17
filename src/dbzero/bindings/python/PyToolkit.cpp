@@ -96,6 +96,32 @@ namespace db0::python
         return unloadObject(fixture, address, class_factory, lang_class, instance_id);
     }
     
+    bool PyToolkit::isExistingObject(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
+    {
+        // try unloading from cache first
+        auto &lang_cache = fixture->getLangCache();
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
+        
+        if (obj_ptr.get()) {
+            // only validate instance ID if provided
+            if (instance_id) {
+                // NOTE: we first must check if this is really a memo object
+                if (!isMemoObject(obj_ptr.get())) {
+                    return false;
+                }
+                
+                if (reinterpret_cast<MemoObject*>(obj_ptr.get())->ext().getInstanceId() != instance_id) {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        // Check if object's stem can be unloaded
+        return db0::object_model::Object::checkUnloadStem(fixture, address, instance_id);        
+    }
+    
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
         const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr, std::uint16_t instance_id)
     {

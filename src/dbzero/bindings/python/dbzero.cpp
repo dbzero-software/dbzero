@@ -35,6 +35,7 @@ static PyMethodDef dbzero_methods[] =
     {"drop", &py::PyAPI_drop, METH_VARARGS, "Drop prefix (if exists)"},
     {"commit", &py::PyAPI_commit, METH_VARARGS, "Commit data to disk / persistent storage"},
     {"fetch", (PyCFunction)&py::PyAPI_fetch, METH_VARARGS | METH_KEYWORDS, "Retrieve dbzero object instance by its UUID or type (in case of a singleton)"},
+    {"exists", (PyCFunction)&py::PyAPI_exists, METH_VARARGS | METH_KEYWORDS, "Check if a specific UUID points to a valid dbzero object instance (or existing singleton instance)"},
     {"delete", &py::PyAPI_del, METH_VARARGS, "Delete dbzero object and the corresponding Python instance"},
     {"wrap_memo_type", (PyCFunction)&py::PyAPI_wrapPyClass, METH_VARARGS | METH_KEYWORDS, "Wraps a memo type for use with dbzero"},
     {"get_type_info", &py::PyAPI_getTypeInfo, METH_VARARGS, "Get dbzero type information"},

@@ -101,8 +101,12 @@ namespace db0::python
         // optionally may use specific lang class (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
             TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0);
+        static ObjectSharedPtr tryUnloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
+            TypeObjectPtr lang_class = nullptr, std::uint16_t instance_id = 0);        
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, TypeObjectPtr lang_class = nullptr,
             std::uint16_t instance_id = 0);
+        
+        static bool isExistingObject(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
         
         static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, const LongWeakRef &);
         static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, std::uint64_t fixture_uuid,
@@ -114,14 +118,20 @@ namespace db0::python
             std::shared_ptr<Class>, TypeObjectPtr lang_class);
         
         static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture>, Address);
-
+        // check if the list exists without unloading it
+        static bool isExistingList(db0::swine_ptr<Fixture>, Address);
+        
         static ObjectSharedPtr unloadIndex(db0::swine_ptr<Fixture>, Address);
+        static bool isExistingIndex(db0::swine_ptr<Fixture>, Address);
 
         static ObjectSharedPtr unloadSet(db0::swine_ptr<Fixture>, Address);
+        static bool isExistingSet(db0::swine_ptr<Fixture>, Address);
         
         static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture>, Address);
+        static bool isExistingDict(db0::swine_ptr<Fixture>, Address);
 
         static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture>, Address);
+        static bool isExistingTuple(db0::swine_ptr<Fixture>, Address);
         
         // Unload dbzero block instance
         static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, Address);

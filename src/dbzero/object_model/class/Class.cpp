@@ -360,13 +360,21 @@ namespace db0::object_model
         m_schema.commit();
         super_t::commit();
     }
-
+    
     bool Class::operator!=(const Class &rhs) const
     {
         if (*this->getFixture() != *rhs.getFixture()) {
             return true;
         }
         return this->getAddress() != rhs.getAddress();
+    }
+
+    bool Class::operator==(const Class &rhs) const
+    {
+        if (*this->getFixture() != *rhs.getFixture()) {
+            return false;
+        }
+        return this->getAddress() == rhs.getAddress();
     }
 
     std::uint32_t Class::fetchUID() const
