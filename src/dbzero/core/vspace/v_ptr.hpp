@@ -8,9 +8,9 @@
 #include <dbzero/core/memory/mptr.hpp>
 #include <dbzero/core/threading/ROWO_Mutex.hpp>
 #include <dbzero/core/utils/FlagSet.hpp>
-#include <dbzero/core/vspace/vs_buf_t.hpp>
 #include <dbzero/core/metaprog/type_traits.hpp>
 #include "MappedAddress.hpp"
+#include "safe_buf_t.hpp"
 
 namespace db0
     
@@ -238,11 +238,16 @@ namespace db0
             auto &ref = modify();
             m_mem_lock.modify((std::byte*)&ref + offset, size);
         }
-
-        const ContainerT& safeRef() const
+        
+        const ContainerT &safeConstRef(std::size_t size_of = 0) const
         {
-            assureInitialized();
-            return ContainerT::__safe_ref(vs_buf_t(m_mem_lock.m_buffer, m_mem_lock.m_buffer + this->getSize()));
+            if (!size_of) {
+                size_of = this->getSize();
+            }
+            assureInitialized(size_of);
+            return ContainerT::__safe_const_ref(
+                safe_buf_t((std::byte*)m_mem_lock.m_buffer, (std::byte*)m_mem_lock.m_buffer + size_of)
+            );
         }
         
         const ContainerT *get() const
@@ -344,6 +349,25 @@ namespace db0
             }
             assert(m_mem_lock.m_buffer);
         }
+
+        // version with known size-of (pre-retrieved from the allocator)
+        // we made it as a separate implementation for potential performance gains
+        void assureInitialized(std::size_t size_of) const
+        {
+            assert(m_memspace_ptr);
+            // access the resource for read (or check if the read or read/write access has already been gained)
+            while (!ResourceReadMutexT::__ref(m_resource_flags).get()) {
+                ResourceReadMutexT::WriteOnlyLock lock(m_resource_flags);
+                if (lock.isLocked()) {
+                    // NOTE: must extract physical address for mapRange
+                    m_mem_lock = m_memspace_ptr->getPrefix().mapRange(
+                        m_address.getOffset(), size_of, m_access_mode | AccessOptions::read);
+                    lock.commit_set();
+                    break;
+                }
+            }
+            assert(m_mem_lock.m_buffer);
+        }
         
         /**
          * Resolve the instance size
@@ -359,10 +383,10 @@ namespace db0
                 v_object<typename ContainerT::fixed_header_type, SLOT_NUM> header(mptr{*m_memspace_ptr, m_address});
                 return header.getData()->getOBaseSize();
             }
-
-            // retrieve from allocator (slowest)            
+            
+            // retrieve from allocator (slowest)
             return m_memspace_ptr->getAllocator().getAllocSize(m_address);
-        }        
+        }
     };
 
 }

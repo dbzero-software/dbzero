@@ -84,28 +84,32 @@ namespace db0::python
         THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
     }
 
-    PyObject *tryExistsIn(db0::Snapshot &snapshot, PyObject *py_id, PyTypeObject *type_arg,
+    bool tryExistsIn(db0::Snapshot &snapshot, PyObject *py_id, PyTypeObject *type_arg,
         const char *prefix_name)
     {
         assert(py_id);
         if (PyUnicode_Check(py_id)) {
             // exists by UUID
             auto uuid = PyUnicode_AsUTF8(py_id);
-            return PyBool_fromBool(isExistingObject(snapshot, ObjectId::fromBase32(uuid), type_arg));
+            auto object_id = ObjectId::tryFromBase32(uuid);
+            if (!object_id) {
+                return false;
+            }
+            return isExistingObject(snapshot, ObjectId::fromBase32(uuid), type_arg);
         }
 
         if (PyType_Check(py_id)) {
             auto id_type = reinterpret_cast<PyTypeObject*>(py_id);
             // check if type_arg is exact or a base of uuid_arg
             if (type_arg && !isBase(id_type, reinterpret_cast<PyTypeObject*>(type_arg))) {
-                THROWF(db0::InputException) << "Type mismatch";                                
+                return false;
             }
-            return PyBool_fromBool(isExistingSingleton(snapshot, id_type, prefix_name));
+            return isExistingSingleton(snapshot, id_type, prefix_name);
         }
         
         THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
     }
-
+    
     bool checkObjectIdType(const ObjectId &object_id, PyTypeObject *py_expected_type)
     {
         if (py_expected_type) {
@@ -140,7 +144,10 @@ namespace db0::python
                 }
                 
                 // in other cases the type must match the actual object type
-                auto expected_class = class_factory.getExistingType(py_expected_type);
+                auto expected_class = class_factory.tryGetExistingType(py_expected_type);
+                if (!expected_class) {
+                    return false;
+                }
                 auto result = PyToolkit::tryUnloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
                 if (!result.get()) {
                     return false;
@@ -150,15 +157,15 @@ namespace db0::python
                 return PyToolkit::isExistingObject(fixture, addr, addr.getInstanceId());
             }
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
-            return PyToolkit::isExistingList(fixture, addr);
+            return PyToolkit::isExistingList(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            
-            return PyToolkit::isExistingDict(fixture, addr);
+            return PyToolkit::isExistingDict(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_SET) {            
-            return PyToolkit::isExistingSet(fixture, addr);
+            return PyToolkit::isExistingSet(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {            
-            return PyToolkit::isExistingTuple(fixture, addr);
+            return PyToolkit::isExistingTuple(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {            
-            return PyToolkit::isExistingIndex(fixture, addr);
+            return PyToolkit::isExistingIndex(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = fixture->get<ClassFactory>();
             return !!class_factory.tryGetTypeByClassRef(addr.getOffset()).m_class;
@@ -200,15 +207,15 @@ namespace db0::python
                 return PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             }
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {            
-            return PyToolkit::unloadList(fixture, addr);
+            return PyToolkit::unloadList(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            
-            return PyToolkit::unloadDict(fixture, addr);
+            return PyToolkit::unloadDict(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_SET) {            
-            return PyToolkit::unloadSet(fixture, addr);
+            return PyToolkit::unloadSet(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {            
-            return PyToolkit::unloadTuple(fixture, addr);
+            return PyToolkit::unloadTuple(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {            
-            return PyToolkit::unloadIndex(fixture, addr);
+            return PyToolkit::unloadIndex(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
             auto &class_factory = fixture->get<ClassFactory>();      
             auto class_ptr = class_factory.getTypeByClassRef(addr.getOffset()).m_class;
@@ -237,6 +244,18 @@ namespace db0::python
         return memo_obj;
     }
     
+    bool isExistingSingleton(db0::swine_ptr<Fixture> &fixture, PyTypeObject *py_type)
+    {        
+        auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
+        // find type associated class with the ClassFactory
+        auto type = class_factory.getExistingType(py_type);
+        if (!type->isSingleton()) {
+            return false;
+        }
+
+        return type->isExistingSingleton();
+    }
+
     PyObject *fetchSingletonObject(db0::Snapshot &snapshot, PyTypeObject *py_type, const char *prefix_name)
     {
         if (!PyMemoType_Check(py_type)) {
@@ -254,6 +273,28 @@ namespace db0::python
                 maybe_access_type);
         }
         return fetchSingletonObject(fixture, py_type);
+    }
+    
+    bool isExistingSingleton(db0::Snapshot &snapshot, PyTypeObject *py_type, const char *prefix_name)
+    {
+        if (!PyMemoType_Check(py_type)) {
+            return false;
+        }
+        
+        // get either current, scope-related or user requested fixture
+        auto maybe_access_type = snapshot.tryGetAccessType();
+        db0::swine_ptr<Fixture> fixture;
+        if (prefix_name) {
+            // try to get fixture by prefix name
+            fixture = snapshot.tryGetFixture(prefix_name, maybe_access_type);
+        } else {
+            fixture = snapshot.tryGetFixture(MemoTypeDecoration::get(py_type).getFixtureUUID(maybe_access_type), 
+                maybe_access_type);
+        }
+        if (!fixture) {
+            return false;
+        }
+        return isExistingSingleton(fixture, py_type);
     }
     
     void renameField(PyTypeObject *py_type, const char *from_name, const char *to_name)

@@ -136,9 +136,8 @@ namespace db0::object_model
         static Object *makeNull(void *at_ptr);
         
         // Unload the object stem, to retrieve its type
+        static ObjectStem tryUnloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
         static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
-        // Check if the unloadStem operation would be successful (withot actually performing it)        
-        static bool checkUnloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
         
         // Unload from stem with a known type (possibly a base type)
         // NOTE: unload works faster if type_hint is the exect object's type

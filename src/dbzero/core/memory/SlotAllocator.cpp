@@ -73,10 +73,10 @@ namespace db0
         return m_allocator_ptr->getAllocSize(address);
     }
     
-    bool SlotAllocator::isAllocated(Address address) const {
-        return m_allocator_ptr->isAllocated(address);
+    bool SlotAllocator::isAllocated(Address address, std::size_t *size_of_result) const {
+        return m_allocator_ptr->isAllocated(address, size_of_result);
     }
-
+    
     void SlotAllocator::commit() const
     {
         m_allocator_ptr->commit();

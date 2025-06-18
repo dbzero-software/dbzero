@@ -117,24 +117,24 @@ namespace db0::python
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address address,
             std::shared_ptr<Class>, TypeObjectPtr lang_class);
         
-        static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture>, Address);
+        static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
         // check if the list exists without unloading it
-        static bool isExistingList(db0::swine_ptr<Fixture>, Address);
+        static bool isExistingList(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
         
-        static ObjectSharedPtr unloadIndex(db0::swine_ptr<Fixture>, Address);
-        static bool isExistingIndex(db0::swine_ptr<Fixture>, Address);
-
-        static ObjectSharedPtr unloadSet(db0::swine_ptr<Fixture>, Address);
-        static bool isExistingSet(db0::swine_ptr<Fixture>, Address);
+        static ObjectSharedPtr unloadIndex(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
+        static bool isExistingIndex(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
         
-        static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture>, Address);
-        static bool isExistingDict(db0::swine_ptr<Fixture>, Address);
-
-        static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture>, Address);
-        static bool isExistingTuple(db0::swine_ptr<Fixture>, Address);
+        static ObjectSharedPtr unloadSet(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
+        static bool isExistingSet(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
+        
+        static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
+        static bool isExistingDict(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
+        
+        static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
+        static bool isExistingTuple(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
         
         // Unload dbzero block instance
-        static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, Address);
+        static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
         
         // Unload from serialized bytes
         static ObjectSharedPtr deserializeObjectIterable(db0::swine_ptr<Fixture>, std::vector<std::byte>::const_iterator &iter,

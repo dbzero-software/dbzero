@@ -737,15 +737,15 @@ namespace db0
         return m_slab_manager->find(slab_id).m_slab->getAllocSize(address);
     }
     
-    bool MetaAllocator::isAllocated(Address address) const
+    bool MetaAllocator::isAllocated(Address address, std::size_t *size_of_result) const
     {                
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             return false;
         }
         auto slab_id = m_slab_id_function(address);
-        return m_slab_manager->find(slab_id).m_slab->isAllocated(address);
+        return m_slab_manager->find(slab_id).m_slab->isAllocated(address, size_of_result);
     }
-
+    
     std::uint32_t MetaAllocator::getSlabId(Address address) const {
         return m_slab_id_function(address);
     }

@@ -93,7 +93,7 @@ namespace db0
         return m_page_size - offset;    
     }
     
-    bool DRAM_Allocator::isAllocated(Address address) const
+    bool DRAM_Allocator::isAllocated(Address address, std::size_t *size_of_result) const
     {
         auto page_id = address / m_page_size;
         if (page_id >= m_next_page_id) {
@@ -104,7 +104,14 @@ namespace db0
             return false;
         }
         auto it = m_free_pages.find(page_id);
-        return it == m_free_pages.end();
+        if (it != m_free_pages.end()) {
+            return false;
+        }
+        if (size_of_result) {
+            auto offset = address % m_page_size;
+            *size_of_result = m_page_size - offset;    
+        }
+        return true;
     }
     
     Address DRAM_Allocator::firstAlloc() const {

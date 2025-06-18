@@ -46,13 +46,19 @@ namespace db0
         return m_alloc_size - offset;
     }
     
-    bool AlgoAllocator::isAllocated(Address address) const 
+    bool AlgoAllocator::isAllocated(Address address, std::size_t *size_of_result) const
     {
         auto offset = address % m_alloc_size;
         auto i = m_reverse_address_pool_f(address - offset);
-        return i < m_next_i;
+        if (i >= m_next_i) {
+            return false;
+        }
+        if (size_of_result) {
+            *size_of_result = m_alloc_size - offset;
+        }
+        return true;
     }
-
+    
     void AlgoAllocator::reset() {
         m_next_i = 0;
     }

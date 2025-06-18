@@ -149,10 +149,10 @@ namespace db0
         getAllocatorForUpdate().free(address);
     }
     
-    bool Memspace::isAddressValid(Address address) const 
+    bool Memspace::isAddressValid(Address address, std::size_t *size_of_result) const
     {
         assert(m_allocator_ptr);
-        return m_allocator_ptr->isAllocated(address);
+        return m_allocator_ptr->isAllocated(address, size_of_result);
     }
     
 }

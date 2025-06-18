@@ -79,10 +79,13 @@ namespace db0
         {
         }
         
-        // Compatibility constructor
-        v_bvector(db0::tag_verified, mptr ptr)
-            : v_bvector(ptr)
-        {        
+        v_bvector(db0::tag_verified, mptr ptr, std::size_t size_of = 0)
+            : super_t(db0::tag_verified(), ptr, size_of)
+            , m_db_shift(data_container::shift((*this)->m_page_size))
+            , m_db_mask(data_container::mask((*this)->m_page_size))
+            , m_pb_shift(ptr_container::shift((*this)->m_page_size))
+            , m_pb_mask(ptr_container::mask((*this)->m_page_size))            
+        {
         }
         
         v_bvector(const v_bvector &&other)

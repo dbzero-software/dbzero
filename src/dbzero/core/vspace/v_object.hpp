@@ -32,13 +32,13 @@ namespace db0
         {
         }
         
-        // construct a verified instance - i.e. backed by a valid db0 address        
-        v_object(db0::tag_verified, mptr ptr, FlagSet<AccessOptions> access_mode = {})
+        // Construct a verified instance - i.e. backed by a valid db0 address with a known size
+        v_object(db0::tag_verified, mptr ptr, std::size_t size_of = 0, FlagSet<AccessOptions> access_mode = {})
             : v_this(ptr, access_mode)
         {
-            v_this.get();    
+            v_this.safeConstRef(size_of);
         }
-
+        
         v_object(const v_object<T> &other)
             : v_this(other.v_this)
         {

@@ -87,6 +87,8 @@ namespace db0::object_model
         // reference the dbzero object model's class by its pointer
         // @param optional language specific type object if known
         ClassItem getTypeByPtr(ClassPtr, TypeObjectPtr lang_type = nullptr) const;
+        ClassItem tryGetTypeByPtr(ClassPtr, TypeObjectPtr lang_type = nullptr) const;
+        
         ClassItem getTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type = nullptr) const;
         // May return invalid ClassItem if the class is not found
         ClassItem tryGetTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type = nullptr) const;

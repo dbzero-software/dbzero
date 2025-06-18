@@ -275,16 +275,19 @@ namespace db0
         /**
          * Safe object reference (buffer bounds validated by buf_t)
          */
-        template <class buf_t> static T &__safe_ref(buf_t buf) {
+        template <class buf_t> static T &__safe_ref(buf_t buf) 
+        {
+            const std::byte *_buf = buf;
             // scan members & validate bounds
             T::safeSizeOf(buf);
-            return __ref(buf);
+            return __ref(const_cast<std::byte*>(_buf));
         }
-
+        
         /**
          * Safe const object reference (buffer bounds validated by buf_t)
          */
-        template <class buf_t> static const T &__safe_const_ref(buf_t buf) {
+        template <class buf_t> static const T &__safe_const_ref(buf_t buf)
+        {
             // scan members & validate bounds
             T::safeSizeOf(buf);
             return __const_ref(buf);

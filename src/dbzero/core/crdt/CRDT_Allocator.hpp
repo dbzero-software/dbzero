@@ -205,7 +205,7 @@ namespace db0
             std::uint32_t getAllocSize(std::uint32_t address) const;
             
             // Validate address
-            bool isAllocated(std::uint32_t address) const;
+            bool isAllocated(std::uint32_t address, std::size_t *size_of_result = nullptr) const;
             
             Stripe toStripe() const;
 
@@ -366,7 +366,7 @@ namespace db0
         
         std::size_t getAllocSize(std::uint64_t address) const;
 
-        bool isAllocated(std::uint64_t address) const;
+        bool isAllocated(std::uint64_t address, std::size_t *size_of_result = nullptr) const;
 
         /**
          * This function allows checking the space available to this allocator dynamically

@@ -51,8 +51,9 @@ namespace db0
         
         /**
          * Check if the address is a valid allocation address with this allocator
+         * size_of retrieved on request (if size_of_result is not null)
          */
-        virtual bool isAllocated(Address) const = 0;
+        virtual bool isAllocated(Address, std::size_t *size_of_result = nullptr) const = 0;
         
         /**
          * Prepare the allocator for the next transaction

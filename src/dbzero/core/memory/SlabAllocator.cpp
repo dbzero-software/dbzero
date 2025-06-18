@@ -80,10 +80,10 @@ namespace db0
         return m_allocator.getAllocSize(makeRelative(address));
     }
     
-    bool SlabAllocator::isAllocated(Address address) const {
-        return m_allocator.isAllocated(makeRelative(address));
+    bool SlabAllocator::isAllocated(Address address, std::size_t *size_of_result) const {
+        return m_allocator.isAllocated(makeRelative(address), size_of_result);
     }
-
+    
     Address SlabAllocator::headerAddr(Address begin_addr, std::uint32_t size) {
         return begin_addr + static_cast<offset_t>(size) - static_cast<offset_t>(o_slab_header::sizeOf());
     }

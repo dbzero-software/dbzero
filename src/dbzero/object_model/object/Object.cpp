@@ -124,26 +124,28 @@ namespace db0::object_model
         return new (at_ptr) Object();
     }
     
-    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id) 
+    Object::ObjectStem Object::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
     {
-        db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address));
+        std::size_t size_of;
+        if (!fixture->isAddressValid(address, &size_of)) {
+            return {};
+        }
+        // Unload from a verified address
+        db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address), size_of);
         if (instance_id && stem->m_header.m_instance_id != instance_id) {
-            THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
+            // instance ID validation failed
+            return {};
         }
         return stem;
     }
-    
-    bool Object::checkUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
+
+    Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
     {
-        if (!fixture->isAddressValid(address)) {
-            return false;
+        auto result = tryUnloadStem(fixture, address, instance_id);
+        if (!result) {
+            THROWF(db0::InputException) << "Invalid UUID or object has been deleted";
         }
-        // validate instance ID only if provided
-        if (instance_id) {
-            auto stem = db0::v_object<o_object>(db0::tag_verified(), fixture->myPtr(address));
-            return stem->m_header.m_instance_id == instance_id;
-        }
-        return true;
+        return result;
     }
     
     Object *Object::unload(void *at_ptr, Address address, std::shared_ptr<Class> type_hint)

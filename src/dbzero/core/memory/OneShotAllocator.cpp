@@ -39,8 +39,15 @@ namespace db0
         return m_size;
     }
     
-    bool OneShotAllocator::isAllocated(Address address) const {
-        return (address == m_addr && m_allocated);
+    bool OneShotAllocator::isAllocated(Address address, std::size_t *size_of_result) const
+    {
+        if (address != m_addr || !m_allocated) {
+            return false;
+        }
+        if (size_of_result) {
+            *size_of_result = m_size;
+        }
+        return true;
     }
     
     void OneShotAllocator::commit() const {

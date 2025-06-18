@@ -98,9 +98,9 @@ namespace db0::python
     }
 
     PyObject* tryExists(PyObject *py_id, PyTypeObject *type, const char *prefix_name) {
-        return tryExistsIn(PyToolkit::getPyWorkspace().getWorkspace(), py_id, type, prefix_name);
+        return PyBool_fromBool(tryExistsIn(PyToolkit::getPyWorkspace().getWorkspace(), py_id, type, prefix_name));
     }
-
+    
     bool tryParseFetchArgs(PyObject *, PyObject *args, PyObject *kwargs, PyObject *&py_id,
         PyObject *&py_type, const char *&prefix_name)
     {

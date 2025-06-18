@@ -322,6 +322,8 @@ namespace db0
         std::unordered_set<unsigned int> m_locked_section_ids;
         // log of prefixes closed inside locked sections
         std::unordered_map<unsigned int, std::vector<std::pair<std::string, std::uint64_t> > > m_locked_section_log;
+        // this is to prevent recursive cleanups (which might result in a deadlock)
+        mutable std::atomic<bool> m_cleanup_pending = false;
 #ifndef NDEBUG
         // see setCrashFromCommit
         unsigned int m_throw_op_count = 0;

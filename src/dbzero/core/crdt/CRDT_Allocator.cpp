@@ -162,9 +162,17 @@ namespace db0
         return m_stride;
     }
     
-    bool CRDT_Allocator::Alloc::isAllocated(std::uint32_t address) const {
-        return ((address >= m_address) && ((address - m_address) % m_stride == 0) && (address < m_address + m_stride * m_fill_map.size()) &&
-            m_fill_map[int((address - m_address) / m_stride)]);
+    bool CRDT_Allocator::Alloc::isAllocated(std::uint32_t address, std::size_t *size_of_result) const
+    {
+        if (((address >= m_address) && ((address - m_address) % m_stride == 0) && (address < m_address + m_stride * m_fill_map.size()) &&
+            m_fill_map[int((address - m_address) / m_stride)]))
+        {
+            if (size_of_result) {
+                *size_of_result = m_stride;
+            }
+            return true;
+        }
+        return false;
     }
 
     bool CRDT_Allocator::Alloc::deallocUnit(std::uint32_t address)
@@ -599,13 +607,13 @@ namespace db0
         return alloc.first->getAllocSize(address);
     }
     
-    bool CRDT_Allocator::isAllocated(std::uint64_t address) const
+    bool CRDT_Allocator::isAllocated(std::uint64_t address, std::size_t *size_of_result) const
     {
         auto alloc = m_allocs.lower_equal_bound(address);
         if (!alloc) {
             return false;
         }
-        return alloc.first->isAllocated(address);
+        return alloc.first->isAllocated(address, size_of_result);
     }
 
     std::optional<std::uint32_t> CRDT_Allocator::tryAlignedAllocFromBlanks(std::uint32_t size)

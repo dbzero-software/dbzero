@@ -155,7 +155,7 @@ namespace db0
 
         std::size_t getAllocSize(Address) const override;
 
-        bool isAllocated(Address) const override;
+        bool isAllocated(Address, std::size_t *size_of_result = nullptr) const override;
             
         void commit() const override;
 

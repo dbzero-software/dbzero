@@ -30,7 +30,7 @@ namespace db0
 
         std::size_t getAllocSize(Address) const override;
         
-        bool isAllocated(Address) const override;
+        bool isAllocated(Address, std::size_t *size_of_result = nullptr) const override;
         
         void commit() const override;
 
@@ -161,11 +161,18 @@ namespace db0
         return m_alloc_size - inner_offset;
     }
 
-    template <typename BitSetT> bool BitsetAllocator<BitSetT>::isAllocated(Address address) const
+    template <typename BitSetT>
+    bool BitsetAllocator<BitSetT>::isAllocated(Address address, std::size_t *size_of_result) const
     {
         auto inner_offset = address % m_alloc_size;
         auto index = indexOf(address - inner_offset);
-        return index < m_bitset.npos && m_bitset->get(index);
+        if (index >= m_bitset.npos || !m_bitset->get(index)) {
+            return false;
+        }
+        if (size_of_result) {
+            *size_of_result = m_alloc_size - inner_offset;
+        }
+        return true;
     }
 
     template <typename BitSetT> std::size_t BitsetAllocator<BitSetT>::getAllocCount() const {

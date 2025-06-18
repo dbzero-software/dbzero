@@ -704,21 +704,31 @@ namespace db0
     
     bool Workspace::onCacheFlushed(bool threshold_reached) const
     {
-        if (!BaseWorkspace::onCacheFlushed(threshold_reached)) {
+        // prevent recursive cleanups
+        if (m_cleanup_pending) {
             return false;
         }
-        for (auto &[uuid, fixture] : m_fixtures) {
-            if (!fixture->onCacheFlushed(threshold_reached)) {
-                // unable to handle this event - e.g. due to pending commit
+        m_cleanup_pending = true;
+        try {
+            if (!BaseWorkspace::onCacheFlushed(threshold_reached)) {
                 return false;
             }
+            for (auto &[uuid, fixture] : m_fixtures) {
+                if (!fixture->onCacheFlushed(threshold_reached)) {
+                    // unable to handle this event - e.g. due to pending commit
+                    return false;
+                }
+            }
+            
+            if (!threshold_reached) {
+                // additionally erase the entire LangCache to attempt reaching the flush objective            
+                m_lang_cache->clear(true);
+            }
+        } catch (...) {
+            m_cleanup_pending = false;
+            throw;
         }
         
-        if (!threshold_reached) {
-            // additionally erase the entire LangCache to attempt reaching the flush objective            
-            m_lang_cache->clear(true);
-        }
-
         return true;
     }
     

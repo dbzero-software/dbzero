@@ -28,7 +28,7 @@ namespace db0
 		void init(const std::byte *begin, const std::byte *end);
 
 		void init(const std::vector<std::byte> &);
-
+		
 		inline const std::byte *get() const
 		{
 			if (begin >= end) {
@@ -42,10 +42,6 @@ namespace db0
 		}
 
 		inline operator const std::byte*() const {
-			return get();
-		}
-
-		inline operator const std::byte*() {
 			return get();
 		}
 

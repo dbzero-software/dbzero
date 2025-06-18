@@ -102,7 +102,8 @@ namespace db0
         }
         
         // Check if the address is valid (allocated) with the underlying allocator
-        bool isAddressValid(Address) const;
+        // and retrieve the allocation size (on request)
+        bool isAddressValid(Address, std::size_t *size_of_result = nullptr) const;
         
         // Calcuate page number for a specific address (not validated)
         inline std::uint64_t getPageNum(Address address) const {

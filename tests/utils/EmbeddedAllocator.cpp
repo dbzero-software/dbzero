@@ -33,8 +33,16 @@ namespace db0
         return it->second;
     }
     
-    bool EmbeddedAllocator::isAllocated(Address address) const {
-        return m_allocations.find(address) != m_allocations.end();
+    bool EmbeddedAllocator::isAllocated(Address address, std::size_t *size_of_result) const
+    {
+        auto it = m_allocations.find(address);
+        if (it == m_allocations.end()) {
+            return false;
+        }
+        if (size_of_result) {
+            *size_of_result = it->second;
+        }
+        return true;        
     }
     
     void EmbeddedAllocator::commit() const {

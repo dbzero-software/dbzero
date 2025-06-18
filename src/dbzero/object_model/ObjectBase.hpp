@@ -160,6 +160,26 @@ namespace db0
             assert(hasInstance());
             return (*this)->m_header.m_instance_id;
         }
+
+        static bool checkUnload(db0::swine_ptr<Fixture> &fixture, Address address) {
+            return fixture->isAddressValid(address);
+        }
+        
+        // Check if unload operation would be successful without actually performing it
+        static bool checkUnload(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
+        {
+            std::size_t size_of = 0;
+            if (!fixture->isAddressValid(address, &size_of)) {
+                return false;
+            }
+            // validate instance ID only if provided
+            if (instance_id) {
+                // NOTE: here we use trusted size_of retrieved from the allocator
+                auto stem = BaseT(db0::tag_verified(), fixture->myPtr(address), size_of);
+                return stem->m_header.m_instance_id == instance_id;
+            }
+            return true;
+        }
         
     protected:
         friend class db0::GC0;
@@ -191,7 +211,7 @@ namespace db0
             has_fixture<BaseT>::operator=(std::move(other));
             assert(!other.hasInstance());
         }
-        
+                
     private:
         // Flag indicating if the instance is registered in GC0
         mutable bool m_gc_registered = false;

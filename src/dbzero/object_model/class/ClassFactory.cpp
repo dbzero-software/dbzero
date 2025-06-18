@@ -230,6 +230,12 @@ namespace db0::object_model
         return getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(classRefToAddress(class_ref)), lang_type);
     }
     
+    ClassFactory::ClassItem ClassFactory::tryGetTypeByClassRef(std::uint32_t class_ref,
+        TypeObjectPtr lang_type) const 
+    {
+        return tryGetTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(classRefToAddress(class_ref)), lang_type);
+    }
+
     std::uint32_t ClassFactory::classRef(const Class &db0_class)
     {
         auto address = db0_class.getAddress();
@@ -241,13 +247,16 @@ namespace db0::object_model
         return Address::fromOffset(class_ref);
     }
     
-    ClassFactory::ClassItem ClassFactory::getTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const
+    ClassFactory::ClassItem ClassFactory::tryGetTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const
     {
         auto it_cached = m_ptr_cache.find(ptr);
         if (it_cached == m_ptr_cache.end()) {
             // Since ptr points to existing instance, we can simply pull it from backend
             // note that Class has no associated language specific type object yet
             auto fixture = getFixture();
+            if (!Class::checkUnload(fixture, ptr.getAddress())) {
+                return {};
+            }
             auto type = std::shared_ptr<Class>(new Class(fixture, ptr.getAddress()));
             // try looking-up language specific type with the TypeManager
             if (!lang_type) {
@@ -268,6 +277,15 @@ namespace db0::object_model
         return it_cached->second;
     }
     
+    ClassFactory::ClassItem ClassFactory::getTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const
+    {
+        auto result = tryGetTypeByPtr(ptr, lang_type);
+        if (!result) {
+            THROWF(db0::InputException) << "Class not found: " << ptr.getAddress();
+        }
+        return result;
+    }
+
     void ClassFactory::flush() const
     {
         // flush from class specific schema builders

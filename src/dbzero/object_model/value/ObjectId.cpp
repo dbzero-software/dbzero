@@ -11,18 +11,22 @@ namespace db0::object_model
     std::function<void()> ObjectId::m_throw_func = []() {
         THROWF(db0::InputException) << "Invalid UUID";
     };
-
-    ObjectId ObjectId::fromBase32(const char *buf)
-    {
+    
+    bool ObjectId::operator!() const {
+        return !m_fixture_uuid || !m_address.isValid() || m_storage_class == db0::StorageClass::UNDEFINED;
+    }
+    
+    ObjectId ObjectId::tryFromBase32(const char *buf)
+    {        
         if (strlen(buf) > maxEncodedSize()) {
-            THROWF(db0::InputException) << "Invalid UUID: " << buf;
+            return {};
         }
 
         // allocate +1 byte since decoded content might be up to 1 byte larger
         std::array<std::byte, maxSize() + 1> bytes;
         auto size = db0::base32_decode(buf, reinterpret_cast<std::uint8_t*>(bytes.data()));   
         if (size < minSize()) {
-            THROWF(db0::InputException) << "Invalid UUID: " << buf;
+            return {};
         }
         
         auto at = bytes.data(), end = bytes.data() + size;
@@ -30,9 +34,22 @@ namespace db0::object_model
         auto fixture_uuid = db0::serial::readSimple<std::uint64_t>(at, end, m_throw_func); 
         auto address = UniqueAddress::fromValue(db0::serial::read<packed_int64>(at, end, m_throw_func));
         auto storage_class = db0::serial::read<db0::packed_int32>(at, end, m_throw_func).value();
+        // NOTE: due to encoding we may be left with 1 extra byte
+        if ((end - at) > 1) {
+            return {};
+        }
         return { fixture_uuid, address, static_cast<db0::StorageClass>(storage_class) };
     }
-    
+
+    ObjectId ObjectId::fromBase32(const char *buf)
+    {        
+        auto result = tryFromBase32(buf);
+        if (!result) {
+            THROWF(db0::InputException) << "Invalid UUID: " << buf;
+        }
+        return result;    
+    }
+
     std::size_t ObjectId::toBase32(char *buffer) const
     {
         std::array<std::byte, maxSize()> bytes;

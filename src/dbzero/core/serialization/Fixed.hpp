@@ -68,16 +68,16 @@ namespace db0
         static inline std::size_t measure(Args &&... ) {
             return true_size_of<T>();
         }
-
+        
         /**
          * safe object reference (buffer bounds validated by buf_t)
          */
-        template<typename buf_t> static T &__safe_ref(buf_t buf) 
-        {            
+        template<typename buf_t> static T &__safe_ref(buf_t buf)
+        {
             const std::byte *_buf = buf;
             // validate bounds here
             buf += true_size_of<T>();
-            return __ref(_buf);
+            return __ref(const_cast<std::byte*>(_buf));
         }
         
         template <typename buf_t> static const T &__safe_const_ref(buf_t buf)
