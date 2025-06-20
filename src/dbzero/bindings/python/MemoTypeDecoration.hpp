@@ -7,10 +7,11 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "Migration.hpp"
-#include <dbzero/core/memory/AccessOptions.hpp>
 #include <functional>
 #include <atomic>
 #include <optional>
+#include <dbzero/core/memory/AccessOptions.hpp>
+#include <dbzero/workspace/PrefixName.hpp>
 
 namespace db0::python
 
@@ -47,16 +48,16 @@ namespace db0::python
 
         // @return nullptr if no prefix name is set
         inline const char *tryGetPrefixName() const {
-            return m_prefix_name_ptr;
+            return m_prefix_name.isValid() ? m_prefix_name.c_str() : nullptr; 
         }
-
+        
         // @return nullptr if no type id is set
         inline const char *tryGetTypeId() const {
             return m_type_id;
         }
-
-        // @return empty string if no prefix name is set
-        const char *getPrefixName() const;
+        
+        // NOTE: may return invalid / empty prefix name
+        const db0::PrefixName &getPrefixName() const;
         // @return variables potentially asignable during the type initialization
         const std::vector<std::string> &getInitVars() const;
         
@@ -85,7 +86,7 @@ namespace db0::python
     private:
         // module where the type is defined
         shared_py_object<PyObject*> m_py_module;
-        const char *m_prefix_name_ptr = 0;
+        PrefixName m_prefix_name;
         const char *m_type_id = 0;
         const char *m_file_name = 0;
         // variables potentially asignable during the type initialization

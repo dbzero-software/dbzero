@@ -39,7 +39,7 @@ namespace db0
         */
         virtual db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const = 0;
         
-        virtual bool close(const PrefixName &prefix_name) = 0;
+        virtual bool close(const PrefixName &) = 0;
         
         /**
          * Close all prefixes, commit all data from read/write prefixes
@@ -55,7 +55,7 @@ namespace db0
         db0::swine_ptr<Fixture> findFixture(const PrefixName &) const;
         
         db0::swine_ptr<Fixture> getFixture(
-            const PrefixName &prefix_name, std::optional<AccessType> = AccessType::READ_WRITE);
+            const PrefixName &, std::optional<AccessType> = AccessType::READ_WRITE);
         
         db0::swine_ptr<Fixture> getFixture(std::uint64_t uuid, std::optional<AccessType> = {});
         

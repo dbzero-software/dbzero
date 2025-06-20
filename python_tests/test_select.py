@@ -136,3 +136,39 @@ def test_select_new_miltiple_prefixes(db0_fixture, memo_tags):
     with SnapshotWindow(state_1, state_2, DATA_PX) as (pre_snap, last_snap):
         assert len(db0.select_new(db0.find(MemoDataPxClass), pre_snap, last_snap)) == 1
     
+
+@db0.memo(prefix="some/test/prefix")
+class TestClassWithPrefix:
+    def __init__(self, value):
+        self.value = value        
+
+
+@db0.memo(prefix="/some/test/prefix/x")
+class TestClassWithPrefixStartingWithSlash:
+    def __init__(self, value):
+        self.value = value
+
+
+@pytest.mark.parametrize("ClassType,prefix", [(TestClassWithPrefixStartingWithSlash, "/some/test/prefix/x"),
+                                              (TestClassWithPrefix, "some/test/prefix")])
+def test_select_with_prefix(db0_fixture, ClassType, prefix):
+    obj = ClassType(9999)
+    db0.tags(obj).add("tag1")
+    db0.commit()
+    
+    obj_x = ClassType(9999)
+    db0.tags(obj).add("tag1")
+    db0.commit()    
+    
+    state_1 = db0.get_state_num(prefix, finalized = True)
+    snap_1 = db0.snapshot()
+    obj_y = ClassType(9999)
+    db0.tags(obj_y).add("tag1")
+    db0.commit()
+    state_2 = db0.get_state_num(prefix, finalized = True)
+    snap_2 = db0.snapshot()
+
+    assert len(db0.select_new(db0.find(ClassType), snap_1, snap_2)) == 1
+
+    with SnapshotWindow(state_1, state_2, prefix) as (pre_snap, last_snap):
+        assert len(db0.select_new(db0.find(ClassType), pre_snap, last_snap)) == 1    

@@ -10,11 +10,11 @@ namespace tests
 
 {
 
-    class PackeIntTest : public testing::Test 
+    class PackedIntTest : public testing::Test 
     {
     };
 
-    TEST_F( PackeIntTest, testCanProperlyEncodeDecodeNullablePackedInt )
+    TEST_F( PackedIntTest, testCanProperlyEncodeDecodeNullablePackedInt )
     {
         using T = db0::o_packed_int<std::uint32_t, true>;
         std::vector<std::uint32_t> values { 127, 0, 1, 63, 64, 127, 128, 255, 256, 187123, 9372724, 3837482273 };
@@ -31,7 +31,7 @@ namespace tests
         }
     }
 
-    TEST_F( PackeIntTest, testCanProperlyEncodeNullValue ) 
+    TEST_F( PackedIntTest, testCanProperlyEncodeNullValue ) 
     {
         using T = db0::o_packed_int<std::uint32_t, true>;
         // expected size for null element is 1
@@ -41,15 +41,15 @@ namespace tests
         ASSERT_TRUE(packed_value.isNull());
     }
 
-    TEST_F( PackeIntTest, testThrowsOnAttemptToDecodeNullValue )
+    TEST_F( PackedIntTest, testThrowsOnAttemptToDecodeNullValue )
     {
         using T = db0::o_packed_int<std::uint32_t, true>;
         std::vector<char> buf(T::measure());
         auto &packed_value = T::__new(buf.data());
         ASSERT_ANY_THROW(packed_value.value());
     }
-
-    TEST_F( PackeIntTest, testPackedIntMeasure )
+    
+    TEST_F( PackedIntTest, testPackedIntMeasure )
     {
         ASSERT_EQ(1u, db0::packed_int32::measure(2u));
     }

@@ -455,7 +455,7 @@ namespace db0::python
         auto &type_manager = PyToolkit::getTypeManager();
         auto type_info = MemoTypeDecoration(
             py_module,
-            type_manager.getPooledString(prefix_name), 
+            prefix_name,
             type_manager.getPooledString(type_id),
             type_manager.getPooledString(file_name),
             std::move(init_vars),
