@@ -81,9 +81,6 @@ namespace db0
         }
 
         std::size_t calculateSpan() const;
-        
-        std::uint64_t calculateOffset(std::uint64_t base_addr, std::size_t m_shift, std::size_t m_alloc_size,
-            int direction) const;            
     };
 
     template <typename BitSetT> BitsetAllocator<BitSetT>::BitsetAllocator(BitSetT &&bitset, Address base_addr,
@@ -95,16 +92,6 @@ namespace db0
         , m_shift(direction > 0 ? 0 : alloc_size)        
         , m_span(calculateSpan())        
     {
-    }
-
-    template <typename BitSetT> std::uint64_t BitsetAllocator<BitSetT>::calculateOffset(std::uint64_t base_addr,
-        std::size_t shift, std::size_t alloc_size, int direction) const
-    {        
-        if (direction > 0) {
-             return m_base_addr - m_shift;
-        } else {
-            return m_base_addr - m_shift - (BitSetT::size() - 1) * m_alloc_size;
-        }
     }
     
     template <typename BitSetT> std::optional<Address>

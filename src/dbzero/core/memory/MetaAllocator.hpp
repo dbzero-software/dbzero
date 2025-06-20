@@ -56,12 +56,14 @@ namespace db0
         struct [[gnu::packed]] CapacityItem
         {
             std::uint32_t m_remaining_capacity;
+            std::uint32_t m_lost_capacity;
             std::uint32_t m_slab_id;
             
             CapacityItem() = default;
 
-            CapacityItem(std::uint32_t remaining_capacity, std::uint32_t slab_id)
+            CapacityItem(std::uint32_t remaining_capacity, std::uint32_t lost_capacity, std::uint32_t slab_id)
                 : m_remaining_capacity(remaining_capacity)
+                , m_lost_capacity(lost_capacity)
                 , m_slab_id(slab_id)
             {
             }
@@ -104,13 +106,15 @@ namespace db0
         {
             std::uint32_t m_slab_id;
             std::uint32_t m_remaining_capacity;
+            std::uint32_t m_lost_capacity;
             
-            SlabDef(std::uint32_t slab_id, std::uint32_t remaining_capacity)
+            SlabDef(std::uint32_t slab_id, std::uint32_t remaining_capacity, std::uint32_t lost_capacity)
                 : m_slab_id(slab_id)
                 , m_remaining_capacity(remaining_capacity)
+                , m_lost_capacity(lost_capacity)
             {
             }
-
+            
             struct CompT
             {
                 inline bool operator()(const SlabDef &lhs, const SlabDef &rhs) const {                    

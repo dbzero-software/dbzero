@@ -192,7 +192,8 @@ namespace db0
             auto address = m_slab_address_func(slab_id);
             // create the new slab
             auto capacity = SlabAllocator::formatSlab(m_prefix, address, m_slab_size, m_page_size);
-            auto slab = std::make_shared<SlabAllocator>(m_prefix, address, m_slab_size, m_page_size, capacity);
+            // NOTE: for a new slab, the initial lost capacity is 0
+            auto slab = std::make_shared<SlabAllocator>(m_prefix, address, m_slab_size, m_page_size, capacity, 0);
             return { slab, slab_id };
         }
         
@@ -203,9 +204,16 @@ namespace db0
         {
             auto [slab, slab_id] = createNewSlab();
             auto address = m_slab_address_func(slab_id);
-            CapacityItem cap_item { static_cast<std::uint32_t>(slab->getRemainingCapacity()), slab_id };            
+            CapacityItem cap_item { 
+                static_cast<std::uint32_t>(slab->getRemainingCapacity()), 
+                static_cast<std::uint32_t>(slab->getLostCapacity()),
+                slab_id
+            };
             // register with slab defs
-            m_slab_defs.emplace(slab_id, static_cast<std::uint32_t>(cap_item.m_remaining_capacity));
+            m_slab_defs.emplace(slab_id,
+                static_cast<std::uint32_t>(cap_item.m_remaining_capacity), 
+                static_cast<std::uint32_t>(cap_item.m_lost_capacity)
+            );
             // register with capacity items
             m_capacity_items.insert(cap_item);
             // add to cache
@@ -214,6 +222,7 @@ namespace db0
             // capture remaining capacity before instance is closed
             slab->setOnCloseHandler([cache_item](const SlabAllocator &alloc) {
                 cache_item->m_final_remaining_capacity = alloc.getRemainingCapacity();
+                cache_item->m_final_lost_capacity = alloc.getLostCapacity();
             });
             
             // append with the recycler
@@ -294,9 +303,13 @@ namespace db0
         {
             auto [slab, slab_id] = createNewSlab();
             // internally register the slab with capacity = 0
-            CapacityItem cap_item { 0, slab_id };
+            CapacityItem cap_item { 0, 0, slab_id };
             // register with slab defs
-            m_slab_defs.emplace(slab_id, static_cast<std::uint32_t>(cap_item.m_remaining_capacity));
+            m_slab_defs.emplace(
+                slab_id, 
+                static_cast<std::uint32_t>(cap_item.m_remaining_capacity), 
+                static_cast<std::uint32_t>(cap_item.m_lost_capacity)
+            );
             // register with capacity items
             m_capacity_items.insert(cap_item);
             return slab;
@@ -388,25 +401,34 @@ namespace db0
             CapacityItem m_cap_item;
             // the slab's remaining capacity refreshed when SlabAllocator gets destroyed
             std::uint32_t m_final_remaining_capacity = 0;
+            std::uint32_t m_final_lost_capacity = 0;
 
             CacheItem(std::weak_ptr<SlabAllocator> slab, CapacityItem cap)
                 : m_slab(slab)
                 , m_cap_item(cap)
+                , m_final_remaining_capacity(cap.m_remaining_capacity)
+                , m_final_lost_capacity(cap.m_lost_capacity)
             {
             }
 
-            void commit() const 
+            void commit() const
             {
                 if (auto slab = m_slab.lock()) {
                     slab->commit();
                 }
             }
 
-            void detach() const 
+            void detach() const
             {
                 if (auto slab = m_slab.lock()) {
                     slab->detach();
                 }
+            }
+
+            // Check if any of the properties changed when compared to "capacity item"
+            bool isModified() const {
+                return m_final_remaining_capacity != m_cap_item.m_remaining_capacity ||
+                    m_final_lost_capacity != m_cap_item.m_lost_capacity;
             }
         };
         
@@ -437,15 +459,20 @@ namespace db0
             
             auto &item = *cache_item;
             // if the remaining capacity has hanged, reflect this with backend
-            if (item.m_final_remaining_capacity != item.m_cap_item.m_remaining_capacity) {
+            if (item.isModified()) {
                 auto slab_id = item.m_cap_item.m_slab_id;
-                auto it = m_capacity_items.find_equal(item.m_cap_item);
-                // register under a modified key
-                m_capacity_items.erase(it);
-                m_capacity_items.emplace(item.m_final_remaining_capacity, slab_id);
+                if (item.m_final_remaining_capacity != item.m_cap_item.m_remaining_capacity) {
+                    auto it = m_capacity_items.find_equal(item.m_cap_item);
+                    // register under a modified key
+                    m_capacity_items.erase(it);
+                    m_capacity_items.emplace(
+                        item.m_final_remaining_capacity, item.m_final_lost_capacity, slab_id
+                    );
+                }
                 // and update with the slab defs
-                auto slab_def_ptr = m_slab_defs.find_equal(slab_id);
+                auto slab_def_ptr = m_slab_defs.find_equal(slab_id);      
                 m_slab_defs.modify(slab_def_ptr)->m_remaining_capacity = item.m_final_remaining_capacity;
+                m_slab_defs.modify(slab_def_ptr)->m_lost_capacity = item.m_final_lost_capacity;
             }
             return m_slabs.erase(it);
         }
@@ -461,7 +488,7 @@ namespace db0
                 // unregister expired slab from cache
                 unregisterSlab(it);
             }
-
+            
             auto slab_id = m_slab_id_func(address);
             // retrieve slab definition
             auto slab_def_ptr = m_slab_defs.find_equal(slab_id);
@@ -477,15 +504,18 @@ namespace db0
         // open slab by definition and add to cache
         FindResult openSlab(const SlabDef &def)
         {
-            auto cap_item = CapacityItem(def.m_remaining_capacity, def.m_slab_id);
+            auto cap_item = CapacityItem(def.m_remaining_capacity, def.m_lost_capacity, def.m_slab_id);
             auto addr = m_slab_address_func(def.m_slab_id);
-            auto slab = std::make_shared<SlabAllocator>(m_prefix, addr, m_slab_size, m_page_size, def.m_remaining_capacity);
+            auto slab = std::make_shared<SlabAllocator>(
+                m_prefix, addr, m_slab_size, m_page_size, def.m_remaining_capacity, def.m_lost_capacity
+            );
             // add to cache (it's safe to reference item from the unordered_map)
             auto cache_item = std::make_shared<CacheItem>(slab, cap_item);
             m_slabs.emplace(addr, cache_item).first->second;
             // capture remaining capacity before instance is closed
             slab->setOnCloseHandler([cache_item](const SlabAllocator &alloc) {
                 cache_item->m_final_remaining_capacity = alloc.getRemainingCapacity();
+                cache_item->m_final_lost_capacity = alloc.getLostCapacity();
             });
             
             // append with the recycler

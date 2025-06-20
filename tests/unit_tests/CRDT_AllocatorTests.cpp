@@ -43,7 +43,7 @@ namespace tests
         using AlignedBlankSetT = db0::CRDT_Allocator::AlignedBlankSetT;
         using StripeSetT = db0::CRDT_Allocator::StripeSetT;
 
-        static constexpr unsigned int MAX_ADDRESS = 1000;
+        static constexpr unsigned int MAX_ADDRESS = 2000;
         db0::TestWorkspace m_workspace;
         static constexpr std::size_t page_size = 4096;
         db0::Memspace m_memspace;
@@ -140,7 +140,7 @@ namespace tests
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFillMapAll )
     {
         auto size = db0::crdt::SIZE_MAP[0];
-        db0::CRDT_Allocator::FillMap fill_map(size);
+        db0::CRDT_Allocator::FillMap fill_map(size, false);
         ASSERT_EQ(fill_map.size(), size);
         for (unsigned int i = 0;i < size;++i) {
             fill_map.allocUnit();
@@ -163,10 +163,10 @@ namespace tests
             ASSERT_EQ(cut.getAllocSize(addresses[i]), sizes[i]);
         }
     }
-
+    
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFreeFromAllocs )
     {
-        db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
+        db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, 64 * page_size, page_size);
         std::vector<std::size_t> sizes = { 16, 16, 16, 1, 2, 4 };
         std::vector<std::uint64_t> addresses;
         
@@ -176,11 +176,11 @@ namespace tests
         
         ASSERT_EQ(m_blanks->size(), 1);
         ASSERT_EQ(m_stripes->size(), 4);
-
+        
         cut.free(addresses[0]);
         cut.free(addresses[1]);
         cut.free(addresses[2]);
-        // afer removing the 16-byte stripe, the new blank should be created
+        // after removing the 16-byte stripe, the new blank should be created
         ASSERT_EQ(m_blanks->size(), 2);
         ASSERT_EQ(m_stripes->size(), 3);
 
@@ -258,13 +258,16 @@ namespace tests
         ASSERT_NO_THROW(cut.alloc(15));
         ASSERT_NO_THROW(cut.alloc(31));
     }
-
+    
     TEST_F( CRDT_AllocatorTests , testCRDT_AllocatorFromStripeCanBeConstrainedWithDynamicBounds )
     {
-        auto admin_span = page_size * 4;
+        std::uint32_t admin_span = 200;
         std::uint32_t dynamic_bound = MAX_ADDRESS;
-        auto bounds_fn = [admin_span, &dynamic_bound]() -> std::pair<std::uint32_t, std::uint32_t> {
-            return { dynamic_bound - admin_span, dynamic_bound };
+        auto bounds_fn = [admin_span, &dynamic_bound]() -> std::tuple<std::uint32_t, std::uint32_t, std::uint32_t> {
+            std::uint32_t b2 = dynamic_bound;
+            std::uint32_t b1 = (b2 >= admin_span) ? b2 - admin_span : 0;
+            std::uint32_t b0 = (b1 >= admin_span) ? b1 - admin_span : 0;
+            return { b0, b1, b2 };
         };
         
         db0::CRDT_Allocator cut(*m_allocs, *m_blanks, *m_aligned_blanks, *m_stripes, MAX_ADDRESS, page_size);
@@ -276,7 +279,7 @@ namespace tests
         }
 
         // update dynamic bound to the last assigned address (plus admin margin)
-        dynamic_bound = max_addr + admin_span;
+        dynamic_bound = max_addr + 2 * admin_span;
         std::optional<std::uint64_t> alloc;
         // all subsequent allocations must be within the updated bounds
         while ((alloc = cut.tryAlloc(4))) {
