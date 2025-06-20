@@ -61,10 +61,11 @@ namespace db0
          * @param size the size of the slab (in bytes)
          * @param page_size the size of a single page used by the underlying BitSpace / BitSetAllocator
          * @param remaining_capacity the remaining capacity if known
+         * @param remaining_capacity allocator's lost capacity if known
         */
         SlabAllocator(std::shared_ptr<Prefix> prefix, Address begin_addr, std::uint32_t size, std::size_t page_size,
-            std::optional<std::size_t> remaining_capacity = {});
-
+            std::optional<std::size_t> remaining_capacity = {}, std::optional<std::size_t> lost_capacity = {});
+        
         virtual ~SlabAllocator();
         
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
@@ -112,6 +113,9 @@ namespace db0
          * Get estimated remaining capacity (if initialized with remaining capacity, otherwise throws)
         */
         std::size_t getRemainingCapacity() const;
+        
+        // Get allocator's (possibly irrecoverably) lost capacity
+        std::size_t getLostCapacity() const;
         
         const Prefix &getPrefix() const;
 
@@ -182,6 +186,7 @@ namespace db0
         LimitedVectorT m_alloc_counter;
         CRDT_Allocator m_allocator;
         const std::optional<std::size_t> m_initial_remaining_capacity;
+        const std::optional<std::size_t> m_initial_lost_capacity;
         std::size_t m_initial_admin_size;        
         std::function<void(const SlabAllocator &)> m_on_close_handler;
         

@@ -14,25 +14,37 @@ namespace db0
     {
         
         using bitarray_t = std::uint64_t;
-        // static constexpr std::uint32_t SIZE_MAP[4] = { 30, 16, 8, 1 };
-        static constexpr std::uint32_t SIZE_MAP[4] = { 62, 24, 8, 1 };
+        static constexpr std::uint32_t SIZE_MAP[4] = { 56, 24, 8, 1 };
         static constexpr bitarray_t NSIZE = sizeof(SIZE_MAP) / sizeof(std::uint32_t);
         static constexpr int L0_CACHE_SIZE = 4;
-
+        static constexpr std::uint64_t HAS_STRIPE_BIT = (bitarray_t)0x01 << (SIZE_MAP[0] + 2);
+        // flag indicating the "lost stripe" (see free method)
+        static constexpr std::uint64_t LOST_STRIPE_BIT = HAS_STRIPE_BIT << 1;
+        
         static constexpr bitarray_t mask(unsigned int index) {
             return ((bitarray_t)0x01 << SIZE_MAP[index]) - 1;
         };
-
-        static constexpr bitarray_t m_masks[4] = {
+        
+        static constexpr bitarray_t MASKS[4] = {
             mask(0), mask(1), mask(2), mask(3)
         };
         
+        // Fill-map's size encoding bits
         static constexpr bitarray_t SIZE_MASK() {
             return (bitarray_t)0x03 << SIZE_MAP[0];
         }
 
         static constexpr bitarray_t NSIZE_MASK() {
             return ~SIZE_MASK();
+        }    
+
+        // Fill-map reserved bits (i.e. size + flags)
+        static constexpr bitarray_t RESERVED_MASK() {
+            return ((bitarray_t)0x03 << SIZE_MAP[0]) | HAS_STRIPE_BIT | LOST_STRIPE_BIT;
+        }
+        
+        static constexpr bitarray_t NRESERVED_MASK() {
+            return ~RESERVED_MASK();
         }
     
     }
@@ -54,22 +66,28 @@ namespace db0
 
         struct [[gnu::packed]] FillMap
         {            
-            // the low 62 (or 30) bits are used to encode unit allocations,
-            // the highest 2 bits are used to encode size (30, 16, 8, or 1)
+            // the low 1 - 56 bits are used to encode unit allocations
+            // the high 2 bits (i.e. 57 - 58) are used to encode size (56, 24, 8, or 1)
+            // bit #59 is used to indicate that the associated stripe exists
+            // other bit are unused and may be assumed 0
             crdt::bitarray_t m_data = 0;
 
             FillMap() = default;
-            FillMap(std::uint32_t size);
+            FillMap(std::uint32_t size, bool has_stripe);
             
             bool operator[](unsigned int index) const;
 
+            inline std::uint32_t sizeId() const {
+                return (m_data & crdt::SIZE_MASK()) >> crdt::SIZE_MAP[0];
+            }
+            
             inline std::uint32_t size() const {
-                return crdt::SIZE_MAP[m_data >> crdt::SIZE_MAP[0]];
+                return crdt::SIZE_MAP[sizeId()];
             }
 
             /// Tests if all units are allocated
             inline bool all() const {
-                return (m_data & crdt::NSIZE_MASK()) == crdt::m_masks[m_data >> crdt::SIZE_MAP[0]];
+                return (m_data & crdt::NRESERVED_MASK()) == crdt::MASKS[this->sizeId()];
             }
             
             bool empty() const;
@@ -100,13 +118,24 @@ namespace db0
 
             // Check if downsize by a specific number of units is possible
             bool canDownsize(unsigned int min_units) const;
-
-            /**
-             * Get the number of unused units (high order bits)
-            */
+            
+            // Get the number of unused units (high order bits)
             unsigned int unused() const;
 
             std::uint32_t span() const;
+            
+            // Set or reset the "has stripe" flag
+            void setHasStripe(bool has_stripe);
+            void setLostStripe();
+            
+            inline bool hasStripe() const {
+                return m_data & crdt::HAS_STRIPE_BIT;
+            }
+
+            // Check if any of the stripe flags is set (has stripe or lost stripe)
+            inline bool stripeFlags() const {
+                return m_data & (crdt::HAS_STRIPE_BIT | crdt::LOST_STRIPE_BIT);
+            }
         };
 
         struct Stripe;
@@ -120,8 +149,8 @@ namespace db0
             FillMap m_fill_map;
             
             Alloc() = default;
-            Alloc(std::uint32_t address, std::uint32_t stride, std::uint32_t size);
-
+            Alloc(std::uint32_t address, std::uint32_t stride, std::uint32_t size, bool has_stripe);
+            
             struct CompT
             {
                 inline bool operator()(const Alloc &lhs, const Alloc &rhs) const {
@@ -163,16 +192,30 @@ namespace db0
              * Get span of the allocated addresses (as number of bytes)
             */
             std::uint32_t span() const;
-
-            /**
-             * The reserved number of units
-            */
+            
+            // The reserved number of units        
             std::uint32_t getUnitCount() const {
                 return m_fill_map.size();
             }
-            
+
+            inline bool empty() const {
+                return m_fill_map.empty();
+            }
+
             inline bool isFull() const {
                 return m_fill_map.all();
+            }
+            
+            // Set or reset the "has stripe" flag
+            void setHasStripe(bool has_stripe);
+            void setLostStripe();
+            
+            inline bool hasStripe() const {
+                return m_fill_map.hasStripe();
+            }
+
+            inline bool stripeFlags() const {
+                return m_fill_map.stripeFlags();
             }
 
             /**
@@ -224,6 +267,9 @@ namespace db0
              * Calculate the address past the last allocated unit
             */
             std::uint32_t endAddr() const;
+            
+            // Get total capacity
+            std::uint32_t capacity() const;
         };
         
         struct Blank
@@ -337,12 +383,13 @@ namespace db0
         using BlankSetT = db0::SGB_Tree<Blank, Blank::CompT, Blank::EqualT, std::uint16_t, Address>;
         using AlignedBlankSetT = db0::SGB_Tree<Blank, Blank::AlignedCompT, Blank::EqualT, std::uint16_t, Address>;
         using StripeSetT = db0::SGB_Tree<Stripe, Stripe::CompT, Stripe::EqualT, std::uint16_t, Address>;
-
+        
     public:
-        // The bounds function returns the recommended bound (first)
-        // and the hard bound (second). The recommended bound includes a margin allowing underlying collections
-        // to grow by +1 page. The hard bound cannot be exceeded by any of the allocations
-        using BoundsFunctionT = std::function<std::pair<std::uint32_t, std::uint32_t>()>;
+        // The bounds function returns the yellow, red and black bounds
+        // The "yellow" bound includes a margin allowing ALL underlying collections to grow to accomodate at least 1 new allocation
+        // The space is assumed as fully occupied after crossing the "yellow" bound
+        // The "black" bound cannot be exceeded by any of the allocations
+        using BoundsFunctionT = std::function<std::tuple<std::uint32_t, std::uint32_t, std::uint32_t>()>;
 
         /**
          * Construct the allocator from initialized containers
@@ -389,6 +436,10 @@ namespace db0
             return m_alloc_delta;
         }
 
+        std::int64_t getLossDelta() const {
+            return m_loss_delta;
+        }
+        
         /**
          * Get address of the 1st allocation
         */
@@ -413,6 +464,8 @@ namespace db0
         // size of the space available to the allocator (i.e. a single slab)
         std::uint32_t m_size;
         const std::uint32_t m_page_size;
+        // a margin allowing at least one safe append to single meta-data collection
+        const std::uint32_t m_critical_margin;
         const std::uint32_t m_min_aligned_alloc_size;
         const std::uint32_t m_shift;
         const std::uint32_t m_mask;
@@ -420,8 +473,10 @@ namespace db0
         // the highest allocated address
         std::uint32_t m_max_addr = 0;
         // the cummulative size of performed allocations / deallocations since creation of this instance
-        // can be a negative number
+        // can be a negative number (NOTE: some deallocations may not reclaim space)
         std::int64_t m_alloc_delta = 0;
+        // the cummulative size of the "lost" capacity (i.e. lost stripes)
+        std::int64_t m_loss_delta = 0;
         // the purpose of this cache is to speed up allocations of identical size sequences
         mutable std::unique_ptr<L0_Cache<crdt::L0_CACHE_SIZE> > m_cache;
         
@@ -458,29 +513,32 @@ namespace db0
         // Get first accessible address from the blank from a given index
         // the purpose of this function is to be able to retrieve aligned addresses if blank comes from the aligned index
         template <typename IndexT> std::uint32_t getFirstAddress(const IndexT &, const Blank &) const;
-
+        
         /**
          * Check if the unit taken from this allocation would be within current dynamic bounds (if set)
         */
         bool inBounds(const Alloc &, std::optional<std::uint32_t> &cache) const;
-
+        
         // Erase either from blanks or from aligned blanks
-        template <typename IndexT> void erase(IndexT &index, const Blank &);
+        template <typename IndexT> void eraseBlank(IndexT &index, const Blank &);
         template <typename IndexT> bool isAlignedIndex(const IndexT &index) const;
-
+        
         // Find blank of a given minimal size and remove it from a specific index
         template <typename IndexT> std::optional<Blank> tryPullBlank(IndexT &index, std::uint32_t min_size);
-
+        
         // Erase record from the corresponding indexes (m_blanks / m_aligned_blanks)
-        void erase(const Blank &);        
+        void eraseBlank(const Blank &);
         // Insert with proper indexes (m_blanks / m_aligned_blanks)
         void insertBlank(const Blank &);
         
         // Checks if the aligned size is in the range 0 < aligned size < 1DP
         bool isAligned(const Blank &) const;
         
-        // check if max_addr crossed the dynamic bounds (first watermark)
+        bool greenZone() const;
+        // check if max_addr crossed the dynamic bounds (red watermark)
         bool redZone() const;
+        // critical zone is when no more meta-data can be safely appended
+        bool criticalZone() const;
     };
     
     template <typename IndexT> bool CRDT_Allocator::inBounds(const IndexT &index, const Blank &blank, std::uint32_t size,
@@ -488,7 +546,7 @@ namespace db0
     {
         // this is to avoid unnecessary calls to bounds_fn
         if (!cache && m_bounds_fn) {
-            cache = m_bounds_fn().first;
+            cache = std::get<0>(m_bounds_fn());
         }
         if (cache) {
             return getFirstAddress(index, blank) + size <= *cache;
@@ -503,7 +561,7 @@ namespace db0
     }
     
     template <typename IndexT>
-    void CRDT_Allocator::erase(IndexT &index, const Blank &blank)
+    void CRDT_Allocator::eraseBlank(IndexT &index, const Blank &blank)
     {
         auto it = index.find_equal(blank);
         if (!it.first) {
@@ -532,11 +590,11 @@ namespace db0
             index.erase(blank_ptr);
             if (isAlignedIndex(index)) {
                 // need also to remove from regular blanks (always present)
-                erase(m_blanks, blank);
+                eraseBlank(m_blanks, blank);
             } else {
                 // need also to remove from aligned blanks (if aligned)
                 if (isAligned(blank)) {
-                    erase(m_aligned_blanks, blank);
+                    eraseBlank(m_aligned_blanks, blank);
                 }
             }
             return blank;
@@ -555,16 +613,16 @@ namespace db0
             if (it.is_end()) {
                 return std::nullopt;
             }
-
+            
             Blank blank = *it;
-            erase(index, blank);
+            eraseBlank(index, blank);
             if (isAlignedIndex(index)) {
                 // need also to remove from regular blanks (always present)
-                erase(m_blanks, blank);
+                eraseBlank(m_blanks, blank);
             } else {
                 // need also to remove from aligned blanks (if aligned)
                 if (isAligned(blank)) {
-                    erase(m_aligned_blanks, blank);
+                    eraseBlank(m_aligned_blanks, blank);
                 }
             }
             return blank;

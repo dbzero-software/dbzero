@@ -352,7 +352,7 @@ def test_null_first_select_query(db0_fixture):
         index.add(i, MemoTestClass(i))
 
     # null-first query should include null in the high-bound range
-    values = set([x.value for x in index.select(None, 1 , null_first=True)])
+    values = set([x.value for x in index.select(None, 1, null_first=True)])
     assert values == set([999, 0, 1])
 
 
@@ -692,11 +692,11 @@ def test_index_sort_desc_null_last(db0_fixture):
     
     assert [x.value for x in index.sort(index.select(), desc=False, null_first=True)] == [None, None, 555, 666, 888]
     assert [x.value for x in index.sort(index.select(), desc=False, null_first=False)] == [555, 666, 888, None, None]
-
+    
     assert [x.value for x in index.sort(index.select(), desc=True, null_first=True)] == [888, 666, 555, None, None]
     assert [x.value for x in index.sort(index.select(), desc=True, null_first=False)] == [None, None, 888, 666, 555]
     
-        
+    
 def test_index_default_sort_select_segv_issue_1(db0_fixture):
     index = db0.index()
     for p in [666, None, 555, 888, None]:

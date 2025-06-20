@@ -73,14 +73,14 @@ namespace tests
             ASSERT_EQ(sizes[i], cut.getAllocSize(addresses[i]));
         }
     }
-
+    
     TEST_F( SlabAllocatorTests , testCalculateAdminSpaceSize )
     {   
         auto calculated_size = db0::SlabAllocator::calculateAdminSpaceSize(page_size);
         // construct acutal SlabAllocator with identical parameters
         auto begin_addr = Address::fromOffset(0);
-        db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), begin_addr, page_size * 32, page_size);
-        db0::SlabAllocator cut(m_memspace.getPrefixPtr(), begin_addr, page_size * 32, page_size);
+        db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), begin_addr, page_size * 64, page_size);
+        db0::SlabAllocator cut(m_memspace.getPrefixPtr(), begin_addr, page_size * 64, page_size);
         
         ASSERT_EQ(cut.getAdminSpaceSize(false), calculated_size);
     }
@@ -93,15 +93,15 @@ namespace tests
             db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), begin_addr, page_size * 3, page_size);
         );
     }
-
+    
     TEST_F( SlabAllocatorTests , testSlabAllocatorCanDynamicallyManageAvailableSize )
     {   
         // this test if to check if the available data space is adjusted according to changing administrative space
         // create allocator over the 4-pages slab
         auto begin_addr = Address::fromOffset(0);
-        db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), begin_addr, page_size * 32, page_size);
-        db0::SlabAllocator cut(m_memspace.getPrefixPtr(), begin_addr, page_size * 32, page_size);
-                
+        db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), begin_addr, page_size * 64, page_size);
+        db0::SlabAllocator cut(m_memspace.getPrefixPtr(), begin_addr, page_size * 64, page_size);
+        
         std::vector<Address> addresses;
         // make allocations until the entire slab is occupied
         std::uint64_t max_addr = 0;
@@ -155,12 +155,12 @@ namespace tests
     
     TEST_F( SlabAllocatorTests , testSlabAllocatorCanFillAvailableCapacity )
     {
-        // 128kb slab
-        auto size_ = 128 * 1024;
+        // 256kb slab
+        auto size_ = 256 * 1024;
         auto begin_addr = Address::fromOffset(0);
         auto init_capacity = db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), begin_addr, size_, page_size);        
         db0::SlabAllocator cut(m_memspace.getPrefixPtr(), begin_addr, size_, page_size, init_capacity);
-                
+        
         std::size_t total_allocated = 0;
         // perform 100b allocations until full
         for (;;) {            
@@ -233,6 +233,33 @@ namespace tests
         auto addr2 = cut.tryMakeAddressUnique(addr);
         ASSERT_TRUE(addr2.isValid());        
         ASSERT_NE(addr1, addr2);
+    }
+    
+    TEST_F( SlabAllocatorTests , testSlabAllocatorDeallocAfterReachingCapacity )
+    {
+        auto size_ = 64 << 20;
+        auto begin_addr = Address::fromOffset(0);
+        auto init_capacity = db0::SlabAllocator::formatSlab(m_memspace.getPrefixPtr(), begin_addr, size_, page_size);        
+        db0::SlabAllocator cut(m_memspace.getPrefixPtr(), begin_addr, size_, page_size, init_capacity, 0);
+        
+        std::vector<Address> addresses;
+        // perform allocations until full
+        for (;;) {
+            auto alloc_size = rand() % 512 + 1;
+            auto addr = cut.tryAlloc(alloc_size);
+            if (!addr)
+                break;
+
+            addresses.push_back(*addr);
+        }
+
+        // release in random order
+        std::random_shuffle(addresses.begin(), addresses.end());
+        for (auto &addr: addresses) {
+            cut.free(addr);
+        }
+        
+        ASSERT_TRUE(cut.getRemainingCapacity() + cut.getLostCapacity() >= init_capacity);
     }
     
 }
