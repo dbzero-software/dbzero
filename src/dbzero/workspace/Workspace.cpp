@@ -749,7 +749,8 @@ namespace db0
         }
         
         auto workspace_view = std::shared_ptr<WorkspaceView>(
-            new WorkspaceView(const_cast<Workspace&>(*this), state_num, prefix_state_nums));
+            new WorkspaceView(const_cast<Workspace&>(*this), state_num, prefix_state_nums)
+        );
         m_views.push_back(workspace_view);
         return workspace_view;
     }

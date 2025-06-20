@@ -18,7 +18,7 @@ namespace db0::python
     
     MemoTypeDecoration::MemoTypeDecoration(MemoTypeDecoration &&other)
         : m_py_module(std::move(other.m_py_module))
-        , m_prefix_name_ptr(other.m_prefix_name_ptr)
+        , m_prefix_name(other.m_prefix_name)
         , m_type_id(other.m_type_id)
         , m_file_name(other.m_file_name)
         , m_init_vars(std::move(other.m_init_vars))
@@ -36,7 +36,7 @@ namespace db0::python
         shared_py_object<PyObject*> py_dyn_prefix_callable,
         std::vector<Migration> &&migrations)
         : m_py_module(py_module)
-        , m_prefix_name_ptr(prefix_name)
+        , m_prefix_name(prefix_name)
         , m_type_id(type_id)
         , m_file_name(file_name)
         , m_init_vars(std::move(init_vars))
@@ -49,7 +49,7 @@ namespace db0::python
     MemoTypeDecoration &MemoTypeDecoration::operator=(MemoTypeDecoration &&other)
     {
         m_py_module = std::move(other.m_py_module);
-        m_prefix_name_ptr = other.m_prefix_name_ptr;
+        m_prefix_name = other.m_prefix_name;
         m_type_id = other.m_type_id;
         m_file_name = other.m_file_name;
         m_init_vars = std::move(other.m_init_vars);
@@ -84,12 +84,12 @@ namespace db0::python
     
     std::uint64_t MemoTypeDecoration::getFixtureUUID(std::optional<AccessType> access_type)
     {
-        if (m_prefix_name_ptr && !m_fixture_uuid) {
+        if (!!m_prefix_name && !m_fixture_uuid) {
             if (!access_type) {
                 access_type = AccessType::READ_WRITE;
-            }    
+            }
             // initialize fixture by prefix name and keep UUID for future use
-            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(m_prefix_name_ptr, *access_type);
+            auto fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(m_prefix_name, *access_type);
             m_fixture_uuid = fixture->getUUID();
         }
         return m_fixture_uuid;
@@ -109,8 +109,8 @@ namespace db0::python
         return PyUnicode_AsUTF8(*py_result);
     }
     
-    const char *MemoTypeDecoration::getPrefixName() const {
-        return m_prefix_name_ptr ? m_prefix_name_ptr : "";
+    const PrefixName &MemoTypeDecoration::getPrefixName() const {
+        return m_prefix_name;
     }
 
     const std::vector<std::string> &MemoTypeDecoration::getInitVars() const {
