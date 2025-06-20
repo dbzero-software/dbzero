@@ -15,9 +15,9 @@ namespace db0
     {
         std::size_t max_slab_count = (std::numeric_limits<std::uint32_t>::max() - 2 * page_size) / slab_size - 1;
         // estimate the number of slabs for which the definitions can be stored on a single page
-        // this is a very conservative estimate
+        // this is a very conservative estimate        
         std::size_t slab_count_1 = (std::size_t)(MIN_FILL_RATE * (double)page_size / (double)sizeof(MetaAllocator::SlabDef));
-        std::size_t slab_count_2 = (std::size_t)(MIN_FILL_RATE * (double)page_size / (double)sizeof(MetaAllocator::CapacityItem));
+        std::size_t slab_count_2 = (std::size_t)(MIN_FILL_RATE * (double)page_size / (double)sizeof(MetaAllocator::CapacityItem) - 4);
         return std::min(max_slab_count, std::min(slab_count_1, slab_count_2));
     }
 
@@ -341,7 +341,7 @@ namespace db0
             auto slab_id = m_slab_id_func(address);
             if (slab_id >= nextSlabId()) {
                 THROWF(db0::InputException) << "Slab " << slab_id << " does not exist";
-            }            
+            }
 
             // look up with the cache first
             auto it = m_slabs.find(address);
@@ -406,8 +406,6 @@ namespace db0
             CacheItem(std::weak_ptr<SlabAllocator> slab, CapacityItem cap)
                 : m_slab(slab)
                 , m_cap_item(cap)
-                , m_final_remaining_capacity(cap.m_remaining_capacity)
-                , m_final_lost_capacity(cap.m_lost_capacity)
             {
             }
 

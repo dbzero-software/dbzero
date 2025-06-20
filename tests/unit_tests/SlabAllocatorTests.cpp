@@ -258,10 +258,7 @@ namespace tests
         for (auto &addr: addresses) {
             cut.free(addr);
         }
-
-        // FIXME: log
-        std::cout << "Remaining capacity after dealloc: " << cut.getRemainingCapacity() << std::endl;
-        std::cout << "Initial capacity: " << init_capacity << std::endl;
+        
         ASSERT_TRUE(cut.getRemainingCapacity() + cut.getLostCapacity() >= init_capacity);
     }
     
