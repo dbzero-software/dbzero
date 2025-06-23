@@ -385,3 +385,9 @@ def test_check_tags_assignment_in_transactions(db0_fixture):
     assert num_tags(ver_2, "tag1") == 1
     assert num_tags(ver_2, "tag2") == 1
     
+    
+def test_snapshot_in_operator(db0_fixture):
+    px_name = "some-other-prefix"
+    snap_0 = db0.snapshot()
+    assert db0.get_current_prefix().name in snap_0
+    assert px_name not in snap_0
