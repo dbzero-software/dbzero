@@ -19,6 +19,17 @@ class DerivedClass(BaseClass):
         self.value = value
 
 
+class HasColor:
+    def __init__(self, color):
+        self.color = color
+
+@memo
+class MemoWithColor(HasColor):
+    def __init__(self, amount, color):        
+        self.amount = amount
+        super().__init__(color)
+    
+    
 def test_derived_instance_is_created(db0_fixture):
     derived = DerivedClass(1, 2)
     assert derived.base_value == 1
@@ -49,3 +60,9 @@ def test_child_class_eq_issue_1(db0_fixture):
     a = DerivedClass(1, 2)
     assert a is a
     assert a == a
+
+
+def test_memo_derived_from_regular_class(db0_fixture):
+    obj = MemoWithColor(100, "red")
+    assert obj.amount == 100
+    assert obj.color == "red"
