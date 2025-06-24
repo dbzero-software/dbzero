@@ -46,8 +46,7 @@ class ModIterator:
         while True:
             obj_1, obj_2 = next(self.__iter)
             if not self.__compare_with(obj_1, obj_2):
-                # return the latest version of the object if they differ
-                return obj_1
+                return obj_1, obj_2
 
 
 class ModIterable:
@@ -91,7 +90,7 @@ def select_modified(query, pre_snapshot, last_snapshot, compare_with = None):
     query = last_snapshot.find(post_mod, pre_query)
     if compare_with:
         # NOTE: _split_by_snapshots returns tuples from both pre- and post-snapshots
-        return ModIterable(_split_by_snapshots(query, last_snapshot, pre_snapshot), compare_with)
+        return ModIterable(_split_by_snapshots(query, pre_snapshot, last_snapshot), compare_with)
     
-    return _split_by_snapshots(query, last_snapshot, pre_snapshot)
+    return _split_by_snapshots(query, pre_snapshot, last_snapshot)
     
