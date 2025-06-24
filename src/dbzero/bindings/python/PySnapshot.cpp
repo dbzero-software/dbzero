@@ -20,7 +20,7 @@ namespace db0::python
         snapshot_obj->destroy();
         Py_TYPE(snapshot_obj)->tp_free((PyObject*)snapshot_obj);
     }
-        
+    
     bool PySnapshot_Check(PyObject *object) {
         return Py_TYPE(object) == &PySnapshotObjectType;
     }
@@ -262,6 +262,13 @@ namespace db0::python
         return runSafe(tryGetSnapshotOf, reinterpret_cast<MemoObject*>(py_arg));
     }
     
+    static PySequenceMethods PySnapshot_sq = {
+        // number of prefixes in the snapshot
+        .sq_length = (lenfunc)PyAPI_PySnapshot_len,
+        // check if a specific prefix belongs to the snapshot
+        .sq_contains = (objobjproc)PyAPI_PySnapshot_HasItem
+    };
+
     static PyMethodDef PySnapshot_methods[] = 
     {
         {"fetch", (PyCFunction)&PyAPI_PySnapshot_fetch, METH_VARARGS | METH_KEYWORDS, "Fetch dbzero object instance by its ID or type (in case of a singleton)"},
@@ -280,6 +287,7 @@ namespace db0::python
         .tp_basicsize = PySnapshotObject::sizeOf(),
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyAPI_PySnapshot_del,
+        .tp_as_sequence = &PySnapshot_sq,
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero state snapshot object",
         .tp_methods = PySnapshot_methods,
@@ -287,9 +295,43 @@ namespace db0::python
         .tp_new = (newfunc)PySnapshot_new,
         .tp_free = PyObject_Free,
     };
-
+    
     PySnapshotObject *PySnapshot_new(PyTypeObject *type, PyObject *, PyObject *) {
         return reinterpret_cast<PySnapshotObject*>(type->tp_alloc(type, 0));
+    }
+
+    Py_ssize_t tryPySnapshot_len(PySnapshotObject *py_snapshot) {
+        return py_snapshot->ext().size();
+    }
+    
+    Py_ssize_t PyAPI_PySnapshot_len(PySnapshotObject *py_snapshot)
+    {
+        if (!PySnapshot_Check(py_snapshot)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return -1;
+        }
+        PY_API_FUNC
+        return runSafe(tryPySnapshot_len, py_snapshot);
+    }
+    
+    int tryPySnapshot_HasItem(PySnapshotObject *py_snapshot, const char *prefix_name) {
+        return py_snapshot->ext().hasFixture(prefix_name);
+    }
+
+    int PyAPI_PySnapshot_HasItem(PySnapshotObject *py_snapshot, PyObject *prefix)
+    {
+        if (!PySnapshot_Check(py_snapshot)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return -1;
+        }
+        if (!PyUnicode_Check(prefix)) {
+            PyErr_SetString(PyExc_TypeError, "Prefix name must be a string");
+            return -1;
+        }
+        const char *prefix_name = PyUnicode_AsUTF8(prefix);
+
+        PY_API_FUNC
+        return runSafe(tryPySnapshot_HasItem, py_snapshot, prefix_name);
     }
 
 }

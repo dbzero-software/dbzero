@@ -189,7 +189,9 @@ namespace db0
          * Find existing (opened) fixture or return nullptr
         */
         db0::swine_ptr<Fixture> tryFindFixture(const PrefixName &) const override;
-            
+        
+        std::size_t size() const override;
+        
         /**
          * Commit all underlying read/write prefixes
          * @return true if state was changed in at least one prefix

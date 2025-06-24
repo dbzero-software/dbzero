@@ -25,11 +25,10 @@ namespace db0
         virtual ~Snapshot()= default;
         
         // Check if a prefix with the given name exists
-        virtual bool hasFixture(const PrefixName &prefix_name) const = 0;
+        virtual bool hasFixture(const PrefixName &) const = 0;
 
-        virtual db0::swine_ptr<Fixture> tryGetFixture(
-            const PrefixName &prefix_name, std::optional<AccessType> = {}) = 0;
-            
+        virtual db0::swine_ptr<Fixture> tryGetFixture(const PrefixName &, std::optional<AccessType> = {}) = 0;
+
         virtual db0::swine_ptr<Fixture> tryGetFixture(std::uint64_t uuid, std::optional<AccessType> = {}) = 0;
         
         virtual db0::swine_ptr<Fixture> getCurrentFixture() = 0;
@@ -66,8 +65,11 @@ namespace db0
         // The implementation returns snapshot-level access type where it has been defined (e.g. read-only snapshots)
         // by default, the std::nullopt is returned
         virtual std::optional<AccessType> tryGetAccessType() const;
+        
+        // @return the number of currently open prefixes in the snapshot / workspace
+        virtual std::size_t size() const = 0;
     };
-
+    
     bool checkAccessType(const Fixture &fixture, AccessType);
     bool checkAccessType(const Fixture &fixture, std::optional<AccessType> requested);
     // throws if the requested access type is not allowed

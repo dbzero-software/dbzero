@@ -14,7 +14,7 @@ class SnapshotWindow:
             self.last_context = db0.snapshot({prefix: to_state})
         else:
             self.pre_context = db0.snapshot(from_state - 1) if from_state > 1 else None
-            self.last_context = db0.snapshot(to_state)            
+            self.last_context = db0.snapshot(to_state)
         self._exit_stack = ExitStack()
 
     def __enter__(self):
@@ -26,19 +26,20 @@ class SnapshotWindow:
         return self._exit_stack.__exit__(exc_type, exc_value, traceback)
     
 
-def test_select_new(db0_fixture, memo_tags):
+def test_select_new_pre_bound(db0_fixture, memo_tags):
     db0.commit()
     state_1 = db0.get_state_num(finalized = True)
     obj_x = MemoTestClass(9999)
     db0.tags(obj_x).add("tag1")
     db0.commit()
     state_2 = db0.get_state_num(finalized = True)
-    
+
+    with SnapshotWindow(state_2) as (pre_snap, last_snap):
+        assert len(db0.select_new(db0.find(MemoTestClass), pre_snap, last_snap)) == 1
+
     with SnapshotWindow(state_1) as (pre_snap, last_snap):
         assert len(db0.select_new(db0.find(MemoTestClass), pre_snap, last_snap)) == 11
         
-    with SnapshotWindow(state_2) as (pre_snap, last_snap):
-        assert len(db0.select_new(db0.find(MemoTestClass), pre_snap, last_snap)) == 1
     
 
 def test_select_deleted(db0_fixture, memo_tags):
@@ -172,4 +173,62 @@ def test_select_with_prefix(db0_fixture, ClassType, prefix):
     assert len(db0.select_new(db0.find(ClassType), snap_1, snap_2)) == 1
 
     with SnapshotWindow(state_1, state_2, prefix) as (pre_snap, last_snap):
-        assert len(db0.select_new(db0.find(ClassType), pre_snap, last_snap)) == 1    
+        assert len(db0.select_new(db0.find(ClassType), pre_snap, last_snap)) == 1
+    
+    
+@db0.memo(prefix="test_cud_find_new")
+class ValueWrapper:
+    def __init__(self, value):
+        self.value = value
+
+def test_select_new_handles_new_prefixes(db0_fixture):
+    snap_1 = db0.snapshot()
+    db0.commit()
+
+    # NOTE: a new prefix is created here
+    value_1 = ValueWrapper("asd")
+    db0.tags(value_1).add("some tag")
+    db0.commit()
+    snap_2 = db0.snapshot()
+    results = db0.select_new(db0.find(ValueWrapper), snap_1, snap_2)
+    assert len(results) == 1
+
+
+def test_select_new_results_are_stable(db0_fixture):    
+    db0.commit()
+    snap_1 = db0.snapshot()    
+    db0.tags(ValueWrapper("asd")).add("some tag")
+    db0.commit()
+    snap_2 = db0.snapshot()
+    db0.tags(ValueWrapper("qwe")).add("some tag")
+    db0.commit()
+
+    # make sure results are not affected by additional commits
+    results = db0.select_new(db0.find(ValueWrapper), snap_1, snap_2)
+    assert len(results) == 1
+
+
+def test_select_new_other_prefix(db0_fixture):
+    snap_0 = db0.snapshot()
+    db0.commit()
+    snap_1 = db0.snapshot()
+
+    value_1 = ValueWrapper("asd")
+    db0.tags(value_1).add("some tag")
+    db0.commit()
+    snap_2 = db0.snapshot()
+    results = db0.select_new(db0.find(ValueWrapper), snap_0, snap_2)
+    assert len(results) == 1
+    results = db0.select_new(db0.find(ValueWrapper), snap_1, snap_2)
+    assert len(results) == 1
+
+    value_2 = ValueWrapper("qwe")
+    db0.tags(value_2).add("some tag")
+    db0.commit()
+    snap_3 = db0.snapshot()
+
+    results = db0.select_new(db0.find(ValueWrapper), snap_1, snap_2)
+    assert len(results) == 1
+
+    results = db0.select_new(db0.find(ValueWrapper), snap_1, snap_3)
+    assert len(results) == 2

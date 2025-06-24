@@ -72,6 +72,8 @@ namespace db0
 
         void tearDown();
 
+        std::size_t size() const override;
+
     private:
         const std::size_t m_slab_size;
         FixedObjectList m_shared_object_list;

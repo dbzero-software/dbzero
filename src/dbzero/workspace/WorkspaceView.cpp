@@ -50,7 +50,7 @@ namespace db0
                 if (fixture->getAccessType() == AccessType::READ_WRITE) {
                     --(*state_num);
                 }
-            }
+            }            
         }
         
         // check for conflicting requests
@@ -69,6 +69,7 @@ namespace db0
         // Freeze state numbers of the remaining open fixtures
         // note that for read/write fixtures only the last fully consistent state number is retained
         m_workspace_ptr->forEachFixture([this](const Fixture &fixture) {
+            m_snapshot_fixtures.insert(fixture.getUUID());
             if (!m_default_uuid || *m_default_uuid != fixture.getUUID()) {
                 auto it = m_prefix_state_nums.find(fixture.getPrefix().getName());
                 if (it != m_prefix_state_nums.end()) {
@@ -85,7 +86,7 @@ namespace db0
     WorkspaceView::~WorkspaceView()
     {
     }
-    
+        
     db0::swine_ptr<Fixture> WorkspaceView::tryGetFixture(
         const PrefixName &prefix_name, std::optional<AccessType> access_type)
     {
@@ -123,8 +124,27 @@ namespace db0
         return result;
     }
     
-    bool WorkspaceView::hasFixture(const PrefixName &prefix_name) const {
-        return m_workspace->hasFixture(prefix_name);
+    std::optional<std::uint64_t> WorkspaceView::tryGetFixtureUUID(const PrefixName &prefix_name) const
+    {
+        auto it = m_name_uuids.find(prefix_name);
+        if (it != m_name_uuids.end()) {            
+            return it->second;
+        }
+        
+        auto head_fixture = m_workspace_ptr->tryGetFixture(prefix_name, AccessType::READ_ONLY);
+        if (!head_fixture) {
+            return {};
+        }
+        return head_fixture->getUUID();
+    }
+    
+    bool WorkspaceView::hasFixture(const PrefixName &prefix_name) const
+    {
+        auto uuid = tryGetFixtureUUID(prefix_name);
+        if (!uuid) {
+            return false;
+        }
+        return m_snapshot_fixtures.find(*uuid) != m_snapshot_fixtures.end();
     }
     
     db0::swine_ptr<Fixture> WorkspaceView::tryGetFixture(std::uint64_t uuid, std::optional<AccessType> access_type)
@@ -267,6 +287,10 @@ namespace db0
     std::optional<AccessType> WorkspaceView::tryGetAccessType() const {
         // WorkspaceView is always read-only
         return AccessType::READ_ONLY;
+    }
+    
+    std::size_t WorkspaceView::size() const {
+        return m_state_nums.size();
     }
 
 }

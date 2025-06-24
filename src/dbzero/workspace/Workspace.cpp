@@ -798,4 +798,8 @@ namespace db0
     }
 #endif    
     
+    std::size_t Workspace::size() const {
+        return m_fixtures.size();
+    }
+    
 }
