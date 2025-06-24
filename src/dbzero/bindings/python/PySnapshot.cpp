@@ -300,4 +300,38 @@ namespace db0::python
         return reinterpret_cast<PySnapshotObject*>(type->tp_alloc(type, 0));
     }
 
+    Py_ssize_t tryPySnapshot_len(PySnapshotObject *py_snapshot) {
+        return py_snapshot->ext().size();
+    }
+    
+    Py_ssize_t PyAPI_PySnapshot_len(PySnapshotObject *py_snapshot)
+    {
+        if (!PySnapshot_Check(py_snapshot)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return -1;
+        }
+        PY_API_FUNC
+        return runSafe(tryPySnapshot_len, py_snapshot);
+    }
+    
+    int tryPySnapshot_HasItem(PySnapshotObject *py_snapshot, const char *prefix_name) {
+        return py_snapshot->ext().hasFixture(prefix_name);
+    }
+
+    int PyAPI_PySnapshot_HasItem(PySnapshotObject *py_snapshot, PyObject *prefix)
+    {
+        if (!PySnapshot_Check(py_snapshot)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return -1;
+        }
+        if (!PyUnicode_Check(prefix)) {
+            PyErr_SetString(PyExc_TypeError, "Prefix name must be a string");
+            return -1;
+        }
+        const char *prefix_name = PyUnicode_AsUTF8(prefix);
+
+        PY_API_FUNC
+        return runSafe(tryPySnapshot_HasItem, py_snapshot, prefix_name);
+    }
+
 }

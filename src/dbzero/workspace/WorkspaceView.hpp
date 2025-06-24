@@ -42,6 +42,8 @@ namespace db0
         Snapshot &getHeadWorkspace() const override;
         
         std::optional<AccessType> tryGetAccessType() const override;
+
+        std::size_t size() const override;
                 
     protected:
         friend class Workspace;
@@ -53,9 +55,9 @@ namespace db0
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
         WorkspaceView(Workspace &, std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
-
+        
     private:
-        bool m_closed = false;        
+        bool m_closed = false;
         // user requested state numbers by prefix name
         std::unordered_map<std::string, std::uint64_t> m_prefix_state_nums;
         // fixture snapshots by UUID
@@ -69,11 +71,15 @@ namespace db0
         std::shared_ptr<Workspace> m_workspace;
         Workspace *m_workspace_ptr;
         const std::optional<std::uint64_t> m_default_uuid;
+        // all fixtures (UUID) included in the snapshot
+        std::unordered_set<std::uint64_t> m_snapshot_fixtures;
         
         WorkspaceView(std::shared_ptr<Workspace>, Workspace *workspace_ptr, std::optional<std::uint64_t> state_num = {},
             const std::unordered_map<std::string, std::uint64_t> &prefix_state_nums = {});
 
         std::optional<std::uint64_t> getSnapshotStateNum(const Fixture &) const;
+        
+        std::optional<std::uint64_t> tryGetFixtureUUID(const PrefixName &) const;
     };
     
 }

@@ -165,5 +165,9 @@ namespace db0
         }
         return it_fixture->second;        
     }
+    
+    std::size_t TestWorkspace::size() const {
+        return m_fixtures.size();
+    }
 
 }

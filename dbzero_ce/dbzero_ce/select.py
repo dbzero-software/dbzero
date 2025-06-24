@@ -8,11 +8,11 @@ def select_new(query, pre_snapshot, last_snapshot):
     :param query: the query to refine
     :param context: context object which needs to be managed by the calling function    
     """
-    # there's no initial state, therefore all results will be "new"
-    if not pre_snapshot:
-        return query
-    
+    # there's no initial state, therefore all results from the last_snapshot will be "new"
     query_data = db0.serialize(query)
+    if pre_snapshot is None or db0.get_prefix_of(query).name not in pre_snapshot:
+        return last_snapshot.deserialize(query_data)
+    
     # combine the pre- and post- queries
     return last_snapshot.find(
         last_snapshot.deserialize(query_data), db0.no(pre_snapshot.deserialize(query_data))
