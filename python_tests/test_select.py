@@ -104,7 +104,8 @@ def test_select_modified_with_custom_filter(db0_fixture, memo_tags):
     with SnapshotWindow(state_2) as (pre_snap, last_snap):
         query = db0.select_modified(db0.find(MemoTestClass), pre_snap, last_snap, compare_with = _compare)
         assert len(query) == 1
-        assert next(iter(query)).value == 99999
+        object_modification_tuple = next(iter(query))
+        assert object_modification_tuple[1].value == 99999
     
     
 def test_select_new_miltiple_prefixes(db0_fixture, memo_tags):
