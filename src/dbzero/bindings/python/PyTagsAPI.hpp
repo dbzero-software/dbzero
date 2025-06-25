@@ -36,9 +36,11 @@ namespace db0::python
     /**
      * Universal find implementation (works on Workspace or WorkspaceView)
      * @param context - the optional context / scope to be attached to the result query
+     * @param prefix_name - optional scope (i.e. defined with a prefix name)
      * @return PyObjectIterable
     */
-    PyObject *findIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs, PyObject *context = nullptr);
+    PyObject *findIn(db0::Snapshot &, PyObject* const *args, Py_ssize_t nargs, PyObject *context = nullptr,
+        const char *prefix_name = nullptr);
     
     PyObject *PyAPI_splitBy(PyObject *, PyObject *args, PyObject *kwargs);
         

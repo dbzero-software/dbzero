@@ -898,12 +898,13 @@ namespace db0::object_model
         return fixture_uuid;
     }
     
-    db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &workspace, TagIndex::ObjectPtr const *args,
-        std::size_t nargs, std::vector<TagIndex::ObjectPtr> &find_args, std::shared_ptr<Class> &type,
-        TagIndex::TypeObjectPtr &lang_type, bool &no_result)
+    db0::swine_ptr<Fixture> getFindScope(db0::Snapshot &workspace, TagIndex::ObjectPtr const *args,
+        std::size_t nargs, const char *prefix_name)
     {
-        using LangToolkit = TagIndex::LangToolkit;
-
+        if (prefix_name) {
+            return workspace.getFixture(prefix_name);
+        }
+        
         std::uint64_t fixture_uuid = 0;
         for (std::size_t i = 0; i < nargs; ++i) {
             auto uuid = getFindFixtureUUID(args[i]);
@@ -915,7 +916,16 @@ namespace db0::object_model
             }
         }
         
-        auto fixture = workspace.getFixture(fixture_uuid);
+        return workspace.getFixture(fixture_uuid);
+    }
+    
+    db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &workspace, TagIndex::ObjectPtr const *args,
+        std::size_t nargs, std::vector<TagIndex::ObjectPtr> &find_args, std::shared_ptr<Class> &type,
+        TagIndex::TypeObjectPtr &lang_type, bool &no_result, const char *prefix_name)
+    {
+        using LangToolkit = TagIndex::LangToolkit;
+        
+        auto fixture = getFindScope(workspace, args, nargs, prefix_name);
         auto &class_factory = fixture->get<ClassFactory>();
         no_result = false;
         lang_type = nullptr;

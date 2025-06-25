@@ -24,7 +24,7 @@ namespace db0::python
     /**
      * db0.find implementation
      * @return PyObjectIterable
-    */
-    PyObject *PyAPI_find(PyObject *, PyObject* const *args, Py_ssize_t nargs);
+    */    
+    PyObject *PyAPI_find(PyObject *, PyObject *args, PyObject *kwargs);
 
 }

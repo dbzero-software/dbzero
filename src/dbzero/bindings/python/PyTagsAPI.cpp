@@ -14,7 +14,8 @@ namespace db0::python
 
 {
 
-    PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs, PyObject *context)
+    PyObject *findIn(db0::Snapshot &snapshot, PyObject* const *args, Py_ssize_t nargs,
+        PyObject *context, const char *prefix_name)
     {
         using ObjectIterable = db0::object_model::ObjectIterable;
         using TagIndex = db0::object_model::TagIndex;
@@ -24,7 +25,9 @@ namespace db0::python
         bool no_result = false;
         std::shared_ptr<Class> type;
         PyTypeObject *lang_type = nullptr;
-        auto fixture = db0::object_model::getFindParams(snapshot, args, nargs, find_args, type, lang_type, no_result);
+        auto fixture = db0::object_model::getFindParams(
+            snapshot, args, nargs, find_args, type, lang_type, no_result, prefix_name
+        );
         fixture->refreshIfUpdated();
         auto &tag_index = fixture->get<TagIndex>();
         std::vector<std::unique_ptr<db0::object_model::QueryObserver> > query_observers;

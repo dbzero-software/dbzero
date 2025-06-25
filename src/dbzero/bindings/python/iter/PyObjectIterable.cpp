@@ -209,10 +209,33 @@ namespace db0::python
         return Py_TYPE(py_object) == &PyObjectIterableType;
     }
     
-    PyObject *PyAPI_find(PyObject *, PyObject* const *args, Py_ssize_t nargs)
+    PyObject *PyAPI_find(PyObject *, PyObject *args, PyObject *kwargs)
     {
+        Py_ssize_t num_args = PyTuple_Size(args);
+        std::vector<PyObject*> args_data(num_args);
+        for (Py_ssize_t i = 0; i < num_args; ++i) {
+            args_data[i] = PyTuple_GetItem(args, i);
+        }
+        const char *prefix_name = nullptr;
+        if (kwargs) {
+            PyObject *py_prefix_name = PyDict_GetItemString(kwargs, "prefix");
+            if (!py_prefix_name || (!PyUnicode_Check(py_prefix_name) && !PyBytes_Check(py_prefix_name))) {
+                std::stringstream err_msg;
+                err_msg << "Expected 'prefix' argument to be a string or bytes, got: " << (py_prefix_name ? Py_TYPE(py_prefix_name)->tp_name : "None");
+                PyErr_SetString(PyExc_TypeError, err_msg.str().c_str());
+                return NULL;
+            }
+            if (PyUnicode_Check(py_prefix_name)) {
+                prefix_name = PyUnicode_AsUTF8(py_prefix_name);
+            } else {
+                assert(PyBytes_Check(py_prefix_name));
+                prefix_name = PyBytes_AsString(py_prefix_name);
+            }
+        }
+        
         PY_API_FUNC
-        return runSafe(findIn, PyToolkit::getPyWorkspace().getWorkspace(), args, nargs, nullptr);
+        return runSafe(findIn, PyToolkit::getPyWorkspace().getWorkspace(), (PyObject* const*)args_data.data(), 
+            num_args, nullptr, prefix_name);
     }
     
 }
