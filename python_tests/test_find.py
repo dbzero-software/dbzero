@@ -1,6 +1,6 @@
 import pytest
 import dbzero_ce as db0
-from .memo_test_types import MemoTestClass, MemoDataPxClass, MemoTestSingleton, MemoClassForTags
+from .memo_test_types import MemoTestClass, MemoDataPxClass, MemoTestSingleton, MemoClassForTags, MemoScopedClass
 from .conftest import DB0_DIR, DATA_PX
 import itertools
 from datetime import datetime
@@ -343,3 +343,15 @@ def test_tagging_and_untagging_in_single_commit_breaks_tag_search_issue2(db0_fix
     assert old_tag_list == new_tag_list
     objs = [x for x in db0.find(Attribute, "object")]
     assert len(objs) != 0
+    
+    
+def test_find_with_scope_defined(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    db0.tags(MemoScopedClass(123, prefix = px_name)).add("tag1")
+    other_px_name = "other-px"
+    db0.open(other_px_name)
+    db0.tags(MemoScopedClass(456, prefix = other_px_name)).add("tag1")
+    # use scoped find to find instances from different prefixes
+    assert [x.value for x in db0.find(MemoScopedClass, "tag1", prefix = px_name)] == [123]
+    assert [x.value for x in db0.find(MemoScopedClass, "tag1", prefix = other_px_name)] == [456]
+                

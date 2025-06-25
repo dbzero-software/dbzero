@@ -48,7 +48,7 @@ static PyMethodDef dbzero_methods[] =
     {"dict", (PyCFunction)&py::PyAPI_makeDict, METH_VARARGS | METH_KEYWORDS, "Create a new dbzero dict instance"},
     {"bytearray", (PyCFunction)&py::PyAPI_makeByteArray, METH_FASTCALL, "Create a new dbzero bytearray instance"},        
     {"tags", (PyCFunction)&py::makeObjectTagManager, METH_FASTCALL, ""},
-    {"find", (PyCFunction)&py::PyAPI_find, METH_FASTCALL, ""},
+    {"find", (PyCFunction)&py::PyAPI_find, METH_VARARGS | METH_KEYWORDS, ""},
     {"refresh", (PyCFunction)&py::refresh, METH_VARARGS, ""},
     {"get_state_num", (PyCFunction)&py::PyAPI_getStateNum, METH_VARARGS | METH_KEYWORDS, ""},
     {"get_prefix_stats", (PyCFunction)&py::getPrefixStats, METH_VARARGS | METH_KEYWORDS, "Retrieve prefix specific statistics"},

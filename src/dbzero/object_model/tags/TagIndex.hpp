@@ -261,6 +261,9 @@ namespace db0::object_model
     // Get type / enum / iterable associated fixture UUID (or 0 if not prefix bound)
     std::uint64_t getFindFixtureUUID(TagIndex::ObjectPtr);
 
+    db0::swine_ptr<Fixture> getFindScope(db0::Snapshot &workspace, TagIndex::ObjectPtr const *args,
+        std::size_t nargs, const char *prefix_name = nullptr);
+    
     /**
      * Resolve find parameters from user supplied arguments
      * @param args arguments passed to the find method
@@ -269,10 +272,11 @@ namespace db0::object_model
      * @param type the find type (if specified). Note that type can only be specified as the 1st argument
      * @param lang_type the associated language specific type object (only returned with type), can be of a base type (e.g. MemoBase)
      * @param no_result flag to indicate that the query yields no result
+     * @param prefix_name explicitly requested scope (fixture) to use, if not provided then the scope will be determined from the arguments
      * @return the find associated fixture (or exception raised if could not be determined)
      */
     db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &, TagIndex::ObjectPtr const *args, std::size_t nargs,
         std::vector<TagIndex::ObjectPtr> &find_args, std::shared_ptr<Class> &type, TagIndex::TypeObjectPtr &lang_type,
-        bool &no_result);
-
+        bool &no_result, const char *prefix_name = nullptr);
+    
 }
