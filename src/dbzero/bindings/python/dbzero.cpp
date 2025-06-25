@@ -95,6 +95,7 @@ static PyMethodDef dbzero_methods[] =
     {"get_schema", (PyCFunction)&py::PyAPI_getSchema, METH_FASTCALL, "Get deduced schema of a memo object"},
     {"_get_prefixes", &py::getPrefixes, METH_NOARGS, "Get the list of prefixes accessible from the current context"},
     {"_get_mutable_prefixes", &py::PyAPI_getMutablePrefixes, METH_NOARGS, "Get the list of prefixes opened with write access"},
+    {"_get_memo_class", (PyCFunction)&py::PyAPI_getMemoClass, METH_FASTCALL, "Get memo meta-class information for a given instance"},
     {"_get_memo_classes", (PyCFunction)&py::PyAPI_getMemoClasses, METH_VARARGS | METH_KEYWORDS, "Get the list of memo classes from a specific prefix"},
     {"_get_prefix_of", (PyCFunction)&py::PyAPI_getPrefixOf, METH_VARARGS, "Get prefix name of a specific dbzero object instance"},
     {"_get_current_prefix", &py::PyAPI_getCurrentPrefix, METH_VARARGS, "Get current prefix name & UUID as tuple"},

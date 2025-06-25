@@ -638,6 +638,42 @@ namespace db0::python
         return py_type;
     }
     
+    PyObject *tryGetMemoTypeInfo(PyObject *py_object)
+    {
+        if (!PyType_Check(py_object)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return NULL;
+        }
+
+        PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
+        if (!PyMemoType_Check(py_type)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return nullptr;
+        }
+
+        auto py_dict = Py_OWN(PyDict_New());
+        if (!py_dict) {
+            return nullptr;
+        }
+        
+        MemoType_get_info(py_type, *py_dict);
+        return py_dict.steal();        
+    }
+    
+    PyObject *tryGetMemoClass(PyObject *py_obj)
+    {
+        if (!PyMemo_Check(py_obj)) {
+            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+            return nullptr;
+        }
+        auto &memo_obj = reinterpret_cast<MemoObject*>(py_obj)->ext();
+        if (!memo_obj.hasInstance()) {
+            PyErr_SetString(PyExc_RuntimeError, "Memo object has no instance");
+            return nullptr;
+        }
+        return tryGetTypeInfo(memo_obj.getType());
+    }
+
     PyObject *tryLoad(PyObject *py_obj, PyObject* kwargs, PyObject *py_exclude,
         std::unordered_set<const void*> *load_stack_ptr)
     {

@@ -13,7 +13,7 @@ import sys
 
 from .decorators import check_params_not_equal
 from .storage_api import PrefixMetaData
-from .dbzero_ce import _get_memo_classes
+from .dbzero_ce import _get_memo_classes, _get_memo_class
 
 
 _CallableParams = namedtuple("CallableParams", ["params", "has_args", "has_kwargs"])
@@ -148,8 +148,8 @@ class MemoMetaClass:
     
     def __eq__(self, value):
         return self.__class_uuid == value.__class_uuid
+        
     
-
 def get_memo_classes(prefix: PrefixMetaData = None):
     if type(prefix) is str:
         # fallback to prefix name
@@ -160,8 +160,9 @@ def get_memo_classes(prefix: PrefixMetaData = None):
             yield MemoMetaClass(*memo_class)
 
 
-def get_memo_class(class_uuid):
-    return MemoMetaClass(*db0.fetch(class_uuid).type_info())
+def get_memo_class(arg: str | db0.MemoBase):
+    type_info = _get_memo_class(arg) if db0.is_memo(arg) else db0.fetch(arg).type_info()    
+    return MemoMetaClass(*type_info)
 
 
 class Query(inspect.Signature):
