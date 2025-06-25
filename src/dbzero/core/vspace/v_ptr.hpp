@@ -239,6 +239,12 @@ namespace db0
             m_mem_lock.modify((std::byte*)&ref + offset, size);
         }
         
+        // Check if the underlying resource is available as mutable
+        // i.e. was already access for read/write
+        bool isModified() const {
+            return ResourceReadWriteMutexT::__ref(m_resource_flags).get();            
+        }
+        
         const ContainerT &safeConstRef(std::size_t size_of = 0) const
         {
             if (!size_of) {

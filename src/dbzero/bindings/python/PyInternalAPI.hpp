@@ -150,6 +150,8 @@ namespace db0::python
     
     PyTypeObject *tryGetType(PyObject *py_obj);
     
+    PyObject *tryTouch(PyObject *const *args, Py_ssize_t nargs);
+    
     // Load dbzero object to memory
     // @param load_stack_ptr - required to track and avoid circular references
     PyObject *tryLoad(PyObject *, PyObject*, PyObject *py_exlude = nullptr, 

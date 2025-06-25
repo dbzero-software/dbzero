@@ -34,7 +34,7 @@ namespace tests
     {    
         std::vector<char> data(sizeof(Object));
         std::shared_ptr<Class> null_class = Class::getNullClass();
-        auto object_1 = Object::makeNew(data.data(), null_class);
+        auto object_1 = new (data.data()) Object(null_class);
         ObjectInitializerManager manager;
         manager.addInitializer(*object_1, null_class);
         auto &cut = *manager.findInitializer(*object_1);
@@ -59,7 +59,7 @@ namespace tests
     {    
         std::vector<char> data(sizeof(Object));
         std::shared_ptr<Class> null_class = Class::getNullClass();
-        auto object_1 = Object::makeNew(data.data(), null_class);
+        auto object_1 = new (data.data()) Object(null_class);
         ObjectInitializerManager manager;
         manager.addInitializer(*object_1, null_class);
         auto &cut = *manager.findInitializer(*object_1);

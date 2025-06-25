@@ -827,4 +827,21 @@ namespace db0::python
         Py_RETURN_NONE;
     }
 
+    PyObject *tryTouch(PyObject *const *args, Py_ssize_t nargs)
+    {
+        for (Py_ssize_t i = 0; i < nargs; ++i) {
+            auto py_obj = args[i];
+            if (!PyMemo_Check(py_obj)) {
+                THROWF(db0::InputException) << "Invalid object type: " << Py_TYPE(py_obj)->tp_name << " (Memo expected)";
+            }
+            auto &memo = reinterpret_cast<MemoObject*>(py_obj)->modifyExt();
+            if (memo.hasInstance()) {
+                db0::FixtureLock lock(memo.getFixture());
+                memo.touch();
+            }            
+        }
+        
+        Py_RETURN_NONE;
+    }
+    
 }

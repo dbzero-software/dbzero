@@ -53,14 +53,14 @@ namespace db0::python
         // if type cannot be retrieved due to access mode then deferr this operation (fallback)
         if (type) {
             // prepare a new DB0 instance of a known db0 class
-            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type);
+            memo_obj->makeNew(type);
         } else {
             auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
                 auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
                 return class_factory.getOrCreateType(py_type);
             };
             // prepare a new db0 instance of a known db0 class
-            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), std::move(type_initializer));
+            memo_obj->makeNew(std::move(type_initializer));
         }
         
         return memo_obj;
@@ -132,7 +132,7 @@ namespace db0::python
         MemoObject *memo_obj = nullptr;
         if (type) {
             memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type);    
+            memo_obj->makeNew(type);
         } else {
             // if type cannot be retrieved due to access mode then deferr this operation (fallback)
             auto type_initializer = [py_type](db0::swine_ptr<Fixture> &fixture) {
@@ -140,7 +140,7 @@ namespace db0::python
                 return class_factory.getOrCreateType(py_type);
             };
             memo_obj = reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
-            db0::object_model::Object::makeNew(&memo_obj->modifyExt(), type_initializer);            
+            memo_obj->makeNew(type_initializer);
         }
         
         return memo_obj;

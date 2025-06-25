@@ -107,6 +107,21 @@ def test_select_modified_with_custom_filter(db0_fixture, memo_tags):
         assert len(query) == 1
         object_modification_tuple = next(iter(query))
         assert object_modification_tuple[1].value == 99999
+
+
+def test_select_modified_can_identify_touched_objects(db0_fixture, memo_tags):
+    db0.commit()
+    # touch 1 object in a separate transaction
+    obj_1 = next(iter(db0.find(MemoTestClass, "tag1")))
+    db0.touch(obj_1)
+    db0.commit()
+    state_2 = db0.get_state_num(finalized = True)
+    with SnapshotWindow(state_2) as (pre_snap, last_snap):
+        query = db0.select_modified(db0.find(MemoTestClass), pre_snap, last_snap)
+        # NOTE: false positives are possible
+        assert len(query) > 0
+        values = set([x[1].value for x in query])
+        assert obj_1.value in values
     
     
 def test_select_new_miltiple_prefixes(db0_fixture, memo_tags):

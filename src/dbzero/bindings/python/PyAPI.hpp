@@ -166,6 +166,8 @@ namespace db0::python
     PyObject *PyAPI_compare(PyObject *, PyObject *args, PyObject *kwargs);
 
     PyObject *PyAPI_assign(PyObject *, PyObject *args, PyObject *kwargs);
+    
+    PyObject *PyAPI_touch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
         
 #ifndef NDEBUG
     PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *args);

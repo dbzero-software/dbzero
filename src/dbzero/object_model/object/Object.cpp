@@ -84,7 +84,7 @@ namespace db0::object_model
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
         : super_t(fixture, ClassFactory::classRef(*type), ref_count, pos_vt_data)
-        , m_type(type)        
+        , m_type(type)
     {
     }
 
@@ -92,7 +92,7 @@ namespace db0::object_model
         : super_t(super_t::tag_from_address(), fixture, address)        
     {
     }
-
+    
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type)
         : super_t(super_t::tag_from_stem(), fixture, std::move(stem))
         , m_type(type)        
@@ -110,16 +110,6 @@ namespace db0::object_model
         }
     }
     
-    Object *Object::makeNew(void *at_ptr, std::shared_ptr<Class> type) {
-        // placement new
-        return new (at_ptr) Object(type);
-    }
-    
-    Object *Object::makeNew(void *at_ptr, TypeInitializer &&type_initializer) {
-        // placement new
-        return new (at_ptr) Object(std::move(type_initializer));
-    }
-
     Object *Object::makeNull(void *at_ptr) {
         return new (at_ptr) Object();
     }
@@ -184,8 +174,8 @@ namespace db0::object_model
             // bind singleton address (now that instance exists)
             if (m_type->isSingleton()) {
                 m_type->setSingletonAddress(*this);
-            }            
-            initializer.close();
+            }
+            initializer.close();            
         }
         
         assert(hasInstance());
@@ -241,7 +231,7 @@ namespace db0::object_model
         if (this->span() > 1) {
             // NOTE: large objects i.e. with span > 1 must always be marked with a silent mutation flag
             // this is because the actual change may be missed if performed on a different-then the 1st DP
-            onSilentMutation();
+            _touch();
         }
 
         assert(m_type);
@@ -263,7 +253,7 @@ namespace db0::object_model
             unrefMember(*fixture, old_storage_class, pos_vt.values()[field_id.getIndex()]);
             // update attribute stored in the positional value-table
             pos_vt.set(field_id.getIndex(), storage_class, value);
-            m_type->updateSchema(field_id, old_storage_class, storage_class);
+            m_type->updateSchema(field_id, old_storage_class, storage_class);            
             return;
         }
         
@@ -274,13 +264,11 @@ namespace db0::object_model
             auto old_storage_class = index_vt.xvalues()[index_vt_pos].m_type;
             unrefMember(*fixture, index_vt.xvalues()[index_vt_pos]);
             index_vt.set(index_vt_pos, storage_class, value);
-            m_type->updateSchema(field_id, old_storage_class, storage_class);
+            m_type->updateSchema(field_id, old_storage_class, storage_class);            
             return;
         }
         
         // add field to the kv_index
-        // this operation must be registered as the potential silent mutation
-        onSilentMutation();
         XValue xvalue(field_id.getIndex(), storage_class, value);
         auto kv_index_ptr = addKV_First(xvalue);
         if (kv_index_ptr) {
@@ -291,19 +279,24 @@ namespace db0::object_model
                 // in case of the IttyIndex updating an element changes the address
                 // which needs to be updated in the object
                 if (kv_index_ptr->getIndexType() == bindex::type::itty) {
-                    modify().m_kv_address = kv_index_ptr->getAddress();
+                    modify().m_kv_address = kv_index_ptr->getAddress();                    
                 }
                 m_type->updateSchema(field_id, old_value.m_type, storage_class);
             } else {
                 if (kv_index_ptr->insert(xvalue)) {
                     // type or address of the kv-index has changed which needs to be reflected
                     modify().m_kv_address = kv_index_ptr->getAddress();
-                    modify().m_kv_type = kv_index_ptr->getIndexType();
+                    modify().m_kv_type = kv_index_ptr->getIndexType();                    
                 }
                 m_type->addToSchema(field_id, storage_class);
             }
         } else {
             m_type->addToSchema(field_id, storage_class);
+        }
+        // the KV-index insert operation must be registered as the potential silent mutation
+        // but the operation can be avided if the object is already marked as modified
+        if (!super_t::isModified()) {
+            this->_touch();
         }
     }
     
@@ -574,7 +567,7 @@ namespace db0::object_model
                 // create new kv-index intiialized with the first value
                 m_kv_index = std::make_unique<KV_Index>(getMemspace(), value);
                 modify().m_kv_address = m_kv_index->getAddress();
-                modify().m_kv_type = m_kv_index->getIndexType();
+                modify().m_kv_type = m_kv_index->getIndexType();                
                 // return nullptr to indicate that the value has been inserted
                 return nullptr;
             }
@@ -697,7 +690,7 @@ namespace db0::object_model
     void Object::decRef()
     {
         // this operation is a potentially silent mutation
-        onSilentMutation();
+        _touch();
         super_t::decRef();
     }
     
@@ -787,7 +780,7 @@ namespace db0::object_model
         }
         super_t::commit();
         // reset the silent-mutation flag
-        m_silent_mutation = false;
+        m_touched = false;
     }
     
     void Object::unrefMember(db0::swine_ptr<Fixture> &fixture, StorageClass type, Value value) const {
@@ -834,13 +827,25 @@ namespace db0::object_model
         m_flags.set(ObjectOptions::DEFUNCT);
     }
     
-    void Object::onSilentMutation()
+    void Object::touch()
     {
-        if (!m_silent_mutation) {
+        if (hasInstance() && !isDefunct()) {
+            // NOTE: for already modified and small objects we may skip "touch"
+            if (!super_t::isModified() || this->span() > 1) {
+                // NOTE: large objects i.e. with span > 1 must always be marked with a silent mutation flag
+                // this is because the actual change may be missed if performed on a different-then the 1st DP
+                _touch();
+            }            
+        }
+    }
+    
+    void Object::_touch()
+    {
+        if (!m_touched) {
             // mark the 1st byte of the object as modified (forced-diff)
             // this is always the 1st DP occupied by the object
             modify(0, 1);
-            m_silent_mutation = true;
+            m_touched = true;
         }
     }
 

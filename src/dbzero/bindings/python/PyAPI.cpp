@@ -1327,4 +1327,16 @@ namespace db0::python
         return runSafe(tryAssign, args, kwargs);
     }
     
+    PyObject *PyAPI_touch(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        for (Py_ssize_t i = 0; i < nargs; ++i) {
+            if (!PyMemo_Check(args[i])) {
+                PyErr_SetString(PyExc_TypeError, "Invalid argument type");
+                return NULL;
+            }
+        }
+        PY_API_FUNC
+        return runSafe(tryTouch, args, nargs);
+    }
+    
 }

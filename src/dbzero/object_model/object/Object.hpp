@@ -105,33 +105,19 @@ namespace db0::object_model
 
         Object(const Object &) = delete;
         Object(Object &&) = delete;
-        Object(db0::swine_ptr<Fixture> &, Address);
-        
-        /* FIXME
-        // Express-new constructor
-        DBZObject(db0::Memspace &memspace, std::shared_ptr<DBZClass> type, unsigned int size,
-            const std::vector<unsigned int> &field_indices, const std::vector<std::uint64_t> &field_values);
 
-        // Express-new using RowBuilder as the data source
-        DBZObject(db0::Memspace &memspace, std::shared_ptr<DBZClass> type, unsigned int size, 
-            RowBuilder &row);
+        /**
+         * Construct new Object (uninitialized, without corresponding dbzero instance yet)          
         */
+        Object(std::shared_ptr<Class>);
+        Object(TypeInitializer &&);
+        Object(db0::swine_ptr<Fixture> &, Address);
         
         ~Object();
         
         // post-init invoked by memo type directly after __init__
         void postInit(FixtureLock &);
         
-        // Express-init an object from the "kwargs" arguments
-        // void expressInit(const bp::dict &kwargs);
-
-        /**
-         * Construct new Object (uninitialized, without corresponding dbzero instance yet) 
-         * at a specific memory location
-        */
-        static Object *makeNew(void *at_ptr, std::shared_ptr<Class>);
-        static Object *makeNew(void *at_ptr, TypeInitializer &&);
-
         // make null instance (e.g. after destroying the original one)
         static Object *makeNull(void *at_ptr);
         
@@ -242,6 +228,9 @@ namespace db0::object_model
         // Check if the 2 memo objects are of the same type
         bool sameType(const Object &) const;
 
+        // the member called to indicate the object mutation
+        void touch();
+
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
@@ -252,11 +241,9 @@ namespace db0::object_model
         // A flag indicating that object's silent mutation has already been reflected
         // with the underlying MemLock / ResourceLock
         // NOTE: by silent mutation we mean a mutation that does not change data (e.g. +refcount(+-1) + (refcount-1))
-        mutable bool m_silent_mutation = false;
+        mutable bool m_touched = false;
         
         Object();
-        Object(std::shared_ptr<Class>);
-        Object(TypeInitializer &&);
         Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::uint32_t ref_count ,const PosVT::Data &);
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
         
@@ -299,9 +286,7 @@ namespace db0::object_model
         
         // try retrieving member as XValue
         std::optional<XValue> tryGetX(const char *field_name) const;
-
-        // the member called to indicate the potentially silent mutation
-        void onSilentMutation();
+        void _touch();
     };
     
 }

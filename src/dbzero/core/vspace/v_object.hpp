@@ -263,7 +263,13 @@ namespace db0
             return last_dp - first_dp + 1;
         }
 
-    protected :
+        // Check if the underlying resource is available as mutable
+        // i.e. was already access for read/write
+        bool isModified() const {
+            return v_this.isModified();
+        }
+        
+    protected:
         // container reference
         mutable ptr_t v_this;
     };
