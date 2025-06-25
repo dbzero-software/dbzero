@@ -150,6 +150,9 @@ namespace db0::python
     
     PyTypeObject *tryGetType(PyObject *py_obj);
     
+    PyObject *tryGetMemoTypeInfo(PyObject *py_obj);
+    PyObject *tryGetMemoClass(PyObject *py_obj);
+    
     PyObject *tryTouch(PyObject *const *args, Py_ssize_t nargs);
     
     // Load dbzero object to memory

@@ -589,34 +589,17 @@ namespace db0::python
 
         return runSafe(tryGetRefCount, py_object);
     }
-    
+        
     PyObject *PyAPI_getTypeInfo(PyObject *self, PyObject *args)
     {
-        PY_API_FUNC
         PyObject *py_object;
         if (!PyArg_ParseTuple(args, "O", &py_object)) {
             PyErr_SetString(PyExc_TypeError, "Invalid argument type");
             return NULL;
         }
-
-        if (!PyType_Check(py_object)) {
-            PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-            return NULL;
-        }
-
-        PyTypeObject *py_type = reinterpret_cast<PyTypeObject*>(py_object);
-        auto py_dict = Py_OWN(PyDict_New());
-        if (!py_dict) {
-            return nullptr;
-        }
-
-        if (PyMemoType_Check(py_type)) {
-            MemoType_get_info(py_type, *py_dict);
-            return py_dict.steal();
-        }
         
-        PyErr_SetString(PyExc_TypeError, "Invalid argument type");
-        return nullptr;
+        PY_API_FUNC
+        return runSafe(tryGetMemoTypeInfo, py_object);
     }
     
     PyObject *negTags(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
@@ -894,6 +877,15 @@ namespace db0::python
     {
         PY_API_FUNC
         return runSafe(tryGetMutablePrefixes);
+    }
+    
+    PyObject *PyAPI_getMemoClass(PyObject *, PyObject *const *args, Py_ssize_t nargs)
+    {
+        if (nargs != 1) {
+            PyErr_SetString(PyExc_TypeError, "getMemoClass requires exactly 1 argument");
+            return NULL;
+        }
+        return runSafe(tryGetMemoClass, args[0]);
     }
     
     PyObject *PyAPI_getMemoClasses(PyObject *self, PyObject *args, PyObject *kwargs)
