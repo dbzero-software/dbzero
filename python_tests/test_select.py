@@ -41,7 +41,6 @@ def test_select_new_pre_bound(db0_fixture, memo_tags):
         assert len(db0.select_new(db0.find(MemoTestClass), pre_snap, last_snap)) == 11
         
     
-
 def test_select_deleted(db0_fixture, memo_tags):
     db0.commit()
     state_1 = db0.get_state_num(finalized = True)    

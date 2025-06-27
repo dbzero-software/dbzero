@@ -17,24 +17,26 @@ namespace db0::python
     
     static PyMethodDef ClassObject_methods[] = 
     {
-        {"is_known_type", (PyCFunction)&PyAPI_PyClass_has_type, METH_NOARGS, "Check if the corresponding Python type exists"},
-        {"type", (PyCFunction)&PyClass_type, METH_NOARGS, "Retrieve associated Python type"},
-        {"get_attributes", (PyCFunction)&PyClass_get_attributes, METH_NOARGS, "Get memo class attributes"},
-        {"type_info", (PyCFunction)&PyClass_type_info, METH_NOARGS, "Get memo class type information"},
+        // deprecated
+        {"is_known_type", (PyCFunction)&PyAPI_PyClass_type_exists, METH_NOARGS, "Check if the corresponding Python type exists"},
+        {"type", (PyCFunction)&PyAPI_PyClass_type, METH_NOARGS, "Retrieve associated Python type"},
+        {"type_exists", (PyCFunction)&PyAPI_PyClass_type_exists, METH_NOARGS, "Check if the associated Python type exists without raising an exception"},
+        {"get_attributes", (PyCFunction)&PyAPI_PyClass_get_attributes, METH_NOARGS, "Get memo class attributes"},
+        {"type_info", (PyCFunction)&PyAPI_PyClass_type_info, METH_NOARGS, "Get memo class type information"},
         {NULL}
     };
-
-    PyObject *tryPyClass_has_type(PyObject *self)
+    
+    PyObject *tryPyClass_type_exists(PyObject *self)
     {        
         auto fixture = reinterpret_cast<ClassObject*>(self)->ext().getFixture();
         auto &class_factory = fixture->get<db0::object_model::ClassFactory>();
         return PyBool_fromBool(class_factory.hasLangType(reinterpret_cast<ClassObject*>(self)->ext()));
     }
 
-    PyObject *PyAPI_PyClass_has_type(PyObject *self, PyObject *)
+    PyObject *PyAPI_PyClass_type_exists(PyObject *self, PyObject *)
     {
         PY_API_FUNC
-        return runSafe(tryPyClass_has_type, self);
+        return runSafe(tryPyClass_type_exists, self);
     }
     
     PyTypeObject *tryPyClassType(PyObject *self)
@@ -48,13 +50,13 @@ namespace db0::python
         return class_factory.getLangType(model_class).steal();
     }
     
-    PyObject *PyClass_type(PyObject *self, PyObject *)
+    PyObject *PyAPI_PyClass_type(PyObject *self, PyObject *)
     {
         PY_API_FUNC
         return reinterpret_cast<PyObject*>(runSafe(tryPyClassType, self));
     }
 
-    void ClassObject_del(ClassObject* class_obj)
+    void PyAPI_ClassObject_del(ClassObject* class_obj)
     {
         PY_API_FUNC
         // release associated shared_ptr
@@ -79,13 +81,13 @@ namespace db0::python
         return tryGetClassAttributes(reinterpret_cast<ClassObject*>(self)->ext());
     }
     
-    PyObject *PyClass_get_attributes(PyObject *self, PyObject *)
+    PyObject *PyAPI_PyClass_get_attributes(PyObject *self, PyObject *)
     {
         PY_API_FUNC        
         return runSafe(tryGetAttributes, self);
     }
     
-    PyObject *PyClass_type_info(PyObject *self, PyObject *)
+    PyObject *PyAPI_PyClass_type_info(PyObject *self, PyObject *)
     {
         PY_API_FUNC        
         return runSafe(tryGetTypeInfo, reinterpret_cast<ClassObject*>(self)->ext());
@@ -96,7 +98,7 @@ namespace db0::python
         .tp_name = "dbzero_ce.Class",
         .tp_basicsize = ClassObject::sizeOf(),
         .tp_itemsize = 0,
-        .tp_dealloc = (destructor)ClassObject_del,        
+        .tp_dealloc = (destructor)PyAPI_ClassObject_del,
         .tp_flags =  Py_TPFLAGS_DEFAULT,
         .tp_doc = "dbzero memo class object",
         .tp_methods = ClassObject_methods,
