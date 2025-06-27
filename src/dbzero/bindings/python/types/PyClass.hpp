@@ -14,11 +14,11 @@ namespace db0::python
     ClassObject *ClassObject_new(PyTypeObject *type, PyObject *, PyObject *);
     shared_py_object<ClassObject*> ClassDefaultObject_new();
     void ClassObject_del(ClassObject *);
-    
-    PyObject *PyAPI_PyClass_has_type(PyObject *, PyObject *);
-    PyObject *PyClass_type(PyObject *, PyObject *);
-    PyObject *PyClass_get_attributes(PyObject *, PyObject *);
-    PyObject *PyClass_type_info(PyObject *, PyObject *);
+        
+    PyObject *PyAPI_PyClass_type(PyObject *, PyObject *);
+    PyObject *PyAPI_PyClass_type_exists(PyObject *, PyObject *);
+    PyObject *PyAPI_PyClass_get_attributes(PyObject *, PyObject *);
+    PyObject *PyAPI_PyClass_type_info(PyObject *, PyObject *);
 
     extern PyTypeObject ClassObjectType;
     

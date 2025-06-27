@@ -81,7 +81,10 @@ class MemoMetaClass:
         if self.__cls is None:
             self.__cls = db0.fetch(self.__class_uuid)
         return self.__cls
-    
+
+    def type_exists(self):
+        return self.get_class().type_exists()
+
     def get_type(self):
         return self.get_class().type()
     
