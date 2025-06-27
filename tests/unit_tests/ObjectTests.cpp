@@ -36,7 +36,7 @@ namespace tests
         data.m_types = std::vector<StorageClass> { StorageClass::INT64, StorageClass::POOLED_STRING };
         data.m_values = std::vector<Value> { Value(0), Value(0) };
         
-        ASSERT_EQ ( 44u, o_object::measure(0, 0, data) );
+        ASSERT_EQ ( 46u, o_object::measure(0, {0, 0}, data) );
     }
     
     TEST_F( ObjectTest , testObjectInitializerCanBeFoundIfAdded )
@@ -58,7 +58,7 @@ namespace tests
         PosVT::Data data(8);
 
         using Object = v_object<db0::object_model::o_object>;
-        ASSERT_NO_THROW( Object(memspace, 0, 0, data) );
+        ASSERT_NO_THROW( Object(memspace, 0, std::make_pair(0u, 0u), data) );
         workspace.close();
     }
     
@@ -68,14 +68,14 @@ namespace tests
         auto memspace = workspace.getMemspace(prefix_name);
         using Object = v_object<db0::object_model::o_object>;
         PosVT::Data data(8);
-        std::size_t size_of = db0::object_model::o_object::measure(0, 0, data);
+        std::size_t size_of = db0::object_model::o_object::measure(0, std::make_pair(0u, 0u), data);
 
         // measure speed
         auto start = std::chrono::high_resolution_clock::now();
         std::size_t total_bytes = 0;
         std::size_t alloc_count = 100000;
         for (unsigned int i = 0; i < alloc_count; ++i) {
-            Object(memspace, 0, 0, 8);
+            Object(memspace, 0, std::make_pair(0u, 0u), 8);
             total_bytes += size_of;
         }
         auto end = std::chrono::high_resolution_clock::now();
@@ -105,7 +105,7 @@ namespace tests
             std::vector<Object> objects;
             std::size_t alloc_count = 1000;
             for (unsigned int i = 0; i < alloc_count; ++i) {
-                objects.emplace_back(memspace, 0, 0, data);
+                objects.emplace_back(memspace, 0, std::make_pair(0u, 0u), data);
             }
             
             workspace.getCacheRecycler().clear();

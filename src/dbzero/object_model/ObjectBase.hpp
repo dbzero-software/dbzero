@@ -116,22 +116,23 @@ namespace db0
             return _CLS;
         }
         
-        void incRef()
+        void incRef(bool is_tag)
         {
             assert(hasInstance());
-            this->modify().m_header.incRef();            
+            this->modify().m_header.incRef(is_tag);
         }
         
-        void decRef()
+        void decRef(bool is_tag)
         {
             assert(hasInstance());
-            this->modify().m_header.decRef();            
+            this->modify().m_header.decRef(is_tag);
         }
         
-        auto getRefCount() const
+        // tags / objects reference counts
+        std::pair<std::uint32_t, std::uint32_t> getRefCounts() const
         {
             assert(hasInstance());
-            return (*this)->m_header.m_ref_count;
+            return (*this)->m_header.m_ref_counter.get();
         }
 
         bool hasRefs() const 

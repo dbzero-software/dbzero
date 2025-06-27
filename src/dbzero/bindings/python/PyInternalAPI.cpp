@@ -442,26 +442,39 @@ namespace db0::python
         }
     }
     
+    std::uint64_t getTotal(std::pair<std::uint32_t, std::uint32_t> ref_counts)
+    {
+        auto result = ref_counts.first + ref_counts.second;
+        // NOTE: this is to hide the auto-assigned reference from a type tag
+        // which will also be automatically removed with the last tag
+        if (ref_counts.first > 0) {
+            --result;
+        }
+        return result;
+    }
+    
     PyObject *tryGetRefCount(PyObject *py_object)
     {
         if (PyMemo_Check(py_object)) {
-            return PyLong_FromLong(reinterpret_cast<MemoObject*>(py_object)->ext().getRefCount());
+            auto ref_counts = reinterpret_cast<MemoObject*>(py_object)->ext().getRefCounts();
+            return PyLong_FromLong(getTotal(ref_counts));
         } else if (PyClassObject_Check(py_object)) {
-            return PyLong_FromLong(reinterpret_cast<ClassObject*>(py_object)->ext().getRefCount());
+            auto ref_counts = reinterpret_cast<ClassObject*>(py_object)->ext().getRefCounts();
+            return PyLong_FromLong(getTotal(ref_counts));
         } else if (PyType_Check(py_object)) {
             auto py_type = PyToolkit::getTypeManager().getTypeObject(py_object);
             if (PyToolkit::isMemoType(py_type)) {
                 auto &workspace = PyToolkit::getPyWorkspace().getWorkspace();
                 // sum over all prefixes
-                std::uint64_t ref_count = 0;                
-                workspace.forEachFixture([&ref_count, py_type](const db0::Fixture &fixture) {
+                std::uint64_t ref_counts = 0;
+                workspace.forEachFixture([&ref_counts, py_type](const db0::Fixture &fixture) {
                     auto type = fixture.get<db0::object_model::ClassFactory>().tryGetExistingType(py_type);
                     if (type) {
-                        ref_count += type->getRefCount();                        
+                        ref_counts += getTotal(type->getRefCounts());
                     }
                     return true;
                 });
-                return PyLong_FromLong(ref_count);
+                return PyLong_FromLong(ref_counts);
             }
         }
         THROWF(db0::InputException) << "Unable to retrieve ref count for type: "

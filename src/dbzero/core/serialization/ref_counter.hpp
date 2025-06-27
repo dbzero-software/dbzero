@@ -51,7 +51,7 @@ namespace db0
         PackedIntT::write(buf, first, end);
         PackedIntT::write(buf, second, end);
     }
-
+    
     template <typename IntT, std::size_t SIZEOF>
     const typename o_ref_counter<IntT, SIZEOF>::PackedIntT &o_ref_counter<IntT, SIZEOF>::first() const {
         return PackedIntT::__const_ref(m_payload.data());

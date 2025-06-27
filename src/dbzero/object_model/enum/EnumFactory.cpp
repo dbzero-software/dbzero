@@ -128,7 +128,7 @@ namespace db0::object_model
         auto enum_ptr = EnumPtr(*enum_);
         
         // inc-ref to persist the Enum
-        enum_->incRef();
+        enum_->incRef(false);
         // register Enum under all known key variants
         for (unsigned int i = 0; i < 4; ++i) {
             auto variant_name = getEnumKeyVariant(enum_def, type_id, i);

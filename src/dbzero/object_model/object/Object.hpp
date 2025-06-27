@@ -51,25 +51,21 @@ namespace db0::object_model
 
         IndexVT &index_vt();
 
-        // ref_count - the initial reference count inherited from the initializer
-        o_object(std::uint32_t class_ref, std::uint32_t ref_count, const PosVT::Data &pos_vt_data, 
+        // ref_counts - the initial reference counts (tags / objects) inherited from the initializer
+        o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data, 
             const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
-
-        static std::size_t measure(std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
+        
+        static std::size_t measure(std::uint32_t, std::pair<std::uint32_t, std::uint32_t>, const PosVT::Data &pos_vt_data,
             const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
         
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
-            auto start = buf;
-            buf += super_t::baseSize();
-            buf += PosVT::safeSizeOf(buf);
-            buf += IndexVT::safeSizeOf(buf);
-            return buf - start;
-        }
+            return super_t::sizeOfMembers(buf)
+                (PosVT::type())
+                (IndexVT::type());
+        }     
         
-        inline void incRef() {
-            ++m_header.m_ref_count;
-        }
+        void incRef(bool is_tag);
     };
     
     struct FieldLayout
@@ -185,9 +181,9 @@ namespace db0::object_model
         /**
          * The overloaded incRef implementation is provided to also handle non-fully initialized objects
         */
-        void incRef();
+        void incRef(bool is_tag);
         
-        void decRef();
+        void decRef(bool is_tag);
 
         // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
         // NOTE: ref-counts are not compared (only user-assigned members)
@@ -244,7 +240,8 @@ namespace db0::object_model
         mutable bool m_touched = false;
         
         Object();
-        Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::uint32_t ref_count ,const PosVT::Data &);
+        Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::pair<std::uint32_t, std::uint32_t> ref_counts, 
+            const PosVT::Data &);
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
         
         void setType(std::shared_ptr<Class>);

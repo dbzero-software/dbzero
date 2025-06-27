@@ -339,7 +339,8 @@ namespace db0::object_model
         std::function<void(UniqueAddress)> add_tag_callback = [&](UniqueAddress obj_addr) {
             auto it = m_object_cache.find(obj_addr);
             assert(it != m_object_cache.end());
-            type_manager.extractMutableObject(it->second.get()).incRef();
+            // NOTE: inc-ref as tag
+            type_manager.extractMutableObject(it->second.get()).incRef(true);
         };
 
         // add_index_callback adds reference to tags (string pool tokens)
@@ -351,7 +352,7 @@ namespace db0::object_model
         std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
             auto it = m_object_cache.find(obj_addr);
             assert(it != m_object_cache.end());
-            type_manager.extractMutableObject(it->second.get()).decRef();
+            type_manager.extractMutableObject(it->second.get()).decRef(true);
         };
         
         std::function<void(ShortTagT)> erase_index_callback = [&](ShortTagT tag_addr) {

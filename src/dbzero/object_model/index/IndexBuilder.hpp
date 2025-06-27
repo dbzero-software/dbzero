@@ -85,15 +85,15 @@ namespace db0::object_model
         std::function<void(UniqueAddress)> add_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
-            m_type_manager.extractMutableObject(it->second.get()).incRef();
+            m_type_manager.extractMutableObject(it->second.get()).incRef(false);
         };
         
         std::function<void(UniqueAddress)> erase_callback = [&](UniqueAddress address) {
             auto it = m_object_cache.find(address);
             assert(it != m_object_cache.end());
-            m_type_manager.extractMutableObject(it->second.get()).decRef();
+            m_type_manager.extractMutableObject(it->second.get()).decRef(false);
         };
-
+        
         super_t::flush(index, &add_callback, &erase_callback);        
         m_object_cache.clear();
     }

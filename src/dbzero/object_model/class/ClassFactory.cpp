@@ -155,7 +155,7 @@ namespace db0::object_model
                 );
                 class_ptr = ClassPtr(*type);
                 // inc-ref to persist the class
-                type->incRef();
+                type->incRef(false);
                 // register class under all known key variants
                 for (unsigned int i = 0; i < 4; ++i) {
                     auto variant_name = getNameVariant(lang_type, type_id, i);

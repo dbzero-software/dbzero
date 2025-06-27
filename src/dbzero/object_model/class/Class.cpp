@@ -204,7 +204,7 @@ namespace db0::object_model
         assert(!(*this)->m_singleton_address.isValid());
         assert(isSingleton());
         // increment reference count in order to prevent singleton object from being destroyed
-        object.incRef();
+        object.incRef(false);
         modify().m_singleton_address = object.getUniqueAddress();
     }
     
@@ -477,15 +477,15 @@ namespace db0::object_model
     const std::unordered_set<std::string> &Class::getInitVars() const {
         return m_init_vars;
     }
-
+    
     std::function<unsigned int()> Class::getTotalFunc() const
     {
         return [this]() {
             // NOTE: -1 because Class is also referenced (+1) by the ClassFactory
-            return this->getRefCount() - 1;
+            return this->getRefCounts().second - 1;
         };
     }
-
+    
     const Schema &Class::getSchema() const {
         return m_schema;
     }
