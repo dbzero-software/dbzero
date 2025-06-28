@@ -92,7 +92,7 @@ namespace db0::object_model
         , m_type(type)
     {
     }
-
+    
     Object::Object(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)        
     {
@@ -131,6 +131,11 @@ namespace db0::object_model
             // instance ID validation failed
             return {};
         }
+        // do not unload if reference count is zero
+        if (!stem->m_header.hasRefs()) {
+            return {};
+        }
+        
         return stem;
     }
 
@@ -692,11 +697,11 @@ namespace db0::object_model
         }
     }
     
-    void Object::decRef(bool is_tag)
+    std::uint32_t Object::decRef(bool is_tag)
     {
         // this operation is a potentially silent mutation
-        _touch();
-        super_t::decRef(is_tag);
+        _touch();        
+        return super_t::decRef(is_tag);
     }
     
     bool Object::equalTo(const Object &other) const
@@ -724,8 +729,6 @@ namespace db0::object_model
                 return false;
             }
             if (!((*this)->index_vt() == other->index_vt())) {
-                // FIMXE: log
-                std::cout << "Index-vt not equal" << std::endl;
                 return false;
             }
             if (!hasKV_Index() && !other.hasKV_Index()) {

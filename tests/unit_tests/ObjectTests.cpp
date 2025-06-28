@@ -2,7 +2,9 @@
 #include <utils/utils.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
+#include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/CommonBase.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 
@@ -120,6 +122,35 @@ namespace tests
             // note that utilization is still higher than the initial one which is due to
             // administrative data created by the allocators
             ASSERT_TRUE(cache_size_2 < cache_size_1);
+        }
+        workspace.close();
+    }
+    
+    TEST_F( ObjectTest , testObjectCanBeCastToCommonBase )
+    {        
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        
+        PosVT::Data data(0);
+
+        using Object = db0::object_model::Object;
+        
+        std::shared_ptr<Class> type = Class::getNullClass();
+        {
+            Object object(fixture, type, std::make_pair(0u, 0u), data);
+            object.incRef(true);
+            object.incRef(false);
+            auto &cut = *reinterpret_cast<db0::object_model::CommonBase*>(&object);
+            ASSERT_EQ(1u, cut->m_header.m_ref_counter.get().first);
+            ASSERT_EQ(1u, cut->m_header.m_ref_counter.get().second);
+            ASSERT_TRUE(cut.hasRefs());
+            object.decRef(true);
+            object.decRef(false);
+            ASSERT_EQ(0u, cut->m_header.m_ref_counter.get().first);
+            ASSERT_EQ(0u, cut->m_header.m_ref_counter.get().second);
+            ASSERT_FALSE(cut.hasRefs());
+            // NOTE: incRef preserves the object, otherwise the test would fail on cleanup
+            object.incRef(true);
         }
         workspace.close();
     }

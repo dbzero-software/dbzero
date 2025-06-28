@@ -30,7 +30,7 @@ namespace db0
     /**
      * The base class for all Fixture based v_objects
      * @tparam BaseT must be some v_object or derived class
-     * @tparam _CLS the storage class
+     * @tparam _CLS the storage class (for GC0 integration)
      * @tparam T the actual type of the object. T must implement the following optional operations (or specialzations): destroy, detach
      * @tparam unique if true, the object will be created with a unique address
      * and must contain the m_header as the first overlaid member and define static GCOps_ID m_gc_ops_id as its member (see GC0_Declare macro)
@@ -122,10 +122,11 @@ namespace db0
             this->modify().m_header.incRef(is_tag);
         }
         
-        void decRef(bool is_tag)
+        // @return reference count (of a specific type) after decrement
+        std::uint32_t decRef(bool is_tag)
         {
             assert(hasInstance());
-            this->modify().m_header.decRef(is_tag);
+            return this->modify().m_header.decRef(is_tag);
         }
         
         // tags / objects reference counts
@@ -174,10 +175,11 @@ namespace db0
                 return false;
             }
             // validate instance ID only if provided
+            // NOTE: in this case we also validate if the refs-count is not zero (otherwise it's pending deletion)
             if (instance_id) {
                 // NOTE: here we use trusted size_of retrieved from the allocator
                 auto stem = BaseT(db0::tag_verified(), fixture->myPtr(address), size_of);
-                return stem->m_header.m_instance_id == instance_id;
+                return stem->m_header.m_instance_id == instance_id && stem->m_header.hasRefs();
             }
             return true;
         }
@@ -281,5 +283,5 @@ namespace db0
         this->destroy();
         *this = std::move(new_instance);
     }
-
+    
 }

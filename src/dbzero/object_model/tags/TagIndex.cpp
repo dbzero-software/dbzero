@@ -161,13 +161,13 @@ namespace db0::object_model
     }
     
     FT_BaseIndex<TagIndex::ShortTagT>::BatchOperationBuilder &
-    TagIndex::getBatchOperationShort(ObjectPtr memo_ptr, ActiveValueT &result)
+    TagIndex::getBatchOperationShort(ObjectPtr memo_ptr, ActiveValueT &result) const
     {
         return getBatchOperation(memo_ptr, m_base_index_short, m_batch_operation_short, result);
     }
 
     db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &
-    TagIndex::getBatchOperationLong(ObjectPtr memo_ptr, ActiveValueT &result)
+    TagIndex::getBatchOperationLong(ObjectPtr memo_ptr, ActiveValueT &result) const
     {
         return getBatchOperation(memo_ptr, m_base_index_long, m_batch_operation_long, result);
     }
@@ -332,6 +332,8 @@ namespace db0::object_model
     
     void TagIndex::flush() const
     {
+        using ShortBatchOperationBulder = db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder;
+
         auto &type_manager = LangToolkit::getTypeManager();
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
@@ -342,17 +344,34 @@ namespace db0::object_model
             // NOTE: inc-ref as tag
             type_manager.extractMutableObject(it->second.get()).incRef(true);
         };
-
+        
         // add_index_callback adds reference to tags (string pool tokens)
         // unless such reference has already been added when the tag was first created
         std::function<void(ShortTagT)> add_index_callback = [&](ShortTagT tag_addr) {
             tryTagIncRef(tag_addr);
         };
         
+        // the additional batch operation will possibly be created to
+        // handle the type-tags removal
+        ShortBatchOperationBulder batch_op_short;
         std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
             auto it = m_object_cache.find(obj_addr);
             assert(it != m_object_cache.end());
-            type_manager.extractMutableObject(it->second.get()).decRef(true);
+            auto &object = type_manager.extractMutableObject(it->second.get());
+            auto ref_count = object.decRef(true);
+            if (ref_count == object.getType().getNumBases() + 1) {
+                ActiveValueT active_key = { UniqueAddress(), nullptr };
+                // possibly construct a new batch-op
+                auto &batch_op = getBatchOperation(it->second.get(), m_base_index_short, batch_op_short, active_key);                
+                const Class *type_ptr = &object.getType();
+                while (type_ptr) {
+                    // remove auto-assigned type (or its base) tag
+                    batch_op->removeTag(active_key, type_ptr->getAddress());
+                    // for each removed type tag, decrement ref-count immediately
+                    object.decRef(true);
+                    type_ptr = type_ptr->getBaseClassPtr();
+                }
+            }
         };
         
         std::function<void(ShortTagT)> erase_index_callback = [&](ShortTagT tag_addr) {
@@ -381,6 +400,13 @@ namespace db0::object_model
             m_batch_operation_long->flush(&add_tag_callback, &remove_tag_callback, 
                 &add_long_index_callback, &erase_long_index_callback);
             assert(m_batch_operation_long->empty());
+        }
+
+        // finally, flush type tag remove ops collected during flush
+        if (!batch_op_short.empty()) {
+            // NOTE: no callback are needed here
+            batch_op_short->flush();
+            assert(batch_op_short.empty());
         }
 
         m_object_cache.clear();
@@ -992,5 +1018,20 @@ namespace db0::object_model
         auto &py_obj = LangToolkit::getTypeManager().extractObject(py_arg);
         return { py_obj.getFixtureUUID(), py_obj.getAddress().getOffset() };
     }
- 
-}
+    
+    bool TagIndex::isPendingUpdate(UniqueAddress addr) const {
+        return m_object_cache.find(addr) != m_object_cache.end();               
+    }
+    
+    bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress addr)
+    {
+        if (fixture->getAccessType() == db0::AccessType::READ_ONLY) {
+            // no pending updates in read-only mode
+            return false;
+        }
+
+        auto tag_index_ptr = fixture->tryGet<TagIndex>();
+        return tag_index_ptr && tag_index_ptr->isPendingUpdate(addr);
+    }
+    
+}   

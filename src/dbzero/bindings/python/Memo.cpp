@@ -212,7 +212,7 @@ namespace db0::python
             self->modifyExt();
             fixture->getLangCache().add(object.getAddress(), self);
         }
-
+        
         return 0;
     }
     

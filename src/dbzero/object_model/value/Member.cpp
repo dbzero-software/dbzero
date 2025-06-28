@@ -526,11 +526,12 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         auto address = value.asUniqueAddress();
-        if (PyToolkit::isObjectExpired(fixture, address.getAddress(), address.getInstanceId())) {
+        // NOTE: instance_id not validated since it's a trusted reference
+        if (PyToolkit::isExistingObject(fixture, address.getAddress())) {
+            return PyToolkit::unloadObject(fixture, address);
+        } else {
             // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
             return PyToolkit::unloadExpiredRef(fixture, fixture->getUUID(), address);
-        } else {
-            return PyToolkit::unloadObject(fixture, address);
         }
     }
     
@@ -541,12 +542,12 @@ namespace db0::object_model
         LongWeakRef weak_ref(fixture, value.asAddress());
         auto other_fixture = fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid);
         auto address = weak_ref->m_address;
-        if (PyToolkit::isObjectExpired(other_fixture, address.getAddress(), address.getInstanceId())) {
-            // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
-            return PyToolkit::unloadExpiredRef(fixture, weak_ref);
-        } else {
+        if (PyToolkit::isExistingObject(other_fixture, address.getAddress())) {
             // unload object from a foreign prefix
             return PyToolkit::unloadObject(other_fixture, address);
+        } else {
+            // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
+            return PyToolkit::unloadExpiredRef(fixture, weak_ref);
         }
     }
     
@@ -582,9 +583,11 @@ namespace db0::object_model
     
     template <typename T, typename LangToolkit>
     void unrefObjectBase(db0::swine_ptr<Fixture> &fixture, Address address)
-    {
-        auto obj_ptr = fixture->getLangCache().get(address);
+    {   
+        bool has_refs = false;
+        auto obj_ptr = fixture->getLangCache().get(address, has_refs);
         if (obj_ptr.get()) {
+            assert(has_refs && "unrefObjectBase: object has no references");
             db0::FixtureLock lock(fixture);
             // decref cached instance via language specific wrapper type
             auto lang_wrapper = LangToolkit::template getWrapperTypeOf<T>(obj_ptr.get());

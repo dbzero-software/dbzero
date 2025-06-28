@@ -22,13 +22,13 @@ namespace db0::python
         using ExtT = T;
 
         inline const T &ext() const {
-            return *reinterpret_cast<const T*>((char*)this + Py_TYPE(this)->tp_basicsize - sizeof(T));
+            return *reinterpret_cast<const T*>((char*)this + sizeof(__PyTypeMould));
         }
         
         inline T &modifyExt()
         {
             // calculate instance offset
-            auto &result = *reinterpret_cast<T*>((char*)this + Py_TYPE(this)->tp_basicsize - sizeof(T));
+            auto &result = *reinterpret_cast<T*>((char*)this + sizeof(__PyTypeMould));
             // only for ObjectBase derived classes
             if constexpr (is_object_base) {
                 // the implementation registers the underlying object for detach (on rollback)

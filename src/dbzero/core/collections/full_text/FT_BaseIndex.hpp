@@ -19,7 +19,8 @@ namespace db0
     {
     public:
         using super_t = InvertedIndex<IndexKeyT, KeyT, IndexValueT>;
-        
+        using self_t = FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>;
+                
         FT_BaseIndex() = default;
         FT_BaseIndex(Memspace &, VObjectCache &);
         FT_BaseIndex(mptr, VObjectCache &);
@@ -281,19 +282,17 @@ namespace db0
             bool empty() const;        
         };
 
-        std::shared_ptr<BatchOperation> getBatchOperation();
+        std::shared_ptr<BatchOperation> getBatchOperation() const;
 
         /**
          * Initiate batch operation based update
         */
-        BatchOperationBuilder beginBatchUpdate();
+        BatchOperationBuilder beginBatchUpdate() const;
         
     protected:
-        mutable progressive_mutex mx;
-        // currently pending batch operation (if any)
-        std::weak_ptr<BatchOperation> m_batch_operation;
+        mutable progressive_mutex m_mutex;
     };
-
+    
     extern template class FT_BaseIndex<std::uint64_t, UniqueAddress>;
     extern template class FT_BaseIndex<db0::LongTagT, UniqueAddress>;
     

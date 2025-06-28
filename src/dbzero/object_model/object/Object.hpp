@@ -99,6 +99,7 @@ namespace db0::object_model
         using ObjectStem = db0::v_object<o_object>;
         using TypeInitializer = ObjectInitializer::TypeInitializer;
 
+        Object();
         Object(const Object &) = delete;
         Object(Object &&) = delete;
 
@@ -107,8 +108,11 @@ namespace db0::object_model
         */
         Object(std::shared_ptr<Class>);
         Object(TypeInitializer &&);
-        Object(db0::swine_ptr<Fixture> &, Address);
-        
+        Object(db0::swine_ptr<Fixture> &, Address);        
+        Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::pair<std::uint32_t, std::uint32_t> ref_counts, 
+            const PosVT::Data &);
+        Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
+
         ~Object();
         
         // post-init invoked by memo type directly after __init__
@@ -141,8 +145,6 @@ namespace db0::object_model
         ObjectSharedPtr tryGetAs(const char *field_name, TypeObjectPtr) const;
         ObjectSharedPtr get(const char *field_name) const;
         
-        // bp::object get(const char *field_name) const;
-
         inline std::shared_ptr<Class> getClassPtr() const {
             return m_type ? m_type : m_init_manager.getInitializer(*this).getClassPtr();
         }
@@ -183,8 +185,9 @@ namespace db0::object_model
         */
         void incRef(bool is_tag);
         
-        void decRef(bool is_tag);
-
+        // @return reference count (of a specific type) after decrement
+        std::uint32_t decRef(bool is_tag);
+        
         // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
         // NOTE: ref-counts are not compared (only user-assigned members)
         // @return true if objects are identical
@@ -238,12 +241,7 @@ namespace db0::object_model
         // with the underlying MemLock / ResourceLock
         // NOTE: by silent mutation we mean a mutation that does not change data (e.g. +refcount(+-1) + (refcount-1))
         mutable bool m_touched = false;
-        
-        Object();
-        Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::pair<std::uint32_t, std::uint32_t> ref_counts, 
-            const PosVT::Data &);
-        Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
-        
+                
         void setType(std::shared_ptr<Class>);
         // adjusts to actual type if the type hint is a base class
         void setTypeWithHint(std::shared_ptr<Class> type_hint);

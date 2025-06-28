@@ -160,6 +160,7 @@ namespace db0
     
     template <typename T> void GC0::add(void *vptr)
     {
+        // vptr must not be null
         assert(vptr);
         std::unique_lock<std::mutex> lock(m_mutex);
         // detach function must always be provided

@@ -219,6 +219,8 @@ def test_tag_query_over_snapshot(db0_fixture, memo_tags):
 def test_retrieving_object_dependencies_from_snapshot(db0_fixture):
     obj_1 = MemoTestClass(9123)
     obj_2 = MemoTestClass(obj_1)
+    # assign tags to persist objects
+    db0.tags(obj_1, obj_2).add("temp")                       
     state_num_1 = db0.get_state_num()
     db0.commit()
     snap_1 = db0.snapshot(state_num_1)
@@ -236,7 +238,9 @@ def test_retrieving_object_dependencies_from_snapshot(db0_fixture):
 
 def test_retrieving_snapshot_specific_object_version(db0_fixture):
     obj_1 = MemoTestClass(9123)
-    obj_2 = MemoTestClass(obj_1)    
+    obj_2 = MemoTestClass(obj_1)
+    # assign tags to persist objects
+    db0.tags(obj_1, obj_2).add("temp")
     db0.commit()
     snap = db0.snapshot()
     obj_1.value = 1234
@@ -343,6 +347,8 @@ def test_snapshot_scope_bound_to_query(db0_fixture):
 
 def test_out_of_context_object_access(db0_fixture):
     obj_list = [MemoTestClass(123) for _ in range(100)]
+    # add tags to persist objects
+    db0.tags(*obj_list).add("temp")        
     state_1 = db0.get_state_num()
     db0.commit()
     for obj in obj_list:

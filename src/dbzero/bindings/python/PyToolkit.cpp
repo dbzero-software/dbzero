@@ -26,6 +26,7 @@
 #include <dbzero/bindings/python/types/PyEnum.hpp>
 #include <dbzero/bindings/python/types/PyTag.hpp>
 #include <dbzero/bindings/python/PySafeAPI.hpp>
+#include <dbzero/bindings/python/PyCommonBase.hpp>
 
 namespace db0::python
 
@@ -100,8 +101,14 @@ namespace db0::python
     {
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
-        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
+        bool would_throw = false;
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, nullptr, &would_throw);
         
+        if (would_throw) {
+            // object is known to be deleted, but this is a non-throwing function
+            return false;
+        }
+
         if (obj_ptr.get()) {
             // only validate instance ID if provided
             if (instance_id) {
@@ -127,7 +134,12 @@ namespace db0::python
     {
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
-        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
+        bool would_throw = false;
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, nullptr, &would_throw);
+        if (would_throw) {
+            // object is known to be deleted, but this is a non-throwing function
+            return {};
+        }
         
         if (obj_ptr.get()) {
             // only validate instance ID if provided
@@ -154,7 +166,7 @@ namespace db0::python
         auto [type, lang_type] = class_factory.getTypeByClassRef(stem->m_class_ref);
         
         if (!lang_type_ptr) {
-            if (!lang_type) {                
+            if (!lang_type) {
                 lang_type = class_factory.getLangType(*type);
             }
             lang_type_ptr = lang_type.get();
@@ -198,8 +210,13 @@ namespace db0::python
         
         // NOTE: lang_class may be of a base type (e.g. MemoBase)
         auto memo_object = MemoObjectStub_new(lang_class);
-        db0::object_model::Object::unload(&(memo_object.get())->modifyExt(), address, type);
+        auto &object = *db0::object_model::Object::unload(&(memo_object.get())->modifyExt(), address, type);
         obj_ptr = shared_py_cast<PyObject*>(std::move(memo_object));
+        // NOTE: instance may be pending deletion (if it has no refs), even if it exists
+        if (!object.hasRefs()) {
+            THROWF(db0::InputException) << "Requested instance does not exist";
+        }
+        
         lang_cache.add(address, obj_ptr.get());
         return obj_ptr;
     }
@@ -223,17 +240,13 @@ namespace db0::python
     PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, const LongWeakRef &weak_ref) {
         return unloadExpiredRef(fixture, weak_ref->m_fixture_uuid, weak_ref->m_address);
     }
-    
-    bool PyToolkit::isObjectExpired(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id) {
-        return !Object::checkUnload(fixture, address, instance_id);
-    }
-    
+        
     PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
     {
         using List = db0::object_model::List;
 
         // try pulling from cache first
-        auto &lang_cache = fixture->getLangCache();
+        auto &lang_cache = fixture->getLangCache();        
         auto object_ptr = lang_cache.get(address);
         if (object_ptr.get()) {
             // return from cache
@@ -557,7 +570,7 @@ namespace db0::python
         PyErr_SetObject(err_obj, *Py_OWN(PyLong_FromUnsignedLongLong(err_value)));
     }
 
-    unsigned int PyToolkit::getRefCount(ObjectPtr obj) {
+    unsigned int PyToolkit::getLangRefCount(ObjectPtr obj) {
         return Py_REFCNT(obj);
     }
     
@@ -663,5 +676,13 @@ namespace db0::python
     bool PyToolkit::isValid() {
         return Py_IsInitialized();
     }
-
+    
+    bool PyToolkit::hasRefs(ObjectPtr obj_ptr) {
+        return reinterpret_cast<PyCommonBase*>(obj_ptr)->ext().hasRefs();
+    }
+    
+    bool PyToolkit::hasAnyRefs(ObjectPtr obj_ptr, int lang_refs_adjuster) {
+        return ((int)getLangRefCount(obj_ptr) + lang_refs_adjuster > 0) || hasRefs(obj_ptr);
+    }
+    
 }

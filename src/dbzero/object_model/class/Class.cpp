@@ -21,7 +21,7 @@ namespace db0::object_model
     
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
         const VFieldVector &members, const Schema &schema, const char *type_id, const char *prefix_name, ClassFlags flags,
-        const std::uint32_t base_class_ref)
+        std::uint32_t base_class_ref, std::uint32_t num_bases)
         : m_uuid(db0::make_UUID())
         , m_name(string_pool.addRef(name))
         , m_type_id(type_id ? string_pool.addRef(type_id) : LP_String())
@@ -30,6 +30,7 @@ namespace db0::object_model
         , m_schema_ptr(schema)
         , m_flags(flags)
         , m_base_class_ref(base_class_ref)
+        , m_num_bases(num_bases)
     {
         if (module_name) {
             m_module_name = string_pool.addRef(*module_name);
@@ -51,8 +52,8 @@ namespace db0::object_model
     Class::Class(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
         const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags flags, 
         std::shared_ptr<Class> base_class)
-        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), Schema(*fixture), 
-            type_id, prefix_name, flags, base_class ? ClassFactory::classRef(*base_class) : 0)
+        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), Schema(*fixture),
+            type_id, prefix_name, flags, base_class ? ClassFactory::classRef(*base_class) : 0, base_class ? (1u + base_class->getNumBases()) : 0)
         , m_members((*this)->m_members_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
         , m_base_class_ptr(base_class)
@@ -456,6 +457,10 @@ namespace db0::object_model
     std::shared_ptr<Class> Class::tryGetBaseClass() const {
         return m_base_class_ptr;
     }
+    
+    const Class *Class::getBaseClassPtr() const {
+        return m_base_class_ptr.get();
+    }
 
     void Class::setInitVars(const std::vector<std::string> &init_vars)
     {
@@ -554,9 +559,13 @@ namespace db0::object_model
     void Class::removeFromSchema(FieldID field_id, StorageClass type) {
         m_schema.remove(field_id.getIndex(), getSchemaTypeId(type));
     }
-
+    
     void Class::removeFromSchema(const XValue &value) {        
         m_schema.remove(value.getIndex(), getSchemaTypeId(value.m_type));
     }
-    
+
+    std::uint32_t Class::getNumBases() const {
+        return (*this)->m_num_bases;
+    }
+
 }

@@ -6,6 +6,8 @@ from .memo_test_types import MemoTestClass, DynamicDataClass
 
 def test_compare_two_versions_of_the_same_object(db0_fixture):
     obj_1 = MemoTestClass(9999)
+    # assign tags to persist the object, otherwise it will not be accessible in snapshots
+    db0.tags(obj_1).add("temp")
     db0.commit()
     snap_1 = db0.snapshot()
     obj_1.value = 100
@@ -18,6 +20,8 @@ def test_compare_two_versions_of_the_same_object(db0_fixture):
 
 def test_compare_identical_versions(db0_fixture):
     obj_1 = MemoTestClass(9999)
+    # assign tags to persist the object, otherwise it will not be accessible in snapshots
+    db0.tags(obj_1).add("temp")    
     db0.commit()
     snap_1 = db0.snapshot()
     obj_1.value = 100
@@ -31,8 +35,10 @@ def test_compare_identical_versions(db0_fixture):
 
 
 def test_compare_index_vt_mutations(db0_fixture):
-    obj_ = DynamicDataClass(120)
+    _ = DynamicDataClass(120)
     obj_1 = DynamicDataClass([0, 1, 2, 11, 33, 119])
+    # assign tags to persist the object, otherwise it will not be accessible in snapshots
+    db0.tags(obj_1).add("temp")
     index_vt = db0.describe(obj_1)["field_layout"]["index_vt"]
     db0.commit()
     snap_1 = db0.snapshot()
@@ -49,6 +55,8 @@ def test_compare_index_vt_mutations(db0_fixture):
 def test_compare_kv_index_mutations(db0_fixture):
     obj_1 = MemoTestClass(9999)
     obj_1.new_field_1 = 100
+    # assign tags to persist the object, otherwise it will not be accessible in snapshots
+    db0.tags(obj_1).add("temp")    
     db0.commit()
     snap_1 = db0.snapshot()
     obj_1.new_field_2 = 200
@@ -99,6 +107,8 @@ def test_compare_instances_with_kv_index(db0_fixture):
     
 def test_compare_same_object_but_different_tags(db0_fixture):
     obj_1 = MemoTestClass(9999)
+    # assign tags to persist the object, otherwise it will not be accessible in snapshots
+    db0.tags(obj_1).add("temp")
     db0.commit()
     snap_1 = db0.snapshot()
     db0.tags(obj_1).add("tag_1")

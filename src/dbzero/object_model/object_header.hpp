@@ -34,7 +34,8 @@ namespace db0
         
         // return true if object is not referenced by any other object
         // and can be safely deleted
-        void decRef(bool is_tag);
+        // @return reference count (of a specific type) after decrement
+        std::uint32_t decRef(bool is_tag);
 
         // NOTE: we assume that the last tag-reference will be auto-removed so it's not assumed to be counted
         bool hasRefs() const;
