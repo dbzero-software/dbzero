@@ -62,11 +62,14 @@ namespace db0::object_model
         ClassFlags m_flags;
         UniqueAddress m_singleton_address = {};
         const std::uint32_t m_base_class_ref;
+        const std::uint32_t m_num_bases;
         // unused, reserved for future purposes
         std::array<std::uint64_t, 4> m_reserved;
         
-        o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name, const VFieldVector &,
-            const Schema &, const char *type_id, const char *prefix_name, ClassFlags, const std::uint32_t);
+        o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name, 
+            const VFieldVector &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags, 
+            std::uint32_t base_class_ref, std::uint32_t num_bases
+        );
     };
     
     // NOTE: Class type uses SLOT_NUM = TYPE_SLOT_NUM
@@ -180,6 +183,8 @@ namespace db0::object_model
         static std::shared_ptr<Class> getNullClass();
         
         std::shared_ptr<Class> tryGetBaseClass() const;
+        // @return base class pointer or nullptr if no base class is defined
+        const Class *getBaseClassPtr() const;
         
         // Get initialization variables identified by static code analysis
         // note that the result includes also all base class init vars
@@ -204,6 +209,8 @@ namespace db0::object_model
         void removeFromSchema(FieldID, StorageClass type);
         void removeFromSchema(const XValue &);
         
+        std::uint32_t getNumBases() const;
+
     protected:
         friend class ClassFactory;
         friend ClassPtr;

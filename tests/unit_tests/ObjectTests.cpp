@@ -2,7 +2,9 @@
 #include <utils/utils.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
+#include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/CommonBase.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 
@@ -36,7 +38,7 @@ namespace tests
         data.m_types = std::vector<StorageClass> { StorageClass::INT64, StorageClass::POOLED_STRING };
         data.m_values = std::vector<Value> { Value(0), Value(0) };
         
-        ASSERT_EQ ( 44u, o_object::measure(0, 0, data) );
+        ASSERT_EQ ( 46u, o_object::measure(0, {0, 0}, data) );
     }
     
     TEST_F( ObjectTest , testObjectInitializerCanBeFoundIfAdded )
@@ -58,7 +60,7 @@ namespace tests
         PosVT::Data data(8);
 
         using Object = v_object<db0::object_model::o_object>;
-        ASSERT_NO_THROW( Object(memspace, 0, 0, data) );
+        ASSERT_NO_THROW( Object(memspace, 0, std::make_pair(0u, 0u), data) );
         workspace.close();
     }
     
@@ -68,14 +70,14 @@ namespace tests
         auto memspace = workspace.getMemspace(prefix_name);
         using Object = v_object<db0::object_model::o_object>;
         PosVT::Data data(8);
-        std::size_t size_of = db0::object_model::o_object::measure(0, 0, data);
+        std::size_t size_of = db0::object_model::o_object::measure(0, std::make_pair(0u, 0u), data);
 
         // measure speed
         auto start = std::chrono::high_resolution_clock::now();
         std::size_t total_bytes = 0;
         std::size_t alloc_count = 100000;
         for (unsigned int i = 0; i < alloc_count; ++i) {
-            Object(memspace, 0, 0, 8);
+            Object(memspace, 0, std::make_pair(0u, 0u), 8);
             total_bytes += size_of;
         }
         auto end = std::chrono::high_resolution_clock::now();
@@ -105,7 +107,7 @@ namespace tests
             std::vector<Object> objects;
             std::size_t alloc_count = 1000;
             for (unsigned int i = 0; i < alloc_count; ++i) {
-                objects.emplace_back(memspace, 0, 0, data);
+                objects.emplace_back(memspace, 0, std::make_pair(0u, 0u), data);
             }
             
             workspace.getCacheRecycler().clear();
@@ -120,6 +122,35 @@ namespace tests
             // note that utilization is still higher than the initial one which is due to
             // administrative data created by the allocators
             ASSERT_TRUE(cache_size_2 < cache_size_1);
+        }
+        workspace.close();
+    }
+    
+    TEST_F( ObjectTest , testObjectCanBeCastToCommonBase )
+    {        
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+        
+        PosVT::Data data(0);
+
+        using Object = db0::object_model::Object;
+        
+        std::shared_ptr<Class> type = Class::getNullClass();
+        {
+            Object object(fixture, type, std::make_pair(0u, 0u), data);
+            object.incRef(true);
+            object.incRef(false);
+            auto &cut = *reinterpret_cast<db0::object_model::CommonBase*>(&object);
+            ASSERT_EQ(1u, cut->m_header.m_ref_counter.get().first);
+            ASSERT_EQ(1u, cut->m_header.m_ref_counter.get().second);
+            ASSERT_TRUE(cut.hasRefs());
+            object.decRef(true);
+            object.decRef(false);
+            ASSERT_EQ(0u, cut->m_header.m_ref_counter.get().first);
+            ASSERT_EQ(0u, cut->m_header.m_ref_counter.get().second);
+            ASSERT_FALSE(cut.hasRefs());
+            // NOTE: incRef preserves the object, otherwise the test would fail on cleanup
+            object.incRef(true);
         }
         workspace.close();
     }

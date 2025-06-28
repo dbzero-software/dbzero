@@ -56,7 +56,7 @@ namespace db0::object_model
         m_class = nullptr;        
         m_values.clear();
         m_sorted_size = 0;
-        m_ref_count = 0;
+        m_ref_counts = {0, 0};
         m_type_initializer = {};
         m_fixture = {};
     }
@@ -207,8 +207,19 @@ namespace db0::object_model
         return { &*(m_values.begin() + index), &*(m_values.begin() + count) };
     }
 
-    void ObjectInitializer::incRef() {
-        ++m_ref_count;
+    void ObjectInitializer::incRef(bool is_tag)
+    {
+        if (is_tag) {
+            if (m_ref_counts.first == std::numeric_limits<std::uint32_t>::max()) {
+                THROWF(db0::InternalException) << "ObjectInitializer: ref-count overflow" << THROWF_END;
+            }
+            ++m_ref_counts.first;
+        } else {
+            if (m_ref_counts.second == std::numeric_limits<std::uint32_t>::max()) {
+                THROWF(db0::InternalException) << "ObjectInitializer: ref-count overflow" << THROWF_END;
+            }
+            ++m_ref_counts.second;
+        }
     }
 
     bool ObjectInitializer::empty() const {

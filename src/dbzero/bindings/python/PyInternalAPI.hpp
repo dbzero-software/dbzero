@@ -110,8 +110,9 @@ namespace db0::python
     bool tryExistsIn(db0::Snapshot &snapshot, PyObject *py_id, PyTypeObject *type_arg,
         const char *prefix_name = nullptr);
     
+    // NOTE: if would_throw output buffer is passed, the function will set flag to "true" instead of throwing
     shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
-        std::shared_ptr<db0::object_model::Class> expected_type = nullptr);
+        std::shared_ptr<db0::object_model::Class> expected_type = nullptr, bool *would_throw = nullptr);
     
     /**
      * Open dbzero object by UUID     

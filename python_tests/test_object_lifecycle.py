@@ -119,5 +119,5 @@ def test_unreferenced_snapshot_objects_issue_1(db0_fixture):
     db0.commit()
     snap_1 = db0.snapshot()
     # retrieve unreferenced object from snapshot
-    obj = snap_1.fetch(db0.uuid(obj_1))
-    del obj
+    with pytest.raises(Exception):
+        _ = snap_1.fetch(db0.uuid(obj_1))

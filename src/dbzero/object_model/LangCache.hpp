@@ -36,8 +36,11 @@ namespace db0
         
         // Try retrieving an existing instance from cache
         // nullptr will be returned if the instance has not been found in cache
+        // @param has_refs will be set to false is the instance has no references and is pending deletion
+        ObjectSharedPtr get(const Fixture &, Address, bool &has_refs) const;
+        // This version will raise an exception if the deleted instance is accessed
         ObjectSharedPtr get(const Fixture &, Address) const;
-
+        
         // Move instance from a different cache (changing its address)
         void moveFrom(LangCache &other, const Fixture &src_fixture, Address src_address,
             const Fixture &dst_fixture, Address dst_address);
@@ -82,7 +85,7 @@ namespace db0
         
         bool isFull() const;
         
-        ObjectSharedPtr get(std::uint16_t fixture_id, Address) const;
+        ObjectSharedPtr get(std::uint16_t fixture_id, Address, bool &has_refs) const;
         
         void moveFrom(LangCache &other, std::uint16_t src_fixture_id, Address src_address,
             std::uint16_t dst_fixture_id, Address dst_address);
@@ -112,6 +115,8 @@ namespace db0
 
         void erase(Address);
         
+        ObjectSharedPtr get(Address, bool &has_refs) const;
+        // this version will raise an exception if the deleted instance is accessed
         ObjectSharedPtr get(Address) const;
 
         void moveFrom(LangCacheView &other, Address src_address, Address dst_address);

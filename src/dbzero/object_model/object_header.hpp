@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/serialization/Ext.hpp>
+#include <dbzero/core/serialization/ref_counter.hpp>
 
 namespace db0
 
@@ -13,23 +14,31 @@ namespace db0
     /// Common object header
     struct [[gnu::packed]] o_object_header: public o_fixed<o_object_header>
     {
-        std::uint32_t m_ref_count = 0;
+        using RefCounterT = o_ref_counter<std::uint32_t, 6>;
+        // ref-counter to hold tags / objects reference counts separately
+        RefCounterT m_ref_counter;
 
         o_object_header() = default;
-        inline o_object_header(std::uint32_t ref_count)
-            : m_ref_count(ref_count)
+
+        inline o_object_header(const RefCounterT &ref_counter)
+            : m_ref_counter(ref_counter)
         {
         }
 
-        void incRef();
-
+        inline o_object_header(std::pair<std::uint32_t, std::uint32_t> ref_counts)
+            : m_ref_counter(ref_counts.first, ref_counts.second)
+        {
+        }
+        
+        void incRef(bool is_tag);
+        
         // return true if object is not referenced by any other object
         // and can be safely deleted
-        bool decRef();
+        // @return reference count (of a specific type) after decrement
+        std::uint32_t decRef(bool is_tag);
 
-        inline bool hasRefs() const {
-            return m_ref_count > 0;
-        }
+        // NOTE: we assume that the last tag-reference will be auto-removed so it's not assumed to be counted
+        bool hasRefs() const;
     };
     
     // Unique header for objects with unique instance id
@@ -39,8 +48,13 @@ namespace db0
         std::uint16_t m_instance_id = 0;
         
         o_unique_header() = default;
-        o_unique_header(std::uint32_t ref_count)
-            : o_fixed_ext<o_unique_header, o_object_header>(ref_count)
+        o_unique_header(const RefCounterT &ref_counter)
+            : o_fixed_ext<o_unique_header, o_object_header>(ref_counter)
+        {
+        }
+        
+        o_unique_header(std::pair<std::uint32_t, std::uint32_t> ref_counts)
+            : o_fixed_ext<o_unique_header, o_object_header>(ref_counts)
         {
         }
     };

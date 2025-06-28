@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Python.h>
+#include "PyWrapper.hpp"
 #include "shared_py_object.hpp"
 
 namespace db0::python 
@@ -17,5 +18,5 @@ namespace db0::python
         using TypeObjectPtr = PyTypeObject*;
         using TypeObjectSharedPtr = shared_py_object<PyTypeObject*>;
     };
-       
+    
 }

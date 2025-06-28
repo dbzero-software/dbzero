@@ -170,7 +170,7 @@ def test_long_weak_ref_inside_list(db0_fixture):
     db0.open(px_2, "rw")
 
     obj_1 = MemoTestPxClass(123, prefix=px_1)
-    list_1 = db0.list([db0.weak_proxy(obj_1)])    
+    list_1 = db0.list([db0.weak_proxy(obj_1)])        
     assert list_1[0] == obj_1
 
 
@@ -178,9 +178,9 @@ def test_long_weak_ref_inside_tuple(db0_fixture):
     px_1 = db0.get_current_prefix().name
     px_2 = "some-other-prefix"
     db0.open(px_2, "rw")
-
+    
     obj_1 = MemoTestPxClass(123, prefix=px_1)
-    tuple_1 = db0.tuple([db0.weak_proxy(obj_1)])    
+    tuple_1 = db0.tuple([db0.weak_proxy(obj_1)])        
     assert tuple_1[0] == obj_1
 
 

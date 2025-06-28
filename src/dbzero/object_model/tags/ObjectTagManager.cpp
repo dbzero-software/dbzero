@@ -53,7 +53,7 @@ namespace db0::object_model
         }
         return new (at_ptr) ObjectTagManager(memo_ptr, nargs);
     }
-
+    
     void ObjectTagManager::ObjectInfo::add(ObjectPtr const *args, Py_ssize_t nargs)
     {
         assert(m_tag_index_ptr);

@@ -31,17 +31,17 @@ namespace db0::object_model
         return *kv_ptr_1 == *kv_ptr_2;
     }
 
-    o_object::o_object(std::uint32_t class_ref, std::uint32_t ref_count, const PosVT::Data &pos_vt_data,
-        const XValue *index_vt_begin, const XValue *index_vt_end)
-        : m_header(ref_count)
+    o_object::o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts,
+        const PosVT::Data &pos_vt_data, const XValue *index_vt_begin, const XValue *index_vt_end)
+        : m_header(ref_counts)
         , m_class_ref(class_ref)        
     {
         arrangeMembers()
             (PosVT::type(), pos_vt_data)
             (IndexVT::type(), index_vt_begin, index_vt_end);
     }
-
-    std::size_t o_object::measure(std::uint32_t, std::uint32_t, const PosVT::Data &pos_vt_data,
+    
+    std::size_t o_object::measure(std::uint32_t, std::pair<std::uint32_t, std::uint32_t>, const PosVT::Data &pos_vt_data,
         const XValue *index_vt_begin, const XValue *index_vt_end)
     {
         return super_t::measureMembers()
@@ -65,6 +65,10 @@ namespace db0::object_model
         return getDynAfter(pos_vt(), IndexVT::type());
     }
     
+    void o_object::incRef(bool is_tag) {
+        m_header.incRef(is_tag);
+    }
+
     Object::Object()
         : m_flags { ObjectOptions::DROPPED }
     {
@@ -82,12 +86,13 @@ namespace db0::object_model
         m_init_manager.addInitializer(*this, std::move(type_initializer));
     }
     
-    Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::uint32_t ref_count, const PosVT::Data &pos_vt_data)
-        : super_t(fixture, ClassFactory::classRef(*type), ref_count, pos_vt_data)
+    Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, 
+        std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data)
+        : super_t(fixture, ClassFactory::classRef(*type), ref_counts, pos_vt_data)
         , m_type(type)
     {
     }
-
+    
     Object::Object(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)        
     {
@@ -126,6 +131,11 @@ namespace db0::object_model
             // instance ID validation failed
             return {};
         }
+        // do not unload if reference count is zero
+        if (!stem->m_header.hasRefs()) {
+            return {};
+        }
+        
         return stem;
     }
 
@@ -164,10 +174,10 @@ namespace db0::object_model
             // construct the dbzero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
-            super_t::init(*fixture, ClassFactory::classRef(*m_type), initializer.getRefCount(), pos_vt_data,
+            super_t::init(*fixture, ClassFactory::classRef(*m_type), initializer.getRefCounts(), pos_vt_data,
                 index_vt_data.first, index_vt_data.second);
             // reference associated class
-            m_type->incRef();
+            m_type->incRef(false);
             m_type->updateSchema(pos_vt_data.m_types);
             m_type->updateSchema(index_vt_data.first, index_vt_data.second);
             
@@ -511,7 +521,7 @@ namespace db0::object_model
         if (type.isSingleton()) {
             // clear singleton address
             type.unlinkSingleton();
-            modify().m_header.decRef();
+            modify().m_header.decRef(false);
         }
     }
     
@@ -526,7 +536,7 @@ namespace db0::object_model
             }
             dropMembers(*type);
             // dereference associated class
-            type->decRef();
+            type->decRef(false);
         }
         super_t::destroy();
     }
@@ -677,21 +687,21 @@ namespace db0::object_model
         });
     }
     
-    void Object::incRef()
+    void Object::incRef(bool is_tag)
     {
         if (hasInstance()) {
-            super_t::incRef();          
+            super_t::incRef(is_tag);
         } else {
             // incRef with the initializer
-            m_init_manager.getInitializer(*this).incRef();
+            m_init_manager.getInitializer(*this).incRef(is_tag);
         }
     }
     
-    void Object::decRef()
+    std::uint32_t Object::decRef(bool is_tag)
     {
         // this operation is a potentially silent mutation
-        _touch();
-        super_t::decRef();
+        _touch();        
+        return super_t::decRef(is_tag);
     }
     
     bool Object::equalTo(const Object &other) const
@@ -719,8 +729,6 @@ namespace db0::object_model
                 return false;
             }
             if (!((*this)->index_vt() == other->index_vt())) {
-                // FIMXE: log
-                std::cout << "Index-vt not equal" << std::endl;
                 return false;
             }
             if (!hasKV_Index() && !other.hasKV_Index()) {

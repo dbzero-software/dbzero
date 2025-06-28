@@ -80,15 +80,15 @@ namespace db0::object_model
         
         std::shared_ptr<Class> getClassPtr() const;
 
-        inline std::uint32_t getRefCount() const {
-            return m_ref_count;
+        inline std::pair<std::uint32_t, std::uint32_t> getRefCounts() const {
+            return m_ref_counts;
         }
         
         db0::swine_ptr<Fixture> getFixture() const;
         db0::swine_ptr<Fixture> tryGetFixture() const;
 
         // performs a deferred incRef on an actual object instance (the ref-count reflected upon creation)
-        void incRef();
+        void incRef(bool is_tag);
         
         bool empty() const;
                 
@@ -110,7 +110,7 @@ namespace db0::object_model
         mutable std::vector<XValue> m_values;
         // number of m_values already sorted
         mutable std::size_t m_sorted_size = 0;
-        std::uint32_t m_ref_count = 0;
+        std::pair<std::uint32_t, std::uint32_t> m_ref_counts = {0, 0};
         mutable db0::swine_ptr<Fixture> m_fixture;
         mutable TypeInitializer m_type_initializer;
 

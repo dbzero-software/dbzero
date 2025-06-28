@@ -92,11 +92,7 @@ namespace db0::python
         */
         static std::optional<std::string> tryGetModuleName(TypeObjectPtr py_type);
         static std::string getModuleName(TypeObjectPtr py_type);
-        
-        // Check whether the object's reference is no longer available (i.e. expired)
-        // NOTE: this works only for memo objects (also included the instance ID validation)
-        static bool isObjectExpired(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
-        
+                
         // Unload with type resolution
         // optionally may use specific lang class (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
@@ -210,7 +206,13 @@ namespace db0::python
         // indicate failed operation with a specific value/code
         static void setError(ObjectPtr err_obj, std::uint64_t err_value);
         
-        static unsigned int getRefCount(ObjectPtr);
+        // Get the number of references from other language objects
+        static unsigned int getLangRefCount(ObjectPtr);
+        // Check if the object has reference from other dbzero objects or tags
+        // NOTE!!! this only works for CommonBase/PyWrapper objects (e..g all LangCache objects)
+        static bool hasRefs(ObjectPtr);
+        // Check if CommonBase object has any references either from dbzero or the language code
+        static bool hasAnyRefs(ObjectPtr, int lang_refs_adjuster);
         
         // Extract keys (if present) from a Python dict object
         static std::optional<long> getLong(ObjectPtr py_object, const std::string &key);

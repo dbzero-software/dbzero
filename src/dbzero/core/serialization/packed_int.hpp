@@ -69,6 +69,21 @@ namespace db0
             }
             at += size_of;
         }
+        
+        // Write with bounds checked
+        static void write(std::byte *&at, IntT value, const std::byte *end)
+        {
+            auto size_of = measure(value);
+            if (at + size_of > end) {
+                THROWF(db0::InternalException) << "packed_int overflow";
+            }
+            if constexpr (is_nullable) {
+                encodeNullable(value, at + size_of);
+            } else {
+                encode(value, at + size_of);
+            }
+            at += size_of;
+        }
 
         inline bool isNull() const
         {

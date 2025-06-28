@@ -20,7 +20,7 @@ namespace db0::object_model
         bool auto_harden = true)
     {
         if (*fixture != *object.getFixture()) {
-            if (object.getRefCount() > 0 || !auto_harden) {
+            if (object.hasRefs() || !auto_harden) {
                 THROWF(db0::InputException) << "Creating strong reference failed: object from a different prefix" << THROWF_END;
             }
             // auto-harden instead of taking a weak reference
@@ -59,17 +59,17 @@ namespace db0::object_model
         auto &obj = PyToolkit::getTypeManager().extractMutableObject(obj_ptr);
         assert(obj.hasInstance());
         assureSameFixture(fixture, obj);
-        obj.modify().incRef();
+        obj.modify().incRef(false);
         return obj.getAddress();
     }
-
+    
     // LIST specialization
     template <> Value createMember<TypeId::DB0_LIST, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
         auto &list = PyToolkit::getTypeManager().extractMutableList(obj_ptr);
         assureSameFixture(fixture, list);
-        list.modify().incRef();
+        list.modify().incRef(false);
         return list.getAddress();
     }
     
@@ -79,17 +79,17 @@ namespace db0::object_model
     {
         auto &index = PyToolkit::getTypeManager().extractMutableIndex(obj_ptr);
         assureSameFixture(fixture, index);
-        index.incRef();
+        index.incRef(false);
         return index.getAddress();
     }
-
+    
     // SET specialization
     template <> Value createMember<TypeId::DB0_SET, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
         PyObjectPtr obj_ptr, StorageClass)
     {
         auto &set = PyToolkit::getTypeManager().extractMutableSet(obj_ptr);
         assureSameFixture(fixture, set);
-        set.incRef();
+        set.incRef(false);
         return set.getAddress();
     }
 
@@ -99,7 +99,7 @@ namespace db0::object_model
     {
         auto &dict = PyToolkit::getTypeManager().extractMutableDict(obj_ptr);
         assureSameFixture(fixture, dict);
-        dict.incRef();
+        dict.incRef(false);
         return dict.getAddress();
     }
 
@@ -109,7 +109,7 @@ namespace db0::object_model
     {
         auto &tuple = PyToolkit::getTypeManager().extractMutableTuple(obj_ptr);
         assureSameFixture(fixture, tuple);
-        tuple.incRef();
+        tuple.incRef(false);
         return tuple.getAddress();
     }
     
@@ -121,7 +121,7 @@ namespace db0::object_model
         if (!list_ptr) {
             THROWF(db0::InputException) << "Failed to create list" << THROWF_END;
         }
-        list_ptr.get()->modifyExt().modify().incRef();
+        list_ptr.get()->modifyExt().modify().incRef(false);
         return list_ptr.get()->ext().getAddress();
     }
     
@@ -133,7 +133,7 @@ namespace db0::object_model
         if (!set) {
             THROWF(db0::InputException) << "Failed to create set" << THROWF_END;
         }
-        set.get()->modifyExt().incRef();
+        set.get()->modifyExt().incRef(false);
         return set.get()->ext().getAddress();
     }
     
@@ -147,7 +147,7 @@ namespace db0::object_model
         if (!dict) {
             THROWF(db0::InputException) << "Failed to create dict" << THROWF_END;
         }
-        dict.get()->modifyExt().incRef();
+        dict.get()->modifyExt().incRef(false);
         return dict.get()->ext().getAddress();
     }
     
@@ -156,7 +156,7 @@ namespace db0::object_model
         PyObjectPtr obj_ptr, StorageClass)
     {
         auto tuple = db0::python::tryMake_DB0Tuple(fixture, &obj_ptr, 1);
-        tuple.get()->modifyExt().incRef();
+        tuple.get()->modifyExt().incRef(false);
         return tuple.get()->ext().getAddress();
     }
     
@@ -271,7 +271,7 @@ namespace db0::object_model
     {
         auto &byte_array = PyToolkit::getTypeManager().extractMutableByteArray(obj_ptr);
         assureSameFixture(fixture, byte_array);
-        byte_array.modify().incRef();
+        byte_array.modify().incRef(false);
         return byte_array.getAddress();
     }
     
@@ -526,11 +526,12 @@ namespace db0::object_model
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
         auto address = value.asUniqueAddress();
-        if (PyToolkit::isObjectExpired(fixture, address.getAddress(), address.getInstanceId())) {
+        // NOTE: instance_id not validated since it's a trusted reference
+        if (PyToolkit::isExistingObject(fixture, address.getAddress())) {
+            return PyToolkit::unloadObject(fixture, address);
+        } else {
             // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
             return PyToolkit::unloadExpiredRef(fixture, fixture->getUUID(), address);
-        } else {
-            return PyToolkit::unloadObject(fixture, address);
         }
     }
     
@@ -541,12 +542,12 @@ namespace db0::object_model
         LongWeakRef weak_ref(fixture, value.asAddress());
         auto other_fixture = fixture->getWorkspace().getFixture(weak_ref->m_fixture_uuid);
         auto address = weak_ref->m_address;
-        if (PyToolkit::isObjectExpired(other_fixture, address.getAddress(), address.getInstanceId())) {
-            // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
-            return PyToolkit::unloadExpiredRef(fixture, weak_ref);
-        } else {
+        if (PyToolkit::isExistingObject(other_fixture, address.getAddress())) {
             // unload object from a foreign prefix
             return PyToolkit::unloadObject(other_fixture, address);
+        } else {
+            // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
+            return PyToolkit::unloadExpiredRef(fixture, weak_ref);
         }
     }
     
@@ -582,16 +583,18 @@ namespace db0::object_model
     
     template <typename T, typename LangToolkit>
     void unrefObjectBase(db0::swine_ptr<Fixture> &fixture, Address address)
-    {
-        auto obj_ptr = fixture->getLangCache().get(address);
+    {   
+        bool has_refs = false;
+        auto obj_ptr = fixture->getLangCache().get(address, has_refs);
         if (obj_ptr.get()) {
+            assert(has_refs && "unrefObjectBase: object has no references");
             db0::FixtureLock lock(fixture);
             // decref cached instance via language specific wrapper type
             auto lang_wrapper = LangToolkit::template getWrapperTypeOf<T>(obj_ptr.get());
-            lang_wrapper->modifyExt().decRef();
+            lang_wrapper->modifyExt().decRef(false);
         } else {
             T object(fixture, address);
-            object.decRef();
+            object.decRef(false);
             // member will be deleted by GC0 if its ref-count = 0
         }
     }

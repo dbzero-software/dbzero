@@ -31,10 +31,9 @@ namespace db0
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::FT_BaseIndex(FT_BaseIndex &&other)
         : super_t(std::move(other))        
-    {
-        assert(!other.m_batch_operation.lock());
+    {    
     }
-
+    
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     std::unique_ptr<FT_Iterator<KeyT> > 
     FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::makeIterator(IndexKeyT key, int direction) const
@@ -67,34 +66,14 @@ namespace db0
     
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
 	std::shared_ptr<typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation> 
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::getBatchOperation()
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::getBatchOperation() const
     {
-		// either pull existing or create new BatchOperation instance
-		progressive_mutex::scoped_lock lock(mx);
-		std::shared_ptr<BatchOperation> result;
-		for (;;) {
-			lock.lock();
-			result = m_batch_operation.lock();
-			if (result) {
-				// share existing BatchOperation instance
-				break;
-			}
-			if (!lock.isUniqueLocked()) {
-				continue;
-			}
-			assert(m_batch_operation.expired());
-			// start new transaction
-			result = std::shared_ptr<BatchOperation>(new BatchOperation(*this));
-			m_batch_operation = result;
-			break;
-		}
-		lock.release();
-		return result;
-	}
-
+        return std::shared_ptr<BatchOperation>(new BatchOperation(*const_cast<self_t*>(this)));
+    }
+    
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
 	typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperationBuilder 
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::beginBatchUpdate() 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::beginBatchUpdate() const
     {
 		return getBatchOperation();
 	}
@@ -285,11 +264,11 @@ namespace db0
                 buf.clear();
             };
         };
-
+        
 		FlushStats stats;
 		{
 			// 1. lock whole object for write while performing commit
-			progressive_mutex::scoped_unique_lock book_lock(m_base_index_ptr->mx);
+			progressive_mutex::scoped_unique_lock book_lock(m_base_index_ptr->m_mutex);
 			// 2. lock this BatchOperation object
 			std::unique_lock<std::recursive_mutex> lock(m_mutex);
             m_commit_called = true;

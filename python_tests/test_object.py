@@ -467,3 +467,16 @@ def test_child_object_comparison(db0_fixture):
     child = MemoChild(123, 456)
     obj_1 = MemoTestClass(child)
     assert obj_1.value == child
+    
+    
+def test_memo_object_ref_counting_with_tags(db0_fixture):
+    object_2 = MemoTestClass(0)
+    db0.tags(object_2).add("test-1")
+    assert db0.getrefcount(object_2) == 1
+    object_1 = MemoTestClass(object_2)
+    assert db0.getrefcount(object_2) == 2
+    db0.tags(object_2).add("test-2")
+    assert db0.getrefcount(object_2) == 3
+    db0.tags(object_2).remove("test-1", "test-2")
+    assert db0.getrefcount(object_2) == 1
+                

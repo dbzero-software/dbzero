@@ -135,7 +135,7 @@ namespace db0::python
         PY_API_FUNC        
         return runSafe(tryFetch, py_id, reinterpret_cast<PyTypeObject*>(py_type), prefix_name).steal();
     }
-
+    
     PyObject *PyAPI_exists(PyObject *, PyObject *args, PyObject *kwargs)
     {
         PyObject *py_id = nullptr;

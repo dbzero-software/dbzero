@@ -24,9 +24,8 @@ def test_object_gets_incref_by_tags(db0_fixture):
     assert db0.getrefcount(object_1) == 0
     db0.tags(object_1).add(["tag1"])
     # commit to reflect tag assignment
-    db0.commit()
-    # ref-count is 2 because type tag is also assigned
-    assert db0.getrefcount(object_1) == 2
+    db0.commit()    
+    assert db0.getrefcount(object_1) == 1
 
 
 def test_assigned_tags_can_be_removed(db0_fixture):
@@ -303,4 +302,29 @@ def test_add_250k_tags_low_cache(db0_no_autocommit):
     
     for tag in last_tags:
         assert len(list(db0.find(tag))) == 1, f"Tag {tag} not found after adding 250k tags"
+
     
+def test_object_with_no_refs_destroyed_immediately_when_last_tag_removed(db0_fixture):
+    db0.tags(MemoTestClass(0)).add("tag-1")
+    uuid = db0.uuid(next(iter(db0.find(MemoTestClass, "tag-1"))))
+    db0.commit()
+    assert db0.exists(uuid) 
+    db0.tags(next(iter(db0.find(MemoTestClass, "tag-1")))).remove("tag-1")
+    assert not db0.exists(uuid)
+
+
+def test_object_with_no_refs_cannot_be_fetched_immediately_when_last_tag_removed(db0_fixture):
+    db0.tags(MemoTestClass(0)).add("tag-1")
+    uuid = db0.uuid(next(iter(db0.find(MemoTestClass, "tag-1"))))
+    db0.commit()    
+    db0.tags(next(iter(db0.find(MemoTestClass, "tag-1")))).remove("tag-1")
+    with pytest.raises(Exception):
+        _ = db0.fetch(uuid)
+    
+    
+def test_object_with_no_refs_no_longer_accessible_by_type_when_last_tag_removed(db0_fixture):
+    db0.tags(MemoTestClass(0)).add("tag-1")
+    uuid = db0.uuid(next(iter(db0.find(MemoTestClass, "tag-1"))))
+    db0.commit()    
+    db0.tags(next(iter(db0.find(MemoTestClass, "tag-1")))).remove("tag-1")
+    assert not db0.find(MemoTestClass)

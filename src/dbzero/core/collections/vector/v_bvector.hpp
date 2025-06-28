@@ -31,10 +31,10 @@ namespace db0
         o_bvector(std::uint32_t page_size_hint)
             : m_page_size(page_size_hint)            
         {
-        }
-        
-        inline void incRef() {
-            ++m_header.m_ref_count;
+        }        
+
+        void incRef(bool is_tag) {
+            m_header.incRef(is_tag);
         }
     };
     

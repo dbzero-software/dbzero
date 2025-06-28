@@ -102,6 +102,10 @@ namespace db0::object_model
         
         void clear();
         
+        // Check if there's any queued update for the provided address
+        // which may affect a future state of the object (e.g. add tags or drop)
+        bool isPendingUpdate(UniqueAddress) const;
+        
     private:
         using TypeId = db0::bindings::TypeId;
         using ActiveValueT = typename db0::FT_BaseIndex<ShortTagT>::ActiveValueT;
@@ -126,13 +130,13 @@ namespace db0::object_model
         mutable std::shared_ptr<MutationLog> m_mutation_log;
         
         template <typename BaseIndexT, typename BatchOperationT>
-        BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result);
+        BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result) const;
         
         db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr, 
-            ActiveValueT &result);
+            ActiveValueT &result) const;
 
         db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr,
-            ActiveValueT &result);
+            ActiveValueT &result) const;
         
         /**
          * Make a tag from the provided argument (can be a string, type or a memo instance)
@@ -201,7 +205,7 @@ namespace db0::object_model
     
     template <typename BaseIndexT, typename BatchOperationT>
     BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, 
-        BatchOperationT &batch_op, ActiveValueT &result)
+        BatchOperationT &batch_op, ActiveValueT &result) const
     {
         if (!batch_op) {
             batch_op = base_index.beginBatchUpdate();
@@ -278,5 +282,8 @@ namespace db0::object_model
     db0::swine_ptr<Fixture> getFindParams(db0::Snapshot &, TagIndex::ObjectPtr const *args, std::size_t nargs,
         std::vector<TagIndex::ObjectPtr> &find_args, std::shared_ptr<Class> &type, TagIndex::TypeObjectPtr &lang_type,
         bool &no_result, const char *prefix_name = nullptr);
+    
+    // Check if the object is pending update in the TagIndex withih a specific fixture
+    bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress);
     
 }

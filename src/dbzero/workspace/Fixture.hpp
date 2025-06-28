@@ -131,6 +131,10 @@ namespace db0
             return m_resource_manager.select<T>();
         }
 
+        template <typename T> T *tryGet() const {
+            return m_resource_manager.trySelect<T>();
+        }
+
         template <typename T, typename ResultT, typename... Args> ResultT &addResourceAs(Args&&... args);
 
         /**

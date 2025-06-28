@@ -25,7 +25,7 @@ namespace db0::python
     using ListObject = PyWrapper<db0::object_model::List>;
     using IndexObject = PyWrapper<db0::object_model::Index>;
     using ObjectId = db0::object_model::ObjectId;
-    
+
     struct PyObjectId
     {        
         using StorageClass = db0::object_model::StorageClass;
