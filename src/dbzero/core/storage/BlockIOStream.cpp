@@ -27,7 +27,7 @@ namespace db0
         , m_address(begin)
         , m_block_size(block_size)
         , m_tail_function(tail_function)
-        , m_buffer(block_size)
+        , m_buffer(block_size, 0)
         , m_block_begin(m_buffer.data())
         , m_block_pos(m_block_begin)
         , m_block_end(m_block_begin + m_buffer.size() - 
@@ -137,7 +137,7 @@ namespace db0
         ++m_block_num;
         return true;
     }
-
+    
     bool BlockIOStream::flushModified()
     {
         if (!m_modified) {
@@ -421,7 +421,7 @@ namespace db0
     
     char *BlockIOStream::prepareChunk(std::size_t size, std::vector<char> &buffer) const
     {
-        buffer.resize(size + o_block_io_chunk_header::sizeOf());
+        buffer.resize(size + o_block_io_chunk_header::sizeOf(), 0);
         auto &chunk_header = o_block_io_chunk_header::__new(buffer.data(), size);
         return buffer.data() + chunk_header.sizeOf();
     }

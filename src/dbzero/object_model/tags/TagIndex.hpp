@@ -18,12 +18,12 @@ namespace db0::object_model
     using RC_LimitedStringPool = db0::pools::RC_LimitedStringPool;
     using LongTagT = db0::LongTagT;
     class EnumFactory;
-
+    
     struct [[gnu::packed]] o_tag_index: public o_fixed<o_tag_index>
     {
         Address m_base_index_short_ptr = {};
         Address m_base_index_long_ptr = {};
-        std::uint64_t m_reserved[4] = { 0, 0, 0, 0 };
+        std::array<std::uint64_t, 4> m_reserved = { 0, 0, 0, 0 };
     };
     
     /**

@@ -9,6 +9,7 @@
 #include <dbzero/workspace/GC0.hpp>
 #include <dbzero/object_model/item/Item.hpp>
 #include <dbzero/core/utils/weak_vector.hpp>
+#include <array>
 
 namespace db0 {
 
@@ -32,7 +33,7 @@ namespace db0::object_model
         o_unique_header m_header;
         Address m_index_ptr = {};
         std::uint64_t m_size = 0;
-        std::uint64_t m_reserved[2] = {0, 0};
+        std::array<std::uint64_t, 2> m_reserved = {0, 0};
     };
 
     class Set: public db0::ObjectBase<Set, db0::v_object<o_set>, StorageClass::DB0_SET>

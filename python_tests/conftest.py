@@ -51,7 +51,10 @@ def db0_slab_size(request):
         shutil.rmtree(DB0_DIR)
     # create empty directory
     os.mkdir(DB0_DIR)
-    db0.init(DB0_DIR, config = {"autocommit": request.param.get("autocommit", True)})
+    db0.init(DB0_DIR, config = {
+        "autocommit": request.param.get("autocommit", True),
+        "autocommit_interval": request.param.get("autocommit_interval", 250),
+        })
     db0.open("my-test-prefix", slab_size=request.param["slab_size"])
     yield db0     
     gc.collect()

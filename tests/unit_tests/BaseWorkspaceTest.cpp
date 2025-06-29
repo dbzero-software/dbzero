@@ -92,7 +92,7 @@ namespace tests
     TEST_F( BaseWorkspaceTest , testSparseIndexCanReuseExpiredDataBlocks )
     {        
         std::set<Address> addresses;
-        // perform 100 small transactions with disk commit of each        
+        // perform 100 small transactions with disk commit of each                
         for (int i = 0; i < 100; ++i) {
             auto memspace = m_workspace.getMemspace(prefix_name);
             v_object<o_simple<int>> obj(memspace, 999);

@@ -20,7 +20,7 @@ namespace db0
     {
         using CompT = SI_ItemCompT;
         using EqualT = SI_ItemEqualT;
-        using DiffBufT = std::array<std::uint8_t, 20>;
+        using DiffBufT = std::array<unsigned char, 20>;
         using DiffArrayT = o_packed_array<o_packed_int_pair<std::uint32_t, std::uint64_t>, std::uint8_t, sizeof(DiffBufT)>;
 
         // the diff-data buffer to hold o_packed_array

@@ -89,7 +89,7 @@ namespace db0
     void DRAM_IOStream::load()
     {
         assert(m_access_type == AccessType::READ_WRITE);
-        std::vector<char> buffer(m_chunk_size);
+        std::vector<char> buffer(m_chunk_size, 0);
         const auto &header = o_dram_chunk_header::__ref(buffer.data());
         auto bytes = buffer.data() + header.sizeOf();
         
@@ -168,7 +168,7 @@ namespace db0
         std::vector<std::uint64_t> dram_changelog;
         m_prefix->flushDirty([&, this](std::uint64_t page_num, const void *page_buffer) {
             // the last page must be stored in a new block to mark end of the sequence
-            auto reusable_addr = find_reusable();            
+            auto reusable_addr = find_reusable();         
             if (reusable_addr) {
                 reusable_header.m_page_num = page_num;
                 std::memcpy(reusable_header.getData(), page_buffer, m_dram_page_size);

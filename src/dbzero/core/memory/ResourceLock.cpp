@@ -27,14 +27,10 @@ namespace db0
             (access_mode[AccessOptions::no_cache] ? db0::RESOURCE_NO_CACHE : 0) 
         )
         , m_access_mode(access_mode)
-        , m_data(size)
+        , m_data(size, static_cast<std::byte>(0))
         , m_cow_lock(cow_lock)
     {
         assert(!m_cow_lock || m_cow_lock->size() == this->size());
-        // intialize buffer for write-only access (create)
-        if (!access_mode[AccessOptions::read]) {
-            std::memset(m_data.data(), 0, this->size());
-        }
 #ifndef NDEBUG        
         rl_usage += this->size();
         ++rl_count;

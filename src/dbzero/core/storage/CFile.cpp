@@ -138,15 +138,25 @@ namespace db0
         }
     }
     
+    void CFile::setFilePos(std::uint64_t address, std::unique_lock<std::mutex> &lock) const
+    {
+        if (address != m_file_pos) {
+            if (m_dirty) {
+                flush(lock);
+            }
+            if (fseek(m_file, address, SEEK_SET)) {
+                THROWF(db0::IOException) << "CFile::write: fseek failed";
+            }
+            m_file_pos = address;
+        }
+    }
+    
     void CFile::write(std::uint64_t address, std::size_t size, const void *buffer)
     {
         std::unique_lock<std::mutex> lock(m_mutex);
         assert(m_access_type != AccessType::READ_ONLY);
         if (address != m_file_pos) {
-            if (fseek(m_file, address, SEEK_SET)) {
-                THROWF(db0::IOException) << "CFile::write: fseek failed";
-            }
-            m_file_pos = address;
+            setFilePos(address, lock);
             ++m_rand_write_ops;
         }
         assert(m_file_pos == (std::uint64_t)ftell(m_file));
@@ -169,10 +179,7 @@ namespace db0
             flush(lock);
         }
         if (address != m_file_pos) {
-            if (fseek(m_file, address, SEEK_SET)) {
-                THROWF(db0::IOException) << "CFile::read: fseek failed";
-            }
-            m_file_pos = address;
+            setFilePos(address, lock);
             ++m_rand_read_ops;
         }
         assert(m_file_pos == (std::uint64_t)ftell(m_file));

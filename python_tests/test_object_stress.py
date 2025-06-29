@@ -2,29 +2,70 @@ import pytest
 import dbzero_ce as db0
 from datetime import datetime
 from .memo_test_types import MemoTestClass, DynamicDataClass
+import random
 
     
 @pytest.mark.stress_test
-# @pytest.mark.parametrize("db0_autocommit_fixture", [1], indirect=True)
-def test_create_random_objects_stress_test(db0_no_autocommit):
-    def rand_string(max_len):
+# FIXME: log
+# @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 64 << 20, "autocommit": True, "autocommit_interval": 250}], indirect=True)
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 64 << 20, "autocommit": False}], indirect=True)
+def test_create_random_objects_stress_test(db0_slab_size):
+    def rand_string(max_len = 8192):
         import random
         import string
         actual_len = random.randint(1, max_len)
         return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
+
+    def rand_dict(max_keys = 16):
+        import random
+        import string
+        key_count = random.randint(1, max_keys)
+        result = {}
+        for _ in range(key_count):
+            result[rand_string(16)] = rand_string(128)
+        return result
+
+    def rand_list(max_items = 16):
+        import random
+        item_count = random.randint(1, max_items)
+        result = []
+        for _ in range(item_count):
+            result.append(rand_string(128))            
+        return result
+
+    # Generate a random value which is either: string, or dict
+    def rand_value():
+        generators = [rand_string, rand_dict, rand_list, rand_list, rand_list]
+        return random.choice(generators)()
     
-    append_count = 100000
+    def read_value(value) -> int:
+        if isinstance(value, str):
+            return len(value)
+        elif isinstance(value, db0.types.Dict):
+            return sum(len(k) + read_value(v) for k, v in value.items())
+        elif isinstance(value, db0.types.List):
+            return sum(read_value(item) for item in value)
+        else:
+            raise ValueError("Unsupported value type")
+    
+    db0.set_cache_size(1 << 30)
+    # FIXME: log
+    append_count = 50000
+    append_count = 100
     # NOTE: in this version of test we reference objects from db0 list thus
     # they are not GC0 garbage collected
     buf = db0.list()
     total_bytes = 0
     count = 0
+    read_count = 100
     report_bytes = 1024 * 1024
     rand_dram_io = 0
-    rand_file_write_ops = 0    
+    rand_file_write_ops = 0
     bytes_written = 0
     for _ in range(append_count):
-        buf.append(MemoTestClass(rand_string(8192)))
+        # FIXME: log
+        # with db0.atomic():
+        buf.append(MemoTestClass(rand_value()))
         total_bytes += len(buf[-1].value)
         count += 1
         if total_bytes > report_bytes:
@@ -43,6 +84,14 @@ def test_create_random_objects_stress_test(db0_no_autocommit):
             report_bytes += 1024 * 1024
         if count % 1000 == 0:
             print(f"Objects created: {count}")
+        if count % 100 == 0:
+            bytes_read = 0
+            for _ in range(read_count):
+                obj = random.choice(buf)
+                bytes_read += read_value(obj.value)
+            print(f"Read {read_count} objects, total bytes read: {bytes_read}")
+            import gc
+            gc.collect()
 
 
 @pytest.mark.stress_test
@@ -52,8 +101,8 @@ def test_create_random_gc0_objects_stress_test(db0_no_autocommit):
         import string
         actual_len = random.randint(1, max_len)
         return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
-    
-    append_count = 100000
+        
+    append_count = 100000    
     buf = []
     total_bytes = 0
     count = 0

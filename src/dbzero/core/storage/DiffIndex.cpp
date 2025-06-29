@@ -100,7 +100,9 @@ namespace db0
     
     DI_CompressedItem::DI_CompressedItem(std::uint32_t first_page_num, std::uint64_t page_num, std::uint32_t state_num)
         : SI_CompressedItem(first_page_num, page_num, state_num)
-    {        
+        // zero-initialize fundamental type
+        , m_diff_data {}
+    {         
     }
     
     DI_Item DI_CompressedItem::uncompress(std::uint32_t first_page_num) const {
@@ -123,7 +125,7 @@ namespace db0
         storage_page_num -= base_storage_page_num;
         return true;
     }
-
+    
     void DI_CompressedItem::append(std::uint32_t state_num, std::uint64_t storage_page_num) {
         DiffArrayT::__ref(m_diff_data.data()).emplaceBack(state_num, storage_page_num);
     }

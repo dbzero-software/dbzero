@@ -93,6 +93,7 @@ namespace db0
         mutable bool m_dirty = false;
         
         void flush(std::unique_lock<std::mutex> &) const;
+        void setFilePos(std::uint64_t address, std::unique_lock<std::mutex> &) const;
     };
     
     std::uint64_t getLastModifiedTime(const char *file_name);

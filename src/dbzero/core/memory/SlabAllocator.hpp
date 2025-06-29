@@ -25,8 +25,8 @@ namespace db0
         std::uint32_t m_aligned_blank_set_ptr = 0;
         std::uint32_t m_stripe_set_ptr = 0;
         std::uint32_t m_alloc_counter_ptr = 0;
-        std::uint32_t m_reserved[2] = {0};
-
+        std::array<std::uint32_t, 2> m_reserved = {0, 0};
+        
         o_slab_header() = default;
         
         o_slab_header(std::uint32_t size, std::uint32_t alloc_set_ptr, std::uint32_t blank_set_ptr, 

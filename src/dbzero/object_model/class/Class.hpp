@@ -64,7 +64,7 @@ namespace db0::object_model
         const std::uint32_t m_base_class_ref;
         const std::uint32_t m_num_bases;
         // unused, reserved for future purposes
-        std::array<std::uint64_t, 4> m_reserved;
+        std::array<std::uint64_t, 4> m_reserved = {0, 0, 0, 0};
         
         o_class(RC_LimitedStringPool &, const std::string &name, std::optional<std::string> module_name, 
             const VFieldVector &, const Schema &, const char *type_id, const char *prefix_name, ClassFlags, 

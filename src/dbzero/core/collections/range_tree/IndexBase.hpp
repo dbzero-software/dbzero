@@ -26,16 +26,16 @@ namespace db0
         Int64 = 2,
         UInt64 = 3
     };
-
+    
     struct [[gnu::packed]] o_index: public o_fixed<o_index>
     {
         // common object header
-        o_unique_header m_header;        
+        o_unique_header m_header;
         IndexType m_type;
         IndexDataType m_data_type = IndexDataType::Auto;
         // address of the actual index instance
         Address m_index_addr = {};
-        std::array<std::uint64_t, 2> m_reserved;
+        std::array<std::uint64_t, 2> m_reserved = {0, 0};
         
         o_index(IndexType, IndexDataType);
         // header not copied
