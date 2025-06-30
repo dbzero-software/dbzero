@@ -40,8 +40,14 @@ namespace db0
 #endif
         
     protected:
+        friend class PrefixCache;
+
         // try getting diffs and adjust the cow_ptr
         bool getDiffs(const std::byte *&cow_ptr, void *buf, std::size_t size, std::vector<std::uint16_t> &result) const;
+        
+        const ResourceLock *getResLockPtr() const {
+            return m_res_lock.get();
+        }
         
     private:
         std::shared_ptr<DP_Lock> m_res_lock;

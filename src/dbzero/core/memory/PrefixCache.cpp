@@ -7,6 +7,7 @@
 #include "BoundaryLock.hpp"
 #include "CacheRecycler.hpp"
 #include "WideLock.hpp"
+#include <unordered_set>
 
 namespace db0
 
@@ -600,13 +601,23 @@ namespace db0
         // so they need not to be merged
         m_volatile_boundary_locks.clear();
         
+        // first collect residual parts from dirty wide locks
+        // which need to be trated as dirty, otherwise may not be merged / flushed properly
+        std::unordered_set<const ResourceLock*> dirty_res_locks;
+        for (auto &lock: m_volatile_wide_locks) {
+            if (lock->isDirty()) {
+                // collect dirty residual locks
+                dirty_res_locks.insert(lock->getResLockPtr());
+            }
+        }
+
         std::unordered_map<const ResourceLock*, std::shared_ptr<DP_Lock> > rebase_map;
         // merge DP-locks first
         for (auto &lock: m_volatile_locks) {
             // erase volatile range related lock
             eraseRange(lock->getAddress(), lock->size(), from_state_num);
             // NOTE: volatile locks may not be dirty if first accessed as read-only from the atomic context
-            if (lock->isDirty()) {
+            if (lock->isDirty() || dirty_res_locks.count(lock.get())) {
                 // need to update to final state number (head) before merging with active transaction
                 lock->merge(to_state_num);
                 auto existing_lock = replaceRange(lock->getAddress(), lock->size(), to_state_num, lock);

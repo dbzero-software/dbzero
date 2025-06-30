@@ -85,9 +85,10 @@ namespace db0
     {
         // no-flush flag is important for volatile locks (atomic operations)
         if (m_access_mode[AccessOptions::no_flush]) {
+            // no need to flush, just reset the dirty flag
             return true;
         }
-
+        
         using MutexT = ResourceDirtyMutexT;
         while (MutexT::__ref(m_resource_flags).get()) {
             MutexT::WriteOnlyLock lock(m_resource_flags);
