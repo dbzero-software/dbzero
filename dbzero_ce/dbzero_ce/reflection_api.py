@@ -33,21 +33,24 @@ def _get_callable_params(parameters):
 
 
 class AttributeInfo:
-    def __init__(self, name: str, cls: type):
+    def __init__(self, name: str, metaclass):
         self.name = name
-        self.cls = cls
+        self.metaclass = metaclass
 
 
 class MethodInfo(inspect.Signature):
-    def __init__(self, name: str, signature: inspect.Signature, cls: type):
+    def __init__(self, name: str, signature: inspect.Signature, metaclass):
         super().__init__(signature.parameters.values(), return_annotation=signature.return_annotation)
         self.name = name
-        self.cls = cls
-        callable_params = _get_callable_params(self.parameters)
-        self.__params = [MethodParam(param, self) for param in callable_params.params]
+        self.metaclass = metaclass
+        self.__params = _get_callable_params(self.parameters)
 
     def get_params(self):
-        return self.__params
+        return [MethodParam(param, self) for param in self.__params.params]
+
+    @property
+    def has_kwargs(self):
+        return self.__params.has_kwargs
 
 
 class MethodParam(inspect.Parameter):
@@ -102,13 +105,19 @@ class MemoMetaClass:
         """
         return db0.fetch(self.__instance_uuid)
     
-    def get_attributes(self):
+    def get_attributes(self, include_properties=False):
         """
         get_attributes works for known and unknown types
         """
-        memo_type = self.get_type()
         for attr in self.get_class().get_attributes():
-            yield AttributeInfo(attr[0], memo_type)
+            yield AttributeInfo(attr[0], self)
+
+        if include_properties and self.type_exists():
+            # Optionally add properties when requested (and available)
+            memo_type = self.get_type()
+            for attr_name in dir(memo_type):
+                if not attr_name.startswith("_") and isinstance(getattr(memo_type, attr_name), property):
+                    yield AttributeInfo(attr_name, self)
     
     def get_methods(self):
         """
@@ -118,11 +127,11 @@ class MemoMetaClass:
             return name.startswith("_")
         
         memo_type = self.get_type()
-        for attr_name in dir(self.get_type()):
-            attr = getattr(self.get_type(), attr_name)
+        for attr_name in dir(memo_type):
+            attr = getattr(memo_type, attr_name)
             if callable(attr) and not isinstance(attr, staticmethod) and not isinstance(attr, classmethod) \
                 and not is_private(attr_name):                
-                yield MethodInfo(attr_name, inspect.signature(attr), memo_type)
+                yield MethodInfo(attr_name, inspect.signature(attr), self)
     
     def get_schema(self):
         return db0.get_schema(self.get_type())
@@ -174,9 +183,7 @@ class Query(inspect.Signature):
         super().__init__(signature.parameters.values(), return_annotation=signature.return_annotation)
         self.__name = name
         self.__function_obj = function_obj
-        callable_params = _get_callable_params(signature.parameters)
-        self.__params = [QueryParam(param, self) for param in callable_params.params]
-        self.__has_kwargs = callable_params.has_kwargs
+        self.__params = _get_callable_params(self.parameters)
 
     @property
     def name(self):
@@ -188,14 +195,14 @@ class Query(inspect.Signature):
 
     @property
     def has_kwargs(self):
-        return self.__has_kwargs
+        return self.__params.has_kwargs
 
     @property
     def has_params(self):
-        return len(self.__params) > 0 or self.__has_kwargs
+        return len(self.__params.params) > 0 or self.has_kwargs
 
     def get_params(self):
-        return self.__params
+        return [QueryParam(param, self) for param in self.__params.params]
     
     def execute(self, *args, **kwargs):
         return self.__function_obj(*args, **kwargs)
@@ -296,11 +303,11 @@ def get_properties(obj):
     """
     _type = db0.get_type(obj)
 
-    attributes = []
     if db0.is_memo(obj):
         attributes = list(attr[0] for attr in db0.get_attributes(_type))
     else:
         attributes = list(vars(obj).keys())
+
     for attr_name in itertools.chain(attributes, dir(_type)):
         if is_private(attr_name):
             continue
