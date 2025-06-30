@@ -6,9 +6,7 @@ import random
 
     
 @pytest.mark.stress_test
-# FIXME: log
-# @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 64 << 20, "autocommit": True, "autocommit_interval": 250}], indirect=True)
-@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 64 << 20, "autocommit": False}], indirect=True)
+@pytest.mark.parametrize("db0_slab_size", [{"slab_size": 64 << 20, "autocommit": True, "autocommit_interval": 250}], indirect=True)
 def test_create_random_objects_stress_test(db0_slab_size):
     def rand_string(max_len = 8192):
         import random
@@ -48,10 +46,10 @@ def test_create_random_objects_stress_test(db0_slab_size):
         else:
             raise ValueError("Unsupported value type")
     
-    db0.set_cache_size(1 << 30)
+    db0.set_cache_size(1 << 30)    
     # FIXME: log
-    append_count = 50000
     append_count = 100
+    # append_count = 50000
     # NOTE: in this version of test we reference objects from db0 list thus
     # they are not GC0 garbage collected
     buf = db0.list()
@@ -62,10 +60,9 @@ def test_create_random_objects_stress_test(db0_slab_size):
     rand_dram_io = 0
     rand_file_write_ops = 0
     bytes_written = 0
-    for _ in range(append_count):
-        # FIXME: log
-        # with db0.atomic():
-        buf.append(MemoTestClass(rand_value()))
+    for _ in range(append_count):        
+        with db0.atomic():
+            buf.append(MemoTestClass(rand_value()))
         total_bytes += len(buf[-1].value)
         count += 1
         if total_bytes > report_bytes:
@@ -90,8 +87,6 @@ def test_create_random_objects_stress_test(db0_slab_size):
                 obj = random.choice(buf)
                 bytes_read += read_value(obj.value)
             print(f"Read {read_count} objects, total bytes read: {bytes_read}")
-            import gc
-            gc.collect()
 
 
 @pytest.mark.stress_test
