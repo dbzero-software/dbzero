@@ -132,6 +132,7 @@ namespace db0
             // register lock with the dirty cache
             // NOTE: locks marked no_cache (e.g. BoundaryLock) or no_flush (atomic locks) are not registered with the dirty cache        
             if (!m_access_mode[AccessOptions::no_cache] && !m_access_mode[AccessOptions::no_flush]) {
+                // register with the dirty cache
                 m_context.m_cache_ref.get().append(shared_from_this());
             }
         }
