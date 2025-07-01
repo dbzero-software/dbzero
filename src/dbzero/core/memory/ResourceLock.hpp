@@ -118,6 +118,9 @@ namespace db0
         // the range must fit within the lock's address range
         void setDirty(std::uint64_t begin, std::uint64_t end);
 
+        // Sets the RESOURCE_FREEZE flag
+        void freeze();
+
         bool isCached() const;
 
 #ifndef NDEBUG
@@ -130,6 +133,16 @@ namespace db0
 
         inline bool isDirty() const {
             return m_resource_flags & db0::RESOURCE_DIRTY;
+        }
+
+        // The "frozen" state prevents the resource from reusing in write operations
+        inline bool isFrozen() const {
+            return m_resource_flags & db0::RESOURCE_FREEZE;
+        }
+
+        // The operation checks if the lock is non-dirty and non-frozen (by inspecting the flags)
+        inline bool allowReuse() const {
+            return !(m_resource_flags & (db0::RESOURCE_FREEZE | db0::RESOURCE_DIRTY));
         }
         
         // Apply changes from the lock being merged (discarding changes in this lock)

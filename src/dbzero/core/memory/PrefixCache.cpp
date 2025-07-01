@@ -102,8 +102,8 @@ namespace db0
         // this is to avoid CoW in a writer process
         if (access_mode[AccessOptions::write] && read_state_num != state_num) {
             // unused lock condition (i.e. might only be used by the CacheRecycler)
-            // note that dirty locks cannot be upgraded (otherwise data would be lost)
-            if (!dp_lock->isDirty() && dp_lock.use_count() == (dp_lock->isRecycled() ? 1 : 0) + 1) {
+            // note that dirty locks cannot be upgraded (otherwise data would be lost)            
+            if (dp_lock->allowReuse() && dp_lock.use_count() == (dp_lock->isRecycled() ? 1 : 0) + 1) {
                 assert(read_state_num == dp_lock->getStateNum());
                 m_dp_map.erase(read_state_num, dp_lock);
                 // note that this operation may also assign the no_flush flag if it was requested
@@ -118,7 +118,7 @@ namespace db0
                 if (is_volatile) {
                     m_volatile_locks.push_back(dp_lock);
                 }
-            }
+            }        
         }
         
         // register / update lock with the recycler (mark as accessed for LRU policy evaluation)
@@ -223,7 +223,7 @@ namespace db0
             // Unused lock condition (i.e. might only be used by the CacheRecycler)
             // note that dirty locks cannot be upgraded (otherwise data would be lost)
             // note that, on upgrade, the residual lock must be refreshed as well
-            if (!wide_lock->isDirty() && wide_lock.use_count() == (wide_lock->isRecycled() ? 1 : 0) + 1) {
+            if (wide_lock->allowReuse() && wide_lock.use_count() == (wide_lock->isRecycled() ? 1 : 0) + 1) {
                 // have the operation repeated with the res_lock
                 if (!res_lock) {
                     return { true, nullptr };
