@@ -11,14 +11,15 @@ namespace db0::object_model
     // Represents a pointer to a known b-index type
     struct [[gnu::packed]] KV_Ptr
     {
-        std::uint64_t m_addr;
+        std::uint64_t m_addr = 0;
     };
     
     // Union of XValue & KV_Ptr
     union [[gnu::packed]] KV_Address
     {
-        KV_Ptr as_ptr;
+        // needs to be declared first to ensure proper default initialization
         XValue as_value;
+        KV_Ptr as_ptr;
         
         KV_Address();
         KV_Address(Address);

@@ -108,8 +108,9 @@ namespace db0::python
     ADD_BYTEARRAY_CALL_METHOD(upper)
     ADD_BYTEARRAY_CALL_METHOD(zfill)
     
-    PyObject *ByteArray_Count(ByteArrayObject *object_inst, PyObject *const *args, Py_ssize_t nargs) 
+    PyObject *PyAPI_ByteArray_Count(ByteArrayObject *object_inst, PyObject *const *args, Py_ssize_t nargs)
     {
+        PY_API_FUNC
         if (nargs != 1) {
             PyErr_SetString(PyExc_TypeError, "count() takes exactly one argument");
             return NULL;
@@ -206,7 +207,7 @@ namespace db0::python
         CREATE_METHOD_DEF(title, "Return a version of the string where each word is titlecased."),
         CREATE_METHOD_DEF(upper, "Return a copy of the string converted to uppercase."),
         CREATE_METHOD_DEF(zfill, "Return a copy of the string left filled with ASCII '0' digits to make a string of length width."),
-        {"count", (PyCFunction)ByteArray_Count, METH_FASTCALL, "Count occurences of byte in ByteArray"},
+        {"count", (PyCFunction)PyAPI_ByteArray_Count, METH_FASTCALL, "Count occurences of byte in ByteArray"},
         {NULL}
     };
     

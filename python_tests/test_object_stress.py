@@ -15,8 +15,7 @@ def test_create_random_objects_stress_test(db0_slab_size):
         return ''.join(random.choice(string.ascii_letters) for i in range(actual_len))
 
     def rand_dict(max_keys = 16):
-        import random
-        import string
+        import random        
         key_count = random.randint(1, max_keys)
         result = {}
         for _ in range(key_count):
@@ -46,10 +45,8 @@ def test_create_random_objects_stress_test(db0_slab_size):
         else:
             raise ValueError("Unsupported value type")
     
-    db0.set_cache_size(1 << 30)    
-    # FIXME: log
-    append_count = 100
-    # append_count = 50000
+    db0.set_cache_size(1 << 30)
+    append_count = 50000
     # NOTE: in this version of test we reference objects from db0 list thus
     # they are not GC0 garbage collected
     buf = db0.list()

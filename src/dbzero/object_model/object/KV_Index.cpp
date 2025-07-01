@@ -5,14 +5,18 @@ namespace db0::object_model
 
 {
 
-    KV_Address::KV_Address() {
-        as_ptr.m_addr = 0;
+    KV_Address::KV_Address()
+        : as_value()
+    {
     }
-
-    KV_Address::KV_Address(Address addr) {
+    
+    KV_Address::KV_Address(Address addr)
+        : KV_Address()
+    {
+        static_assert(sizeof(as_value) >= sizeof(as_ptr));
         as_ptr.m_addr = addr.getOffset();
     }
-
+    
     KV_Address::operator Address() const {
         return Address::fromOffset(as_ptr.m_addr);
     }

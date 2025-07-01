@@ -273,7 +273,7 @@ namespace db0::python
     int PyAPI_MemoObject_setattro(MemoObject *self, PyObject *attr, PyObject *value)
     {
         PY_API_FUNC
-        // assign value to a DB0 attribute        
+        // assign value to a dbzero attribute
         try {
             // must materialize the object before setting as an attribute
             if (!db0::object_model::isMaterialized(value)) {

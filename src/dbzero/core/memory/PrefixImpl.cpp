@@ -397,7 +397,7 @@ namespace db0
         m_atomic = false;
 
         // update reused locks with CacheRecycler
-        // this can only be done AFTER completing the atomic operation (as it's a potentially mutable operation)
+        // this can only be done AFTER completing the atomic operation (as it's a potentially mutable operation)        
         if (m_cache.getCacheRecycler()) {
             auto cache_recycler_ptr = m_cache.getCacheRecycler();
             for (auto &lock: reused_locks) {

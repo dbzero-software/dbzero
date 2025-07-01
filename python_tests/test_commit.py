@@ -2,6 +2,7 @@ import dbzero_ce as db0
 from itertools import islice
 from datetime import datetime
 from .memo_test_types import MemoTestClass
+import random
 
 
 @db0.memo
@@ -113,3 +114,16 @@ def test_commit_state_num_issue_1(db0_fixture, memo_tags):
     db0.commit()
     state_2 = db0.get_state_num(finalized = True)
     assert state_2 == state_pending
+
+
+def test_is_dirty_assert_issue(db0_fixture):
+    """
+    This test was failing in debug mode on !ResourceLock::isDirty() assert
+    Resolution: 
+    """    
+    def get_string(actual_len):
+        return ''.join(' ' for i in range(actual_len))
+    
+    with db0.atomic():
+        _ = MemoTestClass(get_string(5053))
+    
