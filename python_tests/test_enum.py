@@ -302,3 +302,16 @@ def test_enum_value_repr_destruct_issue_1(db0_fixture):
     for _ in range(100):
         for value in get_repr_values_func():
             assert str(value) in expected_values
+
+
+def test_deserialize_enum_value_from_unknown_prefix(db0_fixture):
+    px_name = db0.get_current_prefix().name
+    # create & open another prefix
+    db0.open("alien-prefix", "rw")
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])        
+    bytes = db0.serialize(Colors.RED)    
+    db0.close()
+    db0.init(DB0_DIR)
+    # NOTE: we don't open the "alien-prefix" here
+    db0.open(px_name, "r")
+    assert db0.deserialize(bytes) == Colors.RED

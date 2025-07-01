@@ -256,6 +256,7 @@ namespace db0::python
         if (type_id == TypeId::OBJECT_ITERABLE) {
             return PyToolkit::deserializeObjectIterable(fixture, iter, end).steal();
         } else if (type_id == TypeId::DB0_ENUM_VALUE) {
+            // NOTICE: this function may return EnumValue or EnumValueRepr
             return PyToolkit::deserializeEnumValue(fixture, iter, end).steal();
         } else if (type_id == TypeId::DB0_ENUM_VALUE_REPR) {
             return PyToolkit::deserializeEnumValueRepr(fixture, iter, end).steal();
