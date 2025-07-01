@@ -56,14 +56,14 @@ def test_compare_kv_index_mutations(db0_fixture):
     obj_1 = MemoTestClass(9999)
     obj_1.new_field_1 = 100
     # assign tags to persist the object, otherwise it will not be accessible in snapshots
-    db0.tags(obj_1).add("temp")    
+    db0.tags(obj_1).add("temp")
     db0.commit()
-    snap_1 = db0.snapshot()
+    snap_1 = db0.snapshot()    
     obj_1.new_field_2 = 200
     db0.commit()
     snap_2 = db0.snapshot()
     
-    uuid = db0.uuid(obj_1)
+    uuid = db0.uuid(obj_1)    
     assert db0.compare(snap_1.fetch(uuid), snap_2.fetch(uuid)) == False
     
 
@@ -93,7 +93,7 @@ def test_compare_instances_with_index_vt(db0_fixture):
     assert db0.compare(obj_1, obj_2) == True
     assert db0.compare(obj_1, obj_3) == False
     
-    
+
 def test_compare_instances_with_kv_index(db0_fixture):
     obj_1 = MemoTestClass(9999)
     obj_1.new_field_1 = 100

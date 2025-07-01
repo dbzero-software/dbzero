@@ -46,7 +46,7 @@ def test_create_random_objects_stress_test(db0_slab_size):
             raise ValueError("Unsupported value type")
     
     db0.set_cache_size(1 << 30)
-    append_count = 50000    
+    append_count = 50000
     # NOTE: in this version of test we reference objects from db0 list thus
     # they are not GC0 garbage collected
     buf = db0.list()
@@ -57,7 +57,7 @@ def test_create_random_objects_stress_test(db0_slab_size):
     rand_dram_io = 0
     rand_file_write_ops = 0
     bytes_written = 0
-    for _ in range(append_count):
+    for _ in range(append_count):        
         with db0.atomic():
             buf.append(MemoTestClass(rand_value()))
         total_bytes += len(buf[-1].value)

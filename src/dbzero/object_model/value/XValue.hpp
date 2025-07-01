@@ -14,12 +14,12 @@ namespace db0::object_model
     */
     struct [[gnu::packed]] XValue
     {
-        std::array<std::uint8_t, 3> m_index;
-        StorageClass m_type;
+        std::array<std::uint8_t, 3> m_index = {};
+        StorageClass m_type = StorageClass::UNDEFINED;
         Value m_value;
 
         XValue() = default;
-
+        
         inline XValue(std::uint32_t index)
         {
             assert(index < 0x1000000);

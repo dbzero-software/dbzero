@@ -294,20 +294,22 @@ namespace db0::object_model
                 m_type->updateSchema(field_id, old_value.m_type, storage_class);
             } else {
                 if (kv_index_ptr->insert(xvalue)) {
-                    // type or address of the kv-index has changed which needs to be reflected
+                    // type or address of the kv-index has changed which needs to be reflected                    
                     modify().m_kv_address = kv_index_ptr->getAddress();
-                    modify().m_kv_type = kv_index_ptr->getIndexType();                    
+                    modify().m_kv_type = kv_index_ptr->getIndexType();
                 }
+                                
                 m_type->addToSchema(field_id, storage_class);
             }
-        } else {
+        } else {            
             m_type->addToSchema(field_id, storage_class);
         }
+        
         // the KV-index insert operation must be registered as the potential silent mutation
-        // but the operation can be avided if the object is already marked as modified
+        // but the operation can be avided if the object is already marked as modified        
         if (!super_t::isModified()) {
             this->_touch();
-        }
+        }        
     }
     
     std::pair<FieldID, bool> Object::findField(const char *name) const
