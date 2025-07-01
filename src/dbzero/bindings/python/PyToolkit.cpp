@@ -394,7 +394,7 @@ namespace db0::python
         auto &snapshot = fixture->getWorkspace();
         return db0::object_model::EnumValue::deserialize(snapshot, iter, end);
     }
-
+    
     PyToolkit::ObjectSharedPtr PyToolkit::deserializeEnumValueRepr(db0::swine_ptr<Fixture> fixture,
         std::vector<std::byte>::const_iterator &iter, 
         std::vector<std::byte>::const_iterator end)

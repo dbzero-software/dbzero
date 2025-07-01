@@ -170,34 +170,61 @@ namespace db0::object_model
         std::vector<std::byte>::const_iterator end)
     {
         auto &enum_value = db0::serial::pop<o_enum_value>(iter, end);
-        db0::serial::pop<o_enum_def>(iter, end);
+        const auto &enum_def = db0::serial::pop<o_enum_def>(iter, end);
         auto sentinel = db0::serial::read<std::uint8_t>(iter, end);
         if (sentinel != 0) {
             THROWF(db0::InputException) << "Invalid sentinel byte for EnumValue deserialization";
         }
         
-        auto fixture = workspace.getFixture(enum_value.m_fixture_uuid);
-        auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
-        auto _enum = enum_factory.getEnumByUID(enum_value.m_enum_uid);
-        return _enum->getLangValue(enum_value.getUID());
+        auto fixture = workspace.tryGetFixture(enum_value.m_fixture_uuid);
+        if (fixture) {
+            auto &enum_factory = fixture->get<db0::object_model::EnumFactory>();
+            auto _enum = enum_factory.getEnumByUID(enum_value.m_enum_uid);
+            return _enum->getLangValue(enum_value.getUID());
+        } else {
+            // if unable to resolve the destination fixture, resolve as EnumValueRepr
+            auto &type_manager = LangToolkit::getTypeManager();
+            return LangToolkit::makeEnumValueRepr(
+                type_manager.findEnumTypeDef(enum_def.get()), enum_value.str_repr().extract().c_str()
+            );
+        }
     }
     
-    o_enum_value::o_enum_value(std::uint64_t fixture_uuid, std::uint32_t enum_uid, LP_String value)
+    o_enum_value::o_enum_value(std::uint64_t fixture_uuid, std::uint32_t enum_uid, LP_String value, const std::string &str_repr)
         : m_fixture_uuid(fixture_uuid)
         , m_enum_uid(enum_uid)
         , m_value(value)
     {
+        arrangeMembers()
+            (db0::o_string::type(), str_repr);        
     }
     
     o_enum_value::o_enum_value(const EnumValue &enum_value)
-        : o_enum_value(enum_value.m_fixture->getUUID(), enum_value.m_enum_uid, enum_value.m_value)
+        : o_enum_value(enum_value.m_fixture->getUUID(), enum_value.m_enum_uid, enum_value.m_value, enum_value.m_str_repr)
     {
+    }
+
+    const o_string &o_enum_value::str_repr() const {
+        return this->getDynFirst(db0::o_string::type());
     }
 
     EnumValue_UID o_enum_value::getUID() const {
         return { m_enum_uid, m_value };
     }
     
+    std::size_t o_enum_value::measure(std::uint64_t fixture_uuid, std::uint32_t enum_uid, LP_String value, 
+        const std::string &str_repr)
+    {
+        return measureMembers()
+            (db0::o_string::type(), str_repr);
+    }
+    
+    std::size_t o_enum_value::measure(const EnumValue &enum_value)
+    {
+        return measureMembers()
+            (db0::o_string::type(), enum_value.m_str_repr);
+    }
+
 } 
 
 namespace std

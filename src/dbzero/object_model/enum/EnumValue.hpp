@@ -83,6 +83,7 @@ namespace db0::object_model
     struct EnumValue
     {   
         using LangConfig = db0::object_model::LangConfig;
+        using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = LangConfig::ObjectPtr;
         using ObjectSharedPtr = LangConfig::ObjectSharedPtr;
 
@@ -115,16 +116,33 @@ namespace db0::object_model
             std::vector<std::byte>::const_iterator end);
     };
     
-    struct [[gnu::packed]] o_enum_value: db0::o_fixed<o_enum_value>
+    class [[gnu::packed]] o_enum_value: public db0::o_base<o_enum_value, 0, false>
     {
+    protected:
+        using super_t = db0::o_base<o_enum_value, 0, false>;
+        friend super_t;
+
+        o_enum_value(std::uint64_t fixture_uuid, std::uint32_t enum_uid, LP_String value, 
+            const std::string &str_repr);
+        o_enum_value(const EnumValue &);
+        
+    public:
         const std::uint64_t m_fixture_uuid;
         const std::uint32_t m_enum_uid;
         LP_String m_value;
-
-        o_enum_value(std::uint64_t fixture_uuid, std::uint32_t enum_uid, LP_String value);
-        o_enum_value(const EnumValue &);
         
+        const o_string &str_repr() const;
         EnumValue_UID getUID() const;
+        
+        static std::size_t measure(std::uint64_t fixture_uuid, std::uint32_t enum_uid, LP_String value, 
+            const std::string &str_repr);
+        static std::size_t measure(const EnumValue &);
+            
+        template <typename T> static std::size_t safeSizeOf(T at)
+        {
+            return sizeOfMembers(at)
+                (db0::o_string::type());
+        }
     };
     
 } 
