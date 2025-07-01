@@ -92,7 +92,7 @@ namespace db0
     {
         // read-only access
         StateNumType read_state_num = 0;
-        auto lock = m_cache.findPage(page_num, m_state_num, { AccessOptions::read }, read_state_num);        
+        auto lock = m_cache.findPage(page_num, m_state_num, { AccessOptions::read }, read_state_num);
         if (!lock) {
             StateNumType mutation_id;
             // page may not be available in storage yet, in such case we pick from the head cache using state_num
@@ -102,10 +102,13 @@ namespace db0
             // try looking up the head transaction's cache next (using the actual mutation ID)
             lock = m_head_cache.findPage(page_num, mutation_id, { AccessOptions::read }, read_state_num);            
             if (lock && read_state_num == mutation_id) {
+                // this is to prevent the lock from being overwritten by future transactions
+                lock->freeze();
                 // add head transaction's range to the local cache under actual mutation ID
                 m_cache.insert(lock, mutation_id);
             } else {
                 // fetch the range into local cache (as read-only)
+                // and to be retrieved from the storage
                 lock = m_cache.createPage(page_num, mutation_id, 0, { AccessOptions::read }, nullptr);
             }
         }
@@ -139,6 +142,8 @@ namespace db0
             // try looking up the head transaction's cache next (using the actual mutation ID)
             lock = m_head_cache.findRange(first_page, end_page, address, size, mutation_id, { AccessOptions::read }, read_state_num).second;
             if (lock && read_state_num == mutation_id) {
+                // this is to prevent the lock from being overwritten by future transactions
+                lock->freeze();
                 // feed into the local cache under the actual mutation ID
                 m_cache.insertWide(lock, mutation_id);
             } else {

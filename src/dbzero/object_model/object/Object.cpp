@@ -329,9 +329,9 @@ namespace db0::object_model
         assert(class_ptr);
         return class_ptr->findField(name);
     }
-
+    
     bool Object::tryGetMember(const char *field_name, std::pair<StorageClass, Value> &member) const
-    {        
+    {
         auto [field_id, is_init_var] = this->findField(field_name);
         return tryGetMemberAt(field_id, is_init_var, member);        
     }

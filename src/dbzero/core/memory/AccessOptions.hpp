@@ -33,6 +33,8 @@ namespace db0
     static constexpr std::uint16_t RESOURCE_RECYCLED            = 0x0200;
     // a flag indicating that the resource should not be cached
     static constexpr std::uint16_t RESOURCE_NO_CACHE            = 0x0400;
+    // prevent resource from being overwritten (e.g. prevent upgrade to a higher transaction number in PrefixImpl)
+    static constexpr std::uint16_t RESOURCE_FREEZE              = 0x0800;
         
     enum class AccessType: unsigned int
     {
