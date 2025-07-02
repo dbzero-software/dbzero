@@ -775,5 +775,5 @@ namespace tests
             ASSERT_EQ(i, cut[i]);
         }
     }
-
+        
 } 

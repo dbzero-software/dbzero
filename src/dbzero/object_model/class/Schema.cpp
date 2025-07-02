@@ -14,9 +14,9 @@ namespace db0::object_model
 
     o_type_item::o_type_item(SchemaTypeId type_id, int count)
         : m_type_id(type_id)
+        , m_count(static_cast<std::uint32_t>(count))
     {
-        assert(count >= 0);
-        m_count = static_cast<std::uint32_t>(count);
+        assert(count >= 0);        
     }
 
     bool o_type_item::operator!() const {
@@ -464,12 +464,20 @@ namespace db0::object_model
     {
         // modify only items affected by the collection size change
         unsigned int field_id = 0;
+
+        // NOTE: collect the items to be modified first
+        // otherwise the v-bvector updates may lead to iterator invalidation
+        std::vector<unsigned int> updated_fields;
+                
         for (const auto &item : *this) {
             if (item.getPrimaryType(collection_size) != item.m_primary_type_id) {
-                // reflect collection size change
-                modifyItem(field_id).update(this->getMemspace(), collection_size);
+                updated_fields.push_back(field_id);
             }
             ++field_id;
+        }
+    
+        for (auto updated_field : updated_fields) {
+            modifyItem(updated_field).update(this->getMemspace(), collection_size);
         }
         m_last_collection_size = collection_size;
     }

@@ -374,7 +374,7 @@ namespace db0
             --dest_begin;
 
             for(; source_begin != source_end && dest_begin != dest_end; --source_end, --dest_end) {
-                *dest_end = *source_end;
+                dest_end.modifyItem() = *source_end;
             }
         }
 
@@ -1310,15 +1310,6 @@ namespace db0
                 return *(this->m_item_ptr);
             }
             
-            /**
-             * Allows to modify selected items in iterated sequence
-             */
-            ItemT &modifyItem() 
-            {
-                m_current_block.modify();
-                return *const_cast<ItemT*>(m_item_ptr);
-            }
-
             const ItemT &operator[](std::uint64_t p_index) const
             {
                 if (isInVectorRange(p_index)) {
@@ -1498,33 +1489,29 @@ namespace db0
         const_iterator end() const {
             return const_iterator(*this, size());
         }
-
-        class iterator : public const_iterator 
+        
+        class iterator : public const_iterator
         {
         public :
             iterator(const v_bvector &ref, std::uint64_t index)
-                : const_iterator(ref,index)
+                : const_iterator(ref, index)
             {
             }
-                    
-            const ItemT &operator*() const {
-                return const_iterator::operator *();
-            }
-
-            /**
-             * Modify existing item
-             * @return reference to item which can written to
-             */
-            ItemT &operator*() 
+                        
+            // Allows to selectively modify items in iterated sequence
+            ItemT &modifyItem()
             {
-                // this is to assure "dirty" flag is set
-                this->m_current_block.modify();
-                return *((ItemT*)(this->m_item_ptr));
+                auto *data_block_ptr = this->m_current_block.getData();
+                if (&this->m_current_block.modify() != data_block_ptr) {
+                    // since data block has been modified, rebind item pointer
+                    this->m_item_ptr = &data_block_ptr->getItem((this->m_index & this->m_collection_ptr->m_db_mask));
+                }
+                return *const_cast<ItemT*>(this->m_item_ptr);
             }
         };
 
         iterator begin(std::uint64_t index = 0) {
-            return iterator(*this,index);
+            return iterator(*this, index);
         }
 
         iterator end() {
