@@ -342,36 +342,69 @@ namespace db0
         }
         return false;
     }
-    
+
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::revert(KeyT key) {
+        m_reverted.insert(key);
+    }
+
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::revert(ActiveValueT value)
+    {
+        if (is_valid(value.first)) {
+            this->revert(value.first);
+        } else if (value.second) {
+            assert(value.second);
+            this->revert(*value.second);
+        }
+    }
+
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::empty() const
     {
-        return m_values.empty() && m_value_refs.empty();
-    }   
-
+        if (m_values.empty() && m_value_refs.empty()) {
+            return true;
+        }
+        // we also need to check, maybe all operations have been reverted
+        for (const auto &item : m_values) {
+            if (m_reverted.find(item.second) == m_reverted.end()) {
+                return false; 
+            }
+        }
+        for (const auto &item : m_value_refs) {
+            if (m_reverted.find(*item.second) == m_reverted.end()) {
+                return false; 
+            }
+        }
+        // all values have been reverted
+        return true;
+    }
+    
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::clear()
     {
         m_values.clear();
         m_value_refs.clear();
+        m_reverted.clear();
     }
     
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator 
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::begin() const 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::beginInner() const 
     {
-        return { *this, typename const_iterator::tag_begin() };
+        return { *this, typename const_inner_iterator::tag_begin() };
     }
 
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator 
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::end() const 
+    typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_inner_iterator 
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::endInner() const 
     {
-        return { *this, typename const_iterator::tag_end() };
+        return { *this, typename const_inner_iterator::tag_end() };
     }
 
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::const_iterator(const TagValueBuffer &buf, tag_begin)
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_inner_iterator::const_inner_iterator(
+        const TagValueBuffer &buf, tag_begin)
         : m_values_it(buf.m_values.begin())
         , m_values_end(buf.m_values.end())
         , m_value_refs_it(buf.m_value_refs.begin())
@@ -379,7 +412,8 @@ namespace db0
     }
 
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::const_iterator(const TagValueBuffer &buf, tag_end)
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_inner_iterator::const_inner_iterator(
+        const TagValueBuffer &buf, tag_end)
         : m_values_it(buf.m_values.end())
         , m_values_end(buf.m_values.end())
         , m_value_refs_it(buf.m_value_refs.end())
@@ -387,7 +421,7 @@ namespace db0
     }
 
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator++()
+    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_inner_iterator::operator++()
     {
         if (m_values_it != m_values_end) {
             ++m_values_it;
@@ -397,20 +431,22 @@ namespace db0
     }
 
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator!=(const const_iterator &other) const
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_inner_iterator::operator!=(
+        const const_inner_iterator &other) const
     {
         return m_values_it != other.m_values_it || m_value_refs_it != other.m_value_refs_it;
     }
 
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator==(const const_iterator &other) const
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_inner_iterator::operator==(
+        const const_iterator &other) const
     {
         return m_values_it == other.m_values_it && m_value_refs_it == other.m_value_refs_it;
     }
 
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     std::pair<IndexKeyT, KeyT> 
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator*() const
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_inner_iterator::operator*() const
     {
         if (m_values_it != m_values_end) {
             return *m_values_it;

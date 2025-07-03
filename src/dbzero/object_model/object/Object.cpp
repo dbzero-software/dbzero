@@ -379,11 +379,14 @@ namespace db0::object_model
     {
         auto obj = tryGet(field_name);
         if (!obj) {
+            if (isDropped()) {
+                THROWF(db0::InputException) << "Object is no longer accessible";
+            }
             THROWF(db0::InputException) << "Attribute not found: " << field_name;
         }
         return obj;
     }
-    
+
     bool Object::tryGetMemberAt(FieldID field_id, bool is_init_var, std::pair<StorageClass, Value> &result) const
     {
         if (!field_id) {            
@@ -398,7 +401,11 @@ namespace db0::object_model
         auto index = field_id.getIndex();
         if (!hasInstance()) {
             // try retrieving from initializer
-            if (m_init_manager.getInitializer(*this).tryGetAt(index, result)) {
+            auto initializer_ptr = m_init_manager.findInitializer(*this);
+            if (!initializer_ptr) {
+                return false;
+            }
+            if (initializer_ptr->tryGetAt(index, result)) {
                 return true;
             }
             if (!is_init_var) {
@@ -440,12 +447,15 @@ namespace db0::object_model
     db0::swine_ptr<Fixture> Object::tryGetFixture() const
     {
         if (!hasInstance()) {
+            if (isDropped()) {
+                return {};
+            }
             // retrieve from the initializer
             return m_init_manager.getInitializer(*this).tryGetFixture();
         }
         return super_t::tryGetFixture();
     }
-
+    
     db0::swine_ptr<Fixture> Object::getFixture() const
     {
         auto fixture = this->tryGetFixture();

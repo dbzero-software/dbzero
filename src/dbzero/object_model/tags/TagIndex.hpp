@@ -105,6 +105,8 @@ namespace db0::object_model
         // Check if there's any queued update for the provided address
         // which may affect a future state of the object (e.g. add tags or drop)
         bool isPendingUpdate(UniqueAddress) const;
+
+        bool empty() const;
         
     private:
         using TypeId = db0::bindings::TypeId;
@@ -201,6 +203,9 @@ namespace db0::object_model
         // unless such reference has already been added when the tag was first created
         void tryTagIncRef(ShortTagT tag_addr) const;
         void tryTagDecRef(ShortTagT tag_addr) const;
+        
+        // revert all pending operations associated with a specific object
+        void revert(ObjectPtr) const;
     };
     
     template <typename BaseIndexT, typename BatchOperationT>

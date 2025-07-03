@@ -328,3 +328,8 @@ def test_object_with_no_refs_no_longer_accessible_by_type_when_last_tag_removed(
     db0.commit()    
     db0.tags(next(iter(db0.find(MemoTestClass, "tag-1")))).remove("tag-1")
     assert not db0.find(MemoTestClass)
+
+
+def test_type_tags_automatically_assigned(db0_fixture):
+    obj_1 = MemoTestClass(0)
+    assert len(db0.find(MemoTestClass)) == 1

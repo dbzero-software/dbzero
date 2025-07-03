@@ -334,9 +334,27 @@ namespace db0::object_model
     {
         using ShortBatchOperationBulder = db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder;
 
-        auto &type_manager = LangToolkit::getTypeManager();
+        if (empty()) {
+            return;
+        }
+        
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
+        auto &type_manager = LangToolkit::getTypeManager();
+        // NOTE: some object might've been dropped in the meantime, need to be removed from remove from batch operations
+        for (const auto &item: m_object_cache) {
+            auto obj_ptr = item.second.get();
+            auto &memo = type_manager.extractObject(obj_ptr);
+            if (memo.isDropped()) {
+                revert(obj_ptr);
+            }
+        }
+
+        // might be empty after clean-ups, check again
+        if (empty()) {
+            return;
+        }
+        
         // the purpose of callback is to incRef to objects when a new tag is assigned
         std::function<void(UniqueAddress)> add_tag_callback = [&](UniqueAddress obj_addr) {
             auto it = m_object_cache.find(obj_addr);
@@ -1023,6 +1041,18 @@ namespace db0::object_model
         return m_object_cache.find(addr) != m_object_cache.end();               
     }
     
+    void TagIndex::revert(ObjectPtr memo_ptr) const
+    {
+        auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);
+        auto addr = memo.getUniqueAddress();
+        if (m_batch_operation_short) {
+            m_batch_operation_short->revert(addr);
+        }
+        if (m_batch_operation_long) {        
+            m_batch_operation_long->revert(addr);
+        }
+    }
+    
     bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress addr)
     {
         if (fixture->getAccessType() == db0::AccessType::READ_ONLY) {
@@ -1032,6 +1062,6 @@ namespace db0::object_model
 
         auto tag_index_ptr = fixture->tryGet<TagIndex>();
         return tag_index_ptr && tag_index_ptr->isPendingUpdate(addr);
-    }
+    }    
     
 }   

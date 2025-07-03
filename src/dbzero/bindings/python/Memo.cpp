@@ -12,6 +12,7 @@
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/value/Member.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -170,6 +171,9 @@ namespace db0::python
     
     int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds)
     {
+        using Class = db0::object_model::Class;
+        using TagIndex = db0::object_model::TagIndex;
+
         PY_API_FUNC
         // the instance may already exist (e.g. if this is a singleton)        
         if (!self->ext().hasInstance()) {
@@ -207,10 +211,19 @@ namespace db0::python
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());
             object.postInit(fixture);
+
             // need to call modifyExt again after postInit because the instance has just been created
             // and potentially needs to be included in the AtomicContext
             self->modifyExt();
             fixture->getLangCache().add(object.getAddress(), self);
+            
+            // finally, unless opted-out, assign the type tag(s) of the entire type hierarchy
+            auto &tag_index = fixture->get<TagIndex>();
+            const Class *class_ptr = &object.getType();
+            while (class_ptr) {
+                tag_index.addTag(self, class_ptr->getAddress());
+                class_ptr = class_ptr->getBaseClassPtr();
+            }
         }
         
         return 0;
@@ -233,17 +246,16 @@ namespace db0::python
         }
         
         if (memo_obj->ext().hasRefs()) {
-            PyErr_SetString(PyExc_RuntimeError, "delete failed: object has references");
-            return;    
+            THROWF(db0::InputException) << "Cannot delete a memo object with references";
         }
-         
+        
         // create a null placeholder in place of the original instance to mark as deleted
         auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
         auto obj_addr = memo_obj->ext().getAddress();
         memo_obj->destroy();
         db0::object_model::Object::makeNull((void*)(&memo_obj->ext()));
         // remove instance from the lang cache
-        lang_cache.erase(obj_addr);        
+        lang_cache.erase(obj_addr);
     }
     
     PyObject *tryMemoObject_getattro(MemoObject *memo_obj, PyObject *attr)

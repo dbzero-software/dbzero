@@ -303,9 +303,9 @@ def test_low_cache_bad_address_issue1(db0_slab_size):
     buf = root.value
     for _ in range(10000):
         buf.append([])
-
+    
     # append to random lists
-    count = 0
+    count = 0    
     for _ in range(50000):
         str = rand_string(256)
         buf[random.randint(0, len(buf) - 1)].append(MemoTestClass(str))
