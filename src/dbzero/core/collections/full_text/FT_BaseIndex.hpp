@@ -100,27 +100,6 @@ namespace db0
         // (may point to a placeholder where the actual value will be populated on flush)
         class TagValueBuffer
         {
-        private:
-
-            // inner iterator does not resolve reverted keys
-            struct const_inner_iterator
-            {
-                typename std::unordered_set<std::pair<IndexKeyT, KeyT> >::const_iterator m_values_it;
-                typename std::unordered_set<std::pair<IndexKeyT, KeyT> >::const_iterator m_values_end;
-                typename std::unordered_set<std::pair<IndexKeyT, const KeyT *> >::const_iterator m_value_refs_it;
-                
-                struct tag_begin {};
-                const_inner_iterator(const TagValueBuffer &, tag_begin);
-                struct tag_end {};
-                const_inner_iterator(const TagValueBuffer &, tag_end);
-
-                void operator++();
-                bool operator!=(const const_inner_iterator &) const;
-                bool operator==(const const_inner_iterator &) const;
-
-                std::pair<IndexKeyT, KeyT> operator*() const;
-            };
-
         public:
             using ValueT = std::pair<IndexKeyT, KeyT>;
             using ValueRefT = std::pair<IndexKeyT, const KeyT *>;
@@ -148,30 +127,7 @@ namespace db0
             
             bool empty() const;
             
-            class const_iterator
-            {    
-            public:            
-                const_iterator(const TagValueBuffer &, const_inner_iterator it, const_inner_iterator end);
-
-                void operator++();
-                bool operator!=(const const_inner_iterator &) const;
-                bool operator==(const const_inner_iterator &) const;
-
-                std::pair<IndexKeyT, KeyT> operator*() const;
-
-            private:
-                const_inner_iterator m_current;
-                const_inner_iterator m_end;
-            };
-
-            const_iterator begin() const;
-            const_iterator end() const;
-
-            void clear();        
-
-        private:
-            const_inner_iterator beginInner() const;
-            const_inner_iterator endInner() const;
+            void clear();
         };
         
         class TagValueList: public std::vector<std::pair<IndexKeyT, KeyT> >

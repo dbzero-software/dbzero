@@ -251,9 +251,9 @@ namespace db0::python
         
         // create a null placeholder in place of the original instance to mark as deleted
         auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
-        auto obj_addr = memo_obj->ext().getAddress();
+        auto obj_addr = memo_obj->ext().getUniqueAddress();
         memo_obj->destroy();
-        db0::object_model::Object::makeNull((void*)(&memo_obj->ext()));
+        db0::object_model::Object::makeNull((void*)(&memo_obj->ext()), obj_addr);
         // remove instance from the lang cache
         lang_cache.erase(obj_addr);
     }

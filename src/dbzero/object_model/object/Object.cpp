@@ -30,18 +30,27 @@ namespace db0::object_model
         // item-wise comparison
         return *kv_ptr_1 == *kv_ptr_2;
     }
+    
+    template <typename IntT> IntT safeCast(unsigned int value, const char *err_msg)
+    {
+        if (value > std::numeric_limits<IntT>::max()) {
+            THROWF(db0::InputException) << err_msg;
+        }
+        return static_cast<std::uint8_t>(value);
+    }
 
-    o_object::o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts,
+    o_object::o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts, std::uint8_t num_type_tags,
         const PosVT::Data &pos_vt_data, const XValue *index_vt_begin, const XValue *index_vt_end)
         : m_header(ref_counts)
         , m_class_ref(class_ref)        
+        , m_num_type_tags(num_type_tags)
     {
         arrangeMembers()
             (PosVT::type(), pos_vt_data)
             (IndexVT::type(), index_vt_begin, index_vt_end);
     }
     
-    std::size_t o_object::measure(std::uint32_t, std::pair<std::uint32_t, std::uint32_t>, const PosVT::Data &pos_vt_data,
+    std::size_t o_object::measure(std::uint32_t, std::pair<std::uint32_t, std::uint32_t>, std::uint8_t, const PosVT::Data &pos_vt_data,
         const XValue *index_vt_begin, const XValue *index_vt_end)
     {
         return super_t::measureMembers()
@@ -68,9 +77,19 @@ namespace db0::object_model
     void o_object::incRef(bool is_tag) {
         m_header.incRef(is_tag);
     }
+    
+    bool o_object::hasRefs() const
+    {
+        // NOTE: type tags are not counted as "proper" references
+        if (m_header.m_ref_counter.getFirst() > this->m_num_type_tags) {
+            return true;
+        }
+        return m_header.m_ref_counter.getSecond() > 0;
+    }
 
-    Object::Object()
+    Object::Object(UniqueAddress addr)
         : m_flags { ObjectOptions::DROPPED }
+        , m_unique_address(addr)
     {
     }
 
@@ -88,7 +107,8 @@ namespace db0::object_model
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, 
         std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data)
-        : super_t(fixture, ClassFactory::classRef(*type), ref_counts, pos_vt_data)
+        : super_t(fixture, ClassFactory::classRef(*type), ref_counts, 
+            safeCast<std::uint8_t>(type->getNumBases() + 1, "Too many base classes"), pos_vt_data)
         , m_type(type)
     {
     }
@@ -115,8 +135,8 @@ namespace db0::object_model
         }
     }
     
-    Object *Object::makeNull(void *at_ptr) {
-        return new (at_ptr) Object();
+    Object *Object::makeNull(void *at_ptr, UniqueAddress addr) {
+        return new (at_ptr) Object(addr);
     }
     
     Object::ObjectStem Object::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
@@ -132,7 +152,7 @@ namespace db0::object_model
             return {};
         }
         // do not unload if reference count is zero
-        if (!stem->m_header.hasRefs()) {
+        if (!stem->hasRefs()) {
             return {};
         }
         
@@ -174,8 +194,10 @@ namespace db0::object_model
             // construct the dbzero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
-            super_t::init(*fixture, ClassFactory::classRef(*m_type), initializer.getRefCounts(), pos_vt_data,
-                index_vt_data.first, index_vt_data.second);
+            super_t::init(*fixture, ClassFactory::classRef(*m_type), initializer.getRefCounts(),
+                safeCast<std::uint8_t>(m_type->getNumBases() + 1, "Too many base classes"), pos_vt_data, 
+                index_vt_data.first, index_vt_data.second
+            );
             // reference associated class
             m_type->incRef(false);
             m_type->updateSchema(pos_vt_data.m_types);
@@ -716,6 +738,12 @@ namespace db0::object_model
         return super_t::decRef(is_tag);
     }
     
+    bool Object::hasRefs() const
+    {
+        assert(hasInstance());
+        return (*this)->hasRefs();
+    }
+    
     bool Object::equalTo(const Object &other) const
     {
         if (!hasInstance() || !other.hasInstance()) {
@@ -824,6 +852,16 @@ namespace db0::object_model
             THROWF(db0::InternalException) << "Object instance does not exist yet (did you forget to use db0.materialized(self) in constructor ?)";
         }
         return super_t::getAddress();
+    }
+    
+    UniqueAddress Object::getUniqueAddress() const
+    {
+        if (hasInstance()) {
+            return super_t::getUniqueAddress();
+        } else {
+            assert(m_flags[ObjectOptions::DROPPED]);
+            return m_unique_address;
+        }
     }
     
     bool Object::hasValidClassRef() const

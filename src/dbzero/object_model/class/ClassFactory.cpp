@@ -106,6 +106,7 @@ namespace db0::object_model
             std::shared_ptr<Class> type = getTypeByPtr(class_ptr, lang_type).m_class;
             // add to by-type cache
             it_cached = m_type_cache.insert({lang_type, type}).first;
+            m_pending_types.push_back(lang_type);
         }
         return it_cached->second;
     }
@@ -170,6 +171,7 @@ namespace db0::object_model
             }
             
             it_cached = m_type_cache.insert({lang_type, type}).first;
+            m_pending_types.push_back(lang_type);
         }
         return it_cached->second;
     }
@@ -199,6 +201,7 @@ namespace db0::object_model
             }
             // add to by-pointer cache
             it_cached = m_ptr_cache.insert({ptr, ClassItem{ type, lang_type }}).first;
+            m_pending_ptrs.push_back(ptr);
         }
         if (lang_type && !it_cached->second.m_lang_type) {
             it_cached->second.m_lang_type = lang_type;
@@ -268,6 +271,7 @@ namespace db0::object_model
             }
             // register the mapping to language specific type object
             it_cached = m_ptr_cache.insert({ptr, ClassItem { type, lang_type }}).first;
+            m_pending_ptrs.push_back(ptr);
         }
         // register the lang type mapping if missing
         if (lang_type && !it_cached->second.m_lang_type) {
@@ -288,14 +292,27 @@ namespace db0::object_model
 
     void ClassFactory::flush() const
     {
+        m_pending_types.clear();
+        m_pending_ptrs.clear();
+
         // flush from class specific schema builders
         for (auto &item: m_ptr_cache) {
             item.second.m_class->flush();
         }
     }
-
+    
     void ClassFactory::rollback()
     {
+        // rollback all pending types and pointers from local cache
+        for (auto &lang_type: m_pending_types) {
+            m_type_cache.erase(lang_type.get());
+        }
+        for (auto &ptr: m_pending_ptrs) {
+            m_ptr_cache.erase(ptr);
+        }
+
+        m_pending_types.clear();
+        m_pending_ptrs.clear();
         // flush from class specific schema builders
         for (auto &item: m_ptr_cache) {
             item.second.m_class->rollback();

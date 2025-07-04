@@ -1053,6 +1053,12 @@ namespace db0::object_model
         }
     }
     
+    bool TagIndex::empty() const
+    {
+        return (!m_batch_operation_short || m_batch_operation_short->empty()) &&
+               (!m_batch_operation_long || m_batch_operation_long->empty());
+    }
+    
     bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress addr)
     {
         if (fixture->getAccessType() == db0::AccessType::READ_ONLY) {
@@ -1063,5 +1069,5 @@ namespace db0::object_model
         auto tag_index_ptr = fixture->tryGet<TagIndex>();
         return tag_index_ptr && tag_index_ptr->isPendingUpdate(addr);
     }    
-    
+        
 }   

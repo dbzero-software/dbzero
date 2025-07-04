@@ -144,26 +144,27 @@ namespace db0::python
             }
             
             auto &class_factory = fixture->get<ClassFactory>();
+            // NOTE: we always need to unload the object to also validate hasRefs
+            // since objects with no refs are considered deleted
+            auto result = PyToolkit::tryUnloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
+            if (!result.get()) {
+                return false;
+            }
+
             // validate type if requested
+            auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
             if (py_expected_type) {
-                // no type validation required for MemoBase
-                if (PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
-                    return PyToolkit::isExistingObject(fixture, addr, addr.getInstanceId());
-                }
-                
                 // in other cases the type must match the actual object type
                 auto expected_class = class_factory.tryGetExistingType(py_expected_type);
                 if (!expected_class) {
                     return false;
                 }
-                auto result = PyToolkit::tryUnloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
-                if (!result.get()) {
+                if (memo.getType() != *expected_class) {
                     return false;
                 }
-                return reinterpret_cast<MemoObject*>(result.get())->ext().getType() == *expected_class;
-            } else {
-                return PyToolkit::isExistingObject(fixture, addr, addr.getInstanceId());
             }
+            // finally, check if the object has any references (except the auto-assigned type tags)
+            return memo.hasRefs();
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             return PyToolkit::isExistingList(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            

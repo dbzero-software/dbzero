@@ -162,7 +162,7 @@ namespace db0
             assert(hasInstance());
             return (*this)->m_header.m_instance_id;
         }
-
+        
         static bool checkUnload(db0::swine_ptr<Fixture> &fixture, Address address) {
             return fixture->isAddressValid(address);
         }
@@ -179,7 +179,7 @@ namespace db0
             if (instance_id) {
                 // NOTE: here we use trusted size_of retrieved from the allocator
                 auto stem = BaseT(db0::tag_verified(), fixture->myPtr(address), size_of);
-                return stem->m_header.m_instance_id == instance_id && stem->m_header.hasRefs();
+                return stem->m_header.m_instance_id == instance_id;
             }
             return true;
         }
