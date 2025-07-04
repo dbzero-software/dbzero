@@ -229,12 +229,12 @@ namespace db0
         std::optional<std::size_t> flush_size, std::function<void(db0::swine_ptr<Fixture> &, bool, bool, bool)> fixture_initializer,
         std::shared_ptr<Config> config, std::optional<LockFlags> default_lock_flags)
         : BaseWorkspace(root_path, cache_size, slab_cache_size, flush_size, default_lock_flags)
+        , m_config(config)
         , m_fixture_catalog(m_prefix_catalog)
         , m_fixture_initializer(fixture_initializer)
         , m_shared_object_list(vobject_cache_size ? *vobject_cache_size : DEFAULT_VOBJECT_CACHE_SIZE)
-        , m_lang_cache(std::make_shared<LangCache>())
-        , m_workspace_threads(std::make_unique<WorkspaceThreads>())
-        , m_config(config)
+        , m_lang_cache(std::make_shared<LangCache>(getLangCacheSize()))
+        , m_workspace_threads(std::make_unique<WorkspaceThreads>())        
     {
         // apply autocommit interval if configured
         std::optional<long> autocommit_interval_ms = (m_config ? m_config->get<long>("autocommit_interval") : std::nullopt);
@@ -800,6 +800,17 @@ namespace db0
     
     std::size_t Workspace::size() const {
         return m_fixtures.size();
+    }
+    
+    std::optional<std::size_t> Workspace::getLangCacheSize() const
+    {
+        if (m_config) {
+            auto value = m_config->get<long>("lang_cache_size");
+            if (value) {
+                return value;
+            }
+        }
+        return std::nullopt;
     }
     
 }

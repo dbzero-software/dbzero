@@ -579,7 +579,12 @@ namespace db0::python
         if (!PyDict_Check(py_dict)) {
             THROWF(db0::InputException) << "Invalid type of object. Dictionary expected" << THROWF_END;
         }
-        return Py_NEW(PyDict_GetItemString(py_dict, key.c_str()));
+        auto result = PyDict_GetItemString(py_dict, key.c_str());
+        if (!result) {
+            // key not found
+            return nullptr;
+        }
+        return Py_NEW(result);
     }
     
     std::optional<long> PyToolkit::getLong(ObjectPtr py_object, const std::string &key)

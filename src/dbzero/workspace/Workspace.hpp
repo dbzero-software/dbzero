@@ -301,6 +301,7 @@ namespace db0
         std::optional<std::uint64_t> getUUID(const PrefixName &) const;
         
     private:
+        std::shared_ptr<Config> m_config;
         FixtureCatalog m_fixture_catalog;
         std::function<void(db0::swine_ptr<Fixture> &, bool, bool, bool)> m_fixture_initializer;
         // fixture by UUID
@@ -312,8 +313,7 @@ namespace db0
         // flag indicating atomic operation in progress
         AtomicContext *m_atomic_context_ptr = nullptr;
         mutable std::shared_ptr<LangCache> m_lang_cache;
-        std::unique_ptr<WorkspaceThreads> m_workspace_threads;
-        std::shared_ptr<Config> m_config;
+        std::unique_ptr<WorkspaceThreads> m_workspace_threads;        
         // associated workspace views (some of which may already be deleted)
         mutable db0::weak_vector<WorkspaceView> m_views;
         // the designated "head" view with the prolonged lifetime
@@ -338,7 +338,8 @@ namespace db0
 
         void onFlushDirty(std::size_t limit) override;
 
-        std::shared_ptr<WorkspaceView> getWorkspaceHeadView() const;
+        std::optional<std::size_t> getLangCacheSize() const;
+        std::shared_ptr<WorkspaceView> getWorkspaceHeadView() const;        
     };
-        
+    
 }
