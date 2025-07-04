@@ -161,7 +161,7 @@ namespace db0
 
             private:
                 const_inner_iterator m_current;
-                const_inner_iterator m_end;s
+                const_inner_iterator m_end;
             };
 
             const_iterator begin() const;
