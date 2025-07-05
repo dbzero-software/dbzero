@@ -113,7 +113,7 @@ namespace db0
         }
 
         auto slot_id = it->second;
-        if (expired_only && LangToolkit::getLangRefCount(m_cache[slot_id].second.get()) > 1) {
+        if (expired_only && LangToolkit::hasLangRefs(m_cache[slot_id].second.get())) {
             return false;
         }
 
@@ -131,7 +131,7 @@ namespace db0
     void LangCache::clear(bool expired_only)
     {
         for (auto &item: m_cache) {
-            if (item.second.get() && (!expired_only || LangToolkit::getLangRefCount(item.second.get()) == 1)) {
+            if (item.second.get() && (!expired_only || !LangToolkit::hasLangRefs(item.second.get()))) {
                 m_uid_to_index.erase(item.first);
                 item = {};
                 --m_size;
@@ -165,10 +165,7 @@ namespace db0
         assert(it->second < m_visited.size());
         // set the visited flag (see Sieve cache eviction algorithm)
         m_visited[it->second] = true;
-        auto obj_ptr = m_cache[it->second].second.get();
-        // NOTE: we adjust lang-refs by -1 due to 1 reference held by the cache itself
-        has_refs = LangToolkit::hasAnyRefs(obj_ptr, -1);
-        return obj_ptr;
+        return m_cache[it->second].second.get();
     }
     
     LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, Address address) const
@@ -212,7 +209,7 @@ namespace db0
                     }
                     m_visited[m_evict_hand - m_cache.begin()] = false;
                 } else {
-                    if (LangToolkit::getLangRefCount(m_evict_hand->second.get()) == 1) {
+                    if (!LangToolkit::hasLangRefs(m_evict_hand->second.get())) {
                         // evict the object
                         m_uid_to_index.erase(m_evict_hand->first);                                                
                         *m_evict_hand = {};                        

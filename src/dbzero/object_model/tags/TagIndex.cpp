@@ -291,7 +291,10 @@ namespace db0::object_model
         // undo inc-ref
         for (auto tag_addr: m_inc_refed_tags) {
             m_string_pool.unRefByAddr(tag_addr);
-        }        
+        }
+        // NOTE: also need to clear buffers which may contain incomplete objects
+        m_object_cache.clear();
+        m_active_cache.clear();
     }
 
     void TagIndex::clear()

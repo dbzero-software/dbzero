@@ -131,7 +131,7 @@ namespace db0::python
         if (py_expected_type && !checkObjectIdType(object_id, py_expected_type)) {
             return false;
         }
-        
+                
         auto storage_class = object_id.m_storage_class;
         auto addr = object_id.m_address;
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
@@ -163,8 +163,12 @@ namespace db0::python
                     return false;
                 }
             }
+            // FIXME: log
+            std::cout << "hasRefs: " << memo.hasRefs() << std::endl;
+            std::cout << "langRefs: " << PyToolkit::hasLangRefs(*result) << std::endl;
             // finally, check if the object has any references (except the auto-assigned type tags)
-            return memo.hasRefs();
+            // NOTE: we check both for existing dbzero and lang-refs
+            return PyToolkit::hasLangRefs(*result) || memo.hasRefs();
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             return PyToolkit::isExistingList(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            
@@ -202,27 +206,27 @@ namespace db0::python
             if (db0::object_model::isObjectPendingUpdate(fixture, addr)) {
                 FixtureLock lock(fixture);
                 // flush pending updates
-                lock->flush();                
+                lock->flush();
             }
-
+            
             auto &class_factory = fixture->get<ClassFactory>();
-            // validate type if requested
-            if (py_expected_type) {
-                // unload as MemoBase
-                if (PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
-                    return PyToolkit::unloadObject(fixture, addr, class_factory, py_expected_type, addr.getInstanceId());
-                }
+            auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
+            auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
 
+            // NOTE: even if unloaded, may not be accessible if it has no references
+            if (!memo.hasRefs() && !PyToolkit::hasLangRefs(*result)) {
+                THROWF(db0::InputException) << "Object not accessible or has been deleted";
+            }
+            
+            // validate type if requested (no validation for MemoBase)
+            if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {                
                 // in other cases the type must match the actual object type
-                auto expected_class = class_factory.getExistingType(py_expected_type);
-                auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
-                if (reinterpret_cast<MemoObject*>(result.get())->ext().getType() != *expected_class) {
+                auto expected_class = class_factory.getExistingType(py_expected_type);                
+                if (memo.getType() != *expected_class) {
                     THROWF(db0::InputException) << "Object type mismatch";
                 }
-                return result;
-            } else {
-                return PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             }
+            return result;
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             return PyToolkit::unloadList(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            

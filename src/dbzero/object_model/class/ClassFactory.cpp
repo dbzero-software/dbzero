@@ -303,6 +303,10 @@ namespace db0::object_model
     
     void ClassFactory::rollback()
     {
+        // rollback from class specific schema builders
+        for (auto &item: m_ptr_cache) {
+            item.second.m_class->rollback();
+        }
         // rollback all pending types and pointers from local cache
         for (auto &lang_type: m_pending_types) {
             m_type_cache.erase(lang_type.get());
@@ -313,10 +317,6 @@ namespace db0::object_model
 
         m_pending_types.clear();
         m_pending_ptrs.clear();
-        // flush from class specific schema builders
-        for (auto &item: m_ptr_cache) {
-            item.second.m_class->rollback();
-        }
     }
     
     void ClassFactory::commit() const

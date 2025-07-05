@@ -36,6 +36,10 @@ namespace db0
         void incRef(bool is_tag) {
             m_header.incRef(is_tag);
         }
+        
+        bool hasRefs() const {
+            return m_header.hasRefs();
+        }
     };
     
     /**

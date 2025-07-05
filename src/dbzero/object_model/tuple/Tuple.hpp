@@ -54,6 +54,10 @@ namespace db0::object_model
             buf += o_micro_array<o_typed_item>::safeSizeOf(buf);
             return buf - start;
         }
+
+        bool hasRefs() const {
+            return m_header.hasRefs();
+        }
     };
     
     class Tuple: public db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>

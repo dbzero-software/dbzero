@@ -206,13 +206,11 @@ namespace db0::python
         // indicate failed operation with a specific value/code
         static void setError(ObjectPtr err_obj, std::uint64_t err_value);
         
-        // Get the number of references from other language objects
-        static unsigned int getLangRefCount(ObjectPtr);
         // Check if the object has reference from other dbzero objects or tags
-        // NOTE!!! this only works for CommonBase/PyWrapper objects (e..g all LangCache objects)
+        // NOTE!!! this only works for CommonBase/PyWrapper objects (e.g. all LangCache objects)
         static bool hasRefs(ObjectPtr);
-        // Check if CommonBase object has any references either from dbzero or the language code
-        static bool hasAnyRefs(ObjectPtr, int lang_refs_adjuster);
+        // Check if the object has references from other language objects (other than LangCahe)
+        static bool hasLangRefs(ObjectPtr);
         
         // Extract keys (if present) from a Python dict object
         static std::optional<long> getLong(ObjectPtr py_object, const std::string &key);

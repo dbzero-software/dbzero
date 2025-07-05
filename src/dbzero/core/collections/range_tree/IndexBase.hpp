@@ -40,8 +40,12 @@ namespace db0
         o_index(IndexType, IndexDataType);
         // header not copied
         o_index(const o_index &other);
-    };
 
+        bool hasRefs() const {
+            return m_header.hasRefs();
+        }
+    };
+    
     using IndexBase = db0::v_object<o_index>;
     
     IndexDataType getIndexDataType(db0::bindings::TypeId);

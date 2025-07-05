@@ -34,8 +34,12 @@ namespace db0::object_model
         Address m_index_ptr = {};
         std::uint64_t m_size = 0;
         std::array<std::uint64_t, 2> m_reserved = {0, 0};
-    };
 
+        bool hasRefs() const {
+            return m_header.hasRefs();
+        }
+    };
+    
     class Set: public db0::ObjectBase<Set, db0::v_object<o_set>, StorageClass::DB0_SET>
     {
         GC0_Declare

@@ -168,7 +168,9 @@ namespace db0
         }
         
         // Check if unload operation would be successful without actually performing it
-        static bool checkUnload(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
+        // @param check_has_refs flag indicating if the refs-count should also be checked
+        static bool checkUnload(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id, 
+            bool check_has_refs)
         {
             std::size_t size_of = 0;
             if (!fixture->isAddressValid(address, &size_of)) {
@@ -176,10 +178,16 @@ namespace db0
             }
             // validate instance ID only if provided
             // NOTE: in this case we also validate if the refs-count is not zero (otherwise it's pending deletion)
-            if (instance_id) {
+            if (instance_id || check_has_refs) {
                 // NOTE: here we use trusted size_of retrieved from the allocator
                 auto stem = BaseT(db0::tag_verified(), fixture->myPtr(address), size_of);
-                return stem->m_header.m_instance_id == instance_id;
+                if (instance_id && stem->m_header.m_instance_id == instance_id) {
+                    return false;
+                }
+                if (check_has_refs && !stem->hasRefs()) {
+                    return false;
+                }
+                return true;
             }
             return true;
         }

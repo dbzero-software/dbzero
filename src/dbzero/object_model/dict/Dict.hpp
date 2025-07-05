@@ -35,6 +35,10 @@ namespace db0::object_model
         Address m_index_ptr = {};
         std::uint64_t m_size = 0;
         std::uint64_t m_reserved[2] = {0, 0};
+
+        bool hasRefs() const {
+            return m_header.hasRefs();
+        }
     };
     
     class Dict: public db0::ObjectBase<Dict, db0::v_object<o_dict>, StorageClass::DB0_DICT>

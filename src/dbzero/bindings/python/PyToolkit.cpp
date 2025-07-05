@@ -111,22 +111,23 @@ namespace db0::python
 
         if (obj_ptr.get()) {
             // only validate instance ID if provided
+            auto &memo = reinterpret_cast<MemoObject*>(obj_ptr.get())->ext();
             if (instance_id) {
                 // NOTE: we first must check if this is really a memo object
                 if (!isMemoObject(obj_ptr.get())) {
                     return false;
                 }
                 
-                if (reinterpret_cast<MemoObject*>(obj_ptr.get())->ext().getInstanceId() != instance_id) {
+                if (memo.getInstanceId() != instance_id) {
                     return false;
                 }
             }
-            
-            return true;
+            // NOTE: objects with no references (either from dbzero or other lang types) are considered deleted
+            return PyToolkit::hasLangRefs(*obj_ptr) || memo.hasRefs();
         }
         
-        // Check if object's stem can be unloaded
-        return db0::object_model::Object::checkUnload(fixture, address, instance_id);
+        // Check if object's stem can be unloaded (and has refs)
+        return db0::object_model::Object::checkUnload(fixture, address, instance_id, true);
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::tryUnloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
@@ -264,7 +265,7 @@ namespace db0::python
     bool PyToolkit::isExistingList(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id)
     {
         using List = db0::object_model::List;
-        return List::checkUnload(fixture, address, instance_id);
+        return List::checkUnload(fixture, address, instance_id, false);
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadByteArray(db0::swine_ptr<Fixture> fixture, Address address)
@@ -305,7 +306,7 @@ namespace db0::python
     }
     
     bool PyToolkit::isExistingIndex(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Index::checkUnload(fixture, address, instance_id);
+        return db0::object_model::Index::checkUnload(fixture, address, instance_id, false);
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
@@ -328,7 +329,7 @@ namespace db0::python
     }
     
     bool PyToolkit::isExistingSet(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Set::checkUnload(fixture, address, instance_id);
+        return db0::object_model::Set::checkUnload(fixture, address, instance_id, false);
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadDict(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
@@ -351,7 +352,7 @@ namespace db0::python
     }
 
     bool PyToolkit::isExistingDict(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Dict::checkUnload(fixture, address, instance_id);
+        return db0::object_model::Dict::checkUnload(fixture, address, instance_id, false);
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
@@ -374,7 +375,7 @@ namespace db0::python
     }
     
     bool PyToolkit::isExistingTuple(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Tuple::checkUnload(fixture, address, instance_id);
+        return db0::object_model::Tuple::checkUnload(fixture, address, instance_id, false);
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::deserializeObjectIterable(db0::swine_ptr<Fixture> fixture,
@@ -565,13 +566,13 @@ namespace db0::python
     bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
         return PyMemoType_Check(py_type);
     }
-
+    
     void PyToolkit::setError(ObjectPtr err_obj, std::uint64_t err_value) {
         PyErr_SetObject(err_obj, *Py_OWN(PyLong_FromUnsignedLongLong(err_value)));
     }
 
-    unsigned int PyToolkit::getLangRefCount(ObjectPtr obj) {
-        return Py_REFCNT(obj);
+    bool PyToolkit::hasLangRefs(ObjectPtr obj) {
+        return Py_REFCNT(obj) > 1;
     }
     
     PyObject *getValue(PyObject *py_dict, const std::string &key)
@@ -684,10 +685,6 @@ namespace db0::python
     
     bool PyToolkit::hasRefs(ObjectPtr obj_ptr) {
         return reinterpret_cast<PyCommonBase*>(obj_ptr)->ext().hasRefs();
-    }
-    
-    bool PyToolkit::hasAnyRefs(ObjectPtr obj_ptr, int lang_refs_adjuster) {
-        return ((int)getLangRefCount(obj_ptr) + lang_refs_adjuster > 0) || hasRefs(obj_ptr);
     }
     
 }
