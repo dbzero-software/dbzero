@@ -109,10 +109,9 @@ namespace db0::python
         const char *prefix_name = nullptr);    
     bool tryExistsIn(db0::Snapshot &snapshot, PyObject *py_id, PyTypeObject *type_arg,
         const char *prefix_name = nullptr);
-    
-    // NOTE: if would_throw output buffer is passed, the function will set flag to "true" instead of throwing
+        
     shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
-        std::shared_ptr<db0::object_model::Class> expected_type = nullptr, bool *would_throw = nullptr);
+        std::shared_ptr<db0::object_model::Class> expected_type = nullptr);
     
     /**
      * Open dbzero object by UUID     
@@ -155,6 +154,9 @@ namespace db0::python
     PyObject *tryGetMemoClass(PyObject *py_obj);
     
     PyObject *tryTouch(PyObject *const *args, Py_ssize_t nargs);
+    
+    // GC0-collect unrechable instances
+    PyObject *tryCollect();
     
     // Load dbzero object to memory
     // @param load_stack_ptr - required to track and avoid circular references

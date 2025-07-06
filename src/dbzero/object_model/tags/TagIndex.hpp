@@ -50,8 +50,9 @@ namespace db0::object_model
         
         virtual ~TagIndex();
         
-        void addTag(ObjectPtr memo_ptr, ShortTagT tag_addr);
-        void addTag(ObjectPtr memo_ptr, Address tag_addr);
+        // @param is_type true for implicilty assigned type tags
+        void addTag(ObjectPtr memo_ptr, ShortTagT tag_addr, bool is_type);
+        void addTag(ObjectPtr memo_ptr, Address tag_addr, bool is_type);
         
         // add a tag using long identifier
         void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);
@@ -117,13 +118,15 @@ namespace db0::object_model
         db0::FT_BaseIndex<ShortTagT> m_base_index_short;
         db0::FT_BaseIndex<LongTagT> m_base_index_long;
         // Current batch-operation buffer (may not be initialized)
-        mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_operation_short;
-        mutable db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder m_batch_operation_long;
+        mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_op_short;
+        mutable db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder m_batch_op_long;
+        // batch operation associated with type-tags only (auto-assigned)
+        mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_op_types;
         // the set of tags to which the ref-count has been increased when they were first created
         mutable std::unordered_set<std::uint64_t> m_inc_refed_tags;
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
-        // and to handle callbacks from the full-text index
+        // and to handle callbacks from the full-text index        
         mutable std::unordered_map<UniqueAddress, ObjectSharedPtr> m_object_cache;
         // A cache for incomplete objects (not yet fully initialized)
         mutable std::unordered_map<ObjectSharedPtr, UniqueAddress> m_active_cache;
@@ -134,9 +137,9 @@ namespace db0::object_model
         template <typename BaseIndexT, typename BatchOperationT>
         BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result) const;
         
-        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr, 
-            ActiveValueT &result) const;
-
+        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr,
+            ActiveValueT &result, bool is_type) const;
+        
         db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr,
             ActiveValueT &result) const;
         

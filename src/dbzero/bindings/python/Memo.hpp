@@ -28,7 +28,7 @@ namespace db0::python
     PyObject *PyAPI_wrapPyClass(PyObject *self, PyObject *, PyObject *kwargs);
     MemoObject *PyAPI_MemoObject_new(PyTypeObject *type, PyObject * = nullptr, PyObject * = nullptr);
     // create a memo object stub
-    shared_py_object<MemoObject*> MemoObjectStub_new(PyTypeObject *type);
+    MemoObject* MemoObjectStub_new(PyTypeObject *type);
     PyObject *MemoObject_alloc(PyTypeObject *type, Py_ssize_t nitems);
     
     void MemoObject_del(MemoObject* self);

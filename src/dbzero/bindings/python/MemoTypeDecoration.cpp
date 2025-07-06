@@ -8,11 +8,15 @@ namespace db0::python
 
 {
 
-    bool PyMemo_Check(PyObject *obj) {
-        return PyMemoType_Check(Py_TYPE(obj));
+    bool PyMemo_Check(PyObject *obj)
+    {
+        auto py_type = Py_TYPE(obj);
+        return py_type && PyMemoType_Check(py_type);
     }
     
-    bool PyMemoType_Check(PyTypeObject *type) {
+    bool PyMemoType_Check(PyTypeObject *type)
+    {
+        assert(type);
         return type->tp_dealloc == reinterpret_cast<destructor>(MemoObject_del);
     }
     

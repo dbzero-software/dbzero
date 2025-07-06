@@ -69,8 +69,8 @@ namespace db0
         auto uid = makeUID(fixture_id, address);
         std::optional<std::uint32_t> slot;
         if (isFull()) {
-            if (m_cache.size() < m_capacity) {                
-                resize(m_cache.size() * 2);                
+            if (m_cache.size() < m_capacity) {
+                resize(std::min(m_capacity, m_cache.size() * 2));
                 slot = findEmptySlot();
                 assert(slot);
             } else {
@@ -98,7 +98,7 @@ namespace db0
         m_uid_to_index[uid] = slot_id;
         ++m_size;
     }
-
+    
     bool LangCache::erase(const Fixture &fixture, Address address, bool expired_only, bool as_defunct) {
         return erase(getFixtureId(fixture), address, expired_only);
     }
@@ -150,12 +150,8 @@ namespace db0
             }            
         }
     }
-    
-    LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, Address address, bool &has_refs) const {
-        return get(getFixtureId(fixture), address, has_refs);
-    }
-    
-    LangCache::ObjectSharedPtr LangCache::get(std::uint16_t fixture_id, Address address, bool &has_refs) const
+        
+    LangCache::ObjectSharedPtr LangCache::get(std::uint16_t fixture_id, Address address) const
     {
         auto uid = makeUID(fixture_id, address);
         auto it = m_uid_to_index.find(uid);
@@ -168,20 +164,6 @@ namespace db0
         return m_cache[it->second].second.get();
     }
     
-    LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, Address address) const
-    {
-        bool has_refs = false;
-        auto obj_ptr = get(getFixtureId(fixture), address, has_refs);
-        if (!obj_ptr.get()) {
-            return nullptr;
-        }
-        if (!has_refs) {
-            // object has no references, raise an exception
-            THROWF(db0::InputException) << "Accessing deleted object: " << address;
-        }
-        return obj_ptr;
-    }
-
     std::optional<std::uint32_t> LangCache::evictOne(int *num_visited)
     {
         if (m_size == 0) {
@@ -268,24 +250,10 @@ namespace db0
         m_objects.erase(address);
     }
     
-    LangCacheView::ObjectSharedPtr LangCacheView::get(Address address, bool &has_refs) const {
-        return m_cache.get(m_fixture_id, address, has_refs);
+    LangCacheView::ObjectSharedPtr LangCacheView::get(Address address) const {
+        return m_cache.get(m_fixture_id, address);
     }
-    
-    LangCache::ObjectSharedPtr LangCacheView::get(Address address) const
-    {
-        bool has_refs = false;
-        auto obj_ptr = get(address, has_refs);
-        if (!obj_ptr.get()) {
-            return nullptr;
-        }
-        if (!has_refs) {
-            // object has no references, raise an exception
-            THROWF(db0::InputException) << "Accessing deleted object: " << address;
-        }
-        return obj_ptr;
-    }
-    
+        
     void LangCacheView::moveFrom(LangCacheView &other, Address src_address, Address dst_address)
     {
         m_cache.moveFrom(other.m_cache, other.m_fixture_id, src_address, m_fixture_id, dst_address);

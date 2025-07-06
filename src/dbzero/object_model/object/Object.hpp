@@ -71,6 +71,7 @@ namespace db0::object_model
         
         void incRef(bool is_tag);
         bool hasRefs() const;
+        bool hasAnyRefs() const;
     };
     
     struct FieldLayout
@@ -105,7 +106,7 @@ namespace db0::object_model
         using TypeInitializer = ObjectInitializer::TypeInitializer;
 
         // construct as null / dropped object
-        Object(UniqueAddress);
+        Object(UniqueAddress, unsigned int ext_refs);
         Object(const Object &) = delete;
         Object(Object &&) = delete;
 
@@ -124,8 +125,8 @@ namespace db0::object_model
         // post-init invoked by memo type directly after __init__
         void postInit(FixtureLock &);
         
-        // create a new "null" instance at a specific address
-        static Object *makeNull(void *at_ptr, UniqueAddress);
+        // Destroys an existing instance and constructs a "null" placeholder 
+        static void replaceWithNull(const Object *);
         
         // Unload the object stem, to retrieve its type
         static ObjectStem tryUnloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
@@ -191,9 +192,11 @@ namespace db0::object_model
         */
         void incRef(bool is_tag);
         bool hasRefs() const;
+        // check for any refs (including auto-assigned type tags)
+        bool hasAnyRefs() const;
         
         // @return reference count (of a specific type) after decrement
-        std::uint32_t decRef(bool is_tag);
+        void decRef(bool is_tag);
         
         // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
         // NOTE: ref-counts are not compared (only user-assigned members)
@@ -237,6 +240,13 @@ namespace db0::object_model
 
         // the member called to indicate the object mutation
         void touch();
+        
+        void addExtRef() const;
+        void removeExtRef() const;
+
+        inline std::uint32_t getExtRefs() const {
+            return m_ext_refs;
+        }
 
     private:
         // Class will only be assigned after initialization
@@ -245,11 +255,15 @@ namespace db0::object_model
         mutable std::unique_ptr<KV_Index> m_kv_index;        
         static ObjectInitializerManager m_init_manager;
         mutable ObjectFlags m_flags;
+        // reference counter for inner references from language objects
+        // NOTE: inner references are held by internal dbzero buffers (e.g. TagIndex)
+        // see also PyEXT_INCREF / PyEXT_DECREF
+        mutable std::uint32_t m_ext_refs = 0;
         // A flag indicating that object's silent mutation has already been reflected
         // with the underlying MemLock / ResourceLock
         // NOTE: by silent mutation we mean a mutation that does not change data (e.g. +refcount(+-1) + (refcount-1))
         mutable bool m_touched = false;
-        // NOTE: member assigned only to dropped objects (see makeNull)
+        // NOTE: member assigned only to dropped objects (see replaceWithNull)
         // so that we can retrieve the address of the dropped instance after it has been destroyed
         const UniqueAddress m_unique_address;
         

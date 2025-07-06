@@ -209,7 +209,7 @@ namespace db0::python
         // Check if the object has reference from other dbzero objects or tags
         // NOTE!!! this only works for CommonBase/PyWrapper objects (e.g. all LangCache objects)
         static bool hasRefs(ObjectPtr);
-        // Check if the object has references from other language objects (other than LangCahe)
+        // Check if the object has references from other language objects (other than LangCahe)        
         static bool hasLangRefs(ObjectPtr);
         
         // Extract keys (if present) from a Python dict object
@@ -228,6 +228,16 @@ namespace db0::python
         
         // Check the interpreter's status (e.g. returned false if Python is defunct)
         static bool isValid();
+
+        struct GIL_Lock
+        {
+            PyGILState_STATE m_state;
+            GIL_Lock();
+            ~GIL_Lock();
+        };
+        
+        // Acquire the interpreter's GIL lock
+        static std::unique_ptr<GIL_Lock> ensureLocked();
 
     private:
         static PyWorkspace m_py_workspace;

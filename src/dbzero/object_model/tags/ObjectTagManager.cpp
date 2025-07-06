@@ -63,7 +63,7 @@ namespace db0::object_model
             auto type = m_type;
             while (type) {
                 // also add type as tag (once)
-                m_tag_index_ptr->addTag(m_lang_ptr.get(), type->getAddress());
+                m_tag_index_ptr->addTag(m_lang_ptr.get(), type->getAddress(), true);
                 type = type->tryGetBaseClass();
             }
         }

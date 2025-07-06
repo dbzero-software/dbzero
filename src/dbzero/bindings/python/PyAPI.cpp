@@ -1331,4 +1331,10 @@ namespace db0::python
         return runSafe(tryTouch, args, nargs);
     }
     
+    PyObject *PyAPI_collect(PyObject*, PyObject*)
+    {
+        PY_API_FUNC
+        return runSafe(tryCollect);
+    }
+    
 }

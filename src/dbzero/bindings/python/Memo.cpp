@@ -153,8 +153,8 @@ namespace db0::python
         return runSafe(tryMemoObject_new_singleton, py_type, args, kwargs);
     }
     
-    shared_py_object<MemoObject*> MemoObjectStub_new(PyTypeObject *py_type) {
-        return { reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0)), false };
+    MemoObject* MemoObjectStub_new(PyTypeObject *py_type) {
+        return reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
     }
     
     PyObject *MemoObject_alloc(PyTypeObject *self, Py_ssize_t nitems) {
@@ -170,7 +170,7 @@ namespace db0::python
     }
     
     int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds)
-    {
+    {        
         using Class = db0::object_model::Class;
         using TagIndex = db0::object_model::TagIndex;
 
@@ -221,7 +221,7 @@ namespace db0::python
             auto &tag_index = fixture->get<TagIndex>();
             const Class *class_ptr = &object.getType();
             while (class_ptr) {
-                tag_index.addTag(self, class_ptr->getAddress());
+                tag_index.addTag(self, class_ptr->getAddress(), true);
                 class_ptr = class_ptr->getBaseClassPtr();
             }
         }
@@ -251,9 +251,8 @@ namespace db0::python
         
         // create a null placeholder in place of the original instance to mark as deleted
         auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
-        auto obj_addr = memo_obj->ext().getUniqueAddress();
-        memo_obj->destroy();
-        db0::object_model::Object::makeNull((void*)(&memo_obj->ext()), obj_addr);
+        auto obj_addr = memo_obj->ext().getUniqueAddress();        
+        db0::object_model::Object::replaceWithNull(&memo_obj->ext());
         // remove instance from the lang cache
         lang_cache.erase(obj_addr);
     }

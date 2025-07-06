@@ -139,6 +139,8 @@ namespace db0
         // otherwise it may deadlock on trying to invoke API calls from auto-commit 
         // (e.g. instance destruction triggered by LangCache::clear)
         auto __api_lock = LangToolkit::lockApi();
+        // NOTE: since this a separate thread, we must acuire the language interpreter's lock (where required)
+        auto lang_lock = LangToolkit::ensureLocked();
 #ifndef NDEBUG
         ThreadTracker::beginUnique();
 #endif        

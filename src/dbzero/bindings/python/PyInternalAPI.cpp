@@ -163,9 +163,6 @@ namespace db0::python
                     return false;
                 }
             }
-            // FIXME: log
-            std::cout << "hasRefs: " << memo.hasRefs() << std::endl;
-            std::cout << "langRefs: " << PyToolkit::hasLangRefs(*result) << std::endl;
             // finally, check if the object has any references (except the auto-assigned type tags)
             // NOTE: we check both for existing dbzero and lang-refs
             return PyToolkit::hasLangRefs(*result) || memo.hasRefs();
@@ -189,7 +186,7 @@ namespace db0::python
     
     shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id,
         PyTypeObject *py_expected_type)
-    {   
+    {
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
         
@@ -212,7 +209,7 @@ namespace db0::python
             auto &class_factory = fixture->get<ClassFactory>();
             auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
-
+            
             // NOTE: even if unloaded, may not be accessible if it has no references
             if (!memo.hasRefs() && !PyToolkit::hasLangRefs(*result)) {
                 THROWF(db0::InputException) << "Object not accessible or has been deleted";
@@ -779,25 +776,14 @@ namespace db0::python
     }
     
     shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
-        std::shared_ptr<db0::object_model::Class> expected_type, bool *would_throw)
-    {
-        bool has_refs = false;
-        auto obj_ptr = lang_cache.get(address, has_refs);
+        std::shared_ptr<db0::object_model::Class> expected_type)
+    {        
+        auto obj_ptr = lang_cache.get(address);
         if (!obj_ptr.get()) {
             // not found in cache
             return nullptr;
         }
         
-        if (!has_refs) {
-            // either throw or set would_throw flag
-            if (would_throw) {
-                *would_throw = true;
-                return obj_ptr;
-            } else {
-                THROWF(db0::InputException) << "Deleted object accessed: " << address;
-            }
-        }
-
         if (expected_type) {
             if (!PyMemo_Check(obj_ptr.get())) {
                 THROWF(db0::InputException) << "Invalid object type: " << PyToolkit::getTypeName(obj_ptr.get()) << " (Memo expected)";
@@ -936,5 +922,11 @@ namespace db0::python
         
         Py_RETURN_NONE;
     }
-    
+
+    PyObject *tryCollect()
+    {
+        PyToolkit::getPyWorkspace().getWorkspace().collect();
+        Py_RETURN_NONE;
+    }
+        
 }

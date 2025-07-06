@@ -583,11 +583,9 @@ namespace db0::object_model
     
     template <typename T, typename LangToolkit>
     void unrefObjectBase(db0::swine_ptr<Fixture> &fixture, Address address)
-    {   
-        bool has_refs = false;
-        auto obj_ptr = fixture->getLangCache().get(address, has_refs);
+    {
+        auto obj_ptr = fixture->getLangCache().get(address);
         if (obj_ptr.get()) {
-            assert(has_refs && "unrefObjectBase: object has no references");
             db0::FixtureLock lock(fixture);
             // decref cached instance via language specific wrapper type
             auto lang_wrapper = LangToolkit::template getWrapperTypeOf<T>(obj_ptr.get());

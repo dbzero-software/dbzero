@@ -149,10 +149,10 @@ namespace db0
                 if (buf_begin == buf_end) {
                     return;
                 }
-                // Sort list and remove duplicate elements
+                // sort the tags list and remove duplicate elements
                 std::sort(buf_begin, buf_end);
                 buf_end = std::unique(buf_begin, buf_end);
-
+                
                 TagRangesVector tag_ranges;
                 // Find ranges for all tags
                 // This vector will also effectively contain all unique tags

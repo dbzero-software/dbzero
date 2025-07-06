@@ -123,10 +123,10 @@ namespace db0
         }
         
         // @return reference count (of a specific type) after decrement
-        std::uint32_t decRef(bool is_tag)
+        void decRef(bool is_tag)
         {
             assert(hasInstance());
-            return this->modify().m_header.decRef(is_tag);
+            this->modify().m_header.decRef(is_tag);
         }
         
         // tags / objects reference counts

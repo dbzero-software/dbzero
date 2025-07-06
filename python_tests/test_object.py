@@ -160,6 +160,7 @@ def test_db0_object_multiple_allocs(db0_fixture):
 
 
 def test_db0_object_gets_unlocked_when_memo_object_deleted(db0_fixture):
+    import gc
     # collect initial cache statistics    
     db0.clear_cache()
     cache_0 = db0.get_cache_stats()    
@@ -171,8 +172,8 @@ def test_db0_object_gets_unlocked_when_memo_object_deleted(db0_fixture):
     assert cache_1["size"] > cache_0["size"]
     # delete memo objects
     del objects
-    db0.clear_cache()
-    db0.commit()
+    gc.collect()
+    db0.collect()    
     cache_2 = db0.get_cache_stats()
     # after deletion, some cache should be freed    
     assert cache_2["size"] < cache_1["size"]

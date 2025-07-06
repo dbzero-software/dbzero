@@ -87,9 +87,14 @@ namespace db0::object_model
         return m_header.m_ref_counter.getSecond() > 0;
     }
 
-    Object::Object(UniqueAddress addr)
+    bool o_object::hasAnyRefs() const {
+        return m_header.hasRefs();
+    }
+
+    Object::Object(UniqueAddress addr, unsigned int ext_refs)
         : m_flags { ObjectOptions::DROPPED }
-        , m_unique_address(addr)
+        , m_ext_refs(ext_refs)
+        , m_unique_address(addr)        
     {
     }
 
@@ -135,8 +140,12 @@ namespace db0::object_model
         }
     }
     
-    Object *Object::makeNull(void *at_ptr, UniqueAddress addr) {
-        return new (at_ptr) Object(addr);
+    void Object::replaceWithNull(const Object *old_ptr)
+    {
+        auto unique_addr = old_ptr->getUniqueAddress();
+        auto ext_refs = old_ptr->getExtRefs();
+        old_ptr->~Object();
+        new ((void*)old_ptr) Object(unique_addr, ext_refs);
     }
     
     Object::ObjectStem Object::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
@@ -150,15 +159,10 @@ namespace db0::object_model
         if (instance_id && stem->m_header.m_instance_id != instance_id) {
             // instance ID validation failed
             return {};
-        }
-        // do not unload if reference count is zero
-        if (!stem->hasRefs()) {
-            return {};
-        }
-        
+        }        
         return stem;
     }
-
+    
     Object::ObjectStem Object::unloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
     {
         auto result = tryUnloadStem(fixture, address, instance_id);
@@ -731,11 +735,11 @@ namespace db0::object_model
         }
     }
     
-    std::uint32_t Object::decRef(bool is_tag)
+    void Object::decRef(bool is_tag)
     {
         // this operation is a potentially silent mutation
-        _touch();        
-        return super_t::decRef(is_tag);
+        _touch();
+        super_t::decRef(is_tag);
     }
     
     bool Object::hasRefs() const
@@ -744,6 +748,10 @@ namespace db0::object_model
         return (*this)->hasRefs();
     }
     
+    bool Object::hasAnyRefs() const {
+        return (*this)->hasAnyRefs();
+    }
+
     bool Object::equalTo(const Object &other) const
     {
         if (!hasInstance() || !other.hasInstance()) {
@@ -907,4 +915,14 @@ namespace db0::object_model
         }
     }
 
+    void Object::addExtRef() const {
+        ++m_ext_refs;
+    }
+    
+    void Object::removeExtRef() const
+    {
+        assert(m_ext_refs > 0);
+        --m_ext_refs;
+    }
+    
 }

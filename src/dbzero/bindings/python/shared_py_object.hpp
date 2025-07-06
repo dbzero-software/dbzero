@@ -3,6 +3,13 @@
 #include <Python.h>
 #include <iostream>
 
+// extended inc-ref, handles additional ref-counter for memo objects
+// must dec-ref with PyEXT_DECREF
+#define PyEXT_INCREF(ptr) db0::python::incExtRef(ptr)
+#define PyEXT_DECREF(ptr) db0::python::decExtRef(ptr)
+// returns the number of extended references only
+#define PyEXT_REFCOUNT(ptr, default) db0::python::getExtRefcount(ptr, default)
+
 // take ownership of a PyObject (exception-safe)
 #define Py_OWN(ptr) db0::python::shared_py_object<decltype(ptr)>(ptr, false)
 #define Py_BORROW(ptr) db0::python::shared_py_object<decltype(ptr)>(ptr, true)
@@ -13,6 +20,11 @@ namespace db0::python
 
 {
 
+    // incRef / decRef with a special handling for memo objects
+    void incExtRef(PyObject *);
+    void decExtRef(PyObject *);
+    unsigned int getExtRefcount(PyObject *, unsigned int default_count = 0);
+    
     template <typename T> class shared_py_object
     {
     public:
@@ -20,8 +32,11 @@ namespace db0::python
         inline shared_py_object(T py_object, bool incref = true)
             : m_py_object(py_object)
         {
-            if (m_py_object && incref) {
-                Py_INCREF(py_object);
+            if (m_py_object) {
+                if (incref) {
+                    Py_INCREF(py_object);
+                }
+                PyEXT_INCREF(py_object);
             }
         }
         
@@ -30,6 +45,7 @@ namespace db0::python
         {
             if (m_py_object) {
                 Py_INCREF(m_py_object);
+                PyEXT_INCREF(m_py_object);
             }
         }
 
@@ -41,7 +57,8 @@ namespace db0::python
 
         inline ~shared_py_object()
         {
-            if (m_py_object) {                
+            if (m_py_object) {
+                PyEXT_DECREF(m_py_object);
                 Py_DECREF(m_py_object);
             }
         }
@@ -66,13 +83,18 @@ namespace db0::python
         }
         
         // 'steal' a reference from the shared object
+        // NOTE: steals only the regular reference, ext-refs cannot be stolen
         inline T steal()
         {
+            if (!m_py_object) {
+                return nullptr;
+            }
             auto result = m_py_object;
+            PyEXT_DECREF(m_py_object);
             m_py_object = nullptr;
             return result;
-        }
-
+        } 
+        
         inline bool operator==(const shared_py_object &other) const {
             return m_py_object == other.m_py_object;
         }
@@ -87,6 +109,7 @@ namespace db0::python
             m_py_object = other.m_py_object;
             if (m_py_object) {
                 Py_INCREF(m_py_object);
+                PyEXT_INCREF(m_py_object);
             }
             return *this;
         }
@@ -102,13 +125,14 @@ namespace db0::python
         void reset()
         {
             if (m_py_object) {
+                PyEXT_DECREF(m_py_object);
                 Py_DECREF(m_py_object);
                 m_py_object = nullptr;
             }
         }
 
     private:
-        T m_py_object = nullptr;
+        T m_py_object = nullptr;        
     };
     
     // PyTypeObject specialization

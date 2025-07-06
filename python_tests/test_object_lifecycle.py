@@ -54,15 +54,15 @@ def test_unreferenced_object_are_dropped_on_close(db0_fixture):
 
 def test_unreferenced_posvt_member_is_dropped_on_parent_destroy(db0_fixture):
     member = MemoTestClass(123123)
-    uuid = db0.uuid(member)
+    member_uuid = db0.uuid(member)
     object_1 = MemoTestClass(member)
     del member
-    del object_1
-    db0.clear_cache()
+    db0.delete(object_1)
+    del object_1    
     db0.commit()
     # member object should no longer exist in dbzero
     with pytest.raises(Exception):
-        db0.fetch(uuid)
+        db0.fetch(member_uuid)
 
 
 def test_unreferenced_indexvt_member_is_dropped_on_parent_destroy(db0_fixture):
@@ -74,8 +74,7 @@ def test_unreferenced_indexvt_member_is_dropped_on_parent_destroy(db0_fixture):
     del member
     del object_1
     del object_2
-    db0.clear_cache()
-    db0.commit()
+    db0.collect()
     # member object should no longer exist in dbzero
     with pytest.raises(Exception):
         db0.fetch(uuid)
@@ -89,8 +88,7 @@ def test_unreferenced_kvindex_member_is_dropped_on_parent_destroy(db0_fixture):
     object_1.kv_member = member
     del member
     del object_1
-    db0.clear_cache()
-    db0.commit()
+    db0.collect()    
     # member object should no longer exist in dbzero
     with pytest.raises(Exception):
         db0.fetch(uuid)

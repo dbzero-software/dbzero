@@ -329,7 +329,7 @@ namespace db0
                 return result;
             }
             
-            std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
+            std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;            
             // NOTE: close handlers perform internal buffers flush (e.g. TagIndex)
             // which may result in modifications (e.g. incRef)
             // it's therefore important to perform this action before GC0::commitAll (which commits finalized objects)

@@ -170,6 +170,8 @@ namespace db0::python
     PyObject *PyAPI_touch(PyObject *, PyObject *const *args, Py_ssize_t nargs);
 
     PyObject *PyAPI_getMemoClass(PyObject *, PyObject *const *args, Py_ssize_t nargs);
+
+    PyObject *PyAPI_collect(PyObject *, PyObject *);
     
 #ifndef NDEBUG
     PyObject *PyAPI_startDebugLogs(PyObject *self, PyObject *args);

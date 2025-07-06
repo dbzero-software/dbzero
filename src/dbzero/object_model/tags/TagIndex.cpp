@@ -155,21 +155,26 @@ namespace db0::object_model
     TagIndex::~TagIndex()
     {
         assert(
-            m_batch_operation_short.empty() && 
-            m_batch_operation_long.empty() && 
+            m_batch_op_short.empty() && 
+            m_batch_op_long.empty() && 
+            m_batch_op_types.empty() && 
             "TagIndex::flush() or close() must be called before destruction");
     }
     
     FT_BaseIndex<TagIndex::ShortTagT>::BatchOperationBuilder &
-    TagIndex::getBatchOperationShort(ObjectPtr memo_ptr, ActiveValueT &result) const
+    TagIndex::getBatchOperationShort(ObjectPtr memo_ptr, ActiveValueT &result, bool is_type) const
     {
-        return getBatchOperation(memo_ptr, m_base_index_short, m_batch_operation_short, result);
+        if (is_type) {                    
+            return getBatchOperation(memo_ptr, m_base_index_short, m_batch_op_types, result);
+        } else {
+            return getBatchOperation(memo_ptr, m_base_index_short, m_batch_op_short, result);
+        }
     }
 
     db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &
     TagIndex::getBatchOperationLong(ObjectPtr memo_ptr, ActiveValueT &result) const
     {
-        return getBatchOperation(memo_ptr, m_base_index_long, m_batch_operation_long, result);
+        return getBatchOperation(memo_ptr, m_base_index_long, m_batch_op_long, result);
     }
     
     void TagIndex::addTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
@@ -181,7 +186,7 @@ namespace db0::object_model
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         ActiveValueT active_key = { UniqueAddress(), nullptr };
-        auto &batch_op_short = getBatchOperationShort(memo_ptr, active_key);
+        auto &batch_op_short = getBatchOperationShort(memo_ptr, active_key, false);
         // since it's less common, defer initialization until first occurence
         db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder *batch_op_long_ptr = nullptr;
         auto &type_manager = LangToolkit::getTypeManager();
@@ -232,19 +237,19 @@ namespace db0::object_model
             m_mutation_log->onDirty();            
         }
     }
-
-    void TagIndex::addTag(ObjectPtr memo_ptr, Address tag_addr) {
-        addTag(memo_ptr, tag_addr.getOffset());
+    
+    void TagIndex::addTag(ObjectPtr memo_ptr, Address tag_addr, bool is_type) {
+        addTag(memo_ptr, tag_addr.getOffset(), is_type);
     }
     
-    void TagIndex::addTag(ObjectPtr memo_ptr, ShortTagT tag)
+    void TagIndex::addTag(ObjectPtr memo_ptr, ShortTagT tag, bool is_type)
     {
         ActiveValueT active_key = { UniqueAddress(), nullptr };
-        auto &batch_operation = getBatchOperationShort(memo_ptr, active_key);
+        auto &batch_operation = getBatchOperationShort(memo_ptr, active_key, is_type);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));        
         m_mutation_log->onDirty();        
     }
-
+    
     void TagIndex::addTag(ObjectPtr memo_ptr, LongTagT tag)
     {
         ActiveValueT active_key = { UniqueAddress(), nullptr };
@@ -261,7 +266,7 @@ namespace db0::object_model
 
         using IterableSequence = TagMakerSequence<ForwardIterator, ObjectSharedPtr>;
         ActiveValueT active_key = { UniqueAddress(), nullptr };
-        auto &batch_operation = getBatchOperationShort(memo_ptr, active_key);
+        auto &batch_operation = getBatchOperationShort(memo_ptr, active_key, false);
         for (std::size_t i = 0; i < nargs; ++i) {
             auto type_id = LangToolkit::getTypeManager().getTypeId(args[i]);
             // must check for string since it's an iterable as well
@@ -282,11 +287,14 @@ namespace db0::object_model
     void TagIndex::rollback()
     {
         // Reject any pending updates
-        if (m_batch_operation_short) {
-            m_batch_operation_short.reset();
+        if (m_batch_op_short) {
+            m_batch_op_short.reset();
         }
-        if (m_batch_operation_long) {
-            m_batch_operation_long.reset();
+        if (m_batch_op_long) {
+            m_batch_op_long.reset();
+        }
+        if (m_batch_op_types) {
+            m_batch_op_types.reset();
         }
         // undo inc-ref
         for (auto tag_addr: m_inc_refed_tags) {
@@ -301,16 +309,19 @@ namespace db0::object_model
     {
         rollback();
         m_base_index_short.clear();
-        m_base_index_long.clear();    
+        m_base_index_long.clear();        
     }
     
     void TagIndex::close()
     {
-        if (m_batch_operation_short) {
-            m_batch_operation_short.reset();
+        if (m_batch_op_short) {
+            m_batch_op_short.reset();
         }
-        if (m_batch_operation_long) {
-            m_batch_operation_long.reset();
+        if (m_batch_op_long) {
+            m_batch_op_long.reset();
+        }
+        if (m_batch_op_types) {
+            m_batch_op_types.reset();
         }
         m_object_cache.clear();
         m_active_cache.clear();        
@@ -344,7 +355,7 @@ namespace db0::object_model
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
         auto &type_manager = LangToolkit::getTypeManager();
-        // NOTE: some object might've been dropped in the meantime, need to be removed from remove from batch operations
+        // NOTE: some object might've been dropped in the meantime, need to be reverted from batch operations
         for (const auto &item: m_object_cache) {
             auto obj_ptr = item.second.get();
             auto &memo = type_manager.extractObject(obj_ptr);
@@ -352,84 +363,101 @@ namespace db0::object_model
                 revert(obj_ptr);
             }
         }
-
+        
         // might be empty after clean-ups, check again
-        if (empty()) {
-            return;
-        }
-        
-        // the purpose of callback is to incRef to objects when a new tag is assigned
-        std::function<void(UniqueAddress)> add_tag_callback = [&](UniqueAddress obj_addr) {
-            auto it = m_object_cache.find(obj_addr);
-            assert(it != m_object_cache.end());
-            // NOTE: inc-ref as tag
-            type_manager.extractMutableObject(it->second.get()).incRef(true);
-        };
-        
-        // add_index_callback adds reference to tags (string pool tokens)
-        // unless such reference has already been added when the tag was first created
-        std::function<void(ShortTagT)> add_index_callback = [&](ShortTagT tag_addr) {
-            tryTagIncRef(tag_addr);
-        };
-        
-        // the additional batch operation will possibly be created to
-        // handle the type-tags removal
-        ShortBatchOperationBulder batch_op_short;
-        std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
-            auto it = m_object_cache.find(obj_addr);
-            assert(it != m_object_cache.end());
-            auto &object = type_manager.extractMutableObject(it->second.get());
-            auto ref_count = object.decRef(true);
-            if (ref_count == object.getType().getNumBases() + 1) {
-                ActiveValueT active_key = { UniqueAddress(), nullptr };
-                // possibly construct a new batch-op
-                auto &batch_op = getBatchOperation(it->second.get(), m_base_index_short, batch_op_short, active_key);                
-                const Class *type_ptr = &object.getType();
-                while (type_ptr) {
-                    // remove auto-assigned type (or its base) tag
-                    batch_op->removeTag(active_key, type_ptr->getAddress());
-                    // for each removed type tag, decrement ref-count immediately
-                    object.decRef(true);
-                    type_ptr = type_ptr->getBaseClassPtr();
+        if (!empty()) {
+            // the purpose of callback is to incRef objects when a new tag is assigned
+            std::function<void(UniqueAddress)> add_tag_callback = [&](UniqueAddress obj_addr) {
+                auto it = m_object_cache.find(obj_addr);
+                assert(it != m_object_cache.end());
+                // NOTE: inc-ref as tag
+                type_manager.extractMutableObject(it->second.get()).incRef(true);
+            };
+            
+            // add_index_callback adds reference to tags (string pool tokens)
+            // unless such reference has already been added when the tag was first created
+            std::function<void(ShortTagT)> add_index_callback = [&](ShortTagT tag_addr) {
+                tryTagIncRef(tag_addr);
+            };
+            
+            // the additional batch operation will possibly be created to
+            // handle the type-tags removal
+            ShortBatchOperationBulder batch_op_short;
+            std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
+                auto it = m_object_cache.find(obj_addr);
+                assert(it != m_object_cache.end());
+                auto &memo = type_manager.extractMutableObject(it->second.get());
+                memo.decRef(true);
+                if (!memo.hasRefs()) {
+                    ActiveValueT active_key = { UniqueAddress(), nullptr };
+                    // possibly construct a new batch-op
+                    auto &batch_op = getBatchOperation(it->second.get(), m_base_index_short, batch_op_short, active_key);                
+                    const Class *type_ptr = &memo.getType();
+                    while (type_ptr) {
+                        // remove auto-assigned type (or its base) tag
+                        batch_op->removeTag(active_key, type_ptr->getAddress());
+                        // for each removed type tag, decrement ref-count immediately
+                        memo.decRef(true);
+                        type_ptr = type_ptr->getBaseClassPtr();
+                    }
+                }
+            };
+            
+            std::function<void(ShortTagT)> erase_index_callback = [&](ShortTagT tag_addr) {
+                tryTagDecRef(tag_addr);
+            };
+
+            // flush all short tags' updates
+            if (!m_batch_op_short.empty()) {
+                m_batch_op_short->flush(&add_tag_callback, &remove_tag_callback, 
+                    &add_index_callback, &erase_index_callback);
+                assert(m_batch_op_short.empty());
+            }
+            
+            std::function<void(LongTagT)> add_long_index_callback = [&](LongTagT long_tag_addr) {
+                tryTagIncRef(long_tag_addr[0]);
+                tryTagIncRef(long_tag_addr[1]);
+            };
+
+            std::function<void(LongTagT)> erase_long_index_callback = [&](LongTagT long_tag_addr) {
+                tryTagDecRef(long_tag_addr[0]);
+                tryTagDecRef(long_tag_addr[1]);
+            };
+            
+            // flush all long tags' updates
+            if (!m_batch_op_long.empty()) {
+                m_batch_op_long->flush(&add_tag_callback, &remove_tag_callback, 
+                    &add_long_index_callback, &erase_long_index_callback);
+                assert(m_batch_op_long->empty());
+            }
+            
+            if (m_batch_op_types) {
+                // now, scan the object cache and revert any unreferenced objects (no dbzero refs, no lang refs)
+                for (const auto &item: m_object_cache) {
+                    auto obj_ptr = item.second.get();
+                    auto &memo = type_manager.extractObject(obj_ptr);
+                    // NOTE: dropped instances should've already been reverted by now
+                    if (!memo.isDropped() && !memo.hasAnyRefs() && !LangToolkit::hasLangRefs(obj_ptr)) {
+                        m_batch_op_types->revert(memo.getUniqueAddress());
+                    }
+                }
+                
+                // flush all type-tag updates
+                if (!m_batch_op_types.empty()) {
+                    m_batch_op_types->flush(&add_tag_callback, &remove_tag_callback, 
+                        &add_index_callback, &erase_index_callback);
+                    assert(m_batch_op_types.empty());
                 }
             }
-        };
-        
-        std::function<void(ShortTagT)> erase_index_callback = [&](ShortTagT tag_addr) {
-            tryTagDecRef(tag_addr);
-        };
 
-        // flush all short tags' updates
-        if (!m_batch_operation_short.empty()) {
-            m_batch_operation_short->flush(&add_tag_callback, &remove_tag_callback, 
-                &add_index_callback, &erase_index_callback);
-            assert(m_batch_operation_short.empty());
+            // finally, flush type tag remove ops collected during flush
+            if (!batch_op_short.empty()) {
+                // NOTE: no callback are needed here
+                batch_op_short->flush();
+                assert(batch_op_short.empty());
+            }
         }
         
-        std::function<void(LongTagT)> add_long_index_callback = [&](LongTagT long_tag_addr) {
-            tryTagIncRef(long_tag_addr[0]);
-            tryTagIncRef(long_tag_addr[1]);
-        };
-
-        std::function<void(LongTagT)> erase_long_index_callback = [&](LongTagT long_tag_addr) {
-            tryTagDecRef(long_tag_addr[0]);
-            tryTagDecRef(long_tag_addr[1]);
-        };
-        
-        // flush all long tags' updates
-        if (!m_batch_operation_long.empty()) {
-            m_batch_operation_long->flush(&add_tag_callback, &remove_tag_callback, 
-                &add_long_index_callback, &erase_long_index_callback);
-            assert(m_batch_operation_long->empty());
-        }
-
-        // finally, flush type tag remove ops collected during flush
-        if (!batch_op_short.empty()) {
-            // NOTE: no callback are needed here
-            batch_op_short->flush();
-            assert(batch_op_short.empty());
-        }
-
         m_object_cache.clear();
         m_active_cache.clear();        
         m_inc_refed_tags.clear();
@@ -1048,18 +1076,22 @@ namespace db0::object_model
     {
         auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);
         auto addr = memo.getUniqueAddress();
-        if (m_batch_operation_short) {
-            m_batch_operation_short->revert(addr);
+        if (m_batch_op_short) {
+            m_batch_op_short->revert(addr);
         }
-        if (m_batch_operation_long) {        
-            m_batch_operation_long->revert(addr);
+        if (m_batch_op_long) {
+            m_batch_op_long->revert(addr);
         }
+        if (m_batch_op_types) {
+            m_batch_op_types->revert(addr);
+        }        
     }
     
     bool TagIndex::empty() const
     {
-        return (!m_batch_operation_short || m_batch_operation_short->empty()) &&
-               (!m_batch_operation_long || m_batch_operation_long->empty());
+        return (!m_batch_op_short || m_batch_op_short->empty()) &&
+            (!m_batch_op_long || m_batch_op_long->empty()) &&
+            (!m_batch_op_types || m_batch_op_types->empty());
     }
     
     bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress addr)

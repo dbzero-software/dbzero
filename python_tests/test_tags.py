@@ -333,3 +333,20 @@ def test_object_with_no_refs_no_longer_accessible_by_type_when_last_tag_removed(
 def test_type_tags_automatically_assigned(db0_fixture):
     obj_1 = MemoTestClass(0)
     assert len(db0.find(MemoTestClass)) == 1
+
+
+def test_deleted_object_cannot_be_looked_up_by_type(db0_fixture):
+    import gc
+    obj_1 = MemoTestClass(0)
+    del obj_1
+    gc.collect()
+    assert len(db0.find(MemoTestClass)) == 0
+
+
+def test_object_persisted_when_tag_assigned(db0_fixture):
+    db0.tags(MemoTestClass(123)).add("tag-1")
+    db0.commit()
+    assert len(db0.find(MemoTestClass)) == 1
+    assert len(db0.find(MemoTestClass, "tag-1")) == 1
+    assert len(db0.find("tag-1")) == 1
+    
