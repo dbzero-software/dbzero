@@ -135,14 +135,6 @@ namespace db0::python
         auto storage_class = object_id.m_storage_class;
         auto addr = object_id.m_address;
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
-            // NOTE: there might be tag-removal operations buffered for the requested instance
-            // in case of a read/write mode conditionally trigger flush in such case
-            if (db0::object_model::isObjectPendingUpdate(fixture, addr)) {
-                FixtureLock lock(fixture);
-                // flush pending updates
-                lock->flush();                
-            }
-            
             auto &class_factory = fixture->get<ClassFactory>();
             // NOTE: we always need to unload the object to also validate hasRefs
             // since objects with no refs are considered deleted
@@ -163,9 +155,8 @@ namespace db0::python
                     return false;
                 }
             }
-            // finally, check if the object has any references (except the auto-assigned type tags)
-            // NOTE: we check both for existing dbzero and lang-refs
-            return PyToolkit::hasLangRefs(*result) || memo.hasRefs();
+
+            return true;
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             return PyToolkit::isExistingList(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            
@@ -197,24 +188,11 @@ namespace db0::python
         
         auto storage_class = object_id.m_storage_class;
         auto addr = object_id.m_address;
-        if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
-            // NOTE: there might be tag-removal operations buffered for the requested instance
-            // in case of a read/write mode conditionally trigger flush in such case
-            if (db0::object_model::isObjectPendingUpdate(fixture, addr)) {
-                FixtureLock lock(fixture);
-                // flush pending updates
-                lock->flush();
-            }
-            
+        if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {            
             auto &class_factory = fixture->get<ClassFactory>();
             auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
-            
-            // NOTE: even if unloaded, may not be accessible if it has no references
-            if (!memo.hasRefs() && !PyToolkit::hasLangRefs(*result)) {
-                THROWF(db0::InputException) << "Object not accessible or has been deleted";
-            }
-            
+                        
             // validate type if requested (no validation for MemoBase)
             if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {                
                 // in other cases the type must match the actual object type
@@ -482,7 +460,7 @@ namespace db0::python
                 // flush pending updates
                 lock->flush();                
             }
-            return PyLong_FromLong(getTotal(memo.getRefCounts(), -(memo.getType().getNumBases() + 1)));
+            return PyLong_FromLong(getTotal(memo.getRefCounts(), (memo->m_num_type_tags)));
         } else if (PyClassObject_Check(py_object)) {
             auto ref_counts = reinterpret_cast<ClassObject*>(py_object)->ext().getRefCounts();
             return PyLong_FromLong(getTotal(ref_counts, 0));
@@ -920,12 +898,6 @@ namespace db0::python
             }            
         }
         
-        Py_RETURN_NONE;
-    }
-
-    PyObject *tryCollect()
-    {
-        PyToolkit::getPyWorkspace().getWorkspace().collect();
         Py_RETURN_NONE;
     }
         

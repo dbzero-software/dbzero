@@ -126,7 +126,7 @@ namespace db0::object_model
         void postInit(FixtureLock &);
         
         // Destroys an existing instance and constructs a "null" placeholder 
-        static void replaceWithNull(const Object *);
+        void dropInstance(FixtureLock &);
         
         // Unload the object stem, to retrieve its type
         static ObjectStem tryUnloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
@@ -174,7 +174,7 @@ namespace db0::object_model
         FieldLayout getFieldLayout() const;
         
         // Convert singleton into a regular instance
-        void unSingleton();
+        void unSingleton(FixtureLock &);
 
         void destroy() const;
                 
@@ -195,8 +195,8 @@ namespace db0::object_model
         // check for any refs (including auto-assigned type tags)
         bool hasAnyRefs() const;
         
-        // @return reference count (of a specific type) after decrement
-        void decRef(bool is_tag);
+        // @return true if reference count was decremented to zero
+        bool decRef(bool is_tag);
         
         // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
         // NOTE: ref-counts are not compared (only user-assigned members)

@@ -154,10 +154,7 @@ namespace db0::python
     PyObject *tryGetMemoClass(PyObject *py_obj);
     
     PyObject *tryTouch(PyObject *const *args, Py_ssize_t nargs);
-    
-    // GC0-collect unrechable instances
-    PyObject *tryCollect();
-    
+        
     // Load dbzero object to memory
     // @param load_stack_ptr - required to track and avoid circular references
     PyObject *tryLoad(PyObject *, PyObject*, PyObject *py_exlude = nullptr, 

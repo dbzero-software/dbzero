@@ -43,6 +43,7 @@ namespace db0
         using LangToolkit = db0::object_model::LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
 
+        // Constructs a "null" placeholder instance
         ObjectBase() = default;
         
         // Create a new instance
@@ -122,11 +123,11 @@ namespace db0
             this->modify().m_header.incRef(is_tag);
         }
         
-        // @return reference count (of a specific type) after decrement
-        void decRef(bool is_tag)
+        // @return true if reference count was decremented to zero
+        bool decRef(bool is_tag)
         {
             assert(hasInstance());
-            this->modify().m_header.decRef(is_tag);
+            return this->modify().m_header.decRef(is_tag);
         }
         
         // tags / objects reference counts
@@ -192,6 +193,15 @@ namespace db0
             return true;
         }
         
+        // Destroys an existing instance and constructs a "null" placeholder
+        // this operation is required for destroying dbzero instance while still preserving the language wrapper object
+        void dropInstance(FixtureLock &)
+        {
+            this->~self_t();
+            // construct a new (placeholder) instance in place of the existing one            
+            new ((void*)this) self_t();
+        }
+
     protected:
         friend class db0::GC0;
 

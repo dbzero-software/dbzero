@@ -140,12 +140,13 @@ namespace db0::object_model
         }
     }
     
-    void Object::replaceWithNull(const Object *old_ptr)
+    void Object::dropInstance(FixtureLock &)
     {
-        auto unique_addr = old_ptr->getUniqueAddress();
-        auto ext_refs = old_ptr->getExtRefs();
-        old_ptr->~Object();
-        new ((void*)old_ptr) Object(unique_addr, ext_refs);
+        auto unique_addr = this->getUniqueAddress();
+        auto ext_refs = this->getExtRefs();
+        this->~Object();
+        // construct a null placeholder
+        new ((void*)this) Object(unique_addr, ext_refs);
     }
     
     Object::ObjectStem Object::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
@@ -552,7 +553,7 @@ namespace db0::object_model
         }
     }
     
-    void Object::unSingleton()
+    void Object::unSingleton(FixtureLock &)
     {
         auto &type = getType();
         // drop reference from the class
@@ -735,11 +736,12 @@ namespace db0::object_model
         }
     }
     
-    void Object::decRef(bool is_tag)
+    bool Object::decRef(bool is_tag)
     {
         // this operation is a potentially silent mutation
         _touch();
         super_t::decRef(is_tag);
+        return !hasRefs();
     }
     
     bool Object::hasRefs() const
@@ -822,7 +824,7 @@ namespace db0::object_model
     
     void Object::detach() const
     {
-        m_type->detach();
+        m_type->detach();        
         // invalidate since detach is not supported by the MorphingBIndex
         m_kv_index = nullptr;
         super_t::detach();

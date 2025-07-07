@@ -37,6 +37,7 @@ namespace db0::object_model
         using LangToolkit = typename Object::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using ObjectSharedExtPtr = typename LangToolkit::ObjectSharedExtPtr;
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         // full-text query iterator
         using QueryIterator = FT_Iterator<UniqueAddress>;
@@ -126,10 +127,11 @@ namespace db0::object_model
         mutable std::unordered_set<std::uint64_t> m_inc_refed_tags;
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
-        // and to handle callbacks from the full-text index        
-        mutable std::unordered_map<UniqueAddress, ObjectSharedPtr> m_object_cache;
+        // and to handle callbacks from the full-text index
+        // NOTE: cache must hold "shared external" references to the objects
+        mutable std::unordered_map<UniqueAddress, ObjectSharedExtPtr> m_object_cache;
         // A cache for incomplete objects (not yet fully initialized)
-        mutable std::unordered_map<ObjectSharedPtr, UniqueAddress> m_active_cache;
+        mutable std::unordered_map<ObjectSharedExtPtr, UniqueAddress> m_active_cache;
         // the associated fixture UUID (for validation purposes)
         const std::uint64_t m_fixture_uuid;
         mutable std::shared_ptr<MutationLog> m_mutation_log;

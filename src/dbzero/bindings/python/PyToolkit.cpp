@@ -232,7 +232,7 @@ namespace db0::python
     PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, const LongWeakRef &weak_ref) {
         return unloadExpiredRef(fixture, weak_ref->m_fixture_uuid, weak_ref->m_address);
     }
-        
+    
     PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
     {
         using List = db0::object_model::List;
@@ -345,7 +345,7 @@ namespace db0::python
     bool PyToolkit::isExistingDict(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
         return db0::object_model::Dict::checkUnload(fixture, address, instance_id, false);
     }
-
+    
     PyToolkit::ObjectSharedPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
     {
         // try pulling from cache first
@@ -491,7 +491,9 @@ namespace db0::python
         return shared_py_cast<PyObject*>(makePyEnumValue(value));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::makeEnumValueRepr(std::shared_ptr<EnumTypeDef> type_def, const char *str_value) {
+    PyToolkit::ObjectSharedPtr PyToolkit::makeEnumValueRepr(std::shared_ptr<EnumTypeDef> type_def,
+        const char *str_value) 
+    {
         return shared_py_cast<PyObject*>(makePyEnumValueRepr(type_def, str_value));
     }
     

@@ -47,6 +47,7 @@ namespace db0::python
     public:
         using ObjectPtr = typename PyTypes::ObjectPtr;
         using ObjectSharedPtr = typename PyTypes::ObjectSharedPtr;
+        using ObjectSharedExtPtr = typename PyTypes::ObjectSharedExtPtr;
         using TypeObjectPtr = typename PyTypes::TypeObjectPtr;
         using TypeObjectSharedPtr = typename PyTypes::TypeObjectSharedPtr;
         using TypeManager = db0::python::PyTypeManager;
@@ -92,7 +93,7 @@ namespace db0::python
         */
         static std::optional<std::string> tryGetModuleName(TypeObjectPtr py_type);
         static std::string getModuleName(TypeObjectPtr py_type);
-                
+        
         // Unload with type resolution
         // optionally may use specific lang class (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,

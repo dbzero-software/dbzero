@@ -50,7 +50,7 @@ namespace db0::object_model
         friend super_t;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
-        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;        
         using const_iterator = typename db0::v_bindex<dict_item>::const_iterator;
         
         Dict(db0::swine_ptr<Fixture> &, Address);

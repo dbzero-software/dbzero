@@ -386,9 +386,8 @@ namespace db0::object_model
             std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
                 auto it = m_object_cache.find(obj_addr);
                 assert(it != m_object_cache.end());
-                auto &memo = type_manager.extractMutableObject(it->second.get());
-                memo.decRef(true);
-                if (!memo.hasRefs()) {
+                auto &memo = type_manager.extractMutableObject(it->second.get());            
+                if (memo.decRef(true)) {
                     ActiveValueT active_key = { UniqueAddress(), nullptr };
                     // possibly construct a new batch-op
                     auto &batch_op = getBatchOperation(it->second.get(), m_base_index_short, batch_op_short, active_key);                

@@ -151,7 +151,7 @@ namespace db0
         }
     }
         
-    LangCache::ObjectSharedPtr LangCache::get(std::uint16_t fixture_id, Address address) const
+    LangCache::ObjectSharedExtPtr LangCache::get(std::uint16_t fixture_id, Address address) const
     {
         auto uid = makeUID(fixture_id, address);
         auto it = m_uid_to_index.find(uid);
@@ -250,7 +250,7 @@ namespace db0
         m_objects.erase(address);
     }
     
-    LangCacheView::ObjectSharedPtr LangCacheView::get(Address address) const {
+    LangCacheView::ObjectSharedExtPtr LangCacheView::get(Address address) const {
         return m_cache.get(m_fixture_id, address);
     }
         

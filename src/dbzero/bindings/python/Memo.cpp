@@ -234,7 +234,8 @@ namespace db0::python
         // since objects are destroyed by GC0 drop is only responsible for marking
         // singletons as unreferenced
         if (memo_obj->ext().isSingleton()) {
-            memo_obj->modifyExt().unSingleton();
+            db0::FixtureLock lock(memo_obj->ext().getFixture());
+            memo_obj->modifyExt().unSingleton(lock);
             // the acutal destroy will be performed by the GC0 once removed from the LangCache
             auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
             lang_cache.erase(memo_obj->ext().getAddress());
@@ -251,8 +252,9 @@ namespace db0::python
         
         // create a null placeholder in place of the original instance to mark as deleted
         auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
-        auto obj_addr = memo_obj->ext().getUniqueAddress();        
-        db0::object_model::Object::replaceWithNull(&memo_obj->ext());
+        auto obj_addr = memo_obj->ext().getUniqueAddress();
+        db0::FixtureLock lock(memo_obj->ext().getFixture());
+        memo_obj->modifyExt().dropInstance(lock);
         // remove instance from the lang cache
         lang_cache.erase(obj_addr);
     }

@@ -17,12 +17,13 @@ namespace db0::object_model
         using LangToolkit = typename LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using ObjectSharedExtPtr = typename LangToolkit::ObjectSharedExtPtr;
         using super_t = typename RangeTree<KeyT, UniqueAddress>::Builder;
-
+        
         IndexBuilder();
         IndexBuilder(std::unordered_set<UniqueAddress> &&remove_null_values,
-            std::unordered_set<UniqueAddress> &&add_null_values, 
-            std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache);
+            std::unordered_set<UniqueAddress> &&add_null_values,
+            std::unordered_map<UniqueAddress, ObjectSharedExtPtr> &&object_cache);
         
         void add(KeyT key, ObjectPtr obj_ptr);
         void remove(KeyT key, ObjectPtr obj_ptr);
@@ -33,7 +34,7 @@ namespace db0::object_model
         // Flush and incRef to unique added objects
         void flush(RangeTreeT &index);
 
-        std::unordered_map<UniqueAddress, ObjectSharedPtr> &&releaseObjectCache() {
+        std::unordered_map<UniqueAddress, ObjectSharedExtPtr> &&releaseObjectCache() {
             return std::move(m_object_cache);
         }
 
@@ -43,7 +44,8 @@ namespace db0::object_model
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the range-tree index
-        mutable std::unordered_map<UniqueAddress, ObjectSharedPtr> m_object_cache;
+        // NOTE: cache must hold "shared external" references to the objects
+        mutable std::unordered_map<UniqueAddress, ObjectSharedExtPtr> m_object_cache;
 
         // add to cache and return object's address
         UniqueAddress addToCache(ObjectPtr);
@@ -57,13 +59,13 @@ namespace db0::object_model
     
     template <typename KeyT> IndexBuilder<KeyT>::IndexBuilder(
         std::unordered_set<UniqueAddress> &&remove_null_values, std::unordered_set<UniqueAddress> &&add_null_values, 
-        std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache)
+        std::unordered_map<UniqueAddress, ObjectSharedExtPtr> &&object_cache)
         : super_t(std::move(remove_null_values), std::move(add_null_values))        
         , m_type_manager(LangToolkit::getTypeManager())
         , m_object_cache(std::move(object_cache))
     {
     }
-
+    
     template <typename KeyT> void IndexBuilder<KeyT>::add(KeyT key, ObjectPtr obj_ptr) {
         super_t::add(key, addToCache(obj_ptr));
     }

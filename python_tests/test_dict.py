@@ -341,8 +341,7 @@ def test_pop_unref_and_values(db0_fixture):
     uuid_value = db0.uuid(my_dict[key])
     uuid_key = db0.uuid(key)
     my_dict.pop(key)
-    key = None
-    db0.clear_cache()
+    del key
     db0.commit()
     with pytest.raises(Exception):
         db0.fetch(uuid_value)    

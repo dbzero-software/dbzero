@@ -44,6 +44,7 @@ namespace db0
         using LangToolkit = db0::object_model::LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
         using ObjectSharedPtr = LangToolkit::ObjectSharedPtr;
+        using ObjectSharedExtPtr = LangToolkit::ObjectSharedExtPtr;
 
         AtomicContext(std::shared_ptr<Workspace> &, std::unique_lock<std::mutex> &&);
 
@@ -63,7 +64,7 @@ namespace db0
         
     private:
         std::shared_ptr<Workspace> m_workspace;
-        std::unordered_map<Address, ObjectSharedPtr> m_objects;        
+        std::unordered_map<Address, ObjectSharedExtPtr> m_objects;
         
         // mutex / lock to prevent mutliple concurrent atomic operations
         // also acquired by the autocommit-thread to prevent auto-commit during atomic operation

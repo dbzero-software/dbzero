@@ -19,13 +19,14 @@
 namespace db0::python
 
 {
-
+    
     // incRef / decRef with a special handling for memo objects
     void incExtRef(PyObject *);
     void decExtRef(PyObject *);
     unsigned int getExtRefcount(PyObject *, unsigned int default_count = 0);
     
-    template <typename T> class shared_py_object
+    // @tparam ExtRef flag indicating if should be counted as an "external" reference
+    template <typename T, bool ExtRef = false> class shared_py_object
     {
     public:
         inline shared_py_object() = default;
@@ -36,16 +37,24 @@ namespace db0::python
                 if (incref) {
                     Py_INCREF(py_object);
                 }
-                PyEXT_INCREF(py_object);
+                if constexpr (ExtRef) {
+                    PyEXT_INCREF(py_object);
+                }                
             }
         }
+        
+        // ExtRef -> non/ExtRef conversion
+        template <bool U = !ExtRef, typename std::enable_if<U, int>::type = 0>
+        shared_py_object(shared_py_object<T, true> &&other);
         
         shared_py_object(const shared_py_object &other)
             : m_py_object(other.m_py_object)
         {
             if (m_py_object) {
                 Py_INCREF(m_py_object);
-                PyEXT_INCREF(m_py_object);
+                if constexpr (ExtRef) {
+                    PyEXT_INCREF(m_py_object);
+                }
             }
         }
 
@@ -58,7 +67,9 @@ namespace db0::python
         inline ~shared_py_object()
         {
             if (m_py_object) {
-                PyEXT_DECREF(m_py_object);
+                if constexpr (ExtRef) {
+                    PyEXT_DECREF(m_py_object);
+                }
                 Py_DECREF(m_py_object);
             }
         }
@@ -90,7 +101,9 @@ namespace db0::python
                 return nullptr;
             }
             auto result = m_py_object;
-            PyEXT_DECREF(m_py_object);
+            if constexpr (ExtRef) {
+                PyEXT_DECREF(m_py_object);
+            }
             m_py_object = nullptr;
             return result;
         } 
@@ -109,7 +122,9 @@ namespace db0::python
             m_py_object = other.m_py_object;
             if (m_py_object) {
                 Py_INCREF(m_py_object);
-                PyEXT_INCREF(m_py_object);
+                if constexpr (ExtRef) {
+                    PyEXT_INCREF(m_py_object);
+                }
             }
             return *this;
         }
@@ -125,7 +140,9 @@ namespace db0::python
         void reset()
         {
             if (m_py_object) {
-                PyEXT_DECREF(m_py_object);
+                if constexpr (ExtRef) {
+                    PyEXT_DECREF(m_py_object);
+                }
                 Py_DECREF(m_py_object);
                 m_py_object = nullptr;
             }
@@ -231,4 +248,11 @@ namespace std
         }
     };
     
+    template <typename T> struct hash<db0::python::shared_py_object<T, true> >
+    {
+        std::size_t operator()(const db0::python::shared_py_object<T, true> &obj) const noexcept {
+            return std::hash<T>()(obj.get());
+        }
+    };
+
 }

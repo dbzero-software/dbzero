@@ -290,9 +290,6 @@ namespace db0
         // End a specific locked section, callback will be notified with all mutated fixtures
         void endLocked(unsigned int, std::function<void(const std::string &prefix_name, std::uint64_t state_num)> callback);
         
-        // GC0-collect unrechable instances
-        void collect();
-
 #ifndef NDEBUG
         // Activate throw from Storage::commit after specific number of operations (for testing purposes)
         void setCrashFromCommit(unsigned int op_count);

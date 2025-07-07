@@ -49,7 +49,7 @@ namespace db0::object_model
         }
         return func_ptr(fixture, obj_ptr, storage_class);
     }
-    
+        
     template <typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(
         db0::swine_ptr<Fixture> &fixture, o_typed_item typed_item, const char *name = nullptr)
     {
@@ -58,7 +58,7 @@ namespace db0::object_model
     
     template <StorageClass storage_class, typename LangToolkit> typename LangToolkit::ObjectSharedPtr unloadMember(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *name = nullptr);
-
+    
     // register StorageClass specializations
     template <typename LangToolkit> void registerUnloadMemberFunctions(
         std::vector<typename LangToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *)> &functions);
@@ -104,7 +104,7 @@ namespace db0::object_model
             unref_member_functions[static_cast<int>(storage_class)](fixture, value);
         }
     }
-
+    
     /**
      * Invoke materialize before setting obj_ptr as a member
      * this is to materialize objects (where hasInstance = false) before using them as members

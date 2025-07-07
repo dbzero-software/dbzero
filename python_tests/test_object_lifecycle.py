@@ -72,9 +72,10 @@ def test_unreferenced_indexvt_member_is_dropped_on_parent_destroy(db0_fixture):
     # initialize with index-vt member
     object_2 = DynamicDataClass([87], values = {87: member})
     del member
+    db0.delete(object_1)
+    db0.delete(object_2)
     del object_1
-    del object_2
-    db0.collect()
+    del object_2    
     # member object should no longer exist in dbzero
     with pytest.raises(Exception):
         db0.fetch(uuid)
@@ -87,8 +88,8 @@ def test_unreferenced_kvindex_member_is_dropped_on_parent_destroy(db0_fixture):
     # assign kv-index member
     object_1.kv_member = member
     del member
-    del object_1
-    db0.collect()    
+    db0.delete(object_1)
+    del object_1    
     # member object should no longer exist in dbzero
     with pytest.raises(Exception):
         db0.fetch(uuid)

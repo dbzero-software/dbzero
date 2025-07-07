@@ -813,12 +813,4 @@ namespace db0
         return std::nullopt;
     }
     
-    void Workspace::collect()
-    {
-        // flush from internal buffers to release inner references
-        flush();
-        // remove expired only objects
-        m_lang_cache->clear(true);        
-    }
-    
 }
