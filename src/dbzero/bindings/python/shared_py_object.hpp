@@ -45,7 +45,14 @@ namespace db0::python
         
         // ExtRef -> non/ExtRef conversion
         template <bool U = !ExtRef, typename std::enable_if<U, int>::type = 0>
-        shared_py_object(shared_py_object<T, true> &&other);
+        shared_py_object(shared_py_object<T, true> &&other)
+            : m_py_object(other.m_py_object)
+        {
+            if (m_py_object) {
+                PyEXT_DECREF(m_py_object);
+            }
+            other.m_py_object = nullptr;
+        }
         
         shared_py_object(const shared_py_object &other)
             : m_py_object(other.m_py_object)
@@ -147,8 +154,9 @@ namespace db0::python
                 m_py_object = nullptr;
             }
         }
-
+        
     private:
+        friend class shared_py_object<T, !ExtRef>;
         T m_py_object = nullptr;        
     };
     
