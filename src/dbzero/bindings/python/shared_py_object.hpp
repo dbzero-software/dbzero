@@ -115,8 +115,8 @@ namespace db0::python
         inline bool operator!=(const shared_py_object &other) const {
             return m_py_object != other.m_py_object;
         }
-
-        shared_py_object<T> &operator=(const shared_py_object &other)
+        
+        shared_py_object<T, ExtRef> &operator=(const shared_py_object &other)
         {
             this->~shared_py_object();
             m_py_object = other.m_py_object;
@@ -129,7 +129,7 @@ namespace db0::python
             return *this;
         }
 
-        shared_py_object<T> &operator=(shared_py_object &&other)
+        shared_py_object<T, ExtRef> &operator=(shared_py_object &&other)
         {
             this->~shared_py_object();
             m_py_object = other.m_py_object;

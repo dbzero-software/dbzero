@@ -17,7 +17,6 @@ namespace db0
     public:        
         using LangToolkit = typename db0::object_model::LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
-        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using ObjectSharedExtPtr = typename LangToolkit::ObjectSharedExtPtr;
         static constexpr std::size_t DEFAULT_CAPACITY = 1024;
         // the default growth step after reaching capacity        
@@ -105,7 +104,6 @@ namespace db0
     {
     public:
         using ObjectPtr = typename LangCache::ObjectPtr;
-        using ObjectSharedPtr = typename LangCache::ObjectSharedPtr;
         using ObjectSharedExtPtr = typename LangCache::ObjectSharedExtPtr;
         
         LangCacheView(const Fixture &, std::shared_ptr<LangCache>);
