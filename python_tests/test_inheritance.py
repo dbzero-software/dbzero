@@ -83,6 +83,7 @@ def test_destroying_derived_objects_when_untagged(db0_fixture):
     db0.commit()
     assert db0.exists(uuid)
     db0.tags(next(iter(db0.find(DerivedClass, "tag-1")))).remove("tag-1")
+    db0.commit()
     assert not db0.exists(uuid)
 
 
@@ -93,4 +94,5 @@ def test_destroying_objects_with_multiple_bases_when_untagged(db0_fixture):
     db0.commit()
     assert db0.exists(uuid)
     db0.tags(next(iter(db0.find(DerivedClass, "tag-1")))).remove("tag-1")
+    db0.commit()
     assert not db0.exists(uuid)

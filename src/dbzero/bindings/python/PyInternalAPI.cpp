@@ -460,7 +460,7 @@ namespace db0::python
                 // flush pending updates
                 lock->flush();                
             }
-            return PyLong_FromLong(getTotal(memo.getRefCounts(), (memo->m_num_type_tags)));
+            return PyLong_FromLong(getTotal(memo.getRefCounts(), -memo->m_num_type_tags));
         } else if (PyClassObject_Check(py_object)) {
             auto ref_counts = reinterpret_cast<ClassObject*>(py_object)->ext().getRefCounts();
             return PyLong_FromLong(getTotal(ref_counts, 0));

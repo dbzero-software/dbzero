@@ -117,6 +117,5 @@ def test_unreferenced_snapshot_objects_issue_1(db0_fixture):
     obj_1 = MemoTestClass(9123)
     db0.commit()
     snap_1 = db0.snapshot()
-    # retrieve unreferenced object from snapshot
-    with pytest.raises(Exception):
-        _ = snap_1.fetch(db0.uuid(obj_1))
+    # retrieve unreferenced object from snapshot (exists since it had python reference on commit)    
+    assert snap_1.fetch(db0.uuid(obj_1)).value == 9123

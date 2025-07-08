@@ -534,7 +534,8 @@ def test_unflushed_index_destroys_its_depencencies_when_dropped(db0_fixture):
     obj = db0.fetch(dep_uuid)
     del obj
     db0.delete(index)
-    del index    
+    del index
+    db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
         db0.fetch(dep_uuid)

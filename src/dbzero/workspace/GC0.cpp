@@ -56,21 +56,28 @@ namespace db0
         if (it == m_vptr_map.end()) {
             return false;
         }
-
+        
         NoArgsFunction drop_op = nullptr;
         auto &ops = m_ops[it->second];
         // if type implements preCommit then remove it from pre-commit map as well
         if (ops.preCommit) {
             m_pre_commit_map.erase(vptr);
         }
+
         // do not drop when in read-only mode (e.g. snapshot owned)
         // NOTE: drop not allowed when commit pending
         // do not drop volatile instances
-        if (!m_read_only && ops.hasRefs && ops.drop && !m_commit_pending && !is_volatile
+        if (!m_read_only && ops.hasRefs && ops.drop && !is_volatile
             && !ops.hasRefs(it->first))
         {
-            // at this stage just collect the ops and remove the entry
-            drop_op = ops.drop;
+            if (m_commit_pending) {
+                // must schedule for deletion since unable to drop while commit is pending
+                auto addr_pair = ops.address(it->first);
+                m_scheduled_for_deletion[addr_pair.first] = addr_pair.second;
+            } else {
+                // at this stage just collect the ops and remove the entry
+                drop_op = ops.drop;
+            }
         }
         // NOTE: we erase by vptr because hasRefs may have side effects and invalidate the iterator
         m_vptr_map.erase(vptr);
@@ -133,7 +140,7 @@ namespace db0
         for (auto &vptr_item : m_vptr_map) {
             auto &ops = m_ops[vptr_item.second];
             if (ops.hasRefs && !ops.hasRefs(vptr_item.first)) {
-                addresses.push_back(ops.address(vptr_item.first));
+                addresses.push_back(toTypedAddress(ops.address(vptr_item.first)));
             }
         }
         lock.unlock();
@@ -142,6 +149,11 @@ namespace db0
         for (auto addr: addresses) {
             super_t::push_back(addr);
         }
+        // also registered instances scheduled for deletion
+        for (auto &addr_pair: m_scheduled_for_deletion) {
+            super_t::push_back(toTypedAddress(addr_pair));
+        }
+        m_scheduled_for_deletion.clear();
         super_t::commit();
     }
     
@@ -155,6 +167,14 @@ namespace db0
         if (!fixture) {
             THROWF(db0::InternalException) << "GC0::collect: cannot collect without a valid fixture";
         }
+        
+        // drop scheduled for deletion
+        for (auto &addr_pair: m_scheduled_for_deletion) {
+            auto ops_id = m_ops_map[addr_pair.second];
+            assert(ops_id < m_ops.size());
+            m_ops[ops_id].dropByAddr(fixture, addr_pair.first.getAddress());
+        }
+        m_scheduled_for_deletion.clear();
         
         for (auto addr: *this) {
             auto ops_id = m_ops_map[addr.getType()];

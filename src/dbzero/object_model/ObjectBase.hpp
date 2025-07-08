@@ -253,8 +253,8 @@ namespace db0
             static_cast<T*>(vptr)->destroy();
         }
         
-        static TypedAddress getTypedAddress(const void *vptr) {
-            return { _CLS, static_cast<const T*>(vptr)->getAddress() };
+        static std::pair<UniqueAddress, StorageClass> getTypedAddress(const void *vptr) {
+            return { static_cast<const T*>(vptr)->getUniqueAddress(), _CLS };
         }
         
         static void dropByAddr(db0::swine_ptr<Fixture> &fixture, Address addr)

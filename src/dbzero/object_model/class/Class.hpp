@@ -210,7 +210,10 @@ namespace db0::object_model
         void removeFromSchema(const XValue &);
         
         std::uint32_t getNumBases() const;
-
+        
+        // NOTE: this is for type compatibility only, Class objects don't have instance_id
+        UniqueAddress getUniqueAddress() const;
+        
     protected:
         friend class ClassFactory;
         friend ClassPtr;

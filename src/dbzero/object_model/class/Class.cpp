@@ -434,7 +434,7 @@ namespace db0::object_model
         return {
             getFixture()->getUUID(),
             // NOTICE: no instance ID for the class-ref
-            db0::UniqueAddress(this->getAddress(), UniqueAddress::INSTANCE_ID_MAX),
+            this->getUniqueAddress(),
             StorageClass::DB0_CLASS
         };
     }
@@ -567,5 +567,10 @@ namespace db0::object_model
     std::uint32_t Class::getNumBases() const {
         return (*this)->m_num_bases;
     }
-
+    
+    UniqueAddress Class::getUniqueAddress() const {
+        // NOTICE: no instance ID for the class-ref
+        return { this->getAddress(), UniqueAddress::INSTANCE_ID_MAX };
+    }
+    
 }

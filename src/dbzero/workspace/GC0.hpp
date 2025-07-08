@@ -16,12 +16,14 @@ namespace db0
 {
         
     class Fixture;
-    
+        
+    using TypedAddress = db0::object_model::TypedAddress;
+    using StorageClass = db0::object_model::StorageClass;
+
     // C-style hasrefs / drop / detatch functions
     using HasRefsFunction = bool (*)(const void *);
     using NoArgsFunction = void (*)(void *);
-    using TypedAddress = db0::object_model::TypedAddress;
-    using GetTypedAddress = TypedAddress (*)(const void *);
+    using GetAddress = std::pair<UniqueAddress, StorageClass> (*)(const void *);
     using StorageClass = db0::object_model::StorageClass;
     using DropByAddrFunction = void (*)(db0::swine_ptr<Fixture> &, Address);
     using PreCommitFunction = void (*)(void *, bool revert);
@@ -33,7 +35,7 @@ namespace db0
         NoArgsFunction detach = nullptr;
         // commit is a lightweight version of "detach" for a writer process
         NoArgsFunction commit = nullptr;
-        GetTypedAddress address = nullptr;
+        GetAddress address = nullptr;
         DropByAddrFunction dropByAddr = nullptr;        
         // null allowed, preCommit handler is called just before fixture.commit
         PreCommitFunction preCommit = nullptr;
@@ -144,8 +146,10 @@ namespace db0
         // the map dedicated to instances which implement preCommit
         // it's assumed that it's much smaller than m_vptr_map (it duplicates some of its entries)
         std::unordered_map<void*, unsigned int> m_pre_commit_map;
+        // objects irrevocably scheduled for deletion
+        std::unordered_map<UniqueAddress, StorageClass> m_scheduled_for_deletion;
         // flag indicating atomic operation in progress
-        bool m_atomic = false;        
+        bool m_atomic = false;
         // the list of volatile instances - i.e. created during atomic operation
         std::vector<void*> m_volatile;
         mutable std::mutex m_mutex;
