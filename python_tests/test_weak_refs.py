@@ -52,8 +52,7 @@ def test_accessing_expired_weak_ref(db0_fixture):
     obj_1 = MemoTestPxClass(123, prefix=px_1)    
     obj_2 = MemoTestPxClass(db0.weak_proxy(obj_1), prefix=px_2)
     # weak-ref expires when the pointed object is deleted
-    del obj_1
-    db0.clear_cache()
+    del obj_1    
     db0.commit()
     # exception due to expired weak-ref
     with pytest.raises(db0.ReferenceError):
@@ -68,8 +67,7 @@ def test_uuid_of_expired_weak_ref(db0_fixture):
     uuid_1 = db0.uuid(obj_1)
     obj_2 = MemoTestPxClass(db0.weak_proxy(obj_1), prefix=px_2)
     # weak-ref expires when the pointed object is deleted
-    del obj_1
-    db0.clear_cache()
+    del obj_1    
     db0.commit()
     # even though the weak-ref is expired, the uuid of the object should be still retrievable
     uuid_2 = db0.uuid(obj_2.value)
@@ -97,8 +95,7 @@ def test_expired_function(db0_fixture):
     db0.open(px_2, "rw")
     obj_1 = MemoTestPxClass(123, prefix=px_1)
     obj_2 = MemoTestPxClass(db0.weak_proxy(obj_1), prefix=px_2)    
-    del obj_1
-    db0.clear_cache()
+    del obj_1    
     db0.commit()
     assert db0.expired(obj_2.value) is True
 
@@ -112,8 +109,7 @@ def test_tag_lookup_by_expired_weak_ref(db0_fixture):
     obj_3 = MemoTestPxClass(456, prefix=px_2)
     # assign non-expired, look-up by expired weak-ref
     db0.tags(obj_3).add(db0.as_tag(obj_2.value))
-    del obj_1
-    db0.clear_cache()
+    del obj_1    
     db0.commit()
     assert list(db0.find(db0.as_tag(obj_2.value))) == [obj_3]
 
@@ -125,8 +121,7 @@ def test_tag_assign_by_expired_weak_ref(db0_fixture):
     obj_1 = MemoTestPxClass(123, prefix=px_1)
     obj_2 = MemoTestPxClass(db0.weak_proxy(obj_1), prefix=px_2)
     obj_3 = MemoTestPxClass(456, prefix=px_2)
-    del obj_1
-    db0.clear_cache()
+    del obj_1    
     db0.commit()
     # assign + find by expired weak-ref
     db0.tags(obj_3).add(db0.as_tag(obj_2.value))
@@ -156,8 +151,7 @@ def test_tag_by_object_query_by_expired_weak_ref(db0_fixture):
     obj_2 = MemoTestPxClass(db0.weak_proxy(obj_1))
     obj_3 = MemoTestPxClass(999)
     db0.tags(obj_3).add(db0.as_tag(obj_1))
-    del obj_1
-    db0.clear_cache()
+    del obj_1    
     db0.commit()
     # query by an expired weak-ref
     assert db0.expired(obj_2.value)

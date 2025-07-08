@@ -467,8 +467,6 @@ def test_unflushed_index_data_is_discarded_when_destroyed_before_close(db0_fixtu
     index = db0.index()
     index.add(1, MemoTestClass(999))
     del index
-    # Clear cache to destroy index before close
-    db0.clear_cache()
     db0.close()
 
 
@@ -514,8 +512,7 @@ def test_index_destroys_its_depencencies_when_dropped(db0_fixture):
         # NOTE: important to drop python reference to obj otherwise will be accessible outside of the scope
         del obj
     db0.delete(index)
-    del index
-    db0.clear_cache()
+    del index    
     db0.commit()
     # make sure dependent instances has been destroyed as well
     for dep_uuid in dep_uuids:
@@ -550,8 +547,7 @@ def test_index_destroys_its_dependencies_when_removed(db0_fixture):
     for obj in index.select(None, None):
         index.remove(1, obj)
         del obj
-    index.flush()
-    db0.clear_cache()
+    
     db0.commit()
     # make sure dependent instance has been unreferenced
     with pytest.raises(Exception):

@@ -384,8 +384,7 @@ def test_atomic_deletion(db0_fixture):
     dep_uuid = db0.uuid(obj.value)
     # drop related object as atomic
     with db0.atomic():
-        obj.value = None
-    db0.clear_cache()
+        obj.value = None    
     db0.commit()
     with pytest.raises(Exception):
         db0.fetch(dep_uuid)
@@ -400,8 +399,7 @@ def test_atomic_deletion_issue_1(db0_fixture):
     dep_uuid = db0.uuid(obj.value)
     # drop related object as atomic
     with db0.atomic() as atomic:
-        obj.value = None
-    db0.clear_cache()
+        obj.value = None    
     db0.commit()
     with pytest.raises(Exception):
         db0.fetch(dep_uuid)
@@ -419,8 +417,7 @@ def test_reverting_atomic_deletion(db0_fixture):
     except Exception:
         pass
     
-    # drop/assign should be reverted by here
-    db0.clear_cache()
+    # drop/assign should be reverted by here    
     db0.commit()
     db0.fetch(dep_uuid)
     assert db0.uuid(obj.value) == dep_uuid
@@ -442,8 +439,7 @@ def test_reverting_atomic_free(db0_fixture):
     
     # free/deferred free should be reverted by here
     assert db0.get_cache_stats()["deferred_free_count"] == count_1
-    assert list(obj) == [1, 2, 3]
-    db0.clear_cache()
+    assert list(obj) == [1, 2, 3]    
     db0.commit()
     assert list(db0.fetch(list_uuid)) == [1, 2, 3]
 

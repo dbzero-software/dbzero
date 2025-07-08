@@ -67,8 +67,7 @@ def test_object_gets_dropped_if_norefs_after_tags_removed(db0_fixture):
     db0.commit()
     # remove tags
     db0.tags(object_1).remove(["tag1", "tag2"])
-    del object_1
-    db0.clear_cache()
+    del object_1    
     db0.commit()
     # object should be dropped from dbzero
     with pytest.raises(Exception):

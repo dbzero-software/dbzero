@@ -34,14 +34,13 @@ def test_schema_mutations_by_object_updates(db0_fixture):
     
     
 def test_schema_mutations_by_object_drops(db0_fixture):
-    obj = MemoSchemaTestClass(123)
+    _ = MemoSchemaTestClass(123)
     obj_1, obj_2 = MemoSchemaTestClass("abc"), MemoSchemaTestClass("def")
     assert db0.get_schema(MemoSchemaTestClass)["value"]["primary_type"] is str
     db0.delete(obj_1)
     del obj_1
     db0.delete(obj_2)
-    del obj_2
-    db0.clear_cache()
+    del obj_2    
     db0.commit()
     assert db0.get_schema(MemoSchemaTestClass)["value"]["primary_type"] is int
     

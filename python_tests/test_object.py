@@ -265,8 +265,7 @@ def test_memo_object_destroys_its_pos_vt_dependencies(db0_fixture):
     # make sure member is stored as pos-vt
     assert len(db0.describe(obj)["field_layout"]["pos_vt"]) == 1
     db0.delete(obj)
-    del obj
-    db0.clear_cache()
+    del obj    
     db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
@@ -274,14 +273,13 @@ def test_memo_object_destroys_its_pos_vt_dependencies(db0_fixture):
         
     
 def test_memo_object_destroys_its_index_vt_dependencies(db0_fixture):
-    obj_1 = DynamicDataClass(120)
+    _ = DynamicDataClass(120)
     obj = DynamicDataClass([0, 1, 2, 11, 33, 119], values = {0:0, 1:1, 2:2, 11:None, 33:None, 119:MemoTestClass(119)})
     dep_uuid = db0.uuid(obj.field_119)
     # make sure member is stored as index-vt    
     assert len(db0.describe(obj)["field_layout"]["index_vt"]) == 3
     db0.delete(obj)
-    del obj
-    db0.clear_cache()
+    del obj    
     db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
@@ -295,8 +293,7 @@ def test_memo_object_destroys_its_kv_dependencies(db0_fixture):
     # make sure member is stored as index-vt    
     assert len(db0.describe(obj)["field_layout"]["kv_index"]) == 1
     db0.delete(obj)
-    del obj
-    db0.clear_cache()
+    del obj    
     db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
@@ -307,8 +304,7 @@ def test_memo_object_destroys_its_pos_vt_members_on_reassign(db0_fixture):
     obj = MemoTestClass(MemoTestClass(123))
     dep_uuid = db0.uuid(obj.value)
     # member should be dropped
-    obj.value = None
-    db0.clear_cache()
+    obj.value = None    
     db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
@@ -320,8 +316,7 @@ def test_memo_object_destroys_its_index_vt_members_on_reassign(db0_fixture):
     obj = DynamicDataClass([0, 1, 2, 11, 33, 119], values = {0:0, 1:1, 2:2, 11:None, 33:None, 119:MemoTestClass(119)})
     dep_uuid = db0.uuid(obj.field_119)
     # member should be dropped
-    obj.field_119 = None
-    db0.clear_cache()
+    obj.field_119 = None    
     db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
@@ -336,8 +331,7 @@ def test_memo_object_destroys_its_kv_members_on_reassign(db0_fixture):
     obj.field_60 = MemoTestClass(60)
     dep_uuid = db0.uuid(obj.field_60)
     # member should be dropped
-    obj.field_60 = None
-    db0.clear_cache()
+    obj.field_60 = None    
     db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):

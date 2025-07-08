@@ -9,8 +9,6 @@ def test_unreferenced_object_is_dropped_on_del_from_python(db0_fixture):
     object_1 = MemoTestClass(123)
     uuid = db0.uuid(object_1)
     del object_1
-    # object might be internally cached
-    db0.clear_cache()
     db0.commit()
     # object should be dropped from dbzero    
     with pytest.raises(Exception):
@@ -28,13 +26,11 @@ def test_object_cannot_be_deleted_if_references_to_it_exist(db0_fixture):
 
 def test_unreferenced_object_are_persisted_throughout_series_of_commits(db0_fixture):
     object_1 = MemoTestClass(123)
-    db0.commit()
-    db0.clear_cache()
+    db0.commit()    
     # object persisted after commit
     assert object_1.value == 123
     object_1.value = 567
-    db0.commit()
-    db0.clear_cache()
+    db0.commit()    
     assert object_1.value == 567
 
 
@@ -103,7 +99,6 @@ def test_multiple_py_instances_pointing_to_same_unreferenced_object(db0_fixture)
     # object should be still in db0
     db0.fetch(uuid)
     del object_2
-    db0.clear_cache()
     db0.commit()
     # object should be dropped from dbzero
     with pytest.raises(Exception):

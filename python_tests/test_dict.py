@@ -325,8 +325,7 @@ def test_clear_unref_keys_and_values(db0_fixture):
     uuid_value = db0.uuid(my_dict[key])
     uuid_key = db0.uuid(key)
     key = None
-    my_dict.clear()
-    db0.clear_cache()
+    my_dict.clear()    
     db0.commit()
     with pytest.raises(Exception):
         db0.fetch(uuid_value)
@@ -382,8 +381,7 @@ def test_dict_destroy_removes_reference(db0_fixture):
     key_uuid = db0.uuid(key)
     key = None
     db0.delete(obj)
-    del obj
-    db0.clear_cache()
+    del obj    
     db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
