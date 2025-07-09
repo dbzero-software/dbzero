@@ -233,6 +233,13 @@ namespace db0::object_model
             return m_flags.test(ObjectOptions::DEFUNCT);
         }
         
+        // is dropped or defunct
+        inline bool isDead() const {
+            return m_flags.any(
+                static_cast<std::uint8_t>(ObjectOptions::DROPPED) | static_cast<std::uint8_t>(ObjectOptions::DEFUNCT)
+            );
+        }
+        
         std::pair<FieldID, bool> findField(const char *name) const;
         
         // Check if the 2 memo objects are of the same type

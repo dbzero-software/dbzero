@@ -347,7 +347,7 @@ namespace db0
     void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::revert(KeyT key) {
         m_reverted.insert(key);
     }
-
+    
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::revert(ActiveValueT value)
     {
@@ -372,8 +372,9 @@ namespace db0
             }
         }
         for (const auto &item : m_value_refs) {
-            if (m_reverted.find(*item.second) == m_reverted.end()) {
-                return false; 
+            // NOTE: for defunct objects value_refs may not be valid
+            if (!is_valid(*item.second) || m_reverted.find(*item.second) == m_reverted.end()) {
+                return false;
             }
         }
         // all values have been reverted
@@ -418,7 +419,7 @@ namespace db0
                         this->emplace_back(item.first, *item.second);
                     }
                 }
-            }            
+            }
         }
         buf.clear();
     }

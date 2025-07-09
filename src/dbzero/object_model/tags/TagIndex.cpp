@@ -310,6 +310,7 @@ namespace db0::object_model
         // NOTE: also need to clear buffers which may contain incomplete objects
         m_object_cache.clear();
         m_active_cache.clear();
+        m_active_pre_cache.clear();
     }
 
     void TagIndex::clear()
@@ -331,7 +332,8 @@ namespace db0::object_model
             m_batch_op_types.reset();
         }
         m_object_cache.clear();
-        m_active_cache.clear();        
+        m_active_cache.clear();
+        m_active_pre_cache.clear();
         m_inc_refed_tags.clear();
     }
     
@@ -361,12 +363,14 @@ namespace db0::object_model
         
         // this is to resolve addresses of incomplete objects (must be done before flushing)
         buildActiveValues();
+        // the pre-cache can be cleared now (while active cache still needs to be preserved)
+        m_active_pre_cache.clear();
         auto &type_manager = LangToolkit::getTypeManager();
         // NOTE: some object might've been dropped in the meantime, need to be reverted from batch operations
         for (const auto &item: m_object_cache) {
             auto obj_ptr = item.second.get();
             auto &memo = type_manager.extractObject(obj_ptr);
-            if (memo.isDropped()) {
+            if (memo.isDead()) {
                 revert(obj_ptr);
             }
         }
@@ -387,26 +391,23 @@ namespace db0::object_model
                 tryTagIncRef(tag_addr);
             };
             
-            // the additional batch operation will possibly be created to
-            // handle the type-tags removal
-            ShortBatchOperationBulder batch_op_short;
+            auto &batch_op_types = getBatchOperation(m_base_index_short, m_batch_op_types);
             std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
                 auto it = m_object_cache.find(obj_addr);
                 // object may not exist if tags are removed post-deletion
+                auto obj_ptr = it->second.get();
                 if (it != m_object_cache.end()) {
-                    auto &memo = type_manager.extractMutableObject(it->second.get());
-                    if (memo.decRef(true)) {
-                        ActiveValueT active_key = { UniqueAddress(), nullptr };
-                        // possibly construct a new batch-op
-                        auto &batch_op = getBatchOperation(it->second.get(), m_base_index_short, batch_op_short, active_key);
+                    auto &memo = type_manager.extractMutableObject(obj_ptr);
+                    // NOTE: we check for acutal language references (excluding LangCache + TagIndex)
+                    if (memo.decRef(true) && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
+                        // if object is pending deletion, remove all type tags as well
+                        // we might skip this operation and leave it to Object's dropTags function
+                        // but it will be more efficient to do it here
                         const Class *type_ptr = &memo.getType();
                         while (type_ptr) {
-                            // remove auto-assigned type (or its base) tag
-                            batch_op->removeTag(active_key, type_ptr->getAddress());
-                            // for each removed type tag, decrement ref-count immediately
-                            memo.decRef(true);
+                            batch_op_types->removeTag({ obj_addr, nullptr }, type_ptr->getAddress().getOffset());
                             type_ptr = type_ptr->getBaseClassPtr();
-                        }                        
+                        }
                     }
                 }
             };
@@ -441,7 +442,7 @@ namespace db0::object_model
             
             if (m_batch_op_types) {
                 // now, scan the object cache and revert any unreferenced objects (no dbzero refs, no lang refs)
-                assert(m_active_cache.empty());
+                assert(m_active_pre_cache.empty());
                 for (const auto &item: m_object_cache) {
                     auto obj_ptr = item.second.get();
                     auto &memo = type_manager.extractObject(obj_ptr);
@@ -454,47 +455,35 @@ namespace db0::object_model
                 
                 // flush all type-tag updates
                 if (!m_batch_op_types.empty()) {
-                    m_batch_op_types->flush(&add_tag_callback, &remove_tag_callback, 
-                        &add_index_callback, &erase_index_callback);
+                    // NOTE: we don't pass any remove_tag_callback since type tags are only removed when objects are dropped
+                    m_batch_op_types->flush(&add_tag_callback, nullptr, &add_index_callback, &erase_index_callback);
                     assert(m_batch_op_types.empty());
                 }
-            }
-            
-            // finally, flush type tag remove ops collected during flush
-            if (!batch_op_short.empty()) {
-                // NOTE: no callback are needed here
-                batch_op_short->flush();
-                assert(batch_op_short.empty());
-            }
+            }            
         }
         
-        m_object_cache.clear();        
+        m_object_cache.clear();
+        m_active_cache.clear();
         m_inc_refed_tags.clear();
     }
     
     void TagIndex::buildActiveValues() const
     {
         for (auto &item: m_active_cache) {
-            auto &memo = LangToolkit::getTypeManager().extractObject(item.first.get());
-            // NOTE: dropped objects can be processed (we still are able to access their address)
-            if (!memo.hasInstance() && !memo.isDropped()) {
-                // object might be defunct, in which case needs to be ignored
-                if (memo.isDefunct()) {                   
-                    continue;
+            auto &memo = LangToolkit::getTypeManager().extractObject(item.first);
+            // NOTE: defunct objects have to be ignored since they don't have a valid address
+            // NOTE: defunct objects, since no valid unique address is assigned will be auto-reverted on flush
+            if (!memo.isDefunct()) {
+                auto object_addr = memo.getUniqueAddress();
+                assert(object_addr.isValid());
+                // initialize active value with the actual object address
+                item.second = object_addr;
+                // add object to cache
+                if (m_object_cache.find(object_addr) == m_object_cache.end()) {
+                    m_object_cache.emplace(object_addr, item.first);
                 }
-                THROWF(db0::InternalException) << "Tags cannot be flushed before initialization of @memo objects" << THROWF_END;
             }
-            
-            auto object_addr = memo.getUniqueAddress();
-            assert(object_addr.isValid());
-            // initialize active value with the actual object address
-            item.second = object_addr;
-            // add object to cache
-            if (m_object_cache.find(object_addr) == m_object_cache.end()) {
-                m_object_cache.emplace(object_addr, item.first);
-            }
-        }
-        m_active_cache.clear();
+        }        
     }
     
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,

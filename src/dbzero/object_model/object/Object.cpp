@@ -890,6 +890,7 @@ namespace db0::object_model
         if (hasInstance()) {
             return super_t::getUniqueAddress();
         } else {
+            // NOTE: defunct objects don't have a valid address (not assigned yet)
             assert(m_flags[ObjectOptions::DROPPED]);
             return m_unique_address;
         }

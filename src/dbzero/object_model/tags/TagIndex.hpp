@@ -132,8 +132,10 @@ namespace db0::object_model
         // and to handle callbacks from the full-text index
         // NOTE: cache must hold "shared external" references to the objects
         mutable std::unordered_map<UniqueAddress, ObjectSharedExtPtr> m_object_cache;
-        // A cache for incomplete objects (not yet fully initialized)
-        mutable std::unordered_map<ObjectSharedExtPtr, UniqueAddress> m_active_cache;
+        // A cache for incomplete objects (not yet fully initialized)        
+        mutable std::unordered_map<ObjectPtr, UniqueAddress> m_active_cache;
+        // Additional buffer to preserve / release ownership for active-cache objects
+        mutable std::unordered_set<ObjectSharedExtPtr> m_active_pre_cache;
         // the associated fixture UUID (for validation purposes)
         const std::uint64_t m_fixture_uuid;
         mutable std::shared_ptr<MutationLog> m_mutation_log;
@@ -243,6 +245,7 @@ namespace db0::object_model
                 }
                 result = ActiveValueT(object_addr, nullptr);
             } else {
+                m_active_pre_cache.insert(memo_ptr);
                 auto it = m_active_cache.emplace(memo_ptr, UniqueAddress());
                 // use the address placeholder for an active value
                 result = ActiveValueT(UniqueAddress(), &(it.first->second));
