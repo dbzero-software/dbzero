@@ -7,15 +7,6 @@ namespace db0::object_model
 
 {
 
-    ObjectTagManager::ObjectInfo::ObjectInfo(ObjectPtr memo_ptr)
-        : m_lang_ptr(memo_ptr)
-        , m_object_ptr(&ObjectTagManager::LangToolkit::getTypeManager().extractObject(memo_ptr))
-        , m_tag_index_ptr(&m_object_ptr->getFixture()->get<TagIndex>())
-        , m_type(m_object_ptr->getClassPtr())
-        , m_access_mode(m_object_ptr->getFixture()->getAccessType())
-    {
-    }
-
     ObjectTagManager::ObjectTagManager(ObjectPtr const *memo_ptr, std::size_t nargs)
         : m_info(memo_ptr[0])
         , m_info_vec_ptr((nargs > 1) ? (new ObjectInfo[nargs - 1]) : nullptr)
@@ -54,18 +45,30 @@ namespace db0::object_model
         return new (at_ptr) ObjectTagManager(memo_ptr, nargs);
     }
     
+    ObjectTagManager::ObjectInfo::ObjectInfo(ObjectPtr memo_ptr)
+        : m_lang_ptr(memo_ptr)
+        , m_object_ptr(&ObjectTagManager::LangToolkit::getTypeManager().extractObject(memo_ptr))
+        , m_tag_index_ptr(&m_object_ptr->getFixture()->get<TagIndex>())
+        , m_type(m_object_ptr->getClassPtr())
+        , m_access_mode(m_object_ptr->getFixture()->getAccessType())
+        , m_has_tags(LangToolkit::hasTagRefs(memo_ptr))
+    {
+    }
+    
     void ObjectTagManager::ObjectInfo::add(ObjectPtr const *args, Py_ssize_t nargs)
     {
         assert(m_tag_index_ptr);
         assert(m_access_mode == AccessType::READ_WRITE);
         m_tag_index_ptr->addTags(m_lang_ptr.get(), args, nargs);
-        if (m_type) {
+        // assign default tags (only when adding the first tag)
+        if (!m_has_tags) {
             auto type = m_type;
             while (type) {
                 // also add type as tag (once)
                 m_tag_index_ptr->addTag(m_lang_ptr.get(), type->getAddress(), true);
                 type = type->tryGetBaseClass();
             }
+            m_has_tags = true;
         }
     }
     

@@ -195,6 +195,9 @@ namespace db0::object_model
         // check for any refs (including auto-assigned type tags)
         bool hasAnyRefs() const;
         
+        // check if any references from tags exist (i.e. are any tags assigned)
+        bool hasTagRefs() const;
+        
         // @return true if reference count was decremented to zero
         bool decRef(bool is_tag);
         

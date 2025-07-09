@@ -538,6 +538,15 @@ namespace db0::python
         }
     }
     
+    bool PyToolkit::isNoDefaultTags(TypeObjectPtr py_type)
+    {
+        if (isMemoType(py_type)) {
+            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::NO_DEFAULT_TAGS];
+        } else {
+            return false;
+        }
+    }
+    
     const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
     {
         assert(isMemoType(memo_type));
@@ -684,6 +693,12 @@ namespace db0::python
     
     bool PyToolkit::hasRefs(ObjectPtr obj_ptr) {
         return reinterpret_cast<PyCommonBase*>(obj_ptr)->ext().hasRefs();
+    }
+    
+    bool PyToolkit::hasTagRefs(ObjectPtr obj_ptr)
+    {
+        assert(PyMemo_Check(obj_ptr));
+        return reinterpret_cast<MemoObject*>(obj_ptr)->ext().hasTagRefs();
     }
     
     std::unique_ptr<GIL_Lock> PyToolkit::ensureLocked()

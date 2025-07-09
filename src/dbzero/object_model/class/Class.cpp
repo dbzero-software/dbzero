@@ -8,7 +8,7 @@
 #include <dbzero/object_model/value/StorageClass.hpp>
 #include "Schema.hpp"
 
-DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON")
+DEFINE_ENUM_VALUES(db0::ClassOptions, "SINGLETON", "NO_DEFAULT_TAGS")
 
 namespace db0::object_model
 
@@ -573,4 +573,8 @@ namespace db0::object_model
         return { this->getAddress(), UniqueAddress::INSTANCE_ID_MAX };
     }
     
+    bool Class::assignDefaultTags() const {
+        return (*this)->m_flags[ClassOptions::NO_DEFAULT_TAGS] == false;
+    }
+
 }

@@ -4,6 +4,8 @@
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 
+DEFINE_ENUM_VALUES(db0::python::MemoOptions, "NO_DEFAULT_TAGS")
+
 namespace db0::python
 
 {
@@ -26,6 +28,7 @@ namespace db0::python
         , m_type_id(other.m_type_id)
         , m_file_name(other.m_file_name)
         , m_init_vars(std::move(other.m_init_vars))
+        , m_flags(other.m_flags)
         , m_py_dyn_prefix_callable(other.m_py_dyn_prefix_callable)
         , m_migrations(std::move(other.m_migrations))
     {
@@ -35,15 +38,15 @@ namespace db0::python
     }
     
     MemoTypeDecoration::MemoTypeDecoration(shared_py_object<PyObject*> py_module,
-        const char *prefix_name, const char *type_id, const char *file_name, 
-        std::vector<std::string> &&init_vars, 
-        shared_py_object<PyObject*> py_dyn_prefix_callable,
+        const char *prefix_name, const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, 
+        MemoFlags flags, shared_py_object<PyObject*> py_dyn_prefix_callable,
         std::vector<Migration> &&migrations)
         : m_py_module(py_module)
         , m_prefix_name(prefix_name)
         , m_type_id(type_id)
         , m_file_name(file_name)
         , m_init_vars(std::move(init_vars))
+        , m_flags(flags)
         , m_py_dyn_prefix_callable(py_dyn_prefix_callable)
         , m_migrations(std::move(migrations))
     {
@@ -57,6 +60,7 @@ namespace db0::python
         m_type_id = other.m_type_id;
         m_file_name = other.m_file_name;
         m_init_vars = std::move(other.m_init_vars);
+        m_flags = other.m_flags;
         m_py_dyn_prefix_callable = other.m_py_dyn_prefix_callable;
         m_migrations = std::move(other.m_migrations);
         m_fixture_uuid.store(other.m_fixture_uuid.load());
@@ -140,7 +144,7 @@ namespace db0::python
     bool MemoTypeDecoration::hasMigrations() const {
         return !m_migrations.empty();
     }
-
+    
     MemoTypeDecoration &MemoTypeDecoration::get(PyTypeObject *type)
     {
         assert(PyMemoType_Check(type) && "Invalid type (expected memo type)");

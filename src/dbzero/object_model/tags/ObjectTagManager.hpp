@@ -47,6 +47,8 @@ namespace db0::object_model
             TagIndex *m_tag_index_ptr = nullptr;
             std::shared_ptr<Class> m_type;
             AccessType m_access_mode;
+            // has any tags already assigned
+            bool m_has_tags = false;
 
             ObjectInfo() = default;
             ObjectInfo(ObjectPtr memo_ptr);

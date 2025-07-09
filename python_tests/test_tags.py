@@ -1,7 +1,7 @@
 import pytest
 import operator
 import dbzero_ce as db0
-from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoClassForTags, MemoTestClassWithMethods
+from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoClassForTags, MemoTestClassWithMethods, MemoNoDefTags
 from .conftest import DB0_DIR, DATA_PX
 import itertools
 
@@ -356,3 +356,17 @@ def test_persisted_and_then_deleted_object_cannot_be_looked_up_by_type(db0_fixtu
     db0.delete(obj_1)
     assert len(db0.find(MemoTestClassWithMethods)) == 0
     assert len(db0.find(MemoTestClass)) == 0
+
+
+def test_automatic_type_tags_opt_out(db0_fixture):
+    obj_1 = MemoNoDefTags(123)
+    # object not found by type since it opted out of automatic tags
+    assert len(db0.find(MemoNoDefTags)) == 0
+
+
+def test_lookp_by_type_when_no_default_tags(db0_fixture):
+    obj_1 = MemoNoDefTags(123)
+    # NOTE: after adding first tag, we can look-up by type even when type opted out of automatic tags
+    db0.tags(obj_1).add("tag-1")
+    # object not found by type since it opted out of automatic tags
+    assert len(db0.find(MemoNoDefTags)) == 1

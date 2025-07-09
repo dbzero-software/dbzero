@@ -176,3 +176,8 @@ class MemoClassForTags:
     def __init__(self, value):
         self.value = value
     
+    
+@db0.memo(no_default_tags=True)
+class MemoNoDefTags:
+    def __init__(self, value):
+        self.value = value

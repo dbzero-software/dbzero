@@ -218,11 +218,13 @@ namespace db0::python
             fixture->getLangCache().add(object.getAddress(), self);
             
             // finally, unless opted-out, assign the type tag(s) of the entire type hierarchy
-            auto &tag_index = fixture->get<TagIndex>();
             const Class *class_ptr = &object.getType();
-            while (class_ptr) {
-                tag_index.addTag(self, class_ptr->getAddress(), true);
-                class_ptr = class_ptr->getBaseClassPtr();
+            if (class_ptr && class_ptr->assignDefaultTags()) {
+                auto &tag_index = fixture->get<TagIndex>();
+                while (class_ptr) {
+                    tag_index.addTag(self, class_ptr->getAddress(), true);
+                    class_ptr = class_ptr->getBaseClassPtr();
+                }
             }
         }
         
@@ -441,7 +443,7 @@ namespace db0::python
         return tp_result.steal();
     }
     
-    PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, const char *prefix_name,
+    PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, bool no_default_tags, const char *prefix_name,
         const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
         std::vector<Migration> &&migrations)
     {
@@ -466,12 +468,14 @@ namespace db0::python
         }
         
         auto &type_manager = PyToolkit::getTypeManager();
+        MemoFlags type_flags = no_default_tags ? MemoFlags { MemoOptions::NO_DEFAULT_TAGS } : MemoFlags();
         auto type_info = MemoTypeDecoration(
             py_module,
             prefix_name,
             type_manager.getPooledString(type_id),
             type_manager.getPooledString(file_name),
             std::move(init_vars),
+            type_flags,
             py_dyn_prefix_callable,
             std::move(migrations)
         );
@@ -495,6 +499,7 @@ namespace db0::python
     {
         PyObject *class_obj = nullptr;
         PyObject *py_singleton = nullptr;
+        PyObject *py_no_default_tags = nullptr;
         PyObject *py_prefix_name = nullptr;
         PyObject *py_type_id = nullptr;
         PyObject *py_file_name = nullptr;
@@ -503,16 +508,17 @@ namespace db0::python
         // migrations are only processed for singleton types
         PyObject *py_migrations = nullptr;
         
-        static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", "py_init_vars", 
+        static const char *kwlist[] = { "input", "singleton", "no_default_tags", "prefix", "id", "py_file", "py_init_vars", 
             "py_dyn_prefix", "py_migrations", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
-            &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations))
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
+            &py_no_default_tags, &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations))
         {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
         }
         
         bool is_singleton = py_singleton && PyObject_IsTrue(py_singleton);
+        bool no_default_tags = py_no_default_tags && PyObject_IsTrue(py_no_default_tags);
         const char *prefix_name = (py_prefix_name && py_prefix_name != Py_None) ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
@@ -546,8 +552,8 @@ namespace db0::python
         }
         
         auto migrations = extractMigrations(py_migrations);
-        return wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id, file_name, std::move(init_vars), 
-            py_dyn_prefix, std::move(migrations)
+        return wrapPyType(castToType(class_obj), is_singleton, no_default_tags, prefix_name, type_id, file_name, 
+            std::move(init_vars), py_dyn_prefix, std::move(migrations)
         );
     }
     

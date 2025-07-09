@@ -774,7 +774,11 @@ namespace db0::object_model
     bool Object::hasAnyRefs() const {
         return (*this)->hasAnyRefs();
     }
-
+    
+    bool Object::hasTagRefs() const {
+        return this->hasInstance() && (*this)->m_header.m_ref_counter.getFirst() > 0;
+    }
+    
     bool Object::equalTo(const Object &other) const
     {
         if (!hasInstance() || !other.hasInstance()) {

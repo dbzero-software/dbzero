@@ -193,7 +193,9 @@ namespace db0::python
         static const std::vector<std::string> &getInitVars(TypeObjectPtr memo_type);
         
         static bool isSingleton(TypeObjectPtr py_type);
-
+        // check if a memo type is marked with no_default_tags flag
+        static bool isNoDefaultTags(TypeObjectPtr py_type);
+        
         inline static void incRef(ObjectPtr py_object) {
             Py_INCREF(py_object);                
         }
@@ -216,6 +218,10 @@ namespace db0::python
         // Check if there exist any references except specific number of external references
         // in practice this means that object has references either from python or internal buffers except ext_ref_count (e.g. LangCache)
         static bool hasAnyLangRefs(ObjectPtr, unsigned int ext_ref_count);
+
+        // Check if any tag-references exist (i.e. are any tags assigned)
+        // NOTE!!! this only works for memo objects
+        static bool hasTagRefs(ObjectPtr);
         
         // Extract keys (if present) from a Python dict object
         static std::optional<long> getLong(ObjectPtr py_object, const std::string &key);

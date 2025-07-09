@@ -144,8 +144,9 @@ namespace db0::object_model
                     return {};
                 }
                 // create new Class instance
-                bool is_singleton = LangToolkit::isSingleton(lang_type);                
+                bool is_singleton = LangToolkit::isSingleton(lang_type);
                 ClassFlags flags { is_singleton ? ClassOptions::SINGLETON : 0 };
+                flags.set(ClassOptions::NO_DEFAULT_TAGS, LangToolkit::isNoDefaultTags(lang_type));
                 auto memo_base = LangToolkit::getBaseMemoType(lang_type);
                 std::shared_ptr<Class> base_class;                
                 if (memo_base) {

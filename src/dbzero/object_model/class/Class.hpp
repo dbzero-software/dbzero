@@ -25,14 +25,16 @@ namespace db0
 
     enum ClassOptions: std::uint32_t
     {
-        SINGLETON = 0x0001
+        SINGLETON = 0x0001,
+        // instances of this type opted out of auto-assigned type tags
+        NO_DEFAULT_TAGS = 0x0002,
     };
 
     using ClassFlags = db0::FlagSet<ClassOptions>;
 
 }
 
-DECLARE_ENUM_VALUES(db0::ClassOptions, 1)
+DECLARE_ENUM_VALUES(db0::ClassOptions, 2)
 
 namespace db0::object_model
 
@@ -132,6 +134,7 @@ namespace db0::object_model
          * Check if this is a singleton class
         */
         bool isSingleton() const;
+        bool assignDefaultTags() const;
         
         /**
          * Check if this class has an associated singleton instance
