@@ -2,7 +2,6 @@ import dbzero_ce as db0
 from itertools import islice
 from datetime import datetime
 from .memo_test_types import MemoTestClass
-import random
 
 
 @db0.memo
@@ -126,4 +125,12 @@ def test_is_dirty_assert_issue(db0_fixture):
     
     with db0.atomic():
         _ = MemoTestClass(get_string(5053))
-    
+
+
+# FIXME: https://github.com/wskozlowski/dbzero_ce/issues/396
+# def test_commit_without_changes_doesnt_increment_state_num(db0_fixture):
+#     obj = MemoTestClass(123)
+#     db0.commit()
+#     state = db0.get_state_num()
+#     db0.commit()
+#     assert state == db0.get_state_num()
