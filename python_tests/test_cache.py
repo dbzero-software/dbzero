@@ -44,17 +44,14 @@ def test_base_lock_usage_does_not_exceed_limits(db0_fixture):
         assert usage_2 - usage_1 < cache_size * 1.5
 
 
-def test_lang_cache_can_reach_capacity(db0_fixture):
-    import gc
+def test_lang_cache_can_reach_capacity(db0_fixture):    
     buf = db0.list()
     # python instances are added to lang cache until it reaches capacity
-    initial_capacity = db0.get_lang_cache_stats()["capacity"]
-    count = 0
-    for _ in range(initial_capacity * 2):
-        count += 1
+    initial_capacity = db0.get_lang_cache_stats()["capacity"]    
+    for _ in range(initial_capacity * 2):        
         buf.append(MemoTestClass(123))
-        if count % 100 == 0:
-            gc.collect()
+    # here we call commit to flush from internal buffers (e.g. TagIndex)
+    db0.commit()            
     # capacity not changed
     assert db0.get_lang_cache_stats()["capacity"] == initial_capacity
     # capacity might be exceeded due to indeterministic gc collection by Python

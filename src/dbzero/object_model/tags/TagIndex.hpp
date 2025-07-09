@@ -59,7 +59,9 @@ namespace db0::object_model
         void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);
 
         void addTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs);
-
+        
+        // NOTE: type tags are removed when dropping the object, therefore lang instances are not required
+        void removeTypeTag(UniqueAddress obj_addr, Address tag_addr);
         void removeTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs);
         
         /**
@@ -137,6 +139,9 @@ namespace db0::object_model
         mutable std::shared_ptr<MutationLog> m_mutation_log;
         
         template <typename BaseIndexT, typename BatchOperationT>
+        BatchOperationT &getBatchOperation(BaseIndexT &, BatchOperationT &) const;
+        
+        template <typename BaseIndexT, typename BatchOperationT>
         BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result) const;
         
         db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr,
@@ -212,15 +217,20 @@ namespace db0::object_model
         // revert all pending operations associated with a specific object
         void revert(ObjectPtr) const;
     };
-    
+
     template <typename BaseIndexT, typename BatchOperationT>
-    BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, 
-        BatchOperationT &batch_op, ActiveValueT &result) const
+    BatchOperationT &TagIndex::getBatchOperation(BaseIndexT &base_index, BatchOperationT &batch_op) const
     {
         if (!batch_op) {
             batch_op = base_index.beginBatchUpdate();
         }
-        
+        return batch_op;
+    }
+
+    template <typename BaseIndexT, typename BatchOperationT>
+    BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, 
+        BatchOperationT &batch_op, ActiveValueT &result) const
+    {        
         // prepare the active value only if it's not yet initialized
         if (!result.first.isValid() && !result.second) {
             auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);            
@@ -239,7 +249,7 @@ namespace db0::object_model
             }
         }
         
-        return batch_op;
+        return getBatchOperation(base_index, batch_op);        
     }
     
     template <typename IteratorT>

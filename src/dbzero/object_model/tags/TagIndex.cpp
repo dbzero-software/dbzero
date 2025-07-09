@@ -258,6 +258,13 @@ namespace db0::object_model
         m_mutation_log->onDirty();        
     }
     
+    void TagIndex::removeTypeTag(UniqueAddress obj_addr, Address tag_addr)
+    {
+        auto &batch_operation = getBatchOperation(m_base_index_short, m_batch_op_types);
+        batch_operation->removeTag({ obj_addr, nullptr }, tag_addr.getOffset());
+        m_mutation_log->onDirty();
+    }
+
     void TagIndex::removeTags(ObjectPtr memo_ptr, ObjectPtr const *args, std::size_t nargs)
     {
         if (nargs == 0) {
@@ -276,11 +283,11 @@ namespace db0::object_model
                         return getShortTag(arg.get());
                     })
                 );
-                continue;
+                m_mutation_log->onDirty();
+            } else {
+                batch_operation->removeTag(active_key, getShortTag(type_id, args[i]));
+                m_mutation_log->onDirty();
             }
-
-            batch_operation->removeTag(active_key, getShortTag(type_id, args[i]));            
-            m_mutation_log->onDirty();            
         }
     }
     
@@ -347,7 +354,7 @@ namespace db0::object_model
     void TagIndex::flush() const
     {
         using ShortBatchOperationBulder = db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder;
-
+        
         if (empty()) {
             return;
         }
@@ -385,19 +392,21 @@ namespace db0::object_model
             ShortBatchOperationBulder batch_op_short;
             std::function<void(UniqueAddress)> remove_tag_callback = [&](UniqueAddress obj_addr) {
                 auto it = m_object_cache.find(obj_addr);
-                assert(it != m_object_cache.end());
-                auto &memo = type_manager.extractMutableObject(it->second.get());            
-                if (memo.decRef(true)) {
-                    ActiveValueT active_key = { UniqueAddress(), nullptr };
-                    // possibly construct a new batch-op
-                    auto &batch_op = getBatchOperation(it->second.get(), m_base_index_short, batch_op_short, active_key);                
-                    const Class *type_ptr = &memo.getType();
-                    while (type_ptr) {
-                        // remove auto-assigned type (or its base) tag
-                        batch_op->removeTag(active_key, type_ptr->getAddress());
-                        // for each removed type tag, decrement ref-count immediately
-                        memo.decRef(true);
-                        type_ptr = type_ptr->getBaseClassPtr();
+                // object may not exist if tags are removed post-deletion
+                if (it != m_object_cache.end()) {
+                    auto &memo = type_manager.extractMutableObject(it->second.get());
+                    if (memo.decRef(true)) {
+                        ActiveValueT active_key = { UniqueAddress(), nullptr };
+                        // possibly construct a new batch-op
+                        auto &batch_op = getBatchOperation(it->second.get(), m_base_index_short, batch_op_short, active_key);
+                        const Class *type_ptr = &memo.getType();
+                        while (type_ptr) {
+                            // remove auto-assigned type (or its base) tag
+                            batch_op->removeTag(active_key, type_ptr->getAddress());
+                            // for each removed type tag, decrement ref-count immediately
+                            memo.decRef(true);
+                            type_ptr = type_ptr->getBaseClassPtr();
+                        }                        
                     }
                 }
             };
@@ -405,7 +414,7 @@ namespace db0::object_model
             std::function<void(ShortTagT)> erase_index_callback = [&](ShortTagT tag_addr) {
                 tryTagDecRef(tag_addr);
             };
-
+            
             // flush all short tags' updates
             if (!m_batch_op_short.empty()) {
                 m_batch_op_short->flush(&add_tag_callback, &remove_tag_callback, 
@@ -458,7 +467,7 @@ namespace db0::object_model
         }
         
         m_object_cache.clear();
-        m_active_cache.clear();        
+        m_active_cache.clear();
         m_inc_refed_tags.clear();
     }
     

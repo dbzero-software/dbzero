@@ -570,6 +570,10 @@ namespace db0::python
         return Py_REFCNT(obj) > PyEXT_REFCOUNT(obj, 1);
     }
     
+    bool PyToolkit::hasAnyLangRefs(ObjectPtr obj, unsigned int ext_ref_count) {
+        return Py_REFCNT(obj) > ext_ref_count;
+    }
+    
     PyObject *getValue(PyObject *py_dict, const std::string &key)
     {
         if (!PyDict_Check(py_dict)) {

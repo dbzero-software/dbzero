@@ -113,7 +113,8 @@ namespace db0
         }
 
         auto slot_id = it->second;
-        if (expired_only && LangToolkit::hasLangRefs(m_cache[slot_id].second.get())) {
+        // NOTE: we check for any refernces except from LangCache itself (+1)
+        if (expired_only && LangToolkit::hasAnyLangRefs(m_cache[slot_id].second.get(), 1)) {
             return false;
         }
 
@@ -131,7 +132,8 @@ namespace db0
     void LangCache::clear(bool expired_only)
     {
         for (auto &item: m_cache) {
-            if (item.second.get() && (!expired_only || !LangToolkit::hasLangRefs(item.second.get()))) {
+            // NOTE: we check for any refernces except from LangCache itself (+1)
+            if (item.second.get() && (!expired_only || !LangToolkit::hasAnyLangRefs(item.second.get(), 1))) {
                 m_uid_to_index.erase(item.first);
                 item = {};
                 --m_size;
@@ -191,7 +193,8 @@ namespace db0
                     }
                     m_visited[m_evict_hand - m_cache.begin()] = false;
                 } else {
-                    if (!LangToolkit::hasLangRefs(m_evict_hand->second.get())) {
+                    // NOTE: we check for any refernces except from LangCache itself (+1)
+                    if (!LangToolkit::hasAnyLangRefs(m_evict_hand->second.get(), 1)) {
                         // evict the object
                         m_uid_to_index.erase(m_evict_hand->first);                                                
                         *m_evict_hand = {};                        

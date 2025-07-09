@@ -6,6 +6,7 @@
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/value.hpp>
 #include <dbzero/object_model/list/List.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/utils/uuid.hpp>
 
 DEFINE_ENUM_VALUES(db0::object_model::ObjectOptions, "DROPPED", "DEFUNCT")
@@ -519,6 +520,24 @@ namespace db0::object_model
         return getType().isSingleton();
     }
     
+    void Object::dropTags(Class &type) const
+    {
+        // only drop if any type tags are assigned
+        if ((*this)->m_header.m_ref_counter.getFirst() > 0) {
+            auto fixture = this->getFixture();
+            assert(fixture);
+            auto &tag_index = fixture->get<TagIndex>();
+            const Class *type_ptr = &type;
+            auto unique_address = this->getUniqueAddress();
+            while (type_ptr) {
+                // remove auto-assigned type (or its base) tag
+                tag_index.removeTypeTag(unique_address, type_ptr->getAddress());
+                // NOTE: no need to decRef since object is being destroyed
+                type_ptr = type_ptr->getBaseClassPtr();
+            }
+        }
+    }
+    
     void Object::dropMembers(Class &class_ref) const
     {
         auto fixture = this->getFixture();
@@ -573,6 +592,8 @@ namespace db0::object_model
                 // retrieve type from the initializer
                 type = std::const_pointer_cast<Class>(unloadType());
             }
+            
+            dropTags(*type);
             dropMembers(*type);
             // dereference associated class
             type->decRef(false);

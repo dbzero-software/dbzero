@@ -210,8 +210,11 @@ namespace db0::python
         // Check if the object has reference from other dbzero objects or tags
         // NOTE!!! this only works for CommonBase/PyWrapper objects (e.g. all LangCache objects)
         static bool hasRefs(ObjectPtr);
-        // Check if the object has references from other language objects (other than LangCahe)        
+        // Check if the object has references from other language objects (other than LangCache)
         static bool hasLangRefs(ObjectPtr);
+        // Check if there exist any references except specific number of external references
+        // in practice this means that object has references either from python or internal buffers except ext_ref_count (e.g. LangCache)
+        static bool hasAnyLangRefs(ObjectPtr, unsigned int ext_ref_count);
         
         // Extract keys (if present) from a Python dict object
         static std::optional<long> getLong(ObjectPtr py_object, const std::string &key);

@@ -53,6 +53,8 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;        
         using const_iterator = typename db0::v_bindex<dict_item>::const_iterator;
         
+        // as null placeholder
+        Dict() = default;
         Dict(db0::swine_ptr<Fixture> &, Address);
         ~Dict();
         

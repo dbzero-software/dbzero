@@ -70,7 +70,9 @@ namespace db0::object_model
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = const o_typed_item *;
-
+        
+        // as null placeholder
+        Tuple() = default;
         explicit Tuple(db0::swine_ptr<Fixture> &, Address address);
         ~Tuple();
 

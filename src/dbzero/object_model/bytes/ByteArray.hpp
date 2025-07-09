@@ -27,6 +27,8 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         friend super_t;
         
+        // as null placeholder
+        ByteArray() = default;
         ByteArray(db0::swine_ptr<Fixture> &, Address);
         ~ByteArray();
 

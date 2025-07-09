@@ -232,8 +232,8 @@ def test_dict_with_tuples_as_keys(db0_no_autocommit):
     my_dict = db0.dict()
     my_dict[("first", 1)] = MemoTestClass(1)
     for item in my_dict.items():
-        pass
-
+        assert type(item) is tuple
+    
 
 def test_dict_with_unhashable_types_as_keys(db0_fixture):
     my_dict = db0.dict()

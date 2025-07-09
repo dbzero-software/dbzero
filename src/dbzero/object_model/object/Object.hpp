@@ -288,7 +288,8 @@ namespace db0::object_model
         const KV_Index *tryGetKV_Index() const;   
         
         void dropMembers(Class &) const;
-
+        void dropTags(Class &) const;
+        
         void unrefMember(db0::swine_ptr<Fixture> &, StorageClass, Value) const;
         void unrefMember(db0::swine_ptr<Fixture> &, XValue) const;
         

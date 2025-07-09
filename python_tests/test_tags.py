@@ -1,7 +1,7 @@
 import pytest
 import operator
 import dbzero_ce as db0
-from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoClassForTags
+from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoClassForTags, MemoTestClassWithMethods
 from .conftest import DB0_DIR, DATA_PX
 import itertools
 
@@ -337,10 +337,8 @@ def test_type_tags_automatically_assigned(db0_fixture):
 
 
 def test_deleted_object_cannot_be_looked_up_by_type(db0_fixture):
-    import gc
     obj_1 = MemoTestClass(0)
-    del obj_1
-    gc.collect()
+    del obj_1    
     assert len(db0.find(MemoTestClass)) == 0
 
 
@@ -351,3 +349,10 @@ def test_object_persisted_when_tag_assigned(db0_fixture):
     assert len(db0.find(MemoTestClass, "tag-1")) == 1
     assert len(db0.find("tag-1")) == 1
     
+
+def test_persisted_and_then_deleted_object_cannot_be_looked_up_by_type(db0_fixture):
+    obj_1 = MemoTestClass(MemoTestClassWithMethods(0))
+    db0.commit()
+    db0.delete(obj_1)
+    assert len(db0.find(MemoTestClassWithMethods)) == 0
+    assert len(db0.find(MemoTestClass)) == 0

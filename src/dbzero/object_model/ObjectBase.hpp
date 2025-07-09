@@ -197,11 +197,11 @@ namespace db0
         // this operation is required for destroying dbzero instance while still preserving the language wrapper object
         void dropInstance(FixtureLock &)
         {
-            this->~self_t();
+            reinterpret_cast<T*>(this)->~T();
             // construct a new (placeholder) instance in place of the existing one            
-            new ((void*)this) self_t();
+            new ((void*)this) T();
         }
-
+        
     protected:
         friend class db0::GC0;
 

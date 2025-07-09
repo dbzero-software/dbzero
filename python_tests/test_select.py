@@ -142,16 +142,17 @@ def test_select_new_miltiple_prefixes(db0_fixture, memo_tags):
     
     state_1 = db0.get_state_num(DATA_PX, finalized = True)
     snap_1 = db0.snapshot()
+    # NOTE: here obj_x from the prevous snapshot is destroyed (all references are lost)
     obj_x = MemoDataPxClass(9999)
     db0.tags(obj_x).add("tag1")
     db0.commit()
     state_2 = db0.get_state_num(DATA_PX, finalized = True)
     snap_2 = db0.snapshot()
-
+    
     assert len(db0.select_new(db0.find(MemoDataPxClass), snap_1, snap_2)) == 1
 
     with SnapshotWindow(state_1, state_2, DATA_PX) as (pre_snap, last_snap):
-        assert len(db0.select_new(db0.find(MemoDataPxClass), pre_snap, last_snap)) == 2
+        assert len(db0.select_new(db0.find(MemoDataPxClass), pre_snap, last_snap)) == 1
     
 
 @db0.memo(prefix="some/test/prefix")
