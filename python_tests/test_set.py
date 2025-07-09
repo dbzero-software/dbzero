@@ -496,8 +496,7 @@ def test_clear_set_unref_values(db0_fixture):
     my_set = db0.set()
     my_set.add(MemoTestClass("key"))
     uuid_value = db0.uuid([value for value in my_set][0])
-    my_set.clear()
-    db0.clear_cache()
+    my_set.clear()    
     db0.commit()
     with pytest.raises(Exception):
         db0.fetch(uuid_value)
@@ -509,8 +508,7 @@ def test_remove_unref_values(db0_fixture):
     value = [value for value in my_set][0]
     uuid_value = db0.uuid(value)
     my_set.remove(value)
-    value = None
-    db0.clear_cache()
+    value = None    
     db0.commit()
     with pytest.raises(Exception):
         db0.fetch(uuid_value)
@@ -524,11 +522,11 @@ def test_set_destroy_removes_reference(db0_fixture):
     value = None
     db0.delete(obj)
     del obj
-    obj = None
-    db0.clear_cache()
+    obj = None    
     db0.commit()
     with pytest.raises(Exception):
         db0.fetch(value_uuid)
+
 
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_difference_str_values_in_one_method(db0_fixture, make_set):
@@ -538,6 +536,7 @@ def test_set_difference_str_values_in_one_method(db0_fixture, make_set):
     set_diff= set_1.difference(set_2, set_3)
     assert len(set_diff) == 3
     assert set_diff== set(["1", "2", "9"])
+
 
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_difference_str_values(db0_fixture, make_set):
@@ -550,6 +549,7 @@ def test_set_difference_str_values(db0_fixture, make_set):
     set_diff = set_diff.difference(set_3)
     assert len(set_diff) == 3
     assert set_diff== set(["1", "2", "9"])
+
 
 @pytest.mark.parametrize("make_set", set_test_params)
 def test_set_difference_str_values_symmetric(db0_fixture, make_set):

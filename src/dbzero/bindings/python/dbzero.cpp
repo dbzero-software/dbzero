@@ -92,7 +92,7 @@ static PyMethodDef dbzero_methods[] =
     {"get_config", &py::PyAPI_getConfig, METH_NOARGS, "Get dbzero configuration, as passed to 'init' function"},
     {"assign", (PyCFunction)&py::PyAPI_assign, METH_VARARGS | METH_KEYWORDS, "Assign multiple attributes in a single operation (non-atomic)"},
     {"touch", (PyCFunction)&py::PyAPI_touch, METH_FASTCALL, "Mark object to appear as modified in the current transaction (without actually modifying it)"},
-    {"get_schema", (PyCFunction)&py::PyAPI_getSchema, METH_FASTCALL, "Get deduced schema of a memo object"},
+    {"get_schema", (PyCFunction)&py::PyAPI_getSchema, METH_FASTCALL, "Get deduced schema of a memo object"},    
     {"_get_prefixes", &py::getPrefixes, METH_NOARGS, "Get the list of prefixes accessible from the current context"},
     {"_get_mutable_prefixes", &py::PyAPI_getMutablePrefixes, METH_NOARGS, "Get the list of prefixes opened with write access"},
     {"_get_memo_class", (PyCFunction)&py::PyAPI_getMemoClass, METH_FASTCALL, "Get memo meta-class information for a given instance"},

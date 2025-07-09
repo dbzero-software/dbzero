@@ -35,6 +35,10 @@ namespace db0::object_model
         Address m_index_ptr = {};
         std::uint64_t m_size = 0;
         std::uint64_t m_reserved[2] = {0, 0};
+
+        bool hasRefs() const {
+            return m_header.hasRefs();
+        }
     };
     
     class Dict: public db0::ObjectBase<Dict, db0::v_object<o_dict>, StorageClass::DB0_DICT>
@@ -46,9 +50,11 @@ namespace db0::object_model
         friend super_t;
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
-        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;        
         using const_iterator = typename db0::v_bindex<dict_item>::const_iterator;
         
+        // as null placeholder
+        Dict() = default;
         Dict(db0::swine_ptr<Fixture> &, Address);
         ~Dict();
         

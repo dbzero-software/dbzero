@@ -17,11 +17,12 @@ namespace db0::object_model
         using LangToolkit = typename LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using ObjectSharedExtPtr = typename LangToolkit::ObjectSharedExtPtr;
         using super_t = typename RangeTree<KeyT, UniqueAddress>::Builder;
-
+        
         IndexBuilder();
         IndexBuilder(std::unordered_set<UniqueAddress> &&remove_null_values,
-            std::unordered_set<UniqueAddress> &&add_null_values, 
+            std::unordered_set<UniqueAddress> &&add_null_values,
             std::unordered_map<UniqueAddress, ObjectSharedPtr> &&object_cache);
         
         void add(KeyT key, ObjectPtr obj_ptr);
@@ -43,6 +44,7 @@ namespace db0::object_model
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the range-tree index
+        // NOTE: cache must hold "shared" language reference to prevent object drop (index owns its objects)
         mutable std::unordered_map<UniqueAddress, ObjectSharedPtr> m_object_cache;
 
         // add to cache and return object's address
@@ -63,7 +65,7 @@ namespace db0::object_model
         , m_object_cache(std::move(object_cache))
     {
     }
-
+    
     template <typename KeyT> void IndexBuilder<KeyT>::add(KeyT key, ObjectPtr obj_ptr) {
         super_t::add(key, addToCache(obj_ptr));
     }
@@ -76,7 +78,7 @@ namespace db0::object_model
         super_t::addNull(addToCache(obj_ptr));
     }
     
-    template <typename KeyT> void IndexBuilder<KeyT>::removeNull(ObjectPtr obj_ptr) {        
+    template <typename KeyT> void IndexBuilder<KeyT>::removeNull(ObjectPtr obj_ptr) {
         super_t::removeNull(addToCache(obj_ptr));
     }
     
@@ -94,7 +96,7 @@ namespace db0::object_model
             m_type_manager.extractMutableObject(it->second.get()).decRef(false);
         };
         
-        super_t::flush(index, &add_callback, &erase_callback);        
+        super_t::flush(index, &add_callback, &erase_callback);
         m_object_cache.clear();
     }
     

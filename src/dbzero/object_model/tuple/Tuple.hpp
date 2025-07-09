@@ -54,6 +54,10 @@ namespace db0::object_model
             buf += o_micro_array<o_typed_item>::safeSizeOf(buf);
             return buf - start;
         }
+
+        bool hasRefs() const {
+            return m_header.hasRefs();
+        }
     };
     
     class Tuple: public db0::ObjectBase<Tuple, v_object<o_tuple>, StorageClass::DB0_TUPLE>
@@ -66,7 +70,9 @@ namespace db0::object_model
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = const o_typed_item *;
-
+        
+        // as null placeholder
+        Tuple() = default;
         explicit Tuple(db0::swine_ptr<Fixture> &, Address address);
         ~Tuple();
 

@@ -95,11 +95,12 @@ namespace db0
         
         // either of the elements is non-null
         using ActiveValueT = std::pair<KeyT, const KeyT *>;
-
+        
         // NOTE: values can be optionally stored as pointers due to lazy address evaluation
         // (may point to a placeholder where the actual value will be populated on flush)
-        struct TagValueBuffer
+        class TagValueBuffer
         {
+        public:
             using ValueT = std::pair<IndexKeyT, KeyT>;
             using ValueRefT = std::pair<IndexKeyT, const KeyT *>;
 
@@ -113,35 +114,19 @@ namespace db0
 
             std::unordered_set<std::pair<IndexKeyT, KeyT>, ValueHash<KeyT> > m_values;
             std::unordered_set<std::pair<IndexKeyT, const KeyT *>, ValueHash<const KeyT *> > m_value_refs;
+            // a set of keys for which all operations should be reverted / ignored
+            std::unordered_set<KeyT> m_reverted;
 
             void append(IndexKeyT key, ActiveValueT value);
 
             // @return false if not removed
             bool remove(IndexKeyT key, ActiveValueT value);
-
+            
+            void revert(KeyT);
+            void revert(ActiveValueT);
+            
             bool empty() const;
             
-            struct const_iterator
-            {
-                typename std::unordered_set<std::pair<IndexKeyT, KeyT> >::const_iterator m_values_it;
-                typename std::unordered_set<std::pair<IndexKeyT, KeyT> >::const_iterator m_values_end;
-                typename std::unordered_set<std::pair<IndexKeyT, const KeyT *> >::const_iterator m_value_refs_it;
-                
-                struct tag_begin {};
-                const_iterator(const TagValueBuffer &, tag_begin);
-                struct tag_end {};
-                const_iterator(const TagValueBuffer &, tag_end);
-
-                void operator++();
-                bool operator!=(const const_iterator &) const;
-                bool operator==(const const_iterator &) const;
-
-                std::pair<IndexKeyT, KeyT> operator*() const;
-            };
-
-            const_iterator begin() const;
-            const_iterator end() const;
-
             void clear();
         };
         
@@ -160,7 +145,7 @@ namespace db0
             friend FT_BaseIndex;
             
             mutable std::recursive_mutex m_mutex;
-            FT_BaseIndex *m_base_index_ptr;            
+            FT_BaseIndex *m_base_index_ptr;         
             TagValueBuffer m_add_set;
             TagValueBuffer m_remove_set;
             bool m_commit_called = false;
@@ -236,7 +221,16 @@ namespace db0
              * @return
              */
             bool empty () const;
-
+            
+            // Revert ALL operations associated with a specific key
+            void revert(KeyT key)
+            {
+                std::lock_guard<std::recursive_mutex> lock(m_mutex);
+                m_commit_called = false;
+                m_add_set.revert(key);
+                m_remove_set.revert(key);
+            }
+            
         private:
             void _addTag(ActiveValueT value, IndexKeyT tag)
             {

@@ -3,6 +3,13 @@
 #include <Python.h>
 #include <iostream>
 
+// extended inc-ref, handles additional ref-counter for memo objects
+// must dec-ref with PyEXT_DECREF
+#define PyEXT_INCREF(ptr) db0::python::incExtRef(ptr)
+#define PyEXT_DECREF(ptr) db0::python::decExtRef(ptr)
+// returns the number of extended references only
+#define PyEXT_REFCOUNT(ptr, default) db0::python::getExtRefcount(ptr, default)
+
 // take ownership of a PyObject (exception-safe)
 #define Py_OWN(ptr) db0::python::shared_py_object<decltype(ptr)>(ptr, false)
 #define Py_BORROW(ptr) db0::python::shared_py_object<decltype(ptr)>(ptr, true)
@@ -12,17 +19,39 @@
 namespace db0::python
 
 {
-
-    template <typename T> class shared_py_object
+    
+    // incRef / decRef with a special handling for memo objects
+    void incExtRef(PyObject *);
+    void decExtRef(PyObject *);
+    unsigned int getExtRefcount(PyObject *, unsigned int default_count = 0);
+    
+    // @tparam ExtRef flag indicating if should be counted as an "external" reference
+    template <typename T, bool ExtRef = false> class shared_py_object
     {
     public:
         inline shared_py_object() = default;
         inline shared_py_object(T py_object, bool incref = true)
             : m_py_object(py_object)
         {
-            if (m_py_object && incref) {
-                Py_INCREF(py_object);
+            if (m_py_object) {
+                if (incref) {
+                    Py_INCREF(py_object);
+                }
+                if constexpr (ExtRef) {
+                    PyEXT_INCREF(py_object);
+                }                
             }
+        }
+        
+        // ExtRef -> non/ExtRef conversion
+        template <bool U = !ExtRef, typename std::enable_if<U, int>::type = 0>
+        shared_py_object(shared_py_object<T, true> &&other)
+            : m_py_object(other.m_py_object)
+        {
+            if (m_py_object) {
+                PyEXT_DECREF(m_py_object);
+            }
+            other.m_py_object = nullptr;
         }
         
         shared_py_object(const shared_py_object &other)
@@ -30,6 +59,9 @@ namespace db0::python
         {
             if (m_py_object) {
                 Py_INCREF(m_py_object);
+                if constexpr (ExtRef) {
+                    PyEXT_INCREF(m_py_object);
+                }
             }
         }
 
@@ -41,7 +73,10 @@ namespace db0::python
 
         inline ~shared_py_object()
         {
-            if (m_py_object) {                
+            if (m_py_object) {
+                if constexpr (ExtRef) {
+                    PyEXT_DECREF(m_py_object);
+                }
                 Py_DECREF(m_py_object);
             }
         }
@@ -66,13 +101,20 @@ namespace db0::python
         }
         
         // 'steal' a reference from the shared object
+        // NOTE: steals only the regular reference, ext-refs cannot be stolen
         inline T steal()
         {
+            if (!m_py_object) {
+                return nullptr;
+            }
             auto result = m_py_object;
+            if constexpr (ExtRef) {
+                PyEXT_DECREF(m_py_object);
+            }
             m_py_object = nullptr;
             return result;
-        }
-
+        } 
+        
         inline bool operator==(const shared_py_object &other) const {
             return m_py_object == other.m_py_object;
         }
@@ -80,18 +122,21 @@ namespace db0::python
         inline bool operator!=(const shared_py_object &other) const {
             return m_py_object != other.m_py_object;
         }
-
-        shared_py_object<T> &operator=(const shared_py_object &other)
+        
+        shared_py_object<T, ExtRef> &operator=(const shared_py_object &other)
         {
             this->~shared_py_object();
             m_py_object = other.m_py_object;
             if (m_py_object) {
                 Py_INCREF(m_py_object);
+                if constexpr (ExtRef) {
+                    PyEXT_INCREF(m_py_object);
+                }
             }
             return *this;
         }
 
-        shared_py_object<T> &operator=(shared_py_object &&other)
+        shared_py_object<T, ExtRef> &operator=(shared_py_object &&other)
         {
             this->~shared_py_object();
             m_py_object = other.m_py_object;
@@ -102,13 +147,17 @@ namespace db0::python
         void reset()
         {
             if (m_py_object) {
+                if constexpr (ExtRef) {
+                    PyEXT_DECREF(m_py_object);
+                }
                 Py_DECREF(m_py_object);
                 m_py_object = nullptr;
             }
         }
-
+        
     private:
-        T m_py_object = nullptr;
+        friend class shared_py_object<T, !ExtRef>;
+        T m_py_object = nullptr;        
     };
     
     // PyTypeObject specialization
@@ -207,4 +256,11 @@ namespace std
         }
     };
     
+    template <typename T> struct hash<db0::python::shared_py_object<T, true> >
+    {
+        std::size_t operator()(const db0::python::shared_py_object<T, true> &obj) const noexcept {
+            return std::hash<T>()(obj.get());
+        }
+    };
+
 }

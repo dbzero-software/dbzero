@@ -115,7 +115,7 @@ def test_allocator_alloc_unit_issue(db0_slab_size):
 
 @pytest.mark.stress_test
 @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
-def test_allocator_out_of_space_when_small_slab_size(db0_slab_size):
+def test_allocator_out_of_space_when_small_slab_size_1(db0_slab_size):
     """
     Test was failing with: Allocator out of space
     Resolution: 
@@ -128,7 +128,7 @@ def test_allocator_out_of_space_when_small_slab_size(db0_slab_size):
     from .data_for_tests import test_strings, test_ints
     
     # append to random lists
-    count = 0
+    count = 0    
     for _ in range(200000):
         str = test_strings[count % len(test_strings)]
         buf[test_ints[count % len(test_ints)]].append(MemoTestClass(str))
@@ -137,11 +137,7 @@ def test_allocator_out_of_space_when_small_slab_size(db0_slab_size):
 
 @pytest.mark.stress_test
 @pytest.mark.parametrize("db0_slab_size", [{"slab_size": 1 << 20}], indirect=True)
-def test_allocator_out_of_space_when_small_slab_size(db0_slab_size):
-    """
-    Test was failing with: Allocator out of space    
-    Resolution: 
-    """
+def test_allocator_out_of_space_when_small_slab_size_2(db0_slab_size):
     def rand_string(max_len):
         str_len = random.randint(1, max_len)
         return ''.join(random.choice(string.ascii_letters) for i in range(str_len))

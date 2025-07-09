@@ -415,7 +415,7 @@ namespace db0::object_model
     template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DATETIME_TZ, PyToolkit>(
         db0::swine_ptr<Fixture> &fixture, Value value, const char *)
     {
-        auto result = db0::python::uint64ToPyDatetimeWithTZ(value.cast<std::uint64_t>());
+        auto result = Py_OWN(db0::python::uint64ToPyDatetimeWithTZ(value.cast<std::uint64_t>()));
         if (!result) {
             THROWF(db0::InputException) << "Failed to convert to Datetime with TZ" << THROWF_END;
         }
@@ -583,15 +583,23 @@ namespace db0::object_model
     
     template <typename T, typename LangToolkit>
     void unrefObjectBase(db0::swine_ptr<Fixture> &fixture, Address address)
-    {   
-        bool has_refs = false;
-        auto obj_ptr = fixture->getLangCache().get(address, has_refs);
+    {
+        auto obj_ptr = fixture->getLangCache().get(address);
         if (obj_ptr.get()) {
-            assert(has_refs && "unrefObjectBase: object has no references");
             db0::FixtureLock lock(fixture);
             // decref cached instance via language specific wrapper type
             auto lang_wrapper = LangToolkit::template getWrapperTypeOf<T>(obj_ptr.get());
-            lang_wrapper->modifyExt().decRef(false);
+            auto &object = lang_wrapper->modifyExt();
+            if (object.decRef(false)) {
+                // NOTE: we'll drop the object immediately on condition it has no language references
+                if (!LangToolkit::hasLangRefs(*obj_ptr)) {
+                    auto unique_addr = object.getUniqueAddress();
+                    // drop dbzero instance, replacing it with a "null" placeholder
+                    object.dropInstance(lock);
+                    // might also be removed from lang cache
+                    fixture->getLangCache().erase(unique_addr);
+                }
+            }
         } else {
             T object(fixture, address);
             object.decRef(false);

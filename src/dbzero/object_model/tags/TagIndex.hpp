@@ -37,6 +37,7 @@ namespace db0::object_model
         using LangToolkit = typename Object::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
+        using ObjectSharedExtPtr = typename LangToolkit::ObjectSharedExtPtr;
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         // full-text query iterator
         using QueryIterator = FT_Iterator<UniqueAddress>;
@@ -50,14 +51,17 @@ namespace db0::object_model
         
         virtual ~TagIndex();
         
-        void addTag(ObjectPtr memo_ptr, ShortTagT tag_addr);
-        void addTag(ObjectPtr memo_ptr, Address tag_addr);
+        // @param is_type true for implicilty assigned type tags
+        void addTag(ObjectPtr memo_ptr, ShortTagT tag_addr, bool is_type);
+        void addTag(ObjectPtr memo_ptr, Address tag_addr, bool is_type);
         
         // add a tag using long identifier
         void addTag(ObjectPtr memo_ptr, LongTagT tag_addr);
 
         void addTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs);
-
+        
+        // NOTE: type tags are removed when dropping the object, therefore lang instances are not required
+        void removeTypeTag(UniqueAddress obj_addr, Address tag_addr);
         void removeTags(ObjectPtr memo_ptr, ObjectPtr const *lang_args, std::size_t nargs);
         
         /**
@@ -105,6 +109,8 @@ namespace db0::object_model
         // Check if there's any queued update for the provided address
         // which may affect a future state of the object (e.g. add tags or drop)
         bool isPendingUpdate(UniqueAddress) const;
+
+        bool empty() const;
         
     private:
         using TypeId = db0::bindings::TypeId;
@@ -115,26 +121,34 @@ namespace db0::object_model
         db0::FT_BaseIndex<ShortTagT> m_base_index_short;
         db0::FT_BaseIndex<LongTagT> m_base_index_long;
         // Current batch-operation buffer (may not be initialized)
-        mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_operation_short;
-        mutable db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder m_batch_operation_long;
+        mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_op_short;
+        mutable db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder m_batch_op_long;
+        // batch operation associated with type-tags only (auto-assigned)
+        mutable db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder m_batch_op_types;
         // the set of tags to which the ref-count has been increased when they were first created
         mutable std::unordered_set<std::uint64_t> m_inc_refed_tags;
         // A cache of language objects held until flush/close is called
         // it's required to prevent unreferenced objects from being collected by GC
         // and to handle callbacks from the full-text index
-        mutable std::unordered_map<UniqueAddress, ObjectSharedPtr> m_object_cache;
-        // A cache for incomplete objects (not yet fully initialized)
-        mutable std::unordered_map<ObjectSharedPtr, UniqueAddress> m_active_cache;
+        // NOTE: cache must hold "shared external" references to the objects
+        mutable std::unordered_map<UniqueAddress, ObjectSharedExtPtr> m_object_cache;
+        // A cache for incomplete objects (not yet fully initialized)        
+        mutable std::unordered_map<ObjectPtr, UniqueAddress> m_active_cache;
+        // Additional buffer to preserve / release ownership for active-cache objects
+        mutable std::unordered_set<ObjectSharedExtPtr> m_active_pre_cache;
         // the associated fixture UUID (for validation purposes)
         const std::uint64_t m_fixture_uuid;
         mutable std::shared_ptr<MutationLog> m_mutation_log;
         
         template <typename BaseIndexT, typename BatchOperationT>
+        BatchOperationT &getBatchOperation(BaseIndexT &, BatchOperationT &) const;
+        
+        template <typename BaseIndexT, typename BatchOperationT>
         BatchOperationT &getBatchOperation(ObjectPtr, BaseIndexT &, BatchOperationT &, ActiveValueT &result) const;
         
-        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr, 
-            ActiveValueT &result) const;
-
+        db0::FT_BaseIndex<ShortTagT>::BatchOperationBuilder &getBatchOperationShort(ObjectPtr,
+            ActiveValueT &result, bool is_type) const;
+        
         db0::FT_BaseIndex<LongTagT>::BatchOperationBuilder &getBatchOperationLong(ObjectPtr,
             ActiveValueT &result) const;
         
@@ -201,16 +215,24 @@ namespace db0::object_model
         // unless such reference has already been added when the tag was first created
         void tryTagIncRef(ShortTagT tag_addr) const;
         void tryTagDecRef(ShortTagT tag_addr) const;
+        
+        // revert all pending operations associated with a specific object
+        void revert(ObjectPtr) const;
     };
-    
+
     template <typename BaseIndexT, typename BatchOperationT>
-    BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, 
-        BatchOperationT &batch_op, ActiveValueT &result) const
+    BatchOperationT &TagIndex::getBatchOperation(BaseIndexT &base_index, BatchOperationT &batch_op) const
     {
         if (!batch_op) {
             batch_op = base_index.beginBatchUpdate();
         }
-        
+        return batch_op;
+    }
+
+    template <typename BaseIndexT, typename BatchOperationT>
+    BatchOperationT &TagIndex::getBatchOperation(ObjectPtr memo_ptr, BaseIndexT &base_index, 
+        BatchOperationT &batch_op, ActiveValueT &result) const
+    {        
         // prepare the active value only if it's not yet initialized
         if (!result.first.isValid() && !result.second) {
             auto &memo = LangToolkit::getTypeManager().extractObject(memo_ptr);            
@@ -223,13 +245,14 @@ namespace db0::object_model
                 }
                 result = ActiveValueT(object_addr, nullptr);
             } else {
+                m_active_pre_cache.insert(memo_ptr);
                 auto it = m_active_cache.emplace(memo_ptr, UniqueAddress());
                 // use the address placeholder for an active value
                 result = ActiveValueT(UniqueAddress(), &(it.first->second));
             }
         }
         
-        return batch_op;
+        return getBatchOperation(base_index, batch_op);        
     }
     
     template <typename IteratorT>

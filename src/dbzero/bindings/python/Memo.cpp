@@ -12,6 +12,7 @@
 #include <dbzero/object_model/class.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/value/Member.hpp>
+#include <dbzero/object_model/tags/TagIndex.hpp>
 #include <dbzero/core/exception/Exceptions.hpp>
 #include <dbzero/core/utils/to_string.hpp>
 #include <dbzero/workspace/Fixture.hpp>
@@ -152,8 +153,8 @@ namespace db0::python
         return runSafe(tryMemoObject_new_singleton, py_type, args, kwargs);
     }
     
-    shared_py_object<MemoObject*> MemoObjectStub_new(PyTypeObject *py_type) {
-        return { reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0)), false };
+    MemoObject* MemoObjectStub_new(PyTypeObject *py_type) {
+        return reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
     }
     
     PyObject *MemoObject_alloc(PyTypeObject *self, Py_ssize_t nitems) {
@@ -169,7 +170,10 @@ namespace db0::python
     }
     
     int PyAPI_MemoObject_init(MemoObject* self, PyObject* args, PyObject* kwds)
-    {
+    {        
+        using Class = db0::object_model::Class;
+        using TagIndex = db0::object_model::TagIndex;
+
         PY_API_FUNC
         // the instance may already exist (e.g. if this is a singleton)        
         if (!self->ext().hasInstance()) {
@@ -207,10 +211,21 @@ namespace db0::python
             auto &object = self->modifyExt();
             db0::FixtureLock fixture(object.getFixture());
             object.postInit(fixture);
+
             // need to call modifyExt again after postInit because the instance has just been created
             // and potentially needs to be included in the AtomicContext
             self->modifyExt();
             fixture->getLangCache().add(object.getAddress(), self);
+            
+            // finally, unless opted-out, assign the type tag(s) of the entire type hierarchy
+            const Class *class_ptr = &object.getType();
+            if (class_ptr && class_ptr->assignDefaultTags()) {
+                auto &tag_index = fixture->get<TagIndex>();
+                while (class_ptr) {
+                    tag_index.addTag(self, class_ptr->getAddress(), true);
+                    class_ptr = class_ptr->getBaseClassPtr();
+                }
+            }
         }
         
         return 0;
@@ -221,7 +236,8 @@ namespace db0::python
         // since objects are destroyed by GC0 drop is only responsible for marking
         // singletons as unreferenced
         if (memo_obj->ext().isSingleton()) {
-            memo_obj->modifyExt().unSingleton();
+            db0::FixtureLock lock(memo_obj->ext().getFixture());
+            memo_obj->modifyExt().unSingleton(lock);
             // the acutal destroy will be performed by the GC0 once removed from the LangCache
             auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
             lang_cache.erase(memo_obj->ext().getAddress());
@@ -233,17 +249,16 @@ namespace db0::python
         }
         
         if (memo_obj->ext().hasRefs()) {
-            PyErr_SetString(PyExc_RuntimeError, "delete failed: object has references");
-            return;    
+            THROWF(db0::InputException) << "Cannot delete a memo object with references";
         }
-         
+        
         // create a null placeholder in place of the original instance to mark as deleted
         auto &lang_cache = memo_obj->ext().getFixture()->getLangCache();
-        auto obj_addr = memo_obj->ext().getAddress();
-        memo_obj->destroy();
-        db0::object_model::Object::makeNull((void*)(&memo_obj->ext()));
+        auto obj_addr = memo_obj->ext().getUniqueAddress();
+        db0::FixtureLock lock(memo_obj->ext().getFixture());
+        memo_obj->modifyExt().dropInstance(lock);
         // remove instance from the lang cache
-        lang_cache.erase(obj_addr);        
+        lang_cache.erase(obj_addr);
     }
     
     PyObject *tryMemoObject_getattro(MemoObject *memo_obj, PyObject *attr)
@@ -428,7 +443,7 @@ namespace db0::python
         return tp_result.steal();
     }
     
-    PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, const char *prefix_name,
+    PyObject *wrapPyType(PyTypeObject *base_class, bool is_singleton, bool no_default_tags, const char *prefix_name,
         const char *type_id, const char *file_name, std::vector<std::string> &&init_vars, PyObject *py_dyn_prefix_callable,
         std::vector<Migration> &&migrations)
     {
@@ -453,12 +468,14 @@ namespace db0::python
         }
         
         auto &type_manager = PyToolkit::getTypeManager();
+        MemoFlags type_flags = no_default_tags ? MemoFlags { MemoOptions::NO_DEFAULT_TAGS } : MemoFlags();
         auto type_info = MemoTypeDecoration(
             py_module,
             prefix_name,
             type_manager.getPooledString(type_id),
             type_manager.getPooledString(file_name),
             std::move(init_vars),
+            type_flags,
             py_dyn_prefix_callable,
             std::move(migrations)
         );
@@ -482,6 +499,7 @@ namespace db0::python
     {
         PyObject *class_obj = nullptr;
         PyObject *py_singleton = nullptr;
+        PyObject *py_no_default_tags = nullptr;
         PyObject *py_prefix_name = nullptr;
         PyObject *py_type_id = nullptr;
         PyObject *py_file_name = nullptr;
@@ -490,16 +508,17 @@ namespace db0::python
         // migrations are only processed for singleton types
         PyObject *py_migrations = nullptr;
         
-        static const char *kwlist[] = { "input", "singleton", "prefix", "id", "py_file", "py_init_vars", 
+        static const char *kwlist[] = { "input", "singleton", "no_default_tags", "prefix", "id", "py_file", "py_init_vars", 
             "py_dyn_prefix", "py_migrations", NULL };
-        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
-            &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations))
+        if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOOOOOO", const_cast<char**>(kwlist), &class_obj, &py_singleton,
+            &py_no_default_tags, &py_prefix_name, &py_type_id, &py_file_name, &py_init_vars, &py_dyn_prefix, &py_migrations))
         {
             PyErr_SetString(PyExc_TypeError, "Invalid input arguments");
             return NULL;
         }
         
         bool is_singleton = py_singleton && PyObject_IsTrue(py_singleton);
+        bool no_default_tags = py_no_default_tags && PyObject_IsTrue(py_no_default_tags);
         const char *prefix_name = (py_prefix_name && py_prefix_name != Py_None) ? PyUnicode_AsUTF8(py_prefix_name) : nullptr;
         const char *type_id = py_type_id ? PyUnicode_AsUTF8(py_type_id) : nullptr;        
         const char *file_name = (py_file_name && py_file_name != Py_None) ? PyUnicode_AsUTF8(py_file_name) : nullptr;
@@ -533,8 +552,8 @@ namespace db0::python
         }
         
         auto migrations = extractMigrations(py_migrations);
-        return wrapPyType(castToType(class_obj), is_singleton, prefix_name, type_id, file_name, std::move(init_vars), 
-            py_dyn_prefix, std::move(migrations)
+        return wrapPyType(castToType(class_obj), is_singleton, no_default_tags, prefix_name, type_id, file_name, 
+            std::move(init_vars), py_dyn_prefix, std::move(migrations)
         );
     }
     

@@ -43,6 +43,7 @@ namespace db0
         using LangToolkit = db0::object_model::LangConfig::LangToolkit;
         using ObjectPtr = LangToolkit::ObjectPtr;
 
+        // Constructs a "null" placeholder instance
         ObjectBase() = default;
         
         // Create a new instance
@@ -122,8 +123,8 @@ namespace db0
             this->modify().m_header.incRef(is_tag);
         }
         
-        // @return reference count (of a specific type) after decrement
-        std::uint32_t decRef(bool is_tag)
+        // @return true if reference count was decremented to zero
+        bool decRef(bool is_tag)
         {
             assert(hasInstance());
             return this->modify().m_header.decRef(is_tag);
@@ -162,13 +163,15 @@ namespace db0
             assert(hasInstance());
             return (*this)->m_header.m_instance_id;
         }
-
+        
         static bool checkUnload(db0::swine_ptr<Fixture> &fixture, Address address) {
             return fixture->isAddressValid(address);
         }
         
         // Check if unload operation would be successful without actually performing it
-        static bool checkUnload(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
+        // @param check_has_refs flag indicating if the refs-count should also be checked
+        static bool checkUnload(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id, 
+            bool check_has_refs)
         {
             std::size_t size_of = 0;
             if (!fixture->isAddressValid(address, &size_of)) {
@@ -176,12 +179,27 @@ namespace db0
             }
             // validate instance ID only if provided
             // NOTE: in this case we also validate if the refs-count is not zero (otherwise it's pending deletion)
-            if (instance_id) {
+            if (instance_id || check_has_refs) {
                 // NOTE: here we use trusted size_of retrieved from the allocator
                 auto stem = BaseT(db0::tag_verified(), fixture->myPtr(address), size_of);
-                return stem->m_header.m_instance_id == instance_id && stem->m_header.hasRefs();
+                if (instance_id && stem->m_header.m_instance_id == instance_id) {
+                    return false;
+                }
+                if (check_has_refs && !stem->hasRefs()) {
+                    return false;
+                }
+                return true;
             }
             return true;
+        }
+        
+        // Destroys an existing instance and constructs a "null" placeholder
+        // this operation is required for destroying dbzero instance while still preserving the language wrapper object
+        void dropInstance(FixtureLock &)
+        {
+            reinterpret_cast<T*>(this)->~T();
+            // construct a new (placeholder) instance in place of the existing one            
+            new ((void*)this) T();
         }
         
     protected:
@@ -235,8 +253,8 @@ namespace db0
             static_cast<T*>(vptr)->destroy();
         }
         
-        static TypedAddress getTypedAddress(const void *vptr) {
-            return { _CLS, static_cast<const T*>(vptr)->getAddress() };
+        static std::pair<UniqueAddress, StorageClass> getTypedAddress(const void *vptr) {
+            return { static_cast<const T*>(vptr)->getUniqueAddress(), _CLS };
         }
         
         static void dropByAddr(db0::swine_ptr<Fixture> &fixture, Address addr)

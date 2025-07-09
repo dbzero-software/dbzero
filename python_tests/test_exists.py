@@ -31,8 +31,8 @@ def test_exists_singleton_with_prefix_specification(db0_fixture):
 def test_exists_after_deletion(db0_fixture):
     obj_1 = MemoTestClass(123)
     uuid_1 = db0.uuid(obj_1)
-    del obj_1
-    db0.clear_cache()
+    db0.delete(obj_1)
+    del obj_1    
     db0.commit()
     assert not db0.exists(uuid_1)
         

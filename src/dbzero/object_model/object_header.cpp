@@ -23,21 +23,19 @@ namespace db0
         }        
     }
     
-    std::uint32_t o_object_header::decRef(bool is_tag)
+    bool o_object_header::decRef(bool is_tag)
     {
+        auto values = m_ref_counter.get();
         if (is_tag) {
-            auto old_value = m_ref_counter.getFirst();
-            assert(old_value > 0 && "Bad tags ref-count (trying to decrement below 0)");
-            --old_value;
-            m_ref_counter.setFirst(old_value);
-            return old_value;
+            assert(values.first > 0 && "Bad tags ref-count (trying to decrement below 0)");
+            --values.first;
+            m_ref_counter.setFirst(values.first);
         } else {
-            auto old_value = m_ref_counter.getSecond();
-            assert(old_value > 0 && "Bad objects ref-count (trying to decrement below 0)");
-            --old_value;
-            m_ref_counter.setSecond(old_value);
-            return old_value;
+            assert(values.second > 0 && "Bad objects ref-count (trying to decrement below 0)");
+            --values.second;
+            m_ref_counter.setSecond(values.second);
         }
+        return values.first == 0 && values.second == 0;
     }
     
     bool o_object_header::hasRefs() const

@@ -59,7 +59,7 @@ def test_prefix_opened_inside_locked_section(db0_fixture):
     assert len(mutation_log) == 1
     assert "some-new-prefix" in [name for name, _ in mutation_log]    
     
-    
+
 def test_mutated_prefix_closed_inside_locked_section(db0_fixture):
     px_name = db0.get_current_prefix().name
     obj_1 = MemoTestClass(951)

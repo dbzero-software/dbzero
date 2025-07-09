@@ -694,10 +694,10 @@ namespace db0
     void Workspace::clearCache() const
     {
         BaseWorkspace::clearCache();
-        // remove expired only objects        
+        // remove expired only objects
         m_lang_cache->clear(true);
     }
-    
+
     void Workspace::onFlushDirty(std::size_t limit) {
         BaseWorkspace::onFlushDirty(limit);
     }

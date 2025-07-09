@@ -303,6 +303,11 @@ namespace db0
             getGC0().preCommit();
         }
         
+        // Flush using registered flush handlers
+        for (auto &handler: m_flush_handlers) {
+            handler();
+        }
+
         // Clear expired instances from cache so that they're not persisted
         m_lang_cache.clear(true);
         std::unique_lock<std::shared_mutex> lock(m_commit_mutex);
@@ -329,7 +334,7 @@ namespace db0
                 return result;
             }
             
-            std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;
+            std::unique_ptr<GC0::CommitContext> gc0_ctx = m_gc0_ptr ? getGC0().beginCommit() : nullptr;            
             // NOTE: close handlers perform internal buffers flush (e.g. TagIndex)
             // which may result in modifications (e.g. incRef)
             // it's therefore important to perform this action before GC0::commitAll (which commits finalized objects)
@@ -374,6 +379,11 @@ namespace db0
             // NOTE: pre-commit must NOT lock the fixture's shared mutex
             if (m_gc0_ptr) {
                 getGC0().preCommit();
+            }
+            
+            // Flush using registered flush handlers
+            for (auto &handler: m_flush_handlers) {
+                handler();
             }
 
             // lock for exclusive access

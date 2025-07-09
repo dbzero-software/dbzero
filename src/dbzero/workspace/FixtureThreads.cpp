@@ -66,13 +66,13 @@ namespace db0
 
             // then process as unlocked
             lock.unlock();
-            for(FixtureHolder *holder_ptr : fixtures) {
+            for (FixtureHolder *holder_ptr : fixtures) {
                 if (auto fixture = holder_ptr->fixture.lock()) {
                     m_fx_function(*fixture, holder_ptr->last_updated);
                 }      
             }
 
-            if(context) {
+            if (context) {
                 context->finalize();
             }
         }
@@ -139,6 +139,8 @@ namespace db0
         // otherwise it may deadlock on trying to invoke API calls from auto-commit 
         // (e.g. instance destruction triggered by LangCache::clear)
         auto __api_lock = LangToolkit::lockApi();
+        // NOTE: since this a separate thread, we must acuire the language interpreter's lock (where required)
+        auto lang_lock = LangToolkit::ensureLocked();
 #ifndef NDEBUG
         ThreadTracker::beginUnique();
 #endif        

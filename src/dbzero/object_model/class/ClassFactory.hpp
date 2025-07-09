@@ -121,6 +121,9 @@ namespace db0::object_model
         // class maps in 4 variants: 0: type ID, 1: name + module, 2: name + fields: 3: module + fields
         std::array<VClassMap, 4> m_class_maps;
         VClassPtrIndex m_class_ptr_index;
+        // buffers with keys for potential rollback
+        mutable std::vector<TypeObjectSharedPtr> m_pending_types;
+        mutable std::vector<ClassPtr> m_pending_ptrs;
 
         // Pull through by-pointer cache
         std::shared_ptr<Class> getType(ClassPtr, std::shared_ptr<Class>, TypeObjectPtr lang_type) const;

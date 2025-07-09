@@ -65,8 +65,7 @@ def test_tuples_destroy_removes_reference(db0_fixture):
     
     dep_uuid = db0.uuid(obj.value[0])
     db0.delete(obj)
-    del obj
-    db0.clear_cache()
+    del obj    
     db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
@@ -81,7 +80,6 @@ def test_tuples_destroy_removes_reference(db0_fixture):
 #     dep_uuid = db0.uuid(obj.value[0])
 #     db0.delete(obj)
 #     del obj
-#     db0.clear_cache()
 #     db0.commit()
 #     # make sure dependent instance has been destroyed as well
 #     with pytest.raises(Exception):

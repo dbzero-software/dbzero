@@ -13,35 +13,42 @@ namespace db0
     
     std::mutex AtomicContext::m_atomic_mutex;
 
-    // MEMO_OBJECT specialization
-    template <> void detachObject<TypeId::MEMO_OBJECT, PyToolkit>(PyObjectPtr obj_ptr) {
-        PyToolkit::getTypeManager().extractObject(obj_ptr).detach();
+    // NOTE: since objects might've been destroyed inside atomic operation, we need to check before detaching
+    template <typename T> void detachExisting(const T &obj)
+    {
+        if (obj.hasInstance()) {
+            obj.detach();
+        }
     }
 
+    // MEMO_OBJECT specialization
+    template <> void detachObject<TypeId::MEMO_OBJECT, PyToolkit>(PyObjectPtr obj_ptr) {
+        detachExisting(PyToolkit::getTypeManager().extractObject(obj_ptr));
+    }
 
     // DB0_LIST specialization
     template <> void detachObject<TypeId::DB0_LIST, PyToolkit>(PyObjectPtr obj_ptr) {
-        PyToolkit::getTypeManager().extractList(obj_ptr).detach();
+        detachExisting(PyToolkit::getTypeManager().extractList(obj_ptr));
     }
 
     // DB0_INDEX specialization
     template <> void detachObject<TypeId::DB0_INDEX, PyToolkit>(PyObjectPtr obj_ptr) {
-        PyToolkit::getTypeManager().extractIndex(obj_ptr).detach();
+        detachExisting(PyToolkit::getTypeManager().extractIndex(obj_ptr));
     }
 
     // DB0_SET specialization
     template <> void detachObject<TypeId::DB0_SET, PyToolkit>(PyObjectPtr obj_ptr) {
-        PyToolkit::getTypeManager().extractSet(obj_ptr).detach();
+        detachExisting(PyToolkit::getTypeManager().extractSet(obj_ptr));
     }
 
     // DB0_DICT specialization
     template <> void detachObject<TypeId::DB0_DICT, PyToolkit>(PyObjectPtr obj_ptr) {
-        PyToolkit::getTypeManager().extractDict(obj_ptr).detach();
+        detachExisting(PyToolkit::getTypeManager().extractDict(obj_ptr));
     }
 
     // DB0_TUPLE specialization
     template <> void detachObject<TypeId::DB0_TUPLE, PyToolkit>(PyObjectPtr obj_ptr) {
-        PyToolkit::getTypeManager().extractTuple(obj_ptr).detach();
+        detachExisting(PyToolkit::getTypeManager().extractTuple(obj_ptr));
     }
     
     template <> void registerDetachFunctions<PyToolkit>(std::vector<void (*)(PyObjectPtr)> &functions)
@@ -110,7 +117,7 @@ namespace db0
             // detach / flush all workspace objects
             m_workspace->detach();
             // all objects from context need to be detached
-            auto &type_manager = LangToolkit::getTypeManager();        
+            auto &type_manager = LangToolkit::getTypeManager();
             for (auto &pair : m_objects) {
                 detachObject<PyToolkit>(type_manager.getTypeId(pair.second.get()), pair.second.get());
             }        

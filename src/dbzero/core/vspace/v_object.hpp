@@ -241,16 +241,17 @@ namespace db0
         }
         
         void detach() const {
-            v_this.detach();
+            v_this.detach();            
         }
         
-        void commit() const {
+        void commit() const
+        {
             // FIXME: optimization
             // potentially we could call v_this.commit() here BUT
             // if there exist 2 instances of v_object and onc of them gets modified
             // then the "read-only" instance will not see the updates
 
-            v_this.detach();
+            v_this.detach();            
         }
         
         // Calculate the number of DPs spanned by this object

@@ -206,20 +206,17 @@ def test_can_clear_list(db0_fixture):
         list_1.append(db0.tuple(["asd"]))
 
     tup1 = list_1.pop()
-    tup2 = list_1.pop()
-    db0.clear_cache()
+    tup2 = list_1.pop()    
     db0.commit()
     assert len(list_1) == 3
 
     
-
-def test_clear_list_unref_objects(db0_fixture):
+def test_clear_list_unref_objects(db0_fixture):    
     list_1 = db0.list()
     list_1.append(MemoTestClass("asd"))
     uuid = db0.uuid(list_1[0])
-    list_1.clear()
-    db0.clear_cache()
-    db0.commit()
+    list_1.clear()    
+    db0.commit()    
     with pytest.raises(Exception):
         db0.fetch(uuid)
 
@@ -229,12 +226,12 @@ def test_set_item_to_list_unref_objects(db0_fixture):
     list_1.append(MemoTestClass("asd"))
     uuid = db0.uuid(list_1[0])
     list_1[0] = MemoTestClass("asd")
-    uuid2 = db0.uuid(list_1[0])
-    db0.clear_cache()
+    uuid2 = db0.uuid(list_1[0])    
     db0.commit()
     with pytest.raises(Exception):
         db0.fetch(uuid)
     db0.fetch(uuid2)
+
 
 def test_list_destroy_removes_reference(db0_fixture):
     obj = MemoTestClass(db0.list([MemoTestClass("asd")]))
@@ -243,12 +240,10 @@ def test_list_destroy_removes_reference(db0_fixture):
     dep_uuid = db0.uuid(obj.value[0])
     db0.delete(obj)
     del obj
-    db0.clear_cache()
     db0.commit()
     # make sure dependent instance has been destroyed as well
     with pytest.raises(Exception):
         db0.fetch(dep_uuid)
-
 
 
 @pytest.mark.parametrize("make_list", list_test_params)
@@ -421,8 +416,7 @@ def test_list_drop_issue_1(db0_fixture):
     list_uuid = db0.uuid(obj)
     for i in range(5):
         obj.append(i)
-
-    db0.clear_cache()
+    
     db0.commit()
     # list should NOT be dropped (since python reference is still accessible)
     assert list(db0.fetch(list_uuid)) == [1, 2, 3, 0, 1, 2, 3, 4]

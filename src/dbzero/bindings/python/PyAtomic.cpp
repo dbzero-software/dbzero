@@ -57,11 +57,17 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "beginAtomic requires no arguments");
             return NULL;
         }
-        // need to acquire atomic lock first
-        auto atomic_lock = db0::AtomicContext::lock();
+
+        // need to acquire atomic lock before API lock
+        std::unique_lock<std::mutex> atomic_lock;
+        {
+            // this is to prevent GIL-related deadlocks
+            WithGIL_Unlocked no_gil;
+            atomic_lock = db0::AtomicContext::lock();
+        }
         return runSafe(PyAPI_tryBeginAtomic, self, std::move(atomic_lock));
     }
-
+    
     bool PyAtomic_Check(PyObject *object) {
         return Py_TYPE(object) == &PyAtomicType;
     }

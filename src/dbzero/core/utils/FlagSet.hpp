@@ -115,18 +115,22 @@ namespace db0
             return sizeof(enum_t) * 8;
         }
 
-        bool test(enum_t flag) const {
+        inline bool test(enum_t flag) const {
             return (m_flags & static_cast<store_t>(flag)) > 0;
         }
 
-        bool any() const {
+        inline bool any() const {
             return m_flags > 0;
         }
 
-        bool none() const {
-            return m_flags == 0;
+        inline bool any(store_t flags) const {
+            return m_flags & flags;
         }
 
+        inline bool none() const {
+            return m_flags == 0;
+        }
+        
         FlagSet operator&(EnumT flag) const {
             return FlagSet(m_flags & flag);
         }

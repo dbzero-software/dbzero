@@ -294,6 +294,10 @@ namespace db0::object_model
         }
         return m_string_pool_ref;
     }
+    
+    UniqueAddress Enum::getUniqueAddress() const {
+        return { this->getAddress(), UniqueAddress::INSTANCE_ID_MAX };
+    }
 
 }
 

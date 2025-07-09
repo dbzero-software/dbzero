@@ -69,8 +69,8 @@ namespace db0
         auto uid = makeUID(fixture_id, address);
         std::optional<std::uint32_t> slot;
         if (isFull()) {
-            if (m_cache.size() < m_capacity) {                
-                resize(m_cache.size() * 2);                
+            if (m_cache.size() < m_capacity) {
+                resize(std::min(m_capacity, m_cache.size() * 2));
                 slot = findEmptySlot();
                 assert(slot);
             } else {
@@ -98,7 +98,7 @@ namespace db0
         m_uid_to_index[uid] = slot_id;
         ++m_size;
     }
-
+    
     bool LangCache::erase(const Fixture &fixture, Address address, bool expired_only, bool as_defunct) {
         return erase(getFixtureId(fixture), address, expired_only);
     }
@@ -113,7 +113,8 @@ namespace db0
         }
 
         auto slot_id = it->second;
-        if (expired_only && LangToolkit::getLangRefCount(m_cache[slot_id].second.get()) > 1) {
+        // NOTE: we check for any refernces except from LangCache itself (+1)
+        if (expired_only && LangToolkit::hasAnyLangRefs(m_cache[slot_id].second.get(), 1)) {
             return false;
         }
 
@@ -131,7 +132,8 @@ namespace db0
     void LangCache::clear(bool expired_only)
     {
         for (auto &item: m_cache) {
-            if (item.second.get() && (!expired_only || LangToolkit::getLangRefCount(item.second.get()) == 1)) {
+            // NOTE: we check for any refernces except from LangCache itself (+1)
+            if (item.second.get() && (!expired_only || !LangToolkit::hasAnyLangRefs(item.second.get(), 1))) {
                 m_uid_to_index.erase(item.first);
                 item = {};
                 --m_size;
@@ -150,12 +152,8 @@ namespace db0
             }            
         }
     }
-    
-    LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, Address address, bool &has_refs) const {
-        return get(getFixtureId(fixture), address, has_refs);
-    }
-    
-    LangCache::ObjectSharedPtr LangCache::get(std::uint16_t fixture_id, Address address, bool &has_refs) const
+        
+    LangCache::ObjectSharedExtPtr LangCache::get(std::uint16_t fixture_id, Address address) const
     {
         auto uid = makeUID(fixture_id, address);
         auto it = m_uid_to_index.find(uid);
@@ -165,26 +163,9 @@ namespace db0
         assert(it->second < m_visited.size());
         // set the visited flag (see Sieve cache eviction algorithm)
         m_visited[it->second] = true;
-        auto obj_ptr = m_cache[it->second].second.get();
-        // NOTE: we adjust lang-refs by -1 due to 1 reference held by the cache itself
-        has_refs = LangToolkit::hasAnyRefs(obj_ptr, -1);
-        return obj_ptr;
+        return m_cache[it->second].second.get();
     }
     
-    LangCache::ObjectSharedPtr LangCache::get(const Fixture &fixture, Address address) const
-    {
-        bool has_refs = false;
-        auto obj_ptr = get(getFixtureId(fixture), address, has_refs);
-        if (!obj_ptr.get()) {
-            return nullptr;
-        }
-        if (!has_refs) {
-            // object has no references, raise an exception
-            THROWF(db0::InputException) << "Accessing deleted object: " << address;
-        }
-        return obj_ptr;
-    }
-
     std::optional<std::uint32_t> LangCache::evictOne(int *num_visited)
     {
         if (m_size == 0) {
@@ -212,7 +193,8 @@ namespace db0
                     }
                     m_visited[m_evict_hand - m_cache.begin()] = false;
                 } else {
-                    if (LangToolkit::getLangRefCount(m_evict_hand->second.get()) == 1) {
+                    // NOTE: we check for any refernces except from LangCache itself (+1)
+                    if (!LangToolkit::hasAnyLangRefs(m_evict_hand->second.get(), 1)) {
                         // evict the object
                         m_uid_to_index.erase(m_evict_hand->first);                                                
                         *m_evict_hand = {};                        
@@ -271,24 +253,10 @@ namespace db0
         m_objects.erase(address);
     }
     
-    LangCacheView::ObjectSharedPtr LangCacheView::get(Address address, bool &has_refs) const {
-        return m_cache.get(m_fixture_id, address, has_refs);
+    LangCacheView::ObjectSharedExtPtr LangCacheView::get(Address address) const {
+        return m_cache.get(m_fixture_id, address);
     }
-    
-    LangCache::ObjectSharedPtr LangCacheView::get(Address address) const
-    {
-        bool has_refs = false;
-        auto obj_ptr = get(address, has_refs);
-        if (!obj_ptr.get()) {
-            return nullptr;
-        }
-        if (!has_refs) {
-            // object has no references, raise an exception
-            THROWF(db0::InputException) << "Accessing deleted object: " << address;
-        }
-        return obj_ptr;
-    }
-    
+        
     void LangCacheView::moveFrom(LangCacheView &other, Address src_address, Address dst_address)
     {
         m_cache.moveFrom(other.m_cache, other.m_fixture_id, src_address, m_fixture_id, dst_address);

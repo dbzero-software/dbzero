@@ -20,4 +20,8 @@ namespace db0::object_model
         return m_value < other.m_value;
     }
     
+    TypedAddress toTypedAddress(const std::pair<UniqueAddress, StorageClass> &addr_with_type) {
+        return { addr_with_type.second, addr_with_type.first.getAddress() };
+    }
+
 }   

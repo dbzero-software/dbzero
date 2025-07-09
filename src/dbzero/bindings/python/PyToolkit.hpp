@@ -7,6 +7,7 @@
 #include "PyTypeManager.hpp"
 #include "PyWorkspace.hpp"
 #include "PyTypes.hpp"
+#include "PyLocks.hpp"
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 
@@ -47,6 +48,7 @@ namespace db0::python
     public:
         using ObjectPtr = typename PyTypes::ObjectPtr;
         using ObjectSharedPtr = typename PyTypes::ObjectSharedPtr;
+        using ObjectSharedExtPtr = typename PyTypes::ObjectSharedExtPtr;
         using TypeObjectPtr = typename PyTypes::TypeObjectPtr;
         using TypeObjectSharedPtr = typename PyTypes::TypeObjectSharedPtr;
         using TypeManager = db0::python::PyTypeManager;
@@ -92,7 +94,7 @@ namespace db0::python
         */
         static std::optional<std::string> tryGetModuleName(TypeObjectPtr py_type);
         static std::string getModuleName(TypeObjectPtr py_type);
-                
+        
         // Unload with type resolution
         // optionally may use specific lang class (e.g. MemoBase)
         static ObjectSharedPtr unloadObject(db0::swine_ptr<Fixture> &, Address, const ClassFactory &,
@@ -191,7 +193,9 @@ namespace db0::python
         static const std::vector<std::string> &getInitVars(TypeObjectPtr memo_type);
         
         static bool isSingleton(TypeObjectPtr py_type);
-
+        // check if a memo type is marked with no_default_tags flag
+        static bool isNoDefaultTags(TypeObjectPtr py_type);
+        
         inline static void incRef(ObjectPtr py_object) {
             Py_INCREF(py_object);                
         }
@@ -206,13 +210,18 @@ namespace db0::python
         // indicate failed operation with a specific value/code
         static void setError(ObjectPtr err_obj, std::uint64_t err_value);
         
-        // Get the number of references from other language objects
-        static unsigned int getLangRefCount(ObjectPtr);
         // Check if the object has reference from other dbzero objects or tags
-        // NOTE!!! this only works for CommonBase/PyWrapper objects (e..g all LangCache objects)
+        // NOTE!!! this only works for CommonBase/PyWrapper objects (e.g. all LangCache objects)
         static bool hasRefs(ObjectPtr);
-        // Check if CommonBase object has any references either from dbzero or the language code
-        static bool hasAnyRefs(ObjectPtr, int lang_refs_adjuster);
+        // Check if the object has references from other language objects (other than LangCache)
+        static bool hasLangRefs(ObjectPtr);
+        // Check if there exist any references except specific number of external references
+        // in practice this means that object has references either from python or internal buffers except ext_ref_count (e.g. LangCache)
+        static bool hasAnyLangRefs(ObjectPtr, unsigned int ext_ref_count);
+
+        // Check if any tag-references exist (i.e. are any tags assigned)
+        // NOTE!!! this only works for memo objects
+        static bool hasTagRefs(ObjectPtr);
         
         // Extract keys (if present) from a Python dict object
         static std::optional<long> getLong(ObjectPtr py_object, const std::string &key);
@@ -230,6 +239,9 @@ namespace db0::python
         
         // Check the interpreter's status (e.g. returned false if Python is defunct)
         static bool isValid();
+        
+        // Acquire the interpreter's GIL lock
+        static std::unique_ptr<GIL_Lock> ensureLocked();
 
     private:
         static PyWorkspace m_py_workspace;

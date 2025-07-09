@@ -40,6 +40,8 @@ namespace db0::object_model
         KV_Address m_kv_address;
         // kv-index type must be stored separately from the address
         bindex::type m_kv_type;
+        // number of auto-assigned type tags
+        std::uint8_t m_num_type_tags = 0;
         // reserved for future purposes (e.g. instance flags)
         std::uint8_t m_reserved = 0;
 
@@ -52,11 +54,13 @@ namespace db0::object_model
         IndexVT &index_vt();
 
         // ref_counts - the initial reference counts (tags / objects) inherited from the initializer
-        o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data, 
-            const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
+        o_object(std::uint32_t class_ref, std::pair<std::uint32_t, std::uint32_t> ref_counts, std::uint8_t num_type_tags, 
+            const PosVT::Data &pos_vt_data, const XValue *index_vt_begin = nullptr, 
+            const XValue *index_vt_end = nullptr);
         
-        static std::size_t measure(std::uint32_t, std::pair<std::uint32_t, std::uint32_t>, const PosVT::Data &pos_vt_data,
-            const XValue *index_vt_begin = nullptr, const XValue *index_vt_end = nullptr);
+        static std::size_t measure(std::uint32_t, std::pair<std::uint32_t, std::uint32_t>, std::uint8_t num_type_tags,
+            const PosVT::Data &pos_vt_data, const XValue *index_vt_begin = nullptr, 
+            const XValue *index_vt_end = nullptr);
         
         template <typename BufT> static std::size_t safeSizeOf(BufT buf)
         {
@@ -66,6 +70,8 @@ namespace db0::object_model
         }     
         
         void incRef(bool is_tag);
+        bool hasRefs() const;
+        bool hasAnyRefs() const;
     };
     
     struct FieldLayout
@@ -99,7 +105,8 @@ namespace db0::object_model
         using ObjectStem = db0::v_object<o_object>;
         using TypeInitializer = ObjectInitializer::TypeInitializer;
 
-        Object();
+        // construct as null / dropped object
+        Object(UniqueAddress, unsigned int ext_refs);
         Object(const Object &) = delete;
         Object(Object &&) = delete;
 
@@ -118,8 +125,8 @@ namespace db0::object_model
         // post-init invoked by memo type directly after __init__
         void postInit(FixtureLock &);
         
-        // make null instance (e.g. after destroying the original one)
-        static Object *makeNull(void *at_ptr);
+        // Destroys an existing instance and constructs a "null" placeholder 
+        void dropInstance(FixtureLock &);
         
         // Unload the object stem, to retrieve its type
         static ObjectStem tryUnloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
@@ -167,7 +174,7 @@ namespace db0::object_model
         FieldLayout getFieldLayout() const;
         
         // Convert singleton into a regular instance
-        void unSingleton();
+        void unSingleton(FixtureLock &);
 
         void destroy() const;
                 
@@ -184,9 +191,15 @@ namespace db0::object_model
          * The overloaded incRef implementation is provided to also handle non-fully initialized objects
         */
         void incRef(bool is_tag);
+        bool hasRefs() const;
+        // check for any refs (including auto-assigned type tags)
+        bool hasAnyRefs() const;
         
-        // @return reference count (of a specific type) after decrement
-        std::uint32_t decRef(bool is_tag);
+        // check if any references from tags exist (i.e. are any tags assigned)
+        bool hasTagRefs() const;
+        
+        // @return true if reference count was decremented to zero
+        bool decRef(bool is_tag);
         
         // Binary (shallow) compare 2 objects or 2 versions of the same memo object (e.g. from different snapshots)
         // NOTE: ref-counts are not compared (only user-assigned members)
@@ -210,6 +223,7 @@ namespace db0::object_model
         void commit() const;
         
         Address getAddress() const;
+        UniqueAddress getUniqueAddress() const;
 
         // NOTE: the operation is marked const because the dbzero state is not affected
         void setDefunct() const;
@@ -222,6 +236,13 @@ namespace db0::object_model
             return m_flags.test(ObjectOptions::DEFUNCT);
         }
         
+        // is dropped or defunct
+        inline bool isDead() const {
+            return m_flags.any(
+                static_cast<std::uint8_t>(ObjectOptions::DROPPED) | static_cast<std::uint8_t>(ObjectOptions::DEFUNCT)
+            );
+        }
+        
         std::pair<FieldID, bool> findField(const char *name) const;
         
         // Check if the 2 memo objects are of the same type
@@ -229,19 +250,33 @@ namespace db0::object_model
 
         // the member called to indicate the object mutation
         void touch();
+        
+        void addExtRef() const;
+        void removeExtRef() const;
+
+        inline std::uint32_t getExtRefs() const {
+            return m_ext_refs;
+        }
 
     private:
         // Class will only be assigned after initialization
         std::shared_ptr<Class> m_type;
         // local kv-index instance cache (created at first use)
-        mutable std::unique_ptr<KV_Index> m_kv_index;
+        mutable std::unique_ptr<KV_Index> m_kv_index;        
         static ObjectInitializerManager m_init_manager;
         mutable ObjectFlags m_flags;
+        // reference counter for inner references from language objects
+        // NOTE: inner references are held by internal dbzero buffers (e.g. TagIndex)
+        // see also PyEXT_INCREF / PyEXT_DECREF
+        mutable std::uint32_t m_ext_refs = 0;
         // A flag indicating that object's silent mutation has already been reflected
         // with the underlying MemLock / ResourceLock
         // NOTE: by silent mutation we mean a mutation that does not change data (e.g. +refcount(+-1) + (refcount-1))
         mutable bool m_touched = false;
-                
+        // NOTE: member assigned only to dropped objects (see replaceWithNull)
+        // so that we can retrieve the address of the dropped instance after it has been destroyed
+        const UniqueAddress m_unique_address;
+        
         void setType(std::shared_ptr<Class>);
         // adjusts to actual type if the type hint is a base class
         void setTypeWithHint(std::shared_ptr<Class> type_hint);
@@ -263,7 +298,8 @@ namespace db0::object_model
         const KV_Index *tryGetKV_Index() const;   
         
         void dropMembers(Class &) const;
-
+        void dropTags(Class &) const;
+        
         void unrefMember(db0::swine_ptr<Fixture> &, StorageClass, Value) const;
         void unrefMember(db0::swine_ptr<Fixture> &, XValue) const;
         

@@ -7,7 +7,7 @@
 namespace db0::python 
 
 {
-
+    
     class PyTypes
     {
     public:
@@ -15,6 +15,8 @@ namespace db0::python
         using ObjectPtr = PyObject*;
         // type acting as a shared pointer to an object instance
         using ObjectSharedPtr = shared_py_object<PyObject*>;
+        // shared pointer assumed as the "external reference" - i.e. not owned by the language
+        using ObjectSharedExtPtr = shared_py_object<PyObject*, true>;
         using TypeObjectPtr = PyTypeObject*;
         using TypeObjectSharedPtr = shared_py_object<PyTypeObject*>;
     };

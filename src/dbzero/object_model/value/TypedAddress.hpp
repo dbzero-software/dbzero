@@ -46,4 +46,6 @@ namespace db0::object_model
         bool operator<(const TypedAddress &other) const;
     };
     
+    TypedAddress toTypedAddress(const std::pair<UniqueAddress, StorageClass> &);
+    
 }

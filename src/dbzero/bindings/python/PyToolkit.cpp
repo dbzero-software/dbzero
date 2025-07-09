@@ -89,7 +89,7 @@ namespace db0::python
         }
         return *result;
     }
-            
+    
     PyToolkit::ObjectSharedPtr PyToolkit::unloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
         TypeObjectPtr lang_class, std::uint16_t instance_id)
     {
@@ -100,46 +100,36 @@ namespace db0::python
     bool PyToolkit::isExistingObject(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
     {
         // try unloading from cache first
-        auto &lang_cache = fixture->getLangCache();
-        bool would_throw = false;
-        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, nullptr, &would_throw);
+        auto &lang_cache = fixture->getLangCache();        
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, nullptr);
         
-        if (would_throw) {
-            // object is known to be deleted, but this is a non-throwing function
-            return false;
-        }
-
         if (obj_ptr.get()) {
             // only validate instance ID if provided
+            auto &memo = reinterpret_cast<MemoObject*>(obj_ptr.get())->ext();
             if (instance_id) {
                 // NOTE: we first must check if this is really a memo object
                 if (!isMemoObject(obj_ptr.get())) {
                     return false;
                 }
                 
-                if (reinterpret_cast<MemoObject*>(obj_ptr.get())->ext().getInstanceId() != instance_id) {
+                if (memo.getInstanceId() != instance_id) {
                     return false;
                 }
             }
-            
-            return true;
+            // NOTE: objects with no references (either from dbzero or other lang types) are considered deleted            
+            return PyToolkit::hasLangRefs(*obj_ptr) || memo.hasRefs();
         }
         
-        // Check if object's stem can be unloaded
-        return db0::object_model::Object::checkUnload(fixture, address, instance_id);
+        // Check if object's stem can be unloaded (and has refs)
+        return db0::object_model::Object::checkUnload(fixture, address, instance_id, true);
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::tryUnloadObject(db0::swine_ptr<Fixture> &fixture, Address address,
         const ClassFactory &class_factory, TypeObjectPtr lang_type_ptr, std::uint16_t instance_id)
     {
         // try unloading from cache first
-        auto &lang_cache = fixture->getLangCache();
-        bool would_throw = false;
-        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, nullptr, &would_throw);
-        if (would_throw) {
-            // object is known to be deleted, but this is a non-throwing function
-            return {};
-        }
+        auto &lang_cache = fixture->getLangCache();        
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address, nullptr);
         
         if (obj_ptr.get()) {
             // only validate instance ID if provided
@@ -178,10 +168,11 @@ namespace db0::python
         
         // construct Python's memo object (placeholder for actual dbzero instance)
         // the associated lang class must be available
-        auto memo_object = MemoObjectStub_new(lang_type_ptr);
+        PyObject *memo_ptr = MemoObjectStub_new(lang_type_ptr);
         // unload from stem
-        db0::object_model::Object::unload(&(memo_object.get())->modifyExt(), std::move(stem), type);
-        obj_ptr = shared_py_cast<PyObject*>(std::move(memo_object));
+        db0::object_model::Object::unload(&(reinterpret_cast<MemoObject*>(memo_ptr)->modifyExt()), std::move(stem), type);
+        // NOTE: Py_OWN only possible with a proper object
+        obj_ptr = Py_OWN(memo_ptr);
         lang_cache.add(address, obj_ptr.get());
         return obj_ptr;
     }
@@ -209,12 +200,13 @@ namespace db0::python
         }
         
         // NOTE: lang_class may be of a base type (e.g. MemoBase)
-        auto memo_object = MemoObjectStub_new(lang_class);
-        auto &object = *db0::object_model::Object::unload(&(memo_object.get())->modifyExt(), address, type);
-        obj_ptr = shared_py_cast<PyObject*>(std::move(memo_object));
+        PyObject *memo_ptr = MemoObjectStub_new(lang_class);
+        auto &object = *db0::object_model::Object::unload(&(reinterpret_cast<MemoObject*>(memo_ptr)->modifyExt()), address, type);
+        // NOTE: Py_OWN only possible with a proper object
+        obj_ptr = Py_OWN(memo_ptr);
         // NOTE: instance may be pending deletion (if it has no refs), even if it exists
         if (!object.hasRefs()) {
-            THROWF(db0::InputException) << "Requested instance does not exist";
+            THROWF(db0::InputException) << "Object instance does not exist";
         }
         
         lang_cache.add(address, obj_ptr.get());
@@ -240,7 +232,7 @@ namespace db0::python
     PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, const LongWeakRef &weak_ref) {
         return unloadExpiredRef(fixture, weak_ref->m_fixture_uuid, weak_ref->m_address);
     }
-        
+    
     PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
     {
         using List = db0::object_model::List;
@@ -264,7 +256,7 @@ namespace db0::python
     bool PyToolkit::isExistingList(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id)
     {
         using List = db0::object_model::List;
-        return List::checkUnload(fixture, address, instance_id);
+        return List::checkUnload(fixture, address, instance_id, false);
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadByteArray(db0::swine_ptr<Fixture> fixture, Address address)
@@ -305,7 +297,7 @@ namespace db0::python
     }
     
     bool PyToolkit::isExistingIndex(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Index::checkUnload(fixture, address, instance_id);
+        return db0::object_model::Index::checkUnload(fixture, address, instance_id, false);
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
@@ -328,7 +320,7 @@ namespace db0::python
     }
     
     bool PyToolkit::isExistingSet(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Set::checkUnload(fixture, address, instance_id);
+        return db0::object_model::Set::checkUnload(fixture, address, instance_id, false);
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadDict(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
@@ -351,9 +343,9 @@ namespace db0::python
     }
 
     bool PyToolkit::isExistingDict(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Dict::checkUnload(fixture, address, instance_id);
+        return db0::object_model::Dict::checkUnload(fixture, address, instance_id, false);
     }
-
+    
     PyToolkit::ObjectSharedPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
     {
         // try pulling from cache first
@@ -374,7 +366,7 @@ namespace db0::python
     }
     
     bool PyToolkit::isExistingTuple(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Tuple::checkUnload(fixture, address, instance_id);
+        return db0::object_model::Tuple::checkUnload(fixture, address, instance_id, false);
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::deserializeObjectIterable(db0::swine_ptr<Fixture> fixture,
@@ -499,7 +491,9 @@ namespace db0::python
         return shared_py_cast<PyObject*>(makePyEnumValue(value));
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::makeEnumValueRepr(std::shared_ptr<EnumTypeDef> type_def, const char *str_value) {
+    PyToolkit::ObjectSharedPtr PyToolkit::makeEnumValueRepr(std::shared_ptr<EnumTypeDef> type_def,
+        const char *str_value) 
+    {
         return shared_py_cast<PyObject*>(makePyEnumValueRepr(type_def, str_value));
     }
     
@@ -544,6 +538,15 @@ namespace db0::python
         }
     }
     
+    bool PyToolkit::isNoDefaultTags(TypeObjectPtr py_type)
+    {
+        if (isMemoType(py_type)) {
+            return MemoTypeDecoration::get(py_type).getFlags()[MemoOptions::NO_DEFAULT_TAGS];
+        } else {
+            return false;
+        }
+    }
+    
     const char *PyToolkit::getPrefixName(TypeObjectPtr memo_type)
     {
         assert(isMemoType(memo_type));
@@ -565,13 +568,19 @@ namespace db0::python
     bool PyToolkit::isMemoType(TypeObjectPtr py_type) {
         return PyMemoType_Check(py_type);
     }
-
+    
     void PyToolkit::setError(ObjectPtr err_obj, std::uint64_t err_value) {
         PyErr_SetObject(err_obj, *Py_OWN(PyLong_FromUnsignedLongLong(err_value)));
     }
-
-    unsigned int PyToolkit::getLangRefCount(ObjectPtr obj) {
-        return Py_REFCNT(obj);
+    
+    bool PyToolkit::hasLangRefs(ObjectPtr obj) {
+        // NOTE: total number of references must be greater than the extended (inner) reference count
+        // NOTE: for regular objects (we use defult = 1 to account for the reference held by the LangCache)
+        return Py_REFCNT(obj) > PyEXT_REFCOUNT(obj, 1);
+    }
+    
+    bool PyToolkit::hasAnyLangRefs(ObjectPtr obj, unsigned int ext_ref_count) {
+        return Py_REFCNT(obj) > ext_ref_count;
     }
     
     PyObject *getValue(PyObject *py_dict, const std::string &key)
@@ -686,8 +695,18 @@ namespace db0::python
         return reinterpret_cast<PyCommonBase*>(obj_ptr)->ext().hasRefs();
     }
     
-    bool PyToolkit::hasAnyRefs(ObjectPtr obj_ptr, int lang_refs_adjuster) {
-        return ((int)getLangRefCount(obj_ptr) + lang_refs_adjuster > 0) || hasRefs(obj_ptr);
+    bool PyToolkit::hasTagRefs(ObjectPtr obj_ptr)
+    {
+        assert(PyMemo_Check(obj_ptr));
+        return reinterpret_cast<MemoObject*>(obj_ptr)->ext().hasTagRefs();
     }
     
+    std::unique_ptr<GIL_Lock> PyToolkit::ensureLocked()
+    {
+        if (!Py_IsInitialized()) {
+            return {};
+        }
+        return std::make_unique<GIL_Lock>();
+    }
+
 }

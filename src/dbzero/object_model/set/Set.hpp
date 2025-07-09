@@ -34,8 +34,12 @@ namespace db0::object_model
         Address m_index_ptr = {};
         std::uint64_t m_size = 0;
         std::array<std::uint64_t, 2> m_reserved = {0, 0};
-    };
 
+        bool hasRefs() const {
+            return m_header.hasRefs();
+        }
+    };
+    
     class Set: public db0::ObjectBase<Set, db0::v_object<o_set>, StorageClass::DB0_SET>
     {
         GC0_Declare
@@ -47,6 +51,8 @@ namespace db0::object_model
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using const_iterator = typename db0::v_bindex<set_item>::const_iterator;
         
+        // as null placeholder
+        Set() = default;
         explicit Set(db0::swine_ptr<Fixture> &, Address);
         ~Set();
 
@@ -89,7 +95,7 @@ namespace db0::object_model
     private:
         db0::v_bindex<set_item> m_index;
         mutable db0::weak_vector<SetIterator> m_iterators;
-
+        
         // new sets can only be created via factory members
         explicit Set(db0::swine_ptr<Fixture> &);
         explicit Set(tag_no_gc, db0::swine_ptr<Fixture> &, const Set &);

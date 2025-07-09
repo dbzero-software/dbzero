@@ -131,39 +131,32 @@ namespace db0::python
         if (py_expected_type && !checkObjectIdType(object_id, py_expected_type)) {
             return false;
         }
-        
+                
         auto storage_class = object_id.m_storage_class;
         auto addr = object_id.m_address;
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
-            // NOTE: there might be tag-removal operations buffered for the requested instance
-            // in case of a read/write mode conditionally trigger flush in such case
-            if (db0::object_model::isObjectPendingUpdate(fixture, addr)) {
-                FixtureLock lock(fixture);
-                // flush pending updates
-                lock->flush();                
-            }
-            
             auto &class_factory = fixture->get<ClassFactory>();
+            // NOTE: we always need to unload the object to also validate hasRefs
+            // since objects with no refs are considered deleted
+            auto result = PyToolkit::tryUnloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
+            if (!result.get()) {
+                return false;
+            }
+
             // validate type if requested
+            auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
             if (py_expected_type) {
-                // no type validation required for MemoBase
-                if (PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
-                    return PyToolkit::isExistingObject(fixture, addr, addr.getInstanceId());
-                }
-                
                 // in other cases the type must match the actual object type
                 auto expected_class = class_factory.tryGetExistingType(py_expected_type);
                 if (!expected_class) {
                     return false;
                 }
-                auto result = PyToolkit::tryUnloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
-                if (!result.get()) {
+                if (memo.getType() != *expected_class) {
                     return false;
                 }
-                return reinterpret_cast<MemoObject*>(result.get())->ext().getType() == *expected_class;
-            } else {
-                return PyToolkit::isExistingObject(fixture, addr, addr.getInstanceId());
             }
+
+            return true;
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             return PyToolkit::isExistingList(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            
@@ -184,7 +177,7 @@ namespace db0::python
     
     shared_py_object<PyObject*> fetchObject(db0::swine_ptr<Fixture> &fixture, ObjectId object_id,
         PyTypeObject *py_expected_type)
-    {   
+    {
         using ClassFactory = db0::object_model::ClassFactory;
         using Class = db0::object_model::Class;
         
@@ -195,33 +188,20 @@ namespace db0::python
         
         auto storage_class = object_id.m_storage_class;
         auto addr = object_id.m_address;
-        if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
-            // NOTE: there might be tag-removal operations buffered for the requested instance
-            // in case of a read/write mode conditionally trigger flush in such case
-            if (db0::object_model::isObjectPendingUpdate(fixture, addr)) {
-                FixtureLock lock(fixture);
-                // flush pending updates
-                lock->flush();                
-            }
-
+        if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {            
             auto &class_factory = fixture->get<ClassFactory>();
-            // validate type if requested
-            if (py_expected_type) {
-                // unload as MemoBase
-                if (PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {
-                    return PyToolkit::unloadObject(fixture, addr, class_factory, py_expected_type, addr.getInstanceId());
-                }
-
+            auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
+            auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
+                        
+            // validate type if requested (no validation for MemoBase)
+            if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {                
                 // in other cases the type must match the actual object type
-                auto expected_class = class_factory.getExistingType(py_expected_type);
-                auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
-                if (reinterpret_cast<MemoObject*>(result.get())->ext().getType() != *expected_class) {
+                auto expected_class = class_factory.getExistingType(py_expected_type);                
+                if (memo.getType() != *expected_class) {
                     THROWF(db0::InputException) << "Object type mismatch";
                 }
-                return result;
-            } else {
-                return PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             }
+            return result;
         } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
             return PyToolkit::unloadList(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            
@@ -480,7 +460,7 @@ namespace db0::python
                 // flush pending updates
                 lock->flush();                
             }
-            return PyLong_FromLong(getTotal(memo.getRefCounts(), -(memo.getType().getNumBases() + 1)));
+            return PyLong_FromLong(getTotal(memo.getRefCounts(), -memo->m_num_type_tags));
         } else if (PyClassObject_Check(py_object)) {
             auto ref_counts = reinterpret_cast<ClassObject*>(py_object)->ext().getRefCounts();
             return PyLong_FromLong(getTotal(ref_counts, 0));
@@ -774,25 +754,14 @@ namespace db0::python
     }
     
     shared_py_object<PyObject*> tryUnloadObjectFromCache(LangCacheView &lang_cache, Address address,
-        std::shared_ptr<db0::object_model::Class> expected_type, bool *would_throw)
-    {
-        bool has_refs = false;
-        auto obj_ptr = lang_cache.get(address, has_refs);
+        std::shared_ptr<db0::object_model::Class> expected_type)
+    {        
+        auto obj_ptr = lang_cache.get(address);
         if (!obj_ptr.get()) {
             // not found in cache
             return nullptr;
         }
         
-        if (!has_refs) {
-            // either throw or set would_throw flag
-            if (would_throw) {
-                *would_throw = true;
-                return obj_ptr;
-            } else {
-                THROWF(db0::InputException) << "Deleted object accessed: " << address;
-            }
-        }
-
         if (expected_type) {
             if (!PyMemo_Check(obj_ptr.get())) {
                 THROWF(db0::InputException) << "Invalid object type: " << PyToolkit::getTypeName(obj_ptr.get()) << " (Memo expected)";
@@ -931,5 +900,5 @@ namespace db0::python
         
         Py_RETURN_NONE;
     }
-    
+        
 }

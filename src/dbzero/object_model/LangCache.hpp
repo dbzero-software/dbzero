@@ -17,7 +17,7 @@ namespace db0
     public:        
         using LangToolkit = typename db0::object_model::LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
-        using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;        
+        using ObjectSharedExtPtr = typename LangToolkit::ObjectSharedExtPtr;
         static constexpr std::size_t DEFAULT_CAPACITY = 1024;
         // the default growth step after reaching capacity        
         static constexpr std::size_t DEFAULT_STEP = 32;
@@ -36,10 +36,7 @@ namespace db0
         
         // Try retrieving an existing instance from cache
         // nullptr will be returned if the instance has not been found in cache
-        // @param has_refs will be set to false is the instance has no references and is pending deletion
-        ObjectSharedPtr get(const Fixture &, Address, bool &has_refs) const;
-        // This version will raise an exception if the deleted instance is accessed
-        ObjectSharedPtr get(const Fixture &, Address) const;
+        ObjectSharedExtPtr get(const Fixture &, Address) const;
         
         // Move instance from a different cache (changing its address)
         void moveFrom(LangCache &other, const Fixture &src_fixture, Address src_address,
@@ -69,7 +66,7 @@ namespace db0
 
     private:
         // UID + instance pair
-        using CacheItem = std::pair<std::uint64_t, ObjectSharedPtr>;
+        using CacheItem = std::pair<std::uint64_t, ObjectSharedExtPtr>;
         const std::size_t m_capacity;
         const std::uint32_t m_step;
         // the number of currently cached objects
@@ -85,7 +82,7 @@ namespace db0
         
         bool isFull() const;
         
-        ObjectSharedPtr get(std::uint16_t fixture_id, Address, bool &has_refs) const;
+        ObjectSharedExtPtr get(std::uint16_t fixture_id, Address) const;
         
         void moveFrom(LangCache &other, std::uint16_t src_fixture_id, Address src_address,
             std::uint16_t dst_fixture_id, Address dst_address);
@@ -107,7 +104,7 @@ namespace db0
     {
     public:
         using ObjectPtr = typename LangCache::ObjectPtr;
-        using ObjectSharedPtr = typename LangCache::ObjectSharedPtr;
+        using ObjectSharedExtPtr = typename LangCache::ObjectSharedExtPtr;
         
         LangCacheView(const Fixture &, std::shared_ptr<LangCache>);
         
@@ -115,9 +112,7 @@ namespace db0
 
         void erase(Address);
         
-        ObjectSharedPtr get(Address, bool &has_refs) const;
-        // this version will raise an exception if the deleted instance is accessed
-        ObjectSharedPtr get(Address) const;
+        ObjectSharedExtPtr get(Address) const;
 
         void moveFrom(LangCacheView &other, Address src_address, Address dst_address);
         

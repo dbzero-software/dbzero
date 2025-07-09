@@ -340,7 +340,17 @@ namespace db0::python
     
     PyObject *tryStopWorkspaceThreads()
     {
-        PyToolkit::getPyWorkspace().stopThreads();
+        // NOTE: must unlock GIL or otherwise might cause deadlock
+        PyThreadState *save_state = PyEval_SaveThread();
+        try {
+            // stop workspace threads
+            PyToolkit::getPyWorkspace().stopThreads();                        
+        } catch (...) {
+            PyEval_RestoreThread(save_state);
+            throw;
+        }
+        
+        PyEval_RestoreThread(save_state);
         Py_RETURN_NONE;
     }
     
@@ -365,6 +375,7 @@ namespace db0::python
         
         if (!prefix_name) {
             // note we need to stop workspace threads before API lock
+            // otherwise it may cause deadlock
             runSafe(tryStopWorkspaceThreads);
         }
         
@@ -1330,5 +1341,5 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryTouch, args, nargs);
     }
-    
+        
 }

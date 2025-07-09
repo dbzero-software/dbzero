@@ -1,7 +1,7 @@
 import pytest
 import operator
 import dbzero_ce as db0
-from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoClassForTags
+from .memo_test_types import MemoTestSingleton, MemoTestClass, MemoScopedClass, MemoClassForTags, MemoTestClassWithMethods, MemoNoDefTags
 from .conftest import DB0_DIR, DATA_PX
 import itertools
 
@@ -67,8 +67,7 @@ def test_object_gets_dropped_if_norefs_after_tags_removed(db0_fixture):
     db0.commit()
     # remove tags
     db0.tags(object_1).remove(["tag1", "tag2"])
-    del object_1
-    db0.clear_cache()
+    del object_1    
     db0.commit()
     # object should be dropped from dbzero
     with pytest.raises(Exception):
@@ -96,10 +95,10 @@ def test_tag_queries_can_use_no_operator(db0_fixture):
     objects = [MemoClassForTags(i) for i in range(10)]
     db0.tags(objects[4]).add(["tag1", "tag2"])
     db0.tags(objects[6]).add(["tag4", "tag3"])
-    db0.tags(objects[2]).add(["tag3", "tag4"])
+    db0.tags(objects[2]).add(["tag3", "tag1"])
     
     values = set([x.value for x in db0.find(MemoClassForTags, db0.no("tag1"))])
-    assert values == set([2, 6])
+    assert values == {0, 1, 3, 5, 6, 7, 8, 9}
 
 
 def test_memo_instance_can_be_used_as_tag(db0_fixture):
@@ -304,20 +303,22 @@ def test_add_250k_tags_low_cache(db0_no_autocommit):
         assert len(list(db0.find(tag))) == 1, f"Tag {tag} not found after adding 250k tags"
 
     
-def test_object_with_no_refs_destroyed_immediately_when_last_tag_removed(db0_fixture):
+def test_object_with_no_refs_destroyed_when_last_tag_removed(db0_fixture):
     db0.tags(MemoTestClass(0)).add("tag-1")
     uuid = db0.uuid(next(iter(db0.find(MemoTestClass, "tag-1"))))
     db0.commit()
     assert db0.exists(uuid) 
     db0.tags(next(iter(db0.find(MemoTestClass, "tag-1")))).remove("tag-1")
+    db0.commit()
     assert not db0.exists(uuid)
 
 
-def test_object_with_no_refs_cannot_be_fetched_immediately_when_last_tag_removed(db0_fixture):
+def test_object_with_no_refs_cannot_be_fetched_when_last_tag_removed(db0_fixture):
     db0.tags(MemoTestClass(0)).add("tag-1")
     uuid = db0.uuid(next(iter(db0.find(MemoTestClass, "tag-1"))))
-    db0.commit()    
+    db0.commit()
     db0.tags(next(iter(db0.find(MemoTestClass, "tag-1")))).remove("tag-1")
+    db0.commit()
     with pytest.raises(Exception):
         _ = db0.fetch(uuid)
     
@@ -328,3 +329,44 @@ def test_object_with_no_refs_no_longer_accessible_by_type_when_last_tag_removed(
     db0.commit()    
     db0.tags(next(iter(db0.find(MemoTestClass, "tag-1")))).remove("tag-1")
     assert not db0.find(MemoTestClass)
+
+
+def test_type_tags_automatically_assigned(db0_fixture):
+    obj_1 = MemoTestClass(0)
+    assert len(db0.find(MemoTestClass)) == 1
+
+
+def test_deleted_object_cannot_be_looked_up_by_type(db0_fixture):
+    obj_1 = MemoTestClass(0)
+    del obj_1    
+    assert len(db0.find(MemoTestClass)) == 0
+
+
+def test_object_persisted_when_tag_assigned(db0_fixture):
+    db0.tags(MemoTestClass(123)).add("tag-1")
+    db0.commit()
+    assert len(db0.find(MemoTestClass)) == 1
+    assert len(db0.find(MemoTestClass, "tag-1")) == 1
+    assert len(db0.find("tag-1")) == 1
+    
+
+def test_persisted_and_then_deleted_object_cannot_be_looked_up_by_type(db0_fixture):
+    obj_1 = MemoTestClass(MemoTestClassWithMethods(0))
+    db0.commit()
+    db0.delete(obj_1)
+    assert len(db0.find(MemoTestClassWithMethods)) == 0
+    assert len(db0.find(MemoTestClass)) == 0
+
+
+def test_automatic_type_tags_opt_out(db0_fixture):
+    obj_1 = MemoNoDefTags(123)
+    # object not found by type since it opted out of automatic tags
+    assert len(db0.find(MemoNoDefTags)) == 0
+
+
+def test_lookp_by_type_when_no_default_tags(db0_fixture):
+    obj_1 = MemoNoDefTags(123)
+    # NOTE: after adding first tag, we can look-up by type even when type opted out of automatic tags
+    db0.tags(obj_1).add("tag-1")
+    # object not found by type since it opted out of automatic tags
+    assert len(db0.find(MemoNoDefTags)) == 1

@@ -93,8 +93,11 @@ namespace db0::object_model
         std::size_t size() const;
 
         void detach() const;
-
+        
         void commit() const;
+        
+        // NOTE: this is for type compatibility only, Enum objects don't have instance_id
+        UniqueAddress getUniqueAddress() const;
         
     private:
         const std::uint64_t m_fixture_uuid;

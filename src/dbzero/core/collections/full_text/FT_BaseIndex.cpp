@@ -149,10 +149,10 @@ namespace db0
                 if (buf_begin == buf_end) {
                     return;
                 }
-                // Sort list and remove duplicate elements
+                // sort the tags list and remove duplicate elements
                 std::sort(buf_begin, buf_end);
                 buf_end = std::unique(buf_begin, buf_end);
-
+                
                 TagRangesVector tag_ranges;
                 // Find ranges for all tags
                 // This vector will also effectively contain all unique tags
@@ -342,96 +342,86 @@ namespace db0
         }
         return false;
     }
+
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::revert(KeyT key) {
+        m_reverted.insert(key);
+    }
     
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::revert(ActiveValueT value)
+    {
+        if (is_valid(value.first)) {
+            this->revert(value.first);
+        } else if (value.second) {
+            assert(value.second);
+            this->revert(*value.second);
+        }
+    }
+
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::empty() const
     {
-        return m_values.empty() && m_value_refs.empty();
-    }   
-
+        if (m_values.empty() && m_value_refs.empty()) {
+            return true;
+        }
+        // we also need to check, maybe all operations have been reverted
+        for (const auto &item : m_values) {
+            if (m_reverted.find(item.second) == m_reverted.end()) {
+                return false; 
+            }
+        }
+        for (const auto &item : m_value_refs) {
+            // NOTE: for defunct objects value_refs may not be valid
+            if (!is_valid(*item.second) || m_reverted.find(*item.second) == m_reverted.end()) {
+                return false;
+            }
+        }
+        // all values have been reverted
+        return true;
+    }
+    
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::clear()
     {
         m_values.clear();
         m_value_refs.clear();
+        m_reverted.clear();
     }
     
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator 
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::begin() const 
-    {
-        return { *this, typename const_iterator::tag_begin() };
-    }
-
-    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator 
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::end() const 
-    {
-        return { *this, typename const_iterator::tag_end() };
-    }
-
-    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::const_iterator(const TagValueBuffer &buf, tag_begin)
-        : m_values_it(buf.m_values.begin())
-        , m_values_end(buf.m_values.end())
-        , m_value_refs_it(buf.m_value_refs.begin())
-    {
-    }
-
-    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::const_iterator(const TagValueBuffer &buf, tag_end)
-        : m_values_it(buf.m_values.end())
-        , m_values_end(buf.m_values.end())
-        , m_value_refs_it(buf.m_value_refs.end())
-    {
-    }
-
-    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator++()
-    {
-        if (m_values_it != m_values_end) {
-            ++m_values_it;
+    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueList::TagValueList(TagValueBuffer &&buf)    
+    {        
+        if (buf.m_reverted.empty()) {
+            // optimized implementation when no values have been reverted
+            for (auto &item : buf.m_values) {
+                this->push_back(item);
+            }
+            for (auto &item : buf.m_value_refs) {
+                // NOTE: the 0x0 references may come from the defunct objects
+                // and therefore mutest be ignored
+                if (is_valid(*item.second)) {
+                    this->emplace_back(item.first, *item.second);
+                }
+            }
         } else {
-            ++m_value_refs_it;
-        }
-    }
-
-    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator!=(const const_iterator &other) const
-    {
-        return m_values_it != other.m_values_it || m_value_refs_it != other.m_value_refs_it;
-    }
-
-    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator==(const const_iterator &other) const
-    {
-        return m_values_it == other.m_values_it && m_value_refs_it == other.m_value_refs_it;
-    }
-
-    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    std::pair<IndexKeyT, KeyT> 
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::const_iterator::operator*() const
-    {
-        if (m_values_it != m_values_end) {
-            return *m_values_it;
-        } else {
-            return { m_value_refs_it->first, *m_value_refs_it->second };
-        }
-    }
-    
-    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueList::TagValueList(TagValueBuffer &&buf)
-        : std::vector<std::pair<IndexKeyT, KeyT> >(buf.m_values.begin(), buf.m_values.end())
-    {
-        for (auto &item : buf.m_value_refs) {
-            // NOTE: the 0x0 references may come from the defunct objects
-            // and therefore mutest be ignored
-            if (is_valid(*item.second)) {
-                this->emplace_back(item.first, *item.second);
+            const auto &reverted = buf.m_reverted;
+            for (auto &item : buf.m_values) {
+                if (reverted.find(item.second) == reverted.end()) {
+                    this->push_back(item);
+                }
+            }
+            for (auto &item : buf.m_value_refs) {
+                // NOTE: the 0x0 references may come from the defunct objects
+                // and therefore mutest be ignored
+                if (is_valid(*item.second)) {
+                    if (reverted.find(*item.second) == reverted.end()) {
+                        this->emplace_back(item.first, *item.second);
+                    }
+                }
             }
         }
-        buf.m_values.clear();
-        buf.m_value_refs.clear();
+        buf.clear();
     }
     
     template class FT_BaseIndex<std::uint64_t, UniqueAddress>;
