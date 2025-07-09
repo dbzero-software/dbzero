@@ -441,11 +441,13 @@ namespace db0::object_model
             
             if (m_batch_op_types) {
                 // now, scan the object cache and revert any unreferenced objects (no dbzero refs, no lang refs)
+                assert(m_active_cache.empty());
                 for (const auto &item: m_object_cache) {
                     auto obj_ptr = item.second.get();
                     auto &memo = type_manager.extractObject(obj_ptr);
                     // NOTE: dropped instances should've already been reverted by now
-                    if (!memo.isDropped() && !memo.hasAnyRefs() && !LangToolkit::hasLangRefs(obj_ptr)) {
+                    // NOTE: we check for acutal language references (excluding LangCache + TagIndex)
+                    if (!memo.isDropped() && !memo.hasAnyRefs() && !LangToolkit::hasAnyLangRefs(obj_ptr, 2)) {
                         m_batch_op_types->revert(memo.getUniqueAddress());
                     }
                 }
@@ -457,7 +459,7 @@ namespace db0::object_model
                     assert(m_batch_op_types.empty());
                 }
             }
-
+            
             // finally, flush type tag remove ops collected during flush
             if (!batch_op_short.empty()) {
                 // NOTE: no callback are needed here
@@ -466,8 +468,7 @@ namespace db0::object_model
             }
         }
         
-        m_object_cache.clear();
-        m_active_cache.clear();
+        m_object_cache.clear();        
         m_inc_refed_tags.clear();
     }
     
@@ -475,7 +476,8 @@ namespace db0::object_model
     {
         for (auto &item: m_active_cache) {
             auto &memo = LangToolkit::getTypeManager().extractObject(item.first.get());
-            if (!memo.hasInstance()) {
+            // NOTE: dropped objects can be processed (we still are able to access their address)
+            if (!memo.hasInstance() && !memo.isDropped()) {
                 // object might be defunct, in which case needs to be ignored
                 if (memo.isDefunct()) {                   
                     continue;
@@ -492,6 +494,7 @@ namespace db0::object_model
                 m_object_cache.emplace(object_addr, item.first);
             }
         }
+        m_active_cache.clear();
     }
     
     std::unique_ptr<TagIndex::QueryIterator> TagIndex::find(ObjectPtr const *args, std::size_t nargs,

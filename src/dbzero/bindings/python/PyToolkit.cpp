@@ -686,16 +686,7 @@ namespace db0::python
         return reinterpret_cast<PyCommonBase*>(obj_ptr)->ext().hasRefs();
     }
     
-    PyToolkit::GIL_Lock::GIL_Lock()
-        : m_state(PyGILState_Ensure())
-    {
-    }        
-
-    PyToolkit::GIL_Lock::~GIL_Lock() {
-        PyGILState_Release(m_state);
-    }
-
-    std::unique_ptr<PyToolkit::GIL_Lock> PyToolkit::ensureLocked()
+    std::unique_ptr<GIL_Lock> PyToolkit::ensureLocked()
     {
         if (!Py_IsInitialized()) {
             return {};

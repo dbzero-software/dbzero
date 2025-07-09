@@ -7,6 +7,7 @@
 #include "PyTypeManager.hpp"
 #include "PyWorkspace.hpp"
 #include "PyTypes.hpp"
+#include "PyLocks.hpp"
 #include <dbzero/core/collections/pools/StringPools.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
 
@@ -232,13 +233,6 @@ namespace db0::python
         
         // Check the interpreter's status (e.g. returned false if Python is defunct)
         static bool isValid();
-
-        struct GIL_Lock
-        {
-            PyGILState_STATE m_state;
-            GIL_Lock();
-            ~GIL_Lock();
-        };
         
         // Acquire the interpreter's GIL lock
         static std::unique_ptr<GIL_Lock> ensureLocked();

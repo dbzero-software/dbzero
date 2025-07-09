@@ -66,13 +66,13 @@ namespace db0
 
             // then process as unlocked
             lock.unlock();
-            for(FixtureHolder *holder_ptr : fixtures) {
+            for (FixtureHolder *holder_ptr : fixtures) {
                 if (auto fixture = holder_ptr->fixture.lock()) {
                     m_fx_function(*fixture, holder_ptr->last_updated);
                 }      
             }
 
-            if(context) {
+            if (context) {
                 context->finalize();
             }
         }

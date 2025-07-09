@@ -713,3 +713,4 @@ def test_find_in_index_range_issue_1(db0_fixture):
     index.add(3, test_obj)
     assert test_obj in set(index.range())
     assert list(db0.find(index.range(), test_obj)) == [test_obj]
+    
