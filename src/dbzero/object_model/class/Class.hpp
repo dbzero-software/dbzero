@@ -73,7 +73,7 @@ namespace db0::object_model
             std::uint32_t base_class_ref, std::uint32_t num_bases
         );
     };
-    
+        
     // NOTE: Class type uses SLOT_NUM = TYPE_SLOT_NUM
     // NOTE: class allocations are NOT unique
     class Class: public db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS, false>,
@@ -218,7 +218,7 @@ namespace db0::object_model
         UniqueAddress getUniqueAddress() const;
         
     protected:
-        friend class ClassFactory;
+        friend class ClassFactory;        
         friend ClassPtr;
         friend class Object;
         friend super_t;

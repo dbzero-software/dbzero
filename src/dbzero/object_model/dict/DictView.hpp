@@ -20,9 +20,6 @@ namespace db0::object_model
         
         std::shared_ptr<DictIterator> getIterator() const;
         std::size_t size() const;
-
-        static DictView *makeNew(void *at_ptr, const Dict *, ObjectPtr lang_dict, 
-            IteratorType type);
         
     private:
         const Dict *m_collection;

@@ -573,14 +573,14 @@ namespace db0
     void Fixture::beginLocked(unsigned int locked_section_id)
     {
         m_mutation_log.beginLocked(locked_section_id);
-        // also begin locked with registered handlers (e.g. TagIndex)
-        for (auto handler: m_mutation_handlers) {
+        // also begin locked with registered handlers (e.g. TagIndex & Index)
+        for (auto &handler: m_mutation_handlers) {
             handler->beginLocked(locked_section_id);            
         }
     }
     
     bool Fixture::endLocked(unsigned int locked_section_id)
-    {
+    {        
         bool result = m_mutation_log.endLocked(locked_section_id);
         // also end locked with registered handlers (e.g. TagIndex)
         auto it = m_mutation_handlers.begin();
@@ -590,7 +590,7 @@ namespace db0
             if ((*it).use_count() == 1) {
                 m_mutation_log.add(**it);
                 it = m_mutation_handlers.erase(it);
-            } else {                
+            } else {
                 ++it;
             }
         }

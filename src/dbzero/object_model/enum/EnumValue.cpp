@@ -73,12 +73,6 @@ namespace db0::object_model
         assert(m_enum_type_def);
         return *m_enum_type_def;
     }
-
-    EnumValueRepr &EnumValueRepr::makeNew(
-        void *at, std::shared_ptr<EnumTypeDef> enum_type_def, const std::string &str_repr)
-    {
-        return *new(at) EnumValueRepr(enum_type_def, str_repr);
-    }
     
     bool EnumValueRepr::operator==(const EnumValueRepr &other) const {
         return m_enum_type_def == other.m_enum_type_def && m_str_repr == other.m_str_repr;

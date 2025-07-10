@@ -93,14 +93,6 @@ namespace db0::object_model
         modify().items()[i] = createTupleItem<LangToolkit>(*fixture, type_id, *lang_value, storage_class);
     }
     
-    Tuple *Tuple::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, std::size_t size) {
-        return new (at_ptr) Tuple(fixture, tag_new_tuple(), size);
-    }
-    
-    Tuple *Tuple::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, Address address) {
-        return new (at_ptr) Tuple(fixture, address);
-    }
-
     std::size_t Tuple::count(ObjectPtr lang_value) const
     {
         std::size_t count = 0;

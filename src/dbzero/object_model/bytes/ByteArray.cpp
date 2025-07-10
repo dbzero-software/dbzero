@@ -7,11 +7,7 @@ namespace db0::object_model
 {
 
     GC0_Define(ByteArray)
-
-    ByteArray *ByteArray::makeNew(void *at_ptr, db0::swine_ptr<Fixture> & fixture, std::byte * bytes, std::size_t size) {
-        return new (at_ptr) ByteArray(fixture, bytes, size);
-    }
-
+    
     ByteArray::ByteArray(db0::swine_ptr<Fixture> &fixture, std::byte *bytes, std::size_t size)
         : super_t(fixture)
     {
@@ -142,8 +138,4 @@ namespace db0::object_model
         return !(*this == bytearray);
     }
     
-    ByteArray *ByteArray::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, Address address) {
-        return new (at_ptr) ByteArray(fixture, address);
-    }
-
 }

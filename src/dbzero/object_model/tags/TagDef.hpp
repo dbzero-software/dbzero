@@ -21,9 +21,7 @@ namespace db0::object_model
         // the tag associated @memo object
         ObjectSharedPtr m_object;
         
-        TagDef(std::uint64_t fixture_uuid, Address, ObjectPtr);
-                
-        static TagDef &makeNew(void *at_ptr, std::uint64_t fixture_uuid, Address, ObjectPtr);
+        TagDef(std::uint64_t fixture_uuid, Address, ObjectPtr);    
 
         bool operator==(const TagDef &other) const;
         bool operator!=(const TagDef &other) const;

@@ -21,7 +21,7 @@ namespace db0::python
         // this is a pointer to an internal buffer, needs not to be deallocated
         auto safe_str = PyBytes_AsString(py_bytes);
         std::byte *bytes = reinterpret_cast<std::byte *>(safe_str);
-        db0::object_model::ByteArray::makeNew(&bytearray_object->modifyExt(), fixture, bytes, size);        
+        bytearray_object->makeNew(fixture, bytes, size);
     }
     
     PyObject* asPyObject(ByteArrayObject *bytearray_obj)

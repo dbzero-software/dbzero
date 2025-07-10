@@ -29,10 +29,11 @@ namespace db0::object_model
         
         // as null placeholder
         ByteArray() = default;
+        ByteArray(db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
+        ByteArray(tag_no_gc, db0::swine_ptr<Fixture> &, const ByteArray &);
         ByteArray(db0::swine_ptr<Fixture> &, Address);
         ~ByteArray();
-
-        static ByteArray *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
+        
         ObjectSharedPtr getItem(std::size_t i) const;
         std::byte getByte(std::size_t i) const;
         void setItem(FixtureLock &fixture, std::size_t i, ObjectPtr lang_value);
@@ -44,13 +45,7 @@ namespace db0::object_model
 
         // operators
         bool operator==(const ByteArray &) const;
-        bool operator!=(const ByteArray &) const;
-        
-        static ByteArray *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
-
-    private:
-        ByteArray(db0::swine_ptr<Fixture> &, std::byte *, std::size_t);
-        ByteArray(tag_no_gc, db0::swine_ptr<Fixture> &, const ByteArray &);
+        bool operator!=(const ByteArray &) const;                
     };
     
 }

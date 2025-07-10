@@ -66,9 +66,7 @@ namespace db0::object_model
         EnumValueRepr(std::shared_ptr<EnumTypeDef>, const std::string &str_repr);
         ~EnumValueRepr();
         
-        const EnumTypeDef &getEnumTypeDef() const;
-        
-        static EnumValueRepr &makeNew(void *at, std::shared_ptr<EnumTypeDef>, const std::string &str_repr);
+        const EnumTypeDef &getEnumTypeDef() const;        
 
         bool operator==(const EnumValueRepr &other) const;        
         bool operator!=(const EnumValueRepr &other) const;

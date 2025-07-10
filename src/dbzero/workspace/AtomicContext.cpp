@@ -71,13 +71,7 @@ namespace db0
         m_workspace->preAtomic();
         m_workspace->beginAtomic(this);
     }
-    
-    void AtomicContext::makeNew(void *ptr, std::shared_ptr<Workspace> &workspace,
-        std::unique_lock<std::mutex> &&lock) 
-    {
-        new (ptr) AtomicContext(workspace, std::move(lock));
-    }
-    
+        
     void AtomicContext::cancel()
     {
         if (!isActive()) {

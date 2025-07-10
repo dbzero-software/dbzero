@@ -296,8 +296,7 @@ namespace db0::python
         }
 
         db0::FixtureLock lock(fixture);
-        auto &set = py_set.get()->modifyExt();
-        db0::object_model::Set::makeNew(&set, *lock);
+        auto &set = py_set->makeNew(*lock);
         if (nargs == 1) {
             auto iterator = Py_OWN(PyObject_GetIter(args[0]));
             if (!iterator) {                
@@ -384,9 +383,9 @@ namespace db0::python
     {   
         db0::FixtureLock lock(py_src_set->ext().getFixture());        
         auto py_set = SetDefaultObject_new();
-        db0::object_model::Set::makeNew(&py_set.get()->modifyExt(), *lock);
-        py_set.get()->modifyExt().insert(py_src_set->ext());
-        lock->getLangCache().add(py_set.get()->ext().getAddress(), py_set.get());
+        auto &set = py_set->makeNew(*lock);        
+        set.insert(py_src_set->ext());
+        lock->getLangCache().add(set.getAddress(), py_set.get());
         return py_set.steal();
     }
 

@@ -241,6 +241,7 @@ namespace db0::python
         static bool isValid();
         
         // Acquire the interpreter's GIL lock
+        // NOTE: returns nullptr if Python not initialized / defunct
         static std::unique_ptr<GIL_Lock> ensureLocked();
 
     private:

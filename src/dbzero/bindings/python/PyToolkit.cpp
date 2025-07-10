@@ -168,11 +168,11 @@ namespace db0::python
         
         // construct Python's memo object (placeholder for actual dbzero instance)
         // the associated lang class must be available
-        PyObject *memo_ptr = MemoObjectStub_new(lang_type_ptr);
-        // unload from stem
-        db0::object_model::Object::unload(&(reinterpret_cast<MemoObject*>(memo_ptr)->modifyExt()), std::move(stem), type);
+        auto *memo_ptr = MemoObjectStub_new(lang_type_ptr);
+        // unload from stem (with type hint)
+        memo_ptr->unload(fixture, std::move(stem), type, Object::with_type_hint{});
         // NOTE: Py_OWN only possible with a proper object
-        obj_ptr = Py_OWN(memo_ptr);
+        obj_ptr = Py_OWN((PyObject*)memo_ptr);
         lang_cache.add(address, obj_ptr.get());
         return obj_ptr;
     }
@@ -200,15 +200,11 @@ namespace db0::python
         }
         
         // NOTE: lang_class may be of a base type (e.g. MemoBase)
-        PyObject *memo_ptr = MemoObjectStub_new(lang_class);
-        auto &object = *db0::object_model::Object::unload(&(reinterpret_cast<MemoObject*>(memo_ptr)->modifyExt()), address, type);
+        auto *memo_ptr = MemoObjectStub_new(lang_class);
+        // unload with type hint
+        memo_ptr->unload(fixture, address, type, Object::with_type_hint{});
         // NOTE: Py_OWN only possible with a proper object
-        obj_ptr = Py_OWN(memo_ptr);
-        // NOTE: instance may be pending deletion (if it has no refs), even if it exists
-        if (!object.hasRefs()) {
-            THROWF(db0::InputException) << "Object instance does not exist";
-        }
-        
+        obj_ptr = Py_OWN((PyObject*)memo_ptr);
         lang_cache.add(address, obj_ptr.get());
         return obj_ptr;
     }
@@ -247,7 +243,7 @@ namespace db0::python
         
         auto list_object = ListDefaultObject_new();
         // retrieve actual dbzero instance
-        List::unload(&(list_object.get())->modifyExt(), fixture, address);
+        list_object->unload(fixture, address);
         // add list object to cache
         lang_cache.add(address, list_object.get());
         return shared_py_cast<PyObject*>(std::move(list_object));
@@ -271,7 +267,7 @@ namespace db0::python
         
         auto byte_array_object = ByteArrayDefaultObject_new();
         // retrieve actual dbzero instance
-        db0::object_model::ByteArray::unload(&(byte_array_object.get())->modifyExt(), fixture, address);        
+        byte_array_object->unload(fixture, address);
         // add byte_array object to cache
         lang_cache.add(address, byte_array_object.get());
         return shared_py_cast<PyObject*>(std::move(byte_array_object));
@@ -289,7 +285,7 @@ namespace db0::python
         
         auto index_object = IndexDefaultObject_new();
         // retrieve actual dbzero instance
-        index_object->makeNew(fixture, address);        
+        index_object->unload(fixture, address);
 
         // add list object to cache
         lang_cache.add(address, index_object.get());
@@ -312,7 +308,7 @@ namespace db0::python
         
         auto set_object = SetDefaultObject_new();
         // retrieve actual dbzero instance
-        db0::object_model::Set::unload(&(set_object.get())->modifyExt(), fixture, address);
+        set_object->unload(fixture, address);
         
         // add list object to cache
         lang_cache.add(address, set_object.get());
@@ -335,8 +331,8 @@ namespace db0::python
         
         auto dict_object = DictDefaultObject_new();
         // retrieve actual dbzero instance
-        db0::object_model::Dict::unload(&(dict_object.get())->modifyExt(), fixture, address);
-    
+        dict_object->unload(fixture, address);
+        
         // add list object to cache
         lang_cache.add(address, *dict_object);
         return shared_py_cast<PyObject*>(std::move(dict_object));
@@ -358,7 +354,7 @@ namespace db0::python
         
         auto tuple_object = TupleDefaultObject_new();
         // retrieve actual dbzero instance        
-        db0::object_model::Tuple::unload(&(tuple_object.get())->modifyExt(), fixture, address);
+        tuple_object->unload(fixture, address);
         
         // add list object to cache
         lang_cache.add(address, *tuple_object);
@@ -708,5 +704,5 @@ namespace db0::python
         }
         return std::make_unique<GIL_Lock>();
     }
-
+    
 }

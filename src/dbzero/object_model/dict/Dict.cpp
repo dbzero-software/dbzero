@@ -150,15 +150,7 @@ namespace db0::object_model
         }
         return {};
     }
-    
-    Dict *Dict::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
-        return new (at_ptr) Dict(fixture);
-    }
-    
-    Dict *Dict::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, Address address) {
-        return new (at_ptr) Dict(fixture, address);
-    }
-    
+        
     bool Dict::has_item(std::int64_t key_hash, ObjectPtr key_value) const
     {   
         auto fixture = this->getFixture();

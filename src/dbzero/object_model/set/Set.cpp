@@ -187,15 +187,7 @@ namespace db0::object_model
         }
         return nullptr;
     }
-    
-    Set *Set::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture) {
-        return new (at_ptr) Set(fixture);
-    }
-    
-    Set *Set::unload(void *at_ptr, db0::swine_ptr<Fixture> &fixture, Address address) {
-        return new (at_ptr) Set(fixture, address);
-    }
-    
+        
     void Set::destroy() const
     {
         unrefMembers();

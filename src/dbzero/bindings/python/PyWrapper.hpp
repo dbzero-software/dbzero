@@ -46,8 +46,21 @@ namespace db0::python
             ext().~T();
         }
         
-        template <typename... Args> void makeNew(Args &&...args) {
-            new ((void*)&modifyExt()) T(std::forward<Args>(args)...);
+        // Construct a new wrapped instance of type T
+        template <typename... Args> T &makeNew(Args &&...args) 
+        {
+            auto &result = modifyExt();
+            new ((void*)&result) T(std::forward<Args>(args)...);
+            return result;
+        }
+        
+        // Unload a new wrapped instance of type T
+        template <typename... Args> const T &unload(Args &&...args) const
+        {
+            const auto &ext = this->ext();
+            // NOTE: this is a dbzero non-mutating operation (thus use of ext)
+            new ((void*)&ext) T(std::forward<Args>(args)...);
+            return ext;
         }
     };
     

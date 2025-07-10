@@ -78,7 +78,7 @@ namespace db0::python
         assert(PyMemo_Check(py_obj));
         auto &memo_obj = reinterpret_cast<MemoObject*>(py_obj)->ext();        
         PyTag *py_tag = PyTagDefault_new();
-        TagDef::makeNew(&py_tag->modifyExt(), memo_obj.getFixture()->getUUID(), memo_obj.getAddress(), py_obj);
+        py_tag->makeNew(memo_obj.getFixture()->getUUID(), memo_obj.getAddress(), py_obj);
         return py_tag;
     }
     
@@ -87,7 +87,7 @@ namespace db0::python
         assert(MemoExpiredRef_Check(py_obj));
         const auto &expired_ref = *reinterpret_cast<const MemoExpiredRef*>(py_obj);
         PyTag *py_tag = PyTagDefault_new();
-        TagDef::makeNew(&py_tag->modifyExt(), expired_ref.getFixtureUUID(), expired_ref.getAddress(), py_obj);
+        py_tag->makeNew(expired_ref.getFixtureUUID(), expired_ref.getAddress(), py_obj);
         return py_tag;
     }
 

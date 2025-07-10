@@ -21,6 +21,8 @@ namespace db0
         : m_lock_flags(lock_flags)
         , m_lockPath(lockPath)
     {
+        // assure GIL since the API may be called from native code
+        auto __gil = db0::python::PyToolkit::ensureLocked();
         auto pName = Py_OWN(PyUnicode_DecodeFSDefault("fasteners"));
         auto pModule = Py_OWN(PyImport_Import(*pName));
         if (!pModule) {
@@ -49,6 +51,7 @@ namespace db0
     {
         // NOTE: python interpreter may be destroyed before this destructor is called
         if (db0::python::PyToolkit::isValid()) {
+            auto __gil = db0::python::PyToolkit::ensureLocked();
             auto res = Py_OWN(PyObject_CallMethod(*m_lock, "release", NULL));
             m_lock = nullptr;
         } else {
@@ -59,6 +62,8 @@ namespace db0
 
     bool InterProcessLock::isLocked() const
     {
+        // assure GIL since the API may be called from native code
+        auto __gil = db0::python::PyToolkit::ensureLocked();
         auto result = Py_OWN(PyObject_CallMethod(*m_lock, "exists", NULL));
         if (!result) {
             THROWF(db0::InternalException) << "Failed to check if lock exists";
@@ -68,6 +73,8 @@ namespace db0
     
     void InterProcessLock::assureLocked()
     {
+        // assure GIL since the API may be called from native code
+        auto __gil = db0::python::PyToolkit::ensureLocked();
         auto keywords = Py_OWN(getKwargs(m_lock_flags));
         auto aquire = Py_OWN(PyObject_GetAttrString(*m_lock, "acquire"));
         if (!aquire) {

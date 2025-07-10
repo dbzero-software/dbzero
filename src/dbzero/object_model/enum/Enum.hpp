@@ -60,10 +60,7 @@ namespace db0::object_model
         // exception thrown if value not found
         LP_String find(const char *value) const;
         LP_String tryFind(const char *value) const;
-        
-        static Enum *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, const std::string &name, 
-            const std::string &module_name, const std::vector<std::string> &values, const char *type_id = nullptr);
-        
+                
         // Get unique 32-bit identifier
         // it's implemented as a relative address from the underlying SLOT
         std::uint32_t getUID() const { return m_uid; }

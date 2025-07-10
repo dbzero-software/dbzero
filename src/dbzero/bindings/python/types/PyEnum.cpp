@@ -461,7 +461,7 @@ namespace db0::python
         const char *str_value)
     {
         auto py_enum_value = PyEnumValueReprDefault_new();
-        EnumValueRepr::makeNew(&py_enum_value.get()->modifyExt(), enum_type_def, str_value);
+        py_enum_value->makeNew(enum_type_def, str_value);
         return py_enum_value;
     }
     
@@ -477,7 +477,7 @@ namespace db0::python
         assert(enum_value);
         return (*enum_value.m_fixture != *fixture);
     }
-
+    
     shared_py_object<PyObject*> migratedEnumValue(db0::swine_ptr<Fixture> &fixture, PyEnumValue *py_enum_value)
     {
         auto &enum_value = py_enum_value->ext();
