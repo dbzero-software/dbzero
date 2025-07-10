@@ -328,3 +328,11 @@ def test_add_to_index_in_locked_section(db0_fixture):
     
     mutation_log = lock.get_mutation_log()
     assert px_name in [name for name, _ in mutation_log]
+
+
+def test_member_assignment_to_variable(db0_fixture):
+    obj = MemoTestClass(db0.index())
+    db0.commit()
+    with db0.locked() as lock:
+        x = obj.value
+    assert len(lock.get_mutation_log()) == 0
