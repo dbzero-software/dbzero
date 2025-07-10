@@ -43,8 +43,8 @@ namespace db0::object_model
         // number of auto-assigned type tags
         std::uint8_t m_num_type_tags = 0;
         // reserved for future purposes (e.g. instance flags)
-        std::uint8_t m_reserved = 0;
-
+        std::uint16_t m_reserved = 0;
+        
         PosVT &pos_vt();
 
         const PosVT &pos_vt() const;

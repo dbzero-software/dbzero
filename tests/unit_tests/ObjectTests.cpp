@@ -17,6 +17,21 @@ namespace tests
 
 {
     
+    // this is to expose protected constructor for tests
+    class SubClass: public Class
+    {
+    public:
+        SubClass(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
+            const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags flags,
+            std::shared_ptr<Class> base_class)
+            : Class(fixture, name, module_name, type_id, prefix_name, init_vars, flags, base_class)
+        {
+            // to prevent premature removal
+            this->incRef(false);
+            this->incRef(false);
+        }
+    };
+    
     class ObjectTest: public testing::Test
     {
     public:
@@ -38,7 +53,7 @@ namespace tests
         data.m_types = std::vector<StorageClass> { StorageClass::INT64, StorageClass::POOLED_STRING };
         data.m_values = std::vector<Value> { Value(0), Value(0) };
         
-        ASSERT_EQ ( 46u, o_object::measure(0, {0, 0}, 0, data) );
+        ASSERT_EQ ( 48u, o_object::measure(0, {0, 0}, 0, data) );
     }
     
     TEST_F( ObjectTest , testObjectInitializerCanBeFoundIfAdded )
@@ -135,7 +150,10 @@ namespace tests
 
         using Object = db0::object_model::Object;
         
-        std::shared_ptr<Class> type = Class::getNullClass();
+        // mock type
+        std::shared_ptr<Class> type = std::shared_ptr<Class>(new SubClass(
+            fixture, "TestObject", std::nullopt, "test.object", "test_prefix", {}, ClassFlags(), nullptr)
+        );
         {
             Object object(fixture, type, std::make_pair(0u, 0u), data);
             object.incRef(true);
