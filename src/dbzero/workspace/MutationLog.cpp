@@ -8,8 +8,9 @@ namespace db0
 
     MutationLog::MutationLog(int locked_sections)
     {
+        // NOTE: we initialize with 0 assuming all locked sections are active
         if (locked_sections > 0) {
-            m_mutation_flags.resize(locked_sections, -1);
+            m_mutation_flags.resize(locked_sections, 0);
         }        
     }
     
@@ -25,7 +26,7 @@ namespace db0
         m_all_mutation_flags_set = other.m_all_mutation_flags_set;
         return *this;
     }
-
+    
     void MutationLog::onDirty()
     {
         if (!m_all_mutation_flags_set && !m_mutation_flags.empty()) {
@@ -52,6 +53,7 @@ namespace db0
             }
             ++index;
         }
+        m_all_mutation_flags_set = false;
     }
     
     void MutationLog::beginLocked(unsigned int locked_section_id)
@@ -72,8 +74,8 @@ namespace db0
         while (!m_mutation_flags.empty() && m_mutation_flags.back() == -1) {
             m_mutation_flags.pop_back();
         }
-
-        return result;
+        
+        return result == 1;
     }
     
     void MutationLog::endAllLocked(std::function<void(unsigned int)> callback)

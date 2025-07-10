@@ -131,6 +131,18 @@ namespace db0::object_model
         assert(hasValidClassRef());
     }
     
+    Object::Object(db0::swine_ptr<Fixture> &fixture, Address address, std::shared_ptr<Class> type_hint, with_type_hint)
+        : Object(fixture, address)
+    {
+        assert(*fixture == *type_hint->getFixture());
+        setTypeWithHint(type_hint);
+    }
+    
+    Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type_hint, with_type_hint)
+        : Object(fixture, std::move(stem), getTypeWithHint(*fixture, stem->m_class_ref, type_hint))
+    {        
+    }
+
     Object::~Object()
     {   
         // unregister needs to be called before destruction of members
@@ -173,22 +185,7 @@ namespace db0::object_model
         }
         return result;
     }
-    
-    Object *Object::unload(void *at_ptr, Address address, std::shared_ptr<Class> type_hint)
-    {
-        auto fixture = type_hint->getFixture();
-        Object *object = new (at_ptr) Object(fixture, address);
-        object->setTypeWithHint(type_hint);
-        return object;
-    }
-    
-    Object *Object::unload(void *at_ptr, ObjectStem &&stem, std::shared_ptr<Class> type_hint)
-    {        
-        auto fixture = type_hint->getFixture();
-        // placement new
-        return new (at_ptr) Object(fixture, std::move(stem), getTypeWithHint(*fixture, stem->m_class_ref, type_hint));
-    }
-    
+        
     void Object::postInit(FixtureLock &fixture)
     {
         if (!hasInstance()) {

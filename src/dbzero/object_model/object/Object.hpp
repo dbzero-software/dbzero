@@ -115,7 +115,17 @@ namespace db0::object_model
         */
         Object(std::shared_ptr<Class>);
         Object(TypeInitializer &&);
-        Object(db0::swine_ptr<Fixture> &, Address);        
+
+        // Unload from address with a known type (possibly a base type)
+        // NOTE: unload works faster if type_hint is the exact object's type
+        struct with_type_hint {};
+        Object(db0::swine_ptr<Fixture> &, Address, std::shared_ptr<Class> type_hint, with_type_hint);
+
+        // Unload from stem with a known type (possibly a base type)
+        // NOTE: unload works faster if type_hint is the exact object's type
+        Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class> type_hint, with_type_hint);
+        
+        Object(db0::swine_ptr<Fixture> &, Address);
         Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::pair<std::uint32_t, std::uint32_t> ref_counts, 
             const PosVT::Data &);
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
@@ -132,14 +142,6 @@ namespace db0::object_model
         static ObjectStem tryUnloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
         static ObjectStem unloadStem(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
         
-        // Unload from stem with a known type (possibly a base type)
-        // NOTE: unload works faster if type_hint is the exect object's type
-        static Object *unload(void *at_ptr, ObjectStem &&, std::shared_ptr<Class> type_hint);
-        
-        // Unload from address with a known type (possibly a base type)
-        // NOTE: unload works faster if type_hint is the exact object's type
-        static Object *unload(void *at_ptr, Address, std::shared_ptr<Class> type_hint);
-
         // Called to finalize adding members
         void endInit();
         

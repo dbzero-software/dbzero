@@ -55,6 +55,10 @@ namespace db0::object_model
         
         // as null placeholder
         Dict() = default;
+        
+        explicit Dict(db0::swine_ptr<Fixture> &);
+        explicit Dict(db0::swine_ptr<Fixture> &fixture, const Dict &);
+        explicit Dict(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Dict &);
         Dict(db0::swine_ptr<Fixture> &, Address);
         ~Dict();
         
@@ -62,10 +66,7 @@ namespace db0::object_model
 
         ObjectSharedPtr getItem(std::uint64_t key_hash, ObjectPtr key_value) const;
         void setItem(FixtureLock &, std::uint64_t key_hash, ObjectPtr key, ObjectPtr value);
-        
-        static Dict *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
-        static Dict *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
-        
+                
         bool has_item(int64_t hash, ObjectPtr obj) const;
         
         Dict *copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const;
@@ -98,12 +99,7 @@ namespace db0::object_model
     private:
         db0::v_bindex<dict_item> m_index;
         mutable db0::weak_vector<DictIterator> m_iterators;
-
-        // new dicts can only be created via factory members
-        explicit Dict(db0::swine_ptr<Fixture> &);
-        explicit Dict(db0::swine_ptr<Fixture> &fixture, const Dict &);
-        explicit Dict(tag_no_gc, db0::swine_ptr<Fixture> &fixture, const Dict &);
-        
+                
         void initWith(const Dict &);
 
         void restoreIterators();

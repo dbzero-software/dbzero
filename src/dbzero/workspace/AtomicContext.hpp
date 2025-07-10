@@ -58,8 +58,6 @@ namespace db0
         void cancel();
         void close();
         
-        static void makeNew(void *, std::shared_ptr<Workspace> &, std::unique_lock<std::mutex> &&);
-
         static std::unique_lock<std::mutex> lock();
         
     private:

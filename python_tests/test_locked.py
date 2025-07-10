@@ -53,6 +53,7 @@ def test_prefix_opened_inside_locked_section(db0_fixture):
     obj_1 = MemoTestClass(951)
     with db0.locked() as lock:
         db0.open("some-new-prefix", "rw")
+        # NOTE: the new prefix is written to by object creation
         obj_2 = MemoTestClass(952)
     
     mutation_log = lock.get_mutation_log()
@@ -328,3 +329,15 @@ def test_add_to_index_in_locked_section(db0_fixture):
     
     mutation_log = lock.get_mutation_log()
     assert px_name in [name for name, _ in mutation_log]
+
+
+def test_member_assignment_to_variable_locked_issue(db0_fixture):
+    """
+    Issue: the test was failing with reporting spurious mutations
+    Resolution:
+    """
+    obj = MemoTestClass(db0.index())
+    db0.commit()
+    with db0.locked() as lock:
+        x = obj.value
+    assert len(lock.get_mutation_log()) == 0

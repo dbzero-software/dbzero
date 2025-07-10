@@ -220,9 +220,8 @@ namespace db0::python
     shared_py_object<DictObject*> tryMake_DB0Dict(db0::swine_ptr<Fixture> &fixture, PyObject *args, PyObject *kwargs)
     {        
         auto py_dict = DictDefaultObject_new();
-        db0::FixtureLock lock(fixture);
-        auto &dict = py_dict.get()->modifyExt();
-        db0::object_model::Dict::makeNew(&dict, *lock);
+        db0::FixtureLock lock(fixture);        
+        auto &dict = py_dict->makeNew(*lock);
         
         // if args
         if (!tryDictObject_update(py_dict.get(), args, kwargs)) {            
@@ -285,7 +284,7 @@ namespace db0::python
         // make actual dbzero instance, use default fixture
         auto py_dict = DictDefaultObject_new();
         db0::FixtureLock lock(PyToolkit::getPyWorkspace().getWorkspace().getCurrentFixture());
-        db0::object_model::Dict::makeNew(&py_dict.get()->modifyExt(), *lock);
+        auto &dict = py_dict->makeNew(*lock);
         
         ObjectSharedPtr elem;
         auto value = Py_BORROW(Py_None);
@@ -296,10 +295,10 @@ namespace db0::python
             tryDictObject_SetItem(*py_dict, *elem, *value);
         }
         
-        lock->getLangCache().add(py_dict.get()->ext().getAddress(), py_dict.get());
+        lock->getLangCache().add(dict.getAddress(), py_dict.get());
         return py_dict.steal();
     }
-
+    
     PyObject *PyAPI_DictObject_fromKeys(DictObject *, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC

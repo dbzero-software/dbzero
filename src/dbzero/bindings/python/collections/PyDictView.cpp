@@ -88,7 +88,7 @@ namespace db0::python
     {
         // make actual dbzero instance, use default fixture
         auto dict_view_object = DictViewObject_newInternal(&DictViewObjectType, NULL, NULL);
-        db0::object_model::DictView::makeNew(&dict_view_object->modifyExt(), ptr, py_dict, iterator_type);
+        dict_view_object->makeNew(ptr, py_dict, iterator_type);
         return dict_view_object;
     }
     

@@ -153,7 +153,7 @@ namespace db0::python
         return runSafe(tryMemoObject_new_singleton, py_type, args, kwargs);
     }
     
-    MemoObject* MemoObjectStub_new(PyTypeObject *py_type) {
+    MemoObject *MemoObjectStub_new(PyTypeObject *py_type) {
         return reinterpret_cast<MemoObject*>(py_type->tp_alloc(py_type, 0));
     }
     

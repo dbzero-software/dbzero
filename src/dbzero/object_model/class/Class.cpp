@@ -188,7 +188,7 @@ namespace db0::object_model
         auto type = class_factory.getTypeByPtr(
             db0::db0_ptr_reinterpret_cast<Class>()(ClassFactory::classRefToAddress(stem->m_class_ref))).m_class;
         // unload from stem
-        Object::unload(at, std::move(stem), type);
+        new (at) Object(fixture, std::move(stem), type, Object::with_type_hint{});
         return true;
     }
     

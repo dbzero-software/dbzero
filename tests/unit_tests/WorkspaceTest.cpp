@@ -6,6 +6,8 @@
 #include <dbzero/workspace/WorkspaceView.hpp>
 #include <dbzero/core/storage/BDevStorage.hpp>
 #include <dbzero/core/memory/swine_ptr.hpp>
+#include <dbzero/bindings/python/PyToolkit.hpp>
+#include <dbzero/bindings/python/PyLocks.hpp>
 
 using namespace std;
 using namespace db0;
@@ -21,13 +23,20 @@ namespace tests
         static constexpr const char *prefix_name = "my-test-prefix_1";
         static constexpr const char *file_name = "my-test-prefix_1.db0";
         
-        void SetUp() override {
+        void SetUp() override
+        {
+            if (!Py_IsInitialized()) {
+                Py_InitializeEx(0);
+            }
+            // release GIL for the autocommit-thread (dead-locks otherwise)
+            m_no_gil = std::make_unique<db0::python::WithGIL_Unlocked>();
             drop(file_name);
         }
 
-        void TearDown() override 
+        void TearDown() override
         {            
             m_workspace.close();
+            m_no_gil = nullptr;
             drop(file_name);
         }
         
@@ -37,6 +46,7 @@ namespace tests
 
     protected:
         Workspace m_workspace;        
+        std::unique_ptr<db0::python::WithGIL_Unlocked> m_no_gil;
     };
     
     TEST_F( WorkspaceTest , testWorkspaceCanCreateNewFixture )
@@ -244,9 +254,9 @@ namespace tests
             for (int j = 0; j < 250; ++j) {
                 objects.emplace_back(*fixture, 1024);
             }
-        }
+        }        
     }
-
+    
     TEST_F( WorkspaceTest , testLockedSectionIDsAreReused )
     {        
         auto callback = [](const std::string &, std::uint64_t) {};

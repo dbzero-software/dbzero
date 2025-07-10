@@ -171,18 +171,18 @@ namespace db0::python
     shared_py_object<TupleObject*> tryMake_DB0Tuple(db0::swine_ptr<Fixture> &fixture, PyObject *const *args,
         Py_ssize_t nargs)
     {
+        using Tuple = db0::object_model::Tuple;
+
         if (nargs > 1) {
             PyErr_SetString(PyExc_TypeError, "tuple() expected at most 1 argument");
             return nullptr;
         }
-
+        
         // make actual dbzero instance, use default fixture
         auto py_tuple = TupleDefaultObject_new();
         db0::FixtureLock lock(fixture);
-        auto &tuple = py_tuple.get()->modifyExt();
-
         if (nargs == 0) {
-            db0::object_model::Tuple::makeNew(&tuple, *lock, 0);
+            auto &tuple = py_tuple->makeNew(*lock, Tuple::tag_new_tuple(), 0);
             fixture->getLangCache().add(tuple.getAddress(), py_tuple.get()); 
             return py_tuple;
         }
@@ -203,12 +203,12 @@ namespace db0::python
             if (PyErr_Occurred()) {
                 return nullptr; // Error from PyIter_Next
             }
-            db0::object_model::Tuple::makeNew(&tuple, *lock, values.size());
+            auto &tuple = py_tuple->makeNew(*lock, Tuple::tag_new_tuple(), values.size());
             for (std::size_t index = 0; index != values.size(); ++index) {
                 tuple.setItem(lock, index, values[index]);
             }
         } else {
-            db0::object_model::Tuple::makeNew(&tuple, *lock, length);
+            auto &tuple = py_tuple->makeNew(*lock, Tuple::tag_new_tuple(), length);
             int index = 0;
             Py_FOR(item, iterator) {
                 tuple.setItem(lock, index++, item);                
@@ -217,9 +217,9 @@ namespace db0::python
                 return nullptr; // Error from PyIter_Next
             }
         }
-
+        
         // register newly created tuple with py-object cache
-        fixture->getLangCache().add(tuple.getAddress(), *py_tuple);
+        fixture->getLangCache().add(py_tuple->ext().getAddress(), *py_tuple);
         return py_tuple;
     }
     

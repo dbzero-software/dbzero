@@ -71,8 +71,7 @@ namespace db0::python
     {
         auto py_list = Py_OWN(ListObject_new(&ListObjectType, NULL, NULL));
         db0::FixtureLock lock(fixture);
-        auto &list = py_list->modifyExt();
-        db0::object_model::List::makeNew(&list, *lock);
+        auto &list = py_list->makeNew(*lock);
         if (nargs == 1) {
             if (!tryObjectT_extend<ListObject>(py_list.get(), args, nargs)) {                
                 return nullptr;

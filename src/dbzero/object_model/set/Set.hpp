@@ -53,6 +53,8 @@ namespace db0::object_model
         
         // as null placeholder
         Set() = default;
+        explicit Set(db0::swine_ptr<Fixture> &);
+        explicit Set(tag_no_gc, db0::swine_ptr<Fixture> &, const Set &);
         explicit Set(db0::swine_ptr<Fixture> &, Address);
         ~Set();
 
@@ -62,9 +64,6 @@ namespace db0::object_model
         bool remove(FixtureLock &, std::size_t key, ObjectPtr key_value);
         ObjectSharedPtr getItem(std::size_t i, ObjectPtr key_value) const;
         
-        static Set *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
-        static Set *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
-
         Set::ObjectSharedPtr pop(FixtureLock &);
         bool has_item(int64_t hash, PyObject * obj) const;
         
@@ -95,11 +94,7 @@ namespace db0::object_model
     private:
         db0::v_bindex<set_item> m_index;
         mutable db0::weak_vector<SetIterator> m_iterators;
-        
-        // new sets can only be created via factory members
-        explicit Set(db0::swine_ptr<Fixture> &);
-        explicit Set(tag_no_gc, db0::swine_ptr<Fixture> &, const Set &);
-        
+                
         void append(db0::swine_ptr<Fixture> &, std::size_t key, ObjectPtr lang_value);
 
         void restoreIterators();

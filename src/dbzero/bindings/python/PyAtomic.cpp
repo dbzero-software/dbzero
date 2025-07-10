@@ -47,7 +47,7 @@ namespace db0::python
         PY_API_FUNC
         auto py_object = Py_OWN(PyAtomic_new(&PyAtomicType, NULL, NULL));        
         auto workspace_ptr = PyToolkit::getPyWorkspace().getWorkspaceSharedPtr();
-        db0::AtomicContext::makeNew(&py_object->modifyExt(), workspace_ptr, std::move(lock));
+        py_object->makeNew(workspace_ptr, std::move(lock));
         return py_object.steal();
     }
     

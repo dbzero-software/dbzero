@@ -27,10 +27,4 @@ namespace db0::object_model
         return m_collection->size();
     }
     
-    DictView *DictView::makeNew(
-        void *at_ptr, const Dict *dict_ptr, ObjectPtr lang_dict, IteratorType type) 
-    {
-        return new (at_ptr) DictView(dict_ptr, lang_dict, type);
-    }
-
 }

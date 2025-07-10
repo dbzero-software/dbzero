@@ -73,15 +73,15 @@ namespace db0::object_model
         
         // as null placeholder
         Tuple() = default;
+        struct tag_new_tuple {};
+        explicit Tuple(db0::swine_ptr<Fixture> &, tag_new_tuple, std::size_t size);
+        explicit Tuple(tag_no_gc, db0::swine_ptr<Fixture> &, const Tuple &);
         explicit Tuple(db0::swine_ptr<Fixture> &, Address address);
         ~Tuple();
 
         ObjectSharedPtr getItem(std::size_t i) const;
         void setItem(FixtureLock &, std::size_t i, ObjectSharedPtr lang_value);
         
-        static Tuple *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &, std::size_t size);
-        static Tuple *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
-
         std::size_t count(ObjectPtr lang_value) const;
         std::size_t index(ObjectPtr lang_value) const;
         std::size_t size() const;
@@ -97,14 +97,8 @@ namespace db0::object_model
         const o_typed_item *end() const;
 
         void moveTo(db0::swine_ptr<Fixture> &);
-
-        std::shared_ptr<TupleIterator> getIterator(ObjectPtr lang_tuple) const;
-
-    private:
-        // new Tuples can only be created via factory members
-        struct tag_new_tuple {};
-        explicit Tuple(db0::swine_ptr<Fixture> &, tag_new_tuple, std::size_t size);
-        explicit Tuple(tag_no_gc, db0::swine_ptr<Fixture> &, const Tuple &);
+        
+        std::shared_ptr<TupleIterator> getIterator(ObjectPtr lang_tuple) const;    
     };
     
 }

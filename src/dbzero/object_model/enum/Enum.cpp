@@ -47,12 +47,6 @@ namespace db0::object_model
     {
     }
     
-    Enum *Enum::makeNew(void *at_ptr, db0::swine_ptr<Fixture> &fixture, const std::string &name, const std::string &module_name,
-        const std::vector<std::string> &values, const char *type_id)
-    {        
-        return new (at_ptr) Enum(fixture, name, module_name, values, type_id);
-    }
-
     Enum::~Enum()
     {
         // unregister needs to be called before destruction of members

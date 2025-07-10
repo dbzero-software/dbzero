@@ -39,6 +39,9 @@ namespace db0::object_model
         
         // as null placeholder
         List() = default;
+        List(db0::swine_ptr<Fixture> &);
+        List(db0::swine_ptr<Fixture> &, const List &);
+        List(tag_no_gc, db0::swine_ptr<Fixture> &, const List &);
         List(db0::swine_ptr<Fixture> &, Address);
         ~List();
         
@@ -47,8 +50,6 @@ namespace db0::object_model
         ObjectSharedPtr pop(FixtureLock &, std::size_t index);
         void setItem(FixtureLock &, std::size_t i, ObjectPtr lang_value);
         
-        static List *makeNew(void *at_ptr, db0::swine_ptr<Fixture> &);
-        static List *unload(void *at_ptr, db0::swine_ptr<Fixture> &, Address);
         List * copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const;
         size_t count(ObjectPtr lang_value) const;
         size_t index(ObjectPtr lang_value) const;
@@ -70,11 +71,6 @@ namespace db0::object_model
         std::shared_ptr<ListIterator> getIterator(ObjectPtr lang_list) const;
         
     private:        
-        // new lists can only be created via factory members
-        List(db0::swine_ptr<Fixture> &);
-        List(db0::swine_ptr<Fixture> &, const List &);
-        List(tag_no_gc, db0::swine_ptr<Fixture> &, const List &);
-        
         // the associated iterator
         // which must be invalidated / refreshed on any collection modification
         mutable db0::weak_vector<ListIterator> m_iterators;
