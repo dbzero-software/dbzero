@@ -10,7 +10,7 @@
 #include <functional>
 #include <dbzero/core/serialization/Fixed.hpp>
 #include <dbzero/core/memory/Address.hpp>
-    
+
 namespace db0
 
 {
@@ -18,27 +18,34 @@ namespace db0
     class SlabRecycler;
     class SlabManager;
 
-    struct [[gnu::packed]] o_meta_header: public o_fixed<o_meta_header> 
+    struct [[gnu::packed]] o_realm: public o_fixed<o_realm>
     {
+        Address m_slab_defs_ptr;
+        Address m_capacity_items_ptr;
+        
+        o_realm() = default;
+        o_realm(const std::pair<Address, Address> &);
+    };
+    
+    struct [[gnu::packed]] o_meta_header: public o_fixed<o_meta_header>
+    {
+        // NOTE: when needed, this values can be changed to 4 (or 8?) or 1 (no realms)
+        static constexpr std::size_t NUM_REALMS = 2;
         // page size in bytes
         std::uint32_t m_page_size;
         // slab size in bytes
         std::uint32_t m_slab_size;
-        Address m_slab_defs_ptr;
-        Address m_capacity_items_ptr;
+        o_realm m_realms[NUM_REALMS];
         
-        o_meta_header(std::uint32_t page_size, std::uint32_t slab_size, Address slab_defs_ptr, Address capacity_items_ptr)
-            : m_page_size(page_size)
-            , m_slab_size(slab_size)
-            , m_slab_defs_ptr(slab_defs_ptr)
-            , m_capacity_items_ptr(capacity_items_ptr)
-        {
-        }
+        o_meta_header(std::uint32_t page_size, std::uint32_t slab_size);
     };
-    
+
     class MetaAllocator: public Allocator
     {
     public:
+        static constexpr std::size_t NUM_REALMS = o_meta_header::NUM_REALMS;
+        static constexpr std::uint32_t REALM_MASK = NUM_REALMS - 1;
+
         /**
          * Opens an existing instance of a MetaAllocator over a specific prefix
          * @param deferred_free if true, free operations are deferred until commit (see Transactional Allocator)
@@ -198,8 +205,8 @@ namespace db0
          * Retrieve a new slab reserved for private use
          * note that this slab will not be available for allocations from MetaAllocator and has to be used directly
         */
-        std::shared_ptr<SlabAllocator> reserveNewSlab();
-
+        std::shared_ptr<SlabAllocator> reserveNewSlab(unsigned char realm_id = 0);
+        
         /**
          * Open existing slab for private use (reserved slab)
         */
@@ -227,16 +234,52 @@ namespace db0
         void beginAtomic();
         void endAtomic();
         void cancelAtomic();
-
-    private:
+        
+    private:        
         std::shared_ptr<Prefix> m_prefix;
         o_meta_header m_header;
         mutable AlgoAllocator m_algo_allocator;
         Memspace m_metaspace;
-        SlabTreeT m_slab_defs;
-        // slab defs ordered by capacity descending
-        CapacityTreeT m_capacity_items;
-        std::unique_ptr<SlabManager> m_slab_manager;
+        
+        struct Realm
+        {
+            SlabTreeT m_slab_defs;
+            // slab defs ordered by capacity descending
+            CapacityTreeT m_capacity_items;
+            std::unique_ptr<SlabManager> m_slab_manager;
+
+            Realm(Memspace &, std::shared_ptr<Prefix>, SlabRecycler *, o_realm, std::uint32_t slab_size,
+                std::uint32_t page_size, unsigned char realm_id);
+            
+            // get the max address from all underlying slabs
+            std::uint64_t getSlabMaxAddress() const;
+            void close();
+            void commit() const;
+            void detach() const;
+
+            void forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)>) const;
+        };
+        
+        struct RealmsVector: protected std::vector<Realm>
+        {
+            RealmsVector(Memspace &, std::shared_ptr<Prefix>, SlabRecycler *, o_meta_header &, 
+                unsigned int size);
+
+            // evaluate the max address from all realms
+            std::uint64_t getSlabMaxAddress() const;
+
+            inline SlabManager &operator[](unsigned char realm_id) {
+                return *at(realm_id).m_slab_manager;
+            }
+
+            inline const SlabManager &operator[](unsigned char realm_id) const {
+                return *at(realm_id).m_slab_manager;
+            }
+
+            void forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)>) const;
+        };
+        
+        RealmsVector m_realms;
         SlabRecycler *m_recycler_ptr;
         const bool m_deferred_free;
         mutable std::unordered_set<Address> m_deferred_free_ops;
@@ -264,7 +307,7 @@ namespace db0
         
         // NOTE: instance ID will only be populated when unique = true
         std::optional<Address> tryAllocImpl(std::size_t size, std::uint32_t slot_num,
-            bool aligned, bool unique, std::uint16_t &instance_id);
+            bool aligned, bool unique, std::uint16_t &instance_id, unsigned char realm_id);        
     };
     
 }

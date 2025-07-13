@@ -26,7 +26,7 @@ namespace db0
          * Note that slot functionality is implementation specific and may not be supported by all allocators.
          * We use slots in special cases where objects needs to be allocated from a limited narrow address range
         */
-        virtual std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
+        virtual std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
             bool aligned = false) = 0;
         
         // Try allocating a unique, never repeating address
