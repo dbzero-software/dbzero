@@ -33,6 +33,7 @@ namespace db0::object_model
         using super_t = db0::o_base<o_object, 0, false>;
 
     public:
+        static constexpr unsigned char REALM_ID = 1;
         // common object header
         o_unique_header m_header;
         const std::uint32_t m_class_ref;
@@ -90,21 +91,24 @@ namespace db0::object_model
     };
 
     using ObjectFlags = db0::FlagSet<ObjectOptions>;
-
-    class Object: public db0::ObjectBase<Object, db0::v_object<o_object>, StorageClass::OBJECT_REF>
+    // NOTE: Object instances are created within the realm_id = 1
+    using ObjectVType = db0::v_object<o_object, 0, o_object::REALM_ID>;
+    
+    class Object: public db0::ObjectBase<Object, ObjectVType, StorageClass::OBJECT_REF>
     {
         // GC0 specific declarations
         GC0_Declare
     public:
-        using super_t = db0::ObjectBase<Object, db0::v_object<o_object>, StorageClass::OBJECT_REF>;
+        static constexpr unsigned char REALM_ID = o_object::REALM_ID;
+        using super_t = db0::ObjectBase<Object, ObjectVType, StorageClass::OBJECT_REF>;
         using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeManager = typename LangToolkit::TypeManager;
-        using ObjectStem = db0::v_object<o_object>;
+        using ObjectStem = ObjectVType;
         using TypeInitializer = ObjectInitializer::TypeInitializer;
-
+        
         // construct as null / dropped object
         Object(UniqueAddress, unsigned int ext_refs);
         Object(const Object &) = delete;

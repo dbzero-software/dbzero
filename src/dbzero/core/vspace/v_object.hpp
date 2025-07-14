@@ -14,11 +14,12 @@ namespace db0
      * Base class for vspace-mapped objects
      * @tparam T container object type
      */
-    template <typename T, std::uint32_t SLOT_NUM> class v_object
+    template <typename T, std::uint32_t SLOT_NUM, unsigned char REALM_ID>
+    class v_object
     {
     public:
         using c_type = T;
-        using ptr_t = v_ptr<c_type, SLOT_NUM>;
+        using ptr_t = v_ptr<c_type, SLOT_NUM, REALM_ID>;        
 
         v_object() = default;
 
@@ -39,9 +40,13 @@ namespace db0
             v_this.safeConstRef(size_of);
         }
         
-        v_object(const v_object<T> &other)
+        v_object(const v_object &other)
             : v_this(other.v_this)
         {
+        }
+        
+        static constexpr unsigned char getRealmID() {
+            return REALM_ID;
         }
 
     private:
@@ -122,7 +127,7 @@ namespace db0
         {
         }
         
-        v_object(v_object<T> &&other)
+        v_object(v_object &&other)
             : v_this(std::move(other.v_this))
         {            
         }
@@ -133,15 +138,15 @@ namespace db0
         template<typename... Args>
         static std::uint64_t makeNew(Memspace &memspace, Args&&... args)
         {
-            v_object<c_type> new_object(memspace, std::forward<Args>(args)...);
+            v_object new_object(memspace, std::forward<Args>(args)...);
             return new_object.getAddress();
         }
         
-        void operator=(const v_object<T> &other) {
+        void operator=(const v_object &other) {
             v_this = other.v_this;
         }        
 
-        void operator=(v_object<T> &&other)
+        void operator=(v_object &&other)
         {
             v_this = std::move(other.v_this);
             other.v_this = {};
@@ -217,7 +222,7 @@ namespace db0
         /**
          * instance compare
          */
-        bool operator==(const v_object<c_type> &other) const {
+        bool operator==(const v_object &other) const {
             return (v_this==other.v_this);
         }
 
@@ -248,7 +253,7 @@ namespace db0
         {
             // FIXME: optimization
             // potentially we could call v_this.commit() here BUT
-            // if there exist 2 instances of v_object and onc of them gets modified
+            // if there exist 2 instances of v_object and one of them gets modified
             // then the "read-only" instance will not see the updates
 
             v_this.detach();            

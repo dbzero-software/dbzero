@@ -9,19 +9,20 @@ namespace db0
 
 {
 
-    static constexpr double MIN_FILL_RATE = 0.33;
-
+    static constexpr double MIN_FILL_RATE = 0.25;
+    
     inline unsigned char getRealmID(std::uint32_t slab_id) {
         return slab_id & MetaAllocator::REALM_MASK;
     }
 
-    std::size_t MetaAllocator::getSlabCount(std::size_t page_size, std::size_t slab_size) 
+    std::size_t MetaAllocator::getSlabCount(std::size_t page_size, std::size_t slab_size)
     {
-        std::size_t max_slab_count = (std::numeric_limits<std::uint32_t>::max() - 2 * page_size) / slab_size - 1;
+        auto MP = 2 * NUM_REALMS; // number of meta pages
+        std::size_t max_slab_count = (std::numeric_limits<std::uint32_t>::max() - MP * page_size) / slab_size - 1;
         // estimate the number of slabs for which the definitions can be stored on a single page
-        // this is a very conservative estimate        
+        // this is a very conservative estimate
         std::size_t slab_count_1 = (std::size_t)(MIN_FILL_RATE * (double)page_size / (double)sizeof(MetaAllocator::SlabDef));
-        std::size_t slab_count_2 = (std::size_t)(MIN_FILL_RATE * (double)page_size / (double)sizeof(MetaAllocator::CapacityItem) - 4);
+        std::size_t slab_count_2 = (std::size_t)(MIN_FILL_RATE * (double)page_size / (double)sizeof(MetaAllocator::CapacityItem)) - (2 * MP);
         return std::min(max_slab_count, std::min(slab_count_1, slab_count_2));
     }
 
@@ -35,11 +36,13 @@ namespace db0
         auto slab_count = getSlabCount(page_size, slab_size);
         // make offset page-aligned
         offset = align(offset, page_size);
-        // take the first 2 pages before a sequence of slabs
-        return [offset, slab_count, page_size, slab_size](unsigned int i) -> Address {
-            assert(2 * page_size + slab_size * slab_count < std::numeric_limits<std::uint32_t>::max());
+        // take the first 2 pages (* NUM_REALMS) before a sequence of slabs for metadata
+        // MP = number of meta pages
+        auto MP = 2 * NUM_REALMS;
+        return [offset, slab_count, page_size, slab_size, MP](unsigned int i) -> Address {
+            assert(MP * page_size + slab_size * slab_count < std::numeric_limits<std::uint32_t>::max());
             return Address::fromOffset(
-                (std::uint64_t)(i / 2) * (2 * page_size + slab_size * slab_count) + offset + (std::uint64_t)(i % 2) * page_size
+                (std::uint64_t)(i / MP) * (MP * page_size + slab_size * slab_count) + offset + (std::uint64_t)(i % MP) * page_size
             );
         };
     }
@@ -51,13 +54,15 @@ namespace db0
         auto slab_count = getSlabCount(page_size, slab_size);
         // make offset page-aligned
         offset = align(offset, page_size);
-        return [offset, slab_count, page_size, slab_size](Address addr) -> unsigned int {
-            auto x = 2 * ((addr - offset) / (2 * page_size + slab_size * slab_count));
-            auto d = (addr - offset) % (2 * page_size + slab_size * slab_count);
+        // MP = number of meta pages
+        auto MP = 2 * NUM_REALMS;
+        return [offset, slab_count, page_size, slab_size, MP](Address addr) -> unsigned int {
+            auto x = MP * ((addr - offset) / (MP * page_size + slab_size * slab_count));
+            auto d = (addr - offset) % (MP * page_size + slab_size * slab_count);
             if (d % page_size != 0) {
                 THROWF(db0::InternalException) << "Invalid meta-address pool address: " << addr;
             }
-            assert (d < 2 * page_size);
+            assert (d < MP * page_size);
             return x + (d / page_size);
         };
     }
@@ -67,25 +72,27 @@ namespace db0
     {
         auto slab_count = getSlabCount(page_size, slab_size);
         offset = align(offset, page_size);
-        auto block_size = 2 * page_size + slab_size * slab_count;
-        return [offset, page_size, slab_size, slab_count, block_size](Address address) -> std::uint32_t {
+        auto MP = 2 * NUM_REALMS;
+        auto block_size = MP * page_size + slab_size * slab_count;
+        return [offset, page_size, slab_size, slab_count, block_size, MP](Address address) -> std::uint32_t {
             auto block_id = (address - offset) / block_size;
-            auto slab_num = (address - offset - block_id * block_size - 2 * page_size) / slab_size;
+            auto slab_num = (address - offset - block_id * block_size - MP * page_size) / slab_size;
             return block_id * slab_count + slab_num;
         }; 
     }
-
+    
     // Get function to translate slab id to slab address
     std::function<Address(unsigned int)> getSlabAddressFunction(std::size_t offset, std::size_t page_size, std::size_t slab_size)
     {
         auto slab_count = MetaAllocator::getSlabCount(page_size, slab_size);
         // make offset page-aligned
         offset = align(offset, page_size);
-        auto block_size = 2 * page_size + slab_size * slab_count;
-        return [offset, slab_count, page_size, slab_size, block_size](unsigned int i) -> Address {
+        auto MP = 2 * MetaAllocator::NUM_REALMS;
+        auto block_size = MP * page_size + slab_size * slab_count;
+        return [offset, slab_count, page_size, slab_size, block_size, MP](unsigned int i) -> Address {
             auto block_id = i / slab_count;
             auto slab_num = i % slab_count;
-            return Address::fromOffset(offset + block_id * block_size + 2 * page_size + slab_num * slab_size);
+            return Address::fromOffset(offset + block_id * block_size + MP * page_size + slab_num * slab_size);
         };
     }
     
@@ -136,8 +143,12 @@ namespace db0
             const SlabAllocator &operator*() const {
                 return *m_slab;
             }
+            
+            inline bool operator!() const {
+                return !m_slab;
+            }
         };
-
+        
         /**
          * Retrieves the active slab or returns nullptr if no active slab available
         */
@@ -149,7 +160,7 @@ namespace db0
          * Retrieve the 1st slab to allocate a block of at least min_capacity
          * this is only a 'hint' and if the allocation is not possible, the next slab should be attempted         
         */
-        FindResult findFirst(std::size_t min_capacity) 
+        FindResult findFirst(std::size_t min_capacity)
         {
             // visit slabs starting from the largest available capacity
             auto it = m_capacity_items.cbegin();
@@ -208,6 +219,10 @@ namespace db0
             auto capacity = SlabAllocator::formatSlab(m_prefix, address, m_slab_size, m_page_size);
             // NOTE: for a new slab, the initial lost capacity is 0
             auto slab = std::make_shared<SlabAllocator>(m_prefix, address, m_slab_size, m_page_size, capacity, 0);
+            if (m_atomic) {
+                // if atomic operation is in progress, add to the volatile slabs
+                m_volatile_slabs.push_back(address);
+            }
             return { slab, slab_id };
         }
         
@@ -279,27 +294,36 @@ namespace db0
         }
         
         // Find existing slab by ID
+        FindResult tryFind(std::uint32_t slab_id) const
+        {
+            if (slab_id < nextSlabId()) {
+                if (m_active_slab == slab_id) {
+                    return m_active_slab;
+                }
+                // look up with the cache first
+                auto address = m_slab_address_func(slab_id);
+                auto it = m_slabs.find(address);
+                if (it != m_slabs.end()) {
+                    auto slab = it->second->m_slab.lock();
+                    if (slab) {
+                        return { slab, it->second->m_cap_item };
+                    }
+                }
+
+                return tryOpenSlab(address);
+            }
+            return {};
+        }
+
         FindResult find(std::uint32_t slab_id) const
         {
-            if (slab_id >= nextSlabId()) {
-                THROWF(db0::BadAddressException) << "Slab " << slab_id << " does not exist";
+            auto slab = tryFind(slab_id);
+            if (!slab) {
+                THROWF(db0::BadAddressException) << "Slab " << slab_id << " not found";
             }
-            if (m_active_slab == slab_id) {
-                return m_active_slab;
-            }
-            // look up with the cache first
-            auto address = m_slab_address_func(slab_id);
-            auto it = m_slabs.find(address);
-            if (it != m_slabs.end()) {
-                auto slab = it->second->m_slab.lock();
-                if (slab) {
-                    return { slab, it->second->m_cap_item };
-                }
-            }
-
-            return openSlab(address);
+            return slab;
         }
-        
+
         /**
          * Erase if 'slab' is the last slab
         */
@@ -308,9 +332,9 @@ namespace db0
         }
         
         bool empty() const {
-            return nextSlabId() == 0;
+            return nextSlabId() == m_realm_id;
         }
-
+        
         std::shared_ptr<SlabAllocator> reserveNewSlab()
         {
             auto [slab, slab_id] = createNewSlab();
@@ -381,7 +405,7 @@ namespace db0
             return m_slab_address_func(m_realm_id) + SlabAllocator::getFirstAddress();
         }
 
-        void commit() const 
+        void commit() const
         {
             for (auto &it : m_slabs) {
                 it.second->commit();
@@ -390,14 +414,16 @@ namespace db0
         
         void detach() const
         {
-            // invalidate cached variable
-            m_next_slab_id = {};
+            // detach all cached slabs
             for (auto &it : m_slabs) {
                 it.second->detach();
             }
+            m_active_slab = {};
+            // invalidate cached variable
+            m_next_slab_id = {};
         }
         
-        std::uint32_t nextSlabId() const 
+        std::uint32_t nextSlabId() const
         {
             if (!m_next_slab_id) {
                 m_next_slab_id = fetchNextSlabId();
@@ -405,13 +431,40 @@ namespace db0
             return *m_next_slab_id;
         }
 
+        void beginAtomic()
+        {
+            assert(!m_atomic);
+            assert(m_volatile_slabs.empty());
+            m_atomic = true;
+        }
+
+        void endAtomic()
+        {
+            assert(m_atomic);
+            m_volatile_slabs.clear();
+        }
+
+        void cancelAtomic()
+        {
+            assert(m_atomic);
+            // revert all volatile slabs from cache
+            for (auto slab_addr : m_volatile_slabs) {
+                auto it = m_slabs.find(slab_addr);
+                if (it != m_slabs.end()) {
+                    m_slabs.erase(it);
+                }
+            }
+            m_volatile_slabs.clear();
+            m_atomic = false;
+        }
+        
     private:
 
         struct CacheItem
         {
             std::weak_ptr<SlabAllocator> m_slab;
             CapacityItem m_cap_item;
-            // the slab's remaining capacity refreshed when SlabAllocator gets destroyed
+            // the slab's remaining capacity reflected with backend when the SlabAllocator gets destroyed
             std::uint32_t m_final_remaining_capacity = 0;
             std::uint32_t m_final_lost_capacity = 0;
 
@@ -459,6 +512,10 @@ namespace db0
         std::function<Address(unsigned int)> m_slab_address_func;
         std::function<std::uint32_t(Address)> m_slab_id_func;
         mutable std::optional<std::uint32_t> m_next_slab_id;
+        // addresses of slabs newly created during atomic operations (potentially to be reverted)
+        mutable std::vector<std::uint64_t> m_volatile_slabs;
+        // the atomic operation's flag
+        bool m_atomic = false;
         
         CacheIterator unregisterSlab(CacheIterator it) const
         {
@@ -488,7 +545,7 @@ namespace db0
             return m_slabs.erase(it);
         }
         
-        FindResult openSlab(Address address) const
+        FindResult tryOpenSlab(Address address) const
         {
             auto it = m_slabs.find(address);
             if (it != m_slabs.end()) {
@@ -504,12 +561,21 @@ namespace db0
             // retrieve slab definition
             auto slab_def_ptr = m_slab_defs.find_equal(slab_id);
             if (!slab_def_ptr.first) {
-                THROWF(db0::InternalException) << "Slab definition not found: " << slab_id;
+                return {};
             }
 
             // make the new slab active
             m_active_slab = openSlab(*slab_def_ptr.first);
             return m_active_slab;
+        }
+
+        FindResult openSlab(Address address) const
+        {
+            auto slab = tryOpenSlab(address);
+            if (!slab) {
+                THROWF(db0::BadAddressException) << "Invalid address accessed";
+            }
+            return slab;
         }
 
         // open slab by definition and add to cache
@@ -591,6 +657,7 @@ namespace db0
             if (it.first) {
                 return it.first->m_slab_id + NUM_REALMS;
             } else {
+                // first slab being created
                 return m_realm_id;
             }
         }
@@ -817,9 +884,13 @@ namespace db0
         }
         auto slab_id = m_slab_id_function(address);
         auto realm_id = getRealmID(slab_id);
-        return m_realms[realm_id].find(slab_id).m_slab->isAllocated(address, size_of_result);
+        auto slab = m_realms[realm_id].tryFind(slab_id);
+        if (!slab) {
+            return false;
+        }
+        return slab.m_slab->isAllocated(address, size_of_result);
     }
-
+    
     bool MetaAllocator::isAllocated(Address address, unsigned char realm_id, std::size_t *size_of_result) const
     {
         auto slab_id = m_slab_id_function(address);
@@ -829,7 +900,11 @@ namespace db0
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             return false;
         }        
-        return m_realms[realm_id].find(slab_id).m_slab->isAllocated(address, size_of_result);
+        auto slab = m_realms[realm_id].tryFind(slab_id);
+        if (!slab) {
+            return false;
+        }        
+        return slab.m_slab->isAllocated(address, size_of_result);
     }
 
     std::uint32_t MetaAllocator::getSlabId(Address address) const {
@@ -906,16 +981,11 @@ namespace db0
         if (!m_atomic) {
             flush();
         }
-        for (unsigned int i = 0; i < MetaAllocator::NUM_REALMS; ++i) {
-            m_realms[i].commit();
-        }
+        m_realms.commit();
     }
 
-    void MetaAllocator::detach() const
-    { 
-        for (unsigned int i = 0; i < MetaAllocator::NUM_REALMS; ++i) {
-            m_realms[i].detach();
-        }
+    void MetaAllocator::detach() const {
+        m_realms.detach();
     }
     
     SlabRecycler *MetaAllocator::getSlabRecyclerPtr() const {
@@ -956,6 +1026,9 @@ namespace db0
     {
         assert(!m_atomic);
         m_atomic = true;
+        for (unsigned int i = 0; i < MetaAllocator::NUM_REALMS; ++i) {
+            m_realms[i].beginAtomic();
+        }        
     }
 
     void MetaAllocator::endAtomic()
@@ -969,6 +1042,9 @@ namespace db0
             }
             m_atomic_deferred_free_ops.clear();
         }
+        for (unsigned int i = 0; i < MetaAllocator::NUM_REALMS; ++i) {
+            m_realms[i].endAtomic();
+        }                
     }
     
     void MetaAllocator::cancelAtomic()
@@ -977,8 +1053,11 @@ namespace db0
         m_atomic = false;
         // rollback atomic deferred free operations
         m_atomic_deferred_free_ops.clear(); 
+        for (unsigned int i = 0; i < MetaAllocator::NUM_REALMS; ++i) {
+            m_realms[i].cancelAtomic();
+        }
     }
-
+    
     MetaAllocator::RealmsVector::RealmsVector(Memspace &metaspace, std::shared_ptr<Prefix> prefix, SlabRecycler *slab_recycler,
         o_meta_header &meta_header, unsigned int size)
     {
@@ -996,6 +1075,20 @@ namespace db0
     {
         for (const auto &realm: *this) {
             realm.forAllSlabs(f);
+        }
+    }
+    
+    void MetaAllocator::RealmsVector::detach() const
+    {
+        for (const auto &realm: *this) {
+            realm.detach();
+        }
+    }
+    
+    void MetaAllocator::RealmsVector::commit() const
+    {
+        for (const auto &realm: *this) {
+            realm.commit();
         }
     }
 

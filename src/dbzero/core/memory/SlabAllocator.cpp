@@ -64,7 +64,7 @@ namespace db0
     }
     
     std::optional<Address> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
-        bool aligned, unsigned char realm_id)
+        bool aligned, unsigned char)
     {
         assert(slot_num == 0);
         assert(size > 0);
@@ -92,7 +92,7 @@ namespace db0
     bool SlabAllocator::isAllocated(Address address, std::size_t *size_of_result) const {
         return m_allocator.isAllocated(makeRelative(address), size_of_result);
     }
-
+    
     bool SlabAllocator::isAllocated(Address address, unsigned char, std::size_t *size_of_result) const {
         return m_allocator.isAllocated(makeRelative(address), size_of_result);
     }

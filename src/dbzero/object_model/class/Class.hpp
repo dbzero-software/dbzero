@@ -49,7 +49,7 @@ namespace db0::object_model
     struct ObjectId;
 
     struct [[gnu::packed]] o_class: public db0::o_fixed<o_class>
-    {
+    {        
         // common object header
         db0::o_object_header m_header;
         // auto-generated class UUID
@@ -73,23 +73,26 @@ namespace db0::object_model
             std::uint32_t base_class_ref, std::uint32_t num_bases
         );
     };
-        
+    
     // address <-> class_ref conversion functions
     // @param type_slot_begin_addr the address of the types-specific slot
     std::uint32_t classRef(const Class &, std::uint64_t type_slot_begin_addr);
     std::uint32_t classRef(Address, std::uint64_t type_slot_begin_addr);
     Address classRefToAddress(std::uint32_t class_ref, std::uint64_t type_slot_begin_addr);
     std::uint64_t getTypeSlotBeginAddress(const Fixture &);
+        
+    using ClassVType = db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>;
     
     // NOTE: Class type uses SLOT_NUM = TYPE_SLOT_NUM
     // NOTE: class allocations are NOT unique
-    class Class: public db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS, false>,
+    class Class: public db0::ObjectBase<Class, ClassVType, StorageClass::DB0_CLASS, false>,
         public std::enable_shared_from_this<Class>
     {
         GC0_Declare
-        using super_t = db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS, false>;
+        using super_t = db0::ObjectBase<Class, ClassVType, StorageClass::DB0_CLASS, false>;
     public:
-        static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;
+        static constexpr std::uint32_t SLOT_NUM = Fixture::TYPE_SLOT_NUM;        
+        
         // e.g. PyObject*
         using LangToolkit = db0::python::PyToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;

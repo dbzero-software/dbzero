@@ -23,7 +23,7 @@ namespace db0
     
     UniqueAddress Allocator::allocUnique(std::size_t size, std::uint32_t slot_num, bool aligned, unsigned char realm_id)
     {
-        auto result = tryAllocUnique(size, slot_num, aligned, realm_id);
+        auto result = tryAllocUnique(size, slot_num, aligned, realm_id);        
         if (!result) {
             THROWF(InternalException) << "Allocator: out of memory" << THROWF_END;
         }
@@ -40,8 +40,8 @@ namespace db0
     std::size_t Allocator::getAllocSize(Address address, unsigned char realm_id) const {
         return getAllocSize(address);
     }
-
-    bool Allocator::isAllocated(Address address, unsigned char realm_id, std::size_t *size_of_result) const {
+    
+    bool Allocator::isAllocated(Address address, unsigned char, std::size_t *size_of_result) const {
         return isAllocated(address, size_of_result);
     }
     

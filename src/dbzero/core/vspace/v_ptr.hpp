@@ -16,7 +16,7 @@ namespace db0
     
 {
 
-    template <typename T, std::uint32_t SLOT_NUM = 0>
+    template <typename T, std::uint32_t SLOT_NUM = 0, unsigned char REALM_ID = 0>
     class v_object;
 
     struct [[gnu::packed]] vso_null_t
@@ -161,12 +161,12 @@ namespace db0
     /**
      * virtual pointer to object of ContainerT
      */
-    template <typename ContainerT, std::uint32_t SLOT_NUM = 0>
+    template <typename ContainerT, std::uint32_t SLOT_NUM = 0, unsigned char REALM_ID = 0>
     class v_ptr : public vtypeless
     {
     public :
         using container_t = ContainerT;
-        using self_t = v_ptr<ContainerT, SLOT_NUM>;
+        using self_t = v_ptr<ContainerT, SLOT_NUM, REALM_ID>;
 
         inline v_ptr() = default;
 
@@ -276,7 +276,7 @@ namespace db0
         {
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
-            auto address = memspace.alloc(size, SLOT_NUM);
+            auto address = memspace.alloc(size, SLOT_NUM, REALM_ID);
             // lock for create & write
             // NOTE: must extract physical address for mapRange
             auto mem_lock = memspace.getPrefix().mapRange(address, size, access_mode | AccessOptions::write);
@@ -295,7 +295,7 @@ namespace db0
         {
             // read not allowed for instance creation
             assert(!access_mode[AccessOptions::read]);
-            auto unique_address = memspace.allocUnique(size, SLOT_NUM);
+            auto unique_address = memspace.allocUnique(size, SLOT_NUM, REALM_ID);
             instance_id = unique_address.getInstanceId();
             // lock for create & write
             // NOTE: must extract physical address for mapRange
@@ -310,13 +310,13 @@ namespace db0
                 db0::RESOURCE_AVAILABLE_FOR_READ | db0::RESOURCE_AVAILABLE_FOR_WRITE, access_mode
             );
         }
-
+        
         /**
          * Create a new instance from the mapped address
          * @param memspace the memspace to use
          * @param mapped_addr the mapped address
          * @param access_mode additional access mode flags
-        */        
+        */   
         static self_t makeNew(Memspace &memspace, MappedAddress &&mapped_addr, FlagSet<AccessOptions> access_mode = {})
         {            
             // mark the entire writable area as modified
@@ -386,12 +386,12 @@ namespace db0
                 return ContainerT::measure();
             }
             else if constexpr(metaprog::has_fixed_header<ContainerT>::value) {
-                v_object<typename ContainerT::fixed_header_type, SLOT_NUM> header(mptr{*m_memspace_ptr, m_address});
+                v_object<typename ContainerT::fixed_header_type, SLOT_NUM, REALM_ID> header(mptr{*m_memspace_ptr, m_address});
                 return header.getData()->getOBaseSize();
             }
             
             // retrieve from allocator (slowest)
-            return m_memspace_ptr->getAllocator().getAllocSize(m_address);
+            return m_memspace_ptr->getAllocator().getAllocSize(m_address, REALM_ID);
         }
     };
 

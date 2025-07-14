@@ -69,7 +69,7 @@ namespace db0
 
         virtual void execute() = 0;
     };
-
+    
     /**
      * Fixture is a Memspace extension with additionaly initialized common utilities:     
      * 1) Object catalogue

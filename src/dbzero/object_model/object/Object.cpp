@@ -165,11 +165,11 @@ namespace db0::object_model
     Object::ObjectStem Object::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
     {
         std::size_t size_of;
-        if (!fixture->isAddressValid(address, &size_of)) {
+        if (!fixture->isAddressValid(address, REALM_ID, &size_of)) {
             return {};
         }
         // Unload from a verified address
-        db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address), size_of);
+        ObjectVType stem(db0::tag_verified(), fixture->myPtr(address), size_of);
         if (instance_id && stem->m_header.m_instance_id != instance_id) {
             // instance ID validation failed
             return {};

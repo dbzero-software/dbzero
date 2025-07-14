@@ -279,6 +279,10 @@ namespace db0
             }
 
             void forAllSlabs(std::function<void(const SlabAllocator &, std::uint32_t)>) const;
+
+            void detach() const;
+
+            void commit() const;
         };
         
         RealmsVector m_realms;
