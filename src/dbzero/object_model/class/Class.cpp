@@ -18,22 +18,27 @@ namespace db0::object_model
     using namespace db0::pools;
     
     GC0_Define(Class)
-        
-    std::uint32_t classRef(const Class &type, std::uint64_t type_slot_begin_addr)
+    
+    std::uint32_t classRef(Address addr, std::uint64_t type_slot_begin_addr)
     {
-        auto addr_offset = type.getAddress().getOffset();
+        auto addr_offset = addr.getOffset();
         assert(addr_offset >= type_slot_begin_addr && "Class address is not in the type slot range");
         // calculate class ref as a relative offset from the type slot begin address
         addr_offset -= type_slot_begin_addr;
-        assert(addr_offset <= std::numeric_limits<std::uint32_t>::max());
-        return static_cast<std::uint32_t>(addr_offset);
+        assert(addr_offset < std::numeric_limits<std::uint32_t>::max());
+        // NOTE: +1 to avoid 0 as a class ref
+        return static_cast<std::uint32_t>(addr_offset) + 1;
+    }
+    
+    std::uint32_t classRef(const Class &type, std::uint64_t type_slot_begin_addr) {
+        return classRef(type.getAddress(), type_slot_begin_addr);
     }
     
     Address classRefToAddress(std::uint32_t class_ref, std::uint64_t type_slot_begin_addr) {
         // calculate the absolute address
-        return Address::fromOffset(static_cast<std::uint64_t>(class_ref) + type_slot_begin_addr);
+        return Address::fromOffset(static_cast<std::uint64_t>(class_ref) - 1 + type_slot_begin_addr);
     }
-
+    
     std::uint64_t getTypeSlotBeginAddress(const Fixture &fixture) {
         return fixture.getAllocator().getRange(Class::SLOT_NUM).first.getOffset();
     }

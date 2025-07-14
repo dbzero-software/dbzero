@@ -245,7 +245,11 @@ namespace db0::object_model
             classRefToAddress(class_ref, m_type_slot_begin_addr)), lang_type
         );
     }
-    
+
+    ClassFactory::ClassItem ClassFactory::getTypeByAddr(Address addr, TypeObjectPtr lang_type) const {
+        return getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(addr), lang_type);
+    }
+
     ClassFactory::ClassItem ClassFactory::tryGetTypeByClassRef(std::uint32_t class_ref,
         TypeObjectPtr lang_type) const 
     {
@@ -253,7 +257,11 @@ namespace db0::object_model
             classRefToAddress(class_ref, m_type_slot_begin_addr)), lang_type
         );
     }
-    
+
+    ClassFactory::ClassItem ClassFactory::tryGetTypeByAddr(Address addr, TypeObjectPtr lang_type) const {
+        return tryGetTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(addr), lang_type);
+    }
+
     ClassFactory::ClassItem ClassFactory::tryGetTypeByPtr(ClassPtr ptr, TypeObjectPtr lang_type) const
     {
         auto it_cached = m_ptr_cache.find(ptr);
@@ -389,6 +397,10 @@ namespace db0::object_model
         }
         // type not found
         return nullptr;
+    }
+    
+    std::uint32_t ClassFactory::getClassRef(Address class_addr) const {
+        return classRef(class_addr, m_type_slot_begin_addr);
     }
     
 }

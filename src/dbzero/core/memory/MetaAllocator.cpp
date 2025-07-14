@@ -278,11 +278,11 @@ namespace db0
             }
         }
         
-        // Find existing slab by ID    
+        // Find existing slab by ID
         FindResult find(std::uint32_t slab_id) const
         {
-            if (slab_id >= nextSlabId()) {                
-                THROWF(db0::InputException) << "Slab " << slab_id << " does not exist";
+            if (slab_id >= nextSlabId()) {
+                THROWF(db0::BadAddressException) << "Slab " << slab_id << " does not exist";
             }
             if (m_active_slab == slab_id) {
                 return m_active_slab;
@@ -816,7 +816,7 @@ namespace db0
             return false;
         }
         auto slab_id = m_slab_id_function(address);
-        auto realm_id = slab_id & MetaAllocator::REALM_MASK;
+        auto realm_id = getRealmID(slab_id);
         return m_realms[realm_id].find(slab_id).m_slab->isAllocated(address, size_of_result);
     }
 

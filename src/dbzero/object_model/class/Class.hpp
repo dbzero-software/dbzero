@@ -77,6 +77,7 @@ namespace db0::object_model
     // address <-> class_ref conversion functions
     // @param type_slot_begin_addr the address of the types-specific slot
     std::uint32_t classRef(const Class &, std::uint64_t type_slot_begin_addr);
+    std::uint32_t classRef(Address, std::uint64_t type_slot_begin_addr);
     Address classRefToAddress(std::uint32_t class_ref, std::uint64_t type_slot_begin_addr);
     std::uint64_t getTypeSlotBeginAddress(const Fixture &);
     

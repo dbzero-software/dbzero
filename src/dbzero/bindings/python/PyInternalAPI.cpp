@@ -168,8 +168,8 @@ namespace db0::python
         } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {            
             return PyToolkit::isExistingIndex(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
-            auto &class_factory = db0::object_model::getClassFactory(*fixture);
-            return !!class_factory.tryGetTypeByClassRef(addr.getOffset()).m_class;
+            auto &class_factory = db0::object_model::getClassFactory(*fixture);            
+            return !!class_factory.tryGetTypeByAddr(addr).m_class;
         }
 
         return false;
@@ -210,11 +210,11 @@ namespace db0::python
             return PyToolkit::unloadSet(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {            
             return PyToolkit::unloadTuple(fixture, addr, addr.getInstanceId());
-        } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {            
+        } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {
             return PyToolkit::unloadIndex(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
-            auto &class_factory = db0::object_model::getClassFactory(*fixture);
-            auto class_ptr = class_factory.getTypeByClassRef(addr.getOffset()).m_class;
+            auto &class_factory = db0::object_model::getClassFactory(*fixture);            
+            auto class_ptr = class_factory.getTypeByAddr(addr).m_class;
             // return as a dbzero class instance
             return makeClass(class_ptr);
         }

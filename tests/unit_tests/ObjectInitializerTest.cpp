@@ -59,6 +59,7 @@ namespace tests
         ASSERT_EQ(pos_vt_data.m_types[3], StorageClass::INT64);
         
         object_1->~Object();
+        workspace.close();
     }
     
     TEST_F( ObjectInitializerTest, testReducedPosVT )
@@ -84,6 +85,7 @@ namespace tests
         // NOTE: there should be 4 elements in pos-vt, but only 3 are filled
         ASSERT_EQ(pos_vt_data.m_types.size(), 4u);
         object_1->~Object();
+        workspace.close();
     }
     
 }
