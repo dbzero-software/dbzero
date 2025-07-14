@@ -24,7 +24,7 @@ namespace db0::object_model
 
 {
 
-    class Class;
+    class Class;    
     using Fixture = db0::Fixture;
     
     class [[gnu::packed]] o_object: public db0::o_base<o_object, 0, false>
@@ -129,7 +129,7 @@ namespace db0::object_model
         Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::pair<std::uint32_t, std::uint32_t> ref_counts, 
             const PosVT::Data &);
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
-
+        
         ~Object();
         
         // post-init invoked by memo type directly after __init__
@@ -282,7 +282,7 @@ namespace db0::object_model
         void setType(std::shared_ptr<Class>);
         // adjusts to actual type if the type hint is a base class
         void setTypeWithHint(std::shared_ptr<Class> type_hint);
-                
+        
         // Try retrieving member either from DB0 values (initialized) or from the initialization buffer (not initialized yet)        
         bool tryGetMemberAt(FieldID, bool is_init_var, std::pair<StorageClass, Value> &) const;
         bool tryGetMember(const char *field_name, std::pair<StorageClass, Value> &) const;

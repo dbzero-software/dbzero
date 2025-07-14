@@ -681,7 +681,7 @@ namespace db0::object_model
     void materialize(FixtureLock &fixture, PyObjectPtr obj_ptr)
     {
         auto object_ptr = PyToolkit::getTypeManager().tryExtractMutableObject(obj_ptr);
-        if (object_ptr && !object_ptr->hasInstance()) {
+        if (object_ptr && !object_ptr->hasInstance()) {            
             object_ptr->postInit(fixture);
         }
     }

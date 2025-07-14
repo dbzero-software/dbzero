@@ -135,7 +135,7 @@ namespace db0::python
         auto storage_class = object_id.m_storage_class;
         auto addr = object_id.m_address;
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
-            auto &class_factory = fixture->get<ClassFactory>();
+            auto &class_factory = db0::object_model::getClassFactory(*fixture);
             // NOTE: we always need to unload the object to also validate hasRefs
             // since objects with no refs are considered deleted
             auto result = PyToolkit::tryUnloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
@@ -168,7 +168,7 @@ namespace db0::python
         } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {            
             return PyToolkit::isExistingIndex(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
-            auto &class_factory = fixture->get<ClassFactory>();
+            auto &class_factory = db0::object_model::getClassFactory(*fixture);
             return !!class_factory.tryGetTypeByClassRef(addr.getOffset()).m_class;
         }
 
@@ -189,7 +189,7 @@ namespace db0::python
         auto storage_class = object_id.m_storage_class;
         auto addr = object_id.m_address;
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {            
-            auto &class_factory = fixture->get<ClassFactory>();
+            auto &class_factory = db0::object_model::getClassFactory(*fixture);
             auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
                         
@@ -213,7 +213,7 @@ namespace db0::python
         } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {            
             return PyToolkit::unloadIndex(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
-            auto &class_factory = fixture->get<ClassFactory>();      
+            auto &class_factory = db0::object_model::getClassFactory(*fixture);
             auto class_ptr = class_factory.getTypeByClassRef(addr.getOffset()).m_class;
             // return as a dbzero class instance
             return makeClass(class_ptr);

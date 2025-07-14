@@ -24,7 +24,7 @@ namespace db0
         BitsetAllocator(BitSetT &&bitset, Address base_addr, std::size_t alloc_size, int direction);
 
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false) override;
+            bool aligned = false, unsigned char realm_id = 0) override;
         
         void free(Address) override;
 
@@ -95,7 +95,7 @@ namespace db0
     }
     
     template <typename BitSetT> std::optional<Address>
-    BitsetAllocator<BitSetT>::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    BitsetAllocator<BitSetT>::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned, unsigned char)
     {
         assert(slot_num == 0);
         // all BitSetAllocator allocations are aligned        

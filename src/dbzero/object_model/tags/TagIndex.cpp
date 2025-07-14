@@ -1002,7 +1002,7 @@ namespace db0::object_model
         using LangToolkit = TagIndex::LangToolkit;
         
         auto fixture = getFindScope(workspace, args, nargs, prefix_name);
-        auto &class_factory = fixture->get<ClassFactory>();
+        auto &class_factory = getClassFactory(*fixture);
         no_result = false;
         lang_type = nullptr;
         auto &type_manager = LangToolkit::getTypeManager();

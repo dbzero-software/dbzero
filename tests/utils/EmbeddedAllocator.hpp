@@ -19,7 +19,7 @@ namespace db0
         EmbeddedAllocator() = default;
         
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t, 
-            bool aligned = false) override;
+            bool aligned = false, unsigned char realm_id = 0) override;
         
         void free(Address) override;
 

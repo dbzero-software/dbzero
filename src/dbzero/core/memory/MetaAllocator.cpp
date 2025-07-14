@@ -11,6 +11,10 @@ namespace db0
 
     static constexpr double MIN_FILL_RATE = 0.33;
 
+    inline unsigned char getRealmID(std::uint32_t slab_id) {
+        return slab_id & MetaAllocator::REALM_MASK;
+    }
+
     std::size_t MetaAllocator::getSlabCount(std::size_t page_size, std::size_t slab_size) 
     {
         std::size_t max_slab_count = (std::numeric_limits<std::uint32_t>::max() - 2 * page_size) / slab_size - 1;
@@ -535,7 +539,8 @@ namespace db0
 
         void erase(const FindResult &slab, bool cleanup)
         {
-            if (slab.m_cap_item.m_slab_id != nextSlabId() - 1) {
+            // erasing the last slab
+            if (slab.m_cap_item.m_slab_id != nextSlabId() - NUM_REALMS) {
                 return;
             }
 
@@ -687,19 +692,17 @@ namespace db0
         return meta_header.const_ref();
     }
     
-    std::optional<Address> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    std::optional<Address> MetaAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+        bool aligned, unsigned char realm_id)
     {
         std::uint16_t instance_id;
-        // FIXME: implement
-        unsigned char realm_id = 0;
         return tryAllocImpl(size, slot_num, aligned, false, instance_id, realm_id);
     }
-
-    std::optional<UniqueAddress> MetaAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num, bool aligned)
+    
+    std::optional<UniqueAddress> MetaAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num,
+        bool aligned, unsigned char realm_id)
     {
         std::uint16_t instance_id;
-        // FIXME: implement
-        unsigned char realm_id = 0;
         auto addr = tryAllocImpl(size, slot_num, aligned, true, instance_id, realm_id);
         if (addr) {
             return UniqueAddress(*addr, instance_id);
@@ -776,7 +779,7 @@ namespace db0
     void MetaAllocator::_free(Address address)
     {        
         auto slab_id = m_slab_id_function(address);
-        auto realm_id = slab_id & MetaAllocator::REALM_MASK;        
+        auto realm_id = getRealmID(slab_id);
         auto slab = m_realms[realm_id].find(slab_id);
         slab.m_slab->free(address);
         if (slab.m_slab->empty()) {
@@ -788,10 +791,22 @@ namespace db0
     std::size_t MetaAllocator::getAllocSize(Address address) const
     {        
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
-            THROWF(db0::InputException) << "Address " << address << " not found (pending deferred free)";
+            THROWF(db0::BadAddressException) << "Address " << address << " not found (pending deferred free)";
         }
         auto slab_id = m_slab_id_function(address);
-        auto realm_id = slab_id & MetaAllocator::REALM_MASK;
+        auto realm_id = getRealmID(slab_id);
+        return m_realms[realm_id].find(slab_id).m_slab->getAllocSize(address);
+    }
+    
+    std::size_t MetaAllocator::getAllocSize(Address address, unsigned char realm_id) const
+    {
+        auto slab_id = m_slab_id_function(address);
+        if (realm_id != getRealmID(slab_id)) {
+            THROWF(db0::BadAddressException) << "Invalid address accessed";
+        }
+        if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
+            THROWF(db0::BadAddressException) << "Address " << address << " not found (pending deferred free)";
+        }        
         return m_realms[realm_id].find(slab_id).m_slab->getAllocSize(address);
     }
     
@@ -804,7 +819,19 @@ namespace db0
         auto realm_id = slab_id & MetaAllocator::REALM_MASK;
         return m_realms[realm_id].find(slab_id).m_slab->isAllocated(address, size_of_result);
     }
-    
+
+    bool MetaAllocator::isAllocated(Address address, unsigned char realm_id, std::size_t *size_of_result) const
+    {
+        auto slab_id = m_slab_id_function(address);
+        if (realm_id != getRealmID(slab_id)) {
+            THROWF(db0::BadAddressException) << "Invalid address accessed";
+        }
+        if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
+            return false;
+        }        
+        return m_realms[realm_id].find(slab_id).m_slab->isAllocated(address, size_of_result);
+    }
+
     std::uint32_t MetaAllocator::getSlabId(Address address) const {
         return m_slab_id_function(address);
     }

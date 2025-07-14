@@ -34,6 +34,9 @@ namespace db0::object_model
         o_class_factory(Memspace &memspace);
     };
     
+    ClassFactory &getClassFactory(Fixture &);
+    const ClassFactory &getClassFactory(const Fixture &);
+    
     class ClassFactory: public db0::has_fixture<v_object<o_class_factory> >
     {
     public:
@@ -93,9 +96,6 @@ namespace db0::object_model
         // May return invalid ClassItem if the class is not found
         ClassItem tryGetTypeByClassRef(std::uint32_t class_ref, TypeObjectPtr lang_type = nullptr) const;
 
-        static std::uint32_t classRef(const Class &);
-        static Address classRefToAddress(std::uint32_t class_ref);
-
         void flush() const;
         
         // discard all changes stored in the internal flush buffers (e.g. schema updates)
@@ -124,7 +124,9 @@ namespace db0::object_model
         // buffers with keys for potential rollback
         mutable std::vector<TypeObjectSharedPtr> m_pending_types;
         mutable std::vector<ClassPtr> m_pending_ptrs;
-
+        // starting address of the "types" slot
+        const std::uint64_t m_type_slot_begin_addr;
+        
         // Pull through by-pointer cache
         std::shared_ptr<Class> getType(ClassPtr, std::shared_ptr<Class>, TypeObjectPtr lang_type) const;
         

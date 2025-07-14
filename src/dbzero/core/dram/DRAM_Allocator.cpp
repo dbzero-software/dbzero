@@ -43,7 +43,8 @@ namespace db0
         m_next_page_id = max_page_id;
     }
     
-    std::optional<Address> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    std::optional<Address> DRAM_Allocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+        bool aligned, unsigned char realm_id)
     {
         assert(slot_num == 0);
         assert(!aligned && "DRAM_Allocator: aligned allocation not supported");        

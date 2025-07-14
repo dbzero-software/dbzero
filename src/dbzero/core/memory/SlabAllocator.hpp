@@ -69,13 +69,15 @@ namespace db0
         virtual ~SlabAllocator();
         
         std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false) override;
-                
+            bool aligned = false, unsigned char realm_id = 0) override;
+        
         void free(Address) override;
 
         std::size_t getAllocSize(Address) const override;
+        std::size_t getAllocSize(Address, unsigned char realm_id) const override;
         
         bool isAllocated(Address, std::size_t *size_of_result = nullptr) const override;
+        bool isAllocated(Address, unsigned char realm_id, std::size_t *size_of_result = nullptr) const override;
         
         void commit() const override;
 
@@ -149,6 +151,9 @@ namespace db0
         
         bool tryMakeAddressUnique(Address, std::uint16_t &instance_id);
         UniqueAddress tryMakeAddressUnique(Address);
+        
+        // Get address range of the entire slab (begin, end), not the actually allocated space
+        std::pair<Address, std::optional<Address> > getRange(std::uint32_t slot_num = 0) const override;
         
     private:
         using AllocSetT = db0::CRDT_Allocator::AllocSetT;

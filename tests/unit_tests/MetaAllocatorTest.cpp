@@ -139,8 +139,8 @@ namespace tests
         // open again and try to allocate
         MetaAllocator cut(m_prefix);
         auto ptr = cut.alloc(100);
-        // the allocation should be from the 2nd slab since the 1st is full
-        ASSERT_EQ(cut.getSlabId(ptr), 1);
+        // the allocation should be from the other slab since the 1st is full
+        ASSERT_TRUE(cut.getSlabId(ptr) > 0);
     }
     
     TEST_F( MetaAllocatorTests , testMetaAllocatorRemainingCapacityIsTrackedPerSlab )
@@ -151,13 +151,19 @@ namespace tests
             // make allocations until the 2 slabs are occupied
             MetaAllocator cut(m_prefix, &recycler);
             std::size_t total_allocated = 0;
+            std::vector<unsigned int> slab_ids;
             while (cut.getSlabCount() < 2) {
-                cut.alloc(100);
+                auto ptr = cut.alloc(100);
+                auto slab_id = cut.getSlabId(ptr);
+                if (std::find(slab_ids.begin(), slab_ids.end(), slab_id) == slab_ids.end()) {
+                    slab_ids.push_back(slab_id);
+                }
                 total_allocated += 100;
             }
 
-            ASSERT_TRUE(cut.getRemainingCapacity(0) < 100);
-            ASSERT_TRUE(cut.getRemainingCapacity(1) > 100);
+            ASSERT_EQ(2u, slab_ids.size());
+            ASSERT_TRUE(cut.getRemainingCapacity(slab_ids[0]) < 100);
+            ASSERT_TRUE(cut.getRemainingCapacity(slab_ids[1]) > 100);
             cut.close();
         }
     }
@@ -181,18 +187,23 @@ namespace tests
     {
         MetaAllocator::formatPrefix(m_prefix, PAGE_SIZE, SMALL_SLAB_SIZE);
         SlabRecycler recycler;
+        std::vector<unsigned int> slab_ids;
         {
             // make allocations until the 2 slabs are occupied
             MetaAllocator cut(m_prefix, &recycler);
             while (cut.getSlabCount() < 2) {
-                cut.alloc(100);
+                auto ptr = cut.alloc(100);
+                auto slab_id = cut.getSlabId(ptr);
+                if (std::find(slab_ids.begin(), slab_ids.end(), slab_id) == slab_ids.end()) {
+                    slab_ids.push_back(slab_id);
+                }
             }
             cut.close();
         }
         
         MetaAllocator cut(m_prefix, &recycler);
-        ASSERT_TRUE(cut.getRemainingCapacity(0) < 100);
-        ASSERT_TRUE(cut.getRemainingCapacity(1) > 100);
+        ASSERT_TRUE(cut.getRemainingCapacity(slab_ids[0]) < 100);
+        ASSERT_TRUE(cut.getRemainingCapacity(slab_ids[1]) > 100);
     }
     
     TEST_F( MetaAllocatorTests , testMetaAllocatorCanGetAllocSize )

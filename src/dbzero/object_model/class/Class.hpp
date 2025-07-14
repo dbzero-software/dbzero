@@ -45,7 +45,7 @@ namespace db0::object_model
     using Fixture = db0::Fixture;
     using ClassFlags = db0::ClassFlags;    
     class Object;
-    class Class;
+    class Class;    
     struct ObjectId;
 
     struct [[gnu::packed]] o_class: public db0::o_fixed<o_class>
@@ -74,6 +74,12 @@ namespace db0::object_model
         );
     };
         
+    // address <-> class_ref conversion functions
+    // @param type_slot_begin_addr the address of the types-specific slot
+    std::uint32_t classRef(const Class &, std::uint64_t type_slot_begin_addr);
+    Address classRefToAddress(std::uint32_t class_ref, std::uint64_t type_slot_begin_addr);
+    std::uint64_t getTypeSlotBeginAddress(const Fixture &);
+    
     // NOTE: Class type uses SLOT_NUM = TYPE_SLOT_NUM
     // NOTE: class allocations are NOT unique
     class Class: public db0::ObjectBase<Class, db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>, StorageClass::DB0_CLASS, false>,
@@ -182,9 +188,6 @@ namespace db0::object_model
         // @return field name / field index map
         std::unordered_map<std::string, std::uint32_t> getMembers() const;
         
-        // Get null class instance (e.g. for testing)
-        static std::shared_ptr<Class> getNullClass();
-        
         std::shared_ptr<Class> tryGetBaseClass() const;
         // @return base class pointer or nullptr if no base class is defined
         const Class *getBaseClassPtr() const;
@@ -217,6 +220,8 @@ namespace db0::object_model
         // NOTE: this is for type compatibility only, Class objects don't have instance_id
         UniqueAddress getUniqueAddress() const;
         
+        std::uint32_t getClassRef() const;
+        
     protected:
         friend class ClassFactory;        
         friend ClassPtr;
@@ -240,6 +245,7 @@ namespace db0::object_model
         const Member *tryGet(const char *name) const;
         
     private:
+        const std::uint64_t m_type_slot_begin_addr;
         // member field definitions
         VFieldVector m_members;
         Schema m_schema;
@@ -251,8 +257,6 @@ namespace db0::object_model
         // fields initialized on class creation (from static code analysis)
         std::unordered_set<std::string> m_init_vars;
         const std::uint32_t m_uid = 0;
-        // null-class constructor (for testing only)
-        Class() = default;
 
         /**
          * Load changes to the internal cache

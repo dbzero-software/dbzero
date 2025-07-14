@@ -1,10 +1,13 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
+#include <utils/SubClass.hpp>
 #include <utils/TestBase.hpp>
 #include <dbzero/object_model/object/Object.hpp>
+#include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object/ObjectInitializer.hpp>
 #include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/workspace/Fixture.hpp>
+#include <dbzero/workspace/Workspace.hpp>
 
 using namespace std;
 using namespace db0;
@@ -31,12 +34,15 @@ namespace tests
     };
 
     TEST_F( ObjectInitializerTest, testIncompletePosVT )
-    {    
+    {   
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+
         std::vector<char> data(sizeof(Object));
-        std::shared_ptr<Class> null_class = Class::getNullClass();
-        auto object_1 = new (data.data()) Object(null_class);
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+        auto object_1 = new (data.data()) Object(mock_class);
         ObjectInitializerManager manager;
-        manager.addInitializer(*object_1, null_class);
+        manager.addInitializer(*object_1, mock_class);
         auto &cut = *manager.findInitializer(*object_1);
         // fill rate = 3 / 4
         cut.set(0, StorageClass::INT64, Value(0));
@@ -54,14 +60,17 @@ namespace tests
         
         object_1->~Object();
     }
-
+    
     TEST_F( ObjectInitializerTest, testReducedPosVT )
     {    
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+
         std::vector<char> data(sizeof(Object));
-        std::shared_ptr<Class> null_class = Class::getNullClass();
-        auto object_1 = new (data.data()) Object(null_class);
+        std::shared_ptr<Class> mock_class = getTestClass(fixture);
+        auto object_1 = new (data.data()) Object(mock_class);
         ObjectInitializerManager manager;
-        manager.addInitializer(*object_1, null_class);
+        manager.addInitializer(*object_1, mock_class);
         auto &cut = *manager.findInitializer(*object_1);
         // NOTE: only the first 4 elements should be selected to pos-vt
         cut.set(0, StorageClass::INT64, Value(0));

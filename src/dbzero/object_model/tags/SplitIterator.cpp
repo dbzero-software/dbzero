@@ -31,7 +31,7 @@ namespace db0::object_model
     {
         for (auto &fixture : split_fixtures) {
             m_split_fixtures.emplace_back(fixture);
-            m_class_factories.emplace_back(&fixture->get<ClassFactory>());
+            m_class_factories.emplace_back(&getClassFactory(*fixture));
         }
     }
     
@@ -45,7 +45,7 @@ namespace db0::object_model
                 THROWF(db0::InputException)
                     << "ObjectIterator is no longer accessible (prefix or snapshot closed)" << THROWF_END;
             }
-            m_class_factories.emplace_back(&fixture->get<ClassFactory>());
+            m_class_factories.emplace_back(&getClassFactory(*fixture));
         }
     }
     
