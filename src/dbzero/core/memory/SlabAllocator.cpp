@@ -208,6 +208,10 @@ namespace db0
         m_on_close_handler = handler;
     }
     
+    void SlabAllocator::resetOnCloseHandler() {
+        m_on_close_handler = {};
+    }
+    
     bool SlabAllocator::empty() const {
         return m_allocs.empty();
     }

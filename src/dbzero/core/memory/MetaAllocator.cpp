@@ -437,11 +437,12 @@ namespace db0
             assert(m_volatile_slabs.empty());
             m_atomic = true;
         }
-
+        
         void endAtomic()
         {
             assert(m_atomic);
             m_volatile_slabs.clear();
+            m_atomic = false;
         }
 
         void cancelAtomic()
@@ -451,6 +452,11 @@ namespace db0
             for (auto slab_addr : m_volatile_slabs) {
                 auto it = m_slabs.find(slab_addr);
                 if (it != m_slabs.end()) {
+                    auto slab = it->second->m_slab.lock();
+                    // this is to prevent the slab from materializing any updates
+                    if (slab) {
+                        slab->resetOnCloseHandler();
+                    }
                     m_slabs.erase(it);
                 }
             }
@@ -477,14 +483,18 @@ namespace db0
             void commit() const
             {
                 if (auto slab = m_slab.lock()) {
-                    slab->commit();
+                    if (slab) {
+                        slab->commit();
+                    }
                 }
             }
 
             void detach() const
             {
                 if (auto slab = m_slab.lock()) {
-                    slab->detach();
+                    if (slab) {
+                        slab->detach();
+                    }
                 }
             }
 
@@ -745,8 +755,8 @@ namespace db0
 
             // and put their addresses in the header...
             meta_header.modify().m_realms[i].m_slab_defs_ptr = Address::fromOffset(slab_defs.getAddress());
-            meta_header.modify().m_realms[i]. m_capacity_items_ptr = Address::fromOffset(capacity_items.getAddress());
-        }        
+            meta_header.modify().m_realms[i].m_capacity_items_ptr = Address::fromOffset(capacity_items.getAddress());
+        }
     }
     
     o_meta_header MetaAllocator::getMetaHeader(std::shared_ptr<Prefix> prefix)
@@ -920,7 +930,7 @@ namespace db0
         return total_slab_count;
     }
     
-    std::uint32_t MetaAllocator::getRemainingCapacity(std::uint32_t slab_id) const 
+    std::uint32_t MetaAllocator::getRemainingCapacity(std::uint32_t slab_id) const
     {
         auto realm_id = slab_id & MetaAllocator::REALM_MASK;
         return m_realms[realm_id].getRemainingCapacity(slab_id);
@@ -938,9 +948,7 @@ namespace db0
                 return &slab.getPrefix() == m_prefix.get();
             });
         }
-        for (unsigned int i = 0; i < MetaAllocator::NUM_REALMS; ++i) {
-            m_realms[i].close();
-        }        
+        m_realms.close();
     }
     
     std::shared_ptr<SlabAllocator> MetaAllocator::reserveNewSlab(unsigned char realm_id) {
@@ -960,13 +968,13 @@ namespace db0
         return result;
     }
 
-    void MetaAllocator::Realm::commit() const 
+    void MetaAllocator::Realm::commit() const
     {
         m_slab_defs.commit();
         m_capacity_items.commit();
         m_slab_manager->commit();
     }
-
+    
     void MetaAllocator::Realm::detach() const
     {
         m_slab_defs.detach();
@@ -1089,6 +1097,13 @@ namespace db0
     {
         for (const auto &realm: *this) {
             realm.commit();
+        }
+    }
+
+    void MetaAllocator::RealmsVector::close()
+    {
+        for (const auto &realm: *this) {
+            realm.close();
         }
     }
 

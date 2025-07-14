@@ -125,6 +125,7 @@ namespace db0
          * Register a handler to be called pre-destruction
         */
         void setOnCloseHandler(std::function<void(const SlabAllocator &)>);
+        void resetOnCloseHandler();
 
         bool empty() const;
 

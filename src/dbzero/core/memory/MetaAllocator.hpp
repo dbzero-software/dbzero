@@ -283,6 +283,8 @@ namespace db0
             void detach() const;
 
             void commit() const;
+
+            void close();
         };
         
         RealmsVector m_realms;
