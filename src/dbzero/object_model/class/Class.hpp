@@ -75,12 +75,12 @@ namespace db0::object_model
     };
     
     // address <-> class_ref conversion functions
-    // @param type_slot_begin_addr the address of the types-specific slot
-    std::uint32_t classRef(const Class &, std::uint64_t type_slot_begin_addr);
-    std::uint32_t classRef(Address, std::uint64_t type_slot_begin_addr);
-    Address classRefToAddress(std::uint32_t class_ref, std::uint64_t type_slot_begin_addr);
-    std::uint64_t getTypeSlotBeginAddress(const Fixture &);
-        
+    // @param type_slot_addr_range the address of the types-specific slot
+    std::uint32_t classRef(const Class &, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range);
+    std::uint32_t classRef(Address, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range);
+    Address classRefToAddress(std::uint32_t class_ref, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range);
+    std::pair<std::uint64_t, std::uint64_t> getTypeSlotAddrRange(const Fixture &);
+    
     using ClassVType = db0::v_object<o_class, Fixture::TYPE_SLOT_NUM>;
     
     // NOTE: Class type uses SLOT_NUM = TYPE_SLOT_NUM
@@ -249,7 +249,7 @@ namespace db0::object_model
         const Member *tryGet(const char *name) const;
         
     private:
-        const std::uint64_t m_type_slot_begin_addr;
+        const std::pair<std::uint64_t, std::uint64_t> m_type_slot_addr_range;
         // member field definitions
         VFieldVector m_members;
         Schema m_schema;

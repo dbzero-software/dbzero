@@ -140,7 +140,7 @@ namespace db0::object_model
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type_hint, with_type_hint)
         : Object(fixture, std::move(stem), getTypeWithHint(*fixture, stem->m_class_ref, type_hint))
-    {        
+    {
     }
 
     Object::~Object()
@@ -201,6 +201,7 @@ namespace db0::object_model
                 safeCast<std::uint8_t>(m_type->getNumBases() + 1, "Too many base classes"), pos_vt_data, 
                 index_vt_data.first, index_vt_data.second
             );
+            
             // reference associated class
             m_type->incRef(false);
             m_type->updateSchema(pos_vt_data.m_types);
@@ -736,11 +737,7 @@ namespace db0::object_model
         forAll([&](const std::string &name, const XValue &xvalue) -> bool {
             // all references convert to UUID
             auto py_member = unloadMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value);
-            if (isReference(xvalue.m_type)) {
-                return f(name, LangToolkit::getUUID(py_member.get()));
-            } else {
-                return f(name, py_member);
-            }
+            return f(name, py_member);
         });
     }
     

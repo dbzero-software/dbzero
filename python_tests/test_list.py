@@ -412,14 +412,15 @@ def test_list_drop_issue_1(db0_fixture):
     This test was failing because db0 was trying to drop the list on final close
     even though the python reference was still accessible.
     """
-    obj = db0.list([1, 2, 3])
-    list_uuid = db0.uuid(obj)
+    obj = MemoTestClass([1, 2, 3])
+    list_obj = obj.value
+    uuid = db0.uuid(obj)
     for i in range(5):
-        obj.append(i)
+        list_obj.append(i)
     
     db0.commit()
     # list should NOT be dropped (since python reference is still accessible)
-    assert list(db0.fetch(list_uuid)) == [1, 2, 3, 0, 1, 2, 3, 4]
+    assert list(db0.fetch(uuid).value) == [1, 2, 3, 0, 1, 2, 3, 4]
     
     
 def test_list_index_access_issue_1(db0_fixture):

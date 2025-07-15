@@ -77,7 +77,7 @@ namespace db0::object_model
         : super_t(fixture, *fixture)
         , m_class_maps(openClassMaps((*this)->m_class_map_ptrs, getMemspace()))
         , m_class_ptr_index(getMemspace())
-        , m_type_slot_begin_addr(getTypeSlotBeginAddress(*fixture))
+        , m_type_slot_addr_range(getTypeSlotAddrRange(*fixture))
     {
         modify().m_class_ptr_index_ptr = m_class_ptr_index;
     }
@@ -86,7 +86,7 @@ namespace db0::object_model
         : super_t(super_t::tag_from_address(), fixture, address)
         , m_class_maps(openClassMaps((*this)->m_class_map_ptrs, getMemspace()))
         , m_class_ptr_index((*this)->m_class_ptr_index_ptr(getMemspace()))
-        , m_type_slot_begin_addr(getTypeSlotBeginAddress(*fixture))
+        , m_type_slot_addr_range(getTypeSlotAddrRange(*fixture))
     {
     }
     
@@ -242,7 +242,7 @@ namespace db0::object_model
         TypeObjectPtr lang_type) const 
     {
         return getTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(
-            classRefToAddress(class_ref, m_type_slot_begin_addr)), lang_type
+            classRefToAddress(class_ref, m_type_slot_addr_range)), lang_type
         );
     }
 
@@ -254,7 +254,7 @@ namespace db0::object_model
         TypeObjectPtr lang_type) const 
     {
         return tryGetTypeByPtr(db0::db0_ptr_reinterpret_cast<Class>()(
-            classRefToAddress(class_ref, m_type_slot_begin_addr)), lang_type
+            classRefToAddress(class_ref, m_type_slot_addr_range)), lang_type
         );
     }
 
@@ -400,7 +400,7 @@ namespace db0::object_model
     }
     
     std::uint32_t ClassFactory::getClassRef(Address class_addr) const {
-        return classRef(class_addr, m_type_slot_begin_addr);
+        return classRef(class_addr, m_type_slot_addr_range);
     }
     
 }

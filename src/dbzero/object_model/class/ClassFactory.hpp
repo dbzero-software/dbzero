@@ -130,7 +130,7 @@ namespace db0::object_model
         mutable std::vector<TypeObjectSharedPtr> m_pending_types;
         mutable std::vector<ClassPtr> m_pending_ptrs;
         // starting address of the "types" slot
-        const std::uint64_t m_type_slot_begin_addr;
+        const std::pair<std::uint64_t, std::uint64_t> m_type_slot_addr_range;
         
         // Pull through by-pointer cache
         std::shared_ptr<Class> getType(ClassPtr, std::shared_ptr<Class>, TypeObjectPtr lang_type) const;

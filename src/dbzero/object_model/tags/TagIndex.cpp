@@ -247,7 +247,7 @@ namespace db0::object_model
         ActiveValueT active_key = { UniqueAddress(), nullptr };
         auto &batch_operation = getBatchOperationShort(memo_ptr, active_key, is_type);
         batch_operation->addTags(active_key, TagPtrSequence(&tag, &tag + 1));        
-        m_mutation_log->onDirty();        
+        m_mutation_log->onDirty();
     }
     
     void TagIndex::addTag(ObjectPtr memo_ptr, LongTagT tag)
@@ -366,7 +366,7 @@ namespace db0::object_model
         // the pre-cache can be cleared now (while active cache still needs to be preserved)
         m_active_pre_cache.clear();
         auto &type_manager = LangToolkit::getTypeManager();
-        // NOTE: some object might've been dropped in the meantime, need to be reverted from batch operations
+        // NOTE: some object might've been dropped in the meantime, need to be reverted from batch operations        
         for (const auto &item: m_object_cache) {
             auto obj_ptr = item.second.get();
             auto &memo = type_manager.extractObject(obj_ptr);
@@ -376,7 +376,7 @@ namespace db0::object_model
         }
         
         // might be empty after clean-ups, check again
-        if (!empty()) {
+        if (!assureEmpty()) {
             // the purpose of callback is to incRef objects when a new tag is assigned
             std::function<void(UniqueAddress)> add_tag_callback = [&](UniqueAddress obj_addr) {
                 auto it = m_object_cache.find(obj_addr);
@@ -417,7 +417,7 @@ namespace db0::object_model
             };
             
             // flush all short tags' updates
-            if (!m_batch_op_short.empty()) {
+            if (!m_batch_op_short.assureEmpty()) {
                 m_batch_op_short->flush(&add_tag_callback, &remove_tag_callback, 
                     &add_index_callback, &erase_index_callback);
                 assert(m_batch_op_short.empty());
@@ -434,13 +434,13 @@ namespace db0::object_model
             };
             
             // flush all long tags' updates
-            if (!m_batch_op_long.empty()) {
+            if (!m_batch_op_long.assureEmpty()) {
                 m_batch_op_long->flush(&add_tag_callback, &remove_tag_callback, 
                     &add_long_index_callback, &erase_long_index_callback);
                 assert(m_batch_op_long->empty());
             }
             
-            if (m_batch_op_types) {
+            if (!m_batch_op_types.assureEmpty()) {
                 // now, scan the object cache and revert any unreferenced objects (no dbzero refs, no lang refs)
                 assert(m_active_pre_cache.empty());
                 for (const auto &item: m_object_cache) {
@@ -454,13 +454,13 @@ namespace db0::object_model
                 }
                 
                 // flush all type-tag updates
-                if (!m_batch_op_types.empty()) {
+                if (!m_batch_op_types.assureEmpty()) {
                     // NOTE: we don't pass any remove_tag_callback since type tags are only removed when objects are dropped
                     m_batch_op_types->flush(&add_tag_callback, nullptr, &add_index_callback, &erase_index_callback);
                     assert(m_batch_op_types.empty());
                 }
-            }            
-        }
+            }
+        } 
         
         m_object_cache.clear();
         m_active_cache.clear();
@@ -1087,13 +1087,20 @@ namespace db0::object_model
         }        
     }
     
-    bool TagIndex::empty() const
-    {
-        return (!m_batch_op_short || m_batch_op_short->empty()) &&
-            (!m_batch_op_long || m_batch_op_long->empty()) &&
-            (!m_batch_op_types || m_batch_op_types->empty());
+    bool TagIndex::empty() const {
+        return m_batch_op_short.empty() && m_batch_op_long.empty() && m_batch_op_types.empty();
     }
     
+    bool TagIndex::assureEmpty() const
+    {
+        if (empty()) {
+            m_batch_op_short.clear();
+            m_batch_op_long.clear();
+            m_batch_op_types.clear();
+        }
+        return false;
+    }
+
     bool isObjectPendingUpdate(db0::swine_ptr<Fixture> &fixture, UniqueAddress addr)
     {
         if (fixture->getAccessType() == db0::AccessType::READ_ONLY) {

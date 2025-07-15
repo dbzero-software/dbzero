@@ -19,28 +19,36 @@ namespace db0::object_model
     
     GC0_Define(Class)
     
-    std::uint32_t classRef(Address addr, std::uint64_t type_slot_begin_addr)
+    std::uint32_t classRef(Address addr, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range)
     {
         auto addr_offset = addr.getOffset();
-        assert(addr_offset >= type_slot_begin_addr && "Class address is not in the type slot range");
+        if (addr_offset < type_slot_addr_range.first || addr_offset >= type_slot_addr_range.second) {
+            THROWF(db0::BadAddressException) << "Invalid address accessed";
+        }
         // calculate class ref as a relative offset from the type slot begin address
-        addr_offset -= type_slot_begin_addr;
+        addr_offset -= type_slot_addr_range.first;
         assert(addr_offset < std::numeric_limits<std::uint32_t>::max());
         // NOTE: +1 to avoid 0 as a class ref
         return static_cast<std::uint32_t>(addr_offset) + 1;
     }
     
-    std::uint32_t classRef(const Class &type, std::uint64_t type_slot_begin_addr) {
-        return classRef(type.getAddress(), type_slot_begin_addr);
+    std::uint32_t classRef(const Class &type, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range) {
+        return classRef(type.getAddress(), type_slot_addr_range);
     }
     
-    Address classRefToAddress(std::uint32_t class_ref, std::uint64_t type_slot_begin_addr) {
+    Address classRefToAddress(std::uint32_t class_ref, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range) 
+    {
         // calculate the absolute address
-        return Address::fromOffset(static_cast<std::uint64_t>(class_ref) - 1 + type_slot_begin_addr);
+        assert((static_cast<std::uint64_t>(class_ref) - 1 + type_slot_begin_addr) < type_slot_addr_range.second);
+        return Address::fromOffset(static_cast<std::uint64_t>(class_ref) - 1 + type_slot_addr_range.first);
     }
     
-    std::uint64_t getTypeSlotBeginAddress(const Fixture &fixture) {
-        return fixture.getAllocator().getRange(Class::SLOT_NUM).first.getOffset();
+    std::pair<std::uint64_t, std::uint64_t> getTypeSlotAddrRange(const Fixture &fixture)
+    {        
+        auto range = fixture.getAllocator().getRange(Class::SLOT_NUM);
+        // type slot has a bounded range
+        assert(range.second);
+        return { range.first.getOffset(), range.second->getOffset() };
     }
     
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
@@ -86,9 +94,9 @@ namespace db0::object_model
             type_id, 
             prefix_name, 
             flags, 
-            base_class ? classRef(*base_class, getTypeSlotBeginAddress(*fixture)) : 0,
+            base_class ? classRef(*base_class, getTypeSlotAddrRange(*fixture)) : 0,
             base_class ? (1u + base_class->getNumBases()) : 0)
-        , m_type_slot_begin_addr(getTypeSlotBeginAddress(*fixture))
+        , m_type_slot_addr_range(getTypeSlotAddrRange(*fixture))
         , m_members((*this)->m_members_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
         , m_base_class_ptr(base_class)
@@ -105,7 +113,7 @@ namespace db0::object_model
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
-        , m_type_slot_begin_addr(getTypeSlotBeginAddress(*fixture))
+        , m_type_slot_addr_range(getTypeSlotAddrRange(*fixture))
         , m_members((*this)->m_members_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
         , m_uid(this->fetchUID())
@@ -222,7 +230,7 @@ namespace db0::object_model
         auto &class_factory = getClassFactory(*fixture);
         auto stem = Object::unloadStem(fixture, (*this)->m_singleton_address);
         auto type = class_factory.getTypeByPtr(
-            db0::db0_ptr_reinterpret_cast<Class>()(classRefToAddress(stem->m_class_ref, m_type_slot_begin_addr))).m_class;
+            db0::db0_ptr_reinterpret_cast<Class>()(classRefToAddress(stem->m_class_ref, m_type_slot_addr_range))).m_class;
         // unload from stem
         new (at) Object(fixture, std::move(stem), type, Object::with_type_hint{});
         return true;
@@ -610,7 +618,7 @@ namespace db0::object_model
     }
     
     std::uint32_t Class::getClassRef() const {
-        return classRef(*this, m_type_slot_begin_addr);
+        return classRef(*this, m_type_slot_addr_range);
     }
 
 }

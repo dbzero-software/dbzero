@@ -20,10 +20,10 @@ def test_can_add_elements_to_index(db0_fixture):
     
 
 def test_index_updates_are_flushed_on_commit(db0_fixture):
-    index = db0.index()
+    root = MemoTestSingleton(db0.index())
+    index = root.value
     prefix = db0.get_current_prefix()
-    uuid = db0.uuid(index)
-    root = MemoTestSingleton(index)
+    uuid = db0.uuid(root)
     # key, value
     index.add(1, MemoTestClass(999))
     db0.commit()
@@ -31,21 +31,22 @@ def test_index_updates_are_flushed_on_commit(db0_fixture):
     
     db0.init(DB0_DIR)
     db0.open(prefix.name, "r")
-    index = db0.fetch(uuid)
+    index = db0.fetch(uuid).value
     assert len(index) == 1
 
 
 def test_index_updates_are_flushed_on_close(db0_fixture):
-    index = db0.index()
+    obj = MemoTestClass(db0.index())
+    index = obj.value
     prefix = db0.get_current_prefix()
-    uuid = db0.uuid(index)
+    uuid = db0.uuid(obj)
     index.add(1, MemoTestClass(999))
     # NOTE: index not getting destroyed because Python instance is still alive
     db0.close()
-        
+    
     db0.init(DB0_DIR)
     db0.open(prefix.name, "r")
-    index = db0.fetch(uuid)
+    index = db0.fetch(uuid).value
     assert len(index) == 1
 
 

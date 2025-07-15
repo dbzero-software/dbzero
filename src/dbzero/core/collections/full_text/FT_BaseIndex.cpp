@@ -100,22 +100,30 @@ namespace db0
         assert(m_add_set.empty() && m_remove_set.empty() &&
             "Operation not completed properly/commit or rollback should be called");
 	}
-
+    
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-	void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::cancel()
+	void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::clear()
     {
 		std::unique_lock<std::recursive_mutex> lock(m_mutex);
 		m_add_set.clear();
 		m_remove_set.clear();
+        m_commit_called = false;
 	}
-    
+
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
-    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::empty () const
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::empty() const
     {
         std::unique_lock<std::recursive_mutex> lock(m_mutex);
         return m_add_set.empty() && m_remove_set.empty();
     }
-    
+
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::assureEmpty()
+    {
+        std::unique_lock<std::recursive_mutex> lock(m_mutex);
+        return m_add_set.assureEmpty() && m_remove_set.assureEmpty();
+    }
+
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     typename FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::FlushStats 
     FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperation::flush(
@@ -290,7 +298,7 @@ namespace db0
     void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperationBuilder::reset()
     {
         if (m_batch_operation) {
-            m_batch_operation->cancel();
+            m_batch_operation->clear();
         }
         m_batch_operation = nullptr;
     }
@@ -310,6 +318,19 @@ namespace db0
         return !m_batch_operation || m_batch_operation->empty();
     }
 
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperationBuilder::assureEmpty() {
+        return !m_batch_operation || m_batch_operation->assureEmpty();
+    }
+
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::BatchOperationBuilder::clear()
+    {
+        if (m_batch_operation) {
+            m_batch_operation->clear();            
+        }
+    }
+    
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>
     void FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::append(IndexKeyT tag, ActiveValueT value)
     {    
@@ -379,6 +400,18 @@ namespace db0
         }
         // all values have been reverted
         return true;
+    }
+    
+    template <typename IndexKeyT, typename KeyT, typename IndexValueT>
+    bool FT_BaseIndex<IndexKeyT, KeyT, IndexValueT>::TagValueBuffer::assureEmpty()
+    {
+        if (this->empty()) {
+            m_values.clear();            
+            m_value_refs.clear();            
+            m_reverted.clear();            
+            return true;
+        }
+        return false;
     }
     
     template <typename IndexKeyT, typename KeyT, typename IndexValueT>

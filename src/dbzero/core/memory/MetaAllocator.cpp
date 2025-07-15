@@ -338,7 +338,7 @@ namespace db0
         std::shared_ptr<SlabAllocator> reserveNewSlab()
         {
             auto [slab, slab_id] = createNewSlab();
-            // internally register the slab with capacity = 0
+            // internally register the slab with capacity = 0 (to avoid use in regular allocations)
             CapacityItem cap_item { 0, 0, slab_id };
             // register with slab defs
             m_slab_defs.emplace(
@@ -676,7 +676,11 @@ namespace db0
     
     std::uint64_t MetaAllocator::Realm::getSlabMaxAddress() const
     {
-        std::uint64_t max_addr = 0;
+        // take max of the 2 collections
+        std::uint64_t max_addr = std::max(
+            m_slab_defs.getAddress(), m_capacity_items.getAddress()
+        );
+        // and their items ...
         for (auto it = m_slab_defs.cbegin_nodes(), end = m_slab_defs.cend_nodes(); it != end; ++it) {
             max_addr = std::max(max_addr, it.getAddress().getOffset());
         }
@@ -909,14 +913,14 @@ namespace db0
         }
         if (m_deferred_free_ops.find(address) != m_deferred_free_ops.end()) {
             return false;
-        }        
+        }
         auto slab = m_realms[realm_id].tryFind(slab_id);
         if (!slab) {
             return false;
         }        
         return slab.m_slab->isAllocated(address, size_of_result);
     }
-
+    
     std::uint32_t MetaAllocator::getSlabId(Address address) const {
         return m_slab_id_function(address);
     }
@@ -1099,23 +1103,23 @@ namespace db0
             realm.commit();
         }
     }
-
+    
     void MetaAllocator::RealmsVector::close()
     {
-        for (const auto &realm: *this) {
+        for (auto &realm: *this) {
             realm.close();
         }
     }
 
     std::uint64_t MetaAllocator::RealmsVector::getSlabMaxAddress() const
-    {
+    {        
         std::uint64_t max_addr = 0;
         for (const auto &realm : *this) {
             max_addr = std::max(max_addr, realm.getSlabMaxAddress());            
         }
         return max_addr;
     }
-
+    
 }
 
 namespace std 

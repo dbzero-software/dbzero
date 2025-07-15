@@ -45,7 +45,7 @@ def test_weak_ref_copy(db0_fixture):
     assert obj_3.value.value == 123
 
 
-def test_accessing_expired_weak_ref(db0_fixture):
+def test_accessing_expired_long_weak_ref(db0_fixture):
     px_1 = db0.get_current_prefix().name
     px_2 = "some-other-prefix"
     db0.open(px_2, "rw")
@@ -95,7 +95,7 @@ def test_expired_function(db0_fixture):
     db0.open(px_2, "rw")
     obj_1 = MemoTestPxClass(123, prefix=px_1)
     obj_2 = MemoTestPxClass(db0.weak_proxy(obj_1), prefix=px_2)    
-    del obj_1    
+    del obj_1
     db0.commit()
     assert db0.expired(obj_2.value) is True
 

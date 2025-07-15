@@ -61,7 +61,6 @@ static PyMethodDef dbzero_methods[] =
     {"is_singleton", &py::PyAPI_isSingleton, METH_VARARGS, "Check if a specific instance is a dbzero singleton"},
     {"getrefcount", &py::PyAPI_getRefCount, METH_VARARGS, "Get dbzero ref counts"},
     {"no", (PyCFunction)&py::negTagSet, METH_FASTCALL, "Tag negation function"},
-    {"to_dict", (PyCFunction)&py::toDict, METH_FASTCALL, "Serialize dbzero object as a Python dict"},
     {"build_flags", &py::PyAPI_getBuildFlags, METH_NOARGS, "Retrieve dbzero library build flags"},
     {"serialize", (PyCFunction)&py::PyAPI_serialize, METH_FASTCALL, "Serialize dbzero serializable instance"},
     {"deserialize", (PyCFunction)&py::PyAPI_deserialize, METH_FASTCALL, "Serialize dbzero serializable instance"},    

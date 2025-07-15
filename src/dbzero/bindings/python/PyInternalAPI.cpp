@@ -83,7 +83,7 @@ namespace db0::python
         
         THROWF(db0::InputException) << "Invalid argument type" << THROWF_END;
     }
-
+    
     bool tryExistsIn(db0::Snapshot &snapshot, PyObject *py_id, PyTypeObject *type_arg,
         const char *prefix_name)
     {
@@ -131,13 +131,12 @@ namespace db0::python
         if (py_expected_type && !checkObjectIdType(object_id, py_expected_type)) {
             return false;
         }
-                
+        
         auto storage_class = object_id.m_storage_class;
         auto addr = object_id.m_address;
         if (storage_class == db0::object_model::StorageClass::OBJECT_REF) {
             auto &class_factory = db0::object_model::getClassFactory(*fixture);
-            // NOTE: we always need to unload the object to also validate hasRefs
-            // since objects with no refs are considered deleted
+            // FIXME: this may be sped up if unloading object is avoided
             auto result = PyToolkit::tryUnloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             if (!result.get()) {
                 return false;
@@ -157,18 +156,8 @@ namespace db0::python
             }
 
             return true;
-        } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
-            return PyToolkit::isExistingList(fixture, addr, addr.getInstanceId());
-        } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            
-            return PyToolkit::isExistingDict(fixture, addr, addr.getInstanceId());
-        } else if (storage_class == db0::object_model::StorageClass::DB0_SET) {            
-            return PyToolkit::isExistingSet(fixture, addr, addr.getInstanceId());
-        } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {            
-            return PyToolkit::isExistingTuple(fixture, addr, addr.getInstanceId());
-        } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {            
-            return PyToolkit::isExistingIndex(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
-            auto &class_factory = db0::object_model::getClassFactory(*fixture);            
+            auto &class_factory = db0::object_model::getClassFactory(*fixture);
             return !!class_factory.tryGetTypeByAddr(addr).m_class;
         }
 
@@ -192,7 +181,7 @@ namespace db0::python
             auto &class_factory = db0::object_model::getClassFactory(*fixture);
             auto result = PyToolkit::unloadObject(fixture, addr, class_factory, nullptr, addr.getInstanceId());
             auto &memo = reinterpret_cast<MemoObject*>(result.get())->ext();
-                        
+            
             // validate type if requested (no validation for MemoBase)
             if (py_expected_type && !PyToolkit::getTypeManager().isMemoBase(py_expected_type)) {                
                 // in other cases the type must match the actual object type
@@ -202,18 +191,8 @@ namespace db0::python
                 }
             }
             return result;
-        } else if (storage_class == db0::object_model::StorageClass::DB0_LIST) {
-            return PyToolkit::unloadList(fixture, addr, addr.getInstanceId());
-        } else if (storage_class == db0::object_model::StorageClass::DB0_DICT) {            
-            return PyToolkit::unloadDict(fixture, addr, addr.getInstanceId());
-        } else if (storage_class == db0::object_model::StorageClass::DB0_SET) {            
-            return PyToolkit::unloadSet(fixture, addr, addr.getInstanceId());
-        } else if (storage_class == db0::object_model::StorageClass::DB0_TUPLE) {            
-            return PyToolkit::unloadTuple(fixture, addr, addr.getInstanceId());
-        } else if (storage_class == db0::object_model::StorageClass::DB0_INDEX) {
-            return PyToolkit::unloadIndex(fixture, addr, addr.getInstanceId());
         } else if (storage_class == db0::object_model::StorageClass::DB0_CLASS) {
-            auto &class_factory = db0::object_model::getClassFactory(*fixture);            
+            auto &class_factory = db0::object_model::getClassFactory(*fixture);
             auto class_ptr = class_factory.getTypeByAddr(addr).m_class;
             // return as a dbzero class instance
             return makeClass(class_ptr);

@@ -133,14 +133,17 @@ t1 = (1, 'string', 999)
     sr2 = run_subprocess_script(subprocess_script)
     assert sr1 == sr2
 
+
 def test_hash_bytes():
     assert db0.hash(b"abc") == db0.hash(b"abc")
+
 
 def test_hash_bytes_subprocess():
     subprocess_script = get_test_for_subprocess("db0.hash(b'abc')")
     sr1 = run_subprocess_script(subprocess_script)
     sr2 = run_subprocess_script(subprocess_script)
     assert sr1 == sr2
+
 
 def test_dict_comparison_when_executed_from_subprocess():
     cleanup = get_cleanup_script()
@@ -150,8 +153,8 @@ from python_tests.memo_test_types import MemoTestClass, MemoTestSingleton
 key = MemoTestClass("key")
 dictionary = db0.dict({key: "value"})
 key_uuid = db0.uuid(key)
-uuid = db0.uuid(dictionary)
 singleton = MemoTestSingleton(dictionary, key)
+uuid = db0.uuid(singleton)
 db0.commit()
 '''
     script = "f'{key_uuid},{uuid}'"
@@ -162,7 +165,7 @@ db0.commit()
     setup = f"""
 from python_tests.memo_test_types import MemoTestClass, MemoTestSingleton
 key = db0.fetch('{key_uuid}')
-dict = db0.fetch('{uuid}')
+dict = db0.fetch('{uuid}').value
 value = key in dict
 """
     script = "value"

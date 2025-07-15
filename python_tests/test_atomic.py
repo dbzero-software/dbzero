@@ -424,14 +424,14 @@ def test_reverting_atomic_deletion(db0_fixture):
 
 
 def test_reverting_atomic_free(db0_fixture):
-    obj = db0.list([1, 2, 3])
-    list_uuid = db0.uuid(obj)
+    obj = MemoTestClass([1, 2, 3])
+    obj_uuid = db0.uuid(obj)
     count_1 = db0.get_cache_stats()["deferred_free_count"]
     try:
         with db0.atomic():
             # NOTE: list.append may internally perform a free operation to reallocate list            
             for i in range(1000):
-                obj.append(i)
+                obj.value.append(i)
             assert db0.get_cache_stats()["deferred_free_count"] > count_1
             raise Exception("Test exception")
     except Exception:
@@ -439,9 +439,9 @@ def test_reverting_atomic_free(db0_fixture):
     
     # free/deferred free should be reverted by here
     assert db0.get_cache_stats()["deferred_free_count"] == count_1
-    assert list(obj) == [1, 2, 3]    
+    assert list(obj.value) == [1, 2, 3]
     db0.commit()
-    assert list(db0.fetch(list_uuid)) == [1, 2, 3]
+    assert list(db0.fetch(obj_uuid).value) == [1, 2, 3]
 
 
 def test_atomic_infinite_loop_issue_1(db0_no_autocommit):
