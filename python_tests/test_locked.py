@@ -341,3 +341,17 @@ def test_member_assignment_to_variable_locked_issue(db0_fixture):
     with db0.locked() as lock:
         x = obj.value
     assert len(lock.get_mutation_log()) == 0
+
+
+# FIXME: https://github.com/wskozlowski/dbzero_ce/issues/403
+# def test_list_clear_produce_mutation_log_entry(db0_fixture):
+#     with db0.locked() as lock:
+#         obj = MemoTestClass([1, 2, 3])
+#     assert len(obj.value) == 3
+#     assert len(lock.get_mutation_log()) == 1
+#     db0.commit()
+
+#     with db0.locked() as lock:
+#         obj.value.clear()
+#     assert len(obj.value) == 0
+#     assert len(lock.get_mutation_log()) == 1
