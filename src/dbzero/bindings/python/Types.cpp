@@ -121,7 +121,7 @@ namespace db0::python
         object_id.toBase32(buffer);
         return PyUnicode_FromString(buffer);
     }
-
+    
     // Serializable's UUID implementation
     PyObject *tryGetSerializableUUID(const db0::serial::Serializable *self)
     {
@@ -134,31 +134,6 @@ namespace db0::python
     // OBJECT specialization
     template <> PyObject *tryGetUUID<TypeId::MEMO_OBJECT>(PyObject *py_value) {
         return tryGetUUIDOf(reinterpret_cast<MemoObject*>(py_value));
-    }
-
-    // LIST specialization
-    template <> PyObject *tryGetUUID<TypeId::DB0_LIST>(PyObject *py_value) {
-        return tryGetUUIDOf(reinterpret_cast<ListObject*>(py_value));
-    }
-
-    // DICT specialization
-    template <> PyObject *tryGetUUID<TypeId::DB0_DICT>(PyObject *py_value) {
-        return tryGetUUIDOf(reinterpret_cast<DictObject*>(py_value));
-    }
-
-    // DICT specialization
-    template <> PyObject *tryGetUUID<TypeId::DB0_SET>(PyObject *py_value) {
-        return tryGetUUIDOf(reinterpret_cast<SetObject*>(py_value));
-    }
-
-    // TUPLE specialization
-    template <> PyObject *tryGetUUID<TypeId::DB0_TUPLE>(PyObject *py_value) {
-        return tryGetUUIDOf(reinterpret_cast<TupleObject*>(py_value));
-    }
-
-    // INDEX specialization
-    template <> PyObject *tryGetUUID<TypeId::DB0_INDEX>(PyObject *py_value) {
-        return tryGetUUIDOf(reinterpret_cast<IndexObject*>(py_value));
     }
 
     // OBJECT_ITERABLE specialization
@@ -185,18 +160,12 @@ namespace db0::python
     {
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
+        // NOTE: for security reasons we only allow UUID retrieval for a strictly limited set of types
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = tryGetUUID<TypeId::MEMO_OBJECT>;
-        functions[static_cast<int>(TypeId::DB0_LIST)] = tryGetUUID<TypeId::DB0_LIST>;
-        functions[static_cast<int>(TypeId::DB0_DICT)] = tryGetUUID<TypeId::DB0_DICT>;
-        functions[static_cast<int>(TypeId::DB0_SET)] = tryGetUUID<TypeId::DB0_SET>;        
-        functions[static_cast<int>(TypeId::DB0_TUPLE)] = tryGetUUID<TypeId::DB0_TUPLE>;
-        functions[static_cast<int>(TypeId::DB0_INDEX)] = tryGetUUID<TypeId::DB0_INDEX>;        
+        // the purpose of UUID here is to find identical queries
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = tryGetUUID<TypeId::OBJECT_ITERABLE>;
         // for expired refs UUIDs are still available
         functions[static_cast<int>(TypeId::MEMO_EXPIRED_REF)] = tryGetUUID<TypeId::MEMO_EXPIRED_REF>;
-        /*
-        functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = createMember<TypeId::DB0_ENUM_VALUE, PyToolkit>;
-        */
     }
     
     PyObject *tryGetUUID(PyObject *py_value)
@@ -212,7 +181,7 @@ namespace db0::python
         assert(static_cast<int>(type_id) < try_get_uuid_functions.size());
         // not all types have a fixture
         if (!try_get_uuid_functions[static_cast<int>(type_id)]) {
-            THROWF(db0::InputException) << "Type " << py_value->ob_type->tp_name << " does not have a UUID";
+            THROWF(db0::InputException) << "Unable to generate UUID for: " << py_value->ob_type->tp_name << " type";
         }
         assert(try_get_uuid_functions[static_cast<int>(type_id)]);
         return try_get_uuid_functions[static_cast<int>(type_id)](py_value);

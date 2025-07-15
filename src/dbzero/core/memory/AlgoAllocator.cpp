@@ -13,7 +13,8 @@ namespace db0
     {
     }
     
-    std::optional<Address> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    std::optional<Address> AlgoAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+        bool aligned, unsigned char)
     {
         assert(slot_num == 0);
         assert(!aligned && "AlgoAllocator: aligned allocation not supported");    
@@ -21,7 +22,7 @@ namespace db0
         return m_address_pool_f(m_next_i++);
     }
     
-    void AlgoAllocator::free(Address address) 
+    void AlgoAllocator::free(Address address)
     {
         if (address % m_alloc_size != 0) {
             // allow sub-allocations
@@ -36,7 +37,7 @@ namespace db0
         }
     }
     
-    std::size_t AlgoAllocator::getAllocSize(Address address) const 
+    std::size_t AlgoAllocator::getAllocSize(Address address) const
     {
         auto offset = address % m_alloc_size;
         auto i = m_reverse_address_pool_f(address - offset);
@@ -67,7 +68,7 @@ namespace db0
         return m_address_pool_f(0);
     }
     
-    void AlgoAllocator::setMaxAddress(Address max_address) 
+    void AlgoAllocator::setMaxAddress(Address max_address)
     {
         auto offset = max_address % m_alloc_size;
         m_next_i = m_reverse_address_pool_f(max_address - offset) + 1;

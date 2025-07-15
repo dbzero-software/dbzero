@@ -126,6 +126,7 @@ namespace db0
             void revert(ActiveValueT);
             
             bool empty() const;
+            bool assureEmpty();
             
             void clear();
         };
@@ -149,7 +150,7 @@ namespace db0
             TagValueBuffer m_add_set;
             TagValueBuffer m_remove_set;
             bool m_commit_called = false;
-
+            
             /**
              * Constructor is protected because BatchOperation object can only be created
              * via beginTransaction call
@@ -210,17 +211,14 @@ namespace db0
                 CallbackT *erase_callback_ptr = nullptr,
                 IndexCallbackT *index_insert_callback_ptr = nullptr, 
                 IndexCallbackT *index_erase_callback_ptr = nullptr);
-
-            /**
-             * Cancel all modifications
-             */
-            void cancel();
-
+            
             /**
              * Check if there're any operations queued for commit
              * @return
              */
             bool empty () const;
+            // Check and if empty, clear all internal buffers (e.g. revert-ops)
+            bool assureEmpty();
             
             // Revert ALL operations associated with a specific key
             void revert(KeyT key)
@@ -231,6 +229,9 @@ namespace db0
                 m_remove_set.revert(key);
             }
             
+            // Cancels all modifications
+            void clear();
+
         private:
             void _addTag(ActiveValueT value, IndexKeyT tag)
             {
@@ -264,6 +265,8 @@ namespace db0
                 return m_batch_operation.get();
             }
 
+            void clear();
+            
             /**
              * Clear operation builder / render invalid
              */
@@ -273,7 +276,8 @@ namespace db0
 
             bool operator!() const;
 
-            bool empty() const;        
+            bool empty() const;
+            bool assureEmpty();
         };
 
         std::shared_ptr<BatchOperation> getBatchOperation() const;

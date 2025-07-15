@@ -354,4 +354,4 @@ def test_find_with_scope_defined(db0_fixture):
     # use scoped find to find instances from different prefixes
     assert [x.value for x in db0.find(MemoScopedClass, "tag1", prefix = px_name)] == [123]
     assert [x.value for x in db0.find(MemoScopedClass, "tag1", prefix = other_px_name)] == [456]
-                
+                                

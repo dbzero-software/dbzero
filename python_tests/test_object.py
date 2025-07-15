@@ -229,21 +229,6 @@ def test_attempt_using_object_after_prefix_close(db0_fixture):
         object_1.value = 456
 
 
-def test_memo_object_can_be_converted_to_dict(db0_fixture):
-    object_1 = DataClassMultiAttr(123, "value X")
-    pd = db0.to_dict(object_1)
-    assert pd["value_1"] == 123
-    assert pd["value_2"] == "value X"
-    
-    
-def test_to_dict_outputs_references_as_uuid(db0_fixture):
-    object_1 = DataClassMultiAttr(123, "value X")
-    object_2 = DataClassMultiAttr(781, object_1)
-    pd = db0.to_dict(object_2)    
-    assert pd["value_1"] == 781
-    assert pd["value_2"] == db0.uuid(object_1)
-
-
 def test_memo_object_can_keep_reference_to_self(db0_fixture):
     object_1 = MemoWithSelfRef()
     assert db0.uuid(object_1.value) == db0.uuid(object_1)

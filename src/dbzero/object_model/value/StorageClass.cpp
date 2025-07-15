@@ -88,26 +88,6 @@ namespace db0::object_model
             << "Type ID unknown for storage class: " << static_cast<int>(storage_class) << THROWF_END;
     }
     
-    bool isReference(StorageClass type)
-    {
-        switch (type) {
-            case StorageClass::OBJECT_REF:
-            case StorageClass::DB0_LIST:
-            case StorageClass::DB0_DICT:
-            case StorageClass::DB0_SET:
-            case StorageClass::DB0_TUPLE:
-            case StorageClass::DB0_CLASS:
-            case StorageClass::DB0_INDEX:
-            case StorageClass::DB0_BYTES:
-            case StorageClass::DB0_BYTES_ARRAY:
-            case StorageClass::OBJECT_WEAK_REF:
-            case StorageClass::OBJECT_LONG_WEAK_REF:            
-                return true;
-            default:
-                return false;
-        }
-    }
-
 }
 
 namespace std

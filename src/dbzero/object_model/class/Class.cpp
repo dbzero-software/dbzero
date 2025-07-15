@@ -19,6 +19,38 @@ namespace db0::object_model
     
     GC0_Define(Class)
     
+    std::uint32_t classRef(Address addr, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range)
+    {
+        auto addr_offset = addr.getOffset();
+        if (addr_offset < type_slot_addr_range.first || addr_offset >= type_slot_addr_range.second) {
+            THROWF(db0::BadAddressException) << "Invalid address accessed";
+        }
+        // calculate class ref as a relative offset from the type slot begin address
+        addr_offset -= type_slot_addr_range.first;
+        assert(addr_offset < std::numeric_limits<std::uint32_t>::max());
+        // NOTE: +1 to avoid 0 as a class ref
+        return static_cast<std::uint32_t>(addr_offset) + 1;
+    }
+    
+    std::uint32_t classRef(const Class &type, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range) {
+        return classRef(type.getAddress(), type_slot_addr_range);
+    }
+    
+    Address classRefToAddress(std::uint32_t class_ref, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range)
+    {
+        // calculate the absolute address
+        assert((static_cast<std::uint64_t>(class_ref) - 1 + type_slot_addr_range.first) < type_slot_addr_range.second);
+        return Address::fromOffset(static_cast<std::uint64_t>(class_ref) - 1 + type_slot_addr_range.first);
+    }
+    
+    std::pair<std::uint64_t, std::uint64_t> getTypeSlotAddrRange(const Fixture &fixture)
+    {        
+        auto range = fixture.getAllocator().getRange(Class::SLOT_NUM);
+        // type slot has a bounded range
+        assert(range.second);
+        return { range.first.getOffset(), range.second->getOffset() };
+    }
+    
     o_class::o_class(RC_LimitedStringPool &string_pool, const std::string &name, std::optional<std::string> module_name,
         const VFieldVector &members, const Schema &schema, const char *type_id, const char *prefix_name, ClassFlags flags,
         std::uint32_t base_class_ref, std::uint32_t num_bases)
@@ -52,8 +84,19 @@ namespace db0::object_model
     Class::Class(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
         const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags flags, 
         std::shared_ptr<Class> base_class)
-        : super_t(fixture, fixture->getLimitedStringPool(), name, module_name, VFieldVector(*fixture), Schema(*fixture),
-            type_id, prefix_name, flags, base_class ? ClassFactory::classRef(*base_class) : 0, base_class ? (1u + base_class->getNumBases()) : 0)
+        : super_t(
+            fixture, 
+            fixture->getLimitedStringPool(), 
+            name, 
+            module_name, 
+            VFieldVector(*fixture), 
+            Schema(*fixture),
+            type_id, 
+            prefix_name, 
+            flags, 
+            base_class ? classRef(*base_class, getTypeSlotAddrRange(*fixture)) : 0,
+            base_class ? (1u + base_class->getNumBases()) : 0)
+        , m_type_slot_addr_range(getTypeSlotAddrRange(*fixture))
         , m_members((*this)->m_members_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
         , m_base_class_ptr(base_class)
@@ -70,6 +113,7 @@ namespace db0::object_model
     
     Class::Class(db0::swine_ptr<Fixture> &fixture, Address address)
         : super_t(super_t::tag_from_address(), fixture, address)
+        , m_type_slot_addr_range(getTypeSlotAddrRange(*fixture))
         , m_members((*this)->m_members_ptr(*fixture))
         , m_schema((*this)->m_schema_ptr(*fixture))
         , m_uid(this->fetchUID())
@@ -78,7 +122,7 @@ namespace db0::object_model
         // initialize base class if such exists
         if ((*this)->m_base_class_ref) {
             auto fixture = this->getFixture();
-            m_base_class_ptr = fixture->get<ClassFactory>().getTypeByClassRef((*this)->m_base_class_ref).m_class;
+            m_base_class_ptr = getClassFactory(*fixture).getTypeByClassRef((*this)->m_base_class_ref).m_class;
         }
 
         // fetch all members into cache
@@ -183,10 +227,10 @@ namespace db0::object_model
         }
         
         auto fixture = getFixture();
-        auto &class_factory = fixture->get<ClassFactory>();
+        auto &class_factory = getClassFactory(*fixture);
         auto stem = Object::unloadStem(fixture, (*this)->m_singleton_address);
         auto type = class_factory.getTypeByPtr(
-            db0::db0_ptr_reinterpret_cast<Class>()(ClassFactory::classRefToAddress(stem->m_class_ref))).m_class;
+            db0::db0_ptr_reinterpret_cast<Class>()(classRefToAddress(stem->m_class_ref, m_type_slot_addr_range))).m_class;
         // unload from stem
         new (at) Object(fixture, std::move(stem), type, Object::with_type_hint{});
         return true;
@@ -396,7 +440,7 @@ namespace db0::object_model
         auto &class_factory = getFixture()->get<ClassFactory>();
         auto lang_class = class_factory.getLangType(*this);
         auto other_fixture = getFixture()->getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
-        auto &other_factory = other_fixture->get<ClassFactory>();
+        auto &other_factory = getClassFactory(*other_fixture);
         auto other_type = other_factory.tryGetExistingType(lang_class.get());
         return other_type && other_type->isExistingSingleton();
     }
@@ -406,7 +450,7 @@ namespace db0::object_model
         auto &class_factory = getFixture()->get<ClassFactory>();
         auto lang_class = class_factory.getLangType(*this);
         auto other_fixture = getFixture()->getWorkspace().getFixture(fixture_uuid, AccessType::READ_ONLY);
-        auto &other_factory = other_fixture->get<ClassFactory>();
+        auto &other_factory = getClassFactory(*other_fixture);
         // locate corresponding type in the other fixture
         auto other_type = other_factory.tryGetExistingType(lang_class.get());
         if (!other_type) {
@@ -450,10 +494,6 @@ namespace db0::object_model
         return result;
     }
     
-    std::shared_ptr<Class> Class::getNullClass() {
-        return std::shared_ptr<Class>(new Class());
-    }
-
     std::shared_ptr<Class> Class::tryGetBaseClass() const {
         return m_base_class_ptr;
     }
@@ -575,6 +615,10 @@ namespace db0::object_model
     
     bool Class::assignDefaultTags() const {
         return (*this)->m_flags[ClassOptions::NO_DEFAULT_TAGS] == false;
+    }
+    
+    std::uint32_t Class::getClassRef() const {
+        return classRef(*this, m_type_slot_addr_range);
     }
 
 }

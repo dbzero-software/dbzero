@@ -44,8 +44,8 @@ namespace db0
         }
         
         // Memspace::alloc implements the auto-align logic
-        Address alloc(std::size_t size, std::uint32_t slot_num = 0);
-        UniqueAddress allocUnique(std::size_t size, std::uint32_t slot_num = 0);
+        Address alloc(std::size_t size, std::uint32_t slot_num = 0, unsigned char realm_id = 0);
+        UniqueAddress allocUnique(std::size_t size, std::uint32_t slot_num = 0, unsigned char realm_id = 0);
         
         void free(Address);
 
@@ -103,7 +103,7 @@ namespace db0
         
         // Check if the address is valid (allocated) with the underlying allocator
         // and retrieve the allocation size (on request)
-        bool isAddressValid(Address, std::size_t *size_of_result = nullptr) const;
+        bool isAddressValid(Address, unsigned char realm_id, std::size_t *size_of_result = nullptr) const;
         
         // Calcuate page number for a specific address (not validated)
         inline std::uint64_t getPageNum(Address address) const {
@@ -127,7 +127,7 @@ namespace db0
             assert(m_allocator_ptr);
             return *m_allocator_ptr;
         }
-
+    
     };
-
+    
 }

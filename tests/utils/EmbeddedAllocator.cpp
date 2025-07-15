@@ -5,7 +5,8 @@ namespace db0
 
 {
 
-    std::optional<Address> EmbeddedAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    std::optional<Address> EmbeddedAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+        bool aligned, unsigned char)
     {
         auto new_address = Address::fromOffset(4096 * ++m_count);
         m_allocations[new_address] = size;

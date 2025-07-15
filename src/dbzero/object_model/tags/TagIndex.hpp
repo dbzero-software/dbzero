@@ -218,8 +218,10 @@ namespace db0::object_model
         
         // revert all pending operations associated with a specific object
         void revert(ObjectPtr) const;
+        // check and if empty, clear all internal buffers (e.g. revert-ops)
+        bool assureEmpty() const;
     };
-
+    
     template <typename BaseIndexT, typename BatchOperationT>
     BatchOperationT &TagIndex::getBatchOperation(BaseIndexT &base_index, BatchOperationT &batch_op) const
     {

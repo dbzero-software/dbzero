@@ -24,7 +24,7 @@ namespace db0::object_model
 
 {
 
-    class Class;
+    class Class;    
     using Fixture = db0::Fixture;
     
     class [[gnu::packed]] o_object: public db0::o_base<o_object, 0, false>
@@ -33,6 +33,7 @@ namespace db0::object_model
         using super_t = db0::o_base<o_object, 0, false>;
 
     public:
+        static constexpr unsigned char REALM_ID = 1;
         // common object header
         o_unique_header m_header;
         const std::uint32_t m_class_ref;
@@ -90,21 +91,24 @@ namespace db0::object_model
     };
 
     using ObjectFlags = db0::FlagSet<ObjectOptions>;
-
-    class Object: public db0::ObjectBase<Object, db0::v_object<o_object>, StorageClass::OBJECT_REF>
+    // NOTE: Object instances are created within the realm_id = 1
+    using ObjectVType = db0::v_object<o_object, 0, o_object::REALM_ID>;
+    
+    class Object: public db0::ObjectBase<Object, ObjectVType, StorageClass::OBJECT_REF>
     {
         // GC0 specific declarations
         GC0_Declare
     public:
-        using super_t = db0::ObjectBase<Object, db0::v_object<o_object>, StorageClass::OBJECT_REF>;
+        static constexpr unsigned char REALM_ID = o_object::REALM_ID;
+        using super_t = db0::ObjectBase<Object, ObjectVType, StorageClass::OBJECT_REF>;
         using LangToolkit = LangConfig::LangToolkit;
         using ObjectPtr = typename LangToolkit::ObjectPtr;
         using TypeObjectPtr = typename LangToolkit::TypeObjectPtr;
         using ObjectSharedPtr = typename LangToolkit::ObjectSharedPtr;
         using TypeManager = typename LangToolkit::TypeManager;
-        using ObjectStem = db0::v_object<o_object>;
+        using ObjectStem = ObjectVType;
         using TypeInitializer = ObjectInitializer::TypeInitializer;
-
+        
         // construct as null / dropped object
         Object(UniqueAddress, unsigned int ext_refs);
         Object(const Object &) = delete;
@@ -129,7 +133,7 @@ namespace db0::object_model
         Object(db0::swine_ptr<Fixture> &, std::shared_ptr<Class>, std::pair<std::uint32_t, std::uint32_t> ref_counts, 
             const PosVT::Data &);
         Object(db0::swine_ptr<Fixture> &, ObjectStem &&, std::shared_ptr<Class>);
-
+        
         ~Object();
         
         // post-init invoked by memo type directly after __init__
@@ -282,7 +286,7 @@ namespace db0::object_model
         void setType(std::shared_ptr<Class>);
         // adjusts to actual type if the type hint is a base class
         void setTypeWithHint(std::shared_ptr<Class> type_hint);
-                
+        
         // Try retrieving member either from DB0 values (initialized) or from the initialization buffer (not initialized yet)        
         bool tryGetMemberAt(FieldID, bool is_init_var, std::pair<StorageClass, Value> &) const;
         bool tryGetMember(const char *field_name, std::pair<StorageClass, Value> &) const;

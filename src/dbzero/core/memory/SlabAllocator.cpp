@@ -63,7 +63,8 @@ namespace db0
         }
     }
     
-    std::optional<Address> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned)
+    std::optional<Address> SlabAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num,
+        bool aligned, unsigned char)
     {
         assert(slot_num == 0);
         assert(size > 0);
@@ -80,11 +81,19 @@ namespace db0
         m_allocator.free(makeRelative(address));
     }
     
-    std::size_t SlabAllocator::getAllocSize(Address address) const {        
+    std::size_t SlabAllocator::getAllocSize(Address address) const {
         return m_allocator.getAllocSize(makeRelative(address));
     }
-    
+
+    std::size_t SlabAllocator::getAllocSize(Address address, unsigned char) const {
+        return m_allocator.getAllocSize(makeRelative(address));
+    }
+
     bool SlabAllocator::isAllocated(Address address, std::size_t *size_of_result) const {
+        return m_allocator.isAllocated(makeRelative(address), size_of_result);
+    }
+    
+    bool SlabAllocator::isAllocated(Address address, unsigned char, std::size_t *size_of_result) const {
         return m_allocator.isAllocated(makeRelative(address), size_of_result);
     }
     
@@ -199,6 +208,10 @@ namespace db0
         m_on_close_handler = handler;
     }
     
+    void SlabAllocator::resetOnCloseHandler() {
+        m_on_close_handler = {};
+    }
+    
     bool SlabAllocator::empty() const {
         return m_allocs.empty();
     }
@@ -268,6 +281,12 @@ namespace db0
     {
         return (address.getOffset() >= m_begin_addr.getOffset()) && 
             (address.getOffset() < m_begin_addr.getOffset() + m_slab_size);
+    }
+    
+    std::pair<Address, std::optional<Address> > SlabAllocator::getRange(std::uint32_t slot_num) const
+    {
+        assert(!slot_num && "SlabAllocator does not support slots");
+        return { m_begin_addr, m_begin_addr + static_cast<offset_t>(m_slab_size) };
     }
     
 }

@@ -23,17 +23,18 @@ namespace db0
          * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
          * @param align a flag for page-aligned allocation
          * @param unique a flag for generating a unique, never repeating addresses
+         * @param realm_id the realm ID to allocate from (where supported)
          * Note that slot functionality is implementation specific and may not be supported by all allocators.
          * We use slots in special cases where objects needs to be allocated from a limited narrow address range
         */
-        virtual std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0, 
-            bool aligned = false) = 0;
+        virtual std::optional<Address> tryAlloc(std::size_t size, std::uint32_t slot_num = 0,
+            bool aligned = false, unsigned char realm_id = 0) = 0;
         
         // Try allocating a unique, never repeating address
         // NOTE: this functionality is only supported by some allocators
         // The default throwing implementation is provided
         virtual std::optional<UniqueAddress> tryAllocUnique(std::size_t size, std::uint32_t slot_num = 0,
-            bool aligned = false);
+            bool aligned = false, unsigned char realm_id = 0);
         
         /**
          * Free previously allocated address
@@ -48,12 +49,16 @@ namespace db0
          * @return the range size in bytes
         */
         virtual std::size_t getAllocSize(Address) const = 0;
+        // getAllocSize with realm_id validatation (where unsupported simply forwards to the non-realm version)
+        virtual std::size_t getAllocSize(Address, unsigned char realm_id) const;
         
         /**
          * Check if the address is a valid allocation address with this allocator
          * size_of retrieved on request (if size_of_result is not null)
          */
         virtual bool isAllocated(Address, std::size_t *size_of_result = nullptr) const = 0;
+        // isAllocated version with realm_id validation
+        virtual bool isAllocated(Address, unsigned char realm_id, std::size_t *size_of_result = nullptr) const;
         
         /**
          * Prepare the allocator for the next transaction
@@ -73,13 +78,17 @@ namespace db0
          * @param slot_num optional slot number to allocate from (slot_num = 0 means any slot).
          * @return the address of the range
         */
-        Address alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false);
+        Address alloc(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false, unsigned char realm_id = 0);
         
-        UniqueAddress allocUnique(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false);
+        UniqueAddress allocUnique(std::size_t size, std::uint32_t slot_num = 0, bool aligned = false, unsigned char realm_id = 0);
         
         // Check if the address is wihith the range managed by the allocator
         // (only applicable to limited allocators - e.g. SlabAllocator)
-        virtual bool inRange(Address) const;                
+        virtual bool inRange(Address) const;
+        
+        // Get range covered by the allocator or a specific slot
+        // @return begin / end (which might be undefined for unlimited allocators)
+        virtual std::pair<Address, std::optional<Address> > getRange(std::uint32_t slot_num = 0) const;
     };
     
 }

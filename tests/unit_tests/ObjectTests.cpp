@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 #include <utils/utils.hpp>
+#include <utils/SubClass.hpp>
 #include <dbzero/workspace/Workspace.hpp>
 #include <dbzero/workspace/PrefixName.hpp>
 #include <dbzero/object_model/ObjectModel.hpp>
 #include <dbzero/object_model/object/Object.hpp>
 #include <dbzero/object_model/CommonBase.hpp>
-#include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/core/vspace/v_object.hpp>
 
 using namespace std;
@@ -16,21 +16,6 @@ using namespace db0::object_model;
 namespace tests
 
 {
-    
-    // this is to expose protected constructor for tests
-    class SubClass: public Class
-    {
-    public:
-        SubClass(db0::swine_ptr<Fixture> &fixture, const std::string &name, std::optional<std::string> module_name,
-            const char *type_id, const char *prefix_name, const std::vector<std::string> &init_vars, ClassFlags flags,
-            std::shared_ptr<Class> base_class)
-            : Class(fixture, name, module_name, type_id, prefix_name, init_vars, flags, base_class)
-        {
-            // to prevent premature removal
-            this->incRef(false);
-            this->incRef(false);
-        }
-    };
     
     class ObjectTest: public testing::Test
     {
@@ -58,14 +43,18 @@ namespace tests
     
     TEST_F( ObjectTest , testObjectInitializerCanBeFoundIfAdded )
     {
+        Workspace workspace("", {}, {}, {}, {}, db0::object_model::initializer());
+        auto fixture = workspace.getFixture(prefix_name);
+
         std::vector<char> data(sizeof(Object));
-        std::shared_ptr<Class> null_class = Class::getNullClass();
-        auto object_1 = new (data.data()) Object(null_class);
+        std::shared_ptr<Class> class_mock = getTestClass(fixture);
+        auto object_1 = new (data.data()) Object(class_mock);
         ObjectInitializerManager cut;
         ASSERT_EQ(cut.findInitializer(*object_1), nullptr);
-        cut.addInitializer(*object_1, null_class);
+        cut.addInitializer(*object_1, class_mock);
         ASSERT_NE(cut.findInitializer(*object_1), nullptr);
         object_1->~Object();
+        workspace.close();
     }
     
     TEST_F( ObjectTest , testObjectCanBeInstantiatedOnBaseWorkspace )
@@ -150,10 +139,8 @@ namespace tests
 
         using Object = db0::object_model::Object;
         
-        // mock type
-        std::shared_ptr<Class> type = std::shared_ptr<Class>(new SubClass(
-            fixture, "TestObject", std::nullopt, "test.object", "test_prefix", {}, ClassFlags(), nullptr)
-        );
+        // mocked type
+        std::shared_ptr<Class> type = getTestClass(fixture);
         {
             Object object(fixture, type, std::make_pair(0u, 0u), data);
             object.incRef(true);

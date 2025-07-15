@@ -111,9 +111,9 @@ namespace db0::object_model
         m_init_manager.addInitializer(*this, std::move(type_initializer));
     }
     
-    Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, 
-        std::pair<std::uint32_t, std::uint32_t> ref_counts, const PosVT::Data &pos_vt_data)
-        : super_t(fixture, ClassFactory::classRef(*type), ref_counts, 
+    Object::Object(db0::swine_ptr<Fixture> &fixture, std::shared_ptr<Class> type, std::pair<std::uint32_t, std::uint32_t> ref_counts,
+        const PosVT::Data &pos_vt_data)
+        : super_t(fixture, type->getClassRef(), ref_counts, 
             safeCast<std::uint8_t>(type->getNumBases() + 1, "Too many base classes"), pos_vt_data)
         , m_type(type)
     {
@@ -140,7 +140,7 @@ namespace db0::object_model
     
     Object::Object(db0::swine_ptr<Fixture> &fixture, ObjectStem &&stem, std::shared_ptr<Class> type_hint, with_type_hint)
         : Object(fixture, std::move(stem), getTypeWithHint(*fixture, stem->m_class_ref, type_hint))
-    {        
+    {
     }
 
     Object::~Object()
@@ -165,11 +165,11 @@ namespace db0::object_model
     Object::ObjectStem Object::tryUnloadStem(db0::swine_ptr<Fixture> &fixture, Address address, std::uint16_t instance_id)
     {
         std::size_t size_of;
-        if (!fixture->isAddressValid(address, &size_of)) {
+        if (!fixture->isAddressValid(address, REALM_ID, &size_of)) {
             return {};
         }
         // Unload from a verified address
-        db0::v_object<o_object> stem(db0::tag_verified(), fixture->myPtr(address), size_of);
+        ObjectVType stem(db0::tag_verified(), fixture->myPtr(address), size_of);
         if (instance_id && stem->m_header.m_instance_id != instance_id) {
             // instance ID validation failed
             return {};
@@ -185,7 +185,7 @@ namespace db0::object_model
         }
         return result;
     }
-        
+    
     void Object::postInit(FixtureLock &fixture)
     {
         if (!hasInstance()) {
@@ -197,10 +197,11 @@ namespace db0::object_model
             // construct the dbzero instance & assign to self
             m_type = initializer.getClassPtr();
             assert(m_type);
-            super_t::init(*fixture, ClassFactory::classRef(*m_type), initializer.getRefCounts(),
+            super_t::init(*fixture, m_type->getClassRef(), initializer.getRefCounts(),
                 safeCast<std::uint8_t>(m_type->getNumBases() + 1, "Too many base classes"), pos_vt_data, 
                 index_vt_data.first, index_vt_data.second
             );
+            
             // reference associated class
             m_type->incRef(false);
             m_type->updateSchema(pos_vt_data.m_types);
@@ -394,7 +395,7 @@ namespace db0::object_model
         }
         auto fixture = this->getFixture();
         if (member.first == StorageClass::OBJECT_REF) {
-            auto &class_factory = fixture->get<ClassFactory>();
+            auto &class_factory = getClassFactory(*fixture);
             return PyToolkit::unloadObject(fixture, member.second.asAddress(), class_factory, lang_type);
         }
         return unloadMember<LangToolkit>(fixture, member.first, member.second, field_name);
@@ -503,10 +504,10 @@ namespace db0::object_model
 
     void Object::setTypeWithHint(std::shared_ptr<Class> type_hint)
     {
-        assert(!m_type);        
+        assert(!m_type);
         assert(type_hint);
         assert(hasInstance());
-        if (ClassFactory::classRef(*type_hint) == (*this)->m_class_ref) {
+        if (type_hint->getClassRef() == (*this)->m_class_ref) {
             m_type = type_hint;
         } else {
             m_type = unloadType();
@@ -736,11 +737,7 @@ namespace db0::object_model
         forAll([&](const std::string &name, const XValue &xvalue) -> bool {
             // all references convert to UUID
             auto py_member = unloadMember<LangToolkit>(fixture, xvalue.m_type, xvalue.m_value);
-            if (isReference(xvalue.m_type)) {
-                return f(name, LangToolkit::getUUID(py_member.get()));
-            } else {
-                return f(name, py_member);
-            }
+            return f(name, py_member);
         });
     }
     
@@ -874,7 +871,7 @@ namespace db0::object_model
     std::shared_ptr<Class> Object::unloadType() const
     {
         auto fixture = this->getFixture();
-        return fixture->get<ClassFactory>().getTypeByClassRef((*this)->m_class_ref).m_class;
+        return getClassFactory(*fixture).getTypeByClassRef((*this)->m_class_ref).m_class;
     }
     
     Address Object::getAddress() const
@@ -900,7 +897,7 @@ namespace db0::object_model
     bool Object::hasValidClassRef() const
     {
         if (hasInstance() && m_type) {            
-            return (*this)->m_class_ref == ClassFactory::classRef(*m_type);
+            return (*this)->m_class_ref == m_type->getClassRef();
         }
         return true;
     }
@@ -908,10 +905,10 @@ namespace db0::object_model
     std::shared_ptr<Class> Object::getTypeWithHint(const Fixture &fixture, std::uint32_t class_ref, std::shared_ptr<Class> type_hint)
     {
         assert(type_hint);
-        if (ClassFactory::classRef(*type_hint) == class_ref) {
+        if (type_hint->getClassRef() == class_ref) {
             return type_hint;
         }
-        return fixture.get<ClassFactory>().getTypeByClassRef(class_ref).m_class;
+        return getClassFactory(fixture).getTypeByClassRef(class_ref).m_class;
     }
     
     void Object::setDefunct() const {

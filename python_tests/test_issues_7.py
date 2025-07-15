@@ -29,9 +29,6 @@ STATIC_DATA_CODES = {
 
 @db0.memo()
 class DataCodes:
-    """
-    The purpose of this data class is to allow storing definitions of data codes"""
-
     def __init__(self):
         self._validation_errors: dict = {}
         self._data_codes = STATIC_DATA_CODES
@@ -40,6 +37,18 @@ class DataCodes:
 class District:
     def __init__(self, name):
         self.name = name
+
+
+def test_find_issue_2(db0_fixture):
+    """
+    Issue: test was failing with assertion failure
+    Resolution: TagIndex revert-ops weere not cleared and 2 objects got the same address over time
+    """
+    DataCodes()
+    db0.commit()
+    obj = District(0)
+    db0.tags(obj).add("test_tag")
+    assert len(db0.find(District)) == 1
 
 
 def test_invalid_address_when_select_modified(db0_fixture):
@@ -54,7 +63,7 @@ def test_invalid_address_when_select_modified(db0_fixture):
     
     results = db0.select_new(db0.find(District), snap_1, snap_2)
     assert len(results) == 1
-
+    
     obj.name = "some_District_2"
     db0.commit()
     snap_3 = db0.snapshot()

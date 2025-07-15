@@ -46,22 +46,24 @@ namespace db0
         }
     };
     
-    std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, bool aligned) 
+    std::optional<Address> SlotAllocator::tryAlloc(std::size_t size, std::uint32_t slot_num, 
+        bool aligned, unsigned char realm_id)
     {
         if (!slot_num) {
-            return m_allocator_ptr->tryAlloc(size, 0, aligned);
+            return m_allocator_ptr->tryAlloc(size, 0, aligned, realm_id);
         }
         
-        return select(slot_num).tryAlloc(size, 0, aligned);
+        return select(slot_num).tryAlloc(size, 0, aligned, realm_id);
     }
     
-    std::optional<UniqueAddress> SlotAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num, bool aligned)
+    std::optional<UniqueAddress> SlotAllocator::tryAllocUnique(std::size_t size, std::uint32_t slot_num, 
+        bool aligned, unsigned char realm_id)
     {
         if (!slot_num) {
-            return m_allocator_ptr->tryAllocUnique(size, 0, aligned);
+            return m_allocator_ptr->tryAllocUnique(size, 0, aligned, realm_id);
         }
         
-        return select(slot_num).tryAllocUnique(size, 0, aligned);
+        return select(slot_num).tryAllocUnique(size, 0, aligned, realm_id);
     }
     
     void SlotAllocator::free(Address address) {
@@ -72,11 +74,19 @@ namespace db0
     std::size_t SlotAllocator::getAllocSize(Address address) const {
         return m_allocator_ptr->getAllocSize(address);
     }
-    
+
+    std::size_t SlotAllocator::getAllocSize(Address address, unsigned char realm_id) const {
+        return m_allocator_ptr->getAllocSize(address, realm_id);
+    }
+
     bool SlotAllocator::isAllocated(Address address, std::size_t *size_of_result) const {
         return m_allocator_ptr->isAllocated(address, size_of_result);
     }
     
+    bool SlotAllocator::isAllocated(Address address, unsigned char realm_id, std::size_t *size_of_result) const {
+        return m_allocator_ptr->isAllocated(address, realm_id, size_of_result);
+    }
+
     void SlotAllocator::commit() const
     {
         m_allocator_ptr->commit();
@@ -118,4 +128,12 @@ namespace db0
         return m_allocator_ptr->inRange(address);
     }
 
+    std::pair<Address, std::optional<Address> > SlotAllocator::getRange(std::uint32_t slot_num) const
+    {
+        if (slot_num == 0) {
+            return m_allocator_ptr->getRange(0);
+        }
+        return getSlot(slot_num).getRange(0);
+    }
+    
 }

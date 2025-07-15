@@ -107,8 +107,15 @@ namespace db0::python
         static bool isExistingObject(db0::swine_ptr<Fixture> &, Address, std::uint16_t instance_id = 0);
         
         static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, const LongWeakRef &);
-        static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, std::uint64_t fixture_uuid,
-            UniqueAddress address);
+        
+        /**
+         * @param fixture prefix to unload from
+         * @param addr the weak ref object's address (for cache)
+         * @param obj_fixture_uuid the fixture UUID of the referenced object
+         * @param obj_address the address of the referenced object
+         */
+        static ObjectSharedPtr unloadExpiredRef(db0::swine_ptr<Fixture> &, Address addr, std::uint64_t obj_fixture_uuid,
+            UniqueAddress obj_address);
         
         // Unload with known type & lang class
         // note that lang_class may be a base of the actual type (e.g. MemoBase)
@@ -116,21 +123,10 @@ namespace db0::python
             std::shared_ptr<Class>, TypeObjectPtr lang_class);
         
         static ObjectSharedPtr unloadList(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
-        // check if the list exists without unloading it
-        static bool isExistingList(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
-        
         static ObjectSharedPtr unloadIndex(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
-        static bool isExistingIndex(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
-        
         static ObjectSharedPtr unloadSet(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
-        static bool isExistingSet(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
-        
         static ObjectSharedPtr unloadDict(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
-        static bool isExistingDict(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
-        
         static ObjectSharedPtr unloadTuple(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
-        static bool isExistingTuple(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
-        
         // Unload dbzero block instance
         static ObjectSharedPtr unloadBlock(db0::swine_ptr<Fixture>, Address, std::uint16_t instance_id = 0);
         

@@ -209,24 +209,24 @@ namespace db0::python
         return obj_ptr;
     }
     
-    PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, std::uint64_t fixture_uuid,
-        UniqueAddress address)
+    PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, Address addr,
+        std::uint64_t obj_fixture_uuid, UniqueAddress obj_address)
     {
         // try unloading from cache first
         auto &lang_cache = fixture->getLangCache();
-        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, address);
+        auto obj_ptr = tryUnloadObjectFromCache(lang_cache, addr);
         
         if (obj_ptr.get()) {
             return obj_ptr;
         }
         
-        obj_ptr = MemoExpiredRef_new(fixture_uuid, address);
-        lang_cache.add(address, obj_ptr.get());
+        obj_ptr = MemoExpiredRef_new(obj_fixture_uuid, obj_address);
+        lang_cache.add(addr, obj_ptr.get());
         return obj_ptr;
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadExpiredRef(db0::swine_ptr<Fixture> &fixture, const LongWeakRef &weak_ref) {
-        return unloadExpiredRef(fixture, weak_ref->m_fixture_uuid, weak_ref->m_address);
+        return unloadExpiredRef(fixture, weak_ref.getAddress(), weak_ref->m_fixture_uuid, weak_ref->m_address);
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadList(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
@@ -247,12 +247,6 @@ namespace db0::python
         // add list object to cache
         lang_cache.add(address, list_object.get());
         return shared_py_cast<PyObject*>(std::move(list_object));
-    }
-
-    bool PyToolkit::isExistingList(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id)
-    {
-        using List = db0::object_model::List;
-        return List::checkUnload(fixture, address, instance_id, false);
     }
 
     PyToolkit::ObjectSharedPtr PyToolkit::unloadByteArray(db0::swine_ptr<Fixture> fixture, Address address)
@@ -292,10 +286,6 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(index_object));
     }
     
-    bool PyToolkit::isExistingIndex(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Index::checkUnload(fixture, address, instance_id, false);
-    }
-
     PyToolkit::ObjectSharedPtr PyToolkit::unloadSet(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
     {
         // try pulling from cache first
@@ -315,10 +305,6 @@ namespace db0::python
         return shared_py_cast<PyObject*>(std::move(set_object));
     }
     
-    bool PyToolkit::isExistingSet(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Set::checkUnload(fixture, address, instance_id, false);
-    }
-
     PyToolkit::ObjectSharedPtr PyToolkit::unloadDict(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
     {
         // try pulling from cache first
@@ -336,10 +322,6 @@ namespace db0::python
         // add list object to cache
         lang_cache.add(address, *dict_object);
         return shared_py_cast<PyObject*>(std::move(dict_object));
-    }
-
-    bool PyToolkit::isExistingDict(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Dict::checkUnload(fixture, address, instance_id, false);
     }
     
     PyToolkit::ObjectSharedPtr PyToolkit::unloadTuple(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t)
@@ -360,11 +342,7 @@ namespace db0::python
         lang_cache.add(address, *tuple_object);
         return shared_py_cast<PyObject*>(std::move(tuple_object));
     }
-    
-    bool PyToolkit::isExistingTuple(db0::swine_ptr<Fixture> fixture, Address address, std::uint16_t instance_id) {
-        return db0::object_model::Tuple::checkUnload(fixture, address, instance_id, false);
-    }
-    
+        
     PyToolkit::ObjectSharedPtr PyToolkit::deserializeObjectIterable(db0::swine_ptr<Fixture> fixture,
         std::vector<std::byte>::const_iterator &iter, 
         std::vector<std::byte>::const_iterator end)

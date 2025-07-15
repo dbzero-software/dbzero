@@ -33,7 +33,7 @@ namespace db0::object_model
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
-        , m_class_factory(fixture->get<ClassFactory>())
+        , m_class_factory(getClassFactory(*fixture))
         , m_query_iterator(validated(std::move(ft_query_iterator)))
         , m_query_observers(std::move(query_observers))
         , m_filters(filters)        
@@ -46,7 +46,7 @@ namespace db0::object_model
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
-        , m_class_factory(fixture->get<ClassFactory>())
+        , m_class_factory(getClassFactory(*fixture))
         , m_sorted_iterator(validated(std::move(sorted_iterator)))        
         , m_query_observers(std::move(query_observers))
         , m_filters(filters)
@@ -59,7 +59,7 @@ namespace db0::object_model
         std::shared_ptr<Class> type, TypeObjectPtr lang_type, std::vector<std::unique_ptr<QueryObserver> > &&query_observers,
         const std::vector<FilterFunc> &filters)
         : m_fixture(fixture)
-        , m_class_factory(fixture->get<ClassFactory>())
+        , m_class_factory(getClassFactory(*fixture))
         , m_factory(factory)        
         , m_query_observers(std::move(query_observers))
         , m_filters(filters)

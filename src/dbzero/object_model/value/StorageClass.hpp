@@ -112,8 +112,6 @@ namespace db0::object_model
         INVALID = std::numeric_limits<std::uint8_t>::max()
     };
     
-    bool isReference(StorageClass);
-    
     class StorageClassMapper
     {
     public:

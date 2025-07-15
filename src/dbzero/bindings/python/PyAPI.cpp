@@ -616,30 +616,7 @@ namespace db0::python
     PyObject *negTags(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         return NULL;
     }
-    
-    PyObject *toDict(PyObject *, PyObject *const *args, Py_ssize_t nargs)
-    {
-        PY_API_FUNC
-        using ObjectSharedPtr = PyTypes::ObjectSharedPtr;
-        if (nargs != 1) {
-            PyErr_SetString(PyExc_TypeError, "toDict requires exactly 1 argument");
-            return NULL;
-        }
-
-        if (!PyMemo_Check(args[0])) {
-            PyErr_SetString(PyExc_TypeError, "Invalid object type");
-            return NULL;
-        }
         
-        auto &memo_obj = *reinterpret_cast<MemoObject*>(args[0]);
-        auto py_result = Py_OWN(PyDict_New());
-        memo_obj.ext().forAll([py_result](const std::string &key, ObjectSharedPtr py_value) {
-            PySafeDict_SetItemString(*py_result, key.c_str(), py_value);
-            return true;
-        });
-        return py_result.steal();
-    }
-    
     PyObject *PyAPI_getBuildFlags(PyObject *, PyObject *)
     {
         PY_API_FUNC

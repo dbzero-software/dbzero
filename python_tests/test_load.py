@@ -63,26 +63,32 @@ def test_load_memo_db0_types(db0_fixture):
         "value_3": {"value": "string"}
     }
 
+
 def test_load_dict(db0_fixture):
     t1 = db0.dict({"key1": 1, "key2": "string", "key3": 999})
     assert db0.load(t1) == {"key1": 1, "key2": "string", "key3": 999}
+
 
 def test_load_py_dict(db0_fixture):
     t1 = {"key1": 1, "key2": "string", "key3": 999}
     assert db0.load(t1) == {"key1": 1, "key2": "string", "key3": 999}
 
+
 def test_load_set(db0_fixture):
     t1 = db0.set([1, "string", 999])
     assert db0.load(t1) == {1, "string", 999}
+
 
 def test_load_py_set(db0_fixture):
     t1 = {1, "string", 999}
     assert db0.load(t1) == {1, "string", 999}
 
+
 def test_load_returns_none_not_as_string(db0_fixture):
     assert db0.load(None) == None
     t1 = db0.set([1, "string", None])
     assert db0.load(t1) == {1, "string", None}
+
 
 def test_load_with_default_load_method(db0_fixture):
     memo = MemoTestCustomLoadClass("value_1", "value_2", "value_3")
@@ -113,7 +119,7 @@ def test_load_with_default_load_as_subclas(db0_fixture):
     }
 
 
-def test_load_exlude(db0_fixture):
+def test_load_exclude(db0_fixture):
     Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])
     t1 = (Colors.RED, Colors.GREEN)
     list = ["1", 2 , Colors.GREEN]
@@ -125,7 +131,7 @@ def test_load_exlude(db0_fixture):
     }
 
 
-def test_load_exlude_doesnt_exclude_in_subobject(db0_fixture):
+def test_load_exclude_doesnt_exclude_in_subobject(db0_fixture):
     memo = MemoTestThreeParamsClass("value_1", "value_2", "value_3")
     memo2 = MemoTestThreeParamsClass("value_1", "value_2", memo)
     assert db0.load(memo2, exclude = ["value_1"]) == {
@@ -138,7 +144,7 @@ def test_load_exlude_doesnt_exclude_in_subobject(db0_fixture):
     }
 
 
-def test_load_exlude_doesnt_work_with_added_load_method(db0_fixture):
+def test_load_exclude_doesnt_work_with_added_load_method(db0_fixture):
     memo = MemoTestCustomLoadClass("value_1", "value_2", "value_3")
 
     with pytest.raises(AttributeError) as ex:
@@ -146,7 +152,7 @@ def test_load_exlude_doesnt_work_with_added_load_method(db0_fixture):
     assert "Cannot exclude values when __load__ is implemented" in str(ex.value)
 
 
-def test_load_exlude_only_supports_list(db0_fixture):
+def test_load_exclude_only_supports_list(db0_fixture):
     memo = MemoTestThreeParamsClass("value_1", "value_2", "value_3")
 
     assert db0.load(memo, exclude = ["value_1"]) == {"value_2": "value_2", "value_3": "value_3"}

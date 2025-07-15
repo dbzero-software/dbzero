@@ -165,7 +165,8 @@ namespace db0
         }
         
         static bool checkUnload(db0::swine_ptr<Fixture> &fixture, Address address) {
-            return fixture->isAddressValid(address);
+            // NOTE: check address within a type-specific realm
+            return fixture->isAddressValid(address, BaseT::getRealmID());
         }
         
         // Check if unload operation would be successful without actually performing it
@@ -174,7 +175,7 @@ namespace db0
             bool check_has_refs)
         {
             std::size_t size_of = 0;
-            if (!fixture->isAddressValid(address, &size_of)) {
+            if (!fixture->isAddressValid(address, BaseT::getRealmID(), &size_of)) {
                 return false;
             }
             // validate instance ID only if provided

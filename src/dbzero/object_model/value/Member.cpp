@@ -531,7 +531,7 @@ namespace db0::object_model
             return PyToolkit::unloadObject(fixture, address);
         } else {
             // NOTE: expired objects are unloaded as MemoExpiredRef (placeholders)
-            return PyToolkit::unloadExpiredRef(fixture, fixture->getUUID(), address);
+            return PyToolkit::unloadExpiredRef(fixture, address.getAddress(), fixture->getUUID(), address);
         }
     }
     
@@ -681,7 +681,7 @@ namespace db0::object_model
     void materialize(FixtureLock &fixture, PyObjectPtr obj_ptr)
     {
         auto object_ptr = PyToolkit::getTypeManager().tryExtractMutableObject(obj_ptr);
-        if (object_ptr && !object_ptr->hasInstance()) {
+        if (object_ptr && !object_ptr->hasInstance()) {            
             object_ptr->postInit(fixture);
         }
     }

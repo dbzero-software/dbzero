@@ -242,8 +242,8 @@ namespace db0::object_model
         if (m_class) {
             auto fixture = m_class->getFixture();
             if (*fixture != *new_fixture) {
-                auto &class_factory = fixture->get<ClassFactory>();
-                auto &new_factory = new_fixture->get<ClassFactory>();
+                auto &class_factory = getClassFactory(*fixture);
+                auto &new_factory = getClassFactory(*new_fixture);
                 auto new_class = new_factory.getOrCreateType(class_factory.getLangType(*m_class).get());
                 if (new_class->isExistingSingleton()) {
                     // cannot initialize existing singleton, report failure

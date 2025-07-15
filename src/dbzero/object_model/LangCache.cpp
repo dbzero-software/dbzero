@@ -95,7 +95,7 @@ namespace db0
         assert(!m_cache[slot_id].second);
         m_cache[slot_id] = { uid, obj };
         m_visited[slot_id] = true;
-        m_uid_to_index[uid] = slot_id;
+        m_uid_to_index[uid] = slot_id;        
         ++m_size;
     }
     
