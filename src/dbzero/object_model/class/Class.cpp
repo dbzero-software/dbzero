@@ -36,10 +36,10 @@ namespace db0::object_model
         return classRef(type.getAddress(), type_slot_addr_range);
     }
     
-    Address classRefToAddress(std::uint32_t class_ref, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range) 
+    Address classRefToAddress(std::uint32_t class_ref, std::pair<std::uint64_t, std::uint64_t> type_slot_addr_range)
     {
         // calculate the absolute address
-        assert((static_cast<std::uint64_t>(class_ref) - 1 + type_slot_begin_addr) < type_slot_addr_range.second);
+        assert((static_cast<std::uint64_t>(class_ref) - 1 + type_slot_addr_range.first) < type_slot_addr_range.second);
         return Address::fromOffset(static_cast<std::uint64_t>(class_ref) - 1 + type_slot_addr_range.first);
     }
     

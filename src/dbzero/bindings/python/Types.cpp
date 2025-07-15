@@ -162,6 +162,7 @@ namespace db0::python
         std::fill(functions.begin(), functions.end(), nullptr);
         // NOTE: for security reasons we only allow UUID retrieval for a strictly limited set of types
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = tryGetUUID<TypeId::MEMO_OBJECT>;
+        // the purpose of UUID here is to find identical queries
         functions[static_cast<int>(TypeId::OBJECT_ITERABLE)] = tryGetUUID<TypeId::OBJECT_ITERABLE>;
         // for expired refs UUIDs are still available
         functions[static_cast<int>(TypeId::MEMO_EXPIRED_REF)] = tryGetUUID<TypeId::MEMO_EXPIRED_REF>;

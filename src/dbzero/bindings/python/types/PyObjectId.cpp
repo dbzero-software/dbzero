@@ -33,7 +33,7 @@ namespace db0::python
         .tp_init = reinterpret_cast<initproc>(ObjectId_init),        
         .tp_new = PyType_GenericNew,
     };
-        
+    
     PyObject *PyAPI_getUUID(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
     {
         PY_API_FUNC
