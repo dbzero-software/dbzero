@@ -372,6 +372,7 @@ namespace db0::python
         .tp_itemsize = 0,
         .tp_dealloc = (destructor)PyEnumValueRepr_del,
         .tp_repr = reinterpret_cast<reprfunc>(PyEnumValueRepr_repr),
+        .tp_hash = reinterpret_cast<hashfunc>(PyEnumValueRepr_hash),
         .tp_str = reinterpret_cast<reprfunc>(PyEnumValueRepr_str),        
         .tp_flags = Py_TPFLAGS_DEFAULT,
         .tp_doc = "Enum value object",
@@ -503,6 +504,10 @@ namespace db0::python
             return NULL;
         }
         return runSafe(tryIsEnum, args[0]);
+    }
+    
+    Py_hash_t PyEnumValueRepr_hash(PyEnumValueRepr *obj_ptr) {
+        return obj_ptr->ext().getPermHash();
     }
 
 }

@@ -51,7 +51,11 @@ namespace db0::python
     template <> int64_t getPyHashImpl<TypeId::DB0_ENUM_VALUE>(PyObject *key) {
         return PyToolkit::getTypeManager().extractEnumValue(key).getPermHash();        
     }
-    
+
+    template <> int64_t getPyHashImpl<TypeId::DB0_ENUM_VALUE_REPR>(PyObject *key) {
+        return PyToolkit::getTypeManager().extractEnumValueRepr(key).getPermHash();
+    }
+
     template <> int64_t getPyHashImpl<TypeId::MEMO_OBJECT>(PyObject *key) 
     {
         auto &obj = reinterpret_cast<MemoObject*>(key)->ext();
@@ -78,9 +82,9 @@ namespace db0::python
         functions[static_cast<int>(TypeId::DB0_TUPLE)] = getPyHashImpl<TypeId::DB0_TUPLE>;
         functions[static_cast<int>(TypeId::TUPLE)] = getPyHashImpl<TypeId::TUPLE>;
         functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = getPyHashImpl<TypeId::DB0_ENUM_VALUE>;
+        functions[static_cast<int>(TypeId::DB0_ENUM_VALUE_REPR)] = getPyHashImpl<TypeId::DB0_ENUM_VALUE_REPR>;
         functions[static_cast<int>(TypeId::MEMO_OBJECT)] = getPyHashImpl<TypeId::MEMO_OBJECT>;
         functions[static_cast<int>(TypeId::DB0_CLASS)] = getPyHashImpl_for_simple_obj;
-
         functions[static_cast<int>(TypeId::DATETIME)] = getPyHashImpl_for_simple_obj;
         functions[static_cast<int>(TypeId::DATETIME_TZ)] = getPyHashImpl_for_simple_obj;
         functions[static_cast<int>(TypeId::DATE)] = getPyHashImpl_for_simple_obj;
