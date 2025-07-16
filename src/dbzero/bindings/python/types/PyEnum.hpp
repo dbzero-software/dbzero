@@ -38,6 +38,7 @@ namespace db0::python
     
     void PyEnumValueRepr_del(PyEnumValueRepr *);
     PyObject *PyEnumValueRepr_str(PyEnumValueRepr *);
+    Py_hash_t PyEnumValueRepr_hash(PyEnumValueRepr *);
     PyObject *PyEnumValueRepr_repr(PyEnumValueRepr *);    
     
     extern PyTypeObject PyEnumType;

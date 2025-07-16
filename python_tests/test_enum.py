@@ -330,3 +330,31 @@ def test_enum_value_repr_collection_lookup(db0_fixture):
     # look up by enum value repr
     assert Colors.values()[0] not in root.value
     assert Colors.values()[0] not in root.value_2
+
+
+def test_enum_value_repr_is_hashablecollection_lookup(db0_fixture):
+    # colors created on current / default prefix
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
+    db0.open("other-prefix", "rw")
+    root = MemoTestSingleton(db0.set(), db0.dict())
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open("other-prefix", "r")
+    root = db0.fetch(MemoTestSingleton)
+    # look up by enum value repr
+    assert Colors.values()[0] not in root.value
+    assert Colors.values()[0] not in root.value_2
+
+
+def test_enum_value_repr_lookup_in_python_collection(db0_fixture):
+    # colors created on current / default prefix
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
+    db0.open("other-prefix", "rw")    
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open("other-prefix", "r")    
+    # look up by enum value repr
+    assert Colors.values()[0] not in set()
+    assert Colors.values()[0] not in {}

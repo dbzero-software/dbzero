@@ -76,6 +76,10 @@ namespace db0::object_model
         // NOTE: deserialize will attempt to convert to EnumValue if possible
         static ObjectSharedPtr deserialize(db0::swine_ptr<Fixture> &, std::vector<std::byte>::const_iterator &iter,
             std::vector<std::byte>::const_iterator end);
+        
+        // get hash for persistent storage (computed from string representation)
+        // this is to allow matching enum value-repr with corresponding enum values
+        std::int64_t getPermHash() const;
     };
     
     struct EnumValue
