@@ -341,3 +341,12 @@ def test_member_assignment_to_variable_locked_issue(db0_fixture):
     with db0.locked() as lock:
         x = obj.value
     assert len(lock.get_mutation_log()) == 0
+    
+    
+def test_clear_list_in_locked_section(db0_fixture):
+    cut = db0.list([1, 2, 3])
+    with db0.locked() as lock:
+        cut.clear()
+    
+    assert len(lock.get_mutation_log()) == 1
+    

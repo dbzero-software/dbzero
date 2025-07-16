@@ -9,6 +9,7 @@
 #include <dbzero/bindings/python/PyInternalAPI.hpp>
 
 namespace db0::python
+
 {
     
     using ListIteratorObject = PySharedWrapper<db0::object_model::ListIterator, false>;
@@ -137,14 +138,14 @@ namespace db0::python
         PY_API_FUNC
         return runSafe(tryListObject_GetItemSlice, py_src_list, elem);
     }
-
+    
     PyObject *tryListObject_clear(ListObject *py_list)
-    {        
+    {                
         db0::FixtureLock lock(py_list->ext().getFixture());
         py_list->modifyExt().clear(lock);
         Py_RETURN_NONE;
     }
-
+    
     PyObject *PyAPI_ListObject_clear(ListObject *py_list)
     {
         PY_API_FUNC
