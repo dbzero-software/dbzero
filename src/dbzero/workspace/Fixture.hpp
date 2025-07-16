@@ -384,6 +384,7 @@ namespace db0
             if (fixture->getAccessType() != AccessType::READ_WRITE) {
                 THROWF(db0::InputException) << "Cannot modify read-only prefix: " << fixture->getPrefix().getName();
             }
+            m_fixture->onUpdated();
         }
         
         ~FixtureLock()
