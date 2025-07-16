@@ -1037,7 +1037,7 @@ namespace db0::python
             return NULL;
         }
         PY_API_FUNC
-        return runSafe(get_py_hash_as_py_object, args[0]);
+        return runSafe(getPyHashAsPyObject, args[0]);
     }
 
     PyObject *PyAPI_materialized(PyObject *self, PyObject *const *args, Py_ssize_t nargs)

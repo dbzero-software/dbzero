@@ -150,8 +150,8 @@ namespace db0::object_model
         }
         return {};
     }
-        
-    bool Dict::has_item(std::int64_t key_hash, ObjectPtr key_value) const
+            
+    bool Dict::hasItem(std::int64_t key_hash, ObjectPtr key_value) const
     {   
         auto fixture = this->getFixture();
         auto iter = m_index.find(key_hash);

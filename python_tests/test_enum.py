@@ -315,3 +315,18 @@ def test_deserialize_enum_value_from_unknown_prefix(db0_fixture):
     # NOTE: we don't open the "alien-prefix" here
     db0.open(px_name, "r")
     assert db0.deserialize(bytes) == Colors.RED
+
+
+def test_enum_value_repr_collection_lookup(db0_fixture):
+    # colors created on current / default prefix
+    Colors = db0.enum("Colors", ["RED", "GREEN", "BLUE"])    
+    db0.open("other-prefix", "rw")
+    root = MemoTestSingleton(db0.set(), db0.dict())
+    db0.close()
+    
+    db0.init(DB0_DIR)
+    db0.open("other-prefix", "r")
+    root = db0.fetch(MemoTestSingleton)
+    # look up by enum value repr
+    assert Colors.values()[0] not in root.value
+    assert Colors.values()[0] not in root.value_2

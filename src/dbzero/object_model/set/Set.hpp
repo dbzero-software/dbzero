@@ -59,13 +59,13 @@ namespace db0::object_model
         ~Set();
 
         void operator=(Set &&);
-
+        
         void append(FixtureLock &, std::size_t key, ObjectSharedPtr lang_value);
         bool remove(FixtureLock &, std::size_t key, ObjectPtr key_value);
         ObjectSharedPtr getItem(std::size_t i, ObjectPtr key_value) const;
         
         Set::ObjectSharedPtr pop(FixtureLock &);
-        bool has_item(int64_t hash, PyObject * obj) const;
+        bool hasItem(std::int64_t hash, ObjectPtr lang_key) const;
         
         void clear(FixtureLock &);
         void insert(const Set &set);

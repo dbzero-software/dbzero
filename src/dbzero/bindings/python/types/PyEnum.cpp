@@ -392,7 +392,7 @@ namespace db0::python
     bool PyEnumValue_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyEnumValueType;        
     }
-
+    
     bool PyEnumValueRepr_Check(PyObject *py_object) {
         return Py_TYPE(py_object) == &PyEnumValueReprType;        
     }
