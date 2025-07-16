@@ -35,10 +35,14 @@ namespace db0::python
     int trySetObject_HasItem(SetObject *set_obj, PyObject *key)
     {
         PY_API_FUNC
-        auto hash = get_py_hash(key);        
-        return set_obj->ext().has_item(hash, key);
+        auto maybe_hash_pair = getPyHashIfExists(key, set_obj->ext());
+        if (!maybe_hash_pair) {
+            // NOTE: element does not exist because a key does NOT exist either (e.g. EnumValueRepr)
+            return 0;
+        }
+        return set_obj->ext().hasItem(maybe_hash_pair->first, *maybe_hash_pair->second);
     }
-
+    
     int PyAPI_SetObject_HasItem(SetObject *set_obj, PyObject *key)
     {
         PY_API_FUNC
@@ -176,8 +180,8 @@ namespace db0::python
             
             ObjectSharedPtr elem;
             Py_FOR(elem, iterator) {            
-                auto hash = get_py_hash(*elem);
-                if (!self->ext().has_item(hash, *elem)) {
+                auto hash = getPyHash(*elem);
+                if (!self->ext().hasItem(hash, *elem)) {
                     Py_RETURN_FALSE;
                 }                                
             }
@@ -269,7 +273,7 @@ namespace db0::python
 
     PyObject *trySetObject_add(SetObject *set_obj, PyObject *const *args, Py_ssize_t nargs)
     {
-        auto hash = get_py_hash(args[0]);
+        auto hash = getPyHash(args[0]);
         db0::FixtureLock lock(set_obj->ext().getFixture());
         set_obj->modifyExt().append(lock, hash, args[0]);
         Py_RETURN_NONE;
@@ -304,7 +308,7 @@ namespace db0::python
             }
             ObjectSharedPtr item;
             Py_FOR(item, iterator) {            
-                auto hash = get_py_hash(*item);
+                auto hash = getPyHash(*item);
                 set.append(lock, hash, item);
             }
         }
@@ -359,8 +363,8 @@ namespace db0::python
 
             ObjectSharedPtr elem;
             Py_FOR(elem, iterator) {            
-                auto hash = get_py_hash(*elem);
-                if (self->ext().has_item(hash, *elem)) {
+                auto hash = getPyHash(*elem);
+                if (self->ext().hasItem(hash, *elem)) {
                     Py_RETURN_FALSE;
                 }                
             }            
@@ -417,7 +421,7 @@ namespace db0::python
                 auto &set_impl = py_copy->modifyExt();
                 ObjectSharedPtr elem;
                 Py_FOR(elem, iterator) {
-                    auto hash = get_py_hash(*elem);
+                    auto hash = getPyHash(*elem);
                     set_impl.append(lock, hash, *elem);                                        
                 }
             }
@@ -450,7 +454,7 @@ namespace db0::python
             Py_DECREF(elem2);
             elem2 = PyIter_Next(it2);
         } else if (elem1 == elem2) {
-            auto hash = get_py_hash(elem1);
+            auto hash = getPyHash(elem1);
             set_obj->modifyExt().append(fixture, hash, elem1);            
             Py_DECREF(elem1);
             Py_DECREF(elem2);
@@ -519,7 +523,7 @@ namespace db0::python
         auto &set_impl = set_result->modifyExt();
         Py_FOR(item, it) {        
             if (!PySequence_Contains(ob, *item)) {
-                auto hash = get_py_hash(*item);
+                auto hash = getPyHash(*item);
                 set_impl.append(fixture, hash, item);
             }            
         }
@@ -531,7 +535,7 @@ namespace db0::python
             }
             Py_FOR(item, it) {            
                 if (!PySequence_Contains((PyObject*)set_input, *item)) {
-                    auto hash = get_py_hash(*item);
+                    auto hash = getPyHash(*item);
                     set_impl.append(fixture, hash, item);
                 }                
             }
@@ -602,7 +606,7 @@ namespace db0::python
             PyErr_SetString(PyExc_TypeError, "remove() takes exactly one argument");
             return NULL;
         }
-        auto hash = get_py_hash(args[0]);
+        auto hash = getPyHash(args[0]);
         db0::FixtureLock lock(set_obj->ext().getFixture());
         if (set_obj->modifyExt().remove(lock, hash, args[0]) == false && throw_ex) {
             PyErr_SetString(PyExc_KeyError, "Element not found");
@@ -665,7 +669,7 @@ namespace db0::python
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
         Py_FOR(item, it) {
-            auto hash = get_py_hash(*item);
+            auto hash = getPyHash(*item);
             set_impl.append(lock, hash, *item);            
         }
 
@@ -681,8 +685,8 @@ namespace db0::python
     bool sequenceContainsItem(PyObject *set_obj, PyObject *item)
     {
         if (SetObject_Check(set_obj)) {
-            auto hash = get_py_hash(item);  
-            return ((SetObject*)set_obj)->ext().has_item(hash, item);
+            auto hash = getPyHash(item);  
+            return ((SetObject*)set_obj)->ext().hasItem(hash, item);
         } else {
             return PySequence_Contains(set_obj, item);
         }
@@ -700,7 +704,7 @@ namespace db0::python
         std::vector<std::pair<size_t, ObjectSharedPtr> > hashes_and_items;
         Py_FOR(item, it) {        
             if (!sequenceContainsItem(ob, *item)) {
-                auto hash = get_py_hash(*item);
+                auto hash = getPyHash(*item);
                 hashes_and_items.push_back({hash, item});
             }                        
         }
@@ -732,7 +736,7 @@ namespace db0::python
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
         Py_FOR(item, it) {        
-            auto hash = get_py_hash(*item);
+            auto hash = getPyHash(*item);
             set_impl.remove(lock, hash, *item);                    
         }
 
@@ -760,9 +764,8 @@ namespace db0::python
         auto &set_impl = self->modifyExt();
         db0::FixtureLock lock(set_impl.getFixture());
         Py_FOR(item, it) {
-            auto hash = get_py_hash(*item);
-            if (set_impl.has_item(hash, *item)) {
-                auto hash = get_py_hash(*item);
+            auto hash = getPyHash(*item);
+            if (set_impl.hasItem(hash, *item)) {                
                 hashes_and_items_to_remove.push_back({hash, item});
             } else {
                 items_to_add.push_back(item);
@@ -772,7 +775,7 @@ namespace db0::python
             set_impl.remove(lock, hash_and_item.first, *hash_and_item.second);
         }
         for (auto item: items_to_add) {
-            auto hash = get_py_hash(*item);
+            auto hash = getPyHash(*item);
             set_impl.append(lock, hash, item);                        
         }
 

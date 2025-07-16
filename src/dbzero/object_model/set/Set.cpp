@@ -219,7 +219,7 @@ namespace db0::object_model
         return member;
     }
     
-    bool Set::has_item(std::int64_t hash_key, ObjectPtr key_value) const
+    bool Set::hasItem(std::int64_t hash_key, ObjectPtr key_value) const
     {
         auto iter = m_index.find(hash_key);
         if (iter == m_index.end()) {

@@ -35,7 +35,7 @@ namespace db0::python
         const auto &dict_obj = py_dict->ext();
         dict_obj.getFixture()->refreshIfUpdated();
         auto key = migratedKey(dict_obj, py_key);
-        auto hash = get_py_hash(*key);
+        auto hash = getPyHash(*key);
         if (hash == -1) {
             auto py_str = Py_OWN(PyObject_Str(py_key));
             auto str_name =  PyUnicode_AsUTF8(*py_str);            
@@ -63,7 +63,7 @@ namespace db0::python
     int tryDictObject_SetItem(DictObject *py_dict, PyObject *py_key, PyObject *value)
     {
         auto key = migratedKey(py_dict->ext(), py_key);
-        auto hash = get_py_hash(*key);
+        auto hash = getPyHash(*key);
         if (hash == -1) {            
             // set PyError
             std::stringstream _str;
@@ -96,13 +96,17 @@ namespace db0::python
     }
     
     int tryDictObject_HasItem(DictObject *py_dict, PyObject *py_key)
-    {        
+    {
         auto key = migratedKey(py_dict->ext(), py_key);
         py_dict->ext().getFixture()->refreshIfUpdated();
-        auto hash = get_py_hash(*key);
-        return py_dict->ext().has_item(hash, *key);
+        auto maybe_hash_pair = getPyHashIfExists(*key, py_dict->ext());
+        if (!maybe_hash_pair) {
+            // NOTE: element does not exist because a key does NOT exist either
+            return 0;
+        }
+        return py_dict->ext().hasItem(maybe_hash_pair->first, *maybe_hash_pair->second);
     }
-
+    
     int PyAPI_DictObject_HasItem(DictObject *dict_obj, PyObject *key)
     {
         PY_API_FUNC
@@ -318,8 +322,8 @@ namespace db0::python
     {
         PyObject *py_elem = args[0];
         auto elem = migratedKey(dict_object->ext(), py_elem);
-        auto hash = get_py_hash(elem.get());
-        if (dict_object->ext().has_item(hash, *elem)) {
+        auto hash = getPyHash(elem.get());
+        if (dict_object->ext().hasItem(hash, *elem)) {
             return tryDictObject_GetItem(dict_object, *elem);
         }
         auto value = Py_BORROW((PyObject*)Py_None);
@@ -353,8 +357,8 @@ namespace db0::python
         }
         
         auto elem = migratedKey(dict_object->ext(), py_elem);
-        auto hash = get_py_hash(*elem);
-        if (dict_object->ext().has_item(hash, *elem)) {            
+        auto hash = getPyHash(*elem);
+        if (dict_object->ext().hasItem(hash, *elem)) {            
             return dict_object->modifyExt().pop(hash, *elem).steal();
         }
 
@@ -388,8 +392,8 @@ namespace db0::python
             value = Py_BORROW((PyObject*)args[1]);
         }
         auto elem = migratedKey(dict_object->ext(), py_elem);
-        auto hash = get_py_hash(*elem);
-        if (!dict_object->ext().has_item(hash, *elem)) {
+        auto hash = getPyHash(*elem);
+        if (!dict_object->ext().hasItem(hash, *elem)) {
             tryDictObject_SetItem(dict_object, *elem, *value);
         }
         return tryDictObject_GetItem(dict_object, *elem);

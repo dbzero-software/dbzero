@@ -67,11 +67,11 @@ namespace db0::object_model
         ObjectSharedPtr getItem(std::uint64_t key_hash, ObjectPtr key_value) const;
         void setItem(FixtureLock &, std::uint64_t key_hash, ObjectPtr key, ObjectPtr value);
                 
-        bool has_item(int64_t hash, ObjectPtr obj) const;
+        bool hasItem(int64_t hash, ObjectPtr lang_key) const;
         
         Dict *copy(void *at_ptr, db0::swine_ptr<Fixture> &fixture) const;
 
-        ObjectSharedPtr pop(int64_t hash, ObjectPtr obj);
+        ObjectSharedPtr pop(std::int64_t hash, ObjectPtr lang_key);
 
         void moveTo(db0::swine_ptr<Fixture> &);
 

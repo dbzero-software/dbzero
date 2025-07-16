@@ -14,45 +14,45 @@ namespace db0::python
 
     using PyHashFunct = int64_t (*)(PyObject *);
 
-    template <> int64_t get_py_hash_impl<TypeId::STRING>(PyObject *key)
+    template <> int64_t getPyHashImpl<TypeId::STRING>(PyObject *key)
     {
         auto unicode_value = PyUnicode_AsUTF8(key);
         return std::hash<std::string>{}(unicode_value);
     }
 
-    template <> int64_t get_py_hash_impl<TypeId::BYTES>(PyObject *key) 
+    template <> int64_t getPyHashImpl<TypeId::BYTES>(PyObject *key) 
     {
         auto bytes_value = PyBytes_AsString(key);
         return std::hash<std::string>{}(bytes_value);
     }
     
-    template <> int64_t get_py_hash_impl<TypeId::TUPLE>(PyObject *key)
+    template <> int64_t getPyHashImpl<TypeId::TUPLE>(PyObject *key)
     {
         auto tuple_size = PyTuple_Size(key);
         int64_t hash = 0;
         for (int i = 0; i < tuple_size; ++i) {
             auto item = PyTuple_GetItem(key, i);
-            hash ^= get_py_hash(item);
+            hash ^= getPyHash(item);
         }
         return hash;
     }
     
-    template <> int64_t get_py_hash_impl<TypeId::DB0_TUPLE>(PyObject *key)
+    template <> int64_t getPyHashImpl<TypeId::DB0_TUPLE>(PyObject *key)
     {
         TupleObject *tuple_obj = reinterpret_cast<TupleObject*>(key);
         std::int64_t hash = 0;
         for (std::size_t i = 0; i < tuple_obj->ext().getData()->size(); ++i) {
             auto item = tuple_obj->ext().getItem(i);
-            hash ^= get_py_hash(*item);
+            hash ^= getPyHash(*item);
         }
         return hash;
     }
     
-    template <> int64_t get_py_hash_impl<TypeId::DB0_ENUM_VALUE>(PyObject *key) {
+    template <> int64_t getPyHashImpl<TypeId::DB0_ENUM_VALUE>(PyObject *key) {
         return PyToolkit::getTypeManager().extractEnumValue(key).getPermHash();        
     }
     
-    template <> int64_t get_py_hash_impl<TypeId::MEMO_OBJECT>(PyObject *key) 
+    template <> int64_t getPyHashImpl<TypeId::MEMO_OBJECT>(PyObject *key) 
     {
         auto &obj = reinterpret_cast<MemoObject*>(key)->ext();
         if (!obj.hasInstance()) {
@@ -61,11 +61,11 @@ namespace db0::python
         return obj.getAddress().getValue();
     }
     
-    std::int64_t get_py_hash_impl_for_simple_obj(PyObject *key) {
+    std::int64_t getPyHashImpl_for_simple_obj(PyObject *key) {
         return PyToolkit::getTypeManager().extractUInt64(key);
     }
 
-    std::int64_t get_py_hash_impl_default(PyObject *key) {
+    std::int64_t getPyHashDefaultImpl(PyObject *key) {
         return PyObject_Hash(key);
     }
 
@@ -73,39 +73,39 @@ namespace db0::python
     {
         functions.resize(static_cast<int>(TypeId::COUNT));
         std::fill(functions.begin(), functions.end(), nullptr);
-        functions[static_cast<int>(TypeId::STRING)] = get_py_hash_impl<TypeId::STRING>;
-        functions[static_cast<int>(TypeId::BYTES)]  = get_py_hash_impl<TypeId::BYTES>;
-        functions[static_cast<int>(TypeId::DB0_TUPLE)] = get_py_hash_impl<TypeId::DB0_TUPLE>;
-        functions[static_cast<int>(TypeId::TUPLE)] = get_py_hash_impl<TypeId::TUPLE>;
-        functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = get_py_hash_impl<TypeId::DB0_ENUM_VALUE>;
-        functions[static_cast<int>(TypeId::MEMO_OBJECT)] = get_py_hash_impl<TypeId::MEMO_OBJECT>;
-        functions[static_cast<int>(TypeId::DB0_CLASS)] = get_py_hash_impl_for_simple_obj;
+        functions[static_cast<int>(TypeId::STRING)] = getPyHashImpl<TypeId::STRING>;
+        functions[static_cast<int>(TypeId::BYTES)]  = getPyHashImpl<TypeId::BYTES>;
+        functions[static_cast<int>(TypeId::DB0_TUPLE)] = getPyHashImpl<TypeId::DB0_TUPLE>;
+        functions[static_cast<int>(TypeId::TUPLE)] = getPyHashImpl<TypeId::TUPLE>;
+        functions[static_cast<int>(TypeId::DB0_ENUM_VALUE)] = getPyHashImpl<TypeId::DB0_ENUM_VALUE>;
+        functions[static_cast<int>(TypeId::MEMO_OBJECT)] = getPyHashImpl<TypeId::MEMO_OBJECT>;
+        functions[static_cast<int>(TypeId::DB0_CLASS)] = getPyHashImpl_for_simple_obj;
 
-        functions[static_cast<int>(TypeId::DATETIME)] = get_py_hash_impl_for_simple_obj;
-        functions[static_cast<int>(TypeId::DATETIME_TZ)] = get_py_hash_impl_for_simple_obj;
-        functions[static_cast<int>(TypeId::DATE)] = get_py_hash_impl_for_simple_obj;
-        functions[static_cast<int>(TypeId::TIME)] = get_py_hash_impl_for_simple_obj;
-        functions[static_cast<int>(TypeId::TIME_TZ)] = get_py_hash_impl_for_simple_obj;
-        functions[static_cast<int>(TypeId::INTEGER)] = get_py_hash_impl_for_simple_obj;
-        functions[static_cast<int>(TypeId::DECIMAL)] = get_py_hash_impl_for_simple_obj;
+        functions[static_cast<int>(TypeId::DATETIME)] = getPyHashImpl_for_simple_obj;
+        functions[static_cast<int>(TypeId::DATETIME_TZ)] = getPyHashImpl_for_simple_obj;
+        functions[static_cast<int>(TypeId::DATE)] = getPyHashImpl_for_simple_obj;
+        functions[static_cast<int>(TypeId::TIME)] = getPyHashImpl_for_simple_obj;
+        functions[static_cast<int>(TypeId::TIME_TZ)] = getPyHashImpl_for_simple_obj;
+        functions[static_cast<int>(TypeId::INTEGER)] = getPyHashImpl_for_simple_obj;
+        functions[static_cast<int>(TypeId::DECIMAL)] = getPyHashImpl_for_simple_obj;
     }
 
-    PyObject* get_py_hash_as_py_object(PyObject *key) {
-        return PyLong_FromLong(get_py_hash(key));
+    PyObject* getPyHashAsPyObject(PyObject *key) {
+        return PyLong_FromLong(getPyHash(key));
     }
     
-    std::int64_t get_py_hash(PyObject *key)
+    std::int64_t getPyHash(PyObject *key)
     {
-        static std::vector<PyHashFunct> get_py_hash_functions;
-        if (get_py_hash_functions.empty()) {
-            registerGetHashFunctions(get_py_hash_functions);
+        static std::vector<PyHashFunct> getPyHash_functions;
+        if (getPyHash_functions.empty()) {
+            registerGetHashFunctions(getPyHash_functions);
         }
 
         auto type_id = PyToolkit::getTypeManager().getTypeId(key);
-        assert(static_cast<int>(type_id) < get_py_hash_functions.size());
-        auto func_ptr = get_py_hash_functions[static_cast<int>(type_id)];
+        assert(static_cast<int>(type_id) < getPyHash_functions.size());
+        auto func_ptr = getPyHash_functions[static_cast<int>(type_id)];
         if (!func_ptr) {
-            return get_py_hash_impl_default(key);
+            return getPyHashDefaultImpl(key);
         }
         return func_ptr(key);
     }

@@ -806,7 +806,7 @@ namespace db0::python
     Py_hash_t PyAPI_MemoHash(PyObject *self)
     {
         PY_API_FUNC
-        return runSafe(get_py_hash_impl<TypeId::MEMO_OBJECT>, self);
+        return runSafe(getPyHashImpl<TypeId::MEMO_OBJECT>, self);
     }
     
     PyObject *tryGetSchema(PyTypeObject *py_type)
