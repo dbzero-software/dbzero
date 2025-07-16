@@ -350,3 +350,16 @@ def test_clear_list_in_locked_section(db0_fixture):
     
     assert len(lock.get_mutation_log()) == 1
     
+    
+def test_index_range_in_locked_section(db0_fixture):
+    cut = db0.index()
+    for i in range(10):
+        cut.add(i, MemoTestClass(i))
+    db0.commit()
+    with db0.locked() as lock:        
+        values = [x.value for x in cut.range()]
+        assert len(values) == 10
+    
+    # non-mutating operation
+    assert len(lock.get_mutation_log()) == 0
+    

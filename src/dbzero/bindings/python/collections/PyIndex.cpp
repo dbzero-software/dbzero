@@ -177,7 +177,7 @@ namespace db0::python
         py_iter_obj->makeNew(index.getFixture(), std::move(iter_factory));
         return py_iter_obj.steal();
     }
-
+    
     PyObject *PyAPI_IndexObject_range(IndexObject *py_index, PyObject *args, PyObject *kwargs)
     {
         PY_API_FUNC
