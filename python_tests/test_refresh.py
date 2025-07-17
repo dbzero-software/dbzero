@@ -449,6 +449,8 @@ def test_wait_for_updates(db0_fixture):
     assert db0.wait(prefix, current_num - 2, 1000)
     # Wait timeout
     assert db0.wait(prefix, current_num + 1, 1000) == False
+    # Wait long timeout
+    assert db0.wait(prefix, current_num + 1, 6000) == False
 
     p.terminate()
     p.join()

@@ -261,14 +261,14 @@ namespace db0
         m_update_watch_cv.notify_all();
     }
     
-    bool Fixture::awaitUpdate(std::optional<std::chrono::milliseconds> timeout) {
+    bool Fixture::awaitUpdate(std::optional<std::chrono::steady_clock::time_point> timeout_point) {
         assert(getAccessType() == AccessType::READ_ONLY && "Waiting for update only allowed for read-only fixtures");
 
         std::unique_lock<std::mutex> lock(m_update_watch_mtx);
         auto pred = [this]{ return m_updated.load(); };
 
-        if(timeout) {
-            return m_update_watch_cv.wait_for(lock, *timeout, pred);
+        if(timeout_point) {
+            return m_update_watch_cv.wait_until(lock, *timeout_point, pred);
         }
 
         m_update_watch_cv.wait(lock, pred);

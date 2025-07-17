@@ -214,7 +214,7 @@ namespace db0
          * Return immediately if there's already a new update pending.
          * @return true if the fixture was updated, false on timeout
          */
-        bool awaitUpdate(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+        bool awaitUpdate(std::optional<std::chrono::steady_clock::time_point> timeout_point = std::nullopt);
 
         /**
          * Get the Snapshot interface of the related workspace
