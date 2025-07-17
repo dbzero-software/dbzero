@@ -1050,7 +1050,7 @@ namespace db0::python
         return runSafe(getMaterializedMemoObject, args[0]);
     }
 
-    PyObject *tryWait(const char *prefix, int state, int timeout)
+    PyObject *tryWait(const char *prefix, long state, long timeout)
     {
         db0::swine_ptr<Fixture> fixture = PyToolkit::getPyWorkspace().getWorkspace().getFixture(prefix, AccessType::READ_ONLY);
         if(fixture->getAccessType() == AccessType::READ_WRITE) {
@@ -1058,9 +1058,9 @@ namespace db0::python
             return nullptr;
         }
 
-        std::optional<std::chrono::milliseconds> optional_timeout;
+        std::optional<std::chrono::steady_clock::time_point> optional_timeout;
         if(timeout > 0) {
-            optional_timeout.emplace(timeout);
+            optional_timeout.emplace(std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout));
         }
 
         while(fixture->getPrefix().getStateNum() < (StateNumType)state) {
@@ -1075,14 +1075,18 @@ namespace db0::python
     PyObject *PyAPI_wait(PyObject*, PyObject *args, PyObject *kwargs)
     {
         const char *prefix = nullptr;
-        int state = 0;
-        int timeout = 0;
+        long state = 0;
+        long timeout = 0;
         const char * const kwlist[] = {"prefix", "state", "timeout", nullptr};
-        if(!PyArg_ParseTupleAndKeywords(args, kwargs, "si|i:wait", const_cast<char**>(kwlist), &prefix, &state, &timeout)) {
+        if(!PyArg_ParseTupleAndKeywords(args, kwargs, "sl|l:wait", const_cast<char**>(kwlist), &prefix, &state, &timeout)) {
             return nullptr;
         }
         if(state <= 0) {
             PyErr_SetString(PyExc_ValueError, "state number have to be greater than 0");
+            return nullptr;
+        }
+        if(state > std::numeric_limits<StateNumType>::max()) {
+            PyErr_SetString(PyExc_ValueError, "state number exceeds maximum allowed value");
             return nullptr;
         }
         if(timeout < 0) {
