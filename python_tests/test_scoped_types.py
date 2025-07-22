@@ -1,7 +1,7 @@
 import pytest
 import dbzero_ce as db0
 from .conftest import DB0_DIR
-from .memo_test_types import MemoScopedClass, MemoScopedSingleton
+from .memo_test_types import MemoScopedClass, MemoScopedSingleton, MemoTestClass
 from typing import List
 
 
@@ -263,3 +263,16 @@ class MemoScopedSingletonDynScopeDef:
 def test_singleton_dynamic_scope_may_have_default_value(db0_fixture):
     root = MemoScopedSingletonDynScopeDef([])    
     assert db0.get_prefix_of(root).name == "dyn-scope-px"
+
+
+def test_unable_to_store_ref_to_scoped_type_on_different_prefix(db0_fixture):
+    with pytest.raises(Exception):        
+        # NOTE: object created on a different prefix than assigned to ScopedDataClass
+        obj_1 = MemoTestClass(ScopedDataClass)
+
+
+def test_reference_to_scoped_type_can_be_stored_on_same_prefix(db0_fixture):
+    px_name = db0.get_prefix_of(ScopedDataClass).name
+    db0.open(px_name, "rw")
+    obj_1 = MemoTestClass(ScopedDataClass)
+    assert obj_1.value is ScopedDataClass

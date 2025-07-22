@@ -376,6 +376,17 @@ namespace db0::object_model
         return it_cached->second.m_lang_type;
     }
     
+    ClassFactory::TypeObjectSharedPtr ClassFactory::getLangType(const ClassItem &class_item) const
+    {
+        if (class_item.m_lang_type.get()) {
+            return class_item.m_lang_type;
+        }
+        if (!class_item.m_class) {
+            THROWF(db0::InputException) << "Class not found";
+        }
+        return getLangType(*class_item.m_class);
+    }
+    
     bool ClassFactory::hasLangType(const Class &type) const
     {
         auto it_cached = m_ptr_cache.find(ClassPtr(type));

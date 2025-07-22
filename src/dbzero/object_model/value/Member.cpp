@@ -5,6 +5,7 @@
 #include <dbzero/object_model/enum/EnumValue.hpp>
 #include <dbzero/object_model/enum/EnumFactory.hpp>
 #include <dbzero/object_model/bytes/ByteArray.hpp>
+#include <dbzero/object_model/class/Class.hpp>
 #include <dbzero/bindings/python/collections/PyTuple.hpp>
 #include <dbzero/bindings/python/types/PyDecimal.hpp>
 #include <dbzero/object_model/bytes/ByteArray.hpp>
@@ -290,6 +291,36 @@ namespace db0::object_model
         }
     }
     
+    // CLASS specialization
+    template <> Value createMember<TypeId::DB0_CLASS, PyToolkit>(db0::swine_ptr<Fixture> &fixture,
+        PyObjectPtr obj_ptr, StorageClass)
+    {    
+        const auto &type_manager = PyToolkit::getTypeManager();
+        auto lang_type = type_manager.getTypeObject(obj_ptr);
+        auto &memo_type_info = type_manager.getMemoTypeDecoration(lang_type);
+
+        // for scoped types must validate if the prefix is matching
+        if (memo_type_info.isScoped()) {
+            // scoped type, can only be referenced from the same fixture
+            if (fixture->tryGetPrefixName() != memo_type_info.getPrefixName()) {
+                THROWF(db0::InputException) << "Unable to create a reference to a scoped type from a different prefix: "
+                    << type_manager.getLangTypeName(lang_type);
+            }
+        }
+        
+        // resolve class from the current fixture
+        auto &class_factory = fixture->get<ClassFactory>();
+        
+        auto type = class_factory.tryGetExistingType(lang_type);
+        if (!type) {
+            // try creating type on the current fixture
+            FixtureLock lock(fixture);
+            type = class_factory.getOrCreateType(lang_type);
+        }
+        type->incRef(false);        
+        return type->getUniqueAddress();
+    }
+
     template <> void registerCreateMemberFunctions<PyToolkit>(
         std::vector<Value (*)(db0::swine_ptr<Fixture> &, PyObjectPtr, StorageClass)> &functions)
     {
@@ -322,6 +353,7 @@ namespace db0::object_model
         functions[static_cast<int>(TypeId::BOOLEAN)] = createMember<TypeId::BOOLEAN, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_BYTES_ARRAY)] = createMember<TypeId::DB0_BYTES_ARRAY, PyToolkit>;
         functions[static_cast<int>(TypeId::DB0_WEAK_PROXY)] = createMember<TypeId::DB0_WEAK_PROXY, PyToolkit>;
+        functions[static_cast<int>(TypeId::DB0_CLASS)] = createMember<TypeId::DB0_CLASS, PyToolkit>;
     }
     
     // STRING_REF specialization
@@ -551,6 +583,16 @@ namespace db0::object_model
         }
     }
     
+    // CLASS specialization
+    template <> typename PyToolkit::ObjectSharedPtr unloadMember<StorageClass::DB0_CLASS, PyToolkit>(
+        db0::swine_ptr<Fixture> &fixture, Value value, const char *)
+    {
+        auto &class_factory = fixture->get<ClassFactory>();
+        auto class_item = class_factory.getTypeByAddr(value.asUniqueAddress().getAddress());
+        auto lang_type = class_factory.getLangType(class_item);
+        return PyToolkit::getTypeManager().getLangObject(lang_type.get());
+    }
+    
     template <> void registerUnloadMemberFunctions<PyToolkit>(
         std::vector<typename PyToolkit::ObjectSharedPtr (*)(db0::swine_ptr<Fixture> &, Value, const char *)> &functions)
     {
@@ -567,18 +609,19 @@ namespace db0::object_model
         functions[static_cast<int>(StorageClass::DB0_DICT)] = unloadMember<StorageClass::DB0_DICT, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_TUPLE)] = unloadMember<StorageClass::DB0_TUPLE, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_BYTES)] = unloadMember<StorageClass::DB0_BYTES, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DB0_CLASS)] = unloadMember<StorageClass::DB0_CLASS, PyToolkit>;
         functions[static_cast<int>(StorageClass::DATETIME)] = unloadMember<StorageClass::DATETIME, PyToolkit>;
         functions[static_cast<int>(StorageClass::DATETIME_TZ)] = unloadMember<StorageClass::DATETIME_TZ, PyToolkit>;
         functions[static_cast<int>(StorageClass::DECIMAL)] = unloadMember<StorageClass::DECIMAL, PyToolkit>;
         functions[static_cast<int>(StorageClass::TIME)] = unloadMember<StorageClass::TIME, PyToolkit>;
         functions[static_cast<int>(StorageClass::TIME_TZ)] = unloadMember<StorageClass::TIME_TZ, PyToolkit>;
-        functions[static_cast<int>(StorageClass::DATE)] = unloadMember<StorageClass::DATE, PyToolkit>;
+        functions[static_cast<int>(StorageClass::DATE)] = unloadMember<StorageClass::DATE, PyToolkit>;        
         functions[static_cast<int>(StorageClass::DB0_SERIALIZED)] = unloadMember<StorageClass::DB0_SERIALIZED, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_ENUM_VALUE)] = unloadMember<StorageClass::DB0_ENUM_VALUE, PyToolkit>;
         functions[static_cast<int>(StorageClass::BOOLEAN)] = unloadMember<StorageClass::BOOLEAN, PyToolkit>;
         functions[static_cast<int>(StorageClass::DB0_BYTES_ARRAY)] = unloadMember<StorageClass::DB0_BYTES_ARRAY, PyToolkit>;
         functions[static_cast<int>(StorageClass::OBJECT_WEAK_REF)] = unloadMember<StorageClass::OBJECT_WEAK_REF, PyToolkit>;
-        functions[static_cast<int>(StorageClass::OBJECT_LONG_WEAK_REF)] = unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>;
+        functions[static_cast<int>(StorageClass::OBJECT_LONG_WEAK_REF)] = unloadMember<StorageClass::OBJECT_LONG_WEAK_REF, PyToolkit>;        
     }
     
     template <typename T, typename LangToolkit>

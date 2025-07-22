@@ -112,6 +112,7 @@ namespace db0::object_model
         
         // Get lang type associated with a specific class (if known) or throw
         TypeObjectSharedPtr getLangType(const Class &) const;
+        TypeObjectSharedPtr getLangType(const ClassItem &) const;
         bool hasLangType(const Class &) const;
         
         // calculate class-ref from its address

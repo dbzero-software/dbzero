@@ -64,6 +64,9 @@ namespace db0::python
             return m_type_id;
         }
         
+        // Check if scoped of this type is limited to a specific prefix
+        bool isScoped() const;
+        
         // NOTE: may return invalid / empty prefix name
         const db0::PrefixName &getPrefixName() const;
         // @return variables potentially asignable during the type initialization
@@ -90,7 +93,7 @@ namespace db0::python
         MemoTypeDecoration &operator=(MemoTypeDecoration &&);
         
         void close();
-
+        
         inline MemoFlags getFlags() const {
             return m_flags;
         }

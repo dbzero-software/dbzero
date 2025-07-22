@@ -154,5 +154,9 @@ namespace db0::python
     void MemoTypeDecoration::close() {
         m_fixture_uuid = 0;
     }
+    
+    bool MemoTypeDecoration::isScoped() const {
+        return m_prefix_name.isValid();
+    }
 
 }

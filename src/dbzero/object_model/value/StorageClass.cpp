@@ -27,6 +27,7 @@ namespace db0::object_model
         addMapping(TypeId::TUPLE, PreStorageClass::DB0_TUPLE);
         addMapping(TypeId::BYTES, PreStorageClass::DB0_BYTES);
         addMapping(TypeId::MEMO_OBJECT, PreStorageClass::OBJECT_REF);
+        addMapping(TypeId::DB0_CLASS, PreStorageClass::DB0_CLASS);
         addMapping(TypeId::DB0_LIST, PreStorageClass::DB0_LIST);
         addMapping(TypeId::DB0_DICT, PreStorageClass::DB0_DICT);
         addMapping(TypeId::DB0_SET, PreStorageClass::DB0_SET);

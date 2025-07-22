@@ -21,6 +21,8 @@ namespace db0
         
         bool isValid() const;
         bool operator!() const;
+        
+        bool operator!=(const PrefixName &other) const;
 
     private:
         std::string m_name;  

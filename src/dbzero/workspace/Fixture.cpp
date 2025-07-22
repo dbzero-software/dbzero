@@ -612,4 +612,10 @@ namespace db0
         }
     }
     
+    PrefixName Fixture::tryGetPrefixName() const
+    {
+        auto prefix_ptr = getPrefixPtr();
+        return prefix_ptr ? PrefixName(prefix_ptr->getName()) : PrefixName();
+    }
+    
 }

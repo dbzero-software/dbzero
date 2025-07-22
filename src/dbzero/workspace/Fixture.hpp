@@ -266,6 +266,8 @@ namespace db0
         // Fixture takes ownership of the callback
         void registerPrefixStateReachedCallback(StateNumType state_num, std::unique_ptr<StateReachedCallbackBase> &&callback);
         
+        PrefixName tryGetPrefixName() const;
+        
     private:
         const AccessType m_access_type;
         Snapshot &m_snapshot;
